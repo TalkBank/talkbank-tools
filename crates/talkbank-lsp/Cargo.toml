@@ -1,0 +1,32 @@
+[package]
+name = "talkbank-lsp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Language Server Protocol implementation for CHAT format"
+readme = "README.md"
+
+[dependencies]
+dashmap = { workspace = true }
+regex = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+talkbank-clan = { workspace = true }
+talkbank-model = { workspace = true }
+tree-sitter-highlight = { workspace = true }
+talkbank-parser = { workspace = true }
+thiserror = { workspace = true } #unified
+tokio = { workspace = true }
+tower-lsp = { workspace = true }
+tracing = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-talkbank = { workspace = true }
+walkdir = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

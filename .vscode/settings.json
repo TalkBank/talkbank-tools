@@ -1,0 +1,14 @@
+{
+  // Associate .cha files with CHAT language
+  "files.associations": {
+    "*.cha": "chat"
+  },
+
+  // CHAT-specific editor settings
+  "[chat]": {
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 1,
+    "files.trimTrailingWhitespace": false
+  }
+}

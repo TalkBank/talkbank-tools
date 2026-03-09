@@ -1,0 +1,10 @@
+---
+source: tests/clan_golden.rs
+expression: rust_output
+---
+Speaker: CHI
+  Total codes: 2
+  Count  Code
+  -----  ----
+  1      $ADJ
+  1      $NOM

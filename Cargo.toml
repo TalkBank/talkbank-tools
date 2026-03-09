@@ -1,0 +1,170 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/talkbank-model",
+    "crates/talkbank-parser-tests",
+    "crates/talkbank-derive",
+    "crates/talkbank-direct-parser",
+    "crates/talkbank-parser",
+    "crates/talkbank-transform",
+    "crates/talkbank-clan",
+    "crates/talkbank-cli",
+    "crates/talkbank-lsp",
+    "crates/send2clan-sys",
+    "desktop/src-tauri",
+]
+exclude = [
+    "spec/tools",  # Independent workspace
+]
+
+[package]
+name = "talkbank-tools"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+clap = { workspace = true }
+crossterm = { workspace = true }
+dirs = { workspace = true }
+indicatif = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+talkbank-direct-parser = { workspace = true }
+
+# TalkBank crates
+talkbank-model = { workspace = true }
+talkbank-parser = { workspace = true }
+talkbank-transform = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-talkbank = { workspace = true }
+
+
+[dev-dependencies]
+crossbeam-channel = { workspace = true }
+jsonschema = { workspace = true }
+num_cpus = { workspace = true }
+rayon = { workspace = true }
+schemars = { workspace = true }
+sqlx = { workspace = true }
+talkbank-lsp = { workspace = true }
+talkbank-parser-tests = { workspace = true }
+unicode-width = { workspace = true }
+walkdir = { workspace = true }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Franklin Chen <franklinchen@franklinchen.com>"]
+license = "BSD-3-Clause"
+repository = "https://github.com/TalkBank/talkbank-tools"
+homepage = "https://talkbank.org/"
+keywords = ["talkbank", "chat-format", "linguistics", "nlp", "parsing"]
+categories = ["parser-implementations", "text-processing"]
+rust-version = "1.89.0"
+
+[workspace.dependencies]
+anyhow = "1.0"
+assert_cmd = "2.2"
+atty = "0.2"
+blake3 = "1.8"
+cc = "1.2"
+chrono = "0.4"
+chumsky = "0.12.0"
+
+# CLI and tools
+clap = { version = "4.6", features = ["derive"] }
+comrak = "0.51.0"
+
+# Concurrency
+crossbeam-channel = "0.5"
+crossterm = "0.29"
+ctrlc = "3.5"
+dashmap = "6.1"
+
+# Utilities
+dirs = "6.0"
+divan = "0.1"
+indexmap = { version = "2.13", features = ["serde"] }
+indicatif = "0.18"
+
+# Testing
+insta = { version = "1.46", features = ["yaml"] }
+jsonschema = { version = "0.45", default-features = false, features = ["resolve-file"] }
+miette = { version = "7.6.0", features = ["derive"] }
+notify = "8.2"
+num_cpus = "1.17"
+parking_lot = "0.12"
+predicates = "3.1"
+
+# Proc-macro dependencies
+proc-macro2 = "1.0"
+proptest = "1.10.0"
+pyo3 = "0.28"
+quick-xml = "0.39"
+quote = "1.0"
+rand = "0.10"
+ratatui = { version = "0.30", features = ["serde"] }
+rayon = "1.11"
+regex = "1.12"
+reqwest = { version = "0.13", features = ["multipart", "json", "blocking"] }
+rstest = "0.26.1"
+schemars = { version = "1.2", features = ["indexmap2", "smol_str03"] }
+send2clan-sys = { path = "crates/send2clan-sys", version = "0.1.0" }
+
+# Core dependencies (shared across crates)
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+shellexpand = "3.1"
+similar = "2.7"
+smallvec = { version = "1.15", features = ["serde", "union", "const_generics"] }
+smol_str = { version = "0.3", features = ["serde"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
+syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
+talkbank-clan = { path = "crates/talkbank-clan", version = "0.1.0" }
+talkbank-cli = { path = "crates/talkbank-cli", version = "0.1.0" }
+
+# TalkBank crates — path for local dev, version for crates.io publishing
+talkbank-derive = { path = "crates/talkbank-derive", version = "0.1.0" }
+talkbank-direct-parser = { path = "crates/talkbank-direct-parser", version = "0.1.0" }
+talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.1.0" }
+talkbank-model = { path = "crates/talkbank-model", version = "0.1.0" }
+talkbank-parser = { path = "crates/talkbank-parser", version = "0.1.0" }
+talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.1.0" }
+talkbank-transform = { path = "crates/talkbank-transform", version = "0.1.0" }
+
+tempfile = "3.27"
+text-size = "1.1"
+thiserror = "^2.0.18"
+tokio = { version = "1.50", features = ["full"] }
+toml = "^1.0.6"
+tower-lsp = "0.20"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Tree-sitter parsing
+tree-sitter = "0.26"
+tree-sitter-highlight = "0.26"
+tree-sitter-talkbank = { path = "grammar", version = "0.1.0" }
+trybuild = "1.0"
+unicode-width = "0.2"
+walkdir = "^2.5"
+
+[profile.dev]
+split-debuginfo = "unpacked"
+debug = "line-tables-only"          # Less debug info -> faster linking
+
+[profile.dev.package."*"]
+opt-level = 1                       # Optimize third-party deps (one-time cost)
+
+[profile.test]
+split-debuginfo = "unpacked"
+debug = "line-tables-only"

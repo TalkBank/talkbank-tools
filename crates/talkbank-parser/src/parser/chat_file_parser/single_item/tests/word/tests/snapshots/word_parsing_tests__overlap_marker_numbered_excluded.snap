@@ -1,0 +1,74 @@
+---
+source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+expression: result
+---
+Ok(
+    Word {
+        span: Span {
+            start: 107,
+            end: 122,
+        },
+        word_id: None,
+        raw_text: "test⌋1⌈2ing",
+        content: WordContents(
+            [
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "test",
+                        ),
+                    ),
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: BottomOverlapEnd,
+                        index: Some(
+                            OverlapIndex(
+                                1,
+                            ),
+                        ),
+                        span: Some(
+                            Span {
+                                start: 111,
+                                end: 115,
+                            },
+                        ),
+                    },
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: TopOverlapBegin,
+                        index: Some(
+                            OverlapIndex(
+                                2,
+                            ),
+                        ),
+                        span: Some(
+                            Span {
+                                start: 115,
+                                end: 119,
+                            },
+                        ),
+                    },
+                ),
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "ing",
+                        ),
+                    ),
+                ),
+            ],
+        ),
+        category: None,
+        form_type: None,
+        lang: None,
+        part_of_speech: None,
+        inline_bullet: None,
+        cached_cleaned_text: CachedStr(
+            OnceLock(
+                "testing",
+            ),
+        ),
+    },
+)

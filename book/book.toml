@@ -1,0 +1,22 @@
+[book]
+title = "TalkBank Tooling"
+authors = ["TalkBank Contributors"]
+description = "Documentation for the TalkBank CHAT specification, grammar, and Rust tooling"
+language = "en"
+src = "src"
+
+[build]
+build-dir = "build"
+create-missing = false
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.linkcheck2]
+follow-web-links = false
+traverse-parent-directories = false
+warning-policy = "warn"
+
+[output.html]
+git-repository-url = "https://github.com/TalkBank/talkbank-tools"
+edit-url-template = "https://github.com/TalkBank/talkbank-tools/edit/main/book/{path}"

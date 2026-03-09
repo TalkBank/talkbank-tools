@@ -1,0 +1,317 @@
+---
+source: crates/talkbank-direct-parser/tests/snapshot_tests.rs
+expression: "(file, errors.to_vec())"
+---
+(
+    Some(
+        ChatFile {
+            lines: ChatFileLines(
+                [
+                    Header {
+                        header: Utf8,
+                        span: Span {
+                            start: 0,
+                            end: 5,
+                        },
+                    },
+                    Header {
+                        header: Begin,
+                        span: Span {
+                            start: 6,
+                            end: 12,
+                        },
+                    },
+                    Header {
+                        header: Languages {
+                            codes: LanguageCodes(
+                                [
+                                    LanguageCode(
+                                        "eng",
+                                    ),
+                                ],
+                            ),
+                        },
+                        span: Span {
+                            start: 13,
+                            end: 28,
+                        },
+                    },
+                    Utterance(
+                        Utterance {
+                            preceding_headers: [],
+                            main: MainTier {
+                                speaker: SpeakerCode(
+                                    "CHI",
+                                ),
+                                content: TierContent {
+                                    linkers: TierLinkers(
+                                        [],
+                                    ),
+                                    language_code: None,
+                                    content: TierContentItems(
+                                        [
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 35,
+                                                        end: 36,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "I",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "I",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 37,
+                                                        end: 41,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "want",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "want",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 42,
+                                                        end: 49,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "cookies",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "cookies",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                    terminator: Some(
+                                        Period {
+                                            span: Span {
+                                                start: 0,
+                                                end: 0,
+                                            },
+                                        },
+                                    ),
+                                    postcodes: TierPostcodes(
+                                        [],
+                                    ),
+                                    bullet: None,
+                                    content_span: None,
+                                },
+                                span: Span {
+                                    start: 29,
+                                    end: 51,
+                                },
+                                speaker_span: Span {
+                                    start: 30,
+                                    end: 33,
+                                },
+                            },
+                            dependent_tiers: [
+                                Mor(
+                                    MorTier {
+                                        tier_type: Mor,
+                                        items: MorItems(
+                                            [
+                                                Mor {
+                                                    main: MorWord {
+                                                        pos: PosCategory(
+                                                            "pro:sub",
+                                                        ),
+                                                        lemma: MorStem(
+                                                            "I",
+                                                        ),
+                                                        features: [],
+                                                    },
+                                                    post_clitics: [],
+                                                },
+                                                Mor {
+                                                    main: MorWord {
+                                                        pos: PosCategory(
+                                                            "v",
+                                                        ),
+                                                        lemma: MorStem(
+                                                            "want",
+                                                        ),
+                                                        features: [],
+                                                    },
+                                                    post_clitics: [],
+                                                },
+                                                Mor {
+                                                    main: MorWord {
+                                                        pos: PosCategory(
+                                                            "n",
+                                                        ),
+                                                        lemma: MorStem(
+                                                            "cookie",
+                                                        ),
+                                                        features: [
+                                                            MorFeature {
+                                                                key: None,
+                                                                value: "PL",
+                                                            },
+                                                        ],
+                                                    },
+                                                    post_clitics: [],
+                                                },
+                                            ],
+                                        ),
+                                        terminator: Some(
+                                            ".",
+                                        ),
+                                        span: Span {
+                                            start: 0,
+                                            end: 0,
+                                        },
+                                    },
+                                ),
+                                Gra(
+                                    GraTier {
+                                        tier_type: Gra,
+                                        relations: GraRelations(
+                                            [
+                                                GrammaticalRelation {
+                                                    index: 1,
+                                                    head: 2,
+                                                    relation: GrammaticalRelationType(
+                                                        "SUBJ",
+                                                    ),
+                                                },
+                                                GrammaticalRelation {
+                                                    index: 2,
+                                                    head: 0,
+                                                    relation: GrammaticalRelationType(
+                                                        "ROOT",
+                                                    ),
+                                                },
+                                                GrammaticalRelation {
+                                                    index: 3,
+                                                    head: 2,
+                                                    relation: GrammaticalRelationType(
+                                                        "OBJ",
+                                                    ),
+                                                },
+                                                GrammaticalRelation {
+                                                    index: 4,
+                                                    head: 2,
+                                                    relation: GrammaticalRelationType(
+                                                        "PUNCT",
+                                                    ),
+                                                },
+                                            ],
+                                        ),
+                                        span: Span {
+                                            start: 0,
+                                            end: 0,
+                                        },
+                                    },
+                                ),
+                            ],
+                            alignments: None,
+                            alignment_diagnostics: [],
+                            parse_health: None,
+                            utterance_language: Uncomputed,
+                            language_metadata: Uncomputed,
+                        },
+                    ),
+                    Header {
+                        header: End,
+                        span: Span {
+                            start: 131,
+                            end: 136,
+                        },
+                    },
+                ],
+            ),
+            participants: {},
+            languages: LanguageCodes(
+                [
+                    LanguageCode(
+                        "eng",
+                    ),
+                ],
+            ),
+            options: ChatOptionFlags(
+                [],
+            ),
+            media: None,
+            line_map: Some(
+                LineMap {
+                    line_starts: [
+                        0,
+                        6,
+                        13,
+                        29,
+                        52,
+                        89,
+                        131,
+                        136,
+                    ],
+                },
+            ),
+            _state: PhantomData<talkbank_model::validation::state::NotValidated>,
+        },
+    ),
+    [],
+)

@@ -1,0 +1,71 @@
+---
+source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/utterance.rs
+expression: result
+---
+Ok(
+    MainTier {
+        speaker: SpeakerCode(
+            "CHI",
+        ),
+        content: TierContent {
+            linkers: TierLinkers(
+                [],
+            ),
+            language_code: None,
+            content: TierContentItems(
+                [
+                    Word(
+                        Word {
+                            span: Span {
+                                start: 107,
+                                end: 112,
+                            },
+                            word_id: None,
+                            raw_text: "hello",
+                            content: WordContents(
+                                [
+                                    Text(
+                                        WordText(
+                                            NonEmptyString(
+                                                "hello",
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                            category: None,
+                            form_type: None,
+                            lang: None,
+                            part_of_speech: None,
+                            inline_bullet: None,
+                            cached_cleaned_text: CachedStr(
+                                OnceLock(
+                                    <uninit>,
+                                ),
+                            ),
+                        },
+                    ),
+                ],
+            ),
+            terminator: None,
+            postcodes: TierPostcodes(
+                [],
+            ),
+            bullet: None,
+            content_span: Some(
+                Span {
+                    start: 106,
+                    end: 113,
+                },
+            ),
+        },
+        span: Span {
+            start: 101,
+            end: 113,
+        },
+        speaker_span: Span {
+            start: 102,
+            end: 105,
+        },
+    },
+)

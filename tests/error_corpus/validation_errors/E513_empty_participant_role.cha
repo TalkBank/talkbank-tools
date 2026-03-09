@@ -1,0 +1,8 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI
+@ID:	eng|corpus|CHI|||||Child|||
+@Comment:	ERROR: Participant must have role
+*CHI:	hello .
+@End

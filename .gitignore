@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Cargo local config (dev-only: disables sccache wrapper)
+.cargo/config.toml
+
+# Rust build artifacts
+/target/
+**/target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.venv/
+.venv-*/
+*.egg-info/
+build/
+dist/
+
+# Node
+node_modules/
+
+# Logs
+*.log
+
+# Book build output
+/book/build/
+
+# Test artifacts
+corpus/reference/*.actual
+corpus/reference/*.diff
+spec/tmp/
+
+# Mutation testing
+mutants.out/
+mutants.out.old/
+
+# Coverage
+lcov*.info

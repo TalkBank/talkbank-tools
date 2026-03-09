@@ -1,0 +1,10 @@
+# Override global sccache wrapper to re-enable incremental compilation.
+# sccache disables incremental builds and has near-zero cache hit rate
+# for local iterative development (rlib crates are "non-cacheable").
+#
+# NOTE: This is gitignored and only affects local builds. CI does not
+# have this file. The empty-string value triggers a cargo-llvm-cov bug
+# (cargo_config2 treats "" as a real wrapper path instead of "no wrapper"),
+# so this file must NOT be committed.
+[build]
+rustc-wrapper = ""

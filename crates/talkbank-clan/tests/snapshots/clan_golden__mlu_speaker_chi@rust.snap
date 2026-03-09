@@ -1,0 +1,10 @@
+---
+source: tests/clan_golden.rs
+expression: rust_output
+---
+Speaker: CHI
+  Utterances: 1
+  Total morphemes: 6
+  MLU: 6.000
+  SD: NaN
+  Range: 6-6

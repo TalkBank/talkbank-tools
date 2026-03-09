@@ -1,0 +1,49 @@
+[package]
+name = "talkbank-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Command-line interface for CHAT format validation, conversion, and normalization"
+readme = "README.md"
+
+[[bin]]
+name = "chatter"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+atty = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+crossbeam-channel = { workspace = true }
+crossterm = { workspace = true }
+ctrlc = { workspace = true }
+dirs = { workspace = true }
+indicatif = { workspace = true }
+notify = { workspace = true }
+ratatui = { workspace = true }
+send2clan-sys = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+talkbank-clan = { workspace = true }
+talkbank-lsp = { workspace = true }
+talkbank-model = { workspace = true }
+talkbank-parser-tests = { workspace = true }
+talkbank-transform = { workspace = true }
+talkbank-parser = { workspace = true }
+thiserror = { workspace = true } #unified
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+unicode-width = { workspace = true }
+walkdir = { workspace = true } #unified
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }

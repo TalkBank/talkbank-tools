@@ -1,0 +1,73 @@
+---
+source: crates/talkbank-parser-tests/tests/offset_tests.rs
+expression: "(word_dp, word_tsp, are_semantically_equal)"
+---
+(
+    Some(
+        Word {
+            span: Span {
+                start: 100,
+                end: 107,
+            },
+            word_id: None,
+            raw_text: "hello@s",
+            content: WordContents(
+                [
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "hello",
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            category: None,
+            form_type: None,
+            lang: Some(
+                Shortcut,
+            ),
+            part_of_speech: None,
+            inline_bullet: None,
+            cached_cleaned_text: CachedStr(
+                OnceLock(
+                    <uninit>,
+                ),
+            ),
+        },
+    ),
+    Some(
+        Word {
+            span: Span {
+                start: 100,
+                end: 107,
+            },
+            word_id: None,
+            raw_text: "hello@s",
+            content: WordContents(
+                [
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "hello",
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            category: None,
+            form_type: None,
+            lang: Some(
+                Shortcut,
+            ),
+            part_of_speech: None,
+            inline_bullet: None,
+            cached_cleaned_text: CachedStr(
+                OnceLock(
+                    <uninit>,
+                ),
+            ),
+        },
+    ),
+    true,
+)

@@ -1,0 +1,6 @@
+target/
+Cargo.lock
+lcov*.info
+parity-results/
+pipeout.*
+book/build/

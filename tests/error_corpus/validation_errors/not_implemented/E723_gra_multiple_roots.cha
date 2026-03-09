@@ -1,0 +1,11 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	Expected error: E723 (GRA has multiple ROOTs)
+@Comment:	Trigger: Multiple relations with head=0 (ROOT)
+*CHI:	I want .
+%mor:	pro|I v|want .
+%gra:	1|0|ROOT 2|0|ROOT .
+@End

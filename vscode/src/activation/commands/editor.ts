@@ -1,0 +1,37 @@
+import * as vscode from 'vscode';
+
+import { scopedFind } from '../../commands/scopedFind';
+import { filterBySpeaker } from '../../commands/speakerFilter';
+import {
+    coderInsertCode,
+    coderNext,
+    startCoderMode,
+    stopCoderMode,
+} from '../../coderPanel';
+import {
+    ExtensionCommandRunner,
+    registerEffectCommand,
+} from '../../effectCommandRuntime';
+import type { ExtensionServices } from './types';
+
+/**
+ * Register editing and navigation commands.
+ *
+ * @param context - Extension activation context.
+ * @param services - Shared runtime services.
+ * @returns Editing-related disposables.
+ */
+export function registerEditorCommands(
+    _context: vscode.ExtensionContext,
+    _services: ExtensionServices,
+    runner: ExtensionCommandRunner,
+): vscode.Disposable[] {
+    return [
+        registerEffectCommand('talkbank.filterBySpeaker', runner, () => filterBySpeaker()),
+        registerEffectCommand('talkbank.scopedFind', runner, () => scopedFind()),
+        registerEffectCommand('talkbank.startCoder', runner, () => startCoderMode()),
+        registerEffectCommand('talkbank.stopCoder', runner, () => stopCoderMode()),
+        registerEffectCommand('talkbank.coderNext', runner, () => coderNext()),
+        registerEffectCommand('talkbank.coderInsertCode', runner, () => coderInsertCode()),
+    ];
+}

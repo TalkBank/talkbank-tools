@@ -1,0 +1,439 @@
+---
+source: crates/talkbank-parser-tests/src/snapshot.rs
+expression: snapshot
+---
+{
+  "languages": [
+    "eng"
+  ],
+  "lines": [
+    {
+      "header": {
+        "type": "utf8"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "type": "begin"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "codes": [
+          "eng"
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "entries": [
+          {
+            "name": null,
+            "role": "Child",
+            "speaker_code": "CHI"
+          },
+          {
+            "name": null,
+            "role": "Mother",
+            "speaker_code": "MOT"
+          }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "age": "3;0",
+        "corpus": "corpus",
+        "language": "eng",
+        "role": "Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "corpus",
+        "language": "eng",
+        "role": "Mother",
+        "speaker": "MOT",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Scope markers: [!*] best-guess, [!] stressing, [!!] contrastive,",
+              "type": "text"
+            },
+            {
+              "type": "continuation"
+            },
+            {
+              "text": "[?] uncertain, [# duration] duration",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: scoped_best_guess, scoped_stressing, scoped_contrastive_stressing,",
+              "type": "text"
+            },
+            {
+              "type": "continuation"
+            },
+            {
+              "text": "scoped_uncertain, duration_annotation",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "I",
+              "content": [
+                {
+                  "content": "I",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "I",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "want",
+              "content": [
+                {
+                  "content": "want",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "want",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "content": "the",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "the",
+              "type": "word"
+            },
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "gogo",
+                    "content": [
+                      {
+                        "content": "gogo",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "gogo",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
+                {
+                  "type": "scopedbestguess"
+                }
+              ],
+              "type": "annotated_group"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "you",
+              "content": [
+                {
+                  "content": "you",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "you",
+              "scoped_annotations": [
+                {
+                  "type": "scopedstressing"
+                }
+              ],
+              "type": "annotated_word"
+            },
+            {
+              "cleaned_text": "did",
+              "content": [
+                {
+                  "content": "did",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "did",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "that",
+              "content": [
+                {
+                  "content": "that",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "that",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "MOT"
+      }
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "this",
+              "content": [
+                {
+                  "content": "this",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "this",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "is",
+              "content": [
+                {
+                  "content": "is",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "is",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "child",
+              "content": [
+                {
+                  "content": "child",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "child",
+              "scoped_annotations": [
+                {
+                  "type": "scopeduncertain"
+                }
+              ],
+              "type": "annotated_word"
+            },
+            {
+              "cleaned_text": "speaking",
+              "content": [
+                {
+                  "content": "speaking",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "speaking",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "you",
+              "content": [
+                {
+                  "content": "you",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "you",
+              "scoped_annotations": [
+                {
+                  "type": "scopedcontrastivestressing"
+                }
+              ],
+              "type": "annotated_word"
+            },
+            {
+              "cleaned_text": "said",
+              "content": [
+                {
+                  "content": "said",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "said",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "that",
+              "content": [
+                {
+                  "content": "that",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "that",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "MOT"
+      }
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "a",
+                    "content": [
+                      {
+                        "content": "a",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "a",
+                    "type": "word"
+                  },
+                  {
+                    "cleaned_text": "long",
+                    "content": [
+                      {
+                        "content": "long",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "long",
+                    "type": "word"
+                  },
+                  {
+                    "cleaned_text": "pause",
+                    "content": [
+                      {
+                        "content": "pause",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "pause",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
+                {
+                  "time": "3.",
+                  "type": "duration"
+                }
+              ],
+              "type": "annotated_group"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "header": {
+        "type": "end"
+      },
+      "line_type": "header"
+    }
+  ],
+  "options": [],
+  "participants": {
+    "CHI": {
+      "birth_date": null,
+      "code": "CHI",
+      "id": {
+        "age": "3;0",
+        "corpus": "corpus",
+        "language": "eng",
+        "role": "Child",
+        "speaker": "CHI"
+      },
+      "name": null,
+      "role": "Child"
+    },
+    "MOT": {
+      "birth_date": null,
+      "code": "MOT",
+      "id": {
+        "corpus": "corpus",
+        "language": "eng",
+        "role": "Mother",
+        "speaker": "MOT"
+      },
+      "name": null,
+      "role": "Mother"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+---
+source: rust/crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+expression: result
+---
+Err(
+    ParseErrors {
+        errors: [
+            ParseError {
+                code: UnparsableContent,
+                severity: Error,
+                location: SourceLocation {
+                    span: Span {
+                        start: 114,
+                        end: 114,
+                    },
+                    line: None,
+                    column: None,
+                },
+                context: Some(
+                    ErrorContext {
+                        source_text: "hello@z",
+                        span: Span {
+                            start: 114,
+                            end: 114,
+                        },
+                        expected: [],
+                        found: "hello@z",
+                        line_offset: None,
+                    },
+                ),
+                labels: [],
+                message: "Parse error: found end of input expected ':', or something else",
+                suggestion: None,
+                help_url: Some(
+                    "https://talkbank.org/errors/E316",
+                ),
+            },
+        ],
+    },
+)

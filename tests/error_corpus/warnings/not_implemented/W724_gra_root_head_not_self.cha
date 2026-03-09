@@ -1,0 +1,11 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	Expected warning: W724 (GRA ROOT head not self)
+@Comment:	Trigger: ROOT relation where head index does not point to self
+*CHI:	I want .
+%mor:	pro|I v|want .
+%gra:	1|2|SUBJ 2|1|ROOT .
+@End

@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a defect in parser, tooling, docs, or workflow
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this issue. Please provide a minimal reproducible example.
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Which subsystem is affected?
+      placeholder: rust parser / grammar / spec tools / docs / CI
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Exact steps and commands
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, file paths, failing test names, diagnostics, screenshots
+      placeholder: |
+        - file:
+        - command output:
+        - error code:
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        OS:
+        Rust version:
+        Node version:
+        tree-sitter version:

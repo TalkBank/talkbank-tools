@@ -1,0 +1,24 @@
+[package]
+name = "talkbank-direct-parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Direct CHAT parser (non-CST), optimized for batch parsing"
+readme = "README.md"
+
+[dependencies]
+chumsky = { workspace = true }
+indexmap = { workspace = true }
+smallvec = { workspace = true }
+smol_str = { workspace = true }
+talkbank-model = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+talkbank-parser-tests = { workspace = true }
+talkbank-parser = { workspace = true }

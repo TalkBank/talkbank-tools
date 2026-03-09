@@ -1,0 +1,19 @@
+================================================================================
+Multiple - generated from corpus
+================================================================================
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@Comment:	Note: Each word in corrected form aligns separately
+*CHI:	I <wanna> [: want to] <the> [: a] cookie .
+%mor:	pro|I v|want n|cookie .
+@Comment:	ERROR: Replacements have "want to" (2 words) and "a" (1 word)
+@Comment:	Main tier alignable: I, want, to, a, cookie = 5 words
+@Comment:	Mor tier: Should be pro|I v|want inf|to det|a n|cookie (5 items + terminator)
+@End
+
+--------------------------------------------------------------------------------
+
+(document (utf8_header (newline)) (begin_header (newline)) (line (languages_header (languages_prefix) (header_sep (colon) (tab)) (languages_contents (language_code)) (newline))) (line (participants_header (participants_prefix) (header_sep (colon) (tab)) (participants_contents (participant code: (speaker) (whitespaces) (participant_word))) (newline))) (line (id_header (id_prefix) (header_sep (colon) (tab)) (id_contents (id_languages (languages_contents (language_code))) (pipe) (id_corpus) (pipe) (id_speaker) (pipe) (id_age (age_format)) (pipe) (id_sex (male_value)) (pipe) (pipe) (pipe) (id_role) (pipe) (pipe) (pipe)) (newline))) (line (comment_header (comment_prefix) (header_sep (colon) (tab)) (text_with_bullets_and_pics (text_segment)) (newline))) (line (utterance (main_tier (star) speaker: (speaker) (colon) (ERROR (tab) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (whitespaces) (less_than) (ERROR (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word))))) (greater_than) (whitespaces) (left_bracket)) (separator (colon)) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (ERROR (right_bracket) (space)) (less_than) (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word))))) (greater_than) (whitespaces) (left_bracket) (colon) (space) (right_bracket) (space) (space) (period) (newline) (mor_tier_prefix) (colon)) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word)))) (whitespaces)) ending: (utterance_end (period) (newline)))))) (line (comment_header (comment_prefix) (header_sep (colon) (tab)) (text_with_bullets_and_pics (text_segment)) (newline))) (line (comment_header (comment_prefix) (header_sep (colon) (tab)) (text_with_bullets_and_pics (text_segment)) (newline))) (line (comment_header (comment_prefix) (header_sep (colon) (tab)) (text_with_bullets_and_pics (text_segment)) (newline))) (end_header (newline)))

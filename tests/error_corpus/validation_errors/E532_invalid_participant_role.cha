@@ -1,0 +1,8 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI InvalidRole123
+@ID:	eng|corpus|CHI|||||InvalidRole123|||
+@Comment:	ERROR: Participant role must be valid format
+*CHI:	hello .
+@End

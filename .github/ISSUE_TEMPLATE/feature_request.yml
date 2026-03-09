@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a capability or improvement
+labels: [enhancement]
+body:
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Which subsystem is affected?
+      placeholder: rust parser / grammar / spec tools / docs / CI
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user or maintainer problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Include behavior, API/output implications, and risks
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How should we verify this is complete?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...

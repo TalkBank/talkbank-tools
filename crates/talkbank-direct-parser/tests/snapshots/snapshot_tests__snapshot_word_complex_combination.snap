@@ -1,0 +1,114 @@
+---
+source: crates/talkbank-direct-parser/tests/snapshot_tests.rs
+expression: "(word, errors.to_vec())"
+---
+(
+    Some(
+        Word {
+            span: Span {
+                start: 0,
+                end: 20,
+            },
+            word_id: None,
+            raw_text: "ˈhel⌈lo+wor⌉ld:",
+            content: WordContents(
+                [
+                    StressMarker(
+                        WordStressMarker {
+                            marker_type: Primary,
+                            span: Some(
+                                Span {
+                                    start: 0,
+                                    end: 2,
+                                },
+                            ),
+                        },
+                    ),
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "hel",
+                            ),
+                        ),
+                    ),
+                    OverlapPoint(
+                        OverlapPoint {
+                            kind: TopOverlapBegin,
+                            index: None,
+                            span: Some(
+                                Span {
+                                    start: 5,
+                                    end: 8,
+                                },
+                            ),
+                        },
+                    ),
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "lo",
+                            ),
+                        ),
+                    ),
+                    CompoundMarker(
+                        WordCompoundMarker {
+                            span: Some(
+                                Span {
+                                    start: 10,
+                                    end: 11,
+                                },
+                            ),
+                        },
+                    ),
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "wor",
+                            ),
+                        ),
+                    ),
+                    OverlapPoint(
+                        OverlapPoint {
+                            kind: TopOverlapEnd,
+                            index: None,
+                            span: Some(
+                                Span {
+                                    start: 14,
+                                    end: 17,
+                                },
+                            ),
+                        },
+                    ),
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "ld",
+                            ),
+                        ),
+                    ),
+                    Lengthening(
+                        WordLengthening {
+                            span: Some(
+                                Span {
+                                    start: 19,
+                                    end: 20,
+                                },
+                            ),
+                        },
+                    ),
+                ],
+            ),
+            category: None,
+            form_type: None,
+            lang: None,
+            part_of_speech: None,
+            inline_bullet: None,
+            cached_cleaned_text: CachedStr(
+                OnceLock(
+                    <uninit>,
+                ),
+            ),
+        },
+    ),
+    [],
+)

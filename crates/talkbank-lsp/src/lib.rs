@@ -1,0 +1,47 @@
+#![warn(missing_docs)]
+//! TalkBank LSP — Language Server Protocol implementation for CHAT format.
+//!
+//! This crate provides the core logic behind the `chatter lsp` entrypoint:
+//! incremental tree-sitter parsing, real-time validation diagnostics, hover
+//! information (alignment timing, speaker details), completions, code actions,
+//! and semantic token highlighting.
+//!
+//! The library is split into public modules so that integration tests can
+//! exercise individual subsystems without going through the full LSP wire
+//! protocol. The reusable stdio server entrypoint exposed here is what powers
+//! `chatter lsp`.
+//!
+//! # Related CHAT Manual Sections
+//!
+//! - <https://talkbank.org/0info/manuals/CHAT.html#File_Format>
+//! - <https://talkbank.org/0info/manuals/CHAT.html#File_Headers>
+//! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
+//! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
+
+pub mod alignment;
+pub mod backend;
+pub mod graph;
+pub mod highlight;
+pub mod semantic_tokens;
+
+use backend::Backend;
+use tower_lsp::{LspService, Server};
+
+/// Serve the TalkBank language server over standard input/output inside the
+/// current Tokio runtime.
+pub async fn serve_stdio() {
+    let (service, socket) = LspService::new(Backend::new);
+    Server::new(tokio::io::stdin(), tokio::io::stdout(), socket)
+        .serve(service)
+        .await;
+}
+
+/// Create a Tokio runtime and serve the TalkBank language server over stdio.
+///
+/// This is the reusable entrypoint for callers such as `chatter lsp`.
+pub fn run_stdio_server() -> std::io::Result<()> {
+    tokio::runtime::Runtime::new()?.block_on(async {
+        serve_stdio().await;
+        Ok(())
+    })
+}

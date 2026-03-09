@@ -1,0 +1,14 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Child, MOT Mother
+@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|MOT|||||Mother|||
+@Comment:	User-defined dependent tiers: %xtra, %xcod, %xpho, %xmod (x-prefix tiers)
+@Comment:	Constructs: x_dependent_tier, x_tier_prefix
+*CHI:	hello there .
+%xtra:	extra annotation
+%xcod:	extra coding
+%xpho:	extra phonological
+%xmod:	extra model
+@End

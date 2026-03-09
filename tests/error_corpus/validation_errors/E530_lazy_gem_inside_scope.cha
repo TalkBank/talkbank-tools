@@ -1,0 +1,12 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Bg:outer
+@Bg:
+@Comment:	ERROR: Lazy @Bg (no label) inside scoped gem
+@Eg:
+@Eg:outer
+*CHI:	hello .
+@End

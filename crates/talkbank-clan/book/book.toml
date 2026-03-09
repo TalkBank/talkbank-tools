@@ -1,0 +1,17 @@
+[book]
+title = "CLAN Command Reference"
+authors = ["TalkBank Contributors"]
+description = "Complete reference for CLAN analysis, transform, and converter commands"
+language = "en"
+src = "src"
+
+[build]
+build-dir = "build"
+create-missing = false
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+git-repository-url = "https://github.com/TalkBank/talkbank-tools"
+edit-url-template = "https://github.com/TalkBank/talkbank-tools/edit/main/crates/talkbank-clan/book/{path}"

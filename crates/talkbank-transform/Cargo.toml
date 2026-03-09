@@ -1,0 +1,31 @@
+[package]
+name = "talkbank-transform"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Transformation pipelines for CHAT format (CHAT ↔ JSON, normalization)"
+readme = "README.md"
+
+[dependencies]
+blake3 = { workspace = true }
+crossbeam-channel = "0.5"
+dirs = { workspace = true }
+jsonschema = { workspace = true }
+miette = { workspace = true, features = ["fancy"] }
+num_cpus = "1.17"
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+talkbank-direct-parser = { workspace = true }
+talkbank-model = { workspace = true }
+talkbank-parser = { workspace = true }
+thiserror = { workspace = true } #unified
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.27"

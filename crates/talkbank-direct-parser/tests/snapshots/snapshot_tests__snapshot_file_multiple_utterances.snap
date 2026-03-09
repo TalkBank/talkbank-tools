@@ -1,0 +1,405 @@
+---
+source: crates/talkbank-direct-parser/tests/snapshot_tests.rs
+expression: "(file, errors.to_vec())"
+---
+(
+    Some(
+        ChatFile {
+            lines: ChatFileLines(
+                [
+                    Header {
+                        header: Utf8,
+                        span: Span {
+                            start: 0,
+                            end: 5,
+                        },
+                    },
+                    Header {
+                        header: Begin,
+                        span: Span {
+                            start: 6,
+                            end: 12,
+                        },
+                    },
+                    Header {
+                        header: Languages {
+                            codes: LanguageCodes(
+                                [
+                                    LanguageCode(
+                                        "eng",
+                                    ),
+                                ],
+                            ),
+                        },
+                        span: Span {
+                            start: 13,
+                            end: 28,
+                        },
+                    },
+                    Utterance(
+                        Utterance {
+                            preceding_headers: [],
+                            main: MainTier {
+                                speaker: SpeakerCode(
+                                    "CHI",
+                                ),
+                                content: TierContent {
+                                    linkers: TierLinkers(
+                                        [],
+                                    ),
+                                    language_code: None,
+                                    content: TierContentItems(
+                                        [
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 35,
+                                                        end: 40,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "hello",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "hello",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                    terminator: Some(
+                                        Period {
+                                            span: Span {
+                                                start: 0,
+                                                end: 0,
+                                            },
+                                        },
+                                    ),
+                                    postcodes: TierPostcodes(
+                                        [],
+                                    ),
+                                    bullet: None,
+                                    content_span: None,
+                                },
+                                span: Span {
+                                    start: 29,
+                                    end: 42,
+                                },
+                                speaker_span: Span {
+                                    start: 30,
+                                    end: 33,
+                                },
+                            },
+                            dependent_tiers: [],
+                            alignments: None,
+                            alignment_diagnostics: [],
+                            parse_health: None,
+                            utterance_language: Uncomputed,
+                            language_metadata: Uncomputed,
+                        },
+                    ),
+                    Utterance(
+                        Utterance {
+                            preceding_headers: [],
+                            main: MainTier {
+                                speaker: SpeakerCode(
+                                    "MOT",
+                                ),
+                                content: TierContent {
+                                    linkers: TierLinkers(
+                                        [],
+                                    ),
+                                    language_code: None,
+                                    content: TierContentItems(
+                                        [
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 49,
+                                                        end: 51,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "hi",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "hi",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 52,
+                                                        end: 57,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "there",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "there",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                    terminator: Some(
+                                        Period {
+                                            span: Span {
+                                                start: 0,
+                                                end: 0,
+                                            },
+                                        },
+                                    ),
+                                    postcodes: TierPostcodes(
+                                        [],
+                                    ),
+                                    bullet: None,
+                                    content_span: None,
+                                },
+                                span: Span {
+                                    start: 43,
+                                    end: 59,
+                                },
+                                speaker_span: Span {
+                                    start: 44,
+                                    end: 47,
+                                },
+                            },
+                            dependent_tiers: [],
+                            alignments: None,
+                            alignment_diagnostics: [],
+                            parse_health: None,
+                            utterance_language: Uncomputed,
+                            language_metadata: Uncomputed,
+                        },
+                    ),
+                    Utterance(
+                        Utterance {
+                            preceding_headers: [],
+                            main: MainTier {
+                                speaker: SpeakerCode(
+                                    "CHI",
+                                ),
+                                content: TierContent {
+                                    linkers: TierLinkers(
+                                        [],
+                                    ),
+                                    language_code: None,
+                                    content: TierContentItems(
+                                        [
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 66,
+                                                        end: 69,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "how",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "how",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 70,
+                                                        end: 73,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "are",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "are",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                            Word(
+                                                Word {
+                                                    span: Span {
+                                                        start: 74,
+                                                        end: 77,
+                                                    },
+                                                    word_id: None,
+                                                    raw_text: "you",
+                                                    content: WordContents(
+                                                        [
+                                                            Text(
+                                                                WordText(
+                                                                    NonEmptyString(
+                                                                        "you",
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    category: None,
+                                                    form_type: None,
+                                                    lang: None,
+                                                    part_of_speech: None,
+                                                    inline_bullet: None,
+                                                    cached_cleaned_text: CachedStr(
+                                                        OnceLock(
+                                                            <uninit>,
+                                                        ),
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                    terminator: Some(
+                                        Question {
+                                            span: Span {
+                                                start: 0,
+                                                end: 0,
+                                            },
+                                        },
+                                    ),
+                                    postcodes: TierPostcodes(
+                                        [],
+                                    ),
+                                    bullet: None,
+                                    content_span: None,
+                                },
+                                span: Span {
+                                    start: 60,
+                                    end: 79,
+                                },
+                                speaker_span: Span {
+                                    start: 61,
+                                    end: 64,
+                                },
+                            },
+                            dependent_tiers: [],
+                            alignments: None,
+                            alignment_diagnostics: [],
+                            parse_health: None,
+                            utterance_language: Uncomputed,
+                            language_metadata: Uncomputed,
+                        },
+                    ),
+                    Header {
+                        header: End,
+                        span: Span {
+                            start: 80,
+                            end: 85,
+                        },
+                    },
+                ],
+            ),
+            participants: {},
+            languages: LanguageCodes(
+                [
+                    LanguageCode(
+                        "eng",
+                    ),
+                ],
+            ),
+            options: ChatOptionFlags(
+                [],
+            ),
+            media: None,
+            line_map: Some(
+                LineMap {
+                    line_starts: [
+                        0,
+                        6,
+                        13,
+                        29,
+                        43,
+                        60,
+                        80,
+                        85,
+                    ],
+                },
+            ),
+            _state: PhantomData<talkbank_model::validation::state::NotValidated>,
+        },
+    ),
+    [],
+)

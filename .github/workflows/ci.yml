@@ -1,0 +1,352 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  rust-check-and-test:
+    name: Rust Check and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: G0 — Parser signature guardrail
+        run: scripts/check-errorsink-option-signatures.sh
+
+      - name: G1 — Rust workspace compile check
+        run: cargo check --all-targets
+
+      - name: Rustfmt check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Cargo test (model + parser + clan)
+        run: |
+          cargo test -p talkbank-model
+          cargo test -p talkbank-parser
+          cargo test -p talkbank-parser-tests --lib
+          cargo test -p talkbank-clan
+          cargo test -p talkbank-cli --test docs_sync
+
+      - name: G4 — Generated parser corpus equivalence suite
+        run: cargo test -p talkbank-parser-tests --test generated -- --test-threads=1
+
+      - name: G5 — Word-level parser equivalence suite
+        run: cargo test -p talkbank-parser-tests --test parser_equivalence_words
+
+      - name: G6 — Bare-timestamp regression gate
+        run: cargo test --test bare_timestamp_regression
+
+      - name: G7 — Reference corpus semantic equivalence (tree-sitter vs direct)
+        run: cargo test -p talkbank-parser-tests --test parser_equivalence_files
+
+      - name: G8 — %wor tier parsing and alignment
+        run: cargo test -p talkbank-parser-tests --test wor_terminator_alignment
+
+      - name: G9 — Golden tier roundtrip (%mor, %gra, %pho, %wor)
+        run: cargo test -p talkbank-parser-tests --test parser_suite
+
+  reference-corpus-roundtrip:
+    name: Reference Corpus Roundtrip (74 files, must be 100%)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Roundtrip reference corpus
+        run: cargo test --release --test roundtrip_corpus
+
+  spec-tools:
+    name: Spec Tools Check and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: spec/tools -> spec/tools/target
+
+      - name: G2 — Spec tools compile check
+        run: cd spec/tools && cargo check --all-targets
+
+      - name: Test spec tools
+        run: cd spec/tools && cargo test
+
+  generated-artifacts:
+    name: Generated Artifacts Up To Date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            spec/tools -> spec/tools/target
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install tree-sitter CLI
+        run: npm install -g tree-sitter-cli
+
+      - name: Regenerate and verify generated artifacts
+        run: make generated-check
+
+  chat-manual-anchor-check:
+    name: CHAT Manual Anchor Links
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Run CHAT manual anchor check
+        run: make chat-anchors-check
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Generate lockfile
+        run: cargo generate-lockfile
+
+      - name: Run RustSec audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@cargo-deny
+
+      - name: Run cargo-deny
+        run: cargo deny check
+
+  semver-checks:
+    name: Semver Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@cargo-semver-checks
+
+      - name: Check semver compliance
+        run: cargo semver-checks --baseline-rev origin/main
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Generate coverage (nextest)
+        run: cargo llvm-cov nextest --workspace --lcov --output-path lcov.info
+
+      - name: Generate coverage (doctests)
+        run: cargo llvm-cov --doc --lcov --output-path lcov-doc.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info,lcov-doc.info
+          flags: rust
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  metrics:
+    name: Quality Metrics Snapshot
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Collect metrics and write step summary
+        run: |
+          bash scripts/metrics-snapshot.sh > metrics.json
+          bash scripts/metrics-snapshot.sh --summary
+          echo "--- metrics.json ---"
+          cat metrics.json
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: metrics
+          path: metrics.json
+          retention-days: 90
+
+  grammar:
+    name: Grammar (tree-sitter)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install tree-sitter CLI
+        run: npm install -g tree-sitter-cli
+
+      - name: Generate and test grammar
+        working-directory: grammar
+        run: |
+          tree-sitter generate
+          tree-sitter test
+
+      - name: Verify generated files unchanged
+        working-directory: grammar
+        run: |
+          git diff --exit-code src/parser.c src/grammar.json src/node-types.json
+
+  vscode:
+    name: VS Code Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - name: Install, compile, lint, test
+        working-directory: vscode
+        run: |
+          npm ci
+          npm run compile
+          npm run lint
+          npm run test
+
+  ci-report:
+    name: CI Gate Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - rust-check-and-test
+      - reference-corpus-roundtrip
+      - spec-tools
+      - generated-artifacts
+      - chat-manual-anchor-check
+      - grammar
+      - vscode
+
+    steps:
+      - name: Write gate summary
+        run: |
+          result_to_badge() {
+            case "$1" in
+              success)   echo "✅ passed" ;;
+              failure)   echo "❌ failed" ;;
+              cancelled) echo "⚠️ cancelled" ;;
+              skipped)   echo "⏭️ skipped" ;;
+              *)         echo "❓ $1" ;;
+            esac
+          }
+
+          {
+            echo "## CI Gate Results"
+            echo ""
+            echo "| Gates | Job | Result |"
+            echo "|-------|-----|--------|"
+            echo "| G0 parser guardrail · G1 compile · fmt · clippy · G4–G9 parser/golden tests | Rust Check and Test | $(result_to_badge '${{ needs.rust-check-and-test.result }}') |"
+            echo "| Reference corpus roundtrip — 74 files, 100% required | Reference Corpus Roundtrip | $(result_to_badge '${{ needs.reference-corpus-roundtrip.result }}') |"
+            echo "| G2 spec tools compile · spec tool tests | Spec Tools | $(result_to_badge '${{ needs.spec-tools.result }}') |"
+            echo "| G3 CHAT manual anchor links | CHAT Manual Anchor Links | $(result_to_badge '${{ needs.chat-manual-anchor-check.result }}') |"
+            echo "| Generated artifacts match committed sources | Generated Artifacts | $(result_to_badge '${{ needs.generated-artifacts.result }}') |"
+            echo "| Grammar generate + test, parser.c unchanged | Grammar | $(result_to_badge '${{ needs.grammar.result }}') |"
+            echo "| VS Code extension compile + lint + test | VS Code Extension | $(result_to_badge '${{ needs.vscode.result }}') |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Fail this job (single merge-gate) if any dependency failed or was cancelled.
+          if [[ "${{ needs.rust-check-and-test.result }}"     != "success" ||
+                "${{ needs.reference-corpus-roundtrip.result }}" != "success" ||
+                "${{ needs.spec-tools.result }}"              != "success" ||
+                "${{ needs.generated-artifacts.result }}"     != "success" ||
+                "${{ needs.chat-manual-anchor-check.result }}" != "success" ||
+                "${{ needs.grammar.result }}"                 != "success" ||
+                "${{ needs.vscode.result }}"                  != "success" ]]; then
+              echo "### ❌ One or more gates failed — see job logs above" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+          fi
+
+          echo "### ✅ All gates passed" >> "$GITHUB_STEP_SUMMARY"

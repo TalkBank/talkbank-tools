@@ -1,0 +1,11 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Child
+@ID:	eng|corpus|CHI|||||Child|||
+@Comment:	ERROR CORPUS TEST FILE
+@Comment:	Expected error: E304 (Expected terminator not found)
+@Comment:	Trigger: Utterance without terminator (., ?, or !)
+@Comment:	Category: Main tier validation
+*CHI:	hello world
+@End

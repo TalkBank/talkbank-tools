@@ -1,0 +1,10 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Child
+@ID:	eng|corpus|CHI|||||Child|||
+@Comment:	ERROR CORPUS TEST FILE
+@Comment:	Expected error: NONE (Failed to parse headers)
+@Comment:	Trigger: Malformed header structure
+@Comment:	Category: Main tier validation
+@End

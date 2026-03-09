@@ -1,0 +1,65 @@
+---
+source: crates/talkbank-direct-parser/tests/snapshot_tests.rs
+expression: "(word, errors.to_vec())"
+---
+(
+    Some(
+        Word {
+            span: Span {
+                start: 0,
+                end: 7,
+            },
+            word_id: None,
+            raw_text: "wo::rld",
+            content: WordContents(
+                [
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "wo",
+                            ),
+                        ),
+                    ),
+                    Lengthening(
+                        WordLengthening {
+                            span: Some(
+                                Span {
+                                    start: 2,
+                                    end: 3,
+                                },
+                            ),
+                        },
+                    ),
+                    Lengthening(
+                        WordLengthening {
+                            span: Some(
+                                Span {
+                                    start: 3,
+                                    end: 4,
+                                },
+                            ),
+                        },
+                    ),
+                    Text(
+                        WordText(
+                            NonEmptyString(
+                                "rld",
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            category: None,
+            form_type: None,
+            lang: None,
+            part_of_speech: None,
+            inline_bullet: None,
+            cached_cleaned_text: CachedStr(
+                OnceLock(
+                    <uninit>,
+                ),
+            ),
+        },
+    ),
+    [],
+)

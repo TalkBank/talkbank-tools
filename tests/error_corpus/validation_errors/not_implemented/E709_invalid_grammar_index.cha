@@ -1,0 +1,11 @@
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	Expected error: E709 (Invalid grammar index)
+@Comment:	Trigger: GRA relation has non-numeric index
+*CHI:	hello .
+%mor:	co|hello .
+%gra:	abc|0|ROOT .
+@End
