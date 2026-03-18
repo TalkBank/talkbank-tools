@@ -39,7 +39,6 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// # References
 ///
 /// - [Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)
-/// - [MOR Manual](https://talkbank.org/manuals/MOR.html)
 /// - [Universal Dependencies](https://universaldependencies.org/)
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift,

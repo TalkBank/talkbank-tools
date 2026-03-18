@@ -60,7 +60,8 @@ impl Validate for Utterance {
         crate::validation::utterance::check_ca_delimiter_balance(self, errors);
 
         // E373: Validate overlap index values
-        crate::validation::utterance::check_overlap_index_values(self, context, errors);
+        // E348: Validate overlap marker pairing
+        crate::validation::utterance::check_overlap_markers(self, context, errors);
 
         // E259: Validate commas are not preceded by non-spoken content
         crate::validation::utterance::check_comma_after_non_spoken(self, errors);

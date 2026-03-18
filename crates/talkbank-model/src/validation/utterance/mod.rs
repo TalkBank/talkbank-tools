@@ -28,7 +28,9 @@ pub(crate) use ca_delimiter::CADelimiterRole;
 pub(crate) use ca_delimiter::analyze_ca_delimiter_roles;
 pub(crate) use ca_delimiter::check_ca_delimiter_balance;
 pub(crate) use comma::check_comma_after_non_spoken;
+#[cfg(test)]
 pub(crate) use overlap::check_overlap_index_values;
+pub(crate) use overlap::check_overlap_markers;
 pub(crate) use quotation::check_quotation_balance;
 pub(crate) use tiers::check_no_duplicate_dependent_tiers;
 pub(crate) use underline::check_underline_balance;

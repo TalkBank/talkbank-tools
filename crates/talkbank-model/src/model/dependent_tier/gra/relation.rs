@@ -78,7 +78,6 @@ use talkbank_derive::{SemanticEq, SpanShift};
 ///
 /// - [Universal Dependencies](https://universaldependencies.org/)
 /// - [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)
-/// - [MOR Manual - GRA Section](https://talkbank.org/manuals/MOR.html)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift)]
 pub struct GrammaticalRelation {
     /// Index of this word in %mor tier chunks (1-indexed)

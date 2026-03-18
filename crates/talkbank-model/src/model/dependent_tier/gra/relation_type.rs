@@ -61,7 +61,6 @@ interned_newtype!(
     ///
     /// - [Universal Dependencies Relations](https://universaldependencies.org/u/dep/)
     /// - [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)
-    /// - [MOR Manual - GRA Section](https://talkbank.org/manuals/MOR.html)
     pub struct GrammaticalRelationType,
     interner: crate::model::pos_interner()
 );

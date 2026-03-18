@@ -143,7 +143,7 @@ tempfile = "3.27"
 text-size = "1.1"
 thiserror = "^2.0.18"
 tokio = { version = "1.50", features = ["full"] }
-toml = "^1.0.6"
+toml = "^1.0.7"
 tower-lsp = "0.20"
 
 # Logging and tracing

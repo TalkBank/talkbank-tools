@@ -13,6 +13,7 @@
 
 mod count;
 mod domain;
+pub mod overlap;
 mod rules;
 mod walk;
 
@@ -34,6 +35,10 @@ pub fn to_chat_display_string<T: crate::model::WriteChat>(item: &T) -> String {
     s
 }
 pub use domain::AlignmentDomain;
+pub use overlap::{
+    OverlapMarkerInfo, OverlapPointVisit, OverlapRegion, OverlapRegionKind, extract_overlap_info,
+    for_each_overlap_point,
+};
 pub use rules::should_align_replaced_word_in_pho_sin;
 pub use rules::{
     annotations_have_alignment_ignore, is_tag_marker_separator, should_skip_group,

@@ -33,8 +33,11 @@
 //! # CHAT Manual Reference
 //!
 //! - [Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)
-//! - [MOR Manual](https://talkbank.org/manuals/MOR.html)
 //! - [Universal Dependencies](https://universaldependencies.org/)
+//!
+//! Note: The legacy CLAN MOR manual has been removed from the TalkBank
+//! website. GRA now follows UD-oriented conventions documented in the
+//! CHAT manual.
 //!
 //! # Example
 //!

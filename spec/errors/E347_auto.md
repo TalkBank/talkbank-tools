@@ -1,16 +1,19 @@
-# E347: Auto-generated from corpus
+# E347: Unbalanced cross-speaker overlap
 
 ## Description
 
-Auto-generated from corpus
+A top overlap region (⌈...⌉) on one speaker has no matching bottom overlap
+region (⌊...⌋) from a different speaker within the nearby utterances, or vice
+versa. Reported as a warning because onset-only marking is a legitimate CA
+convention in some corpora.
 
 ## Metadata
 
 - **Error Code**: E347
 - **Category**: validation
-- **Level**: utterance
+- **Level**: cross_utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

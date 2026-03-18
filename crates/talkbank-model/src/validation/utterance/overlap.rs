@@ -1,21 +1,40 @@
-//! Overlap validation functions
+//! Overlap validation functions.
+//!
+//! Validates CA overlap markers (⌈⌉⌊⌋) within individual utterances:
+//! - **E373**: Invalid overlap index (must be 2-9 if present)
+//! - **E348**: Unpaired overlap marker (opening without closing or vice versa)
+//!
+//! Uses [`extract_overlap_info`] from `alignment::helpers::overlap` for the
+//! content traversal — same traversal used by the alignment pipeline,
+//! eliminating duplicated walk logic.
+//!
+//! Cross-utterance checks (E347 unbalanced across speakers, E704 self-overlap)
+//! are in `validation/cross_utterance/`.
 //!
 //! References:
-//! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#CA_Overlaps>
-//! - <https://talkbank.org/0info/manuals/CHAT.html#CA_Delimiters>
-//! - <https://talkbank.org/0info/manuals/CHAT.html#QuotationFollows_Linker>
-//! - <https://talkbank.org/0info/manuals/CHAT.html#QuotedNewLine_Terminator>
 
 use crate::ErrorSink;
-use crate::model::{
-    BracketedContent, BracketedItem, OverlapPoint, Utterance, UtteranceContent, Word, WordContent,
-};
+use crate::alignment::helpers::overlap::{OverlapRegionKind, extract_overlap_info};
+use crate::model::Utterance;
 use crate::validation::{Validate, ValidationContext};
 
-/// Validate overlap-point indices throughout one utterance tree.
+/// Validate overlap markers within one utterance.
 ///
-/// Collects all overlap points from the utterance content and validates their indices.
+/// Checks both index validity (E373) and pairing completeness (E348).
+pub(crate) fn check_overlap_markers(
+    utterance: &Utterance,
+    context: &ValidationContext,
+    errors: &impl ErrorSink,
+) {
+    check_overlap_index_values(utterance, context, errors);
+    check_overlap_pairing(utterance, context, errors);
+}
+
+/// Validate overlap-point indices throughout one utterance tree (E373).
+///
+/// Collects all overlap points and validates that indices are in range 2-9.
+/// Uses the shared traversal from `alignment::helpers::overlap`.
 pub(crate) fn check_overlap_index_values(
     utterance: &Utterance,
     context: &ValidationContext,
@@ -25,119 +44,92 @@ pub(crate) fn check_overlap_index_values(
         .clone()
         .with_field_span(utterance.main.span)
         .with_field_label("overlap_index");
-    let mut overlap_points = Vec::new();
-    collect_overlap_points(&utterance.main.content.content, &mut overlap_points);
 
-    for point in overlap_points {
-        point.validate(&index_context, errors);
-    }
-}
-
-/// Collect overlap points from top-level utterance content recursively.
-fn collect_overlap_points(content: &[UtteranceContent], out: &mut Vec<OverlapPoint>) {
-    for item in content {
-        match item {
-            UtteranceContent::Word(word) => collect_overlap_points_from_word(word, out),
-            UtteranceContent::AnnotatedWord(word) => {
-                collect_overlap_points_from_word(&word.inner, out);
-            }
-            UtteranceContent::ReplacedWord(replaced) => {
-                collect_overlap_points_from_word(&replaced.word, out);
-                for word in &replaced.replacement.words {
-                    collect_overlap_points_from_word(word, out);
-                }
-            }
-            UtteranceContent::Group(group) => {
-                collect_overlap_points_from_bracketed(&group.content, out);
-            }
-            UtteranceContent::AnnotatedGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.inner.content, out);
-            }
-            UtteranceContent::PhoGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.content, out);
-            }
-            UtteranceContent::SinGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.content, out);
-            }
-            UtteranceContent::Quotation(quote) => {
-                collect_overlap_points_from_bracketed(&quote.content, out);
-            }
-            UtteranceContent::OverlapPoint(point) => {
-                out.push(point.clone());
-            }
-            UtteranceContent::AnnotatedEvent(_)
-            | UtteranceContent::Event(_)
-            | UtteranceContent::Pause(_)
-            | UtteranceContent::AnnotatedAction(_)
-            | UtteranceContent::Freecode(_)
-            | UtteranceContent::Separator(_)
-            | UtteranceContent::InternalBullet(_)
-            | UtteranceContent::LongFeatureBegin(_)
-            | UtteranceContent::LongFeatureEnd(_)
-            | UtteranceContent::UnderlineBegin(_)
-            | UtteranceContent::UnderlineEnd(_)
-            | UtteranceContent::NonvocalBegin(_)
-            | UtteranceContent::NonvocalEnd(_)
-            | UtteranceContent::NonvocalSimple(_)
-            | UtteranceContent::OtherSpokenEvent(_) => {}
+    // Collect all overlap points via the shared traversal.
+    // The regions give us the index values; we validate each one.
+    let info = extract_overlap_info(&utterance.main.content.content.0);
+    for region in &info.regions {
+        if let Some(index) = region.index {
+            // Validate the index value (must be 2-9).
+            // Create a temporary OverlapPoint for the Validate trait.
+            let point = crate::model::OverlapPoint::new(
+                match region.kind {
+                    OverlapRegionKind::Top => crate::model::OverlapPointKind::TopOverlapBegin,
+                    OverlapRegionKind::Bottom => crate::model::OverlapPointKind::BottomOverlapBegin,
+                },
+                Some(index),
+            );
+            point.validate(&index_context, errors);
         }
     }
 }
 
-/// Collect overlap points from bracketed content recursively.
-fn collect_overlap_points_from_bracketed(content: &BracketedContent, out: &mut Vec<OverlapPoint>) {
-    for item in &content.content {
-        match item {
-            BracketedItem::Word(word) => collect_overlap_points_from_word(word, out),
-            BracketedItem::AnnotatedWord(word) => {
-                collect_overlap_points_from_word(&word.inner, out);
-            }
-            BracketedItem::ReplacedWord(replaced) => {
-                collect_overlap_points_from_word(&replaced.word, out);
-                for word in &replaced.replacement.words {
-                    collect_overlap_points_from_word(word, out);
-                }
-            }
-            BracketedItem::AnnotatedGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.inner.content, out);
-            }
-            BracketedItem::PhoGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.content, out);
-            }
-            BracketedItem::SinGroup(group) => {
-                collect_overlap_points_from_bracketed(&group.content, out);
-            }
-            BracketedItem::Quotation(quote) => {
-                collect_overlap_points_from_bracketed(&quote.content, out);
-            }
-            BracketedItem::OverlapPoint(point) => {
-                out.push(point.clone());
-            }
-            BracketedItem::Event(_)
-            | BracketedItem::AnnotatedEvent(_)
-            | BracketedItem::Pause(_)
-            | BracketedItem::Action(_)
-            | BracketedItem::AnnotatedAction(_)
-            | BracketedItem::Separator(_)
-            | BracketedItem::InternalBullet(_)
-            | BracketedItem::Freecode(_)
-            | BracketedItem::LongFeatureBegin(_)
-            | BracketedItem::LongFeatureEnd(_)
-            | BracketedItem::UnderlineBegin(_)
-            | BracketedItem::UnderlineEnd(_)
-            | BracketedItem::NonvocalBegin(_)
-            | BracketedItem::NonvocalEnd(_)
-            | BracketedItem::NonvocalSimple(_)
-            | BracketedItem::OtherSpokenEvent(_) => {}
-        }
-    }
-}
+/// Check that overlap markers are properly paired within the utterance (E348).
+///
+/// Reports E348 when:
+/// - An opening marker (⌈ or ⌊) has no matching closing marker (⌉ or ⌋)
+/// - A closing marker appears without a preceding opening marker
+///
+/// Note: onset-only marking (⌈ without ⌉) is a legitimate CA practice in
+/// some corpora. This check reports it as a warning, not an error, because
+/// the convention varies between research groups.
+fn check_overlap_pairing(
+    utterance: &Utterance,
+    _context: &ValidationContext,
+    errors: &impl ErrorSink,
+) {
+    use crate::{ErrorCode, ErrorContext, Severity, SourceLocation};
 
-/// Collect overlap points embedded directly inside one word token.
-fn collect_overlap_points_from_word(word: &Word, out: &mut Vec<OverlapPoint>) {
-    for item in &word.content {
-        if let WordContent::OverlapPoint(point) = item {
-            out.push(point.clone());
+    let info = extract_overlap_info(&utterance.main.content.content.0);
+    let span = utterance.main.span;
+    let speaker = utterance.main.speaker.as_str();
+
+    for region in &info.regions {
+        let kind_label = match region.kind {
+            OverlapRegionKind::Top => "top (⌈⌉)",
+            OverlapRegionKind::Bottom => "bottom (⌊⌋)",
+        };
+        let index_label = match region.index {
+            Some(idx) => format!(" (index {})", idx.0),
+            None => String::new(),
+        };
+
+        if region.begin_at_word.is_some() && region.end_at_word.is_none() {
+            // Opening without closing
+            errors.report(
+                crate::ParseError::new(
+                    ErrorCode::MissingOverlapEnd,
+                    Severity::Warning,
+                    SourceLocation::new(span),
+                    ErrorContext::new(speaker, span, speaker),
+                    format!(
+                        "Overlap {kind_label}{index_label} opening marker has no matching \
+                         closing marker in this utterance"
+                    ),
+                )
+                .with_suggestion(
+                    "Add the matching closing marker, or this may be intentional \
+                     onset-only CA annotation",
+                ),
+            );
+        } else if region.begin_at_word.is_none() && region.end_at_word.is_some() {
+            // Closing without opening
+            errors.report(
+                crate::ParseError::new(
+                    ErrorCode::MissingOverlapEnd,
+                    Severity::Warning,
+                    SourceLocation::new(span),
+                    ErrorContext::new(speaker, span, speaker),
+                    format!(
+                        "Overlap {kind_label}{index_label} closing marker has no matching \
+                         opening marker in this utterance"
+                    ),
+                )
+                .with_suggestion(
+                    "Add the matching opening marker, or check that the markers \
+                     are on the correct utterance",
+                ),
+            );
         }
     }
 }

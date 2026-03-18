@@ -196,6 +196,23 @@ Used by `main_tier.rs` (%wor generation) and `batchalign-chat-ops` (word extract
 
 **Not suitable for**: `strip_timing_from_content()` (container mutation via `retain()`) or `count.rs` (Pho/Sin domains treat PhoGroup/SinGroup as counted atomic units).
 
+### Overlap Marker Iterator
+
+A second closure-based iterator visits CA overlap markers (⌈⌉⌊⌋) at all
+three content levels — `UtteranceContent`, `BracketedItem`, and
+`WordContent` (for intra-word markers like `butt⌈er⌉`):
+
+```rust
+pub fn for_each_overlap_point(
+    content: &[UtteranceContent],
+    visitor: &mut impl FnMut(OverlapPointVisit<'_>),
+);
+```
+
+For region-level analysis (pairing ⌈ with ⌉ by index), use
+`extract_overlap_info()` which returns `OverlapMarkerInfo` with
+properly paired `OverlapRegion` structs. See [Alignment](alignment.md#overlap-marker-iteration) for details.
+
 ## SmallVec Optimization
 
 Collections that are typically small use `SmallVec` for inline storage:

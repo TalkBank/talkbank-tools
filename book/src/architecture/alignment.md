@@ -46,6 +46,7 @@ crates/talkbank-model/src/alignment/
     walk/             Content walker (for_each_leaf / for_each_leaf_mut)
       mod.rs          Walker implementation, ContentLeaf/ContentLeafMut enums
       tests.rs        Walker unit tests
+    overlap.rs        Overlap marker iteration (for_each_overlap_point, extract_overlap_info)
     tests.rs          Helper unit tests
   location_tests.rs   Alignment location tests
 ```
@@ -406,18 +407,87 @@ count via `OneToOne` alignment, but `%xmodsyl`/`%xphosyl`/`%xphoaln` are
 written from the raw `IPATranscript`, exposing the full IPA word count. This
 produces the tier-to-tier mismatches that E725–E728 flag.
 
+## Overlap Marker Iteration
+
+CA overlap markers (⌈⌉⌊⌋) appear at three content levels — top-level
+`UtteranceContent`, inside groups as `BracketedItem`, and inside words as
+`WordContent`. The alignment module provides two APIs for traversing them,
+in `alignment/helpers/overlap.rs`:
+
+### `for_each_overlap_point` — Low-Level Iterator
+
+Visits every `OverlapPoint` in document order with its word-position context.
+Analogous to `for_each_leaf` but for overlap markers instead of words:
+
+```rust
+use talkbank_model::alignment::helpers::{
+    for_each_overlap_point, OverlapPointVisit,
+};
+
+for_each_overlap_point(&utterance.main.content.content.0, &mut |visit| {
+    // visit.point: &OverlapPoint (kind + optional index)
+    // visit.word_position: usize (alignable words seen so far)
+});
+```
+
+### `extract_overlap_info` — Region-Based Analysis
+
+Collects all markers, then pairs them by (kind, index) into `OverlapRegion`
+structs. Each region represents a matched begin-end pair (⌈...⌉ or ⌊...⌋):
+
+```rust
+use talkbank_model::alignment::helpers::{
+    extract_overlap_info, OverlapRegion, OverlapRegionKind,
+};
+
+let info = extract_overlap_info(&utterance.main.content.content.0);
+
+for region in &info.regions {
+    // region.kind: Top (⌈⌉) or Bottom (⌊⌋)
+    // region.index: Option<OverlapIndex> for disambiguation (2-9)
+    // region.begin_at_word / end_at_word: word positions
+    // region.is_well_paired(): both markers present and ordered
+}
+
+// Proportional onset: fraction of utterance before first ⌈
+if let Some(fraction) = info.top_onset_fraction() { /* 0.0-1.0 */ }
+```
+
+**Index-aware pairing:** `⌈2...⌉2` forms a separate region from `⌈...⌉`.
+Mismatched indices leave markers unpaired.
+
+**Unpaired markers:** Onset-only ⌈ (without ⌉) is a legitimate CA convention.
+The region has `end_at_word = None` and `is_well_paired()` returns false,
+but `top_onset_fraction()` still works.
+
+### Overlap Validation
+
+The validator uses `extract_overlap_info` for four checks:
+
+| Code | Level | What it checks |
+|------|-------|---------------|
+| E348 | Utterance | Unpaired markers within a single utterance (warning) |
+| E347 | Cross-utterance | Top regions without matching bottom from different speaker (warning) |
+| E373 | Utterance | Invalid overlap index values (must be 2-9) |
+| E704 | Cross-utterance | Same speaker encoding both top and bottom overlap (error) |
+
+The validation module previously had its own content traversal for overlap
+collection (`collect_overlap_points`). This was replaced with
+`extract_overlap_info` to eliminate ~143 lines of duplicated walk code.
+
 ## Downstream Consumers
 
 The alignment module is used by:
 
 | Consumer | Crate/Repo | Usage |
 |----------|------------|-------|
-| Validation | `talkbank-model` | Cross-tier consistency checks (E714/E715, E725–E728) |
+| Validation | `talkbank-model` | Cross-tier checks (E714/E715, E725-E728), overlap checks (E347/E348/E373/E704) |
 | LSP hover | `talkbank-lsp` | Show aligned tier items for word under cursor |
 | Word extraction | `batchalign3` | Pull NLP-ready words from utterances |
 | FA injection | `batchalign3` | Insert timing bullets into AST |
+| Overlap windowing | `batchalign3` | CA marker-aware UTR pass-2 search windows |
 | %wor generation | `talkbank-model` | Build %wor tier from main tier |
 | CLAN commands | `talkbank-clan` | DSS, EVAL, KIDEVAL use typed %mor access |
 
 ---
-Last Updated: 2026-03-10
+Last Updated: 2026-03-17

@@ -1,8 +1,13 @@
-# E348: Missing overlap end
+# E348: Unpaired overlap marker within utterance
 
 ## Description
 
-Missing overlap end
+An opening overlap marker (⌈ or ⌊) has no matching closing marker (⌉ or ⌋)
+within the same utterance, or a closing marker appears without a preceding
+opening marker. Reported as a warning because onset-only marking (⌈ without ⌉)
+is a legitimate CA convention.
+
+Markers are matched by kind (top/bottom) and index (2-9 or unindexed).
 
 ## Metadata
 
@@ -10,7 +15,7 @@ Missing overlap end
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 
