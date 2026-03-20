@@ -42,7 +42,7 @@ impl Participant {
     /// Returns the participant's `@ID` language code.
     ///
     /// This is not necessarily the transcript default language.
-    pub fn language(&self) -> &str {
+    pub fn languages(&self) -> &crate::model::LanguageCodes {
         &self.id.language
     }
 

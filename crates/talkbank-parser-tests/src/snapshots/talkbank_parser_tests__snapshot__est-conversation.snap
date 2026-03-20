@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "corpus": "Estonian",
         "custom_field": "körg linn Tallinn",
-        "language": "est",
+        "language": [
+          "est"
+        ],
         "role": "Child",
         "sex": "male",
         "speaker": "CHI",
@@ -61,7 +63,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Estonian",
-        "language": "est",
+        "language": [
+          "est"
+        ],
         "role": "Investigator",
         "sex": "female",
         "speaker": "OBS",
@@ -1410,7 +1414,9 @@ expression: snapshot
       "id": {
         "corpus": "Estonian",
         "custom_field": "körg linn Tallinn",
-        "language": "est",
+        "language": [
+          "est"
+        ],
         "role": "Child",
         "sex": "male",
         "speaker": "CHI"
@@ -1423,7 +1429,9 @@ expression: snapshot
       "code": "OBS",
       "id": {
         "corpus": "Estonian",
-        "language": "est",
+        "language": [
+          "est"
+        ],
         "role": "Investigator",
         "sex": "female",
         "speaker": "OBS"

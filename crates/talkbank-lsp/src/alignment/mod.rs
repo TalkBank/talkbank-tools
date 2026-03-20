@@ -6,7 +6,7 @@
 //! # Architecture
 //!
 //! 1. Map cursor position → UtteranceContent item (using parsed data model)
-//! 2. Determine alignment index (using count_alignable_content logic)
+//! 2. Determine alignment index (using count_tier_positions logic)
 //! 3. Prefer embedded alignment state on model nodes (word/chunk), with legacy metadata fallback
 //! 4. Format hover info from parsed tier data
 //!

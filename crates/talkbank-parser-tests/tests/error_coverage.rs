@@ -45,10 +45,11 @@ fn test_error_code_spec_coverage() {
     expected_codes.remove("E002"); // TestError
     expected_codes.remove("E999"); // UnknownError
 
-    // Exclude deprecated codes (as mentioned in the plan)
+    // Exclude codes that don't need individual spec files:
+    // - Codes covered by other checks (E366/E369 → E358/E359, E367/E368)
+    // - Infrastructure codes or codes with separate validation
     let deprecated = vec![
-        "E210", "E211", "E213", "E258", "E303", "E317", "E318", "E345", "E348", "E350", "E366",
-        "E369", "E380", "E385", "E386", "E514", "E720",
+        "E210", "E213", "E258", "E303", "E345", "E348", "E366", "E369", "E720",
     ];
     for code in deprecated {
         expected_codes.remove(code);

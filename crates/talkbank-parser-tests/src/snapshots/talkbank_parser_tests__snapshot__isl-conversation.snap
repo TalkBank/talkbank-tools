@@ -45,7 +45,9 @@ expression: snapshot
       "header": {
         "age": "7;08.",
         "corpus": "Masdottir",
-        "language": "isl",
+        "language": [
+          "isl"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI",
@@ -411,7 +413,9 @@ expression: snapshot
       "id": {
         "age": "7;08.",
         "corpus": "Masdottir",
-        "language": "isl",
+        "language": [
+          "isl"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI"

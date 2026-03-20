@@ -9,7 +9,7 @@
 use tower_lsp::lsp_types::*;
 
 use talkbank_model::Span;
-use talkbank_model::alignment::{AlignmentDomain, count_alignable_until};
+use talkbank_model::alignment::{TierDomain, count_tier_positions_until};
 use talkbank_model::model::UtteranceContent;
 
 use crate::alignment::finders::{count_alignable_before, get_alignable_content_by_index};
@@ -365,8 +365,8 @@ fn find_content_index_at_offset(content: &[UtteranceContent], offset: u32) -> Op
 
 /// Returns whether alignable content.
 fn is_alignable_content(content: &[UtteranceContent], index: usize) -> bool {
-    let before = count_alignable_until(content, index, AlignmentDomain::Mor);
-    let after = count_alignable_until(content, index + 1, AlignmentDomain::Mor);
+    let before = count_tier_positions_until(content, index, TierDomain::Mor);
+    let after = count_tier_positions_until(content, index + 1, TierDomain::Mor);
     after > before
 }
 

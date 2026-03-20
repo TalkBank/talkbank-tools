@@ -6,7 +6,7 @@
 
 use super::format::format_positional_mismatch;
 use super::helpers::{
-    AlignableItem, AlignmentDomain, count_alignable_content, extract_alignable_items,
+    TierPosition, TierDomain, count_tier_positions, collect_tier_items,
     to_chat_display_string as to_string,
 };
 use super::types::AlignmentPair;
@@ -138,7 +138,7 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
     }
 
     // Extract alignable content indices from main tier
-    let alignable_count = count_alignable_content(&main.content.content, AlignmentDomain::Mor);
+    let alignable_count = count_tier_positions(&main.content.content, TierDomain::Mor);
 
     // Terminator is now a separate field, not counted in items
     let expected_mor_count = alignable_count;
@@ -153,11 +153,11 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
 
     // Handle length mismatch
     if expected_mor_count > mor_count {
-        let main_items = extract_alignable_items(&main.content.content, AlignmentDomain::Mor);
-        let mor_items: Vec<AlignableItem> = mor
+        let main_items = collect_tier_items(&main.content.content, TierDomain::Mor);
+        let mor_items: Vec<TierPosition> = mor
             .items
             .iter()
-            .map(|item| AlignableItem {
+            .map(|item| TierPosition {
                 text: to_string(item),
                 description: None,
             })
@@ -183,11 +183,11 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
             alignment = alignment.with_pair(AlignmentPair::new(Some(i), None));
         }
     } else if mor_count > expected_mor_count {
-        let main_items = extract_alignable_items(&main.content.content, AlignmentDomain::Mor);
-        let mor_items: Vec<AlignableItem> = mor
+        let main_items = collect_tier_items(&main.content.content, TierDomain::Mor);
+        let mor_items: Vec<TierPosition> = mor
             .items
             .iter()
-            .map(|item| AlignableItem {
+            .map(|item| TierPosition {
                 text: to_string(item),
                 description: None,
             })
@@ -301,12 +301,12 @@ fn render_mor_items(mor: &MorTier) -> Vec<String> {
 
 /// Collect alignable main-tier units in `%mor` alignment order.
 ///
-/// Delegates to [`extract_alignable_items`] to avoid duplicating the
+/// Delegates to [`collect_tier_items`] to avoid duplicating the
 /// exhaustive content traversal. Terminators are appended after lexical
 /// units to mirror alignment reporting.
 fn collect_alignable_main_items(main: &MainTier) -> Vec<String> {
     let mut items: Vec<String> =
-        extract_alignable_items(&main.content.content, AlignmentDomain::Mor)
+        collect_tier_items(&main.content.content, TierDomain::Mor)
             .into_iter()
             .map(|item| item.text)
             .collect();

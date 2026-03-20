@@ -11,7 +11,7 @@
 //! This parallels the overlap collection in `validation/utterance/overlap.rs`
 //! but tracks word positions rather than collecting points for validation.
 
-use crate::alignment::helpers::{AlignmentDomain, word_is_alignable};
+use crate::alignment::helpers::{TierDomain, counts_for_tier};
 use crate::model::{
     BracketedItem, OverlapIndex, OverlapPointKind, UtteranceContent, Word, WordContent,
 };
@@ -159,7 +159,7 @@ pub fn extract_overlap_info(content: &[UtteranceContent]) -> OverlapMarkerInfo {
     }
 }
 
-/// Context passed to the [`for_each_overlap_point`] closure for each marker.
+/// Context passed to the [`walk_overlap_points`] closure for each marker.
 #[derive(Debug, Clone)]
 pub struct OverlapPointVisit<'a> {
     /// The overlap point marker.
@@ -171,13 +171,13 @@ pub struct OverlapPointVisit<'a> {
 /// Visit every overlap marker in document order, with word-position context.
 ///
 /// This is the closure-based internal iterator for overlap markers, analogous
-/// to [`for_each_leaf`](super::for_each_leaf) for words. It walks all three
+/// to [`walk_words`](super::walk_words) for words. It walks all three
 /// content levels (UtteranceContent, BracketedItem, WordContent) and calls
 /// `visitor` for each `OverlapPoint` encountered.
 ///
 /// Use this when you need per-marker access (e.g., collecting raw points for
 /// validation) rather than the pre-paired regions from [`extract_overlap_info`].
-pub fn for_each_overlap_point(
+pub fn walk_overlap_points(
     content: &[UtteranceContent],
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
 ) {
@@ -317,7 +317,7 @@ fn scan_word_visiting(
             });
         }
     }
-    if word_is_alignable(word, AlignmentDomain::Wor) {
+    if counts_for_tier(word, TierDomain::Wor) {
         *word_count += 1;
     }
 }
@@ -428,7 +428,7 @@ fn scan_word(word: &Word, word_count: &mut usize, markers: &mut Vec<MarkerOccurr
         }
     }
 
-    if word_is_alignable(word, AlignmentDomain::Wor) {
+    if counts_for_tier(word, TierDomain::Wor) {
         *word_count += 1;
     }
 

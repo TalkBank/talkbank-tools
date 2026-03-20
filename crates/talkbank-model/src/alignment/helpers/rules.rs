@@ -8,7 +8,7 @@
 
 use crate::model::{ScopedAnnotation, Separator, Word, WordCategory};
 
-use super::domain::AlignmentDomain;
+use super::domain::TierDomain;
 
 /// Returns `true` if a group with these annotations should be skipped during alignment.
 ///
@@ -16,11 +16,11 @@ use super::domain::AlignmentDomain;
 /// was phonologically produced, so %pho, %sin, and %wor include it.
 /// This helper exists so callers can consistently apply the same domain gate
 /// when handling annotated groups at any nesting level.
-pub fn should_skip_group(annotations: &[ScopedAnnotation], domain: AlignmentDomain) -> bool {
+pub fn should_skip_group(annotations: &[ScopedAnnotation], domain: TierDomain) -> bool {
     // Retrace annotations skip ONLY for Mor domain (linguistic content analysis).
     // Retraced content WAS produced phonologically (speaker said it before correcting),
     // so %pho, %sin, and %wor all include transcriptions for retraced groups.
-    domain == AlignmentDomain::Mor && annotations_have_alignment_ignore(annotations)
+    domain == TierDomain::Mor && annotations_have_alignment_ignore(annotations)
 }
 
 /// Returns `true` if any annotation in the slice excludes content from alignment.
@@ -52,7 +52,7 @@ fn is_alignment_ignore_annotation(annotation: &ScopedAnnotation) -> bool {
 /// This is the canonical domain gate used by counting, extraction, and
 /// metadata-alignment passes, so behavior must stay synchronized across all
 /// call sites.
-pub fn word_is_alignable(word: &Word, domain: AlignmentDomain) -> bool {
+pub fn counts_for_tier(word: &Word, domain: TierDomain) -> bool {
     // Empty words (from parser artifacts) should never align
     if word.cleaned_text().is_empty() {
         return false;
@@ -68,17 +68,17 @@ pub fn word_is_alignable(word: &Word, domain: AlignmentDomain) -> bool {
 
     match domain {
         // %mor = linguistic/morphological content (excludes ALL fragments, untranscribed)
-        AlignmentDomain::Mor => is_linguistic_content(word),
+        TierDomain::Mor => is_linguistic_content(word),
 
         // %wor = word-level timing, matching Python batchalign's lexer rules.
         // Includes: regular words, fillers (&-um)
         // Excludes: nonwords (&~gaga), fragments (&+fr), untranscribed (xxx/yyy/www),
         //           timing tokens (123_456)
-        AlignmentDomain::Wor => !is_wor_timing_token(word) && !is_wor_excluded_word(word),
+        TierDomain::Wor => !is_wor_timing_token(word) && !is_wor_excluded_word(word),
 
         // %pho and %sin include everything that was phonologically/gesturally produced
         // This includes fragments, untranscribed material, etc.
-        AlignmentDomain::Pho | AlignmentDomain::Sin => true,
+        TierDomain::Pho | TierDomain::Sin => true,
     }
 }
 

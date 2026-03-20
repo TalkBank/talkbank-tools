@@ -6,7 +6,7 @@
 //! so hover and highlight handlers can look up the correct pair given a CST node
 //! position.
 
-use talkbank_model::alignment::{AlignmentDomain, count_alignable_until};
+use talkbank_model::alignment::{TierDomain, count_tier_positions_until};
 use talkbank_model::model::UtteranceContent;
 
 /// Count alignable units strictly before `target_idx`.
@@ -17,7 +17,7 @@ use talkbank_model::model::UtteranceContent;
 /// broadest set of lexical tokens while preserving retrace/fragment policies.
 pub fn count_alignable_before(content: &[UtteranceContent], target_idx: usize) -> usize {
     // Use Mor domain as the default - it has the most comprehensive alignment rules
-    count_alignable_until(content, target_idx, AlignmentDomain::Mor)
+    count_tier_positions_until(content, target_idx, TierDomain::Mor)
 }
 
 /// Return the top-level content item corresponding to `alignment_index`.

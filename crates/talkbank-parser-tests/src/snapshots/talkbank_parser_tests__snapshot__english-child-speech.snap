@@ -49,7 +49,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Braunwald",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT",
@@ -61,7 +63,9 @@ expression: snapshot
       "header": {
         "age": "3;00.07",
         "corpus": "Braunwald",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI",
@@ -893,7 +897,9 @@ expression: snapshot
       "id": {
         "age": "3;00.07",
         "corpus": "Braunwald",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI"
@@ -906,7 +912,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "Braunwald",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT"

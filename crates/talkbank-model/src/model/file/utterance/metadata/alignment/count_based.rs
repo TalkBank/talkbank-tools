@@ -22,9 +22,9 @@ pub(super) fn build_phonology_alignment_from_counts(
 ) -> crate::alignment::PhoAlignment {
     let mut alignment = crate::alignment::PhoAlignment::new();
 
-    let main_count = crate::alignment::helpers::count_alignable_content(
+    let main_count = crate::alignment::helpers::count_tier_positions(
         &main.content.content,
-        crate::alignment::AlignmentDomain::Pho,
+        crate::alignment::TierDomain::Pho,
     );
 
     let min_len = main_count.min(item_count);
@@ -82,9 +82,9 @@ pub(super) fn build_sin_alignment_from_counts(
 ) -> crate::alignment::SinAlignment {
     let mut alignment = crate::alignment::SinAlignment::new();
 
-    let main_count = crate::alignment::helpers::count_alignable_content(
+    let main_count = crate::alignment::helpers::count_tier_positions(
         &main.content.content,
-        crate::alignment::AlignmentDomain::Sin,
+        crate::alignment::TierDomain::Sin,
     );
 
     let min_len = main_count.min(item_count);

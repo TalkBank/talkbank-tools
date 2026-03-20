@@ -52,7 +52,10 @@ expression: snapshot
       "header": {
         "age": "3;0",
         "corpus": "corpus",
-        "language": "eng, zho",
+        "language": [
+          "eng",
+          "zho"
+        ],
         "role": "Child",
         "speaker": "CHI",
         "type": "id"
@@ -62,7 +65,10 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng, zho",
+        "language": [
+          "eng",
+          "zho"
+        ],
         "role": "Mother",
         "speaker": "MOT",
         "type": "id"
@@ -465,7 +471,10 @@ expression: snapshot
       "id": {
         "age": "3;0",
         "corpus": "corpus",
-        "language": "eng, zho",
+        "language": [
+          "eng",
+          "zho"
+        ],
         "role": "Child",
         "speaker": "CHI"
       },
@@ -477,7 +486,10 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "corpus",
-        "language": "eng, zho",
+        "language": [
+          "eng",
+          "zho"
+        ],
         "role": "Mother",
         "speaker": "MOT"
       },

@@ -1,6 +1,5 @@
 ---
 source: crates/talkbank-parser-tests/src/snapshot.rs
-assertion_line: 167
 expression: snapshot
 ---
 {
@@ -54,7 +53,9 @@ expression: snapshot
         "custom_field": "custom field",
         "education": "graduate",
         "group": "TD",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "ses": "UC",
         "sex": "male",
@@ -66,7 +67,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "ses": "White,MC",
         "sex": "female",
@@ -314,7 +317,9 @@ expression: snapshot
         "custom_field": "custom field",
         "education": "graduate",
         "group": "TD",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "ses": "UC",
         "sex": "male",
@@ -328,7 +333,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "ses": "White,MC",
         "sex": "female",

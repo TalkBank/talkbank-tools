@@ -354,6 +354,32 @@ pub enum Commands {
         #[command(subcommand)]
         command: ClanCommands,
     },
+
+    /// Developer/debugging tools for CHAT analysis
+    #[command(about = "Developer tools for inspecting and debugging CHAT files")]
+    Debug {
+        #[command(subcommand)]
+        command: DebugCommands,
+    },
+}
+
+/// Debug subcommands under `chatter debug`.
+#[derive(Subcommand)]
+pub enum DebugCommands {
+    /// Analyze CA overlap markers (⌈⌉⌊⌋): pairing, temporal consistency, orphans
+    OverlapAudit {
+        /// Path to CHAT file(s) or directory
+        path: Vec<PathBuf>,
+
+        /// Output format
+        #[arg(short, long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+
+        /// Write JSON lines database to this file (one JSON object per file).
+        /// Enables persistent overlap data for downstream analysis.
+        #[arg(long, value_name = "PATH")]
+        database: Option<PathBuf>,
+    },
 }
 
 /// Cache maintenance subcommands under `talkbank cache`.

@@ -72,8 +72,8 @@ pub use time::MediaTiming;
 
 // Re-export provenance types
 pub use provenance::{
-    AlignmentDomainMarker, AsrWordsJson, ChatOriginal, FromPython, LanguageId, Morphosyntax,
-    NlpProduced, NlpResponse, NlpResponseJson, NlpTokens, Provenance, PythonAlignmentDomain,
+    TierDomainMarker, AsrWordsJson, ChatOriginal, FromPython, LanguageId, Morphosyntax,
+    NlpProduced, NlpResponse, NlpResponseJson, NlpTokens, Provenance, PythonTierDomain,
     PythonAsrWordsJson, PythonChatText, PythonLanguageId, PythonTranscriptJson, RawChatText,
     TokenizedWords, TranscriptJson,
 };

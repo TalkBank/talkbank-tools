@@ -58,7 +58,10 @@ expression: snapshot
         "age": "1;08.02",
         "corpus": "corpus",
         "group": "normal",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Child",
         "sex": "female",
         "speaker": "CHI",
@@ -69,7 +72,10 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT",
@@ -80,7 +86,10 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Father",
         "speaker": "F_A'-T",
         "type": "id"
@@ -297,7 +306,10 @@ expression: snapshot
         "age": "1;08.02",
         "corpus": "corpus",
         "group": "normal",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Child",
         "sex": "female",
         "speaker": "CHI"
@@ -310,7 +322,10 @@ expression: snapshot
       "code": "F_A'-T",
       "id": {
         "corpus": "corpus",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Father",
         "speaker": "F_A'-T"
       },
@@ -322,7 +337,10 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "corpus",
-        "language": "eng, ara",
+        "language": [
+          "eng",
+          "ara"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT"

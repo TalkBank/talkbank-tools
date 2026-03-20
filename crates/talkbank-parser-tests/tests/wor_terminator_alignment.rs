@@ -10,7 +10,7 @@
 
 use talkbank_model::alignment::{
     align_main_to_wor,
-    helpers::{AlignmentDomain, count_alignable_content},
+    helpers::{TierDomain, count_tier_positions},
 };
 use talkbank_model::model::dependent_tier::WorTier;
 use talkbank_model::model::dependent_tier::wor::WorItem;
@@ -54,7 +54,7 @@ fn test_wor_tier_terminator_not_counted_in_real_parse() -> Result<(), TestError>
     println!("Terminator: {:?}", main.content.terminator);
     println!(
         "Total alignable (for Wor domain): {}",
-        count_alignable_content(&main.content.content, AlignmentDomain::Wor)
+        count_tier_positions(&main.content.content, TierDomain::Wor)
     );
 
     // Debug: wor tier (flat items)
@@ -315,7 +315,7 @@ fn test_wor_alignment_excludes_separators() -> Result<(), TestError> {
         .ok_or_else(|| TestError::Failure("No wor tier found".to_string()))?;
 
     // Main tier should have 2 alignable words (comma is a separator, not alignable for Wor)
-    let main_count = count_alignable_content(&main.content.content, AlignmentDomain::Wor);
+    let main_count = count_tier_positions(&main.content.content, TierDomain::Wor);
     assert_eq!(
         main_count, 2,
         "Main tier should have 2 alignable words for Wor domain"

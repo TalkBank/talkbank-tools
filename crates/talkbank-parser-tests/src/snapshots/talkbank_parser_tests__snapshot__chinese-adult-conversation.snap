@@ -44,7 +44,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Xinjiang",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Participant",
         "speaker": "PAR0",
         "type": "id"
@@ -1456,7 +1458,9 @@ expression: snapshot
       "code": "PAR0",
       "id": {
         "corpus": "Xinjiang",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Participant",
         "speaker": "PAR0"
       },

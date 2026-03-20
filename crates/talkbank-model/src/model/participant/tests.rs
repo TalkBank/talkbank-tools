@@ -73,7 +73,7 @@ fn test_participant_convenience_methods() {
     let participant = Participant::new(entry, id);
 
     assert_eq!(participant.speaker_code(), "CHI");
-    assert_eq!(participant.language(), "eng");
+    assert!(participant.languages().0.iter().any(|c| c.as_str() == "eng"));
     assert_eq!(participant.age(), Some("2;6.0"));
     assert_eq!(participant.sex(), Some(&super::super::Sex::Female));
     assert_eq!(participant.corpus(), Some("bates"));

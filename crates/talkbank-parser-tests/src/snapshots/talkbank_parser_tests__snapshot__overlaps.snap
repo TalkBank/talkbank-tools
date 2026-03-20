@@ -58,7 +58,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Speaker",
         "speaker": "SPK",
         "type": "id"
@@ -68,7 +70,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Adult",
         "speaker": "LSN",
         "type": "id"
@@ -372,7 +376,9 @@ expression: snapshot
       "code": "LSN",
       "id": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Adult",
         "speaker": "LSN"
       },
@@ -384,7 +390,9 @@ expression: snapshot
       "code": "SPK",
       "id": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Speaker",
         "speaker": "SPK"
       },

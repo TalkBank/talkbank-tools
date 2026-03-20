@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "3;03.00",
         "corpus": "Szuman",
-        "language": "pol",
+        "language": [
+          "pol"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Szuman",
-        "language": "pol",
+        "language": [
+          "pol"
+        ],
         "role": "Mother",
         "speaker": "MAM",
         "type": "id"
@@ -1937,7 +1941,9 @@ expression: snapshot
       "id": {
         "age": "3;03.00",
         "corpus": "Szuman",
-        "language": "pol",
+        "language": [
+          "pol"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },
@@ -1949,7 +1955,9 @@ expression: snapshot
       "code": "MAM",
       "id": {
         "corpus": "Szuman",
-        "language": "pol",
+        "language": [
+          "pol"
+        ],
         "role": "Mother",
         "speaker": "MAM"
       },

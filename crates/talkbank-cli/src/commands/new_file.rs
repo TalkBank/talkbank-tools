@@ -257,7 +257,7 @@ mod tests {
         let found = chat_file.lines.iter().any(|line| match line {
             Line::Header { header, .. } => match header.as_ref() {
                 Header::ID(id) => {
-                    id.language == expected_language
+                    id.language.contains(&expected_language)
                         && id.corpus.as_ref() == Some(&expected_corpus)
                         && id.speaker == expected_speaker
                         && id.role == expected_role

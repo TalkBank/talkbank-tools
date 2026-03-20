@@ -16,7 +16,7 @@ mod run;
 
 pub use args::{
     AlignmentTier, CacheCommands, ClanCommands, ClanOutputFormat, Cli, Commands,
-    CommonAnalysisArgs, LogFormat, OutputFormat,
+    CommonAnalysisArgs, DebugCommands, LogFormat, OutputFormat,
 };
 pub use logging::init_tracing;
 pub use run::run;

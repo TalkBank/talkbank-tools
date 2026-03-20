@@ -52,7 +52,10 @@ expression: snapshot
       "header": {
         "age": "2;08.20",
         "corpus": "Perez",
-        "language": "spa , eng",
+        "language": [
+          "spa",
+          "eng"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -62,7 +65,10 @@ expression: snapshot
     {
       "header": {
         "corpus": "Perez",
-        "language": "spa , eng",
+        "language": [
+          "spa",
+          "eng"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT",
@@ -1055,7 +1061,10 @@ expression: snapshot
       "id": {
         "age": "2;08.20",
         "corpus": "Perez",
-        "language": "spa , eng",
+        "language": [
+          "spa",
+          "eng"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },
@@ -1067,7 +1076,10 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "Perez",
-        "language": "spa , eng",
+        "language": [
+          "spa",
+          "eng"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT"

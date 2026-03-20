@@ -39,7 +39,7 @@ use super::{
     Bullet, LanguageCode, Linker, Postcode, SpeakerCode, Terminator, TierContent, UtteranceContent,
     WriteChat,
 };
-use crate::alignment::helpers::{ContentLeaf, for_each_leaf};
+use crate::alignment::helpers::{WordItem, walk_words};
 use crate::model::content::word::Word;
 use crate::model::dependent_tier::{WorItem, WorTier};
 use crate::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation, Span};
@@ -192,11 +192,11 @@ impl MainTier {
         }
 
         let mut span = None;
-        for_each_leaf(&self.content.content, None, &mut |leaf| match leaf {
-            ContentLeaf::Word(word, _) if span.is_none() && word_requires_ca_file_context(word) => {
+        walk_words(&self.content.content, None, &mut |leaf| match leaf {
+            WordItem::Word(word) if span.is_none() && word_requires_ca_file_context(word) => {
                 span = Some(word.span);
             }
-            ContentLeaf::ReplacedWord(replaced) if span.is_none() => {
+            WordItem::ReplacedWord(replaced) if span.is_none() => {
                 if word_requires_ca_file_context(&replaced.word) {
                     span = Some(replaced.word.span);
                 } else {
@@ -208,7 +208,7 @@ impl MainTier {
                         .map(|word| word.span);
                 }
             }
-            ContentLeaf::Word(_, _) | ContentLeaf::ReplacedWord(_) | ContentLeaf::Separator(_) => {}
+            WordItem::Word(_) | WordItem::ReplacedWord(_) | WordItem::Separator(_) => {}
         });
 
         span
@@ -263,27 +263,27 @@ impl MainTier {
 /// (matching Python batchalign's lexer behavior).
 fn collect_wor_items_content(content: &[UtteranceContent], out: &mut Vec<WorItem>) {
     use crate::alignment::helpers::{
-        ContentLeaf, for_each_leaf, is_tag_marker_separator, word_is_alignable,
+        WordItem, walk_words, is_tag_marker_separator, counts_for_tier,
     };
 
-    for_each_leaf(content, None, &mut |leaf| match leaf {
-        ContentLeaf::Word(word, _annotations) => {
-            if word_is_alignable(word, crate::alignment::AlignmentDomain::Wor) {
+    walk_words(content, None, &mut |leaf| match leaf {
+        WordItem::Word(word) => {
+            if counts_for_tier(word, crate::alignment::TierDomain::Wor) {
                 out.push(WorItem::Word(Box::new(wor_word_from_main(word))));
             }
         }
-        ContentLeaf::ReplacedWord(replaced) => {
+        WordItem::ReplacedWord(replaced) => {
             if !replaced.replacement.words.is_empty() {
                 for word in &replaced.replacement.words {
-                    if word_is_alignable(word, crate::alignment::AlignmentDomain::Wor) {
+                    if counts_for_tier(word, crate::alignment::TierDomain::Wor) {
                         out.push(WorItem::Word(Box::new(wor_word_from_main(word))));
                     }
                 }
-            } else if word_is_alignable(&replaced.word, crate::alignment::AlignmentDomain::Wor) {
+            } else if counts_for_tier(&replaced.word, crate::alignment::TierDomain::Wor) {
                 out.push(WorItem::Word(Box::new(wor_word_from_main(&replaced.word))));
             }
         }
-        ContentLeaf::Separator(sep) => {
+        WordItem::Separator(sep) => {
             if is_tag_marker_separator(sep) {
                 out.push(WorItem::Separator {
                     text: sep.to_chat_string(),

@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "2;6",
         "corpus": "corpus",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Child",
         "speaker": "CHI",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Mother",
         "speaker": "MOT",
         "type": "id"
@@ -199,7 +203,9 @@ expression: snapshot
       "id": {
         "age": "2;6",
         "corpus": "corpus",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Child",
         "speaker": "CHI"
       },
@@ -211,7 +217,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "corpus",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Mother",
         "speaker": "MOT"
       },

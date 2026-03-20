@@ -8,7 +8,7 @@ use crate::model::{GraTier, MorTier};
 use crate::{ErrorCode, ErrorContext, ParseError, Severity, SourceLocation};
 
 use super::super::format::format_positional_mismatch;
-use super::super::helpers::{AlignableItem, to_chat_display_string as to_string};
+use super::super::helpers::{TierPosition, to_chat_display_string as to_string};
 use super::types::{GraAlignment, GraAlignmentPair};
 
 /// Align %mor tier to %gra tier
@@ -158,26 +158,26 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
     alignment
 }
 
-/// Extract %mor chunks as individual AlignableItems for diagnostic display.
+/// Extract %mor chunks as individual TierPositions for diagnostic display.
 ///
 /// Expands each `Mor` item into its constituent chunks (main + post-clitics),
 /// plus the terminator if present. Each chunk becomes one item in the output.
-fn extract_mor_chunk_items(mor: &MorTier) -> Vec<AlignableItem> {
+fn extract_mor_chunk_items(mor: &MorTier) -> Vec<TierPosition> {
     let mut items = Vec::new();
     for mor_item in mor.items.iter() {
-        items.push(AlignableItem {
+        items.push(TierPosition {
             text: to_string(&mor_item.main),
             description: None,
         });
         for clitic in &mor_item.post_clitics {
-            items.push(AlignableItem {
+            items.push(TierPosition {
                 text: to_string(clitic),
                 description: Some("post-clitic".to_string()),
             });
         }
     }
     if let Some(term) = &mor.terminator {
-        items.push(AlignableItem {
+        items.push(TierPosition {
             text: term.to_string(),
             description: Some("terminator".to_string()),
         });
@@ -185,11 +185,11 @@ fn extract_mor_chunk_items(mor: &MorTier) -> Vec<AlignableItem> {
     items
 }
 
-/// Extract %gra relations as AlignableItems for diagnostic display.
-fn extract_gra_relation_items(gra: &GraTier) -> Vec<AlignableItem> {
+/// Extract %gra relations as TierPositions for diagnostic display.
+fn extract_gra_relation_items(gra: &GraTier) -> Vec<TierPosition> {
     gra.relations
         .iter()
-        .map(|rel| AlignableItem {
+        .map(|rel| TierPosition {
             text: to_string(rel),
             description: None,
         })

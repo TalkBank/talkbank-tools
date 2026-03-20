@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "5;01.",
         "corpus": "NSCtoys",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -61,7 +63,9 @@ expression: snapshot
       "header": {
         "age": "35;00.",
         "corpus": "NSCtoys",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Father",
         "speaker": "FAT",
         "type": "id"
@@ -800,7 +804,9 @@ expression: snapshot
       "id": {
         "age": "5;01.",
         "corpus": "NSCtoys",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },
@@ -813,7 +819,9 @@ expression: snapshot
       "id": {
         "age": "35;00.",
         "corpus": "NSCtoys",
-        "language": "zho",
+        "language": [
+          "zho"
+        ],
         "role": "Father",
         "speaker": "FAT"
       },

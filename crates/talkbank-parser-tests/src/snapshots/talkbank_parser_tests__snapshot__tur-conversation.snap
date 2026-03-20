@@ -45,7 +45,9 @@ expression: snapshot
       "header": {
         "age": "9;11.",
         "corpus": "Turkish-Aksu",
-        "language": "tur",
+        "language": [
+          "tur"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -702,7 +704,9 @@ expression: snapshot
       "id": {
         "age": "9;11.",
         "corpus": "Turkish-Aksu",
-        "language": "tur",
+        "language": [
+          "tur"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },

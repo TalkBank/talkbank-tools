@@ -62,7 +62,9 @@ expression: snapshot
       "header": {
         "age": "3;0",
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "CHI",
         "type": "id"
@@ -72,7 +74,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "speaker": "MOT",
         "type": "id"
@@ -82,7 +86,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Investigator",
         "speaker": "EXP",
         "type": "id"
@@ -1098,7 +1104,9 @@ expression: snapshot
       "id": {
         "age": "3;0",
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "CHI"
       },
@@ -1110,7 +1118,9 @@ expression: snapshot
       "code": "EXP",
       "id": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Investigator",
         "speaker": "EXP"
       },
@@ -1122,7 +1132,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "corpus",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "speaker": "MOT"
       },

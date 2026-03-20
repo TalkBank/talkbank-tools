@@ -54,7 +54,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT",
@@ -66,7 +68,9 @@ expression: snapshot
       "header": {
         "age": "2;04.28",
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI",
@@ -77,7 +81,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Father",
         "sex": "male",
         "speaker": "FAT",
@@ -600,7 +606,9 @@ expression: snapshot
       "id": {
         "age": "2;04.28",
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI"
@@ -613,7 +621,9 @@ expression: snapshot
       "code": "FAT",
       "id": {
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Father",
         "sex": "male",
         "speaker": "FAT"
@@ -626,7 +636,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "BermanLong",
-        "language": "heb",
+        "language": [
+          "heb"
+        ],
         "role": "Mother",
         "sex": "female",
         "speaker": "MOT"

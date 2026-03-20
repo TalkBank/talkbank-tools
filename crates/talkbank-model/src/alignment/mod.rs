@@ -96,12 +96,12 @@ mod location_tests;
 
 // Re-export public API
 pub use gra::{GraAlignment, GraAlignmentPair, align_mor_to_gra};
-pub use helpers::{AlignmentDomain, count_alignable_until};
+pub use helpers::{TierDomain, count_tier_positions_until};
 pub use mor::{MorAlignment, align_main_to_mor};
 pub use pho::{PhoAlignment, align_main_to_pho};
 pub use sin::{SinAlignment, align_main_to_sin};
 pub use traits::{
-    AlignableContent, AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult,
+    TierCountable, AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult,
     positional_align,
 };
 pub use types::AlignmentPair;

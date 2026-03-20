@@ -35,6 +35,7 @@ enum CommandFamily {
     Cache,
     Lsp,
     Clan,
+    Debug,
 }
 
 trait CommandFamilyService {
@@ -47,6 +48,7 @@ struct CommandServices {
     cache: CacheCommandService,
     lsp: LspCommandService,
     clan: ClanCommandService,
+    debug: DebugCommandService,
 }
 
 impl CommandServices {
@@ -57,6 +59,7 @@ impl CommandServices {
             cache: CacheCommandService,
             lsp: LspCommandService,
             clan: ClanCommandService,
+            debug: DebugCommandService,
         }
     }
 
@@ -67,6 +70,7 @@ impl CommandServices {
             CommandFamily::Cache => self.cache.dispatch(command, context),
             CommandFamily::Lsp => self.lsp.dispatch(command, context),
             CommandFamily::Clan => self.clan.dispatch(command, context),
+            CommandFamily::Debug => self.debug.dispatch(command, context),
         }
     }
 }
@@ -87,6 +91,7 @@ impl Commands {
             Self::Cache { .. } => CommandFamily::Cache,
             Self::Lsp => CommandFamily::Lsp,
             Self::Clan { .. } => CommandFamily::Clan,
+            Self::Debug { .. } => CommandFamily::Debug,
         }
     }
 }
@@ -248,6 +253,30 @@ impl CommandFamilyService for ClanCommandService {
         match command {
             Commands::Clan { command } => run_clan(command),
             _ => unreachable!("clan service received unsupported command"),
+        }
+    }
+}
+
+struct DebugCommandService;
+
+impl CommandFamilyService for DebugCommandService {
+    fn dispatch(&self, command: Commands, _context: &CommandContext) {
+        match command {
+            Commands::Debug { command } => run_debug(command),
+            _ => unreachable!("debug service received unsupported command"),
+        }
+    }
+}
+
+fn run_debug(command: crate::cli::DebugCommands) {
+    use crate::cli::DebugCommands;
+    match command {
+        DebugCommands::OverlapAudit {
+            path,
+            format: _,
+            database,
+        } => {
+            super::debug::run_overlap_audit(&path, database.as_deref());
         }
     }
 }

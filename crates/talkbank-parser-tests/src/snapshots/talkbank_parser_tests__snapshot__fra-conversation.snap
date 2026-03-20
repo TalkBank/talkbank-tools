@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "1;09.06",
         "corpus": "Champaud",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Champaud",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Investigator",
         "speaker": "CHR",
         "type": "id"
@@ -738,7 +742,9 @@ expression: snapshot
       "id": {
         "age": "1;09.06",
         "corpus": "Champaud",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },
@@ -750,7 +756,9 @@ expression: snapshot
       "code": "CHR",
       "id": {
         "corpus": "Champaud",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Investigator",
         "speaker": "CHR"
       },

@@ -49,7 +49,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "ZAS",
-        "language": "rus",
+        "language": [
+          "rus"
+        ],
         "role": "Investigator",
         "speaker": "EX1",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
       "header": {
         "age": "5;10.19",
         "corpus": "ZAS",
-        "language": "rus",
+        "language": [
+          "rus"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI",
@@ -1453,7 +1457,9 @@ expression: snapshot
       "id": {
         "age": "5;10.19",
         "corpus": "ZAS",
-        "language": "rus",
+        "language": [
+          "rus"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI"
@@ -1466,7 +1472,9 @@ expression: snapshot
       "code": "EX1",
       "id": {
         "corpus": "ZAS",
-        "language": "rus",
+        "language": [
+          "rus"
+        ],
         "role": "Investigator",
         "speaker": "EX1"
       },

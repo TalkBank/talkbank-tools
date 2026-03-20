@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "1;06.29",
         "corpus": "MacWhinney",
-        "language": "hun",
+        "language": [
+          "hun"
+        ],
         "role": "Target_Child",
         "speaker": "CHI",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "MacWhinney",
-        "language": "hun",
+        "language": [
+          "hun"
+        ],
         "role": "Investigator",
         "speaker": "BRI",
         "type": "id"
@@ -746,7 +750,9 @@ expression: snapshot
       "code": "BRI",
       "id": {
         "corpus": "MacWhinney",
-        "language": "hun",
+        "language": [
+          "hun"
+        ],
         "role": "Investigator",
         "speaker": "BRI"
       },
@@ -759,7 +765,9 @@ expression: snapshot
       "id": {
         "age": "1;06.29",
         "corpus": "MacWhinney",
-        "language": "hun",
+        "language": [
+          "hun"
+        ],
         "role": "Target_Child",
         "speaker": "CHI"
       },

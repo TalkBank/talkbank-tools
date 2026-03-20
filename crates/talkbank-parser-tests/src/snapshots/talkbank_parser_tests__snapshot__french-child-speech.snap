@@ -49,7 +49,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Palasis",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Teacher",
         "speaker": "SOF",
         "type": "id"
@@ -60,7 +62,9 @@ expression: snapshot
       "header": {
         "age": "2;08.18",
         "corpus": "Palasis",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI",
@@ -878,7 +882,9 @@ expression: snapshot
       "id": {
         "age": "2;08.18",
         "corpus": "Palasis",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI"
@@ -891,7 +897,9 @@ expression: snapshot
       "code": "SOF",
       "id": {
         "corpus": "Palasis",
-        "language": "fra",
+        "language": [
+          "fra"
+        ],
         "role": "Teacher",
         "speaker": "SOF"
       },

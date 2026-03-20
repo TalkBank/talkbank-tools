@@ -51,7 +51,9 @@ expression: snapshot
         "age": "2;06.15",
         "corpus": "MacWhinney",
         "group": "TD",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "sex": "male",
         "speaker": "CHI",
@@ -62,7 +64,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "MacWhinney",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "speaker": "MOT",
         "type": "id"
@@ -373,7 +377,9 @@ expression: snapshot
         "age": "2;06.15",
         "corpus": "MacWhinney",
         "group": "TD",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "sex": "male",
         "speaker": "CHI"
@@ -386,7 +392,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "MacWhinney",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Mother",
         "speaker": "MOT"
       },

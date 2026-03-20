@@ -32,6 +32,7 @@ pub mod mlu;
 pub mod modrep;
 pub mod mor;
 pub mod mortable;
+pub mod overlap_audit;
 pub mod phonfreq;
 pub mod post;
 pub mod postlist;

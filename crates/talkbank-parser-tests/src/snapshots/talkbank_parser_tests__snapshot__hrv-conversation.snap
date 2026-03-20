@@ -50,7 +50,9 @@ expression: snapshot
       "header": {
         "age": "9;06.",
         "corpus": "Croatian",
-        "language": "hrv",
+        "language": [
+          "hrv"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI",
@@ -62,7 +64,9 @@ expression: snapshot
       "header": {
         "age": "22;",
         "corpus": "Croatian",
-        "language": "hrv",
+        "language": [
+          "hrv"
+        ],
         "role": "Investigator",
         "sex": "female",
         "speaker": "INV",
@@ -1171,7 +1175,9 @@ expression: snapshot
       "id": {
         "age": "9;06.",
         "corpus": "Croatian",
-        "language": "hrv",
+        "language": [
+          "hrv"
+        ],
         "role": "Target_Child",
         "sex": "female",
         "speaker": "CHI"
@@ -1185,7 +1191,9 @@ expression: snapshot
       "id": {
         "age": "22;",
         "corpus": "Croatian",
-        "language": "hrv",
+        "language": [
+          "hrv"
+        ],
         "role": "Investigator",
         "sex": "female",
         "speaker": "INV"

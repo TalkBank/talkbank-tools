@@ -14,6 +14,7 @@
 mod count;
 mod domain;
 pub mod overlap;
+pub mod overlap_groups;
 mod rules;
 mod walk;
 
@@ -21,7 +22,7 @@ mod walk;
 mod tests;
 
 pub use count::{
-    AlignableItem, count_alignable_content, count_alignable_until, extract_alignable_items,
+    TierPosition, count_tier_positions, count_tier_positions_until, collect_tier_items,
 };
 
 /// Render any [`WriteChat`](crate::model::WriteChat) value into owned text
@@ -34,14 +35,22 @@ pub fn to_chat_display_string<T: crate::model::WriteChat>(item: &T) -> String {
     item.write_chat(&mut s).ok();
     s
 }
-pub use domain::AlignmentDomain;
+pub use domain::TierDomain;
 pub use overlap::{
     OverlapMarkerInfo, OverlapPointVisit, OverlapRegion, OverlapRegionKind, extract_overlap_info,
-    for_each_overlap_point,
+    walk_overlap_points,
+};
+pub use overlap_groups::{
+    FileOverlapAnalysis, OverlapAnchor, OverlapGroup, PerUtteranceOverlap,
+    analyze_file_overlaps,
 };
 pub use rules::should_align_replaced_word_in_pho_sin;
 pub use rules::{
     annotations_have_alignment_ignore, is_tag_marker_separator, should_skip_group,
-    word_is_alignable,
+    counts_for_tier,
 };
-pub use walk::{ContentLeaf, ContentLeafMut, for_each_leaf, for_each_leaf_mut};
+pub use walk::{
+    ContentItem, ContentItemMut, WordItem, WordItemMut, walk_content, walk_content_mut, walk_words,
+    walk_words_mut,
+};
+

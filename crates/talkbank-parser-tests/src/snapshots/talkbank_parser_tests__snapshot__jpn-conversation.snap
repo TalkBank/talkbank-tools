@@ -55,7 +55,9 @@ expression: snapshot
       "header": {
         "age": "1;05.22",
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI",
@@ -66,7 +68,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Father",
         "speaker": "FAT",
         "type": "id"
@@ -76,7 +80,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Mother",
         "speaker": "MOT",
         "type": "id"
@@ -524,7 +530,9 @@ expression: snapshot
       "id": {
         "age": "1;05.22",
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI"
@@ -537,7 +545,9 @@ expression: snapshot
       "code": "FAT",
       "id": {
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Father",
         "speaker": "FAT"
       },
@@ -549,7 +559,9 @@ expression: snapshot
       "code": "MOT",
       "id": {
         "corpus": "Miyata",
-        "language": "jpn",
+        "language": [
+          "jpn"
+        ],
         "role": "Mother",
         "speaker": "MOT"
       },

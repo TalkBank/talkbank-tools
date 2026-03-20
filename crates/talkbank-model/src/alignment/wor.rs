@@ -4,7 +4,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Word_Timing_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-use super::helpers::{AlignableItem, AlignmentDomain};
+use super::helpers::{TierPosition, TierDomain};
 use super::traits::{AlignableTier, MismatchFormat, TierAlignmentResult, positional_align};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, WorTier};
@@ -88,7 +88,7 @@ impl TierAlignmentResult for WorAlignment {
 }
 
 impl AlignableTier for WorTier {
-    const DOMAIN: AlignmentDomain = AlignmentDomain::Wor;
+    const DOMAIN: TierDomain = TierDomain::Wor;
 
     fn tier_name(&self) -> &str {
         "%wor tier"
@@ -98,9 +98,9 @@ impl AlignableTier for WorTier {
         self.word_count()
     }
 
-    fn extract_target_items(&self) -> Vec<AlignableItem> {
+    fn extract_target_items(&self) -> Vec<TierPosition> {
         self.words()
-            .map(|w| AlignableItem {
+            .map(|w| TierPosition {
                 text: w.cleaned_text().to_string(),
                 description: None,
             })

@@ -51,7 +51,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Koge",
-        "language": "dan",
+        "language": [
+          "dan"
+        ],
         "role": "Teacher",
         "speaker": "LAR",
         "type": "id"
@@ -61,7 +63,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "Koge",
-        "language": "dan",
+        "language": [
+          "dan"
+        ],
         "role": "Student",
         "speaker": "STU",
         "type": "id"
@@ -2127,7 +2131,9 @@ expression: snapshot
       "code": "LAR",
       "id": {
         "corpus": "Koge",
-        "language": "dan",
+        "language": [
+          "dan"
+        ],
         "role": "Teacher",
         "speaker": "LAR"
       },
@@ -2139,7 +2145,9 @@ expression: snapshot
       "code": "STU",
       "id": {
         "corpus": "Koge",
-        "language": "dan",
+        "language": [
+          "dan"
+        ],
         "role": "Student",
         "speaker": "STU"
       },

@@ -4,7 +4,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Sign_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-use super::helpers::{AlignableItem, AlignmentDomain, to_chat_display_string as to_string};
+use super::helpers::{TierPosition, TierDomain, to_chat_display_string as to_string};
 use super::traits::{AlignableTier, TierAlignmentResult, positional_align};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, SinTier};
@@ -77,7 +77,7 @@ impl TierAlignmentResult for SinAlignment {
 }
 
 impl AlignableTier for SinTier {
-    const DOMAIN: AlignmentDomain = AlignmentDomain::Sin;
+    const DOMAIN: TierDomain = TierDomain::Sin;
 
     fn tier_name(&self) -> &str {
         "%sin tier"
@@ -87,10 +87,10 @@ impl AlignableTier for SinTier {
         self.len()
     }
 
-    fn extract_target_items(&self) -> Vec<AlignableItem> {
+    fn extract_target_items(&self) -> Vec<TierPosition> {
         self.items
             .iter()
-            .map(|token| AlignableItem {
+            .map(|token| TierPosition {
                 text: to_string(token),
                 description: None,
             })

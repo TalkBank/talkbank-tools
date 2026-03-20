@@ -53,7 +53,9 @@ expression: snapshot
         "age": "18;00.00",
         "corpus": "PAROLE",
         "group": "gaco1",
-        "language": "ita",
+        "language": [
+          "ita"
+        ],
         "role": "Subject",
         "sex": "female",
         "speaker": "206",
@@ -64,7 +66,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "PAROLE",
-        "language": "ita",
+        "language": [
+          "ita"
+        ],
         "role": "Investigator",
         "speaker": "INV",
         "type": "id"
@@ -1653,7 +1657,9 @@ expression: snapshot
         "age": "18;00.00",
         "corpus": "PAROLE",
         "group": "gaco1",
-        "language": "ita",
+        "language": [
+          "ita"
+        ],
         "role": "Subject",
         "sex": "female",
         "speaker": "206"
@@ -1666,7 +1672,9 @@ expression: snapshot
       "code": "INV",
       "id": {
         "corpus": "PAROLE",
-        "language": "ita",
+        "language": [
+          "ita"
+        ],
         "role": "Investigator",
         "speaker": "INV"
       },

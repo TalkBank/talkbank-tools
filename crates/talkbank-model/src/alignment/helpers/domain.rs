@@ -16,7 +16,7 @@
 /// The same utterance content can produce different alignment-unit counts for
 /// different tiers. For example, `%pho` may count pauses that `%mor` skips.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum AlignmentDomain {
+pub enum TierDomain {
     /// Morphological analysis alignment (`%mor`).
     ///
     /// Uses morpheme-oriented counting rules and skips content that has no

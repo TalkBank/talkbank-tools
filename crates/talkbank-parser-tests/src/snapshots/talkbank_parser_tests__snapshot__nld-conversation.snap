@@ -45,7 +45,9 @@ expression: snapshot
       "header": {
         "age": "1;00.24",
         "corpus": "CLPF",
-        "language": "nld",
+        "language": [
+          "nld"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI",
@@ -288,7 +290,9 @@ expression: snapshot
       "id": {
         "age": "1;00.24",
         "corpus": "CLPF",
-        "language": "nld",
+        "language": [
+          "nld"
+        ],
         "role": "Target_Child",
         "sex": "male",
         "speaker": "CHI"

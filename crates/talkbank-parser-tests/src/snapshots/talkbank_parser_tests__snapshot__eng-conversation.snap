@@ -49,7 +49,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "MDT",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "SPE",
         "type": "id"
@@ -59,7 +61,9 @@ expression: snapshot
     {
       "header": {
         "corpus": "MDT",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "GES",
         "type": "id"
@@ -990,7 +994,9 @@ expression: snapshot
       "code": "GES",
       "id": {
         "corpus": "MDT",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "GES"
       },
@@ -1002,7 +1008,9 @@ expression: snapshot
       "code": "SPE",
       "id": {
         "corpus": "MDT",
-        "language": "eng",
+        "language": [
+          "eng"
+        ],
         "role": "Child",
         "speaker": "SPE"
       },

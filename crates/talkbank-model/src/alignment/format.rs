@@ -8,7 +8,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Word_Timing_Tier>
 
-use super::helpers::AlignableItem;
+use super::helpers::TierPosition;
 use similar::{Algorithm, DiffOp};
 
 /// Format a detailed alignment mismatch message with diff-based alignment.
@@ -22,8 +22,8 @@ use similar::{Algorithm, DiffOp};
 pub fn format_alignment_mismatch(
     left_name: &str,
     right_name: &str,
-    left_items: &[AlignableItem],
-    right_items: &[AlignableItem],
+    left_items: &[TierPosition],
+    right_items: &[TierPosition],
 ) -> String {
     let left_count = left_items.len();
     let right_count = right_items.len();
@@ -144,8 +144,8 @@ enum DiffRow<'a> {
 pub fn format_positional_mismatch(
     left_name: &str,
     right_name: &str,
-    left_items: &[AlignableItem],
-    right_items: &[AlignableItem],
+    left_items: &[TierPosition],
+    right_items: &[TierPosition],
 ) -> String {
     let left_count = left_items.len();
     let right_count = right_items.len();
@@ -181,8 +181,8 @@ mod tests {
     use super::*;
 
     /// Creates a diagnostic item wrapper from plain text.
-    fn item(text: &str) -> AlignableItem {
-        AlignableItem {
+    fn item(text: &str) -> TierPosition {
+        TierPosition {
             text: text.to_string(),
             description: None,
         }

@@ -1,4 +1,4 @@
-use talkbank_model::alignment::helpers::{ContentLeaf, for_each_leaf};
+use talkbank_model::alignment::helpers::{WordItem, walk_words};
 use talkbank_model::dependent_tier::TimTier;
 use talkbank_model::{
     BracketedItem, BulletContent, BulletContentSegment, DependentTier, GraTier, MainTier, MorTier,
@@ -19,18 +19,18 @@ pub fn spoken_main_text(main: &MainTier) -> String {
 /// Render spoken lexical text from utterance content by walking the AST.
 pub fn spoken_content_text(content: &[UtteranceContent]) -> String {
     let mut words = Vec::new();
-    for_each_leaf(content, None, &mut |leaf| match leaf {
-        ContentLeaf::Word(word, _) => {
+    walk_words(content, None, &mut |leaf| match leaf {
+        WordItem::Word(word) => {
             if is_countable_word(word) {
                 words.push(word.raw_text().to_owned());
             }
         }
-        ContentLeaf::ReplacedWord(replaced) => {
+        WordItem::ReplacedWord(replaced) => {
             if is_countable_word(&replaced.word) {
                 words.push(replaced.word.raw_text().to_owned());
             }
         }
-        ContentLeaf::Separator(_) => {}
+        WordItem::Separator(_) => {}
     });
     words.join(" ")
 }
