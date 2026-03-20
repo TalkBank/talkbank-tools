@@ -13,7 +13,7 @@ previous speaker to have trailed off.
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

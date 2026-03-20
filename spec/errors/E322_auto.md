@@ -12,7 +12,7 @@ because the speaker code has no colon at all.
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

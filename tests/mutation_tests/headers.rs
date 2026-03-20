@@ -97,10 +97,9 @@ fn test_e503_missing_utf8_header() -> Result<(), TestError> {
                         e.code,
                         ErrorCode::SyntaxError
                             | ErrorCode::UnparsableContent
-                            | ErrorCode::UnparsableFileContent
                     )
                 }),
-                "Expected E303, E316, or E317 in parse errors, got: {:?}",
+                "Expected E303 or E316 in parse errors, got: {:?}",
                 parse_errors
                     .errors
                     .iter()

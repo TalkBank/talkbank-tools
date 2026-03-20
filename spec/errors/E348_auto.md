@@ -2,10 +2,13 @@
 
 ## Description
 
-An opening overlap marker (⌈ or ⌊) has no matching closing marker (⌉ or ⌋)
-within the same utterance, or a closing marker appears without a preceding
-opening marker. Reported as a warning because onset-only marking (⌈ without ⌉)
-is a legitimate CA convention.
+A closing overlap marker (⌉ or ⌋) appears without a preceding opening marker
+(⌈ or ⌊) within the same utterance. Reported as a warning.
+
+**Onset-only marking (opening without closing) is suppressed.** An opening marker
+without a matching close is standard Jeffersonian CA convention — the transcriber
+marks where overlap begins, with the end implied by the end of the shorter turn.
+See `docs/overlap-validation-audit.md` in talkbank-dev for the full investigation.
 
 Markers are matched by kind (top/bottom) and index (2-9 or unindexed).
 

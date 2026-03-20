@@ -12,7 +12,7 @@ annotations (`[<]`, `[>]`), the index must be 1–9.
 - **Category**: overlap
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

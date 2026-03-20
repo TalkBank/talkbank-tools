@@ -10,7 +10,7 @@ Invalid grammar index
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

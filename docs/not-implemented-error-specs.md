@@ -1,235 +1,129 @@
-# Not-Implemented Error Specifications: Inventory and Prioritization
+# Not-Implemented Error Specifications: Reconciled Inventory
 
 **Status:** Current
-**Last updated:** 2026-03-17
+**Last updated:** 2026-03-18
 
-## Summary
+## Reconciliation Results
 
-There are 94 error spec files in `spec/errors/` marked with `Status: not_implemented`. These represent error conditions that have been identified and specified but do not yet have working detection in the toolchain.
+A reconciliation script (`spec/errors/` vs actual code) found that **38 of
+the original 94 "not_implemented" specs were actually implemented** — the
+validation or parser code existed but the spec status was never updated.
 
-### Counts by Layer
+These 38 specs have now been updated to `Status: implemented`.
 
-| Layer      | Count |
-|------------|-------|
-| parser     | 51    |
-| validation | 43    |
+### Current Counts
 
-### Counts by Level
+| Category | Count | Notes |
+|----------|-------|-------|
+| **Actually implemented** (just fixed) | 38 | Spec status updated |
+| **Genuinely not implemented** | 43 | Enum variant exists, no checking logic |
+| **Non-standard specs** | 11 | Auto-generated, non-standard naming |
+| **Previously fixed** (E347, E348) | 2 | Fixed during overlap work |
+| **Total remaining not-implemented** | 54 | 43 genuine + 11 non-standard |
 
-| Level     | Count |
-|-----------|-------|
-| file      | 10    |
-| header    | 2     |
-| utterance | 38    |
-| word      | 14    |
-| tier      | 20    |
+## Genuinely Not Implemented (43 codes)
 
-### Counts by Type
+These have enum variants in `error_code.rs` but no validation or parser
+logic that checks for and reports them.
 
-| Type          | Count |
-|---------------|-------|
-| Error (Exxx)  | 83    |
-| Warning (Wxxx)| 5     |
-| Non-standard  | 6     |
+### Internal / Test (2) — no action needed
+| Code | Variant | Notes |
+|------|---------|-------|
+| E001 | InternalError | Internal sentinel, never reported to users |
+| E002 | TestError | Test-only sentinel |
 
-The 6 non-standard entries (Alignment, Complex, Events, Multiple, Omitted, Pauses, Tag, Terminator, NONE) are auto-generated corpus-derived specs that do not follow the standard E/W numbering convention.
+### Parser Layer — Generic Catch-Alls (7)
+These are categories where the parser currently reports E316 instead:
+| Code | Variant | Notes |
+|------|---------|-------|
+| E101 | InvalidLineFormat | Line doesn't match any known pattern |
+| E303 | SyntaxError | Generic syntax error |
+| E317 | UnparsableFileContent | File-level parse failure |
+| E318 | UnparsableDependentTier | Dependent tier parse failure |
+| E345 | UnmatchedScopedAnnotationBegin | Orphaned `[` opener |
+| E350 | GenericAnnotationError | Catch-all for annotation issues |
+| E374 | ErrorAnnotationParseError | `[*]` parse failure |
 
----
+### Parser Layer — Tier Parse Errors (6)
+| Code | Variant | Notes |
+|------|---------|-------|
+| E377 | RetraceParseError | Retrace annotation parse failure |
+| E378 | OverlapAnnotationParseError | Overlap annotation parse |
+| E380 | UnknownSeparator | Unrecognized separator character |
+| E381 | PhoParseError | %pho tier parse failure |
+| E384 | SinParseError | %sin tier parse failure |
+| E386 | TextTierParseError | Text tier parse failure |
 
-## Parser Layer (51 specs)
+### Validation — Word Level (6)
+| Code | Variant | Notes |
+|------|---------|-------|
+| E209 | EmptySpokenContent | Word has no spoken content |
+| E211 | OmissionInReplacement | Deprecated |
+| E214 | EmptyAnnotatedScopedAnnotations | Annotated word with empty annotations |
+| E251 | EmptyWordContentText | Word text segment is empty |
+| E253 | EmptyWordContent | Word has no content items |
+| E258 | ConsecutiveCommas | Two commas in a row |
 
-These errors require grammar or parser-level changes to detect. Most are cases where the parser currently reports a generic `E316` (UnparsableContent) rather than a specific error code.
+### Validation — Tier Level (13)
+| Code | Variant | Notes |
+|------|---------|-------|
+| E383 | GraParseError | %gra parse failure |
+| E385 | WordParseError | Word in tier context |
+| E388 | ReplacementOnNonword | `[:` on nonword |
+| E700 | UnexpectedTierNode | Unknown tier node type |
+| E701 | TierBeginTimeNotMonotonic | Timeline violations |
+| E703 | UnexpectedMorphologyNode | Bad %mor node |
+| E707 | MorTerminatorPresenceMismatch | %mor has/lacks terminator vs main |
+| E711 | MorEmptyContent | %mor item has no content |
+| E716 | MorTerminatorValueMismatch | %mor terminator differs from main |
+| E717 | PhoTerminatorPresenceMismatch | %pho terminator mismatch |
+| E720 | MorGraCountMismatch | %mor and %gra item counts differ |
+| E721 | GraNonSequentialIndex | %gra indices not sequential |
+| E722 | GraNoRoot | %gra has no ROOT relation |
+| E723 | GraMultipleRoots | %gra has >1 ROOT |
 
-### Parser -- File Level (10)
+### Validation — Header Level (2)
+| Code | Variant | Notes |
+|------|---------|-------|
+| E514 | MissingLanguageCode | @ID line missing language |
+| E531 | MediaFilenameMismatch | @Media filename doesn't match |
 
-| Code | Description | Category |
-|------|-------------|----------|
-| Alignment | Auto-generated from corpus | Alignment count mismatch |
-| Complex | Auto-generated from corpus | Alignment count mismatch |
-| E001 | InternalError | internal |
-| E002 | TestError | internal |
-| E003 | Auto-generated from corpus | validation |
-| E101 | Auto-generated from corpus | validation |
-| Events | Auto-generated from corpus | Alignment count mismatch |
-| Multiple | Auto-generated from corpus | Alignment count mismatch |
-| NONE | Media filename mismatch | validation |
-| Omitted | 0word | Alignment count mismatch |
-| Pauses | Auto-generated from corpus | Alignment count mismatch |
-| Tag | Auto-generated from corpus | Alignment count mismatch |
-| Terminator | Auto-generated from corpus | Alignment count mismatch |
+### Validation — Cross-Utterance (2)
+| Code | Variant | Notes |
+|------|---------|-------|
+| E366 | LongFeatureLabelMismatch | `&{l=X` / `&}l=Y` labels differ |
+| E369 | NonvocalLabelMismatch | `&{n=X` / `&}n=Y` labels differ |
 
-### Parser -- Word Level (3)
+### Warnings (3)
+| Code | Variant | Notes |
+|------|---------|-------|
+| W210 | MissingWhitespaceBeforeContent | Formatting warning |
+| W211 | MissingWhitespaceAfterOverlap | Formatting warning |
+| W724 | GraRootHeadNotSelf | %gra ROOT head index != self |
 
-| Code | Description | Category |
-|------|-------------|----------|
-| E208 | Empty replacement | validation |
-| E209 | Empty spoken content | validation |
-| E251 | Empty word content text | validation |
+## Non-Standard Specs (11)
 
-### Parser -- Utterance Level (24)
+Auto-generated from corpus mining, don't follow E/W numbering:
+`Alignment`, `Complex`, `E724_gra_circular_dependency`, `Events`,
+`Multiple`, `NONE`, `Omitted`, `Pauses`, `Tag`, `Terminator`, `W603`
 
-| Code | Description | Category |
-|------|-------------|----------|
-| E302 | Missing required node | validation |
-| E303 | Unexpected node - helper function | Parser bugs (experimental) |
-| E309 | Unexpected syntax | validation |
-| E317 | UnparsableFileContent | parser_recovery |
-| E318 | UnparsableDependentTier | parser_recovery |
-| E319 | UnparsableLine | parser_recovery |
-| E320 | UnparsableHeader | parser_recovery |
-| E321 | UnparsableUtterance | parser_recovery |
-| E322 | EmptyColon | parser_recovery |
-| E323 | Auto-generated from corpus | validation |
-| E325 | UnexpectedUtteranceChild | parser_recovery |
-| E331 | UnexpectedNodeInContext | parser_recovery |
-| E340 | UnknownBaseContent | parser_recovery |
-| E344 | Invalid scoped annotation nesting | validation |
-| E345 | Unmatched scoped annotation begin | validation |
-| E346 | Unmatched scoped annotation end | validation |
-| E350 | Replacement text empty | Word validation |
-| E369 | Nonvocal label mismatch | validation |
-| E374 | ErrorAnnotationParseError | parser_recovery |
-| E376 | Replacement parse error | Word validation |
-| E377 | RetraceParseError | parser_recovery |
-| E378 | OverlapAnnotationParseError | parser_recovery |
-| E380 | UnknownSeparator | parser_recovery |
-| E383 | Auto-generated from corpus | Dependent tier parsing |
+These need manual review to determine if they map to existing codes
+or should be deleted.
 
-### Parser -- Tier Level (7)
+## Prioritization
 
-| Code | Description | Category |
-|------|-------------|----------|
-| E381 | PhoParseError | tier_parse |
-| E384 | SinParseError | tier_parse |
-| E385 | WordParseError | tier_parse |
-| E386 | TextTierParseError | tier_parse |
-| E702 | Invalid MOR chunk format - missing \| | Dependent tier parsing |
-| E703 | Unexpected morphology node | validation |
-| E720 | Mor-Gra count mismatch | Alignment count mismatch |
-| E721 | GRA non-sequential index | validation |
-| E722 | GRA has no ROOT | validation |
-| E723 | GRA has multiple ROOTs | validation |
-| W724 | Auto-generated from corpus | validation |
+### Quick wins (validation layer, low effort)
+1. **E258** (ConsecutiveCommas) — simple content check
+2. **E514** (MissingLanguageCode) — header field check
+3. **E707/E716/E717** (terminator mismatches) — tier alignment checks
+4. **E722/E723** (GRA root checks) — structural validation
+5. **W210/W211** (whitespace warnings) — formatting checks
 
----
+### Medium effort
+6. **E720/E721** (MOR/GRA count/index) — alignment count checks
+7. **E366/E369** (label mismatches) — cross-utterance scoped markers
+8. **E531** (media filename mismatch) — requires media resolution
 
-## Validation Layer (43 specs)
-
-These are checks that could be implemented without parser or grammar changes. The parser already produces the relevant AST nodes; a validation pass just needs to inspect them.
-
-### Validation -- Word Level (11)
-
-| Code | Description | Category |
-|------|-------------|----------|
-| E211 | OmissionInReplacement | deprecated |
-| E212 | Auto-generated from corpus | Parser error |
-| E214 | Auto-generated from corpus | validation |
-| E220 | Auto-generated from corpus | Word validation |
-| E242 | Auto-generated from corpus | validation |
-| E243 | Auto-generated from corpus | validation |
-| E245 | Auto-generated from corpus | validation |
-| E246 | Auto-generated from corpus | validation |
-| E248 | Auto-generated from corpus | validation |
-| E253 | Auto-generated from corpus | validation |
-| E258 | Consecutive commas | validation |
-| W210 | Auto-generated from corpus | validation |
-| W211 | Auto-generated from corpus | validation |
-
-### Validation -- Header Level (2)
-
-| Code | Description | Category |
-|------|-------------|----------|
-| E514 | Missing language code in @ID | validation |
-| E531 | Auto-generated from corpus | validation |
-
-### Validation -- Utterance Level (17)
-
-| Code | Description | Category |
-|------|-------------|----------|
-| E310 | Auto-generated from corpus | Main tier validation |
-| E341 | UnbalancedQuotationCrossUtterance | cross_utterance |
-| E347 | Unbalanced overlap (cross-utterance) | validation |
-| E348 | Missing overlap end (intra-utterance) | validation |
-| E351 | MissingQuoteBegin | cross_utterance |
-| E352 | MissingQuoteEnd | cross_utterance |
-| E353 | MissingOtherCompletionContext | cross_utterance |
-| E354 | MissingTrailingOffTerminator | cross_utterance |
-| E355 | InterleavedScopedAnnotations | cross_utterance |
-| E356 | UnmatchedUnderlineBegin | underline_balance |
-| E357 | UnmatchedUnderlineEnd | underline_balance |
-| E365 | Auto-generated from corpus | validation |
-| E366 | Long feature label mismatch | validation |
-| E373 | InvalidOverlapIndex | overlap |
-| E388 | Auto-generated from corpus | validation |
-
-### Validation -- Tier Level (13)
-
-| Code | Description | Category |
-|------|-------------|----------|
-| E600 | Tier alignment skipped due to parse errors | validation |
-| E700 | Unexpected tier node | validation |
-| E701 | Auto-generated from corpus | Dependent tier parsing |
-| E704 | Speaker self-overlap -- overlapping overlap markers | validation |
-| E707 | Mor terminator presence mismatch | Alignment terminator mismatch |
-| E708 | GRA relation missing index | Dependent tier parsing |
-| E709 | Invalid grammar index | validation |
-| E711 | Mor empty content | Mor content validation |
-| E716 | Mor terminator value mismatch | Alignment terminator mismatch |
-| E717 | Pho terminator presence mismatch | Alignment terminator mismatch |
-| E724 | GRA has circular dependency | validation |
-| W602 | Auto-generated from corpus | Warnings |
-| W603 | Auto-generated from corpus | Warnings |
-
----
-
-## Prioritization Notes
-
-### Parser Layer (51 specs) -- Lower Priority
-
-The majority of parser-layer specs are E316 catch-all cases: the parser currently reports a generic `UnparsableContent` error rather than a specific error code. Implementing these individually would require grammar changes (new tree-sitter rules or error recovery nodes) or parser-side logic to distinguish between different kinds of parse failures. This is lower priority until parser error specificity becomes an explicit goal.
-
-Notable subgroups within the parser layer:
-
-- **Parser recovery codes** (E317-E325, E331, E340, E374, E377, E378, E380): These represent different flavors of unparsable content. The parser currently lumps most of these into E316. Splitting them out would improve error messages but requires significant parser work.
-- **Tier parse errors** (E381, E384-E386): Errors in parsing %pho, %sin, %wor, and text tiers. These use the direct parser (chumsky) and may already produce partial diagnostics.
-- **GRA structural validation at parser layer** (E720-E723, W724): These check %gra tier structure (count mismatches, index sequencing, ROOT presence). Despite being classified as parser-layer, some of these could potentially be reclassified as validation-layer checks.
-
-### Validation Layer (43 specs) -- Higher Priority
-
-Validation-layer specs represent checks that can be implemented without parser changes -- the AST already contains the necessary information, and a validation pass just needs to inspect it. These are the most cost-effective to implement.
-
-Key subgroups:
-
-- **Cross-utterance validation** (E341, E347, E351-E355): Checks that span multiple utterances (quotation balance, overlap pairing, trailing-off context). These require the validator to maintain state across utterances, which is already supported by the cross-utterance validation infrastructure.
-- **Overlap validation** (E347, E348, E373, E704): Overlap-related checks. **E347 is now partially implemented** (cross-utterance overlap balancing was added as part of the two-pass UTR overlap work). **E348 is fully implemented** (intra-utterance overlap pairing warnings). E373 (invalid overlap index) and E704 (speaker self-overlap) remain unimplemented.
-- **Word-level validation** (E211-E258, W210, W211): Various word content checks. Many are auto-generated from corpus and need spec refinement before implementation. E211 (OmissionInReplacement) is marked deprecated.
-- **Underline balance** (E356, E357): Checks for unmatched underline begin/end markers. Similar in structure to overlap balance checks.
-
-### Tier-Level Codes (20 specs) -- Important for Data Quality
-
-Twenty specs target tier-level validation, split between parser (7) and validation (13) layers. Many involve %mor/%gra alignment and structural validation:
-
-- **Alignment terminator mismatches** (E707, E716, E717): Check that %mor and %pho tier terminators match the main tier. These are important for data integrity in corpora that include morphological and phonological annotations.
-- **GRA structural checks** (E708, E709, E720-E724, W724): Index validity, ROOT presence/uniqueness, circular dependencies, count mismatches. Critical for any downstream tool that consumes %gra tiers.
-- **Mor content validation** (E711): Empty morphology content. Straightforward to implement.
-
-### Temporal / E700-Range Codes (11 specs)
-
-The E700-E724 range contains tier validation codes. Several may be blocked by missing infrastructure:
-
-- E700 (unexpected tier node) and E701 are general tier validation.
-- E702-E703 are MOR parsing structural checks.
-- E707, E716, E717 are terminator alignment checks that depend on the alignment infrastructure being able to compare main tier and dependent tier terminators.
-- E720-E724 are GRA-specific structural validations.
-
-### Recommended Implementation Order
-
-1. **E348** -- Already fully implemented; update spec status.
-2. **E347** -- Partially implemented (cross-utterance); update spec to reflect current coverage.
-3. **Validation-layer word checks** (E242, E243, E245, E246, E248, E253, E258) -- Straightforward AST inspection.
-4. **Cross-utterance checks** (E341, E351-E355) -- Infrastructure exists; similar to overlap balancing.
-5. **Underline balance** (E356, E357) -- Pattern matches existing overlap balance code.
-6. **Tier alignment terminators** (E707, E716, E717) -- Important for data quality.
-7. **GRA structural** (E708, E709, E720-E724) -- Important for %gra consumers.
-8. **Header validation** (E514, E531) -- Low-hanging fruit.
-9. **Parser recovery specificity** (E317-E325) -- Only when error message quality becomes a priority.
+### Parser layer (higher effort)
+9. **E317-E318** (unparsable content specificity) — parser error recovery
+10. **E381/E384/E386** (tier parse errors) — direct parser diagnostics

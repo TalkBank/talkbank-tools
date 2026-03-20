@@ -10,7 +10,7 @@ Auto-generated from corpus
 - **Category**: validation
 - **Level**: word
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

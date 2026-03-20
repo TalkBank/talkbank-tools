@@ -12,7 +12,7 @@ utterance in the file. The `++` linker requires a preceding utterance
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

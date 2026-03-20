@@ -11,7 +11,7 @@ itself, not in the CHAT input. It cannot be triggered by any CHAT file.
 - **Category**: internal
 - **Level**: file
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Notes
 

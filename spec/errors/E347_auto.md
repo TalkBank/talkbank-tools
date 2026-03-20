@@ -2,10 +2,15 @@
 
 ## Description
 
-A top overlap region (⌈...⌉) on one speaker has no matching bottom overlap
-region (⌊...⌋) from a different speaker within the nearby utterances, or vice
-versa. Reported as a warning because onset-only marking is a legitimate CA
-convention in some corpora.
+An **indexed** top overlap region (⌈2...⌉2) on one speaker has no matching
+indexed bottom overlap region (⌊2...⌋2) from a different speaker within the
+nearby utterances, or vice versa. Reported as a warning.
+
+**Unindexed markers are suppressed.** Multi-party overlaps without numeric indices
+are inherently ambiguous — the machine matcher cannot determine which unindexed
+top corresponds to which unindexed bottom when multiple speakers overlap
+simultaneously. See `docs/overlap-validation-audit.md` in talkbank-dev for the
+full investigation (SBCSAE, CLAPI, Forrester examples).
 
 ## Metadata
 

@@ -52,6 +52,19 @@ impl LanguageCodes {
     }
 }
 
+impl crate::model::WriteChat for LanguageCodes {
+    /// Writes comma-separated language codes: `eng, spa`.
+    fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
+        for (i, code) in self.0.iter().enumerate() {
+            if i > 0 {
+                w.write_str(", ")?;
+            }
+            code.write_chat(w)?;
+        }
+        Ok(())
+    }
+}
+
 impl Deref for LanguageCodes {
     type Target = Vec<LanguageCode>;
 

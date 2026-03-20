@@ -10,7 +10,7 @@ Auto-generated from corpus
 - **Category**: Warnings
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

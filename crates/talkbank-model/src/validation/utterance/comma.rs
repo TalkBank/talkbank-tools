@@ -1,9 +1,10 @@
-//! E259: Comma after non-spoken content validation.
+//! Comma validation: E258 (consecutive commas) and E259 (comma after non-spoken).
 //!
 //! References:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Words>
 
+use crate::alignment::helpers::{ContentItem, walk_content};
 use crate::model::{BracketedItem, Separator, Utterance, UtteranceContent, Word};
 use crate::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
 
@@ -138,4 +139,40 @@ pub(crate) fn check_comma_after_non_spoken(utterance: &Utterance, errors: &impl 
             );
         }
     }
+}
+
+/// E258: Validate that no two comma separators appear consecutively in
+/// document order.
+///
+/// Uses [`walk_content`] to traverse all content including inside groups,
+/// so `hello , <, world> [= yes] .` is caught — the comma before the
+/// group and the comma inside the group are consecutive in document order.
+pub(crate) fn check_consecutive_commas(utterance: &Utterance, errors: &impl ErrorSink) {
+    let mut prev_comma_span: Option<crate::Span> = None;
+
+    walk_content(&utterance.main.content.content.0, None, &mut |item| {
+        match item {
+            ContentItem::Separator(Separator::Comma { span }) => {
+                if let Some(_prev_span) = prev_comma_span {
+                    errors.report(
+                        ParseError::new(
+                            ErrorCode::ConsecutiveCommas,
+                            Severity::Error,
+                            SourceLocation::new(*span),
+                            ErrorContext::new(",,", *span, ","),
+                            "Consecutive commas in utterance",
+                        )
+                        .with_suggestion(
+                            "Use a single comma, or replace ,, with the tag marker \u{201E} (U+201E)",
+                        ),
+                    );
+                }
+                prev_comma_span = Some(*span);
+            }
+            // Any non-comma content item resets the consecutive check.
+            _ => {
+                prev_comma_span = None;
+            }
+        }
+    });
 }

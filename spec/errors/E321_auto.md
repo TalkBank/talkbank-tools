@@ -13,7 +13,7 @@ patterns (missing form type, empty replacement, unknown annotation).
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

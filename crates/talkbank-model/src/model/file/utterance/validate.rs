@@ -63,6 +63,9 @@ impl Validate for Utterance {
         // E348: Validate overlap marker pairing
         crate::validation::utterance::check_overlap_markers(self, context, errors);
 
+        // E258: Validate no consecutive commas in document order
+        crate::validation::utterance::check_consecutive_commas(self, errors);
+
         // E259: Validate commas are not preceded by non-spoken content
         crate::validation::utterance::check_comma_after_non_spoken(self, errors);
 

@@ -13,7 +13,7 @@ where an unusual node type ends up inside an utterance subtree.
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 
@@ -41,4 +41,4 @@ as a child of the utterance node rather than as a separate line.
 - This error depends on tree-sitter's error recovery placing unusual nodes
   inside an utterance subtree. The exact trigger depends on the grammar's
   recovery behavior, making it difficult to trigger deterministically.
-- Status is `not_implemented` because the trigger depends on parser internals.
+- Status is `implemented` because the trigger depends on parser internals.

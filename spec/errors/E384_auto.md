@@ -11,7 +11,7 @@ The sentence-internal tier content does not match the expected format.
 - **Category**: tier\_parse
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

@@ -10,7 +10,7 @@ Empty replacement
 - **Category**: validation
 - **Level**: word
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

@@ -10,7 +10,7 @@ Invalid MOR chunk format - missing |
 - **Category**: Dependent tier parsing
 - **Level**: tier
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example
 

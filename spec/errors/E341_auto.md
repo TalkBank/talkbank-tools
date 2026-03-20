@@ -12,7 +12,7 @@ from the same speaker does not begin with a quotation precedes linker
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

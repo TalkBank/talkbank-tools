@@ -11,7 +11,7 @@ verify error handling plumbing. Never emitted in production.
 - **Category**: internal
 - **Level**: file
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Notes
 

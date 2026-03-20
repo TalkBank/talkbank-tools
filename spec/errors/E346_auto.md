@@ -10,7 +10,7 @@ Unmatched scoped annotation end
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

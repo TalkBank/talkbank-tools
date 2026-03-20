@@ -10,7 +10,7 @@ GRA relation missing index
 - **Category**: Dependent tier parsing
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

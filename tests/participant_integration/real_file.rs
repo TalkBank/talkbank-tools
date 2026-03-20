@@ -76,17 +76,17 @@ fn test_parse_real_chat_file_participants() -> Result<(), TestError> {
                 parser.name()
             );
             assert!(
-                !participant.id.language.to_string().is_empty(),
+                !participant.id.language.is_empty(),
                 "[{}] Participant language should not be empty",
                 parser.name()
             );
 
             eprintln!(
-                "[{}] Participant {}: role={}, language={}, age={:?}",
+                "[{}] Participant {}: role={}, languages={:?}, age={:?}",
                 parser.name(),
                 participant.code,
                 participant.role,
-                participant.language(),
+                participant.languages().0.iter().map(|c| c.as_str()).collect::<Vec<_>>(),
                 participant.age()
             );
         }

@@ -16,7 +16,7 @@ checks are skipped, producing two E600 warnings for the same utterance.
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1 — CLAN scope marker in %mor
 

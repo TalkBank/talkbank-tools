@@ -2036,16 +2036,6 @@
           "type": "string"
         },
         {
-          "const": "E317",
-          "description": "File-level content could not be parsed.",
-          "type": "string"
-        },
-        {
-          "const": "E318",
-          "description": "Dependent tier content could not be parsed.",
-          "type": "string"
-        },
-        {
           "const": "E319",
           "description": "Line could not be parsed.",
           "type": "string"
@@ -2133,11 +2123,6 @@
         {
           "const": "E348",
           "description": "Missing overlap end marker.",
-          "type": "string"
-        },
-        {
-          "const": "E350",
-          "description": "Generic annotation error.",
           "type": "string"
         },
         {
@@ -2256,11 +2241,6 @@
           "type": "string"
         },
         {
-          "const": "E374",
-          "description": "Failed to parse error annotation content.",
-          "type": "string"
-        },
-        {
           "const": "E375",
           "description": "Failed to parse scoped annotation content.",
           "type": "string"
@@ -2268,21 +2248,6 @@
         {
           "const": "E376",
           "description": "Failed to parse replacement annotation content.",
-          "type": "string"
-        },
-        {
-          "const": "E377",
-          "description": "Failed to parse retrace annotation content.",
-          "type": "string"
-        },
-        {
-          "const": "E378",
-          "description": "Failed to parse overlap annotation content.",
-          "type": "string"
-        },
-        {
-          "const": "E380",
-          "description": "Unknown separator character.",
           "type": "string"
         },
         {
@@ -2303,16 +2268,6 @@
         {
           "const": "E384",
           "description": "Failed to parse `%sin` tier content.",
-          "type": "string"
-        },
-        {
-          "const": "E385",
-          "description": "Failed to parse word content.",
-          "type": "string"
-        },
-        {
-          "const": "E386",
-          "description": "Failed to parse text tier content.",
           "type": "string"
         },
         {
@@ -2368,11 +2323,6 @@
         {
           "const": "E210",
           "description": "Illegal replacement for fragment (deprecated: use E387).",
-          "type": "string"
-        },
-        {
-          "const": "E211",
-          "description": "Omission found in replacement (deprecated: use E390).",
           "type": "string"
         },
         {
@@ -2563,11 +2513,6 @@
         {
           "const": "E513",
           "description": "Empty participant role in `@Participants`.",
-          "type": "string"
-        },
-        {
-          "const": "E514",
-          "description": "Missing language code in `@Languages` or `@ID`.",
           "type": "string"
         },
         {
@@ -2823,11 +2768,6 @@
         {
           "const": "E716",
           "description": "`%mor` tier terminator value does not match main tier.",
-          "type": "string"
-        },
-        {
-          "const": "E717",
-          "description": "`%pho` tier terminator presence does not match main tier.",
           "type": "string"
         },
         {
@@ -3251,7 +3191,7 @@
       "type": "array"
     },
     "GraTier": {
-      "description": "Grammatical relations tier (%gra).\n\nContains dependency syntax annotations using Universal Dependencies relations.\nEach relation specifies how morphological chunks in the %mor tier relate syntactically.\n\n# Alignment with %mor\n\nThe %gra tier aligns with **morphological chunks**, not individual %mor items:\n- Clitics in %mor (e.g., `pro|it~v|be`) produce **two** %gra relations\n- Non-clitic words produce **one** %gra relation each\n- Terminators get their own %gra relation (typically PUNCT)\n\n# Dependency Relations\n\nUses Universal Dependencies relation types including:\n- **ROOT**: Main predicate of sentence (head = 0)\n- **SUBJ**: Subject\n- **OBJ**: Direct object\n- **IOBJ**: Indirect object\n- **DET**: Determiner\n- **ADJ**: Adjective modifier\n- **ADV**: Adverb modifier\n- **PUNCT**: Punctuation\n- And many more...\n\n# CHAT Manual Reference\n\n- [Grammatical Relations Tier](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [MOR Manual - GRA Section](https://talkbank.org/manuals/MOR.html)\n- [Universal Dependencies](https://universaldependencies.org/)\n\n# Example\n\n```\nuse talkbank_model::model::{GraTier, GraTierType, GrammaticalRelation};\n\n// Create a %gra tier\nlet gra = GraTier::new_gra(vec![\n    GrammaticalRelation::new(1, 2, \"SUBJ\"),   // Word 1 is subject of word 2\n    GrammaticalRelation::new(2, 0, \"ROOT\"),   // Word 2 is root\n    GrammaticalRelation::new(3, 2, \"OBJ\"),    // Word 3 is object of word 2\n    GrammaticalRelation::new(4, 2, \"PUNCT\"),  // Terminator\n]);\n```",
+      "description": "Grammatical relations tier (%gra).\n\nContains dependency syntax annotations using Universal Dependencies relations.\nEach relation specifies how morphological chunks in the %mor tier relate syntactically.\n\n# Alignment with %mor\n\nThe %gra tier aligns with **morphological chunks**, not individual %mor items:\n- Clitics in %mor (e.g., `pro|it~v|be`) produce **two** %gra relations\n- Non-clitic words produce **one** %gra relation each\n- Terminators get their own %gra relation (typically PUNCT)\n\n# Dependency Relations\n\nUses Universal Dependencies relation types including:\n- **ROOT**: Main predicate of sentence (head = 0)\n- **SUBJ**: Subject\n- **OBJ**: Direct object\n- **IOBJ**: Indirect object\n- **DET**: Determiner\n- **ADJ**: Adjective modifier\n- **ADV**: Adverb modifier\n- **PUNCT**: Punctuation\n- And many more...\n\n# CHAT Manual Reference\n\n- [Grammatical Relations Tier](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [Universal Dependencies](https://universaldependencies.org/)\n\nNote: The legacy CLAN MOR manual has been removed from the TalkBank\nwebsite. GRA now follows UD-oriented conventions documented in the\nCHAT manual.\n\n# Example\n\n```\nuse talkbank_model::model::{GraTier, GraTierType, GrammaticalRelation};\n\n// Create a %gra tier\nlet gra = GraTier::new_gra(vec![\n    GrammaticalRelation::new(1, 2, \"SUBJ\"),   // Word 1 is subject of word 2\n    GrammaticalRelation::new(2, 0, \"ROOT\"),   // Word 2 is root\n    GrammaticalRelation::new(3, 2, \"OBJ\"),    // Word 3 is object of word 2\n    GrammaticalRelation::new(4, 2, \"PUNCT\"),  // Terminator\n]);\n```",
       "properties": {
         "relations": {
           "$ref": "#/$defs/GraRelations",
@@ -3269,7 +3209,7 @@
       "type": "object"
     },
     "GraTierType": {
-      "description": "Type of grammatical relations tier.\n\nThis enum currently has one variant because CHAT defines `%gra` as a single\nstandardized dependency tier. Keeping it explicit still helps generic code\nshare tier-prefix logic with other dependent-tier families.\n\n# Alignment\n\nThe %gra tier aligns with morphological **chunks** in the %mor tier\n(including clitics).\n\n# Universal Dependencies Format\n\n```text\nword_index|head_index|relation_type\n```\n\n# CHAT Format Example\n\n```text\n*CHI: I eat cookies .\n%mor: pro:sub|I v|eat n|cookie-PL .\n%gra: 1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n```\n\n# References\n\n- [Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [MOR Manual](https://talkbank.org/manuals/MOR.html)\n- [Universal Dependencies](https://universaldependencies.org/)",
+      "description": "Type of grammatical relations tier.\n\nThis enum currently has one variant because CHAT defines `%gra` as a single\nstandardized dependency tier. Keeping it explicit still helps generic code\nshare tier-prefix logic with other dependent-tier families.\n\n# Alignment\n\nThe %gra tier aligns with morphological **chunks** in the %mor tier\n(including clitics).\n\n# Universal Dependencies Format\n\n```text\nword_index|head_index|relation_type\n```\n\n# CHAT Format Example\n\n```text\n*CHI: I eat cookies .\n%mor: pro:sub|I v|eat n|cookie-PL .\n%gra: 1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n```\n\n# References\n\n- [Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [Universal Dependencies](https://universaldependencies.org/)",
       "oneOf": [
         {
           "const": "Gra",
@@ -3279,7 +3219,7 @@
       ]
     },
     "GrammaticalRelation": {
-      "description": "Single grammatical relation in Universal Dependencies format.\n\nRepresents one edge in the dependency tree, specifying how a word relates to\nits syntactic parent (head). Each relation encodes the word's position, its\nparent's position, and the type of dependency relationship.\n\n# Format\n\nThe CHAT format is: `index|head|relation`\n\nWhere:\n- **index**: Position of the dependent word (1-indexed)\n- **head**: Position of the parent word (0 = ROOT)\n- **relation**: Universal Dependencies relation type\n\n# Index Numbering\n\nIndices are **1-indexed** (not 0-indexed):\n- First word = 1\n- Second word = 2\n- Third word = 3\n- ROOT (sentence head) = 0\n\n# CHAT Format Examples\n\nSubject relation:\n```text\n1|2|SUBJ\n```\nWord 1 is the subject of word 2.\n\nRoot relation (head=0, virtual root node):\n```text\n2|0|ROOT\n```\nWord 2 is the root of the sentence. Head=0 means it depends on the virtual root.\n\nObject relation:\n```text\n3|2|OBJ\n```\nWord 3 is the object of word 2.\n\nComplete example:\n```text\n*CHI: the dog barks .\n%mor: det:art|the n|dog v|bark-3S .\n%gra: 1|2|DET 2|3|SUBJ 3|0|ROOT 4|3|PUNCT\n```\n\nDependency tree visualization:\n```text\n       barks (3, ROOT)\n      /    |    \\\n     /     |     \\\n  dog(2) SUBJ   .(4)\n   |            PUNCT\n the(1)\n DET\n```\n\n# References\n\n- [Universal Dependencies](https://universaldependencies.org/)\n- [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [MOR Manual - GRA Section](https://talkbank.org/manuals/MOR.html)",
+      "description": "Single grammatical relation in Universal Dependencies format.\n\nRepresents one edge in the dependency tree, specifying how a word relates to\nits syntactic parent (head). Each relation encodes the word's position, its\nparent's position, and the type of dependency relationship.\n\n# Format\n\nThe CHAT format is: `index|head|relation`\n\nWhere:\n- **index**: Position of the dependent word (1-indexed)\n- **head**: Position of the parent word (0 = ROOT)\n- **relation**: Universal Dependencies relation type\n\n# Index Numbering\n\nIndices are **1-indexed** (not 0-indexed):\n- First word = 1\n- Second word = 2\n- Third word = 3\n- ROOT (sentence head) = 0\n\n# CHAT Format Examples\n\nSubject relation:\n```text\n1|2|SUBJ\n```\nWord 1 is the subject of word 2.\n\nRoot relation (head=0, virtual root node):\n```text\n2|0|ROOT\n```\nWord 2 is the root of the sentence. Head=0 means it depends on the virtual root.\n\nObject relation:\n```text\n3|2|OBJ\n```\nWord 3 is the object of word 2.\n\nComplete example:\n```text\n*CHI: the dog barks .\n%mor: det:art|the n|dog v|bark-3S .\n%gra: 1|2|DET 2|3|SUBJ 3|0|ROOT 4|3|PUNCT\n```\n\nDependency tree visualization:\n```text\n       barks (3, ROOT)\n      /    |    \\\n     /     |     \\\n  dog(2) SUBJ   .(4)\n   |            PUNCT\n the(1)\n DET\n```\n\n# References\n\n- [Universal Dependencies](https://universaldependencies.org/)\n- [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)",
       "properties": {
         "head": {
           "description": "Head index (index of parent word, 0 = ROOT)\n\n- 0 means this word is the root of the sentence\n- Otherwise, points to the index of the parent word",
@@ -3306,7 +3246,7 @@
       "type": "object"
     },
     "GrammaticalRelationType": {
-      "description": "Grammatical relation type (Universal Dependencies).\n\nRelation labels from the Universal Dependencies framework describing syntactic\nrelationships between words in a sentence.\n\nThe model intentionally treats relation labels as open-text tokens: it\npreserves corpus-provided values as-is and leaves strict vocabulary\npolicy to higher-level validation.\n\n# Common Universal Dependencies Relations\n\n**Core arguments:**\n- **ROOT**: Root of the sentence (head = 0)\n- **SUBJ**: Subject (nominal subject)\n- **OBJ**: Direct object\n- **IOBJ**: Indirect object\n- **CSUBJ**: Clausal subject\n- **CCOMP**: Clausal complement\n\n**Nominal dependents:**\n- **DET**: Determiner (the, a, this)\n- **AMOD**: Adjectival modifier\n- **NMOD**: Nominal modifier\n- **NUM**: Numeric modifier\n- **POSS**: Possessive modifier\n\n**Function words:**\n- **AUX**: Auxiliary verb\n- **CASE**: Case marking (prepositions, postpositions)\n- **MARK**: Marker (subordinating conjunction)\n- **PUNCT**: Punctuation\n\n**Other:**\n- **ADV**: Adverbial modifier\n- **CONJ**: Conjunct\n- **CC**: Coordinating conjunction\n- **NEG**: Negation\n\n# CHAT Format Examples\n\n```text\n*CHI: I eat cookies .\n%mor: pro:sub|I v|eat det:art|the n|cookie-PL .\n%gra: 1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n```\n\n# References\n\n- [Universal Dependencies Relations](https://universaldependencies.org/u/dep/)\n- [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)\n- [MOR Manual - GRA Section](https://talkbank.org/manuals/MOR.html)",
+      "description": "Grammatical relation type (Universal Dependencies).\n\nRelation labels from the Universal Dependencies framework describing syntactic\nrelationships between words in a sentence.\n\nThe model intentionally treats relation labels as open-text tokens: it\npreserves corpus-provided values as-is and leaves strict vocabulary\npolicy to higher-level validation.\n\n# Common Universal Dependencies Relations\n\n**Core arguments:**\n- **ROOT**: Root of the sentence (head = 0)\n- **SUBJ**: Subject (nominal subject)\n- **OBJ**: Direct object\n- **IOBJ**: Indirect object\n- **CSUBJ**: Clausal subject\n- **CCOMP**: Clausal complement\n\n**Nominal dependents:**\n- **DET**: Determiner (the, a, this)\n- **AMOD**: Adjectival modifier\n- **NMOD**: Nominal modifier\n- **NUM**: Numeric modifier\n- **POSS**: Possessive modifier\n\n**Function words:**\n- **AUX**: Auxiliary verb\n- **CASE**: Case marking (prepositions, postpositions)\n- **MARK**: Marker (subordinating conjunction)\n- **PUNCT**: Punctuation\n\n**Other:**\n- **ADV**: Adverbial modifier\n- **CONJ**: Conjunct\n- **CC**: Coordinating conjunction\n- **NEG**: Negation\n\n# CHAT Format Examples\n\n```text\n*CHI: I eat cookies .\n%mor: pro:sub|I v|eat det:art|the n|cookie-PL .\n%gra: 1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n```\n\n# References\n\n- [Universal Dependencies Relations](https://universaldependencies.org/u/dep/)\n- [CHAT Manual: Grammatical Relations](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)",
       "type": "string"
     },
     "Group": {
@@ -4148,8 +4088,8 @@
           "description": "Optional group label."
         },
         "language": {
-          "$ref": "#/$defs/LanguageCode",
-          "description": "Required transcript language code for this participant record."
+          "$ref": "#/$defs/LanguageCodes",
+          "description": "Language codes for this participant (same format as `@Languages`).\nMay contain multiple comma-separated codes for multilingual speakers."
         },
         "role": {
           "$ref": "#/$defs/ParticipantRole",

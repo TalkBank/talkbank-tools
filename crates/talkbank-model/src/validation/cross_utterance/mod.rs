@@ -66,7 +66,6 @@ mod scoped_markers;
 #[cfg(test)]
 mod tests;
 
-use crate::alignment::helpers::overlap::{OverlapRegionKind, extract_overlap_info};
 use crate::model::{OverlapPointKind, Terminator, Utterance, UtteranceContent};
 use crate::{ErrorCollector, ErrorSink, ParseError};
 use helpers::has_quoted_linker;
@@ -223,120 +222,185 @@ fn has_overlap_kind(
 
 /// Validate cross-utterance overlap balance (E347).
 ///
-/// For each top region (⌈...⌉) on utterance N by speaker A, checks that
-/// there is a matching bottom region (⌊...⌋) with the same index on a
-/// nearby utterance by a *different* speaker. Similarly, orphaned bottom
-/// regions without a matching top region are flagged.
-///
-/// The search window is limited to ±5 utterances to keep this O(n) and
-/// to avoid false matches across distant parts of the transcript.
+/// Uses [`analyze_file_overlaps`] for proper 1:N matching — one top region
+/// from speaker A can be matched by bottom regions from speakers B, C, etc.
+/// Only orphaned tops (no matching bottom from any speaker) and orphaned
+/// bottoms (no matching top from any speaker) are reported.
 fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl ErrorSink) {
     use crate::{ErrorCode, ErrorContext, Severity, SourceLocation};
 
-    // Collect per-utterance overlap regions with speaker info.
-    struct UttRegionInfo {
-        speaker: String,
-        top_regions: Vec<Option<crate::model::OverlapIndex>>,
-        bottom_regions: Vec<Option<crate::model::OverlapIndex>>,
-        span: crate::Span,
-    }
+    // Convert &[Utterance] to &[Line] for analyze_file_overlaps.
+    // We need Line references, but utterances is &[Utterance]. Build Line
+    // wrappers on the fly — the analysis only reads, doesn't mutate.
+    //
+    // Since analyze_file_overlaps takes &[Line], we need to construct Lines.
+    // But we only have &[Utterance]. Re-extract directly instead.
+    let analysis = {
+        use crate::alignment::helpers::overlap::{OverlapRegionKind, extract_overlap_info};
+        use crate::alignment::helpers::overlap_groups::{
+            FileOverlapAnalysis, OverlapAnchor, OverlapGroup, PerUtteranceOverlap,
+        };
 
-    let mut utt_infos: Vec<UttRegionInfo> = Vec::new();
-    for utt in utterances {
-        let info = extract_overlap_info(&utt.main.content.content.0);
-        let mut top_indices = Vec::new();
-        let mut bottom_indices = Vec::new();
-        for region in &info.regions {
-            if region.has_begin() {
-                match region.kind {
-                    OverlapRegionKind::Top => top_indices.push(region.index),
-                    OverlapRegionKind::Bottom => bottom_indices.push(region.index),
-                }
-            }
-        }
-        if !top_indices.is_empty() || !bottom_indices.is_empty() {
-            utt_infos.push(UttRegionInfo {
+        // Replicate the core logic of analyze_file_overlaps on &[Utterance]
+        let mut per_utterance: Vec<PerUtteranceOverlap> = Vec::new();
+        for utt in utterances {
+            let info = extract_overlap_info(&utt.main.content.content.0);
+            let bullet = utt
+                .main
+                .content
+                .bullet
+                .as_ref()
+                .map(|b| (b.timing.start_ms, b.timing.end_ms));
+            per_utterance.push(PerUtteranceOverlap {
+                utterance_index: per_utterance.len(),
                 speaker: utt.main.speaker.to_string(),
-                top_regions: top_indices,
-                bottom_regions: bottom_indices,
-                span: utt.main.span,
+                info,
+                bullet,
             });
         }
-    }
 
-    // For each top region, search nearby utterances for a matching bottom
-    // region from a different speaker with the same index.
-    const SEARCH_WINDOW: usize = 5;
-
-    for (i, info) in utt_infos.iter().enumerate() {
-        'top_loop: for top_idx in &info.top_regions {
-            // Search forward for a matching bottom region from different speaker.
-            for candidate in utt_infos.iter().skip(i + 1).take(SEARCH_WINDOW) {
-                if candidate.speaker == info.speaker {
-                    continue; // Same speaker — not a cross-speaker match.
-                }
-                if candidate.bottom_regions.contains(top_idx) {
-                    continue 'top_loop; // Found a match.
+        let mut tops: Vec<OverlapAnchor> = Vec::new();
+        let mut bottoms: Vec<OverlapAnchor> = Vec::new();
+        for pu in &per_utterance {
+            for region in &pu.info.regions {
+                let anchor = OverlapAnchor {
+                    utterance_index: pu.utterance_index,
+                    speaker: pu.speaker.clone(),
+                    region: region.clone(),
+                    bullet: pu.bullet,
+                };
+                match region.kind {
+                    OverlapRegionKind::Top if region.has_begin() => tops.push(anchor),
+                    OverlapRegionKind::Bottom if region.has_begin() => bottoms.push(anchor),
+                    _ => {}
                 }
             }
-            // No matching bottom region found.
-            let index_label = match top_idx {
-                Some(idx) => format!(" (index {})", idx.0),
-                None => String::new(),
-            };
-            errors.report(
-                ParseError::new(
-                    ErrorCode::UnbalancedOverlap,
-                    Severity::Warning,
-                    SourceLocation::new(info.span),
-                    ErrorContext::new(&info.speaker, info.span, &info.speaker),
-                    format!(
-                        "Top overlap ⌈{index_label} on speaker '{}' has no matching \
-                         bottom overlap ⌊ from a different speaker within {} utterances",
-                        info.speaker, SEARCH_WINDOW
-                    ),
-                )
-                .with_suggestion(
-                    "Check that the overlapping speaker's utterance has a matching ⌊ marker \
-                     with the same index",
-                ),
-            );
         }
 
-        // Check orphaned bottom regions (⌊ without preceding ⌈).
-        'bottom_loop: for bottom_idx in &info.bottom_regions {
-            // Search backward for a matching top region from different speaker.
-            let start = i.saturating_sub(SEARCH_WINDOW);
-            for candidate in utt_infos[start..i].iter().rev() {
-                if candidate.speaker == info.speaker {
+        let mut top_to_bottoms: Vec<Vec<OverlapAnchor>> = vec![Vec::new(); tops.len()];
+        let mut bottom_matched: Vec<bool> = vec![false; bottoms.len()];
+
+        for (bi, bottom) in bottoms.iter().enumerate() {
+            // Reverse scan (nearest top first), matching 1:N across
+            // speakers. The only refinement over a naive reverse scan:
+            // when this bottom's speaker already has a sibling bottom
+            // attached to the candidate top, AND there is a "vacant
+            // sibling top" (same speaker, same utterance, same index,
+            // no bottom from this speaker yet), skip to distribute
+            // evenly. This prevents two FM bottoms from collapsing
+            // onto one AM top when two AM tops exist.
+            for (ti, top) in tops.iter().enumerate().rev() {
+                if top.speaker == bottom.speaker {
                     continue;
                 }
-                if candidate.top_regions.contains(bottom_idx) {
-                    continue 'bottom_loop; // Found a match.
+                if top.region.index != bottom.region.index {
+                    continue;
                 }
+                if top.utterance_index > bottom.utterance_index {
+                    continue;
+                }
+                // Distribution guard for same-speaker-pair siblings.
+                let already_has_same_speaker = top_to_bottoms[ti]
+                    .iter()
+                    .any(|b| b.speaker == bottom.speaker);
+                if already_has_same_speaker {
+                    let has_vacant_sibling = tops.iter().enumerate().any(|(oti, other_top)| {
+                        oti != ti
+                            && other_top.speaker == top.speaker
+                            && other_top.utterance_index == top.utterance_index
+                            && other_top.region.index == top.region.index
+                            && other_top.utterance_index <= bottom.utterance_index
+                            && !top_to_bottoms[oti]
+                                .iter()
+                                .any(|b| b.speaker == bottom.speaker)
+                    });
+                    if has_vacant_sibling {
+                        continue;
+                    }
+                }
+                top_to_bottoms[ti].push(bottom.clone());
+                bottom_matched[bi] = true;
+                break;
             }
-            // No matching top region found.
-            let index_label = match bottom_idx {
-                Some(idx) => format!(" (index {})", idx.0),
-                None => String::new(),
-            };
-            errors.report(
-                ParseError::new(
-                    ErrorCode::UnbalancedOverlap,
-                    Severity::Warning,
-                    SourceLocation::new(info.span),
-                    ErrorContext::new(&info.speaker, info.span, &info.speaker),
-                    format!(
-                        "Bottom overlap ⌊{index_label} on speaker '{}' has no matching \
-                         top overlap ⌈ from a different speaker within {} utterances",
-                        info.speaker, SEARCH_WINDOW
-                    ),
-                )
-                .with_suggestion(
-                    "Check that the other speaker's utterance has a matching ⌈ marker \
-                     with the same index",
-                ),
-            );
         }
+
+        let mut groups = Vec::new();
+        let mut orphaned_tops = Vec::new();
+        for (ti, top) in tops.into_iter().enumerate() {
+            let matched = std::mem::take(&mut top_to_bottoms[ti]);
+            if matched.is_empty() {
+                orphaned_tops.push(top);
+            } else {
+                groups.push(OverlapGroup { top, bottoms: matched });
+            }
+        }
+
+        let orphaned_bottoms: Vec<OverlapAnchor> = bottoms
+            .into_iter()
+            .zip(bottom_matched)
+            .filter(|(_, m)| !*m)
+            .map(|(b, _)| b)
+            .collect();
+
+        FileOverlapAnalysis {
+            groups,
+            orphaned_tops,
+            orphaned_bottoms,
+            per_utterance,
+        }
+    };
+
+    // Report orphaned tops — only for indexed markers.
+    // Unindexed multi-party overlaps are inherently ambiguous; see
+    // docs/overlap-validation-audit.md (2026-03-19).
+    for orphan in &analysis.orphaned_tops {
+        if orphan.region.index.is_none() {
+            continue;
+        }
+        let utt = &utterances[orphan.utterance_index];
+        let index_label = format!(" (index {})", orphan.region.index.unwrap().0);
+        errors.report(
+            ParseError::new(
+                ErrorCode::UnbalancedOverlap,
+                Severity::Warning,
+                SourceLocation::new(utt.main.span),
+                ErrorContext::new(&orphan.speaker, utt.main.span, &orphan.speaker),
+                format!(
+                    "Top overlap ⌈{index_label} on speaker '{}' has no matching \
+                     bottom overlap ⌊ from a different speaker",
+                    orphan.speaker
+                ),
+            )
+            .with_suggestion(
+                "Check that the overlapping speaker's utterance has a matching ⌊ marker \
+                 with the same index",
+            ),
+        );
+    }
+
+    // Report orphaned bottoms — only for indexed markers.
+    for orphan in &analysis.orphaned_bottoms {
+        if orphan.region.index.is_none() {
+            continue;
+        }
+        let utt = &utterances[orphan.utterance_index];
+        let index_label = format!(" (index {})", orphan.region.index.unwrap().0);
+        errors.report(
+            ParseError::new(
+                ErrorCode::UnbalancedOverlap,
+                Severity::Warning,
+                SourceLocation::new(utt.main.span),
+                ErrorContext::new(&orphan.speaker, utt.main.span, &orphan.speaker),
+                format!(
+                    "Bottom overlap ⌊{index_label} on speaker '{}' has no matching \
+                     top overlap ⌈ from a different speaker",
+                    orphan.speaker
+                ),
+            )
+            .with_suggestion(
+                "Check that the other speaker's utterance has a matching ⌈ marker \
+                 with the same index",
+            ),
+        );
     }
 }

@@ -59,7 +59,7 @@ fn test_parse_file_builds_participants() -> Result<(), TestError> {
             chi.birth_date.as_ref().map(|d| d.as_str()),
             Some("28-JUN-2001")
         );
-        assert_eq!(chi.language(), "eng");
+        assert!(chi.languages().0.iter().any(|c| c.as_str() == "eng"));
         assert_eq!(chi.corpus(), Some("chiat"));
 
         let inv = chat_file
@@ -72,7 +72,7 @@ fn test_parse_file_builds_participants() -> Result<(), TestError> {
         assert_eq!(inv.name.as_deref(), Some("Chiat"));
         assert_eq!(inv.role.as_str(), "Investigator");
         assert_eq!(inv.birth_date, None);
-        assert_eq!(inv.language(), "eng");
+        assert!(inv.languages().0.iter().any(|c| c.as_str() == "eng"));
     }
 
     Ok(())

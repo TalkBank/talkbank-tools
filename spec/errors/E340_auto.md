@@ -14,7 +14,7 @@ been updated to handle).
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Notes
 

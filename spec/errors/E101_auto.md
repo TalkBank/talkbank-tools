@@ -10,7 +10,7 @@ Auto-generated from corpus
 - **Category**: validation
 - **Level**: file
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

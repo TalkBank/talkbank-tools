@@ -76,9 +76,8 @@ pub(crate) fn check_overlap_index_values(
 fn check_overlap_pairing(
     utterance: &Utterance,
     _context: &ValidationContext,
-    errors: &impl ErrorSink,
+    _errors: &impl ErrorSink,
 ) {
-    use crate::{ErrorCode, ErrorContext, Severity, SourceLocation};
 
     let info = extract_overlap_info(&utterance.main.content.content.0);
     let span = utterance.main.span;
@@ -95,41 +94,15 @@ fn check_overlap_pairing(
         };
 
         if region.begin_at_word.is_some() && region.end_at_word.is_none() {
-            // Opening without closing
-            errors.report(
-                crate::ParseError::new(
-                    ErrorCode::MissingOverlapEnd,
-                    Severity::Warning,
-                    SourceLocation::new(span),
-                    ErrorContext::new(speaker, span, speaker),
-                    format!(
-                        "Overlap {kind_label}{index_label} opening marker has no matching \
-                         closing marker in this utterance"
-                    ),
-                )
-                .with_suggestion(
-                    "Add the matching closing marker, or this may be intentional \
-                     onset-only CA annotation",
-                ),
-            );
+            // Opening without closing in this utterance — legitimate
+            // cross-utterance overlap span. The matching close marker will
+            // appear on a later utterance from the same speaker. The
+            // cross-utterance check (E347) handles pairing across utterances.
         } else if region.begin_at_word.is_none() && region.end_at_word.is_some() {
-            // Closing without opening
-            errors.report(
-                crate::ParseError::new(
-                    ErrorCode::MissingOverlapEnd,
-                    Severity::Warning,
-                    SourceLocation::new(span),
-                    ErrorContext::new(speaker, span, speaker),
-                    format!(
-                        "Overlap {kind_label}{index_label} closing marker has no matching \
-                         opening marker in this utterance"
-                    ),
-                )
-                .with_suggestion(
-                    "Add the matching opening marker, or check that the markers \
-                     are on the correct utterance",
-                ),
-            );
+            // Closing without opening in this utterance — legitimate
+            // cross-utterance overlap span. The matching open marker was
+            // on a preceding utterance from the same speaker. The
+            // cross-utterance check (E347) handles pairing across utterances.
         }
     }
 }

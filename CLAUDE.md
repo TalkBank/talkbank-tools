@@ -199,6 +199,9 @@ make verify         # Run all verification gates
 ### Exhaustive Match on Content Types
 Every `match` on `UtteranceContent` or `BracketedItem` must explicitly list all variants — no `_ =>` catch-alls that silently discard unhandled content types. All group types must recurse into their `BracketedContent`.
 
+### "Consecutive" Means In-Order Traversal
+When CHAT rules refer to "consecutive", "sequential", or "adjacent" items on the main tier, this ALWAYS means **document order via recursive traversal** — NOT adjacent indices in the flat `Vec<UtteranceContent>`. Items inside groups (`<...>`, `"..."`, etc.) are part of the sequence. Always use `walk_words` or equivalent in-order walker, never raw index adjacency.
+
 ### Reference Corpus (100% Required)
 `corpus/reference/` (74 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
 ```bash
@@ -306,7 +309,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ### Content Walker (shared primitive)
 
-`talkbank-model` exports `for_each_leaf()` / `for_each_leaf_mut()` — closure-based walkers that centralize the recursive traversal of `UtteranceContent` (24 variants) and `BracketedItem` (22 variants). Callers provide only a leaf-handling closure receiving `ContentLeaf` or `ContentLeafMut` (Word, ReplacedWord, or Separator).
+`talkbank-model` exports `walk_words()` / `walk_words_mut()` — closure-based walkers that centralize the recursive traversal of `UtteranceContent` (24 variants) and `BracketedItem` (22 variants). Callers provide only a leaf-handling closure receiving `WordItem` or `WordItemMut` (Word, ReplacedWord, or Separator).
 
 Domain-aware gating is built in: `Some(Mor)` skips retrace groups, `Some(Pho|Sin)` skips PhoGroup/SinGroup, `None` recurses everything. Used by `talkbank-model` (%wor generation) and `batchalign-chat-ops` (word extraction, FA injection/postprocess).
 

@@ -257,6 +257,14 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         disposition: WideStructDisposition::TransportRecord,
         reason: "spec-tool coverage report shape",
     },
+    WideStructAllowance {
+        path: "crates/talkbank-model/src/alignment/helpers/walk/tests.rs",
+        struct_name: "ContentCounts",
+        max_fields: 17,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "test-only counter struct — one field per UtteranceContent variant",
+    },
 ];
 
 /// Resolve the repo root from the test crate.

@@ -45,11 +45,10 @@ fn test_e207_unknown_annotation() -> Result<(), TestError> {
                         e.code,
                         ErrorCode::SyntaxError
                             | ErrorCode::UnknownAnnotation
-                            | ErrorCode::GenericAnnotationError
                             | ErrorCode::UnparsableContent
                     )
                 }),
-                "Expected E303, E207, E350, or E316 in parse errors, got: {:?}",
+                "Expected E303, E207, or E316 in parse errors, got: {:?}",
                 parse_errors
                     .errors
                     .iter()

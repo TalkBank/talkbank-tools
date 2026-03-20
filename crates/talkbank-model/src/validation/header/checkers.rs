@@ -19,7 +19,7 @@ pub(super) fn check_id_header(id_header: &IDHeader, span: Span, errors: &impl Er
             ErrorCode::EmptyIDLanguage,
             Severity::Error,
             SourceLocation::at_offset(span.start as usize),
-            ErrorContext::new(id_header.language.as_str(), 0..0, "id_language"),
+            ErrorContext::new("", 0..0, "id_language"),
             "ID header language field cannot be empty",
         );
         err.location.span = span;

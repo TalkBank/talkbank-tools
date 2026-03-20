@@ -12,7 +12,7 @@ space-separated phonological words with optional `‹›` groups.
 - **Category**: tier\_parse
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

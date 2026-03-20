@@ -13,7 +13,7 @@ utterance.
 - **Category**: underline\_balance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 

@@ -85,11 +85,40 @@ pub struct LanguageCode(pub Arc<str>);
 impl LanguageCode {
     /// Construct and intern a language token.
     ///
-    /// Interning keeps repeated codes pointer-shared and avoids repeated heap
-    /// allocation for high-frequency values like `eng`.
+    /// # Panics
+    ///
+    /// Panics if `value` is empty. Use [`try_new`](Self::try_new) for
+    /// fallible construction, or [`empty`](Self::empty) for parser recovery
+    /// when a language field is missing.
     pub fn new(value: impl AsRef<str>) -> Self {
         let s = value.as_ref();
+        assert!(!s.is_empty(), "LanguageCode cannot be empty — use LanguageCode::empty() for parser recovery");
         Self(crate::model::language_interner().intern(s))
+    }
+
+    /// Fallible construction — returns `None` for empty strings.
+    pub fn try_new(value: impl AsRef<str>) -> Option<Self> {
+        let s = value.as_ref();
+        if s.is_empty() {
+            None
+        } else {
+            Some(Self(crate::model::language_interner().intern(s)))
+        }
+    }
+
+    /// Sentinel for parser recovery when a language field is missing.
+    ///
+    /// This produces a `LanguageCode` with the placeholder value `"und"`
+    /// (ISO 639-3 "undetermined"), which is a valid 3-letter code that
+    /// signals "language not specified." It passes format validation but
+    /// can be detected by downstream code.
+    pub fn empty() -> Self {
+        Self(crate::model::language_interner().intern("und"))
+    }
+
+    /// Whether this is the "undetermined" sentinel from parser recovery.
+    pub fn is_undetermined(&self) -> bool {
+        self.0.as_ref() == "und"
     }
 
     /// Borrow as `&str`.
@@ -219,4 +248,45 @@ impl Validate for LanguageCode {
 /// almost certainly placeholders rather than real language codes.
 fn is_disallowed_placeholder_language_code(code: &str) -> bool {
     matches!(code, "xyz" | "xxx" | "yyy" | "zzz")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_accepts_valid_code() {
+        let code = LanguageCode::new("eng");
+        assert_eq!(code.as_str(), "eng");
+    }
+
+    #[test]
+    #[should_panic(expected = "LanguageCode cannot be empty")]
+    fn new_rejects_empty_string() {
+        LanguageCode::new("");
+    }
+
+    #[test]
+    fn try_new_returns_none_for_empty() {
+        assert!(LanguageCode::try_new("").is_none());
+    }
+
+    #[test]
+    fn try_new_returns_some_for_valid() {
+        let code = LanguageCode::try_new("spa").unwrap();
+        assert_eq!(code.as_str(), "spa");
+    }
+
+    #[test]
+    fn empty_produces_undetermined() {
+        let code = LanguageCode::empty();
+        assert_eq!(code.as_str(), "und");
+        assert!(code.is_undetermined());
+    }
+
+    #[test]
+    fn regular_code_is_not_undetermined() {
+        let code = LanguageCode::new("eng");
+        assert!(!code.is_undetermined());
+    }
 }

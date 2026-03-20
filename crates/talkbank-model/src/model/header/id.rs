@@ -8,7 +8,7 @@
 
 use super::{
     AgeValue, CorpusName, CustomIdField, EducationDescription, GroupName, LanguageCode,
-    ParticipantRole, SesValue, Sex, SpeakerCode, WriteChat,
+    LanguageCodes, ParticipantRole, SesValue, Sex, SpeakerCode, WriteChat,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -21,8 +21,9 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// pipe expected by CHAT tooling.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift)]
 pub struct IDHeader {
-    /// Required transcript language code for this participant record.
-    pub language: LanguageCode,
+    /// Language codes for this participant (same format as `@Languages`).
+    /// May contain multiple comma-separated codes for multilingual speakers.
+    pub language: LanguageCodes,
 
     /// Optional corpus label.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,13 +62,36 @@ pub struct IDHeader {
 
 impl IDHeader {
     /// Builds an `@ID` payload from the required CHAT fields.
+    ///
+    /// For convenience, accepts a single language code string and wraps it.
+    /// For multi-language IDs, use [`with_languages`](Self::with_languages).
     pub fn new(
         language: impl Into<LanguageCode>,
         speaker: impl Into<SpeakerCode>,
         role: impl Into<ParticipantRole>,
     ) -> Self {
         Self {
-            language: language.into(),
+            language: LanguageCodes::new(vec![language.into()]),
+            corpus: None,
+            speaker: speaker.into(),
+            age: None,
+            sex: None,
+            group: None,
+            ses: None,
+            role: role.into(),
+            education: None,
+            custom_field: None,
+        }
+    }
+
+    /// Build from a `LanguageCodes` vec (for multi-language participants).
+    pub fn from_languages(
+        languages: LanguageCodes,
+        speaker: impl Into<SpeakerCode>,
+        role: impl Into<ParticipantRole>,
+    ) -> Self {
+        Self {
+            language: languages,
             corpus: None,
             speaker: speaker.into(),
             age: None,
@@ -129,7 +153,8 @@ impl WriteChat for IDHeader {
     /// Optional fields are emitted as empty segments so output remains stable
     /// for tools that expect the trailing delimiter.
     fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
-        write!(w, "@ID:\t{}", self.language)?;
+        w.write_str("@ID:\t")?;
+        self.language.write_chat(w)?;
         w.write_char('|')?;
 
         if let Some(ref corpus) = self.corpus {

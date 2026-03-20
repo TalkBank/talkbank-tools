@@ -7,8 +7,9 @@ use chumsky::prelude::*;
 use talkbank_model::model::{
     ActivityType, AgeValue, BirthplaceDescription, ChatDate, ChatOptionFlag, CustomIdField,
     DesignType, EducationDescription, GemLabel, GroupName, GroupType, Header, IDHeader,
-    LanguageName, MediaHeader, MediaStatus, MediaType, Number, ParticipantEntry, RecordingQuality,
-    SesValue, Sex, SpeakerCode, TimeDurationValue, TimeStartValue, Transcription, TypesHeader,
+    LanguageCode, LanguageCodes, LanguageName, MediaHeader, MediaStatus, MediaType, Number,
+    ParticipantEntry, RecordingQuality, SesValue, Sex, SpeakerCode, TimeDurationValue,
+    TimeStartValue, Transcription, TypesHeader,
 };
 
 use super::helpers::{
@@ -592,8 +593,17 @@ pub(super) fn id_header_parser<'a>() -> impl Parser<'a, &'a str, Header, extra::
                 );
             }
 
+            // Split language on comma — multi-language IDs look like "eng, zho".
+            let language_codes: Vec<LanguageCode> = language
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(LanguageCode::new)
+                .collect();
+            let languages = LanguageCodes::new(language_codes);
+
             // Create with required fields (language, speaker, role)
-            let mut id = IDHeader::new(language, speaker, role);
+            let mut id = IDHeader::from_languages(languages, speaker, role);
 
             // Add optional corpus field
             if let Some(&corpus) = fields.get(1)

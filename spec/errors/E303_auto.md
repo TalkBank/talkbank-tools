@@ -10,7 +10,7 @@ Unexpected node - helper function
 - **Category**: Parser bugs (experimental)
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example
 

@@ -10,11 +10,14 @@ A single speaker has consecutive utterances with overlap markers (`⌈⌉`/`⌊�
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Corpus Impact
 
-386 occurrences across corpus data. Concentrated in CA-heavy corpora with dense overlap transcription.
+~90 occurrences across corpus data (2026-03-19 audit: childes-data 51, samtale-data 36,
+dementia-data 3). Concentrated in CA-heavy corpora with dense overlap transcription.
+Some are legitimate multi-party overlaps (speaker participates on both sides) or
+same-speaker layered annotation. See `docs/overlap-validation-audit.md` in talkbank-dev.
 
 ## Example 1: Basic self-overlap
 

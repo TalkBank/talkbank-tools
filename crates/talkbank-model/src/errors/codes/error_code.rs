@@ -88,12 +88,6 @@ pub enum ErrorCode {
     /// Content could not be parsed.
     #[code("E316")]
     UnparsableContent,
-    /// File-level content could not be parsed.
-    #[code("E317")]
-    UnparsableFileContent,
-    /// Dependent tier content could not be parsed.
-    #[code("E318")]
-    UnparsableDependentTier,
     /// Line could not be parsed.
     #[code("E319")]
     UnparsableLine,
@@ -148,9 +142,6 @@ pub enum ErrorCode {
     /// Missing overlap end marker.
     #[code("E348")]
     MissingOverlapEnd,
-    /// Generic annotation error.
-    #[code("E350")]
-    GenericAnnotationError,
     /// Missing opening quotation mark.
     #[code("E351")]
     MissingQuoteBegin,
@@ -220,24 +211,12 @@ pub enum ErrorCode {
     /// Invalid overlap index value.
     #[code("E373")]
     InvalidOverlapIndex,
-    /// Failed to parse error annotation content.
-    #[code("E374")]
-    ErrorAnnotationParseError,
     /// Failed to parse scoped annotation content.
     #[code("E375")]
     ScopedAnnotationParseError,
     /// Failed to parse replacement annotation content.
     #[code("E376")]
     ReplacementParseError,
-    /// Failed to parse retrace annotation content.
-    #[code("E377")]
-    RetraceParseError,
-    /// Failed to parse overlap annotation content.
-    #[code("E378")]
-    OverlapAnnotationParseError,
-    /// Unknown separator character.
-    #[code("E380")]
-    UnknownSeparator,
     /// Failed to parse `%pho` tier content.
     #[code("E381")]
     PhoParseError,
@@ -250,12 +229,6 @@ pub enum ErrorCode {
     /// Failed to parse `%sin` tier content.
     #[code("E384")]
     SinParseError,
-    /// Failed to parse word content.
-    #[code("E385")]
-    WordParseError,
-    /// Failed to parse text tier content.
-    #[code("E386")]
-    TextTierParseError,
     /// Replacement `[: text]` on fragment or phonological fragment (`&+`).
     #[code("E387")]
     ReplacementOnFragment,
@@ -293,9 +266,6 @@ pub enum ErrorCode {
     /// Illegal replacement for fragment (deprecated: use E387).
     #[code("E210")]
     IllegalReplacementForFragment,
-    /// Omission found in replacement (deprecated: use E390).
-    #[code("E211")]
-    OmissionInReplacement,
     /// Invalid word format.
     #[code("E212")]
     InvalidWordFormat,
@@ -418,9 +388,6 @@ pub enum ErrorCode {
     /// Empty participant role in `@Participants`.
     #[code("E513")]
     EmptyParticipantRole,
-    /// Missing language code in `@Languages` or `@ID`.
-    #[code("E514")]
-    MissingLanguageCode,
     /// Empty role field in `@ID` header.
     #[code("E515")]
     EmptyIDRole,
@@ -582,9 +549,6 @@ pub enum ErrorCode {
     /// `%mor` tier terminator value does not match main tier.
     #[code("E716")]
     MorTerminatorValueMismatch,
-    /// `%pho` tier terminator presence does not match main tier.
-    #[code("E717")]
-    PhoTerminatorPresenceMismatch,
     /// `%sin` tier has fewer words than main tier.
     #[code("E718")]
     SinCountMismatchTooFew,

@@ -108,7 +108,7 @@ pub struct LanguageId;
 ///
 /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AlignmentDomainMarker;
+pub struct TierDomainMarker;
 
 /// Words that have been tokenized by an NLP tool.
 ///
@@ -145,7 +145,7 @@ pub type PythonAsrWordsJson = Provenance<AsrWordsJson, String>;
 pub type PythonLanguageId = Provenance<LanguageId, String>;
 
 /// An alignment domain passed from Python.
-pub type PythonAlignmentDomain = Provenance<AlignmentDomainMarker, String>;
+pub type PythonTierDomain = Provenance<TierDomainMarker, String>;
 
 /// Tokenized words produced by NLP.
 pub type NlpTokens = Provenance<TokenizedWords, Vec<String>>;
