@@ -102,7 +102,11 @@ fn test_parse_id_header() -> Result<(), TestError> {
         assert_eq!(header.name(), "ID", "[{}] expected ID", parser.name());
         match header {
             Header::ID(id) => {
-                assert!(id.language.0.iter().any(|c| c.as_str() == "eng"), "[{}]", parser.name());
+                assert!(
+                    id.language.0.iter().any(|c| c.as_str() == "eng"),
+                    "[{}]",
+                    parser.name()
+                );
                 assert_eq!(
                     id.corpus.as_deref(),
                     Some("MacWhinney"),

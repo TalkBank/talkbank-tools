@@ -6,7 +6,7 @@
 
 use super::format::format_positional_mismatch;
 use super::helpers::{
-    TierPosition, TierDomain, count_tier_positions, collect_tier_items,
+    TierDomain, TierPosition, collect_tier_items, count_tier_positions,
     to_chat_display_string as to_string,
 };
 use super::types::AlignmentPair;
@@ -305,11 +305,10 @@ fn render_mor_items(mor: &MorTier) -> Vec<String> {
 /// exhaustive content traversal. Terminators are appended after lexical
 /// units to mirror alignment reporting.
 fn collect_alignable_main_items(main: &MainTier) -> Vec<String> {
-    let mut items: Vec<String> =
-        collect_tier_items(&main.content.content, TierDomain::Mor)
-            .into_iter()
-            .map(|item| item.text)
-            .collect();
+    let mut items: Vec<String> = collect_tier_items(&main.content.content, TierDomain::Mor)
+        .into_iter()
+        .map(|item| item.text)
+        .collect();
     if let Some(term) = &main.content.terminator {
         items.push(to_string(term));
     }

@@ -86,7 +86,12 @@ fn test_parse_real_chat_file_participants() -> Result<(), TestError> {
                 parser.name(),
                 participant.code,
                 participant.role,
-                participant.languages().0.iter().map(|c| c.as_str()).collect::<Vec<_>>(),
+                participant
+                    .languages()
+                    .0
+                    .iter()
+                    .map(|c| c.as_str())
+                    .collect::<Vec<_>>(),
                 participant.age()
             );
         }

@@ -4,7 +4,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Phonology_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-use super::helpers::{TierPosition, TierDomain, to_chat_display_string as to_string};
+use super::helpers::{TierDomain, TierPosition, to_chat_display_string as to_string};
 use super::traits::{AlignableTier, TierAlignmentResult, positional_align};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, PhoTier};

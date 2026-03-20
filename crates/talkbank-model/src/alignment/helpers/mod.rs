@@ -22,7 +22,7 @@ mod walk;
 mod tests;
 
 pub use count::{
-    TierPosition, count_tier_positions, count_tier_positions_until, collect_tier_items,
+    TierPosition, collect_tier_items, count_tier_positions, count_tier_positions_until,
 };
 
 /// Render any [`WriteChat`](crate::model::WriteChat) value into owned text
@@ -41,16 +41,13 @@ pub use overlap::{
     walk_overlap_points,
 };
 pub use overlap_groups::{
-    FileOverlapAnalysis, OverlapAnchor, OverlapGroup, PerUtteranceOverlap,
-    analyze_file_overlaps,
+    FileOverlapAnalysis, OverlapAnchor, OverlapGroup, PerUtteranceOverlap, analyze_file_overlaps,
 };
 pub use rules::should_align_replaced_word_in_pho_sin;
 pub use rules::{
-    annotations_have_alignment_ignore, is_tag_marker_separator, should_skip_group,
-    counts_for_tier,
+    annotations_have_alignment_ignore, counts_for_tier, is_tag_marker_separator, should_skip_group,
 };
 pub use walk::{
     ContentItem, ContentItemMut, WordItem, WordItemMut, walk_content, walk_content_mut, walk_words,
     walk_words_mut,
 };
-

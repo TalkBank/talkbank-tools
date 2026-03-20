@@ -331,7 +331,10 @@ fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl
             if matched.is_empty() {
                 orphaned_tops.push(top);
             } else {
-                groups.push(OverlapGroup { top, bottoms: matched });
+                groups.push(OverlapGroup {
+                    top,
+                    bottoms: matched,
+                });
             }
         }
 

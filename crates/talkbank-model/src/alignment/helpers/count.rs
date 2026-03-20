@@ -13,8 +13,8 @@ use crate::model::{
 
 use super::domain::TierDomain;
 use super::rules::{
-    annotations_have_alignment_ignore, is_tag_marker_separator,
-    should_align_replaced_word_in_pho_sin, should_skip_group, counts_for_tier,
+    annotations_have_alignment_ignore, counts_for_tier, is_tag_marker_separator,
+    should_align_replaced_word_in_pho_sin, should_skip_group,
 };
 use super::to_chat_display_string as to_string;
 
@@ -31,10 +31,7 @@ pub struct TierPosition {
 ///
 /// The returned sequence matches alignment traversal order and is used to build
 /// human-readable mismatch diagnostics (`main` vs dependent-tier views).
-pub fn collect_tier_items(
-    content: &[UtteranceContent],
-    domain: TierDomain,
-) -> Vec<TierPosition> {
+pub fn collect_tier_items(content: &[UtteranceContent], domain: TierDomain) -> Vec<TierPosition> {
     let mut items = Vec::new();
     for item in content {
         extract_alignable_from_item(item, domain, &mut items);
@@ -258,9 +255,7 @@ fn count_alignable_word(
 /// Counts a `ReplacedWord` node after replacement/retrace rules.
 fn count_alignable_replaced_word(entry: &ReplacedWord, domain: TierDomain) -> usize {
     // For replaced words (like groups), retrace annotations only skip for Mor domain
-    if domain == TierDomain::Mor
-        && annotations_have_alignment_ignore(&entry.scoped_annotations)
-    {
+    if domain == TierDomain::Mor && annotations_have_alignment_ignore(&entry.scoped_annotations) {
         return 0;
     }
 
@@ -522,9 +517,7 @@ fn extract_alignable_from_replaced_word(
     domain: TierDomain,
     output: &mut Vec<TierPosition>,
 ) {
-    if domain == TierDomain::Mor
-        && annotations_have_alignment_ignore(&entry.scoped_annotations)
-    {
+    if domain == TierDomain::Mor && annotations_have_alignment_ignore(&entry.scoped_annotations) {
         return;
     }
 

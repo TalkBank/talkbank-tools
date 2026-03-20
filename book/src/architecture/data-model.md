@@ -1,5 +1,8 @@
 # Data Model
 
+**Status:** Current
+**Last updated:** 2026-03-18
+
 The `talkbank-model` crate defines the typed AST for CHAT files. It is the central crate that all other crates depend on.
 
 ## ChatFile
@@ -105,7 +108,7 @@ Each dependent tier aligns to the main tier (or to %mor) using domain-specific l
 ```mermaid
 flowchart TD
     main["MainTier content"]
-    walker["for_each_leaf()\ncount alignable words"]
+    walker["walk_words()\ncount alignable words"]
 
     subgraph "5 Parallel Alignment Flows"
         mor["%mor\nCustom logic\n(clitic handling)"]
@@ -144,11 +147,11 @@ Model types derive `JsonSchema` for automatic JSON Schema generation. Run `cargo
 
 ```mermaid
 flowchart TD
-    input["&[UtteranceContent]\n+ domain: Option<AlignmentDomain>"]
+    input["&[UtteranceContent]\n+ domain: Option<TierDomain>"]
     dispatch["Match variant\n(24 UtteranceContent variants)"]
-    word["Word → emit ContentLeaf::Word"]
-    rw["ReplacedWord → emit ContentLeaf::ReplacedWord"]
-    sep["Separator → emit ContentLeaf::Separator"]
+    word["Word → emit WordItem::Word"]
+    rw["ReplacedWord → emit WordItem::ReplacedWord"]
+    sep["Separator → emit WordItem::Separator"]
     group["Group / AnnotatedGroup /\nPhoGroup / SinGroup / Quotation"]
     gate{"Domain\ngating"}
     skip["Skip\n(atomic unit)"]
@@ -163,25 +166,25 @@ flowchart TD
     recurse -->|back| dispatch
 ```
 
-The `talkbank-model` crate provides a closure-based content tree walker for leaf items (words, replaced words, separators), centralizing the recursive traversal of `UtteranceContent` (24 variants) and `BracketedItem` (22 variants).
+The walker is a two-layer design: `walk_content` (generic, all items) and `walk_words` (filtered to words/separators). Groups are descended transparently, and `AnnotatedWord`/`Event`/`Action` are unwrapped automatically. The `talkbank-model` crate provides `walk_words` as the primary closure-based walker, centralizing the recursive traversal of `UtteranceContent` (24 variants) and `BracketedItem` (22 variants).
 
 ```rust
-pub enum ContentLeaf<'a> {
-    Word(&'a Word, &'a [ScopedAnnotation]),
+pub enum WordItem<'a> {
+    Word(&'a Word),
     ReplacedWord(&'a ReplacedWord),
     Separator(&'a Separator),
 }
 
-pub fn for_each_leaf(
+pub fn walk_words(
     content: &[UtteranceContent],
-    domain: Option<AlignmentDomain>,
-    f: &mut impl FnMut(ContentLeaf<'_>),
+    domain: Option<TierDomain>,
+    f: &mut impl FnMut(WordItem<'_>),
 );
 
-pub fn for_each_leaf_mut(
+pub fn walk_words_mut(
     content: &mut [UtteranceContent],
-    domain: Option<AlignmentDomain>,
-    f: &mut impl FnMut(ContentLeafMut<'_>),
+    domain: Option<TierDomain>,
+    f: &mut impl FnMut(WordItemMut<'_>),
 );
 ```
 
@@ -190,7 +193,7 @@ pub fn for_each_leaf_mut(
 - `domain = Some(Pho|Sin)` → skip `PhoGroup`/`SinGroup` (treated as atomic units)
 - `domain = None` → recurse all groups unconditionally
 
-The walker handles all 5 group types (`Group`, `AnnotatedGroup`, `PhoGroup`, `SinGroup`, `Quotation`) and their `BracketedContent` recursion. Callers provide only leaf-handling logic: `word_is_alignable()` filtering, `ReplacedWord` branch logic, separator filtering.
+The walker handles all 5 group types (`Group`, `AnnotatedGroup`, `PhoGroup`, `SinGroup`, `Quotation`) and their `BracketedContent` recursion. Callers provide only leaf-handling logic: `counts_for_tier()` filtering, `ReplacedWord` branch logic, separator filtering.
 
 Used by `main_tier.rs` (%wor generation) and `batchalign-chat-ops` (word extraction, FA extraction/injection/postprocess).
 
@@ -203,7 +206,7 @@ three content levels — `UtteranceContent`, `BracketedItem`, and
 `WordContent` (for intra-word markers like `butt⌈er⌉`):
 
 ```rust
-pub fn for_each_overlap_point(
+pub fn walk_overlap_points(
     content: &[UtteranceContent],
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
 );

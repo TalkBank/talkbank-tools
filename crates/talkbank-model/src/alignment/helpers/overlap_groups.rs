@@ -28,9 +28,7 @@
 
 use crate::model::Line;
 
-use super::overlap::{
-    OverlapMarkerInfo, OverlapRegion, OverlapRegionKind, extract_overlap_info,
-};
+use super::overlap::{OverlapMarkerInfo, OverlapRegion, OverlapRegionKind, extract_overlap_info};
 
 /// An overlap region anchored to a specific utterance.
 #[derive(Debug, Clone)]
@@ -222,11 +220,11 @@ pub fn analyze_file_overlaps(lines: &[Line]) -> FileOverlapAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Span;
     use crate::model::{
         MainTier, OverlapIndex, OverlapPoint, OverlapPointKind, Terminator, Utterance,
         UtteranceContent, Word,
     };
-    use crate::Span;
 
     fn make_utterance(speaker: &str, content: Vec<UtteranceContent>) -> Utterance {
         let main = MainTier::new(speaker, content, Terminator::Period { span: Span::DUMMY });
@@ -256,16 +254,22 @@ mod tests {
         // *A: ⌈ hello ⌉ .
         // *B: ⌊ hi ⌋ .
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::TopOverlapBegin),
-                word("hello"),
-                overlap(OverlapPointKind::TopOverlapEnd),
-            ]),
-            make_utterance("B", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("hi"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::TopOverlapBegin),
+                    word("hello"),
+                    overlap(OverlapPointKind::TopOverlapEnd),
+                ],
+            ),
+            make_utterance(
+                "B",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("hi"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);
@@ -283,21 +287,30 @@ mod tests {
         // *B: ⌊ yeah ⌋ .
         // *C: ⌊ right ⌋ .
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::TopOverlapBegin),
-                word("hello"),
-                overlap(OverlapPointKind::TopOverlapEnd),
-            ]),
-            make_utterance("B", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("yeah"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
-            make_utterance("C", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("right"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::TopOverlapBegin),
+                    word("hello"),
+                    overlap(OverlapPointKind::TopOverlapEnd),
+                ],
+            ),
+            make_utterance(
+                "B",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("yeah"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
+            make_utterance(
+                "C",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("right"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);
@@ -315,24 +328,33 @@ mod tests {
         // *B: ⌊ one ⌋ .
         // *B: ⌊2 two ⌋2 .
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::TopOverlapBegin),
-                word("one"),
-                overlap(OverlapPointKind::TopOverlapEnd),
-                overlap_idx(OverlapPointKind::TopOverlapBegin, 2),
-                word("two"),
-                overlap_idx(OverlapPointKind::TopOverlapEnd, 2),
-            ]),
-            make_utterance("B", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("one"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
-            make_utterance("B", vec![
-                overlap_idx(OverlapPointKind::BottomOverlapBegin, 2),
-                word("two"),
-                overlap_idx(OverlapPointKind::BottomOverlapEnd, 2),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::TopOverlapBegin),
+                    word("one"),
+                    overlap(OverlapPointKind::TopOverlapEnd),
+                    overlap_idx(OverlapPointKind::TopOverlapBegin, 2),
+                    word("two"),
+                    overlap_idx(OverlapPointKind::TopOverlapEnd, 2),
+                ],
+            ),
+            make_utterance(
+                "B",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("one"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
+            make_utterance(
+                "B",
+                vec![
+                    overlap_idx(OverlapPointKind::BottomOverlapBegin, 2),
+                    word("two"),
+                    overlap_idx(OverlapPointKind::BottomOverlapEnd, 2),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);
@@ -350,16 +372,22 @@ mod tests {
         // *A: ⌈ hello ⌉ .
         // *A: ⌊ nope ⌋ .  ← same speaker, should not match
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::TopOverlapBegin),
-                word("hello"),
-                overlap(OverlapPointKind::TopOverlapEnd),
-            ]),
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("nope"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::TopOverlapBegin),
+                    word("hello"),
+                    overlap(OverlapPointKind::TopOverlapEnd),
+                ],
+            ),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("nope"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);
@@ -373,11 +401,14 @@ mod tests {
         // *A: ⌈ hello ⌉ .
         // *B: no overlap here .
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap(OverlapPointKind::TopOverlapBegin),
-                word("hello"),
-                overlap(OverlapPointKind::TopOverlapEnd),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap(OverlapPointKind::TopOverlapBegin),
+                    word("hello"),
+                    overlap(OverlapPointKind::TopOverlapEnd),
+                ],
+            ),
             make_utterance("B", vec![word("no"), word("overlap")]),
         ]);
 
@@ -393,11 +424,14 @@ mod tests {
         // *B: ⌊ random ⌋ .  ← no preceding top from different speaker
         let lines = to_lines(vec![
             make_utterance("A", vec![word("no"), word("overlap")]),
-            make_utterance("B", vec![
-                overlap(OverlapPointKind::BottomOverlapBegin),
-                word("random"),
-                overlap(OverlapPointKind::BottomOverlapEnd),
-            ]),
+            make_utterance(
+                "B",
+                vec![
+                    overlap(OverlapPointKind::BottomOverlapBegin),
+                    word("random"),
+                    overlap(OverlapPointKind::BottomOverlapEnd),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);
@@ -410,16 +444,22 @@ mod tests {
         // *A: ⌈2 hello ⌉2 .
         // *B: ⌊3 hi ⌋3 .  ← index 3 ≠ index 2
         let lines = to_lines(vec![
-            make_utterance("A", vec![
-                overlap_idx(OverlapPointKind::TopOverlapBegin, 2),
-                word("hello"),
-                overlap_idx(OverlapPointKind::TopOverlapEnd, 2),
-            ]),
-            make_utterance("B", vec![
-                overlap_idx(OverlapPointKind::BottomOverlapBegin, 3),
-                word("hi"),
-                overlap_idx(OverlapPointKind::BottomOverlapEnd, 3),
-            ]),
+            make_utterance(
+                "A",
+                vec![
+                    overlap_idx(OverlapPointKind::TopOverlapBegin, 2),
+                    word("hello"),
+                    overlap_idx(OverlapPointKind::TopOverlapEnd, 2),
+                ],
+            ),
+            make_utterance(
+                "B",
+                vec![
+                    overlap_idx(OverlapPointKind::BottomOverlapBegin, 3),
+                    word("hi"),
+                    overlap_idx(OverlapPointKind::BottomOverlapEnd, 3),
+                ],
+            ),
         ]);
 
         let analysis = analyze_file_overlaps(&lines);

@@ -120,7 +120,7 @@ fn count_main_item_units(
     domain: crate::alignment::TierDomain,
 ) -> usize {
     use crate::alignment::helpers::{annotations_have_alignment_ignore, is_tag_marker_separator};
-    use crate::alignment::helpers::{should_skip_group, counts_for_tier};
+    use crate::alignment::helpers::{counts_for_tier, should_skip_group};
     use crate::model::UtteranceContent;
 
     match item {
@@ -183,9 +183,9 @@ fn count_main_item_units(
         UtteranceContent::Quotation(quotation) => {
             count_bracketed_units(&quotation.content.content, domain)
         }
-        UtteranceContent::Separator(sep) => usize::from(
-            domain == crate::alignment::TierDomain::Mor && is_tag_marker_separator(sep),
-        ),
+        UtteranceContent::Separator(sep) => {
+            usize::from(domain == crate::alignment::TierDomain::Mor && is_tag_marker_separator(sep))
+        }
         UtteranceContent::Pause(_) => usize::from(domain == crate::alignment::TierDomain::Pho),
         UtteranceContent::AnnotatedAction(_) => {
             usize::from(domain == crate::alignment::TierDomain::Sin)

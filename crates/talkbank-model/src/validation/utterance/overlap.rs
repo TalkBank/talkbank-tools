@@ -78,21 +78,9 @@ fn check_overlap_pairing(
     _context: &ValidationContext,
     _errors: &impl ErrorSink,
 ) {
-
     let info = extract_overlap_info(&utterance.main.content.content.0);
-    let span = utterance.main.span;
-    let speaker = utterance.main.speaker.as_str();
 
     for region in &info.regions {
-        let kind_label = match region.kind {
-            OverlapRegionKind::Top => "top (⌈⌉)",
-            OverlapRegionKind::Bottom => "bottom (⌊⌋)",
-        };
-        let index_label = match region.index {
-            Some(idx) => format!(" (index {})", idx.0),
-            None => String::new(),
-        };
-
         if region.begin_at_word.is_some() && region.end_at_word.is_none() {
             // Opening without closing in this utterance — legitimate
             // cross-utterance overlap span. The matching close marker will

@@ -173,8 +173,7 @@ pub fn parse_id_header(node: Node, source: &str, errors: &impl ErrorSink) -> Hea
         .collect();
     let languages = talkbank_model::model::LanguageCodes::new(language_codes);
 
-    let mut id_header =
-        talkbank_model::model::IDHeader::from_languages(languages, speaker, role);
+    let mut id_header = talkbank_model::model::IDHeader::from_languages(languages, speaker, role);
     if let Some(c) = corpus {
         id_header = id_header.with_corpus(c);
     }

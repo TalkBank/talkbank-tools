@@ -15,9 +15,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use super::format::{format_alignment_mismatch, format_positional_mismatch};
-use super::helpers::{
-    TierPosition, TierDomain, count_tier_positions, collect_tier_items,
-};
+use super::helpers::{TierDomain, TierPosition, collect_tier_items, count_tier_positions};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, UtteranceContent};
 use crate::{ErrorCode, ErrorContext, ErrorLabel, ParseError, Severity, Span};

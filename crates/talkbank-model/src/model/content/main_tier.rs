@@ -263,7 +263,7 @@ impl MainTier {
 /// (matching Python batchalign's lexer behavior).
 fn collect_wor_items_content(content: &[UtteranceContent], out: &mut Vec<WorItem>) {
     use crate::alignment::helpers::{
-        WordItem, walk_words, is_tag_marker_separator, counts_for_tier,
+        WordItem, counts_for_tier, is_tag_marker_separator, walk_words,
     };
 
     walk_words(content, None, &mut |leaf| match leaf {

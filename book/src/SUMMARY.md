@@ -74,6 +74,8 @@
 - [Branch Protection](contributing/branch-protection.md)
 - [Reference Corpus](contributing/reference-corpus.md)
 - [Desktop App Testing](contributing/desktop-testing.md)
+- [Architecture Audit](contributing/architecture-audit.md)
+- [Rearchitecture Backlog](contributing/rearchitecture-backlog.md)
 
 # Integrating
 

@@ -432,4 +432,3 @@ pub(crate) fn check_inline_at_markers(word: &Word, errors: &impl ErrorSink) {
         );
     }
 }
-

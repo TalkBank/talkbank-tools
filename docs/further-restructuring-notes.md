@@ -5,6 +5,14 @@
 
 This file records the next round of larger changes that would make the current splits more durable. The work in this refactor intentionally stopped at behavior-preserving extraction and did not try to redesign subsystem boundaries.
 
+The canonical durable follow-up documents are now:
+
+- `book/src/contributing/architecture-audit.md`
+- `book/src/contributing/rearchitecture-backlog.md`
+
+Keep this file for wave-specific notes only; move standing findings into the
+book pages above.
+
 ## Completed In This Round
 
 - `validate_parallel` now has an explicit renderer boundary instead of one branch-heavy runtime loop.

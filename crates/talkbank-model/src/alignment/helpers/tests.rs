@@ -95,10 +95,7 @@ fn mor_counts_tag_markers_including_comma() {
         0
     );
     // Tag and vocative count
-    assert_eq!(
-        count_tier_positions(&[tag, vocative], TierDomain::Mor),
-        2
-    );
+    assert_eq!(count_tier_positions(&[tag, vocative], TierDomain::Mor), 2);
     // None count for Pho
     assert_eq!(
         count_tier_positions(&[comma.clone(), colon.clone()], TierDomain::Pho),
@@ -209,10 +206,7 @@ fn pho_skips_fragment_with_replacement() {
     );
     // Wor uses replacement words (like Mor). For "&+fr [: friend]", the replacement
     // "friend" is a regular word that IS alignable, so Wor counts 1.
-    assert_eq!(
-        count_tier_positions(&[replaced], TierDomain::Wor),
-        1
-    );
+    assert_eq!(count_tier_positions(&[replaced], TierDomain::Wor), 1);
 }
 
 /// Confirms `%wor` excludes nonwords/fragments but keeps fillers.

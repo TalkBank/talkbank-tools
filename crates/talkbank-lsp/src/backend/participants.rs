@@ -174,7 +174,12 @@ fn extract_participant_entries(chat_file: &ChatFile, text: &str) -> Vec<Particip
 /// Convert an `IDHeader` to plain string fields for the webview.
 fn id_header_to_fields(id: &IDHeader) -> ParticipantFields {
     ParticipantFields {
-        language: id.language.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(", "),
+        language: id
+            .language
+            .iter()
+            .map(|c| c.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
         corpus: id
             .corpus
             .as_ref()

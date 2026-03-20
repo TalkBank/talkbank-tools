@@ -315,11 +315,7 @@ pub fn walk_content_mut<'a>(
             }
             UtteranceContent::AnnotatedGroup(annotated) => {
                 if !should_skip_annotated_group(&annotated.scoped_annotations, domain) {
-                    walk_bracketed_content_mut(
-                        &mut annotated.inner.content.content,
-                        domain,
-                        f,
-                    );
+                    walk_bracketed_content_mut(&mut annotated.inner.content.content, domain, f);
                 }
             }
             UtteranceContent::PhoGroup(pho) => {
@@ -448,11 +444,7 @@ pub fn walk_words_mut<'a>(
             }
             UtteranceContent::AnnotatedGroup(annotated) => {
                 if !should_skip_annotated_group(&annotated.scoped_annotations, domain) {
-                    walk_bracketed_words_mut(
-                        &mut annotated.inner.content.content,
-                        domain,
-                        f,
-                    );
+                    walk_bracketed_words_mut(&mut annotated.inner.content.content, domain, f);
                 }
             }
             UtteranceContent::PhoGroup(pho) => {
@@ -491,10 +483,6 @@ pub fn walk_words_mut<'a>(
 // Deprecated aliases — delegate to walk_words / walk_words_mut
 // ---------------------------------------------------------------------------
 
-/// Walk utterance content and call `f` for each word-like leaf item.
-///
-/// # Deprecated
-///
 // ---------------------------------------------------------------------------
 // Bracketed-level helpers for walk_content
 // ---------------------------------------------------------------------------
@@ -663,11 +651,7 @@ fn walk_bracketed_content_mut<'a>(
             // Groups: descend into content
             BracketedItem::AnnotatedGroup(annotated) => {
                 if !should_skip_annotated_group(&annotated.scoped_annotations, domain) {
-                    walk_bracketed_content_mut(
-                        &mut annotated.inner.content.content,
-                        domain,
-                        f,
-                    );
+                    walk_bracketed_content_mut(&mut annotated.inner.content.content, domain, f);
                 }
             }
             BracketedItem::PhoGroup(pho) => {
@@ -775,11 +759,7 @@ fn walk_bracketed_words_mut<'a>(
             }
             BracketedItem::AnnotatedGroup(annotated) => {
                 if !should_skip_annotated_group(&annotated.scoped_annotations, domain) {
-                    walk_bracketed_words_mut(
-                        &mut annotated.inner.content.content,
-                        domain,
-                        f,
-                    );
+                    walk_bracketed_words_mut(&mut annotated.inner.content.content, domain, f);
                 }
             }
             BracketedItem::PhoGroup(pho) => {

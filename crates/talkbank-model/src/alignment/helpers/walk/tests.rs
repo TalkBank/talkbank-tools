@@ -21,10 +21,7 @@ fn boxed_word(text: &str) -> Box<Word> {
 // ---------------------------------------------------------------------------
 
 /// Collects leaf word texts from content using the walker.
-fn collect_word_texts(
-    content: &[UtteranceContent],
-    domain: Option<TierDomain>,
-) -> Vec<String> {
+fn collect_word_texts(content: &[UtteranceContent], domain: Option<TierDomain>) -> Vec<String> {
     let mut texts = Vec::new();
     walk_words(content, domain, &mut |leaf| {
         if let WordItem::Word(w) = leaf {
@@ -182,10 +179,7 @@ struct ContentCounts {
     nonvocal_simples: usize,
 }
 
-fn count_content_items(
-    content: &[UtteranceContent],
-    domain: Option<TierDomain>,
-) -> ContentCounts {
+fn count_content_items(content: &[UtteranceContent], domain: Option<TierDomain>) -> ContentCounts {
     let mut counts = ContentCounts::default();
     walk_content(content, domain, &mut |item| match item {
         ContentItem::Word(_) => counts.words += 1,
@@ -306,4 +300,3 @@ fn walk_content_words_match_walk_words() {
 // ---------------------------------------------------------------------------
 // Deprecated alias tests — verify they still work
 // ---------------------------------------------------------------------------
-

@@ -92,7 +92,10 @@ impl LanguageCode {
     /// when a language field is missing.
     pub fn new(value: impl AsRef<str>) -> Self {
         let s = value.as_ref();
-        assert!(!s.is_empty(), "LanguageCode cannot be empty — use LanguageCode::empty() for parser recovery");
+        assert!(
+            !s.is_empty(),
+            "LanguageCode cannot be empty — use LanguageCode::empty() for parser recovery"
+        );
         Self(crate::model::language_interner().intern(s))
     }
 

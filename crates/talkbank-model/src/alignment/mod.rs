@@ -101,8 +101,7 @@ pub use mor::{MorAlignment, align_main_to_mor};
 pub use pho::{PhoAlignment, align_main_to_pho};
 pub use sin::{SinAlignment, align_main_to_sin};
 pub use traits::{
-    TierCountable, AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult,
-    positional_align,
+    AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult, TierCountable, positional_align,
 };
 pub use types::AlignmentPair;
 pub use wor::{WorAlignment, align_main_to_wor};

@@ -17,7 +17,7 @@ tier. The alignment module in `talkbank-model` provides:
 4. **Content traversal** — a shared walker primitive that centralizes the 24+22
    variant recursion.
 5. **Trait abstractions** — `IndexPair`, `TierAlignmentResult`, `AlignableTier`,
-   and `AlignableContent` formalize the shared contracts; `positional_align()`
+   and `TierCountable` formalize the shared contracts; `positional_align()`
    eliminates duplication across %pho/%sin/%wor alignment.
 
 ## Module Map
@@ -26,7 +26,7 @@ tier. The alignment module in `talkbank-model` provides:
 crates/talkbank-model/src/alignment/
   mod.rs              Public API: re-exports all alignment functions and types
   traits.rs           Trait abstractions (IndexPair, TierAlignmentResult,
-                        AlignableTier, AlignableContent) + positional_align()
+                        AlignableTier, TierCountable) + positional_align()
   types.rs            AlignmentPair — the universal index-pair primitive
   mor.rs              align_main_to_mor() — Main tier → %mor items
   pho.rs              align_main_to_pho() — Main tier → %pho tokens (via AlignableTier)
@@ -40,13 +40,14 @@ crates/talkbank-model/src/alignment/
   format.rs           Diagnostic formatting for alignment mismatches
   helpers/
     mod.rs            to_chat_display_string() — shared WriteChat→String helper
-    domain.rs         AlignmentDomain enum (Mor/Pho/Sin/Wor)
-    rules.rs          Predicate functions (word_is_alignable, should_skip_group, etc.)
+    domain.rs         TierDomain enum (Mor/Pho/Sin/Wor)
+    rules.rs          Predicate functions (counts_for_tier, should_skip_group, etc.)
     count.rs          Counting and extraction over content trees
-    walk/             Content walker (for_each_leaf / for_each_leaf_mut)
-      mod.rs          Walker implementation, ContentLeaf/ContentLeafMut enums
+    walk/             Content walker (walk_words / walk_words_mut)
+      mod.rs          Walker implementation, WordItem/WordItemMut enums
       tests.rs        Walker unit tests
-    overlap.rs        Overlap marker iteration (for_each_overlap_point, extract_overlap_info)
+    overlap.rs        Overlap marker iteration (walk_overlap_points, extract_overlap_info)
+    overlap_groups.rs Cross-utterance overlap groups (analyze_file_overlaps, 1:N matching)
     tests.rs          Helper unit tests
   location_tests.rs   Alignment location tests
 ```
@@ -63,10 +64,10 @@ panic the alignment path.
 
 ## Core Types
 
-### AlignmentDomain (`helpers/domain.rs`)
+### TierDomain (`helpers/domain.rs`)
 
 ```rust
-enum AlignmentDomain { Mor, Pho, Sin, Wor }
+enum TierDomain { Mor, Pho, Sin, Wor }
 ```
 
 Each dependent tier applies different alignment eligibility rules over the same
@@ -123,16 +124,16 @@ additional chunks (e.g., `pro|it~v|be&PRES` = 2 chunks: pre-clitic + main).
 ## Counting Algorithm (`helpers/count.rs`)
 
 Two entry points:
-- `count_alignable_content(content, domain)` — total count for preflight checks
-- `count_alignable_until(content, max_index, domain)` — partial count for LSP hover
-- `extract_alignable_items(content, domain)` — items with text for diagnostics
+- `count_tier_positions(content, domain)` — total count for preflight checks
+- `count_tier_positions_until(content, max_index, domain)` — partial count for LSP hover
+- `collect_tier_items(content, domain)` — items with text for diagnostics
 
 The counting algorithm traverses `UtteranceContent` (24 variants) and
 `BracketedItem` (22 variants) with exhaustive `match` — no catch-all arms.
 Each variant is classified per domain:
 
 **Word filtering** (`rules.rs`):
-- `word_is_alignable(word, domain)` — the canonical domain gate
+- `counts_for_tier(word, domain)` — the canonical domain gate
 - Mor: excludes fragments (`&-`, `&~`, `&+`), untranscribed (`xxx`/`yyy`/`www`), omissions
 - Wor: excludes nonwords (`&~`), fragments (`&+`), untranscribed, timing tokens (`123_456`);
   includes fillers (`&-um`)
@@ -155,35 +156,35 @@ leaf-handling logic via closures.
 ### Immutable API
 
 ```rust
-fn for_each_leaf(
+fn walk_words(
     content: &[UtteranceContent],
-    domain: Option<AlignmentDomain>,
-    callback: impl FnMut(ContentLeaf<'_>),
+    domain: Option<TierDomain>,
+    callback: impl FnMut(WordItem<'_>),
 )
 ```
 
 ### Mutable API
 
 ```rust
-fn for_each_leaf_mut(
+fn walk_words_mut(
     content: &mut [UtteranceContent],
-    domain: Option<AlignmentDomain>,
-    callback: impl FnMut(ContentLeafMut<'_>),
+    domain: Option<TierDomain>,
+    callback: impl FnMut(WordItemMut<'_>),
 )
 ```
 
 ### Leaf Types
 
 ```rust
-enum ContentLeaf<'a> {
-    Word(&'a Word, &'a [ScopedAnnotation]),
+enum WordItem<'a> {
+    Word(&'a Word),
     ReplacedWord(&'a ReplacedWord),
     Separator(&'a Separator),
 }
 ```
 
-The mutable variant uses split borrows for `AnnotatedWord` — mutable inner
-word with shared annotation slice.
+Groups are descended transparently, and `AnnotatedWord`/`Event`/`Action` are
+unwrapped automatically. `WordItem::Word` carries only the `&Word` reference.
 
 ### Domain Gating
 
@@ -252,10 +253,10 @@ accumulator contract and enables generic validation/inspection code.
 
 ```rust
 pub trait AlignableTier {
-    const DOMAIN: AlignmentDomain;
+    const DOMAIN: TierDomain;
     fn tier_name(&self) -> &str;
     fn target_count(&self) -> usize;
-    fn extract_target_items(&self) -> Vec<AlignableItem>;
+    fn extract_target_items(&self) -> Vec<TierPosition>;
     fn span(&self) -> Span;
     fn error_code_too_few(&self) -> ErrorCode;
     fn error_code_too_many(&self) -> ErrorCode;
@@ -274,12 +275,12 @@ no new alignment function.
 sides are word sequences; the other tiers use `Positional` pairing since
 their target items are in different domains (phonological tokens, gestures).
 
-### `AlignableContent`
+### `TierCountable`
 
 ```rust
-pub trait AlignableContent {
-    fn count_alignable(&self, domain: AlignmentDomain) -> usize;
-    fn extract_alignable(&self, domain: AlignmentDomain) -> Vec<AlignableItem>;
+pub trait TierCountable {
+    fn count_tier_positions(&self, domain: TierDomain) -> usize;
+    fn collect_tier_items(&self, domain: TierDomain) -> Vec<TierPosition>;
 }
 ```
 
@@ -288,10 +289,10 @@ functions in `helpers/count.rs`:
 
 ```rust
 // Before: free function
-let count = count_alignable_content(&main.content.content, AlignmentDomain::Mor);
+let count = count_tier_positions(&main.content.content, TierDomain::Mor);
 
-// After: trait method (AlignableContent in scope)
-let count = main.content.content.count_alignable(AlignmentDomain::Mor);
+// After: trait method (TierCountable in scope)
+let count = main.content.content.count_tier_positions(TierDomain::Mor);
 ```
 
 ### Generic `positional_align()`
@@ -332,7 +333,7 @@ Rules:
    the model without updating alignment code is a compile error (non-exhaustive
    match), not a silent bug.
 
-2. **Domain as first-class parameter.** `AlignmentDomain` flows through every
+2. **Domain as first-class parameter.** `TierDomain` flows through every
    counting/extraction/walking function, making policy branches explicit and
    testable rather than scattered across ad-hoc conditionals.
 
@@ -341,7 +342,7 @@ Rules:
    Counting is a fast preflight; alignment builds the full `AlignmentPair`
    mapping only when needed.
 
-4. **Walker as shared primitive.** `for_each_leaf()` removed ~330 lines of
+4. **Walker as shared primitive.** `walk_words()` removed ~330 lines of
    duplicated traversal boilerplate across 7 files. New traversal needs
    should use the walker rather than re-implementing recursion.
 
@@ -414,17 +415,17 @@ CA overlap markers (⌈⌉⌊⌋) appear at three content levels — top-level
 `WordContent`. The alignment module provides two APIs for traversing them,
 in `alignment/helpers/overlap.rs`:
 
-### `for_each_overlap_point` — Low-Level Iterator
+### `walk_overlap_points` — Low-Level Iterator
 
 Visits every `OverlapPoint` in document order with its word-position context.
-Analogous to `for_each_leaf` but for overlap markers instead of words:
+Analogous to `walk_words` but for overlap markers instead of words:
 
 ```rust
 use talkbank_model::alignment::helpers::{
-    for_each_overlap_point, OverlapPointVisit,
+    walk_overlap_points, OverlapPointVisit,
 };
 
-for_each_overlap_point(&utterance.main.content.content.0, &mut |visit| {
+walk_overlap_points(&utterance.main.content.content.0, &mut |visit| {
     // visit.point: &OverlapPoint (kind + optional index)
     // visit.word_position: usize (alignable words seen so far)
 });
@@ -460,20 +461,58 @@ Mismatched indices leave markers unpaired.
 The region has `end_at_word = None` and `is_well_paired()` returns false,
 but `top_onset_fraction()` still works.
 
+### Cross-Utterance Overlap Groups: `analyze_file_overlaps`
+
+For whole-file analysis, `overlap_groups.rs` provides cross-utterance matching:
+
+```rust
+use talkbank_model::alignment::helpers::{
+    analyze_file_overlaps, FileOverlapAnalysis, OverlapGroup,
+};
+
+let analysis = analyze_file_overlaps(&chat_file.lines);
+
+for group in &analysis.groups {
+    // group.top: OverlapAnchor (speaker, utterance index, region, bullet)
+    // group.bottoms: Vec<OverlapAnchor> — 1:N matching
+    println!(
+        "Speaker {} top, {} respondents",
+        group.top.speaker,
+        group.bottoms.len(),
+    );
+}
+// analysis.orphaned_tops: tops with no matching bottom
+// analysis.orphaned_bottoms: bottoms with no matching top
+```
+
+**1:N matching:** One top region from speaker A can match multiple bottom
+regions from speakers B, C, etc. Each bottom is matched to the nearest
+preceding top from a different speaker with the same index.
+
 ### Overlap Validation
 
-The validator uses `extract_overlap_info` for four checks:
+The validator uses `extract_overlap_info` and `analyze_file_overlaps` for
+four checks:
 
 | Code | Level | What it checks |
 |------|-------|---------------|
 | E348 | Utterance | Unpaired markers within a single utterance (warning) |
-| E347 | Cross-utterance | Top regions without matching bottom from different speaker (warning) |
+| E347 | Cross-utterance | Orphaned tops/bottoms with 1:N matching (warning) |
 | E373 | Utterance | Invalid overlap index values (must be 2-9) |
 | E704 | Cross-utterance | Same speaker encoding both top and bottom overlap (error) |
 
-The validation module previously had its own content traversal for overlap
-collection (`collect_overlap_points`). This was replaced with
-`extract_overlap_info` to eliminate ~143 lines of duplicated walk code.
+### Debug Tool
+
+`chatter debug overlap-audit <path>` runs `analyze_file_overlaps` on all
+files and reports per-file statistics (groups, bottoms, orphans, temporal
+consistency, pairing quality) in TSV format.
+
+Use `--database <path.jsonl>` to write a persistent JSON lines database
+for downstream analysis:
+```bash
+chatter debug overlap-audit data/ca-data/ --database overlap-db.jsonl
+```
+Each line is a JSON object with file path, counts, and quality classification.
 
 ## Downstream Consumers
 
@@ -486,8 +525,9 @@ The alignment module is used by:
 | Word extraction | `batchalign3` | Pull NLP-ready words from utterances |
 | FA injection | `batchalign3` | Insert timing bullets into AST |
 | Overlap windowing | `batchalign3` | CA marker-aware UTR pass-2 search windows |
+| Overlap audit | `talkbank-cli` | `chatter debug overlap-audit` — per-file overlap statistics |
 | %wor generation | `talkbank-model` | Build %wor tier from main tier |
 | CLAN commands | `talkbank-clan` | DSS, EVAL, KIDEVAL use typed %mor access |
 
 ---
-Last Updated: 2026-03-17
+Last Updated: 2026-03-18
