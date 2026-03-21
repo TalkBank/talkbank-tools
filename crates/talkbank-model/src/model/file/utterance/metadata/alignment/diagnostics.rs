@@ -40,6 +40,39 @@ pub(super) fn skipped_alignment_warning(
     error
 }
 
+/// Build a warning emitted when alignment is blocked by missing parse provenance.
+pub(super) fn unknown_alignment_warning(
+    alignment_name: &str,
+    left_label: &str,
+    left_span: Span,
+    right_label: &str,
+    right_span: Span,
+) -> ParseError {
+    let location = first_non_dummy_span([left_span, right_span]);
+    let mut error = ParseError::new(
+        ErrorCode::TierValidationError,
+        Severity::Warning,
+        SourceLocation::new(location),
+        ErrorContext::new("", location.to_range(), ""),
+        format!(
+            "Skipped {} alignment because parse provenance is unknown for {} and {}",
+            alignment_name, left_label, right_label
+        ),
+    )
+    .with_suggestion(
+        "Run parser-backed validation or explicitly mark parse provenance before alignment checks",
+    );
+
+    if !left_span.is_dummy() {
+        error.labels.push(ErrorLabel::new(left_span, left_label));
+    }
+    if !right_span.is_dummy() {
+        error.labels.push(ErrorLabel::new(right_span, right_label));
+    }
+
+    error
+}
+
 pub(super) fn first_non_dummy_span(spans: [Span; 2]) -> Span {
     for span in spans {
         if !span.is_dummy() {

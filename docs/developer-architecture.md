@@ -5,7 +5,7 @@
 
 This note records the main architectural seams after the current round of refactors. It is aimed at contributors working across `talkbank-cli`, `talkbank-lsp`, the VS Code extension, and the test/dashboard tooling.
 
-For naming rules across seams like sinks, reporters, coordinators, renderers, and services, see [boundary-vocabulary.md](/Users/chen/talkbank/talkbank-tools/docs/boundary-vocabulary.md).
+For naming rules across seams like sinks, reporters, coordinators, renderers, and services, see [boundary-vocabulary.md](boundary-vocabulary.md).
 For current struct-shape guidance, see the book page `book/src/architecture/wide-structs.md` and the audit test `crates/talkbank-cli/tests/wide_struct_audit.rs`.
 For the current cross-repo concurrency baseline that originally gated some `talkbank-tools` cleanup follow-ups, see `batchalign3/book/src/developer/architecture-audit.md`. That audit is now captured; the remaining question is sequencing against the active `batchalign3` refactor fronts listed there.
 

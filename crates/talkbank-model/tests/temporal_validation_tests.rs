@@ -9,8 +9,8 @@ use talkbank_model::ErrorCollector;
 use talkbank_model::Span;
 use talkbank_model::content::TierContentItems;
 use talkbank_model::model::{
-    Bullet, ChatFile, Header, Line, MainTier, SpeakerCode, Terminator, TierContent, Utterance,
-    UtteranceContent, UtteranceLanguage, UtteranceLanguageMetadata, Word,
+    Bullet, ChatFile, Header, Line, MainTier, ParseHealthState, SpeakerCode, Terminator,
+    TierContent, Utterance, UtteranceContent, UtteranceLanguage, UtteranceLanguageMetadata, Word,
 };
 
 /// Helper to create a simple ChatFile for testing
@@ -66,7 +66,7 @@ fn utterance(main: MainTier) -> Utterance {
         dependent_tiers: Default::default(),
         alignments: None,
         alignment_diagnostics: Vec::new(),
-        parse_health: None,
+        parse_health: ParseHealthState::Clean,
         utterance_language: UtteranceLanguage::Uncomputed,
         language_metadata: UtteranceLanguageMetadata::Uncomputed,
     }
@@ -258,7 +258,7 @@ fn test_no_bullets_no_errors() {
             dependent_tiers: Default::default(),
             alignments: None,
             alignment_diagnostics: Vec::new(),
-            parse_health: None,
+            parse_health: ParseHealthState::Clean,
             utterance_language: UtteranceLanguage::Uncomputed,
             language_metadata: UtteranceLanguageMetadata::Uncomputed,
         }),

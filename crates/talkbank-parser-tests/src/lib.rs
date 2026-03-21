@@ -3,9 +3,13 @@
 //!
 //! This crate provides the testing backbone for TalkBank's two-parser strategy.
 //! The tree-sitter parser (canonical, GLR-based, error-recovering) and the direct
-//! parser (experimental, chumsky combinators, fail-fast) must produce semantically
-//! identical [`talkbank_model::ChatFile`] ASTs on all well-formed input. This
-//! crate enforces that contract.
+//! parser (experimental, chumsky combinators, with selective recovery/leniency)
+//! must produce semantically identical [`talkbank_model::ChatFile`] ASTs on all
+//! well-formed full-file input. This crate enforces that contract.
+//!
+//! It should not assume tree-sitter fragment helpers are the oracle for direct-
+//! parser fragment semantics. Fragment and recovery behavior need independent
+//! direct-parser-focused coverage.
 //!
 //! # Architecture
 //!
@@ -37,7 +41,8 @@
 //! *Parser equivalence tests* verify that the two parser implementations agree on
 //! real-world files from the 74-file reference corpus at
 //! `talkbank-chat/corpus/reference/`. They catch drift between parsers that spec
-//! tests alone cannot detect.
+//! tests alone cannot detect, but they are strongest for whole-file behavior,
+//! not as the oracle for legacy synthetic fragment APIs.
 //!
 //! # Running the tests
 //!

@@ -37,14 +37,15 @@ cargo build
 cargo test
 ```
 
-### 2. Spec tools (`spec/tools/Cargo.toml`)
+### 2. Spec workspace (`spec/Cargo.toml`)
 
-Contains generators that produce tests and docs from specifications:
+Contains two sibling crates for spec-driven artifacts:
 
 ```bash
-cd ~/talkbank/talkbank-tools/spec/tools
-cargo build
-cargo run --bin gen_tree_sitter_tests -- --help
+cargo build --manifest-path ~/talkbank/talkbank-tools/spec/tools/Cargo.toml
+cargo build --manifest-path ~/talkbank/talkbank-tools/spec/runtime-tools/Cargo.toml
+cargo run --manifest-path ~/talkbank/talkbank-tools/spec/tools/Cargo.toml --bin gen_tree_sitter_tests -- --help
+cargo run --manifest-path ~/talkbank/talkbank-tools/spec/runtime-tools/Cargo.toml --bin validate_error_specs -- --help
 ```
 
 ## Makefile Targets
@@ -52,8 +53,8 @@ cargo run --bin gen_tree_sitter_tests -- --help
 ```bash
 make build           # Build everything
 make test            # Run all tests (nextest + parser-tests + doctests)
-make verify          # Pre-merge verification gates (G0-G7)
-make test-gen        # Regenerate tests from specs
+make verify          # Pre-merge verification gates
+make test-gen        # Regenerate spec-driven artifacts when they actually changed
 make symbols-gen     # Regenerate shared symbol sets
 make generated-check # Verify generated artifacts are committed
 make check           # Fast compile check
@@ -70,7 +71,9 @@ Before submitting changes, run the full verification suite:
 make verify
 ```
 
-This runs gates G0 through G7, checking compilation, formatting, clippy, tests, parser equivalence, and generated artifact consistency.
+See [Testing](testing.md) for the current gate breakdown. The important point is
+that `make verify` remains the pre-merge gate, while `make test-gen` is a
+targeted regeneration step rather than a universal parser-testing ritual.
 
 ## Editor Setup
 

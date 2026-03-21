@@ -18,5 +18,6 @@ mod utterance;
 pub use chat_file::{ChatFile, ChatFileLines};
 pub use line::Line;
 pub use utterance::{
-    ParseHealth, ParseHealthTier, Utterance, UtteranceLanguage, UtteranceLanguageMetadata,
+    ParseHealth, ParseHealthState, ParseHealthTier, Utterance, UtteranceLanguage,
+    UtteranceLanguageMetadata,
 };

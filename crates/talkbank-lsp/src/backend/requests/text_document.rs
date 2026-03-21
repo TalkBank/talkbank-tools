@@ -74,10 +74,14 @@ struct ParsedTextDocumentContext {
 
 impl ParsedTextDocumentContext {
     /// Resolve document text plus parsed model for one URI.
-    fn resolve(backend: &Backend, uri: Url) -> Option<Self> {
-        let TextDocumentContext { uri, doc } = TextDocumentContext::resolve(backend, uri)?;
-        let chat_file = get_chat_file(backend, &uri, &doc)?;
-        Some(Self { doc, chat_file })
+    fn resolve(backend: &Backend, uri: Url) -> Result<Option<Self>> {
+        let Some(TextDocumentContext { uri, doc }) = TextDocumentContext::resolve(backend, uri)
+        else {
+            return Ok(None);
+        };
+        let chat_file = get_chat_file(backend, &uri, &doc)
+            .map_err(tower_lsp::jsonrpc::Error::invalid_params)?;
+        Ok(Some(Self { doc, chat_file }))
     }
 }
 
@@ -91,16 +95,22 @@ struct FullTextDocumentContext {
 
 impl FullTextDocumentContext {
     /// Resolve document text, parse tree, and parsed model for one URI.
-    fn resolve(backend: &Backend, uri: Url) -> Option<Self> {
-        let TextDocumentContext { uri, doc } = TextDocumentContext::resolve(backend, uri)?;
-        let tree = get_parse_tree(backend, &uri, &doc)?;
-        let chat_file = get_chat_file(backend, &uri, &doc)?;
-        Some(Self {
+    fn resolve(backend: &Backend, uri: Url) -> Result<Option<Self>> {
+        let Some(TextDocumentContext { uri, doc }) = TextDocumentContext::resolve(backend, uri)
+        else {
+            return Ok(None);
+        };
+        let Some(tree) = get_parse_tree(backend, &uri, &doc) else {
+            return Ok(None);
+        };
+        let chat_file = get_chat_file(backend, &uri, &doc)
+            .map_err(tower_lsp::jsonrpc::Error::invalid_params)?;
+        Ok(Some(Self {
             uri,
             doc,
             tree,
             chat_file,
-        })
+        }))
     }
 }
 
@@ -129,7 +139,7 @@ impl DocumentFeatureService {
         backend: &Backend,
         params: InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>> {
-        let Some(context) = ParsedTextDocumentContext::resolve(backend, params.text_document.uri)
+        let Some(context) = ParsedTextDocumentContext::resolve(backend, params.text_document.uri)?
         else {
             return Ok(None);
         };
@@ -201,7 +211,8 @@ impl InteractionFeatureService {
         let Some(context) = FullTextDocumentContext::resolve(
             backend,
             params.text_document_position_params.text_document.uri,
-        ) else {
+        )?
+        else {
             return Ok(None);
         };
 
@@ -222,7 +233,8 @@ impl InteractionFeatureService {
         let Some(context) = FullTextDocumentContext::resolve(
             backend,
             params.text_document_position.text_document.uri,
-        ) else {
+        )?
+        else {
             return Ok(None);
         };
 
@@ -243,7 +255,8 @@ impl InteractionFeatureService {
         let Some(context) = FullTextDocumentContext::resolve(
             backend,
             params.text_document_position_params.text_document.uri,
-        ) else {
+        )?
+        else {
             return Ok(None);
         };
 
@@ -353,7 +366,8 @@ impl NavigationRequestService {
         let Some(context) = FullTextDocumentContext::resolve(
             backend,
             params.text_document_position_params.text_document.uri,
-        ) else {
+        )?
+        else {
             return Ok(None);
         };
 

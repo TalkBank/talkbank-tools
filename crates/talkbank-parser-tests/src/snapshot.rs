@@ -115,8 +115,8 @@ pub fn spec_word_test(input: &str) -> Result<(), TestError> {
 /// Files containing constructs the direct parser does not support.
 ///
 /// These files are tested with tree-sitter only (no cross-parser comparison).
-/// The direct parser is experimental and partial — unsupported headers/lines
-/// and certain other constructs are not implemented.
+/// The direct parser still has incomplete coverage for some headers/lines and
+/// other constructs, so those cases remain tree-sitter only for now.
 const DIRECT_PARSER_SKIP_FILES: &[&str] = &[];
 
 /// Test helper: parametrized comparison for files from reference corpus.
@@ -156,7 +156,7 @@ pub fn reference_file_test(path: &str) -> Result<(), TestError> {
 
     let snapshot = if skip_direct {
         // Tree-sitter only — direct parser does not support these constructs
-        bootstrap_file_snapshot_from_content(&content)?
+        legacy_tree_sitter_file_snapshot_from_content(&content)?
     } else {
         let tree_sitter = talkbank_parser::TreeSitterParser::new()
             .map_err(|err| TestError::ParserInit(err.to_string()))?;
@@ -168,8 +168,8 @@ pub fn reference_file_test(path: &str) -> Result<(), TestError> {
     Ok(())
 }
 
-/// Test helper: parse with tree-sitter and snapshot (for initial bootstrap).
-pub fn bootstrap_word_snapshot(input: &str) -> Result<serde_json::Value, TestError> {
+/// Test helper: parse with tree-sitter only and snapshot a legacy synthetic fragment path.
+pub fn legacy_tree_sitter_word_snapshot(input: &str) -> Result<serde_json::Value, TestError> {
     let tree_sitter = talkbank_parser::TreeSitterParser::new()
         .map_err(|err| TestError::ParserInit(err.to_string()))?;
     let errors = ErrorCollector::new();
@@ -187,7 +187,9 @@ pub fn bootstrap_word_snapshot(input: &str) -> Result<serde_json::Value, TestErr
 /// Parse content with tree-sitter only and return a snapshot value.
 ///
 /// Used for files that contain constructs the direct parser does not support.
-fn bootstrap_file_snapshot_from_content(content: &str) -> Result<serde_json::Value, TestError> {
+fn legacy_tree_sitter_file_snapshot_from_content(
+    content: &str,
+) -> Result<serde_json::Value, TestError> {
     let tree_sitter = talkbank_parser::TreeSitterParser::new()
         .map_err(|err| TestError::ParserInit(err.to_string()))?;
     let errors = ErrorCollector::new();
@@ -200,8 +202,8 @@ fn bootstrap_file_snapshot_from_content(content: &str) -> Result<serde_json::Val
     }
 }
 
-/// Test helper: parse file with tree-sitter and snapshot (for initial bootstrap).
-pub fn bootstrap_file_snapshot(path: &str) -> Result<serde_json::Value, TestError> {
+/// Test helper: parse file with tree-sitter only and snapshot the result.
+pub fn legacy_tree_sitter_file_snapshot(path: &str) -> Result<serde_json::Value, TestError> {
     let content = std::fs::read_to_string(path)?;
     let tree_sitter = talkbank_parser::TreeSitterParser::new()
         .map_err(|err| TestError::ParserInit(err.to_string()))?;

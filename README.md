@@ -324,6 +324,10 @@ make test           # run all tests (nextest + doctests + spec tools)
 make verify         # pre-merge verification gates (G0-G10)
 ```
 
+`make test-gen` is available when spec-driven generated artifacts need to be
+refreshed. It is not the universal answer for parser-semantic changes; direct-
+parser fragment and recovery behavior often needs direct tests.
+
 ## License
 
 BSD-3-Clause. Copyright (c) 2026, Carnegie Mellon University. See [LICENSE](LICENSE).

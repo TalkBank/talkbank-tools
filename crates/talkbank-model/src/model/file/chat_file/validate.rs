@@ -13,6 +13,49 @@ use crate::validation::{Validate, ValidationConfig, ValidationState};
 use crate::{ConfigurableErrorSink, ErrorSink, ParseError};
 use crate::{Header, Line};
 
+fn unknown_alignment_warning(
+    alignment_name: &str,
+    left_label: &str,
+    left_span: crate::Span,
+    right_label: &str,
+    right_span: crate::Span,
+) -> ParseError {
+    let location = if !left_span.is_dummy() {
+        left_span
+    } else if !right_span.is_dummy() {
+        right_span
+    } else {
+        crate::Span::DUMMY
+    };
+
+    let mut error = ParseError::new(
+        crate::ErrorCode::TierValidationError,
+        crate::Severity::Warning,
+        crate::SourceLocation::new(location),
+        crate::ErrorContext::new("", location.to_range(), ""),
+        format!(
+            "Skipped {} alignment because parse provenance is unknown for {} and {}",
+            alignment_name, left_label, right_label
+        ),
+    )
+    .with_suggestion(
+        "Run parser-backed validation or explicitly mark parse provenance before alignment checks",
+    );
+
+    if !left_span.is_dummy() {
+        error
+            .labels
+            .push(crate::ErrorLabel::new(left_span, left_label));
+    }
+    if !right_span.is_dummy() {
+        error
+            .labels
+            .push(crate::ErrorLabel::new(right_span, right_label));
+    }
+
+    error
+}
+
 /// Build file-level validation context from headers and participant IDs.
 ///
 /// Header-derived settings (languages/options) are computed once and shared
@@ -100,12 +143,11 @@ impl<S: ValidationState> ChatFile<S> {
             align_main_to_mor, align_main_to_pho, align_main_to_sin, align_main_to_wor,
             align_mor_to_gra,
         };
-        use crate::model::file::utterance::ParseHealth;
 
         let mut errors = Vec::new();
 
         for utt in self.utterances() {
-            let health = utt.parse_health.unwrap_or(ParseHealth::default());
+            let health = utt.parse_health;
 
             // Main → %mor alignment
             if health.can_align_main_to_mor()
@@ -113,6 +155,16 @@ impl<S: ValidationState> ChatFile<S> {
             {
                 let alignment = align_main_to_mor(&utt.main, mor);
                 errors.extend(alignment.errors);
+            } else if health.is_unknown()
+                && let Some(mor) = utt.mor_tier()
+            {
+                errors.push(unknown_alignment_warning(
+                    "main↔%mor",
+                    "main tier",
+                    utt.main.span,
+                    "%mor tier",
+                    mor.span,
+                ));
             }
 
             // %mor → %gra alignment
@@ -121,6 +173,16 @@ impl<S: ValidationState> ChatFile<S> {
             {
                 let alignment = align_mor_to_gra(mor, gra);
                 errors.extend(alignment.errors);
+            } else if health.is_unknown()
+                && let (Some(mor), Some(gra)) = (utt.mor_tier(), utt.gra_tier())
+            {
+                errors.push(unknown_alignment_warning(
+                    "%mor↔%gra",
+                    "%mor tier",
+                    mor.span,
+                    "%gra tier",
+                    gra.span,
+                ));
             }
 
             // Main → %wor alignment
@@ -129,6 +191,16 @@ impl<S: ValidationState> ChatFile<S> {
             {
                 let alignment = align_main_to_wor(&utt.main, wor);
                 errors.extend(alignment.errors);
+            } else if health.is_unknown()
+                && let Some(wor) = utt.wor_tier()
+            {
+                errors.push(unknown_alignment_warning(
+                    "main↔%wor",
+                    "main tier",
+                    utt.main.span,
+                    "%wor tier",
+                    wor.span,
+                ));
             }
 
             // Main → %pho alignment
@@ -137,6 +209,16 @@ impl<S: ValidationState> ChatFile<S> {
             {
                 let alignment = align_main_to_pho(&utt.main, pho);
                 errors.extend(alignment.errors);
+            } else if health.is_unknown()
+                && let Some(pho) = utt.pho_tier()
+            {
+                errors.push(unknown_alignment_warning(
+                    "main↔%pho",
+                    "main tier",
+                    utt.main.span,
+                    "%pho tier",
+                    pho.span,
+                ));
             }
 
             // Main → %sin alignment
@@ -145,6 +227,16 @@ impl<S: ValidationState> ChatFile<S> {
             {
                 let alignment = align_main_to_sin(&utt.main, sin);
                 errors.extend(alignment.errors);
+            } else if health.is_unknown()
+                && let Some(sin) = utt.sin_tier()
+            {
+                errors.push(unknown_alignment_warning(
+                    "main↔%sin",
+                    "main tier",
+                    utt.main.span,
+                    "%sin tier",
+                    sin.span,
+                ));
             }
         }
 

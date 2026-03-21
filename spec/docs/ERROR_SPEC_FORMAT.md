@@ -393,7 +393,7 @@ normalized during comparison.
 | Binary | What it checks |
 |--------|----------------|
 | `validate_spec` | Construct spec format integrity |
-| `validate_error_specs` | Error spec format, layer correctness |
+| `validate_error_specs` (`spec/runtime-tools`) | Error spec format, layer correctness |
 
 ## Coverage
 
@@ -407,9 +407,9 @@ normalized during comparison.
 | Binary | Purpose |
 |--------|---------|
 | `bootstrap` | Initial spec bootstrapping |
-| `bootstrap_tiers` | Tier spec bootstrapping |
+| `bootstrap_tiers` (`spec/runtime-tools`) | Tier spec bootstrapping |
 | `corpus_to_specs` | Convert error corpus fixtures to specs |
-| `extract_corpus_candidates` | Select reference corpus files from corpus data |
+| `extract_corpus_candidates` (`spec/runtime-tools`) | Select reference corpus files from corpus data |
 | `perturb_corpus` | Generate error files by mutating valid files |
 | `enhance_specs` | Bulk-fix spec metadata and formatting |
 | `fix_spec_layers` | Auto-correct parser/validation layer mismatches |

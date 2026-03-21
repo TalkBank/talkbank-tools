@@ -1,7 +1,8 @@
-//! Provenance tracking for strings coming from Python/Stanza using phantom types.
+//! Phantom-tagged boundary values for text and JSON payloads.
 //!
-//! This module helps avoid "primitive obsession" by tagging types
-//! with their origin and intended use.
+//! This module helps avoid "primitive obsession" by tagging values with
+//! their intended semantic role. Python extraction wrappers now live at the
+//! PyO3 boundary instead of inside this crate.
 //!
 //! References:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#File_Format>
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::marker::PhantomData;
 
-/// A generic wrapper for data with associated provenance or intent markers.
+/// A generic wrapper for data with associated semantic-role markers.
 ///
 /// Uses `PhantomData` to distinguish between different types of data
 /// that share the same underlying representation (e.g., String).
@@ -58,27 +59,7 @@ impl<M, T: fmt::Display> fmt::Display for Provenance<M, T> {
 // Marker Types (Zero-Sized Types)
 // ---------------------------------------------------------------------------
 
-// --- Origins ---
-
-/// Data originating from Python integration layers.
-///
-/// Reference: <https://talkbank.org/0info/manuals/CHAT.html#File_Format>
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FromPython;
-
-/// Data produced by an NLP tool (e.g., Stanza).
-///
-/// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NlpProduced;
-
-/// Data extracted directly from CHAT transcript text.
-///
-/// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ChatOriginal;
-
-// --- Intents / Roles ---
+// --- Semantic roles ---
 
 /// Raw CHAT text intended for parsing.
 ///
@@ -128,45 +109,8 @@ pub struct Morphosyntax;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NlpResponseJson;
 
-// ---------------------------------------------------------------------------
-// Convenience Aliases
-// ---------------------------------------------------------------------------
-
-/// Raw CHAT text coming from Python.
-pub type PythonChatText = Provenance<RawChatText, String>;
-
-/// Transcript JSON coming from Python.
-pub type PythonTranscriptJson = Provenance<TranscriptJson, String>;
-
-/// ASR words JSON coming from Python.
-pub type PythonAsrWordsJson = Provenance<AsrWordsJson, String>;
-
-/// A language identifier passed from Python.
-pub type PythonLanguageId = Provenance<LanguageId, String>;
-
-/// An alignment domain passed from Python.
-pub type PythonTierDomain = Provenance<TierDomainMarker, String>;
-
 /// Tokenized words produced by NLP.
 pub type NlpTokens = Provenance<TokenizedWords, Vec<String>>;
 
 /// Morphosyntax JSON response from NLP.
 pub type NlpResponse = Provenance<NlpResponseJson, String>;
-
-// ---------------------------------------------------------------------------
-// PyO3 Conversion Traits
-// ---------------------------------------------------------------------------
-
-#[cfg(feature = "python")]
-impl<'a, 'py, M, T> pyo3::FromPyObject<'a, 'py> for Provenance<M, T>
-where
-    T: pyo3::FromPyObject<'a, 'py>,
-{
-    type Error = T::Error;
-
-    /// Extracts the wrapped payload from Python and tags it with provenance.
-    fn extract(ob: pyo3::Borrowed<'a, 'py, pyo3::PyAny>) -> Result<Self, Self::Error> {
-        let data = T::extract(ob)?;
-        Ok(Provenance::new(data))
-    }
-}

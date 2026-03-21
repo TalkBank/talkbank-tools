@@ -69,7 +69,7 @@ reference. This page covers the practical workflow.
 
 ```bash
 # Check all spec format/layer correctness
-cargo run --bin validate_error_specs --manifest-path spec/tools/Cargo.toml
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml
 
 # Check coverage (all error codes have specs)
 cargo run --bin coverage --manifest-path spec/tools/Cargo.toml -- --spec-dir spec --errors

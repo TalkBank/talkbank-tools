@@ -10,7 +10,6 @@ enum TestError {
     ParseReturnedNone,
     MissingUtterance,
     MissingContent,
-    MissingParseHealth,
     UnexpectedContent,
 }
 
@@ -21,7 +20,6 @@ impl fmt::Display for TestError {
             Self::ParseReturnedNone => write!(f, "Parse returned None"),
             Self::MissingUtterance => write!(f, "Missing utterance"),
             Self::MissingContent => write!(f, "Missing word content"),
-            Self::MissingParseHealth => write!(f, "Missing parse health"),
             Self::UnexpectedContent => write!(f, "Unexpected first content item"),
         }
     }
@@ -149,12 +147,50 @@ fn test_file_recovers_degraded_main_tier_on_content_parse_failure() -> Result<()
     assert!(utterance.main.content.content.is_empty());
 
     // Main tier parse taint should be set
-    let health = utterance
-        .parse_health
-        .ok_or(TestError::MissingParseHealth)?;
+    let health = utterance.parse_health;
     assert!(
         health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Main),
         "degraded main tier should have main parse taint"
+    );
+
+    Ok(())
+}
+
+/// Tests degraded main tier keeps later valid dependent tiers attached.
+#[test]
+fn test_degraded_main_tier_keeps_later_valid_dependent_tiers() -> Result<(), TestError> {
+    let input = "@UTF8\n@Begin\n*CHI:\tfoo [\n%com:\tkept comment\n@End\n";
+    let errors = ErrorCollector::new();
+    let file = parse_chat_file_impl(input, 0, &errors).ok_or(TestError::ParseReturnedNone)?;
+
+    assert!(
+        !errors.is_empty(),
+        "expected parse errors for degraded main tier"
+    );
+
+    let utterance = file
+        .lines
+        .iter()
+        .find_map(|line| match line {
+            Line::Utterance(u) => Some(u),
+            _ => None,
+        })
+        .ok_or(TestError::MissingUtterance)?;
+
+    assert_eq!(utterance.main.speaker.as_str(), "CHI");
+    assert!(utterance.main.content.content.is_empty());
+    assert!(
+        utterance
+            .dependent_tiers
+            .iter()
+            .any(|tier| matches!(tier, talkbank_model::dependent_tier::DependentTier::Com(_))),
+        "valid %com tier should still attach to degraded main tier shell"
+    );
+    assert!(
+        utterance
+            .parse_health
+            .is_tier_tainted(talkbank_model::model::ParseHealthTier::Main),
+        "degraded main tier should remain explicitly tainted"
     );
 
     Ok(())
@@ -197,9 +233,7 @@ fn test_file_recovers_from_dependent_tier_parse_error_and_marks_parse_health()
         "invalid %gra tier must not be attached"
     );
 
-    let health = utterance
-        .parse_health
-        .ok_or(TestError::MissingParseHealth)?;
+    let health = utterance.parse_health;
     assert!(health.is_tier_clean(talkbank_model::model::ParseHealthTier::Main));
     assert!(health.is_tier_clean(talkbank_model::model::ParseHealthTier::Mor));
     assert!(
@@ -208,6 +242,66 @@ fn test_file_recovers_from_dependent_tier_parse_error_and_marks_parse_health()
     );
 
     Ok(())
+}
+
+/// Tests orphaned dependent tiers report errors but do not poison later utterances.
+#[test]
+fn test_orphaned_dependent_tier_does_not_poison_later_utterance() -> Result<(), TestError> {
+    let input = "@UTF8\n@Begin\n%com:\torphaned comment\n*CHI:\thello .\n@End\n";
+    let errors = ErrorCollector::new();
+    let file = parse_chat_file_impl(input, 0, &errors).ok_or(TestError::ParseReturnedNone)?;
+
+    let diagnostics = errors.to_vec();
+    assert!(
+        diagnostics
+            .iter()
+            .any(|err| err.code == ErrorCode::OrphanedDependentTier),
+        "expected orphaned dependent tier diagnostic, got: {:?}",
+        diagnostics
+    );
+
+    let utterances: Vec<_> = file
+        .lines
+        .iter()
+        .filter_map(|line| match line {
+            Line::Utterance(utt) => Some(utt),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        utterances.len(),
+        1,
+        "later valid utterance should still parse"
+    );
+    assert!(
+        utterances[0].dependent_tiers.is_empty(),
+        "orphaned tier must not silently attach to later utterance"
+    );
+    assert!(
+        utterances[0]
+            .parse_health
+            .is_tier_clean(talkbank_model::model::ParseHealthTier::Main),
+        "later valid utterance should not inherit orphan-tier taint"
+    );
+
+    Ok(())
+}
+
+/// Tests unrecoverable main tiers still fail the whole file parse.
+#[test]
+fn test_unrecoverable_main_tier_still_rejects_whole_file() {
+    let input = "@UTF8\n@Begin\n*:\tfoo [\n@End\n";
+    let errors = ErrorCollector::new();
+    let result = parse_chat_file_impl(input, 0, &errors);
+
+    assert!(
+        result.is_none(),
+        "main tier without recoverable speaker code must still reject whole file"
+    );
+    assert!(
+        !errors.is_empty(),
+        "fatal main-tier rejection should still emit diagnostics"
+    );
 }
 
 /// Test that word spans are correct file-absolute byte offsets.

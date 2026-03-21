@@ -2,6 +2,10 @@
 //!
 //! Convenience methods for parsing individual items: utterance, main tier, word, dependent tier.
 //!
+//! **Important:** the word/main-tier/utterance helpers here are synthetic
+//! tree-sitter fragment paths used for legacy audit and compatibility work.
+//! They should not be mistaken for honest isolated-fragment semantics.
+//!
 //! CHAT reference anchors:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
@@ -27,6 +31,8 @@ impl TreeSitterParser {
     /// complete CHAT document. When the input does not look like a full file (no
     /// `@UTF8` header detected), it is wrapped in a minimal synthetic CHAT document
     /// before parsing.
+    ///
+    /// This makes the method explicitly synthetic on fragment input.
     ///
     /// # Parameters
     ///
@@ -54,6 +60,8 @@ impl TreeSitterParser {
     /// produce a valid CST. Spans in the returned `MainTier` are relative to the
     /// wrapper, not the original input.
     ///
+    /// This is a legacy synthetic fragment path, not an honest isolated-fragment parser.
+    ///
     /// # Parameters
     ///
     /// - `input`: A main tier line in CHAT format, e.g., `*CHI:\thello world .`.
@@ -77,6 +85,9 @@ impl TreeSitterParser {
     /// The input word is embedded in a minimal `*CHI:\t<word> .` utterance, parsed by
     /// tree-sitter, and the first word-like content element is projected back. Inline
     /// annotations (e.g., `@b`, `@l`) attached to the word are preserved.
+    ///
+    /// This is a synthetic compatibility helper, not the semantic source of truth
+    /// for isolated word parsing.
     ///
     /// # Parameters
     ///

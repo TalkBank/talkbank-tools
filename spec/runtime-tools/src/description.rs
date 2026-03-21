@@ -1,7 +1,10 @@
 //! Generate informative descriptions for CHAT construct examples
 
+use talkbank_direct_parser::DirectParser;
+use talkbank_model::ChatParser;
+use talkbank_model::ErrorCollector;
 use talkbank_model::model::{WordCategory, WordContent};
-use talkbank_model::ParseErrors;
+use talkbank_model::{ParseErrors, ParseOutcome};
 use thiserror::Error;
 
 /// Enum variants for DescriptionError.
@@ -31,7 +34,14 @@ pub fn generate_description(input: &str, fence_type: &str) -> Result<String, Des
 
 /// Generate description for word-level constructs
 fn generate_word_description(input: &str) -> Result<String, DescriptionError> {
-    let word = talkbank_parser::parse_word(input).map_err(|err| parse_error("word", err))?;
+    let parser = DirectParser::new().expect("DirectParser should construct");
+    let errors = ErrorCollector::new();
+    let word = match ChatParser::parse_word(&parser, input, 0, &errors) {
+        ParseOutcome::Parsed(word) => word,
+        ParseOutcome::Rejected => {
+            return Err(parse_error("word", ParseErrors::from(errors.into_vec())));
+        }
+    };
     let mut features: Vec<String> = Vec::new();
 
     if let Some(category) = &word.category {

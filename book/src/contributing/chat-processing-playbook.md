@@ -28,6 +28,10 @@ Use cheap byte-prefix dispatch before heavy parsing:
 
 This preserves performance and isolates error contexts earlier.
 
+For downstream `batchalign3` consumers, tier dispatch is only the front door.
+The important contract is what happens after dispatch: parse-health taint,
+recovery vs rejection, and whether a tier is safe to pass into alignment.
+
 ## Word Parsing Rules of Thumb
 - Parse suffix markers in strict order (`@...`, `@s...`, `$...`) with explicit precedence.
 - Keep `raw_text` exact, `cleaned_text` policy-driven and test-locked.
@@ -63,6 +67,16 @@ This preserves performance and isolates error contexts earlier.
   - Fix: add missing fixture, decide parse-vs-validate placement, lock behavior.
 - Symptom: output drift after grammar edit.
   - Fix: run full regeneration and equivalent parser contract suite before merge.
+
+## Batchalign3 Surface Checks
+
+When a change affects the surface used by `batchalign3`, confirm:
+
+- full-file parse equivalence still holds for corpus coverage
+- direct-parser-native recovery tests still describe the fragment contract
+- alignment-sensitive downstream tiers still gate on parse-health appropriately
+- no synthetic fragment helper is being treated as the semantic oracle for a
+  direct-parser path
 
 ## Review Checklist for Parser PRs
 - New or changed behavior has targeted tests.

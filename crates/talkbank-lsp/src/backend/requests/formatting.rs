@@ -15,8 +15,8 @@ pub(super) async fn handle_formatting(
         None => return Ok(None),
     };
     let chat_file = match get_chat_file(backend, &uri, &doc) {
-        Some(file) => file,
-        None => return Ok(None),
+        Ok(file) => file,
+        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error)),
     };
 
     let formatted = chat_file.to_chat();

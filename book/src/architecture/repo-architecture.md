@@ -22,7 +22,7 @@
   talkbank-model/       data model, validation, alignment, errors, parser API trait
   talkbank-derive/      proc macros (SemanticEq, SpanShift, ValidationTagged)
   talkbank-parser/      canonical parser implementation (tree-sitter)
-  talkbank-direct-parser/ experimental parser (chumsky, isolated)
+  talkbank-direct-parser/ direct parser (chumsky, fragment-first with selective recovery)
   talkbank-transform/   pipelines, CHAT↔JSON, caching, parallel validation
   talkbank-clan/        CLAN analysis commands and format converters
   talkbank-cli/         chatter CLI

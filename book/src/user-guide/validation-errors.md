@@ -82,4 +82,5 @@ Detailed documentation for every error code is auto-generated from the spec at `
 - Suggested fix
 - Which validation layer catches it (parser vs. validation)
 
-Run `make test-gen` to regenerate error documentation after spec changes.
+Run `make test-gen` to regenerate error documentation after **error spec**
+changes.

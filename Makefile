@@ -1,4 +1,4 @@
-.PHONY: help symbols-gen generated-check test-gen mine-candidates test build clean check verify parser-guard chat-anchors-check book book-serve coverage smoke check-specs ci-local install-hooks
+.PHONY: help symbols-gen generated-check test-gen mine-candidates test test-affected test-grammar test-generated test-fragment-semantics test-legacy-fragment-parity test-parity build clean check check-affected verify parser-guard chat-anchors-check book book-serve coverage smoke check-specs ci-local ci-full install-hooks lint-affected
 
 help:
 	@echo "TalkBank Core Library Tasks"
@@ -8,8 +8,15 @@ help:
 	@echo "  make generated-check Regenerate and verify generated artifacts are in sync"
 	@echo "  make mine-candidates Mine valid CHAT candidates from ../data into spec/tmp/"
 	@echo "  make test           Run all tests"
+	@echo "  make test-affected  Run dependency-aware tests for changed code"
+	@echo "  make test-grammar   Run tree-sitter grammar corpus tests"
+	@echo "  make test-generated Run spec-generated parser/validation tests"
+	@echo "  make test-fragment-semantics Run direct-parser-native fragment recovery tests"
+	@echo "  make test-legacy-fragment-parity Run legacy tree-sitter/direct word-fragment parity audit"
+	@echo "  make test-parity    Run full-file parser parity tests"
 	@echo "  make build          Build all components"
 	@echo "  make check          Fast compile check"
+	@echo "  make check-affected Fast dependency-aware compile check"
 	@echo "  make verify         Canonical pre-merge verification gates"
 	@echo "  make coverage       Report grammar node type coverage for reference corpus"
 	@echo "  make parser-guard   Enforce parser ErrorSink/Option signature guardrail"
@@ -62,10 +69,10 @@ test-gen:
 # Usage: make mine-candidates LANGUAGES=eng,spa TOP=50 MAX_LINES=200 MAX_FILES=20000 DATA_DIR=../data
 mine-candidates:
 	@mkdir -p spec/tmp/mined
-	cd spec/tools && cargo run --bin extract_corpus_candidates -- \
+	cargo run --manifest-path spec/runtime-tools/Cargo.toml --bin extract_corpus_candidates -- \
 		--data-dir $${DATA_DIR:-../data} \
 		--languages $${LANGUAGES:-eng} \
-		--node-types ../../grammar/src/node-types.json \
+		--node-types grammar/src/node-types.json \
 		--max-lines $${MAX_LINES:-200} \
 		--max-files $${MAX_FILES:-20000} \
 		--top $${TOP:-50} \
@@ -73,7 +80,7 @@ mine-candidates:
 		--require-rust-validation=true \
 		--validate-alignment=true \
 		--json \
-		--output ../tmp/mined/candidates.$${LANGUAGES:-eng}.json
+		--output spec/tmp/mined/candidates.$${LANGUAGES:-eng}.json
 
 # Regenerate and verify all generated artifacts are committed.
 generated-check:
@@ -97,6 +104,27 @@ test:
 	cargo test --doc
 	@echo "==> Testing spec tools..."
 	cd spec/tools && cargo test
+	@echo "==> Testing spec runtime tools..."
+	cargo test --manifest-path spec/runtime-tools/Cargo.toml
+
+test-grammar:
+	cd grammar && tree-sitter test
+
+test-generated:
+	cargo nextest run -p talkbank-parser-tests --test generated
+	cargo nextest run -p talkbank-parser-tests --test generated_tests
+
+test-fragment-semantics:
+	cargo nextest run -p talkbank-direct-parser --test test_parse_health_recovery
+
+test-legacy-fragment-parity:
+	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_words
+
+test-parity:
+	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files
+
+test-affected:
+	cargo run -q -p xtask -- affected-rust test
 
 # Build all components
 build:
@@ -105,6 +133,8 @@ build:
 	cargo build --workspace --release
 	@echo "==> Building spec tools..."
 	cd spec/tools && cargo build --release
+	@echo "==> Building spec runtime tools..."
+	cargo build --manifest-path spec/runtime-tools/Cargo.toml --release
 
 # Fast compile check
 check:
@@ -112,6 +142,14 @@ check:
 	cargo check --workspace --all-targets
 	@echo "==> Checking spec tools..."
 	cd spec/tools && cargo check --all-targets
+	@echo "==> Checking spec runtime tools..."
+	cargo check --manifest-path spec/runtime-tools/Cargo.toml --all-targets
+
+check-affected:
+	cargo run -q -p xtask -- affected-rust check
+
+lint-affected:
+	cargo run -q -p xtask -- affected-rust clippy
 
 # Canonical pre-merge verification gates
 verify:
@@ -121,21 +159,23 @@ verify:
 	cargo check --workspace --all-targets
 	@echo "==> [G2] Spec tools compile check"
 	cd spec/tools && cargo check --all-targets
-	@echo "==> [G3] CHAT manual anchor links"
+	@echo "==> [G3] Spec runtime tools compile check"
+	cargo check --manifest-path spec/runtime-tools/Cargo.toml --all-targets
+	@echo "==> [G4] CHAT manual anchor links"
 	@$(MAKE) chat-anchors-check
-	@echo "==> [G4] Generated parser corpus equivalence suite"
+	@echo "==> [G5] Generated parser corpus equivalence suite"
 	cargo nextest run -p talkbank-parser-tests --test generated
-	@echo "==> [G5] Word-level parser equivalence suite"
-	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_words
-	@echo "==> [G6] Bare-timestamp regression gate"
+	@echo "==> [G6] Direct fragment recovery semantics"
+	@$(MAKE) test-fragment-semantics
+	@echo "==> [G7] Bare-timestamp regression gate"
 	cargo nextest run --test bare_timestamp_regression
-	@echo "==> [G7] Reference corpus semantic equivalence (tree-sitter vs direct)"
+	@echo "==> [G8] Reference corpus semantic equivalence (tree-sitter vs direct)"
 	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files
-	@echo "==> [G8] %wor tier parsing and alignment"
+	@echo "==> [G9] %wor tier parsing and alignment"
 	cargo nextest run -p talkbank-parser-tests --test wor_terminator_alignment
-	@echo "==> [G9] Golden tier roundtrip (%mor, %gra, %pho, %wor)"
+	@echo "==> [G10] Golden tier roundtrip (%mor, %gra, %pho, %wor)"
 	cargo nextest run -p talkbank-parser-tests --test parser_suite
-	@echo "==> [G10] Reference corpus node coverage"
+	@echo "==> [G11] Reference corpus node coverage"
 	@$(MAKE) coverage
 
 # Reference corpus grammar node type coverage
@@ -156,23 +196,41 @@ smoke:
 check-specs:
 	@scripts/check-error-specs.sh
 
-# Fast local CI: checks that mirror the CI pipeline (no tests).
+# Fast local CI: fmt + dependency-aware compile checks.
 ci-local:
 	@echo "==> fmt check (main workspace)"
 	cargo fmt --all -- --check
 	@echo "==> fmt check (spec/tools)"
 	cd spec/tools && cargo fmt --all -- --check
+	@echo "==> fmt check (spec/runtime-tools)"
+	cargo fmt --manifest-path spec/runtime-tools/Cargo.toml --all -- --check
+	@echo "==> affected compile check"
+	cargo run -q -p xtask -- affected-rust check
+	@echo "==> parser guardrail"
+	@scripts/check-errorsink-option-signatures.sh
+	@echo "✓ ci-local passed"
+
+# Full local CI: mirrors the stricter CI-style gate.
+ci-full:
+	@echo "==> fmt check (main workspace)"
+	cargo fmt --all -- --check
+	@echo "==> fmt check (spec/tools)"
+	cd spec/tools && cargo fmt --all -- --check
+	@echo "==> fmt check (spec/runtime-tools)"
+	cargo fmt --manifest-path spec/runtime-tools/Cargo.toml --all -- --check
 	@echo "==> clippy"
 	cargo clippy --all-targets -- -D warnings
 	@echo "==> compile check (main workspace)"
 	cargo check --workspace --all-targets
 	@echo "==> compile check (spec/tools)"
 	cd spec/tools && cargo check --all-targets
+	@echo "==> compile check (spec/runtime-tools)"
+	cargo check --manifest-path spec/runtime-tools/Cargo.toml --all-targets
 	@echo "==> parser guardrail"
 	@scripts/check-errorsink-option-signatures.sh
 	@echo "==> generated artifacts check"
 	@$(MAKE) generated-check
-	@echo "✓ ci-local passed"
+	@echo "✓ ci-full passed"
 
 # Install git hooks (pre-push).
 install-hooks:

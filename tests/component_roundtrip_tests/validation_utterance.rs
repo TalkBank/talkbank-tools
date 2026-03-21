@@ -6,7 +6,9 @@ use talkbank_model::ErrorCollector;
 use talkbank_model::SpeakerCode;
 use talkbank_model::validation::{Validate, ValidationContext};
 
-use super::roundtrip::{RoundtripError, true_roundtrip_tier_with_validation};
+use super::roundtrip::{
+    RoundtripError, parse_utterance_direct, true_roundtrip_tier_with_validation,
+};
 
 /// Validates utterance with participants.
 fn validate_utterance_with_participants(
@@ -35,10 +37,9 @@ fn validation_error_e308_utterance_unknown_speaker() -> Result<(), RoundtripErro
     let input = "*MOT:\thello .";
 
     // Validate with only CHI as participant, so MOT is undeclared
-    let result =
-        true_roundtrip_tier_with_validation(input, talkbank_parser::parse_utterance, |u| {
-            validate_utterance_with_participants(u, vec!["CHI"])
-        });
+    let result = true_roundtrip_tier_with_validation(input, parse_utterance_direct, |u| {
+        validate_utterance_with_participants(u, vec!["CHI"])
+    });
     match result {
         Err(RoundtripError::Validation { .. }) => Ok(()),
         Err(err) => Err(err),
@@ -55,7 +56,7 @@ fn validation_success_utterance_speaker_in_participants() -> Result<(), Roundtri
     let input = "*MOT:\thello .";
 
     // Validate with MOT as participant
-    true_roundtrip_tier_with_validation(input, talkbank_parser::parse_utterance, |u| {
+    true_roundtrip_tier_with_validation(input, parse_utterance_direct, |u| {
         validate_utterance_with_participants(u, vec!["MOT", "CHI"])
     })
 }
@@ -66,7 +67,7 @@ fn validation_success_speaker_lowercase() -> Result<(), RoundtripError> {
     // Lowercase speakers are valid (lenient validation)
     let input = "*mot:\thello .";
 
-    true_roundtrip_tier_with_validation(input, talkbank_parser::parse_utterance, |u| {
+    true_roundtrip_tier_with_validation(input, parse_utterance_direct, |u| {
         validate_utterance_with_participants(u, vec!["mot"])
     })
 }
@@ -78,7 +79,7 @@ fn validation_error_e308_speaker_too_long() -> Result<(), RoundtripError> {
 
     let result = true_roundtrip_tier_with_validation(
         input,
-        talkbank_parser::parse_utterance,
+        parse_utterance_direct,
         validate_utterance_no_participants,
     );
     match result {

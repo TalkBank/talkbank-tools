@@ -1,9 +1,16 @@
 # Library Usage
 
 **Status:** Current
-**Last updated:** 2026-03-14
+**Last updated:** 2026-03-21
 
 The TalkBank Rust crates can be used as dependencies in your own Rust projects for parsing, validating, and manipulating CHAT files.
+
+**Important:** some legacy tree-sitter fragment helpers are synthetic rather
+than semantically honest. They can inject fragment input into boilerplate CHAT
+text and parse the resulting synthetic file. Prefer full-file parsing for real
+tree-sitter use, and do not treat legacy fragment helpers as the long-term
+fragment API. For direct-parser fragment semantics, use direct-parser-native
+tests instead of treating synthetic wrappers as the oracle.
 
 ## Adding Dependencies
 
@@ -121,6 +128,24 @@ impl ErrorSink for MyErrorHandler {
 | Parse CHAT files (low-level) | `talkbank-parser` |
 | Full pipeline (parse + validate + convert) | `talkbank-transform` |
 | CLAN analysis commands | `talkbank-clan` |
+
+## Batchalign3-Facing Surface
+
+If you are building `batchalign3` or another external consumer, the stable
+surface is usually:
+
+| batchalign3 need | Prefer |
+|------------------|--------|
+| Canonical full-file parsing | `talkbank-parser` |
+| Parse/validate contracts and typed model access | `talkbank-model` |
+| Alignment-aware downstream consumers (`align`, `compare`, `benchmark`) | `talkbank-model` alignment helpers plus the model AST |
+| Direct-parser fragment/recovery semantics | `talkbank-direct-parser` tests and docs |
+| Whole-pipeline parse+validate+convert | `talkbank-transform` |
+
+For batch workflows, keep parser instances reusable and keep alignment logic
+separate from parse semantics. `batchalign3` should not depend on synthetic
+fragment helpers as a semantic oracle; those are audit-only compatibility
+paths.
 
 For CLAN analysis integration, prefer the library-owned execution boundary in `talkbank-clan` instead of constructing command types ad hoc in outer crates. In practice that means:
 

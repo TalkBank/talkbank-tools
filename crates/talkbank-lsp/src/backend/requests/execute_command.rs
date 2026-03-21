@@ -75,8 +75,8 @@ impl DocumentCommandService {
             None => return Ok(Some(Value::String("Document not found".to_string()))),
         };
         let chat_file = match get_chat_file(backend, &request.uri, &text) {
-            Some(file) => file,
-            None => return Ok(Some(Value::String("Parse error".to_string()))),
+            Ok(file) => file,
+            Err(error) => return Ok(Some(Value::String(error))),
         };
 
         let sidecar = alignment_sidecar::build_alignment_sidecar(&request.uri, &text, &chat_file);
@@ -100,8 +100,8 @@ impl DocumentCommandService {
             None => return Ok(Some(Value::String("Document not found".to_string()))),
         };
         let chat_file = match get_chat_file(backend, &request.uri, &text) {
-            Some(f) => f,
-            None => return Ok(Some(Value::String("Parse error".to_string()))),
+            Ok(file) => file,
+            Err(error) => return Ok(Some(Value::String(error))),
         };
         let utterance = match utils::find_utterance_at_position(&chat_file, request.position, &text)
         {

@@ -310,7 +310,7 @@ Two parsers produce `MorTier` from CHAT text:
 
 1. **Tree-sitter parser** (canonical): GLR-based, error-recovering. Produces a CST (concrete syntax tree) that the Rust `talkbank-parser` crate walks to construct `MorTier` directly. Used by the CLI and LSP. High-frequency values (`PosCategory`, `MorStem`) are interned via `Arc<str>` during construction.
 
-2. **Direct parser** (experimental): chumsky combinators, fail-fast. Produces `MorTier` directly without a CST intermediate. Used for batch processing of well-formed input. Calls `MorFeature::new()` which auto-detects key=value format.
+2. **Direct parser** (experimental): chumsky combinators with explicit fragment parsing and selective recovery in some broader paths. Produces `MorTier` directly without a CST intermediate. Calls `MorFeature::new()` which auto-detects key=value format.
 
 Both parsers must produce semantically identical `MorTier` values for the 74-file reference corpus.
 

@@ -2,6 +2,10 @@
 
 This page defines the naming rules used for major architecture seams in `talkbank-tools`. It started with the audit of `*sink*` abstractions, but the same vocabulary now covers renderers, services, coordinators, and reporters.
 
+For `batchalign3` integration, the same names should be used when talking
+about parser, validation, alignment, and reporting seams so that the two
+repositories share the same vocabulary for boundary ownership.
+
 ## Why vocabulary matters
 
 Many recent refactors introduced explicit boundaries:
@@ -38,7 +42,7 @@ Current examples:
 
 - `ErrorSink`
 - `ErrorCollector`
-- `ChannelErrorSink`
+- `ChannelErrorSink` (feature `channels`)
 - `AsyncChannelErrorSink`
 - `NullErrorSink`
 - `ConfigurableErrorSink`
@@ -54,6 +58,10 @@ Current code layout:
 - `crates/talkbank-model/src/errors/collectors.rs` for in-memory collectors and counters
 - `crates/talkbank-model/src/errors/async_channel_sink.rs` for the async channel-backed sink
 - `crates/talkbank-model/src/errors/configurable_sink.rs`, `offset_adjusting_sink.rs`, and `tee_sink.rs` for adapters
+
+The feature-gated `ChannelErrorSink` remains a good `Sink` name because it is
+still just a one-way diagnostic consumer; the point of the feature split is to
+keep cross-thread transport out of the default model boundary.
 
 ## `Reporter` or `Writer`
 

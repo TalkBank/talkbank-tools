@@ -85,8 +85,7 @@ impl Validate for Utterance {
             .any(|tier| matches!(tier, crate::model::dependent_tier::DependentTier::Mor(_)));
         let mor_tainted = self
             .parse_health
-            .as_ref()
-            .is_some_and(|h| h.is_tier_tainted(crate::model::ParseHealthTier::Mor));
+            .is_tier_tainted(crate::model::ParseHealthTier::Mor);
         if has_gra && !has_mor && !mor_tainted {
             errors.report(
                 crate::ParseError::new(

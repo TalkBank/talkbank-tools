@@ -53,7 +53,11 @@ If the grammar change affects any spec examples:
 make test-gen
 ```
 
-This regenerates tree-sitter corpus tests and Rust tests from specs.
+This regenerates tree-sitter corpus tests and other generated outputs that
+still depend on the spec pipeline.
+
+Do this when the grammar change actually affects generated artifacts. Do not use
+`make test-gen` as a blanket replacement for direct parser semantic testing.
 
 ### 7. Update node_types.rs
 
@@ -63,6 +67,11 @@ If new node types were added to the grammar, the generated `node_types.rs` in `t
 
 The reference corpus at `corpus/reference/` (74 files) must pass parser equivalence at 100%. If a grammar change breaks even one file, revert immediately. The reference corpus is the ultimate arbiter of correctness.
 
+That rule does not mean every parser-semantic change should be proved by the
+same corpus. When the direct parser grows a new isolated recovery or leniency
+contract, add direct-parser-native tests for that contract first, then use the
+reference corpus only to catch real full-file regressions.
+
 ## Common Patterns
 
 ### Adding a New Token
@@ -70,7 +79,16 @@ The reference corpus at `corpus/reference/` (74 files) must pass parser equivale
 1. Define the token in `grammar.js`
 2. Add handling in the Rust tier parser (match on the new node kind)
 3. Add a spec construct example
-4. Run `make test-gen` and `make verify`
+4. Add direct-parser-native tests if the new syntax affects fragment semantics
+   or recovery
+5. Run the relevant generation and verification steps
+
+For small, isolated syntax additions, the grammar workflow should stay local:
+
+- one grammar change
+- one grammar corpus example
+- one direct-parser-native fragment/recovery test
+- one full-file fixture if needed
 
 ### Changing a Rule
 
@@ -78,4 +96,8 @@ The reference corpus at `corpus/reference/` (74 files) must pass parser equivale
 2. `tree-sitter generate && tree-sitter test`
 3. Update Rust parser if CST node structure changed
 4. Update spec examples if the expected CST changed
-5. Run full verification
+5. Add or update direct-parser semantic tests if fragment behavior changed
+6. Run full verification
+
+Do not treat `tree-sitter test` plus `make test-gen` as a substitute for the
+direct parser's own semantic contract.

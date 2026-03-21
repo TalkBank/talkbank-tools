@@ -1,15 +1,18 @@
-//! Unit tests for DirectParser using TreeSitter as golden source.
+//! Legacy bootstrap-era fragment tests for DirectParser.
 //!
-//! This test suite provides EARLY DETECTION of DirectParser issues by comparing
-//! individual parser components against TreeSitterParser output at the unit level,
-//! rather than waiting for large-scale integration tests.
+//! This suite still compares several direct-parser fragment paths against
+//! tree-sitter fragment behavior. That was useful while the direct parser was
+//! being bootstrapped, but it is no longer a trustworthy long-term oracle for
+//! fragment semantics or lenient/recovery behavior.
 //!
 //! ## Testing Strategy
 //!
-//! 1. **TreeSitter as Golden Source**: Parse input with TreeSitterParser to get expected output
+//! 1. **Legacy TreeSitter comparison**: Compare some fragment outputs to
+//!    TreeSitterParser behavior
 //! 2. **Feature-Level Testing**: Test individual DirectParser components (words, tiers, etc.)
 //! 3. **Fast Feedback**: Each test runs in milliseconds, not seconds
-//! 4. **Early Detection**: Catch issues during development, not in CI
+//! 4. **Known limitation**: this does not establish the correct oracle for
+//!    direct-parser leniency or recovery
 //!
 //! ## Usage
 //!
@@ -31,7 +34,7 @@ use talkbank_model::model::{SemanticEq, Word};
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
-/// Constructs a TreeSitter parser used as the golden reference implementation.
+/// Constructs a TreeSitter parser used by the legacy comparison tests.
 fn tree_sitter_parser() -> Result<TreeSitterParser, TestError> {
     TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))
 }
@@ -41,10 +44,10 @@ fn direct_parser() -> Result<DirectParser, TestError> {
     DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))
 }
 
-/// Helper: Parse a word with TreeSitter and extract it from an utterance.
+/// Helper: Parse a word with TreeSitter for legacy comparison.
 ///
 /// This creates a minimal CHAT file with the word in a main tier, parses it
-/// with TreeSitterParser, and extracts the Word object to use as golden output.
+/// with TreeSitterParser, and extracts the Word object for comparison output.
 fn parse_word_with_treesitter(word_text: &str) -> Result<Word, TestError> {
     let tree_sitter = tree_sitter_parser()?;
     let errors = ErrorCollector::new();

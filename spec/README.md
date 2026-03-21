@@ -3,8 +3,9 @@
 ## Overview
 
 Markdown specification files define valid constructs and error cases for CHAT.
-Generators in `spec/tools/` turn these specs into tree-sitter corpus tests, Rust
-tests, and documentation.
+`spec/tools/` turns these specs into tree-sitter corpus tests, Rust tests, and
+documentation. Runtime-aware bootstrap and validation helpers live in the
+sibling `spec/runtime-tools/` crate.
 
 **Specs are the source of truth.** Generated artifacts should never be edited
 by hand.
@@ -21,9 +22,11 @@ spec/
 │   └── word/             Word-level constructs
 ├── errors/               Error specs (197 files, 181 error codes)
 ├── symbols/              Shared symbol registry (JSON + generators)
-├── tools/                Generator binaries (separate Cargo workspace)
-│   ├── src/bin/          Entry points
+├── tools/                Core generator crate in the spec workspace
+│   ├── src/bin/          Spec-to-artifact entry points
 │   └── templates/        Tera templates for wrapping test fragments
+├── runtime-tools/        Runtime-aware bootstrap/validation tooling
+│   └── src/bin/          Live parser/model-aware entry points
 └── docs/                 Format reference and guides
     ├── ERROR_SPEC_FORMAT.md   ← Comprehensive spec format reference
     └── WRITING_ERROR_SPECS.md ← Quick workflow guide
@@ -44,7 +47,7 @@ cargo run --bin gen_rust_tests --manifest-path spec/tools/Cargo.toml \
   -- -o crates/talkbank-parser-tests/tests/generated
 
 # Validate spec format
-cargo run --bin validate_error_specs --manifest-path spec/tools/Cargo.toml
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml
 
 # Check error coverage
 cargo run --bin coverage --manifest-path spec/tools/Cargo.toml \
@@ -71,7 +74,8 @@ See `docs/CURATION_WORKFLOW.md` for the mine -> curate -> generate workflow for 
 
 ## See Also
 
-- `tools/CLAUDE.md` — Generator workspace details
+- `tools/CLAUDE.md` — Core generator crate details
+- `runtime-tools/` — Runtime-aware spec tooling
 - `CLAUDE.md` (spec directory) — AI assistant guidance
 - `../crates/talkbank-parser-tests/CLAUDE.md` — Parser test crate
 

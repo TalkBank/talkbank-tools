@@ -19,7 +19,10 @@ See [Testing > Verification Gates](testing.md#verification-gates) for the full g
 - Rust parser tests
 - Error documentation
 
-If the check fails, it means someone edited specs or symbols without running `make test-gen`.
+If the check fails, it means committed generated artifacts are out of sync with
+their source inputs. That usually means specs or symbols changed without the
+corresponding regeneration step, not that every parser change should have run
+`make test-gen`.
 
 ## Parser Signature Guardrail (G7)
 

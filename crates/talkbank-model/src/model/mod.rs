@@ -72,10 +72,8 @@ pub use time::MediaTiming;
 
 // Re-export provenance types
 pub use provenance::{
-    AsrWordsJson, ChatOriginal, FromPython, LanguageId, Morphosyntax, NlpProduced, NlpResponse,
-    NlpResponseJson, NlpTokens, Provenance, PythonAsrWordsJson, PythonChatText, PythonLanguageId,
-    PythonTierDomain, PythonTranscriptJson, RawChatText, TierDomainMarker, TokenizedWords,
-    TranscriptJson,
+    AsrWordsJson, LanguageId, Morphosyntax, NlpResponse, NlpResponseJson, NlpTokens, Provenance,
+    RawChatText, TierDomainMarker, TokenizedWords, TranscriptJson,
 };
 
 // Re-export interning functions
@@ -85,8 +83,8 @@ pub use intern::{
 
 // Re-export file types
 pub use file::{
-    ChatFile, ChatFileLines, Line, ParseHealth, ParseHealthTier, Utterance, UtteranceLanguage,
-    UtteranceLanguageMetadata,
+    ChatFile, ChatFileLines, Line, ParseHealth, ParseHealthState, ParseHealthTier, Utterance,
+    UtteranceLanguage, UtteranceLanguageMetadata,
 };
 
 // Re-export participant type

@@ -7,14 +7,15 @@ echo "==> pre-push: fmt check"
 cargo fmt --all -- --check
 cd spec/tools && cargo fmt --all -- --check && cd ../..
 
-echo "==> pre-push: clippy"
-cargo clippy --all-targets -- -D warnings
-
-echo "==> pre-push: compile check"
-cargo check --workspace --all-targets
-cd spec/tools && cargo check --all-targets && cd ../..
+echo "==> pre-push: affected compile check"
+cargo run -q -p xtask -- affected-rust check
 
 echo "==> pre-push: parser guardrail"
 scripts/check-errorsink-option-signatures.sh
+
+if [[ "${TALKBANK_PRE_PUSH_CLIPPY:-0}" == "1" ]]; then
+  echo "==> pre-push: affected clippy"
+  cargo run -q -p xtask -- affected-rust clippy
+fi
 
 echo "✓ All pre-push checks passed"

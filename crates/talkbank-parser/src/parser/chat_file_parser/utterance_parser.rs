@@ -218,9 +218,7 @@ pub fn parse_utterance_node(
     }
 
     if let Some(mut utterance) = utterance_builder {
-        if !parse_health.is_clean() {
-            utterance.parse_health = Some(parse_health);
-        }
+        utterance.parse_health = parse_health.into_state();
         ParseOutcome::parsed(utterance)
     } else {
         ParseOutcome::rejected()

@@ -21,7 +21,11 @@ The canonical parser. Wraps the tree-sitter C parser and converts the concrete s
 
 ### talkbank-direct-parser
 
-The experimental parser using chumsky combinators. Fail-fast design for batch processing of well-formed input. Must produce identical results to the tree-sitter parser on the reference corpus.
+The direct fragment/file parser using chumsky combinators. It now has selective
+recovery and leniency in several main-tier, utterance, and file paths, so it is
+no longer accurate to describe it as purely fail-fast. Must produce identical
+results to the tree-sitter parser on the reference corpus for supported
+full-file behavior.
 
 ### talkbank-transform
 

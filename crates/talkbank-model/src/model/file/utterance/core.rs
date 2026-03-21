@@ -12,7 +12,7 @@ use talkbank_derive::{SemanticEq, SpanShift};
 
 use crate::ParseError;
 use crate::{
-    AlignmentSet, Header, MainTier, ParseHealth, UtteranceLanguage, UtteranceLanguageMetadata,
+    AlignmentSet, Header, MainTier, ParseHealthState, UtteranceLanguage, UtteranceLanguageMetadata,
 };
 
 /// A complete utterance with one main tier and zero or more dependent tiers.
@@ -127,14 +127,14 @@ pub struct Utterance {
 
     /// Parse provenance for alignment gating (runtime metadata, not serialized).
     ///
-    /// When present, flags which tiers were produced via recovery in the presence
-    /// of parse errors. Alignment code uses this to avoid generating spurious
-    /// cross-tier mismatch errors from tainted tiers.
+    /// `Unknown` means this utterance did not come through a parser-backed path
+    /// that established whether recovery was needed, so alignment code must
+    /// not silently assume the content is parse-clean.
     #[serde(skip, default)]
     #[schemars(skip)]
     #[semantic_eq(skip)]
     #[span_shift(skip)]
-    pub parse_health: Option<ParseHealth>,
+    pub parse_health: ParseHealthState,
 
     /// Explicit utterance-level language state.
     ///

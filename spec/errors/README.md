@@ -66,8 +66,7 @@ See [ERROR_SPEC_FORMAT.md](ERROR_SPEC_FORMAT.md) for complete format documentati
 2. Follow the format in ERROR_SPEC_FORMAT.md
 3. Validate the spec:
    ```bash
-   cd spec/tools
-   cargo run --bin validate_error_specs -- --spec-dir ../spec/errors
+   cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml -- --spec-dir spec/errors
    ```
 
 #### Option 2: Generate from Error Corpus
@@ -94,7 +93,7 @@ cargo run --bin enhance_specs -- --spec-dir ../spec/errors
 
 **Step 4: Validate specs**
 ```bash
-cargo run --bin validate_error_specs -- --spec-dir ../spec/errors
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml -- --spec-dir spec/errors
 ```
 
 This automated pipeline generates `E###_auto.md` files with:
@@ -171,7 +170,7 @@ After generating tests:
 Validates that error specs follow the correct format and have proper metadata.
 
 ```bash
-cargo run --bin validate_error_specs -- --spec-dir ../spec/errors
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml -- --spec-dir spec/errors
 ```
 
 Checks:

@@ -1,6 +1,36 @@
 # CLAUDE.md
 
+**Last modified:** 2026-03-21 08:02 EDT
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Cross-Cutting Design Rules
+
+These rules matter because contributors often read code before they read docs.
+
+1. **Types are the first layer of documentation.** Prefer named structs, enums,
+   traits, and newtypes over raw primitives when the value has stable meaning.
+2. **No primitive obsession at stable boundaries.** Do not introduce raw
+   strings, integers, or booleans for domain concepts such as CHAT text,
+   language IDs, spans, indices, counts, parser modes, recovery modes, or
+   parse-health states.
+3. **No tuple-packed domain seams.** If a pair or tuple has stable field
+   meaning, name it with a struct or newtype.
+4. **Avoid boolean blindness.** Use enums or state types when there are
+   multiple meaningful states or invalid state combinations.
+5. **No panic-based control flow in long-lived logic.** Do not add
+   `unwrap()`, `expect()`, or equivalent panics in parser, model, validation,
+   CLI, LSP, or background-tooling paths that should report typed failures.
+6. **Use real domain errors.** Prefer `thiserror`-based error types and
+   diagnostics over stringly failures.
+7. **Keep modules browseable.** Split catch-all modules when they start
+   combining unrelated concerns. Code organization should help a contributor
+   find parser, validation, alignment, or spec logic quickly.
+8. **Use methods when they clarify ownership.** Behavior that depends on a
+   type's invariants should usually live with that type. Keep free functions
+   for symmetric transforms, adapters, or orchestration glue.
+9. **Touched docs need timestamps.** Any documentation file changed in a patch
+   should update its `Last modified` field with date and time.
 
 ## Overview
 
@@ -151,9 +181,11 @@ Downstream consumer: `batchalign3` (path deps to this workspace's crates).
 ### Two Cargo Workspaces (plus desktop)
 
 1. **Root workspace** (`Cargo.toml`) — all Rust crates under `crates/` + `desktop/src-tauri`
-2. **Spec tools** (`spec/tools/Cargo.toml`) — generators that produce tests/docs from specs
+2. **Spec workspace** (`spec/Cargo.toml`) — `spec/tools` for core generation and `spec/runtime-tools` for runtime-aware spec tooling
 
-Always `cd spec/tools` before running cargo commands for spec tooling.
+Use the relevant manifest path for spec tooling:
+- `spec/tools/Cargo.toml` for generation
+- `spec/runtime-tools/Cargo.toml` for bootstrap/mining/runtime validation
 
 ### Shared Symbol Registry
 

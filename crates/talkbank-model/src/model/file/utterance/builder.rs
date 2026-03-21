@@ -12,7 +12,7 @@ use super::Utterance;
 use crate::model::dependent_tier::wor::WorTier;
 use crate::model::dependent_tier::*;
 use crate::model::{
-    Header, MainTier, NonEmptyString, ParseHealth, ParseHealthTier, UtteranceLanguage,
+    Header, MainTier, NonEmptyString, ParseHealthState, ParseHealthTier, UtteranceLanguage,
     UtteranceLanguageMetadata,
 };
 use smallvec::SmallVec;
@@ -30,7 +30,7 @@ impl Utterance {
             dependent_tiers: SmallVec::new(),
             alignments: None,
             alignment_diagnostics: Vec::new(),
-            parse_health: None,
+            parse_health: ParseHealthState::Clean,
             utterance_language: UtteranceLanguage::Uncomputed,
             language_metadata: UtteranceLanguageMetadata::Uncomputed,
         }
@@ -41,9 +41,7 @@ impl Utterance {
     /// Use this after parser recovery when a specific tier parsed with damage
     /// but the utterance should still flow through later pipeline stages.
     pub fn mark_parse_taint(&mut self, tier: ParseHealthTier) {
-        self.parse_health
-            .get_or_insert_with(ParseHealth::default)
-            .taint(tier);
+        self.parse_health.taint(tier);
     }
 
     /// Marks all alignment-relevant dependent tiers as parse-tainted.
@@ -51,9 +49,7 @@ impl Utterance {
     /// This is the coarse fallback used when recovery quality is unclear and
     /// alignments should prefer "skip with diagnostics" behavior.
     pub fn mark_all_dependent_alignment_taint(&mut self) {
-        self.parse_health
-            .get_or_insert_with(ParseHealth::default)
-            .taint_all_alignment_dependents();
+        self.parse_health.taint_all_alignment_dependents();
     }
 
     /// Replaces preceding interstitial headers (`@Comment`, `@Bg`, `@Eg`, `@G`).

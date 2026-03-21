@@ -2,7 +2,7 @@
 //!
 //! These tests document expected behavior and regressions.
 
-use talkbank_model::model::{Line, ParseHealth, ParseHealthTier};
+use talkbank_model::model::{Line, ParseHealth, ParseHealthState, ParseHealthTier};
 use talkbank_model::{ErrorCode, ErrorCollector};
 use talkbank_parser::parse_chat_file_streaming;
 
@@ -58,9 +58,9 @@ fn malformed_standard_dependent_tiers_taint_only_their_alignment_domain() {
             "Expected parse diagnostics for malformed tier {malformed_tier}"
         );
 
-        let health = utterance
-            .parse_health
-            .expect("Expected parse health taint from malformed dependent tier");
+        let ParseHealthState::Tainted(health) = utterance.parse_health else {
+            panic!("Expected parse health taint from malformed dependent tier");
+        };
         assert!(
             health.is_tier_clean(ParseHealthTier::Main),
             "Main tier should remain clean for malformed dependent tier {malformed_tier}"
@@ -87,9 +87,9 @@ fn malformed_unknown_dependent_tier_taints_all_alignment_dependents() {
         "Expected diagnostics for malformed unknown dependent tier"
     );
 
-    let health = utterance
-        .parse_health
-        .expect("Expected parse health taint from malformed unknown dependent tier");
+    let ParseHealthState::Tainted(health) = utterance.parse_health else {
+        panic!("Expected parse health taint from malformed unknown dependent tier");
+    };
     assert!(health.is_tier_clean(ParseHealthTier::Main));
     assert!(health.is_tier_tainted(ParseHealthTier::Mor));
     assert!(health.is_tier_tainted(ParseHealthTier::Gra));
@@ -125,9 +125,9 @@ fn malformed_gra_relation_does_not_fabricate_default_relation_values() {
         gra.relations
     );
 
-    let health = utterance
-        .parse_health
-        .expect("Expected parse health taint from malformed %gra relation");
+    let ParseHealthState::Tainted(health) = utterance.parse_health else {
+        panic!("Expected parse health taint from malformed %gra relation");
+    };
     assert!(
         health.is_tier_tainted(ParseHealthTier::Gra),
         "Malformed %gra relation must taint gra alignment domain"

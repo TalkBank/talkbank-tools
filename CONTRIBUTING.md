@@ -38,10 +38,19 @@ CHAT_HTML_URL=https://talkbank.org/0info/manuals/CHAT.html make chat-anchors-che
 This check is now part of required CI gates.
 
 ## Required Workflow
-If you change specs in `spec/`, regenerate generated outputs:
+If you change specs, symbols, or other inputs that feed generated artifacts,
+regenerate the affected outputs:
 ```bash
 make test-gen
 ```
+
+If your change is primarily about direct-parser fragment semantics or recovery,
+do not assume `make test-gen` is sufficient. Add direct-parser-native tests for
+that behavior.
+
+See [book/src/architecture/post-bootstrap-parser-testing.md](book/src/architecture/post-bootstrap-parser-testing.md)
+for the current testing model and the post-bootstrap split between grammar,
+direct-parser semantics, parity, and error specs.
 
 ## Before Opening a PR
 Run at minimum:

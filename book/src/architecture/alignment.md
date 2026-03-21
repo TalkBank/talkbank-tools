@@ -3,6 +3,11 @@
 This document describes all alignment data structures, algorithms, and
 design decisions in the `talkbank-tools` crate workspace.
 
+`batchalign3` is the main downstream consumer for these APIs. Its `morphotag`,
+`align`, `compare`, `benchmark`, and forced-alignment flows all depend on the
+alignment contracts described here, so the model-layer alignment surfaces are
+the stable boundary to preserve.
+
 ## Overview
 
 Tier alignment in CHAT validates that dependent tiers (%mor, %pho, %wor, %sin,
@@ -61,6 +66,21 @@ Used by all 5 alignment modules (mor, pho, sin, wor, gra) to avoid
 duplicating the `write_chat` → `String` pattern. Best-effort: write
 failures are silently ignored because diagnostic formatting must never
 panic the alignment path.
+
+### Downstream Expectations
+
+Batchalign3 should treat these helpers as the stable alignment surface:
+
+- `%mor` and `%gra` alignment for morphotag/compare-style workflows
+- `%wor` alignment and timing mapping for forced alignment workflows
+- `%pho`, `%mod`, `%modsyl`, `%phosyl`, and `%phoaln` tier-to-tier alignment
+  for phonological and derived-tier consumers
+- shared count/walk helpers for any workflow that needs to reason about
+  dependent tier cardinality before alignment
+
+That means a downstream workflow should not reimplement word counting or
+positional mapping over raw CHAT text when the model layer already provides a
+typed helper.
 
 ## Core Types
 

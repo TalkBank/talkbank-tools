@@ -33,6 +33,7 @@
 - [Spec System](architecture/spec-system.md)
 - [Grammar](architecture/grammar.md)
 - [Parsing](architecture/parsing.md)
+- [Post-Bootstrap Parser Testing](architecture/post-bootstrap-parser-testing.md)
 - [Data Model](architecture/data-model.md)
 - [Transform Pipeline](architecture/transform-pipeline.md)
 - [Error System](architecture/error-system.md)

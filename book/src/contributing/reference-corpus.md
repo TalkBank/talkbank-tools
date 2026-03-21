@@ -28,7 +28,7 @@ Running against the old 345-file corpus confirmed exactly 18 gaps.
 
 ### Phase 1: Language Selection & File Extraction
 
-Built `extract_corpus_candidates` (`spec/tools/src/bin/extract_corpus_candidates.rs`)
+Built `extract_corpus_candidates` (`spec/runtime-tools/src/bin/extract_corpus_candidates.rs`)
 to automatically select representative files from the corpus data directory for 20 target
 languages:
 
@@ -173,7 +173,7 @@ corpus/reference/           374 files total
 | Tool | Path | Purpose |
 |------|------|---------|
 | `corpus_node_coverage` | `spec/tools/src/bin/` | Grammar node type coverage |
-| `extract_corpus_candidates` | `spec/tools/src/bin/` | Automated file selection from corpus data |
+| `extract_corpus_candidates` | `spec/runtime-tools/src/bin/` | Automated file selection from corpus data |
 | `perturb_corpus` | `spec/tools/src/bin/` | Error file generation by mutation |
 
 ## What Worked
@@ -199,8 +199,7 @@ corpus/reference/           374 files total
   stubs.
 - **Direct parser vs unsupported.cha**: The chumsky direct parser cannot handle
   `unsupported_line` nodes (fails on `constructs/unsupported.cha`). This is a
-  known limitation — the direct parser is experimental and doesn't support the
-  full grammar.
+  known limitation — the direct parser still does not support the full grammar.
 
 ## Known Remaining Gaps
 
@@ -210,7 +209,7 @@ corpus/reference/           374 files total
 2. **No audio files**: Phase 3.3 (audio subset with %wor tiers) was deferred.
    Adding ~10 short audio clips would test the alignment pipeline end-to-end.
 3. **Direct parser roundtrip**: 373/374 pass (unsupported.cha fails). Acceptable
-   since the direct parser is experimental.
+   for now because unsupported-line coverage is still incomplete.
 4. **5 parser recovery specs not_implemented**: E319–E322, E376. Examples don't
    trigger the intended codes due to tree-sitter's error recovery routing.
 

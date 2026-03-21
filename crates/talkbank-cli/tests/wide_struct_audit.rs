@@ -130,7 +130,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         reason: "cohesive alignment domain aggregate",
     },
     WideStructAllowance {
-        path: "spec/tools/src/bin/extract_corpus_candidates.rs",
+        path: "spec/runtime-tools/src/bin/extract_corpus_candidates.rs",
         struct_name: "Candidate",
         max_fields: 13,
         max_bool_fields: 4,
@@ -146,7 +146,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         reason: "fluency report record",
     },
     WideStructAllowance {
-        path: "spec/tools/src/bin/extract_corpus_candidates.rs",
+        path: "spec/runtime-tools/src/bin/extract_corpus_candidates.rs",
         struct_name: "Args",
         max_fields: 11,
         max_bool_fields: 4,

@@ -5,8 +5,7 @@ Short summary for `spec/docs/ERROR_CATALOG.md`. This document is intentionally c
 
 ## Key Commands
 ```bash
-cd spec/tools
-cargo run --bin validate_error_specs
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml
 ```
 
 ## Status and Limitations

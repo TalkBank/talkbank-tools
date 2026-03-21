@@ -1,6 +1,6 @@
 use talkbank_model::ChatOptionFlag;
 use talkbank_model::FragmentSemanticContext;
-use talkbank_parser::{
+use talkbank_parser::synthetic_fragments::{
     parse_main_tier, parse_main_tier_with_context, parse_utterance, parse_utterance_with_context,
 };
 

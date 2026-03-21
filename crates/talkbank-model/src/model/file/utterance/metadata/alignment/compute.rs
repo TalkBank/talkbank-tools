@@ -2,10 +2,72 @@ use super::count_based::{
     build_mor_tier_from_items, build_phonology_alignment_from_counts,
     build_sin_alignment_from_counts, build_tier_to_tier_alignment,
 };
-use super::diagnostics::{first_non_dummy_span, skipped_alignment_warning};
-use crate::model::{AlignmentSet, AlignmentUnits, ParseHealthTier};
+use super::diagnostics::{
+    first_non_dummy_span, skipped_alignment_warning, unknown_alignment_warning,
+};
+use crate::model::{AlignmentSet, AlignmentUnits, ParseHealthState, ParseHealthTier};
 use crate::validation::ValidationContext;
-use crate::{ErrorCode, Span, Utterance};
+use crate::{ErrorCode, ParseError, Span, Utterance};
+
+fn alignment_blocked_warning(
+    health: ParseHealthState,
+    alignment_name: &str,
+    left_label: &str,
+    left_span: Span,
+    left_tier: ParseHealthTier,
+    right_label: &str,
+    right_span: Span,
+    right_tier: ParseHealthTier,
+) -> ParseError {
+    match health {
+        ParseHealthState::Unknown => unknown_alignment_warning(
+            alignment_name,
+            left_label,
+            left_span,
+            right_label,
+            right_span,
+        ),
+        _ => skipped_alignment_warning(
+            alignment_name,
+            left_label,
+            health.is_tier_clean(left_tier),
+            left_span,
+            right_label,
+            health.is_tier_clean(right_tier),
+            right_span,
+        ),
+    }
+}
+
+fn grouped_alignment_blocked_warning(
+    health: ParseHealthState,
+    alignment_name: &str,
+    left_label: &str,
+    left_span: Span,
+    left_tier: ParseHealthTier,
+    right_label: &str,
+    right_span: Span,
+    right_clean: bool,
+) -> ParseError {
+    match health {
+        ParseHealthState::Unknown => unknown_alignment_warning(
+            alignment_name,
+            left_label,
+            left_span,
+            right_label,
+            right_span,
+        ),
+        _ => skipped_alignment_warning(
+            alignment_name,
+            left_label,
+            health.is_tier_clean(left_tier),
+            left_span,
+            right_label,
+            right_clean,
+            right_span,
+        ),
+    }
+}
 
 impl Utterance {
     /// Recompute all derived alignment metadata for this utterance.
@@ -14,7 +76,7 @@ impl Utterance {
 
         let units = AlignmentUnits::from_utterance(self, context);
         let mut metadata = AlignmentSet::new(units);
-        let health = self.parse_health.unwrap_or_default();
+        let health = self.parse_health;
 
         let (mor_items, mor_span) = if let Some(tier) = self.mor_tier() {
             (Some(tier.items.0.clone()), tier.span)
@@ -37,14 +99,15 @@ impl Utterance {
                 metadata.mor = Some(crate::alignment::align_main_to_mor(&self.main, &mor));
             } else {
                 metadata.mor = Some(crate::alignment::MorAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "main↔%mor",
                         "main tier",
-                        health.is_tier_clean(ParseHealthTier::Main),
                         self.main.span,
+                        ParseHealthTier::Main,
                         "%mor tier",
-                        health.is_tier_clean(ParseHealthTier::Mor),
                         mor_span,
+                        ParseHealthTier::Mor,
                     ),
                 ));
             }
@@ -57,14 +120,15 @@ impl Utterance {
                 metadata.gra = Some(crate::alignment::align_mor_to_gra(&mor, &gra));
             } else {
                 metadata.gra = Some(crate::alignment::GraAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "%mor↔%gra",
                         "%mor tier",
-                        health.is_tier_clean(ParseHealthTier::Mor),
                         mor_span,
+                        ParseHealthTier::Mor,
                         "%gra tier",
-                        health.is_tier_clean(ParseHealthTier::Gra),
                         gra_span,
+                        ParseHealthTier::Gra,
                     ),
                 ));
             }
@@ -78,14 +142,15 @@ impl Utterance {
                 ));
             } else {
                 metadata.pho = Some(crate::alignment::PhoAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "main↔%pho",
                         "main tier",
-                        health.is_tier_clean(ParseHealthTier::Main),
                         self.main.span,
+                        ParseHealthTier::Main,
                         "%pho tier",
-                        health.is_tier_clean(ParseHealthTier::Pho),
                         pho_span,
+                        ParseHealthTier::Pho,
                     ),
                 ));
             }
@@ -96,14 +161,15 @@ impl Utterance {
                 metadata.wor = Some(crate::alignment::align_main_to_wor(&self.main, &wor));
             } else {
                 metadata.wor = Some(crate::alignment::WorAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "main↔%wor",
                         "main tier",
-                        health.is_tier_clean(ParseHealthTier::Main),
                         self.main.span,
+                        ParseHealthTier::Main,
                         "%wor tier",
-                        health.is_tier_clean(ParseHealthTier::Wor),
                         wor_span,
+                        ParseHealthTier::Wor,
                     ),
                 ));
             }
@@ -117,14 +183,15 @@ impl Utterance {
                 ));
             } else {
                 metadata.mod_ = Some(crate::alignment::PhoAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "main↔%mod",
                         "main tier",
-                        health.is_tier_clean(ParseHealthTier::Main),
                         self.main.span,
+                        ParseHealthTier::Main,
                         "%mod tier",
-                        health.is_tier_clean(ParseHealthTier::Mod),
                         mod_span,
+                        ParseHealthTier::Mod,
                     ),
                 ));
             }
@@ -138,14 +205,15 @@ impl Utterance {
                 ));
             } else {
                 metadata.sin = Some(crate::alignment::SinAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "main↔%sin",
                         "main tier",
-                        health.is_tier_clean(ParseHealthTier::Main),
                         self.main.span,
+                        ParseHealthTier::Main,
                         "%sin tier",
-                        health.is_tier_clean(ParseHealthTier::Sin),
                         sin_span,
+                        ParseHealthTier::Sin,
                     ),
                 ));
             }
@@ -168,14 +236,15 @@ impl Utterance {
                 ));
             } else {
                 metadata.modsyl = Some(crate::alignment::PhoAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "%modsyl↔%mod",
                         "%modsyl tier",
-                        health.is_tier_clean(ParseHealthTier::Modsyl),
                         modsyl_span,
+                        ParseHealthTier::Modsyl,
                         "%mod tier",
-                        health.is_tier_clean(ParseHealthTier::Mod),
                         mod_span,
+                        ParseHealthTier::Mod,
                     ),
                 ));
             }
@@ -194,14 +263,15 @@ impl Utterance {
                 ));
             } else {
                 metadata.phosyl = Some(crate::alignment::PhoAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    alignment_blocked_warning(
+                        health,
                         "%phosyl↔%pho",
                         "%phosyl tier",
-                        health.is_tier_clean(ParseHealthTier::Phosyl),
                         phosyl_span,
+                        ParseHealthTier::Phosyl,
                         "%pho tier",
-                        health.is_tier_clean(ParseHealthTier::Pho),
                         pho_span,
+                        ParseHealthTier::Pho,
                     ),
                 ));
             }
@@ -255,15 +325,16 @@ impl Utterance {
                 metadata.phoaln = Some(alignment);
             } else {
                 metadata.phoaln = Some(crate::alignment::PhoAlignment::new().with_error(
-                    skipped_alignment_warning(
+                    grouped_alignment_blocked_warning(
+                        health,
                         "%phoaln↔%mod/%pho",
                         "%phoaln tier",
-                        health.is_tier_clean(ParseHealthTier::Phoaln),
                         phoaln_span,
+                        ParseHealthTier::Phoaln,
                         "%mod/%pho tiers",
+                        first_non_dummy_span([mod_span, pho_span]),
                         health.is_tier_clean(ParseHealthTier::Mod)
                             && health.is_tier_clean(ParseHealthTier::Pho),
-                        first_non_dummy_span([mod_span, pho_span]),
                     ),
                 ));
             }

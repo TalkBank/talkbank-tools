@@ -36,7 +36,7 @@ cargo run --bin gen_rust_tests \
 
 # Validate spec format integrity
 cargo run --bin validate_error_specs \
-  --manifest-path spec/tools/Cargo.toml
+  --manifest-path spec/runtime-tools/Cargo.toml
 ```
 
 ## Workflows
@@ -47,17 +47,17 @@ Mine candidates first, then curate. Do not copy mined files directly into genera
 
 Quick mining command (staging only):
 ```bash
-cd spec/tools && cargo run --bin extract_corpus_candidates -- \
+cargo run --manifest-path spec/runtime-tools/Cargo.toml --bin extract_corpus_candidates -- \
   --data-dir ../data \
   --languages eng \
-  --node-types ../../grammar/src/node-types.json \
+  --node-types grammar/src/node-types.json \
   --max-files 20000 \
   --top 50 \
   --require-rust-parse=true \
   --require-rust-validation=true \
   --validate-alignment=true \
   --json \
-  --output ../tmp/mined/candidates.eng.json
+  --output spec/tmp/mined/candidates.eng.json
 ```
 
 1. **Create/Edit Spec File**:
@@ -117,7 +117,8 @@ spec/
 │   ├── word/         # Word structure
 │   └── ...
 ├── errors/           # Invalid CHAT examples (Source of Truth for errors)
-└── tools/            # Generator binaries and logic
+├── tools/            # Core generator binaries and logic
+└── runtime-tools/    # Runtime-aware bootstrap/mining/validation tooling
     ├── src/bin/      # Entry points (gen_tree_sitter_tests, etc.)
     └── templates/    # Tera templates for wrapping test fragments
 ```

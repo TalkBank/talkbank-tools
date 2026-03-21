@@ -1,6 +1,15 @@
 # Spec Workflow
 
-Specifications in `spec/` are the source of truth for CHAT format definitions. All test fixtures and error documentation are generated from specs.
+Specifications in `spec/` are the source of truth for CHAT format intent, grammar
+examples, and validation/error contracts.
+
+They are **not** the sole source of truth for every parser-semantic behavior.
+In particular, direct-parser fragment recovery and leniency now need their own
+direct-parser-native tests rather than being routed entirely through the older
+generation pipeline.
+
+If a workflow still depends on synthetic tree-sitter fragment behavior, treat
+it as an audit or compatibility path, not as the default semantic contract.
 
 ## Adding a Construct Spec
 
@@ -46,17 +55,35 @@ Description of what this example demonstrates.
 - **Category**: main_tier
 ```
 
-The code fence label (e.g., `utterance`, `mor_dependent_tier`) selects which template wraps the input into a full CHAT file.
+The code fence label (e.g., `utterance`, `mor_dependent_tier`) selects which
+template wraps the input into a full CHAT file.
+
+That templating is a grammar/test-generation mechanism. It should not be
+confused with the semantic contract for honest isolated fragment parsing.
 
 ### 3. Generate the CST
 
 Parse your input with tree-sitter to get the actual CST, then copy it as the Expected CST (stripping positions and field names).
 
-### 4. Regenerate Tests
+### 4. Regenerate The Affected Generated Artifacts
 
 ```bash
 make test-gen
 ```
+
+Use `make test-gen` when you intentionally changed generated grammar corpus
+tests, generated Rust tests, or generated error docs.
+
+If your change is primarily about direct-parser fragment semantics or recovery,
+prefer adding direct-parser-native tests instead of assuming generation is the
+right answer.
+
+For isolated grammar additions, keep the change small:
+
+1. Add or adjust one grammar example.
+2. Add one direct-parser-native semantic test for the new fragment behavior.
+3. Add one full-file fixture if the change matters in context.
+4. Regenerate only the artifacts that truly changed.
 
 ## Adding an Error Spec
 
@@ -104,7 +131,7 @@ The @Participants header is required in every CHAT file.
 - **Layer: validation** — the error is caught by `validate_with_alignment()` after successful parse
 - **Status: not_implemented** — generates `#[ignore]` tests (validation logic not yet coded)
 
-### 3. Regenerate
+### 3. Regenerate The Affected Artifacts
 
 ```bash
 make test-gen
@@ -119,11 +146,12 @@ After editing:
 
 ```bash
 make symbols-gen    # Regenerate Rust and JS constants
-make test-gen       # Regenerate tests
+make test-gen       # If generated grammar/tests/docs depend on the symbols
 ```
 
 ## Common Mistakes
 
 - **Editing generated files** — never edit `grammar/test/corpus/` or `crates/talkbank-parser-tests/tests/generated/` by hand
-- **Forgetting `make test-gen`** — always regenerate after spec changes
+- **Treating specs as the whole parser-testing story** — direct-parser fragment semantics and recovery often deserve direct tests rather than more generation
+- **Running `make test-gen` reflexively** — use it when generated artifacts changed, not as a substitute for thinking about what kind of test authority the change really needs
 - **Wrong layer** — parser-layer specs expect parse failure; validation-layer specs expect parse success + error report

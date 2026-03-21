@@ -18,11 +18,10 @@ Do not copy mined `.cha` files directly into release corpus outputs.
 1. Mine candidates:
 
 ```bash
-cd spec/tools
-cargo run --bin extract_corpus_candidates -- \
+cargo run --bin extract_corpus_candidates --manifest-path spec/runtime-tools/Cargo.toml -- \
   --data-dir ../data \
   --languages eng \
-  --node-types ../../grammar/src/node-types.json \
+  --node-types grammar/src/node-types.json \
   --max-lines 200 \
   --max-files 20000 \
   --top 50 \
@@ -30,7 +29,7 @@ cargo run --bin extract_corpus_candidates -- \
   --require-rust-validation=true \
   --validate-alignment=true \
   --json \
-  --output ../tmp/mined/candidates.eng.json
+  --output spec/tmp/mined/candidates.eng.json
 ```
 
 2. Curate by hand from those candidates:

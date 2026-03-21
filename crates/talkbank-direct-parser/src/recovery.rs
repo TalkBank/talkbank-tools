@@ -1,7 +1,7 @@
 //! Shared segment-splitting utilities for tier-level error recovery.
 //!
-//! The direct parser is batch-oriented and uses chumsky combinators that
-//! are fail-fast at the tier level: one bad item rejects the entire tier.
+//! The direct parser is batch-oriented and still has several tier parsers that
+//! are fail-fast at the item level: one bad item rejects the entire tier.
 //! This module provides utilities to split tier content into whitespace-
 //! delimited segments so each can be parsed independently, enabling
 //! item-level recovery where good items are kept and bad ones are skipped.

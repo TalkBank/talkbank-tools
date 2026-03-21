@@ -1,5 +1,5 @@
 [workspace]
-members = ["tools"]
+members = ["tools", "runtime-tools"]
 resolver = "2"
 
 [workspace.package]
@@ -42,8 +42,8 @@ oxc_ast = "0.116.0"
 oxc_parser = "0.116.0"
 oxc_span = "0.116.0"
 
-# ARCHITECTURAL CONCERN: These create a build-time circular dependency
-# spec/tools (bootstrap) needs rust parser → rust depends on spec-generated tests
-# TODO: Resolve by making bootstrap optional or using only tree-sitter directly
+# Runtime-aware spec tooling lives in `spec/runtime-tools`, separate from the
+# core generation crate in `spec/tools`.
 talkbank-model = { path = "../crates/talkbank-model" }
+talkbank-direct-parser = { path = "../crates/talkbank-direct-parser" }
 talkbank-parser = { path = "../crates/talkbank-parser" }

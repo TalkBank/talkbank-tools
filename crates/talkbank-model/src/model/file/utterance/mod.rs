@@ -32,5 +32,5 @@ mod tests;
 
 pub use core::Utterance;
 pub use language_metadata_state::UtteranceLanguageMetadata;
-pub use parse_health::{ParseHealth, ParseHealthTier};
+pub use parse_health::{ParseHealth, ParseHealthState, ParseHealthTier};
 pub use utterance_language::UtteranceLanguage;

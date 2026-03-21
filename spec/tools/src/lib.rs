@@ -13,9 +13,11 @@
 //!   examples and fix suggestions.
 //!
 //! The [`templates`] module handles wrapping sub-document fragments (words,
-//! tiers) into complete CHAT files so tree-sitter can parse them. The
-//! [`bootstrap`] module provides utilities for seeding new spec files from
-//! corpus data.
+//! tiers) into complete CHAT files so tree-sitter can parse them.
+//!
+//! Runtime-aware bootstrap and parser/model validation tools now live in the
+//! sibling `spec/runtime-tools` crate so ordinary generation does not pull Rust
+//! parser/model crates into the default spec workflow.
 //!
 //! # Running the generators
 //!
@@ -53,10 +55,6 @@
 //!     --bin gen_error_docs -- \
 //!     -o docs/errors
 //!
-//! # Validate error spec layer classifications against actual parser behavior
-//! cargo run --manifest-path spec/tools/Cargo.toml \
-//!     --bin validate_error_specs
-//!
 //! # Coverage dashboard (how many constructs have specs)
 //! cargo run --manifest-path spec/tools/Cargo.toml \
 //!     --bin gen_coverage_dashboard
@@ -69,8 +67,8 @@
 //! | [`spec`] | Loaders and types for construct/error spec Markdown files |
 //! | [`output`] | Formatters that turn parsed specs into generated artifacts |
 //! | [`templates`] | Tera template engine for wrapping CHAT fragments into complete files |
-//! | [`bootstrap`] | Utilities for seeding new specs from corpus data (grammar analysis, CST extraction) |
-//! | [`description`] | Shared description/metadata helpers |
+//! Runtime-aware tooling such as bootstrap, corpus mining, and live
+//! parser/model validation now lives in `spec/runtime-tools`.
 //!
 //! ## Binary entry points
 //!
@@ -82,17 +80,13 @@
 //! | `gen_rust_tests` | Generate Rust `#[test]` files from construct + error specs |
 //! | `gen_validation_tests` | Generate Rust tests for validation-layer errors only |
 //! | `gen_error_docs` | Generate Markdown error documentation pages |
-//! | `validate_error_specs` | Validate spec layer classifications against parser behavior |
 //! | `validate_spec` | Validate individual spec file format integrity |
 //! | `coverage` | Report spec coverage of grammar node types |
 //! | `gen_coverage_dashboard` | Generate HTML/Markdown coverage dashboard |
-//! | `bootstrap` | Seed new spec files from reference corpus examples |
-//! | `bootstrap_tiers` | Seed tier-specific specs from corpus data |
 //! | `corpus_to_specs` | Bulk-convert corpus examples to spec format |
 //! | `fix_spec_layers` | Auto-fix layer classifications in error specs |
 //! | `enhance_specs` | Add missing metadata to existing specs |
 //! | `corpus_node_coverage` | Analyze CST node type coverage across the corpus |
-//! | `extract_corpus_candidates` | Find corpus examples suitable for new specs |
 //! | `perturb_corpus` | Generate perturbed corpus files for fuzz-like testing |
 //!
 //! # Examples
@@ -140,8 +134,6 @@
 //! }
 //! ```
 
-pub mod bootstrap;
-pub mod description;
 pub mod output;
 pub mod spec;
 pub mod templates;

@@ -13,10 +13,8 @@ use super::source_location::ErrorVec;
 /// All parse and validation methods accept an `&impl ErrorSink` so that
 /// diagnostics are streamed out immediately rather than accumulated in a
 /// return value. This keeps parsers composable: a caller can choose to
-/// collect errors (`ErrorCollector`),
-/// count them (`ParseTracker`),
-/// forward them over a channel (`ChannelErrorSink`), or discard them
-/// (`NullErrorSink`).
+/// collect errors (`ErrorCollector`), count them (`ParseTracker`), discard
+/// them (`NullErrorSink`), or opt into feature-gated channel forwarding sinks.
 ///
 /// Implementations must be `Send + Sync` because parsers may report
 /// errors from multiple threads (e.g., during parallel file validation).
@@ -55,10 +53,12 @@ pub trait ErrorSink: Send + Sync {
 /// Used for cross-thread error streaming, e.g., when worker threads
 /// parse files in parallel and a coordinator thread collects all diagnostics.
 /// Send failures (disconnected receiver) are silently ignored.
+#[cfg(feature = "channels")]
 pub struct ChannelErrorSink {
     sender: crossbeam_channel::Sender<ParseError>,
 }
 
+#[cfg(feature = "channels")]
 impl ChannelErrorSink {
     /// Wrap a crossbeam `Sender` as an error sink.
     ///
@@ -69,6 +69,7 @@ impl ChannelErrorSink {
     }
 }
 
+#[cfg(feature = "channels")]
 impl ErrorSink for ChannelErrorSink {
     /// Send one error over the channel if the receiver is still alive.
     fn report(&self, error: ParseError) {

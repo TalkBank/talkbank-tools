@@ -71,7 +71,7 @@ flowchart LR
     pe["ParseError\ncode + severity +\nlocation + message"]
     sink["ErrorSink trait\n.report()"]
     vec["ErrorCollector\ncollect to Vec"]
-    chan["ChannelErrorSink\ncrossbeam channel"]
+    chan["ChannelErrorSink\ncrossbeam channel\n(feature = channels)"]
     asyncchan["AsyncChannelErrorSink\ntokio mpsc"]
     cfg["ConfigurableErrorSink\nseverity gating"]
     null["NullErrorSink\nno-op"]
@@ -103,6 +103,10 @@ Current module layout in `talkbank-model`:
 - `errors/collectors.rs` for in-memory collectors and counters
 - `errors/async_channel_sink.rs` for Tokio-channel streaming
 - `errors/configurable_sink.rs`, `errors/offset_adjusting_sink.rs`, and `errors/tee_sink.rs` for adapters
+
+`ChannelErrorSink` is now an opt-in surface behind the `channels` feature so
+the default `talkbank-model` dependency does not pull in crossbeam just to own
+the core error trait and in-memory collectors.
 
 ## Error Context
 

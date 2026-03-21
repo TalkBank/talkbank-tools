@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "xtask",
     "crates/talkbank-model",
     "crates/talkbank-parser-tests",
     "crates/talkbank-derive",

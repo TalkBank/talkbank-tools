@@ -16,10 +16,13 @@ use talkbank_model::{ErrorCode, ErrorContext, ParseError, ParseErrors, Severity,
 
 /// Parse one main tier line (without dependent tiers).
 ///
+/// **Important:** this is a legacy synthetic tree-sitter fragment helper. It
+/// does not define direct-parser fragment semantics.
+///
 /// # Examples
 ///
 /// ```ignore
-/// use talkbank_parser::parse_main_tier;
+/// use talkbank_parser::synthetic_fragments::parse_main_tier;
 ///
 /// let input = "*CHI:\thello world .";
 /// let tier = parse_main_tier(input)?;
@@ -36,12 +39,14 @@ pub fn parse_main_tier(input: &str) -> ParseResult<MainTier> {
 /// Use this when the fragment depends on file-level meaning such as
 /// `@Options: CA`.
 ///
+/// **Important:** this remains a synthetic wrapper-based tree-sitter path.
+///
 /// # Examples
 ///
 /// ```ignore
 /// use talkbank_model::ChatOptionFlag;
 /// use talkbank_model::FragmentSemanticContext;
-/// use talkbank_parser::parse_main_tier_with_context;
+/// use talkbank_parser::synthetic_fragments::parse_main_tier_with_context;
 ///
 /// let input = "*CHI:\t(word) .";
 /// let context = FragmentSemanticContext::new().with_option_flag(ChatOptionFlag::Ca);
@@ -65,10 +70,14 @@ pub fn parse_main_tier_with_context(
 
 /// Parse a single CHAT word token with its inline annotations.
 ///
+/// **Important:** this helper extracts the word from a synthetic wrapped
+/// utterance. It is useful for legacy compatibility checks, but not the
+/// semantic source of truth for isolated fragment parsing.
+///
 /// # Examples
 ///
 /// ```ignore
-/// use talkbank_parser::parse_word;
+/// use talkbank_parser::synthetic_fragments::parse_word;
 ///
 /// let input = "hello@b";
 /// let word = parse_word(input)?;

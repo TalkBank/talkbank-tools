@@ -1,6 +1,7 @@
 //! Integration tests for scaffold system
 
 use std::fs;
+use spec_runtime_tools::bootstrap::scaffold::Scaffolder;
 use tempfile::tempdir;
 
 /// Tests full scaffold pipeline.
@@ -73,7 +74,7 @@ metadata:
     let output_dir = dir.path().join("output");
     fs::create_dir(&output_dir).unwrap();
 
-    let scaffolder = generators::bootstrap::scaffold::Scaffolder {
+    let scaffolder = Scaffolder {
         config_path: dir.path().join("config.yaml"),
         template_dir: templates_dir,
         output_dir: output_dir.clone(),
@@ -161,7 +162,7 @@ metadata:
     fs::create_dir(&output_dir).unwrap();
 
     // Run scaffold
-    let scaffolder = generators::bootstrap::scaffold::Scaffolder {
+    let scaffolder = Scaffolder {
         config_path: dir.path().join("config.yaml"),
         template_dir: templates_dir,
         output_dir: output_dir.clone(),

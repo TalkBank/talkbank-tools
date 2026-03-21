@@ -1,7 +1,11 @@
-//! Word-level parser equivalence tests.
+//! Legacy word-level parser equivalence tests.
 //!
 //! Tests each minimal golden word individually, reporting which specific words fail.
 //! Uses the minimal list (~47 words) with ONE word per feature signature for fast core tests.
+//!
+//! This file is still useful for spotting divergence, but it should not be
+//! treated as the oracle for direct-parser fragment semantics. Tree-sitter
+//! fragment behavior is itself synthetic in some paths.
 //!
 //! ## Usage
 //!
@@ -21,23 +25,22 @@ use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::golden::golden_words_minimal;
 use talkbank_parser_tests::test_error::TestError;
 
-/// Test that TreeSitterParser and DirectParser produce semantically equivalent
-/// Word models for each golden word.
+/// Compare TreeSitterParser and DirectParser word models for each golden word.
 ///
 /// ## Test Strategy
 ///
 /// For each word in golden_words.txt:
-/// 1. Parse with TreeSitterParser (source of truth)
-/// 2. Parse with DirectParser (must match TreeSitter semantically)
+/// 1. Parse with TreeSitterParser (legacy comparison baseline)
+/// 2. Parse with DirectParser
 /// 3. Compare using SemanticEq
 /// 4. Report EACH failure individually (not just a count)
 ///
 /// ## Failure Cases
 ///
-/// - **DirectParser fails, TreeSitter succeeds**: DirectParser has a bug (MUST FIX)
+/// - **DirectParser fails, TreeSitter succeeds**: investigate; may still be a bug
 /// - **Both parsers fail**: Not testing DirectParser failures (OK to skip)
-/// - **Both succeed but differ**: Semantic equivalence bug (MUST FIX)
-/// - **TreeSitter fails, DirectParser succeeds**: TreeSitter is more strict (OK)
+/// - **Both succeed but differ**: investigate semantic divergence
+/// - **TreeSitter fails, DirectParser succeeds**: may be valid direct-parser leniency
 #[test]
 fn all_words_equivalence() -> Result<(), TestError> {
     let ts = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;

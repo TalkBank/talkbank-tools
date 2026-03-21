@@ -38,6 +38,7 @@ These protect against regressions in:
 - parser recovery without sentinel fabrication
 - parse-health taint propagation
 - cross-parser semantic equivalence
+- direct-parser-native fragment semantics
 
 ## Failure Policy
 - If any gate fails, do not merge.
@@ -49,5 +50,26 @@ Use narrower loops while iterating, then run `make verify` before final review:
 
 ```bash
 cargo test -p talkbank-direct-parser --lib
-cargo nextest run -p talkbank-parser-tests --test parser_equivalence_words
+make test-fragment-semantics
 ```
+
+For grammar-only edits, prefer the smallest relevant loop first:
+
+```bash
+tree-sitter test
+cargo test -p talkbank-parser
+```
+
+Only reach for `make test-gen` when the change truly affects generated
+artifacts.
+
+For dependency-aware local sweeps, the canonical entrypoint is now the Rust
+xtask:
+
+```bash
+cargo run -q -p xtask -- affected-rust check
+cargo run -q -p xtask -- affected-rust test
+```
+
+`make check-affected` and `make test-affected` both delegate to the same xtask
+implementation.

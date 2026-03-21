@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serde_json::Value;
+use talkbank_model::ParseErrors;
 use talkbank_model::model::{
     AgeValue, ChatFile, CorpusName, CustomIdField, EducationDescription, GroupName, Header,
     IDHeader, LanguageCode, Line, ParticipantRole, SesValue, Sex, SpeakerCode,
@@ -93,8 +94,7 @@ pub(crate) fn handle_get_participants(
     let text = documents::get_document_text(backend, &request.uri)
         .ok_or_else(|| "Document not found".to_string())?;
 
-    let chat_file = get_chat_file(backend, &request.uri, &text)
-        .ok_or_else(|| "Failed to parse document".to_string())?;
+    let chat_file = get_chat_file(backend, &request.uri, &text)?;
 
     let entries = extract_participant_entries(&chat_file, &text);
 
@@ -211,15 +211,31 @@ fn id_header_to_fields(id: &IDHeader) -> ParticipantFields {
 }
 
 /// Get ChatFile from cache or parse.
-fn get_chat_file(backend: &Backend, uri: &Url, doc: &str) -> Option<Arc<ChatFile>> {
+fn get_chat_file(backend: &Backend, uri: &Url, doc: &str) -> Result<Arc<ChatFile>, String> {
     if let Some(cached) = backend.chat_files.get(uri) {
-        return Some(Arc::clone(cached.value()));
+        return Ok(Arc::clone(cached.value()));
     }
 
-    backend
+    match backend
         .language_services
-        .with_parser(|parser| parser.parse_chat_file(doc).ok().map(Arc::new))
-        .unwrap_or_default()
+        .with_parser(|parser| parser.parse_chat_file(doc))
+    {
+        Ok(Ok(chat_file)) => Ok(Arc::new(chat_file)),
+        Ok(Err(errors)) => Err(format_parse_failure(&errors)),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn format_parse_failure(errors: &ParseErrors) -> String {
+    let count = errors.errors.len();
+    match errors.errors.first() {
+        Some(first) => format!(
+            "Failed to parse document ({count} diagnostic{}); first: {}",
+            if count == 1 { "" } else { "s" },
+            first.message
+        ),
+        None => "Failed to parse document (parser returned no diagnostics)".to_string(),
+    }
 }
 
 /// Simple byte-offset to line-number index.

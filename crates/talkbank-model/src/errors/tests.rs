@@ -217,6 +217,7 @@ fn test_error_collector_collects_single_error() {
 }
 
 /// Tests channel error sink.
+#[cfg(feature = "channels")]
 #[test]
 fn test_channel_error_sink() {
     let (tx, rx) = crossbeam_channel::bounded(10);
@@ -237,6 +238,7 @@ fn test_channel_error_sink() {
 }
 
 /// Tests channel error sink handles closed receiver.
+#[cfg(feature = "channels")]
 #[test]
 fn test_channel_error_sink_handles_closed_receiver() {
     let (tx, rx) = crossbeam_channel::bounded(10);

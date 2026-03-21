@@ -6,7 +6,7 @@ use talkbank_model::ErrorCollector;
 use talkbank_model::LanguageCode;
 use talkbank_model::validation::{Validate, ValidationContext};
 
-use super::roundtrip::{RoundtripError, true_roundtrip_tier_with_validation};
+use super::roundtrip::{RoundtripError, parse_word_direct, true_roundtrip_tier_with_validation};
 
 /// Validates word with language.
 fn validate_word_with_language(
@@ -28,7 +28,7 @@ fn validate_word_with_language(
 fn validation_error_e220_word_with_digits_in_english() -> Result<(), RoundtripError> {
     let input = "hello123";
 
-    let result = true_roundtrip_tier_with_validation(input, talkbank_parser::parse_word, |w| {
+    let result = true_roundtrip_tier_with_validation(input, parse_word_direct, |w| {
         validate_word_with_language(w, "eng")
     });
     match result {
@@ -46,7 +46,7 @@ fn validation_error_e220_word_with_digits_in_english() -> Result<(), RoundtripEr
 fn validation_success_word_with_digits_in_chinese() -> Result<(), RoundtripError> {
     let input = "你好123";
 
-    true_roundtrip_tier_with_validation(input, talkbank_parser::parse_word, |w| {
+    true_roundtrip_tier_with_validation(input, parse_word_direct, |w| {
         validate_word_with_language(w, "zho")
     })
 }

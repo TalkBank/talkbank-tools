@@ -5,8 +5,7 @@ Short summary for `spec/docs/GRAMMAR_PATTERNS.md`. This document is intentionall
 
 ## Key Commands
 ```bash
-cd spec/tools
-cargo run --bin validate_error_specs
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml
 ```
 
 ## Status and Limitations

@@ -1,7 +1,10 @@
-//! Main-tier and utterance fragment parity tests against the reference corpus.
+//! Legacy main-tier and utterance fragment parity tests against the reference corpus.
 //!
 //! These tests ensure `parse_main_tier()` and `parse_utterance()` match the same
 //! parser's whole-file AST on real utterances drawn from the sacred reference corpus.
+//!
+//! This is still useful for auditing synthetic fragment behavior, but it should
+//! not be treated as the long-term oracle for direct-parser fragment semantics.
 
 use std::fs;
 use std::path::PathBuf;

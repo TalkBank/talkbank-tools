@@ -187,7 +187,7 @@ These errors are commonly encountered and should have excellent documentation:
 5. **Improve CHAT Rule section** - Add specific rule details from manual
 6. **Add examples if helpful** - Show both invalid and valid cases
 7. **Update Notes** - Add implementation details, edge cases
-8. **Validate** - Run `cargo run --bin validate_error_specs`
+8. **Validate** - Run `cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml`
 9. **Test** - Ensure generated tests still work
 
 ## Example Enhancement: Complete File
@@ -202,8 +202,7 @@ See `E241_illegal_untranscribed_marker.md` for an example of a fully enhanced sp
 
 ### Validate Specs
 ```bash
-cd spec/tools
-cargo run --bin validate_error_specs -- --spec-dir ../spec/errors
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml -- --spec-dir spec/errors
 ```
 
 ### Regenerate Tests

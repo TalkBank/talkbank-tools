@@ -1,7 +1,7 @@
 # Architecture Audit
 
 **Status:** Current
-**Last updated:** 2026-03-20
+**Last updated:** 2026-03-21
 
 This page records the current internal architecture audit for `talkbank-tools`.
 It focuses on present structure and follow-up refactor targets, not on the
@@ -73,3 +73,55 @@ Desired direction:
 - keep coverage broad, but make regeneration workflows more explicit
 - separate intentional snapshot churn from architectural regressions
 - keep the debug/audit tools close to the areas they validate
+
+### 5. Direct-parser fragment testing is still anchored to the wrong oracle
+
+The direct parser now has real lenient/recovery behavior, but some of its test
+surface still assumes synthetic tree-sitter fragment helpers are the golden
+source. The clearest example is
+`crates/talkbank-direct-parser/tests/golden_unit_tests.rs`, which explicitly
+frames TreeSitter as the fragment-level oracle.
+
+Desired direction:
+
+- keep tree-sitter/file-level equivalence for full-file behavior
+- stop using synthetic tree-sitter fragment behavior as the golden truth for
+  direct-parser fragment semantics
+- build independent fragment suites around spec examples, curated invalid
+  inputs, parse-health taint invariants, roundtrip/idempotence properties, and
+  fuzz/mutation-style checks
+
+Current progress:
+
+- `make test-fragment-semantics` is now the pre-merge fragment gate
+- the old word-fragment tree-sitter/direct parity suite is now an explicit
+  legacy audit target instead of the semantic gate
+- runtime/tooling call sites for word description generation and component
+  roundtrip tests no longer depend on the fake public tree-sitter fragment
+  helpers
+
+### 6. The spec/generation system still assumes bootstrap mode
+
+The current spec and generation workflow still acts as if the main job is to
+bootstrap the direct parser against tree-sitter and keep every parser-related
+artifact in one generation loop. That was once useful, but now it creates
+tooling sprawl, circular coupling, and too much confusion about what is
+actually authoritative.
+
+Desired direction:
+
+- keep fragment specs, but stop treating wrapped tree-sitter fragment behavior
+  as the semantic fragment API
+- separate grammar corpus generation, direct-parser semantic tests, full-file
+  parity tests, and validation/error specs into distinct tracks
+- narrow `spec/tools` back to real artifact generation and spec validation
+- replace large generation rituals with smaller workflows matched to the kind
+  of change being made
+
+Current progress:
+
+- `spec/tools` and `spec/runtime-tools` are now separate crates in the spec
+  workspace
+- `spec/tools` is back to core generation concerns
+- runtime-aware bootstrap/mining/validation tooling now lives in
+  `spec/runtime-tools`, with Makefile/docs updated accordingly

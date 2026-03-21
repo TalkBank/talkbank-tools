@@ -11,7 +11,7 @@ description = "TalkBank data model and validation"
 readme = "README.md"
 
 [dependencies]
-crossbeam-channel = { workspace = true }
+crossbeam-channel = { workspace = true, optional = true }
 dashmap = { workspace = true }
 indexmap = { workspace = true }
 miette = { workspace = true }
@@ -26,7 +26,6 @@ talkbank-derive = { workspace = true }
 text-size = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-pyo3 = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["rt", "sync"] }
 
 [dev-dependencies]
@@ -38,4 +37,4 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 [features]
 default = []
 async = ["tokio"]
-python = ["pyo3"]
+channels = ["dep:crossbeam-channel"]

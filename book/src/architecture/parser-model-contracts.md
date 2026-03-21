@@ -6,8 +6,21 @@ This is a strong foundation.
 
 ## Current Gaps
 1. Result and error behavior can vary by callsite.
-2. Canonical vs experimental parser roles are documented but not always enforced structurally.
+2. Canonical vs fragment/parser-role boundaries are documented but not always enforced structurally.
 3. Integrator contract guarantees are not centralized in a strict compatibility policy document.
+
+## Batchalign3-Facing Contract
+
+`batchalign3` relies on these guarantees from `talkbank-tools`:
+
+- parsing produces a typed `ChatFile` or an explicit parse-status signal
+- parse-health taint is visible to alignment consumers
+- alignment helpers operate on semantic model types, not raw text hacks
+- recovery never fabricates valid-looking placeholder semantics for malformed input
+
+That means the parser/model boundary must stay honest enough for downstream
+workflows like `align`, `compare`, `benchmark`, and morphotagging to make
+their own validity decisions.
 
 ## Canonical Contract Model
 
@@ -36,7 +49,8 @@ This is a strong foundation.
 
 ## Parser Role Enforcement
 - `talkbank-parser`: production default for CLI/LSP/API.
-- `talkbank-direct-parser`: explicit experimental feature path with documented unsupported coverage.
+- `talkbank-direct-parser`: explicit fragment and alternate full-file parser with
+  its own documented recovery/leniency contract.
 - CLI must surface parser selection as an advanced/debug option, not a default user burden.
 
 ## Invariants
@@ -80,6 +94,13 @@ Rationale:
 - fabricated semantic values create secondary, misleading diagnostics against synthetic data,
 - downstream tools cannot distinguish real user content from parser-generated placeholders,
 - equivalence and regression tests become noisy and non-actionable.
+
+For `batchalign3`, this is especially important because alignment workflows
+must be able to tell the difference between:
+
+- a malformed input that should taint or block alignment
+- a recoverable input where raw text can be preserved
+- a clean input that should proceed through the align/compare pipeline
 
 ## String Storage Policy
 

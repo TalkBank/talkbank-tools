@@ -1,6 +1,10 @@
 //! Integration tests for template generation pipeline
 
 use std::fs;
+use spec_runtime_tools::bootstrap::fixture_parser::parse_extract_directive;
+use spec_runtime_tools::bootstrap::template_generator::{
+    generate_template, write_template_file, TemplateData,
+};
 use tempfile::tempdir;
 
 /// Tests full pipeline standalone word.
@@ -27,17 +31,11 @@ fn test_full_pipeline_standalone_word() {
     fs::write(&fixture_path, fixture_content).unwrap();
 
     // Parse extract directive
-    let target_node =
-        generators::bootstrap::fixture_parser::parse_extract_directive(fixture_content).unwrap();
+    let target_node = parse_extract_directive(fixture_content).unwrap();
     assert_eq!(target_node, "standalone_word");
 
     // Generate template
-    let template = generators::bootstrap::template_generator::generate_template(
-        &fixture_path,
-        fixture_content,
-        &target_node,
-    )
-    .unwrap();
+    let template = generate_template(&fixture_path, fixture_content, &target_node).unwrap();
 
     // Verify template structure
     assert!(template.input_wrapper.contains("{input}"));
@@ -47,14 +45,12 @@ fn test_full_pipeline_standalone_word() {
 
     // Write template
     let template_path = templates_dir.join("standalone_word.yaml");
-    generators::bootstrap::template_generator::write_template_file(&template, &template_path)
-        .unwrap();
+    write_template_file(&template, &template_path).unwrap();
 
     // Verify file exists and is valid YAML
     assert!(template_path.exists());
     let yaml_content = fs::read_to_string(&template_path).unwrap();
-    let _: generators::bootstrap::template_generator::TemplateData =
-        serde_yaml_ng::from_str(&yaml_content).unwrap();
+    let _: TemplateData = serde_yaml_ng::from_str(&yaml_content).unwrap();
 }
 
 /// Tests multiple fixtures.
@@ -85,15 +81,12 @@ fn test_multiple_fixtures() {
     for entry in fs::read_dir(&fixtures_dir).unwrap() {
         let path = entry.unwrap().path();
         let source = fs::read_to_string(&path).unwrap();
-        let target =
-            generators::bootstrap::fixture_parser::parse_extract_directive(&source).unwrap();
+        let target = parse_extract_directive(&source).unwrap();
 
-        let template =
-            generators::bootstrap::template_generator::generate_template(&path, &source, &target)
-                .unwrap();
+        let template = generate_template(&path, &source, &target).unwrap();
 
         let output = templates_dir.join(format!("{}.yaml", target));
-        generators::bootstrap::template_generator::write_template_file(&template, &output).unwrap();
+        write_template_file(&template, &output).unwrap();
 
         assert!(output.exists());
     }

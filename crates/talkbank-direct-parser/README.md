@@ -6,16 +6,22 @@ Direct CHAT parser (non-CST), optimized for batch parsing.
 
 This crate provides an alternative parser for [CHAT format](https://talkbank.org/0info/manuals/CHAT.html)
 that operates without producing a concrete syntax tree. Built with
-[chumsky](https://crates.io/crates/chumsky) combinators, it is designed for
-batch processing of well-formed input where error recovery is not needed.
+[chumsky](https://crates.io/crates/chumsky) combinators, it started as a
+strict fragment parser but now includes selective recovery and leniency in
+some file and tier paths.
 
 Unlike the canonical [talkbank-parser](https://crates.io/crates/talkbank-parser),
-this parser is fail-fast: it returns `Err` on the first error rather than
-attempting recovery. This makes it faster for large-scale corpus processing
-where all files are expected to be valid.
+this parser does not build a CST. Recovery, where present, is explicit and
+hand-owned rather than inherited from a GLR parse. That means it needs its own
+test oracle for fragment and recovery semantics; synthetic tree-sitter
+fragment helpers should not be treated as the source of truth.
+
+For fragment work, prefer direct-parser-native tests that state the recovery
+contract explicitly. Legacy synthetic fragment paths exist only for audit or
+compatibility checks.
 
 Both parsers implement the `ChatParser` trait from `talkbank-model` and must
-agree on the reference corpus.
+agree on the reference corpus for full-file behavior.
 
 ## Usage
 

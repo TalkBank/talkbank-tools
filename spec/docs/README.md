@@ -5,8 +5,7 @@ Short summary for `spec/docs/README.md`. This document is intentionally concise;
 
 ## Key Commands
 ```bash
-cd spec/tools
-cargo run --bin validate_error_specs
+cargo run --bin validate_error_specs --manifest-path spec/runtime-tools/Cargo.toml
 ```
 
 ## Status and Limitations

@@ -42,10 +42,13 @@ pub fn parse_chat_file(input: &str) -> ParseResult<ChatFile> {
 ///
 /// The input is treated as one utterance unit, not a full CHAT file.
 ///
+/// **Important:** this is still a synthetic tree-sitter fragment helper. It
+/// may wrap the input in a minimal CHAT file before parsing.
+///
 /// # Examples
 ///
 /// ```ignore
-/// use talkbank_parser::parse_utterance;
+/// use talkbank_parser::synthetic_fragments::parse_utterance;
 ///
 /// let input = "*CHI:\thello .";
 /// let utterance = parse_utterance(input)?;
@@ -61,6 +64,8 @@ pub fn parse_utterance(input: &str) -> ParseResult<Utterance> {
 ///
 /// Use this when the utterance depends on file-level meaning such as
 /// `@Options: CA`.
+///
+/// **Important:** this remains a synthetic wrapper-based tree-sitter path.
 pub fn parse_utterance_with_context(
     input: &str,
     context: &FragmentSemanticContext,

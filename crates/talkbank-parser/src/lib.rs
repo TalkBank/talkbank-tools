@@ -5,8 +5,17 @@
 //! - convenience entry points (`parse_*` functions and `api/` modules),
 //! - parser internals (`parser/`) that turn tree-sitter CST nodes into model types.
 //!
-//! Most callers should use [`TreeSitterParser`] or the top-level `parse_*` helpers.
-//! Both routes preserve source spans and report diagnostics through `talkbank-model`.
+//! Most callers should use [`TreeSitterParser`] or the top-level full-file
+//! helpers. Both routes preserve source spans and report diagnostics through
+//! `talkbank-model`.
+//!
+//! **Important:** full-file parsing is the canonical tree-sitter contract. Some
+//! isolated fragment helpers still rely on synthetic wrapper files internally.
+//! They remain useful for legacy audits and compatibility checks, but they
+//! should not be treated as the semantic oracle for fragment parsing. Those
+//! helpers now live under [`synthetic_fragments`] so they are not mistaken for
+//! normal crate-root parsing APIs. Use `talkbank-direct-parser` for honest
+//! fragment semantics.
 //!
 //! CHAT reference anchors:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#File_Headers>
@@ -22,8 +31,8 @@
 //!     Ok(parser) => parser,
 //!     Err(_) => return,
 //! };
-//! let _word = match parser.parse_word("hello") {
-//!     Ok(word) => word,
+//! let _file = match parser.parse_chat_file("@UTF8\n@Begin\n*CHI:\thello .\n@End\n") {
+//!     Ok(file) => file,
 //!     Err(_) => return,
 //! };
 //! ```
@@ -41,7 +50,6 @@ pub(crate) mod validation {
     pub use talkbank_model::validation::*;
 }
 
-use talkbank_model::ChatParser;
 use talkbank_model::model::*;
 use talkbank_model::{
     ErrorCode, ErrorContext, ErrorSink, ParseError, ParseErrors, ParseResult, Severity,
@@ -61,6 +69,8 @@ pub(crate) mod parser;
 pub use parser::{ParserInitError, TreeSitterParser};
 pub use talkbank_model::FragmentSemanticContext;
 
+/// Legacy synthetic tree-sitter fragment helpers.
+pub use api::synthetic_fragments;
 /// Convenience re-exports for dependent-tier parsing APIs.
 pub use api::{dependent_tier::parse_dependent_tier, tiers};
 
@@ -138,130 +148,6 @@ pub fn parse_chat_file(input: &str) -> ParseResult<ChatFile> {
             Err(errors)
         }
     }
-}
-
-/// Parse a single utterance via the thread-local parser.
-pub fn parse_utterance(input: &str) -> ParseResult<Utterance> {
-    match with_parser(|parser| {
-        ChatParser::parse_utterance(parser, input, 0, &talkbank_model::ErrorCollector::new())
-    }) {
-        Ok(result) => result.ok_or_else(thread_local_rejected_errors),
-        Err(err) => {
-            let mut errors = ParseErrors::new();
-            errors.push(ParseError::new(
-                ErrorCode::TreeParsingError,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), "thread_local"),
-                format!("Thread-local parser failed: {err}"),
-            ));
-            Err(errors)
-        }
-    }
-}
-
-/// Parse a single utterance via the thread-local parser with explicit fragment semantics.
-pub fn parse_utterance_with_context(
-    input: &str,
-    context: &FragmentSemanticContext,
-) -> ParseResult<Utterance> {
-    match with_parser(|parser| {
-        parser.parse_utterance_with_context(
-            input,
-            0,
-            context,
-            &talkbank_model::ErrorCollector::new(),
-        )
-    }) {
-        Ok(result) => result.ok_or_else(thread_local_rejected_errors),
-        Err(err) => {
-            let mut errors = ParseErrors::new();
-            errors.push(ParseError::new(
-                ErrorCode::TreeParsingError,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), "thread_local"),
-                format!("Thread-local parser failed: {err}"),
-            ));
-            Err(errors)
-        }
-    }
-}
-
-/// Parse a main tier line via the thread-local parser.
-pub fn parse_main_tier(input: &str) -> ParseResult<MainTier> {
-    match with_parser(|parser| {
-        ChatParser::parse_main_tier(parser, input, 0, &talkbank_model::ErrorCollector::new())
-    }) {
-        Ok(result) => result.ok_or_else(thread_local_rejected_errors),
-        Err(err) => {
-            let mut errors = ParseErrors::new();
-            errors.push(ParseError::new(
-                ErrorCode::TreeParsingError,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), "thread_local"),
-                format!("Thread-local parser failed: {err}"),
-            ));
-            Err(errors)
-        }
-    }
-}
-
-/// Parse a main tier line via the thread-local parser with explicit fragment semantics.
-pub fn parse_main_tier_with_context(
-    input: &str,
-    context: &FragmentSemanticContext,
-) -> ParseResult<MainTier> {
-    match with_parser(|parser| {
-        parser.parse_main_tier_with_context(
-            input,
-            0,
-            context,
-            &talkbank_model::ErrorCollector::new(),
-        )
-    }) {
-        Ok(result) => result.ok_or_else(thread_local_rejected_errors),
-        Err(err) => {
-            let mut errors = ParseErrors::new();
-            errors.push(ParseError::new(
-                ErrorCode::TreeParsingError,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), "thread_local"),
-                format!("Thread-local parser failed: {err}"),
-            ));
-            Err(errors)
-        }
-    }
-}
-
-/// Parse a word via the thread-local parser.
-pub fn parse_word(input: &str) -> ParseResult<Word> {
-    match with_parser(|parser| parser.parse_word(input)) {
-        Ok(result) => result,
-        Err(err) => {
-            let mut errors = ParseErrors::new();
-            errors.push(ParseError::new(
-                ErrorCode::TreeParsingError,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), "thread_local"),
-                format!("Thread-local parser failed: {err}"),
-            ));
-            Err(errors)
-        }
-    }
-}
-
-fn thread_local_rejected_errors() -> ParseErrors {
-    ParseErrors::from(vec![ParseError::new(
-        ErrorCode::TreeParsingError,
-        Severity::Error,
-        SourceLocation::from_offsets(0, 0),
-        ErrorContext::new("", 0..0, "thread_local"),
-        "Fragment parser rejected input".to_string(),
-    )])
 }
 
 /// Parse a complete CHAT file with streaming error output.

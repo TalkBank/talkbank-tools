@@ -41,41 +41,70 @@ pub fn lint_files(
 
     if path.is_dir() {
         if recursive {
-            lint_directory(path, apply_fixes, dry_run, check_alignment);
+            let summary = lint_directory(path, apply_fixes, dry_run, check_alignment);
+            if summary.scan_errors > 0 {
+                eprintln!(
+                    "Lint scan was incomplete: {} file or directory error(s) occurred.",
+                    summary.scan_errors
+                );
+                std::process::exit(1);
+            }
         } else {
             eprintln!("Error: Path is a directory. Use --recursive to lint all files.");
             std::process::exit(1);
         }
     } else {
-        lint_single_file(path, apply_fixes, dry_run, check_alignment);
+        let outcome = lint_single_file(path, apply_fixes, dry_run, check_alignment);
+        if outcome.had_error {
+            std::process::exit(1);
+        }
     }
 }
 
 /// Lints directory.
-fn lint_directory(dir: &Path, apply_fixes: bool, dry_run: bool, check_alignment: bool) {
-    let mut total_files = 0;
-    let mut total_fixable = 0;
-    let mut total_fixed = 0;
+fn lint_directory(
+    dir: &Path,
+    apply_fixes: bool,
+    dry_run: bool,
+    check_alignment: bool,
+) -> LintRunSummary {
+    let mut summary = LintRunSummary::default();
 
-    for entry in walkdir::WalkDir::new(dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("cha"))
-    {
-        total_files += 1;
-        let (fixable, fixed) =
-            lint_single_file(entry.path(), apply_fixes, dry_run, check_alignment);
-        total_fixable += fixable;
-        total_fixed += fixed;
+    for entry in walkdir::WalkDir::new(dir) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                eprintln!("Error walking {}: {}", dir.display(), error);
+                summary.scan_errors += 1;
+                continue;
+            }
+        };
+
+        if entry.path().extension().and_then(|s| s.to_str()) != Some("cha") {
+            continue;
+        }
+
+        summary.total_files += 1;
+        let outcome = lint_single_file(entry.path(), apply_fixes, dry_run, check_alignment);
+        summary.total_fixable += outcome.fixable;
+        summary.total_fixed += outcome.fixed;
+        if outcome.had_error {
+            summary.scan_errors += 1;
+        }
     }
 
     println!("\n{}", "=".repeat(60));
     println!("Summary:");
-    println!("  Files scanned:   {}", total_files);
-    println!("  Fixable issues:  {}", total_fixable);
+    println!("  Files scanned:   {}", summary.total_files);
+    println!("  Fixable issues:  {}", summary.total_fixable);
     if apply_fixes && !dry_run {
-        println!("  Fixed:           {}", total_fixed);
+        println!("  Fixed:           {}", summary.total_fixed);
     }
+    if summary.scan_errors > 0 {
+        println!("  Scan errors:     {}", summary.scan_errors);
+    }
+
+    summary
 }
 
 /// Lints single file.
@@ -84,12 +113,12 @@ fn lint_single_file(
     apply_fixes: bool,
     dry_run: bool,
     check_alignment: bool,
-) -> (usize, usize) {
+) -> LintFileOutcome {
     let source = match fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("Error reading {}: {}", path.display(), e);
-            return (0, 0);
+            return LintFileOutcome::error();
         }
     };
 
@@ -98,7 +127,7 @@ fn lint_single_file(
         Ok(parser) => parser,
         Err(err) => {
             eprintln!("Error creating parser: {}", err);
-            return (0, 0);
+            return LintFileOutcome::error();
         }
     };
     let options = ParseValidateOptions {
@@ -117,7 +146,7 @@ fn lint_single_file(
             eprintln!(
                 "  ⚠️  Parse errors detected - file has syntax errors that prevent auto-fixing"
             );
-            return (0, 0);
+            return LintFileOutcome::error();
         }
         _ => Vec::new(),
     };
@@ -132,7 +161,7 @@ fn lint_single_file(
         if !apply_fixes {
             println!("✓ {}: No fixable issues", path.display());
         }
-        return (0, 0);
+        return LintFileOutcome::default();
     }
 
     println!("📝 {}", path.display());
@@ -160,6 +189,7 @@ fn lint_single_file(
 
     let fixable_count = fixes.len();
     let mut fixed_count = 0;
+    let mut had_error = false;
 
     if apply_fixes && !fixes.is_empty() {
         if dry_run {
@@ -169,6 +199,7 @@ fn lint_single_file(
                 Ok(new_content) => {
                     if let Err(e) = fs::write(path, new_content) {
                         eprintln!("  Error writing file: {}", e);
+                        had_error = true;
                     } else {
                         println!("  ✓ Fixed {} issue(s)", fixes.len());
                         fixed_count = fixes.len();
@@ -176,13 +207,42 @@ fn lint_single_file(
                 }
                 Err(e) => {
                     eprintln!("  Error applying fixes: {}", e);
+                    had_error = true;
                 }
             }
         }
     }
 
     println!();
-    (fixable_count, fixed_count)
+    LintFileOutcome {
+        fixable: fixable_count,
+        fixed: fixed_count,
+        had_error,
+    }
+}
+
+#[derive(Default)]
+struct LintRunSummary {
+    total_files: usize,
+    total_fixable: usize,
+    total_fixed: usize,
+    scan_errors: usize,
+}
+
+#[derive(Default)]
+struct LintFileOutcome {
+    fixable: usize,
+    fixed: usize,
+    had_error: bool,
+}
+
+impl LintFileOutcome {
+    fn error() -> Self {
+        Self {
+            had_error: true,
+            ..Self::default()
+        }
+    }
 }
 
 /// Description of one auto-fix operation that can be applied to source text.

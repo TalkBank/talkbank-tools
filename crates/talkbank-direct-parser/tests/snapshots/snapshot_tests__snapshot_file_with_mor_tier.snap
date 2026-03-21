@@ -1,5 +1,6 @@
 ---
 source: crates/talkbank-direct-parser/tests/snapshot_tests.rs
+assertion_line: 59
 expression: "(file, errors.to_vec())"
 ---
 (
@@ -229,7 +230,7 @@ expression: "(file, errors.to_vec())"
                             ],
                             alignments: None,
                             alignment_diagnostics: [],
-                            parse_health: None,
+                            parse_health: Clean,
                             utterance_language: Uncomputed,
                             language_metadata: Uncomputed,
                         },

@@ -76,7 +76,9 @@ pub use config::ValidationConfig;
 pub use configurable_sink::ConfigurableErrorSink;
 pub use context::ErrorContext;
 pub use enhance::{enhance_errors_with_line_map, enhance_errors_with_source};
-pub use error_sink::{ChannelErrorSink, ErrorSink, NullErrorSink};
+#[cfg(feature = "channels")]
+pub use error_sink::ChannelErrorSink;
+pub use error_sink::{ErrorSink, NullErrorSink};
 pub use line_map::LineMap;
 pub use offset_adjusting_sink::OffsetAdjustingErrorSink;
 pub use parse_error::ParseError;
