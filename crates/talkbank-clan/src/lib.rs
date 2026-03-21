@@ -51,4 +51,5 @@ pub mod converters;
 pub mod database;
 pub mod framework;
 pub mod service;
+pub mod service_types;
 pub mod transforms;
