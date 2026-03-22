@@ -28,20 +28,22 @@ use talkbank_model::{SpeakerCode, Utterance};
 
 use crate::framework::word_filter::countable_words;
 use crate::framework::{
-    AnalysisCommand, AnalysisScore, CommandOutput, FileContext, NormalizedWord, SpeakerCount,
-    TypeCount,
+    AnalysisCommand, AnalysisScore, CommandOutput, FileContext, FrequencyThreshold, NormalizedWord,
+    SpeakerCount, TypeCount,
 };
 
 /// Configuration for the CORELEX command.
 #[derive(Debug, Clone)]
 pub struct CorelexConfig {
     /// Minimum frequency for a word to be considered "core" (default: 3).
-    pub min_frequency: u64,
+    pub min_frequency: FrequencyThreshold,
 }
 
 impl Default for CorelexConfig {
     fn default() -> Self {
-        Self { min_frequency: 3 }
+        Self {
+            min_frequency: FrequencyThreshold::new(3),
+        }
     }
 }
 
@@ -169,7 +171,7 @@ impl AnalysisCommand for CorelexCommand {
                 frequency: *freq,
                 speaker_count: speaker_counts.get(word).copied().unwrap_or(0),
             };
-            if *freq >= self.config.min_frequency {
+            if *freq >= self.config.min_frequency.get() {
                 core.push(entry);
             } else {
                 non_core.push(entry);
@@ -196,7 +198,7 @@ impl AnalysisCommand for CorelexCommand {
             core_count,
             non_core_count,
             core_percentage,
-            threshold: self.config.min_frequency,
+            threshold: self.config.min_frequency.get(),
         }
     }
 }

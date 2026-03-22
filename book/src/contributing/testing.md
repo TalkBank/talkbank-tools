@@ -134,6 +134,44 @@ cargo nextest run -- mor
 cargo nextest run --no-capture
 ```
 
+## What to Run When
+
+| What you changed | Run |
+|-----------------|-----|
+| Grammar (`grammar.js`) | `cd grammar && tree-sitter generate && tree-sitter test` then `make test-generated` |
+| Parser (tree-sitter CST-to-model) | `cargo nextest run -p talkbank-parser && make test-parity` |
+| Direct parser (fragment parsing) | `cargo nextest run -p talkbank-direct-parser && make test-fragment-semantics` |
+| Model (types, validation, alignment) | `cargo nextest run -p talkbank-model` |
+| CLAN command | `cargo nextest run -p talkbank-clan -E 'test(command_name)'` + golden test |
+| CLI (chatter args, dispatch) | `cargo nextest run -p talkbank-cli` |
+| LSP | `cargo nextest run -p talkbank-lsp` |
+| Spec files | `make test-gen && make verify` |
+| Pre-merge (any change) | `make verify` |
+| Pre-push (quick) | `make ci-local` |
+
+## Mutation Testing
+
+Use `cargo-mutants` to find code that can be changed without any test failing — the true coverage gaps.
+
+```bash
+# Install (once)
+cargo install cargo-mutants
+
+# Run against a specific crate
+cargo mutants -p talkbank-direct-parser --timeout 120 --jobs 4
+
+# Run against CLAN commands
+cargo mutants -p talkbank-clan --timeout 120 --jobs 4
+
+# Review results
+cat mutants.out/missed.txt    # Mutations no test caught
+cat mutants.out/caught.txt    # Mutations properly detected
+```
+
+Mutation testing is not part of CI but should be run periodically (after major changes) to find untested logic paths. Results guide where to add new tests.
+
+Configuration: `mutants.toml` at the repo root excludes trivial functions.
+
 ## Adding Tests
 
 - **Model tests**: add to the relevant crate's `tests/` directory or `#[cfg(test)]` module
@@ -142,3 +180,4 @@ cargo nextest run --no-capture
   direct-parser fragment semantics or recovery, prefer direct-parser-native
   tests over routing everything through `make test-gen`
 - **Error corpus tests**: add a `.cha` file to `tests/error_corpus/` and update `expectations.json`
+- **CLAN command tests**: add golden test cases in `tests/clan_golden/` using the manifest-driven `ParityCase` / `RustSnapshotCase` pattern

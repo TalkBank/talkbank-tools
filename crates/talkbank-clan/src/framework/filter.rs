@@ -22,6 +22,7 @@ use std::str::FromStr;
 use talkbank_model::{Header, SpeakerCode, Utterance};
 use thiserror::Error;
 
+use super::domain_types::{GemLabel, WordPattern};
 use super::word_filter::{countable_words_in_utterance, word_pattern_matches};
 
 /// Shared filtering criteria applied before utterances reach a command.
@@ -158,10 +159,10 @@ pub struct SpeakerFilter {
 /// By default all tiers are visible.
 #[derive(Debug, Clone, Default)]
 pub struct TierFilter {
-    /// Tier names to include (empty = include all)
-    pub include: Vec<String>,
-    /// Tier names to exclude
-    pub exclude: Vec<String>,
+    /// Tier kinds to include (empty = include all)
+    pub include: Vec<super::TierKind>,
+    /// Tier kinds to exclude
+    pub exclude: Vec<super::TierKind>,
 }
 
 /// Word/morpheme pattern filter (CUTT: +s/-s).
@@ -172,9 +173,9 @@ pub struct TierFilter {
 #[derive(Debug, Clone, Default)]
 pub struct WordFilter {
     /// Word patterns to include (empty = include all)
-    pub include: Vec<String>,
+    pub include: Vec<super::WordPattern>,
     /// Word patterns to exclude
-    pub exclude: Vec<String>,
+    pub exclude: Vec<super::WordPattern>,
 }
 
 /// Gem segment filter (CUTT: +g/-g).
@@ -184,9 +185,9 @@ pub struct WordFilter {
 #[derive(Debug, Clone, Default)]
 pub struct GemFilter {
     /// Gem labels to include (empty = include all)
-    pub include: Vec<String>,
+    pub include: Vec<super::GemLabel>,
     /// Gem labels to exclude
-    pub exclude: Vec<String>,
+    pub exclude: Vec<super::GemLabel>,
 }
 
 impl FilterConfig {
@@ -388,7 +389,7 @@ mod tests {
     #[test]
     fn gem_filter_include_requires_match() {
         let filter = GemFilter {
-            include: vec!["Story".to_owned()],
+            include: vec![GemLabel::from("Story")],
             exclude: vec![],
         };
         assert!(!filter.matches(&[]));
@@ -402,7 +403,7 @@ mod tests {
     fn gem_filter_exclude_blocks_match() {
         let filter = GemFilter {
             include: vec![],
-            exclude: vec!["Warmup".to_owned()],
+            exclude: vec![GemLabel::from("Warmup")],
         };
         assert!(filter.matches(&[]));
         assert!(filter.matches(&["Story".to_owned()]));
@@ -422,7 +423,7 @@ mod tests {
     #[test]
     fn word_filter_include_requires_match() {
         let filter = WordFilter {
-            include: vec!["hello".to_owned()],
+            include: vec![WordPattern::from("hello")],
             exclude: vec![],
         };
         let matching = make_test_utterance(&["hello", "world"]);
@@ -436,7 +437,7 @@ mod tests {
     #[test]
     fn word_filter_include_case_insensitive() {
         let filter = WordFilter {
-            include: vec!["Hello".to_owned()],
+            include: vec![WordPattern::from("Hello")],
             exclude: vec![],
         };
         let utterance = make_test_utterance(&["hello", "world"]);
@@ -447,7 +448,7 @@ mod tests {
     #[test]
     fn word_filter_include_exact() {
         let filter = WordFilter {
-            include: vec!["hello".to_owned()],
+            include: vec![WordPattern::from("hello")],
             exclude: vec![],
         };
         let utterance = make_test_utterance(&["hello", "world"]);
@@ -455,7 +456,7 @@ mod tests {
 
         // Substring should NOT match
         let filter_sub = WordFilter {
-            include: vec!["ell".to_owned()],
+            include: vec![WordPattern::from("ell")],
             exclude: vec![],
         };
         assert!(!filter_sub.matches(&utterance));
@@ -465,7 +466,7 @@ mod tests {
     #[test]
     fn word_filter_include_wildcard() {
         let filter = WordFilter {
-            include: vec!["hel*".to_owned()],
+            include: vec![WordPattern::from("hel*")],
             exclude: vec![],
         };
         let utterance = make_test_utterance(&["hello", "world"]);
@@ -477,7 +478,7 @@ mod tests {
     fn word_filter_exclude_blocks() {
         let filter = WordFilter {
             include: vec![],
-            exclude: vec!["world".to_owned()],
+            exclude: vec![WordPattern::from("world")],
         };
         let blocked = make_test_utterance(&["hello", "world"]);
         assert!(!filter.matches(&blocked));
@@ -490,8 +491,8 @@ mod tests {
     #[test]
     fn word_filter_include_and_exclude() {
         let filter = WordFilter {
-            include: vec!["hello".to_owned()],
-            exclude: vec!["world".to_owned()],
+            include: vec![WordPattern::from("hello")],
+            exclude: vec![WordPattern::from("world")],
         };
         // Has include match but also has exclude match → blocked
         let blocked = make_test_utterance(&["hello", "world"]);

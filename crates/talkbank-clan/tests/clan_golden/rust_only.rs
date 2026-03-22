@@ -98,7 +98,7 @@ fn golden_rely_coding() {
     .expect("Failed to write file 2");
 
     let config = RelyConfig {
-        tier: "cod".to_owned(),
+        tier: talkbank_clan::framework::TierKind::Cod,
     };
     let result = run_rely(&config, &file1_path, &file2_path).expect("RELY failed");
     let rust_output = result.render_text();

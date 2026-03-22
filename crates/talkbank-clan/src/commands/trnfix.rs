@@ -30,17 +30,17 @@ use crate::framework::{
 /// Configuration for the TRNFIX command.
 #[derive(Debug, Clone)]
 pub struct TrnfixConfig {
-    /// First tier to compare (default: "mor").
-    pub tier1: String,
-    /// Second tier to compare (default: "trn").
-    pub tier2: String,
+    /// First tier to compare (default: %mor).
+    pub tier1: crate::framework::TierKind,
+    /// Second tier to compare (default: %trn, which aliases to %mor).
+    pub tier2: crate::framework::TierKind,
 }
 
 impl Default for TrnfixConfig {
     fn default() -> Self {
         Self {
-            tier1: "mor".to_owned(),
-            tier2: "trn".to_owned(),
+            tier1: crate::framework::TierKind::Mor,
+            tier2: crate::framework::TierKind::Mor, // "trn" aliases to Mor
         }
     }
 }
@@ -199,11 +199,11 @@ impl AnalysisCommand for TrnfixCommand {
         _file_context: &FileContext<'_>,
         state: &mut Self::State,
     ) {
-        let words1 = match extract_tier_tokens(utterance, &self.config.tier1) {
+        let words1 = match extract_tier_tokens(utterance, self.config.tier1.as_str()) {
             Some(t) => t,
             None => return,
         };
-        let words2 = match extract_tier_tokens(utterance, &self.config.tier2) {
+        let words2 = match extract_tier_tokens(utterance, self.config.tier2.as_str()) {
             Some(t) => t,
             None => return,
         };
@@ -246,8 +246,8 @@ impl AnalysisCommand for TrnfixCommand {
             total_items: state.total_items,
             total_errors: state.total_errors,
             accuracy,
-            tier1: self.config.tier1.clone(),
-            tier2: self.config.tier2.clone(),
+            tier1: self.config.tier1.to_string(),
+            tier2: self.config.tier2.to_string(),
         }
     }
 }

@@ -40,14 +40,14 @@ use crate::framework::{
 /// Configuration for the RELY command.
 #[derive(Debug, Clone)]
 pub struct RelyConfig {
-    /// Tier label to compare (e.g., "spa", "cod").
-    pub tier: String,
+    /// Tier kind to compare (e.g., %spa, %cod).
+    pub tier: crate::framework::TierKind,
 }
 
 impl Default for RelyConfig {
     fn default() -> Self {
         Self {
-            tier: "cod".to_owned(),
+            tier: crate::framework::TierKind::Cod,
         }
     }
 }
@@ -191,11 +191,11 @@ pub fn run_rely(
     // Extract codes per utterance from both files
     let codes1: Vec<Vec<String>> = chat1
         .utterances()
-        .map(|u| extract_tier_codes(u, &config.tier))
+        .map(|u| extract_tier_codes(u, config.tier.as_str()))
         .collect();
     let codes2: Vec<Vec<String>> = chat2
         .utterances()
-        .map(|u| extract_tier_codes(u, &config.tier))
+        .map(|u| extract_tier_codes(u, config.tier.as_str()))
         .collect();
 
     // Build frequency maps

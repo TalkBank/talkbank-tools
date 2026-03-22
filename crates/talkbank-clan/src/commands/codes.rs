@@ -34,15 +34,23 @@ use serde::Serialize;
 use talkbank_model::{DependentTier, Utterance};
 
 use crate::framework::{
-    AnalysisCommand, AnalysisResult, CommandOutput, FileContext, OutputFormat, Section, TableRow,
-    cod_item_values,
+    AnalysisCommand, AnalysisResult, CodeDepth, CommandOutput, FileContext, OutputFormat, Section,
+    TableRow, cod_item_values,
 };
 
 /// Configuration for the CODES command.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CodesConfig {
     /// Maximum depth of code parsing (0 = all levels).
-    pub max_depth: usize,
+    pub max_depth: CodeDepth,
+}
+
+impl Default for CodesConfig {
+    fn default() -> Self {
+        Self {
+            max_depth: CodeDepth::new(0),
+        }
+    }
 }
 
 /// A single code entry with its subcode structure.

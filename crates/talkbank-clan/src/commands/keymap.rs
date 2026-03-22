@@ -38,16 +38,16 @@ use crate::framework::{
 #[derive(Debug, Clone)]
 pub struct KeymapConfig {
     /// Primary codes to track (keywords).
-    pub keywords: Vec<String>,
-    /// Tier label to read codes from (default: "cod").
-    pub tier: String,
+    pub keywords: Vec<crate::framework::KeywordPattern>,
+    /// Tier kind to read codes from (default: %cod).
+    pub tier: crate::framework::TierKind,
 }
 
 impl Default for KeymapConfig {
     fn default() -> Self {
         Self {
             keywords: Vec::new(),
-            tier: "cod".to_owned(),
+            tier: crate::framework::TierKind::Cod,
         }
     }
 }
@@ -218,7 +218,7 @@ impl AnalysisCommand for KeymapCommand {
         // Extract codes from the specified tier
         let mut codes: Vec<String> = Vec::new();
         for dep in &utterance.dependent_tiers {
-            if dep.kind() == self.config.tier {
+            if self.config.tier == dep.kind() {
                 if let talkbank_model::DependentTier::Cod(tier) = dep {
                     codes.extend(cod_item_values(tier));
                 } else {
@@ -335,8 +335,8 @@ mod tests {
     #[test]
     fn keymap_basic() {
         let cmd = KeymapCommand::new(KeymapConfig {
-            keywords: vec!["A".to_owned()],
-            tier: "cod".to_owned(),
+            keywords: vec![crate::framework::KeywordPattern::from("A")],
+            tier: crate::framework::TierKind::Cod,
         });
         let mut state = KeymapState::default();
         let chat_file = talkbank_model::ChatFile::new(vec![]);
@@ -363,8 +363,8 @@ mod tests {
     #[test]
     fn keymap_does_not_treat_selectors_as_keywords() {
         let cmd = KeymapCommand::new(KeymapConfig {
-            keywords: vec!["$WR".to_owned()],
-            tier: "cod".to_owned(),
+            keywords: vec![crate::framework::KeywordPattern::from("$WR")],
+            tier: crate::framework::TierKind::Cod,
         });
         let mut state = KeymapState::default();
         let chat_file = talkbank_model::ChatFile::new(vec![]);

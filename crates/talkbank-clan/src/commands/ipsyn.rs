@@ -33,7 +33,7 @@ use talkbank_model::{Mor, Utterance};
 use crate::framework::mor;
 use crate::framework::{
     AnalysisCommand, AnalysisResult, CommandOutput, FileContext, OutputFormat, ScorePoints,
-    Section, TableRow, TransformError, UtteranceCount,
+    Section, TableRow, TransformError, UtteranceCount, UtteranceLimit,
 };
 
 /// Configuration for the IPSYN command.
@@ -42,14 +42,14 @@ pub struct IpsynConfig {
     /// Path to IPSYN rules file.
     pub rules_path: Option<PathBuf>,
     /// Maximum number of utterances to analyze (default: 100).
-    pub max_utterances: usize,
+    pub max_utterances: UtteranceLimit,
 }
 
 impl Default for IpsynConfig {
     fn default() -> Self {
         Self {
             rules_path: None,
-            max_utterances: 100,
+            max_utterances: UtteranceLimit::new(100),
         }
     }
 }
@@ -482,7 +482,7 @@ impl AnalysisCommand for IpsynCommand {
         let mut speakers = Vec::new();
 
         for (speaker, utts) in state.utterances {
-            let max = self.config.max_utterances.min(utts.len());
+            let max = self.config.max_utterances.get().min(utts.len());
             let analyze_utts = &utts[..max];
 
             let mut rule_matches_list = Vec::new();

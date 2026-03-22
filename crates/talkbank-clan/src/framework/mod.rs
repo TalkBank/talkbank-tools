@@ -34,6 +34,7 @@
 mod chat_ast;
 mod cod;
 mod command;
+pub mod domain_types;
 mod filter;
 mod input;
 pub mod mor;
@@ -64,6 +65,10 @@ pub use transform::{TransformCommand, TransformError, run_transform};
 pub use word_filter::{
     countable_words, countable_words_in_utterance, countable_words_in_utterance_with_retracings,
     countable_words_with_retracings, has_countable_words, is_countable_word, word_pattern_matches,
+};
+pub use domain_types::{
+    CodeDepth, FrequencyThreshold, GemLabel, KeywordPattern, OverlapThreshold, TierKind,
+    UtteranceLimit, WordLimit, WordPattern,
 };
 
 // ── Shared domain type aliases ──────────────────────────────────────

@@ -40,7 +40,7 @@ use talkbank_model::{SpeakerCode, Utterance};
 use crate::framework::word_filter::countable_words;
 use crate::framework::{
     AnalysisCommand, AnalysisResult, CommandOutput, FileContext, NormalizedWord, OutputFormat,
-    Section, TableRow, WordCount, clan_display_form,
+    Section, TableRow, WordCount, WordLimit, clan_display_form,
 };
 
 /// Configuration for the MAXWD command.
@@ -48,13 +48,15 @@ use crate::framework::{
 pub struct MaxwdConfig {
     /// Maximum number of words to show in the output table.
     /// Default: 20
-    pub limit: usize,
+    pub limit: WordLimit,
 }
 
 impl Default for MaxwdConfig {
     /// Default to CLAN-style top-20 longest words.
     fn default() -> Self {
-        Self { limit: 20 }
+        Self {
+            limit: WordLimit::new(20),
+        }
     }
 }
 
@@ -284,7 +286,7 @@ impl AnalysisCommand for MaxwdCommand {
 
             let top_words: Vec<(usize, String)> = entries
                 .into_iter()
-                .take(self.config.limit)
+                .take(self.config.limit.get())
                 .map(|(word, len)| (len, word.as_str().to_owned()))
                 .collect();
 
@@ -388,7 +390,7 @@ mod tests {
     /// Configured output limit should cap number of reported longest words.
     #[test]
     fn maxwd_respects_limit() {
-        let config = MaxwdConfig { limit: 2 };
+        let config = MaxwdConfig { limit: crate::framework::WordLimit::new(2) };
         let command = MaxwdCommand::new(config);
         let mut state = MaxwdState::default();
 

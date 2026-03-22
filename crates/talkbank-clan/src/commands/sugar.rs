@@ -39,19 +39,21 @@ use talkbank_model::{DependentTier, Utterance};
 
 use crate::framework::{
     AnalysisCommand, AnalysisResult, CommandOutput, FileContext, MorphemeCount, OutputFormat,
-    Section, UtteranceCount, WordCount, mor_item_has_verb, mor_item_morpheme_count,
+    Section, UtteranceCount, UtteranceLimit, WordCount, mor_item_has_verb, mor_item_morpheme_count,
 };
 
 /// Configuration for the SUGAR command.
 #[derive(Debug, Clone)]
 pub struct SugarConfig {
     /// Minimum number of utterances required (default: 50).
-    pub min_utterances: usize,
+    pub min_utterances: UtteranceLimit,
 }
 
 impl Default for SugarConfig {
     fn default() -> Self {
-        Self { min_utterances: 50 }
+        Self {
+            min_utterances: UtteranceLimit::new(50),
+        }
     }
 }
 

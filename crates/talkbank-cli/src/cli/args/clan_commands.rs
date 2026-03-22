@@ -86,7 +86,7 @@ pub enum ClanCommands {
 
         /// Maximum number of words to display
         #[arg(short = 'n', long, default_value_t = MaxwdConfig::default().limit)]
-        limit: usize,
+        limit: talkbank_clan::framework::WordLimit,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -219,7 +219,7 @@ pub enum ClanCommands {
 
         /// Maximum depth of code parsing (0 = all levels)
         #[arg(long, default_value_t = CodesConfig::default().max_depth)]
-        max_depth: usize,
+        max_depth: talkbank_clan::framework::CodeDepth,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -232,11 +232,11 @@ pub enum ClanCommands {
 
         /// First tier to compare (default: mor)
         #[arg(long, default_value_t = TrnfixConfig::default().tier1)]
-        tier1: String,
+        tier1: talkbank_clan::framework::TierKind,
 
         /// Second tier to compare (default: trn)
         #[arg(long, default_value_t = TrnfixConfig::default().tier2)]
-        tier2: String,
+        tier2: talkbank_clan::framework::TierKind,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -271,7 +271,7 @@ pub enum ClanCommands {
 
         /// Tier label to read codes from (default: cod)
         #[arg(long, default_value_t = ChainsConfig::default().tier)]
-        tier: String,
+        tier: talkbank_clan::framework::TierKind,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -293,7 +293,7 @@ pub enum ClanCommands {
 
         /// Minimum frequency threshold for core words (defaults to the library corelex threshold)
         #[arg(long, default_value_t = CorelexConfig::default().min_frequency)]
-        threshold: u64,
+        threshold: talkbank_clan::framework::FrequencyThreshold,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -310,7 +310,7 @@ pub enum ClanCommands {
 
         /// Tier label to read codes from (default: cod)
         #[arg(long, default_value_t = KeymapConfig::default().tier)]
-        tier: String,
+        tier: talkbank_clan::framework::TierKind,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -339,7 +339,7 @@ pub enum ClanCommands {
 
         /// Tier label to compare (default: cod)
         #[arg(long, default_value_t = RelyConfig::default().tier)]
-        tier: String,
+        tier: talkbank_clan::framework::TierKind,
 
         /// Output format: text (default), json, or csv
         #[arg(short, long, value_enum, default_value_t = super::clan_common::ClanOutputFormat::Text)]
@@ -366,7 +366,7 @@ pub enum ClanCommands {
 
         /// Maximum utterances to score (default: 50)
         #[arg(long, default_value_t = DssConfig::default().max_utterances)]
-        max_utterances: usize,
+        max_utterances: talkbank_clan::framework::UtteranceLimit,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -383,7 +383,7 @@ pub enum ClanCommands {
 
         /// Maximum utterances to analyze (default: 100)
         #[arg(long, default_value_t = IpsynConfig::default().max_utterances)]
-        max_utterances: usize,
+        max_utterances: talkbank_clan::framework::UtteranceLimit,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,

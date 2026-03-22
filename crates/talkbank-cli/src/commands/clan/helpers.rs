@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{ClanOutputFormat, CommonAnalysisArgs};
 use talkbank_clan::framework::{
-    DiscoveredChatFiles, FilterConfig, GemFilter, OutputFormat, SpeakerFilter, TransformCommand,
-    WordFilter, run_transform,
+    DiscoveredChatFiles, FilterConfig, GemFilter, GemLabel, OutputFormat, SpeakerFilter,
+    TransformCommand, WordFilter, WordPattern, run_transform,
 };
 use talkbank_clan::service::AnalysisService;
 use talkbank_clan::service_types::{
@@ -169,13 +169,13 @@ pub(super) fn build_filter(common: &CommonAnalysisArgs) -> FilterConfig {
     };
 
     let gem_filter = GemFilter {
-        include: common.gem.clone(),
-        exclude: common.exclude_gem.clone(),
+        include: common.gem.iter().map(|s| GemLabel::from(s.as_str())).collect(),
+        exclude: common.exclude_gem.iter().map(|s| GemLabel::from(s.as_str())).collect(),
     };
 
     let word_filter = WordFilter {
-        include: common.include_word.clone(),
-        exclude: common.exclude_word.clone(),
+        include: common.include_word.iter().map(|s| WordPattern::from(s.as_str())).collect(),
+        exclude: common.exclude_word.iter().map(|s| WordPattern::from(s.as_str())).collect(),
     };
 
     FilterConfig {

@@ -44,7 +44,7 @@ use crate::framework::{
 #[derive(Debug, Clone, Default)]
 pub struct KwalConfig {
     /// Keywords to search for (case-insensitive exact match, `*` wildcards supported)
-    pub keywords: Vec<String>,
+    pub keywords: Vec<crate::framework::KeywordPattern>,
 }
 
 /// A single match found during KWAL processing.
@@ -213,7 +213,7 @@ impl AnalysisCommand for KwalCommand {
         if !matched.is_empty() {
             // Record match counts
             for kw in &matched {
-                *state.keyword_counts.entry(kw.clone()).or_insert(0) += 1;
+                *state.keyword_counts.entry(kw.to_string()).or_insert(0) += 1;
             }
 
             // Compute line number: O(log n) via LineMap when available, else 0
@@ -229,7 +229,7 @@ impl AnalysisCommand for KwalCommand {
                 speaker: utterance.main.speaker.as_str().to_owned(),
                 utterance_text,
                 filename: file_context.filename.to_owned(),
-                keyword: matched[0].clone(),
+                keyword: matched[0].to_string(),
                 line_number,
             });
         }
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn kwal_finds_keyword() {
         let command = KwalCommand::new(KwalConfig {
-            keywords: vec!["cookie".to_owned()],
+            keywords: vec![crate::framework::KeywordPattern::from("cookie")],
         });
         let mut state = KwalState::default();
 
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn kwal_case_insensitive() {
         let command = KwalCommand::new(KwalConfig {
-            keywords: vec!["WANT".to_owned()],
+            keywords: vec![crate::framework::KeywordPattern::from("WANT")],
         });
         let mut state = KwalState::default();
 
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn kwal_exact_match_no_substring() {
         let command = KwalCommand::new(KwalConfig {
-            keywords: vec!["cook".to_owned()],
+            keywords: vec![crate::framework::KeywordPattern::from("cook")],
         });
         let mut state = KwalState::default();
 
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn kwal_wildcard_match() {
         let command = KwalCommand::new(KwalConfig {
-            keywords: vec!["cook*".to_owned()],
+            keywords: vec![crate::framework::KeywordPattern::from("cook*")],
         });
         let mut state = KwalState::default();
 
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn kwal_no_matches() {
         let command = KwalCommand::new(KwalConfig {
-            keywords: vec!["zebra".to_owned()],
+            keywords: vec![crate::framework::KeywordPattern::from("zebra")],
         });
         let mut state = KwalState::default();
 

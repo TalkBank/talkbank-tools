@@ -45,9 +45,9 @@ pub struct KidevalConfig {
     /// Path to IPSYN rules file.
     pub ipsyn_rules_path: Option<std::path::PathBuf>,
     /// Maximum utterances for DSS (default: 50).
-    pub dss_max_utterances: usize,
+    pub dss_max_utterances: crate::framework::UtteranceLimit,
     /// Maximum utterances for IPSYN (default: 100).
-    pub ipsyn_max_utterances: usize,
+    pub ipsyn_max_utterances: crate::framework::UtteranceLimit,
     /// Path to a normative database `.cut` file for comparison.
     pub database_path: Option<std::path::PathBuf>,
     /// Filter criteria for selecting comparison entries from the database.
@@ -59,8 +59,8 @@ impl Default for KidevalConfig {
         Self {
             dss_rules_path: None,
             ipsyn_rules_path: None,
-            dss_max_utterances: 50,
-            ipsyn_max_utterances: 100,
+            dss_max_utterances: crate::framework::UtteranceLimit::new(50),
+            ipsyn_max_utterances: crate::framework::UtteranceLimit::new(100),
             database_path: None,
             database_filter: None,
         }
@@ -431,7 +431,7 @@ impl AnalysisCommand for KidevalCommand {
                 };
 
                 // Compute DSS score
-                let dss_max = self.config.dss_max_utterances.min(accum.mor_items.len());
+                let dss_max = self.config.dss_max_utterances.get().min(accum.mor_items.len());
                 let mut dss_total = 0u32;
                 for items in accum.mor_items.iter().take(dss_max) {
                     let (_, total) = dss_score(items, &self.dss_rules);
@@ -447,7 +447,7 @@ impl AnalysisCommand for KidevalCommand {
                 let ipsyn_score = compute_ipsyn_score(
                     &accum.mor_items,
                     &self.ipsyn_rules,
-                    self.config.ipsyn_max_utterances,
+                    self.config.ipsyn_max_utterances.get(),
                 );
 
                 // Compute VOCD

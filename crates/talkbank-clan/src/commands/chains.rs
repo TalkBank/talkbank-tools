@@ -33,14 +33,14 @@ use crate::framework::{
 /// Configuration for the CHAINS command.
 #[derive(Debug, Clone)]
 pub struct ChainsConfig {
-    /// Tier label to read codes from (default: "cod").
-    pub tier: String,
+    /// Tier kind to read codes from (default: %cod).
+    pub tier: crate::framework::TierKind,
 }
 
 impl Default for ChainsConfig {
     fn default() -> Self {
         Self {
-            tier: "cod".to_owned(),
+            tier: crate::framework::TierKind::Cod,
         }
     }
 }
@@ -260,7 +260,7 @@ impl AnalysisCommand for ChainsCommand {
         // Extract codes from the specified tier
         let mut found_codes: Vec<String> = Vec::new();
         for dep in &utterance.dependent_tiers {
-            if dep.kind() == self.config.tier {
+            if self.config.tier == dep.kind() {
                 if let talkbank_model::DependentTier::Cod(tier) = dep {
                     found_codes.extend(cod_item_values(tier));
                 } else {

@@ -328,19 +328,19 @@ pub struct AnalysisOptions {
     /// Whether `wdsize` should read from the main tier.
     pub main_tier: bool,
     /// Result limit for commands such as `maxwd`.
-    pub limit: Option<usize>,
+    pub limit: Option<crate::framework::WordLimit>,
     /// Keyword list for `kwal` and `keymap`.
-    pub keywords: Vec<String>,
+    pub keywords: Vec<crate::framework::KeywordPattern>,
     /// Search expressions for `combo`.
     pub search: Vec<String>,
     /// Maximum code depth for `codes`.
-    pub max_depth: Option<usize>,
+    pub max_depth: Option<crate::framework::CodeDepth>,
     /// Tier selector used by several analysis commands.
-    pub tier: Option<String>,
+    pub tier: Option<crate::framework::TierKind>,
     /// Frequency threshold for `corelex`.
-    pub threshold: Option<u64>,
+    pub threshold: Option<crate::framework::FrequencyThreshold>,
     /// Shared max-utterance limit used by several analyzers.
-    pub max_utterances: Option<usize>,
+    pub max_utterances: Option<crate::framework::UtteranceLimit>,
     /// Optional normative database path.
     pub database_path: Option<PathBuf>,
     /// Optional normative database demographic filter.
@@ -348,9 +348,9 @@ pub struct AnalysisOptions {
     /// Whether `flucalc` should use syllable mode.
     pub syllable_mode: bool,
     /// KidEval DSS utterance cap.
-    pub dss_max_utterances: Option<usize>,
+    pub dss_max_utterances: Option<crate::framework::UtteranceLimit>,
     /// KidEval IPSyn utterance cap.
-    pub ipsyn_max_utterances: Option<usize>,
+    pub ipsyn_max_utterances: Option<crate::framework::UtteranceLimit>,
     /// Shared rules path for analyzers such as `dss` and `ipsyn`.
     pub rules_path: Option<PathBuf>,
     /// Kideval DSS rules path.
@@ -364,11 +364,11 @@ pub struct AnalysisOptions {
     /// Template file path for `script`.
     pub template_path: Option<PathBuf>,
     /// Minimum utterance count for `sugar`.
-    pub min_utterances: Option<usize>,
+    pub min_utterances: Option<crate::framework::UtteranceLimit>,
     /// First tier for `trnfix`.
-    pub tier1: Option<String>,
+    pub tier1: Option<crate::framework::TierKind>,
     /// Second tier for `trnfix`.
-    pub tier2: Option<String>,
+    pub tier2: Option<crate::framework::TierKind>,
     /// Whether `uniq` should sort by frequency.
     pub sort_by_frequency: bool,
 }
@@ -463,8 +463,9 @@ impl AnalysisRequestBuilder {
             AnalysisCommandName::Modrep => Ok(AnalysisPlan::Service(AnalysisRequest::Modrep)),
             AnalysisCommandName::Vocd => Ok(AnalysisPlan::Service(AnalysisRequest::Vocd)),
             AnalysisCommandName::Codes => {
+                let default = CodesConfig::default();
                 Ok(AnalysisPlan::Service(AnalysisRequest::Codes(CodesConfig {
-                    max_depth: options.max_depth.unwrap_or_default(),
+                    max_depth: options.max_depth.unwrap_or(default.max_depth),
                 })))
             }
             AnalysisCommandName::Chains => {
@@ -602,7 +603,7 @@ impl AnalysisRequestBuilder {
 
 impl AnalysisRequest {
     /// Validate and construct a `kwal` request.
-    pub fn kwal(keywords: Vec<String>) -> Result<Self, AnalysisServiceError> {
+    pub fn kwal(keywords: Vec<crate::framework::KeywordPattern>) -> Result<Self, AnalysisServiceError> {
         if keywords.is_empty() {
             return Err(AnalysisServiceError::InvalidRequest(
                 "kwal requires at least one keyword".to_owned(),
@@ -613,7 +614,7 @@ impl AnalysisRequest {
     }
 
     /// Validate and construct a `keymap` request.
-    pub fn keymap(keywords: Vec<String>, tier: String) -> Result<Self, AnalysisServiceError> {
+    pub fn keymap(keywords: Vec<crate::framework::KeywordPattern>, tier: crate::framework::TierKind) -> Result<Self, AnalysisServiceError> {
         if keywords.is_empty() {
             return Err(AnalysisServiceError::InvalidRequest(
                 "keymap requires at least one keyword".to_owned(),

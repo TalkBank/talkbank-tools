@@ -34,7 +34,7 @@ use talkbank_model::{Mor, Utterance};
 use crate::framework::mor;
 use crate::framework::{
     AnalysisCommand, AnalysisResult, AnalysisScore, CommandOutput, FileContext, OutputFormat,
-    ScorePoints, Section, TransformError, UtteranceCount, spoken_main_text,
+    ScorePoints, Section, TransformError, UtteranceCount, UtteranceLimit, spoken_main_text,
 };
 
 /// Configuration for the DSS command.
@@ -43,14 +43,14 @@ pub struct DssConfig {
     /// Path to DSS rules file (.scr).
     pub rules_path: Option<PathBuf>,
     /// Maximum number of unique utterances to score (default: 50).
-    pub max_utterances: usize,
+    pub max_utterances: UtteranceLimit,
 }
 
 impl Default for DssConfig {
     fn default() -> Self {
         Self {
             rules_path: None,
-            max_utterances: 50,
+            max_utterances: UtteranceLimit::new(50),
         }
     }
 }
@@ -413,7 +413,7 @@ impl AnalysisCommand for DssCommand {
         let mut speakers = Vec::new();
 
         for (speaker, utts) in state.utterances {
-            let max = self.config.max_utterances.min(utts.len());
+            let max = self.config.max_utterances.get().min(utts.len());
             let mut scores = Vec::new();
             let mut grand_total = 0u32;
 
