@@ -423,9 +423,10 @@ impl AnalysisCommand for DssCommand {
                 let utt_total = total + u32::from(sentence_point);
                 grand_total += utt_total;
 
-                // Abbreviate main text for display
-                let display_text = if main_text.len() > 60 {
-                    format!("{}...", &main_text[..57])
+                // Abbreviate main text for display (CLAN convention: 60 chars max)
+                const MAX_DISPLAY_LEN: usize = 60;
+                let display_text = if main_text.len() > MAX_DISPLAY_LEN {
+                    format!("{}...", &main_text[..MAX_DISPLAY_LEN - 3])
                 } else {
                     main_text.clone()
                 };

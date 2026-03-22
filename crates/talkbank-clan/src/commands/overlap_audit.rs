@@ -156,7 +156,10 @@ fn classify_quality(analysis: &FileOverlapAnalysis) -> String {
         analysis.groups.len() + analysis.orphaned_tops.len() + analysis.orphaned_bottoms.len();
     let orphan_fraction =
         (analysis.orphaned_tops.len() + analysis.orphaned_bottoms.len()) as f64 / total as f64;
-    if orphan_fraction > 0.8 {
+    /// Fraction of orphaned overlaps above which the file is classified as
+    /// "open_only" (mostly unpaired overlap markers, not matched groups).
+    const ORPHAN_CLASSIFICATION_THRESHOLD: f64 = 0.8;
+    if orphan_fraction > ORPHAN_CLASSIFICATION_THRESHOLD {
         "open_only".to_owned()
     } else {
         "mixed".to_owned()

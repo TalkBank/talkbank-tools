@@ -52,6 +52,11 @@ use crate::framework::{
     countable_words,
 };
 
+/// Shared-word ratio threshold for classifying consecutive utterances as
+/// overlapping. Two utterances with ratio ≥ this value are classified as
+/// `Interaction::Overlap`. The CLAN CHIP command uses 50%.
+const OVERLAP_THRESHOLD: f64 = 0.5;
+
 /// Configuration for the CHIP command.
 #[derive(Debug, Clone, Default)]
 pub struct ChipConfig {}
@@ -439,7 +444,7 @@ fn classify_interaction(prev_words: &[String], curr_words: &[String]) -> Interac
         0.0
     };
 
-    if ratio >= 0.5 {
+    if ratio >= OVERLAP_THRESHOLD {
         Interaction::Overlap
     } else {
         Interaction::NoOverlap
