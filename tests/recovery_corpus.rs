@@ -6,6 +6,7 @@
 
 use std::path::PathBuf;
 use talkbank_model::ChatParser;
+use talkbank_model::model::ParseHealthState;
 use talkbank_model::{ErrorCode, ErrorCollector};
 
 /// Runs recovery corpus dir.
@@ -114,12 +115,12 @@ fn multi_tier_errors_direct_parser_taint() {
 
     // Utt 0 (CHI: hello there) — clean
     assert!(
-        utterances[0].parse_health.is_none() || utterances[0].parse_health.unwrap().is_clean(),
+        !matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),
         "utt0 should be clean"
     );
 
     // Utt 1 (MOT: good boy) — bad %mor item (BROKEN_MOR)
-    if let Some(health) = utterances[1].parse_health {
+    if let ParseHealthState::Tainted(health) = &utterances[1].parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Mor),
             "utt1: %mor should be tainted"
@@ -128,12 +129,12 @@ fn multi_tier_errors_direct_parser_taint() {
 
     // Utt 2 (CHI: want cookie) — clean
     assert!(
-        utterances[2].parse_health.is_none() || utterances[2].parse_health.unwrap().is_clean(),
+        !matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),
         "utt2 should be clean"
     );
 
     // Utt 3 (MOT: here you go) — bad %gra item (NOTGRA)
-    if let Some(health) = utterances[3].parse_health {
+    if let ParseHealthState::Tainted(health) = &utterances[3].parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Gra),
             "utt3: %gra should be tainted"
@@ -142,7 +143,7 @@ fn multi_tier_errors_direct_parser_taint() {
 
     // Utt 4 (CHI: yummy) — clean
     assert!(
-        utterances[4].parse_health.is_none() || utterances[4].parse_health.unwrap().is_clean(),
+        !matches!(utterances[4].parse_health, ParseHealthState::Tainted(_)),
         "utt4 should be clean"
     );
 
@@ -191,7 +192,7 @@ fn all_tiers_partial_direct_parser_recovery_details() {
     }
 
     // Both mor and gra should be tainted
-    if let Some(health) = utt.parse_health {
+    if let ParseHealthState::Tainted(health) = &utt.parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Mor),
             "mor should be tainted"
@@ -230,7 +231,7 @@ fn dependent_tier_mixed_clean_utterances_intact() {
 
     // Utt 0 (CHI: hello) — fully clean with %mor and %gra
     assert!(
-        utterances[0].parse_health.is_none() || utterances[0].parse_health.unwrap().is_clean(),
+        !matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),
         "utt0 should be clean"
     );
     assert!(utterances[0].mor_tier().is_some(), "utt0 should have %mor");
@@ -238,7 +239,7 @@ fn dependent_tier_mixed_clean_utterances_intact() {
 
     // Utt 2 (CHI: bye) — fully clean with %mor and %gra
     assert!(
-        utterances[2].parse_health.is_none() || utterances[2].parse_health.unwrap().is_clean(),
+        !matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),
         "utt2 should be clean"
     );
     assert!(utterances[2].mor_tier().is_some(), "utt2 should have %mor");
@@ -263,10 +264,10 @@ fn cascading_recovery_direct_parser_details() {
     assert_eq!(utterances.len(), 6);
 
     // Utt 0 (CHI: hello) — clean
-    assert!(utterances[0].parse_health.is_none() || utterances[0].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),);
 
     // Utt 1 (MOT: hi baby) — bad %gra (BROKEN_GRA)
-    if let Some(health) = utterances[1].parse_health {
+    if let ParseHealthState::Tainted(health) = &utterances[1].parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Gra),
             "utt1: %gra should be tainted"
@@ -278,13 +279,13 @@ fn cascading_recovery_direct_parser_details() {
     }
 
     // Utt 2 (FAT: how are you?) — clean
-    assert!(utterances[2].parse_health.is_none() || utterances[2].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),);
 
     // Utt 3 (CHI: good) — clean
-    assert!(utterances[3].parse_health.is_none() || utterances[3].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[3].parse_health, ParseHealthState::Tainted(_)),);
 
     // Utt 4 (MOT: want some milk?) — bad %mor (BADWORD1) and bad %gra (BADREL)
-    if let Some(health) = utterances[4].parse_health {
+    if let ParseHealthState::Tainted(health) = &utterances[4].parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Mor),
             "utt4: %mor should be tainted"
@@ -296,7 +297,7 @@ fn cascading_recovery_direct_parser_details() {
     }
 
     // Utt 5 (CHI: yes please) — clean
-    assert!(utterances[5].parse_health.is_none() || utterances[5].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[5].parse_health, ParseHealthState::Tainted(_)),);
 
     // Verify multiple error types reported
     let mor_errors = errors
@@ -325,12 +326,12 @@ fn degraded_main_tier_direct_parser_recovery() {
 
     // Utt 0 — clean
     assert_eq!(utterances[0].main.speaker.as_str(), "CHI");
-    assert!(utterances[0].parse_health.is_none() || utterances[0].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),);
 
     // Utt 1 — degraded (speaker extracted, content empty, main tainted)
     assert_eq!(utterances[1].main.speaker.as_str(), "MOT");
     assert!(utterances[1].main.content.content.is_empty());
-    if let Some(health) = utterances[1].parse_health {
+    if let ParseHealthState::Tainted(health) = &utterances[1].parse_health {
         assert!(
             health.is_tier_tainted(talkbank_model::model::ParseHealthTier::Main),
             "degraded main tier should taint main"
@@ -344,7 +345,7 @@ fn degraded_main_tier_direct_parser_recovery() {
 
     // Utt 2 — clean
     assert_eq!(utterances[2].main.speaker.as_str(), "CHI");
-    assert!(utterances[2].parse_health.is_none() || utterances[2].parse_health.unwrap().is_clean(),);
+    assert!(!matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),);
 
     // Errors should be reported for the malformed main tier
     assert!(

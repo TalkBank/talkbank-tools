@@ -8,16 +8,9 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
-chumsky = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-oxc_allocator = { workspace = true }
-oxc_ast = { workspace = true }
-oxc_parser = { workspace = true }
-oxc_span = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_yaml_ng = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }
 tree-sitter = { workspace = true }
@@ -27,6 +20,3 @@ generators = { path = "../tools" }
 talkbank-direct-parser = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }
-
-[dev-dependencies]
-tempfile = "3.8"

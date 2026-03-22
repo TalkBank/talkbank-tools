@@ -18,8 +18,9 @@
 use serde_json::Value;
 use talkbank_clan::database;
 use talkbank_clan::framework::DiscoveredChatFiles;
-use talkbank_clan::service::{
-    AnalysisOptions, AnalysisPlan, AnalysisRequestBuilder, AnalysisService,
+use talkbank_clan::service::AnalysisService;
+use talkbank_clan::service_types::{
+    AnalysisOptions, AnalysisPlan, AnalysisRequestBuilder,
 };
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::Url;
@@ -66,7 +67,7 @@ pub(crate) fn handle_analyze(request: &AnalyzeRequest) -> Result<Value, String> 
     let options = build_analysis_options(request)?;
     let plan = AnalysisRequestBuilder::new(request.command_name, options)
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error: talkbank_clan::service_types::AnalysisServiceError| error.to_string())?;
     let service = AnalysisService::new();
 
     match plan {
@@ -147,7 +148,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::backend::execute_commands::{AnalysisOptionsRequest, AnalyzeRequest};
-    use talkbank_clan::service::AnalysisCommandName;
+    use talkbank_clan::service_types::AnalysisCommandName;
 
     #[test]
     fn build_analysis_options_converts_second_file_uri() {

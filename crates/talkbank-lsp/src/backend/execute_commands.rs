@@ -459,7 +459,7 @@ mod tests {
 
     use serde_json::{from_str, json};
     use talkbank_clan::database::Gender;
-    use talkbank_clan::service::AnalysisCommandName;
+    use talkbank_clan::service_types::AnalysisCommandName;
     use tower_lsp::lsp_types::ExecuteCommandParams;
 
     use super::{ExecuteCommandName, ExecuteCommandRequest};

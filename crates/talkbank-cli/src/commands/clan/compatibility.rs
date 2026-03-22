@@ -9,7 +9,7 @@
 use crate::cli::ClanCommands;
 use talkbank_clan::commands::check::{CheckConfig, list_all_errors, run_check};
 use talkbank_clan::framework::CommandOutput;
-use talkbank_clan::service::{AnalysisCommandName, AnalysisOptions};
+use talkbank_clan::service_types::{AnalysisCommandName, AnalysisOptions};
 
 use super::helpers::{
     exit_with_error, read_file_or_exit, run_analysis_and_print, run_normalize_alias,

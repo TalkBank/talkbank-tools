@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use talkbank_clan::database::{DatabaseFilter, Gender};
-use talkbank_clan::service::AnalysisCommandName;
+use talkbank_clan::service_types::AnalysisCommandName;
 
 /// Demographic filter payload used by `talkbank/analyze`.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]

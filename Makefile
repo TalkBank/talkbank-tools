@@ -196,7 +196,7 @@ smoke:
 check-specs:
 	@scripts/check-error-specs.sh
 
-# Fast local CI: fmt + dependency-aware compile checks.
+# Fast local CI: fmt + dependency-aware compile checks + structural lints.
 ci-local:
 	@echo "==> fmt check (main workspace)"
 	cargo fmt --all -- --check
@@ -208,6 +208,10 @@ ci-local:
 	cargo run -q -p xtask -- affected-rust check
 	@echo "==> parser guardrail"
 	@scripts/check-errorsink-option-signatures.sh
+	@echo "==> wide struct audit"
+	cargo run -q -p xtask -- lint-wide-structs
+	@echo "==> docs sync"
+	cargo run -q -p xtask -- lint-docs-sync
 	@echo "✓ ci-local passed"
 
 # Full local CI: mirrors the stricter CI-style gate.

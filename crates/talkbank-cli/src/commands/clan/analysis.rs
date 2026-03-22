@@ -18,7 +18,7 @@ use talkbank_clan::commands::keymap::KeymapConfig;
 use talkbank_clan::commands::maxwd::MaxwdConfig;
 use talkbank_clan::commands::rely::RelyConfig;
 use talkbank_clan::commands::trnfix::TrnfixConfig;
-use talkbank_clan::service::{AnalysisCommandName, AnalysisOptions};
+use talkbank_clan::service_types::{AnalysisCommandName, AnalysisOptions};
 
 use super::helpers::{run_analysis_and_print, run_paired_analysis_and_print};
 

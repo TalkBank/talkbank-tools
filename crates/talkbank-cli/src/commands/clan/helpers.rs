@@ -14,9 +14,9 @@ use talkbank_clan::framework::{
     DiscoveredChatFiles, FilterConfig, GemFilter, OutputFormat, SpeakerFilter, TransformCommand,
     WordFilter, run_transform,
 };
-use talkbank_clan::service::{
+use talkbank_clan::service::AnalysisService;
+use talkbank_clan::service_types::{
     AnalysisCommandName, AnalysisOptions, AnalysisPlan, AnalysisRequest, AnalysisRequestBuilder,
-    AnalysisService,
 };
 use talkbank_model::SpeakerCode;
 

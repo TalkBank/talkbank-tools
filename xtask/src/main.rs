@@ -66,6 +66,9 @@ fn main() {
     }
 }
 
+mod docs_sync;
+mod wide_struct_audit;
+
 fn run_main() -> Result<()> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
@@ -81,12 +84,14 @@ fn run_main() -> Result<()> {
             };
             run_affected_rust(mode)
         }
+        Some("lint-wide-structs") => wide_struct_audit::run(repo_root()),
+        Some("lint-docs-sync") => docs_sync::run(repo_root()),
         _ => Err(usage_error()),
     }
 }
 
 fn usage_error() -> DynError {
-    "usage: cargo run -q -p xtask -- affected-rust {packages|check|clippy|test}".into()
+    "usage: cargo run -q -p xtask -- {affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-docs-sync}".into()
 }
 
 fn run_affected_rust(mode: AffectedMode) -> Result<()> {

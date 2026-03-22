@@ -166,6 +166,9 @@ debug = "line-tables-only"          # Less debug info -> faster linking
 [profile.dev.package."*"]
 opt-level = 1                       # Optimize third-party deps (one-time cost)
 
+[profile.dev.build-override]
+opt-level = 3                       # Optimize proc macros and build scripts
+
 [profile.test]
 split-debuginfo = "unpacked"
 debug = "line-tables-only"
