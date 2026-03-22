@@ -2,6 +2,32 @@
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
+The following diagram shows the command dispatch structure. Each
+top-level command dispatches to a handler in the corresponding crate.
+
+```mermaid
+flowchart TD
+    chatter(["chatter"])
+
+    chatter --> validate["validate\n(talkbank-cli)"]
+    chatter --> normalize["normalize\n(talkbank-cli)"]
+    chatter --> tojson["to-json\n(talkbank-transform)"]
+    chatter --> fromjson["from-json\n(talkbank-transform)"]
+    chatter --> showalign["show-alignment\n(talkbank-cli)"]
+    chatter --> watch["watch\n(talkbank-cli)"]
+    chatter --> lint["lint\n(talkbank-cli)"]
+    chatter --> clean["clean\n(talkbank-cli)"]
+    chatter --> newfile["new-file\n(talkbank-cli)"]
+    chatter --> cache["cache\n(stats, clear)"]
+    chatter --> schema["schema\n(JSON Schema output)"]
+    chatter --> clan["clan\n(talkbank-clan)"]
+
+    clan --> freq["freq"]
+    clan --> mlu["mlu"]
+    clan --> ttr["ttr"]
+    clan --> more["...80+ commands"]
+```
+
 ## Top-Level Commands
 
 ```bash

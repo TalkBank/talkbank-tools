@@ -33,6 +33,33 @@ Error codes follow a structured numbering scheme:
 | E7xx | Dependent tiers |
 | W1xx-Wxxx | Warnings (same categories) |
 
+The following diagram shows how error code ranges map to validation
+stages. Each range corresponds to a specific aspect of the CHAT file
+being checked.
+
+```mermaid
+flowchart LR
+    subgraph "Parser layer\n(parse_chat_file)"
+        E1["E1xx\nEncoding\n(BOM, charset)"]
+        E2["E2xx\nFile structure\n(Begin/End, line format)"]
+        E3["E3xx\nHeaders\n(format, required fields,\nparticipant resolution)"]
+        E4["E4xx\nMain tier\n(speaker, content,\nterminator, postcodes)"]
+        E5["E5xx\nWords and content\n(word syntax, events,\noverlap markers)"]
+    end
+
+    subgraph "Validation layer\n(validate_with_alignment)"
+        E6["E6xx\nSpeakers\n(undeclared, unused,\nID consistency)"]
+        E7["E7xx\nDependent tiers\n(alignment, GRA indices,\norphaned tiers)"]
+    end
+
+    W["Wxxx\nWarnings\n(same categories,\nnon-fatal)"]
+
+    E1 ~~~ E2 ~~~ E3 ~~~ E4 ~~~ E5
+    E6 ~~~ E7
+```
+
+The full error code reference is generated in `docs/errors/` at the repository root.
+
 ### Severity
 
 Two levels:

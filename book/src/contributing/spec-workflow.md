@@ -142,6 +142,20 @@ make verify
 
 The symbol registry at `spec/symbols/symbol_registry.json` defines character sets used by the grammar and Rust crates.
 
+```mermaid
+flowchart TD
+    registry["Edit spec/symbols/\nsymbol_registry.json"]
+    validate["validate_symbol_registry.js\n(structure check)"]
+    gen_grammar["Generate grammar symbols\n(for tree-sitter)"]
+    gen_rust["generate_rust_symbol_sets.js\n→ talkbank-model/src/generated/symbol_sets.rs\n→ spec/tools/src/generated/symbol_sets.rs"]
+    fmt["rustfmt\n(format generated code)"]
+    verify["make symbols-gen\nthen make verify"]
+
+    registry --> validate --> gen_grammar & gen_rust
+    gen_rust --> fmt --> verify
+    gen_grammar --> verify
+```
+
 After editing:
 
 ```bash

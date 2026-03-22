@@ -2,6 +2,25 @@
 
 The tree-sitter grammar at `grammar/grammar.js` is the formal definition of the CHAT format. Changes require careful validation.
 
+The following diagram shows the complete regeneration pipeline. Every
+step must pass before committing a grammar change.
+
+```mermaid
+flowchart TD
+    edit(["Edit grammar/grammar.js"])
+    generate["tree-sitter generate\n→ src/parser.c\n→ src/node-types.json"]
+    grammar_test["tree-sitter test\n(160 corpus tests)"]
+    rust_test["cargo test -p talkbank-parser\n(CST-to-model conversion)"]
+    equiv["parser equivalence\n(74 reference corpus files,\ntree-sitter vs direct)"]
+    spec_check{"Grammar change\naffects spec examples?"}
+    test_gen["make test-gen\n→ grammar/test/corpus/\n→ parser-tests/tests/generated/\n→ docs/errors/"]
+    commit(["Commit"])
+
+    edit --> generate --> grammar_test --> rust_test --> equiv --> spec_check
+    spec_check -->|Yes| test_gen --> commit
+    spec_check -->|No| commit
+```
+
 ## Step-by-Step Procedure
 
 ### 1. Edit the Grammar

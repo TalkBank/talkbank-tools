@@ -1,7 +1,7 @@
 # Data Model
 
 **Status:** Current
-**Last updated:** 2026-03-18
+**Last updated:** 2026-03-22
 
 The `talkbank-model` crate defines the typed AST for CHAT files. It is the central crate that all other crates depend on.
 
@@ -14,6 +14,51 @@ pub struct ChatFile {
     pub headers: Headers,
     pub utterances: Vec<Utterance>,
 }
+```
+
+The following diagram shows the full ownership tree — what each type
+contains and how the pieces compose into a complete CHAT file.
+
+```mermaid
+flowchart TD
+    chatfile["ChatFile\n(chat_file/core.rs)"]
+    lines["lines: Vec&lt;Line&gt;"]
+    participants["participants:\nIndexMap&lt;SpeakerCode, Participant&gt;"]
+    languages["languages: LanguageCodes"]
+    options["options: ChatOptionFlags"]
+
+    chatfile --> lines & participants & languages & options
+
+    header_line["Line::Header\n(Header)"]
+    utt_line["Line::Utterance\n(Utterance)"]
+    lines --> header_line & utt_line
+
+    main["main: MainTier\n(main_tier.rs)"]
+    deptiers["dependent_tiers:\nVec&lt;DependentTier&gt;"]
+    health["parse_health:\nParseHealthState"]
+    preceding["preceding_headers:\nSmallVec&lt;Header&gt;"]
+
+    utt_line --> preceding & main & deptiers & health
+
+    speaker["speaker: SpeakerCode"]
+    tiercontent["content: TierContent"]
+    main --> speaker & tiercontent
+
+    linkers["linkers: Vec&lt;Linker&gt;"]
+    uttcontent["utterance_content:\nVec&lt;UtteranceContent&gt;\n(24 variants)"]
+    terminator["terminator:\nOption&lt;Terminator&gt;"]
+    bullet["bullet: Option&lt;Bullet&gt;"]
+    tiercontent --> linkers & uttcontent & terminator & bullet
+
+    subgraph "DependentTier — 25 variants (dependent_tier/types.rs)"
+        structured["Structured linguistic:\nMor Gra Pho Mod\nSin Act Cod Wor"]
+        bulletcontent["With inline bullets:\nAdd Com Exp Gpx\nInt Sit Spa"]
+        textonly["Text-only:\nAlt Coh Def Eng Err\nFac Flo Gls Ort Par Tim"]
+        phon["Phon project:\nModsyl Phosyl Phoaln"]
+        userdefined["UserDefined\nUnsupported"]
+    end
+
+    deptiers --> structured & bulletcontent & textonly & phon & userdefined
 ```
 
 ## Key Types

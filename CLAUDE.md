@@ -30,7 +30,9 @@ These rules matter because contributors often read code before they read docs.
    type's invariants should usually live with that type. Keep free functions
    for symmetric transforms, adapters, or orchestration glue.
 9. **Touched docs need timestamps.** Any documentation file changed in a patch
-   should update its `Last modified` field with date and time.
+   must update its `Last modified` field with date and time. **Always run
+   `date '+%Y-%m-%d %H:%M %Z'` to get the actual system time** — do not
+   guess, hardcode, or use the conversation date.
 
 ## Overview
 
@@ -362,18 +364,120 @@ Stop and refactor when you see:
 - Bare `0.5` or `60` in logic → named constant or config field
 - Regex or `split()`/`find()` on XML, JSON, or other structured formats → use a proper parser
 
-### Mermaid Diagrams
-**Use Mermaid diagrams extensively** in documentation (CLAUDE.md files, mdBook pages). GitHub renders Mermaid natively; all mdBook builds have `mdbook-mermaid` enabled.
+### Diagram Authoring Rules
 
-When to add: data flow pipelines, architecture boundaries, state machines, decision trees, type relationships.
+**Architecture and design documentation MUST include Mermaid diagrams.**
+GitHub renders Mermaid natively; all mdBook builds have `mdbook-mermaid` enabled.
 
-Guidelines: `flowchart TD`/`LR` for data flows, `sequenceDiagram` for protocols, `stateDiagram-v2` for lifecycles, `classDiagram` for type relationships. One concept per diagram, inline near the text they illustrate.
+#### When to Create a Diagram
 
-**mdBook/Markdown gotcha:** be careful with raw angle brackets in prose, tables, and Mermaid labels. Strings like `Arc<str>`, `Cow<str>`, or Mermaid labels containing `&str` can be interpreted as HTML and trigger mdBook warnings such as "unclosed HTML tag `<str>`". When writing docs:
+Add a diagram when documenting:
+- Data flow pipelines (how data transforms through stages)
+- Architecture boundaries (what owns what, who calls whom)
+- State machines and lifecycles (valid transitions, terminal states)
+- Decision trees (option routing, engine selection, fallback paths)
+- Type relationships (trait hierarchies, enum variants, ownership)
+- Protocols (request/response sequences, IPC message flows)
 
-- escape generics in rendered HTML contexts (`<code>Arc&lt;str&gt;</code>`, `<code>DashMap&lt;K, V&gt;</code>`)
-- escape Mermaid label contents (`&amp;str`, `&lt;...&gt;`)
-- rerun `mdbook build` after changing docs or book pages that contain generics, Mermaid, or raw HTML
+**If a page describes a pipeline, boundary, or decision flow in prose
+without a diagram, the page is incomplete.**
+
+#### Diagram Type Selection
+
+| Situation | Use | Not |
+|-----------|-----|-----|
+| Data flows through stages | `flowchart TD` or `flowchart LR` | `sequenceDiagram` (no named participants) |
+| Request/response between components | `sequenceDiagram` | `flowchart` (hides back-and-forth) |
+| Type hierarchies, trait impls | `classDiagram` | `flowchart` (wrong semantics) |
+| State transitions, lifecycles | `stateDiagram-v2` | `flowchart` (no state semantics) |
+| Decision trees, option routing | `flowchart TD` with diamond nodes | Text lists (hard to follow branches) |
+
+#### The Seven Diagram Rules
+
+These rules exist because a successor who has never met the team will
+read these diagrams to understand the system. Every rule directly
+addresses a documented failure mode that produces misleading diagrams.
+
+**Rule 1: Name every resource.**
+Every node must have a specific name AND its type/role.
+Not `"Server"` — use `"Rust Server\n(batchalign-app)"`.
+Not `"Cache"` — use `"moka hot cache\n(10k entries)"` or
+`"SQLite cold cache\n(cache.db)"`.
+A reader must be able to grep the codebase for the node label and find it.
+
+**Rule 2: One concept per diagram.**
+Each diagram tells one coherent story. If a page covers multiple
+concerns (runtime ownership AND deploy topology AND protocol messages),
+use separate diagrams for each. The batchalign3 `server-architecture.md`
+pattern (4 focused perspectives on one system) is the model. When in
+doubt, split.
+
+**Rule 3: No conveyor belts for interactive flows.**
+If two components exchange messages (request/response, IPC, HTTP),
+use `sequenceDiagram` to show the actual back-and-forth. A `flowchart`
+hides retry loops, error paths, and temporal ordering. Reserve
+`flowchart` for genuinely one-directional data pipelines.
+
+**Rule 4: Show real decision points.**
+Decision diamonds must use real function names, flag names, and
+condition expressions — not `"check condition"`. Example:
+`{--before path\nprovided?}` not `{check input?}`. The batchalign3
+`command-flowcharts.md` align diagram is the gold standard.
+
+**Rule 5: Include error and fallback paths.**
+Every decision node must show what happens on failure. A diagram
+showing only the happy path is misleading. Show retry logic, fallback
+engines, cache misses, and error propagation. Mark optional paths
+with dashed lines (`-.->`) and error paths with descriptive labels.
+
+**Rule 6: Anchor to source locations.**
+Architecture diagram nodes should include the crate, module, or file
+path in the label or in prose immediately below. A reader should go
+from diagram node to source file in one step. Example:
+`"AnalysisRunner::run()\n(framework/runner.rs)"`.
+
+**Rule 7: Never generate diagrams from source code without verification.**
+AI-generated diagrams from source code hallucinate components, invent
+connections, and omit critical paths. When creating a diagram of
+existing code:
+1. Read the actual source files for every entity in the diagram
+2. Verify every node corresponds to a real module, function, or type
+3. Verify every arrow corresponds to a real call, dependency, or data flow
+4. Cross-check against existing diagrams on the same or related pages
+5. If you cannot verify a connection, omit it — gaps are better than lies
+6. After writing the diagram, list in a comment the source files you
+   verified against
+
+**Diagram verification is not optional.** An unverified diagram is worse
+than no diagram — it teaches a newcomer a wrong mental model that they
+will carry forward and build upon.
+
+#### Formatting Standards
+
+- **Node labels:** `["Name\n(role or path)"]` for multi-line
+- **Decision nodes:** `{"condition?\ndetail"}` diamond syntax
+- **Edge labels:** `-->|"label"| target` for all non-trivial edges
+- **Subgraphs:** Use only for ownership boundaries (e.g., separating
+  talkbank-tools crates from batchalign3 crates in cross-repo diagrams)
+- **Colors/styles:** Do not use custom colors. Default Mermaid themes
+  ensure consistent rendering across GitHub and mdBook
+- **Size limit:** Keep diagrams under 30 nodes. If larger, split into
+  focused diagrams. The batchalign3 align command flowchart (~35 nodes)
+  is at the practical upper limit
+- **Angle bracket escaping:** Raw angle brackets in Mermaid labels
+  (`Arc<str>`, `Cow<str>`, `&str`) trigger mdBook "unclosed HTML tag"
+  warnings. Escape as `&lt;str&gt;` inside labels. In rendered HTML
+  contexts use `<code>Arc&lt;str&gt;</code>`. Rerun `mdbook build`
+  after changing any page with Mermaid or generics
+
+#### Placement
+
+- Place each diagram **inline**, immediately after the prose paragraph
+  that introduces the concept it illustrates
+- Every diagram must have a prose introduction explaining what it shows
+  and why the reader should care
+- For complex topics, use the multi-perspective pattern: one overview
+  diagram early, then focused detail diagrams in each subsection
 
 ### Git
 Conventional Commits format: `<type>[scope]: <description>`

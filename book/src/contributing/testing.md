@@ -2,7 +2,20 @@
 
 ## Test Strategy
 
-Testing is organized in layers, from fastest to most comprehensive:
+Testing is organized in layers, from fastest to most comprehensive.
+
+```mermaid
+flowchart TD
+    unit["Unit + Integration Tests\n(cargo nextest run)\n~2300 tests, ~5s"]
+    parity["Parser Equivalence\n(make test-parity)\n74 reference corpus files"]
+    specgen["Spec-Generated Tests\n(make test-generated)\nParser + validation layer"]
+    fragment["Fragment Semantics\n(make test-fragment-semantics)\nDirect parser recovery"]
+    grammar["Grammar Corpus\n(make test-grammar)\n160 tree-sitter tests"]
+    error["Error Corpus\n(tests/error_corpus/)\nExpected error matching"]
+    gates["Verification Gates\n(make verify)\nG0–G11 sequential pipeline"]
+
+    unit --> parity --> specgen --> fragment --> grammar --> error --> gates
+```
 
 ### Unit Tests (nextest)
 
@@ -101,7 +114,27 @@ It is not, by itself, the arbiter of isolated direct-parser fragment semantics.
 
 ## Verification Gates
 
-`make verify` runs the pre-merge verification suite (G0–G11):
+`make verify` runs the pre-merge verification suite (G0–G11). All gates
+run sequentially — the first failure stops the pipeline.
+
+```mermaid
+flowchart TD
+    start(["make verify"]) --> G0
+    G0["G0: Parser signature guardrail\n(check-errorsink-option-signatures.sh)"]
+    G0 -->|pass| G1["G1: Rust workspace compile\n(cargo check --workspace)"]
+    G1 -->|pass| G2["G2: Spec tools compile\n(cd spec/tools && cargo check)"]
+    G2 -->|pass| G3["G3: Spec runtime tools compile\n(spec/runtime-tools)"]
+    G3 -->|pass| G4["G4: CHAT manual anchor links\n(check-chat-manual-anchors.sh)"]
+    G4 -->|pass| G5["G5: Generated parser corpus\nequivalence suite"]
+    G5 -->|pass| G6["G6: Direct fragment\nrecovery semantics"]
+    G6 -->|pass| G7["G7: Bare-timestamp\nregression gate"]
+    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(tree-sitter vs direct, 74 files)"]
+    G8 -->|pass| G9["G9: %wor tier parsing\nand alignment"]
+    G9 -->|pass| G10["G10: Golden tier roundtrip\n(%mor, %gra, %pho, %wor)"]
+    G10 -->|pass| G11["G11: Reference corpus\nnode coverage audit"]
+    G11 -->|pass| done(["All gates passed"])
+    G0 & G1 & G2 & G3 & G4 & G5 & G6 & G7 & G8 & G9 & G10 & G11 -->|fail| abort(["Pipeline stops"])
+```
 
 | Gate | Check |
 |------|-------|
