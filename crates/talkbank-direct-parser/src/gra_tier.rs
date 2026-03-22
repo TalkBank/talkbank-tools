@@ -151,7 +151,8 @@ pub(crate) fn parse_gra_tier_recovering(
         return (ParseOutcome::rejected(), had_errors);
     }
 
-    let tier = GraTier::new(tier_type, relations);
+    let tier = GraTier::new(tier_type, relations)
+        .with_span(Span::from_usize(offset, offset + input.len()));
     (ParseOutcome::parsed(tier), had_errors)
 }
 

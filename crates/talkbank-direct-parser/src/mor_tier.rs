@@ -153,7 +153,9 @@ pub(crate) fn parse_mor_tier_recovering(
         return (ParseOutcome::rejected(), had_errors);
     }
 
-    let tier = MorTier::new(tier_type, items).with_terminator(terminator);
+    let tier = MorTier::new(tier_type, items)
+        .with_terminator(terminator)
+        .with_span(Span::from_usize(offset, offset + input.len()));
     (ParseOutcome::parsed(tier), had_errors)
 }
 

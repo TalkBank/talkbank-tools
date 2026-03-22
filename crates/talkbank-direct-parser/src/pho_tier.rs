@@ -142,7 +142,8 @@ pub(crate) fn parse_pho_tier_recovering(
         return (ParseOutcome::rejected(), had_errors);
     }
 
-    let tier = PhoTier::new(tier_type, items);
+    let tier = PhoTier::new(tier_type, items)
+        .with_span(Span::from_usize(offset, offset + input.len()));
     (ParseOutcome::parsed(tier), had_errors)
 }
 
