@@ -157,11 +157,11 @@ Use `cargo-mutants` to find code that can be changed without any test failing â€
 # Install (once)
 cargo install cargo-mutants
 
-# Run against a specific crate
-cargo mutants -p talkbank-direct-parser --timeout 120 --jobs 4
+# Run against a specific crate (--jobs 1 to avoid OOM on 64 GB machines)
+cargo mutants -p talkbank-direct-parser --timeout 120 --jobs 1
 
 # Run against CLAN commands
-cargo mutants -p talkbank-clan --timeout 120 --jobs 4
+cargo mutants -p talkbank-clan --timeout 120 --jobs 1
 
 # Review results
 cat mutants.out/missed.txt    # Mutations no test caught

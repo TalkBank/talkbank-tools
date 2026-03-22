@@ -1,5 +1,10 @@
 # cargo-mutants configuration
-# Run: cargo mutants -p talkbank-direct-parser --timeout 60 -- --lib
+#
+# SAFETY: Use --jobs 1 on developer machines (64 GB). Each mutation job
+# does a full workspace build (~8 GB peak). With --jobs 4 the linker
+# phases overlap and exhaust RAM, causing kernel OOM panics.
+#
+# Run: cargo mutants -p talkbank-direct-parser --timeout 120 --jobs 1
 
 # Exclude functions that are inherently hard to test at unit level
 # (CA omission detection needs full file context with @Options: CA)
