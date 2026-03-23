@@ -7,12 +7,13 @@ from the same speaker does not begin with a quotation precedes linker
 (`+"`). This indicates an unbalanced cross-utterance quotation sequence.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E341
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

@@ -60,6 +60,14 @@ use thiserror::Error;
 /// Node type string constants from tree-sitter-talkbank grammar.
 pub mod node_types;
 
+/// Token parsing for coarsened grammar tokens (language codes, annotations, etc.).
+///
+/// These are standalone parsing functions for atomic tokens that tree-sitter
+/// captures as opaque strings. No Chumsky dependency.
+pub mod tokens;
+
+///
+
 /// Public convenience API modules.
 pub mod api;
 /// Internal parser implementation modules.
@@ -68,6 +76,7 @@ pub(crate) mod parser;
 /// Main parser type and initialization error.
 pub use parser::{ParserInitError, TreeSitterParser};
 pub use talkbank_model::FragmentSemanticContext;
+
 
 /// Legacy synthetic tree-sitter fragment helpers.
 pub use api::synthetic_fragments;
@@ -183,5 +192,27 @@ pub fn parse_chat_file_streaming(input: &str, errors: &impl ErrorSink) -> ChatFi
             ));
             ChatFile::new(Vec::new())
         }
+    }
+}
+
+/// Parse a single word text into a `Word` model value.
+///
+/// Uses the tree-sitter parser via the `ChatParser` trait's `parse_word`
+/// method. This is the replacement for the removed Chumsky `parse_word_impl`.
+///
+/// Returns `Rejected` if the word text cannot be parsed.
+pub fn parse_word(
+    text: &str,
+    offset: usize,
+    errors: &impl ErrorSink,
+) -> talkbank_model::ParseOutcome<Word> {
+    let result = with_parser(|parser| {
+        use talkbank_model::ChatParser;
+        ChatParser::parse_word(parser, text, offset, errors)
+    });
+
+    match result {
+        Ok(outcome) => outcome,
+        Err(_) => talkbank_model::ParseOutcome::rejected(),
     }
 }

@@ -416,8 +416,6 @@ pub enum ParserKindArg {
     /// Tree-sitter parser (default, canonical)
     #[value(name = "tree-sitter")]
     TreeSitter,
-    /// Direct chumsky parser (experimental)
-    Direct,
 }
 
 impl From<ParserKindArg> for talkbank_transform::ParserKind {
@@ -425,7 +423,6 @@ impl From<ParserKindArg> for talkbank_transform::ParserKind {
     fn from(arg: ParserKindArg) -> Self {
         match arg {
             ParserKindArg::TreeSitter => talkbank_transform::ParserKind::TreeSitter,
-            ParserKindArg::Direct => talkbank_transform::ParserKind::Direct,
         }
     }
 }

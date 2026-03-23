@@ -1,113 +1,134 @@
-//! Parse isolated CHAT words via synthetic-file wrapping.
+//! Parse isolated CHAT words via multi-root grammar.
+//!
+//! With `standalone_word` in the source_file union, a bare word like `hello`
+//! or `&-uh` is parsed directly — no synthetic wrapper needed.
 //!
 //! CHAT reference anchors:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Words>
 
 use super::TreeSitterParser;
-use super::helpers::{
-    MINIMAL_CHAT_PREFIX, MINIMAL_CHAT_SUFFIX, find_main_tier_node_in_tree, parse_tree,
-};
 use crate::error::{
     ErrorCode, ErrorContext, ParseError, ParseErrors, ParseResult, Severity, SourceLocation,
 };
-use crate::model::{UtteranceContent, Word};
-use crate::parser::tree_parsing::main_tier::structure::{
-    collect_main_tier_errors, convert_main_tier_node,
-};
+use crate::model::Word;
+use crate::node_types::STANDALONE_WORD;
+use crate::parser::tree_parsing::main_tier::word::convert_word_node;
 
-/// Parse a single word token and project it from wrapped main-tier content.
+/// Parse a single word token directly via the multi-root grammar.
+///
+/// The input (e.g., `hello`, `&-uh`, `hel(lo)`) is parsed directly as a
+/// `standalone_word` fragment. No synthetic `*CHI:\t... .` wrapper is needed.
 pub(super) fn parse_word(parser: &TreeSitterParser, input: &str) -> ParseResult<Word> {
-    // Wrap word in minimal valid CHAT file with one word utterance
-    let wrapped = format!(
-        "{}*CHI:\t{} .\n{}",
-        MINIMAL_CHAT_PREFIX, input, MINIMAL_CHAT_SUFFIX
-    );
-
-    // Calculate offset where original input starts in wrapped source
-    let offset = MINIMAL_CHAT_PREFIX.len() + "*CHI:\t".len();
-
-    // Parse with tree-sitter
-    let tree = parse_tree(parser, input, &wrapped)?;
-
-    // Find the main_tier node
-    let main_tier_node = find_main_tier_node_in_tree(&tree, &wrapped)?;
-
-    // Check for parse errors
-    if main_tier_node.has_error() {
+    if input.is_empty() {
         let mut errors = ParseErrors::new();
-        collect_main_tier_errors(main_tier_node, &wrapped, input, offset, &mut errors);
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-    }
-
-    // Convert the main_tier node to MainTier model
-    let errors_sink = crate::error::ErrorCollector::new();
-    let main_tier =
-        convert_main_tier_node(main_tier_node, &wrapped, input, &errors_sink).into_option();
-
-    // Check if there are actual errors
-    let tier_errors = errors_sink.into_vec();
-    let has_actual_errors = tier_errors
-        .iter()
-        .any(|e| matches!(e.severity, Severity::Error));
-    if has_actual_errors || main_tier.is_none() {
-        let mut errors = ParseErrors::new();
-        errors.errors.extend(tier_errors);
-        if main_tier.is_none() && errors.is_empty() {
-            errors.push(ParseError::new(
-                ErrorCode::MissingMainTier,
-                Severity::Error,
-                SourceLocation::from_offsets(0, input.len()),
-                ErrorContext::new(input, 0..input.len(), input),
-                "Failed to build main tier from parse tree",
-            ));
-        }
+        errors.push(ParseError::new(
+            ErrorCode::InvalidWordFormat,
+            Severity::Error,
+            SourceLocation::from_offsets(0, 0),
+            ErrorContext::new(input, 0..0, input),
+            "Empty word input",
+        ));
         return Err(errors);
     }
 
-    let main_tier = match main_tier {
-        Some(main_tier) => main_tier,
-        None => {
+    let tree = {
+        let mut ts_parser = parser.parser.borrow_mut();
+        ts_parser
+            .parse(input.as_bytes(), None)
+            .ok_or_else(|| {
+                let mut errors = ParseErrors::new();
+                errors.push(ParseError::new(
+                    ErrorCode::TreeParsingError,
+                    Severity::Error,
+                    SourceLocation::from_offsets(0, input.len()),
+                    ErrorContext::new(input, 0..input.len(), input),
+                    "Tree-sitter parse returned None",
+                ));
+                errors
+            })?
+    };
+
+    // Navigate: source_file → standalone_word
+    let root = tree.root_node();
+    if root.kind() != "source_file" {
+        let mut errors = ParseErrors::new();
+        errors.push(ParseError::new(
+            ErrorCode::TreeParsingError,
+            Severity::Error,
+            SourceLocation::from_offsets(0, input.len()),
+            ErrorContext::new(input, 0..input.len(), input),
+            format!("Expected source_file root, got '{}'", root.kind()),
+        ));
+        return Err(errors);
+    }
+
+    let word_node = root
+        .child(0)
+        .filter(|c| c.kind() == STANDALONE_WORD)
+        .ok_or_else(|| {
             let mut errors = ParseErrors::new();
+            let actual = root
+                .child(0)
+                .map(|c| c.kind().to_string())
+                .unwrap_or_default();
             errors.push(ParseError::new(
-                ErrorCode::MissingMainTier,
+                ErrorCode::InvalidWordFormat,
                 Severity::Error,
                 SourceLocation::from_offsets(0, input.len()),
                 ErrorContext::new(input, 0..input.len(), input),
-                "Failed to build main tier from parse tree",
+                format!("Expected standalone_word fragment, got '{actual}'"),
             ));
-            return Err(errors);
-        }
-    };
+            errors
+        })?;
 
-    if main_tier.content.content.is_empty() {
+    // Verify the parse consumed the entire input (no trailing ERROR nodes)
+    if root.child_count() > 1 || word_node.has_error() {
         let mut errors = ParseErrors::new();
         errors.push(ParseError::new(
             ErrorCode::InvalidWordFormat,
             Severity::Error,
             SourceLocation::from_offsets(0, input.len()),
             ErrorContext::new(input, 0..input.len(), input),
-            "No words parsed from input",
+            "Word input contains unparsable content",
         ));
         return Err(errors);
     }
 
-    // Extract the word from the first content element
-    match &main_tier.content.content[0] {
-        UtteranceContent::Word(word) => Ok((**word).clone()),
-        UtteranceContent::AnnotatedWord(annotated) => Ok(annotated.inner.clone()),
-        UtteranceContent::ReplacedWord(replaced) => Ok(replaced.word.clone()),
-        _ => {
-            let mut errors = ParseErrors::new();
+    // Convert the standalone_word CST node directly to Word model
+    let errors_sink = crate::error::ErrorCollector::new();
+    let outcome = convert_word_node(word_node, input, &errors_sink);
+
+    let tier_errors = errors_sink.into_vec();
+    let has_actual_errors = tier_errors
+        .iter()
+        .any(|e| matches!(e.severity, Severity::Error));
+
+    let word = outcome.into_option();
+
+    if has_actual_errors || word.is_none() {
+        let mut errors = ParseErrors::new();
+        errors.errors.extend(tier_errors);
+        if word.is_none() && errors.is_empty() {
             errors.push(ParseError::new(
                 ErrorCode::InvalidWordFormat,
                 Severity::Error,
                 SourceLocation::from_offsets(0, input.len()),
                 ErrorContext::new(input, 0..input.len(), input),
-                "First content element is not a word",
+                "Failed to build word from parse tree",
             ));
-            Err(errors)
         }
+        return Err(errors);
     }
+
+    word.ok_or_else(|| {
+        let mut errors = ParseErrors::new();
+        errors.push(ParseError::new(
+            ErrorCode::InvalidWordFormat,
+            Severity::Error,
+            SourceLocation::from_offsets(0, input.len()),
+            ErrorContext::new(input, 0..input.len(), input),
+            "Failed to build word from parse tree",
+        ));
+        errors
+    })
 }

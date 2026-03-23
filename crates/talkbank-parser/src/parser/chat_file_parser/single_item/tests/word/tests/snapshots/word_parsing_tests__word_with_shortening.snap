@@ -1,12 +1,12 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Ok(
     Word {
         span: Span {
-            start: 107,
-            end: 114,
+            start: 0,
+            end: 7,
         },
         word_id: None,
         raw_text: "hel(lo)",

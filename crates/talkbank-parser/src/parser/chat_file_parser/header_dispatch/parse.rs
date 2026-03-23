@@ -88,7 +88,16 @@ impl TreeSitterParser {
                     errors
                 })?;
 
-            let root = tree.root_node();
+            let ts_root = tree.root_node();
+            // Navigate source_file → full_document for multi-root grammar
+            let root = if ts_root.kind() == "source_file" {
+                ts_root
+                    .child(0)
+                    .filter(|c| c.kind() == "full_document")
+                    .unwrap_or(ts_root)
+            } else {
+                ts_root
+            };
             let header_node = find_header_node_in_tree(root, header_index)?;
 
             // Verify the found header node is within the input's byte range,

@@ -2,7 +2,7 @@
 ; Keep speaker navigation useful without broad scope inference.
 ; TODO(post-v1): expand cross-tier and advanced local scopes.
 
-(document) @local.scope
+(source_file) @local.scope
 
 ; Speaker definitions in @Participants
 (participant

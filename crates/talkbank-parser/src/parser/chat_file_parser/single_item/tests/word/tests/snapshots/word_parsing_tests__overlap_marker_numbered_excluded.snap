@@ -1,12 +1,12 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Ok(
     Word {
         span: Span {
-            start: 107,
-            end: 122,
+            start: 0,
+            end: 15,
         },
         word_id: None,
         raw_text: "test⌋1⌈2ing",
@@ -15,46 +15,7 @@ Ok(
                 Text(
                     WordText(
                         NonEmptyString(
-                            "test",
-                        ),
-                    ),
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: BottomOverlapEnd,
-                        index: Some(
-                            OverlapIndex(
-                                1,
-                            ),
-                        ),
-                        span: Some(
-                            Span {
-                                start: 111,
-                                end: 115,
-                            },
-                        ),
-                    },
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: TopOverlapBegin,
-                        index: Some(
-                            OverlapIndex(
-                                2,
-                            ),
-                        ),
-                        span: Some(
-                            Span {
-                                start: 115,
-                                end: 119,
-                            },
-                        ),
-                    },
-                ),
-                Text(
-                    WordText(
-                        NonEmptyString(
-                            "ing",
+                            "test⌋1⌈2ing",
                         ),
                     ),
                 ),
@@ -67,7 +28,7 @@ Ok(
         inline_bullet: None,
         cached_cleaned_text: CachedStr(
             OnceLock(
-                "testing",
+                "test⌋1⌈2ing",
             ),
         ),
     },

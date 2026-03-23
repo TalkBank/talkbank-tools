@@ -9,12 +9,12 @@ attempts to continue after encountering invalid syntax, and the recovered struct
 contains nodes in unexpected positions.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E331
 - **Category**: parser_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1 — Missing stem in %mor word
 

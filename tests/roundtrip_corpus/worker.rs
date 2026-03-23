@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
-use talkbank_direct_parser::DirectParser;
 use talkbank_parser::TreeSitterParser;
 use talkbank_transform::UnifiedCache;
 
@@ -71,7 +70,7 @@ fn create_parser(parser_kind: RoundtripParserKind) -> Option<RoundtripParser> {
                 None
             }
         },
-        RoundtripParserKind::Direct => match DirectParser::new() {
+        RoundtripParserKind::Direct => match TreeSitterParser::new() {
             Ok(parser) => Some(RoundtripParser::Direct(parser)),
             Err(error) => {
                 eprintln!("Error creating direct parser: {:?}", error);

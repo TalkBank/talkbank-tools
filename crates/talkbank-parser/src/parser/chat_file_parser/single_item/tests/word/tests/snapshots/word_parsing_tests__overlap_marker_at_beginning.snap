@@ -1,33 +1,21 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Ok(
     Word {
         span: Span {
-            start: 107,
-            end: 115,
+            start: 0,
+            end: 8,
         },
         word_id: None,
         raw_text: "⌊hello",
         content: WordContents(
             [
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: BottomOverlapBegin,
-                        index: None,
-                        span: Some(
-                            Span {
-                                start: 107,
-                                end: 110,
-                            },
-                        ),
-                    },
-                ),
                 Text(
                     WordText(
                         NonEmptyString(
-                            "hello",
+                            "⌊hello",
                         ),
                     ),
                 ),
@@ -40,7 +28,7 @@ Ok(
         inline_bullet: None,
         cached_cleaned_text: CachedStr(
             OnceLock(
-                "hello",
+                "⌊hello",
             ),
         ),
     },

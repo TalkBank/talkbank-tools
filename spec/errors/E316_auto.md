@@ -5,6 +5,7 @@
 Unparsable content
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E316
 - **Category**: Main tier validation

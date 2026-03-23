@@ -10,7 +10,7 @@ expression: results
             Word {
                 span: Span {
                     start: 0,
-                    end: 5,
+                    end: 0,
                 },
                 word_id: None,
                 raw_text: "hello",
@@ -45,8 +45,8 @@ expression: results
         Some(
             Word {
                 span: Span {
-                    start: 100,
-                    end: 105,
+                    start: 0,
+                    end: 0,
                 },
                 word_id: None,
                 raw_text: "world",
@@ -81,8 +81,8 @@ expression: results
         Some(
             Word {
                 span: Span {
-                    start: 200,
-                    end: 203,
+                    start: 93,
+                    end: 96,
                 },
                 word_id: None,
                 raw_text: "foo",
@@ -117,8 +117,8 @@ expression: results
         Some(
             Word {
                 span: Span {
-                    start: 300,
-                    end: 303,
+                    start: 193,
+                    end: 196,
                 },
                 word_id: None,
                 raw_text: "bar",

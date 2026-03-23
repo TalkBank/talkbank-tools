@@ -5,12 +5,12 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E383
 - **Category**: Dependent tier parsing
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

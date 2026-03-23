@@ -5,7 +5,6 @@ members = [
     "crates/talkbank-model",
     "crates/talkbank-parser-tests",
     "crates/talkbank-derive",
-    "crates/talkbank-direct-parser",
     "crates/talkbank-parser",
     "crates/talkbank-transform",
     "crates/talkbank-clan",
@@ -35,7 +34,6 @@ indicatif = { workspace = true }
 ratatui = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-talkbank-direct-parser = { workspace = true }
 
 # TalkBank crates
 talkbank-model = { workspace = true }
@@ -77,7 +75,6 @@ atty = "0.2"
 blake3 = "1.8"
 cc = "1.2"
 chrono = "0.4"
-chumsky = "0.12.0"
 
 # CLI and tools
 clap = { version = "4.6", features = ["derive"] }
@@ -133,7 +130,6 @@ talkbank-cli = { path = "crates/talkbank-cli", version = "0.1.0" }
 
 # TalkBank crates — path for local dev, version for crates.io publishing
 talkbank-derive = { path = "crates/talkbank-derive", version = "0.1.0" }
-talkbank-direct-parser = { path = "crates/talkbank-direct-parser", version = "0.1.0" }
 talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.1.0" }
 talkbank-model = { path = "crates/talkbank-model", version = "0.1.0" }
 talkbank-parser = { path = "crates/talkbank-parser", version = "0.1.0" }
@@ -144,7 +140,7 @@ tempfile = "3.27"
 text-size = "1.1"
 thiserror = "^2.0.18"
 tokio = { version = "1.50", features = ["full"] }
-toml = "^1.0.7"
+toml = "^1.1.0"
 tower-lsp = "0.20"
 
 # Logging and tracing
@@ -155,6 +151,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tree-sitter = "0.26"
 tree-sitter-highlight = "0.26"
 tree-sitter-talkbank = { path = "grammar", version = "0.1.0" }
+
+# Grammar-driven tooling (from ~/tree-sitter-grammar-utils)
+tree-sitter-node-types = { path = "../../tree-sitter-grammar-utils/crates/tree-sitter-node-types" }
 trybuild = "1.0"
 unicode-width = "0.2"
 walkdir = "^2.5"

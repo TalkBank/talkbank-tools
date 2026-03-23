@@ -13,9 +13,8 @@ use crate::test_utils::diagnostics::print_pipeline_error;
 use crate::test_utils::roundtrip::{
     parse_for_roundtrip, parse_for_roundtrip_with_chat_parser, parse_for_roundtrip_with_parser,
 };
-use talkbank_direct_parser::DirectParser;
-use talkbank_model::model::{ChatFile, SemanticEq, WriteChat};
 use talkbank_parser::TreeSitterParser;
+use talkbank_model::model::{ChatFile, SemanticEq, WriteChat};
 use talkbank_transform::PipelineError;
 use talkbank_transform::to_json_pretty_validated;
 
@@ -39,7 +38,7 @@ impl RoundtripParserKind {
 /// Parser wrapper for roundtrip testing.
 pub enum RoundtripParser {
     TreeSitter(TreeSitterParser),
-    Direct(DirectParser),
+    Direct(TreeSitterParser),
 }
 
 impl RoundtripParser {

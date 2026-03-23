@@ -6,8 +6,8 @@ expression: "(word_dp, word_tsp, are_semantically_equal)"
     Some(
         Word {
             span: Span {
-                start: 100,
-                end: 107,
+                start: 0,
+                end: 0,
             },
             word_id: None,
             raw_text: "hello@s",
@@ -39,8 +39,8 @@ expression: "(word_dp, word_tsp, are_semantically_equal)"
     Some(
         Word {
             span: Span {
-                start: 100,
-                end: 107,
+                start: 0,
+                end: 0,
             },
             word_id: None,
             raw_text: "hello@s",

@@ -2,7 +2,7 @@
 
 //! Property 2: Category Prefixes Are Always Detected
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure category detection is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure category detection is consistent.
 
 use super::*;
 use proptest::prelude::*;

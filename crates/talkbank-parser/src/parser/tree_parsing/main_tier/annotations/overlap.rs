@@ -1,4 +1,4 @@
-//! Overlap annotation parsing — delegated to `talkbank_direct_parser::tokens`.
+//! Overlap annotation parsing — delegated to `crate::tokens`.
 //!
 //! All overlap token parsing now goes through the public token API.
 //! See `scoped/single.rs` for the dispatch site.

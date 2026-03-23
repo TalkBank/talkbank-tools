@@ -61,7 +61,7 @@ fn golden_main_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
             }
 
             let sink = ErrorCollector::new();
-            let parsed = parser.parse_main_tier(tier_line, 0, &sink);
+            let parsed = ChatParser::parse_main_tier(&parser, tier_line, 0, &sink);
 
             // Check for parsing errors
             if !sink.is_empty() {

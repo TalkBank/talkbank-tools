@@ -1,5 +1,5 @@
 ---
-source: rust/crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/header_dispatch/tests.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/header_dispatch/tests.rs
 expression: result
 ---
 Err(

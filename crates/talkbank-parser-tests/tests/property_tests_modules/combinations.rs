@@ -2,7 +2,7 @@
 
 //! Property 7: Combining Features
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure feature combination is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure feature combination is consistent.
 
 use super::*;
 use proptest::prelude::*;

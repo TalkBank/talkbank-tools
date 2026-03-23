@@ -5,7 +5,7 @@
 //! where a fragment starts in a larger document.
 //!
 //! **Testing Strategy:**
-//! - Run on BOTH TreeSitterParser and DirectParser via ChatParser trait
+//! - Run on TreeSitterParser via ChatParser trait
 //! - Verify spans are document-absolute (include offset)
 //! - Verify error locations are offset-adjusted
 //! - Verify roundtrip stability with offsets
@@ -13,56 +13,30 @@
 //!
 //! All tests use insta snapshots for easy review and maintenance.
 
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::{SemanticEq, WriteChat};
-use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
 // ============================================================================
-// Parser Suite - Test Both Implementations
+// Parser Suite
 // ============================================================================
 
-/// Parser backend under test.
-enum ParserImpl {
-    TreeSitter(TreeSitterParser),
-    Direct(DirectParser),
-}
-
-impl ParserImpl {
-    /// Human-readable backend label used in assertion messages.
-    fn name(&self) -> &'static str {
-        match self {
-            ParserImpl::TreeSitter(_) => "TreeSitter",
-            ParserImpl::Direct(_) => "Direct",
-        }
-    }
-}
-
-/// Builds the parser suite used for cross-implementation offset assertions.
-fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
-    let tree_sitter =
+/// Builds the parser suite used for offset assertions.
+fn parser_suite() -> Result<Vec<TreeSitterParser>, TestError> {
+    let parser =
         TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
-    let direct = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
-    Ok(vec![
-        ParserImpl::TreeSitter(tree_sitter),
-        ParserImpl::Direct(direct),
-    ])
+    Ok(vec![parser])
 }
 
 // ============================================================================
-// Helper Macros for Testing Both Parsers
+// Helper Macros
 // ============================================================================
 
 macro_rules! impl_chat_parser {
-    ($impl:expr, $method:ident, $input:expr, $offset:expr, $errors:expr) => {
-        match $impl {
-            ParserImpl::TreeSitter(p) => {
-                ChatParser::$method(p, $input, $offset, $errors).into_option()
-            }
-            ParserImpl::Direct(p) => ChatParser::$method(p, $input, $offset, $errors).into_option(),
-        }
+    ($parser:expr, $method:ident, $input:expr, $offset:expr, $errors:expr) => {
+        ChatParser::$method($parser, $input, $offset, $errors).into_option()
     };
 }
 
@@ -79,7 +53,7 @@ fn test_parse_word_offset_zero() -> Result<(), TestError> {
         let word = impl_chat_parser!(parser, parse_word, "hello", 0, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((word, errors.into_vec()));
         });
@@ -96,7 +70,7 @@ fn test_parse_word_with_offset() -> Result<(), TestError> {
         let word = impl_chat_parser!(parser, parse_word, "world", 1000, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((word, errors.into_vec()));
         });
@@ -113,7 +87,7 @@ fn test_parse_word_complex_with_offset() -> Result<(), TestError> {
         let word = impl_chat_parser!(parser, parse_word, "dog@c", 500, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((word, errors.into_vec()));
         });
@@ -134,7 +108,7 @@ fn test_parse_main_tier_offset_zero() -> Result<(), TestError> {
         let main = impl_chat_parser!(parser, parse_main_tier, "*CHI:\thello .", 0, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((main, errors.into_vec()));
         });
@@ -157,7 +131,7 @@ fn test_parse_main_tier_with_offset() -> Result<(), TestError> {
         );
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((main, errors.into_vec()));
         });
@@ -178,7 +152,7 @@ fn test_parse_mor_tier_offset_zero() -> Result<(), TestError> {
         let mor = impl_chat_parser!(parser, parse_mor_tier, "pro|I v|want .", 0, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((mor, errors.into_vec()));
         });
@@ -195,7 +169,7 @@ fn test_parse_mor_tier_with_offset() -> Result<(), TestError> {
         let mor = impl_chat_parser!(parser, parse_mor_tier, "pro|I v|want .", 300, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((mor, errors.into_vec()));
         });
@@ -227,7 +201,7 @@ fn test_error_offset_in_word() -> Result<(), TestError> {
         }
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((word, error_vec));
         });
@@ -255,7 +229,7 @@ fn test_error_offset_in_main_tier() -> Result<(), TestError> {
         }
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((main, error_vec));
         });
@@ -296,7 +270,7 @@ fn test_roundtrip_with_offset() -> Result<(), TestError> {
         let is_semantically_equal = main1.semantic_eq(&main2);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((is_semantically_equal, main1, main2));
         });
@@ -325,7 +299,7 @@ fn test_multiple_fragments_different_offsets() -> Result<(), TestError> {
             .collect();
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!(results);
         });
@@ -350,7 +324,7 @@ fn test_offset_with_multibyte_utf8() -> Result<(), TestError> {
         let word = impl_chat_parser!(parser, parse_word, input, offset, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((input.len(), word, errors.into_vec()));
         });
@@ -371,7 +345,7 @@ fn test_offset_with_chinese_characters() -> Result<(), TestError> {
         let word = impl_chat_parser!(parser, parse_word, input, offset, &errors);
 
         insta::with_settings!({
-            snapshot_suffix => parser.name()
+            snapshot_suffix => "TreeSitter"
         }, {
             insta::assert_debug_snapshot!((input.len(), word, errors.into_vec()));
         });
@@ -394,8 +368,8 @@ fn test_parser_equivalence_word_with_offset() -> Result<(), TestError> {
     let errors_tsp = ErrorCollector::new();
     let word_tsp = ChatParser::parse_word(&tsp, input, offset, &errors_tsp).into_option();
 
-    // Parse with DirectParser
-    let dp = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
+    // Parse with TreeSitterParser
+    let dp = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     let errors_dp = ErrorCollector::new();
     let word_dp = ChatParser::parse_word(&dp, input, offset, &errors_dp).into_option();
 
@@ -421,8 +395,8 @@ fn test_parser_equivalence_main_tier_with_offset() -> Result<(), TestError> {
     let errors_tsp = ErrorCollector::new();
     let main_tsp = ChatParser::parse_main_tier(&tsp, input, offset, &errors_tsp).into_option();
 
-    // Parse with DirectParser
-    let dp = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
+    // Parse with TreeSitterParser
+    let dp = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     let errors_dp = ErrorCollector::new();
     let main_dp = ChatParser::parse_main_tier(&dp, input, offset, &errors_dp).into_option();
 
@@ -448,8 +422,8 @@ fn test_parser_equivalence_mor_tier_with_offset() -> Result<(), TestError> {
     let errors_tsp = ErrorCollector::new();
     let mor_tsp = ChatParser::parse_mor_tier(&tsp, input, offset, &errors_tsp).into_option();
 
-    // Parse with DirectParser
-    let dp = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
+    // Parse with TreeSitterParser
+    let dp = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     let errors_dp = ErrorCollector::new();
     let mor_dp = ChatParser::parse_mor_tier(&dp, input, offset, &errors_dp).into_option();
 

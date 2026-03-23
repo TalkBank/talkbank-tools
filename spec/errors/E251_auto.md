@@ -5,12 +5,12 @@
 Empty word content text
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E251
 - **Category**: validation
 - **Level**: word
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

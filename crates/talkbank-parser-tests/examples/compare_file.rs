@@ -1,4 +1,4 @@
-//! Compare TreeSitterParser and DirectParser output for a single file
+//! Compare TreeSitterParser and TreeSitterParser output for a single file
 
 use std::fs;
 
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let content = fs::read_to_string(&file)?;
 
     let ts = talkbank_parser::TreeSitterParser::new()?;
-    let direct = talkbank_direct_parser::DirectParser::new()?;
+    let direct = talkbank_parser::TreeSitterParser::new()?;
 
     let ts_result = ts.parse_chat_file(&content);
     let direct_result = direct.parse_chat_file(&content);

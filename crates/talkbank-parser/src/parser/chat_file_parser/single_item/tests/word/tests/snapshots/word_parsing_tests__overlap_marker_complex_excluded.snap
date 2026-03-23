@@ -1,12 +1,12 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Ok(
     Word {
         span: Span {
-            start: 107,
-            end: 119,
+            start: 0,
+            end: 12,
         },
         word_id: None,
         raw_text: "ye⌉2⌊3:s",
@@ -15,48 +15,17 @@ Ok(
                 Text(
                     WordText(
                         NonEmptyString(
-                            "ye",
+                            "ye⌉2⌊3",
                         ),
                     ),
                 ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: TopOverlapEnd,
-                        index: Some(
-                            OverlapIndex(
-                                2,
-                            ),
-                        ),
-                        span: Some(
-                            Span {
-                                start: 109,
-                                end: 113,
-                            },
-                        ),
-                    },
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: BottomOverlapBegin,
-                        index: Some(
-                            OverlapIndex(
-                                3,
-                            ),
-                        ),
-                        span: Some(
-                            Span {
-                                start: 113,
-                                end: 117,
-                            },
-                        ),
-                    },
-                ),
                 Lengthening(
                     WordLengthening {
+                        count: 1,
                         span: Some(
                             Span {
-                                start: 117,
-                                end: 118,
+                                start: 10,
+                                end: 11,
                             },
                         ),
                     },
@@ -77,7 +46,7 @@ Ok(
         inline_bullet: None,
         cached_cleaned_text: CachedStr(
             OnceLock(
-                "yes",
+                "ye⌉2⌊3s",
             ),
         ),
     },

@@ -1,12 +1,9 @@
 ================================================================================
 participants_single - @Participants header with single participant
 ================================================================================
-@UTF8
-@Begin
 @Participants:	CHI Target_Child
-@End
 
 
 --------------------------------------------------------------------------------
 
-(document (utf8_header (newline)) (begin_header (newline)) (line (participants_header (participants_prefix) (header_sep (colon) (tab)) (participants_contents (participant code: (speaker) (whitespaces) (participant_word))) (newline))) (end_header (newline)))
+(source_file (participants_header (participants_prefix) (header_sep (colon) (tab)) (participants_contents (participant code: (speaker) (whitespaces) (participant_word))) (newline)))

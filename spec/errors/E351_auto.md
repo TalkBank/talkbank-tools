@@ -7,12 +7,13 @@ from the same speaker. The `+,` linker requires a preceding interrupted
 utterance from the same speaker to complete.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E351
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

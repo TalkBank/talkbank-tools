@@ -8,12 +8,13 @@ from a different speaker, but that preceding utterance did not end with
 previous speaker to have trailed off.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E354
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

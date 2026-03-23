@@ -2,7 +2,7 @@
 
 //! Property 8: Raw Text Is Always Preserved
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure raw_text preservation is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure raw_text preservation is consistent.
 
 use super::*;
 use proptest::prelude::*;

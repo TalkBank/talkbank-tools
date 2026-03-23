@@ -5,12 +5,12 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E323
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

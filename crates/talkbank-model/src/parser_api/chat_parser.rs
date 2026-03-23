@@ -137,6 +137,12 @@ pub trait ChatParser {
     }
 
     /// Parse an individual word (main tier token) with streaming diagnostics.
+    ///
+    /// # Input format
+    ///
+    /// **A bare word token:** `hello`, `&-uh`, `0is`, `ice+cream`, `hello@s:eng`.
+    /// Parsed directly via the multi-root `standalone_word` grammar union.
+    /// No wrapper needed. Do NOT include `*CHI:\t` prefix or terminator.
     fn parse_word(&self, input: &str, offset: usize, errors: &impl ErrorSink)
     -> ParseOutcome<Word>;
 
@@ -152,6 +158,20 @@ pub trait ChatParser {
     }
 
     /// Parse a `%mor` tier line with streaming diagnostics.
+    ///
+    /// # Input format
+    ///
+    /// **Bare tier content only — do NOT include the `%mor:\t` prefix.**
+    /// The implementation wraps the input in a synthetic CHAT document
+    /// with `%mor:\t` added internally.
+    ///
+    /// ```text
+    /// // CORRECT:
+    /// parse_mor_tier("pro|I v|want n|cookie-PL .", 0, &errors)
+    ///
+    /// // WRONG — double prefix, will fail:
+    /// parse_mor_tier("%mor:\tpro|I v|want n|cookie-PL .", 0, &errors)
+    /// ```
     fn parse_mor_tier(
         &self,
         input: &str,
@@ -171,6 +191,12 @@ pub trait ChatParser {
     }
 
     /// Parse a single MOR word with streaming diagnostics.
+    ///
+    /// # Input format
+    ///
+    /// **A single mor element without terminator:** `pro|I`, `v|want`, `n|cookie-PL`.
+    /// The implementation wraps in a synthetic `%mor:\t{input} .` tier internally.
+    /// Do NOT include `%mor:\t` prefix or the `.` terminator.
     fn parse_mor_word(
         &self,
         input: &str,
@@ -190,6 +216,11 @@ pub trait ChatParser {
     }
 
     /// Parse a `%gra` tier line with streaming diagnostics.
+    ///
+    /// # Input format
+    ///
+    /// **Bare tier content only — do NOT include the `%gra:\t` prefix.**
+    /// Example: `1|2|SUBJ 2|0|ROOT 3|2|OBJ .`
     fn parse_gra_tier(
         &self,
         input: &str,
@@ -209,6 +240,10 @@ pub trait ChatParser {
     }
 
     /// Parse a single grammatical relation with streaming diagnostics.
+    ///
+    /// # Input format
+    ///
+    /// **A single gra element:** `1|2|SUBJ`. No `%gra:\t` prefix, no terminator.
     fn parse_gra_relation(
         &self,
         input: &str,

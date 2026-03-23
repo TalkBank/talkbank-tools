@@ -1,0 +1,39 @@
+================================================================================
+omission_no_space - 0word (no space) is ONE word with omission prefix
+================================================================================
+*CHI:	I want 0to go .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (zero) (word_body (word_segment)))))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+omission_standalone_zero - standalone 0 (with space) is an action marker (nonword)
+================================================================================
+*CHI:	0 go .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (nonword_with_optional_annotations nonword: (nonword (zero))))) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+omission_with_form - 0die@wp is one omitted word with form marker
+================================================================================
+*CHI:	0die@wp .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (zero) (word_body (word_segment)) (form_marker))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+omission_fragment_word - bare word fragment parse: 0is
+================================================================================
+0is
+
+
+--------------------------------------------------------------------------------
+
+(source_file (standalone_word (zero) (word_body (word_segment))) (ERROR (newline)))

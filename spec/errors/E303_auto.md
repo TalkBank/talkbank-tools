@@ -5,12 +5,12 @@
 Unexpected node - helper function
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E303
 - **Category**: Parser bugs (experimental)
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example
 

@@ -30,32 +30,3 @@ expression: "rows.join(\"\\n\\n\")"
   ],
   "terminator": "."
 }
-
-[direct-parser] %mor tier
-{
-  "tier_type": "Mor",
-  "items": [
-    {
-      "main": {
-        "pos": "pro",
-        "lemma": "I"
-      }
-    },
-    {
-      "main": {
-        "pos": "v",
-        "lemma": "want"
-      }
-    },
-    {
-      "main": {
-        "pos": "n",
-        "lemma": "cookie",
-        "features": [
-          "PL"
-        ]
-      }
-    }
-  ],
-  "terminator": "."
-}

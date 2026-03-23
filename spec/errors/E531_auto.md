@@ -5,12 +5,13 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E531
 - **Category**: validation
 - **Level**: header
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

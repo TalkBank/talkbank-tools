@@ -6,8 +6,8 @@ expression: "(word, errors.into_vec())"
     Some(
         Word {
             span: Span {
-                start: 1000,
-                end: 1005,
+                start: 893,
+                end: 898,
             },
             word_id: None,
             raw_text: "world",

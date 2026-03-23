@@ -1,22 +1,22 @@
 //! Shared parser-suite utilities for root integration tests.
 
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::{ChatFile, ChatParser, ErrorSink};
-use talkbank_parser::{ParserInitError, TreeSitterParser};
+use talkbank_parser::ParserInitError;
 
 /// Shared initialization failure for test parser suites.
 #[derive(Debug, thiserror::Error)]
 pub enum ParserSuiteError {
     #[error("Failed to create TreeSitterParser: {source}")]
     TreeSitterInit { source: ParserInitError },
-    #[error("Failed to create DirectParser: {message}")]
-    DirectParserInit { message: String },
+    #[error("Failed to create TreeSitterParser: {message}")]
+    ParserInit { message: String },
 }
 
 /// Enum wrapper for testing both parser implementations.
 pub enum ParserImpl {
     TreeSitter(TreeSitterParser),
-    Direct(DirectParser),
+    Direct(TreeSitterParser),
 }
 
 impl ParserImpl {
@@ -50,7 +50,7 @@ pub fn parser_suite() -> Result<Vec<ParserImpl>, ParserSuiteError> {
     let tree_sitter =
         TreeSitterParser::new().map_err(|source| ParserSuiteError::TreeSitterInit { source });
     let direct =
-        DirectParser::new().map_err(|message| ParserSuiteError::DirectParserInit { message });
+        TreeSitterParser::new().map_err(|message| ParserSuiteError::ParserInit { message: message.to_string() });
 
     match (tree_sitter, direct) {
         (Ok(tree_sitter), Ok(direct)) => Ok(vec![

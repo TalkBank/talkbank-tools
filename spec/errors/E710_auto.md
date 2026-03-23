@@ -5,6 +5,7 @@
 Invalid GRA format
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E710
 - **Category**: Dependent tier parsing

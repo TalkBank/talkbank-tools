@@ -5,6 +5,8 @@
 Syntax error - caret at word start
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E252
 - **Category**: Prosodic marker placement

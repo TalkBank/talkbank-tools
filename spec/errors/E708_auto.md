@@ -5,12 +5,13 @@
 GRA relation missing index
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E708
 - **Category**: Dependent tier parsing
 - **Level**: tier
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

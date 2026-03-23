@@ -17,10 +17,10 @@ fn recovery_corpus_dir() -> PathBuf {
 /// Builds parsers for downstream use.
 fn create_parsers() -> (
     talkbank_parser::TreeSitterParser,
-    talkbank_direct_parser::DirectParser,
+    talkbank_parser::TreeSitterParser,
 ) {
     let ts = talkbank_parser::TreeSitterParser::new().expect("tree-sitter parser");
-    let dp = talkbank_direct_parser::DirectParser::new().expect("direct parser");
+    let dp = talkbank_parser::TreeSitterParser::new().expect("direct parser");
     (ts, dp)
 }
 
@@ -70,7 +70,7 @@ fn parse_with_direct(
     talkbank_model::model::ChatFile,
     Vec<talkbank_model::ParseError>,
 ) {
-    let dp = talkbank_direct_parser::DirectParser::new().expect("direct parser");
+    let dp = talkbank_parser::TreeSitterParser::new().expect("direct parser");
     let errors = ErrorCollector::new();
     let result = ChatParser::parse_chat_file(&dp, content, 0, &errors);
     let file = result

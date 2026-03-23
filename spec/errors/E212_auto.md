@@ -5,12 +5,13 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E212
 - **Category**: Parser error
 - **Level**: word
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

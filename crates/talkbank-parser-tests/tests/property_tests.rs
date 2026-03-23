@@ -3,7 +3,7 @@
 //! These tests use proptest to verify properties that should hold for ALL inputs,
 //! not just hand-picked examples. This finds edge cases that example-based tests miss.
 //!
-//! **IMPORTANT**: These tests run on BOTH TreeSitterParser and DirectParser
+//! **IMPORTANT**: These tests run on BOTH TreeSitterParser and TreeSitterParser
 //! to ensure behavioral equivalence through the ChatParser API.
 //!
 //! This verifies that both parser implementations produce identical results

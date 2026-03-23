@@ -5,12 +5,12 @@
 Empty spoken content
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E209
 - **Category**: validation
 - **Level**: word
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

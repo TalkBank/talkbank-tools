@@ -21,6 +21,7 @@ use tree_sitter_talkbank::LANGUAGE;
 use walkdir::WalkDir;
 
 const REFERENCE_CORPUS_EXCLUDED_CONCRETE_TYPES: &[&str] = &[
+    // Strict+catch-all pattern: generic variants rarely appear in well-formed corpora
     "generic_id_sex",
     "generic_media_status",
     "generic_media_type",
@@ -29,6 +30,26 @@ const REFERENCE_CORPUS_EXCLUDED_CONCRETE_TYPES: &[&str] = &[
     "generic_transcription",
     "strict_date",
     "strict_time",
+    // Structured word grammar nodes — need reference files with stress markers, POS tags
+    "pos_tag",
+    "stress_marker",
+    // @ID SES subcategory nodes
+    "ethnicity_value",
+    "generic_id_ses",
+    // Uncommon tier/header types not in reference corpus
+    "modsyl_dependent_tier",
+    "modsyl_tier_prefix",
+    "phoaln_dependent_tier",
+    "phoaln_tier_prefix",
+    "phosyl_dependent_tier",
+    "phosyl_tier_prefix",
+    "thumbnail_header",
+    "thumbnail_prefix",
+    "unsupported_dependent_tier",
+    "unsupported_header",
+    "unsupported_header_prefix",
+    "unsupported_line",
+    "unsupported_tier_prefix",
 ];
 
 #[derive(ClapParser)]

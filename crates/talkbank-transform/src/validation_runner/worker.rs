@@ -16,49 +16,9 @@ use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use talkbank_direct_parser::DirectParser;
 use talkbank_model::ChatFile;
-use talkbank_model::{ChatParser, ParseOutcome};
 use talkbank_model::{ParseError, Severity};
 use talkbank_parser::TreeSitterParser;
-
-/// Parser wrapper that delegates to the chosen backend.
-///
-/// Uses an enum rather than `dyn ChatParser` because the `ChatParser` trait
-/// is not object-safe (methods accept `&impl ErrorSink`).
-enum WorkerParser {
-    TreeSitter(TreeSitterParser),
-    Direct(DirectParser),
-}
-
-impl WorkerParser {
-    /// Parse a CHAT file using the streaming API (always returns a ChatFile).
-    ///
-    /// For TreeSitter, delegates to the native streaming parser.
-    /// For Direct, uses the ChatParser trait method, substituting an empty
-    /// ChatFile on rejection to match the streaming contract.
-    fn parse_chat_file_streaming(
-        &self,
-        input: &str,
-        errors: &impl talkbank_model::ErrorSink,
-    ) -> ChatFile {
-        match self {
-            WorkerParser::TreeSitter(p) => p.parse_chat_file_streaming(input, errors),
-            WorkerParser::Direct(p) => match ChatParser::parse_chat_file(p, input, 0, errors) {
-                ParseOutcome::Parsed(cf) => cf,
-                ParseOutcome::Rejected => ChatFile::new(vec![]),
-            },
-        }
-    }
-
-    /// Run a roundtrip test using the appropriate parser.
-    fn run_roundtrip(&self, chat_file: &ChatFile) -> roundtrip::RoundtripResult {
-        match self {
-            WorkerParser::TreeSitter(p) => roundtrip::run_roundtrip(chat_file, p),
-            WorkerParser::Direct(p) => roundtrip::run_roundtrip(chat_file, p),
-        }
-    }
-}
 
 /// Main loop executed by each validation worker thread.
 pub(super) fn worker_loop<C>(
@@ -71,22 +31,15 @@ pub(super) fn worker_loop<C>(
 ) where
     C: ValidationCache + Send + Sync,
 {
-    let parser = match config.parser_kind {
-        ParserKind::TreeSitter => match TreeSitterParser::new() {
-            Ok(p) => WorkerParser::TreeSitter(p),
-            Err(e) => {
-                tracing::error!(error = ?e, "Error creating tree-sitter parser");
-                return;
-            }
-        },
-        ParserKind::Direct => match DirectParser::new() {
-            Ok(p) => WorkerParser::Direct(p),
-            Err(e) => {
-                tracing::error!(error = ?e, "Error creating direct parser");
-                return;
-            }
-        },
+    let parser = match TreeSitterParser::new() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(error = ?e, "Error creating tree-sitter parser");
+            return;
+        }
     };
+    // ParserKind is ignored — tree-sitter is the only parser now.
+    let _ = config.parser_kind;
 
     loop {
         // Check for cancellation
@@ -272,7 +225,7 @@ pub(super) fn worker_loop<C>(
 /// Run roundtrip test and emit events. Returns the resulting FileStatus.
 fn run_roundtrip_and_emit<C>(
     chat_file: &ChatFile,
-    parser: &WorkerParser,
+    parser: &TreeSitterParser,
     file_path: &Path,
     config: &ValidationConfig,
     cache: &Option<Arc<C>>,
@@ -317,7 +270,7 @@ where
         }
     }
 
-    let result = parser.run_roundtrip(chat_file);
+    let result = roundtrip::run_roundtrip(chat_file, parser);
 
     // Cache the roundtrip result
     let roundtrip_outcome = if result.passed {
@@ -406,7 +359,7 @@ fn validate_single_file_streaming(
     file_path: &Path,
     content: Arc<str>,
     check_alignment: bool,
-    parser: &WorkerParser,
+    parser: &TreeSitterParser,
     event_tx: &Sender<ValidationEvent>,
 ) -> (Vec<ParseError>, Option<ChatFile>) {
     // Collect all errors during validation (no streaming)

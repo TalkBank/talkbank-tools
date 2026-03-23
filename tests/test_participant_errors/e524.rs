@@ -21,7 +21,7 @@ fn test_e524_birth_unknown_participant() -> Result<(), TestError> {
     //           ^^^ MOT at bytes 124-127 (unknown participant - not in @Participants)
     // ...
 
-    // Test validation (TreeSitterParser only - DirectParser doesn't do validation yet)
+    // Test validation (TreeSitterParser only - TreeSitterParser doesn't do validation yet)
     for parser in validation_parser_suite()? {
         let result = parser.parse_chat_file_result(&content);
 

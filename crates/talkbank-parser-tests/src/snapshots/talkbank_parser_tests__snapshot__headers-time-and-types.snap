@@ -104,7 +104,7 @@ expression: snapshot
     {
       "header": {
         "options": [
-          "bullets",
+          "CA",
           "dummy"
         ],
         "type": "options"
@@ -304,7 +304,7 @@ expression: snapshot
     }
   ],
   "options": [
-    "bullets",
+    "CA",
     "dummy"
   ],
   "participants": {

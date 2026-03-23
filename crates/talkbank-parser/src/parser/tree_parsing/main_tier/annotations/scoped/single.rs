@@ -18,14 +18,14 @@ use crate::node_types::{
     RETRACE_UNCERTAIN, SCOPED_BEST_GUESS, SCOPED_CONTRASTIVE_STRESSING, SCOPED_STRESSING,
     SCOPED_UNCERTAIN,
 };
-use talkbank_direct_parser::tokens;
+use crate::tokens;
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
 
 /// Converts one annotation node like `[*]`, `[= text]`, or `[<2]`.
 ///
 /// After Phase 5 coarsening, most annotations are atomic tokens. Parsing is
-/// delegated to [`talkbank_direct_parser::tokens`] which provides the canonical
+/// delegated to [`crate::tokens`] which provides the canonical
 /// parse functions for each coarsened token type.
 pub(crate) fn parse_single_annotation(
     node: Node,

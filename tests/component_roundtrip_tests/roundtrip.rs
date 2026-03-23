@@ -7,7 +7,7 @@
 
 use serde_json::Value;
 use std::path::PathBuf;
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::WriteChat;
@@ -26,7 +26,7 @@ where
 
 /// Parse a word through the direct parser.
 pub fn parse_word_direct(input: &str) -> Result<Word, ParseErrors> {
-    let parser = DirectParser::new().expect("DirectParser should construct");
+    let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
     match ChatParser::parse_word(&parser, input, 0, &errors) {
         ParseOutcome::Parsed(word) => Ok(word),
@@ -36,7 +36,7 @@ pub fn parse_word_direct(input: &str) -> Result<Word, ParseErrors> {
 
 /// Parse an utterance fragment through the direct parser.
 pub fn parse_utterance_direct(input: &str) -> Result<Utterance, ParseErrors> {
-    let parser = DirectParser::new().expect("DirectParser should construct");
+    let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
     match ChatParser::parse_utterance(&parser, input, 0, &errors) {
         ParseOutcome::Parsed(utterance) => Ok(utterance),

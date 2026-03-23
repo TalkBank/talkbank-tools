@@ -1,4 +1,4 @@
-//! Error marker annotation parsing — delegated to `talkbank_direct_parser::tokens`.
+//! Error marker annotation parsing — delegated to `crate::tokens`.
 //!
 //! All error marker token parsing now goes through the public token API.
 //! See `scoped/single.rs` for the dispatch site.

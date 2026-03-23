@@ -5,12 +5,13 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: W602
 - **Category**: Warnings
 - **Level**: tier
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

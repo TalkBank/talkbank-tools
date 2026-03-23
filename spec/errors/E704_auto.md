@@ -5,12 +5,12 @@
 A single speaker has consecutive utterances with overlap markers (`⌈⌉`/`⌊⌋`) that overlap with each other. Overlap markers should indicate simultaneous speech between **different** speakers, not self-overlap.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E704
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: implemented
 
 ## Corpus Impact
 

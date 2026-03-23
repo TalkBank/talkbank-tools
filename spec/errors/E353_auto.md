@@ -7,12 +7,13 @@ utterance in the file. The `++` linker requires a preceding utterance
 (from a different speaker) to complete.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E353
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

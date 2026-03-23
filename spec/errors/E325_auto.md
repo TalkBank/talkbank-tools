@@ -8,12 +8,12 @@ tier kind. This typically indicates a tree-sitter error recovery scenario
 where an unusual node type ends up inside an utterance subtree.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E325
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

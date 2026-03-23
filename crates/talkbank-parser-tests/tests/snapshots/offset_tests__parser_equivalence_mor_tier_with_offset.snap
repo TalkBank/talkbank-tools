@@ -38,8 +38,8 @@ expression: "(mor_dp, mor_tsp, are_semantically_equal)"
                 ".",
             ),
             span: Span {
-                start: 0,
-                end: 0,
+                start: 294,
+                end: 315,
             },
         },
     ),

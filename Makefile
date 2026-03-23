@@ -11,7 +11,6 @@ help:
 	@echo "  make test-affected  Run dependency-aware tests for changed code"
 	@echo "  make test-grammar   Run tree-sitter grammar corpus tests"
 	@echo "  make test-generated Run spec-generated parser/validation tests"
-	@echo "  make test-fragment-semantics Run direct-parser-native fragment recovery tests"
 	@echo "  make test-legacy-fragment-parity Run legacy tree-sitter/direct word-fragment parity audit"
 	@echo "  make test-parity    Run full-file parser parity tests"
 	@echo "  make build          Build all components"
@@ -115,7 +114,6 @@ test-generated:
 	cargo nextest run -p talkbank-parser-tests --test generated_tests
 
 test-fragment-semantics:
-	cargo nextest run -p talkbank-direct-parser --test test_parse_health_recovery
 
 test-legacy-fragment-parity:
 	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_words

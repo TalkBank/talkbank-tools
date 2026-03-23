@@ -1,38 +1,38 @@
 ---
-source: rust/crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/utterance.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/utterance.rs
 expression: result
 ---
 Err(
     ParseErrors {
         errors: [
             ParseError {
-                code: MissingMainTier,
+                code: TreeParsingError,
                 severity: Error,
                 location: SourceLocation {
                     span: Span {
                         start: 0,
-                        end: 0,
+                        end: 12,
                     },
                     line: None,
                     column: None,
                 },
                 context: Some(
                     ErrorContext {
-                        source_text: "",
+                        source_text: "*CHI hello .",
                         span: Span {
                             start: 0,
-                            end: 0,
+                            end: 12,
                         },
                         expected: [],
-                        found: "",
+                        found: "*CHI hello .",
                         line_offset: None,
                     },
                 ),
                 labels: [],
-                message: "Could not find main_tier node in parse tree",
+                message: "Expected source_file root, got 'ERROR'",
                 suggestion: None,
                 help_url: Some(
-                    "https://talkbank.org/errors/E301",
+                    "https://talkbank.org/errors/E330",
                 ),
             },
         ],

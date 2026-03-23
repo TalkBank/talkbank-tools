@@ -7,12 +7,12 @@ overlap brackets (`⌈⌉⌊⌋`), the index must be 2–9. For scoped overlap
 annotations (`[<]`, `[>]`), the index must be 1–9.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E373
 - **Category**: overlap
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

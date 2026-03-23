@@ -1,12 +1,9 @@
 ================================================================================
 languages_single - @Languages header with single language code
 ================================================================================
-@UTF8
-@Begin
 @Languages:	eng
-@End
 
 
 --------------------------------------------------------------------------------
 
-(document (utf8_header (newline)) (begin_header (newline)) (line (languages_header (languages_prefix) (header_sep (colon) (tab)) (languages_contents (language_code)) (newline))) (end_header (newline)))
+(source_file (languages_header (languages_prefix) (header_sep (colon) (tab)) (languages_contents (language_code)) (newline)))

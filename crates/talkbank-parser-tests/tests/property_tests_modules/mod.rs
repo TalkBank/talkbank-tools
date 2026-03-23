@@ -10,40 +10,31 @@
 //! 4. Cleaned text never contains special characters
 //! 5. Error messages are always non-empty and helpful
 //!
-//! All tests run on BOTH TreeSitterParser and DirectParser to ensure equivalence.
+//! All tests run on the TreeSitterParser backend.
 
 use proptest::prelude::*;
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ChatParser;
 use talkbank_model::model::Word;
 use talkbank_model::{ErrorCollector, ErrorSink, ParseResult};
-use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
-/// Enum wrapper to allow testing both parser implementations
-pub(crate) enum ParserImpl {
-    TreeSitter(TreeSitterParser),
-    Direct(DirectParser),
-}
+/// Thin wrapper around TreeSitterParser that exposes the parse_word API
+/// used by property test modules.
+pub(crate) struct Parser(TreeSitterParser);
 
-impl ParserImpl {
+impl Parser {
     /// Short backend label for proptest assertion context.
     pub fn name(&self) -> &'static str {
-        match self {
-            ParserImpl::TreeSitter(_) => "tree-sitter",
-            ParserImpl::Direct(_) => "direct",
-        }
+        "tree-sitter"
     }
 
-    /// Parse a word using the ErrorSink API
+    /// Parse a word using the ErrorSink API.
     pub fn parse_word_streaming(&self, input: &str, errors: &impl ErrorSink) -> Option<Word> {
-        match self {
-            ParserImpl::TreeSitter(p) => ChatParser::parse_word(p, input, 0, errors).into(),
-            ParserImpl::Direct(p) => ChatParser::parse_word(p, input, 0, errors).into(),
-        }
+        ChatParser::parse_word(&self.0, input, 0, errors).into()
     }
 
-    /// Parse a word using the legacy ParseResult API (for compatibility with existing tests)
+    /// Parse a word using the legacy ParseResult API (for compatibility with existing tests).
     pub fn parse_word(&self, input: &str) -> ParseResult<Word> {
         let errors = ErrorCollector::new();
         match self.parse_word_streaming(input, &errors) {
@@ -63,19 +54,15 @@ impl ParserImpl {
     }
 }
 
-/// Returns both parser implementations for testing
-pub(crate) fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
+/// Returns the TreeSitterParser backend for testing.
+pub(crate) fn parser_suite() -> Result<Vec<Parser>, TestError> {
     let tree_sitter =
         TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
-    let direct = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
-    Ok(vec![
-        ParserImpl::TreeSitter(tree_sitter),
-        ParserImpl::Direct(direct),
-    ])
+    Ok(vec![Parser(tree_sitter)])
 }
 
-/// Builds both parser backends for proptest-based checks.
-pub(crate) fn parser_suite_for_proptest() -> Result<Vec<ParserImpl>, TestCaseError> {
+/// Builds the TreeSitterParser backend for proptest-based checks.
+pub(crate) fn parser_suite_for_proptest() -> Result<Vec<Parser>, TestCaseError> {
     parser_suite().map_err(|err| TestCaseError::fail(err.to_string()))
 }
 

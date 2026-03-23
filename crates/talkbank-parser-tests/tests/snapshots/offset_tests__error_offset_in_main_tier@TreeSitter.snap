@@ -18,8 +18,8 @@ expression: "(main, error_vec)"
                         Word(
                             Word {
                                 span: Span {
-                                    start: 506,
-                                    end: 508,
+                                    start: 405,
+                                    end: 407,
                                 },
                                 word_id: None,
                                 raw_text: "xx",
@@ -51,8 +51,8 @@ expression: "(main, error_vec)"
                 terminator: Some(
                     Period {
                         span: Span {
-                            start: 509,
-                            end: 510,
+                            start: 408,
+                            end: 409,
                         },
                     },
                 ),
@@ -62,18 +62,18 @@ expression: "(main, error_vec)"
                 bullet: None,
                 content_span: Some(
                     Span {
-                        start: 505,
-                        end: 511,
+                        start: 404,
+                        end: 410,
                     },
                 ),
             },
             span: Span {
-                start: 500,
-                end: 511,
+                start: 399,
+                end: 410,
             },
             speaker_span: Span {
-                start: 501,
-                end: 504,
+                start: 400,
+                end: 403,
             },
         },
     ),

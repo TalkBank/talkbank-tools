@@ -2,22 +2,6 @@
 
 Complete reference for all CHAT parser and validation errors.
 
-## Alignment count mismatch (Alx)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Alignment](Alignment.md) | generated from corpus | error |
-
-## Alignment count mismatch (Cox)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Complex](Complex.md) | generated from corpus | error |
-
 ## internal (E0x)
 
 Internal invariant failure. This error indicates a bug in the parseritself, not in the CHAT input. It cannot be triggered by any CHAT file.
@@ -53,6 +37,14 @@ Auto-generated from corpus
 ## Parser error (E2x)
 
 Missing form type after @
+
+| Code | Name | Severity |
+|------|------|----------|
+| [E202](E202.md) | E202: Missing form type after @ | error |
+
+## Word validation (E2x)
+
+A word contains at a position where a form type marker is expected, butno valid form type follows. Tree-sitter produces an ERROR node at the .
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -97,14 +89,6 @@ Replacement not allowed for phonological fragment
 | Code | Name | Severity |
 |------|------|----------|
 | [E210](E210.md) | E210: Replacement not allowed for phonological fragment | error |
-
-## deprecated (E2x)
-
-DEPRECATED. Replaced by E390 (ReplacementContainsOmission). Thiscode is no longer emitted by current parsers.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E211](E211.md) | E211: OmissionInReplacement | error |
 
 ## Parser error (E2x)
 
@@ -428,22 +412,6 @@ Unparsable content
 
 ## parser_recovery (E3x)
 
-NOT EMITTED. This code was declared for top-level file parse failuresbut the implementation uses E316 (UnparsableContent) instead. Kept forbackwards compatibility but never emitted by current parsers.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E317](E317.md) | E317: UnparsableFileContent | error |
-
-## parser_recovery (E3x)
-
-NOT EMITTED. This code was declared for dependent tier parse failuresbut the implementation uses E316 (UnparsableContent) or more specificerror codes instead. Kept for backwards compatibility.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E318](E318.md) | E318: UnparsableDependentTier | error |
-
-## parser_recovery (E3x)
-
 A line could not be classified as a header, utterance, or dependent tier.This is a fallback error emitted when tree-sitter produces an ERROR nodefor a line whose children cannot be identified as either a header orutterance context.
 
 | Code | Name | Severity |
@@ -572,27 +540,19 @@ Unmatched scoped annotation end
 
 ## validation (E3x)
 
-Auto-generated from corpus
+An indexed top overlap region (⌈2...⌉2) on one speaker has no matchingindexed bottom overlap region (⌊2...⌋2) from a different speaker within thenearby utterances, or vice versa. Reported as a warning.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E347](E347.md) | generated from corpus | error |
+| [E347](E347.md) | speaker overlap | error |
 
 ## validation (E3x)
 
-Missing overlap end
+A closing overlap marker (⌉ or ⌋) appears without a preceding opening marker(⌈ or ⌊) within the same utterance. Reported as a warning.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E348](E348.md) | E348: Missing overlap end | error |
-
-## Word validation (E3x)
-
-Replacement text empty
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E350](E350.md) | E350: Replacement text empty | error |
+| [E348](E348.md) | E348: Unpaired overlap marker within utterance | error |
 
 ## cross_utterance (E3x)
 
@@ -716,14 +676,6 @@ Auto-generated from corpus
 
 ## validation (E3x)
 
-Long feature label mismatch
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E366](E366.md) | E366: Long feature label mismatch | error |
-
-## validation (E3x)
-
 Auto-generated from corpus
 
 | Code | Name | Severity |
@@ -737,14 +689,6 @@ Auto-generated from corpus
 | Code | Name | Severity |
 |------|------|----------|
 | [E368](E368.md) | generated from corpus | error |
-
-## validation (E3x)
-
-Nonvocal label mismatch
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E369](E369.md) | E369: Nonvocal label mismatch | error |
 
 ## Alignment count mismatch (E3x)
 
@@ -778,14 +722,6 @@ An overlap marker has an index value outside the valid range. For CAoverlap brac
 |------|------|----------|
 | [E373](E373.md) | E373: InvalidOverlapIndex | error |
 
-## parser_recovery (E3x)
-
-An error annotation (e.g. ) could not be parsed. This code wasdeclared for malformed error annotation content but the emission sitehas not been wired up in the parser.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E374](E374.md) | E374: ErrorAnnotationParseError | error |
-
 ## Parser bugs (experimental) (E3x)
 
 Scoped annotation parse error
@@ -801,30 +737,6 @@ Failed to parse replacement annotation content. The replacementannotation contai
 | Code | Name | Severity |
 |------|------|----------|
 | [E376](E376.md) | E376: Replacement parse error | error |
-
-## parser_recovery (E3x)
-
-A retrace annotation (, , ) could not be parsed. Thiscode was declared for malformed retrace content but the emission site hasnot been wired up in the parser.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E377](E377.md) | E377: RetraceParseError | error |
-
-## parser_recovery (E3x)
-
-An overlap annotation (, ) could not be parsed. This code wasdeclared for malformed overlap marker content but the emission site hasnot been wired up in the parser.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E378](E378.md) | E378: OverlapAnnotationParseError | error |
-
-## parser_recovery (E3x)
-
-NOT EMITTED. This code was declared for unrecognized separatorcharacters between words but the emission site has not been wired up.Separator parsing uses other code paths that don't emit this code.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E380](E380.md) | E380: UnknownSeparator | error |
 
 ## tier_parse (E3x)
 
@@ -857,22 +769,6 @@ The tier content could not be parsed by the direct parser (chumsky).The sentence
 | Code | Name | Severity |
 |------|------|----------|
 | [E384](E384.md) | E384: SinParseError | error |
-
-## tier_parse (E3x)
-
-NOT EMITTED. This code was declared for word-level parse failuresduring morphological analysis but the emission site has not been wiredup. Word parse failures route through other error codes.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E385](E385.md) | E385: WordParseError | error |
-
-## tier_parse (E3x)
-
-NOT EMITTED. This code was declared for text-based dependent tierparse failures (e.g. , ) but the direct parser's uses on error without emitting this code.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E386](E386.md) | E386: TextTierParseError | error |
 
 ## validation (E3x)
 
@@ -1041,14 +937,6 @@ Participant entry should have both code and role
 | Code | Name | Severity |
 |------|------|----------|
 | [E513](E513.md) | E513: Participant entry should have both code and role | error |
-
-## validation (E5x)
-
-Missing language code in @ID
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E514](E514.md) | E514: Missing language code in @ID | error |
 
 ## validation (E5x)
 
@@ -1338,14 +1226,6 @@ An utterance contains a dependent tier with a label that is not a standard CHAT 
 |------|------|----------|
 | [E605](E605.md) | E605: Unsupported Dependent Tier | error |
 
-## validation (E7x)
-
-Unexpected tier node
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E700](E700.md) | E700: Unexpected tier node | error |
-
 ## Dependent tier parsing (E7x)
 
 Auto-generated from corpus
@@ -1361,14 +1241,6 @@ Invalid MOR chunk format - missing |
 | Code | Name | Severity |
 |------|------|----------|
 | [E702](E702.md) | missing | | error |
-
-## validation (E7x)
-
-Unexpected morphology node
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E703](E703.md) | E703: Unexpected morphology node | error |
 
 ## validation (E7x)
 
@@ -1474,14 +1346,6 @@ The %mor tier has a terminator that does not match the main tier's terminator.Bo
 |------|------|----------|
 | [E716](E716.md) | E716: Mor terminator value mismatch | error |
 
-## Alignment terminator mismatch (E7x)
-
-The %pho tier has a terminator but the main tier does not, or vice versa.One tier ends with a sentence-final punctuation mark while the other does not.
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E717](E717.md) | E717: Pho terminator presence mismatch | error |
-
 ## Alignment count mismatch (E7x)
 
 Sin count mismatch - too few sin tokens
@@ -1578,62 +1442,6 @@ Unknown error
 |------|------|----------|
 | [E999](E999.md) | E999: Unknown error | error |
 
-## Alignment count mismatch (Evx)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Events](Events.md) | generated from corpus | error |
-
-## Alignment count mismatch (Mux)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Multiple](Multiple.md) | generated from corpus | error |
-
-## validation (NOx)
-
-Media filename mismatch
-
-| Code | Name | Severity |
-|------|------|----------|
-| [NONE](NONE.md) | NONE: Media filename mismatch | error |
-
-## Alignment count mismatch (Omx)
-
-0word
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Omitted](Omitted.md) | Omitted: 0word | error |
-
-## Alignment count mismatch (Pax)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Pauses](Pauses.md) | generated from corpus | error |
-
-## Alignment count mismatch (Tax)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Tag](Tag.md) | generated from corpus | error |
-
-## Alignment count mismatch (Tex)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [Terminator](Terminator.md) | generated from corpus | error |
-
 ## validation (W1x)
 
 Auto-generated from corpus
@@ -1641,22 +1449,6 @@ Auto-generated from corpus
 | Code | Name | Severity |
 |------|------|----------|
 | [W108](W108.md) | generated from corpus | error |
-
-## validation (W2x)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [W210](W210.md) | generated from corpus | error |
-
-## validation (W2x)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [W211](W211.md) | generated from corpus | error |
 
 ## Warnings (W6x)
 
@@ -1673,14 +1465,6 @@ Auto-generated from corpus
 | Code | Name | Severity |
 |------|------|----------|
 | [W602](W602.md) | generated from corpus | error |
-
-## Warnings (W6x)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [W603](W603.md) | generated from corpus | error |
 
 ## validation (W7x)
 

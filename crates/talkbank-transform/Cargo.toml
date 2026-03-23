@@ -20,7 +20,6 @@ num_cpus = "1.17"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
-talkbank-direct-parser = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }
 thiserror = { workspace = true } #unified

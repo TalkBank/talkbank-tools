@@ -7,8 +7,8 @@ expression: "(input.len(), word, errors.into_vec())"
     Some(
         Word {
             span: Span {
-                start: 500,
-                end: 506,
+                start: 393,
+                end: 399,
             },
             word_id: None,
             raw_text: "你好",

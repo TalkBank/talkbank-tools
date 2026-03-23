@@ -5,7 +5,7 @@
 //! The parser should gracefully handle ANY input, even garbage.
 //! It may return Err, but should never panic.
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure both are robust.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure both are robust.
 
 use super::*;
 use proptest::prelude::*;

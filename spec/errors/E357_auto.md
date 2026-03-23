@@ -7,12 +7,13 @@ marker in the same utterance. The end marker has no open underline to
 close.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E357
 - **Category**: underline\_balance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

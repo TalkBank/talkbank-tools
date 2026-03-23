@@ -502,14 +502,9 @@ fn file_uses_ca_mode(headers: &[&Header]) -> bool {
 
 /// Return whether any `@Options` header enables `bullets` mode.
 ///
-/// Bullets mode disables timestamp monotonicity assumptions in temporal checks.
-fn file_uses_bullets_mode(headers: &[&Header]) -> bool {
-    headers.iter().any(|header| match header {
-        Header::Options { options } => options
-            .iter()
-            .any(|opt| matches!(opt, crate::model::ChatOptionFlag::Bullets)),
-        _ => false,
-    })
+/// The `bullets` option was removed from CHAT. This always returns `false`.
+fn file_uses_bullets_mode(_headers: &[&Header]) -> bool {
+    false
 }
 
 /// E531: validate `@Media` filename against the caller-provided file basename.

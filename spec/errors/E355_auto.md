@@ -8,12 +8,13 @@ from the **same** speaker. The `++` linker is for other-completion
 utterance, use `+,` (self-completion) instead.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E355
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

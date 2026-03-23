@@ -5,6 +5,7 @@
 Failed to parse utterance
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E311
 - **Category**: Main tier validation

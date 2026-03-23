@@ -13,12 +13,13 @@ See `docs/overlap-validation-audit.md` in talkbank-dev for the full investigatio
 Markers are matched by kind (top/bottom) and index (2-9 or unindexed).
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E348
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

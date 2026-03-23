@@ -161,7 +161,8 @@ fn normalize_ca_omission_word(word: &mut Word) {
             | WordContent::Lengthening(_)
             | WordContent::SyllablePause(_)
             | WordContent::UnderlineBegin(_)
-            | WordContent::UnderlineEnd(_) => {}
+            | WordContent::UnderlineEnd(_)
+            | WordContent::CliticBoundary(_) => {}
         }
     }
 

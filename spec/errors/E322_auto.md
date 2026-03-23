@@ -7,12 +7,12 @@ This occurs when tree-sitter synthesizes an empty colon placeholder
 because the speaker code has no colon at all.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E322
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

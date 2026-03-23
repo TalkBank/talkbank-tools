@@ -5,12 +5,12 @@
 Invalid scoped annotation nesting
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E344
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

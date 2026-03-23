@@ -5,12 +5,12 @@
 Invalid MOR chunk format - missing |
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E702
 - **Category**: Dependent tier parsing
 - **Level**: tier
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example
 

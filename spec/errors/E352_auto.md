@@ -7,12 +7,13 @@ from the same speaker, but that prior utterance did not end with a `+/.`
 (interruption) terminator.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E352
 - **Category**: cross\_utterance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

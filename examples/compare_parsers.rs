@@ -5,9 +5,8 @@
 use std::env;
 use std::error::Error;
 use std::fmt;
-use talkbank_direct_parser::DirectParser;
-use talkbank_model::model::{SemanticDiff, SemanticEq};
 use talkbank_parser::TreeSitterParser;
+use talkbank_model::model::{SemanticDiff, SemanticEq};
 
 /// Type representing UsageError.
 #[derive(Debug)]
@@ -30,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Comparing parsers on: {}\n", path);
 
     let ts = TreeSitterParser::new()?;
-    let direct = DirectParser::new()?;
+    let direct = TreeSitterParser::new()?;
 
     let ts_file = ts.parse_chat_file(&content)?;
     let direct_file = direct.parse_chat_file(&content)?;

@@ -1,12 +1,12 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Ok(
     Word {
         span: Span {
-            start: 107,
-            end: 127,
+            start: 0,
+            end: 20,
         },
         word_id: None,
         raw_text: "w⌈or⌉d⌊te⌋st",
@@ -15,83 +15,7 @@ Ok(
                 Text(
                     WordText(
                         NonEmptyString(
-                            "w",
-                        ),
-                    ),
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: TopOverlapBegin,
-                        index: None,
-                        span: Some(
-                            Span {
-                                start: 108,
-                                end: 111,
-                            },
-                        ),
-                    },
-                ),
-                Text(
-                    WordText(
-                        NonEmptyString(
-                            "or",
-                        ),
-                    ),
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: TopOverlapEnd,
-                        index: None,
-                        span: Some(
-                            Span {
-                                start: 113,
-                                end: 116,
-                            },
-                        ),
-                    },
-                ),
-                Text(
-                    WordText(
-                        NonEmptyString(
-                            "d",
-                        ),
-                    ),
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: BottomOverlapBegin,
-                        index: None,
-                        span: Some(
-                            Span {
-                                start: 117,
-                                end: 120,
-                            },
-                        ),
-                    },
-                ),
-                Text(
-                    WordText(
-                        NonEmptyString(
-                            "te",
-                        ),
-                    ),
-                ),
-                OverlapPoint(
-                    OverlapPoint {
-                        kind: BottomOverlapEnd,
-                        index: None,
-                        span: Some(
-                            Span {
-                                start: 122,
-                                end: 125,
-                            },
-                        ),
-                    },
-                ),
-                Text(
-                    WordText(
-                        NonEmptyString(
-                            "st",
+                            "w⌈or⌉d⌊te⌋st",
                         ),
                     ),
                 ),
@@ -104,7 +28,7 @@ Ok(
         inline_bullet: None,
         cached_cleaned_text: CachedStr(
             OnceLock(
-                "wordtest",
+                "w⌈or⌉d⌊te⌋st",
             ),
         ),
     },

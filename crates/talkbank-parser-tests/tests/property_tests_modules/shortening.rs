@@ -2,7 +2,7 @@
 
 //! Property 5: Shortening Expansion
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure shortening expansion is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure shortening expansion is consistent.
 
 use super::*;
 use proptest::prelude::*;

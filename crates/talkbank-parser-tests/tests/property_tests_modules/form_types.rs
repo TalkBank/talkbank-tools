@@ -2,7 +2,7 @@
 
 //! Property 3: Form Types Are Always Detected
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure form type detection is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure form type detection is consistent.
 
 use super::*;
 use proptest::prelude::*;

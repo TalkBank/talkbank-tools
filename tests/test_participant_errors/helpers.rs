@@ -57,7 +57,7 @@ impl ParserImpl {
 }
 
 /// Returns only TreeSitter parser for validation tests
-/// (DirectParser doesn't implement validation yet)
+/// (TreeSitterParser doesn't implement validation yet)
 pub fn validation_parser_suite() -> Result<Vec<ParserImpl>, TestError> {
     TreeSitterParser::new()
         .map(|parser| vec![ParserImpl::TreeSitter(parser)])

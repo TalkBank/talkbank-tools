@@ -1,0 +1,79 @@
+================================================================================
+word_segment_purity_overlap - Overlap markers ⌈⌉⌊⌋ must NOT be in word_segment
+================================================================================
+*CHI:	butt⌈er⌉ .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment) (overlap_point) (word_segment) (overlap_point)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_ca_pitch_up - CA pitch up ↑ must NOT be in word_segment
+================================================================================
+*CHI:	he↑llo .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment) (ca_element) (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_ca_pitch_down - CA pitch down ↓ must NOT be in word_segment
+================================================================================
+*CHI:	he↓llo .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment) (ca_element) (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_ca_faster - CA faster ∆ must NOT be in word_segment
+================================================================================
+*CHI:	∆hello∆ .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (ca_delimiter) (word_segment) (ca_delimiter)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_ca_softer - CA softer ° must NOT be in word_segment
+================================================================================
+*CHI:	°hello° .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (ca_delimiter) (word_segment) (ca_delimiter)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_underline - Underline markers must NOT be in word_segment
+================================================================================
+*CHI:	hello .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (underline_begin) (word_segment) (underline_end)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_lengthening - Colons must NOT be in word_segment
+================================================================================
+*CHI:	no:: .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment) (lengthening)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
+
+================================================================================
+word_segment_purity_stress - Stress markers ˈˌ must NOT be in word_segment
+================================================================================
+*CHI:	ˈhello .
+
+
+--------------------------------------------------------------------------------
+
+(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (stress_marker) (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))

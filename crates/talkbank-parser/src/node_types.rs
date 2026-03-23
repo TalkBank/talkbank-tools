@@ -8,7 +8,7 @@
 //! node scripts/generate-node-types.js > crates/talkbank-parser/src/node_types.rs
 //! ```
 //!
-//! All 361 named node types from the tree-sitter CHAT grammar
+//! All 372 named node types from the tree-sitter CHAT grammar
 //! are available as compile-time `&str` constants.
 //!
 //! # Example
@@ -31,8 +31,6 @@
 
 /// Continuation of a multi-line tier.
 pub const CONTINUATION: &str = "continuation";
-/// Root node of the CHAT file CST.
-pub const DOCUMENT: &str = "document";
 /// Generic header line.
 pub const HEADER: &str = "header";
 /// Gap between header sections.
@@ -345,6 +343,8 @@ pub const WARNING_PREFIX: &str = "warning_prefix";
 pub const WINDOW_HEADER: &str = "window_header";
 /// `@Window` header prefix.
 pub const WINDOW_PREFIX: &str = "window_prefix";
+/// CST node type: `word_prefix`.
+pub const WORD_PREFIX: &str = "word_prefix";
 /// `%x` tier prefix marker.
 pub const X_TIER_PREFIX: &str = "x_tier_prefix";
 
@@ -789,8 +789,12 @@ pub const WHITESPACES: &str = "whitespaces";
 
 /// CST node type: `ethnicity_value`.
 pub const ETHNICITY_VALUE: &str = "ethnicity_value";
+/// CST node type: `form_marker`.
+pub const FORM_MARKER: &str = "form_marker";
 /// Free-text content for unstructured header values (e.g., @Location, @Situation).
 pub const FREE_TEXT: &str = "free_text";
+/// CST node type: `full_document`.
+pub const FULL_DOCUMENT: &str = "full_document";
 /// CST node type: `generic_date`.
 pub const GENERIC_DATE: &str = "generic_date";
 /// CST node type: `generic_id_ses`.
@@ -811,17 +815,35 @@ pub const GENERIC_RECORDING_QUALITY: &str = "generic_recording_quality";
 pub const GENERIC_TIME: &str = "generic_time";
 /// CST node type: `generic_transcription`.
 pub const GENERIC_TRANSCRIPTION: &str = "generic_transcription";
+/// CST node type: `lengthening`.
+pub const LENGTHENING: &str = "lengthening";
 /// Page number value.
 pub const PAGE_NUMBER: &str = "page_number";
+/// CST node type: `pos_tag`.
+pub const POS_TAG: &str = "pos_tag";
 /// CST node type: `ses_code_value`.
 pub const SES_CODE_VALUE: &str = "ses_code_value";
 /// CST node type: `ses_combined`.
 pub const SES_COMBINED: &str = "ses_combined";
+/// CST node type: `shortening`.
+pub const SHORTENING: &str = "shortening";
+/// CST node type: `source_file`.
+pub const SOURCE_FILE: &str = "source_file";
+/// CST node type: `stress_marker`.
+pub const STRESS_MARKER: &str = "stress_marker";
 /// CST node type: `strict_date`.
 pub const STRICT_DATE: &str = "strict_date";
 /// CST node type: `strict_time`.
 pub const STRICT_TIME: &str = "strict_time";
 /// Unrecognized line in document.
 pub const UNSUPPORTED_LINE: &str = "unsupported_line";
+/// CST node type: `word_body`.
+pub const WORD_BODY: &str = "word_body";
+/// CST node type: `word_lang_codes`.
+pub const WORD_LANG_CODES: &str = "word_lang_codes";
+/// CST node type: `word_lang_suffix`.
+pub const WORD_LANG_SUFFIX: &str = "word_lang_suffix";
+/// CST node type: `word_segment`.
+pub const WORD_SEGMENT: &str = "word_segment";
 
-// Total node types: 361
+// Total node types: 372

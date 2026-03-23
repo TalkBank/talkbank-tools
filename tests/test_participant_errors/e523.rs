@@ -20,7 +20,7 @@ fn test_e523_orphan_id_header() -> Result<(), TestError> {
     //                    ^^^ MOT at bytes 132-135 (orphan - not in @Participants)
     // ...
 
-    // Test validation (TreeSitterParser only - DirectParser doesn't do validation yet)
+    // Test validation (TreeSitterParser only - TreeSitterParser doesn't do validation yet)
     for parser in validation_parser_suite()? {
         let result = parser.parse_chat_file_result(&content);
 

@@ -5,12 +5,12 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E388
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

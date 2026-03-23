@@ -2,7 +2,7 @@
 
 //! Property 4: Cleaned Text Has Expected Properties
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure cleaned_text processing is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure cleaned_text processing is consistent.
 
 use super::*;
 use proptest::prelude::*;

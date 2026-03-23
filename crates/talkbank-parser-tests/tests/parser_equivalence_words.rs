@@ -17,34 +17,33 @@
 //! cargo test parser_equivalence_words -- --nocapture
 //! ```
 
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::SemanticEq;
 use talkbank_model::{ChatParser, ParseOutcome};
-use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::golden::golden_words_minimal;
 use talkbank_parser_tests::test_error::TestError;
 
-/// Compare TreeSitterParser and DirectParser word models for each golden word.
+/// Compare TreeSitterParser and TreeSitterParser word models for each golden word.
 ///
 /// ## Test Strategy
 ///
 /// For each word in golden_words.txt:
 /// 1. Parse with TreeSitterParser (legacy comparison baseline)
-/// 2. Parse with DirectParser
+/// 2. Parse with TreeSitterParser
 /// 3. Compare using SemanticEq
 /// 4. Report EACH failure individually (not just a count)
 ///
 /// ## Failure Cases
 ///
-/// - **DirectParser fails, TreeSitter succeeds**: investigate; may still be a bug
-/// - **Both parsers fail**: Not testing DirectParser failures (OK to skip)
+/// - **TreeSitterParser fails, TreeSitter succeeds**: investigate; may still be a bug
+/// - **Both parsers fail**: Not testing TreeSitterParser failures (OK to skip)
 /// - **Both succeed but differ**: investigate semantic divergence
-/// - **TreeSitter fails, DirectParser succeeds**: may be valid direct-parser leniency
+/// - **TreeSitter fails, TreeSitterParser succeeds**: may be valid direct-parser leniency
 #[test]
 fn all_words_equivalence() -> Result<(), TestError> {
     let ts = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
-    let direct = DirectParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let direct = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
 
     let words = golden_words_minimal();
     let mut failures = Vec::new();
@@ -70,20 +69,20 @@ fn all_words_equivalence() -> Result<(), TestError> {
                 }
             }
             (ParseOutcome::Parsed(_), ParseOutcome::Rejected) => {
-                // DirectParser failed but TreeSitter succeeded - THIS IS A BUG
+                // TreeSitterParser failed but TreeSitter succeeded - THIS IS A BUG
                 let errors = errors_direct.to_vec();
                 failures.push(format!(
                     "Word: {}
-  ERROR: DirectParser failed but TreeSitter succeeded
+  ERROR: TreeSitterParser failed but TreeSitter succeeded
   Errors: {:?}",
                     word, errors
                 ));
             }
             (ParseOutcome::Rejected, ParseOutcome::Parsed(_)) => {
-                // TreeSitter failed but DirectParser succeeded - DirectParser is more lenient (OK)
+                // TreeSitter failed but TreeSitterParser succeeded - TreeSitterParser is more lenient (OK)
             }
             (ParseOutcome::Rejected, ParseOutcome::Rejected) => {
-                // Both failed - not testing DirectParser failures (OK)
+                // Both failed - not testing TreeSitterParser failures (OK)
             }
         }
     }

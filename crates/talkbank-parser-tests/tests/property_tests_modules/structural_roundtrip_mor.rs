@@ -4,9 +4,8 @@
 //! clitics) and verifies parse → serialize → reparse stability across both parsers.
 
 use proptest::prelude::*;
-use talkbank_direct_parser::DirectParser;
-use talkbank_model::{ChatParser, ErrorCollector};
 use talkbank_parser::TreeSitterParser;
+use talkbank_model::{ChatParser, ErrorCollector};
 
 use super::slow_test_config;
 
@@ -102,7 +101,7 @@ fn parse_with_both(input: &str) -> Vec<(&'static str, Option<String>, bool)> {
             results.push(("tree-sitter", None, false));
         }
     }
-    if let Ok(dp) = DirectParser::new() {
+    if let Ok(dp) = TreeSitterParser::new() {
         let errors = ErrorCollector::new();
         let parsed = ChatParser::parse_mor_tier(&dp, input, 0, &errors);
         if let Some(tier) = parsed.into_option() {

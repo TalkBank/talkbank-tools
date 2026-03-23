@@ -144,7 +144,6 @@ flowchart TD
     model["talkbank-model\nData model, validation, alignment, errors"]
     derive["talkbank-derive\nProc macros"]
     parser["talkbank-parser\nCanonical parser (tree-sitter)"]
-    dp["talkbank-direct-parser\nAlternative parser (chumsky)"]
     transform["talkbank-transform\nPipelines, CHAT↔JSON, caching"]
     clan["talkbank-clan\nCLAN analysis commands"]
     cli["talkbank-cli (chatter)\nCLI: validate, normalize, convert"]
@@ -154,12 +153,12 @@ flowchart TD
     tests["talkbank-parser-tests\nEquivalence tests"]
 
     derive --> model
-    model --> parser & dp
-    parser & dp --> transform
+    model --> parser
+    parser --> transform
     transform --> clan & cli & lsp & desktop
     clan --> cli & lsp
     s2c --> cli & desktop
-    parser & dp --> tests
+    parser --> tests
 ```
 
 Downstream consumer: `batchalign3` (path deps to this workspace's crates).
@@ -171,7 +170,6 @@ Downstream consumer: `batchalign3` (path deps to this workspace's crates).
 | `talkbank-model` | `model/`, `validation/`, `alignment/` | Data types, WriteChat, Validate trait, tier alignment, content walker |
 | `talkbank-derive` | `semantic_eq.rs`, `span_shift.rs`, `error_code_enum.rs` | SemanticEq, SpanShift, ValidationTagged, error_code_enum proc macros |
 | `talkbank-parser` | `api/`, `parser/` | CST-to-model conversion via tree-sitter |
-| `talkbank-direct-parser` | `mor_tier.rs`, `word.rs`, `dependent_tier.rs` | Isolated parsing of CHAT fragments (words, tiers, headers) |
 | `talkbank-transform` | pipelines, serialization, caching | Parse+validate pipeline, CHAT↔JSON roundtrip |
 | `talkbank-clan` | `framework/`, `commands/`, `transforms/`, `converters/` | CLAN analysis (FREQ, MLU, etc.), transforms (FLO, etc.), format converters |
 | `talkbank-cli` | `cli/`, `commands/`, `ui/` | `chatter` binary: validate, normalize, to-json, clan dispatch |
@@ -248,6 +246,43 @@ For any change touching parser, data model, validation, alignment, serialization
 1. `cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'`
 2. `cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus`
 3. Both must show `73 passed, 0 failed` before any commit.
+
+### Pre-Push Gate: `make verify` is MANDATORY
+
+**`make verify` MUST pass before pushing any commit.** This is the single
+gate that catches all regressions. It runs 11 gates (G0-G11) covering:
+compile checks, spec tools, parser equivalence, golden roundtrips,
+fragment semantics, wor alignment, and node coverage.
+
+**Postmortem (2026-03-23):** Multiple commits were pushed without running
+`make verify`, resulting in 41+ pre-existing test failures that went
+undetected for days. The dual-parser test infrastructure silently broke
+after the Chumsky elimination, and 112 error specs drifted from the
+grammar's actual behavior. All were eventually fixed, but at significant
+cost. This must not happen again.
+
+**The rule:**
+```bash
+make verify          # MUST pass before git push
+```
+
+If `make verify` fails and the fix is not immediately clear, do NOT push.
+Investigate first. See also: Grammar Change Workflow section.
+
+### Known Testing Gaps (not_implemented specs)
+
+112 error specs are marked `Status: not_implemented` — the parser/validator
+does not yet produce the expected error code for the given input. These are
+tracked in `spec/errors/` files with `- **Status**: not_implemented`.
+
+To find all not-implemented specs:
+```bash
+grep -rl "Status.*not_implemented" spec/errors/ | wc -l
+```
+
+These generate `#[ignore]` tests via `make test-gen`. Each represents a
+validation check that needs implementing. They are NOT test failures — they
+are honest markers of unfinished work.
 
 ### Parser Recovery and Data Integrity
 - Do not fabricate dummy model values during parser recovery.
@@ -531,7 +566,7 @@ Key flags: `--roundtrip`, `--force`, `--skip-alignment`, `--max-errors N`, `--jo
 
 - Specs are the source of truth; regenerate tests/docs after spec changes.
 - Generated artifacts should not be edited by hand.
-- Tree-sitter parser is the canonical parser; direct parser is experimental and partial.
+- Tree-sitter parser is the sole parser. The Chumsky direct parser has been removed.
 - Do not delete the validation cache (`~/Library/Caches/talkbank-chat/` on macOS, `~/.cache/talkbank-chat/` on Linux, `%LocalAppData%\talkbank-chat\` on Windows) without explicit request.
 - Rust edition 2024.
 
@@ -543,4 +578,4 @@ Key flags: `--roundtrip`, `--force`, `--skip-alignment`, `--max-errors N`, `--jo
 - `grammar/CLAUDE.md` — tree-sitter grammar design patterns
 
 ---
-Last Updated: 2026-03-10
+Last Updated: 2026-03-23

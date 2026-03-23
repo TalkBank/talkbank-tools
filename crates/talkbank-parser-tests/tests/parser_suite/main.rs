@@ -7,7 +7,7 @@
 //!
 //! | Module | Purpose |
 //! |--------|---------|
-//! | [`parser_impl`] | `ParserImpl` wrapper enum + `parser_suite()` constructor |
+//! | [`parser_impl`] | `ParserImpl` type alias (TreeSitterParser) + `parser_suite()` constructor |
 //! | [`header_roundtrip`] | Reference-corpus whole-file vs `parse_header()` parity |
 //! | [`dependent_tier_roundtrip`] | Reference-corpus whole-file vs dependent-tier fragment parity |
 //! | [`word_tests`] | Golden word roundtrip tests |

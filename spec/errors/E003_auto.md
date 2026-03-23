@@ -5,12 +5,12 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E003
 - **Category**: validation
 - **Level**: file
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

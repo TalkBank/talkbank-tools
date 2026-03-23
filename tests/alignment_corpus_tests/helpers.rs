@@ -15,8 +15,8 @@ use talkbank_parser::{ParserInitError, TreeSitterParser};
 pub enum TestError {
     #[error("Failed to create TreeSitterParser: {source}")]
     TreeSitterInit { source: ParserInitError },
-    #[error("Failed to create DirectParser: {message}")]
-    DirectParserInit { message: DirectParserInitMessage },
+    #[error("Failed to create TreeSitterParser: {message}")]
+    ParserInit { message: ParserInitMessage },
     #[error("Parse failed for {parser}")]
     ParseErrors {
         parser: &'static str,
@@ -36,10 +36,10 @@ pub enum TestError {
     MissingFileName { path: String },
 }
 
-/// Type representing DirectParserInitMessage.
+/// Type representing ParserInitMessage.
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
-pub struct DirectParserInitMessage(String);
+pub struct ParserInitMessage(String);
 
 impl ParserImpl {
     /// Parses chat file result.
@@ -63,8 +63,8 @@ pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
 fn map_parser_suite_error(error: ParserSuiteError) -> TestError {
     match error {
         ParserSuiteError::TreeSitterInit { source } => TestError::TreeSitterInit { source },
-        ParserSuiteError::DirectParserInit { message } => TestError::DirectParserInit {
-            message: DirectParserInitMessage(message),
+        ParserSuiteError::ParserInit { message } => TestError::ParserInit {
+            message: ParserInitMessage(message),
         },
     }
 }

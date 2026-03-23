@@ -1,4 +1,4 @@
-//! Compare TreeSitterParser and DirectParser output for a specific file.
+//! Compare TreeSitterParser and TreeSitterParser output for a specific file.
 //!
 //! Usage:
 //! ```bash
@@ -14,11 +14,10 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::SemanticEq;
 use talkbank_model::{ChatParser, ParseOutcome};
-use talkbank_parser::TreeSitterParser;
 
 /// Entry point for this binary target.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,8 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ts_errors = ErrorCollector::new();
     let ts_result = ChatParser::parse_chat_file(&ts, &input, 0, &ts_errors);
 
-    // Parse with DirectParser
-    let direct = DirectParser::new()?;
+    // Parse with TreeSitterParser
+    let direct = TreeSitterParser::new()?;
     let direct_errors = ErrorCollector::new();
     let direct_result = ChatParser::parse_chat_file(&direct, &input, 0, &direct_errors);
 
@@ -98,9 +97,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         (ParseOutcome::Parsed(_), ParseOutcome::Rejected) => {
-            println!("✗ DirectParser FAILED (TreeSitter succeeded)");
+            println!("✗ TreeSitterParser FAILED (TreeSitter succeeded)");
             let errors = direct_errors.into_vec();
-            println!("\nDirectParser errors ({}):", errors.len());
+            println!("\nTreeSitterParser errors ({}):", errors.len());
             for err in errors {
                 println!("  - {}", err.message);
             }
@@ -121,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for err in ts_errs {
                 println!("  - {}", err.message);
             }
-            println!("\nDirectParser errors ({}):", direct_errs.len());
+            println!("\nTreeSitterParser errors ({}):", direct_errs.len());
             for err in direct_errs {
                 println!("  - {}", err.message);
             }

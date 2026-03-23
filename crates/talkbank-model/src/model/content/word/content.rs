@@ -117,6 +117,12 @@ pub enum WordContent {
     /// This is metadata about word structure and is NOT included in `cleaned_text`.
     #[serde(rename = "compound_marker")]
     CompoundMarker(WordCompoundMarker),
+    /// Clitic boundary (~) - marks morphological clitic attachment
+    ///
+    /// Common in Arabic (`le~ha`, `bba~hum`) and other languages.
+    /// This is structural metadata and is NOT included in `cleaned_text`.
+    #[serde(rename = "clitic_boundary")]
+    CliticBoundary(WordCliticBoundary),
 }
 
 impl WriteChat for WordContent {
@@ -144,6 +150,7 @@ impl WriteChat for WordContent {
                 w.write_char('\u{0002}')
             }
             WordContent::CompoundMarker(_) => w.write_char('+'),
+            WordContent::CliticBoundary(marker) => marker.write_chat(w),
         }
     }
 }
@@ -163,6 +170,7 @@ impl Validate for WordContent {
             WordContent::UnderlineBegin(marker) => marker.validate(context, errors),
             WordContent::UnderlineEnd(marker) => marker.validate(context, errors),
             WordContent::CompoundMarker(marker) => marker.validate(context, errors),
+            WordContent::CliticBoundary(marker) => marker.validate(context, errors),
         }
     }
 }
@@ -381,16 +389,27 @@ impl Validate for WordStressMarker {
     SpanShift,
 )]
 pub struct WordLengthening {
+    /// Number of colons (`:` = 1, `::` = 2, `:::` = 3).
+    #[serde(default = "WordLengthening::default_count", skip_serializing_if = "WordLengthening::is_one")]
+    pub count: u8,
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub span: Option<crate::Span>,
 }
 
 impl WordLengthening {
-    /// Builds a lengthening marker with no span metadata.
+    /// Builds a lengthening marker with count 1 and no span metadata.
     pub fn new() -> Self {
-        Self::default()
+        Self { count: 1, span: None }
     }
+
+    /// Builds a lengthening marker with a specific colon count.
+    pub fn with_count(count: u8) -> Self {
+        Self { count: count.max(1), span: None }
+    }
+
+    fn default_count() -> u8 { 1 }
+    fn is_one(count: &u8) -> bool { *count <= 1 }
 
     /// Sets source span metadata.
     pub fn with_span(mut self, span: crate::Span) -> Self {
@@ -400,9 +419,12 @@ impl WordLengthening {
 }
 
 impl WriteChat for WordLengthening {
-    /// Writes the syllable lengthening marker (`:`).
+    /// Writes the syllable lengthening marker(s).
     fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
-        w.write_char(':')
+        for _ in 0..self.count.max(1) {
+            w.write_char(':')?;
+        }
+        Ok(())
     }
 }
 
@@ -513,6 +535,47 @@ impl WriteChat for WordCompoundMarker {
 }
 
 impl Validate for WordCompoundMarker {
+    /// Marker-level semantic checks are performed at word-structure validation time.
+    fn validate(&self, _context: &ValidationContext, _errors: &impl ErrorSink) {}
+}
+
+/// Clitic boundary marker (`~`).
+///
+/// Marks morphological clitic attachment within a word on the main tier.
+/// Common in Arabic (`le~ha`, `bba~hum`), Spanish (`nin~o`), and other languages.
+/// NOT included in `cleaned_text`.
+///
+/// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Clitics>
+#[derive(
+    Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift,
+)]
+pub struct WordCliticBoundary {
+    /// Source span for error reporting.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<crate::Span>,
+}
+
+impl WordCliticBoundary {
+    /// Builds a clitic boundary marker with no span metadata.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets source span metadata.
+    pub fn with_span(mut self, span: crate::Span) -> Self {
+        self.span = Some(span);
+        self
+    }
+}
+
+impl WriteChat for WordCliticBoundary {
+    /// Writes the clitic boundary marker (`~`).
+    fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
+        w.write_char('~')
+    }
+}
+
+impl Validate for WordCliticBoundary {
     /// Marker-level semantic checks are performed at word-structure validation time.
     fn validate(&self, _context: &ValidationContext, _errors: &impl ErrorSink) {}
 }

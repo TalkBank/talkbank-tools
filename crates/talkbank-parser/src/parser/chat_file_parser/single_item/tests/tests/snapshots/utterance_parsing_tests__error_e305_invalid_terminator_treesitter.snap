@@ -1,5 +1,5 @@
 ---
-source: crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/utterance.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/utterance.rs
 expression: result
 ---
 Ok(
@@ -17,8 +17,8 @@ Ok(
                     Word(
                         Word {
                             span: Span {
-                                start: 107,
-                                end: 112,
+                                start: 6,
+                                end: 11,
                             },
                             word_id: None,
                             raw_text: "hello",
@@ -48,8 +48,8 @@ Ok(
                     Separator(
                         Semicolon {
                             span: Span {
-                                start: 113,
-                                end: 114,
+                                start: 12,
+                                end: 13,
                             },
                         },
                     ),
@@ -62,18 +62,18 @@ Ok(
             bullet: None,
             content_span: Some(
                 Span {
-                    start: 106,
-                    end: 115,
+                    start: 5,
+                    end: 14,
                 },
             ),
         },
         span: Span {
-            start: 101,
-            end: 115,
+            start: 0,
+            end: 14,
         },
         speaker_span: Span {
-            start: 102,
-            end: 105,
+            start: 1,
+            end: 4,
         },
     },
 )

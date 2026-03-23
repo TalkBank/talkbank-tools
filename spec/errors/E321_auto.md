@@ -8,12 +8,12 @@ from, and the error doesn't match any of the specifically checked
 patterns (missing form type, empty replacement, unknown annotation).
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E321
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

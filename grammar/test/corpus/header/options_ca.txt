@@ -1,15 +1,9 @@
 ================================================================================
 options_ca - header with a known option token.
 ================================================================================
-@UTF8
-@Begin
-@Languages:	eng
-@Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|||||Target_Child|||
 @Options:	CA
-@End
 
 
 --------------------------------------------------------------------------------
 
-(document (utf8_header (newline)) (begin_header (newline)) (line (languages_header (languages_prefix) (header_sep (colon) (tab)) (languages_contents (language_code)) (newline))) (line (participants_header (participants_prefix) (header_sep (colon) (tab)) (participants_contents (participant code: (speaker) (whitespaces) (participant_word))) (newline))) (line (id_header (id_prefix) (header_sep (colon) (tab)) (id_contents (id_languages (languages_contents (language_code))) (pipe) (id_corpus) (pipe) (id_speaker) (pipe) (pipe) (pipe) (pipe) (pipe) (id_role) (pipe) (pipe) (pipe)) (newline))) (line (options_header (options_prefix) (header_sep (colon) (tab)) (options_contents (option_name)) (newline))) (end_header (newline)))
+(source_file (options_header (options_prefix) (header_sep (colon) (tab)) (options_contents (option_name)) (newline)))

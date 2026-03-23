@@ -45,5 +45,4 @@ oxc_span = "0.116.0"
 # Runtime-aware spec tooling lives in `spec/runtime-tools`, separate from the
 # core generation crate in `spec/tools`.
 talkbank-model = { path = "../crates/talkbank-model" }
-talkbank-direct-parser = { path = "../crates/talkbank-direct-parser" }
 talkbank-parser = { path = "../crates/talkbank-parser" }

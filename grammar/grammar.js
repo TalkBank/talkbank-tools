@@ -30,8 +30,12 @@
 import {
   CA_DELIMITER_SYMBOLS,
   CA_ELEMENT_SYMBOLS,
+  CA_ALL_SYMBOLS,
   EVENT_SEGMENT_FORBIDDEN_BASE,
   EVENT_SEGMENT_FORBIDDEN_COMMON,
+  WORD_SEGMENT_FORBIDDEN_START_BASE,
+  WORD_SEGMENT_FORBIDDEN_REST_BASE,
+  WORD_SEGMENT_FORBIDDEN_COMMON,
 } from './src/generated_symbol_sets.js';
 
 // Event descriptions should stop before CA symbols so constructs like &=smack°uh
@@ -41,7 +45,29 @@ const EVENT_SEGMENT_FORBIDDEN = EVENT_SEGMENT_FORBIDDEN_BASE
   + CA_ELEMENT_SYMBOLS
   + CA_DELIMITER_SYMBOLS
   + EVENT_SEGMENT_FORBIDDEN_COMMON;
+
+// Shared regex for @ID pipe-delimited fields with leading/trailing whitespace trimming.
+// Matches non-empty content that doesn't start or end with whitespace.
+// Used by: id_corpus, id_group, id_education, id_custom_field, and id_age catch-all.
+const TRIMMED_PIPE_FIELD = /[^ \t\|\r\n]([^\|\r\n]*[^ \t\|\r\n])?/;
 const EVENT_SEGMENT_RE = new RegExp(`[^${EVENT_SEGMENT_FORBIDDEN}]+`);
+
+// Word segment character exclusions — built from symbol registry.
+// word_segment must contain ONLY spoken text. All structural markers
+// are separate children in word_body.
+//
+// INVARIANT: word_segment is guaranteed clean. No post-processing needed
+// to extract overlap markers, CA elements, underline markers, etc.
+// First char also excludes 0 (omission prefix → zero token, not word_segment)
+const WORD_SEGMENT_FORBIDDEN_FIRST = WORD_SEGMENT_FORBIDDEN_START_BASE
+  + CA_ALL_SYMBOLS
+  + WORD_SEGMENT_FORBIDDEN_COMMON
+  + '0';
+const WORD_SEGMENT_FORBIDDEN_REST = WORD_SEGMENT_FORBIDDEN_REST_BASE
+  + CA_ALL_SYMBOLS
+  + WORD_SEGMENT_FORBIDDEN_COMMON;
+const WORD_SEGMENT_FIRST_RE = new RegExp(`[^${WORD_SEGMENT_FORBIDDEN_FIRST}]`);
+const WORD_SEGMENT_REST_RE = new RegExp(`[^${WORD_SEGMENT_FORBIDDEN_REST}]*`);
 
 export default grammar({
   name: 'talkbank',
@@ -51,6 +77,8 @@ export default grammar({
 
   conflicts: $ => [
     [$.contents],
+    [$.contents, $.word_body],  // overlap_point/ca_element/underline can be standalone content or word-internal
+    [$.base_content_item, $.word_body],  // underline_begin can be standalone or word-internal
     [$.word_with_optional_annotations],
     [$.nonword_with_optional_annotations],  // Annotations create ambiguity with following content
     [$.base_annotations],
@@ -88,13 +116,33 @@ export default grammar({
     // Reference: https://talkbank.org/0info/manuals/CHAT.html
     // ============================================================================
 
-    // Structure enforces proper CHAT file prelude ordering:
+    // Multi-root grammar: parse full CHAT documents OR individual fragments.
+    //
+    // CHAT is line-oriented. External tools (Phon, researchers, Python bindings)
+    // often want to parse a single line — a main tier, a dependent tier, a header —
+    // without constructing a full @UTF8...@Begin...@End document.
+    //
+    // Precedence resolves ambiguity: a bare "*CHI:\thello ." is parsed as
+    // main_tier (not utterance with zero dependent tiers). A multi-line block
+    // with dependent tiers is parsed as utterance. A full file with @UTF8/@Begin/@End
+    // is parsed as full_document.
+    source_file: $ => choice(
+      prec(3, $.full_document),    // complete @UTF8...@Begin...@End file
+      prec(2, $.utterance),        // main tier + dependent tiers (no document headers)
+      prec(1, $.main_tier),        // single *SPEAKER:\tcontent terminator
+      prec(1, $.dependent_tier),   // single %tier:\tcontent
+      prec(1, $.header),           // single @Header:\tcontent
+      prec(1, $.pre_begin_header), // @PID, @Font, @Window, @Color words
+      prec(0, $.standalone_word),  // single word token (for fragment parsing)
+    ),
+
+    // Full CHAT document structure:
     // 1. @UTF8 (required, must be first non-whitespace content)
     // 2. Optional pre-@Begin headers (@PID, @Color words, @Window, @Font)
     // 3. @Begin (effectively required, but optional for lenient parsing)
-    // 4. Main content headers and utterances (@Languages, @Participants, @ID, utterances, etc.)
+    // 4. Main content headers and utterances
     // 5. @End (effectively required, but optional for lenient parsing)
-    document: $ => seq(
+    full_document: $ => seq(
       $.utf8_header,
 
       // Optional headers that can appear before @Begin
@@ -154,8 +202,17 @@ export default grammar({
 
     // Inline media bullet: \u0015NUMBER_NUMBER\u0015
     // Used in dependent tiers and @Comment headers where bullets appear inline with text
-    // Coarsened to single token — tree-sitter parser extracts timestamps via text parsing
-    inline_bullet: $ => token(/\u0015\d+_\d+\u0015/),
+    // Structured: bullet_start + start_time + "_" + end_time + bullet_end
+    inline_bullet: $ => seq(
+      $.bullet_start,
+      field('start_time', $.bullet_timestamp),
+      '_',
+      field('end_time', $.bullet_timestamp),
+      $.bullet_end,
+    ),
+    bullet_start: $ => '\u0015',
+    bullet_end: $ => '\u0015',
+    bullet_timestamp: $ => /\d+/,
 
     // Picture URL: \u0015%pic:"filename"\u0015
     // Used in @Comment and %com tiers to reference picture files
@@ -278,6 +335,7 @@ export default grammar({
     // Named rules for semantic markers
     plus: $ => '+',
     tilde: $ => '~',
+    syllable_pause: $ => '^',
     equals: $ => '=',
     dollar: $ => '$',
     hash: $ => '#',
@@ -866,17 +924,31 @@ export default grammar({
     // Postcode annotation: [+ code] - marks utterance properties
     // Example: [+ bch] for babbling, [+ trn] for translation
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Postcodes
-    // Coarsened to single token — Rust parser extracts code via text parsing
-    postcode: $ => token(/\[\+ [^\]\r\n]+\]/),
+    postcode: $ => seq(
+      token(prec(8, '[+')),
+      $.space,
+      field('code', $.annotation_content),
+      $.right_bracket,
+    ),
 
     // Freecode annotation: [^ code] - free-form code
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Freecodes
-    // Coarsened to single token — Rust parser extracts code via text parsing
+    // MUST stay opaque — structuring [^ as a prefix token conflicts with
+    // ca_continuation_marker [^c] at the DFA level (prec(8) on [^ beats
+    // the longer [^c] match).
     freecode: $ => token(/\[\^ [^\]\r\n]+\]/),
 
-    // Langcode: [- lang] — atomic token
+    // Langcode: [- lang] — language code marker
     // Language code is 2-4 lowercase letters (ISO 639)
-    langcode: $ => token(prec(8, /\[- [a-z]{2,4}\]/ )),
+    langcode: $ => seq(
+      token(prec(8, '[-')),
+      $.space,
+      field('code', $.language_code),
+      $.right_bracket,
+    ),
+
+    // Free text content inside bracket annotations (postcode, freecode, etc.)
+    annotation_content: $ => /[^\]\r\n]+/,
 
     // ============================================================================
     // OVERLAP POINTS (CA overlaps)
@@ -1057,12 +1129,122 @@ export default grammar({
     underline_begin: $ => token(prec(5, '\u0002\u0001')),
     underline_end: $ => token(prec(5, '\u0002\u0002')),
 
-    // No valid CHAT word ends with `+`. Compound markers connect two parts
-    // (`ice+cream`); a trailing `+` is always a terminator prefix (`+...`,
-    // `+/.`, etc.) or an error (E233). The optional group ensures multi-char
-    // words cannot end on `+`, so `to+...` tokenizes as word `to` + `+...`.
-    standalone_word: $ => token(prec(5,
-      /(&[~+\-]|0)?[^0&:\s\[\]<>\u0015\u0003\u0004\u0007\u0008.?!,;\{\}\u21D7\u2197\u2192\u2198\u21D8\u2248\u224B\u221E\u2261\u201E\u2021\u2039\u203A\u201C\u201D\u3014\u3015]([^\s\[\]<>\u0015\u0003\u0004\u0007\u0008.?!,;\{\}\u21D7\u2197\u2192\u2198\u21D8\u2248\u224B\u221E\u2261\u201E\u2021\u2039\u203A\u201C\u201D\u3014\u3015]*[^\s\[\]<>\u0015\u0003\u0004\u0007\u0008.?!,;\{\}+\u21D7\u2197\u2192\u2198\u21D8\u2248\u224B\u221E\u2261\u201E\u2021\u2039\u203A\u201C\u201D\u3014\u3015])?/
+    // Word with full internal structure parsed by tree-sitter.
+    // Prefix: &- (filler), &~ (nonword), &+ (fragment), 0 (omission)
+    // Body: text segments, shortenings, stress, CA markers, compounds
+    // Suffixes: @form, @s:lang, $pos (all use token.immediate — no gap)
+    //
+    // Zero prefix (0) is inlined directly here instead of going through word_prefix.
+    // Tree-sitter's shift-reduce resolution doesn't propagate prec through intermediate
+    // rules, so the zero must be at the same level as word_body for the prec to work.
+    //
+    // prec.right(6) resolves the zero ambiguity: when tree-sitter sees `zero • word_body`,
+    // it must choose between nonword(zero) + separate word, or standalone_word(zero, word_body).
+    // prec(6) beats nonword's prec(1), so 0word is ONE word.
+    // Standalone 0 (no adjacent word_body) can only match nonword (extras:[] prevents
+    // whitespace from being skipped between zero and word_body).
+    standalone_word: $ => prec.right(6, seq(
+      optional(choice($.word_prefix, $.zero)),
+      $.word_body,
+      optional($.form_marker),
+      optional($.word_lang_suffix),
+      optional($.pos_tag),
+    )),
+
+    word_prefix: $ => choice(
+      token('&-'),   // filler
+      token('&~'),   // nonword
+      token('&+'),   // phonological fragment
+    ),
+
+    // Word body: text segments interspersed with shortenings, stress,
+    // lengthening colons, compound markers, and overlap markers.
+    // Examples: "(be)cause", "ice+cream", "ˈhello", "no:::", "ah:", "butt⌈er⌉"
+    //
+    // MUST start with word_segment, shortening, stress_marker, or overlap_point.
+    // Lengthening and compound marker (+) cannot start a word body.
+    // This prevents space-separated ":" from forming a degenerate
+    // standalone_word(word_body(lengthening)) instead of separator(colon).
+    //
+    // Overlap markers (⌈⌉⌊⌋) are first-class children here, not consumed by
+    // word_segment. This is required for cross-utterance overlap validation
+    // (E347, E348, E373, E704) which must find ALL overlap markers regardless
+    // of position.
+    // All non-text word content items that can appear inside a word.
+    // Each is a structured child — never consumed by word_segment.
+    _word_marker: $ => choice(
+      $.lengthening,
+      $.overlap_point,
+      $.ca_element,
+      $.ca_delimiter,
+      $.underline_begin,
+      $.underline_end,
+      $.syllable_pause,
+      $.tilde,
+      '+',  // compound marker
+    ),
+
+    word_body: $ => prec.right(choice(
+      // Standard start: text, shortening, or stress, then optional continuation
+      seq(
+        choice($.word_segment, $.shortening, $.stress_marker),
+        repeat(choice($.word_segment, $.shortening, $.stress_marker, $._word_marker)),
+      ),
+      // Marker-initial: ⌈hello⌉, °hello° — structural marker MUST be followed
+      // by text content (prevents standalone markers from forming degenerate words)
+      seq(
+        choice($.overlap_point, $.ca_element, $.ca_delimiter, $.underline_begin),
+        choice($.word_segment, $.shortening, $.stress_marker),
+        repeat(choice($.word_segment, $.shortening, $.stress_marker, $._word_marker)),
+      ),
+    )),
+
+    // CA elements: individual markers within words (pitch, articulation, etc.)
+    // Built from symbol registry CA_ELEMENT_SYMBOLS
+    ca_element: $ => token(prec(10, new RegExp(`[${CA_ELEMENT_SYMBOLS}]`))),
+
+    // CA delimiters: paired markers within words (tempo, voice quality, etc.)
+    // Built from symbol registry CA_DELIMITER_SYMBOLS
+    ca_delimiter: $ => token(prec(10, new RegExp(`[${CA_DELIMITER_SYMBOLS}]`))),
+
+    // A word segment is a run of PURE SPOKEN TEXT characters.
+    //
+    // INVARIANT: word_segment contains no structural markers. All non-text
+    // elements (overlap markers, CA elements, CA delimiters, underline markers,
+    // stress, lengthening, etc.) are separate children in word_body.
+    //
+    // Character exclusions are built from the symbol registry
+    // (src/generated_symbol_sets.js) — single source of truth.
+    // First-char also excludes: 0 (omission prefix), * (speaker), % (dep tier).
+    word_segment: $ => token(prec(5, seq(
+      WORD_SEGMENT_FIRST_RE,
+      WORD_SEGMENT_REST_RE,
+    ))),
+
+    shortening: $ => seq('(', $.word_segment, ')'),
+
+    stress_marker: $ => token(choice('\u02C8', '\u02CC')),  // ˈ primary, ˌ secondary
+
+    // Lengthening: one or more colons after a vowel (no:, no:::)
+    // Separate from word_segment so it's visible in the CST.
+    lengthening: $ => token(prec(5, /:{1,}/)),
+
+    // Form marker: @letter codes with optional :suffix.
+    // Examples: @b, @c, @z:grm, @n:eng, @fp:is
+    // The full set from the CHAT manual plus @z (user-defined).
+    form_marker: $ => token.immediate(
+      /@(?:u|b|c|d|f|fp|g|i|k|l|ls|n|o|p|q|sas|si|sl|t|wp|x|z)(?::[a-zA-Z0-9_]+)?/
+    ),
+    // Language suffix: @s or @s:eng or @s:eng+zho+fra or @s:eng&zho&fra
+    // Single immediate token to prevent colon/& from being consumed by other rules.
+    word_lang_suffix: $ => token.immediate(
+      /@s(?::[a-z]{2,3}(?:[+&][a-z]{2,3})*)?/
+    ),
+
+    // POS tag: $n, $v, $adj, etc.
+    pos_tag: $ => prec.right(seq(
+      token.immediate('$'),
+      /[a-zA-Z:]+/,
     )),
     // Label token for long features and nonvocal markers
     // Allows alphanumeric plus @ % _ - symbols
@@ -1087,20 +1269,36 @@ export default grammar({
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#UnclearRetracing_Scope
     scoped_uncertain: $ => token('[?]'),
 
-    // Explanation annotation: [= text] — atomic token
+    // Explanation annotation: [= text]
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Explanation_Scope
-    explanation_annotation: $ => token(prec(8, /\[= [^\]]+\]/)),
+    explanation_annotation: $ => seq(
+      token(prec(8, '[=')),
+      $.space,
+      field('text', $.annotation_content),
+      $.right_bracket,
+    ),
 
-    // Paralinguistic annotation: [=! text] — atomic token
+    // Paralinguistic annotation: [=! text]
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#ParalinguisticMaterial_Scope
-    para_annotation: $ => token(prec(8, /\[=! [^\]]+\]/)),
+    para_annotation: $ => seq(
+      token(prec(8, '[=!')),
+      $.space,
+      field('text', $.annotation_content),
+      $.right_bracket,
+    ),
 
-    // Alternative transcription: [=? text] — atomic token
+    // Alternative transcription: [=? text]
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#AlternativeTranscription_Scope
-    alt_annotation: $ => token(prec(8, /\[=\? [^\]]+\]/)),
+    alt_annotation: $ => seq(
+      token(prec(8, '[=?')),
+      $.space,
+      field('text', $.annotation_content),
+      $.right_bracket,
+    ),
 
-    // Error marker annotation: [*] or [* code] — atomic token
+    // Error marker annotation: [*] or [* code]
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Error_Coding
+    // Kept as opaque token — optional content after [* makes structuring risky
     error_marker_annotation: $ => token(prec(8, /\[\*[^\]]*\]/)),
 
     // Replacement annotation: [: replacement]
@@ -1118,12 +1316,22 @@ export default grammar({
       $.right_bracket
     ),
 
-    // Percent annotation: [% text] — atomic token
-    percent_annotation: $ => token(prec(8, /\[% [^\]]+\]/)),
+    // Percent annotation: [% text]
+    percent_annotation: $ => seq(
+      token(prec(8, '[%')),
+      $.space,
+      field('text', $.annotation_content),
+      $.right_bracket,
+    ),
 
-    // Duration annotation: [# time] — atomic token
-    // Permissive regex; Rust parser validates format (e.g., [# 2.5], [# 3:2.4])
-    duration_annotation: $ => token(prec(8, /\[# \d[^\]]*\]/)),
+    // Duration annotation: [# time]
+    // Permissive content; Rust parser validates format (e.g., [# 2.5], [# 3:2.4])
+    duration_annotation: $ => seq(
+      token(prec(8, '[#')),
+      $.space,
+      field('time', $.annotation_content),
+      $.right_bracket,
+    ),
 
     // Nonword with optional annotations
     // Unifies events (&=action) and zero/action (0) with optional annotations
@@ -1133,11 +1341,16 @@ export default grammar({
       field('annotations', optional($.base_annotations))
     ),
 
-    // Nonword: unified category for events and zero/action (NOT other_spoken_event)
-    // Precedence needed to disambiguate zero as standalone nonword vs standalone_word token
+    // Nonword: events (&=action) and standalone zero/action (0).
+    // NOT other_spoken_event (&*SPK) — that's a separate rule.
+    //
+    // prec(1) on nonword vs prec(6) on standalone_word resolves the zero ambiguity:
+    // when zero is followed by word_body (0die), standalone_word wins (one word).
+    // When zero is standalone (0 die), only nonword matches (extras:[] prevents
+    // whitespace from being skipped between word_prefix and word_body).
     nonword: $ => prec(1, choice(
       $.event,
-      $.zero
+      $.zero,
     )),
 
     // Event marker: &=action
@@ -1521,10 +1734,11 @@ export default grammar({
       repeat($.mor_feature)       // -Feature chains
     ),
 
-    // Simple POS tag — no colons, no subcategories
-    // Allows: Unicode letters, digits
-    // Excludes: | - ~ + . ? ! # $ @ % = & : , [ ] < > ( ) space
-    mor_pos: $ => /[^\.\?\!\|\+~\$#@%=&\[\]<>()\-:,\s\r\n\u201C\u201D]+/,
+    // POS tag — allows colons for subcategories (pro:sub, v:aux, det:art, n:prop).
+    // POS subcategories are fundamental in CHAT — CLAN's MOR generates them by default.
+    // Allows: Unicode letters, digits, colon (subcategory separator)
+    // Excludes: | - ~ + . ? ! # $ @ % = & , [ ] < > ( ) space
+    mor_pos: $ => /[^\.\?\!\|\+~\$#@%=&\[\]<>()\-,\s\r\n\u201C\u201D]+/,
 
     // Lemma — opaque string, allows = (Estonian compound boundary), ! (Basque
     // derivational boundary), apostrophe, underscore, en-dash, colon, comma,
@@ -1749,8 +1963,11 @@ export default grammar({
     strict_date: $ => token(/(?:0[1-9]|[1-2][0-9]|3[0-1])-(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-[1-2][0-9]{3}/),
     generic_date: $ => /[^\r\n]+/,
 
-    // Age format: years;months or years;months. or years;months.days
-    // Coarsened to atomic token — Rust parses via tokens::parse_age_format_token()
+    // Age format: years;months or years;months.days
+    // MUST remain a single token — structuring into seq() causes tree-sitter
+    // to hang on error recovery because `;` and `.` are also used elsewhere
+    // in the grammar (semicolon separator, period terminator).
+    // Rust parses via tokens::parse_age_format_token().
     age_format: $ => token(/[0-9]+;[0-9]{1,2}(\.[0-9]{0,2})?/),
     // ANTLR: PAGE_N for page numbers
     page_number: $ => /[0-9]+/, 
@@ -1821,7 +2038,7 @@ export default grammar({
     // Pattern: /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/
     //   - first char: non-space, non-tab, non-pipe, non-newline
     //   - optional middle + last: anything non-pipe/newline, ending non-space/tab
-    id_corpus: $ => /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/,
+    id_corpus: $ => TRIMMED_PIPE_FIELD,
     id_speaker: $ => /[^|\r\n]*/,         // Required — no trimming needed
     id_age: $ => choice(
       $.age_format,
@@ -1835,7 +2052,7 @@ export default grammar({
       $.generic_id_sex
     ),
     generic_id_sex: $ => /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/,
-    id_group: $ => /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/,
+    id_group: $ => TRIMMED_PIPE_FIELD,
     // Known SES values (ethnicity, socioeconomic code, or combined) + generic catch-all
     // for unknown values that the validator flags as E546.
     // Ethnicity: White Black Latino Asian Pacific Native Multiple Unknown
@@ -1867,8 +2084,8 @@ export default grammar({
     // that would conflict as global tree-sitter keywords. Vocabulary is validated
     // in Rust via is_allowed_participant_role() (E532).
     id_role: $ => /[^|\r\n]*/,            // Required — no trimming needed
-    id_education: $ => /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/,
-    id_custom_field: $ => /[^ \t|\r\n]([^|\r\n]*[^ \t|\r\n])?/,
+    id_education: $ => TRIMMED_PIPE_FIELD,
+    id_custom_field: $ => TRIMMED_PIPE_FIELD,
 
     // Participant entry: CODE Name Role
     // Example: CHI Child, MOT Mother

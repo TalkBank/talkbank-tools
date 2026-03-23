@@ -7,12 +7,13 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 /// Which parser backend to use for validation.
+///
+/// Only tree-sitter is supported. The direct (Chumsky) parser has been removed.
+/// This enum is retained for cache key compatibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParserKind {
-    /// Tree-sitter parser (default, canonical)
+    /// Tree-sitter parser (the only parser)
     TreeSitter,
-    /// Direct chumsky parser (experimental)
-    Direct,
 }
 
 impl ParserKind {
@@ -20,7 +21,6 @@ impl ParserKind {
     pub fn cache_label(self) -> &'static str {
         match self {
             ParserKind::TreeSitter => "tree-sitter",
-            ParserKind::Direct => "direct",
         }
     }
 }

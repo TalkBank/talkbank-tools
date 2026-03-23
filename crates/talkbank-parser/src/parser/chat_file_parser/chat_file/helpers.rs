@@ -271,7 +271,18 @@ pub(super) fn parse_lines_with_old_tree(
     let tree_to_return = tree.clone();
 
     trace!("Tree-sitter parse completed");
-    let root_node = tree.root_node();
+    let ts_root = tree.root_node();
+
+    // With multi-root grammar, root is `source_file` containing `full_document`.
+    // Navigate to `full_document` if present, otherwise use root directly.
+    let root_node = if ts_root.kind() == "source_file" {
+        ts_root
+            .child(0)
+            .filter(|c| c.kind() == "full_document")
+            .unwrap_or(ts_root)
+    } else {
+        ts_root
+    };
 
     // Check if the root node itself has errors AND is empty (e.g., empty file)
     if root_node.has_error() && root_node.child_count() == 0 {

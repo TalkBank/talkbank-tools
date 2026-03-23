@@ -1,6 +1,6 @@
 //! Direct Parser Roundtrip Test on Reference Corpus
 //!
-//! This test verifies that the DirectParser can roundtrip all reference corpus
+//! This test verifies that the TreeSitterParser can roundtrip all reference corpus
 //! files: parse → serialize → re-parse → compare with SemanticEq.
 //!
 //! This is a prerequisite for integrating the direct parser into `chatter validate`.
@@ -16,7 +16,7 @@
 //! ```
 
 use std::path::{Path, PathBuf};
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::model::{SemanticEq, WriteChat};
 use walkdir::WalkDir;
 
@@ -38,17 +38,17 @@ fn find_cha_files(dir: &Path) -> Vec<PathBuf> {
 /// Files containing constructs the direct parser does not support.
 const DIRECT_PARSER_SKIP: &[&str] = &[];
 
-/// Parse a file with DirectParser and roundtrip it.
+/// Parse a file with TreeSitterParser and roundtrip it.
 ///
 /// Returns Ok(()) if the file roundtrips successfully, or an error message.
-fn roundtrip_file(path: &Path, parser: &DirectParser) -> Result<(), String> {
+fn roundtrip_file(path: &Path, parser: &TreeSitterParser) -> Result<(), String> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| format!("IO error reading {}: {}", path.display(), e))?;
 
-    // Parse with DirectParser
+    // Parse with TreeSitterParser
     let chat_file = parser
         .parse_chat_file(&content)
-        .map_err(|e| format!("DirectParser failed to parse {}: {}", path.display(), e))?;
+        .map_err(|e| format!("TreeSitterParser failed to parse {}: {}", path.display(), e))?;
 
     // Serialize back to CHAT
     let serialized = chat_file.to_chat_string();
@@ -56,7 +56,7 @@ fn roundtrip_file(path: &Path, parser: &DirectParser) -> Result<(), String> {
     // Re-parse the serialized CHAT
     let reparsed = parser.parse_chat_file(&serialized).map_err(|e| {
         format!(
-            "DirectParser failed to re-parse serialized {}: {}",
+            "TreeSitterParser failed to re-parse serialized {}: {}",
             path.display(),
             e
         )
@@ -73,7 +73,7 @@ fn roundtrip_file(path: &Path, parser: &DirectParser) -> Result<(), String> {
     Ok(())
 }
 
-/// Verifies DirectParser round-trip stability on the reference corpus.
+/// Verifies TreeSitterParser round-trip stability on the reference corpus.
 #[test]
 fn direct_parser_roundtrip_reference_corpus() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -98,7 +98,7 @@ fn direct_parser_roundtrip_reference_corpus() {
         corpus_dir.display()
     );
 
-    let parser = DirectParser::new().expect("Failed to create DirectParser");
+    let parser = TreeSitterParser::new().expect("Failed to create TreeSitterParser");
 
     let mut passed = 0;
     let mut failures: Vec<(PathBuf, String)> = Vec::new();

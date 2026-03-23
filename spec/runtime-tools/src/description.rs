@@ -1,6 +1,6 @@
 //! Generate informative descriptions for CHAT construct examples
 
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::{WordCategory, WordContent};
@@ -34,7 +34,7 @@ pub fn generate_description(input: &str, fence_type: &str) -> Result<String, Des
 
 /// Generate description for word-level constructs
 fn generate_word_description(input: &str) -> Result<String, DescriptionError> {
-    let parser = DirectParser::new().expect("DirectParser should construct");
+    let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
     let word = match ChatParser::parse_word(&parser, input, 0, &errors) {
         ParseOutcome::Parsed(word) => word,

@@ -5,12 +5,12 @@
 Invalid grammar index
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E709
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

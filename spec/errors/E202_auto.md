@@ -5,6 +5,7 @@
 Missing form type after @
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E202
 - **Category**: Parser error

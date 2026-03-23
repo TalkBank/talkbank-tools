@@ -6,12 +6,12 @@ The `%sin` tier content could not be parsed by the direct parser (chumsky).
 The sentence-internal tier content does not match the expected format.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E384
 - **Category**: tier\_parse
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

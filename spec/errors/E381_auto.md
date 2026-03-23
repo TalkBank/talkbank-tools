@@ -7,12 +7,12 @@ The phonological tier content does not match the expected format of
 space-separated phonological words with optional `‹›` groups.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E381
 - **Category**: tier\_parse
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

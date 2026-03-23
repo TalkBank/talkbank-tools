@@ -105,7 +105,7 @@ Direct:\n{:#?}",
 pub fn spec_word_test(input: &str) -> Result<(), TestError> {
     let tree_sitter = talkbank_parser::TreeSitterParser::new()
         .map_err(|err| TestError::ParserInit(err.to_string()))?;
-    let direct = talkbank_direct_parser::DirectParser::new().map_err(TestError::ParserInit)?;
+    let direct = talkbank_parser::TreeSitterParser::new()?;
 
     let snapshot = compare_parsers_for_word(&tree_sitter, &direct, input)?;
     insta::assert_json_snapshot!(snapshot);
@@ -160,7 +160,7 @@ pub fn reference_file_test(path: &str) -> Result<(), TestError> {
     } else {
         let tree_sitter = talkbank_parser::TreeSitterParser::new()
             .map_err(|err| TestError::ParserInit(err.to_string()))?;
-        let direct = talkbank_direct_parser::DirectParser::new().map_err(TestError::ParserInit)?;
+        let direct = talkbank_parser::TreeSitterParser::new()?;
         compare_parsers_for_file(&tree_sitter, &direct, &content)?
     };
 

@@ -5,12 +5,12 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E243
 - **Category**: validation
 - **Level**: word
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

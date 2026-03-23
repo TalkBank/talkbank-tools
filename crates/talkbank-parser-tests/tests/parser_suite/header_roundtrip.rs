@@ -50,7 +50,7 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
             })?;
 
             let file_errors = ErrorCollector::new();
-            let parsed_file = match parser.parse_chat_file(&source, 0, &file_errors) {
+            let parsed_file = match ChatParser::parse_chat_file(&parser, &source, 0, &file_errors) {
                 ParseOutcome::Parsed(file) => file,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
@@ -73,7 +73,7 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
             for header in collect_headers(&parsed_file) {
                 let header_text = header.to_chat();
                 let header_errors = ErrorCollector::new();
-                let reparsed = match parser.parse_header(&header_text, 0, &header_errors) {
+                let reparsed = match ChatParser::parse_header(&parser, &header_text, 0, &header_errors) {
                     ParseOutcome::Parsed(header) => header,
                     ParseOutcome::Rejected => {
                         return Err(TestError::Failure(format!(

@@ -18,8 +18,8 @@ expression: "(is_semantically_equal, main1, main2)"
                     Word(
                         Word {
                             span: Span {
-                                start: 106,
-                                end: 111,
+                                start: 5,
+                                end: 10,
                             },
                             word_id: None,
                             raw_text: "hello",
@@ -49,8 +49,8 @@ expression: "(is_semantically_equal, main1, main2)"
                     Word(
                         Word {
                             span: Span {
-                                start: 112,
-                                end: 117,
+                                start: 11,
+                                end: 16,
                             },
                             word_id: None,
                             raw_text: "world",
@@ -82,8 +82,8 @@ expression: "(is_semantically_equal, main1, main2)"
             terminator: Some(
                 Period {
                     span: Span {
-                        start: 118,
-                        end: 119,
+                        start: 17,
+                        end: 18,
                     },
                 },
             ),
@@ -93,18 +93,18 @@ expression: "(is_semantically_equal, main1, main2)"
             bullet: None,
             content_span: Some(
                 Span {
-                    start: 105,
-                    end: 120,
+                    start: 4,
+                    end: 19,
                 },
             ),
         },
         span: Span {
-            start: 100,
-            end: 120,
+            start: 0,
+            end: 19,
         },
         speaker_span: Span {
-            start: 101,
-            end: 104,
+            start: 0,
+            end: 3,
         },
     },
     MainTier {
@@ -121,8 +121,8 @@ expression: "(is_semantically_equal, main1, main2)"
                     Word(
                         Word {
                             span: Span {
-                                start: 106,
-                                end: 111,
+                                start: 5,
+                                end: 10,
                             },
                             word_id: None,
                             raw_text: "hello",
@@ -152,8 +152,8 @@ expression: "(is_semantically_equal, main1, main2)"
                     Word(
                         Word {
                             span: Span {
-                                start: 112,
-                                end: 117,
+                                start: 11,
+                                end: 16,
                             },
                             word_id: None,
                             raw_text: "world",
@@ -185,8 +185,8 @@ expression: "(is_semantically_equal, main1, main2)"
             terminator: Some(
                 Period {
                     span: Span {
-                        start: 118,
-                        end: 119,
+                        start: 17,
+                        end: 18,
                     },
                 },
             ),
@@ -196,18 +196,18 @@ expression: "(is_semantically_equal, main1, main2)"
             bullet: None,
             content_span: Some(
                 Span {
-                    start: 105,
-                    end: 120,
+                    start: 4,
+                    end: 19,
                 },
             ),
         },
         span: Span {
-            start: 100,
-            end: 120,
+            start: 0,
+            end: 19,
         },
         speaker_span: Span {
-            start: 101,
-            end: 104,
+            start: 0,
+            end: 3,
         },
     },
 )

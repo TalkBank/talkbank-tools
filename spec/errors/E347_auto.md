@@ -13,12 +13,13 @@ simultaneously. See `docs/overlap-validation-audit.md` in talkbank-dev for the
 full investigation (SBCSAE, CLAPI, Forrester examples).
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E347
 - **Category**: validation
 - **Level**: cross_utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

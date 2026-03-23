@@ -2,7 +2,7 @@
 
 //! Property 6: Error Messages Are Helpful
 //!
-//! Tests BOTH TreeSitterParser and DirectParser to ensure error reporting is consistent.
+//! Tests BOTH TreeSitterParser and TreeSitterParser to ensure error reporting is consistent.
 
 use super::*;
 use proptest::prelude::*;

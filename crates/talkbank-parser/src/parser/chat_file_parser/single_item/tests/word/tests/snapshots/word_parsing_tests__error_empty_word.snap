@@ -1,5 +1,5 @@
 ---
-source: rust/crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Err(
@@ -29,7 +29,7 @@ Err(
                     },
                 ),
                 labels: [],
-                message: "No words parsed from input",
+                message: "Empty word input",
                 suggestion: None,
                 help_url: Some(
                     "https://talkbank.org/errors/E212",

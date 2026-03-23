@@ -126,7 +126,7 @@ pub fn parse_wor_tier(node: Node, source: &str, errors: &impl ErrorSink) -> WorT
 /// Delegates to the shared token parser in the direct parser crate.
 fn extract_langcode(node: Node, source: &str) -> Option<talkbank_model::model::LanguageCode> {
     let raw = node.utf8_text(source.as_bytes()).ok()?;
-    talkbank_direct_parser::tokens::parse_langcode_token(raw)
+    crate::tokens::parse_langcode_token(raw)
 }
 
 /// Parse an inline_bullet node into a Bullet.

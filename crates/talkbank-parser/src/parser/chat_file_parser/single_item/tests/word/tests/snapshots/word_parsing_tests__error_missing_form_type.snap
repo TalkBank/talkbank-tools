@@ -1,17 +1,17 @@
 ---
-source: rust/crates/talkbank-tree-sitter-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
 expression: result
 ---
 Err(
     ParseErrors {
         errors: [
             ParseError {
-                code: UnparsableContent,
+                code: InvalidWordFormat,
                 severity: Error,
                 location: SourceLocation {
                     span: Span {
-                        start: 113,
-                        end: 113,
+                        start: 0,
+                        end: 6,
                     },
                     line: None,
                     column: None,
@@ -20,8 +20,8 @@ Err(
                     ErrorContext {
                         source_text: "hello@",
                         span: Span {
-                            start: 113,
-                            end: 113,
+                            start: 0,
+                            end: 6,
                         },
                         expected: [],
                         found: "hello@",
@@ -29,10 +29,10 @@ Err(
                     },
                 ),
                 labels: [],
-                message: "Parse error: found end of input expected 'f', 'l', 's', 'w', 'z', 'a', 'b', 'c', 'd', 'g', 'i', 'k', 'n', 'o', 'p', 'q', 't', 'u', or 'x'",
+                message: "Word input contains unparsable content",
                 suggestion: None,
                 help_url: Some(
-                    "https://talkbank.org/errors/E316",
+                    "https://talkbank.org/errors/E212",
                 ),
             },
         ],

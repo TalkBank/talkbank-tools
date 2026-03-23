@@ -20,12 +20,8 @@ use talkbank_derive::{SemanticEq, SpanShift, ValidationTagged};
 /// Known flags carry parser-facing semantics (CA mode, alignment skip).
 /// Unrecognized values are preserved for validation but do not affect parsing.
 pub enum ChatOptionFlag {
-    /// `CA-Unicode`: enable Conversation Analysis mode with Unicode symbols.
-    CaUnicode,
     /// `CA`: enable Conversation Analysis mode.
     Ca,
-    /// `bullets`: enable bullet-aware behavior for media-linked content.
-    Bullets,
     /// `NoAlign`: skip forced alignment for this file.
     NoAlign,
     /// Unrecognized value preserved for validation.
@@ -38,9 +34,7 @@ impl ChatOptionFlag {
     /// Unknown tokens yield `Unsupported` so the validator can flag them.
     pub fn from_text(value: &str) -> Self {
         match value {
-            "CA-Unicode" => Self::CaUnicode,
             "CA" => Self::Ca,
-            "bullets" => Self::Bullets,
             "NoAlign" => Self::NoAlign,
             _ => Self::Unsupported(value.to_string()),
         }
@@ -49,9 +43,7 @@ impl ChatOptionFlag {
     /// Returns the canonical token emitted when serializing this flag.
     pub fn as_str(&self) -> &str {
         match self {
-            Self::CaUnicode => "CA-Unicode",
             Self::Ca => "CA",
-            Self::Bullets => "bullets",
             Self::NoAlign => "NoAlign",
             Self::Unsupported(s) => s.as_str(),
         }
@@ -59,7 +51,7 @@ impl ChatOptionFlag {
 
     /// Returns `true` when this flag turns on Conversation Analysis parsing rules.
     pub fn enables_ca_mode(&self) -> bool {
-        matches!(self, Self::Ca | Self::CaUnicode)
+        matches!(self, Self::Ca)
     }
 
     /// Returns `true` when this flag indicates forced alignment should be skipped.

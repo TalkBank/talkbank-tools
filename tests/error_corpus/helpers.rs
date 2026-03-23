@@ -130,8 +130,8 @@ fn map_parser_suite_error(error: ParserSuiteError) -> TestError {
             "Failed to create TreeSitterParser for error corpus: {}",
             source
         )),
-        ParserSuiteError::DirectParserInit { message } => TestError::Failure(format!(
-            "Failed to create DirectParser for error corpus: {}",
+        ParserSuiteError::ParserInit { message } => TestError::Failure(format!(
+            "Failed to create TreeSitterParser for error corpus: {}",
             message
         )),
     }

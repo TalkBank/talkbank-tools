@@ -113,18 +113,10 @@ expression: snapshot
                 },
                 {
                   "content": {
-                    "span": {
-                      "end": 284,
-                      "start": 283
-                    }
-                  },
-                  "type": "lengthening"
-                },
-                {
-                  "content": {
+                    "count": 2,
                     "span": {
                       "end": 285,
-                      "start": 284
+                      "start": 283
                     }
                   },
                   "type": "lengthening"

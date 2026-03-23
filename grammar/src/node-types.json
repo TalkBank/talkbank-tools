@@ -561,6 +561,36 @@
     }
   },
   {
+    "type": "alt_annotation",
+    "named": true,
+    "fields": {
+      "text": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "alt_dependent_tier",
     "named": true,
     "fields": {},
@@ -814,6 +844,16 @@
         }
       ]
     }
+  },
+  {
+    "type": "bullet_end",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "bullet_start",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "cod_dependent_tier",
@@ -1082,32 +1122,30 @@
     }
   },
   {
-    "type": "document",
+    "type": "duration_annotation",
     "named": true,
-    "root": true,
-    "fields": {},
+    "fields": {
+      "time": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": true,
       "types": [
         {
-          "type": "begin_header",
+          "type": "right_bracket",
           "named": true
         },
         {
-          "type": "end_header",
-          "named": true
-        },
-        {
-          "type": "line",
-          "named": true
-        },
-        {
-          "type": "pre_begin_header",
-          "named": true
-        },
-        {
-          "type": "utf8_header",
+          "type": "space",
           "named": true
         }
       ]
@@ -1263,6 +1301,36 @@
     }
   },
   {
+    "type": "explanation_annotation",
+    "named": true,
+    "fields": {
+      "text": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "fac_dependent_tier",
     "named": true,
     "fields": {},
@@ -1376,6 +1444,37 @@
         },
         {
           "type": "rest_of_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "full_document",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "begin_header",
+          "named": true
+        },
+        {
+          "type": "end_header",
+          "named": true
+        },
+        {
+          "type": "line",
+          "named": true
+        },
+        {
+          "type": "pre_begin_header",
+          "named": true
+        },
+        {
+          "type": "utf8_header",
           "named": true
         }
       ]
@@ -1884,6 +1983,46 @@
     "fields": {}
   },
   {
+    "type": "inline_bullet",
+    "named": true,
+    "fields": {
+      "end_time": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bullet_timestamp",
+            "named": true
+          }
+        ]
+      },
+      "start_time": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bullet_timestamp",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bullet_end",
+          "named": true
+        },
+        {
+          "type": "bullet_start",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "int_dependent_tier",
     "named": true,
     "fields": {},
@@ -1940,6 +2079,36 @@
         },
         {
           "type": "speaker",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "langcode",
+    "named": true,
+    "fields": {
+      "code": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "language_code",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
           "named": true
         }
       ]
@@ -2979,6 +3148,36 @@
     }
   },
   {
+    "type": "para_annotation",
+    "named": true,
+    "fields": {
+      "text": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "participant",
     "named": true,
     "fields": {
@@ -3053,6 +3252,36 @@
         },
         {
           "type": "participants_prefix",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "percent_annotation",
+    "named": true,
+    "fields": {
+      "text": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
           "named": true
         }
       ]
@@ -3251,6 +3480,46 @@
     }
   },
   {
+    "type": "plus",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "pos_tag",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "postcode",
+    "named": true,
+    "fields": {
+      "code": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "annotation_content",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "right_bracket",
+          "named": true
+        },
+        {
+          "type": "space",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "quotation",
     "named": true,
     "fields": {},
@@ -3392,6 +3661,21 @@
         },
         {
           "type": "non_colon_separator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "shortening",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "word_segment",
           "named": true
         }
       ]
@@ -3559,6 +3843,46 @@
     }
   },
   {
+    "type": "source_file",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "dependent_tier",
+          "named": true
+        },
+        {
+          "type": "full_document",
+          "named": true
+        },
+        {
+          "type": "header",
+          "named": true
+        },
+        {
+          "type": "main_tier",
+          "named": true
+        },
+        {
+          "type": "pre_begin_header",
+          "named": true
+        },
+        {
+          "type": "standalone_word",
+          "named": true
+        },
+        {
+          "type": "utterance",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "spa_dependent_tier",
     "named": true,
     "fields": {},
@@ -3580,6 +3904,41 @@
         },
         {
           "type": "tier_sep",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "standalone_word",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "form_marker",
+          "named": true
+        },
+        {
+          "type": "pos_tag",
+          "named": true
+        },
+        {
+          "type": "word_body",
+          "named": true
+        },
+        {
+          "type": "word_lang_suffix",
+          "named": true
+        },
+        {
+          "type": "word_prefix",
+          "named": true
+        },
+        {
+          "type": "zero",
           "named": true
         }
       ]
@@ -4320,6 +4679,66 @@
     }
   },
   {
+    "type": "word_body",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "ca_delimiter",
+          "named": true
+        },
+        {
+          "type": "ca_element",
+          "named": true
+        },
+        {
+          "type": "lengthening",
+          "named": true
+        },
+        {
+          "type": "overlap_point",
+          "named": true
+        },
+        {
+          "type": "shortening",
+          "named": true
+        },
+        {
+          "type": "stress_marker",
+          "named": true
+        },
+        {
+          "type": "syllable_pause",
+          "named": true
+        },
+        {
+          "type": "tilde",
+          "named": true
+        },
+        {
+          "type": "underline_begin",
+          "named": true
+        },
+        {
+          "type": "underline_end",
+          "named": true
+        },
+        {
+          "type": "word_segment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "word_prefix",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "word_with_optional_annotations",
     "named": true,
     "fields": {
@@ -4393,6 +4812,38 @@
     }
   },
   {
+    "type": "\u0015",
+    "named": false
+  },
+  {
+    "type": "$",
+    "named": false
+  },
+  {
+    "type": "&+",
+    "named": false
+  },
+  {
+    "type": "&-",
+    "named": false
+  },
+  {
+    "type": "&~",
+    "named": false
+  },
+  {
+    "type": "(",
+    "named": false
+  },
+  {
+    "type": ")",
+    "named": false
+  },
+  {
+    "type": "+",
+    "named": false
+  },
+  {
     "type": "1",
     "named": false
   },
@@ -4433,6 +4884,38 @@
     "named": false
   },
   {
+    "type": "[#",
+    "named": false
+  },
+  {
+    "type": "[%",
+    "named": false
+  },
+  {
+    "type": "[+",
+    "named": false
+  },
+  {
+    "type": "[-",
+    "named": false
+  },
+  {
+    "type": "[=",
+    "named": false
+  },
+  {
+    "type": "[=!",
+    "named": false
+  },
+  {
+    "type": "[=?",
+    "named": false
+  },
+  {
+    "type": "_",
+    "named": false
+  },
+  {
     "type": "act_tier_prefix",
     "named": true
   },
@@ -4449,15 +4932,15 @@
     "named": true
   },
   {
-    "type": "alt_annotation",
-    "named": true
-  },
-  {
     "type": "alt_tier_prefix",
     "named": true
   },
   {
     "type": "ampersand",
+    "named": true
+  },
+  {
+    "type": "annotation_content",
     "named": true
   },
   {
@@ -4501,7 +4984,19 @@
     "named": true
   },
   {
+    "type": "bullet_timestamp",
+    "named": true
+  },
+  {
     "type": "ca_continuation_marker",
+    "named": true
+  },
+  {
+    "type": "ca_delimiter",
+    "named": true
+  },
+  {
+    "type": "ca_element",
     "named": true
   },
   {
@@ -4577,10 +5072,6 @@
     "named": true
   },
   {
-    "type": "duration_annotation",
-    "named": true
-  },
-  {
     "type": "eg_prefix",
     "named": true
   },
@@ -4621,10 +5112,6 @@
     "named": true
   },
   {
-    "type": "explanation_annotation",
-    "named": true
-  },
-  {
     "type": "eye_dialect",
     "named": false
   },
@@ -4650,6 +5137,10 @@
   },
   {
     "type": "font_prefix",
+    "named": true
+  },
+  {
+    "type": "form_marker",
     "named": true
   },
   {
@@ -4705,10 +5196,6 @@
     "named": true
   },
   {
-    "type": "inline_bullet",
-    "named": true
-  },
-  {
     "type": "inline_pic",
     "named": true
   },
@@ -4729,10 +5216,6 @@
     "named": true
   },
   {
-    "type": "langcode",
-    "named": true
-  },
-  {
     "type": "language_code",
     "named": true
   },
@@ -4746,6 +5229,10 @@
   },
   {
     "type": "left_double_quote",
+    "named": true
+  },
+  {
+    "type": "lengthening",
     "named": true
   },
   {
@@ -4881,10 +5368,6 @@
     "named": true
   },
   {
-    "type": "para_annotation",
-    "named": true
-  },
-  {
     "type": "partial",
     "named": false
   },
@@ -4898,10 +5381,6 @@
   },
   {
     "type": "pause_token",
-    "named": true
-  },
-  {
-    "type": "percent_annotation",
     "named": true
   },
   {
@@ -4938,14 +5417,6 @@
   },
   {
     "type": "pipe",
-    "named": true
-  },
-  {
-    "type": "plus",
-    "named": true
-  },
-  {
-    "type": "postcode",
     "named": true
   },
   {
@@ -5077,11 +5548,11 @@
     "named": true
   },
   {
-    "type": "standalone_word",
+    "type": "star",
     "named": true
   },
   {
-    "type": "star",
+    "type": "stress_marker",
     "named": true
   },
   {
@@ -5090,6 +5561,10 @@
   },
   {
     "type": "strict_time",
+    "named": true
+  },
+  {
+    "type": "syllable_pause",
     "named": true
   },
   {
@@ -5206,6 +5681,14 @@
   },
   {
     "type": "wor_tier_prefix",
+    "named": true
+  },
+  {
+    "type": "word_lang_suffix",
+    "named": true
+  },
+  {
+    "type": "word_segment",
     "named": true
   },
   {

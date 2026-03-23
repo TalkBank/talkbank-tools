@@ -7,7 +7,7 @@
 @Time Start:	8:30:31
 @Time Duration:	17:30-18:00
 @Types:	long, toyplay, TD
-@Options:	bullets, dummy
+@Options:	CA, dummy
 @Comment:	Time, type, and option headers
 @Comment:	Constructs: time_start_header, time_duration_header, time_duration_contents,
 	types_header, types_design, types_activity, types_group,

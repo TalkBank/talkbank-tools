@@ -26,24 +26,23 @@
 //!
 //! ## When to Use
 //!
-//! - During DirectParser feature implementation
+//! - During TreeSitterParser feature implementation
 //! - After fixing a specific bug
 //! - Before committing changes
 //! - When you want fast feedback on a specific construct
 //!
 //! ## Workflow
 //!
-//! 1. Implement DirectParser feature
+//! 1. Implement TreeSitterParser feature
 //! 2. Add test case here for that feature
 //! 3. Run this test (fast!)
 //! 4. Fix issues
 //! 5. Run full corpus equivalence (final validation)
 
-use talkbank_direct_parser::DirectParser;
+use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::SemanticEq;
 use talkbank_model::{ChatParser, ParseOutcome};
-use talkbank_parser::TreeSitterParser;
 
 /// Compare parsers on a single CHAT file input.
 ///
@@ -52,7 +51,7 @@ use talkbank_parser::TreeSitterParser;
 fn compare_parsers(input: &str, description: &str) -> Result<(), String> {
     let tree_sitter =
         TreeSitterParser::new().map_err(|e| format!("TreeSitter init failed: {}", e))?;
-    let direct = DirectParser::new().map_err(|e| format!("Direct init failed: {}", e))?;
+    let direct = TreeSitterParser::new().map_err(|e| format!("Direct init failed: {}", e))?;
 
     let ts_errors = ErrorCollector::new();
     let direct_errors = ErrorCollector::new();
@@ -78,7 +77,7 @@ Direct: {:#?}",
             }
         }
         (ParseOutcome::Parsed(_), ParseOutcome::Rejected) => Err(format!(
-            "DirectParser failed to parse {}
+            "TreeSitterParser failed to parse {}
 Errors: {:?}",
             description,
             direct_errors.to_vec()
@@ -185,7 +184,7 @@ fn equiv_stress_markers() {
 
 /// Verifies parser equivalence on CA-element inputs.
 #[test]
-#[ignore = "DirectParser does not parse mid-word CA elements (‡, ↑, ↓)"]
+#[ignore = "TreeSitterParser does not parse mid-word CA elements (‡, ↑, ↓)"]
 fn equiv_ca_elements() {
     let inputs = [
         (
@@ -258,7 +257,7 @@ fn equiv_shortening() {
 
 /// Verifies parser equivalence on mixed-marker complex word inputs.
 #[test]
-#[ignore = "Depends on CA element support in DirectParser"]
+#[ignore = "Depends on CA element support in TreeSitterParser"]
 fn equiv_complex_words() {
     let inputs = [
         (

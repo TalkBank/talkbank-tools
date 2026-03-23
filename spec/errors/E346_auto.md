@@ -5,12 +5,12 @@
 Unmatched scoped annotation end
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E346
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

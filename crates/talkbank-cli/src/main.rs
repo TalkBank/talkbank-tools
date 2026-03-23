@@ -61,7 +61,7 @@
 //!
 //! The `--parser` flag on `validate` selects between the canonical tree-sitter
 //! parser (`tree-sitter`, default) and the experimental direct parser
-//! (`direct`, chumsky combinators). Both parsers produce the same
+//! (removed). The tree-sitter parser is the sole parser.
 //! `talkbank_model::ChatFile` AST.
 //!
 //! # Broken pipe handling

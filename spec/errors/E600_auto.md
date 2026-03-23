@@ -11,12 +11,12 @@ E600 fires in pairs: if `%mor` is tainted, both main↔%mor and %mor↔%gra alig
 checks are skipped, producing two E600 warnings for the same utterance.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E600
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1 — CLAN scope marker in %mor
 

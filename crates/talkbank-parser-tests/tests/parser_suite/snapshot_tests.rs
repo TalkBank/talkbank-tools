@@ -36,7 +36,7 @@ fn parser_word_snapshot() -> Result<(), TestError> {
     for parser in parser_suite()? {
         for word in &words {
             let sink = ErrorCollector::new();
-            let parsed = match parser.parse_word(word, 0, &sink) {
+            let parsed = match ChatParser::parse_word(&parser, word, 0, &sink) {
                 ParseOutcome::Parsed(parsed) => parsed,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
@@ -113,7 +113,7 @@ fn parser_utterance_snapshot() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let utterance = match parser.parse_utterance(UTTERANCE_INPUT, 0, &sink) {
+        let utterance = match ChatParser::parse_utterance(&parser, UTTERANCE_INPUT, 0, &sink) {
             ParseOutcome::Parsed(utterance) => utterance,
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(

@@ -82,6 +82,7 @@ impl ContentKind {
             WordContent::SyllablePause(_) => ContentKind::SyllablePause,
             WordContent::UnderlineBegin(_) => ContentKind::UnderlineBegin,
             WordContent::UnderlineEnd(_) => ContentKind::UnderlineEnd,
+            WordContent::CliticBoundary(_) => ContentKind::Compound, // grouped with compound for signature purposes
         }
     }
 }

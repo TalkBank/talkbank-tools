@@ -15,7 +15,6 @@ indexmap = { workspace = true }
 smallvec = { workspace = true }
 smol_str = { workspace = true }
 talkbank-model = { workspace = true }
-talkbank-direct-parser = { workspace = true }  # Word parsing delegation (Phase 2 coarsening)
 thiserror = { workspace = true } #unified
 tracing = { workspace = true }
 tree-sitter = { workspace = true }

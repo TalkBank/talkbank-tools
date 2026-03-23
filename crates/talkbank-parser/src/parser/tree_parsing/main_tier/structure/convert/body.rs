@@ -81,7 +81,7 @@ pub(super) fn parse_body(
             LANGCODE => {
                 // Delegate to shared langcode token parser
                 if let Ok(raw) = child.utf8_text(source.as_bytes())
-                    && let Some(lc) = talkbank_direct_parser::tokens::parse_langcode_token(raw)
+                    && let Some(lc) = crate::tokens::parse_langcode_token(raw)
                 {
                     language_code = Some(lc.to_string());
                 }
@@ -177,7 +177,7 @@ fn parse_tier_body_children(
             LANGCODE => {
                 // Delegate to shared langcode token parser
                 if let Ok(raw) = child.utf8_text(source.as_bytes())
-                    && let Some(lc) = talkbank_direct_parser::tokens::parse_langcode_token(raw)
+                    && let Some(lc) = crate::tokens::parse_langcode_token(raw)
                 {
                     language_code = Some(lc.to_string());
                 }

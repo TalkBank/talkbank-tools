@@ -8,12 +8,12 @@ for a line whose children cannot be identified as either a header or
 utterance context.
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E319
 - **Category**: parser\_recovery
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

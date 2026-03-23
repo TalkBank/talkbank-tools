@@ -44,7 +44,7 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
 
             // Parse the word
             let sink = ErrorCollector::new();
-            let parsed = parser.parse_word(word, 0, &sink);
+            let parsed = ChatParser::parse_word(&parser, word, 0, &sink);
 
             assert!(
                 sink.is_empty(),

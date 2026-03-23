@@ -132,7 +132,7 @@ fn reference_dependent_tiers_roundtrip_for_every_parser() -> Result<(), TestErro
             })?;
 
             let file_errors = ErrorCollector::new();
-            let parsed_file = match parser.parse_chat_file(&source, 0, &file_errors) {
+            let parsed_file = match ChatParser::parse_chat_file(&parser, &source, 0, &file_errors) {
                 ParseOutcome::Parsed(file) => file,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(

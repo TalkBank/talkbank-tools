@@ -1,8 +1,11 @@
-//! Word parsing from tree-sitter CST — Phase 2 delegation to direct parser.
+//! Word parsing from tree-sitter CST — direct CST traversal.
 //!
-//! After grammar coarsening (Phase 2), `standalone_word` is a single opaque token.
-//! All internal word structure (prefix, body, CA markers, shortenings, form/language
-//! suffixes, POS tags) is parsed by the direct parser's `parse_word_impl()`.
+//! The grammar parses word internals structurally:
+//!   standalone_word = [word_prefix] word_body [form_marker] [word_lang_suffix] [pos_tag]
+//!   word_body = repeat1(word_segment | shortening | stress_marker | lengthening | '+')
+//!
+//! This module walks the CST children to build the typed `Word` model
+//! without any Chumsky dependency.
 //!
 //! # Related CHAT Manual Sections
 //!
@@ -12,19 +15,25 @@
 use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
 use crate::model::Word;
 use crate::parser::tree_parsing::parser_helpers::extract_utf8_text;
+use smallvec::SmallVec;
+use talkbank_model::content::word::{
+    FormType, WordCategory, WordCliticBoundary, WordCompoundMarker, WordContent, WordContents,
+    WordLanguageMarker, WordLengthening, WordShortening, WordStressMarker, WordStressMarkerType,
+    WordSyllablePause, WordText, WordUnderlineBegin, WordUnderlineEnd,
+};
+use talkbank_model::model::{LanguageCode, OverlapIndex, OverlapPoint, OverlapPointKind};
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
 
 /// Convert a tree-sitter `standalone_word` node into the typed `Word` model.
 ///
-/// After Phase 2 coarsening, each word is represented as a single opaque token and all internal
-/// CHAT word structure (pronunciation, CA markers, shortenings, affixes) is parsed by the direct
-/// parser. This helper extracts the UTF-8 text, ensures the node is not `MISSING`, and delegates to
-/// `talkbank_direct_parser::word::parse_word_impl`, the canonical parser described in the
-/// CHAT Words/Word Tier sections that handles detailed word forms.
+/// Walks the CST children directly:
+/// - `word_prefix` → `WordCategory`
+/// - `word_body` children → `Vec<WordContent>`
+/// - `form_marker` → `FormType`
+/// - `word_lang_suffix` → `WordLanguageMarker`
+/// - `pos_tag` → part of speech string
 pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> ParseOutcome<Word> {
-    // CRITICAL: Check for MISSING nodes - tree-sitter error recovery inserts these
-    // as placeholders. A MISSING standalone_word is an internal error.
     if node.is_missing() {
         errors.report(ParseError::new(
             ErrorCode::MalformedWordContent,
@@ -39,9 +48,302 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
         return ParseOutcome::rejected();
     }
 
-    let text = extract_utf8_text(node, source, errors, "standalone_word", "");
-    let offset = node.start_byte();
+    let raw_text = extract_utf8_text(node, source, errors, "standalone_word", "");
+    let span = talkbank_model::Span::from_usize(node.start_byte(), node.end_byte());
 
-    // Delegate to direct parser — single source of truth for word structure
-    talkbank_direct_parser::word::parse_word_impl(text, offset, errors)
+    let mut category = None;
+    let mut content_items: SmallVec<[WordContent; 2]> = SmallVec::new();
+    let mut form_type = None;
+    let mut lang = None;
+    let mut part_of_speech = None;
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "word_prefix" => {
+                let text = extract_utf8_text(child, source, errors, "word_prefix", "");
+                category = match text {
+                    "&-" => Some(WordCategory::Filler),
+                    "&~" => Some(WordCategory::Nonword),
+                    "&+" => Some(WordCategory::PhonologicalFragment),
+                    _ => None,
+                };
+            }
+            // Zero is inlined directly into standalone_word (not through word_prefix)
+            // to resolve the tree-sitter shift-reduce conflict with nonword(zero).
+            "zero" => {
+                category = Some(WordCategory::Omission);
+            }
+            "word_body" => {
+                build_word_contents(child, source, errors, &mut content_items);
+            }
+            "form_marker" => {
+                let text = extract_utf8_text(child, source, errors, "form_marker", "");
+                // text is like "@b" or "@z:grm" — may include :suffix from grammar
+                // But the grammar captures form_marker as just "@b" (token.immediate),
+                // and the :suffix is a separate child. Let's check both patterns.
+                if let Some(ft) = FormType::parse(text) {
+                    form_type = Some(ft);
+                } else if text.starts_with("@z") {
+                    // User-defined form: @z or @z:label
+                    let label = text.strip_prefix("@z").unwrap_or("");
+                    let label = label.strip_prefix(':').unwrap_or(label);
+                    form_type = Some(FormType::UserDefined(label.to_string()));
+                } else {
+                    // Unknown form marker — preserve as user-defined
+                    let marker = text.strip_prefix('@').unwrap_or(text);
+                    form_type = Some(FormType::UserDefined(marker.to_string()));
+                }
+            }
+            "word_lang_suffix" => {
+                lang = Some(build_lang_marker(child, source, errors));
+            }
+            "pos_tag" => {
+                let text = extract_utf8_text(child, source, errors, "pos_tag", "");
+                let tag = text.strip_prefix('$').unwrap_or(text);
+                part_of_speech = Some(smol_str::SmolStr::from(tag));
+            }
+            _ => {
+                // Skip unknown children (whitespace, etc.)
+            }
+        }
+    }
+
+    // If no content items were collected, use raw_text as a single Text item
+    if content_items.is_empty() {
+        if let Some(wt) = WordText::new(raw_text) {
+            content_items.push(WordContent::Text(wt));
+        }
+    }
+
+    // Compute cleaned_text from content items (Text + Shortening only)
+    let cleaned: String = content_items
+        .iter()
+        .filter_map(|item| match item {
+            WordContent::Text(t) => Some(t.as_ref()),
+            WordContent::Shortening(s) => Some(s.as_ref()),
+            _ => None,
+        })
+        .collect();
+
+    let mut word = Word::new_unchecked(raw_text, &cleaned);
+    word.span = span;
+    word.category = category;
+    word.form_type = form_type;
+    word.lang = lang;
+    word.part_of_speech = part_of_speech;
+    word.content = WordContents::new(content_items);
+
+    ParseOutcome::parsed(word)
+}
+
+/// Build `WordContent` items from a `word_body` CST node.
+fn build_word_contents(
+    body_node: Node,
+    source: &str,
+    errors: &impl ErrorSink,
+    items: &mut SmallVec<[WordContent; 2]>,
+) {
+    let mut cursor = body_node.walk();
+    for child in body_node.children(&mut cursor) {
+        match child.kind() {
+            "word_segment" => {
+                let text = extract_utf8_text(child, source, errors, "word_segment", "");
+                if let Some(wt) = WordText::new(text) {
+                    items.push(WordContent::Text(wt));
+                }
+            }
+            "shortening" => {
+                // shortening = '(' word_segment ')'
+                // Extract the inner word_segment text
+                let mut inner_cursor = child.walk();
+                for inner in child.children(&mut inner_cursor) {
+                    if inner.kind() == "word_segment" {
+                        let text =
+                            extract_utf8_text(inner, source, errors, "shortening_content", "");
+                        if let Some(ws) = WordShortening::new(text) {
+                            items.push(WordContent::Shortening(ws));
+                        }
+                    }
+                }
+            }
+            "stress_marker" => {
+                let text = extract_utf8_text(child, source, errors, "stress_marker", "");
+                let marker_type = if text.contains('\u{02C8}') {
+                    WordStressMarkerType::Primary
+                } else {
+                    WordStressMarkerType::Secondary
+                };
+                items.push(WordContent::StressMarker(WordStressMarker {
+                    marker_type,
+                    span: Some(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                }));
+            }
+            "lengthening" => {
+                let len_text = extract_utf8_text(child, source, errors, "lengthening", "");
+                let colon_count = len_text.chars().filter(|&c| c == ':').count() as u8;
+                items.push(WordContent::Lengthening(WordLengthening {
+                    count: colon_count.max(1),
+                    span: Some(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                }));
+            }
+            "+" => {
+                // Anonymous compound marker
+                items.push(WordContent::CompoundMarker(WordCompoundMarker {
+                    span: Some(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                }));
+            }
+            "overlap_point" => {
+                // Overlap marker inside word (e.g., butt⌈er⌉)
+                // Parse the marker character and optional index digit
+                let text = extract_utf8_text(child, source, errors, "overlap_point", "");
+                let mut chars = text.chars();
+                let kind = match chars.next() {
+                    Some('⌈') => OverlapPointKind::TopOverlapBegin,
+                    Some('⌉') => OverlapPointKind::TopOverlapEnd,
+                    Some('⌊') => OverlapPointKind::BottomOverlapBegin,
+                    Some('⌋') => OverlapPointKind::BottomOverlapEnd,
+                    _ => OverlapPointKind::TopOverlapBegin, // fallback
+                };
+                let index = chars.next().and_then(|c| {
+                    c.to_digit(10).map(|d| OverlapIndex::new(d))
+                });
+                items.push(WordContent::OverlapPoint(OverlapPoint {
+                    kind,
+                    index,
+                    span: Some(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                }));
+            }
+            "ca_element" => {
+                use talkbank_model::content::word::ca::{CAElement, CAElementType};
+                let text = extract_utf8_text(child, source, errors, "ca_element", "");
+                let span = talkbank_model::Span::from_usize(child.start_byte(), child.end_byte());
+                let et = match text.chars().next() {
+                    Some('↑') => Some(CAElementType::PitchUp),
+                    Some('↓') => Some(CAElementType::PitchDown),
+                    Some('↻') => Some(CAElementType::PitchReset),
+                    Some('≠') => Some(CAElementType::BlockedSegments),
+                    Some('∾') => Some(CAElementType::Constriction),
+                    Some('⁑') => Some(CAElementType::Hardening),
+                    Some('⤇') => Some(CAElementType::HurriedStart),
+                    Some('∙') => Some(CAElementType::Inhalation),
+                    Some('Ἡ') => Some(CAElementType::LaughInWord),
+                    Some('⤆') => Some(CAElementType::SuddenStop),
+                    _ => None,
+                };
+                if let Some(element_type) = et {
+                    items.push(WordContent::CAElement(
+                        CAElement::new(element_type).with_span(span),
+                    ));
+                }
+            }
+            "ca_delimiter" => {
+                use talkbank_model::content::word::ca::{CADelimiter, CADelimiterType};
+                let text = extract_utf8_text(child, source, errors, "ca_delimiter", "");
+                let span = talkbank_model::Span::from_usize(child.start_byte(), child.end_byte());
+                let dt = match text.chars().next() {
+                    Some('∆') => Some(CADelimiterType::Faster),
+                    Some('∇') => Some(CADelimiterType::Slower),
+                    Some('°') => Some(CADelimiterType::Softer),
+                    Some('▁') => Some(CADelimiterType::LowPitch),
+                    Some('▔') => Some(CADelimiterType::HighPitch),
+                    Some('☺') => Some(CADelimiterType::SmileVoice),
+                    Some('♋') => Some(CADelimiterType::BreathyVoice),
+                    Some('⁇') => Some(CADelimiterType::Unsure),
+                    Some('∬') => Some(CADelimiterType::Whisper),
+                    Some('Ϋ') => Some(CADelimiterType::Yawn),
+                    Some('∮') => Some(CADelimiterType::Singing),
+                    Some('↫') => Some(CADelimiterType::SegmentRepetition),
+                    Some('⁎') => Some(CADelimiterType::Creaky),
+                    Some('◉') => Some(CADelimiterType::Louder),
+                    Some('§') => Some(CADelimiterType::Precise),
+                    _ => None,
+                };
+                if let Some(delim_type) = dt {
+                    items.push(WordContent::CADelimiter(
+                        CADelimiter::new(delim_type).with_span(span),
+                    ));
+                }
+            }
+            "underline_begin" => {
+                items.push(WordContent::UnderlineBegin(WordUnderlineBegin {
+                    span: talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    ),
+                }));
+            }
+            "underline_end" => {
+                items.push(WordContent::UnderlineEnd(WordUnderlineEnd {
+                    span: talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    ),
+                }));
+            }
+            "syllable_pause" => {
+                items.push(WordContent::SyllablePause(WordSyllablePause::new().with_span(
+                    talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
+                )));
+            }
+            "tilde" => {
+                items.push(WordContent::CliticBoundary(WordCliticBoundary::new().with_span(
+                    talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
+                )));
+            }
+            _ => {
+                // Skip whitespace and unknown children
+            }
+        }
+    }
+}
+
+/// Build a `WordLanguageMarker` from a `word_lang_suffix` token text.
+///
+/// The token is a single `token.immediate` matching `@s(?::[a-z]{2,3}(?:[+&][a-z]{2,3})*)?`.
+/// Examples: `@s`, `@s:eng`, `@s:eng+zho+fra`, `@s:eng&zho&fra`.
+fn build_lang_marker(
+    node: Node,
+    source: &str,
+    errors: &impl ErrorSink,
+) -> WordLanguageMarker {
+    let text = extract_utf8_text(node, source, errors, "word_lang_suffix", "");
+
+    // Strip the @s prefix
+    let after_at_s = text.strip_prefix("@s").unwrap_or("");
+
+    // No colon → bare @s shortcut
+    let Some(codes_str) = after_at_s.strip_prefix(':') else {
+        return WordLanguageMarker::Shortcut;
+    };
+
+    // Check for & separator (ambiguous) vs + separator (multiple)
+    if codes_str.contains('&') {
+        let codes: Vec<LanguageCode> = codes_str
+            .split('&')
+            .map(LanguageCode::new)
+            .collect();
+        WordLanguageMarker::Ambiguous(codes)
+    } else if codes_str.contains('+') {
+        let codes: Vec<LanguageCode> = codes_str
+            .split('+')
+            .map(LanguageCode::new)
+            .collect();
+        WordLanguageMarker::Multiple(codes)
+    } else {
+        // Single code
+        WordLanguageMarker::Explicit(LanguageCode::new(codes_str))
+    }
 }

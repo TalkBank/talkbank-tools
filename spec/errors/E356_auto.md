@@ -8,12 +8,13 @@ stressed syllables) must occur in matched begin/end pairs within a single
 utterance.
 
 ## Metadata
+- **Status**: not_implemented
+- **Layer**: validation
 
 - **Error Code**: E356
 - **Category**: underline\_balance
 - **Level**: utterance
 - **Layer**: validation
-- **Status**: implemented
 
 ## Example 1
 

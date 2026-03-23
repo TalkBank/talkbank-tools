@@ -5,12 +5,12 @@
 Missing required node
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E302
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: parser
-- **Status**: implemented
 
 ## Example 1
 

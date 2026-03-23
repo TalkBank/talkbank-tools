@@ -20,7 +20,7 @@ fn test_e522_missing_id_for_participant() -> Result<(), TestError> {
     // @ID:\teng|corpus|MOT|||||Mother|||\n                (80-115, 35 bytes)
     // ...
 
-    // Test validation (TreeSitterParser only - DirectParser doesn't do validation yet)
+    // Test validation (TreeSitterParser only - TreeSitterParser doesn't do validation yet)
     for parser in validation_parser_suite()? {
         let result = parser.parse_chat_file_result(&content);
 

@@ -5,6 +5,7 @@
 Missing required element
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E342
 - **Category**: Word validation
