@@ -129,6 +129,15 @@ fn test_types_simple() -> Result<(), talkbank_parser_tests::test_error::TestErro
 
 #[test]
 /// Tests expected behavior.
+fn test_colon_separator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello : world .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_fused_terminator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\ttrying to+...\n@End")?;
@@ -177,6 +186,15 @@ fn test_overlap_points() -> Result<(), talkbank_parser_tests::test_error::TestEr
 fn test_overlap_with_action() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t⌈ 0 &=laughter⌉ .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_overlap_standalone() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t⌈ hello ⌉ .\n@End")?;
 
     Ok(())
 }
@@ -732,6 +750,15 @@ fn test_sin_example_1() -> Result<(), talkbank_parser_tests::test_error::TestErr
 
 #[test]
 /// Tests expected behavior.
+fn test_sin_zero_marker() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello .\n%sin:\t0\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_sit_example_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\tI did it .\n%sit:\tchild stacking blocks\n@End")?;
@@ -867,6 +894,24 @@ fn test_boomboomboomboom_6() -> Result<(), talkbank_parser_tests::test_error::Te
 
 #[test]
 /// Tests expected behavior.
+fn test_ca_delimiter_in_word_lint() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t°soft° .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_ca_element_in_word_lint() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\the↑llo .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_capitalized_compound_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\tFoo+Bar .\n@End")?;
@@ -957,6 +1002,24 @@ fn test_lengthening() -> Result<(), talkbank_parser_tests::test_error::TestError
 
 #[test]
 /// Tests expected behavior.
+fn test_lengthening_between_segments() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\ta:b .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_overlap_digit_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t⌊1hello .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_overlap_enclosed() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t⌈is⌉ .\n@End")?;
@@ -966,9 +1029,36 @@ fn test_overlap_enclosed() -> Result<(), talkbank_parser_tests::test_error::Test
 
 #[test]
 /// Tests expected behavior.
+fn test_overlap_in_word_lint() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\tbutt⌈er⌉ .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_pianissimo() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t°°hello°° .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_shortening() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t(be)cause .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_stacked_ca_markers() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t°↑hello° .\n@End")?;
 
     Ok(())
 }

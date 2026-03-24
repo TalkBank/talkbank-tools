@@ -10,7 +10,7 @@
 //! ```
 
 use talkbank_model::ErrorCollector;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
@@ -72,7 +72,7 @@ fn golden_mor_tiers_are_valid_for_tree_sitter() -> Result<(), TestError> {
         &parser,
         &tiers,
         "%mor",
-        TreeSitterParser::parse_mor_tier,
+        TreeSitterParser::parse_mor_tier_fragment,
         "cargo run --release -p talkbank-parser-tests --bin generate_golden_mor_tiers",
     )
 }
@@ -87,7 +87,7 @@ fn golden_gra_tiers_are_valid_for_tree_sitter() -> Result<(), TestError> {
         &parser,
         &tiers,
         "%gra",
-        TreeSitterParser::parse_gra_tier,
+        TreeSitterParser::parse_gra_tier_fragment,
         "cargo run --release -p talkbank-parser-tests --bin generate_golden_gra_tiers",
     )
 }
@@ -102,7 +102,7 @@ fn golden_pho_tiers_are_valid_for_tree_sitter() -> Result<(), TestError> {
         &parser,
         &tiers,
         "%pho",
-        TreeSitterParser::parse_pho_tier,
+        TreeSitterParser::parse_pho_tier_fragment,
         "cargo run --release -p talkbank-parser-tests --bin generate_golden_pho_tiers",
     )
 }

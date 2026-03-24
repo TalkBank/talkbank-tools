@@ -1,7 +1,7 @@
 # Rearchitecture Backlog
 
-**Status:** Current
-**Last updated:** 2026-03-21
+**Status:** Historical
+**Last updated:** 2026-03-23 23:49 EDT
 
 This page records future work surfaced during architecture review, code
 cleanup, and refactors. It is intentionally narrower than a general TODO list:
@@ -83,66 +83,21 @@ Potential directions:
 - reconsider whether the current `Provenance<M, T>` name matches its real role
   as semantic boundary tagging rather than true runtime provenance
 
-### 7. Retire legacy synthetic tree-sitter fragment APIs
+### 7. ~~Retire legacy synthetic tree-sitter fragment APIs~~ (Completed/Obsolete)
 
-The public tree-sitter fragment helpers in `talkbank-parser` were useful while
-the direct parser was being bootstrapped, but they now hide synthetic-file
-parsing behind names that sound like true fragment parsers.
+The direct parser (Chumsky) has been removed. Tree-sitter is the sole parser.
+The synthetic fragment APIs and direct-parser bootstrap infrastructure that
+motivated this item no longer exist. No further action needed.
 
-Potential directions:
+### 8. ~~Rebuild direct-parser testing around direct semantics~~ (Completed/Obsolete)
 
-- done in this tranche: make `spec/runtime-tools` the home for
-  bootstrap/mining/runtime-validation tooling instead of keeping those paths in
-  `spec/tools`
-- done in this tranche: switch the pre-merge fragment gate to
-  direct-parser-native recovery tests and demote tree-sitter word-fragment
-  parity to a legacy audit target
-- done in this tranche: move runtime word-description generation and the
-  component roundtrip tests for words/utterances onto `DirectParser`
-- done in this tranche: remove `parse_word()`, `parse_main_tier()`, and
-  `parse_utterance()` from the `talkbank_parser` crate root and force the
-  remaining synthetic helpers under the explicit
-  `talkbank_parser::synthetic_fragments` namespace
-- stop using fake tree-sitter fragment behavior as the oracle for direct-parser
-  fragment tests
-- keep any remaining synthetic wrappers clearly internal and explicitly named
-  as synthetic/test-only helpers
+The direct parser (Chumsky) has been removed. Tree-sitter is the sole parser.
+All direct-parser-specific testing concerns (fragment semantics, recovery
+suites, parity gates) are obsolete. No further action needed.
 
-### 8. Rebuild direct-parser testing around direct semantics
+### 9. ~~Replace the bootstrap-era spec/generation architecture~~ (Completed/Obsolete)
 
-The direct parser is no longer just a strict fragment parser. It has selective
-lenient/recovery behavior, which means the old bootstrap-era strategy of
-"compare fragments to tree-sitter" is not strong enough.
-
-Potential directions:
-
-- done in this tranche: establish `make test-fragment-semantics` as the real
-  fragment-semantic gate and `make test-legacy-fragment-parity` as an explicit
-  migration audit
-- split full-file equivalence from fragment-semantic testing instead of mixing
-  them under one notion of "parser parity"
-- replace `golden_unit_tests.rs` as the primary fragment oracle with spec-led
-  fixtures and direct invariants
-- add focused recovery suites for dropped tiers, retained valid siblings,
-  parse-health taint propagation, and diagnostic monotonicity
-- add property tests and mutation/fuzz-style checks for idempotence,
-  serialization stability, and "leniency without silent fabrication"
-
-### 9. Replace the bootstrap-era spec/generation architecture
-
-The current spec and generation system still assumes too much of the old direct-
-parser bootstrap story. That creates unnecessary circular dependencies,
-generation sprawl, and misleading authority boundaries.
-
-Potential directions:
-
-- done in this tranche: split `spec/runtime-tools` out of `spec/tools` so the
-  core generator crate no longer owns bootstrap-era parser/model coupling
-- keep fragment specs, but stop treating synthetic tree-sitter wrapper behavior
-  as fragment-semantic truth
-- separate grammar corpus generation, direct-parser semantic tests, full-file
-  parity tests, and validation/error specs into distinct tracks
-- narrow `spec/tools` to true artifact generation and spec validation instead
-  of letting it own bootstrap-era parser/model coupling
-- replace giant regeneration rituals with smaller affected workflows that match
-  the actual type of change
+The direct parser (Chumsky) has been removed. The bootstrap-era dual-parser
+architecture that created circular dependencies and generation sprawl no longer
+exists. The spec/generation system now targets tree-sitter only. The split of
+`spec/runtime-tools` from `spec/tools` was completed. No further action needed.

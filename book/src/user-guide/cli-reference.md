@@ -1,5 +1,8 @@
 # CLI Reference
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
 The following diagram shows the command dispatch structure. Each
@@ -64,7 +67,6 @@ Important options:
 - `--format text|json` for human-readable or structured output
 - `--skip-alignment` to disable dependent-tier alignment checks
 - `--force` to ignore cached clean results and revalidate
-- `--parser tree-sitter|direct` to choose the parser backend
 - `--audit OUTPUT.jsonl` to stream bulk-validation results without caching new errors
 
 ## `normalize`

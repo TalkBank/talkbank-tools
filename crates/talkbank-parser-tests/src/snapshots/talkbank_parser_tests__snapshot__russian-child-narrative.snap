@@ -3,663 +3,663 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "rus"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "rus"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "EX1",
             "name": null,
-            "role": "Investigator",
-            "speaker_code": "EX1"
+            "role": "Investigator"
           },
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "ZAS",
+        "type": "id",
         "language": [
           "rus"
         ],
-        "role": "Investigator",
+        "corpus": "ZAS",
         "speaker": "EX1",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Investigator"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "4;07.03",
-        "corpus": "ZAS",
+        "type": "id",
         "language": [
           "rus"
         ],
-        "role": "Target_Child",
-        "sex": "male",
+        "corpus": "ZAS",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "4;07.03",
+        "sex": "male",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "media",
         "filename": "russian-child-narrative",
-        "media_type": "audio",
-        "type": "media"
-      },
-      "line_type": "header"
+        "media_type": "audio"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "date": "08-APR-2008",
-        "type": "date"
-      },
-      "line_type": "header"
+        "type": "date",
+        "date": "08-APR-2008"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Russian child narrative with audio, %mor, %gra, %wor tiers",
-              "type": "text"
+              "type": "text",
+              "text": "Russian child narrative with audio, %mor, %gra, %wor tiers"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: audio-linked Cyrillic file with word-level timing",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: audio-linked Cyrillic file with word-level timing"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "EX1",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "вот",
+              "cleaned_text": "вот",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "вот"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "история",
+              "cleaned_text": "история",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "история"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "здесь",
+              "cleaned_text": "здесь",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "здесь"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "начинается",
+              "cleaned_text": "начинается",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "начинается"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          },
+          "bullet": {
+            "start_ms": 460,
+            "end_ms": 2868
+          }
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "вот",
-                  "pos": "part"
+                  "pos": "part",
+                  "lemma": "вот"
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "история",
                   "features": [
                     "Fem",
                     "Nom"
-                  ],
-                  "lemma": "история",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "здесь",
-                  "pos": "adv"
+                  "pos": "adv",
+                  "lemma": "здесь"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "начинаться",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ],
-                  "lemma": "начинаться",
-                  "pos": "verb"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "ADVMOD"
               },
               {
-                "head": 4,
                 "index": 2,
+                "head": 4,
                 "relation": "NSUBJ"
               },
               {
-                "head": 4,
                 "index": 3,
+                "head": 4,
                 "relation": "ADVMOD"
               },
               {
-                "head": 0,
                 "index": 4,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 4,
                 "index": 5,
+                "head": 4,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         },
         {
+          "type": "Wor",
           "data": {
-            "bullet": null,
+            "language_code": null,
             "items": [
               {
+                "kind": "word",
+                "raw_text": "вот",
                 "cleaned_text": "вот",
                 "content": [
                   {
-                    "content": "вот",
-                    "type": "text"
+                    "type": "text",
+                    "content": "вот"
                   }
-                ],
-                "kind": "word",
-                "raw_text": "вот"
+                ]
               },
               {
+                "kind": "word",
+                "raw_text": "история",
                 "cleaned_text": "история",
                 "content": [
                   {
-                    "content": "история",
-                    "type": "text"
+                    "type": "text",
+                    "content": "история"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 580,
-                  "start_ms": 460
-                },
-                "kind": "word",
-                "raw_text": "история"
+                  "start_ms": 460,
+                  "end_ms": 580
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "здесь",
                 "cleaned_text": "здесь",
                 "content": [
                   {
-                    "content": "здесь",
-                    "type": "text"
+                    "type": "text",
+                    "content": "здесь"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 660,
-                  "start_ms": 580
-                },
-                "kind": "word",
-                "raw_text": "здесь"
+                  "start_ms": 580,
+                  "end_ms": 660
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "начинается",
                 "cleaned_text": "начинается",
                 "content": [
                   {
-                    "content": "начинается",
-                    "type": "text"
+                    "type": "text",
+                    "content": "начинается"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 2868,
-                  "start_ms": 660
-                },
-                "kind": "word",
-                "raw_text": "начинается"
+                  "start_ms": 660,
+                  "end_ms": 2868
+                }
               }
             ],
-            "language_code": null,
             "terminator": {
               "type": "period"
-            }
-          },
-          "type": "Wor"
+            },
+            "bullet": null
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "EX1",
         "content": {
-          "bullet": {
-            "end_ms": 2868,
-            "start_ms": 460
-          },
           "content": [
             {
-              "cleaned_text": "вот",
+              "type": "word",
+              "raw_text": "что",
+              "cleaned_text": "что",
               "content": [
                 {
-                  "content": "вот",
-                  "type": "text"
+                  "type": "text",
+                  "content": "что"
                 }
-              ],
-              "raw_text": "вот",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "история",
+              "type": "word",
+              "raw_text": "можно",
+              "cleaned_text": "можно",
               "content": [
                 {
-                  "content": "история",
-                  "type": "text"
+                  "type": "text",
+                  "content": "можно"
                 }
-              ],
-              "raw_text": "история",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "здесь",
+              "type": "word",
+              "raw_text": "сказать",
+              "cleaned_text": "сказать",
               "content": [
                 {
-                  "content": "здесь",
-                  "type": "text"
+                  "type": "text",
+                  "content": "сказать"
                 }
-              ],
-              "raw_text": "здесь",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "начинается",
+              "type": "word",
+              "raw_text": "про",
+              "cleaned_text": "про",
               "content": [
                 {
-                  "content": "начинается",
-                  "type": "text"
+                  "type": "text",
+                  "content": "про"
                 }
-              ],
-              "raw_text": "начинается",
-              "type": "word"
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "эту",
+              "cleaned_text": "эту",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "эту"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "картинку",
+              "cleaned_text": "картинку",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "картинку"
+                }
+              ]
             }
           ],
           "terminator": {
-            "type": "period"
+            "type": "question"
+          },
+          "bullet": {
+            "start_ms": 2990,
+            "end_ms": 5238
           }
-        },
-        "speaker": "EX1"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "что",
                   "features": [
                     "Int,Rel",
                     "Acc",
                     "S1"
-                  ],
-                  "lemma": "что",
-                  "pos": "pron"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "можно",
-                  "pos": "adv"
+                  "pos": "adv",
+                  "lemma": "можно"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "сказать",
                   "features": [
                     "Inf",
                     "Perf",
                     "S"
-                  ],
-                  "lemma": "сказать",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "про",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "про"
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "этот",
                   "features": [
                     "Fem",
                     "Def",
                     "Dem",
                     "Sing"
-                  ],
-                  "lemma": "этот",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "картинка",
                   "features": [
                     "Fem",
                     "Acc"
-                  ],
-                  "lemma": "картинка",
-                  "pos": "noun"
+                  ]
                 }
               }
             ],
-            "terminator": "?",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "?"
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 3,
                 "index": 1,
+                "head": 3,
                 "relation": "OBJ"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 2,
                 "index": 3,
+                "head": 2,
                 "relation": "CSUBJ"
               },
               {
-                "head": 6,
                 "index": 4,
+                "head": 6,
                 "relation": "CASE"
               },
               {
-                "head": 6,
                 "index": 5,
+                "head": 6,
                 "relation": "DET"
               },
               {
-                "head": 3,
                 "index": 6,
+                "head": 3,
                 "relation": "OBL"
               },
               {
-                "head": 2,
                 "index": 7,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         },
         {
+          "type": "Wor",
           "data": {
-            "bullet": null,
+            "language_code": null,
             "items": [
               {
+                "kind": "word",
+                "raw_text": "что",
                 "cleaned_text": "что",
                 "content": [
                   {
-                    "content": "что",
-                    "type": "text"
+                    "type": "text",
+                    "content": "что"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 3280,
-                  "start_ms": 2990
-                },
-                "kind": "word",
-                "raw_text": "что"
+                  "start_ms": 2990,
+                  "end_ms": 3280
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "можно",
                 "cleaned_text": "можно",
                 "content": [
                   {
-                    "content": "можно",
-                    "type": "text"
+                    "type": "text",
+                    "content": "можно"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 3500,
-                  "start_ms": 3280
-                },
-                "kind": "word",
-                "raw_text": "можно"
+                  "start_ms": 3280,
+                  "end_ms": 3500
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "сказать",
                 "cleaned_text": "сказать",
                 "content": [
                   {
-                    "content": "сказать",
-                    "type": "text"
+                    "type": "text",
+                    "content": "сказать"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 3940,
-                  "start_ms": 3500
-                },
-                "kind": "word",
-                "raw_text": "сказать"
+                  "start_ms": 3500,
+                  "end_ms": 3940
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "про",
                 "cleaned_text": "про",
                 "content": [
                   {
-                    "content": "про",
-                    "type": "text"
+                    "type": "text",
+                    "content": "про"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 4180,
-                  "start_ms": 3940
-                },
-                "kind": "word",
-                "raw_text": "про"
+                  "start_ms": 3940,
+                  "end_ms": 4180
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "эту",
                 "cleaned_text": "эту",
                 "content": [
                   {
-                    "content": "эту",
-                    "type": "text"
+                    "type": "text",
+                    "content": "эту"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 4340,
-                  "start_ms": 4180
-                },
-                "kind": "word",
-                "raw_text": "эту"
+                  "start_ms": 4180,
+                  "end_ms": 4340
+                }
               },
               {
+                "kind": "word",
+                "raw_text": "картинку",
                 "cleaned_text": "картинку",
                 "content": [
                   {
-                    "content": "картинку",
-                    "type": "text"
+                    "type": "text",
+                    "content": "картинку"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 5238,
-                  "start_ms": 4340
-                },
-                "kind": "word",
-                "raw_text": "картинку"
+                  "start_ms": 4340,
+                  "end_ms": 5238
+                }
               }
             ],
-            "language_code": null,
             "terminator": {
               "type": "question"
-            }
-          },
-          "type": "Wor"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "bullet": {
-            "end_ms": 5238,
-            "start_ms": 2990
-          },
-          "content": [
-            {
-              "cleaned_text": "что",
-              "content": [
-                {
-                  "content": "что",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "что",
-              "type": "word"
             },
-            {
-              "cleaned_text": "можно",
-              "content": [
-                {
-                  "content": "можно",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "можно",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "сказать",
-              "content": [
-                {
-                  "content": "сказать",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "сказать",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "про",
-              "content": [
-                {
-                  "content": "про",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "про",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "эту",
-              "content": [
-                {
-                  "content": "эту",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "эту",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "картинку",
-              "content": [
-                {
-                  "content": "картинку",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "картинку",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "question"
+            "bullet": null
           }
-        },
-        "speaker": "EX1"
-      }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
+  "participants": {
+    "EX1": {
+      "code": "EX1",
+      "name": null,
+      "role": "Investigator",
+      "id": {
+        "language": [
+          "rus"
+        ],
+        "corpus": "ZAS",
+        "speaker": "EX1",
+        "role": "Investigator"
+      },
+      "birth_date": null
+    },
+    "CHI": {
+      "code": "CHI",
+      "name": null,
+      "role": "Target_Child",
+      "id": {
+        "language": [
+          "rus"
+        ],
+        "corpus": "ZAS",
+        "speaker": "CHI",
+        "age": "4;07.03",
+        "sex": "male",
+        "role": "Target_Child"
+      },
+      "birth_date": null
+    }
+  },
+  "languages": [
+    "rus"
+  ],
+  "options": [],
   "media": {
     "filename": "russian-child-narrative",
     "media_type": "audio"
-  },
-  "options": [],
-  "participants": {
-    "CHI": {
-      "birth_date": null,
-      "code": "CHI",
-      "id": {
-        "age": "4;07.03",
-        "corpus": "ZAS",
-        "language": [
-          "rus"
-        ],
-        "role": "Target_Child",
-        "sex": "male",
-        "speaker": "CHI"
-      },
-      "name": null,
-      "role": "Target_Child"
-    },
-    "EX1": {
-      "birth_date": null,
-      "code": "EX1",
-      "id": {
-        "corpus": "ZAS",
-        "language": [
-          "rus"
-        ],
-        "role": "Investigator",
-        "speaker": "EX1"
-      },
-      "name": null,
-      "role": "Investigator"
-    }
   }
 }

@@ -22,7 +22,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser::node_types;
@@ -340,7 +339,7 @@ where
 /// Check whether a standalone word fails parser word parsing.
 fn word_fails_parse_word(parser: &TreeSitterParser, word: &str) -> bool {
     let errors = ErrorCollector::new();
-    let result = ChatParser::parse_word(parser, word, 0, &errors);
+    let result = parser.parse_word_fragment(word, 0, &errors);
     result.is_rejected() || !errors.into_vec().is_empty()
 }
 

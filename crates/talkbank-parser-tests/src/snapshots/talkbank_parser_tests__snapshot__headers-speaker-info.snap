@@ -3,350 +3,350 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng",
-    "ara"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng",
           "ara"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Child",
-            "speaker_code": "CHI"
+            "role": "Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           },
           {
+            "speaker_code": "F_A'-T",
             "name": null,
-            "role": "Father",
-            "speaker_code": "F_A'-T"
+            "role": "Father"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "1;08.02",
-        "corpus": "corpus",
-        "group": "normal",
+        "type": "id",
         "language": [
           "eng",
           "ara"
         ],
-        "role": "Child",
-        "sex": "female",
+        "corpus": "corpus",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "corpus": "corpus",
-        "language": [
-          "eng",
-          "ara"
-        ],
-        "role": "Mother",
+        "age": "1;08.02",
         "sex": "female",
-        "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "group": "normal",
+        "role": "Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng",
           "ara"
         ],
-        "role": "Father",
+        "corpus": "corpus",
+        "speaker": "MOT",
+        "sex": "female",
+        "role": "Mother"
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "id",
+        "language": [
+          "eng",
+          "ara"
+        ],
+        "corpus": "corpus",
         "speaker": "F_A'-T",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Father"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "date": "28-JUN-2001",
+        "type": "birth",
         "participant": "CHI",
-        "type": "birth"
-      },
-      "line_type": "header"
+        "date": "28-JUN-2001"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "date": "15-MAR-1975",
+        "type": "birth",
         "participant": "MOT",
-        "type": "birth"
-      },
-      "line_type": "header"
+        "date": "15-MAR-1975"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "birthplace",
         "participant": "MOT",
-        "place": "Taipei, Taiwan",
-        "type": "birthplace"
-      },
-      "line_type": "header"
+        "place": "Taipei, Taiwan"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "language": "ara",
+        "type": "l1_of",
         "participant": "F_A'-T",
-        "type": "l1_of"
-      },
-      "line_type": "header"
+        "language": "ara"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Speaker info headers: @Birth of, @Birthplace of, @L1 of",
-              "type": "text"
+              "type": "text",
+              "text": "Speaker info headers: @Birth of, @Birthplace of, @L1 of"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: birth_of_header, birthplace_of_header, l1_of_header,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: birth_of_header, birthplace_of_header, l1_of_header,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "age_format, multiple @Languages codes, participant with special chars",
-              "type": "text"
+              "type": "text",
+              "text": "age_format, multiple @Languages codes, participant with special chars"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "mama",
               "cleaned_text": "mama",
               "content": [
                 {
-                  "content": "mama",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mama"
                 }
-              ],
-              "raw_text": "mama",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "exclamation"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "what",
               "cleaned_text": "what",
               "content": [
                 {
-                  "content": "what",
-                  "type": "text"
+                  "type": "text",
+                  "content": "what"
                 }
-              ],
-              "raw_text": "what",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "is",
               "cleaned_text": "is",
               "content": [
                 {
-                  "content": "is",
-                  "type": "text"
+                  "type": "text",
+                  "content": "is"
                 }
-              ],
-              "raw_text": "is",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "it",
               "cleaned_text": "it",
               "content": [
                 {
-                  "content": "it",
-                  "type": "text"
+                  "type": "text",
+                  "content": "it"
                 }
-              ],
-              "raw_text": "it",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "F_A'-T",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "she",
               "cleaned_text": "she",
               "content": [
                 {
-                  "content": "she",
-                  "type": "text"
+                  "type": "text",
+                  "content": "she"
                 }
-              ],
-              "raw_text": "she",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "wants",
               "cleaned_text": "wants",
               "content": [
                 {
-                  "content": "wants",
-                  "type": "text"
+                  "type": "text",
+                  "content": "wants"
                 }
-              ],
-              "raw_text": "wants",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "her",
               "cleaned_text": "her",
               "content": [
                 {
-                  "content": "her",
-                  "type": "text"
+                  "type": "text",
+                  "content": "her"
                 }
-              ],
-              "raw_text": "her",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "toy",
               "cleaned_text": "toy",
               "content": [
                 {
-                  "content": "toy",
-                  "type": "text"
+                  "type": "text",
+                  "content": "toy"
                 }
-              ],
-              "raw_text": "toy",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "F_A'-T"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": "28-JUN-2001",
       "code": "CHI",
+      "name": null,
+      "role": "Child",
       "id": {
+        "language": [
+          "eng",
+          "ara"
+        ],
+        "corpus": "corpus",
+        "speaker": "CHI",
         "age": "1;08.02",
-        "corpus": "corpus",
-        "group": "normal",
-        "language": [
-          "eng",
-          "ara"
-        ],
-        "role": "Child",
         "sex": "female",
-        "speaker": "CHI"
+        "group": "normal",
+        "role": "Child"
       },
-      "name": null,
-      "role": "Child"
-    },
-    "F_A'-T": {
-      "birth_date": null,
-      "code": "F_A'-T",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng",
-          "ara"
-        ],
-        "role": "Father",
-        "speaker": "F_A'-T"
-      },
-      "name": null,
-      "role": "Father"
+      "birth_date": "28-JUN-2001"
     },
     "MOT": {
-      "birth_date": "15-MAR-1975",
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "corpus",
         "language": [
           "eng",
           "ara"
         ],
-        "role": "Mother",
+        "corpus": "corpus",
+        "speaker": "MOT",
         "sex": "female",
-        "speaker": "MOT"
+        "role": "Mother"
       },
+      "birth_date": "15-MAR-1975"
+    },
+    "F_A'-T": {
+      "code": "F_A'-T",
       "name": null,
-      "role": "Mother"
+      "role": "Father",
+      "id": {
+        "language": [
+          "eng",
+          "ara"
+        ],
+        "corpus": "corpus",
+        "speaker": "F_A'-T",
+        "role": "Father"
+      },
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "eng",
+    "ara"
+  ],
+  "options": []
 }

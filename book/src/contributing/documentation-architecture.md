@@ -1,5 +1,8 @@
 # Documentation Architecture
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Principle: Centralized Book + Subsystem Satellites
 
 All prose documentation lives in **mdBook** (`book/`). The `docs/` directory contains

@@ -44,14 +44,6 @@ regenerate the affected outputs:
 make test-gen
 ```
 
-If your change is primarily about direct-parser fragment semantics or recovery,
-do not assume `make test-gen` is sufficient. Add direct-parser-native tests for
-that behavior.
-
-See [book/src/architecture/post-bootstrap-parser-testing.md](book/src/architecture/post-bootstrap-parser-testing.md)
-for the current testing model and the post-bootstrap split between grammar,
-direct-parser semantics, parity, and error specs.
-
 ## Before Opening a PR
 Run at minimum:
 ```bash

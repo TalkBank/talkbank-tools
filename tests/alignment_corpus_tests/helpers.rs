@@ -15,8 +15,6 @@ use talkbank_parser::{ParserInitError, TreeSitterParser};
 pub enum TestError {
     #[error("Failed to create TreeSitterParser: {source}")]
     TreeSitterInit { source: ParserInitError },
-    #[error("Failed to create TreeSitterParser: {message}")]
-    ParserInit { message: ParserInitMessage },
     #[error("Parse failed for {parser}")]
     ParseErrors {
         parser: &'static str,
@@ -36,26 +34,17 @@ pub enum TestError {
     MissingFileName { path: String },
 }
 
-/// Type representing ParserInitMessage.
-#[derive(Debug, thiserror::Error)]
-#[error("{0}")]
-pub struct ParserInitMessage(String);
-
 impl ParserImpl {
     /// Parses chat file result.
     pub fn parse_chat_file_result(&self, content: &str) -> Result<ChatFile, TestError> {
-        let result = match self {
-            ParserImpl::TreeSitter(p) => p.parse_chat_file(content),
-            ParserImpl::Direct(p) => p.parse_chat_file(content),
-        };
-        result.map_err(|errors| TestError::ParseErrors {
+        self.0.parse_chat_file(content).map_err(|errors| TestError::ParseErrors {
             parser: self.name(),
             errors,
         })
     }
 }
 
-/// Returns both parser implementations for testing
+/// Returns parser implementations for testing.
 pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
     shared_parser_suite().map_err(map_parser_suite_error)
 }
@@ -63,9 +52,6 @@ pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
 fn map_parser_suite_error(error: ParserSuiteError) -> TestError {
     match error {
         ParserSuiteError::TreeSitterInit { source } => TestError::TreeSitterInit { source },
-        ParserSuiteError::ParserInit { message } => TestError::ParserInit {
-            message: ParserInitMessage(message),
-        },
     }
 }
 

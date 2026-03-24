@@ -149,7 +149,7 @@ impl PhoTier {
     /// Write tier content only (items), without the tier prefix (%pho:\t).
     ///
     /// This is used for roundtrip testing against golden data that contains
-    /// content-only, and for the ChatParser API which expects content-only input.
+    /// content-only, and for the TreeSitterParser API which expects content-only input.
     pub fn write_content<W: FmtWrite>(&self, w: &mut W) -> std::fmt::Result {
         for (i, item) in self.items.iter().enumerate() {
             if i > 0 {

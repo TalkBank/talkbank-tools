@@ -1,5 +1,8 @@
 # Coding Standards
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Rust Conventions
 
 - **Edition**: 2024

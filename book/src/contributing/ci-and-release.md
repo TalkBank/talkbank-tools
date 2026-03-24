@@ -1,5 +1,8 @@
 # CI and Release
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Pre-Merge Verification
 
 Every change must pass `make verify` before merging. This runs gates G0 through G10:

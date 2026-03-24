@@ -1,10 +1,13 @@
 # Reference Corpus Overhaul (2026-02-27)
 
+**Status:** Reference
+**Last updated:** 2026-03-23 23:49 EDT
+
 ## Motivation
 
 The reference corpus (`corpus/reference/`) is the 100%-pass quality gate for all
-parser/grammar changes. Both parsers (tree-sitter and chumsky direct parser) must
-agree on every file. Before this overhaul, the corpus had three problems:
+parser/grammar changes. The parser must handle every file at 100%.
+Before this overhaul, the corpus had three problems:
 
 1. **Language monoculture**: 345 files, all English. We have 100K+ real files
    across 42 languages in the corpus data directory but the gate only tested English.
@@ -197,9 +200,10 @@ corpus/reference/           374 files total
   error recovery is robust and routes most malformed input through generic paths
   (E316) rather than the specific recovery codes. These remain as documented
   stubs.
-- **Direct parser vs unsupported.cha**: The chumsky direct parser cannot handle
-  `unsupported_line` nodes (fails on `constructs/unsupported.cha`). This is a
-  known limitation — the direct parser still does not support the full grammar.
+- **Direct parser vs unsupported.cha** *(historical — direct parser has been removed)*:
+  The former Chumsky direct parser could not handle `unsupported_line` nodes
+  (failed on `constructs/unsupported.cha`). This is no longer relevant since
+  tree-sitter is now the sole parser.
 
 ## Known Remaining Gaps
 
@@ -208,8 +212,9 @@ corpus/reference/           374 files total
    legitimate — the codes either have no emission path or are reserved.
 2. **No audio files**: Phase 3.3 (audio subset with %wor tiers) was deferred.
    Adding ~10 short audio clips would test the alignment pipeline end-to-end.
-3. **Direct parser roundtrip**: 373/374 pass (unsupported.cha fails). Acceptable
-   for now because unsupported-line coverage is still incomplete.
+3. **Direct parser roundtrip** *(historical — direct parser has been removed)*:
+   373/374 passed under the former Chumsky direct parser (unsupported.cha failed).
+   No longer relevant since tree-sitter is now the sole parser.
 4. **5 parser recovery specs not_implemented**: E319–E322, E376. Examples don't
    trigger the intended codes due to tree-sitter's error recovery routing.
 

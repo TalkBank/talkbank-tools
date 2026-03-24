@@ -1,5 +1,8 @@
 # Wide Struct Audit
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 This page records the struct-shape rule used in `talkbank-tools`.
 
 A struct with many fields is not automatically wrong. The smell is:

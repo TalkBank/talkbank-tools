@@ -1,11 +1,10 @@
 //! Recovery corpus integration tests.
 //!
-//! Tests that BOTH parsers (tree-sitter and direct) recover from errors
-//! in composite files with multiple error types, keeping valid utterances
-//! intact and properly reporting errors for broken ones.
+//! Tests that the tree-sitter parser recovers from errors in composite
+//! files with multiple error types, keeping valid utterances intact and
+//! properly reporting errors for broken ones.
 
 use std::path::PathBuf;
-use talkbank_model::ChatParser;
 use talkbank_model::model::ParseHealthState;
 use talkbank_model::{ErrorCode, ErrorCollector};
 
@@ -14,68 +13,45 @@ fn recovery_corpus_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/recovery_corpus")
 }
 
-/// Builds parsers for downstream use.
-fn create_parsers() -> (
-    talkbank_parser::TreeSitterParser,
-    talkbank_parser::TreeSitterParser,
-) {
-    let ts = talkbank_parser::TreeSitterParser::new().expect("tree-sitter parser");
-    let dp = talkbank_parser::TreeSitterParser::new().expect("direct parser");
-    (ts, dp)
+/// Create a parser for testing.
+fn create_parser() -> talkbank_parser::TreeSitterParser {
+    talkbank_parser::TreeSitterParser::new().expect("tree-sitter parser")
 }
 
-/// Parse a file with both parsers and assert basic recovery properties.
-fn assert_both_parsers_produce_file(content: &str, expected_utterances: usize, test_name: &str) {
-    let (ts, dp) = create_parsers();
+/// Parse a file and assert basic recovery properties.
+fn assert_parser_produces_file(content: &str, expected_utterances: usize, test_name: &str) {
+    let parser = create_parser();
 
-    // Tree-sitter parser
-    let ts_errors = ErrorCollector::new();
-    let ts_result = ChatParser::parse_chat_file(&ts, content, 0, &ts_errors);
-    let ts_file = ts_result
+    let errors = ErrorCollector::new();
+    let result = parser.parse_chat_file_fragment(content, 0, &errors);
+    let file = result
         .into_option()
         .unwrap_or_else(|| panic!("[{}] tree-sitter should produce a ChatFile", test_name));
-    let ts_utterance_count = ts_file
+    let utterance_count = file
         .lines
         .iter()
         .filter(|l| matches!(l, talkbank_model::model::Line::Utterance(_)))
         .count();
     assert_eq!(
-        ts_utterance_count, expected_utterances,
+        utterance_count, expected_utterances,
         "[{}] tree-sitter: expected {} utterances, got {}",
-        test_name, expected_utterances, ts_utterance_count
-    );
-
-    // Direct parser
-    let dp_errors = ErrorCollector::new();
-    let dp_result = ChatParser::parse_chat_file(&dp, content, 0, &dp_errors);
-    let dp_file = dp_result
-        .into_option()
-        .unwrap_or_else(|| panic!("[{}] direct parser should produce a ChatFile", test_name));
-    let dp_utterance_count = dp_file
-        .lines
-        .iter()
-        .filter(|l| matches!(l, talkbank_model::model::Line::Utterance(_)))
-        .count();
-    assert_eq!(
-        dp_utterance_count, expected_utterances,
-        "[{}] direct parser: expected {} utterances, got {}",
-        test_name, expected_utterances, dp_utterance_count
+        test_name, expected_utterances, utterance_count
     );
 }
 
-/// Parse a file with the direct parser and return the ChatFile + errors.
-fn parse_with_direct(
+/// Parse a file and return the ChatFile + errors.
+fn parse_file(
     content: &str,
 ) -> (
     talkbank_model::model::ChatFile,
     Vec<talkbank_model::ParseError>,
 ) {
-    let dp = talkbank_parser::TreeSitterParser::new().expect("direct parser");
+    let parser = create_parser();
     let errors = ErrorCollector::new();
-    let result = ChatParser::parse_chat_file(&dp, content, 0, &errors);
+    let result = parser.parse_chat_file_fragment(content, 0, &errors);
     let file = result
         .into_option()
-        .expect("direct parser should produce a ChatFile");
+        .expect("tree-sitter parser should produce a ChatFile");
     (file, errors.into_vec())
 }
 
@@ -96,20 +72,20 @@ fn get_utterances(
 // Tests
 // =============================================================================
 
-/// Runs multi tier errors both parsers recover.
+/// Runs multi tier errors parser recovers.
 #[test]
-fn multi_tier_errors_both_parsers_recover() {
+fn multi_tier_errors_parser_recovers() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("multi-tier-errors.cha"))
         .expect("read file");
-    assert_both_parsers_produce_file(&content, 5, "multi-tier-errors");
+    assert_parser_produces_file(&content, 5, "multi-tier-errors");
 }
 
-/// Runs multi tier errors direct parser taint.
+/// Runs multi tier errors parser taint.
 #[test]
-fn multi_tier_errors_direct_parser_taint() {
+fn multi_tier_errors_parser_taint() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("multi-tier-errors.cha"))
         .expect("read file");
-    let (file, errors) = parse_with_direct(&content);
+    let (file, errors) = parse_file(&content);
     let utterances = get_utterances(&file);
     assert_eq!(utterances.len(), 5);
 
@@ -158,20 +134,20 @@ fn multi_tier_errors_direct_parser_taint() {
     );
 }
 
-/// Runs all tiers partial both parsers recover.
+/// Runs all tiers partial parser recovers.
 #[test]
-fn all_tiers_partial_both_parsers_recover() {
+fn all_tiers_partial_parser_recovers() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("all-tiers-partial.cha"))
         .expect("read file");
-    assert_both_parsers_produce_file(&content, 1, "all-tiers-partial");
+    assert_parser_produces_file(&content, 1, "all-tiers-partial");
 }
 
-/// Runs all tiers partial direct parser recovery details.
+/// Runs all tiers partial parser recovery details.
 #[test]
-fn all_tiers_partial_direct_parser_recovery_details() {
+fn all_tiers_partial_parser_recovery_details() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("all-tiers-partial.cha"))
         .expect("read file");
-    let (file, errors) = parse_with_direct(&content);
+    let (file, errors) = parse_file(&content);
     let utterances = get_utterances(&file);
     assert_eq!(utterances.len(), 1);
 
@@ -213,20 +189,20 @@ fn all_tiers_partial_direct_parser_recovery_details() {
     );
 }
 
-/// Runs dependent tier mixed both parsers recover.
+/// Runs dependent tier mixed parser recovers.
 #[test]
-fn dependent_tier_mixed_both_parsers_recover() {
+fn dependent_tier_mixed_parser_recovers() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("dependent-tier-mixed.cha"))
         .expect("read file");
-    assert_both_parsers_produce_file(&content, 3, "dependent-tier-mixed");
+    assert_parser_produces_file(&content, 3, "dependent-tier-mixed");
 }
 
-/// Runs dependent tier mixed clean utterances intact.
+/// Runs dependent tier mixed: clean utterances intact.
 #[test]
 fn dependent_tier_mixed_clean_utterances_intact() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("dependent-tier-mixed.cha"))
         .expect("read file");
-    let (file, _errors) = parse_with_direct(&content);
+    let (file, _errors) = parse_file(&content);
     let utterances = get_utterances(&file);
 
     // Utt 0 (CHI: hello) — fully clean with %mor and %gra
@@ -246,20 +222,20 @@ fn dependent_tier_mixed_clean_utterances_intact() {
     assert!(utterances[2].gra_tier().is_some(), "utt2 should have %gra");
 }
 
-/// Runs cascading recovery both parsers recover.
+/// Runs cascading recovery parser recovers.
 #[test]
-fn cascading_recovery_both_parsers_recover() {
+fn cascading_recovery_parser_recovers() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("cascading-recovery.cha"))
         .expect("read file");
-    assert_both_parsers_produce_file(&content, 6, "cascading-recovery");
+    assert_parser_produces_file(&content, 6, "cascading-recovery");
 }
 
-/// Runs cascading recovery direct parser details.
+/// Runs cascading recovery parser details.
 #[test]
-fn cascading_recovery_direct_parser_details() {
+fn cascading_recovery_parser_details() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("cascading-recovery.cha"))
         .expect("read file");
-    let (file, errors) = parse_with_direct(&content);
+    let (file, errors) = parse_file(&content);
     let utterances = get_utterances(&file);
     assert_eq!(utterances.len(), 6);
 
@@ -312,12 +288,12 @@ fn cascading_recovery_direct_parser_details() {
     assert!(gra_errors > 0, "expected GraParseError");
 }
 
-/// Runs degraded main tier direct parser recovery.
+/// Runs degraded main tier parser recovery.
 #[test]
-fn degraded_main_tier_direct_parser_recovery() {
+fn degraded_main_tier_parser_recovery() {
     let content = std::fs::read_to_string(recovery_corpus_dir().join("degraded-main-tier.cha"))
         .expect("read file");
-    let (file, errors) = parse_with_direct(&content);
+    let (file, errors) = parse_file(&content);
     let utterances = get_utterances(&file);
 
     // Direct parser should recover 3 utterances:

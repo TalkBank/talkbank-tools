@@ -1,7 +1,7 @@
 # Grammar Precedence Decisions
 
 **Status:** Current
-**Last updated:** 2026-03-23 15:25 EDT
+**Last updated:** 2026-03-24 07:45 EDT
 
 This document records non-obvious grammar design decisions, particularly
 around tree-sitter precedence and disambiguation. These decisions were
@@ -221,4 +221,66 @@ becomes `standalone_word(zero, word_body)` or `nonword(zero)`.
 | `hello : world` | `separator(colon)` | `:` can't start word_body |
 | `ˈhello` | `stress_marker + word_segment` | stress_marker can start body |
 | `(be)cause` | `shortening + word_segment` | shortening can start body |
+| `°↑ho:v°` | `ca_delimiter + ca_element + word_segment + lengthening + word_segment + ca_delimiter` | marker-initial path; `:` is lengthening inside word |
 | `*CHI:` | speaker `colon` | different grammar path entirely |
+
+### Lint Investigation (2026-03-24)
+
+The static grammar linter correctly reports that `lengthening` (prec 5,
+`:{1,}`) shadows `colon` (prec 0, `:`) at the DFA level. The corpus
+analysis confirmed 414,244 `:` tokens classified as `lengthening` in
+`word_body`.
+
+**Conclusion: behaviorally benign.** All 414,244 are correct — they are
+real prosodic lengthening inside words (`ho:v`, `he:em`, `stja:l`, etc.).
+The shadow cannot cause incorrect behavior because:
+
+1. `lengthening` can never start a `word_body` (required first element is
+   `word_segment`, `shortening`, `stress_marker`, or structural marker)
+2. Standalone `:` fails `word_body` → falls through to `separator(colon)`
+3. The ERROR nodes in the corpus report were from the stacked CA marker
+   bug (now fixed), not from colon misclassification
+
+The DFA shadow is real but harmless — the parser-level rules filter it.
+
+## Full Linter Investigation Summary (2026-03-24)
+
+Static grammar lint (`tree-sitter-grammar-utils lint`) reported 34
+high-severity findings. Corpus analysis (`corpus-analyze`) on 99,907
+files confirmed empirical impact. Investigation results:
+
+### Token Shadows (6 warnings)
+
+| Finding | Verdict | Reason |
+|---------|---------|--------|
+| `lengthening` shadows `colon` | **Benign** | Parser-level rules filter; 414K correct lengthening in corpus, 0 misclassified colons |
+| `zero` shadows `sin_word`/`speaker` | **Benign** | No speaker `0` or %sin word `0` in 99,907-file corpus |
+| `ethnicity_value`/`ses_code_value` shadow `generic_id_ses` | **Intentional** | Strict+catch-all pattern by design |
+| `x_dependent_tier` shadows `unsupported_dependent_tier` | **Intentional** | Strict+catch-all pattern by design |
+
+### Degenerate Rules (5 warnings)
+
+| Finding | Verdict | Reason |
+|---------|---------|--------|
+| `contents` matches bare `overlap_point` | **Acceptable** | CA transcription can have `⌈` as sole content; structural overlap marking |
+| `free_text` matches bare `continuation` | **Benign** | No real-data occurrences |
+| `header_gap` matches bare space/tab | **Correct** | A header gap IS just whitespace |
+| `text_with_bullets` / `text_with_bullets_and_pics` | **Benign** | No real-data occurrences of bare continuation |
+
+### Precedence Non-Propagation (23 warnings)
+
+| Finding | Verdict | Reason |
+|---------|---------|--------|
+| `standalone_word`(prec 6) → `word_body` (21) | **Harmless** | prec(6) is for rule-level zero disambiguation only; word_body children use token(prec(10)) for DFA disambiguation; GLR conflicts declared in `conflicts` array |
+| `nonword`(prec 1) → `event` (2) | **Harmless** | `event_marker` (`&=`) is structurally distinct; no competing rules |
+
+### Bugs Found and Fixed
+
+| Finding | Fix |
+|---------|-----|
+| `overlap_point` regex `[2-9]?` excluded digit 1 | Changed to `[1-9]?`; E373 validates range |
+| `word_body` marker-initial path: single marker only | Changed to `repeat1`; stacked CA markers (°↑, °°) now parse correctly |
+
+These two grammar bugs caused 75 of 76 samtale-data validation failures
+(3,806 ERROR nodes). After the fixes, only 2 files have errors across all
+data repos (both data quality issues, not grammar bugs).

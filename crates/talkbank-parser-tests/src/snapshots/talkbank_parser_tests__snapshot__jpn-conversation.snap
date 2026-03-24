@@ -3,570 +3,570 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "jpn"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "jpn"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           },
           {
+            "speaker_code": "FAT",
             "name": null,
-            "role": "Father",
-            "speaker_code": "FAT"
+            "role": "Father"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "1;05.22",
-        "corpus": "Miyata",
+        "type": "id",
         "language": [
           "jpn"
         ],
-        "role": "Target_Child",
-        "sex": "male",
+        "corpus": "Miyata",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "1;05.22",
+        "sex": "male",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "Miyata",
+        "type": "id",
         "language": [
           "jpn"
         ],
-        "role": "Father",
+        "corpus": "Miyata",
         "speaker": "FAT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Father"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "Miyata",
+        "type": "id",
         "language": [
           "jpn"
         ],
-        "role": "Mother",
+        "corpus": "Miyata",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Japanese family interaction during toy play",
-              "type": "text"
+              "type": "text",
+              "text": "Japanese family interaction during toy play"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: Japanese language, hiragana and katakana scripts",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "パパ",
-                  "pos": "noun"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 0,
-                "index": 1,
-                "relation": "ROOT"
-              },
-              {
-                "head": 1,
-                "index": 2,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: Japanese language, hiragana and katakana scripts"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "パパ",
               "cleaned_text": "パパ",
               "content": [
                 {
-                  "content": "パパ",
-                  "type": "text"
+                  "type": "text",
+                  "content": "パパ"
                 }
-              ],
-              "raw_text": "パパ",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "はい",
-                  "pos": "intj"
+                  "pos": "noun",
+                  "lemma": "パパ"
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 0,
                 "index": 1,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 1,
                 "index": 2,
+                "head": 1,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "FAT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "はい",
               "cleaned_text": "はい",
               "content": [
                 {
-                  "content": "はい",
-                  "type": "text"
+                  "type": "text",
+                  "content": "はい"
                 }
-              ],
-              "raw_text": "はい",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "FAT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "features": [
-                    "Int",
-                    "S1"
-                  ],
-                  "lemma": "此れ",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Int",
-                    "S1"
-                  ],
-                  "lemma": "何",
-                  "pos": "pron"
+                  "pos": "intj",
+                  "lemma": "はい"
                 }
               }
             ],
-            "terminator": "?",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
-                "relation": "NSUBJ"
-              },
-              {
                 "head": 0,
-                "index": 2,
                 "relation": "ROOT"
               },
               {
-                "head": 2,
-                "index": 3,
+                "index": 2,
+                "head": 1,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "これ",
               "cleaned_text": "これ",
               "content": [
                 {
-                  "content": "これ",
-                  "type": "text"
+                  "type": "text",
+                  "content": "これ"
                 }
-              ],
-              "raw_text": "これ",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "何",
               "cleaned_text": "何",
               "content": [
                 {
-                  "content": "何",
-                  "type": "text"
+                  "type": "text",
+                  "content": "何"
                 }
-              ],
-              "raw_text": "何",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "又",
-                  "pos": "adv"
-                }
-              },
-              {
-                "main": {
+                  "pos": "pron",
+                  "lemma": "此れ",
                   "features": [
-                    "Acc"
-                  ],
-                  "lemma": "バナナ",
-                  "pos": "noun"
+                    "Int",
+                    "S1"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "何",
                   "features": [
-                    "Inf",
-                    "S"
-                  ],
-                  "lemma": "呉れる",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "の",
-                  "pos": "part"
+                    "Int",
+                    "S1"
+                  ]
                 }
               }
             ],
-            "terminator": "?",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "?"
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 3,
                 "index": 1,
-                "relation": "ADVMOD"
+                "head": 2,
+                "relation": "NSUBJ"
               },
               {
-                "head": 3,
                 "index": 2,
-                "relation": "OBJ"
-              },
-              {
                 "head": 0,
-                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "head": 3,
-                "index": 4,
-                "relation": "MARK"
-              },
-              {
-                "head": 3,
-                "index": 5,
+                "index": 3,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "また",
               "cleaned_text": "また",
               "content": [
                 {
-                  "content": "また",
-                  "type": "text"
+                  "type": "text",
+                  "content": "また"
                 }
-              ],
-              "raw_text": "また",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "バナナ",
               "cleaned_text": "バナナ",
               "content": [
                 {
-                  "content": "バナナ",
-                  "type": "text"
+                  "type": "text",
+                  "content": "バナナ"
                 }
-              ],
-              "raw_text": "バナナ",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "くれる",
               "cleaned_text": "くれる",
               "content": [
                 {
-                  "content": "くれる",
-                  "type": "text"
+                  "type": "text",
+                  "content": "くれる"
                 }
-              ],
-              "raw_text": "くれる",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "の",
               "cleaned_text": "の",
               "content": [
                 {
-                  "content": "の",
-                  "type": "text"
+                  "type": "text",
+                  "content": "の"
                 }
-              ],
-              "raw_text": "の",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "有り難う",
-                  "pos": "intj"
+                  "pos": "adv",
+                  "lemma": "又"
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "バナナ",
+                  "features": [
+                    "Acc"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "呉れる",
+                  "features": [
+                    "Inf",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "part",
+                  "lemma": "の"
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "?"
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 0,
                 "index": 1,
+                "head": 3,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 2,
+                "head": 3,
+                "relation": "OBJ"
+              },
+              {
+                "index": 3,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 1,
-                "index": 2,
+                "index": 4,
+                "head": 3,
+                "relation": "MARK"
+              },
+              {
+                "index": 5,
+                "head": 3,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "ありがとう",
               "cleaned_text": "ありがとう",
               "content": [
                 {
-                  "content": "ありがとう",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ありがとう"
                 }
-              ],
-              "raw_text": "ありがとう",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "intj",
+                  "lemma": "有り難う"
+                }
+              }
+            ],
+            "terminator": "."
+          }
         },
-        "speaker": "MOT"
-      }
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 2,
+                "head": 1,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Target_Child",
       "id": {
-        "age": "1;05.22",
-        "corpus": "Miyata",
         "language": [
           "jpn"
         ],
-        "role": "Target_Child",
+        "corpus": "Miyata",
+        "speaker": "CHI",
+        "age": "1;05.22",
         "sex": "male",
-        "speaker": "CHI"
+        "role": "Target_Child"
       },
-      "name": null,
-      "role": "Target_Child"
+      "birth_date": null
     },
     "FAT": {
-      "birth_date": null,
       "code": "FAT",
+      "name": null,
+      "role": "Father",
       "id": {
-        "corpus": "Miyata",
         "language": [
           "jpn"
         ],
-        "role": "Father",
-        "speaker": "FAT"
+        "corpus": "Miyata",
+        "speaker": "FAT",
+        "role": "Father"
       },
-      "name": null,
-      "role": "Father"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "Miyata",
         "language": [
           "jpn"
         ],
-        "role": "Mother",
-        "speaker": "MOT"
+        "corpus": "Miyata",
+        "speaker": "MOT",
+        "role": "Mother"
       },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "jpn"
+  ],
+  "options": []
 }

@@ -1,20 +1,20 @@
 # Spec Tooling and Generation Pipeline
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Objective
 Make `spec/` the reliable language-contract source while keeping generation
 deterministic, maintainable, and appropriately scoped.
 
-Post-bootstrap, the goal is no longer “one generation pipeline owns all parser
-truth.” The goal is to separate:
+The goal is to separate:
 
 - grammar artifact generation
 - validation/error-doc generation
-- direct-parser semantic testing
-- full-file parity testing
+- parser semantic testing (fragment and full-file)
 
-Anything that still looks like bootstrap-era parser mining or synthetic
-fragment orchestration is now audit-only unless a doc says it remains
-operational.
+Anything that still looks like bootstrap-era synthetic fragment orchestration
+is now audit-only unless a doc says it remains operational.
 
 ## Current Risk Snapshot
 - `spec/tools` currently fails compile in baseline (`CA_ANNOTATION` vs `ALT_ANNOTATION` drift).
@@ -48,8 +48,8 @@ error specs
   -> generated validation/parser error tests
   -> generated error docs
 
-direct-parser semantic fixtures and invariants
-  -> direct-parser-native tests
+fragment semantic fixtures and invariants
+  -> fragment-level parser tests
 
 reference corpus / curated full files
   -> parser parity tests
@@ -79,8 +79,6 @@ Treat these as legacy audit paths:
 
 - synthetic tree-sitter fragment wrappers
 - bootstrap-era parser equivalence rituals
-- any generation flow whose main purpose is to compare direct-parser fragments
-  to a tree-sitter fragment oracle
 
 ## Determinism Requirements
 1. Stable ordering of generated outputs.
@@ -95,8 +93,8 @@ Treat these as legacy audit paths:
 - Generation integration check:
   - full generation pass with clean tree must produce zero diff.
 - Boundary check:
-  - generated grammar/docs flows should not silently become the authority for
-    direct-parser fragment semantics.
+  - generated grammar/docs flows should not silently become the sole authority
+    for fragment parsing semantics.
 
 ## Authoring Experience
 - Provide strict but simple spec templates for constructs and errors.
@@ -121,4 +119,4 @@ Each spec file should include:
 - Drift between node types, specs, and generators is blocked in CI.
 - Spec contributors have a documented and automated happy path.
 - Small grammar changes no longer force a giant regeneration ritual by default.
-- Direct-parser fragment semantics are tested outside the generation pipeline.
+- Fragment parsing semantics are tested outside the generation pipeline.

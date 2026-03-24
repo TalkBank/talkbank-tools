@@ -1,5 +1,8 @@
 # Phon Tiers (%xmodsyl, %xphosyl, %xphoaln)
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 The Phon extension tiers provide syllable-level phonological annotation and
 segmental alignment between target and actual IPA transcription. They are
 produced by the [Phon](https://www.phon.ca/phon-manual/getting_started.html)

@@ -4,7 +4,7 @@
 
 use talkbank_model::model::{Line, ParseHealth, ParseHealthState, ParseHealthTier};
 use talkbank_model::{ErrorCode, ErrorCollector};
-use talkbank_parser::parse_chat_file_streaming;
+use talkbank_parser::TreeSitterParser;
 
 /// Returns whether a specific parse-health tier remains clean.
 fn tier_is_clean(health: &ParseHealth, tier: ParseHealthTier) -> bool {
@@ -18,8 +18,9 @@ fn parse_first_utterance(
     talkbank_model::model::Utterance,
     Vec<talkbank_model::ParseError>,
 ) {
+    let parser = TreeSitterParser::new().expect("grammar loads");
     let errors = ErrorCollector::new();
-    let file = parse_chat_file_streaming(input, &errors);
+    let file = parser.parse_chat_file_streaming(input, &errors);
     let diagnostics = errors.to_vec();
     let utterance = file
         .lines
@@ -137,9 +138,10 @@ fn malformed_gra_relation_does_not_fabricate_default_relation_values() {
 /// Verifies a missing speaker marker does not fabricate an empty speaker utterance.
 #[test]
 fn missing_speaker_does_not_create_empty_speaker_utterance() {
+    let parser = TreeSitterParser::new().expect("grammar loads");
     let input = "@UTF8\n@Begin\n*:\thello .\n@End\n";
     let errors = ErrorCollector::new();
-    let file = parse_chat_file_streaming(input, &errors);
+    let file = parser.parse_chat_file_streaming(input, &errors);
     let diagnostics = errors.to_vec();
     assert!(
         diagnostics.iter().any(|err| matches!(
@@ -166,9 +168,10 @@ fn missing_speaker_does_not_create_empty_speaker_utterance() {
 /// Verifies malformed `@Participants` entries do not emit empty role placeholders.
 #[test]
 fn participants_missing_role_does_not_emit_empty_role_entry() {
+    let parser = TreeSitterParser::new().expect("grammar loads");
     let input = "@UTF8\n@Begin\n@Participants:\tCHI\n*CHI:\thello .\n@End\n";
     let errors = ErrorCollector::new();
-    let file = parse_chat_file_streaming(input, &errors);
+    let file = parser.parse_chat_file_streaming(input, &errors);
     let diagnostics = errors.to_vec();
     assert!(
         diagnostics
@@ -223,9 +226,10 @@ fn malformed_postcode_does_not_emit_empty_postcode_placeholder() {
 /// Verifies empty `@Date` headers are preserved for validation-phase checks.
 #[test]
 fn empty_date_header_is_preserved_for_validation_phase() {
+    let parser = TreeSitterParser::new().expect("grammar loads");
     let input = "@UTF8\n@Begin\n@Date:\t\n*CHI:\thello .\n@End\n";
     let errors = ErrorCollector::new();
-    let file = parse_chat_file_streaming(input, &errors);
+    let file = parser.parse_chat_file_streaming(input, &errors);
     let diagnostics = errors.to_vec();
     assert!(
         diagnostics.is_empty(),

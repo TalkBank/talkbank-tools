@@ -1,5 +1,8 @@
 # Architecture Overview
 
+**Status:** Current
+**Last updated:** 2026-03-23 23:49 EDT
+
 ## Data Flow
 
 Data flows through the system in a single direction, from specification to applications:
@@ -11,7 +14,7 @@ grammar.js      Tree-sitter grammar (in grammar/)
     ↓
 parser.c        Generated C parser (never hand-edited)
     ↓
-Rust crates     Parsers → Model → Validation → Transform
+Rust crates     Parser → Model → Validation → Transform
     ↓
 Applications    CLI (chatter), LSP, VS Code, CLAN, batchalign
 ```
@@ -23,21 +26,21 @@ flowchart TD
     model["talkbank-model\nData model, validation, alignment, errors"]
     derive["talkbank-derive\nProc macros"]
     parser["talkbank-parser\nCanonical parser (tree-sitter)"]
-    dp["talkbank-direct-parser\nAlternative parser (chumsky)"]
     transform["talkbank-transform\nPipelines, CHAT↔JSON, caching"]
     clan["talkbank-clan\nCLAN analysis commands"]
     cli["talkbank-cli (chatter)\nCLI: validate, normalize, convert"]
     lsp["talkbank-lsp\nLanguage Server Protocol"]
     s2c["send2clan-sys\nFFI to CLAN app"]
+    desktop["chatter-desktop\nDesktop validation app (Tauri)"]
     tests["talkbank-parser-tests\nEquivalence tests"]
 
     derive --> model
-    model --> parser & dp
-    parser & dp --> transform
-    transform --> clan & cli & lsp
+    model --> parser
+    parser --> transform
+    transform --> clan & cli & lsp & desktop
     clan --> cli & lsp
-    s2c --> cli
-    parser & dp --> tests
+    s2c --> cli & desktop
+    parser --> tests
 ```
 
 Supporting crate: `talkbank-derive` (proc macros). Downstream consumer: `batchalign3` (path deps to this workspace's crates).
@@ -56,24 +59,13 @@ talkbank-tools/
 │   ├── tools/              Core spec generators
 │   └── runtime-tools/      Runtime-aware spec bootstrap/validation tools
 ├── crates/                 All Rust crates (parsing, model, CLI, LSP, CLAN, etc.)
-├── corpus/                 Reference corpus (74 files)
+├── corpus/                 Reference corpus (78 files)
 ├── schema/                 JSON Schema (auto-generated)
 ├── vscode/                 VS Code extension
+├── desktop/                Desktop validation app (Tauri v2, React)
 ├── book/                   This documentation
 └── fuzz/                   Fuzz testing targets (separate Cargo workspace)
 ```
-
-## Two-Parser Strategy
-
-Two independent parsers consume the same grammar specification:
-
-1. **Tree-sitter parser** (canonical) — GLR-based, error-recovering, produces a concrete syntax tree. Used by the LSP and CLI for interactive editing and validation of potentially malformed input.
-
-2. **Direct parser** — chumsky parser combinators with explicit fragment parsing
-   plus selective recovery in some file/tier paths. It is no longer accurate to
-   describe it as purely fail-fast or as only a bootstrap experiment.
-
-Both parsers must produce identical `ChatFile` ASTs for the 74-file reference corpus. This is enforced by `talkbank-parser-tests` for full-file behavior. Fragment and recovery semantics need stronger direct-parser-specific tests.
 
 ## Two Cargo Workspaces
 

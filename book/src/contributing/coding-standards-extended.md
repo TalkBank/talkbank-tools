@@ -1,5 +1,8 @@
 # Coding Standards and Engineering Practices
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Objective
 Set enforceable, language-specific standards that reduce ambiguity and improve long-term maintainability.
 

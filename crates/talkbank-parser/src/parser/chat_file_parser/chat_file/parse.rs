@@ -18,7 +18,7 @@ use crate::model::{ChatFile, Header, Line};
 use crate::parser::TreeSitterParser;
 use crate::parser::participants::build_participants_from_lines;
 use talkbank_model::LineMap;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use tracing::{debug, info, warn};
 use tree_sitter::Tree;
 
@@ -86,15 +86,15 @@ impl TreeSitterParser {
 
     /// Parse a CHAT file in strict mode.
     ///
-    /// Delegates to the streaming [`ChatParser`] path, then upgrades any
+    /// Delegates to the streaming parse path, then upgrades any
     /// error-severity diagnostics into a returned `Err`.
     ///
     /// Callers that need best-effort recovery should use
-    /// [`ChatParser::parse_chat_file`] (or `parse_chat_file_streaming*`) instead.
+    /// `parse_chat_file_streaming()` instead.
     #[tracing::instrument(skip(self, input), fields(input_size = input.len()))]
     pub fn parse_chat_file(&self, input: &str) -> ParseResult<ChatFile> {
         let errors = ErrorCollector::new();
-        let outcome = ChatParser::parse_chat_file(self, input, 0, &errors);
+        let outcome = self.parse_chat_file_fragment(input, 0, &errors);
 
         let error_vec = errors.into_vec();
         match outcome {

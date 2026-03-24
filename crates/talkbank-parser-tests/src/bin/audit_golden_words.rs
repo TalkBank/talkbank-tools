@@ -21,7 +21,7 @@
 use std::collections::HashMap;
 use std::fs;
 use talkbank_model::ErrorCollector;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::feature_signature::WordFeatureSignature;
 use talkbank_parser_tests::golden::golden_words;
@@ -42,7 +42,7 @@ fn main() -> Result<(), TestError> {
 
     for word in &words {
         let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_word(&parser, word, 0, &errors);
+        let parsed = parser.parse_word_fragment(word, 0, &errors);
 
         if let ParseOutcome::Parsed(parsed_word) = parsed {
             let sig = WordFeatureSignature::from_word(&parsed_word);

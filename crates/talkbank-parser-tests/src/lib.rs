@@ -141,7 +141,8 @@ pub mod golden {
 
     use talkbank_model::ErrorCollector;
     use talkbank_model::model::WriteChat;
-    use talkbank_model::{ChatParser, ParseOutcome};
+    use talkbank_model::ParseOutcome;
+    use talkbank_parser::TreeSitterParser;
 
     const GOLDEN_WORD_FILE: &str = include_str!("../golden_words.txt");
     const GOLDEN_WORD_FEATURED_FILE: &str = include_str!("../golden_words_featured.txt");
@@ -315,25 +316,23 @@ pub mod golden {
         true
     }
 
-    /// Run the shared golden word round-trip across both parsers.
-    pub fn run_word_roundtrip<P: ChatParser>(parser: &P) {
+    /// Run the shared golden word round-trip test.
+    pub fn run_word_roundtrip(parser: &TreeSitterParser) {
         let words = golden_words();
         for word in words {
             let sink = ErrorCollector::new();
-            let parsed = parser.parse_word(word, 0, &sink);
+            let parsed = parser.parse_word_fragment(word, 0, &sink);
 
             assert!(
                 sink.is_empty(),
-                "[{}] unexpected errors parsing `{}`: {:?}",
-                parser.parser_name(),
+                "unexpected errors parsing `{}`: {:?}",
                 word,
                 sink.to_vec()
             );
 
             assert!(
                 matches!(parsed, ParseOutcome::Parsed(_)),
-                "[{}] parser rejected word `{}` despite no sink errors",
-                parser.parser_name(),
+                "parser rejected word `{}` despite no sink errors",
                 word
             );
             let ParseOutcome::Parsed(parsed) = parsed else {
@@ -343,15 +342,12 @@ pub mod golden {
             let mut serialized = String::new();
             assert!(
                 parsed.write_chat(&mut serialized).is_ok(),
-                "[{}] failed to serialize word `{}`",
-                parser.parser_name(),
+                "failed to serialize word `{}`",
                 word
             );
             assert_eq!(
-                serialized,
-                word,
-                "[{}] word roundtrip changed representation",
-                parser.parser_name()
+                serialized, word,
+                "word roundtrip changed representation"
             );
         }
     }

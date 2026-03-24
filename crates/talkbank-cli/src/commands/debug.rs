@@ -29,6 +29,8 @@ pub fn run_overlap_audit(paths: &[PathBuf], database_path: Option<&Path>) {
         "file\tutterances\tgroups\tbottoms\torphan_tops\torphan_bottoms\ttimed\tconsistent\tquality"
     );
 
+    let parser = talkbank_parser::TreeSitterParser::new().expect("grammar loads");
+
     for path in collect_cha_files(paths) {
         let source = match std::fs::read_to_string(&path) {
             Ok(s) => s,
@@ -38,7 +40,7 @@ pub fn run_overlap_audit(paths: &[PathBuf], database_path: Option<&Path>) {
             }
         };
 
-        let chat = talkbank_parser::parse_chat_file_streaming(&source, &NullErrorSink);
+        let chat = parser.parse_chat_file_streaming(&source, &NullErrorSink);
         let analysis = analyze_file_overlaps(&chat.lines);
 
         let utt_count = chat

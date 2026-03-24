@@ -186,6 +186,28 @@ impl<'tree> AmpersandNode<'tree> {
         self.0.is_missing()
     }
 }
+///Typed wrapper for `annotation_content` nodes. Kind is verified at construction.
+#[derive(Debug, Clone, Copy)]
+pub struct AnnotationContentNode<'tree>(pub tree_sitter::Node<'tree>);
+impl<'tree> AsRawNode<'tree> for AnnotationContentNode<'tree> {
+    fn raw_node(&self) -> tree_sitter::Node<'tree> {
+        self.0
+    }
+}
+impl<'tree> AnnotationContentNode<'tree> {
+    /// The source text of this node.
+    pub fn text<'s>(&self, source: &'s str) -> &'s str {
+        self.0.utf8_text(source.as_bytes()).unwrap_or("")
+    }
+    /// The byte range of this node in the source.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.0.start_byte()..self.0.end_byte()
+    }
+    /// Whether this is a MISSING placeholder node.
+    pub fn is_missing(&self) -> bool {
+        self.0.is_missing()
+    }
+}
 ///Typed wrapper for `base_annotations` nodes. Kind is verified at construction.
 #[derive(Debug, Clone, Copy)]
 pub struct BaseAnnotationsNode<'tree>(pub tree_sitter::Node<'tree>);
@@ -327,6 +349,72 @@ impl<'tree> AsRawNode<'tree> for BlankPrefixNode<'tree> {
     }
 }
 impl<'tree> BlankPrefixNode<'tree> {
+    /// The source text of this node.
+    pub fn text<'s>(&self, source: &'s str) -> &'s str {
+        self.0.utf8_text(source.as_bytes()).unwrap_or("")
+    }
+    /// The byte range of this node in the source.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.0.start_byte()..self.0.end_byte()
+    }
+    /// Whether this is a MISSING placeholder node.
+    pub fn is_missing(&self) -> bool {
+        self.0.is_missing()
+    }
+}
+///Typed wrapper for `bullet_end` nodes. Kind is verified at construction.
+#[derive(Debug, Clone, Copy)]
+pub struct BulletEndNode<'tree>(pub tree_sitter::Node<'tree>);
+impl<'tree> AsRawNode<'tree> for BulletEndNode<'tree> {
+    fn raw_node(&self) -> tree_sitter::Node<'tree> {
+        self.0
+    }
+}
+impl<'tree> BulletEndNode<'tree> {
+    /// The source text of this node.
+    pub fn text<'s>(&self, source: &'s str) -> &'s str {
+        self.0.utf8_text(source.as_bytes()).unwrap_or("")
+    }
+    /// The byte range of this node in the source.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.0.start_byte()..self.0.end_byte()
+    }
+    /// Whether this is a MISSING placeholder node.
+    pub fn is_missing(&self) -> bool {
+        self.0.is_missing()
+    }
+}
+///Typed wrapper for `bullet_start` nodes. Kind is verified at construction.
+#[derive(Debug, Clone, Copy)]
+pub struct BulletStartNode<'tree>(pub tree_sitter::Node<'tree>);
+impl<'tree> AsRawNode<'tree> for BulletStartNode<'tree> {
+    fn raw_node(&self) -> tree_sitter::Node<'tree> {
+        self.0
+    }
+}
+impl<'tree> BulletStartNode<'tree> {
+    /// The source text of this node.
+    pub fn text<'s>(&self, source: &'s str) -> &'s str {
+        self.0.utf8_text(source.as_bytes()).unwrap_or("")
+    }
+    /// The byte range of this node in the source.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.0.start_byte()..self.0.end_byte()
+    }
+    /// Whether this is a MISSING placeholder node.
+    pub fn is_missing(&self) -> bool {
+        self.0.is_missing()
+    }
+}
+///Typed wrapper for `bullet_timestamp` nodes. Kind is verified at construction.
+#[derive(Debug, Clone, Copy)]
+pub struct BulletTimestampNode<'tree>(pub tree_sitter::Node<'tree>);
+impl<'tree> AsRawNode<'tree> for BulletTimestampNode<'tree> {
+    fn raw_node(&self) -> tree_sitter::Node<'tree> {
+        self.0
+    }
+}
+impl<'tree> BulletTimestampNode<'tree> {
     /// The source text of this node.
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
@@ -2980,6 +3068,28 @@ impl<'tree> SpaTierPrefixNode<'tree> {
         self.0.is_missing()
     }
 }
+///Typed wrapper for `space` nodes. Kind is verified at construction.
+#[derive(Debug, Clone, Copy)]
+pub struct SpaceNode<'tree>(pub tree_sitter::Node<'tree>);
+impl<'tree> AsRawNode<'tree> for SpaceNode<'tree> {
+    fn raw_node(&self) -> tree_sitter::Node<'tree> {
+        self.0
+    }
+}
+impl<'tree> SpaceNode<'tree> {
+    /// The source text of this node.
+    pub fn text<'s>(&self, source: &'s str) -> &'s str {
+        self.0.utf8_text(source.as_bytes()).unwrap_or("")
+    }
+    /// The byte range of this node in the source.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.0.start_byte()..self.0.end_byte()
+    }
+    /// Whether this is a MISSING placeholder node.
+    pub fn is_missing(&self) -> bool {
+        self.0.is_missing()
+    }
+}
 ///Typed wrapper for `speaker` nodes. Kind is verified at construction.
 #[derive(Debug, Clone, Copy)]
 pub struct SpeakerNode<'tree>(pub tree_sitter::Node<'tree>);
@@ -3866,6 +3976,16 @@ pub struct AddDependentTierChildren<'tree> {
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
 }
+///Extracted children for `alt_annotation` nodes.
+#[derive(Debug)]
+pub struct AltAnnotationChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `text`)
+    pub text: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
+}
 ///Extracted children for `alt_dependent_tier` nodes.
 #[derive(Debug)]
 pub struct AltDependentTierChildren<'tree> {
@@ -4028,6 +4148,16 @@ pub struct DefDependentTierChildren<'tree> {
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
 }
+///Extracted children for `duration_annotation` nodes.
+#[derive(Debug)]
+pub struct DurationAnnotationChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `time`)
+    pub time: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
+}
 ///Extracted children for `eg_header` nodes.
 #[derive(Debug)]
 pub struct EgHeaderChildren<'tree> {
@@ -4085,6 +4215,16 @@ pub struct ExpDependentTierChildren<'tree> {
     pub child_2: NodeSlot<'tree, TextWithBulletsNode<'tree>>,
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
+}
+///Extracted children for `explanation_annotation` nodes.
+#[derive(Debug)]
+pub struct ExplanationAnnotationChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `text`)
+    pub text: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
 }
 ///Extracted children for `fac_dependent_tier` nodes.
 #[derive(Debug)]
@@ -4242,6 +4382,18 @@ pub struct IdHeaderChildren<'tree> {
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
 }
+///Extracted children for `inline_bullet` nodes.
+#[derive(Debug)]
+pub struct InlineBulletChildren<'tree> {
+    ///`bullet_start` — required
+    pub child_0: NodeSlot<'tree, BulletStartNode<'tree>>,
+    ///`bullet_timestamp` — required (field: `start_time`)
+    pub start_time: NodeSlot<'tree, BulletTimestampNode<'tree>>,
+    ///`bullet_timestamp` — required (field: `end_time`)
+    pub end_time: NodeSlot<'tree, BulletTimestampNode<'tree>>,
+    ///`bullet_end` — required
+    pub child_4: NodeSlot<'tree, BulletEndNode<'tree>>,
+}
 ///Extracted children for `int_dependent_tier` nodes.
 #[derive(Debug)]
 pub struct IntDependentTierChildren<'tree> {
@@ -4269,6 +4421,16 @@ pub struct L1OfHeaderChildren<'tree> {
     pub child_4: NodeSlot<'tree, LanguageCodeNode<'tree>>,
     ///`newline` — required
     pub child_5: NodeSlot<'tree, NewlineNode<'tree>>,
+}
+///Extracted children for `langcode` nodes.
+#[derive(Debug)]
+pub struct LangcodeChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`language_code` — required (field: `code`)
+    pub code: NodeSlot<'tree, LanguageCodeNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
 }
 ///Extracted children for `languages_contents` nodes.
 #[derive(Debug)]
@@ -4580,6 +4742,16 @@ pub struct ParDependentTierChildren<'tree> {
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
 }
+///Extracted children for `para_annotation` nodes.
+#[derive(Debug)]
+pub struct ParaAnnotationChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `text`)
+    pub text: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
+}
 ///Extracted children for `participant` nodes.
 #[derive(Debug)]
 pub struct ParticipantChildren<'tree> {
@@ -4605,6 +4777,16 @@ pub struct ParticipantsHeaderChildren<'tree> {
     pub child_2: NodeSlot<'tree, ParticipantsContentsNode<'tree>>,
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
+}
+///Extracted children for `percent_annotation` nodes.
+#[derive(Debug)]
+pub struct PercentAnnotationChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `text`)
+    pub text: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
 }
 ///Extracted children for `pho_dependent_tier` nodes.
 #[derive(Debug)]
@@ -4675,6 +4857,16 @@ pub struct PidHeaderChildren<'tree> {
 ///Extracted children for `pos_tag` nodes.
 #[derive(Debug)]
 pub struct PosTagChildren<'tree> { _marker: std::marker::PhantomData<&'tree ()> }
+///Extracted children for `postcode` nodes.
+#[derive(Debug)]
+pub struct PostcodeChildren<'tree> {
+    ///`space` — required
+    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
+    ///`annotation_content` — required (field: `code`)
+    pub code: NodeSlot<'tree, AnnotationContentNode<'tree>>,
+    ///`right_bracket` — required
+    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
+}
 ///Extracted children for `quotation` nodes.
 #[derive(Debug)]
 pub struct QuotationChildren<'tree> {
@@ -5097,6 +5289,12 @@ pub struct ActivitiesHeaderPayload<'tree> {
     ///`free_text` — nested rule `free_text`
     pub child_2: Option<FreeTextNode<'tree>>,
 }
+///Semantic payload for `alt_annotation` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct AltAnnotationPayload<'tree> {
+    ///`annotation_content` — free text
+    pub text: Option<AnnotationContentNode<'tree>>,
+}
 ///Semantic payload for `bck_header` — 1 payload field(s), structural children stripped.
 #[derive(Debug)]
 pub struct BckHeaderPayload<'tree> {
@@ -5147,6 +5345,12 @@ pub struct DateHeaderPayload<'tree> {
     ///`date_contents` — nested rule `date_contents`
     pub child_2: Option<DateContentsNode<'tree>>,
 }
+///Semantic payload for `duration_annotation` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct DurationAnnotationPayload<'tree> {
+    ///`annotation_content` — free text
+    pub time: Option<AnnotationContentNode<'tree>>,
+}
 ///Semantic payload for `event` — 2 payload field(s), structural children stripped.
 #[derive(Debug)]
 pub struct EventPayload<'tree> {
@@ -5154,6 +5358,12 @@ pub struct EventPayload<'tree> {
     pub child_0: Option<EventMarkerNode<'tree>>,
     ///`event_segment` — opaque token (parse separately)
     pub description: Option<EventSegmentNode<'tree>>,
+}
+///Semantic payload for `explanation_annotation` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct ExplanationAnnotationPayload<'tree> {
+    ///`annotation_content` — free text
+    pub text: Option<AnnotationContentNode<'tree>>,
 }
 ///Semantic payload for `font_header` — 1 payload field(s), structural children stripped.
 #[derive(Debug)]
@@ -5223,6 +5433,14 @@ pub struct IdHeaderPayload<'tree> {
     ///`id_contents` — nested rule `id_contents`
     pub child_2: Option<IdContentsNode<'tree>>,
 }
+///Semantic payload for `inline_bullet` — 2 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct InlineBulletPayload<'tree> {
+    ///`bullet_timestamp` — integer
+    pub start_time: Option<BulletTimestampNode<'tree>>,
+    ///`bullet_timestamp` — integer
+    pub end_time: Option<BulletTimestampNode<'tree>>,
+}
 ///Semantic payload for `l1_of_header` — 3 payload field(s), structural children stripped.
 #[derive(Debug)]
 pub struct L1OfHeaderPayload<'tree> {
@@ -5232,6 +5450,12 @@ pub struct L1OfHeaderPayload<'tree> {
     pub child_2: Option<SpeakerNode<'tree>>,
     ///`language_code` — free text
     pub child_4: Option<LanguageCodeNode<'tree>>,
+}
+///Semantic payload for `langcode` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct LangcodePayload<'tree> {
+    ///`language_code` — free text
+    pub code: Option<LanguageCodeNode<'tree>>,
 }
 ///Semantic payload for `languages_contents` — 1 payload field(s), structural children stripped.
 #[derive(Debug)]
@@ -5399,6 +5623,12 @@ pub struct PageHeaderPayload<'tree> {
     ///`page_number` — integer
     pub child_2: Option<PageNumberNode<'tree>>,
 }
+///Semantic payload for `para_annotation` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct ParaAnnotationPayload<'tree> {
+    ///`annotation_content` — free text
+    pub text: Option<AnnotationContentNode<'tree>>,
+}
 ///Semantic payload for `participant` — 1 payload field(s), structural children stripped.
 #[derive(Debug)]
 pub struct ParticipantPayload<'tree> {
@@ -5416,6 +5646,12 @@ pub struct ParticipantsContentsPayload<'tree> {
 pub struct ParticipantsHeaderPayload<'tree> {
     ///`participants_contents` — nested rule `participants_contents`
     pub child_2: Option<ParticipantsContentsNode<'tree>>,
+}
+///Semantic payload for `percent_annotation` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct PercentAnnotationPayload<'tree> {
+    ///`annotation_content` — free text
+    pub text: Option<AnnotationContentNode<'tree>>,
 }
 ///Semantic payload for `pho_dependent_tier` — 1 payload field(s), structural children stripped.
 #[derive(Debug)]
@@ -5446,6 +5682,12 @@ pub struct PhoWordsPayload<'tree> {
 pub struct PidHeaderPayload<'tree> {
     ///`free_text` — nested rule `free_text`
     pub child_2: Option<FreeTextNode<'tree>>,
+}
+///Semantic payload for `postcode` — 1 payload field(s), structural children stripped.
+#[derive(Debug)]
+pub struct PostcodePayload<'tree> {
+    ///`annotation_content` — free text
+    pub code: Option<AnnotationContentNode<'tree>>,
 }
 ///Semantic payload for `quotation` — 3 payload field(s), structural children stripped.
 #[derive(Debug)]
@@ -6462,6 +6704,68 @@ pub trait GrammarTraversal {
             child_3,
         }
     }
+    ///Extract children from a `alt_annotation` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `text`) [required]
+    ///- `right_bracket` [required]
+    fn extract_alt_annotation<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> AltAnnotationChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut text: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                text = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        AltAnnotationChildren {
+            child_1,
+            text,
+            child_3,
+        }
+    }
     ///Extract children from a `alt_dependent_tier` node.
     ///
     ///Production (children in order):
@@ -7358,6 +7662,68 @@ pub trait GrammarTraversal {
             child_3,
         }
     }
+    ///Extract children from a `duration_annotation` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `time`) [required]
+    ///- `right_bracket` [required]
+    fn extract_duration_annotation<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> DurationAnnotationChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut time: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                time = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        DurationAnnotationChildren {
+            child_1,
+            time,
+            child_3,
+        }
+    }
     ///Extract children from a `eg_header` node.
     ///
     ///Production (children in order):
@@ -7683,6 +8049,68 @@ pub trait GrammarTraversal {
             child_0,
             child_1,
             child_2,
+            child_3,
+        }
+    }
+    ///Extract children from a `explanation_annotation` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `text`) [required]
+    ///- `right_bracket` [required]
+    fn extract_explanation_annotation<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> ExplanationAnnotationChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut text: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                text = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        ExplanationAnnotationChildren {
+            child_1,
+            text,
             child_3,
         }
     }
@@ -8553,6 +8981,82 @@ pub trait GrammarTraversal {
             child_3,
         }
     }
+    ///Extract children from a `inline_bullet` node.
+    ///
+    ///Production (children in order):
+    ///- `bullet_start` [required]
+    ///- `bullet_timestamp` (field: `start_time`) [required]
+    ///- `(terminal)` [required]
+    ///- `bullet_timestamp` (field: `end_time`) [required]
+    ///- `bullet_end` [required]
+    fn extract_inline_bullet<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> InlineBulletChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_0: NodeSlot<'tree, BulletStartNode<'tree>> = NodeSlot::Absent;
+        let mut start_time: NodeSlot<'tree, BulletTimestampNode<'tree>> = NodeSlot::Absent;
+        let mut end_time: NodeSlot<'tree, BulletTimestampNode<'tree>> = NodeSlot::Absent;
+        let mut child_4: NodeSlot<'tree, BulletEndNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_0 = classify_child(child, "bullet_start", BulletStartNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                start_time = classify_child(
+                    child,
+                    "bullet_timestamp",
+                    BulletTimestampNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                end_time = classify_child(
+                    child,
+                    "bullet_timestamp",
+                    BulletTimestampNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_4 = classify_child(child, "bullet_end", BulletEndNode);
+                idx += 1;
+            }
+        }
+        InlineBulletChildren {
+            child_0,
+            start_time,
+            end_time,
+            child_4,
+        }
+    }
     ///Extract children from a `int_dependent_tier` node.
     ///
     ///Production (children in order):
@@ -8703,6 +9207,64 @@ pub trait GrammarTraversal {
             child_3,
             child_4,
             child_5,
+        }
+    }
+    ///Extract children from a `langcode` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `language_code` (field: `code`) [required]
+    ///- `right_bracket` [required]
+    fn extract_langcode<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> LangcodeChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut code: NodeSlot<'tree, LanguageCodeNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                code = classify_child(child, "language_code", LanguageCodeNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        LangcodeChildren {
+            child_1,
+            code,
+            child_3,
         }
     }
     ///Extract children from a `languages_contents` node.
@@ -10441,6 +11003,68 @@ pub trait GrammarTraversal {
             child_3,
         }
     }
+    ///Extract children from a `para_annotation` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `text`) [required]
+    ///- `right_bracket` [required]
+    fn extract_para_annotation<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> ParaAnnotationChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut text: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                text = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        ParaAnnotationChildren {
+            child_1,
+            text,
+            child_3,
+        }
+    }
     ///Extract children from a `participant` node.
     ///
     ///Production (children in order):
@@ -10597,6 +11221,68 @@ pub trait GrammarTraversal {
             child_0,
             child_1,
             child_2,
+            child_3,
+        }
+    }
+    ///Extract children from a `percent_annotation` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `text`) [required]
+    ///- `right_bracket` [required]
+    fn extract_percent_annotation<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> PercentAnnotationChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut text: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                text = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        PercentAnnotationChildren {
+            child_1,
+            text,
             child_3,
         }
     }
@@ -11009,6 +11695,68 @@ pub trait GrammarTraversal {
             idx += 1;
         }
         PosTagChildren { _marker: std::marker::PhantomData }
+    }
+    ///Extract children from a `postcode` node.
+    ///
+    ///Production (children in order):
+    ///- `(terminal)` [required]
+    ///- `space` [required]
+    ///- `annotation_content` (field: `code`) [required]
+    ///- `right_bracket` [required]
+    fn extract_postcode<'tree>(
+        &mut self,
+        node: tree_sitter::Node<'tree>,
+    ) -> PostcodeChildren<'tree> {
+        let child_count = node.child_count();
+        let mut idx: u32 = 0;
+        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
+            while (*idx as usize) < count {
+                if let Some(child) = node.child(*idx) {
+                    if matches!(child.kind(), "whitespaces") {
+                        *idx += 1;
+                        continue;
+                    }
+                }
+                break;
+            }
+        };
+        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
+        let mut code: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
+        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            idx += 1;
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_1 = classify_child(child, "space", SpaceNode);
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                code = classify_child(
+                    child,
+                    "annotation_content",
+                    AnnotationContentNode,
+                );
+                idx += 1;
+            }
+        }
+        skip_extras(node, &mut idx, child_count);
+        if (idx as usize) < child_count {
+            if let Some(child) = node.child(idx) {
+                child_3 = classify_child(child, "right_bracket", RightBracketNode);
+                idx += 1;
+            }
+        }
+        PostcodeChildren {
+            child_1,
+            code,
+            child_3,
+        }
     }
     ///Extract children from a `quotation` node.
     ///

@@ -28,7 +28,7 @@
 
 use smallvec::SmallVec;
 use talkbank_model::{
-    BracketedItem, ChatFile, DependentTier, Line, NonEmptyString, ScopedAnnotation, TextTier,
+    BracketedItem, ChatFile, DependentTier, Line, NonEmptyString, TextTier,
     UtteranceContent, Word, WriteChat,
 };
 
@@ -70,23 +70,6 @@ impl TransformCommand for FloCommand {
     }
 }
 
-/// Check if a scoped annotation is a retrace/revision marker.
-fn is_retrace_annotation(annotation: &ScopedAnnotation) -> bool {
-    matches!(
-        annotation,
-        ScopedAnnotation::PartialRetracing
-            | ScopedAnnotation::Retracing
-            | ScopedAnnotation::MultipleRetracing
-            | ScopedAnnotation::Reformulation
-            | ScopedAnnotation::UncertainRetracing
-    )
-}
-
-/// Check if any annotation in the list is a retrace marker.
-fn has_retrace_annotations(annotations: &[ScopedAnnotation]) -> bool {
-    annotations.iter().any(is_retrace_annotation)
-}
-
 /// Build the simplified %flo text from utterance content.
 ///
 /// Extracts only countable words, skipping retrace targets, events,
@@ -120,10 +103,6 @@ fn collect_flo_texts(content: &[UtteranceContent], out: &mut Vec<String>) {
                 }
             }
             UtteranceContent::AnnotatedWord(annotated) => {
-                // Skip retrace targets (words before [/], [//], etc.)
-                if has_retrace_annotations(&annotated.scoped_annotations) {
-                    continue;
-                }
                 if is_countable_word(&annotated.inner) {
                     out.push(word_display_text(&annotated.inner));
                 }
@@ -140,12 +119,10 @@ fn collect_flo_texts(content: &[UtteranceContent], out: &mut Vec<String>) {
                 collect_flo_bracketed_texts(&group.content.content, out);
             }
             UtteranceContent::AnnotatedGroup(annotated) => {
-                // Skip retrace targets (groups before [/], [//], etc.)
-                if has_retrace_annotations(&annotated.scoped_annotations) {
-                    continue;
-                }
                 collect_flo_bracketed_texts(&annotated.inner.content.content, out);
             }
+            // Retrace targets are skipped — they are false starts
+            UtteranceContent::Retrace(_) => {}
             // Skip events, pauses, and all other non-word content
             _ => {}
         }
@@ -162,9 +139,6 @@ fn collect_flo_bracketed_texts(items: &[BracketedItem], out: &mut Vec<String>) {
                 }
             }
             BracketedItem::AnnotatedWord(annotated) => {
-                if has_retrace_annotations(&annotated.scoped_annotations) {
-                    continue;
-                }
                 if is_countable_word(&annotated.inner) {
                     out.push(word_display_text(&annotated.inner));
                 }
@@ -177,11 +151,10 @@ fn collect_flo_bracketed_texts(items: &[BracketedItem], out: &mut Vec<String>) {
                 }
             }
             BracketedItem::AnnotatedGroup(annotated) => {
-                if has_retrace_annotations(&annotated.scoped_annotations) {
-                    continue;
-                }
                 collect_flo_bracketed_texts(&annotated.inner.content.content, out);
             }
+            // Retrace targets are skipped — they are false starts
+            BracketedItem::Retrace(_) => {}
             _ => {}
         }
     }

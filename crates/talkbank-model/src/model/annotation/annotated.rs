@@ -28,7 +28,7 @@
 //! - [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
 //! - [Error Coding](https://talkbank.org/0info/manuals/CHAT.html#Error_Coding)
 
-use super::{ScopedAnnotation, WriteChat};
+use super::{ContentAnnotation, WriteChat};
 use crate::model::{
     SemanticDiff, SemanticDiffContext, SemanticDiffReport, SemanticEq, SemanticPath, normalize_span,
 };
@@ -39,7 +39,7 @@ use talkbank_derive::{SemanticEq, SpanShift};
 
 /// Scoped annotations attached to an `Annotated<T>` wrapper.
 ///
-/// Wraps a `Vec<ScopedAnnotation>` and provides collection-like access via `Deref`.
+/// Wraps a `Vec<ContentAnnotation>` and provides collection-like access via `Deref`.
 /// Must contain at least one annotation (validated during the validation phase).
 ///
 /// References:
@@ -50,15 +50,15 @@ use talkbank_derive::{SemanticEq, SpanShift};
 )]
 #[serde(transparent)]
 #[schemars(transparent)]
-pub struct AnnotatedScopedAnnotations(pub Vec<ScopedAnnotation>);
+pub struct AnnotatedContentAnnotations(pub Vec<ContentAnnotation>);
 
-impl AnnotatedScopedAnnotations {
+impl AnnotatedContentAnnotations {
     /// Wraps scoped annotations for an [`Annotated`] payload.
     ///
     /// Validation of "must not be empty" is intentionally deferred to
     /// [`crate::validation::Validate`], so parsers can stay lenient and report
     /// a typed error instead of failing construction.
-    pub fn new(annotations: Vec<ScopedAnnotation>) -> Self {
+    pub fn new(annotations: Vec<ContentAnnotation>) -> Self {
         Self(annotations)
     }
 
@@ -68,8 +68,8 @@ impl AnnotatedScopedAnnotations {
     }
 }
 
-impl Deref for AnnotatedScopedAnnotations {
-    type Target = Vec<ScopedAnnotation>;
+impl Deref for AnnotatedContentAnnotations {
+    type Target = Vec<ContentAnnotation>;
 
     /// Borrows the underlying annotation vector.
     fn deref(&self) -> &Self::Target {
@@ -77,23 +77,23 @@ impl Deref for AnnotatedScopedAnnotations {
     }
 }
 
-impl DerefMut for AnnotatedScopedAnnotations {
+impl DerefMut for AnnotatedContentAnnotations {
     /// Mutably borrows the underlying annotation vector.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl From<Vec<ScopedAnnotation>> for AnnotatedScopedAnnotations {
+impl From<Vec<ContentAnnotation>> for AnnotatedContentAnnotations {
     /// Wraps a raw scoped-annotation vector without copying.
-    fn from(annotations: Vec<ScopedAnnotation>) -> Self {
+    fn from(annotations: Vec<ContentAnnotation>) -> Self {
         Self(annotations)
     }
 }
 
-impl<'a> IntoIterator for &'a AnnotatedScopedAnnotations {
-    type Item = &'a ScopedAnnotation;
-    type IntoIter = std::slice::Iter<'a, ScopedAnnotation>;
+impl<'a> IntoIterator for &'a AnnotatedContentAnnotations {
+    type Item = &'a ContentAnnotation;
+    type IntoIter = std::slice::Iter<'a, ContentAnnotation>;
 
     /// Iterates immutably over scoped annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -101,9 +101,9 @@ impl<'a> IntoIterator for &'a AnnotatedScopedAnnotations {
     }
 }
 
-impl<'a> IntoIterator for &'a mut AnnotatedScopedAnnotations {
-    type Item = &'a mut ScopedAnnotation;
-    type IntoIter = std::slice::IterMut<'a, ScopedAnnotation>;
+impl<'a> IntoIterator for &'a mut AnnotatedContentAnnotations {
+    type Item = &'a mut ContentAnnotation;
+    type IntoIter = std::slice::IterMut<'a, ContentAnnotation>;
 
     /// Iterates mutably over scoped annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -111,9 +111,9 @@ impl<'a> IntoIterator for &'a mut AnnotatedScopedAnnotations {
     }
 }
 
-impl IntoIterator for AnnotatedScopedAnnotations {
-    type Item = ScopedAnnotation;
-    type IntoIter = std::vec::IntoIter<ScopedAnnotation>;
+impl IntoIterator for AnnotatedContentAnnotations {
+    type Item = ContentAnnotation;
+    type IntoIter = std::vec::IntoIter<ContentAnnotation>;
 
     /// Consumes the wrapper and yields owned scoped annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -121,7 +121,7 @@ impl IntoIterator for AnnotatedScopedAnnotations {
     }
 }
 
-impl crate::validation::Validate for AnnotatedScopedAnnotations {
+impl crate::validation::Validate for AnnotatedContentAnnotations {
     /// Enforces non-empty annotations and reports unknown scoped markers.
     fn validate(
         &self,
@@ -137,7 +137,7 @@ impl crate::validation::Validate for AnnotatedScopedAnnotations {
 
         if self.is_empty() {
             errors.report(crate::ParseError::new(
-                crate::ErrorCode::EmptyAnnotatedScopedAnnotations,
+                crate::ErrorCode::EmptyAnnotatedContentAnnotations,
                 crate::Severity::Error,
                 crate::SourceLocation::new(span),
                 crate::ErrorContext::new(text, span, label),
@@ -146,7 +146,7 @@ impl crate::validation::Validate for AnnotatedScopedAnnotations {
         }
 
         for annotation in &self.0 {
-            if let ScopedAnnotation::Unknown(unknown) = annotation {
+            if let ContentAnnotation::Unknown(unknown) = annotation {
                 let marker = &unknown.marker;
                 errors.report(
                     crate::ParseError::new(
@@ -205,8 +205,8 @@ pub struct Annotated<T> {
     /// Scoped annotations emitted immediately after [`Self::inner`].
     ///
     /// Examples: `[*]`, `[= text]`, `[+ text]`, `[//]`.
-    #[serde(skip_serializing_if = "AnnotatedScopedAnnotations::is_empty", default)]
-    pub scoped_annotations: AnnotatedScopedAnnotations,
+    #[serde(skip_serializing_if = "AnnotatedContentAnnotations::is_empty", default)]
+    pub scoped_annotations: AnnotatedContentAnnotations,
 
     /// Source span for error reporting (not serialized to JSON)
     #[serde(skip)]
@@ -264,7 +264,7 @@ impl<T> Annotated<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
-            scoped_annotations: AnnotatedScopedAnnotations::new(Vec::new()),
+            scoped_annotations: AnnotatedContentAnnotations::new(Vec::new()),
             span: crate::Span::DUMMY,
         }
     }
@@ -276,13 +276,13 @@ impl<T> Annotated<T> {
     }
 
     /// Replaces the scoped-annotation list.
-    pub fn with_scoped_annotations(mut self, scoped: Vec<ScopedAnnotation>) -> Self {
+    pub fn with_scoped_annotations(mut self, scoped: Vec<ContentAnnotation>) -> Self {
         self.scoped_annotations = scoped.into();
         self
     }
 
     /// Appends one scoped annotation to the existing list.
-    pub fn with_scoped_annotation(mut self, annotation: ScopedAnnotation) -> Self {
+    pub fn with_scoped_annotation(mut self, annotation: ContentAnnotation) -> Self {
         self.scoped_annotations.0.push(annotation);
         self
     }
@@ -321,7 +321,7 @@ impl<T: crate::validation::Validate> crate::validation::Validate for Annotated<T
 mod tests {
     use super::*;
     use crate::ErrorCollector;
-    use crate::model::{ScopedAnnotation, Word};
+    use crate::model::{ContentAnnotation, Word};
     use crate::validation::{Validate, ValidationContext};
 
     /// Reports E214 when an `Annotated<T>` has no scoped annotations.
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn nonempty_scoped_annotations_pass() {
         let annotated = Annotated::new(Word::new_unchecked("hi", "hi"))
-            .with_scoped_annotation(ScopedAnnotation::Retracing);
+            .with_scoped_annotation(ContentAnnotation::Stressing);
         let errors = ErrorCollector::new();
         let ctx = ValidationContext::default();
         annotated.validate(&ctx, &errors);

@@ -5,7 +5,7 @@
 
 use proptest::prelude::*;
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::{ChatParser, ErrorCollector};
+use talkbank_model::ErrorCollector;
 
 use super::slow_test_config;
 
@@ -49,28 +49,12 @@ fn main_tier_line() -> impl Strategy<Value = String> {
         .prop_map(|(speaker, words, term)| format!("*{}:\t{} {}", speaker, words.join(" "), term))
 }
 
-/// Helper: parse main tier with both parsers.
-fn parse_main_with_both(input: &str) -> Vec<(&'static str, Option<String>)> {
-    let mut results = Vec::new();
-    if let Ok(ts) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_main_tier(&ts, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("tree-sitter", Some(tier.to_chat())));
-        } else {
-            results.push(("tree-sitter", None));
-        }
-    }
-    if let Ok(dp) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_main_tier(&dp, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("direct", Some(tier.to_chat())));
-        } else {
-            results.push(("direct", None));
-        }
-    }
-    results
+/// Helper: parse main tier with the tree-sitter parser.
+fn parse_main(input: &str) -> Option<String> {
+    let ts = TreeSitterParser::new().ok()?;
+    let errors = ErrorCollector::new();
+    let parsed = ts.parse_main_tier_fragment(input, 0, &errors);
+    parsed.into_option().map(|tier| tier.to_chat())
 }
 
 proptest! {
@@ -79,14 +63,12 @@ proptest! {
     /// Simple main tier roundtrips.
     #[test]
     fn simple_main_tier_roundtrip(line in main_tier_line()) {
-        for (name, output) in parse_main_with_both(&line) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &line,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, line, output
-                );
-            }
+        if let Some(output) = parse_main(&line) {
+            prop_assert_eq!(
+                &output, &line,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                line, output
+            );
         }
     }
 
@@ -98,14 +80,12 @@ proptest! {
         term in terminator()
     ) {
         let line = format!("*{}:\t{} {}", speaker, words.join(" "), term);
-        for (name, output) in parse_main_with_both(&line) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &line,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, line, output
-                );
-            }
+        if let Some(output) = parse_main(&line) {
+            prop_assert_eq!(
+                &output, &line,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                line, output
+            );
         }
     }
 
@@ -117,29 +97,11 @@ proptest! {
         term in terminator()
     ) {
         let line = format!("*CHI:\t&-{} {} {}", filler_word, context_word, term);
-        for (name, output) in parse_main_with_both(&line) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &line,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, line, output
-                );
-            }
-        }
-    }
-
-    /// Both parsers produce the same output for the same main tier.
-    #[test]
-    fn main_tier_parser_equivalence(line in main_tier_line()) {
-        let results = parse_main_with_both(&line);
-        let successes: Vec<_> = results.iter().filter_map(|(name, out)| {
-            out.as_ref().map(|o| (*name, o.as_str()))
-        }).collect();
-        if successes.len() == 2 {
+        if let Some(output) = parse_main(&line) {
             prop_assert_eq!(
-                successes[0].1, successes[1].1,
-                "Parser divergence on '{}': {} -> '{}', {} -> '{}'",
-                line, successes[0].0, successes[0].1, successes[1].0, successes[1].1
+                &output, &line,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                line, output
             );
         }
     }
@@ -149,10 +111,10 @@ proptest! {
     fn main_tier_double_roundtrip_stable(line in main_tier_line()) {
         if let Ok(ts) = TreeSitterParser::new() {
             let e1 = ErrorCollector::new();
-            if let Some(tier1) = ChatParser::parse_main_tier(&ts, &line, 0, &e1).into_option() {
+            if let Some(tier1) = ts.parse_main_tier_fragment(&line, 0, &e1).into_option() {
                 let chat1 = tier1.to_chat();
                 let e2 = ErrorCollector::new();
-                if let Some(tier2) = ChatParser::parse_main_tier(&ts, &chat1, 0, &e2).into_option() {
+                if let Some(tier2) = ts.parse_main_tier_fragment(&chat1, 0, &e2).into_option() {
                     let chat2 = tier2.to_chat();
                     prop_assert_eq!(
                         &chat1, &chat2,

@@ -1,7 +1,7 @@
 # CHAT Tokenization Rules
 
 **Status:** Current
-**Last updated:** 2026-03-23 16:54 EDT
+**Last updated:** 2026-03-24 07:21 EDT
 
 This document explains how CHAT text is split into tokens (words, markers,
 annotations). These rules are the most confusing aspect of CHAT and the
@@ -191,6 +191,31 @@ Bracket annotations (`[= text]`, `[=! text]`, `[% text]`, etc.) use
 
 The `[*]` error marker is the trickiest — it has optional content:
 `[*]` (bare) vs `[* s:r]` (with code). This remains an opaque token.
+
+## Stacked CA Markers
+
+CA markers commonly stack — multiple structural markers appear before the
+word text. This is standard Conversation Analysis notation:
+
+```
+*SPK:   °↑hello° .
+        ^^^^^^^^           ← ONE word: ca_delimiter(°) + ca_element(↑) +
+                              word_segment("hello") + ca_delimiter(°)
+                              Meaning: soft voice + pitch up on "hello"
+
+*SPK:   °°pianissimo°° .
+        ^^^^^^^^^^^^^^     ← ONE word: ca_delimiter(°) + ca_delimiter(°) +
+                              word_segment("pianissimo") + ca_delimiter(°) + ca_delimiter(°)
+                              Meaning: very soft (double piano) on "pianissimo"
+```
+
+The `word_body` marker-initial path uses `repeat1` to accept any number
+of leading structural markers before the first text element. Without this,
+`°↑hello°` would produce an ERROR on the first `°` because the grammar
+would require text immediately after one marker.
+
+**Overlap markers also stack with CA markers:** `⌈°hello⌉°` is overlap
+begin + soft voice around "hello".
 
 ## Summary Table
 

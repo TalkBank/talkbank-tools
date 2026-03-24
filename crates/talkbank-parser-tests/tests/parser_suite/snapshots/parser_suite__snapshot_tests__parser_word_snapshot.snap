@@ -1,8 +1,9 @@
 ---
 source: crates/talkbank-parser-tests/tests/parser_suite/snapshot_tests.rs
+assertion_line: 70
 expression: "rows.join(\"\\n\\n\")"
 ---
-[tree-sitter-parser] word `&~baba`
+[tree-sitter] word `&~baba`
 {
   "raw_text": "&~baba",
   "cleaned_text": "baba",
@@ -15,7 +16,7 @@ expression: "rows.join(\"\\n\\n\")"
   "category": "nonword"
 }
 
-[tree-sitter-parser] word `&~don`
+[tree-sitter] word `&~don`
 {
   "raw_text": "&~don",
   "cleaned_text": "don",
@@ -28,7 +29,7 @@ expression: "rows.join(\"\\n\\n\")"
   "category": "nonword"
 }
 
-[tree-sitter-parser] word `&~goo`
+[tree-sitter] word `&~goo`
 {
   "raw_text": "&~goo",
   "cleaned_text": "goo",

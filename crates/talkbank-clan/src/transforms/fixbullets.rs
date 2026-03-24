@@ -249,6 +249,9 @@ fn shift_main_tier_bullets(
             UtteranceContent::AnnotatedGroup(annotated) => {
                 shift_bracketed_bullets(&mut annotated.inner.content.content, offset_ms)?;
             }
+            UtteranceContent::Retrace(retrace) => {
+                shift_bracketed_bullets(&mut retrace.content.content, offset_ms)?;
+            }
             UtteranceContent::PhoGroup(group) => {
                 shift_bracketed_bullets(&mut group.content.content, offset_ms)?;
             }
@@ -304,6 +307,9 @@ fn shift_bracketed_bullets(
             }
             BracketedItem::AnnotatedGroup(annotated) => {
                 shift_bracketed_bullets(&mut annotated.inner.content.content, offset_ms)?;
+            }
+            BracketedItem::Retrace(retrace) => {
+                shift_bracketed_bullets(&mut retrace.content.content, offset_ms)?;
             }
             BracketedItem::PhoGroup(group) => {
                 shift_bracketed_bullets(&mut group.content.content, offset_ms)?;

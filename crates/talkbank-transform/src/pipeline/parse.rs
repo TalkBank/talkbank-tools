@@ -1,12 +1,9 @@
 //! Parse/validate pipeline entry points for CHAT content.
 //!
-//! This module provides two API flavors:
-//!
-//! 1. **Concrete functions** using `TreeSitterParser` directly (backwards compatible)
-//! 2. **Generic functions** using the `ChatParser` trait (parser-agnostic)
-//!
-//! Most callers should use the concrete functions. The generic versions enable
-//! testing with alternative parser implementations.
+//! This module provides pipeline functions that compose parsing and validation.
+//! Most callers should use `parse_and_validate()` or `parse_and_validate_streaming()`.
+//! For batch workflows where parser construction overhead matters, use the
+//! `_with_parser` variants that accept a caller-provided `TreeSitterParser`.
 //!
 //! # Related CHAT Manual Sections
 //!
@@ -16,146 +13,11 @@
 
 use talkbank_model::ChatFile;
 use talkbank_model::ParseValidateOptions;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_model::{ErrorCode, ErrorCollector, ErrorSink, ParseError, ParseErrors, Severity};
-use talkbank_parser::{self, TreeSitterParser};
+use talkbank_parser::TreeSitterParser;
 
 use super::error::PipelineError;
-
-// =============================================================================
-// Generic Functions (Parser-Agnostic)
-// =============================================================================
-
-/// Parse CHAT content and optionally validate using any ChatParser implementation.
-///
-/// This is the generic version that works with any `ChatParser` implementation,
-/// enabling parser swapping for testing or alternative implementations.
-///
-/// # Type Parameters
-///
-/// * `P` - Any type implementing the `ChatParser` trait
-///
-/// # Arguments
-///
-/// * `parser` - The parser implementation to use
-/// * `content` - The CHAT file content as a string
-/// * `options` - Parsing and validation options
-///
-/// # Returns
-///
-/// * `Ok(ChatFile)` - Successfully parsed (and validated if requested)
-/// * `Err(PipelineError)` - Parse or validation errors
-pub fn parse_and_validate_with_parser_generic<P: ChatParser>(
-    parser: &P,
-    content: &str,
-    options: ParseValidateOptions,
-) -> Result<ChatFile, PipelineError> {
-    // Use ErrorCollector to collect errors during parsing
-    let parse_errors = ErrorCollector::new();
-
-    // Parse CHAT file using the ChatParser trait (offset=0 for standalone files)
-    let chat_file_outcome = parser.parse_chat_file(content, 0, &parse_errors);
-
-    // Check for parse errors (only fail on actual errors, not warnings)
-    let parse_error_vec = parse_errors.into_vec();
-    let actual_errors: Vec<_> = parse_error_vec
-        .iter()
-        .filter(|e| e.severity == Severity::Error)
-        .cloned()
-        .collect();
-
-    if !actual_errors.is_empty() {
-        return Err(PipelineError::Parse(ParseErrors {
-            errors: parse_error_vec, // Include all errors/warnings in output
-        }));
-    }
-
-    // If parsing returned no semantic output (shouldn't happen if no errors, but handle defensively)
-    let mut chat_file = match chat_file_outcome {
-        ParseOutcome::Parsed(chat_file) => chat_file,
-        ParseOutcome::Rejected => {
-            return Err(PipelineError::ParserCreation(
-                "Parser rejected input without reporting errors".to_string(),
-            ));
-        }
-    };
-
-    // Validate if requested (using streaming API)
-    if options.validate || options.alignment {
-        let validation_errors = ErrorCollector::new();
-
-        if options.alignment {
-            chat_file.validate_with_alignment(&validation_errors, None);
-        } else {
-            chat_file.validate(&validation_errors, None);
-        }
-
-        let validation_error_vec = validation_errors.into_vec();
-        let has_validation_errors = validation_error_vec
-            .iter()
-            .any(|e| matches!(e.severity, Severity::Error));
-        if has_validation_errors {
-            return Err(PipelineError::Validation(validation_error_vec));
-        }
-    }
-
-    Ok(chat_file)
-}
-
-/// Parse CHAT content and optionally validate with streaming error reporting (generic).
-///
-/// This is the streaming variant that accepts an ErrorSink for real-time error reporting.
-/// Works with any `ChatParser` implementation.
-///
-/// # Arguments
-///
-/// * `parser` - The parser implementation to use
-/// * `content` - The CHAT file content as a string
-/// * `options` - Parsing and validation options
-/// * `errors` - ErrorSink that receives errors as they're discovered
-///
-/// # Returns
-///
-/// * `Ok(ChatFile)` - Always returns a ChatFile (even if there were errors)
-/// * `Err(PipelineError)` - Only if parser creation failed
-pub fn parse_and_validate_streaming_with_parser_generic<P: ChatParser>(
-    parser: &P,
-    content: &str,
-    options: ParseValidateOptions,
-    errors: &impl ErrorSink,
-) -> Result<ChatFile, PipelineError> {
-    // Parse CHAT file using the ChatParser trait (errors streamed to sink)
-    let chat_file_outcome = parser.parse_chat_file(content, 0, errors);
-
-    // If parsing returned no semantic output, report an error and return an empty ChatFile.
-    let mut chat_file = match chat_file_outcome {
-        ParseOutcome::Parsed(chat_file) => chat_file,
-        ParseOutcome::Rejected => {
-            let parse_error = ParseError::build(ErrorCode::ParseFailed)
-                .message("Parser rejected input without reporting errors")
-                .finish()
-                .map_err(|err| PipelineError::ParserCreation(err.to_string()))?;
-            errors.report(parse_error);
-            ChatFile::new(vec![])
-        }
-    };
-
-    // Validate if requested (errors reported immediately to sink)
-    if options.validate || options.alignment {
-        if options.alignment {
-            chat_file.validate_with_alignment(errors, None);
-        } else {
-            chat_file.validate(errors, None);
-        }
-    }
-
-    // Always return the file (even if there were errors - error recovery)
-    Ok(chat_file)
-}
-
-// =============================================================================
-// Concrete Functions (TreeSitterParser - Backwards Compatible)
-// =============================================================================
 
 /// Parse CHAT content and optionally validate.
 ///
@@ -193,9 +55,9 @@ pub fn parse_and_validate(
     content: &str,
     options: ParseValidateOptions,
 ) -> Result<ChatFile, PipelineError> {
-    // Use thread-local parser pool to avoid per-call C FFI allocation
-    talkbank_parser::with_parser(|parser| parse_and_validate_with_parser(parser, content, options))
-        .map_err(|e| PipelineError::ParserCreation(format!("{e}")))?
+    let parser = TreeSitterParser::new()
+        .map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
+    parse_and_validate_with_parser(&parser, content, options)
 }
 
 /// Parse CHAT content and optionally validate using a caller-provided TreeSitterParser.
@@ -206,8 +68,51 @@ pub fn parse_and_validate_with_parser(
     content: &str,
     options: ParseValidateOptions,
 ) -> Result<ChatFile, PipelineError> {
-    // Delegate to generic implementation
-    parse_and_validate_with_parser_generic(parser, content, options)
+    let parse_errors = ErrorCollector::new();
+
+    let chat_file_outcome = parser.parse_chat_file_fragment(content, 0, &parse_errors);
+
+    let parse_error_vec = parse_errors.into_vec();
+    let actual_errors: Vec<_> = parse_error_vec
+        .iter()
+        .filter(|e| e.severity == Severity::Error)
+        .cloned()
+        .collect();
+
+    if !actual_errors.is_empty() {
+        return Err(PipelineError::Parse(ParseErrors {
+            errors: parse_error_vec,
+        }));
+    }
+
+    let mut chat_file = match chat_file_outcome {
+        ParseOutcome::Parsed(chat_file) => chat_file,
+        ParseOutcome::Rejected => {
+            return Err(PipelineError::ParserCreation(
+                "Parser rejected input without reporting errors".to_string(),
+            ));
+        }
+    };
+
+    if options.validate || options.alignment {
+        let validation_errors = ErrorCollector::new();
+
+        if options.alignment {
+            chat_file.validate_with_alignment(&validation_errors, None);
+        } else {
+            chat_file.validate(&validation_errors, None);
+        }
+
+        let validation_error_vec = validation_errors.into_vec();
+        let has_validation_errors = validation_error_vec
+            .iter()
+            .any(|e| matches!(e.severity, Severity::Error));
+        if has_validation_errors {
+            return Err(PipelineError::Validation(validation_error_vec));
+        }
+    }
+
+    Ok(chat_file)
 }
 
 /// Parse CHAT content and optionally validate with streaming error reporting.
@@ -246,11 +151,9 @@ pub fn parse_and_validate_streaming(
     options: ParseValidateOptions,
     errors: &impl ErrorSink,
 ) -> Result<ChatFile, PipelineError> {
-    // Use thread-local parser pool to avoid per-call parser construction
-    talkbank_parser::with_parser(|parser| {
-        parse_and_validate_streaming_with_parser(parser, content, options, errors)
-    })
-    .map_err(|e| PipelineError::ParserCreation(format!("{:?}", e)))?
+    let parser = TreeSitterParser::new()
+        .map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
+    parse_and_validate_streaming_with_parser(&parser, content, options, errors)
 }
 
 /// Streaming variant that reuses a caller-provided parser instance.
@@ -260,13 +163,34 @@ pub fn parse_and_validate_streaming_with_parser(
     options: ParseValidateOptions,
     errors: &impl ErrorSink,
 ) -> Result<ChatFile, PipelineError> {
-    // Delegate to generic implementation
-    parse_and_validate_streaming_with_parser_generic(parser, content, options, errors)
+    let chat_file_outcome = parser.parse_chat_file_fragment(content, 0, errors);
+
+    let mut chat_file = match chat_file_outcome {
+        ParseOutcome::Parsed(chat_file) => chat_file,
+        ParseOutcome::Rejected => {
+            let parse_error = ParseError::build(ErrorCode::ParseFailed)
+                .message("Parser rejected input without reporting errors")
+                .finish()
+                .map_err(|err| PipelineError::ParserCreation(err.to_string()))?;
+            errors.report(parse_error);
+            ChatFile::new(vec![])
+        }
+    };
+
+    if options.validate || options.alignment {
+        if options.alignment {
+            chat_file.validate_with_alignment(errors, None);
+        } else {
+            chat_file.validate(errors, None);
+        }
+    }
+
+    Ok(chat_file)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{PipelineError, parse_and_validate, parse_and_validate_with_parser_generic};
+    use super::{PipelineError, parse_and_validate, parse_and_validate_with_parser};
     use talkbank_model::ErrorCode;
     use talkbank_model::ParseValidateOptions;
     use talkbank_parser::TreeSitterParser;
@@ -348,14 +272,13 @@ mod tests {
     }
 
     #[test]
-    fn test_generic_function_with_tree_sitter() -> Result<(), PipelineError> {
-        // Verify that the generic function works with TreeSitterParser
+    fn test_with_explicit_parser() -> Result<(), PipelineError> {
         let content = "@UTF8\n@Begin\n@End\n";
         let options = ParseValidateOptions::default();
 
         let parser = TreeSitterParser::new()
             .map_err(|err| PipelineError::ParserCreation(format!("{:?}", err)))?;
-        let result = parse_and_validate_with_parser_generic(&parser, content, options);
+        let result = parse_and_validate_with_parser(&parser, content, options);
 
         assert!(result.is_ok());
 

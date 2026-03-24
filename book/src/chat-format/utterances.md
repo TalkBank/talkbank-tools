@@ -1,5 +1,8 @@
 # Utterances
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 An utterance is the fundamental unit of a CHAT transcript. It consists of a main tier (the transcribed speech) followed by zero or more dependent tiers (annotations).
 
 ## Main Tier

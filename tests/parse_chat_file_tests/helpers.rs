@@ -13,8 +13,6 @@ use talkbank_parser::{ParserInitError, TreeSitterParser};
 pub enum TestError {
     #[error("Failed to create TreeSitterParser: {source}")]
     TreeSitterInit { source: ParserInitError },
-    #[error("Failed to create TreeSitterParser: {message}")]
-    ParserInit { message: ParserInitMessage },
     #[error("Parse failed for {parser}")]
     ParseErrors {
         parser: &'static str,
@@ -24,11 +22,6 @@ pub enum TestError {
     ParseReturnedNone { parser: &'static str },
 }
 
-/// Type representing ParserInitMessage.
-#[derive(Debug, thiserror::Error)]
-#[error("{0}")]
-pub struct ParserInitMessage(String);
-
 /// Returns both parser implementations for testing
 pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
     shared_parser_suite().map_err(map_parser_suite_error)
@@ -37,9 +30,6 @@ pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
 fn map_parser_suite_error(error: ParserSuiteError) -> TestError {
     match error {
         ParserSuiteError::TreeSitterInit { source } => TestError::TreeSitterInit { source },
-        ParserSuiteError::ParserInit { message } => TestError::ParserInit {
-            message: ParserInitMessage(message),
-        },
     }
 }
 

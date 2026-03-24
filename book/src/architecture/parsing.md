@@ -1,23 +1,19 @@
 # Parsing
 
-The parsing pipeline converts CHAT text into a typed `ChatFile` AST. Two independent parser implementations ensure correctness.
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
 
-**Important:** several legacy tree-sitter "fragment parser" entrypoints are not
-true fragment parsers. They inject a fragment into boilerplate CHAT text and
-then parse the resulting synthetic file. That behavior was useful while the
-direct parser was being bootstrapped, but it is now architectural debt and
-should be retired rather than normalized. Treat those helpers as audit-only
-compatibility surfaces, not as the fragment oracle for batchalign3 or any
-other consumer.
+The parsing pipeline converts CHAT text into a typed `ChatFile` AST using
+a tree-sitter grammar. Tree-sitter is the sole parser.
 
-## Tree-Sitter Parser (Canonical)
+## Tree-Sitter Parser
 
 The `talkbank-parser` crate wraps the tree-sitter C parser and converts its concrete syntax tree (CST) into the `ChatFile` model.
 
-**Important:** full-file parsing is real. Some legacy tree-sitter fragment
-helpers are synthetic. Those helpers now live under
-`talkbank_parser::synthetic_fragments::*` specifically so they are not
-mistaken for honest crate-root fragment parsers.
+Full-file parsing is the canonical entry point. `TreeSitterParser` also
+provides fragment methods (`parse_word_fragment()`, `parse_main_tier_fragment()`,
+`parse_chat_file_fragment()`, etc.) for parsing isolated CHAT fragments
+directly.
 
 ### CST → AST Pipeline
 
@@ -36,11 +32,11 @@ flowchart LR
 Source text
     ↓ tree-sitter parse
 Concrete Syntax Tree (CST) — green tree with all tokens
-    ↓ tier_parsers (Rust)
+    ↓ tree_parsing (Rust)
 ChatFile AST — typed model with validation-ready data
 ```
 
-The CST preserves every character of the source (whitespace, punctuation, comments). The Rust tier parsers walk the CST and extract semantic information into the typed model.
+The CST preserves every character of the source (whitespace, punctuation, comments). The Rust tree-parsing modules walk the CST and extract semantic information into the typed model.
 
 ### Error Recovery
 
@@ -60,73 +56,36 @@ Individual parse functions return `ParseOutcome<T>`:
 
 This allows the parser to skip individual malformed elements while continuing to parse the rest of the file.
 
-## Direct Parser (Experimental)
+## Parser Equivalence
 
-The `talkbank-direct-parser` crate uses [chumsky](https://github.com/zesterer/chumsky) parser combinators. It began as a fail-fast fragment parser, but that description is now incomplete: the real code has selective recovery and leniency paths, especially around utterance/dependent-tier parsing and parse-health propagation.
-
-### Design Differences
-
-| Feature | Tree-sitter | Direct |
-|---------|-------------|--------|
-| Error recovery | Yes (GLR whole-file recovery) | Selective, hand-owned recovery in specific fragment/file paths |
-| Incremental | Yes | No |
-| CST preservation | Yes | No (direct to AST) |
-| Use case | Canonical full-file parsing | Explicit fragment parsing plus selective recovery paths |
-
-**Important:** because the direct parser now owns real lenient/recovery
-behavior, it needs its own test oracle. It should not rely on synthetic
-tree-sitter fragment helpers as the golden source for fragment semantics.
-
-### Batchalign3 Integration Surface
-
-`batchalign3` depends on the parsing layer in two different ways:
-
-- it needs the canonical full-file `ChatFile` parse for alignment, compare, and
-  workflow orchestration
-- it needs the direct parser's leniency and recovery contract to be explicit
-  enough that malformed words, dependent tiers, and parse-health taint are
-  predictable for downstream alignment consumers
-
-That means the right parser split is not "tree-sitter good, direct parser bad";
-it is:
-
-- tree-sitter for canonical full-file equivalence and CST recovery
-- direct parser for explicit fragment/recovery semantics and recovery tests
-- synthetic fragment helpers only as audit/compatibility paths
-
-If a downstream consumer needs to know whether a malformed fragment should be
-rejected, recovered, or tainted, that decision belongs in direct-parser-native
-tests and docs, not in a tree-sitter wrapper that synthesizes a full CHAT file.
-
-### Parser Equivalence
-
-Both parsers must produce identical `ChatFile` ASTs for the 74-file reference corpus:
+The 78-file reference corpus is the primary correctness guarantee:
 
 ```bash
 cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
 ```
 
-Each `.cha` file is its own test — nextest runs them in parallel and reports individual failures. This equivalence test is still the primary correctness guarantee for **full-file** behavior.
+Each `.cha` file is its own test — nextest runs them in parallel and reports individual failures.
 
-It should **not** be treated as the primary correctness guarantee for direct-
-parser fragment leniency or recovery behavior. Those paths need independent
-spec- and invariant-driven tests.
+## TreeSitterParser API
 
-## ChatParser Trait
-
-The `talkbank-model` crate defines the `ChatParser` trait (in `parser_api`) that both parsers implement:
+`TreeSitterParser` is the sole API handle for parsing. Callers create one
+instance and pass `&TreeSitterParser` to all parsing call sites. There is
+no trait abstraction — `TreeSitterParser` is a concrete type in the
+`talkbank-parser` crate.
 
 ```rust
-pub trait ChatParser {
-    fn parse_chat_file(
-        &self,
-        source: &str,
-        errors: &impl ErrorSink,
-    ) -> Result<ChatFile, ParseError>;
-}
-```
+use talkbank_parser::TreeSitterParser;
 
-Application code programs against this trait and can swap parser implementations.
+let parser = TreeSitterParser::new()?;
+
+// Full-file parsing (methods on TreeSitterParser)
+let chat_file = parser.parse_chat_file(&source, &errors)?;
+let chat_file = parser.parse_chat_file_streaming(&source, callback)?;
+
+// Fragment parsing (methods on TreeSitterParser)
+let word = parser.parse_word_fragment(word_text, &errors);
+let main_tier = parser.parse_main_tier_fragment(tier_text, &errors);
+```
 
 ### AST Structure
 
@@ -141,7 +100,7 @@ flowchart TD
     dt["DependentTiers[]\n%mor, %gra, %pho, %sin, %wor"]
     uc["UtteranceContent\n24 variants"]
     leaf["Leaves\nWord | ReplacedWord | Separator"]
-    group["Groups\nGroup | AnnotatedGroup |\nPhoGroup | SinGroup | Quotation"]
+    group["Groups\nGroup | AnnotatedGroup |\nRetrace | PhoGroup | SinGroup | Quotation"]
 
     cf --> hdr & utts
     utts --> mt & dt

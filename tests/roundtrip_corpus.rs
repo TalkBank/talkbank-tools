@@ -61,9 +61,6 @@ struct Args {
     #[arg(long)]
     no_alignment: bool,
 
-    /// Use the direct parser instead of tree-sitter
-    #[arg(long)]
-    direct: bool,
 }
 
 /// Entry point for this binary target.
@@ -117,7 +114,6 @@ fn main() {
         args.no_cache,
         args.emit_artifacts,
         !args.no_alignment,
-        args.direct,
     );
 }
 
@@ -127,15 +123,10 @@ fn run_custom_mode(
     no_cache: bool,
     emit_artifacts: bool,
     check_alignment: bool,
-    use_direct: bool,
 ) {
     use indicatif::{ProgressBar, ProgressStyle};
 
-    let parser_kind = if use_direct {
-        roundtrip_corpus::runner::RoundtripParserKind::Direct
-    } else {
-        roundtrip_corpus::runner::RoundtripParserKind::TreeSitter
-    };
+    let parser_kind = roundtrip_corpus::runner::RoundtripParserKind::TreeSitter;
 
     // Create cache (unless disabled)
     let cache = if !no_cache {

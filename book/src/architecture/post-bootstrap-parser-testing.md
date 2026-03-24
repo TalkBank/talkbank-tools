@@ -1,6 +1,13 @@
 # Post-Bootstrap Parser Testing
 
-Last modified: 2026-03-21 07:06:48 EDT
+**Status:** Historical
+**Last updated:** 2026-03-23 23:49 EDT
+
+> **Note:** This document describes the dual-parser testing architecture that
+> existed before the Chumsky direct parser was removed in March 2026.
+> Tree-sitter is now the sole parser. The testing taxonomy described here was
+> partially implemented before the direct parser was eliminated. This document
+> is preserved for architectural context.
 
 The parser/testing architecture should no longer assume that `talkbank-tools`
 is still bootstrapping the direct parser against tree-sitter. That phase was

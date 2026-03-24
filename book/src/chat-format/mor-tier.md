@@ -1,5 +1,8 @@
 # The %mor Tier: Morphological Analysis
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 The `%mor` (morphological) dependent tier provides word-by-word morphosyntactic annotation aligned with the main tier. Each main-tier word receives a morphological code specifying part of speech, lemma, and grammatical features.
 
 ## Format Overview
@@ -304,15 +307,11 @@ Key design decisions:
 - **`mor_feature_value` accepts `,`**: Multi-value features like `Int,Rel` parse as a single node.
 - **No compound/prefix rules**: The grammar has no rules for `+` (compounds) or `#` (prefixes) in the UD MOR format. These are legacy CHAT MOR features not used in UD-style output.
 
-## Two-Parser Strategy
+## Parser
 
-Two parsers produce `MorTier` from CHAT text:
+The tree-sitter parser produces `MorTier` from CHAT text. It is GLR-based and error-recovering, producing a CST that the Rust `talkbank-parser` crate walks to construct `MorTier`. Used by the CLI, LSP, and batchalign3. High-frequency values (`PosCategory`, `MorStem`) are interned via `Arc<str>` during construction.
 
-1. **Tree-sitter parser** (canonical): GLR-based, error-recovering. Produces a CST (concrete syntax tree) that the Rust `talkbank-parser` crate walks to construct `MorTier` directly. Used by the CLI and LSP. High-frequency values (`PosCategory`, `MorStem`) are interned via `Arc<str>` during construction.
-
-2. **Direct parser** (experimental): chumsky combinators with explicit fragment parsing and selective recovery in some broader paths. Produces `MorTier` directly without a CST intermediate. Calls `MorFeature::new()` which auto-detects key=value format.
-
-Both parsers must produce semantically identical `MorTier` values for the 74-file reference corpus.
+The 78-file reference corpus is the correctness gate for %mor parsing.
 
 ## Validation
 

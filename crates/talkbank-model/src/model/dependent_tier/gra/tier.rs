@@ -138,7 +138,7 @@ impl GraTier {
     /// Write tier content only (relations), without the tier prefix (%gra:\t).
     ///
     /// This is used for roundtrip testing against golden data that contains
-    /// content-only, and for the ChatParser API which expects content-only input.
+    /// content-only, and for the TreeSitterParser API which expects content-only input.
     pub fn write_content<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
         for (i, rel) in self.relations.iter().enumerate() {
             if i > 0 {

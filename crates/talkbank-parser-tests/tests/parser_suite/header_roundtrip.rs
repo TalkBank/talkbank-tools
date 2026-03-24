@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::{SemanticEq, WriteChat};
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_model::{Header, Line};
 use talkbank_parser_tests::test_error::TestError;
 
@@ -50,12 +50,12 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
             })?;
 
             let file_errors = ErrorCollector::new();
-            let parsed_file = match ChatParser::parse_chat_file(&parser, &source, 0, &file_errors) {
+            let parsed_file = match parser.parse_chat_file_fragment(&source, 0, &file_errors) {
                 ParseOutcome::Parsed(file) => file,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
                         "[{}] rejected whole-file parse for {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         path.display()
                     )));
                 }
@@ -64,7 +64,7 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
             if !file_errors.is_empty() {
                 return Err(TestError::Failure(format!(
                     "[{}] whole-file parse errors for {}: {:?}",
-                    parser.parser_name(),
+                    "tree-sitter",
                     path.display(),
                     file_errors.to_vec()
                 )));
@@ -73,12 +73,12 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
             for header in collect_headers(&parsed_file) {
                 let header_text = header.to_chat();
                 let header_errors = ErrorCollector::new();
-                let reparsed = match ChatParser::parse_header(&parser, &header_text, 0, &header_errors) {
+                let reparsed = match parser.parse_header_fragment(&header_text, 0, &header_errors) {
                     ParseOutcome::Parsed(header) => header,
                     ParseOutcome::Rejected => {
                         return Err(TestError::Failure(format!(
                             "[{}] parse_header rejected `{}` from {}",
-                            parser.parser_name(),
+                            "tree-sitter",
                             header_text,
                             path.display()
                         )));
@@ -88,7 +88,7 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !header_errors.is_empty() {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_header errors for `{}` from {}: {:?}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         header_text,
                         path.display(),
                         header_errors.to_vec()
@@ -98,7 +98,7 @@ fn reference_headers_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !header.semantic_eq(&reparsed) {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_header semantic mismatch for `{}` from {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         header_text,
                         path.display()
                     )));

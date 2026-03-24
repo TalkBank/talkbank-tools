@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use talkbank_model::ChatOptionFlag;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::{Line, SemanticEq};
-use talkbank_model::{ChatParser, FragmentSemanticContext, ParseOutcome};
+use talkbank_model::{FragmentSemanticContext, ParseOutcome};
 use talkbank_parser_tests::test_error::TestError;
 
 use super::parser_impl::parser_suite;
@@ -72,12 +72,12 @@ fn reference_main_tiers_roundtrip_for_every_parser() -> Result<(), TestError> {
             }
 
             let file_errors = ErrorCollector::new();
-            let parsed_file = match ChatParser::parse_chat_file(&parser, &source, 0, &file_errors) {
+            let parsed_file = match parser.parse_chat_file_fragment(&source, 0, &file_errors) {
                 ParseOutcome::Parsed(file) => file,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
                         "[{}] rejected whole-file parse for {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         path.display()
                     )));
                 }
@@ -86,7 +86,7 @@ fn reference_main_tiers_roundtrip_for_every_parser() -> Result<(), TestError> {
             if !file_errors.is_empty() {
                 return Err(TestError::Failure(format!(
                     "[{}] whole-file parse errors for {}: {:?}",
-                    parser.parser_name(),
+                    "tree-sitter",
                     path.display(),
                     file_errors.to_vec()
                 )));
@@ -95,12 +95,12 @@ fn reference_main_tiers_roundtrip_for_every_parser() -> Result<(), TestError> {
             for utterance in parsed_file.utterances() {
                 let main_line = utterance.main.to_chat();
                 let main_errors = ErrorCollector::new();
-                let reparsed = match ChatParser::parse_main_tier(&parser, &main_line, 0, &main_errors) {
+                let reparsed = match parser.parse_main_tier_fragment(&main_line, 0, &main_errors) {
                     ParseOutcome::Parsed(main) => main,
                     ParseOutcome::Rejected => {
                         return Err(TestError::Failure(format!(
                             "[{}] parse_main_tier rejected `{}` from {}",
-                            parser.parser_name(),
+                            "tree-sitter",
                             main_line,
                             relative_display(path)
                         )));
@@ -110,7 +110,7 @@ fn reference_main_tiers_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !main_errors.is_empty() {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_main_tier errors for `{}` from {}: {:?}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         main_line,
                         relative_display(path),
                         main_errors.to_vec()
@@ -120,7 +120,7 @@ fn reference_main_tiers_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !utterance.main.semantic_eq(&reparsed) {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_main_tier semantic mismatch for `{}` from {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         main_line,
                         relative_display(path)
                     )));
@@ -150,12 +150,12 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
             })?;
 
             let file_errors = ErrorCollector::new();
-            let parsed_file = match ChatParser::parse_chat_file(&parser, &source, 0, &file_errors) {
+            let parsed_file = match parser.parse_chat_file_fragment(&source, 0, &file_errors) {
                 ParseOutcome::Parsed(file) => file,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
                         "[{}] rejected whole-file parse for {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         path.display()
                     )));
                 }
@@ -164,7 +164,7 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
             if !file_errors.is_empty() {
                 return Err(TestError::Failure(format!(
                     "[{}] whole-file parse errors for {}: {:?}",
-                    parser.parser_name(),
+                    "tree-sitter",
                     path.display(),
                     file_errors.to_vec()
                 )));
@@ -177,12 +177,12 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
 
                 let utterance_text = utterance.to_chat();
                 let utterance_errors = ErrorCollector::new();
-                let reparsed = match ChatParser::parse_utterance(&parser, &utterance_text, 0, &utterance_errors) {
+                let reparsed = match parser.parse_utterance_fragment(&utterance_text, 0, &utterance_errors) {
                     ParseOutcome::Parsed(utterance) => utterance,
                     ParseOutcome::Rejected => {
                         return Err(TestError::Failure(format!(
                             "[{}] parse_utterance rejected `{}` from {}",
-                            parser.parser_name(),
+                            "tree-sitter",
                             utterance_text,
                             path.display()
                         )));
@@ -192,7 +192,7 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !utterance_errors.is_empty() {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_utterance errors for `{}` from {}: {:?}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         utterance_text,
                         path.display(),
                         utterance_errors.to_vec()
@@ -202,7 +202,7 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
                 if !utterance.as_ref().semantic_eq(&reparsed) {
                     return Err(TestError::Failure(format!(
                         "[{}] parse_utterance semantic mismatch for `{}` from {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         utterance_text,
                         path.display()
                     )));
@@ -220,19 +220,19 @@ fn main_tier_ca_omission_requires_file_context_for_every_parser() -> Result<(), 
 
     for parser in parser_suite()? {
         let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_main_tier(&parser, input, 0, &errors);
+        let parsed = parser.parse_main_tier_fragment(input, 0, &errors);
 
         if !parsed.is_rejected() {
             return Err(TestError::Failure(format!(
                 "[{}] parse_main_tier unexpectedly accepted CA-omission fragment without file context",
-                parser.parser_name()
+                "tree-sitter"
             )));
         }
 
         if errors.is_empty() {
             return Err(TestError::Failure(format!(
                 "[{}] parse_main_tier rejected CA-omission fragment without reporting an error",
-                parser.parser_name()
+                "tree-sitter"
             )));
         }
     }
@@ -247,12 +247,12 @@ fn main_tier_ca_omission_parses_with_ca_context_for_every_parser() -> Result<(),
 
     for parser in parser_suite()? {
         let errors = ErrorCollector::new();
-        let parsed = match parser.parse_main_tier_with_context(input, 0, &context, &errors) {
+        let parsed = match parser.parse_main_tier_fragment_with_context(input, 0, &context, &errors) {
             ParseOutcome::Parsed(main) => main,
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] parse_main_tier_with_context rejected CA-omission fragment with CA context",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -260,7 +260,7 @@ fn main_tier_ca_omission_parses_with_ca_context_for_every_parser() -> Result<(),
         if !errors.is_empty() {
             return Err(TestError::Failure(format!(
                 "[{}] parse_main_tier_with_context reported errors with CA context: {:?}",
-                parser.parser_name(),
+                "tree-sitter",
                 errors.to_vec()
             )));
         }
@@ -269,7 +269,7 @@ fn main_tier_ca_omission_parses_with_ca_context_for_every_parser() -> Result<(),
         if serialized != input {
             return Err(TestError::Failure(format!(
                 "[{}] parse_main_tier_with_context roundtrip mismatch: expected `{}`, got `{}`",
-                parser.parser_name(),
+                "tree-sitter",
                 input,
                 serialized
             )));

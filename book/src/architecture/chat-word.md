@@ -1,7 +1,7 @@
 # The CHAT Word
 
 **Status:** Current
-**Last updated:** 2026-03-23 17:05 EDT
+**Last updated:** 2026-03-24 01:32 EDT
 
 "Word" is the most complex and most misunderstood concept in CHAT. This
 chapter documents what a word actually is, how the grammar parses it, and
@@ -353,8 +353,8 @@ Partially parenthesized `hel(lo)` is always a shortening.
 
 Distinguishing these requires file-level context (`@Options` header).
 The parser sets `WordCategory::CAOmission` when the word is fully
-parenthesized in CA mode. Isolated `parse_word()` calls cannot determine
-CA mode -- they need a `FragmentSemanticContext`.
+parenthesized in CA mode. Isolated `parser.parse_word_fragment()` calls
+cannot determine CA mode -- they need a `FragmentSemanticContext`.
 
 ### 4. Colon -- lengthening vs separator
 

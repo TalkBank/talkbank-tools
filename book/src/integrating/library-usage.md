@@ -139,13 +139,10 @@ surface is usually:
 | Canonical full-file parsing | `talkbank-parser` |
 | Parse/validate contracts and typed model access | `talkbank-model` |
 | Alignment-aware downstream consumers (`align`, `compare`, `benchmark`) | `talkbank-model` alignment helpers plus the model AST |
-| Direct-parser fragment/recovery semantics | `talkbank-direct-parser` tests and docs |
 | Whole-pipeline parse+validate+convert | `talkbank-transform` |
 
 For batch workflows, keep parser instances reusable and keep alignment logic
-separate from parse semantics. `batchalign3` should not depend on synthetic
-fragment helpers as a semantic oracle; those are audit-only compatibility
-paths.
+separate from parse semantics.
 
 For CLAN analysis integration, prefer the library-owned execution boundary in `talkbank-clan` instead of constructing command types ad hoc in outer crates. In practice that means:
 

@@ -41,56 +41,27 @@
 
 use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::SemanticEq;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 
-/// Compare parsers on a single CHAT file input.
+/// Parse a CHAT file input and verify it succeeds.
 ///
-/// Returns Ok(()) if both parsers produce semantically equivalent output.
-/// Returns Err(message) if they diverge.
-fn compare_parsers(input: &str, description: &str) -> Result<(), String> {
-    let tree_sitter =
+/// Returns Ok(()) if the parser produces a valid ChatFile.
+/// Returns Err(message) if parsing fails.
+fn parse_chat_file(input: &str, description: &str) -> Result<(), String> {
+    let parser =
         TreeSitterParser::new().map_err(|e| format!("TreeSitter init failed: {}", e))?;
-    let direct = TreeSitterParser::new().map_err(|e| format!("Direct init failed: {}", e))?;
 
-    let ts_errors = ErrorCollector::new();
-    let direct_errors = ErrorCollector::new();
+    let errors = ErrorCollector::new();
+    let result = parser.parse_chat_file_fragment(input, 0, &errors);
 
-    let ts_result = ChatParser::parse_chat_file(&tree_sitter, input, 0, &ts_errors);
-    let direct_result = ChatParser::parse_chat_file(&direct, input, 0, &direct_errors);
-
-    match (ts_result, direct_result) {
-        (ParseOutcome::Parsed(ts_file), ParseOutcome::Parsed(direct_file)) => {
-            if ts_file.semantic_eq(&direct_file) {
-                Ok(())
-            } else {
-                Err(format!(
-                    "Semantic mismatch for {}\nTreeSitter errors: {}\nDirect errors: {}
-TreeSitter: {:#?}
-Direct: {:#?}",
-                    description,
-                    ts_errors.to_vec().len(),
-                    direct_errors.to_vec().len(),
-                    ts_file,
-                    direct_file
-                ))
-            }
-        }
-        (ParseOutcome::Parsed(_), ParseOutcome::Rejected) => Err(format!(
-            "TreeSitterParser failed to parse {}
+    match result {
+        ParseOutcome::Parsed(_) => Ok(()),
+        ParseOutcome::Rejected => Err(format!(
+            "Failed to parse {}
 Errors: {:?}",
             description,
-            direct_errors.to_vec()
+            errors.to_vec()
         )),
-        (ParseOutcome::Rejected, ParseOutcome::Parsed(_)) => Err(format!(
-            "TreeSitterParser failed to parse {} (unexpected!)
-Errors: {:?}",
-            description,
-            ts_errors.to_vec()
-        )),
-        (ParseOutcome::Rejected, ParseOutcome::Rejected) => {
-            Err(format!("Both parsers failed for {}", description))
-        }
     }
 }
 
@@ -117,8 +88,8 @@ fn equiv_compound_words() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Compound words equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Compound words parsing failed:\n{}", e));
     }
 }
 
@@ -126,7 +97,7 @@ fn equiv_compound_words() {
 // Overlap Points
 // =============================================================================
 
-/// Verifies parser equivalence on overlap-point inputs.
+/// Verifies parser handles overlap-point inputs.
 #[test]
 fn equiv_overlap_points() {
     let inputs = [
@@ -145,8 +116,8 @@ fn equiv_overlap_points() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Overlap points equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Overlap points parsing failed:\n{}", e));
     }
 }
 
@@ -154,7 +125,7 @@ fn equiv_overlap_points() {
 // Stress Markers
 // =============================================================================
 
-/// Verifies parser equivalence on stress-marker inputs.
+/// Verifies parser handles stress-marker inputs.
 #[test]
 fn equiv_stress_markers() {
     let inputs = [
@@ -173,8 +144,8 @@ fn equiv_stress_markers() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Stress markers equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Stress markers parsing failed:\n{}", e));
     }
 }
 
@@ -182,7 +153,7 @@ fn equiv_stress_markers() {
 // CA Elements
 // =============================================================================
 
-/// Verifies parser equivalence on CA-element inputs.
+/// Verifies parser handles CA-element inputs.
 #[test]
 #[ignore = "TreeSitterParser does not parse mid-word CA elements (‡, ↑, ↓)"]
 fn equiv_ca_elements() {
@@ -202,8 +173,8 @@ fn equiv_ca_elements() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("CA elements equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("CA elements parsing failed:\n{}", e));
     }
 }
 
@@ -211,7 +182,7 @@ fn equiv_ca_elements() {
 // Lengthening and Shortening
 // =============================================================================
 
-/// Verifies parser equivalence on lengthening inputs.
+/// Verifies parser handles lengthening inputs.
 #[test]
 fn equiv_lengthening() {
     let inputs = [
@@ -226,12 +197,12 @@ fn equiv_lengthening() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Lengthening equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Lengthening parsing failed:\n{}", e));
     }
 }
 
-/// Verifies parser equivalence on shortening inputs.
+/// Verifies parser handles shortening inputs.
 #[test]
 fn equiv_shortening() {
     let inputs = [
@@ -246,8 +217,8 @@ fn equiv_shortening() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Shortening equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Shortening parsing failed:\n{}", e));
     }
 }
 
@@ -255,7 +226,7 @@ fn equiv_shortening() {
 // Complex Combinations
 // =============================================================================
 
-/// Verifies parser equivalence on mixed-marker complex word inputs.
+/// Verifies parser handles mixed-marker complex word inputs.
 #[test]
 #[ignore = "Depends on CA element support in TreeSitterParser"]
 fn equiv_complex_words() {
@@ -271,8 +242,8 @@ fn equiv_complex_words() {
     ];
 
     for (input, description) in inputs {
-        compare_parsers(input, description)
-            .unwrap_or_else(|e| panic!("Complex words equivalence failed:\n{}", e));
+        parse_chat_file(input, description)
+            .unwrap_or_else(|e| panic!("Complex words parsing failed:\n{}", e));
     }
 }
 
@@ -293,6 +264,6 @@ fn equiv_specific_file() {
     let content =
         std::fs::read_to_string(path).unwrap_or_else(|e| panic!("Failed to read {}: {}", path, e));
 
-    compare_parsers(&content, path)
-        .unwrap_or_else(|e| panic!("Specific file equivalence failed:\n{}", e));
+    parse_chat_file(&content, path)
+        .unwrap_or_else(|e| panic!("Specific file parsing failed:\n{}", e));
 }

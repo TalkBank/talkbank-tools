@@ -5,7 +5,6 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 
-use super::super::detection::is_retrace_annotation;
 use crate::Span;
 use crate::model::{BracketedContent, BracketedItem, WriteChat};
 use std::fmt::Write;
@@ -39,18 +38,18 @@ pub fn render_bracketed_item(
         }
         BracketedItem::AnnotatedWord(ann) => {
             ann.inner.write_chat(rendered).ok();
-            render_scoped_annotations(&ann.scoped_annotations, rendered, retrace_spans);
+            render_scoped_annotations(&ann.scoped_annotations, rendered);
         }
         BracketedItem::ReplacedWord(rw) => {
             rw.write_chat(rendered).ok();
-            render_scoped_annotations(rw.scoped_annotations.iter(), rendered, retrace_spans);
+            render_scoped_annotations(rw.scoped_annotations.iter(), rendered);
         }
         BracketedItem::Event(event) => {
             event.write_chat(rendered).ok();
         }
         BracketedItem::AnnotatedEvent(ann) => {
             ann.inner.write_chat(rendered).ok();
-            render_scoped_annotations(ann.scoped_annotations.iter(), rendered, retrace_spans);
+            render_scoped_annotations(ann.scoped_annotations.iter(), rendered);
         }
         BracketedItem::Pause(pause) => {
             pause.write_chat(rendered).ok();
@@ -65,7 +64,7 @@ pub fn render_bracketed_item(
                 rendered.push_str(space);
             }
             rendered.push('>');
-            render_scoped_annotations(ann.scoped_annotations.iter(), rendered, retrace_spans);
+            render_scoped_annotations(ann.scoped_annotations.iter(), rendered);
         }
         BracketedItem::PhoGroup(pho) => {
             rendered.push('‹');
@@ -126,25 +125,35 @@ pub fn render_bracketed_item(
         }
         BracketedItem::AnnotatedAction(ann) => {
             ann.inner.write_chat(rendered).ok();
-            render_scoped_annotations(&ann.scoped_annotations, rendered, retrace_spans);
+            render_scoped_annotations(&ann.scoped_annotations, rendered);
+        }
+        BracketedItem::Retrace(retrace) => {
+            // Render retrace content with optional angle brackets
+            if retrace.is_group {
+                rendered.push('<');
+            }
+            render_bracketed_content(&retrace.content, rendered, retrace_spans);
+            if retrace.is_group {
+                rendered.push('>');
+            }
+            // Capture the retrace marker span for validation diagnostics
+            rendered.push(' ');
+            let span = write_with_span(rendered, |w| retrace.kind.write_chat(w));
+            retrace_spans.push(span);
+            // Render any additional non-retrace annotations
+            render_scoped_annotations(retrace.annotations.iter(), rendered);
         }
     }
 }
 
-/// Render scoped annotations and capture spans for retrace-like markers.
+/// Render scoped annotations (none of which are retrace markers post-redesign).
 fn render_scoped_annotations<'a>(
-    annotations: impl IntoIterator<Item = &'a crate::model::ScopedAnnotation>,
+    annotations: impl IntoIterator<Item = &'a crate::model::ContentAnnotation>,
     rendered: &mut String,
-    retrace_spans: &mut Vec<Span>,
 ) {
     for ann in annotations {
         rendered.push(' ');
-        if is_retrace_annotation(ann) {
-            let span = write_with_span(rendered, |w| ann.write_chat(w));
-            retrace_spans.push(span);
-        } else {
-            ann.write_chat(rendered).ok();
-        }
+        ann.write_chat(rendered).ok();
     }
 }
 

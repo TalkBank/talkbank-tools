@@ -1,5 +1,8 @@
 # CHAT Processing Playbook for Developers
 
+**Status:** Current
+**Last updated:** 2026-03-23 23:49 EDT
+
 ## Objective
 Provide an implementation playbook for developers building or extending CHAT parsing,
 validation, transformation, and serialization logic.
@@ -73,10 +76,7 @@ recovery vs rejection, and whether a tier is safe to pass into alignment.
 When a change affects the surface used by `batchalign3`, confirm:
 
 - full-file parse equivalence still holds for corpus coverage
-- direct-parser-native recovery tests still describe the fragment contract
 - alignment-sensitive downstream tiers still gate on parse-health appropriately
-- no synthetic fragment helper is being treated as the semantic oracle for a
-  direct-parser path
 
 ## Review Checklist for Parser PRs
 - New or changed behavior has targeted tests.

@@ -89,7 +89,7 @@ mod tests {
     use talkbank_model::model::{
         ChatFile, CorpusName, Header, LanguageCode, Line, ParticipantRole, SpeakerCode,
     };
-    use talkbank_parser::parse_chat_file;
+    use talkbank_parser::TreeSitterParser;
     use tempfile::tempdir;
     use thiserror::Error;
 
@@ -171,7 +171,8 @@ mod tests {
     /// Parses file.
     fn parse_file(path: &Path) -> Result<ChatFile, TestError> {
         let content = fs::read_to_string(path).map_err(|source| TestError::Io { source })?;
-        parse_chat_file(&content).map_err(|source| TestError::Parse { source })
+        let parser = TreeSitterParser::new().expect("grammar loads");
+        parser.parse_chat_file(&content).map_err(|source| TestError::Parse { source })
     }
 
     /// Assert that a required header appears in the parsed file.

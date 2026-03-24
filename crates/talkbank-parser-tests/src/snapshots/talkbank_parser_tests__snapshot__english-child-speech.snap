@@ -3,924 +3,924 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           },
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "Braunwald",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Mother",
-        "sex": "female",
+        "corpus": "Braunwald",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "sex": "female",
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "3;00.07",
-        "corpus": "Braunwald",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Target_Child",
-        "sex": "female",
+        "corpus": "Braunwald",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "3;00.07",
+        "sex": "female",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "media",
         "filename": "english-child-speech",
-        "media_type": "audio",
-        "type": "media"
-      },
-      "line_type": "header"
+        "media_type": "audio"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "date": "27-FEB-1974",
-        "type": "date"
-      },
-      "line_type": "header"
+        "type": "date",
+        "date": "27-FEB-1974"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "English mother-child speech with audio, %mor, %gra, %wor tiers",
-              "type": "text"
+              "type": "text",
+              "text": "English mother-child speech with audio, %mor, %gra, %wor tiers"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: audio-linked file with word-level timing",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "let",
-                  "pos": "adv"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "S"
-                  ],
-                  "lemma": "see",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "if",
-                  "pos": "sconj"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "P1"
-                  ],
-                  "lemma": "we",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "P1"
-                  ],
-                  "lemma": "clean",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Dem",
-                    "S1"
-                  ],
-                  "lemma": "this",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "if",
-                  "pos": "sconj"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S3"
-                  ],
-                  "lemma": "it",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "S3"
-                  ],
-                  "lemma": "work",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "any",
-                  "pos": "adv"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Cmp",
-                    "S1"
-                  ],
-                  "lemma": "good",
-                  "pos": "adj"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 2,
-                "index": 1,
-                "relation": "ADVMOD"
-              },
-              {
-                "head": 0,
-                "index": 2,
-                "relation": "ROOT"
-              },
-              {
-                "head": 5,
-                "index": 3,
-                "relation": "MARK"
-              },
-              {
-                "head": 5,
-                "index": 4,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 2,
-                "index": 5,
-                "relation": "CCOMP"
-              },
-              {
-                "head": 5,
-                "index": 6,
-                "relation": "OBJ"
-              },
-              {
-                "head": 9,
-                "index": 7,
-                "relation": "MARK"
-              },
-              {
-                "head": 9,
-                "index": 8,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 5,
-                "index": 9,
-                "relation": "ADVCL"
-              },
-              {
-                "head": 11,
-                "index": 10,
-                "relation": "ADVMOD"
-              },
-              {
-                "head": 9,
-                "index": 11,
-                "relation": "XCOMP"
-              },
-              {
-                "head": 2,
-                "index": 12,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        },
-        {
-          "data": {
-            "bullet": null,
-            "items": [
-              {
-                "cleaned_text": "let's",
-                "content": [
-                  {
-                    "content": "let's",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 240,
-                  "start_ms": 0
-                },
-                "kind": "word",
-                "raw_text": "let's"
-              },
-              {
-                "cleaned_text": "see",
-                "content": [
-                  {
-                    "content": "see",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 380,
-                  "start_ms": 240
-                },
-                "kind": "word",
-                "raw_text": "see"
-              },
-              {
-                "cleaned_text": "if",
-                "content": [
-                  {
-                    "content": "if",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 500,
-                  "start_ms": 380
-                },
-                "kind": "word",
-                "raw_text": "if"
-              },
-              {
-                "cleaned_text": "we",
-                "content": [
-                  {
-                    "content": "we",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 620,
-                  "start_ms": 500
-                },
-                "kind": "word",
-                "raw_text": "we"
-              },
-              {
-                "cleaned_text": "clean",
-                "content": [
-                  {
-                    "content": "clean",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 980,
-                  "start_ms": 620
-                },
-                "kind": "word",
-                "raw_text": "clean"
-              },
-              {
-                "cleaned_text": "this",
-                "content": [
-                  {
-                    "content": "this",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 1260,
-                  "start_ms": 980
-                },
-                "kind": "word",
-                "raw_text": "this"
-              },
-              {
-                "cleaned_text": "if",
-                "content": [
-                  {
-                    "content": "if",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 1440,
-                  "start_ms": 1260
-                },
-                "kind": "word",
-                "raw_text": "if"
-              },
-              {
-                "cleaned_text": "it",
-                "content": [
-                  {
-                    "content": "it",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 1560,
-                  "start_ms": 1440
-                },
-                "kind": "word",
-                "raw_text": "it"
-              },
-              {
-                "cleaned_text": "works",
-                "content": [
-                  {
-                    "content": "works",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 1860,
-                  "start_ms": 1560
-                },
-                "kind": "word",
-                "raw_text": "works"
-              },
-              {
-                "cleaned_text": "any",
-                "content": [
-                  {
-                    "content": "any",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 2140,
-                  "start_ms": 1860
-                },
-                "kind": "word",
-                "raw_text": "any"
-              },
-              {
-                "cleaned_text": "better",
-                "content": [
-                  {
-                    "content": "better",
-                    "type": "text"
-                  }
-                ],
-                "inline_bullet": {
-                  "end_ms": 3042,
-                  "start_ms": 2140
-                },
-                "kind": "word",
-                "raw_text": "better"
-              }
-            ],
-            "language_code": null,
-            "terminator": {
-              "type": "period"
-            }
-          },
-          "type": "Wor"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: audio-linked file with word-level timing"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
-          "bullet": {
-            "end_ms": 3042,
-            "start_ms": 0
-          },
           "content": [
             {
+              "type": "word",
+              "raw_text": "let's",
               "cleaned_text": "let's",
               "content": [
                 {
-                  "content": "let's",
-                  "type": "text"
+                  "type": "text",
+                  "content": "let's"
                 }
-              ],
-              "raw_text": "let's",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "see",
               "cleaned_text": "see",
               "content": [
                 {
-                  "content": "see",
-                  "type": "text"
+                  "type": "text",
+                  "content": "see"
                 }
-              ],
-              "raw_text": "see",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "if",
               "cleaned_text": "if",
               "content": [
                 {
-                  "content": "if",
-                  "type": "text"
+                  "type": "text",
+                  "content": "if"
                 }
-              ],
-              "raw_text": "if",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "we",
               "cleaned_text": "we",
               "content": [
                 {
-                  "content": "we",
-                  "type": "text"
+                  "type": "text",
+                  "content": "we"
                 }
-              ],
-              "raw_text": "we",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "clean",
               "cleaned_text": "clean",
               "content": [
                 {
-                  "content": "clean",
-                  "type": "text"
+                  "type": "text",
+                  "content": "clean"
                 }
-              ],
-              "raw_text": "clean",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "this",
               "cleaned_text": "this",
               "content": [
                 {
-                  "content": "this",
-                  "type": "text"
+                  "type": "text",
+                  "content": "this"
                 }
-              ],
-              "raw_text": "this",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "if",
               "cleaned_text": "if",
               "content": [
                 {
-                  "content": "if",
-                  "type": "text"
+                  "type": "text",
+                  "content": "if"
                 }
-              ],
-              "raw_text": "if",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "it",
               "cleaned_text": "it",
               "content": [
                 {
-                  "content": "it",
-                  "type": "text"
+                  "type": "text",
+                  "content": "it"
                 }
-              ],
-              "raw_text": "it",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "works",
               "cleaned_text": "works",
               "content": [
                 {
-                  "content": "works",
-                  "type": "text"
+                  "type": "text",
+                  "content": "works"
                 }
-              ],
-              "raw_text": "works",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "any",
               "cleaned_text": "any",
               "content": [
                 {
-                  "content": "any",
-                  "type": "text"
+                  "type": "text",
+                  "content": "any"
                 }
-              ],
-              "raw_text": "any",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "better",
               "cleaned_text": "better",
               "content": [
                 {
-                  "content": "better",
-                  "type": "text"
+                  "type": "text",
+                  "content": "better"
                 }
-              ],
-              "raw_text": "better",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
+          },
+          "bullet": {
+            "start_ms": 0,
+            "end_ms": 3042
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "just",
-                  "pos": "adv"
+                  "pos": "adv",
+                  "lemma": "let"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "see",
                   "features": [
                     "Fin",
                     "Imp",
                     "S"
-                  ],
-                  "lemma": "say",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "sconj",
+                  "lemma": "if"
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "we",
                   "features": [
+                    "Prs",
+                    "Nom",
+                    "P1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "clean",
+                  "features": [
+                    "Fin",
                     "Ind",
+                    "Pres",
+                    "P1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "this",
+                  "features": [
+                    "Dem",
                     "S1"
-                  ],
-                  "lemma": "something",
-                  "pos": "pron"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "sconj",
+                  "lemma": "if"
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "it",
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S3"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "work",
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Pres",
+                    "S3"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "adv",
+                  "lemma": "any"
+                }
+              },
+              {
+                "main": {
+                  "pos": "adj",
+                  "lemma": "good",
+                  "features": [
+                    "Cmp",
+                    "S1"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "ADVMOD"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 2,
                 "index": 3,
+                "head": 5,
+                "relation": "MARK"
+              },
+              {
+                "index": 4,
+                "head": 5,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 5,
+                "head": 2,
+                "relation": "CCOMP"
+              },
+              {
+                "index": 6,
+                "head": 5,
                 "relation": "OBJ"
               },
               {
+                "index": 7,
+                "head": 9,
+                "relation": "MARK"
+              },
+              {
+                "index": 8,
+                "head": 9,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 9,
+                "head": 5,
+                "relation": "ADVCL"
+              },
+              {
+                "index": 10,
+                "head": 11,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 11,
+                "head": 9,
+                "relation": "XCOMP"
+              },
+              {
+                "index": 12,
                 "head": 2,
-                "index": 4,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         },
         {
+          "type": "Wor",
           "data": {
-            "bullet": null,
+            "language_code": null,
             "items": [
               {
-                "cleaned_text": "just",
+                "kind": "word",
+                "raw_text": "let's",
+                "cleaned_text": "let's",
                 "content": [
                   {
-                    "content": "just",
-                    "type": "text"
+                    "type": "text",
+                    "content": "let's"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 3360,
-                  "start_ms": 3117
-                },
-                "kind": "word",
-                "raw_text": "just"
+                  "start_ms": 0,
+                  "end_ms": 240
+                }
               },
               {
-                "cleaned_text": "say",
+                "kind": "word",
+                "raw_text": "see",
+                "cleaned_text": "see",
                 "content": [
                   {
-                    "content": "say",
-                    "type": "text"
+                    "type": "text",
+                    "content": "see"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 3600,
-                  "start_ms": 3360
-                },
-                "kind": "word",
-                "raw_text": "say"
+                  "start_ms": 240,
+                  "end_ms": 380
+                }
               },
               {
-                "cleaned_text": "something",
+                "kind": "word",
+                "raw_text": "if",
+                "cleaned_text": "if",
                 "content": [
                   {
-                    "content": "something",
-                    "type": "text"
+                    "type": "text",
+                    "content": "if"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 4092,
-                  "start_ms": 3600
-                },
+                  "start_ms": 380,
+                  "end_ms": 500
+                }
+              },
+              {
                 "kind": "word",
-                "raw_text": "something"
+                "raw_text": "we",
+                "cleaned_text": "we",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "we"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 500,
+                  "end_ms": 620
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "clean",
+                "cleaned_text": "clean",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "clean"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 620,
+                  "end_ms": 980
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "this",
+                "cleaned_text": "this",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "this"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 980,
+                  "end_ms": 1260
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "if",
+                "cleaned_text": "if",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "if"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 1260,
+                  "end_ms": 1440
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "it",
+                "cleaned_text": "it",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "it"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 1440,
+                  "end_ms": 1560
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "works",
+                "cleaned_text": "works",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "works"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 1560,
+                  "end_ms": 1860
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "any",
+                "cleaned_text": "any",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "any"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 1860,
+                  "end_ms": 2140
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "better",
+                "cleaned_text": "better",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "better"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 2140,
+                  "end_ms": 3042
+                }
               }
             ],
-            "language_code": null,
             "terminator": {
               "type": "period"
-            }
-          },
-          "type": "Wor"
+            },
+            "bullet": null
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
-          "bullet": {
-            "end_ms": 4092,
-            "start_ms": 3117
-          },
           "content": [
             {
+              "type": "word",
+              "raw_text": "just",
               "cleaned_text": "just",
               "content": [
                 {
-                  "content": "just",
-                  "type": "text"
+                  "type": "text",
+                  "content": "just"
                 }
-              ],
-              "raw_text": "just",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "say",
               "cleaned_text": "say",
               "content": [
                 {
-                  "content": "say",
-                  "type": "text"
+                  "type": "text",
+                  "content": "say"
                 }
-              ],
-              "raw_text": "say",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "something",
               "cleaned_text": "something",
               "content": [
                 {
-                  "content": "something",
-                  "type": "text"
+                  "type": "text",
+                  "content": "something"
                 }
-              ],
-              "raw_text": "something",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
+          },
+          "bullet": {
+            "start_ms": 3117,
+            "end_ms": 4092
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "adv",
+                  "lemma": "just"
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "say",
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "something",
                   "features": [
                     "Ind",
                     "S1"
-                  ],
-                  "lemma": "anything",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 0,
                 "index": 1,
+                "head": 2,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 1,
-                "index": 2,
+                "index": 3,
+                "head": 2,
+                "relation": "OBJ"
+              },
+              {
+                "index": 4,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         },
         {
+          "type": "Wor",
           "data": {
-            "bullet": null,
+            "language_code": null,
             "items": [
               {
-                "cleaned_text": "anything",
+                "kind": "word",
+                "raw_text": "just",
+                "cleaned_text": "just",
                 "content": [
                   {
-                    "content": "anything",
-                    "type": "text"
+                    "type": "text",
+                    "content": "just"
                   }
                 ],
                 "inline_bullet": {
-                  "end_ms": 4533,
-                  "start_ms": 4092
-                },
+                  "start_ms": 3117,
+                  "end_ms": 3360
+                }
+              },
+              {
                 "kind": "word",
-                "raw_text": "anything"
+                "raw_text": "say",
+                "cleaned_text": "say",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "say"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 3360,
+                  "end_ms": 3600
+                }
+              },
+              {
+                "kind": "word",
+                "raw_text": "something",
+                "cleaned_text": "something",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "something"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 3600,
+                  "end_ms": 4092
+                }
               }
             ],
-            "language_code": null,
             "terminator": {
               "type": "period"
-            }
-          },
-          "type": "Wor"
+            },
+            "bullet": null
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
-          "bullet": {
-            "end_ms": 4533,
-            "start_ms": 4092
-          },
           "content": [
             {
+              "type": "word",
+              "raw_text": "anything",
               "cleaned_text": "anything",
               "content": [
                 {
-                  "content": "anything",
-                  "type": "text"
+                  "type": "text",
+                  "content": "anything"
                 }
-              ],
-              "raw_text": "anything",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
+          },
+          "bullet": {
+            "start_ms": 4092,
+            "end_ms": 4533
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "anything",
+                  "features": [
+                    "Ind",
+                    "S1"
+                  ]
+                }
+              }
+            ],
+            "terminator": "."
           }
         },
-        "speaker": "MOT"
-      }
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 2,
+                "head": 1,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Wor",
+          "data": {
+            "language_code": null,
+            "items": [
+              {
+                "kind": "word",
+                "raw_text": "anything",
+                "cleaned_text": "anything",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "anything"
+                  }
+                ],
+                "inline_bullet": {
+                  "start_ms": 4092,
+                  "end_ms": 4533
+                }
+              }
+            ],
+            "terminator": {
+              "type": "period"
+            },
+            "bullet": null
+          }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
+  "participants": {
+    "MOT": {
+      "code": "MOT",
+      "name": null,
+      "role": "Mother",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "Braunwald",
+        "speaker": "MOT",
+        "sex": "female",
+        "role": "Mother"
+      },
+      "birth_date": null
+    },
+    "CHI": {
+      "code": "CHI",
+      "name": null,
+      "role": "Target_Child",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "Braunwald",
+        "speaker": "CHI",
+        "age": "3;00.07",
+        "sex": "female",
+        "role": "Target_Child"
+      },
+      "birth_date": null
+    }
+  },
+  "languages": [
+    "eng"
+  ],
+  "options": [],
   "media": {
     "filename": "english-child-speech",
     "media_type": "audio"
-  },
-  "options": [],
-  "participants": {
-    "CHI": {
-      "birth_date": null,
-      "code": "CHI",
-      "id": {
-        "age": "3;00.07",
-        "corpus": "Braunwald",
-        "language": [
-          "eng"
-        ],
-        "role": "Target_Child",
-        "sex": "female",
-        "speaker": "CHI"
-      },
-      "name": null,
-      "role": "Target_Child"
-    },
-    "MOT": {
-      "birth_date": null,
-      "code": "MOT",
-      "id": {
-        "corpus": "Braunwald",
-        "language": [
-          "eng"
-        ],
-        "role": "Mother",
-        "sex": "female",
-        "speaker": "MOT"
-      },
-      "name": null,
-      "role": "Mother"
-    }
   }
 }

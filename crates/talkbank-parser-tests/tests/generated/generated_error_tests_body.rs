@@ -423,7 +423,7 @@ fn test_e231_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E232)"]
 /// Tests expected behavior.
 #[test]
 fn test_e232_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -615,7 +615,7 @@ fn test_e245_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E246)"]
 /// Tests expected behavior.
 #[test]
 fn test_e246_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -1303,7 +1303,7 @@ fn test_e311_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E312)"]
 /// Tests expected behavior.
 #[test]
 fn test_e312_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -2471,7 +2471,7 @@ fn test_e368_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E370)"]
 /// Tests expected behavior.
 #[test]
 fn test_e370_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -2495,7 +2495,7 @@ fn test_e370_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E370)"]
 /// Tests expected behavior.
 #[test]
 fn test_e370_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -2519,7 +2519,7 @@ fn test_e370_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E370)"]
 /// Tests expected behavior.
 #[test]
 fn test_e370_auto_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {

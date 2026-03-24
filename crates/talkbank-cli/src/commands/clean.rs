@@ -153,6 +153,9 @@ fn collect_words_from_utterance_content(item: &UtteranceContent, out: &mut Vec<W
         UtteranceContent::Quotation(q) => {
             collect_words_from_bracketed(&q.content.content, out);
         }
+        UtteranceContent::Retrace(retrace) => {
+            collect_words_from_bracketed(&retrace.content.content, out);
+        }
         // Non-word content: events, pauses, separators, overlap points, etc.
         UtteranceContent::Event(_)
         | UtteranceContent::AnnotatedEvent(_)
@@ -195,6 +198,9 @@ fn collect_words_from_bracketed(items: &[BracketedItem], out: &mut Vec<WordEntry
             }
             BracketedItem::Quotation(q) => {
                 collect_words_from_bracketed(&q.content.content, out);
+            }
+            BracketedItem::Retrace(retrace) => {
+                collect_words_from_bracketed(&retrace.content.content, out);
             }
             // Non-word bracketed content
             BracketedItem::Event(_)

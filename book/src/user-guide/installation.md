@@ -1,5 +1,8 @@
 # Installation
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 `chatter` runs on **Windows, macOS, and Linux**. Pre-built binaries are available from [GitHub Releases](https://github.com/TalkBank/talkbank-tools/releases). To build from source, follow the instructions below.
 
 ## Prerequisites

@@ -6,7 +6,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Word_Timing_Tier>
 
-use crate::model::{ScopedAnnotation, Separator, Word, WordCategory};
+use crate::model::{ContentAnnotation, Separator, Word, WordCategory};
 
 use super::domain::TierDomain;
 
@@ -16,7 +16,7 @@ use super::domain::TierDomain;
 /// was phonologically produced, so %pho, %sin, and %wor include it.
 /// This helper exists so callers can consistently apply the same domain gate
 /// when handling annotated groups at any nesting level.
-pub fn should_skip_group(annotations: &[ScopedAnnotation], domain: TierDomain) -> bool {
+pub fn should_skip_group(annotations: &[ContentAnnotation], domain: TierDomain) -> bool {
     // Retrace annotations skip ONLY for Mor domain (linguistic content analysis).
     // Retraced content WAS produced phonologically (speaker said it before correcting),
     // so %pho, %sin, and %wor all include transcriptions for retraced groups.
@@ -27,24 +27,20 @@ pub fn should_skip_group(annotations: &[ScopedAnnotation], domain: TierDomain) -
 ///
 /// This helper is domain-agnostic; callers decide whether exclusion applies in
 /// the current alignment domain.
-pub fn annotations_have_alignment_ignore(annotations: &[ScopedAnnotation]) -> bool {
+pub fn annotations_have_alignment_ignore(annotations: &[ContentAnnotation]) -> bool {
     annotations.iter().any(is_alignment_ignore_annotation)
 }
 
 /// Returns whether one annotation indicates alignment exclusion semantics.
 ///
-/// Retrace/reformulation/exclude markers represent corrected or suppressed
-/// material, so alignment policies may choose to drop the annotated content.
-fn is_alignment_ignore_annotation(annotation: &ScopedAnnotation) -> bool {
-    matches!(
-        annotation,
-        ScopedAnnotation::PartialRetracing
-            | ScopedAnnotation::Retracing
-            | ScopedAnnotation::MultipleRetracing
-            | ScopedAnnotation::Reformulation
-            | ScopedAnnotation::UncertainRetracing
-            | ScopedAnnotation::ExcludeMarker
-    )
+/// The `[e]` exclude marker represents suppressed material, so alignment
+/// policies may choose to drop the annotated content.
+///
+/// Retrace markers are no longer `ContentAnnotation` variants — they are
+/// handled as first-class `Retrace` content variants at the `UtteranceContent`
+/// and `BracketedItem` level.
+fn is_alignment_ignore_annotation(annotation: &ContentAnnotation) -> bool {
+    matches!(annotation, ContentAnnotation::Exclude)
 }
 
 /// Return whether a word participates in alignment for the target domain.

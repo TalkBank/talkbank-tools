@@ -38,7 +38,7 @@ pub(super) fn check_quotation_precedes(utterances: &[Utterance], idx: usize) -> 
     if !found_quoted {
         errors.push(
             ParseError::new(
-                ErrorCode::InvalidScopedAnnotationNesting,
+                ErrorCode::InvalidContentAnnotationNesting,
                 Severity::Error,
                 SourceLocation::new(utterance.main.span),
                 ErrorContext::new(

@@ -1,5 +1,6 @@
 ---
 source: crates/talkbank-parser/src/parser/chat_file_parser/single_item/tests/word/helpers.rs
+assertion_line: 12
 expression: result
 ---
 Ok(
@@ -15,7 +16,83 @@ Ok(
                 Text(
                     WordText(
                         NonEmptyString(
-                            "w⌈or⌉d⌊te⌋st",
+                            "w",
+                        ),
+                    ),
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: TopOverlapBegin,
+                        index: None,
+                        span: Some(
+                            Span {
+                                start: 1,
+                                end: 4,
+                            },
+                        ),
+                    },
+                ),
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "or",
+                        ),
+                    ),
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: TopOverlapEnd,
+                        index: None,
+                        span: Some(
+                            Span {
+                                start: 6,
+                                end: 9,
+                            },
+                        ),
+                    },
+                ),
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "d",
+                        ),
+                    ),
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: BottomOverlapBegin,
+                        index: None,
+                        span: Some(
+                            Span {
+                                start: 10,
+                                end: 13,
+                            },
+                        ),
+                    },
+                ),
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "te",
+                        ),
+                    ),
+                ),
+                OverlapPoint(
+                    OverlapPoint {
+                        kind: BottomOverlapEnd,
+                        index: None,
+                        span: Some(
+                            Span {
+                                start: 15,
+                                end: 18,
+                            },
+                        ),
+                    },
+                ),
+                Text(
+                    WordText(
+                        NonEmptyString(
+                            "st",
                         ),
                     ),
                 ),
@@ -28,7 +105,7 @@ Ok(
         inline_bullet: None,
         cached_cleaned_text: CachedStr(
             OnceLock(
-                "w⌈or⌉d⌊te⌋st",
+                "wordtest",
             ),
         ),
     },

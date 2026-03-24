@@ -3,1483 +3,1483 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "rus"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "rus"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "EX1",
             "name": null,
-            "role": "Investigator",
-            "speaker_code": "EX1"
+            "role": "Investigator"
           },
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "ZAS",
+        "type": "id",
         "language": [
           "rus"
         ],
-        "role": "Investigator",
+        "corpus": "ZAS",
         "speaker": "EX1",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Investigator"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "5;10.19",
-        "corpus": "ZAS",
+        "type": "id",
         "language": [
           "rus"
         ],
-        "role": "Target_Child",
-        "sex": "male",
+        "corpus": "ZAS",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "5;10.19",
+        "sex": "male",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Russian child picture story narration",
-              "type": "text"
+              "type": "text",
+              "text": "Russian child picture story narration"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: Russian Cyrillic script, language coverage",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "теперь",
-                  "pos": "adv"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S1"
-                  ],
-                  "lemma": "я",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Dat",
-                    "S2"
-                  ],
-                  "lemma": "ты",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Perf",
-                    "Ind",
-                    "Fut",
-                    "S1"
-                  ],
-                  "lemma": "показать",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "по",
-                  "pos": "adp"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "один",
-                  "pos": "num"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Dat"
-                  ],
-                  "lemma": "картиночка",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "cm",
-                  "pos": "cm"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "а",
-                  "pos": "cconj"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S2"
-                  ],
-                  "lemma": "ты",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Dat",
-                    "S1"
-                  ],
-                  "lemma": "я",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Perf",
-                    "Ind",
-                    "Fut",
-                    "S2"
-                  ],
-                  "lemma": "расскизать",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Def",
-                    "Dem",
-                    "Sing"
-                  ],
-                  "lemma": "этот",
-                  "pos": "det"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Acc"
-                  ],
-                  "lemma": "сказка",
-                  "pos": "noun"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 4,
-                "index": 1,
-                "relation": "ADVMOD"
-              },
-              {
-                "head": 4,
-                "index": 2,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 4,
-                "index": 3,
-                "relation": "IOBJ"
-              },
-              {
-                "head": 0,
-                "index": 4,
-                "relation": "ROOT"
-              },
-              {
-                "head": 7,
-                "index": 5,
-                "relation": "CASE"
-              },
-              {
-                "head": 7,
-                "index": 6,
-                "relation": "NUMMOD"
-              },
-              {
-                "head": 4,
-                "index": 7,
-                "relation": "OBL"
-              },
-              {
-                "head": 12,
-                "index": 8,
-                "relation": "PUNCT"
-              },
-              {
-                "head": 12,
-                "index": 9,
-                "relation": "CC"
-              },
-              {
-                "head": 12,
-                "index": 10,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 12,
-                "index": 11,
-                "relation": "IOBJ"
-              },
-              {
-                "head": 4,
-                "index": 12,
-                "relation": "CONJ"
-              },
-              {
-                "head": 14,
-                "index": 13,
-                "relation": "DET"
-              },
-              {
-                "head": 12,
-                "index": 14,
-                "relation": "OBJ"
-              },
-              {
-                "head": 4,
-                "index": 15,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: Russian Cyrillic script, language coverage"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "EX1",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "теперь",
               "cleaned_text": "теперь",
               "content": [
                 {
-                  "content": "теперь",
-                  "type": "text"
+                  "type": "text",
+                  "content": "теперь"
                 }
-              ],
-              "raw_text": "теперь",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "я",
               "cleaned_text": "я",
               "content": [
                 {
-                  "content": "я",
-                  "type": "text"
+                  "type": "text",
+                  "content": "я"
                 }
-              ],
-              "raw_text": "я",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "тебе",
               "cleaned_text": "тебе",
               "content": [
                 {
-                  "content": "тебе",
-                  "type": "text"
+                  "type": "text",
+                  "content": "тебе"
                 }
-              ],
-              "raw_text": "тебе",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "покажу",
               "cleaned_text": "покажу",
               "content": [
                 {
-                  "content": "покажу",
-                  "type": "text"
+                  "type": "text",
+                  "content": "покажу"
                 }
-              ],
-              "raw_text": "покажу",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "по",
               "cleaned_text": "по",
               "content": [
                 {
-                  "content": "по",
-                  "type": "text"
+                  "type": "text",
+                  "content": "по"
                 }
-              ],
-              "raw_text": "по",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "одной",
               "cleaned_text": "одной",
               "content": [
                 {
-                  "content": "одной",
-                  "type": "text"
+                  "type": "text",
+                  "content": "одной"
                 }
-              ],
-              "raw_text": "одной",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "картиночке",
               "cleaned_text": "картиночке",
               "content": [
                 {
-                  "content": "картиночке",
-                  "type": "text"
+                  "type": "text",
+                  "content": "картиночке"
                 }
-              ],
-              "raw_text": "картиночке",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "а",
               "cleaned_text": "а",
               "content": [
                 {
-                  "content": "а",
-                  "type": "text"
+                  "type": "text",
+                  "content": "а"
                 }
-              ],
-              "raw_text": "а",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "ты",
               "cleaned_text": "ты",
               "content": [
                 {
-                  "content": "ты",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ты"
                 }
-              ],
-              "raw_text": "ты",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "мне",
               "cleaned_text": "мне",
               "content": [
                 {
-                  "content": "мне",
-                  "type": "text"
+                  "type": "text",
+                  "content": "мне"
                 }
-              ],
-              "raw_text": "мне",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "расскажешь",
               "cleaned_text": "расскажешь",
               "content": [
                 {
-                  "content": "расскажешь",
-                  "type": "text"
+                  "type": "text",
+                  "content": "расскажешь"
                 }
-              ],
-              "raw_text": "расскажешь",
-              "type": "word"
+              ]
             },
             {
+              "type": "pause",
               "duration": {
                 "type": "short"
-              },
-              "type": "pause"
+              }
             },
             {
+              "type": "word",
+              "raw_text": "эту",
               "cleaned_text": "эту",
               "content": [
                 {
-                  "content": "эту",
-                  "type": "text"
+                  "type": "text",
+                  "content": "эту"
                 }
-              ],
-              "raw_text": "эту",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "сказку",
               "cleaned_text": "сказку",
               "content": [
                 {
-                  "content": "сказку",
-                  "type": "text"
+                  "type": "text",
+                  "content": "сказку"
                 }
-              ],
-              "raw_text": "сказку",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "EX1"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ],
-                  "lemma": "птичка",
-                  "pos": "noun"
+                  "pos": "adv",
+                  "lemma": "теперь"
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "я",
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "ты",
+                  "features": [
+                    "Prs",
+                    "Dat",
+                    "S2"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "показать",
+                  "features": [
+                    "Fin",
+                    "Perf",
+                    "Ind",
+                    "Fut",
+                    "S1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "adp",
+                  "lemma": "по"
+                }
+              },
+              {
+                "main": {
+                  "pos": "num",
+                  "lemma": "один"
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "картиночка",
+                  "features": [
+                    "Fem",
+                    "Dat"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "cm",
+                  "lemma": "cm"
+                }
+              },
+              {
+                "main": {
+                  "pos": "cconj",
+                  "lemma": "а"
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "ты",
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S2"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "я",
+                  "features": [
+                    "Prs",
+                    "Dat",
+                    "S1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "расскизать",
+                  "features": [
+                    "Fin",
+                    "Perf",
+                    "Ind",
+                    "Fut",
+                    "S2"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "det",
+                  "lemma": "этот",
+                  "features": [
+                    "Fem",
+                    "Def",
+                    "Dem",
+                    "Sing"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "сказка",
+                  "features": [
+                    "Fem",
+                    "Acc"
+                  ]
+                }
+              }
+            ],
+            "terminator": "."
+          }
+        },
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 4,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 2,
+                "head": 4,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 3,
+                "head": 4,
+                "relation": "IOBJ"
+              },
+              {
+                "index": 4,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 5,
+                "head": 7,
+                "relation": "CASE"
+              },
+              {
+                "index": 6,
+                "head": 7,
+                "relation": "NUMMOD"
+              },
+              {
+                "index": 7,
+                "head": 4,
+                "relation": "OBL"
+              },
+              {
+                "index": 8,
+                "head": 12,
+                "relation": "PUNCT"
+              },
+              {
+                "index": 9,
+                "head": 12,
+                "relation": "CC"
+              },
+              {
+                "index": 10,
+                "head": 12,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 11,
+                "head": 12,
+                "relation": "IOBJ"
+              },
+              {
+                "index": 12,
+                "head": 4,
+                "relation": "CONJ"
+              },
+              {
+                "index": 13,
+                "head": 14,
+                "relation": "DET"
+              },
+              {
+                "index": 14,
+                "head": 12,
+                "relation": "OBJ"
+              },
+              {
+                "index": 15,
+                "head": 4,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "CHI",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "птичка",
+              "cleaned_text": "птичка",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "птичка"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "летит",
+              "cleaned_text": "летит",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "летит"
+                }
+              ]
+            },
+            {
+              "type": "separator",
+              "kind": "comma"
+            },
+            {
+              "type": "word",
+              "raw_text": "чтоб",
+              "cleaned_text": "чтоб",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "чтоб"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "рыбу",
+              "cleaned_text": "рыбу",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "рыбу"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "сйесть",
+              "cleaned_text": "сйесть",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "сйесть"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "птичка",
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "лететь",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ],
-                  "lemma": "лететь",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "cm",
-                  "pos": "cm"
+                  "pos": "cm",
+                  "lemma": "cm"
                 }
               },
               {
                 "main": {
-                  "lemma": "чтобы",
-                  "pos": "sconj"
+                  "pos": "sconj",
+                  "lemma": "чтобы"
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "рыба",
                   "features": [
                     "Fem",
                     "Acc"
-                  ],
-                  "lemma": "рыба",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "сйесть",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "S2"
-                  ],
-                  "lemma": "сйесть",
-                  "pos": "verb"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "NSUBJ"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 6,
                 "index": 3,
+                "head": 6,
                 "relation": "PUNCT"
               },
               {
-                "head": 6,
                 "index": 4,
+                "head": 6,
                 "relation": "MARK"
               },
               {
-                "head": 6,
                 "index": 5,
+                "head": 6,
                 "relation": "OBJ"
               },
               {
-                "head": 2,
                 "index": 6,
+                "head": 2,
                 "relation": "ADVCL"
               },
               {
-                "head": 2,
                 "index": 7,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "птичка",
-              "content": [
-                {
-                  "content": "птичка",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "птичка",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "летит",
-              "content": [
-                {
-                  "content": "летит",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "летит",
-              "type": "word"
-            },
-            {
-              "kind": "comma",
-              "type": "separator"
-            },
-            {
-              "cleaned_text": "чтоб",
-              "content": [
-                {
-                  "content": "чтоб",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "чтоб",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "рыбу",
-              "content": [
-                {
-                  "content": "рыбу",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "рыбу",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "сйесть",
-              "content": [
-                {
-                  "content": "сйесть",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "сйесть",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
+            ]
           }
-        },
-        "speaker": "CHI"
-      }
+        }
+      ]
     },
     {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "и",
-                  "pos": "cconj"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Perf",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ],
-                  "lemma": "полететь",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "на",
-                  "pos": "adp"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Neut",
-                    "Acc"
-                  ],
-                  "lemma": "дерево",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "cm",
-                  "pos": "cm"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ],
-                  "lemma": "лисо",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ],
-                  "lemma": "хотеть",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "тоже",
-                  "pos": "part"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Def",
-                    "Dem",
-                    "Sing"
-                  ],
-                  "lemma": "этот",
-                  "pos": "det"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fem",
-                    "Acc"
-                  ],
-                  "lemma": "рыба",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Inf",
-                    "Perf",
-                    "S"
-                  ],
-                  "lemma": "брать",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "cm",
-                  "pos": "cm"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "но",
-                  "pos": "cconj"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "не",
-                  "pos": "part"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ],
-                  "lemma": "мочь",
-                  "pos": "verb"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 2,
-                "index": 1,
-                "relation": "CC"
-              },
-              {
-                "head": 0,
-                "index": 2,
-                "relation": "ROOT"
-              },
-              {
-                "head": 4,
-                "index": 3,
-                "relation": "CASE"
-              },
-              {
-                "head": 2,
-                "index": 4,
-                "relation": "OBL"
-              },
-              {
-                "head": 7,
-                "index": 5,
-                "relation": "PUNCT"
-              },
-              {
-                "head": 7,
-                "index": 6,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 2,
-                "index": 7,
-                "relation": "CONJ"
-              },
-              {
-                "head": 11,
-                "index": 8,
-                "relation": "ADVMOD"
-              },
-              {
-                "head": 10,
-                "index": 9,
-                "relation": "DET"
-              },
-              {
-                "head": 11,
-                "index": 10,
-                "relation": "OBJ"
-              },
-              {
-                "head": 7,
-                "index": 11,
-                "relation": "XCOMP"
-              },
-              {
-                "head": 15,
-                "index": 12,
-                "relation": "PUNCT"
-              },
-              {
-                "head": 15,
-                "index": 13,
-                "relation": "CC"
-              },
-              {
-                "head": 15,
-                "index": 14,
-                "relation": "ADVMOD"
-              },
-              {
-                "head": 2,
-                "index": 15,
-                "relation": "CONJ"
-              },
-              {
-                "head": 2,
-                "index": 16,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "и",
               "cleaned_text": "и",
               "content": [
                 {
-                  "content": "и",
-                  "type": "text"
+                  "type": "text",
+                  "content": "и"
                 }
-              ],
-              "raw_text": "и",
-              "type": "word"
+              ]
             },
             {
-              "category": "omission",
+              "type": "word",
+              "raw_text": "0она",
               "cleaned_text": "она",
               "content": [
                 {
-                  "content": "она",
-                  "type": "text"
+                  "type": "text",
+                  "content": "она"
                 }
               ],
-              "raw_text": "0она",
-              "type": "word"
+              "category": "omission"
             },
             {
+              "type": "replaced_word",
+              "word": {
+                "raw_text": "полетел",
+                "cleaned_text": "полетел",
+                "content": [
+                  {
+                    "type": "text",
+                    "content": "полетел"
+                  }
+                ]
+              },
               "replacement": {
                 "words": [
                   {
+                    "raw_text": "полетела",
                     "cleaned_text": "полетела",
                     "content": [
                       {
-                        "content": "полетела",
-                        "type": "text"
+                        "type": "text",
+                        "content": "полетела"
                       }
-                    ],
-                    "raw_text": "полетела"
+                    ]
                   }
                 ]
               },
               "scoped_annotations": [
                 {
-                  "code": null,
-                  "type": "error"
+                  "type": "error",
+                  "code": null
                 }
-              ],
-              "type": "replaced_word",
-              "word": {
-                "cleaned_text": "полетел",
-                "content": [
-                  {
-                    "content": "полетел",
-                    "type": "text"
-                  }
-                ],
-                "raw_text": "полетел"
-              }
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "на",
               "cleaned_text": "на",
               "content": [
                 {
-                  "content": "на",
-                  "type": "text"
+                  "type": "text",
+                  "content": "на"
                 }
-              ],
-              "raw_text": "на",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "дерево",
               "cleaned_text": "дерево",
               "content": [
                 {
-                  "content": "дерево",
-                  "type": "text"
+                  "type": "text",
+                  "content": "дерево"
                 }
-              ],
-              "raw_text": "дерево",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "лиса",
               "cleaned_text": "лиса",
               "content": [
                 {
-                  "content": "лиса",
-                  "type": "text"
+                  "type": "text",
+                  "content": "лиса"
                 }
-              ],
-              "raw_text": "лиса",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "хотела",
               "cleaned_text": "хотела",
               "content": [
                 {
-                  "content": "хотела",
-                  "type": "text"
+                  "type": "text",
+                  "content": "хотела"
                 }
-              ],
-              "raw_text": "хотела",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "тоже",
               "cleaned_text": "тоже",
               "content": [
                 {
-                  "content": "тоже",
-                  "type": "text"
+                  "type": "text",
+                  "content": "тоже"
                 }
-              ],
-              "raw_text": "тоже",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "эту",
               "cleaned_text": "эту",
               "content": [
                 {
-                  "content": "эту",
-                  "type": "text"
+                  "type": "text",
+                  "content": "эту"
                 }
-              ],
-              "raw_text": "эту",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "рыбу",
               "cleaned_text": "рыбу",
               "content": [
                 {
-                  "content": "рыбу",
-                  "type": "text"
+                  "type": "text",
+                  "content": "рыбу"
                 }
-              ],
-              "raw_text": "рыбу",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "взять",
               "cleaned_text": "взять",
               "content": [
                 {
-                  "content": "взять",
-                  "type": "text"
+                  "type": "text",
+                  "content": "взять"
                 }
-              ],
-              "raw_text": "взять",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "но",
               "cleaned_text": "но",
               "content": [
                 {
-                  "content": "но",
-                  "type": "text"
+                  "type": "text",
+                  "content": "но"
                 }
-              ],
-              "raw_text": "но",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "не",
               "cleaned_text": "не",
               "content": [
                 {
-                  "content": "не",
-                  "type": "text"
+                  "type": "text",
+                  "content": "не"
                 }
-              ],
-              "raw_text": "не",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "могла",
               "cleaned_text": "могла",
               "content": [
                 {
-                  "content": "могла",
-                  "type": "text"
+                  "type": "text",
+                  "content": "могла"
                 }
-              ],
-              "raw_text": "могла",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ],
-                  "lemma": "лисо",
-                  "pos": "noun"
+                  "pos": "cconj",
+                  "lemma": "и"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "полететь",
+                  "features": [
+                    "Fin",
+                    "Perf",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "adp",
+                  "lemma": "на"
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "дерево",
+                  "features": [
+                    "Neut",
+                    "Acc"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "cm",
+                  "lemma": "cm"
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "лисо",
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "хотеть",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Past",
                     "S"
-                  ],
-                  "lemma": "хотеть",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "у",
-                  "pos": "adp"
+                  "pos": "part",
+                  "lemma": "тоже"
                 }
               },
               {
                 "main": {
-                  "features": [
-                    "Fem",
-                    "Gen"
-                  ],
-                  "lemma": "птица",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Inf",
-                    "Perf",
-                    "S"
-                  ],
-                  "lemma": "забрать",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
+                  "pos": "det",
+                  "lemma": "этот",
                   "features": [
                     "Fem",
                     "Def",
                     "Dem",
                     "Sing"
-                  ],
-                  "lemma": "этот",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "рыба",
                   "features": [
                     "Fem",
                     "Acc"
-                  ],
-                  "lemma": "рыба",
-                  "pos": "noun"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "брать",
+                  "features": [
+                    "Inf",
+                    "Perf",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "cm",
+                  "lemma": "cm"
+                }
+              },
+              {
+                "main": {
+                  "pos": "cconj",
+                  "lemma": "но"
+                }
+              },
+              {
+                "main": {
+                  "pos": "part",
+                  "lemma": "не"
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "мочь",
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
-                "relation": "NSUBJ"
+                "head": 2,
+                "relation": "CC"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 4,
                 "index": 3,
+                "head": 4,
                 "relation": "CASE"
               },
               {
-                "head": 2,
                 "index": 4,
+                "head": 2,
                 "relation": "OBL"
               },
               {
-                "head": 2,
                 "index": 5,
-                "relation": "XCOMP"
+                "head": 7,
+                "relation": "PUNCT"
               },
               {
-                "head": 7,
                 "index": 6,
+                "head": 7,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 7,
+                "head": 2,
+                "relation": "CONJ"
+              },
+              {
+                "index": 8,
+                "head": 11,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 9,
+                "head": 10,
                 "relation": "DET"
               },
               {
-                "head": 5,
-                "index": 7,
+                "index": 10,
+                "head": 11,
                 "relation": "OBJ"
               },
               {
+                "index": 11,
+                "head": 7,
+                "relation": "XCOMP"
+              },
+              {
+                "index": 12,
+                "head": 15,
+                "relation": "PUNCT"
+              },
+              {
+                "index": 13,
+                "head": 15,
+                "relation": "CC"
+              },
+              {
+                "index": 14,
+                "head": 15,
+                "relation": "ADVMOD"
+              },
+              {
+                "index": 15,
                 "head": 2,
-                "index": 8,
+                "relation": "CONJ"
+              },
+              {
+                "index": 16,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "лиса",
               "cleaned_text": "лиса",
               "content": [
                 {
-                  "content": "лиса",
-                  "type": "text"
+                  "type": "text",
+                  "content": "лиса"
                 }
-              ],
-              "raw_text": "лиса",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "хотела",
               "cleaned_text": "хотела",
               "content": [
                 {
-                  "content": "хотела",
-                  "type": "text"
+                  "type": "text",
+                  "content": "хотела"
                 }
-              ],
-              "raw_text": "хотела",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "у",
               "cleaned_text": "у",
               "content": [
                 {
-                  "content": "у",
-                  "type": "text"
+                  "type": "text",
+                  "content": "у"
                 }
-              ],
-              "raw_text": "у",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "птицы",
               "cleaned_text": "птицы",
               "content": [
                 {
-                  "content": "птицы",
-                  "type": "text"
+                  "type": "text",
+                  "content": "птицы"
                 }
-              ],
-              "raw_text": "птицы",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "забрать",
               "cleaned_text": "забрать",
               "content": [
                 {
-                  "content": "забрать",
-                  "type": "text"
+                  "type": "text",
+                  "content": "забрать"
                 }
-              ],
-              "raw_text": "забрать",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "эту",
               "cleaned_text": "эту",
               "content": [
                 {
-                  "content": "эту",
-                  "type": "text"
+                  "type": "text",
+                  "content": "эту"
                 }
-              ],
-              "raw_text": "эту",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "рыбу",
               "cleaned_text": "рыбу",
               "content": [
                 {
-                  "content": "рыбу",
-                  "type": "text"
+                  "type": "text",
+                  "content": "рыбу"
                 }
-              ],
-              "raw_text": "рыбу",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "лисо",
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "хотеть",
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "adp",
+                  "lemma": "у"
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "птица",
+                  "features": [
+                    "Fem",
+                    "Gen"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "забрать",
+                  "features": [
+                    "Inf",
+                    "Perf",
+                    "S"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "det",
+                  "lemma": "этот",
+                  "features": [
+                    "Fem",
+                    "Def",
+                    "Dem",
+                    "Sing"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "рыба",
+                  "features": [
+                    "Fem",
+                    "Acc"
+                  ]
+                }
+              }
+            ],
+            "terminator": "."
+          }
+        },
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 2,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 2,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 3,
+                "head": 4,
+                "relation": "CASE"
+              },
+              {
+                "index": 4,
+                "head": 2,
+                "relation": "OBL"
+              },
+              {
+                "index": 5,
+                "head": 2,
+                "relation": "XCOMP"
+              },
+              {
+                "index": 6,
+                "head": 7,
+                "relation": "DET"
+              },
+              {
+                "index": 7,
+                "head": 5,
+                "relation": "OBJ"
+              },
+              {
+                "index": 8,
+                "head": 2,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "CHI",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "она",
+              "cleaned_text": "она",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "она"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "тогда",
+              "cleaned_text": "тогда",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "тогда"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "убежала",
+              "cleaned_text": "убежала",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "убежала"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "она",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ],
-                  "lemma": "она",
-                  "pos": "pron"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "тогда",
-                  "pos": "adv"
+                  "pos": "adv",
+                  "lemma": "тогда"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "убежать",
                   "features": [
                     "Fin",
                     "Perf",
                     "Ind",
                     "Past",
                     "S"
-                  ],
-                  "lemma": "убежать",
-                  "pos": "verb"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 3,
                 "index": 1,
+                "head": 3,
                 "relation": "NSUBJ"
               },
               {
-                "head": 3,
                 "index": 2,
+                "head": 3,
                 "relation": "ADVMOD"
               },
               {
-                "head": 0,
                 "index": 3,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 3,
                 "index": 4,
+                "head": 3,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "она",
-              "content": [
-                {
-                  "content": "она",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "она",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "тогда",
-              "content": [
-                {
-                  "content": "тогда",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "тогда",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "убежала",
-              "content": [
-                {
-                  "content": "убежала",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "убежала",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
+            ]
           }
-        },
-        "speaker": "CHI"
-      }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
-    "CHI": {
-      "birth_date": null,
-      "code": "CHI",
-      "id": {
-        "age": "5;10.19",
-        "corpus": "ZAS",
-        "language": [
-          "rus"
-        ],
-        "role": "Target_Child",
-        "sex": "male",
-        "speaker": "CHI"
-      },
-      "name": null,
-      "role": "Target_Child"
-    },
     "EX1": {
-      "birth_date": null,
       "code": "EX1",
+      "name": null,
+      "role": "Investigator",
       "id": {
-        "corpus": "ZAS",
         "language": [
           "rus"
         ],
-        "role": "Investigator",
-        "speaker": "EX1"
+        "corpus": "ZAS",
+        "speaker": "EX1",
+        "role": "Investigator"
       },
+      "birth_date": null
+    },
+    "CHI": {
+      "code": "CHI",
       "name": null,
-      "role": "Investigator"
+      "role": "Target_Child",
+      "id": {
+        "language": [
+          "rus"
+        ],
+        "corpus": "ZAS",
+        "speaker": "CHI",
+        "age": "5;10.19",
+        "sex": "male",
+        "role": "Target_Child"
+      },
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "rus"
+  ],
+  "options": []
 }

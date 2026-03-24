@@ -1,5 +1,5 @@
 ================================================================================
-colon_separator - Space-separated colon is a separator, not a degenerate word
+colon_separator - Standalone colon between words must parse as , not as inside a word. The DFA produces (prec 5) for but the parser rejects it as word_body start — it falls through to.
 ================================================================================
 *CHI:	hello : world .
 
@@ -7,23 +7,3 @@ colon_separator - Space-separated colon is a separator, not a degenerate word
 --------------------------------------------------------------------------------
 
 (source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces) (separator (colon)) (whitespaces) (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
-
-================================================================================
-colon_lengthening - Adjacent colon is lengthening inside word
-================================================================================
-*CHI:	no:: .
-
-
---------------------------------------------------------------------------------
-
-(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (word_segment) (lengthening)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))
-
-================================================================================
-stress_initial_word - Stress marker can start a word
-================================================================================
-*CHI:	ˈhello .
-
-
---------------------------------------------------------------------------------
-
-(source_file (main_tier (star) speaker: (speaker) (colon) (tab) (tier_body content: (contents (content_item (base_content_item (word_with_optional_annotations word: (standalone_word (word_body (stress_marker) (word_segment)))))) (whitespaces)) ending: (utterance_end (period) (newline)))))

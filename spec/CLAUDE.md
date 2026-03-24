@@ -1,146 +1,167 @@
-# spec - CHAT Specification
+# spec — CHAT Specification
 
-## Overview
-Markdown specification files define valid constructs and error cases for CHAT.
-Generators in `spec/tools` turn these specs into:
-1. **Tree-sitter corpus tests** (`../grammar/test/corpus/`)
-2. **Rust tests** (future)
-3. **Documentation** (future)
+**Status:** Current
+**Last updated:** 2026-03-24 00:22 EDT
+
+## How This Works
+
+Specs are the **single source of truth** for all CHAT grammar tests, parser
+tests, and error documentation. You never hand-edit generated test files.
+
+```
+spec/constructs/*.md  ─┐
+                       ├──► make test-gen ──► grammar/test/corpus/*.txt  (tree-sitter tests)
+spec/errors/*.md      ─┤                 ──► crates/.../tests/generated/ (Rust tests)
+                       │                 ──► docs/errors/*.md            (error docs)
+spec/tools/templates/ ─┘
+```
+
+**`make test-gen` wipes all three output directories and recreates them.**
+If you hand-edit a file in `grammar/test/corpus/` or `tests/generated/`,
+it will be deleted next time someone runs `make test-gen`.
+
+## Spec Counts (current)
+
+| Location | Files | Purpose |
+|----------|------:|---------|
+| `spec/constructs/` | 112 | Valid CHAT examples with expected CSTs |
+| `spec/errors/` | 187 | Invalid CHAT examples with expected error codes |
+| → `grammar/test/corpus/` | 166 | Generated tree-sitter tests |
+| → `tests/generated/` | 167 | Generated Rust parser/validation tests |
+| → `docs/errors/` | 182 | Generated error documentation pages |
+
+## Adding a Test
+
+### 1. Create a spec file
+
+Put it in the right directory under `spec/constructs/` or `spec/errors/`:
+
+```
+spec/constructs/
+├── header/      # @-header examples
+├── main_tier/   # *SPK: line examples
+├── tiers/       # %mor, %gra, %sin, %wor etc.
+├── utterance/   # Full utterance (main + dependent tiers)
+└── word/        # Word-internal structure
+```
+
+### 2. Spec format (constructs)
+
+```markdown
+# example_name
+
+Description of what this tests.
+
+## Input
+
+```input_type
+*CHI:	hello .
+```
+
+## Expected CST
+
+```cst
+(main_tier ...)
+```
+
+## Metadata
+
+- **Level**: main_tier
+- **Category**: main_tier
+```
+
+The `input_type` in the code fence (e.g., `main_tier`, `standalone_word`,
+`utterance`) tells the generator which **template** to use for wrapping the
+fragment in a full CHAT document. Templates live in `spec/tools/templates/`.
+
+### 3. Spec format (errors)
+
+```markdown
+# E999 — Description
+
+Error for some condition.
+
+- **Code**: E999
+- **Severity**: Error
+- **Layer**: parser | validation
+- **Status**: implemented | not_implemented
+
+## Example
+
+```chat
+@UTF8
+@Begin
+...invalid content...
+@End
+```
+
+## Expected Error Codes
+
+- E999
+```
+
+### 4. Check templates
+
+The `input_type` must match a `.tera` template in `spec/tools/templates/`.
+If no template exists for your fragment type, create one. Templates wrap the
+fragment in valid CHAT scaffolding so `tree-sitter test` can parse it.
+
+Example (`spec/tools/templates/main_tier.tera`):
+```
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|test|CHI|||||Target_Child|||
+{{ input }}
+@End
+```
+
+### 5. Regenerate and verify
+
+```bash
+make test-gen          # Regenerate all outputs from specs
+tree-sitter test       # Verify grammar tests pass (from grammar/)
+make verify            # Full verification pipeline
+```
 
 ## Key Commands
 
-### Preferred (Makefile)
-The root `Makefile` automates all generation tasks correctly.
 ```bash
-# Regenerate ALL tests (tree-sitter and Rust) from specs
+# Regenerate ALL generated artifacts from specs
 make test-gen
 
-# Full CI-style regeneration and check (grammar + symbols + tests)
+# Full CI-style check (grammar + symbols + tests + verification)
 make generated-check
-```
 
-### Manual (Debugging)
-Run these from the **repository root**:
-
-```bash
-# Regenerate ALL tree-sitter tests from specs
-cargo run --bin gen_tree_sitter_tests \
-  --manifest-path spec/tools/Cargo.toml \
-  -- -o ../grammar/test/corpus \
-  -t spec/tools/templates
-
-# Regenerate Rust validation tests (if active)
-cargo run --bin gen_rust_tests \
-  --manifest-path spec/tools/Cargo.toml \
-  -- -o crates/talkbank-parser-tests/tests/generated
-
-# Validate spec format integrity
+# Verify spec format integrity
 cargo run --bin validate_error_specs \
   --manifest-path spec/runtime-tools/Cargo.toml
 ```
 
-## Workflows
+## Generator Binaries (`spec/tools/src/bin/`)
 
-### Adding a New Construct / Test Case
-**Never manually edit files in `../grammar/test/corpus/`.** They will be overwritten.
-Mine candidates first, then curate. Do not copy mined files directly into generated corpus.
+| Binary | What it generates |
+|--------|-------------------|
+| `gen_tree_sitter_tests` | `grammar/test/corpus/*.txt` from constructs + errors |
+| `gen_rust_tests` | `crates/.../tests/generated/*.rs` from constructs + errors |
+| `gen_error_docs` | `docs/errors/*.md` from errors |
+| `validate_spec` | Validates spec format integrity (no output) |
+| `corpus_node_coverage` | Reports which grammar node types are exercised by `corpus/reference/` |
+| `extract_corpus_candidates` | Mines real `.cha` files for candidate specs (runtime-tools) |
 
-Quick mining command (staging only):
-```bash
-cargo run --manifest-path spec/runtime-tools/Cargo.toml --bin extract_corpus_candidates -- \
-  --data-dir ../data \
-  --languages eng \
-  --node-types grammar/src/node-types.json \
-  --max-files 20000 \
-  --top 50 \
-  --require-rust-parse=true \
-  --require-rust-validation=true \
-  --validate-alignment=true \
-  --json \
-  --output spec/tmp/mined/candidates.eng.json
-```
+## Cross-Spec Consistency
 
-1. **Create/Edit Spec File**:
-   - Locate the appropriate category in `spec/constructs/` (e.g., `tiers/`, `word/`).
-   - Create a new `.md` file or add to an existing one.
-   - Format:
-     ```markdown
-     # example_name
+Error spec examples can be cross-referenced — the same `.cha` content may
+appear in multiple specs with different expected error codes. When changing a
+grammar rule so that previously-unparsable content now parses:
 
-     Description of the example.
-
-     ## Input
-
-     ```input_type
-     %wor: word 123_456 .
-     ```
-
-     ## Expected CST
-
-     ```cst
-     (wor_dependent_tier ...)
-     ```
-
-     ## Metadata
-     - **Level**: tier
-     - **Category**: tiers
-     ```
-
-2. **Check Templates** (Crucial for new constructs):
-   - The `input_type` in the markdown code fence (e.g., `wor_dependent_tier` above) MUST match a template name.
-   - Check `spec/tools/templates/`. If `wor_dependent_tier.tera` does not exist, **create it**.
-   - Templates wrap the fragment in a valid CHAT document structure so `tree-sitter test` can parse it.
-   - Example template (`spec/tools/templates/wor_dependent_tier.tera`):
-     ```tera
-     @UTF8
-     @Begin
-     @Languages: eng
-     @Participants: CHI Child
-     @ID: eng|corpus|CHI|||||Child|||
-     *CHI: word .
-     {{ input }}
-     @End
-     ```
-
-3. **Regenerate Tests**:
-   - Run the generation command (see Key Commands above).
-   - If successful, `../grammar/test/corpus/<category>/<example_name>.txt` will be created/updated.
-
-4. **Verify**:
-   - Run `cd ../grammar && tree-sitter test` to confirm the new test passes.
-
-## Architecture
-```
-spec/
-├── constructs/       # Valid CHAT examples (Source of Truth)
-│   ├── tiers/        # Dependent tiers (%mor, %gra, %wor...)
-│   ├── word/         # Word structure
-│   └── ...
-├── errors/           # Invalid CHAT examples (Source of Truth for errors)
-├── tools/            # Core generator binaries and logic
-└── runtime-tools/    # Runtime-aware bootstrap/mining/validation tooling
-    ├── src/bin/      # Entry points (gen_tree_sitter_tests, etc.)
-    └── templates/    # Tera templates for wrapping test fragments
-```
-
-## Cross-Spec Example Consistency
-
-Error spec examples can be cross-referenced — the same `.cha` file may appear in multiple specs with different expected error codes. When changing a grammar rule so that previously-unparsable content now parses:
-
-1. **Update the primary error spec** (e.g., `E518_auto.md`): change `Layer: parser` → `Layer: validation`, update `Expected Error Codes` from `E316` to the specific code.
-2. **Audit E316_auto.md**: Remove examples that referenced the same `.cha` files, since they no longer produce E316 parse errors.
-3. **Update expectations.json**: Align tree-sitter error codes with direct parser codes and clear `divergence_note`.
-4. **Beware accidental test passes**: An E316 test can pass for the wrong reason if the example has *other* E316-triggering content (e.g., main tier after `@End`). Always remove all date/time/sex examples from E316 when their fields get catch-all grammar alternatives.
-5. **Run `make test-gen`** after all spec edits to regenerate all test artifacts.
-
-## Status and Limitations
-- Specs are the source of truth; regenerate downstream artifacts after changes.
-- Generated outputs should not be edited manually.
-- Error specs must be classified as parser vs validation and validated.
-- **IMPORTANT**: `spec/errors/` is the ONLY place to define error test cases. Never create hand-written `.cha` test fixtures in `tests/error_corpus/` or elsewhere.
+1. Update the primary error spec: change `Layer: parser` → `Layer: validation`
+2. Audit `E316_auto.md`: remove examples that no longer produce E316
+3. Run `make test-gen` to regenerate all artifacts
+4. Run `make verify` to confirm
 
 ## See Also
-- tools/CLAUDE.md
-
----
-Last Updated: 2026-03-10
+- `spec/tools/CLAUDE.md` — generator implementation details
+- `grammar/CLAUDE.md` — grammar change workflow
+- `book/src/contributing/testing.md` — testing strategy

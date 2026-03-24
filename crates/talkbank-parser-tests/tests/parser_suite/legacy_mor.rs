@@ -19,7 +19,7 @@
 
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::WriteChat;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser_tests::test_error::TestError;
 
 use super::parser_impl::parser_suite;
@@ -40,13 +40,13 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         // Must parse without errors (currently produces ERROR node)
         assert!(
             sink.is_empty(),
             "[{}] n:prop|Mommy produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -55,7 +55,7 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected n:prop|Mommy",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -65,7 +65,7 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
             tier.items.len(),
             1,
             "[{}] expected 1 item",
-            parser.parser_name()
+            "tree-sitter"
         );
 
         let word = &tier.items[0].main;
@@ -74,7 +74,7 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
             word.pos.as_str(),
             "n:prop",
             "[{}] POS subcategory lost: expected 'n:prop', got '{}'",
-            parser.parser_name(),
+            "tree-sitter",
             word.pos.as_str()
         );
         assert_eq!(word.lemma.as_str(), "Mommy");
@@ -92,12 +92,12 @@ fn legacy_mor_pos_subcategory_verb_aux_with_fusional() -> Result<(), TestError> 
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] v:aux|be&3S produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -106,7 +106,7 @@ fn legacy_mor_pos_subcategory_verb_aux_with_fusional() -> Result<(), TestError> 
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected v:aux|be&3S",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -119,7 +119,7 @@ fn legacy_mor_pos_subcategory_verb_aux_with_fusional() -> Result<(), TestError> 
             word.pos.as_str(),
             "v:aux",
             "[{}] POS subcategory lost: expected 'v:aux', got '{}'",
-            parser.parser_name(),
+            "tree-sitter",
             word.pos.as_str()
         );
 
@@ -128,7 +128,7 @@ fn legacy_mor_pos_subcategory_verb_aux_with_fusional() -> Result<(), TestError> 
             word.lemma.as_str(),
             "be",
             "[{}] Fusional marker stuck in lemma: expected 'be', got '{}'",
-            parser.parser_name(),
+            "tree-sitter",
             word.lemma.as_str()
         );
     }
@@ -143,12 +143,12 @@ fn legacy_mor_pos_subcategory_det_art() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] det:art|the produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -157,7 +157,7 @@ fn legacy_mor_pos_subcategory_det_art() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected det:art|the",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -177,12 +177,12 @@ fn legacy_mor_pos_subcategory_pro_sub() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] pro:sub|I produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -191,7 +191,7 @@ fn legacy_mor_pos_subcategory_pro_sub() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected pro:sub|I ...",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -211,12 +211,12 @@ fn legacy_mor_pos_nested_subcategory() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] pro:poss:det|your produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -225,7 +225,7 @@ fn legacy_mor_pos_nested_subcategory() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected pro:poss:det|your",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -251,12 +251,12 @@ fn legacy_mor_fusional_inflection() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] v|make&PROG produced parse errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -265,7 +265,7 @@ fn legacy_mor_fusional_inflection() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected v|make&PROG",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -278,7 +278,7 @@ fn legacy_mor_fusional_inflection() -> Result<(), TestError> {
             word.lemma.as_str(),
             "make",
             "[{}] Fusional marker stuck in lemma: expected 'make', got '{}'",
-            parser.parser_name(),
+            "tree-sitter",
             word.lemma.as_str()
         );
     }
@@ -300,12 +300,12 @@ fn legacy_mor_roundtrip_subcategories() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] roundtrip input produced errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -314,7 +314,7 @@ fn legacy_mor_roundtrip_subcategories() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected roundtrip input",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -324,7 +324,7 @@ fn legacy_mor_roundtrip_subcategories() -> Result<(), TestError> {
             serialized,
             input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            parser.parser_name(),
+            "tree-sitter",
             input,
             serialized
         );
@@ -342,12 +342,12 @@ fn legacy_mor_roundtrip_fusional() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] roundtrip input produced errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -356,7 +356,7 @@ fn legacy_mor_roundtrip_fusional() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected roundtrip input",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -366,7 +366,7 @@ fn legacy_mor_roundtrip_fusional() -> Result<(), TestError> {
             serialized,
             input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            parser.parser_name(),
+            "tree-sitter",
             input,
             serialized
         );
@@ -384,12 +384,12 @@ fn legacy_mor_roundtrip_clitic_with_subcategory() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let parsed = parser.parse_mor_tier(input, 0, &sink);
+        let parsed = parser.parse_mor_tier_fragment(input, 0, &sink);
 
         assert!(
             sink.is_empty(),
             "[{}] roundtrip input produced errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
@@ -398,7 +398,7 @@ fn legacy_mor_roundtrip_clitic_with_subcategory() -> Result<(), TestError> {
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "[{}] rejected roundtrip input",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -408,7 +408,7 @@ fn legacy_mor_roundtrip_clitic_with_subcategory() -> Result<(), TestError> {
             serialized,
             input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            parser.parser_name(),
+            "tree-sitter",
             input,
             serialized
         );

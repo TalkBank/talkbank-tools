@@ -53,6 +53,7 @@ mod pause;
 mod postcode;
 mod separator;
 mod terminator;
+mod retrace;
 mod tier_content;
 mod utterance_content;
 
@@ -70,6 +71,7 @@ pub use other_spoken::*;
 pub use overlap::*;
 pub use pause::*;
 pub use postcode::*;
+pub use retrace::*;
 pub use separator::*;
 pub use terminator::*;
 pub use tier_content::*;

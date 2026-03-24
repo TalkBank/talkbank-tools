@@ -118,6 +118,7 @@ pub(crate) fn convert_to_group_content(content: UtteranceContent) -> Option<Brac
         }
         // Groups CAN contain annotated groups (e.g., retraces inside pho groups)
         UtteranceContent::AnnotatedGroup(ann) => Some(BracketedItem::AnnotatedGroup(ann)),
+        UtteranceContent::Retrace(retrace) => Some(BracketedItem::Retrace(retrace)),
         UtteranceContent::PhoGroup(pho) => Some(BracketedItem::PhoGroup(pho)),
         UtteranceContent::SinGroup(sin) => Some(BracketedItem::SinGroup(sin)),
         UtteranceContent::Quotation(quot) => Some(BracketedItem::Quotation(quot)),

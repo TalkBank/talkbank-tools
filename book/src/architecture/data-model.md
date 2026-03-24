@@ -234,11 +234,11 @@ pub fn walk_words_mut(
 ```
 
 **Domain-aware gating** is built into the walker:
-- `domain = Some(Mor)` → skip `AnnotatedGroup`s with retrace annotations
+- `domain = Some(Mor)` → skip `Retrace` content (retraced words are not morphologically analyzed)
 - `domain = Some(Pho|Sin)` → skip `PhoGroup`/`SinGroup` (treated as atomic units)
 - `domain = None` → recurse all groups unconditionally
 
-The walker handles all 5 group types (`Group`, `AnnotatedGroup`, `PhoGroup`, `SinGroup`, `Quotation`) and their `BracketedContent` recursion. Callers provide only leaf-handling logic: `counts_for_tier()` filtering, `ReplacedWord` branch logic, separator filtering.
+The walker handles all 6 group types (`Group`, `AnnotatedGroup`, `Retrace`, `PhoGroup`, `SinGroup`, `Quotation`) and their `BracketedContent` recursion. Callers provide only leaf-handling logic: `counts_for_tier()` filtering, `ReplacedWord` branch logic, separator filtering.
 
 Used by `main_tier.rs` (%wor generation) and `batchalign-chat-ops` (word extraction, FA extraction/injection/postprocess).
 

@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use talkbank_tools::test_error::TestError;
 
 use serde::Deserialize;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 
 /// Type representing what the error corpus file is expected to trigger.
@@ -71,18 +70,20 @@ impl ExpectedOutcome {
 #[derive(Clone, Debug, Deserialize)]
 pub struct ExpectedOutcomes {
     tree_sitter: ExpectedOutcome,
-    direct: ExpectedOutcome,
+    /// Legacy field kept for JSON compatibility; ignored at runtime.
+    #[serde(default)]
+    #[allow(dead_code)]
+    direct: Option<ExpectedOutcome>,
     #[serde(default)]
     #[allow(dead_code)]
     divergence_note: Option<String>,
 }
 
 impl ExpectedOutcomes {
-    /// Runs for parser.
+    /// Returns the expected outcome for the parser.
     pub fn for_parser(&self, parser_name: &str) -> Option<&ExpectedOutcome> {
         match parser_name {
             "tree-sitter" => Some(&self.tree_sitter),
-            "direct" => Some(&self.direct),
             _ => None,
         }
     }
@@ -101,14 +102,7 @@ impl ParserImpl {
     pub fn collect_all_errors(&self, content: &str) -> Vec<talkbank_model::ParseError> {
         let parse_errors = ErrorCollector::new();
 
-        let chat_file_opt = match self {
-            ParserImpl::TreeSitter(p) => {
-                ChatParser::parse_chat_file(p, content, 0, &parse_errors).into_option()
-            }
-            ParserImpl::Direct(p) => {
-                ChatParser::parse_chat_file(p, content, 0, &parse_errors).into_option()
-            }
-        };
+        let chat_file_opt = self.0.parse_chat_file_fragment(content, 0, &parse_errors).into_option();
 
         if let Some(mut chat_file) = chat_file_opt {
             // TEMPORARY: skip %wor alignment - semantics still being worked out
@@ -129,10 +123,6 @@ fn map_parser_suite_error(error: ParserSuiteError) -> TestError {
         ParserSuiteError::TreeSitterInit { source } => TestError::Failure(format!(
             "Failed to create TreeSitterParser for error corpus: {}",
             source
-        )),
-        ParserSuiteError::ParserInit { message } => TestError::Failure(format!(
-            "Failed to create TreeSitterParser for error corpus: {}",
-            message
         )),
     }
 }

@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::Span;
-use crate::annotation::AnnotatedScopedAnnotations;
+use crate::annotation::AnnotatedContentAnnotations;
 use crate::model::{
     Annotated, BracketedContent, BracketedItem, Event, Group, OverlapPoint, OverlapPointKind,
-    Pause, PauseDuration, PhoGroup, ScopedAnnotation, Separator, UtteranceContent, Word,
+    Pause, PauseDuration, PhoGroup, Retrace, RetraceKind, Separator, UtteranceContent, Word,
 };
 
 fn word(text: &str) -> Word {
@@ -51,17 +51,13 @@ fn words_inside_group() {
 }
 
 #[test]
-fn annotated_group_retrace_skipped_for_mor() {
-    let group = Group::new(BracketedContent::new(vec![BracketedItem::Word(
+fn retrace_group_skipped_for_mor() {
+    let bracketed = BracketedContent::new(vec![BracketedItem::Word(
         boxed_word("retraced"),
-    )]));
-    let annotated = Annotated {
-        inner: group,
-        scoped_annotations: AnnotatedScopedAnnotations::new(vec![ScopedAnnotation::Retracing]),
-        span: Span::DUMMY,
-    };
+    )]);
+    let retrace = Retrace::new(bracketed, RetraceKind::Full).as_group();
     let content = vec![
-        UtteranceContent::AnnotatedGroup(annotated),
+        UtteranceContent::Retrace(Box::new(retrace)),
         UtteranceContent::Word(boxed_word("kept")),
     ];
 
@@ -225,7 +221,7 @@ fn walk_content_emits_annotated_event_inner() {
     let event = Event::new("coughs");
     let annotated = Annotated {
         inner: event,
-        scoped_annotations: AnnotatedScopedAnnotations::new(vec![]),
+        scoped_annotations: AnnotatedContentAnnotations::new(vec![]),
         span: Span::DUMMY,
     };
     let content = vec![UtteranceContent::AnnotatedEvent(annotated)];

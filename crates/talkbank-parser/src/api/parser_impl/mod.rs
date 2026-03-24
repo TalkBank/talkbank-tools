@@ -1,6 +1,6 @@
-//! `ChatParser` trait plumbing for `TreeSitterParser`.
+//! Implementation helpers for `TreeSitterParser` fragment methods.
 //!
-//! The concrete trait methods in `api/parser_api.rs` delegate to helpers in this
+//! The fragment methods in `api/parser_api.rs` delegate to helpers in this
 //! submodule so wrapper parsing, span adjustment, and error multiplexing stay in
 //! one place.
 //!

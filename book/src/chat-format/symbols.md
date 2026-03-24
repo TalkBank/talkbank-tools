@@ -1,5 +1,8 @@
 # Symbols
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 CHAT uses a rich set of symbols for transcription conventions. This page documents the symbol categories and the symbol registry that drives both the grammar and the Rust crates.
 
 ## Symbol Registry

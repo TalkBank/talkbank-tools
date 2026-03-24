@@ -418,7 +418,7 @@ fn classify_primary(emissions: &[&RefHit]) -> String {
             _ if h.path.contains("/tier_parsers/") || h.path.contains("/tree_parsing/") => {
                 "Parser CST/Tree"
             }
-            _ if h.path.contains("talkbank-direct-parser") => "Direct parser",
+            // Direct parser was removed; this branch is retained for auditing historical data
             _ => "Generic/Internal",
         };
         *counts.entry(c).or_insert(0) += 1;

@@ -16,24 +16,24 @@ Key features:
 - **Error recovery** — The GLR-based tree-sitter parser recovers from syntax
   errors and produces partial results, making it suitable for editor
   integration (LSP) and interactive use.
-- **Thread-local parser pool** — Parser instances are reused via
-  thread-local storage for efficiency.
-- **Granular parsing** — The `ChatParser` trait allows parsing at any level:
+- **Explicit parser handle** — Create a `TreeSitterParser` once and reuse it
+  for all parsing in a scope. No hidden global state.
+- **Granular parsing** — `TreeSitterParser` methods parse at any level:
   individual words, tiers, headers, or complete files.
-
-This parser is validated against a 339-file reference corpus and must agree
-with the direct parser on all well-formed inputs.
 
 ## Usage
 
 ```rust
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::ChatParser;
-use talkbank_model::ErrorCollector;
 
 let parser = TreeSitterParser::new().expect("parser init");
-let sink = ErrorCollector::new();
-// parser.parse_chat_file(source) produces a ChatFile
+
+// Parse a complete CHAT file:
+let chat_file = parser.parse_chat_file(source).expect("valid CHAT");
+
+// Parse a fragment with offset adjustment and streaming errors:
+let errors = talkbank_model::ErrorCollector::new();
+let outcome = parser.parse_word_fragment("hello", 0, &errors);
 ```
 
 ## License

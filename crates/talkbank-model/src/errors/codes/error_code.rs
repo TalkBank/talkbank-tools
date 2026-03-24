@@ -129,13 +129,13 @@ pub enum ErrorCode {
     MissingRequiredElement,
     /// Invalid nesting of scoped annotations.
     #[code("E344")]
-    InvalidScopedAnnotationNesting,
+    InvalidContentAnnotationNesting,
     /// Unmatched scoped annotation begin marker.
     #[code("E345")]
-    UnmatchedScopedAnnotationBegin,
+    UnmatchedContentAnnotationBegin,
     /// Unmatched scoped annotation end marker.
     #[code("E346")]
-    UnmatchedScopedAnnotationEnd,
+    UnmatchedContentAnnotationEnd,
     /// Unbalanced overlap markers.
     #[code("E347")]
     UnbalancedOverlap,
@@ -156,7 +156,7 @@ pub enum ErrorCode {
     MissingTrailingOffTerminator,
     /// Interleaved scoped annotations (overlapping scopes).
     #[code("E355")]
-    InterleavedScopedAnnotations,
+    InterleavedContentAnnotations,
     /// Unmatched underline begin marker.
     #[code("E356")]
     UnmatchedUnderlineBegin,
@@ -213,7 +213,7 @@ pub enum ErrorCode {
     InvalidOverlapIndex,
     /// Failed to parse scoped annotation content.
     #[code("E375")]
-    ScopedAnnotationParseError,
+    ContentAnnotationParseError,
     /// Failed to parse replacement annotation content.
     #[code("E376")]
     ReplacementParseError,
@@ -274,7 +274,7 @@ pub enum ErrorCode {
     UntranscribedInReplacement,
     /// Empty annotated scoped annotations.
     #[code("E214")]
-    EmptyAnnotatedScopedAnnotations,
+    EmptyAnnotatedContentAnnotations,
     /// Illegal digits in word content.
     #[code("E220")]
     IllegalDigits,

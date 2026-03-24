@@ -14,7 +14,7 @@ use talkbank_derive::{SemanticEq, SpanShift};
 use crate::model::{
     Action, Annotated, Event, Freecode, Group, LongFeatureBegin, LongFeatureEnd, NonvocalBegin,
     NonvocalEnd, NonvocalSimple, OtherSpokenEvent, OverlapPoint, Pause, PhoGroup, Quotation,
-    ReplacedWord, Separator, SinGroup, UnderlineMarker, Word,
+    ReplacedWord, Retrace, Separator, SinGroup, UnderlineMarker, Word,
 };
 
 /// Content items that can appear on the main tier of a CHAT utterance.
@@ -80,9 +80,16 @@ pub enum UtteranceContent {
     Pause(Pause),
     /// Regular group <...> - bare (no annotations)
     Group(Group),
-    /// Regular group <...> WITH scoped annotations
+    /// Regular group <...> WITH scoped annotations (non-retrace only)
     #[serde(rename = "annotated_group")]
     AnnotatedGroup(Annotated<Group>),
+    /// Retraced content — words the speaker said then corrected.
+    ///
+    /// First-class variant ensures every `match` handles retraces explicitly.
+    /// Excluded from %mor alignment; included in %pho/%sin/%wor.
+    ///
+    /// CHAT: `<I want> [/] I need` or `word [/] word`
+    Retrace(Box<Retrace>),
     /// Phonological group ‹...› (cannot have annotations)
     #[serde(rename = "pho_group")]
     PhoGroup(PhoGroup),

@@ -3,1432 +3,1432 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "SPK",
             "name": null,
-            "role": "Speaker",
-            "speaker_code": "SPK"
+            "role": "Speaker"
           },
           {
+            "speaker_code": "LSN",
             "name": null,
-            "role": "Adult",
-            "speaker_code": "LSN"
+            "role": "Adult"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "options",
         "options": [
           "CA"
-        ],
-        "type": "options"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Speaker",
+        "corpus": "corpus",
         "speaker": "SPK",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Speaker"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Adult",
+        "corpus": "corpus",
         "speaker": "LSN",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Adult"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "CA diacritics: blocking, pitch, inhalation, constriction, laugh in word,",
-              "type": "text"
+              "type": "text",
+              "text": "CA diacritics: blocking, pitch, inhalation, constriction, laugh in word,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "segment repetition, quality delimiters (faster, slower, creaky, soft, etc.)",
-              "type": "text"
+              "type": "text",
+              "text": "segment repetition, quality delimiters (faster, slower, creaky, soft, etc.)"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: nonvocal_simple, CA inline diacritics,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: nonvocal_simple, CA inline diacritics,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "quality delimiter pairs (all 12)",
-              "type": "text"
+              "type": "text",
+              "text": "quality delimiter pairs (all 12)"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "rub-b-b≠bber",
               "cleaned_text": "rub-b-bbber",
               "content": [
                 {
-                  "content": "rub-b-b",
-                  "type": "text"
+                  "type": "text",
+                  "content": "rub-b-b"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "blocked_segments",
                     "span": {
-                      "end": 419,
-                      "start": 416
+                      "start": 416,
+                      "end": 419
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "bber",
-                  "type": "text"
+                  "type": "text",
+                  "content": "bber"
                 }
-              ],
-              "raw_text": "rub-b-b≠bber",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "is",
               "cleaned_text": "is",
               "content": [
                 {
-                  "content": "is",
-                  "type": "text"
+                  "type": "text",
+                  "content": "is"
                 }
-              ],
-              "raw_text": "is",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "blocked",
               "cleaned_text": "blocked",
               "content": [
                 {
-                  "content": "blocked",
-                  "type": "text"
+                  "type": "text",
+                  "content": "blocked"
                 }
-              ],
-              "raw_text": "blocked",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "p↑itch",
               "cleaned_text": "pitch",
               "content": [
                 {
-                  "content": "p",
-                  "type": "text"
+                  "type": "text",
+                  "content": "p"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "pitch_up",
                     "span": {
-                      "end": 447,
-                      "start": 444
+                      "start": 444,
+                      "end": 447
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "itch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "itch"
                 }
-              ],
-              "raw_text": "p↑itch",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "up",
               "cleaned_text": "up",
               "content": [
                 {
-                  "content": "up",
-                  "type": "text"
+                  "type": "text",
+                  "content": "up"
                 }
-              ],
-              "raw_text": "up",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "p↓itch",
               "cleaned_text": "pitch",
               "content": [
                 {
-                  "content": "p",
-                  "type": "text"
+                  "type": "text",
+                  "content": "p"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "pitch_down",
                     "span": {
-                      "end": 463,
-                      "start": 460
+                      "start": 460,
+                      "end": 463
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "itch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "itch"
                 }
-              ],
-              "raw_text": "p↓itch",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "down",
               "cleaned_text": "down",
               "content": [
                 {
-                  "content": "down",
-                  "type": "text"
+                  "type": "text",
+                  "content": "down"
                 }
-              ],
-              "raw_text": "down",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "in∙halation",
               "cleaned_text": "inhalation",
               "content": [
                 {
-                  "content": "in",
-                  "type": "text"
+                  "type": "text",
+                  "content": "in"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "inhalation",
                     "span": {
-                      "end": 486,
-                      "start": 483
+                      "start": 483,
+                      "end": 486
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "halation",
-                  "type": "text"
+                  "type": "text",
+                  "content": "halation"
                 }
-              ],
-              "raw_text": "in∙halation",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "constriction∾",
               "cleaned_text": "constriction",
               "content": [
                 {
-                  "content": "constriction",
-                  "type": "text"
+                  "type": "text",
+                  "content": "constriction"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "constriction",
                     "span": {
-                      "end": 514,
-                      "start": 511
+                      "start": 511,
+                      "end": 514
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 }
-              ],
-              "raw_text": "constriction∾",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "lauἩgh",
               "cleaned_text": "laugh",
               "content": [
                 {
-                  "content": "lau",
-                  "type": "text"
+                  "type": "text",
+                  "content": "lau"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "laugh_in_word",
                     "span": {
-                      "end": 525,
-                      "start": 522
+                      "start": 522,
+                      "end": 525
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "gh",
-                  "type": "text"
+                  "type": "text",
+                  "content": "gh"
                 }
-              ],
-              "raw_text": "lauἩgh",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "↻pitch",
               "cleaned_text": "pitch",
               "content": [
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "pitch_reset",
                     "span": {
-                      "end": 539,
-                      "start": 536
+                      "start": 536,
+                      "end": 539
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "pitch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "pitch"
                 }
-              ],
-              "raw_text": "↻pitch",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "reset",
               "cleaned_text": "reset",
               "content": [
                 {
-                  "content": "reset",
-                  "type": "text"
+                  "type": "text",
+                  "content": "reset"
                 }
-              ],
-              "raw_text": "reset",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "here",
               "cleaned_text": "here",
               "content": [
                 {
-                  "content": "here",
-                  "type": "text"
+                  "type": "text",
+                  "content": "here"
                 }
-              ],
-              "raw_text": "here",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "↫s-s-s↫segment",
               "cleaned_text": "s-s-ssegment",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "segment_repetition",
                     "span": {
-                      "end": 567,
-                      "start": 564
+                      "start": 564,
+                      "end": 567
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "s-s-s",
-                  "type": "text"
+                  "type": "text",
+                  "content": "s-s-s"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "segment_repetition",
                     "span": {
-                      "end": 575,
-                      "start": 572
+                      "start": 572,
+                      "end": 575
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "segment",
-                  "type": "text"
+                  "type": "text",
+                  "content": "segment"
                 }
-              ],
-              "raw_text": "↫s-s-s↫segment",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "repetition",
               "cleaned_text": "repetition",
               "content": [
                 {
-                  "content": "repetition",
-                  "type": "text"
+                  "type": "text",
+                  "content": "repetition"
                 }
-              ],
-              "raw_text": "repetition",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "∆faster∆",
               "cleaned_text": "faster",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "faster",
                     "span": {
-                      "end": 605,
-                      "start": 602
+                      "start": 602,
+                      "end": 605
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "faster",
-                  "type": "text"
+                  "type": "text",
+                  "content": "faster"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "faster",
                     "span": {
-                      "end": 614,
-                      "start": 611
+                      "start": 611,
+                      "end": 614
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "∆faster∆",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "∇slower∇",
               "cleaned_text": "slower",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "slower",
                     "span": {
-                      "end": 622,
-                      "start": 619
+                      "start": 619,
+                      "end": 622
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "slower",
-                  "type": "text"
+                  "type": "text",
+                  "content": "slower"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "slower",
                     "span": {
-                      "end": 631,
-                      "start": 628
+                      "start": 628,
+                      "end": 631
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "∇slower∇",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "⁎creaky⁎",
               "cleaned_text": "creaky",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "creaky",
                     "span": {
-                      "end": 639,
-                      "start": 636
+                      "start": 636,
+                      "end": 639
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "creaky",
-                  "type": "text"
+                  "type": "text",
+                  "content": "creaky"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "creaky",
                     "span": {
-                      "end": 648,
-                      "start": 645
+                      "start": 645,
+                      "end": 648
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "⁎creaky⁎",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "°softer°",
               "cleaned_text": "softer",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "softer",
                     "span": {
-                      "end": 655,
-                      "start": 653
+                      "start": 653,
+                      "end": 655
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "softer",
-                  "type": "text"
+                  "type": "text",
+                  "content": "softer"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "softer",
                     "span": {
-                      "end": 663,
-                      "start": 661
+                      "start": 661,
+                      "end": 663
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "°softer°",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "▁lowpitch▁",
               "cleaned_text": "lowpitch",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "low_pitch",
                     "span": {
-                      "end": 675,
-                      "start": 672
+                      "start": 672,
+                      "end": 675
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "lowpitch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "lowpitch"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "low_pitch",
                     "span": {
-                      "end": 686,
-                      "start": 683
+                      "start": 683,
+                      "end": 686
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "▁lowpitch▁",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "▔highpitch▔",
               "cleaned_text": "highpitch",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "high_pitch",
                     "span": {
-                      "end": 694,
-                      "start": 691
+                      "start": 691,
+                      "end": 694
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "highpitch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "highpitch"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "high_pitch",
                     "span": {
-                      "end": 706,
-                      "start": 703
+                      "start": 703,
+                      "end": 706
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "▔highpitch▔",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "☺smilevoice☺",
               "cleaned_text": "smilevoice",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "smile_voice",
                     "span": {
-                      "end": 714,
-                      "start": 711
+                      "start": 711,
+                      "end": 714
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "smilevoice",
-                  "type": "text"
+                  "type": "text",
+                  "content": "smilevoice"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "smile_voice",
                     "span": {
-                      "end": 727,
-                      "start": 724
+                      "start": 724,
+                      "end": 727
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "☺smilevoice☺",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "♋breathyvoice♋",
               "cleaned_text": "breathyvoice",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "breathy_voice",
                     "span": {
-                      "end": 739,
-                      "start": 736
+                      "start": 736,
+                      "end": 739
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "breathyvoice",
-                  "type": "text"
+                  "type": "text",
+                  "content": "breathyvoice"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "breathy_voice",
                     "span": {
-                      "end": 754,
-                      "start": 751
+                      "start": 751,
+                      "end": 754
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "♋breathyvoice♋",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "⁇unsure⁇",
               "cleaned_text": "unsure",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "unsure",
                     "span": {
-                      "end": 762,
-                      "start": 759
+                      "start": 759,
+                      "end": 762
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "unsure",
-                  "type": "text"
+                  "type": "text",
+                  "content": "unsure"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "unsure",
                     "span": {
-                      "end": 771,
-                      "start": 768
+                      "start": 768,
+                      "end": 771
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "⁇unsure⁇",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "∬whisper∬",
               "cleaned_text": "whisper",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "whisper",
                     "span": {
-                      "end": 779,
-                      "start": 776
+                      "start": 776,
+                      "end": 779
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "whisper",
-                  "type": "text"
+                  "type": "text",
+                  "content": "whisper"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "whisper",
                     "span": {
-                      "end": 789,
-                      "start": 786
+                      "start": 786,
+                      "end": 789
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "∬whisper∬",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "ΫyawnΫ",
               "cleaned_text": "yawn",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "yawn",
                     "span": {
-                      "end": 800,
-                      "start": 798
+                      "start": 798,
+                      "end": 800
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "yawn",
-                  "type": "text"
+                  "type": "text",
+                  "content": "yawn"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "yawn",
                     "span": {
-                      "end": 806,
-                      "start": 804
+                      "start": 804,
+                      "end": 806
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "ΫyawnΫ",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "∮singing∮",
               "cleaned_text": "singing",
               "content": [
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "singing",
                     "span": {
-                      "end": 814,
-                      "start": 811
+                      "start": 811,
+                      "end": 814
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 },
                 {
-                  "content": "singing",
-                  "type": "text"
+                  "type": "text",
+                  "content": "singing"
                 },
                 {
+                  "type": "ca_delimiter",
                   "content": {
                     "delimiter_type": "singing",
                     "span": {
-                      "end": 824,
-                      "start": 821
+                      "start": 821,
+                      "end": 824
                     }
-                  },
-                  "type": "ca_delimiter"
+                  }
                 }
-              ],
-              "raw_text": "∮singing∮",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "⤇quick",
               "cleaned_text": "quick",
               "content": [
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "hurried_start",
                     "span": {
-                      "end": 836,
-                      "start": 833
+                      "start": 833,
+                      "end": 836
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "quick",
-                  "type": "text"
+                  "type": "text",
+                  "content": "quick"
                 }
-              ],
-              "raw_text": "⤇quick",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "start",
               "cleaned_text": "start",
               "content": [
                 {
-                  "content": "start",
-                  "type": "text"
+                  "type": "text",
+                  "content": "start"
                 }
-              ],
-              "raw_text": "start",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "then",
               "cleaned_text": "then",
               "content": [
                 {
-                  "content": "then",
-                  "type": "text"
+                  "type": "text",
+                  "content": "then"
                 }
-              ],
-              "raw_text": "then",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "content": "a",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "a",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "sudden",
               "cleaned_text": "sudden",
               "content": [
                 {
-                  "content": "sudden",
-                  "type": "text"
+                  "type": "text",
+                  "content": "sudden"
                 }
-              ],
-              "raw_text": "sudden",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "cutoff⤆",
               "cleaned_text": "cutoff",
               "content": [
                 {
-                  "content": "cutoff",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cutoff"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "sudden_stop",
                     "span": {
-                      "end": 875,
-                      "start": 872
+                      "start": 872,
+                      "end": 875
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 }
-              ],
-              "raw_text": "cutoff⤆",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "also",
               "cleaned_text": "also",
               "content": [
                 {
-                  "content": "also",
-                  "type": "text"
+                  "type": "text",
+                  "content": "also"
                 }
-              ],
-              "raw_text": "also",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "hard⁑ening",
               "cleaned_text": "hardening",
               "content": [
                 {
-                  "content": "hard",
-                  "type": "text"
+                  "type": "text",
+                  "content": "hard"
                 },
                 {
+                  "type": "ca_element",
                   "content": {
                     "element_type": "hardening",
                     "span": {
-                      "end": 896,
-                      "start": 893
+                      "start": 893,
+                      "end": 896
                     }
-                  },
-                  "type": "ca_element"
+                  }
                 },
                 {
-                  "content": "ening",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ening"
                 }
-              ],
-              "raw_text": "hard⁑ening",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "inside",
               "cleaned_text": "inside",
               "content": [
                 {
-                  "content": "inside",
-                  "type": "text"
+                  "type": "text",
+                  "content": "inside"
                 }
-              ],
-              "raw_text": "inside",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "content": "a",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "a",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "word",
               "cleaned_text": "word",
               "content": [
                 {
-                  "content": "word",
-                  "type": "text"
+                  "type": "text",
+                  "content": "word"
                 }
-              ],
-              "raw_text": "word",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "CA",
               "cleaned_text": "CA",
               "content": [
                 {
-                  "content": "CA",
-                  "type": "text"
+                  "type": "text",
+                  "content": "CA"
                 }
-              ],
-              "raw_text": "CA",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "can",
               "cleaned_text": "can",
               "content": [
                 {
-                  "content": "can",
-                  "type": "text"
+                  "type": "text",
+                  "content": "can"
                 }
-              ],
-              "raw_text": "can",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "use",
               "cleaned_text": "use",
               "content": [
                 {
-                  "content": "use",
-                  "type": "text"
+                  "type": "text",
+                  "content": "use"
                 }
-              ],
-              "raw_text": "use",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "xx",
               "cleaned_text": "xx",
               "content": [
                 {
-                  "content": "xx",
-                  "type": "text"
+                  "type": "text",
+                  "content": "xx"
                 }
-              ],
-              "raw_text": "xx",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "XX",
               "cleaned_text": "XX",
               "content": [
                 {
-                  "content": "XX",
-                  "type": "text"
+                  "type": "text",
+                  "content": "XX"
                 }
-              ],
-              "raw_text": "XX",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "and",
               "cleaned_text": "and",
               "content": [
                 {
-                  "content": "and",
-                  "type": "text"
+                  "type": "text",
+                  "content": "and"
                 }
-              ],
-              "raw_text": "and",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "even",
               "cleaned_text": "even",
               "content": [
                 {
-                  "content": "even",
-                  "type": "text"
+                  "type": "text",
+                  "content": "even"
                 }
-              ],
-              "raw_text": "even",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "XXX",
               "cleaned_text": "XXX",
               "content": [
                 {
-                  "content": "XXX",
-                  "type": "text"
+                  "type": "text",
+                  "content": "XXX"
                 }
-              ],
-              "raw_text": "XXX",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "CA",
               "cleaned_text": "CA",
               "content": [
                 {
-                  "content": "CA",
-                  "type": "text"
+                  "type": "text",
+                  "content": "CA"
                 }
-              ],
-              "raw_text": "CA",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "uses",
               "cleaned_text": "uses",
               "content": [
                 {
-                  "content": "uses",
-                  "type": "text"
+                  "type": "text",
+                  "content": "uses"
                 }
-              ],
-              "raw_text": "uses",
-              "type": "word"
+              ]
             },
             {
-              "category": "ca_omission",
+              "type": "word",
+              "raw_text": "(parens)",
               "cleaned_text": "parens",
               "content": [
                 {
-                  "content": "parens",
-                  "type": "text"
+                  "type": "text",
+                  "content": "parens"
                 }
               ],
-              "raw_text": "(parens)",
-              "type": "word"
+              "category": "ca_omission"
             },
             {
+              "type": "word",
+              "raw_text": "for",
               "cleaned_text": "for",
               "content": [
                 {
-                  "content": "for",
-                  "type": "text"
+                  "type": "text",
+                  "content": "for"
                 }
-              ],
-              "raw_text": "for",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "uncertain",
               "cleaned_text": "uncertain",
               "content": [
                 {
-                  "content": "uncertain",
-                  "type": "text"
+                  "type": "text",
+                  "content": "uncertain"
                 }
-              ],
-              "raw_text": "uncertain",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "words",
               "cleaned_text": "words",
               "content": [
                 {
-                  "content": "words",
-                  "type": "text"
+                  "type": "text",
+                  "content": "words"
                 }
-              ],
-              "raw_text": "words",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
+  ],
+  "participants": {
+    "SPK": {
+      "code": "SPK",
+      "name": null,
+      "role": "Speaker",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "SPK",
+        "role": "Speaker"
+      },
+      "birth_date": null
+    },
+    "LSN": {
+      "code": "LSN",
+      "name": null,
+      "role": "Adult",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "LSN",
+        "role": "Adult"
+      },
+      "birth_date": null
+    }
+  },
+  "languages": [
+    "eng"
   ],
   "options": [
     "CA"
-  ],
-  "participants": {
-    "LSN": {
-      "birth_date": null,
-      "code": "LSN",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Adult",
-        "speaker": "LSN"
-      },
-      "name": null,
-      "role": "Adult"
-    },
-    "SPK": {
-      "birth_date": null,
-      "code": "SPK",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Speaker",
-        "speaker": "SPK"
-      },
-      "name": null,
-      "role": "Speaker"
-    }
-  }
+  ]
 }

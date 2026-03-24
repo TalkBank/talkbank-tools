@@ -69,7 +69,7 @@ pub(super) fn check_quoted_linker(utterances: &[Utterance], idx: usize) -> Vec<P
     if !pattern_a_valid && !pattern_b_valid {
         errors.push(
             ParseError::new(
-                ErrorCode::UnmatchedScopedAnnotationEnd,
+                ErrorCode::UnmatchedContentAnnotationEnd,
                 Severity::Error,
                 SourceLocation::new(utterance.main.span),
                 ErrorContext::new(

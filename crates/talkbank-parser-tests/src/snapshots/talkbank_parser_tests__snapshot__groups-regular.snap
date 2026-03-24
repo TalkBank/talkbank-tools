@@ -3,356 +3,352 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Child",
-            "speaker_code": "CHI"
+            "role": "Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "3;0",
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Child",
+        "corpus": "corpus",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "3;0",
+        "role": "Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Mother",
+        "corpus": "corpus",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Regular groups <content> with scoped annotations, nested groups",
-              "type": "text"
+              "type": "text",
+              "text": "Regular groups <content> with scoped annotations, nested groups"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: group_with_annotations, greater_than, less_than,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: group_with_annotations, greater_than, less_than,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "base_annotations, contents within groups",
-              "type": "text"
+              "type": "text",
+              "text": "base_annotations, contents within groups"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "annotated_word",
+              "raw_text": "hey",
               "cleaned_text": "hey",
               "content": [
                 {
-                  "content": "hey",
-                  "type": "text"
+                  "type": "text",
+                  "content": "hey"
                 }
               ],
-              "raw_text": "hey",
               "scoped_annotations": [
                 {
-                  "text": "foo",
-                  "type": "explanation"
+                  "type": "explanation",
+                  "text": "foo"
                 }
-              ],
-              "type": "annotated_word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "man",
               "cleaned_text": "man",
               "content": [
                 {
-                  "content": "man",
-                  "type": "text"
+                  "type": "text",
+                  "content": "man"
                 }
-              ],
-              "raw_text": "man",
-              "type": "word"
+              ]
             },
             {
+              "type": "annotated_group",
               "content": {
                 "content": [
                   {
+                    "type": "word",
+                    "raw_text": "what",
                     "cleaned_text": "what",
                     "content": [
                       {
-                        "content": "what",
-                        "type": "text"
+                        "type": "text",
+                        "content": "what"
                       }
-                    ],
-                    "raw_text": "what",
-                    "type": "word"
+                    ]
                   },
                   {
+                    "type": "word",
+                    "raw_text": "in",
                     "cleaned_text": "in",
                     "content": [
                       {
-                        "content": "in",
-                        "type": "text"
+                        "type": "text",
+                        "content": "in"
                       }
-                    ],
-                    "raw_text": "in",
-                    "type": "word"
+                    ]
                   },
                   {
+                    "type": "word",
+                    "raw_text": "the",
                     "cleaned_text": "the",
                     "content": [
                       {
-                        "content": "the",
-                        "type": "text"
+                        "type": "text",
+                        "content": "the"
                       }
-                    ],
-                    "raw_text": "the",
-                    "type": "word"
+                    ]
                   },
                   {
+                    "type": "word",
+                    "raw_text": "world",
                     "cleaned_text": "world",
                     "content": [
                       {
-                        "content": "world",
-                        "type": "text"
+                        "type": "text",
+                        "content": "world"
                       }
-                    ],
-                    "raw_text": "world",
-                    "type": "word"
+                    ]
                   }
                 ]
               },
               "scoped_annotations": [
                 {
-                  "text": "bar",
-                  "type": "explanation"
+                  "type": "explanation",
+                  "text": "bar"
                 }
-              ],
-              "type": "annotated_group"
+              ]
             },
             {
+              "type": "annotated_word",
+              "raw_text": "isn't",
               "cleaned_text": "isn't",
               "content": [
                 {
-                  "content": "isn't",
-                  "type": "text"
+                  "type": "text",
+                  "content": "isn't"
                 }
               ],
-              "raw_text": "isn't",
               "scoped_annotations": [
                 {
-                  "text": "baz",
-                  "type": "explanation"
+                  "type": "explanation",
+                  "text": "baz"
                 }
-              ],
-              "type": "annotated_word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "this",
               "cleaned_text": "this",
               "content": [
                 {
-                  "content": "this",
-                  "type": "text"
+                  "type": "text",
+                  "content": "this"
                 }
-              ],
-              "raw_text": "this",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "retrace",
               "content": {
                 "content": [
                   {
+                    "type": "word",
+                    "raw_text": "the",
                     "cleaned_text": "the",
                     "content": [
                       {
-                        "content": "the",
-                        "type": "text"
+                        "type": "text",
+                        "content": "the"
                       }
-                    ],
-                    "raw_text": "the",
-                    "type": "word"
+                    ]
                   },
                   {
+                    "type": "word",
+                    "raw_text": "big",
                     "cleaned_text": "big",
                     "content": [
                       {
-                        "content": "big",
-                        "type": "text"
+                        "type": "text",
+                        "content": "big"
                       }
-                    ],
-                    "raw_text": "big",
-                    "type": "word"
+                    ]
                   }
                 ]
               },
-              "scoped_annotations": [
-                {
-                  "type": "partialretracing"
-                }
-              ],
-              "type": "annotated_group"
+              "kind": "partial",
+              "is_group": true
             },
             {
+              "type": "word",
+              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "content": "the",
-                  "type": "text"
+                  "type": "text",
+                  "content": "the"
                 }
-              ],
-              "raw_text": "the",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "small",
               "cleaned_text": "small",
               "content": [
                 {
-                  "content": "small",
-                  "type": "text"
+                  "type": "text",
+                  "content": "small"
                 }
-              ],
-              "raw_text": "small",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "dog",
               "cleaned_text": "dog",
               "content": [
                 {
-                  "content": "dog",
-                  "type": "text"
+                  "type": "text",
+                  "content": "dog"
                 }
-              ],
-              "raw_text": "dog",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "annotated_group",
               "content": {
                 "content": [
                   {
+                    "type": "annotated_group",
                     "content": {
                       "content": [
                         {
+                          "type": "word",
+                          "raw_text": "happy",
                           "cleaned_text": "happy",
                           "content": [
                             {
-                              "content": "happy",
-                              "type": "text"
+                              "type": "text",
+                              "content": "happy"
                             }
-                          ],
-                          "raw_text": "happy",
-                          "type": "word"
+                          ]
                         },
                         {
+                          "type": "word",
+                          "raw_text": "and",
                           "cleaned_text": "and",
                           "content": [
                             {
-                              "content": "and",
-                              "type": "text"
+                              "type": "text",
+                              "content": "and"
                             }
-                          ],
-                          "raw_text": "and",
-                          "type": "word"
+                          ]
                         }
                       ]
                     },
                     "scoped_annotations": [
                       {
-                        "type": "scopeduncertain"
+                        "type": "uncertain"
                       }
-                    ],
-                    "type": "annotated_group"
+                    ]
                   }
                 ]
               },
@@ -360,69 +356,69 @@ expression: snapshot
                 {
                   "type": "overlap_end"
                 }
-              ],
-              "type": "annotated_group"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "annotated_group",
               "content": {
                 "content": [
                   {
+                    "type": "annotated_group",
                     "content": {
                       "content": [
                         {
+                          "type": "word",
+                          "raw_text": "see",
                           "cleaned_text": "see",
                           "content": [
                             {
-                              "content": "see",
-                              "type": "text"
+                              "type": "text",
+                              "content": "see"
                             }
-                          ],
-                          "raw_text": "see",
-                          "type": "word"
+                          ]
                         },
                         {
+                          "type": "word",
+                          "raw_text": "the",
                           "cleaned_text": "the",
                           "content": [
                             {
-                              "content": "the",
-                              "type": "text"
+                              "type": "text",
+                              "content": "the"
                             }
-                          ],
-                          "raw_text": "the",
-                          "type": "word"
+                          ]
                         }
                       ]
                     },
                     "scoped_annotations": [
                       {
-                        "type": "scopeduncertain"
+                        "type": "uncertain"
                       }
-                    ],
-                    "type": "annotated_group"
+                    ]
                   },
                   {
+                    "type": "word",
+                    "raw_text": "working",
                     "cleaned_text": "working",
                     "content": [
                       {
-                        "content": "working",
-                        "type": "text"
+                        "type": "text",
+                        "content": "working"
                       }
-                    ],
-                    "raw_text": "working",
-                    "type": "word"
+                    ]
                   }
                 ]
               },
@@ -430,40 +426,43 @@ expression: snapshot
                 {
                   "type": "overlap_begin"
                 }
-              ],
-              "type": "annotated_group"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "annotated_group",
               "content": {
                 "content": [
                   {
-                    "cleaned_text": "ingroup",
-                    "content": [
-                      {
-                        "content": "ingroup",
-                        "type": "text"
-                      }
-                    ],
-                    "raw_text": "ingroup",
-                    "scoped_annotations": [
-                      {
-                        "type": "partialretracing"
-                      }
-                    ],
-                    "type": "annotated_word"
+                    "type": "retrace",
+                    "content": {
+                      "content": [
+                        {
+                          "type": "word",
+                          "raw_text": "ingroup",
+                          "cleaned_text": "ingroup",
+                          "content": [
+                            {
+                              "type": "text",
+                              "content": "ingroup"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "kind": "partial"
                   }
                 ]
               },
@@ -471,65 +470,66 @@ expression: snapshot
                 {
                   "type": "overlap_begin"
                 }
-              ],
-              "type": "annotated_group"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "after",
               "cleaned_text": "after",
               "content": [
                 {
-                  "content": "after",
-                  "type": "text"
+                  "type": "text",
+                  "content": "after"
                 }
-              ],
-              "raw_text": "after",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Child",
       "id": {
-        "age": "3;0",
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Child",
-        "speaker": "CHI"
+        "corpus": "corpus",
+        "speaker": "CHI",
+        "age": "3;0",
+        "role": "Child"
       },
-      "name": null,
-      "role": "Child"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Mother",
-        "speaker": "MOT"
+        "corpus": "corpus",
+        "speaker": "MOT",
+        "role": "Mother"
       },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "eng"
+  ],
+  "options": []
 }

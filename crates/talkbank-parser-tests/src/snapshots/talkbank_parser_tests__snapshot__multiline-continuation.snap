@@ -3,518 +3,518 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Child",
-            "speaker_code": "CHI"
+            "role": "Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           },
           {
+            "speaker_code": "FAT",
             "name": null,
-            "role": "Father",
-            "speaker_code": "FAT"
+            "role": "Father"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "3;0",
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Child",
+        "corpus": "corpus",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "3;0",
+        "role": "Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Mother",
+        "corpus": "corpus",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Father",
+        "corpus": "corpus",
         "speaker": "FAT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Father"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Multi-line continuation across headers and tiers",
-              "type": "text"
+              "type": "text",
+              "text": "Multi-line continuation across headers and tiers"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: continuation, newline, line, header_gap,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: continuation, newline, line, header_gap,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "tab-prefixed continuation on @Participants and dependent tiers",
-              "type": "text"
+              "type": "text",
+              "text": "tab-prefixed continuation on @Participants and dependent tiers"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "text": "Free play session in the lab playroom with a variety of toys\n\tavailable on the floor and table",
-        "type": "situation"
-      },
-      "line_type": "header"
+        "type": "situation",
+        "text": "Free play session in the lab playroom with a variety of toys\n\tavailable on the floor and table"
+      }
     },
     {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "CHI",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "mama",
+              "cleaned_text": "mama",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "mama"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "I",
+              "cleaned_text": "I",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "I"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "want",
+              "cleaned_text": "want",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "want"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "to",
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "to"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "go",
+              "cleaned_text": "go",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "go"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "to",
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "to"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "the",
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "the"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "park",
+              "cleaned_text": "park",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "park"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "and",
+              "cleaned_text": "and",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "and"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "play",
+              "cleaned_text": "play",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "play"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "on",
+              "cleaned_text": "on",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "on"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "the",
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "the"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "swings",
+              "cleaned_text": "swings",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "swings"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "and",
+              "cleaned_text": "and",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "and"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "the",
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "the"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "slide",
+              "cleaned_text": "slide",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "slide"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "and",
+              "cleaned_text": "and",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "and"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "the",
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "the"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "monkey",
+              "cleaned_text": "monkey",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "monkey"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "bars",
+              "cleaned_text": "bars",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "bars"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Com",
           "data": {
             "content": {
               "segments": [
                 {
-                  "text": "CHI is pulling on MOT's hand while speaking, gesturing",
-                  "type": "text"
+                  "type": "text",
+                  "text": "CHI is pulling on MOT's hand while speaking, gesturing"
                 },
                 {
                   "type": "continuation"
                 },
                 {
-                  "text": "toward the door",
-                  "type": "text"
+                  "type": "text",
+                  "text": "toward the door"
                 }
               ]
             }
-          },
-          "type": "Com"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "mama",
-              "content": [
-                {
-                  "content": "mama",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "mama",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "I",
-              "content": [
-                {
-                  "content": "I",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "I",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "want",
-              "content": [
-                {
-                  "content": "want",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "want",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "content": "to",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "to",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "go",
-              "content": [
-                {
-                  "content": "go",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "go",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "content": "to",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "to",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "park",
-              "content": [
-                {
-                  "content": "park",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "park",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "and",
-              "content": [
-                {
-                  "content": "and",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "and",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "play",
-              "content": [
-                {
-                  "content": "play",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "play",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "on",
-              "content": [
-                {
-                  "content": "on",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "on",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "swings",
-              "content": [
-                {
-                  "content": "swings",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "swings",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "and",
-              "content": [
-                {
-                  "content": "and",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "and",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "slide",
-              "content": [
-                {
-                  "content": "slide",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "slide",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "and",
-              "content": [
-                {
-                  "content": "and",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "and",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "monkey",
-              "content": [
-                {
-                  "content": "monkey",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "monkey",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "bars",
-              "content": [
-                {
-                  "content": "bars",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "bars",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
+        }
+      ]
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "maybe",
               "cleaned_text": "maybe",
               "content": [
                 {
-                  "content": "maybe",
-                  "type": "text"
+                  "type": "text",
+                  "content": "maybe"
                 }
-              ],
-              "raw_text": "maybe",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "after",
               "cleaned_text": "after",
               "content": [
                 {
-                  "content": "after",
-                  "type": "text"
+                  "type": "text",
+                  "content": "after"
                 }
-              ],
-              "raw_text": "after",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "lunch",
               "cleaned_text": "lunch",
               "content": [
                 {
-                  "content": "lunch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "lunch"
                 }
-              ],
-              "raw_text": "lunch",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "we",
               "cleaned_text": "we",
               "content": [
                 {
-                  "content": "we",
-                  "type": "text"
+                  "type": "text",
+                  "content": "we"
                 }
-              ],
-              "raw_text": "we",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "can",
               "cleaned_text": "can",
               "content": [
                 {
-                  "content": "can",
-                  "type": "text"
+                  "type": "text",
+                  "content": "can"
                 }
-              ],
-              "raw_text": "can",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "go",
               "cleaned_text": "go",
               "content": [
                 {
-                  "content": "go",
-                  "type": "text"
+                  "type": "text",
+                  "content": "go"
                 }
-              ],
-              "raw_text": "go",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Child",
       "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "CHI",
         "age": "3;0",
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Child",
-        "speaker": "CHI"
+        "role": "Child"
       },
-      "name": null,
-      "role": "Child"
-    },
-    "FAT": {
-      "birth_date": null,
-      "code": "FAT",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Father",
-        "speaker": "FAT"
-      },
-      "name": null,
-      "role": "Father"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Mother",
-        "speaker": "MOT"
+        "corpus": "corpus",
+        "speaker": "MOT",
+        "role": "Mother"
       },
+      "birth_date": null
+    },
+    "FAT": {
+      "code": "FAT",
       "name": null,
-      "role": "Mother"
+      "role": "Father",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "FAT",
+        "role": "Father"
+      },
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "eng"
+  ],
+  "options": []
 }

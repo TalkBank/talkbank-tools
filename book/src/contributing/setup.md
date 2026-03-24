@@ -1,5 +1,8 @@
 # Setup
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 Development is supported on **Windows, macOS, and Linux**. The instructions below use Unix shell syntax; on Windows, use PowerShell or Git Bash equivalently.
 
 ## Prerequisites

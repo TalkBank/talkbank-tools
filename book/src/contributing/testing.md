@@ -1,5 +1,48 @@
 # Testing
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:22 EDT
+
+## Test Generation Pipeline
+
+Specs are the source of truth. All grammar corpus tests, Rust parser tests,
+and error docs are **generated** from specs. `make test-gen` wipes the output
+directories and recreates them — never hand-edit generated files.
+
+```mermaid
+flowchart LR
+    subgraph sources["Source of Truth"]
+        constructs["spec/constructs/\n(112 construct specs)"]
+        errors["spec/errors/\n(187 error specs)"]
+        templates["spec/tools/templates/\n(Tera wrappers)"]
+    end
+
+    subgraph generators["make test-gen"]
+        gen_ts["gen_tree_sitter_tests"]
+        gen_rust["gen_rust_tests"]
+        gen_docs["gen_error_docs"]
+    end
+
+    subgraph outputs["Generated Outputs (DO NOT EDIT)"]
+        ts_tests["grammar/test/corpus/\n(166 tree-sitter tests)"]
+        rust_tests["tests/generated/\n(167 Rust tests)"]
+        error_docs["docs/errors/\n(182 error doc pages)"]
+    end
+
+    constructs & errors --> gen_ts
+    templates --> gen_ts
+    constructs & errors --> gen_rust
+    errors --> gen_docs
+
+    gen_ts --> ts_tests
+    gen_rust --> rust_tests
+    gen_docs --> error_docs
+```
+
+To add a grammar test or error test, add a spec file in `spec/constructs/`
+or `spec/errors/`, then run `make test-gen`. See `spec/CLAUDE.md` for the
+spec format.
+
 ## Test Strategy
 
 Testing is organized in layers, from fastest to most comprehensive.
@@ -7,14 +50,12 @@ Testing is organized in layers, from fastest to most comprehensive.
 ```mermaid
 flowchart TD
     unit["Unit + Integration Tests\n(cargo nextest run)\n~2300 tests, ~5s"]
-    parity["Parser Equivalence\n(make test-parity)\n74 reference corpus files"]
     specgen["Spec-Generated Tests\n(make test-generated)\nParser + validation layer"]
-    fragment["Fragment Semantics\n(make test-fragment-semantics)\nDirect parser recovery"]
-    grammar["Grammar Corpus\n(make test-grammar)\n160 tree-sitter tests"]
-    error["Error Corpus\n(tests/error_corpus/)\nExpected error matching"]
+    grammar["Grammar Corpus\n(tree-sitter test)\n166 tree-sitter tests"]
+    ref["Reference Corpus\n(78 files, 100% required)"]
     gates["Verification Gates\n(make verify)\nG0–G11 sequential pipeline"]
 
-    unit --> parity --> specgen --> fragment --> grammar --> error --> gates
+    unit --> specgen --> grammar --> ref --> gates
 ```
 
 ### Unit Tests (nextest)
@@ -31,13 +72,12 @@ verification step when you change public API examples or doc comments.
 ### Parser Equivalence
 
 ```bash
-make test-parity
+cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
 ```
 
-Runs both parsers (tree-sitter and direct) on each file in the reference corpus and compares results. Each `.cha` file is its own test, enabling per-file parallelism and failure isolation via nextest.
-
-`make test-parity` is the clearer post-bootstrap entrypoint for this full-file
-contract.
+Runs the parser on each file in the 78-file reference corpus and validates
+results. Each `.cha` file is its own test, enabling per-file parallelism and
+failure isolation via nextest.
 
 ### Spec-Generated Tests
 
@@ -46,42 +86,11 @@ Part of `talkbank-parser-tests`. These are generated from specs via `make test-g
 - Parser-layer error specs: input fails to parse with expected error code
 - Validation-layer error specs: input parses but validation reports expected error code
 
-**Important:** this generated layer is under architectural reassessment. It was
-designed during the direct-parser bootstrap era and should not be treated as
-the sole or final answer for parser-semantic testing.
-
-The intended long-term split is:
-
-- grammar corpus generation for grammar behavior
-- direct-parser-native semantic tests for fragment behavior and recovery
-- full-file parity tests for end-to-end parser agreement
-- validation/error specs for diagnostic contracts
-
 Concrete entrypoint:
 
 ```bash
 make test-generated
 ```
-
-### Direct Fragment Semantics
-
-```bash
-make test-fragment-semantics
-```
-
-Runs the direct-parser-native recovery and parse-health contract suite. This is
-the right place for malformed-fragment recovery behavior, sibling retention, and
-non-fabrication checks.
-
-### Legacy Fragment Parity Audit
-
-```bash
-make test-legacy-fragment-parity
-```
-
-Runs the old tree-sitter-vs-direct word-fragment parity suite. This remains
-useful as a migration audit, but it is not the semantic source of truth for
-direct-parser fragment behavior.
 
 ### Tree-Sitter Grammar Tests
 
@@ -89,8 +98,8 @@ direct-parser fragment behavior.
 make test-grammar
 ```
 
-Runs the tree-sitter grammar corpus tests directly. This is the right gate for
-grammar structure changes, separate from direct-parser fragment semantics.
+Runs the tree-sitter grammar corpus tests. This is the right gate for
+grammar structure changes.
 
 ### Error Corpus Tests
 
@@ -103,14 +112,13 @@ cd grammar
 tree-sitter test
 ```
 
-160 tests that verify the grammar produces correct CSTs for known inputs.
+160+ tests that verify the grammar produces correct CSTs for known inputs.
 
 ## Reference Corpus
 
-The reference corpus at `corpus/reference/` contains 74 `.cha` files across 20 languages that represent the diversity of real-world CHAT data. Both parsers must agree on every file at 100%.
+The reference corpus at `corpus/reference/` contains 78 `.cha` files across 20 languages that represent the diversity of real-world CHAT data. The parser must handle every file at 100%.
 
-This corpus is the ultimate arbiter of correctness for **full-file** parsing.
-It is not, by itself, the arbiter of isolated direct-parser fragment semantics.
+This corpus is the ultimate arbiter of correctness for full-file parsing.
 
 ## Verification Gates
 
@@ -126,9 +134,9 @@ flowchart TD
     G2 -->|pass| G3["G3: Spec runtime tools compile\n(spec/runtime-tools)"]
     G3 -->|pass| G4["G4: CHAT manual anchor links\n(check-chat-manual-anchors.sh)"]
     G4 -->|pass| G5["G5: Generated parser corpus\nequivalence suite"]
-    G5 -->|pass| G6["G6: Direct fragment\nrecovery semantics"]
+    G5 -->|pass| G6["G6: Fragment parsing\nsemantics"]
     G6 -->|pass| G7["G7: Bare-timestamp\nregression gate"]
-    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(tree-sitter vs direct, 74 files)"]
+    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(78 files)"]
     G8 -->|pass| G9["G9: %wor tier parsing\nand alignment"]
     G9 -->|pass| G10["G10: Golden tier roundtrip\n(%mor, %gra, %pho, %wor)"]
     G10 -->|pass| G11["G11: Reference corpus\nnode coverage audit"]
@@ -144,9 +152,9 @@ flowchart TD
 | G3 | Spec runtime tools compile check |
 | G4 | CHAT manual anchor links |
 | G5 | Generated parser corpus equivalence suite |
-| G6 | Direct fragment recovery semantics |
+| G6 | Fragment parsing semantics |
 | G7 | Bare-timestamp regression gate |
-| G8 | Reference corpus semantic equivalence (tree-sitter vs direct) |
+| G8 | Reference corpus semantic equivalence (78 files) |
 | G9 | %wor tier parsing and alignment |
 | G10 | Golden tier roundtrip (%mor, %gra, %pho, %wor) |
 | G11 | Reference corpus node coverage |
@@ -172,8 +180,7 @@ cargo nextest run --no-capture
 | What you changed | Run |
 |-----------------|-----|
 | Grammar (`grammar.js`) | `cd grammar && tree-sitter generate && tree-sitter test` then `make test-generated` |
-| Parser (tree-sitter CST-to-model) | `cargo nextest run -p talkbank-parser && make test-parity` |
-| Direct parser (fragment parsing) | `cargo nextest run -p talkbank-direct-parser && make test-fragment-semantics` |
+| Parser (CST-to-model) | `cargo nextest run -p talkbank-parser` |
 | Model (types, validation, alignment) | `cargo nextest run -p talkbank-model` |
 | CLAN command | `cargo nextest run -p talkbank-clan -E 'test(command_name)'` + golden test |
 | CLI (chatter args, dispatch) | `cargo nextest run -p talkbank-cli` |
@@ -191,7 +198,7 @@ Use `cargo-mutants` to find code that can be changed without any test failing �
 cargo install cargo-mutants
 
 # Run against a specific crate (--jobs 1 to avoid OOM on 64 GB machines)
-cargo mutants -p talkbank-direct-parser --timeout 120 --jobs 1
+cargo mutants -p talkbank-parser --timeout 120 --jobs 1
 
 # Run against CLAN commands
 cargo mutants -p talkbank-clan --timeout 120 --jobs 1
@@ -209,8 +216,6 @@ Configuration: `mutants.toml` at the repo root excludes trivial functions.
 
 - **Model tests**: add to the relevant crate's `tests/` directory or `#[cfg(test)]` module
 - **Parser tests**: if the change is about grammar shape or validation contracts,
-  add or update specs and regenerate as needed; if the change is about
-  direct-parser fragment semantics or recovery, prefer direct-parser-native
-  tests over routing everything through `make test-gen`
+  add or update specs and regenerate with `make test-gen`
 - **Error corpus tests**: add a `.cha` file to `tests/error_corpus/` and update `expectations.json`
 - **CLAN command tests**: add golden test cases in `tests/clan_golden/` using the manifest-driven `ParityCase` / `RustSnapshotCase` pattern

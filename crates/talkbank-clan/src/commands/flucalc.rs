@@ -37,7 +37,7 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
-use talkbank_model::{BracketedItem, ScopedAnnotation, Utterance, UtteranceContent, WordCategory};
+use talkbank_model::{BracketedItem, ContentAnnotation, RetraceKind, Utterance, UtteranceContent, WordCategory};
 
 use crate::framework::{
     AnalysisCommand, AnalysisResult, CommandOutput, FileContext, OutputFormat, Section, TableRow,
@@ -312,6 +312,10 @@ fn count_disfluencies_content(
             UtteranceContent::Quotation(group) => {
                 count_disfluencies_bracketed(&group.content.content, fluency, prev_word);
             }
+            UtteranceContent::Retrace(retrace) => {
+                count_retrace_kind(retrace.kind, fluency);
+                count_disfluencies_bracketed(&retrace.content.content, fluency, prev_word);
+            }
             _ => {}
         }
     }
@@ -358,19 +362,30 @@ fn count_disfluencies_bracketed(
             BracketedItem::Quotation(group) => {
                 count_disfluencies_bracketed(&group.content.content, fluency, prev_word);
             }
+            BracketedItem::Retrace(retrace) => {
+                count_retrace_kind(retrace.kind, fluency);
+                count_disfluencies_bracketed(&retrace.content.content, fluency, prev_word);
+            }
             _ => {}
         }
     }
 }
 
-fn count_scoped_annotations(annotations: &[ScopedAnnotation], fluency: &mut SpeakerFluency) {
-    for annotation in annotations {
-        match annotation {
-            ScopedAnnotation::PartialRetracing => fluency.phrase_reps += 1,
-            ScopedAnnotation::Retracing => fluency.revisions += 1,
-            _ => {}
-        }
+/// Count retrace-type disfluencies from first-class Retrace content.
+///
+/// `[/]` (Partial) counts as a phrase repetition; `[//]` (Full) counts as
+/// a revision. Other retrace kinds are not currently counted by FLUCALC.
+fn count_retrace_kind(kind: RetraceKind, fluency: &mut SpeakerFluency) {
+    match kind {
+        RetraceKind::Partial => fluency.phrase_reps += 1,
+        RetraceKind::Full => fluency.revisions += 1,
+        RetraceKind::Multiple | RetraceKind::Reformulation | RetraceKind::Uncertain => {}
     }
+}
+
+fn count_scoped_annotations(_annotations: &[ContentAnnotation], _fluency: &mut SpeakerFluency) {
+    // Retrace markers are now Retrace content variants, not ContentAnnotation.
+    // Retained for future non-retrace annotation counting if needed.
 }
 
 fn count_word(

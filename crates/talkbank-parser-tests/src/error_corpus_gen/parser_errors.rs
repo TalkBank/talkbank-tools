@@ -98,7 +98,7 @@ pub fn generate_e3xx_parser_errors(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // E344: InvalidScopedAnnotationNesting
+    // E344: InvalidContentAnnotationNesting
     write_file(
         &dir.join("E344_invalid_scoped_nesting.cha"),
         ChatFileBuilder::new()
@@ -110,7 +110,7 @@ pub fn generate_e3xx_parser_errors(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // E345: UnmatchedScopedAnnotationBegin
+    // E345: UnmatchedContentAnnotationBegin
     write_file(
         &dir.join("E345_unmatched_scoped_begin.cha"),
         ChatFileBuilder::new()
@@ -122,7 +122,7 @@ pub fn generate_e3xx_parser_errors(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // E346: UnmatchedScopedAnnotationEnd
+    // E346: UnmatchedContentAnnotationEnd
     write_file(
         &dir.join("E346_unmatched_scoped_end.cha"),
         ChatFileBuilder::new()

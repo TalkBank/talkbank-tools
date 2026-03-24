@@ -71,7 +71,7 @@ pub(crate) fn analyze_word_error(error_node: Node, source: &str) -> ParseError {
     // E350: Quadruple nested brackets (PRIORITY 2)
     if error_text.contains("[[[[") || error_text.contains("]]]]") {
         return ParseError::new(
-            ErrorCode::ScopedAnnotationParseError,
+            ErrorCode::ContentAnnotationParseError,
             Severity::Error,
             SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
             ErrorContext::new(error_text, 0..error_text.len(), error_text),

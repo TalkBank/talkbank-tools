@@ -1,8 +1,12 @@
 # Grammar Redesign: Full Coarsening with Direct Parser Recovery
 
-**Status:** Proposal (ambitious plan)
-**Date:** 2026-02-18
-**Depends on:** [parser-error-recovery.md](parser-error-recovery.md) (recovery roadmap)
+**Status:** Historical
+**Last updated:** 2026-03-24 01:32 EDT
+
+> **Note:** This proposal assumed the Chumsky direct parser would serve as the
+> sub-parser for fine-grained content analysis. The direct parser was removed
+> in March 2026. The grammar coarsening ideas remain relevant but the
+> direct-parser-as-subparser premise no longer applies.
 
 ## Executive Summary
 
@@ -667,9 +671,9 @@ the previous state.
 | Annotations | various in `main_tier.rs` | 5–6 nodes each | Phase 5 |
 | Headers | `parse_header_impl()` | per-header content rules | (stable) |
 
-All direct parser functions implement the `ChatParser` trait: `parse_word`,
-`parse_mor_tier`, `parse_gra_tier`, `parse_pho_tier`, `parse_main_tier`,
-`parse_utterance`, `parse_chat_file`.
+All these functions are available as methods on `TreeSitterParser`:
+`parse_word_fragment()`, `parse_main_tier_fragment()`,
+`parse_chat_file()`, etc.
 
 ---
 

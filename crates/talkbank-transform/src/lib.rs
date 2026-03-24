@@ -45,8 +45,7 @@ mod pipeline;
 pub use pipeline::{
     PipelineError, chat_to_json, chat_to_json_unvalidated, normalize_chat, parse_and_validate,
     parse_and_validate_streaming, parse_and_validate_streaming_with_parser,
-    parse_and_validate_streaming_with_parser_generic, parse_and_validate_with_parser,
-    parse_and_validate_with_parser_generic, parse_file_and_validate,
+    parse_and_validate_with_parser, parse_file_and_validate,
 };
 
 // Internal lock helpers for poison recovery

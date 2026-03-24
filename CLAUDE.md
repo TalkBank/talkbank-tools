@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-22 07:17 EDT
+**Last modified:** 2026-03-24 07:21 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -227,6 +227,62 @@ make verify         # Run all verification gates
 ```
 
 ## Critical Policies
+
+### Test Failures Are Bugs Until Proven Otherwise
+
+**When a test fails, STOP and ask the user.** Do not assume the test
+expectation is wrong. Do not update test expectations to match new
+behavior without explicit approval.
+
+CHAT semantics are subtle and domain-specific. The grammar, parser, and
+model encode years of decisions about how overlap markers, lengthening,
+CA notation, zero-words, and other CHAT constructs interact. An LLM
+cannot reliably judge whether a behavioral change is correct by reading
+code alone.
+
+**The rule:**
+1. If a test fails after your change, report the failure with the
+   exact `left`/`right` values and the test name.
+2. Explain what your change did and why you think the behavior changed.
+3. **Ask the user** whether the old expectation or the new behavior is
+   correct. Do not guess.
+4. Only update the test after the user confirms the new behavior is
+   intended.
+
+This applies especially to:
+- `cleaned_text()` expectations (what counts as "spoken text")
+- Overlap marker handling (⌈⌉⌊⌋ — structural vs content)
+- CA notation (°, ↑, ↓, ∆, etc.)
+- Lengthening vs colon disambiguation
+- Zero-word and omission semantics
+- Any grammar change that alters the CST structure
+
+**Postmortem (2026-03-24):** A grammar fix for stacked CA markers
+(`°↑ho:v°`) changed how `word_body` parsed marker-initial words. Six
+overlap marker tests failed. Instead of asking the user, the wrong
+assumption was made that the tests needed updating. The tests were
+actually correct — they documented intentional semantics. Always ask.
+
+### Grammar/Parser Bug Fixes Require Specs and Reference Corpus
+
+**Every grammar or parser bug fix MUST be TDD'd with specs and reference
+corpus entries based on actual data.** This prevents regressions and
+documents the fix for successors.
+
+**The workflow:**
+1. Find the bug (error in corpus data, failing parse, wrong CST)
+2. **RED:** Add a spec in `spec/constructs/` or `spec/errors/` that
+   captures the exact input pattern. Add a reference corpus file in
+   `corpus/reference/` using real data from the affected corpus.
+3. Run `make test-gen` to generate the test. Verify it fails (or would
+   fail without the fix).
+4. **GREEN:** Fix the grammar/parser. Run `tree-sitter generate`,
+   `tree-sitter test`, then the specific Rust parser test.
+5. **REFACTOR:** Clean up. Run `make verify` only as a final gate
+   before commit — never during iterative development (it takes minutes).
+
+**Specs are permanent regression gates.** A bug that has a spec can never
+silently regress. A bug fixed without a spec WILL regress eventually.
 
 ### Exhaustive Match on Content Types
 Every `match` on `UtteranceContent` or `BracketedItem` must explicitly list all variants — no `_ =>` catch-alls that silently discard unhandled content types. All group types must recurse into their `BracketedContent`.

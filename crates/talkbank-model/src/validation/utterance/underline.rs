@@ -102,6 +102,14 @@ fn walk_underline_balance_in_content(
         UtteranceContent::Quotation(quote) => {
             walk_underline_balance_in_bracketed(&quote.content, begin_spans, fallback_span, errors);
         }
+        UtteranceContent::Retrace(retrace) => {
+            walk_underline_balance_in_bracketed(
+                &retrace.content,
+                begin_spans,
+                fallback_span,
+                errors,
+            );
+        }
         UtteranceContent::AnnotatedEvent(_)
         | UtteranceContent::Event(_)
         | UtteranceContent::Pause(_)
@@ -182,6 +190,14 @@ fn walk_underline_balance_in_bracketed(
             BracketedItem::Quotation(quote) => {
                 walk_underline_balance_in_bracketed(
                     &quote.content,
+                    begin_spans,
+                    fallback_span,
+                    errors,
+                );
+            }
+            BracketedItem::Retrace(retrace) => {
+                walk_underline_balance_in_bracketed(
+                    &retrace.content,
                     begin_spans,
                     fallback_span,
                     errors,

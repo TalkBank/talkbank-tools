@@ -3,648 +3,648 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "heb"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "heb"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           },
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           },
           {
+            "speaker_code": "FAT",
             "name": null,
-            "role": "Father",
-            "speaker_code": "FAT"
+            "role": "Father"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "BermanLong",
+        "type": "id",
         "language": [
           "heb"
         ],
-        "role": "Mother",
-        "sex": "female",
+        "corpus": "BermanLong",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "age": "2;04.28",
-        "corpus": "BermanLong",
-        "language": [
-          "heb"
-        ],
-        "role": "Target_Child",
         "sex": "female",
-        "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "BermanLong",
+        "type": "id",
         "language": [
           "heb"
         ],
-        "role": "Father",
-        "sex": "male",
+        "corpus": "BermanLong",
+        "speaker": "CHI",
+        "age": "2;04.28",
+        "sex": "female",
+        "role": "Target_Child"
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "id",
+        "language": [
+          "heb"
+        ],
+        "corpus": "BermanLong",
         "speaker": "FAT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "sex": "male",
+        "role": "Father"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Hebrew family conversation, child on potty",
-              "type": "text"
+              "type": "text",
+              "text": "Hebrew family conversation, child on potty"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: Hebrew script (right-to-left), Hebrew language coverage",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "הגרי",
-                  "pos": "propn"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "cm",
-                  "pos": "cm"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Int",
-                    "S1"
-                  ],
-                  "lemma": "מה",
-                  "pos": "pron"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 0,
-                "index": 1,
-                "relation": "ROOT"
-              },
-              {
-                "head": 3,
-                "index": 2,
-                "relation": "PUNCT"
-              },
-              {
-                "head": 1,
-                "index": 3,
-                "relation": "PARATAXIS"
-              },
-              {
-                "head": 1,
-                "index": 4,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: Hebrew script (right-to-left), Hebrew language coverage"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "הגרי",
               "cleaned_text": "הגרי",
               "content": [
                 {
-                  "content": "הגרי",
-                  "type": "text"
+                  "type": "text",
+                  "content": "הגרי"
                 }
-              ],
-              "raw_text": "הגרי",
-              "type": "word"
+              ]
             },
             {
-              "kind": "comma",
-              "type": "separator"
+              "type": "separator",
+              "kind": "comma"
             },
             {
+              "type": "word",
+              "raw_text": "מה",
               "cleaned_text": "מה",
               "content": [
                 {
-                  "content": "מה",
-                  "type": "text"
+                  "type": "text",
+                  "content": "מה"
                 }
-              ],
-              "raw_text": "מה",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "קקי",
-                  "pos": "propn"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "ו_פיפי",
-                  "pos": "x"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 0,
-                "index": 1,
-                "relation": "ROOT"
-              },
-              {
-                "head": 1,
-                "index": 2,
-                "relation": "FLAT"
-              },
-              {
-                "head": 1,
-                "index": 3,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "קקי",
-              "content": [
-                {
-                  "content": "קקי",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "קקי",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "ו#פיפי",
-              "content": [
-                {
-                  "content": "ו#פיפי",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "ו#פיפי",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "propn",
+                  "lemma": "הגרי"
+                }
+              },
+              {
+                "main": {
+                  "pos": "cm",
+                  "lemma": "cm"
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "מה",
                   "features": [
                     "Int",
                     "S1"
-                  ],
-                  "lemma": "מה",
-                  "pos": "pron"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Masc"
-                  ],
-                  "lemma": "קקי",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Prs",
-                    "Gen",
-                    "S3"
-                  ],
-                  "lemma": "_פפיף",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": "?",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
-                "relation": "NSUBJ"
-              },
-              {
                 "head": 0,
-                "index": 2,
                 "relation": "ROOT"
               },
               {
-                "head": 2,
-                "index": 3,
-                "relation": "AMOD"
+                "index": 2,
+                "head": 3,
+                "relation": "PUNCT"
               },
               {
-                "head": 2,
+                "index": 3,
+                "head": 1,
+                "relation": "PARATAXIS"
+              },
+              {
                 "index": 4,
+                "head": 1,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "cleaned_text": "מה",
-              "content": [
-                {
-                  "content": "מה",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "מה",
-              "type": "word"
-            },
-            {
+              "type": "word",
+              "raw_text": "קקי",
               "cleaned_text": "קקי",
               "content": [
                 {
-                  "content": "קקי",
-                  "type": "text"
+                  "type": "text",
+                  "content": "קקי"
                 }
-              ],
-              "raw_text": "קקי",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "ו#פיפי",
               "cleaned_text": "ו#פיפי",
               "content": [
                 {
-                  "content": "ו#פיפי",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ו#פיפי"
                 }
-              ],
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "propn",
+                  "lemma": "קקי"
+                }
+              },
+              {
+                "main": {
+                  "pos": "x",
+                  "lemma": "ו_פיפי"
+                }
+              }
+            ],
+            "terminator": "."
+          }
+        },
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 2,
+                "head": 1,
+                "relation": "FLAT"
+              },
+              {
+                "index": 3,
+                "head": 1,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "MOT",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "מה",
+              "cleaned_text": "מה",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "מה"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "קקי",
+              "cleaned_text": "קקי",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "קקי"
+                }
+              ]
+            },
+            {
+              "type": "word",
               "raw_text": "ו#פיפי",
-              "type": "word"
+              "cleaned_text": "ו#פיפי",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "ו#פיפי"
+                }
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "מה",
+                  "features": [
+                    "Int",
+                    "S1"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "קקי",
+                  "features": [
+                    "Masc"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "_פפיף",
+                  "features": [
+                    "Prs",
+                    "Gen",
+                    "S3"
+                  ]
+                }
+              }
+            ],
+            "terminator": "?"
+          }
+        },
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 2,
+                "relation": "NSUBJ"
+              },
+              {
+                "index": 2,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 3,
+                "head": 2,
+                "relation": "AMOD"
+              },
+              {
+                "index": 4,
+                "head": 2,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "CHI",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "יוצא",
+              "cleaned_text": "יוצא",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "יוצא"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "קקי",
+              "cleaned_text": "קקי",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "קקי"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "ו#פיפי",
+              "cleaned_text": "ו#פיפי",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "ו#פיפי"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "יצא",
                   "features": [
                     "Part",
                     "Pres",
                     "paal",
                     "S3"
-                  ],
-                  "lemma": "יצא",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "קקי",
                   "features": [
                     "Masc"
-                  ],
-                  "lemma": "קקי",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "_פפיף",
                   "features": [
                     "Prs",
                     "Gen",
                     "S3"
-                  ],
-                  "lemma": "_פפיף",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 0,
                 "index": 1,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 1,
                 "index": 2,
+                "head": 1,
                 "relation": "NSUBJ"
               },
               {
-                "head": 2,
                 "index": 3,
+                "head": 2,
                 "relation": "AMOD"
               },
               {
-                "head": 1,
                 "index": 4,
+                "head": 1,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "יוצא",
-              "content": [
-                {
-                  "content": "יוצא",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "יוצא",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "קקי",
-              "content": [
-                {
-                  "content": "קקי",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "קקי",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "ו#פיפי",
-              "content": [
-                {
-                  "content": "ו#פיפי",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "ו#פיפי",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
+            ]
           }
-        },
-        "speaker": "CHI"
-      }
+        }
+      ]
     },
     {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "כן",
-                  "pos": "adv"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 0,
-                "index": 1,
-                "relation": "ROOT"
-              },
-              {
-                "head": 1,
-                "index": 2,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "כן",
               "cleaned_text": "כן",
               "content": [
                 {
-                  "content": "כן",
-                  "type": "text"
+                  "type": "text",
+                  "content": "כן"
                 }
-              ],
-              "raw_text": "כן",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "adv",
+                  "lemma": "כן"
+                }
+              }
+            ],
+            "terminator": "."
+          }
         },
-        "speaker": "CHI"
-      }
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 2,
+                "head": 1,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
-    "CHI": {
-      "birth_date": null,
-      "code": "CHI",
+    "MOT": {
+      "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "age": "2;04.28",
-        "corpus": "BermanLong",
         "language": [
           "heb"
         ],
-        "role": "Target_Child",
+        "corpus": "BermanLong",
+        "speaker": "MOT",
         "sex": "female",
-        "speaker": "CHI"
+        "role": "Mother"
       },
+      "birth_date": null
+    },
+    "CHI": {
+      "code": "CHI",
       "name": null,
-      "role": "Target_Child"
+      "role": "Target_Child",
+      "id": {
+        "language": [
+          "heb"
+        ],
+        "corpus": "BermanLong",
+        "speaker": "CHI",
+        "age": "2;04.28",
+        "sex": "female",
+        "role": "Target_Child"
+      },
+      "birth_date": null
     },
     "FAT": {
-      "birth_date": null,
       "code": "FAT",
+      "name": null,
+      "role": "Father",
       "id": {
-        "corpus": "BermanLong",
         "language": [
           "heb"
         ],
-        "role": "Father",
+        "corpus": "BermanLong",
+        "speaker": "FAT",
         "sex": "male",
-        "speaker": "FAT"
+        "role": "Father"
       },
-      "name": null,
-      "role": "Father"
-    },
-    "MOT": {
-      "birth_date": null,
-      "code": "MOT",
-      "id": {
-        "corpus": "BermanLong",
-        "language": [
-          "heb"
-        ],
-        "role": "Mother",
-        "sex": "female",
-        "speaker": "MOT"
-      },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "heb"
+  ],
+  "options": []
 }

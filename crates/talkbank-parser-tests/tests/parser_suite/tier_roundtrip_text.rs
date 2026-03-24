@@ -5,7 +5,7 @@
 
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::{ComTier, WorTier, WriteChat};
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser_tests::test_error::TestError;
 
 use super::parser_impl::parser_suite;
@@ -38,24 +38,24 @@ fn golden_wor_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
     for parser in parser_suite()? {
         println!(
             "[{}] Testing {} %wor tiers...",
-            parser.parser_name(),
+            "tree-sitter",
             wor_tiers.len()
         );
 
         for (i, tier_line) in wor_tiers.iter().enumerate() {
             let sink = ErrorCollector::new();
-            let parsed = parser.parse_wor_tier(tier_line, 0, &sink);
+            let parsed = parser.parse_wor_tier_fragment(tier_line, 0, &sink);
 
             if !sink.is_empty() {
                 let error_msg = format!("Parse errors: {:?}", sink.to_vec());
                 eprintln!(
                     "[{}] %wor Tier #{} FAILED: {}",
-                    parser.parser_name(),
+                    "tree-sitter",
                     i,
                     tier_line
                 );
                 eprintln!("  Error: {}", error_msg);
-                failed_tiers.push((parser.parser_name(), i, tier_line, error_msg));
+                failed_tiers.push(("tree-sitter", i, tier_line, error_msg));
                 continue;
             }
 
@@ -64,13 +64,13 @@ fn golden_wor_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
                 ParseOutcome::Rejected => {
                     eprintln!(
                         "[{}] %wor Tier #{} FAILED: {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         i,
                         tier_line
                     );
                     eprintln!("  Error: Parser rejected input");
                     failed_tiers.push((
-                        parser.parser_name(),
+                        "tree-sitter",
                         i,
                         tier_line,
                         "Parser rejected input".to_string(),
@@ -83,7 +83,7 @@ fn golden_wor_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
 
             if serialized != *tier_line {
                 failed_tiers.push((
-                    parser.parser_name(),
+                    "tree-sitter",
                     i,
                     tier_line,
                     format!(
@@ -99,13 +99,13 @@ fn golden_wor_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
         if failed_tiers.is_empty() {
             println!(
                 "[{}] All {} %wor tiers passed!",
-                parser.parser_name(),
+                "tree-sitter",
                 wor_tiers.len()
             );
         } else {
             println!(
                 "[{}] {} %wor tiers failed",
-                parser.parser_name(),
+                "tree-sitter",
                 failed_tiers.len()
             );
         }
@@ -153,24 +153,24 @@ fn golden_com_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
     for parser in parser_suite()? {
         println!(
             "[{}] Testing {} %com tiers...",
-            parser.parser_name(),
+            "tree-sitter",
             com_tiers.len()
         );
 
         for (i, tier_line) in com_tiers.iter().enumerate() {
             let sink = ErrorCollector::new();
-            let parsed = parser.parse_com_tier(tier_line, 0, &sink);
+            let parsed = parser.parse_com_tier_fragment(tier_line, 0, &sink);
 
             if !sink.is_empty() {
                 let error_msg = format!("Parse errors: {:?}", sink.to_vec());
                 eprintln!(
                     "[{}] %com Tier #{} FAILED: {}",
-                    parser.parser_name(),
+                    "tree-sitter",
                     i,
                     tier_line
                 );
                 eprintln!("  Error: {}", error_msg);
-                failed_tiers.push((parser.parser_name(), i, tier_line, error_msg));
+                failed_tiers.push(("tree-sitter", i, tier_line, error_msg));
                 continue;
             }
 
@@ -179,13 +179,13 @@ fn golden_com_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
                 ParseOutcome::Rejected => {
                     eprintln!(
                         "[{}] %com Tier #{} FAILED: {}",
-                        parser.parser_name(),
+                        "tree-sitter",
                         i,
                         tier_line
                     );
                     eprintln!("  Error: Parser rejected input");
                     failed_tiers.push((
-                        parser.parser_name(),
+                        "tree-sitter",
                         i,
                         tier_line,
                         "Parser rejected input".to_string(),
@@ -198,7 +198,7 @@ fn golden_com_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
 
             if serialized != *tier_line {
                 failed_tiers.push((
-                    parser.parser_name(),
+                    "tree-sitter",
                     i,
                     tier_line,
                     format!(
@@ -214,13 +214,13 @@ fn golden_com_tier_roundtrip_for_every_parser() -> Result<(), TestError> {
         if failed_tiers.is_empty() {
             println!(
                 "[{}] All {} %com tiers passed!",
-                parser.parser_name(),
+                "tree-sitter",
                 com_tiers.len()
             );
         } else {
             println!(
                 "[{}] {} %com tiers failed",
-                parser.parser_name(),
+                "tree-sitter",
                 failed_tiers.len()
             );
         }

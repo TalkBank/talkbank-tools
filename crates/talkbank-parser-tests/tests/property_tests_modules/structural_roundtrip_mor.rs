@@ -5,7 +5,7 @@
 
 use proptest::prelude::*;
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::{ChatParser, ErrorCollector};
+use talkbank_model::ErrorCollector;
 
 use super::slow_test_config;
 
@@ -89,28 +89,12 @@ fn mor_content() -> impl Strategy<Value = String> {
         })
 }
 
-/// Helper: parse mor tier content with both parsers and return (name, result) pairs.
-fn parse_with_both(input: &str) -> Vec<(&'static str, Option<String>, bool)> {
-    let mut results = Vec::new();
-    if let Ok(ts) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_mor_tier(&ts, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("tree-sitter", Some(tier.to_content()), errors.is_empty()));
-        } else {
-            results.push(("tree-sitter", None, false));
-        }
-    }
-    if let Ok(dp) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_mor_tier(&dp, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("direct", Some(tier.to_content()), errors.is_empty()));
-        } else {
-            results.push(("direct", None, false));
-        }
-    }
-    results
+/// Helper: parse mor tier content with the tree-sitter parser.
+fn parse_mor(input: &str) -> Option<String> {
+    let ts = TreeSitterParser::new().ok()?;
+    let errors = ErrorCollector::new();
+    let parsed = ts.parse_mor_tier_fragment(input, 0, &errors);
+    parsed.into_option().map(|tier| tier.to_content())
 }
 
 proptest! {
@@ -119,57 +103,35 @@ proptest! {
     /// Single mor word roundtrips.
     #[test]
     fn single_mor_word_roundtrip(word in mor_word_str()) {
-        for (name, output, _) in parse_with_both(&word) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &word,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, word, output
-                );
-            }
+        if let Some(output) = parse_mor(&word) {
+            prop_assert_eq!(
+                &output, &word,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                word, output
+            );
         }
     }
 
     /// Mor word with clitic roundtrips.
     #[test]
     fn mor_clitic_roundtrip(item in mor_item_str()) {
-        for (name, output, _) in parse_with_both(&item) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &item,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, item, output
-                );
-            }
+        if let Some(output) = parse_mor(&item) {
+            prop_assert_eq!(
+                &output, &item,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                item, output
+            );
         }
     }
 
     /// Full mor tier content roundtrips.
     #[test]
     fn mor_tier_content_roundtrip(content in mor_content()) {
-        for (name, output, _) in parse_with_both(&content) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &content,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, content, output
-                );
-            }
-        }
-    }
-
-    /// Both parsers produce the same output for the same mor content.
-    #[test]
-    fn mor_parser_equivalence(content in mor_content()) {
-        let results = parse_with_both(&content);
-        let successes: Vec<_> = results.iter().filter_map(|(name, out, _)| {
-            out.as_ref().map(|o| (*name, o.as_str()))
-        }).collect();
-        if successes.len() == 2 {
+        if let Some(output) = parse_mor(&content) {
             prop_assert_eq!(
-                successes[0].1, successes[1].1,
-                "Parser divergence on '{}': {} -> '{}', {} -> '{}'",
-                content, successes[0].0, successes[0].1, successes[1].0, successes[1].1
+                &output, &content,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                content, output
             );
         }
     }
@@ -179,10 +141,10 @@ proptest! {
     fn mor_double_roundtrip_stable(content in mor_content()) {
         if let Ok(ts) = TreeSitterParser::new() {
             let e1 = ErrorCollector::new();
-            if let Some(tier1) = ChatParser::parse_mor_tier(&ts, &content, 0, &e1).into_option() {
+            if let Some(tier1) = ts.parse_mor_tier_fragment(&content, 0, &e1).into_option() {
                 let chat1 = tier1.to_content();
                 let e2 = ErrorCollector::new();
-                if let Some(tier2) = ChatParser::parse_mor_tier(&ts, &chat1, 0, &e2).into_option() {
+                if let Some(tier2) = ts.parse_mor_tier_fragment(&chat1, 0, &e2).into_option() {
                     let chat2 = tier2.to_content();
                     prop_assert_eq!(
                         &chat1, &chat2,

@@ -3,12 +3,13 @@
 //! **CRITICAL**: No error message should contain "node 'ERROR'" or expose tree-sitter internals.
 
 use talkbank_model::ErrorCollector;
-use talkbank_parser::parse_chat_file_streaming;
+use talkbank_parser::TreeSitterParser;
 
 /// Helper to parse CHAT content and collect errors
 fn parse_and_collect_errors(input: &str) -> Vec<talkbank_model::ParseError> {
+    let parser = TreeSitterParser::new().expect("grammar loads");
     let errors = ErrorCollector::new();
-    let _file = parse_chat_file_streaming(input, &errors);
+    let _file = parser.parse_chat_file_streaming(input, &errors);
     errors.into_vec()
 }
 

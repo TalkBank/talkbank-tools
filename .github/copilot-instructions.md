@@ -42,12 +42,11 @@ cd spec/tools && cargo test
   - `src/` - generated C parser (do not edit)
   - `test/corpus/` - generated tests (do not edit)
 - **crates/**: Parsers, model, tooling
-  - `talkbank-parser` - canonical parser
-  - `talkbank-direct-parser` - experimental alternative
+  - `talkbank-parser` - canonical parser (tree-sitter)
   - `talkbank-model` - CHAT data model
   - `talkbank-transform` - pipelines (parse+validate, CHAT↔JSON)
 
-**Parser hierarchy**: Tree-sitter parser is canonical. Direct parser is experimental.
+**Parser**: Tree-sitter is the sole parser.
 
 ## Key Conventions
 

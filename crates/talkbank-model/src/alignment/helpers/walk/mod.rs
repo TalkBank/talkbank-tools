@@ -19,7 +19,7 @@ use crate::alignment::helpers::{domain::TierDomain, rules::should_skip_group};
 use crate::model::{
     Action, BracketedItem, Bullet, Event, Freecode, LongFeatureBegin, LongFeatureEnd,
     NonvocalBegin, NonvocalEnd, NonvocalSimple, OtherSpokenEvent, OverlapPoint, Pause,
-    ReplacedWord, ScopedAnnotation, Separator, UnderlineMarker, UtteranceContent, Word,
+    ReplacedWord, ContentAnnotation, Separator, UnderlineMarker, UtteranceContent, Word,
 };
 
 // ---------------------------------------------------------------------------
@@ -236,6 +236,13 @@ pub fn walk_content<'a>(
             UtteranceContent::Quotation(quot) => {
                 walk_bracketed_content(&quot.content.content, domain, f);
             }
+            UtteranceContent::Retrace(retrace) => {
+                // Retrace content is excluded from %mor (not morphologically analyzed),
+                // but included in %pho/%sin/%wor and for domain-unspecified walks.
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_content(&retrace.content.content, domain, f);
+                }
+            }
         }
     }
 }
@@ -331,6 +338,13 @@ pub fn walk_content_mut<'a>(
             UtteranceContent::Quotation(quot) => {
                 walk_bracketed_content_mut(&mut quot.content.content, domain, f);
             }
+            UtteranceContent::Retrace(retrace) => {
+                // Retrace content is excluded from %mor (not morphologically analyzed),
+                // but included in %pho/%sin/%wor and for domain-unspecified walks.
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_content_mut(&mut retrace.content.content, domain, f);
+                }
+            }
         }
     }
 }
@@ -390,6 +404,13 @@ pub fn walk_words<'a>(
             }
             UtteranceContent::Quotation(quot) => {
                 walk_bracketed_words(&quot.content.content, domain, f);
+            }
+            UtteranceContent::Retrace(retrace) => {
+                // Retrace content is excluded from %mor (not morphologically analyzed),
+                // but included in %pho/%sin/%wor and for domain-unspecified walks.
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_words(&retrace.content.content, domain, f);
+                }
             }
             // Non-word items: events, pauses, actions, overlap markers, bullets,
             // freecodes, long features, underline markers, nonvocal markers,
@@ -459,6 +480,13 @@ pub fn walk_words_mut<'a>(
             }
             UtteranceContent::Quotation(quot) => {
                 walk_bracketed_words_mut(&mut quot.content.content, domain, f);
+            }
+            UtteranceContent::Retrace(retrace) => {
+                // Retrace content is excluded from %mor (not morphologically analyzed),
+                // but included in %pho/%sin/%wor and for domain-unspecified walks.
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_words_mut(&mut retrace.content.content, domain, f);
+                }
             }
             UtteranceContent::Event(_)
             | UtteranceContent::AnnotatedEvent(_)
@@ -575,6 +603,11 @@ fn walk_bracketed_content<'a>(
             BracketedItem::Quotation(quot) => {
                 walk_bracketed_content(&quot.content.content, domain, f);
             }
+            BracketedItem::Retrace(retrace) => {
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_content(&retrace.content.content, domain, f);
+                }
+            }
         }
     }
 }
@@ -667,6 +700,11 @@ fn walk_bracketed_content_mut<'a>(
             BracketedItem::Quotation(quot) => {
                 walk_bracketed_content_mut(&mut quot.content.content, domain, f);
             }
+            BracketedItem::Retrace(retrace) => {
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_content_mut(&mut retrace.content.content, domain, f);
+                }
+            }
         }
     }
 }
@@ -713,6 +751,11 @@ fn walk_bracketed_words<'a>(
             }
             BracketedItem::Quotation(quot) => {
                 walk_bracketed_words(&quot.content.content, domain, f);
+            }
+            BracketedItem::Retrace(retrace) => {
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_words(&retrace.content.content, domain, f);
+                }
             }
             // Non-word bracketed items.
             BracketedItem::Event(_)
@@ -775,6 +818,11 @@ fn walk_bracketed_words_mut<'a>(
             BracketedItem::Quotation(quot) => {
                 walk_bracketed_words_mut(&mut quot.content.content, domain, f);
             }
+            BracketedItem::Retrace(retrace) => {
+                if !matches!(domain, Some(TierDomain::Mor)) {
+                    walk_bracketed_words_mut(&mut retrace.content.content, domain, f);
+                }
+            }
             BracketedItem::Event(_)
             | BracketedItem::AnnotatedEvent(_)
             | BracketedItem::Pause(_)
@@ -799,11 +847,12 @@ fn walk_bracketed_words_mut<'a>(
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-/// Returns `true` when an annotated group should be skipped for the given domain.
+/// Returns `true` when an annotated word/group should be skipped for the given domain.
 ///
-/// Delegates to `should_skip_group()` when a domain is specified.
+/// Checks for alignment-ignore annotations (currently `[e]` exclude marker).
+/// Retrace skipping is handled by the `Retrace` content variant directly.
 fn should_skip_annotated_group(
-    annotations: &[ScopedAnnotation],
+    annotations: &[ContentAnnotation],
     domain: Option<TierDomain>,
 ) -> bool {
     match domain {

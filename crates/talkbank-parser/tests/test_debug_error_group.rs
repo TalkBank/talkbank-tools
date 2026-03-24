@@ -3,14 +3,15 @@
 //! These tests document expected behavior and regressions.
 
 use talkbank_model::model::{Line, UtteranceContent};
-use talkbank_parser::parse_chat_file;
+use talkbank_parser::TreeSitterParser;
 
 /// Verifies `<...> [*]` error groups parse as annotated groups with inner words.
 #[test]
 fn error_marker_group_words_are_parsed() {
     let content = "@UTF8\n@Begin\n@Languages:\thrv\n@Participants:\tPAR Participant\n@ID:\thrv|test|PAR|||||Participant|||\n*PAR:\thello <one two three> [*] .\n%mor:\tn|hello n|one n|two n|three .\n@End\n";
 
-    let chat_file = parse_chat_file(content).expect("parse should succeed");
+    let parser = TreeSitterParser::new().expect("grammar loads");
+    let chat_file = parser.parse_chat_file(content).expect("parse should succeed");
 
     for line in &chat_file.lines {
         if let Line::Utterance(u) = line {

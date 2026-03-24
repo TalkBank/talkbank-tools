@@ -89,9 +89,11 @@ pub(crate) fn parse_nonword_content(
                     idx += 1;
                 }
                 BASE_ANNOTATIONS => {
-                    // Parse the base_annotations container node
-                    let annots = parse_scoped_annotations(child, source, errors);
-                    annotations.extend(annots);
+                    // Parse the base_annotations container node.
+                    // Nonwords (events/actions) never carry retrace markers,
+                    // so we only take the content annotations.
+                    let parsed = parse_scoped_annotations(child, source, errors);
+                    annotations.extend(parsed.content);
                     idx += 1;
                 }
                 _ => {

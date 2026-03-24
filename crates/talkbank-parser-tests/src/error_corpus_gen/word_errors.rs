@@ -215,7 +215,7 @@ pub fn generate_e2xx_word_errors(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // E214: EmptyAnnotatedScopedAnnotations
+    // E214: EmptyAnnotatedContentAnnotations
     write_file(
         &dir.join("E214_empty_scoped_annotation.cha"),
         ChatFileBuilder::new()

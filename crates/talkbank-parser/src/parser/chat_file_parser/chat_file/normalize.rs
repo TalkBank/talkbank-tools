@@ -60,6 +60,9 @@ fn normalize_ca_omission_content(content: &mut UtteranceContent) {
         UtteranceContent::AnnotatedGroup(annotated) => {
             normalize_ca_omission_bracketed(&mut annotated.inner.content);
         }
+        UtteranceContent::Retrace(retrace) => {
+            normalize_ca_omission_bracketed(&mut retrace.content);
+        }
         UtteranceContent::PhoGroup(group) => normalize_ca_omission_bracketed(&mut group.content),
         UtteranceContent::SinGroup(group) => normalize_ca_omission_bracketed(&mut group.content),
         UtteranceContent::Quotation(quote) => normalize_ca_omission_bracketed(&mut quote.content),
@@ -95,6 +98,9 @@ fn normalize_ca_omission_bracketed(content: &mut BracketedContent) {
             }
             BracketedItem::AnnotatedGroup(annotated) => {
                 normalize_ca_omission_bracketed(&mut annotated.inner.content);
+            }
+            BracketedItem::Retrace(retrace) => {
+                normalize_ca_omission_bracketed(&mut retrace.content);
             }
             BracketedItem::PhoGroup(group) => normalize_ca_omission_bracketed(&mut group.content),
             BracketedItem::SinGroup(group) => normalize_ca_omission_bracketed(&mut group.content),

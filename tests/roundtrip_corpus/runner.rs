@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use crate::test_utils::diagnostics::print_pipeline_error;
 use crate::test_utils::roundtrip::{
-    parse_for_roundtrip, parse_for_roundtrip_with_chat_parser, parse_for_roundtrip_with_parser,
+    parse_for_roundtrip, parse_for_roundtrip_with_parser,
 };
 use talkbank_parser::TreeSitterParser;
 use talkbank_model::model::{ChatFile, SemanticEq, WriteChat};
@@ -19,43 +19,33 @@ use talkbank_transform::PipelineError;
 use talkbank_transform::to_json_pretty_validated;
 
 /// Parser selection for roundtrip corpus testing.
+///
+/// Only tree-sitter is supported (Chumsky/direct parser has been removed).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RoundtripParserKind {
     TreeSitter,
-    Direct,
 }
 
 impl RoundtripParserKind {
-    /// Runs cache label.
+    /// Returns the cache label for this parser kind.
     pub fn cache_label(self) -> &'static str {
         match self {
             RoundtripParserKind::TreeSitter => "tree-sitter",
-            RoundtripParserKind::Direct => "direct",
         }
     }
 }
 
 /// Parser wrapper for roundtrip testing.
-pub enum RoundtripParser {
-    TreeSitter(TreeSitterParser),
-    Direct(TreeSitterParser),
-}
+pub struct RoundtripParser(pub TreeSitterParser);
 
 impl RoundtripParser {
-    /// Parses for roundtrip.
+    /// Parse a file for roundtrip testing.
     pub fn parse_for_roundtrip(
         &self,
         content: &str,
         check_alignment: bool,
     ) -> Result<ChatFile, PipelineError> {
-        match self {
-            RoundtripParser::TreeSitter(parser) => {
-                parse_for_roundtrip_with_parser(parser, content, check_alignment)
-            }
-            RoundtripParser::Direct(parser) => {
-                parse_for_roundtrip_with_chat_parser(parser, content, check_alignment)
-            }
-        }
+        parse_for_roundtrip_with_parser(&self.0, content, check_alignment)
     }
 }
 

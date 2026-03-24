@@ -1,8 +1,8 @@
 //! Pipeline options and helpers for CHAT file processing workflows.
 //!
-//! This module is a thin, parser-agnostic configuration layer that sits between
-//! the parser crates (`talkbank-parser`, `talkbank-direct-parser`)
-//! and the orchestration layer (`talkbank-transform`). It defines the option
+//! This module is a thin configuration layer that sits between the parser crate
+//! (`talkbank-parser`) and the orchestration layer (`talkbank-transform`).
+//! It defines the option
 //! structs that control *what happens after parsing* -- specifically, which
 //! validation phases to run.
 //!

@@ -1,5 +1,8 @@
 # CHAT Format Overview
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 CHAT (Codes for the Human Analysis of Transcripts) is a standardized transcription format for spoken language data, developed by Brian MacWhinney as part of the [CHILDES](https://childes.talkbank.org/) and [TalkBank](https://talkbank.org/) projects. It is the most widely used format in child language research and conversational analysis.
 
 ## File Anatomy

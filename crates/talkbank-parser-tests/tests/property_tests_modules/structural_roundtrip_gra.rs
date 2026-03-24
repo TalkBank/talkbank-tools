@@ -5,7 +5,7 @@
 
 use proptest::prelude::*;
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::{ChatParser, ErrorCollector};
+use talkbank_model::ErrorCollector;
 
 use super::slow_test_config;
 
@@ -66,28 +66,12 @@ fn gra_content(n: usize) -> impl Strategy<Value = String> {
     })
 }
 
-/// Helper: parse gra tier content with both parsers.
-fn parse_gra_with_both(input: &str) -> Vec<(&'static str, Option<String>)> {
-    let mut results = Vec::new();
-    if let Ok(ts) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_gra_tier(&ts, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("tree-sitter", Some(tier.to_content())));
-        } else {
-            results.push(("tree-sitter", None));
-        }
-    }
-    if let Ok(dp) = TreeSitterParser::new() {
-        let errors = ErrorCollector::new();
-        let parsed = ChatParser::parse_gra_tier(&dp, input, 0, &errors);
-        if let Some(tier) = parsed.into_option() {
-            results.push(("direct", Some(tier.to_content())));
-        } else {
-            results.push(("direct", None));
-        }
-    }
-    results
+/// Helper: parse gra tier content with the tree-sitter parser.
+fn parse_gra(input: &str) -> Option<String> {
+    let ts = TreeSitterParser::new().ok()?;
+    let errors = ErrorCollector::new();
+    let parsed = ts.parse_gra_tier_fragment(input, 0, &errors);
+    parsed.into_option().map(|tier| tier.to_content())
 }
 
 proptest! {
@@ -96,14 +80,12 @@ proptest! {
     /// Small dependency graph (2-3 relations) roundtrips.
     #[test]
     fn small_gra_roundtrip(content in gra_content(2).prop_union(gra_content(3))) {
-        for (name, output) in parse_gra_with_both(&content) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &content,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, content, output
-                );
-            }
+        if let Some(output) = parse_gra(&content) {
+            prop_assert_eq!(
+                &output, &content,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                content, output
+            );
         }
     }
 
@@ -112,29 +94,11 @@ proptest! {
     fn medium_gra_roundtrip(
         content in (4..=6usize).prop_flat_map(gra_content)
     ) {
-        for (name, output) in parse_gra_with_both(&content) {
-            if let Some(output) = output {
-                prop_assert_eq!(
-                    &output, &content,
-                    "[{}] roundtrip: '{}' -> '{}'",
-                    name, content, output
-                );
-            }
-        }
-    }
-
-    /// Both parsers produce the same output for the same gra content.
-    #[test]
-    fn gra_parser_equivalence(content in gra_content(3).prop_union(gra_content(4))) {
-        let results = parse_gra_with_both(&content);
-        let successes: Vec<_> = results.iter().filter_map(|(name, out)| {
-            out.as_ref().map(|o| (*name, o.as_str()))
-        }).collect();
-        if successes.len() == 2 {
+        if let Some(output) = parse_gra(&content) {
             prop_assert_eq!(
-                successes[0].1, successes[1].1,
-                "Parser divergence on '{}': {} -> '{}', {} -> '{}'",
-                content, successes[0].0, successes[0].1, successes[1].0, successes[1].1
+                &output, &content,
+                "[tree-sitter] roundtrip: '{}' -> '{}'",
+                content, output
             );
         }
     }
@@ -144,10 +108,10 @@ proptest! {
     fn gra_double_roundtrip_stable(content in gra_content(3)) {
         if let Ok(ts) = TreeSitterParser::new() {
             let e1 = ErrorCollector::new();
-            if let Some(tier1) = ChatParser::parse_gra_tier(&ts, &content, 0, &e1).into_option() {
+            if let Some(tier1) = ts.parse_gra_tier_fragment(&content, 0, &e1).into_option() {
                 let chat1 = tier1.to_content();
                 let e2 = ErrorCollector::new();
-                if let Some(tier2) = ChatParser::parse_gra_tier(&ts, &chat1, 0, &e2).into_option() {
+                if let Some(tier2) = ts.parse_gra_tier_fragment(&chat1, 0, &e2).into_option() {
                     let chat2 = tier2.to_content();
                     prop_assert_eq!(
                         &chat1, &chat2,

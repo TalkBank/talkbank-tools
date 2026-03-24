@@ -5,7 +5,7 @@ use talkbank_model::ParseErrors;
 use talkbank_model::model::{
     ChatFile, CorpusName, Header, LanguageCode, Line, ParticipantRole, SpeakerCode, WriteChat,
 };
-use talkbank_parser::parse_chat_file;
+use talkbank_parser::TreeSitterParser;
 use thiserror::Error;
 
 /// Test failures surfaced by template-level parser assertions.
@@ -235,7 +235,8 @@ fn chat_file_builder_empty_file() -> Result<(), TestError> {
 
 /// Parses chat.
 fn parse_chat(content: &str) -> Result<ChatFile, TestError> {
-    Ok(parse_chat_file(content)?)
+    let parser = TreeSitterParser::new().expect("grammar loads");
+    Ok(parser.parse_chat_file(content)?)
 }
 
 /// Tests require header.

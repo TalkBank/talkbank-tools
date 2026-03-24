@@ -14,12 +14,12 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::ParseValidateOptions;
 use talkbank_model::{ChatFile, WriteChat};
+use talkbank_parser::TreeSitterParser;
 
-use crate::parse_and_validate_streaming_with_parser_generic;
+use crate::parse_and_validate_streaming_with_parser;
 
 /// Result of a roundtrip test on a single file.
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub struct RoundtripResult {
 ///
 /// Assumes validation already passed (caller checks for real errors first).
 /// The `chat_file` is the already-parsed result from validation.
-pub fn run_roundtrip(chat_file: &ChatFile, parser: &impl ChatParser) -> RoundtripResult {
+pub fn run_roundtrip(chat_file: &ChatFile, parser: &TreeSitterParser) -> RoundtripResult {
     // Pass 1: serialize the already-parsed ChatFile
     let mut serialized_a = String::new();
     if let Err(err) = chat_file.write_chat(&mut serialized_a) {
@@ -50,7 +50,7 @@ pub fn run_roundtrip(chat_file: &ChatFile, parser: &impl ChatParser) -> Roundtri
     // Pass 2: re-parse the serialized output (parse-only, skip validation —
     // roundtrip checks serialization fidelity, not content validity)
     let reparse_sink = ErrorCollector::new();
-    let reparsed = match parse_and_validate_streaming_with_parser_generic(
+    let reparsed = match parse_and_validate_streaming_with_parser(
         parser,
         &serialized_a,
         ParseValidateOptions::default(),

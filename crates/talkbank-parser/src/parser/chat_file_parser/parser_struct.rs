@@ -9,10 +9,14 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use tree_sitter::Parser;
 
-/// Tree-sitter based parser implementation
+/// Tree-sitter based CHAT parser.
 ///
-/// Uses tree-sitter-talkbank grammar to parse CHAT format.
-/// Uses RefCell for interior mutability since tree-sitter Parser requires &mut self.
+/// Create one per entry point and reuse it for all parsing in that scope.
+/// Pass `&TreeSitterParser` to functions that need parsing — do not create
+/// a new parser per file or per word.
+///
+/// The parser is `!Send + !Sync` (uses `RefCell` internally). For
+/// multi-threaded work, create one parser per thread.
 pub struct TreeSitterParser {
     pub(crate) parser: RefCell<Parser>,
 }
@@ -37,6 +41,14 @@ impl TreeSitterParser {
     /// Returns [`ParserInitError::SetLanguage`] if the tree-sitter-talkbank grammar
     /// cannot be loaded (e.g., ABI version mismatch between the grammar and the
     /// tree-sitter runtime).
+    /// **Prefer the free functions** ([`parse_chat_file`](crate::parse_chat_file),
+    /// [`parse_chat_file_streaming`](crate::parse_chat_file_streaming),
+    /// [`parse_word`](crate::parse_word)) which use a thread-local parser pool
+    /// and avoid per-call allocation.
+    ///
+    /// Direct construction is appropriate when you need a long-lived parser
+    /// instance (e.g., per-worker-thread in batch processing, LSP backend).
+    /// It is NOT needed for one-off parsing — the free functions handle that.
     #[tracing::instrument(name = "TreeSitterParser::new")]
     pub fn new() -> Result<Self, ParserInitError> {
         debug!("Creating TreeSitterParser");

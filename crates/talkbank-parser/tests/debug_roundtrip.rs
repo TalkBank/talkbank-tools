@@ -3,7 +3,7 @@
 //! These tests document expected behavior and regressions.
 
 use talkbank_model::WriteChat;
-use talkbank_parser::parse_chat_file;
+use talkbank_parser::TreeSitterParser;
 
 /// Tests pho groupings roundtrip.
 #[test]
@@ -22,7 +22,8 @@ fn test_pho_groupings_roundtrip() {
         }
     };
 
-    match parse_chat_file(&input) {
+    let parser = TreeSitterParser::new().expect("grammar loads");
+    match parser.parse_chat_file(&input) {
         Ok(file) => {
             println!("\n=== Parsed successfully! {} lines ===", file.lines.len());
 

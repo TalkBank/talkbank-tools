@@ -3,316 +3,316 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Child",
-            "speaker_code": "CHI"
+            "role": "Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "3;0",
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Child",
+        "corpus": "corpus",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "3;0",
+        "role": "Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Mother",
+        "corpus": "corpus",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Single utterance with many dependent tiers stacked together",
-              "type": "text"
+              "type": "text",
+              "text": "Single utterance with many dependent tiers stacked together"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: multiple dependent tiers on one utterance",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "Mommy",
-                  "pos": "propn"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "look",
-                  "pos": "verb"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "at",
-                  "pos": "prep"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "me",
-                  "pos": "pron"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 2,
-                "index": 1,
-                "relation": "VOC"
-              },
-              {
-                "head": 0,
-                "index": 2,
-                "relation": "ROOT"
-              },
-              {
-                "head": 2,
-                "index": 3,
-                "relation": "JCT"
-              },
-              {
-                "head": 3,
-                "index": 4,
-                "relation": "POBJ"
-              },
-              {
-                "head": 2,
-                "index": 5,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        },
-        {
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "text": "CHI is standing on the couch",
-                  "type": "text"
-                }
-              ]
-            }
-          },
-          "type": "Com"
-        },
-        {
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "text": "jumping up and down",
-                  "type": "text"
-                }
-              ]
-            }
-          },
-          "type": "Act"
-        },
-        {
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "text": "waving both arms",
-                  "type": "text"
-                }
-              ]
-            }
-          },
-          "type": "Gpx"
-        },
-        {
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "text": "MOT",
-                  "type": "text"
-                }
-              ]
-            }
-          },
-          "type": "Add"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: multiple dependent tiers on one utterance"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "Mommy",
               "cleaned_text": "Mommy",
               "content": [
                 {
-                  "content": "Mommy",
-                  "type": "text"
+                  "type": "text",
+                  "content": "Mommy"
                 }
-              ],
-              "raw_text": "Mommy",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "look",
               "cleaned_text": "look",
               "content": [
                 {
-                  "content": "look",
-                  "type": "text"
+                  "type": "text",
+                  "content": "look"
                 }
-              ],
-              "raw_text": "look",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "at",
               "cleaned_text": "at",
               "content": [
                 {
-                  "content": "at",
-                  "type": "text"
+                  "type": "text",
+                  "content": "at"
                 }
-              ],
-              "raw_text": "at",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "me",
               "cleaned_text": "me",
               "content": [
                 {
-                  "content": "me",
-                  "type": "text"
+                  "type": "text",
+                  "content": "me"
                 }
-              ],
-              "raw_text": "me",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "propn",
+                  "lemma": "Mommy"
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "look"
+                }
+              },
+              {
+                "main": {
+                  "pos": "prep",
+                  "lemma": "at"
+                }
+              },
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "me"
+                }
+              }
+            ],
+            "terminator": "."
+          }
         },
-        "speaker": "CHI"
-      }
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 2,
+                "relation": "VOC"
+              },
+              {
+                "index": 2,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 3,
+                "head": 2,
+                "relation": "JCT"
+              },
+              {
+                "index": 4,
+                "head": 3,
+                "relation": "POBJ"
+              },
+              {
+                "index": 5,
+                "head": 2,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Com",
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "type": "text",
+                  "text": "CHI is standing on the couch"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Act",
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "type": "text",
+                  "text": "jumping up and down"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Gpx",
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "type": "text",
+                  "text": "waving both arms"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Add",
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "type": "text",
+                  "text": "MOT"
+                }
+              ]
+            }
+          }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Child",
       "id": {
-        "age": "3;0",
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Child",
-        "speaker": "CHI"
+        "corpus": "corpus",
+        "speaker": "CHI",
+        "age": "3;0",
+        "role": "Child"
       },
-      "name": null,
-      "role": "Child"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Mother",
-        "speaker": "MOT"
+        "corpus": "corpus",
+        "speaker": "MOT",
+        "role": "Mother"
       },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "eng"
+  ],
+  "options": []
 }

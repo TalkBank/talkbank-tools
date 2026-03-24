@@ -7,7 +7,7 @@ use insta::assert_snapshot;
 use serde::Serialize;
 use serde_json::to_string_pretty;
 use talkbank_model::ErrorCollector;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser_tests::GoldenBugs;
 use talkbank_parser_tests::golden::golden_words;
 use talkbank_parser_tests::test_error::TestError;
@@ -36,7 +36,7 @@ fn parser_word_snapshot() -> Result<(), TestError> {
     for parser in parser_suite()? {
         for word in &words {
             let sink = ErrorCollector::new();
-            let parsed = match ChatParser::parse_word(&parser, word, 0, &sink) {
+            let parsed = match parser.parse_word_fragment(word, 0, &sink) {
                 ParseOutcome::Parsed(parsed) => parsed,
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
@@ -49,7 +49,7 @@ fn parser_word_snapshot() -> Result<(), TestError> {
             assert!(
                 sink.is_empty(),
                 "[{}] unexpected errors parsing `{}`: {:?}",
-                parser.parser_name(),
+                "tree-sitter",
                 word,
                 sink.to_vec()
             );
@@ -60,7 +60,7 @@ fn parser_word_snapshot() -> Result<(), TestError> {
             }
 
             rows.push(format_snapshot_entry(
-                parser.parser_name(),
+                "tree-sitter",
                 &label,
                 &parsed,
             )?);
@@ -78,12 +78,12 @@ fn parser_mor_snapshot() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let mor = match parser.parse_mor_tier(MOR_TIER_INPUT, 0, &sink) {
+        let mor = match parser.parse_mor_tier_fragment(MOR_TIER_INPUT, 0, &sink) {
             ParseOutcome::Parsed(mor) => mor,
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "parser {} rejected %mor input despite no sink errors",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -91,12 +91,12 @@ fn parser_mor_snapshot() -> Result<(), TestError> {
         assert!(
             sink.is_empty(),
             "[{}] %mor parsing errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
         rows.push(format_snapshot_entry(
-            parser.parser_name(),
+            "tree-sitter",
             "%mor tier",
             &mor,
         )?);
@@ -113,12 +113,12 @@ fn parser_utterance_snapshot() -> Result<(), TestError> {
 
     for parser in parser_suite()? {
         let sink = ErrorCollector::new();
-        let utterance = match ChatParser::parse_utterance(&parser, UTTERANCE_INPUT, 0, &sink) {
+        let utterance = match parser.parse_utterance_fragment(UTTERANCE_INPUT, 0, &sink) {
             ParseOutcome::Parsed(utterance) => utterance,
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
                     "parser {} rejected utterance despite no sink errors",
-                    parser.parser_name()
+                    "tree-sitter"
                 )));
             }
         };
@@ -126,12 +126,12 @@ fn parser_utterance_snapshot() -> Result<(), TestError> {
         assert!(
             sink.is_empty(),
             "[{}] utterance parsing errors: {:?}",
-            parser.parser_name(),
+            "tree-sitter",
             sink.to_vec()
         );
 
         rows.push(format_snapshot_entry(
-            parser.parser_name(),
+            "tree-sitter",
             "utterance",
             &utterance,
         )?);

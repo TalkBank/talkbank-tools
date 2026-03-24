@@ -51,6 +51,7 @@ impl UtteranceContent {
             UtteranceContent::NonvocalBegin(marker) => marker.write_chat(w),
             UtteranceContent::NonvocalEnd(marker) => marker.write_chat(w),
             UtteranceContent::NonvocalSimple(marker) => marker.write_chat(w),
+            UtteranceContent::Retrace(retrace) => retrace.write_chat(w),
             UtteranceContent::OtherSpokenEvent(event) => event.write_chat(w),
         }
     }

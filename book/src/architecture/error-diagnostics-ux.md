@@ -1,5 +1,8 @@
 # Error System and Diagnostics UX
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Objective
 Make diagnostics precise, explainable, and actionable for both developers and non-technical editors,
 while keeping machine readability for downstream tools.

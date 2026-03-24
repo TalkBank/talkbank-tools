@@ -2,7 +2,7 @@ use talkbank_model::alignment::helpers::{WordItem, walk_words};
 use talkbank_model::dependent_tier::TimTier;
 use talkbank_model::{
     BracketedItem, BulletContent, BulletContentSegment, DependentTier, GraTier, MainTier, MorTier,
-    ScopedAnnotation, UtteranceContent, WriteChat,
+    ContentAnnotation, UtteranceContent, WriteChat,
 };
 
 use crate::framework::is_countable_word;
@@ -181,6 +181,9 @@ fn count_content_scoped_errors(content: &[UtteranceContent]) -> u64 {
             UtteranceContent::AnnotatedAction(annotated) => {
                 total += count_scoped_errors(&annotated.scoped_annotations.0);
             }
+            UtteranceContent::Retrace(retrace) => {
+                total += count_bracketed_scoped_errors(&retrace.content.content);
+            }
             UtteranceContent::Word(_)
             | UtteranceContent::Event(_)
             | UtteranceContent::Pause(_)
@@ -222,6 +225,9 @@ fn count_bracketed_scoped_errors(items: &[BracketedItem]) -> u64 {
                 total += count_scoped_errors(&annotated.scoped_annotations.0);
                 total += count_bracketed_scoped_errors(&annotated.inner.content.content);
             }
+            BracketedItem::Retrace(retrace) => {
+                total += count_bracketed_scoped_errors(&retrace.content.content);
+            }
             BracketedItem::PhoGroup(group) => {
                 total += count_bracketed_scoped_errors(&group.content.content);
             }
@@ -252,10 +258,10 @@ fn count_bracketed_scoped_errors(items: &[BracketedItem]) -> u64 {
     total
 }
 
-fn count_scoped_errors(annotations: &[ScopedAnnotation]) -> u64 {
+fn count_scoped_errors(annotations: &[ContentAnnotation]) -> u64 {
     annotations
         .iter()
-        .filter(|annotation| matches!(annotation, ScopedAnnotation::Error(_)))
+        .filter(|annotation| matches!(annotation, ContentAnnotation::Error(_)))
         .count() as u64
 }
 

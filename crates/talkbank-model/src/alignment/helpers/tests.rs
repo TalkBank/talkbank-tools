@@ -7,16 +7,17 @@ use super::{TierDomain, count_tier_positions};
 use crate::Span;
 use crate::model::{
     Annotated, BracketedContent, BracketedItem, Group, Pause, PauseDuration, PhoGroup,
-    ReplacedWord, Replacement, ScopedAnnotation, Separator, SinGroup, UtteranceContent, Word,
+    ReplacedWord, Replacement, Retrace, RetraceKind, Separator, SinGroup, UtteranceContent, Word,
     WordCategory,
 };
 
 /// Confirms `%mor` skips retraced items while `%pho` and `%wor` still count them.
 #[test]
-fn mor_skips_retrace_annotation() {
+fn mor_skips_retrace_content() {
     let word = Word::new_unchecked("hello", "hello");
-    let annotated = Annotated::new(word).with_scoped_annotation(ScopedAnnotation::Retracing);
-    let items = vec![UtteranceContent::AnnotatedWord(Box::new(annotated))];
+    let bracketed = BracketedContent::new(vec![BracketedItem::Word(Box::new(word))]);
+    let retrace = Retrace::new(bracketed, RetraceKind::Full);
+    let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
 
     assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
     assert_eq!(count_tier_positions(&items, TierDomain::Pho), 1);
@@ -109,16 +110,16 @@ fn mor_counts_tag_markers_including_comma() {
 
 /// Confirms retraced groups are skipped in `%mor` but counted for `%pho/%sin/%wor`.
 #[test]
-fn mor_skips_annotated_group_with_retrace_but_pho_sin_wor_count() {
+fn mor_skips_retrace_group_but_pho_sin_wor_count() {
     // Retraced groups skip ONLY for Mor (no morphological analysis for false starts)
     // but Pho/Sin/Wor count them (the content WAS produced phonologically and gets timed)
     let inner_words = vec![
         BracketedItem::Word(Box::new(Word::new_unchecked("hi", "hi"))),
         BracketedItem::Word(Box::new(Word::new_unchecked("there", "there"))),
     ];
-    let group = Group::new(BracketedContent::new(inner_words));
-    let annotated = Annotated::new(group).with_scoped_annotation(ScopedAnnotation::Retracing);
-    let items = vec![UtteranceContent::AnnotatedGroup(annotated)];
+    let bracketed = BracketedContent::new(inner_words);
+    let retrace = Retrace::new(bracketed, RetraceKind::Full).as_group();
+    let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
 
     assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
     assert_eq!(count_tier_positions(&items, TierDomain::Pho), 2);

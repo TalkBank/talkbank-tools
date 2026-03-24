@@ -1,4 +1,4 @@
-//! Shared implementation helpers behind `ChatParser` tier methods.
+//! Shared implementation helpers behind `TreeSitterParser` tier fragment methods.
 //!
 //! The key mechanism here is the "minimal CHAT wrapper" pattern: synthesize a
 //! tiny valid file around one tier, parse it through the full parser pipeline,

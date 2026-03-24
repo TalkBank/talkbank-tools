@@ -1,5 +1,8 @@
 # Performance Optimizations
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 This document records the design rationale behind performance optimizations
 applied to talkbank-tools. Each section explains the
 problem, the alternatives considered, and why the chosen approach was taken.
@@ -118,10 +121,11 @@ new `ChatFile` is wrapped in `Arc::new()` and inserted atomically.
 These were implemented in the first performance pass and are documented here
 for completeness.
 
-**Thread-local parser pool** (`with_parser()`): `TreeSitterParser` is expensive
-to create (~1ms for tree-sitter init). A `thread_local!` pool reuses parsers
-across calls within the same thread, eliminating per-call construction in
-`parse_and_validate()`.
+**Reusable parser instance**: `TreeSitterParser` is expensive to create (~1ms
+for tree-sitter init). Callers create one instance and pass `&TreeSitterParser`
+everywhere, reusing it across calls. For batch workflows,
+`parse_and_validate_with_parser()` accepts a `&TreeSitterParser` to avoid
+per-call construction overhead.
 
 **SQLite PRAGMAs**: Added `synchronous=NORMAL`, `cache_size=-8000` (8MB),
 `busy_timeout=5000`, `mmap_size=268435456` (256MB) to the validation cache.

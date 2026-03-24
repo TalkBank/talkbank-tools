@@ -61,22 +61,13 @@ pub(super) fn worker_loop(
 }
 
 /// Create the parser instance owned by one worker thread.
-fn create_parser(parser_kind: RoundtripParserKind) -> Option<RoundtripParser> {
-    match parser_kind {
-        RoundtripParserKind::TreeSitter => match TreeSitterParser::new() {
-            Ok(parser) => Some(RoundtripParser::TreeSitter(parser)),
-            Err(error) => {
-                eprintln!("Error creating tree-sitter parser: {:?}", error);
-                None
-            }
-        },
-        RoundtripParserKind::Direct => match TreeSitterParser::new() {
-            Ok(parser) => Some(RoundtripParser::Direct(parser)),
-            Err(error) => {
-                eprintln!("Error creating direct parser: {:?}", error);
-                None
-            }
-        },
+fn create_parser(_parser_kind: RoundtripParserKind) -> Option<RoundtripParser> {
+    match TreeSitterParser::new() {
+        Ok(parser) => Some(RoundtripParser(parser)),
+        Err(error) => {
+            eprintln!("Error creating parser: {:?}", error);
+            None
+        }
     }
 }
 

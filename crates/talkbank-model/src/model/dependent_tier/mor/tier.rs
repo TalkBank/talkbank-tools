@@ -209,7 +209,7 @@ impl MorTier {
     /// Write tier content only (items and terminator), without the tier prefix (%mor:\t).
     ///
     /// This is used for roundtrip testing against golden data that contains
-    /// content-only, and for the ChatParser API which expects content-only input.
+    /// content-only, and for the TreeSitterParser API which expects content-only input.
     pub fn write_content<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
         for (i, item) in self.items.iter().enumerate() {
             if i > 0 {

@@ -3,602 +3,602 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "SPK",
             "name": null,
-            "role": "Speaker",
-            "speaker_code": "SPK"
+            "role": "Speaker"
           },
           {
+            "speaker_code": "LSN",
             "name": null,
-            "role": "Adult",
-            "speaker_code": "LSN"
+            "role": "Adult"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "options",
         "options": [
           "CA"
-        ],
-        "type": "options"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Speaker",
+        "corpus": "corpus",
         "speaker": "SPK",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Speaker"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Adult",
+        "corpus": "corpus",
         "speaker": "LSN",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Adult"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "CA intonation contour markers and CA terminators",
-              "type": "text"
+              "type": "text",
+              "text": "CA intonation contour markers and CA terminators"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: rising_to_high, rising_to_mid, level_pitch,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: rising_to_high, rising_to_mid, level_pitch,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "falling_to_mid, falling_to_low, ca_no_break, ca_technical_break,",
-              "type": "text"
+              "type": "text",
+              "text": "falling_to_mid, falling_to_low, ca_no_break, ca_technical_break,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "ca_no_break_linker, ca_technical_break_linker, unmarked_ending",
-              "type": "text"
+              "type": "text",
+              "text": "ca_no_break_linker, ca_technical_break_linker, unmarked_ending"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "rising",
               "cleaned_text": "rising",
               "content": [
                 {
-                  "content": "rising",
-                  "type": "text"
+                  "type": "text",
+                  "content": "rising"
                 }
-              ],
-              "raw_text": "rising",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "to",
               "cleaned_text": "to",
               "content": [
                 {
-                  "content": "to",
-                  "type": "text"
+                  "type": "text",
+                  "content": "to"
                 }
-              ],
-              "raw_text": "to",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "high",
               "cleaned_text": "high",
               "content": [
                 {
-                  "content": "high",
-                  "type": "text"
+                  "type": "text",
+                  "content": "high"
                 }
-              ],
-              "raw_text": "high",
-              "type": "word"
+              ]
             },
             {
-              "kind": "rising_to_high",
-              "type": "separator"
+              "type": "separator",
+              "kind": "rising_to_high"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "rising",
               "cleaned_text": "rising",
               "content": [
                 {
-                  "content": "rising",
-                  "type": "text"
+                  "type": "text",
+                  "content": "rising"
                 }
-              ],
-              "raw_text": "rising",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "to",
               "cleaned_text": "to",
               "content": [
                 {
-                  "content": "to",
-                  "type": "text"
+                  "type": "text",
+                  "content": "to"
                 }
-              ],
-              "raw_text": "to",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "mid",
               "cleaned_text": "mid",
               "content": [
                 {
-                  "content": "mid",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mid"
                 }
-              ],
-              "raw_text": "mid",
-              "type": "word"
+              ]
             },
             {
-              "kind": "rising_to_mid",
-              "type": "separator"
+              "type": "separator",
+              "kind": "rising_to_mid"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "level",
               "cleaned_text": "level",
               "content": [
                 {
-                  "content": "level",
-                  "type": "text"
+                  "type": "text",
+                  "content": "level"
                 }
-              ],
-              "raw_text": "level",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "pitch",
               "cleaned_text": "pitch",
               "content": [
                 {
-                  "content": "pitch",
-                  "type": "text"
+                  "type": "text",
+                  "content": "pitch"
                 }
-              ],
-              "raw_text": "pitch",
-              "type": "word"
+              ]
             },
             {
-              "kind": "level",
-              "type": "separator"
+              "type": "separator",
+              "kind": "level"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "falling",
               "cleaned_text": "falling",
               "content": [
                 {
-                  "content": "falling",
-                  "type": "text"
+                  "type": "text",
+                  "content": "falling"
                 }
-              ],
-              "raw_text": "falling",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "to",
               "cleaned_text": "to",
               "content": [
                 {
-                  "content": "to",
-                  "type": "text"
+                  "type": "text",
+                  "content": "to"
                 }
-              ],
-              "raw_text": "to",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "mid",
               "cleaned_text": "mid",
               "content": [
                 {
-                  "content": "mid",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mid"
                 }
-              ],
-              "raw_text": "mid",
-              "type": "word"
+              ]
             },
             {
-              "kind": "falling_to_mid",
-              "type": "separator"
+              "type": "separator",
+              "kind": "falling_to_mid"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "falling",
               "cleaned_text": "falling",
               "content": [
                 {
-                  "content": "falling",
-                  "type": "text"
+                  "type": "text",
+                  "content": "falling"
                 }
-              ],
-              "raw_text": "falling",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "to",
               "cleaned_text": "to",
               "content": [
                 {
-                  "content": "to",
-                  "type": "text"
+                  "type": "text",
+                  "content": "to"
                 }
-              ],
-              "raw_text": "to",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "low",
               "cleaned_text": "low",
               "content": [
                 {
-                  "content": "low",
-                  "type": "text"
+                  "type": "text",
+                  "content": "low"
                 }
-              ],
-              "raw_text": "low",
-              "type": "word"
+              ]
             },
             {
-              "kind": "falling_to_low",
-              "type": "separator"
+              "type": "separator",
+              "kind": "falling_to_low"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "no",
               "cleaned_text": "no",
               "content": [
                 {
-                  "content": "no",
-                  "type": "text"
+                  "type": "text",
+                  "content": "no"
                 }
-              ],
-              "raw_text": "no",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "break",
               "cleaned_text": "break",
               "content": [
                 {
-                  "content": "break",
-                  "type": "text"
+                  "type": "text",
+                  "content": "break"
                 }
-              ],
-              "raw_text": "break",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "continuation",
               "cleaned_text": "continuation",
               "content": [
                 {
-                  "content": "continuation",
-                  "type": "text"
+                  "type": "text",
+                  "content": "continuation"
                 }
-              ],
-              "raw_text": "continuation",
-              "type": "word"
+              ]
             },
             {
-              "kind": "falling_to_low",
-              "type": "separator"
+              "type": "separator",
+              "kind": "falling_to_low"
             }
           ],
           "terminator": {
             "type": "ca_no_break"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
-          "content": [
-            {
-              "cleaned_text": "continuing",
-              "content": [
-                {
-                  "content": "continuing",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "continuing",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "here",
-              "content": [
-                {
-                  "content": "here",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "here",
-              "type": "word"
-            }
-          ],
           "linkers": [
             {
               "type": "no_break_tcu_continuation"
             }
           ],
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "continuing",
+              "cleaned_text": "continuing",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "continuing"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "here",
+              "cleaned_text": "here",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "here"
+                }
+              ]
+            }
+          ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "technical",
               "cleaned_text": "technical",
               "content": [
                 {
-                  "content": "technical",
-                  "type": "text"
+                  "type": "text",
+                  "content": "technical"
                 }
-              ],
-              "raw_text": "technical",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "break",
               "cleaned_text": "break",
               "content": [
                 {
-                  "content": "break",
-                  "type": "text"
+                  "type": "text",
+                  "content": "break"
                 }
-              ],
-              "raw_text": "break",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "continuation",
               "cleaned_text": "continuation",
               "content": [
                 {
-                  "content": "continuation",
-                  "type": "text"
+                  "type": "text",
+                  "content": "continuation"
                 }
-              ],
-              "raw_text": "continuation",
-              "type": "word"
+              ]
             },
             {
-              "kind": "rising_to_high",
-              "type": "separator"
+              "type": "separator",
+              "kind": "rising_to_high"
             }
           ],
           "terminator": {
             "type": "ca_technical_break"
           }
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "LSN",
         "content": {
-          "content": [
-            {
-              "cleaned_text": "continuing",
-              "content": [
-                {
-                  "content": "continuing",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "continuing",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "here",
-              "content": [
-                {
-                  "content": "here",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "here",
-              "type": "word"
-            }
-          ],
           "linkers": [
             {
               "type": "tcu_continuation"
             }
           ],
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "continuing",
+              "cleaned_text": "continuing",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "continuing"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "here",
+              "cleaned_text": "here",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "here"
+                }
+              ]
+            }
+          ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "LSN"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "SPK",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "unmarked",
               "cleaned_text": "unmarked",
               "content": [
                 {
-                  "content": "unmarked",
-                  "type": "text"
+                  "type": "text",
+                  "content": "unmarked"
                 }
-              ],
-              "raw_text": "unmarked",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "ending",
               "cleaned_text": "ending",
               "content": [
                 {
-                  "content": "ending",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ending"
                 }
-              ],
-              "raw_text": "ending",
-              "type": "word"
+              ]
             },
             {
-              "kind": "unmarked_ending",
-              "type": "separator"
+              "type": "separator",
+              "kind": "unmarked_ending"
             }
           ]
-        },
-        "speaker": "SPK"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
+  ],
+  "participants": {
+    "SPK": {
+      "code": "SPK",
+      "name": null,
+      "role": "Speaker",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "SPK",
+        "role": "Speaker"
+      },
+      "birth_date": null
+    },
+    "LSN": {
+      "code": "LSN",
+      "name": null,
+      "role": "Adult",
+      "id": {
+        "language": [
+          "eng"
+        ],
+        "corpus": "corpus",
+        "speaker": "LSN",
+        "role": "Adult"
+      },
+      "birth_date": null
+    }
+  },
+  "languages": [
+    "eng"
   ],
   "options": [
     "CA"
-  ],
-  "participants": {
-    "LSN": {
-      "birth_date": null,
-      "code": "LSN",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Adult",
-        "speaker": "LSN"
-      },
-      "name": null,
-      "role": "Adult"
-    },
-    "SPK": {
-      "birth_date": null,
-      "code": "SPK",
-      "id": {
-        "corpus": "corpus",
-        "language": [
-          "eng"
-        ],
-        "role": "Speaker",
-        "speaker": "SPK"
-      },
-      "name": null,
-      "role": "Speaker"
-    }
-  }
+  ]
 }

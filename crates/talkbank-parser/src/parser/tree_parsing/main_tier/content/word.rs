@@ -10,7 +10,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition>
 
 use crate::error::ErrorSink;
-use crate::model::{Annotated, ReplacedWord, UtteranceContent};
+use crate::model::{Annotated, BracketedContent, BracketedItem, ReplacedWord, Retrace, UtteranceContent};
 use crate::node_types::{BASE_ANNOTATIONS, REPLACEMENT, STANDALONE_WORD, WHITESPACES};
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
@@ -46,6 +46,7 @@ pub(crate) fn parse_word_content(
     let child_count = node.child_count();
     let mut word = None;
     let mut replacement = ParseOutcome::rejected();
+    let mut retrace_kind = None;
     // Pre-allocate: words typically have 0-3 annotations
     let mut annotations = Vec::with_capacity(2);
     let mut idx: u32 = 0;
@@ -83,8 +84,11 @@ pub(crate) fn parse_word_content(
                 // Note: phonological_replacement was legacy and doesn't exist in current grammar
                 BASE_ANNOTATIONS => {
                     // Parse the base_annotations container node
-                    let annots = parse_scoped_annotations(child, source, errors);
-                    annotations.extend(annots);
+                    let parsed = parse_scoped_annotations(child, source, errors);
+                    annotations.extend(parsed.content);
+                    if parsed.retrace.is_some() {
+                        retrace_kind = parsed.retrace;
+                    }
                     idx += 1;
                 }
                 _ => {
@@ -107,11 +111,19 @@ pub(crate) fn parse_word_content(
             // Word with replacement [: ...]
             let replaced = ReplacedWord::new(w, repl).with_scoped_annotations(annotations);
             ParseOutcome::parsed(UtteranceContent::ReplacedWord(Box::new(replaced)))
+        } else if let Some(kind) = retrace_kind {
+            // Single-word retrace: wrap word in BracketedContent
+            let span = w.span;
+            let bracketed = BracketedContent::new(vec![BracketedItem::Word(Box::new(w))]);
+            let retrace = Retrace::new(bracketed, kind)
+                .with_annotations(annotations)
+                .with_span(span);
+            ParseOutcome::parsed(UtteranceContent::Retrace(Box::new(retrace)))
         } else if annotations.is_empty() {
             // Bare word
             ParseOutcome::parsed(UtteranceContent::Word(Box::new(w)))
         } else {
-            // Word with annotations
+            // Word with non-retrace annotations
             let annotated = Annotated::new(w).with_scoped_annotations(annotations);
             ParseOutcome::parsed(UtteranceContent::AnnotatedWord(Box::new(annotated)))
         }

@@ -1,5 +1,8 @@
 # JSON Output Reference
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 This document describes the structure of JSON produced by `chatter to-json`.
 For the formal JSON Schema, see [JSON Schema](json-schema.md).
 

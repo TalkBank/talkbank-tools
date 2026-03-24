@@ -1,5 +1,8 @@
 # Error System
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 The `talkbank-model` crate defines the error infrastructure used across all TalkBank crates (in its `errors` module).
 
 ## Core Types
@@ -39,7 +42,7 @@ being checked.
 
 ```mermaid
 flowchart LR
-    subgraph "Parser layer\n(parse_chat_file)"
+    subgraph "Parser layer\n(parser.parse_chat_file())"
         E1["E1xx\nEncoding\n(BOM, charset)"]
         E2["E2xx\nFile structure\n(Begin/End, line format)"]
         E3["E3xx\nHeaders\n(format, required fields,\nparticipant resolution)"]
@@ -151,8 +154,8 @@ pub struct ErrorContext {
 
 Errors are detected at two layers:
 
-1. **Parser layer** — structural errors caught during `parse_chat_file()`. These prevent the file from being fully parsed (e.g., missing `@Begin`, invalid syntax).
+1. **Parser layer** — structural errors caught during `parser.parse_chat_file()`. These prevent the file from being fully parsed (e.g., missing `@Begin`, invalid syntax).
 
 2. **Validation layer** — semantic errors caught by `validate_with_alignment()` after a successful parse. The file parsed correctly but violates constraints (e.g., `%mor` alignment mismatch, undeclared speakers).
 
-This distinction matters for spec testing: parser-layer specs test that `parse_chat_file` returns `Err`, while validation-layer specs test that validation reports specific error codes.
+This distinction matters for spec testing: parser-layer specs test that `parser.parse_chat_file()` returns `Err`, while validation-layer specs test that validation reports specific error codes.

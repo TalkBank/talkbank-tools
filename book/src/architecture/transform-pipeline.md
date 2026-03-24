@@ -1,5 +1,8 @@
 # Transform Pipeline
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 The `talkbank-transform` crate provides high-level pipelines that compose parsing, validation, and serialization into reusable workflows.
 
 ## Core Pipelines

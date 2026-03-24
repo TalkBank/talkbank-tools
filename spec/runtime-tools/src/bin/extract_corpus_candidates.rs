@@ -18,7 +18,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 use talkbank_model::ErrorCollector;
-use talkbank_parser::parse_chat_file as parse_chat_file_rust;
+use talkbank_parser::TreeSitterParser;
 use tree_sitter::Parser as TSParser;
 use tree_sitter_talkbank::LANGUAGE;
 use walkdir::WalkDir;
@@ -309,7 +309,8 @@ fn rust_validity_counts(
     run_validation: bool,
     validate_alignment: bool,
 ) -> (usize, usize) {
-    let mut chat_file = match parse_chat_file_rust(source) {
+    let parser = TreeSitterParser::new().expect("grammar loads");
+    let mut chat_file = match parser.parse_chat_file(source) {
         Ok(file) => file,
         Err(parse_errors) => return (parse_errors.len(), 0),
     };

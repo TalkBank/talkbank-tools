@@ -1,9 +1,12 @@
 # Parser Error Recovery: Direct Parser vs Tree-Sitter Parser
 
-**Status:** Reference document
-**Date:** 2026-03-21
+**Status:** Historical
+**Last updated:** 2026-03-24 01:32 EDT
 
-This document audits the real current recovery behavior of both parsers, compares their leniency, and maps the parse/validate boundary for each.
+> **Note:** The Chumsky direct parser was removed in March 2026. Tree-sitter is
+> now the sole parser. This document is preserved for architectural context only.
+
+This document audited the recovery behavior of both parsers, compared their leniency, and mapped the parse/validate boundary for each.
 
 **Important:** fragment input is still a first-class concept in TalkBank tooling, specs, and tests. What is *not* first-class is the old assumption that tree-sitter fragment helpers are honest isolated-fragment parsers. Several of those helpers wrap fragment input in boilerplate CHAT text and then parse the whole wrapped file. That synthetic behavior must no longer be treated as the semantic oracle for direct-parser fragment behavior.
 
@@ -258,4 +261,4 @@ The highest-value next work is now:
 - `crates/talkbank-direct-parser/src/file/mod.rs` — file parsing and degraded-shell recovery
 - `crates/talkbank-direct-parser/src/main_tier/mod.rs` — main-tier recovery behavior
 - `crates/talkbank-direct-parser/src/main_tier/words.rs` — raw-text word recovery paths
-- `crates/talkbank-parser/src/parser/chat_file_parser/single_item/` — synthetic tree-sitter fragment helpers
+- `crates/talkbank-parser/` — tree-sitter parser (fragment methods on `TreeSitterParser`)

@@ -87,10 +87,11 @@ pub enum BracketedItem {
     /// Action WITH scoped annotations (e.g., <0 [= ! whining]>)
     #[serde(rename = "annotated_action")]
     AnnotatedAction(Annotated<Action>),
-    /// Nested regular group `<...>` WITH scoped annotations (e.g., retrace: `<word> [/]`)
-    /// Note: Groups inside bracketed content MUST have annotations in CHAT format
+    /// Nested regular group `<...>` WITH scoped annotations (non-retrace only)
     #[serde(rename = "annotated_group")]
     AnnotatedGroup(Annotated<super::Group>),
+    /// Nested retraced content — words the speaker said then corrected.
+    Retrace(Box<super::Retrace>),
     /// Nested phonological group ‹...›
     #[serde(rename = "pho_group")]
     PhoGroup(super::PhoGroup),
@@ -172,6 +173,7 @@ impl WriteChat for BracketedItem {
             BracketedItem::NonvocalBegin(marker) => marker.write_chat(w),
             BracketedItem::NonvocalEnd(marker) => marker.write_chat(w),
             BracketedItem::NonvocalSimple(marker) => marker.write_chat(w),
+            BracketedItem::Retrace(retrace) => retrace.write_chat(w),
             BracketedItem::OtherSpokenEvent(event) => event.write_chat(w),
         }
     }

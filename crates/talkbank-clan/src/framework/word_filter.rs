@@ -21,7 +21,7 @@
 //! countable lexical items.
 
 use talkbank_model::{
-    BracketedItem, ScopedAnnotation, Utterance, UtteranceContent, Word, WordCategory,
+    BracketedItem, Utterance, UtteranceContent, Word, WordCategory,
 };
 
 /// Determine whether a word contributes lexical material to analysis counts.
@@ -94,23 +94,6 @@ fn is_countable_category(category: &WordCategory) -> bool {
     }
 }
 
-/// Detect retracing markers in scoped annotations.
-///
-/// CLAN excludes retrace targets from counting by default. Words or groups
-/// annotated with `[/]`, `[//]`, `[///]`, `[/-]`, or `[/?]` are retrace
-/// targets that should be skipped unless `include_retracings` is set.
-fn has_retracing_annotation(annotations: &[ScopedAnnotation]) -> bool {
-    annotations.iter().any(|a| {
-        matches!(
-            a,
-            ScopedAnnotation::PartialRetracing
-                | ScopedAnnotation::Retracing
-                | ScopedAnnotation::MultipleRetracing
-                | ScopedAnnotation::Reformulation
-                | ScopedAnnotation::UncertainRetracing
-        )
-    })
-}
 
 /// Iterator over all countable words in utterance main-tier content.
 ///
@@ -188,11 +171,6 @@ fn collect_countable<'a>(
                 }
             }
             UtteranceContent::AnnotatedWord(annotated) => {
-                // Skip retrace targets unless include_retracings is set
-                if !include_retracings && has_retracing_annotation(&annotated.scoped_annotations.0)
-                {
-                    continue;
-                }
                 if is_countable_word(&annotated.inner) {
                     out.push(&annotated.inner);
                 }
@@ -223,16 +201,22 @@ fn collect_countable<'a>(
                 collect_countable_bracketed(&group.content.content, out, include_retracings);
             }
             UtteranceContent::AnnotatedGroup(annotated) => {
-                // Skip retrace-annotated groups unless include_retracings is set
-                if !include_retracings && has_retracing_annotation(&annotated.scoped_annotations.0)
-                {
-                    continue;
-                }
                 collect_countable_bracketed(
                     &annotated.inner.content.content,
                     out,
                     include_retracings,
                 );
+            }
+            UtteranceContent::Retrace(retrace) => {
+                // Retrace targets are excluded by default. When include_retracings
+                // is set (CLAN's +r6 flag), count the retraced words too.
+                if include_retracings {
+                    collect_countable_bracketed(
+                        &retrace.content.content,
+                        out,
+                        include_retracings,
+                    );
+                }
             }
             UtteranceContent::PhoGroup(group) => {
                 collect_countable_bracketed(&group.content.content, out, include_retracings);
@@ -262,10 +246,6 @@ fn collect_countable_bracketed<'a>(
                 }
             }
             BracketedItem::AnnotatedWord(annotated) => {
-                if !include_retracings && has_retracing_annotation(&annotated.scoped_annotations.0)
-                {
-                    continue;
-                }
                 if is_countable_word(&annotated.inner) {
                     out.push(&annotated.inner);
                 }
@@ -291,15 +271,20 @@ fn collect_countable_bracketed<'a>(
                 }
             }
             BracketedItem::AnnotatedGroup(annotated) => {
-                if !include_retracings && has_retracing_annotation(&annotated.scoped_annotations.0)
-                {
-                    continue;
-                }
                 collect_countable_bracketed(
                     &annotated.inner.content.content,
                     out,
                     include_retracings,
                 );
+            }
+            BracketedItem::Retrace(retrace) => {
+                if include_retracings {
+                    collect_countable_bracketed(
+                        &retrace.content.content,
+                        out,
+                        include_retracings,
+                    );
+                }
             }
             BracketedItem::PhoGroup(group) => {
                 collect_countable_bracketed(&group.content.content, out, include_retracings);

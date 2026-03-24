@@ -11,7 +11,7 @@ help:
 	@echo "  make test-affected  Run dependency-aware tests for changed code"
 	@echo "  make test-grammar   Run tree-sitter grammar corpus tests"
 	@echo "  make test-generated Run spec-generated parser/validation tests"
-	@echo "  make test-legacy-fragment-parity Run legacy tree-sitter/direct word-fragment parity audit"
+	@echo "  make test-legacy-fragment-parity Run legacy word-fragment parity audit"
 	@echo "  make test-parity    Run full-file parser parity tests"
 	@echo "  make build          Build all components"
 	@echo "  make check          Fast compile check"
@@ -163,11 +163,11 @@ verify:
 	@$(MAKE) chat-anchors-check
 	@echo "==> [G5] Generated parser corpus equivalence suite"
 	cargo nextest run -p talkbank-parser-tests --test generated
-	@echo "==> [G6] Direct fragment recovery semantics"
+	@echo "==> [G6] Fragment parsing semantics"
 	@$(MAKE) test-fragment-semantics
 	@echo "==> [G7] Bare-timestamp regression gate"
 	cargo nextest run --test bare_timestamp_regression
-	@echo "==> [G8] Reference corpus semantic equivalence (tree-sitter vs direct)"
+	@echo "==> [G8] Reference corpus semantic equivalence"
 	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files
 	@echo "==> [G9] %wor tier parsing and alignment"
 	cargo nextest run -p talkbank-parser-tests --test wor_terminator_alignment

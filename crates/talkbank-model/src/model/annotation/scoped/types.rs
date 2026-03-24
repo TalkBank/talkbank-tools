@@ -43,24 +43,21 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// # Examples
 ///
 /// ```
-/// use talkbank_model::model::{ScopedAnnotation, ScopedError, ScopedExplanation};
+/// use talkbank_model::model::{ContentAnnotation, ScopedError, ScopedExplanation};
 ///
 /// // Error marking
-/// let error = ScopedAnnotation::Error(ScopedError { code: Some("grammar".into()) });
+/// let error = ContentAnnotation::Error(ScopedError { code: Some("grammar".into()) });
 ///
 /// // Explanation
-/// let explanation = ScopedAnnotation::Explanation(ScopedExplanation {
+/// let explanation = ContentAnnotation::Explanation(ScopedExplanation {
 ///     text: "probably said ball".into()
 /// });
-///
-/// // Retracing
-/// let retracing = ScopedAnnotation::Retracing;
 /// ```
 #[derive(
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift,
 )]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum ScopedAnnotation {
+pub enum ContentAnnotation {
     /// Error marking (`[*]` or `[* code]`).
     ///
     /// Marks speech errors, grammatical mistakes, or phonological errors.
@@ -118,46 +115,6 @@ pub enum ScopedAnnotation {
     #[serde(rename = "overlap_end")]
     OverlapEnd(ScopedOverlapEnd),
 
-    /// Partial retracing (`[/]`).
-    ///
-    /// Marks partial word repetition or self-correction where the speaker repeats
-    /// part of what they just said.
-    ///
-    /// **Example:** `I want [/] I want cookie` (repeated "I want")
-    ///
-    /// See: [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)
-    PartialRetracing,
-
-    /// Full retracing (`[//]`).
-    ///
-    /// Marks full retracing where the speaker restarts an utterance.
-    ///
-    /// **Example:** `I want the [//] I want cookie` (restarted sentence)
-    ///
-    /// See: [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)
-    Retracing,
-
-    /// Multiple retracing (`[///]`).
-    ///
-    /// Marks multiple retracings or extensive self-correction.
-    ///
-    /// See: [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)
-    MultipleRetracing,
-
-    /// Reformulation (`[/-]`).
-    ///
-    /// Marks reformulation where the speaker restarts with different phrasing.
-    ///
-    /// See: [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)
-    Reformulation,
-
-    /// Uncertain retracing (`[/?]`).
-    ///
-    /// Marks uncertain retracing where it's unclear if repetition is intentional.
-    ///
-    /// See: [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)
-    UncertainRetracing,
-
     /// CA continuation marker (`[^c]`).
     ///
     /// Marks clause delimiter in Conversation Analysis, functions like a comma.
@@ -167,7 +124,7 @@ pub enum ScopedAnnotation {
     ///
     /// See: [CA Continuation](https://talkbank.org/0info/manuals/CHAT.html#CA_Continuation)
     #[serde(rename = "ca_continuation_marker")]
-    CaContinuationMarker,
+    CaContinuation,
 
     /// Scoped stressing marker (`[!]`).
     ///
@@ -176,7 +133,7 @@ pub enum ScopedAnnotation {
     /// **Example:** `that [!]` - emphatic stress
     ///
     /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    ScopedStressing,
+    Stressing,
 
     /// Scoped contrastive stressing (`[!!]`).
     ///
@@ -185,14 +142,14 @@ pub enum ScopedAnnotation {
     /// **Example:** `mine [!!]` - strong contrastive stress
     ///
     /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    ScopedContrastiveStressing,
+    ContrastiveStressing,
 
     /// Scoped best guess (`[!*]`).
     ///
     /// Marks best guess transcription with some uncertainty.
     ///
     /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    ScopedBestGuess,
+    BestGuess,
 
     /// Scoped uncertain (`[?]`).
     ///
@@ -201,7 +158,7 @@ pub enum ScopedAnnotation {
     /// **Example:** `doggie [?]` - uncertain transcription
     ///
     /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    ScopedUncertain,
+    Uncertain,
 
     /// Paralinguistic annotation (`[=! text]`).
     ///
@@ -244,7 +201,7 @@ pub enum ScopedAnnotation {
     /// Marks content to be excluded from analysis.
     ///
     /// See: [Excluded Material](https://talkbank.org/0info/manuals/CHAT.html#MorExclude_Scope)
-    ExcludeMarker,
+    Exclude,
 
     /// Unknown annotation (lenient parsing).
     ///
@@ -252,6 +209,7 @@ pub enum ScopedAnnotation {
     /// to accept all CHAT files while flagging unusual annotations for review.
     Unknown(ScopedUnknown),
 }
+
 
 /// Error marking data for `[*]` or `[* code]` annotations.
 ///

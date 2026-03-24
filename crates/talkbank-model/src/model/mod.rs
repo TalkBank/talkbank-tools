@@ -186,6 +186,8 @@ pub use content::{
     PhoGroup,
     Postcode,
     Quotation,
+    Retrace,
+    RetraceKind,
     Separator,
     SinGroup,
     Terminator,
@@ -211,7 +213,7 @@ pub use content::{
 // Re-export annotation types
 pub use annotation::{
     Annotated, OverlapMarkerIndex, ReplacedWord, Replacement, ScopedAddition, ScopedAlternative,
-    ScopedAnnotation, ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin,
+    ContentAnnotation, ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin,
     ScopedOverlapEnd, ScopedParalinguistic, ScopedPercentComment, ScopedUnknown,
 };
 

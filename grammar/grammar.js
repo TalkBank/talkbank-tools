@@ -223,6 +223,11 @@ export default grammar({
     inline_pic: $ => token(/\u0015%pic:"[a-zA-Z0-9][a-zA-Z0-9\/\-_'.]*"\u0015/), 
 
     // Text content with optional inline bullets AND picture references interspersed.
+    // LINT NOTE (2026-03-24): text_with_bullets_and_pics, text_with_bullets, free_text,
+    // and header_gap are all flagged as degenerate repeats because repeat1(choice(...))
+    // can produce minimal parses with subsets of their alternatives. This is intentional —
+    // these are text catch-all rules that must accept any combination of their parts.
+    //
     // Only @Comment and %com tiers support `%pic:` references; other tiers use
     // text_with_bullets (no pics). This distinction is enforced by rule choice, not validation.
     // Format: text [bullet|pic text]* or bullet|pic [text bullet|pic]*
@@ -346,6 +351,12 @@ export default grammar({
     // Example: "0action" → zero + standalone_word("action")
     // Higher precedence than natural_number (prec 2) to ensure '0' is lexed as zero, not natural_number.
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Omitted_Words
+    //
+    // LINT NOTE (2026-03-24): `zero` at prec(3) shadows `sin_word` regex and `speaker` regex
+    // at the DFA level. Both shadows are harmless:
+    //   - sin_word explicitly lists $.zero as an alternative, so the shadow is intentional
+    //   - speaker only appears after `*` in main_tier context; the parser rule structure
+    //     disambiguates (zero never competes with speaker at the same parse position)
     zero: $ => token(prec(3, '0')),
 
     // ============================================================================
@@ -899,6 +910,10 @@ export default grammar({
     // SOLUTION: Only allow standalone colons when FOLLOWED by whitespace or at end.
     // Flat repeat of content items. Ordering constraints (e.g., separators must be
     // whitespace-delimited) are enforced by Rust validation, not the grammar.
+    // LINT NOTE (2026-03-24): repeat1(choice(...)) is flagged as degenerate because
+    // it can produce minimal parses with only whitespaces+overlap_point (no words).
+    // This is intentional — CHAT allows bare overlap markers in content, and the
+    // grammar delegates ordering/completeness checks to Rust validation.
     contents: $ => repeat1(choice(
       $.whitespaces,
       $.content_item,
@@ -966,7 +981,11 @@ export default grammar({
     // Same prec(5) as standalone_word — tie-breaking by rule order prefers overlap_point
     // when standalone (space-separated). When adjacent to text, standalone_word wins by
     // maximal munch (longer match at same prec).
-    overlap_point: $ => token(prec(5, /[\u2308\u2309\u230A\u230B][2-9]?/)),
+    // Overlap markers: ⌈⌉⌊⌋ with optional digit suffix.
+    // Accepts [1-9] at the grammar level ("parse, don't validate").
+    // [0] excluded: ⌈0 is overlap_point + zero-word (action without speech).
+    // Validator rejects index 1 — valid CHAT range is 2–9 (E373).
+    overlap_point: $ => token(prec(5, /[\u2308\u2309\u230A\u230B][1-9]?/)),
 
     // Overlap precedes [<] or [<N] — atomic token
     // Handles: [<], [<1], [< ], [<2 ], etc.
@@ -1143,6 +1162,12 @@ export default grammar({
     // prec(6) beats nonword's prec(1), so 0word is ONE word.
     // Standalone 0 (no adjacent word_body) can only match nonword (extras:[] prevents
     // whitespace from being skipped between zero and word_body).
+    // LINT NOTE (2026-03-24): prec(6) here does not propagate to word_body's children
+    // (overlap_point, ca_element, ca_delimiter, etc.) through the word_body intermediate.
+    // This is harmless because those children use token(prec(10, ...)) for DFA-level
+    // disambiguation — they don't need rule-level prec inheritance from standalone_word.
+    // The prec(6) here is purely for rule-level disambiguation: standalone_word wins
+    // over nonword (prec 1) when zero is followed by word_body text (e.g., "0die").
     standalone_word: $ => prec.right(6, seq(
       optional(choice($.word_prefix, $.zero)),
       $.word_body,
@@ -1190,10 +1215,12 @@ export default grammar({
         choice($.word_segment, $.shortening, $.stress_marker),
         repeat(choice($.word_segment, $.shortening, $.stress_marker, $._word_marker)),
       ),
-      // Marker-initial: ⌈hello⌉, °hello° — structural marker MUST be followed
-      // by text content (prevents standalone markers from forming degenerate words)
+      // Marker-initial: ⌈hello⌉, °hello°, °↑hello°, °°hello°° — one or more
+      // structural markers MUST be followed by text content (prevents standalone
+      // markers from forming degenerate words). Multiple markers allow stacked CA
+      // notation: °↑ (piano + pitch up), °° (pianissimo), ⌈° (overlap + piano).
       seq(
-        choice($.overlap_point, $.ca_element, $.ca_delimiter, $.underline_begin),
+        repeat1(choice($.overlap_point, $.ca_element, $.ca_delimiter, $.underline_begin)),
         choice($.word_segment, $.shortening, $.stress_marker),
         repeat(choice($.word_segment, $.shortening, $.stress_marker, $._word_marker)),
       ),
@@ -1417,6 +1444,8 @@ export default grammar({
     // Single greedy token so that known string prefixes (token('%mor'), etc.)
     // win by tree-sitter's "string beats regex at same length" rule, and
     // x_dependent_tier wins by prec(1) > prec(0) at same length.
+    // LINT NOTE (2026-03-24): x_dependent_tier shadows unsupported_dependent_tier.
+    // Intentional — %xLABEL is more specific than %LABEL catch-all.
     unsupported_dependent_tier: $ => seq(
       alias(/%[a-zA-Z][a-zA-Z0-9]*/, $.unsupported_tier_prefix),
       $.tier_sep,
@@ -2064,6 +2093,10 @@ export default grammar({
     // commonly in utterance text and would cause widespread parse failures as keywords.
     // Combined format is a single token to beat generic_id_ses in length-based
     // lexer disambiguation.
+    // LINT NOTE (2026-03-24): ethnicity_value, ses_code_value, and ses_combined at
+    // prec(1) shadow generic_id_ses at prec(0). This is the intentional strict+catch-all
+    // pattern — known values get named nodes, unknown values fall to the generic catch-all
+    // and are flagged by the Rust validator (E546).
     id_ses: $ => choice(
       $.ses_combined,
       $.ses_code_value,

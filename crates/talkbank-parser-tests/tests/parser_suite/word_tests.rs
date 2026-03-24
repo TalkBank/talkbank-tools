@@ -5,7 +5,7 @@
 
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::WriteChat;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser_tests::GoldenBugs;
 use talkbank_parser_tests::golden::golden_words;
 use talkbank_parser_tests::test_error::TestError;
@@ -38,18 +38,18 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
         for word in &words {
             // Skip words with known bugs
             if bugs.should_skip(word) {
-                eprintln!("[{}] SKIP (known bug): {}", parser.parser_name(), word);
+                eprintln!("[{}] SKIP (known bug): {}", "tree-sitter", word);
                 continue;
             }
 
             // Parse the word
             let sink = ErrorCollector::new();
-            let parsed = ChatParser::parse_word(&parser, word, 0, &sink);
+            let parsed = parser.parse_word_fragment(word, 0, &sink);
 
             assert!(
                 sink.is_empty(),
                 "[{}] unexpected errors parsing `{}`: {:?}",
-                parser.parser_name(),
+                "tree-sitter",
                 word,
                 sink.to_vec()
             );
@@ -59,7 +59,7 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
                         "[{}] parser rejected word `{}` despite no sink errors",
-                        parser.parser_name(),
+                        "tree-sitter",
                         word
                     )));
                 }
@@ -72,7 +72,7 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
                 serialized,
                 *word,
                 "[{}] word roundtrip changed representation",
-                parser.parser_name()
+                "tree-sitter"
             );
         }
     }

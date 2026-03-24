@@ -1,14 +1,15 @@
 //! Overlap comma functionality for this subsystem.
 //!
 
-use talkbank_parser::parse_chat_file;
+use talkbank_parser::TreeSitterParser;
 
 /// Entry point for this binary target.
 fn main() {
     let input =
         "@UTF8\n@Begin\n*CHI:\t<a ⌈ top begin overlap , top end overlap ⌉ here> [= foo] .\n@End";
 
-    let chat_file = match parse_chat_file(input) {
+    let parser = TreeSitterParser::new().expect("grammar loads");
+    let chat_file = match parser.parse_chat_file(input) {
         Ok(file) => file,
         Err(errors) => {
             println!("Parse errors: {}", errors.errors.len());

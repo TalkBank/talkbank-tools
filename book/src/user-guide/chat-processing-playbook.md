@@ -1,5 +1,8 @@
 # CHAT Processing Playbook for Editors and Analysts
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Objective
 Provide practical guidance for non-compiler users who create, edit, and validate CHAT files,
 with emphasis on error interpretation and correction workflow.

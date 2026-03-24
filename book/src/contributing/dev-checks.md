@@ -1,5 +1,8 @@
 # Developer Verification Checks
 
+**Status:** Current
+**Last updated:** 2026-03-23 23:49 EDT
+
 This page defines the canonical local verification gates that must pass before opening or merging a PR.
 
 ## Canonical Command
@@ -16,7 +19,7 @@ This runs 11 gates (G0–G10). See [Testing > Verification Gates](testing.md#ver
 - **G2** Spec tools compile check
 - **G4** Generated parser corpus equivalence suite
 - **G5** Word-level parser equivalence suite
-- **G7** Reference corpus semantic equivalence (tree-sitter vs direct)
+- **G7** Reference corpus semantic equivalence
 - **G9** Golden tier roundtrip (%mor, %gra, %pho, %wor)
 - **G10** Reference corpus node coverage
 
@@ -31,14 +34,12 @@ Run these in addition to `make verify` when touching parser/model code:
 
 1. `cargo fmt` from repo root (use `cargo fmt`, not direct `rustfmt`).
 2. `cargo test -p talkbank-parser --test test_parse_health_recovery`.
-3. `cargo test -p talkbank-direct-parser --test test_parse_health_recovery`.
-4. `cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files`.
+3. `cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files`.
 
 These protect against regressions in:
 - parser recovery without sentinel fabrication
 - parse-health taint propagation
-- cross-parser semantic equivalence
-- direct-parser-native fragment semantics
+- parser semantic equivalence
 
 ## Failure Policy
 - If any gate fails, do not merge.
@@ -49,8 +50,7 @@ These protect against regressions in:
 Use narrower loops while iterating, then run `make verify` before final review:
 
 ```bash
-cargo test -p talkbank-direct-parser --lib
-make test-fragment-semantics
+cargo test -p talkbank-parser --lib
 ```
 
 For grammar-only edits, prefer the smallest relevant loop first:

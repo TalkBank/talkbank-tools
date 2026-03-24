@@ -226,6 +226,9 @@ fn walk_content_visiting(
             UtteranceContent::SinGroup(g) => {
                 walk_bracketed_visiting(&g.content.content.0, word_count, visitor);
             }
+            UtteranceContent::Retrace(retrace) => {
+                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor);
+            }
             UtteranceContent::AnnotatedEvent(_)
             | UtteranceContent::Event(_)
             | UtteranceContent::Pause(_)
@@ -282,6 +285,9 @@ fn walk_bracketed_visiting(
             }
             BracketedItem::Quotation(q) => {
                 walk_bracketed_visiting(&q.content.content.0, word_count, visitor);
+            }
+            BracketedItem::Retrace(retrace) => {
+                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor);
             }
             BracketedItem::Event(_)
             | BracketedItem::AnnotatedEvent(_)
@@ -483,6 +489,9 @@ fn walk_content(
             UtteranceContent::SinGroup(g) => {
                 walk_bracketed(&g.content.content.0, word_count, markers);
             }
+            UtteranceContent::Retrace(retrace) => {
+                walk_bracketed(&retrace.content.content.0, word_count, markers);
+            }
             UtteranceContent::AnnotatedEvent(_)
             | UtteranceContent::Event(_)
             | UtteranceContent::Pause(_)
@@ -536,6 +545,9 @@ fn walk_bracketed(
             }
             BracketedItem::Quotation(q) => {
                 walk_bracketed(&q.content.content.0, word_count, markers);
+            }
+            BracketedItem::Retrace(retrace) => {
+                walk_bracketed(&retrace.content.content.0, word_count, markers);
             }
             BracketedItem::Event(_)
             | BracketedItem::AnnotatedEvent(_)

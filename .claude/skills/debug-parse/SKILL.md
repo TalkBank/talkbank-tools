@@ -133,11 +133,10 @@ grep -rn "<ERROR_CODE>" $REPO_ROOT/crates/talkbank-model/src/validation/
 |---------|------|
 | Error codes (all ~100+) | `crates/talkbank-model/src/errors/codes/error_code.rs` |
 | Validation trait impls | `crates/talkbank-model/src/validation/` |
-| Tree-sitter parser | `crates/talkbank-parser/src/lib.rs` |
-| Direct parser | `crates/talkbank-direct-parser/src/` |
+| Parser (tree-sitter) | `crates/talkbank-parser/src/lib.rs` |
 | Parser equivalence tests | `crates/talkbank-parser-tests/tests/parser_equivalence_files.rs` |
 | Error specs | `spec/errors/` |
 | Legacy error corpus | `tests/error_corpus/` |
 | Expectations manifest | `tests/error_corpus/expectations.json` |
-| Reference corpus (sacred) | `corpus/reference/` (74 files, 100% pass required) |
+| Reference corpus (sacred) | `corpus/reference/` (78 files, 100% pass required) |
 | Pipeline orchestration | `crates/talkbank-transform/src/pipeline/` |

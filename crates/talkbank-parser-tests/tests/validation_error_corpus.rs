@@ -20,7 +20,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use talkbank_model::ErrorCollector;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
@@ -104,7 +104,7 @@ Testing {} validation error files...\n",
 
         // Parse with streaming diagnostics so recovered parser errors are visible.
         let parse_errors = ErrorCollector::new();
-        let parse_result = ChatParser::parse_chat_file(&parser, &content, 0, &parse_errors);
+        let parse_result = parser.parse_chat_file_fragment(&content, 0, &parse_errors);
         let parse_codes: Vec<String> = parse_errors
             .to_vec()
             .iter()

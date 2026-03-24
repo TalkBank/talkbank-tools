@@ -1,5 +1,8 @@
 # Word Syntax
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 Words are the primary content unit on the main tier. CHAT defines several word types and annotation mechanisms.
 
 ## Standalone Words

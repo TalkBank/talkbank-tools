@@ -1,15 +1,15 @@
 # Spec System
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 Specifications in `spec/` are the authoritative source of truth for the CHAT format. They drive grammar artifact generation, validation/error docs, and targeted test generation.
 
-**Important:** this system was shaped during the direct-parser bootstrap era.
-That history matters. Fragment specs are still valuable, but synthetic
-tree-sitter wrapper behavior should no longer be treated as the semantic oracle
-for fragment parsing. That behavior is now audit-only legacy unless a page or
+**Historical note:** This system was originally shaped during the dual-parser
+era (tree-sitter + Chumsky). The Chumsky direct parser was removed in March
+2026; tree-sitter is now the sole parser. Fragment specs remain valuable, but
+synthetic tree-sitter wrapper behavior is audit-only legacy unless a page or
 test explicitly says otherwise.
-
-For the target long-term shape, see
-[Post-Bootstrap Parser Testing](post-bootstrap-parser-testing.md).
 
 ## Spec Types
 
@@ -103,16 +103,13 @@ For error specs, it captures the actual parse (with ERROR nodes) as the expected
 
 `gen_rust_tests` generates Rust test functions:
 - Construct specs become parse-and-compare tests
-- Parser-layer error specs become `parse_chat_file` tests expecting `Err`
+- Parser-layer error specs become `parser.parse_chat_file()` tests expecting `Err`
 - Validation-layer error specs become parse-then-validate tests
 
 Output: `crates/talkbank-parser-tests/tests/generated/`
 
-This is one of the main post-bootstrap reassessment points. It was useful when
-the direct parser was being compared against an existing baseline, but it is too
-coarse as the long-term semantic testing story for direct-parser fragment
-behavior. The generated suites should now be treated as grammar/audit support,
-not the sole authority for fragment semantics.
+The generated suites are useful as grammar/audit support and regression
+coverage, but they are not the sole authority for parser semantics.
 
 ### 3. Error Documentation
 
@@ -132,11 +129,8 @@ Never hand-edit generated artifacts — always regenerate from specs.
 
 - `spec/tools` remains the generator/validator for grammar corpus tests, error
   docs, and shared symbol artifacts.
-- `talkbank-parser-tests` and `talkbank-direct-parser` own fragment semantics
-  and recovery contracts.
-- Synthetic tree-sitter fragment helpers are audit-only legacy unless a test
-  explicitly calls out compatibility or migration behavior.
-- Isolated grammar additions should usually need three things: one grammar
-  corpus example, one direct-parser-native fragment test, and one full-file
-  fixture. They should not require the old bootstrap ritual unless generated
+- `talkbank-parser-tests` owns parser equivalence and roundtrip contracts.
+- Isolated grammar additions should usually need two things: one grammar
+  corpus example and one full-file fixture. They should not require
+  the old bootstrap ritual unless generated
   artifacts really changed.

@@ -1,13 +1,14 @@
 # Parser, Model, and API Contracts
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 ## Current Strength
-`talkbank-model` (in its `parser_api` module) already defines a broad `ChatParser` trait for multiple parse granularities.
-This is a strong foundation.
+`talkbank-parser` provides `TreeSitterParser` as the sole API handle for all parsing — full-file and fragment methods live directly on the struct. Callers create one instance and pass `&TreeSitterParser` everywhere.
 
 ## Current Gaps
 1. Result and error behavior can vary by callsite.
-2. Canonical vs fragment/parser-role boundaries are documented but not always enforced structurally.
-3. Integrator contract guarantees are not centralized in a strict compatibility policy document.
+2. Integrator contract guarantees are not centralized in a strict compatibility policy document.
 
 ## Batchalign3-Facing Contract
 
@@ -47,11 +48,11 @@ their own validity decisions.
 - `Diagnostic`
   - `code`, `severity`, `category`, `message`, `location`, `context`, `suggestion`
 
-## Parser Role Enforcement
-- `talkbank-parser`: production default for CLI/LSP/API.
-- `talkbank-direct-parser`: explicit fragment and alternate full-file parser with
-  its own documented recovery/leniency contract.
-- CLI must surface parser selection as an advanced/debug option, not a default user burden.
+## Parser Role
+- `talkbank-parser`: the sole parser, used by CLI/LSP/API/batchalign3. `TreeSitterParser` is the only API handle — callers create one and pass `&TreeSitterParser` everywhere.
+- Tree-sitter GLR provides error recovery; the Rust traversal code converts CST to typed model.
+- Full-file methods: `parser.parse_chat_file()`, `parser.parse_chat_file_streaming()`.
+- Fragment methods: `parser.parse_word_fragment()`, `parser.parse_main_tier_fragment()`, etc.
 
 ## Invariants
 1. Parsing with offset must shift all spans consistently.

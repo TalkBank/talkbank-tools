@@ -1,5 +1,8 @@
 # Grammar System and Token Governance
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Current Reality
 `grammar/grammar.js` encodes substantial implicit language knowledge directly in regex exclusions,
 reserved symbol lists, and leniency decisions. Example areas:

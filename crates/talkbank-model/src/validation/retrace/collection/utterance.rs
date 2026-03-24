@@ -5,7 +5,6 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 
-use super::super::detection::is_retrace_annotation;
 use super::super::types::{LeafKind, RetraceCheck};
 use super::bracketed;
 use crate::model::UtteranceContent;
@@ -22,33 +21,15 @@ pub fn collect_utterance_content(
 ) {
     match item {
         UtteranceContent::Word(_) => leaf_kinds.push(LeafKind::RealContent),
-        UtteranceContent::AnnotatedWord(ann) => {
+        UtteranceContent::AnnotatedWord(_) => {
             leaf_kinds.push(LeafKind::RealContent);
-            record_retrace_annotations(
-                ann.scoped_annotations.iter(),
-                leaf_kinds.len(),
-                retrace_checks,
-                retrace_index,
-            );
         }
-        UtteranceContent::ReplacedWord(rw) => {
+        UtteranceContent::ReplacedWord(_) => {
             leaf_kinds.push(LeafKind::RealContent);
-            record_retrace_annotations(
-                rw.scoped_annotations.iter(),
-                leaf_kinds.len(),
-                retrace_checks,
-                retrace_index,
-            );
         }
         UtteranceContent::Event(_) => leaf_kinds.push(LeafKind::RealContent),
-        UtteranceContent::AnnotatedEvent(ann) => {
+        UtteranceContent::AnnotatedEvent(_) => {
             leaf_kinds.push(LeafKind::RealContent);
-            record_retrace_annotations(
-                ann.scoped_annotations.iter(),
-                leaf_kinds.len(),
-                retrace_checks,
-                retrace_index,
-            );
         }
         UtteranceContent::Pause(_) => leaf_kinds.push(LeafKind::RealContent),
         UtteranceContent::OtherSpokenEvent(_) => leaf_kinds.push(LeafKind::RealContent),
@@ -64,12 +45,6 @@ pub fn collect_utterance_content(
             bracketed::collect_bracketed_content(
                 &ann.inner.content,
                 leaf_kinds,
-                retrace_checks,
-                retrace_index,
-            );
-            record_retrace_annotations(
-                ann.scoped_annotations.iter(),
-                leaf_kinds.len(),
                 retrace_checks,
                 retrace_index,
             );
@@ -98,6 +73,20 @@ pub fn collect_utterance_content(
                 retrace_index,
             );
         }
+        UtteranceContent::Retrace(retrace) => {
+            bracketed::collect_bracketed_content(
+                &retrace.content,
+                leaf_kinds,
+                retrace_checks,
+                retrace_index,
+            );
+            // Record retrace check at the content variant level
+            retrace_checks.push(RetraceCheck {
+                retrace_index: *retrace_index,
+                after_leaf_index: leaf_kinds.len(),
+            });
+            *retrace_index += 1;
+        }
         UtteranceContent::Separator(_)
         | UtteranceContent::OverlapPoint(_)
         | UtteranceContent::InternalBullet(_)
@@ -115,23 +104,3 @@ pub fn collect_utterance_content(
     }
 }
 
-/// Record retrace annotations attached to one utterance-level item.
-///
-/// Each recorded checkpoint references the current logical leaf index so later
-/// validators can test whether substantive content follows the retrace marker.
-fn record_retrace_annotations<'a>(
-    annotations: impl IntoIterator<Item = &'a crate::model::ScopedAnnotation>,
-    after_leaf_index: usize,
-    retrace_checks: &mut Vec<RetraceCheck>,
-    retrace_index: &mut usize,
-) {
-    for ann in annotations {
-        if is_retrace_annotation(ann) {
-            retrace_checks.push(RetraceCheck {
-                retrace_index: *retrace_index,
-                after_leaf_index,
-            });
-            *retrace_index += 1;
-        }
-    }
-}

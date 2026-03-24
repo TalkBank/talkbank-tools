@@ -15,6 +15,5 @@ pub use error::PipelineError;
 pub use io::parse_file_and_validate;
 pub use parse::{
     parse_and_validate, parse_and_validate_streaming, parse_and_validate_streaming_with_parser,
-    parse_and_validate_streaming_with_parser_generic, parse_and_validate_with_parser,
-    parse_and_validate_with_parser_generic,
+    parse_and_validate_with_parser,
 };

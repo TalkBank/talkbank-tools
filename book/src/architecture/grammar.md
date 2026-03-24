@@ -1,5 +1,8 @@
 # Grammar
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 The CHAT grammar is defined in `grammar/grammar.js` using the [tree-sitter](https://tree-sitter.github.io/) parser generator. It produces a GLR parser that handles the full CHAT format with error recovery.
 
 ## Design Principles
@@ -64,7 +67,7 @@ After any change to `grammar.js`:
 2. `tree-sitter test` (160 tests)
 3. `cargo test -p talkbank-parser`
 4. `cargo nextest run -p talkbank-parser-tests` (reference corpus equivalence, per-file)
-5. Verify the 74-file reference corpus passes at 100%
+5. Verify the 78-file reference corpus passes at 100%
 
 ## Conflict Resolution
 

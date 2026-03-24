@@ -3,244 +3,175 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "tur"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "tur"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": "ME",
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "9;11.",
-        "corpus": "Turkish-Aksu",
+        "type": "id",
         "language": [
           "tur"
         ],
-        "role": "Target_Child",
+        "corpus": "Turkish-Aksu",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "9;11.",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Turkish child frog story narrative",
-              "type": "text"
+              "type": "text",
+              "text": "Turkish child frog story narrative"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: Turkish language coverage, Latin script",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "features": [
-                    "Nom"
-                  ],
-                  "lemma": "cocuk",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Def"
-                  ],
-                  "lemma": "bir",
-                  "pos": "det"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Nom"
-                  ],
-                  "lemma": "kurbaga",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Inf",
-                    "Prog",
-                    "Ind",
-                    "Pres",
-                    "Pos",
-                    "Infm",
-                    "S3"
-                  ],
-                  "lemma": "yakal",
-                  "pos": "verb"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 4,
-                "index": 1,
-                "relation": "NSUBJ"
-              },
-              {
-                "head": 3,
-                "index": 2,
-                "relation": "DET"
-              },
-              {
-                "head": 4,
-                "index": 3,
-                "relation": "OBJ"
-              },
-              {
-                "head": 0,
-                "index": 4,
-                "relation": "ROOT"
-              },
-              {
-                "head": 4,
-                "index": 5,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: Turkish language coverage, Latin script"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "cocuk",
               "cleaned_text": "cocuk",
               "content": [
                 {
-                  "content": "cocuk",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cocuk"
                 }
-              ],
-              "raw_text": "cocuk",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "bir",
               "cleaned_text": "bir",
               "content": [
                 {
-                  "content": "bir",
-                  "type": "text"
+                  "type": "text",
+                  "content": "bir"
                 }
-              ],
-              "raw_text": "bir",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "kurbaga",
               "cleaned_text": "kurbaga",
               "content": [
                 {
-                  "content": "kurbaga",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kurbaga"
                 }
-              ],
-              "raw_text": "kurbaga",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "yakaliyor",
               "cleaned_text": "yakaliyor",
               "content": [
                 {
-                  "content": "yakaliyor",
-                  "type": "text"
+                  "type": "text",
+                  "content": "yakaliyor"
                 }
-              ],
-              "raw_text": "yakaliyor",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "cocuk",
                   "features": [
                     "Nom"
-                  ],
-                  "lemma": "kurbaga",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "bir",
+                  "features": [
+                    "Def"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "kurbaga",
+                  "features": [
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "yakal",
                   "features": [
                     "Inf",
                     "Prog",
@@ -249,353 +180,344 @@ expression: snapshot
                     "Pos",
                     "Infm",
                     "S3"
-                  ],
-                  "lemma": "kac",
-                  "pos": "verb"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 4,
                 "relation": "NSUBJ"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 3,
+                "relation": "DET"
+              },
+              {
+                "index": 3,
+                "head": 4,
+                "relation": "OBJ"
+              },
+              {
+                "index": 4,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 2,
-                "index": 3,
+                "index": 5,
+                "head": 4,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "kurbaga",
               "cleaned_text": "kurbaga",
               "content": [
                 {
-                  "content": "kurbaga",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kurbaga"
                 }
-              ],
-              "raw_text": "kurbaga",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "kaciyor",
               "cleaned_text": "kaciyor",
               "content": [
                 {
-                  "content": "kaciyor",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kaciyor"
                 }
-              ],
-              "raw_text": "kaciyor",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "kurbaga",
                   "features": [
                     "Nom"
-                  ],
-                  "lemma": "cocuk",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "kac",
                   "features": [
-                    "Nom"
-                  ],
-                  "lemma": "sabah",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
-                  "lemma": "kalkinca",
-                  "pos": "adv"
+                    "Inf",
+                    "Prog",
+                    "Ind",
+                    "Pres",
+                    "Pos",
+                    "Infm",
+                    "S3"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 3,
                 "index": 1,
+                "head": 2,
                 "relation": "NSUBJ"
               },
               {
-                "head": 3,
                 "index": 2,
-                "relation": "NMOD"
-              },
-              {
                 "head": 0,
-                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "head": 3,
-                "index": 4,
+                "index": 3,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "cocuk",
               "cleaned_text": "cocuk",
               "content": [
                 {
-                  "content": "cocuk",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cocuk"
                 }
-              ],
-              "raw_text": "cocuk",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "sabah",
               "cleaned_text": "sabah",
               "content": [
                 {
-                  "content": "sabah",
-                  "type": "text"
+                  "type": "text",
+                  "content": "sabah"
                 }
-              ],
-              "raw_text": "sabah",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "kalkinca",
               "cleaned_text": "kalkinca",
               "content": [
                 {
-                  "content": "kalkinca",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kalkinca"
                 }
-              ],
-              "raw_text": "kalkinca",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "features": [
-                    "S1"
-                  ],
-                  "lemma": "cesitli",
-                  "pos": "adj"
-                }
-              },
-              {
-                "main": {
-                  "features": [
-                    "Plur",
-                    "Acc"
-                  ],
-                  "lemma": "hayvan",
-                  "pos": "noun"
-                }
-              },
-              {
-                "main": {
+                  "pos": "noun",
+                  "lemma": "cocuk",
                   "features": [
                     "Nom"
-                  ],
-                  "lemma": "kurbaga",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "sabah",
                   "features": [
-                    "Inf",
-                    "Prog",
-                    "Ind",
-                    "Pres",
-                    "Pos",
-                    "Infm",
-                    "S3"
-                  ],
-                  "lemma": "zannet",
-                  "pos": "verb"
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "adv",
+                  "lemma": "kalkinca"
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
-                "relation": "AMOD"
+                "head": 3,
+                "relation": "NSUBJ"
               },
               {
-                "head": 4,
                 "index": 2,
-                "relation": "OBJ"
+                "head": 3,
+                "relation": "NMOD"
               },
               {
-                "head": 4,
                 "index": 3,
-                "relation": "OBJ"
-              },
-              {
                 "head": 0,
-                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "head": 4,
-                "index": 5,
+                "index": 4,
+                "head": 3,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "cesitli",
               "cleaned_text": "cesitli",
               "content": [
                 {
-                  "content": "cesitli",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cesitli"
                 }
-              ],
-              "raw_text": "cesitli",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "hayvanlari",
               "cleaned_text": "hayvanlari",
               "content": [
                 {
-                  "content": "hayvanlari",
-                  "type": "text"
+                  "type": "text",
+                  "content": "hayvanlari"
                 }
-              ],
-              "raw_text": "hayvanlari",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "kurbaga",
               "cleaned_text": "kurbaga",
               "content": [
                 {
-                  "content": "kurbaga",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kurbaga"
                 }
-              ],
-              "raw_text": "kurbaga",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "zannediyor",
               "cleaned_text": "zannediyor",
               "content": [
                 {
-                  "content": "zannediyor",
-                  "type": "text"
+                  "type": "text",
+                  "content": "zannediyor"
                 }
-              ],
-              "raw_text": "zannediyor",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "adj",
+                  "lemma": "cesitli",
                   "features": [
-                    "Loc"
-                  ],
-                  "lemma": "su",
-                  "pos": "noun"
+                    "S1"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "hayvan",
                   "features": [
+                    "Plur",
                     "Acc"
-                  ],
-                  "lemma": "kurbaga",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "kurbaga",
+                  "features": [
+                    "Nom"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "zannet",
                   "features": [
                     "Inf",
                     "Prog",
@@ -604,114 +526,192 @@ expression: snapshot
                     "Pos",
                     "Infm",
                     "S3"
-                  ],
-                  "lemma": "bul",
-                  "pos": "verb"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 3,
                 "index": 1,
-                "relation": "OBL"
+                "head": 2,
+                "relation": "AMOD"
               },
               {
-                "head": 3,
                 "index": 2,
+                "head": 4,
                 "relation": "OBJ"
               },
               {
-                "head": 0,
                 "index": 3,
+                "head": 4,
+                "relation": "OBJ"
+              },
+              {
+                "index": 4,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 3,
-                "index": 4,
+                "index": 5,
+                "head": 4,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "suda",
               "cleaned_text": "suda",
               "content": [
                 {
-                  "content": "suda",
-                  "type": "text"
+                  "type": "text",
+                  "content": "suda"
                 }
-              ],
-              "raw_text": "suda",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "kurbagayi",
               "cleaned_text": "kurbagayi",
               "content": [
                 {
-                  "content": "kurbagayi",
-                  "type": "text"
+                  "type": "text",
+                  "content": "kurbagayi"
                 }
-              ],
-              "raw_text": "kurbagayi",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "buluyor",
               "cleaned_text": "buluyor",
               "content": [
                 {
-                  "content": "buluyor",
-                  "type": "text"
+                  "type": "text",
+                  "content": "buluyor"
                 }
-              ],
-              "raw_text": "buluyor",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "su",
+                  "features": [
+                    "Loc"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "noun",
+                  "lemma": "kurbaga",
+                  "features": [
+                    "Acc"
+                  ]
+                }
+              },
+              {
+                "main": {
+                  "pos": "verb",
+                  "lemma": "bul",
+                  "features": [
+                    "Inf",
+                    "Prog",
+                    "Ind",
+                    "Pres",
+                    "Pos",
+                    "Infm",
+                    "S3"
+                  ]
+                }
+              }
+            ],
+            "terminator": "."
+          }
         },
-        "speaker": "CHI"
-      }
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 3,
+                "relation": "OBL"
+              },
+              {
+                "index": 2,
+                "head": 3,
+                "relation": "OBJ"
+              },
+              {
+                "index": 3,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 4,
+                "head": 3,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": "ME",
+      "role": "Target_Child",
       "id": {
-        "age": "9;11.",
-        "corpus": "Turkish-Aksu",
         "language": [
           "tur"
         ],
-        "role": "Target_Child",
-        "speaker": "CHI"
+        "corpus": "Turkish-Aksu",
+        "speaker": "CHI",
+        "age": "9;11.",
+        "role": "Target_Child"
       },
-      "name": "ME",
-      "role": "Target_Child"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "tur"
+  ],
+  "options": []
 }

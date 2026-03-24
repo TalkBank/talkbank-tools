@@ -14,14 +14,13 @@
 
 use proptest::prelude::*;
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::ChatParser;
 use talkbank_model::model::Word;
 use talkbank_model::{ErrorCollector, ErrorSink, ParseResult};
 use talkbank_parser_tests::test_error::TestError;
 
 /// Thin wrapper around TreeSitterParser that exposes the parse_word API
 /// used by property test modules.
-pub(crate) struct Parser(TreeSitterParser);
+pub(crate) struct Parser(pub(crate) TreeSitterParser);
 
 impl Parser {
     /// Short backend label for proptest assertion context.
@@ -31,7 +30,7 @@ impl Parser {
 
     /// Parse a word using the ErrorSink API.
     pub fn parse_word_streaming(&self, input: &str, errors: &impl ErrorSink) -> Option<Word> {
-        ChatParser::parse_word(&self.0, input, 0, errors).into()
+        self.0.parse_word_fragment(input, 0, errors).into()
     }
 
     /// Parse a word using the legacy ParseResult API (for compatibility with existing tests).

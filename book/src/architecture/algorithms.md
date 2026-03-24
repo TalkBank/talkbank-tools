@@ -1,5 +1,8 @@
 # Algorithms and Data Structures
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 This chapter documents the key algorithms and data structure decisions across
 the TalkBank Rust crates.
 
@@ -81,15 +84,17 @@ flowchart LR
 - **Strict + catch-all pattern:** Known header values get named grammar rules
   (syntax highlighting); unknown values hit a catch-all (flagged by validator)
 
-### Direct Parser (Chumsky)
+### Fragment Parsing
 
-Combinator-based parsers for CHAT fragments in isolation (no full file context):
+`TreeSitterParser` provides fragment methods for parsing individual CHAT
+fragments (a word, a tier line) directly. Methods like
+`parser.parse_word_fragment()`, `parser.parse_main_tier_fragment()`, etc.
+are used when synthesizing CHAT from non-CHAT sources (ASR output, UD
+annotations).
 
-- `parse_word()` — single CHAT word with annotations
-- `parse_mor_tier()` — %mor tier line
-- `parse_pho_tier()`, `parse_gra_tier()` — other dependent tiers
-
-Used when synthesizing CHAT from non-CHAT sources (ASR output, UD annotations).
+> **Historical note:** A Chumsky-based direct parser previously provided
+> combinator-based fragment parsing. It was removed in March 2026; tree-sitter
+> is now the sole parser.
 
 ## Sequence Alignment
 

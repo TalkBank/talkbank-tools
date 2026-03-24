@@ -1,5 +1,8 @@
 # Branch Protection and Required CI Checks
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 This page defines the required status checks and protection policy for `main`.
 
 ## Branch Protection Policy

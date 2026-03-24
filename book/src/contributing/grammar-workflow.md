@@ -1,5 +1,8 @@
 # Grammar Workflow
 
+**Status:** Current
+**Last updated:** 2026-03-23 23:49 EDT
+
 The tree-sitter grammar at `grammar/grammar.js` is the formal definition of the CHAT format. Changes require careful validation.
 
 The following diagram shows the complete regeneration pipeline. Every
@@ -11,7 +14,7 @@ flowchart TD
     generate["tree-sitter generate\n→ src/parser.c\n→ src/node-types.json"]
     grammar_test["tree-sitter test\n(160 corpus tests)"]
     rust_test["cargo test -p talkbank-parser\n(CST-to-model conversion)"]
-    equiv["parser equivalence\n(74 reference corpus files,\ntree-sitter vs direct)"]
+    equiv["parser equivalence\n(74 reference corpus files)"]
     spec_check{"Grammar change\naffects spec examples?"}
     test_gen["make test-gen\n→ grammar/test/corpus/\n→ parser-tests/tests/generated/\n→ docs/errors/"]
     commit(["Commit"])
@@ -62,7 +65,7 @@ This verifies the Rust parser wrapper handles all CST nodes correctly.
 cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
 ```
 
-Both parsers must agree on every file in the reference corpus. Each `.cha` file is its own test — nextest runs them in parallel and reports individual failures. If the grammar change affects parsing output, the direct parser may need corresponding updates.
+Every file in the reference corpus must parse correctly. Each `.cha` file is its own test — nextest runs them in parallel and reports individual failures.
 
 ### 6. Regenerate Spec Tests
 
@@ -75,8 +78,7 @@ make test-gen
 This regenerates tree-sitter corpus tests and other generated outputs that
 still depend on the spec pipeline.
 
-Do this when the grammar change actually affects generated artifacts. Do not use
-`make test-gen` as a blanket replacement for direct parser semantic testing.
+Do this when the grammar change actually affects generated artifacts.
 
 ### 7. Update node_types.rs
 
@@ -86,11 +88,6 @@ If new node types were added to the grammar, the generated `node_types.rs` in `t
 
 The reference corpus at `corpus/reference/` (74 files) must pass parser equivalence at 100%. If a grammar change breaks even one file, revert immediately. The reference corpus is the ultimate arbiter of correctness.
 
-That rule does not mean every parser-semantic change should be proved by the
-same corpus. When the direct parser grows a new isolated recovery or leniency
-contract, add direct-parser-native tests for that contract first, then use the
-reference corpus only to catch real full-file regressions.
-
 ## Common Patterns
 
 ### Adding a New Token
@@ -98,15 +95,12 @@ reference corpus only to catch real full-file regressions.
 1. Define the token in `grammar.js`
 2. Add handling in the Rust tier parser (match on the new node kind)
 3. Add a spec construct example
-4. Add direct-parser-native tests if the new syntax affects fragment semantics
-   or recovery
-5. Run the relevant generation and verification steps
+4. Run the relevant generation and verification steps
 
 For small, isolated syntax additions, the grammar workflow should stay local:
 
 - one grammar change
 - one grammar corpus example
-- one direct-parser-native fragment/recovery test
 - one full-file fixture if needed
 
 ### Changing a Rule
@@ -115,8 +109,4 @@ For small, isolated syntax additions, the grammar workflow should stay local:
 2. `tree-sitter generate && tree-sitter test`
 3. Update Rust parser if CST node structure changed
 4. Update spec examples if the expected CST changed
-5. Add or update direct-parser semantic tests if fragment behavior changed
-6. Run full verification
-
-Do not treat `tree-sitter test` plus `make test-gen` as a substitute for the
-direct parser's own semantic contract.
+5. Run full verification

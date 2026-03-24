@@ -3,1089 +3,1092 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "spa",
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "spa",
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child",
-            "speaker_code": "CHI"
+            "role": "Target_Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "2;08.20",
-        "corpus": "Perez",
+        "type": "id",
         "language": [
           "spa",
           "eng"
         ],
-        "role": "Target_Child",
+        "corpus": "Perez",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "2;08.20",
+        "role": "Target_Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "Perez",
+        "type": "id",
         "language": [
           "spa",
           "eng"
         ],
-        "role": "Mother",
-        "sex": "female",
+        "corpus": "Perez",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "sex": "female",
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Spanish-English bilingual mother-child interaction",
-              "type": "text"
+              "type": "text",
+              "text": "Spanish-English bilingual mother-child interaction"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "header": {
-        "content": {
-          "segments": [
-            {
-              "text": "Constructs: Spanish language coverage, code-switching",
-              "type": "text"
-            }
-          ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
-    },
-    {
-      "dependent_tiers": [
-        {
-          "data": {
-            "items": [
-              {
-                "main": {
-                  "lemma": "María",
-                  "pos": "propn"
-                }
-              }
-            ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
-        },
-        {
-          "data": {
-            "relations": [
-              {
-                "head": 0,
-                "index": 1,
-                "relation": "ROOT"
-              },
-              {
-                "head": 1,
-                "index": 2,
-                "relation": "PUNCT"
-              }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
         }
-      ],
+      }
+    },
+    {
+      "line_type": "header",
+      "header": {
+        "type": "comment",
+        "content": {
+          "segments": [
+            {
+              "type": "text",
+              "text": "Constructs: Spanish language coverage, code-switching"
+            }
+          ]
+        }
+      }
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "María",
               "cleaned_text": "María",
               "content": [
                 {
-                  "content": "María",
-                  "type": "text"
+                  "type": "text",
+                  "content": "María"
                 }
-              ],
-              "raw_text": "María",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "propn",
+                  "lemma": "María"
+                }
+              }
+            ],
+            "terminator": "."
+          }
+        },
+        {
+          "type": "Gra",
+          "data": {
+            "tier_type": "Gra",
+            "relations": [
+              {
+                "index": 1,
+                "head": 0,
+                "relation": "ROOT"
+              },
+              {
+                "index": 2,
+                "head": 1,
+                "relation": "PUNCT"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "CHI",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "yo",
+              "cleaned_text": "yo",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "yo"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "tengo",
+              "cleaned_text": "tengo",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "tengo"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "un",
+              "cleaned_text": "un",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "un"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "regalo",
+              "cleaned_text": "regalo",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "regalo"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "para",
+              "cleaned_text": "para",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "para"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "ti",
+              "cleaned_text": "ti",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "ti"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "Mor",
+          "data": {
+            "tier_type": "Mor",
+            "items": [
+              {
+                "main": {
+                  "pos": "pron",
+                  "lemma": "yo",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ],
-                  "lemma": "yo",
-                  "pos": "pron"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "tener",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S1"
-                  ],
-                  "lemma": "tener",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "uno",
                   "features": [
                     "Masc",
                     "Ind",
                     "Art",
                     "Sing"
-                  ],
-                  "lemma": "uno",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "regalo",
                   "features": [
                     "Masc",
                     "Acc"
-                  ],
-                  "lemma": "regalo",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "para",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "para"
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "tú",
                   "features": [
                     "Prs",
                     "Acc",
                     "S1"
-                  ],
-                  "lemma": "tú",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "NSUBJ"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 4,
                 "index": 3,
+                "head": 4,
                 "relation": "DET"
               },
               {
-                "head": 2,
                 "index": 4,
+                "head": 2,
                 "relation": "OBJ"
               },
               {
-                "head": 6,
                 "index": 5,
+                "head": 6,
                 "relation": "CASE"
               },
               {
-                "head": 4,
                 "index": 6,
+                "head": 4,
                 "relation": "NMOD"
               },
               {
-                "head": 2,
                 "index": 7,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "yo",
               "cleaned_text": "yo",
               "content": [
                 {
-                  "content": "yo",
-                  "type": "text"
+                  "type": "text",
+                  "content": "yo"
                 }
-              ],
-              "raw_text": "yo",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "tengo",
               "cleaned_text": "tengo",
               "content": [
                 {
-                  "content": "tengo",
-                  "type": "text"
+                  "type": "text",
+                  "content": "tengo"
                 }
-              ],
-              "raw_text": "tengo",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "un",
+              "type": "word",
+              "raw_text": "muchos",
+              "cleaned_text": "muchos",
               "content": [
                 {
-                  "content": "un",
-                  "type": "text"
+                  "type": "text",
+                  "content": "muchos"
                 }
-              ],
-              "raw_text": "un",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "regalo",
+              "type": "word",
+              "raw_text": "huevos",
+              "cleaned_text": "huevos",
               "content": [
                 {
-                  "content": "regalo",
-                  "type": "text"
+                  "type": "text",
+                  "content": "huevos"
                 }
-              ],
-              "raw_text": "regalo",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "para",
               "cleaned_text": "para",
               "content": [
                 {
-                  "content": "para",
-                  "type": "text"
+                  "type": "text",
+                  "content": "para"
                 }
-              ],
-              "raw_text": "para",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "ti",
               "cleaned_text": "ti",
               "content": [
                 {
-                  "content": "ti",
-                  "type": "text"
+                  "type": "text",
+                  "content": "ti"
                 }
-              ],
-              "raw_text": "ti",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "yo",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ],
-                  "lemma": "yo",
-                  "pos": "pron"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "tener",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S1"
-                  ],
-                  "lemma": "tener",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "mucho",
                   "features": [
                     "Masc",
                     "Def",
                     "Ind",
                     "Plur"
-                  ],
-                  "lemma": "mucho",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "huevo",
                   "features": [
                     "Masc",
                     "Plur",
                     "Acc"
-                  ],
-                  "lemma": "huevo",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "para",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "para"
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "tú",
                   "features": [
                     "Prs",
                     "Acc",
                     "S1"
-                  ],
-                  "lemma": "tú",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "NSUBJ"
               },
               {
-                "head": 0,
                 "index": 2,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 4,
                 "index": 3,
+                "head": 4,
                 "relation": "DET"
               },
               {
-                "head": 2,
                 "index": 4,
+                "head": 2,
                 "relation": "OBJ"
               },
               {
-                "head": 6,
                 "index": 5,
+                "head": 6,
                 "relation": "CASE"
               },
               {
-                "head": 2,
                 "index": 6,
+                "head": 2,
                 "relation": "OBL"
               },
               {
-                "head": 2,
                 "index": 7,
+                "head": 2,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "cleaned_text": "yo",
+              "type": "word",
+              "raw_text": "cuando",
+              "cleaned_text": "cuando",
               "content": [
                 {
-                  "content": "yo",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cuando"
                 }
-              ],
-              "raw_text": "yo",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "tengo",
+              "type": "word",
+              "raw_text": "salgas",
+              "cleaned_text": "salgas",
               "content": [
                 {
-                  "content": "tengo",
-                  "type": "text"
+                  "type": "text",
+                  "content": "salgas"
                 }
-              ],
-              "raw_text": "tengo",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "muchos",
+              "type": "word",
+              "raw_text": "de",
+              "cleaned_text": "de",
               "content": [
                 {
-                  "content": "muchos",
-                  "type": "text"
+                  "type": "text",
+                  "content": "de"
                 }
-              ],
-              "raw_text": "muchos",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "huevos",
+              "type": "word",
+              "raw_text": "la",
+              "cleaned_text": "la",
               "content": [
                 {
-                  "content": "huevos",
-                  "type": "text"
+                  "type": "text",
+                  "content": "la"
                 }
-              ],
-              "raw_text": "huevos",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "para",
+              "type": "word",
+              "raw_text": "clase",
+              "cleaned_text": "clase",
               "content": [
                 {
-                  "content": "para",
-                  "type": "text"
+                  "type": "text",
+                  "content": "clase"
                 }
-              ],
-              "raw_text": "para",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "ti",
+              "type": "word",
+              "raw_text": "es",
+              "cleaned_text": "es",
               "content": [
                 {
-                  "content": "ti",
-                  "type": "text"
+                  "type": "text",
+                  "content": "es"
                 }
-              ],
-              "raw_text": "ti",
-              "type": "word"
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "la",
+              "cleaned_text": "la",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "la"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "hora",
+              "cleaned_text": "hora",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "hora"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "de",
+              "cleaned_text": "de",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "de"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "la",
+              "cleaned_text": "la",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "la"
+                }
+              ]
+            },
+            {
+              "type": "word",
+              "raw_text": "comida",
+              "cleaned_text": "comida",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "comida"
+                }
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "lemma": "cuando",
-                  "pos": "sconj"
+                  "pos": "sconj",
+                  "lemma": "cuando"
                 }
               },
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "salir",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S1"
-                  ],
-                  "lemma": "salir",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "de",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "de"
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "el",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ],
-                  "lemma": "el",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "clase",
                   "features": [
                     "Fem"
-                  ],
-                  "lemma": "clase",
-                  "pos": "noun"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "aux",
+                  "lemma": "ser",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ],
-                  "lemma": "ser",
-                  "pos": "aux"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "el",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ],
-                  "lemma": "el",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
-                  "features": [
-                    "Fem"
-                  ],
+                  "pos": "noun",
                   "lemma": "hora",
-                  "pos": "noun"
+                  "features": [
+                    "Fem"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "de",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "de"
                 }
               },
               {
                 "main": {
+                  "pos": "det",
+                  "lemma": "el",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ],
-                  "lemma": "el",
-                  "pos": "det"
+                  ]
                 }
               },
               {
                 "main": {
+                  "pos": "noun",
+                  "lemma": "comida",
                   "features": [
                     "Fem"
-                  ],
-                  "lemma": "comida",
-                  "pos": "noun"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 2,
                 "index": 1,
+                "head": 2,
                 "relation": "MARK"
               },
               {
-                "head": 8,
                 "index": 2,
+                "head": 8,
                 "relation": "ADVCL"
               },
               {
-                "head": 5,
                 "index": 3,
+                "head": 5,
                 "relation": "CASE"
               },
               {
-                "head": 5,
                 "index": 4,
+                "head": 5,
                 "relation": "DET"
               },
               {
-                "head": 2,
                 "index": 5,
+                "head": 2,
                 "relation": "OBL"
               },
               {
-                "head": 8,
                 "index": 6,
+                "head": 8,
                 "relation": "COP"
               },
               {
-                "head": 8,
                 "index": 7,
+                "head": 8,
                 "relation": "DET"
               },
               {
-                "head": 0,
                 "index": 8,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 11,
                 "index": 9,
+                "head": 11,
                 "relation": "CASE"
               },
               {
-                "head": 11,
                 "index": 10,
+                "head": 11,
                 "relation": "DET"
               },
               {
-                "head": 8,
                 "index": 11,
+                "head": 8,
                 "relation": "NMOD"
               },
               {
-                "head": 8,
                 "index": 12,
+                "head": 8,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
+            ]
+          }
         }
-      ],
+      ]
+    },
+    {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "cleaned_text": "cuando",
+              "type": "word",
+              "raw_text": "mira",
+              "cleaned_text": "mira",
               "content": [
                 {
-                  "content": "cuando",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mira"
                 }
-              ],
-              "raw_text": "cuando",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "salgas",
+              "type": "word",
+              "raw_text": "a",
+              "cleaned_text": "a",
               "content": [
                 {
-                  "content": "salgas",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "salgas",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "de",
-              "content": [
-                {
-                  "content": "de",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "de",
-              "type": "word"
+              "type": "retrace",
+              "content": {
+                "content": [
+                  {
+                    "type": "word",
+                    "raw_text": "mi",
+                    "cleaned_text": "mi",
+                    "content": [
+                      {
+                        "type": "text",
+                        "content": "mi"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "kind": "partial"
             },
             {
-              "cleaned_text": "la",
+              "type": "word",
+              "raw_text": "mira",
+              "cleaned_text": "mira",
               "content": [
                 {
-                  "content": "la",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mira"
                 }
-              ],
-              "raw_text": "la",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "clase",
+              "type": "word",
+              "raw_text": "a",
+              "cleaned_text": "a",
               "content": [
                 {
-                  "content": "clase",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "clase",
-              "type": "word"
+              ]
             },
             {
-              "cleaned_text": "es",
+              "type": "word",
+              "raw_text": "mi",
+              "cleaned_text": "mi",
               "content": [
                 {
-                  "content": "es",
-                  "type": "text"
+                  "type": "text",
+                  "content": "mi"
                 }
-              ],
-              "raw_text": "es",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "la",
-              "content": [
-                {
-                  "content": "la",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "la",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "hora",
-              "content": [
-                {
-                  "content": "hora",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "hora",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "de",
-              "content": [
-                {
-                  "content": "de",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "de",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "la",
-              "content": [
-                {
-                  "content": "la",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "la",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "comida",
-              "content": [
-                {
-                  "content": "comida",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "comida",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
-      }
-    },
-    {
+        }
+      },
       "dependent_tiers": [
         {
+          "type": "Mor",
           "data": {
+            "tier_type": "Mor",
             "items": [
               {
                 "main": {
+                  "pos": "verb",
+                  "lemma": "mirar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ],
-                  "lemma": "mirar",
-                  "pos": "verb"
+                  ]
                 }
               },
               {
                 "main": {
-                  "lemma": "a",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "a"
                 }
               },
               {
                 "main": {
-                  "lemma": "mira",
-                  "pos": "noun"
+                  "pos": "noun",
+                  "lemma": "mira"
                 }
               },
               {
                 "main": {
-                  "lemma": "a",
-                  "pos": "adp"
+                  "pos": "adp",
+                  "lemma": "a"
                 }
               },
               {
                 "main": {
+                  "pos": "pron",
+                  "lemma": "mi",
                   "features": [
                     "Prs",
                     "Nom",
                     "S2"
-                  ],
-                  "lemma": "mi",
-                  "pos": "pron"
+                  ]
                 }
               }
             ],
-            "terminator": ".",
-            "tier_type": "Mor"
-          },
-          "type": "Mor"
+            "terminator": "."
+          }
         },
         {
+          "type": "Gra",
           "data": {
+            "tier_type": "Gra",
             "relations": [
               {
-                "head": 0,
                 "index": 1,
+                "head": 0,
                 "relation": "ROOT"
               },
               {
-                "head": 1,
                 "index": 2,
+                "head": 1,
                 "relation": "ADVMOD"
               },
               {
-                "head": 2,
                 "index": 3,
+                "head": 2,
                 "relation": "FIXED"
               },
               {
-                "head": 5,
                 "index": 4,
+                "head": 5,
                 "relation": "CASE"
               },
               {
-                "head": 1,
                 "index": 5,
+                "head": 1,
                 "relation": "OBJ"
               },
               {
-                "head": 1,
                 "index": 6,
+                "head": 1,
                 "relation": "PUNCT"
               }
-            ],
-            "tier_type": "Gra"
-          },
-          "type": "Gra"
-        }
-      ],
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "mira",
-              "content": [
-                {
-                  "content": "mira",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "mira",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "a",
-              "content": [
-                {
-                  "content": "a",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "a",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "mi",
-              "content": [
-                {
-                  "content": "mi",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "mi",
-              "scoped_annotations": [
-                {
-                  "type": "partialretracing"
-                }
-              ],
-              "type": "annotated_word"
-            },
-            {
-              "cleaned_text": "mira",
-              "content": [
-                {
-                  "content": "mira",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "mira",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "a",
-              "content": [
-                {
-                  "content": "a",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "a",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "mi",
-              "content": [
-                {
-                  "content": "mi",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "mi",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
+            ]
           }
-        },
-        "speaker": "CHI"
-      }
+        }
+      ]
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Target_Child",
       "id": {
-        "age": "2;08.20",
-        "corpus": "Perez",
         "language": [
           "spa",
           "eng"
         ],
-        "role": "Target_Child",
-        "speaker": "CHI"
+        "corpus": "Perez",
+        "speaker": "CHI",
+        "age": "2;08.20",
+        "role": "Target_Child"
       },
-      "name": null,
-      "role": "Target_Child"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "Perez",
         "language": [
           "spa",
           "eng"
         ],
-        "role": "Mother",
+        "corpus": "Perez",
+        "speaker": "MOT",
         "sex": "female",
-        "speaker": "MOT"
+        "role": "Mother"
       },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "spa",
+    "eng"
+  ],
+  "options": []
 }

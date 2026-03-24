@@ -93,7 +93,7 @@ pub(crate) use unparsed_tier::check_user_defined_tier_content;
 mod tests {
     use super::*;
     use crate::ErrorCollector;
-    use crate::model::{Annotated, ScopedAnnotation, Word};
+    use crate::model::{Annotated, ContentAnnotation, Word};
     use crate::validation::Validate;
 
     /// Verifies word validation with unknown annotation.
@@ -101,7 +101,7 @@ mod tests {
     fn test_word_validation_with_unknown_annotation() {
         // Build word programmatically (not by parsing)
         let word = Annotated::new(Word::new_unchecked("hello [::: stuff]", "hello"))
-            .with_scoped_annotations(vec![ScopedAnnotation::Unknown(
+            .with_scoped_annotations(vec![ContentAnnotation::Unknown(
                 crate::model::ScopedUnknown {
                     marker: ":::".into(),
                     text: "stuff".into(),

@@ -2611,7 +2611,7 @@
         "value": 5,
         "content": {
           "type": "PATTERN",
-          "value": "[\\u2308\\u2309\\u230A\\u230B][2-9]?"
+          "value": "[\\u2308\\u2309\\u230A\\u230B][1-9]?"
         }
       }
     },
@@ -3168,25 +3168,28 @@
             "type": "SEQ",
             "members": [
               {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "overlap_point"
-                  },
-                  {
-                    "type": "SYMBOL",
-                    "name": "ca_element"
-                  },
-                  {
-                    "type": "SYMBOL",
-                    "name": "ca_delimiter"
-                  },
-                  {
-                    "type": "SYMBOL",
-                    "name": "underline_begin"
-                  }
-                ]
+                "type": "REPEAT1",
+                "content": {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "overlap_point"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "ca_element"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "ca_delimiter"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "underline_begin"
+                    }
+                  ]
+                }
               },
               {
                 "type": "CHOICE",

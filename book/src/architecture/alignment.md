@@ -1,5 +1,8 @@
 # Alignment Architecture in talkbank-tools
 
+**Status:** Current
+**Last updated:** 2026-03-23 23:49 EDT
+
 This document describes all alignment data structures, algorithms, and
 design decisions in the `talkbank-tools` crate workspace.
 
@@ -159,10 +162,13 @@ Each variant is classified per domain:
   includes fillers (`&-um`)
 - Pho/Sin: include everything (all produced speech/gesture)
 
-**Group filtering** (`rules.rs`):
-- `should_skip_group(annotations, domain)` — retrace groups skip for Mor only
-- Retrace annotations: `PartialRetracing`, `Retracing`, `MultipleRetracing`,
-  `Reformulation`, `UncertainRetracing`, `ExcludeMarker`
+**Retrace filtering**: `Retrace` is a first-class `UtteranceContent` / `BracketedItem`
+variant (not an annotation on `AnnotatedGroup`). The walker skips `Retrace` content
+for Mor domain; other domains recurse into it.
+
+**Exclude filtering** (`rules.rs`):
+- `should_skip_group(annotations, domain)` — `AnnotatedGroup`/`AnnotatedWord` with
+  `[e]` exclude marker skip for Mor
 
 **Separator counting**:
 - Only tag markers (`,` `„` `‡`) count, and only in Mor domain
@@ -208,9 +214,9 @@ unwrapped automatically. `WordItem::Word` carries only the `&Word` reference.
 
 ### Domain Gating
 
-| Domain | AnnotatedGroup (retrace) | PhoGroup | SinGroup |
-|--------|--------------------------|----------|----------|
-| `Some(Mor)` | Skip | Recurse | Recurse |
+| Domain | Retrace | PhoGroup | SinGroup |
+|--------|---------|----------|----------|
+| `Some(Mor)` | **Skip** | Recurse | Recurse |
 | `Some(Pho)` | Recurse | **Skip** (atomic) | Recurse |
 | `Some(Sin)` | Recurse | Recurse | **Skip** (atomic) |
 | `Some(Wor)` | Recurse | Recurse | Recurse |

@@ -1,5 +1,8 @@
 # Rust Compilation Times: Findings and Optimizations
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 This document summarizes the compilation performance analysis for the talkbank-tools
 workspace (10 crates, Apple M4 Max 16-core) and the changes made to improve
 iterative development speed.

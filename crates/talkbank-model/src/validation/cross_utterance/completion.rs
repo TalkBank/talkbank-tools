@@ -223,7 +223,7 @@ pub(super) fn check_other_completion(utterances: &[Utterance], idx: usize) -> Ve
     if prev_utt.main.speaker.as_str() == speaker {
         errors.push(
             ParseError::new(
-                ErrorCode::InterleavedScopedAnnotations,
+                ErrorCode::InterleavedContentAnnotations,
                 Severity::Error,
                 SourceLocation::new(utterance.main.span),
                 ErrorContext::new(

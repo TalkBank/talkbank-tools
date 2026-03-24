@@ -279,8 +279,7 @@ for utterance in file.utterances() {
 | Crate | What it does |
 |-------|--------------|
 | [`talkbank-model`](crates/talkbank-model/) | Data model (AST), 198 validation rules, cross-tier alignment, content walker |
-| [`talkbank-parser`](crates/talkbank-parser/) | Canonical parser — tree-sitter CST to typed model |
-| [`talkbank-direct-parser`](crates/talkbank-direct-parser/) | Alternative parser — chumsky combinators, fragment/tier parsing |
+| [`talkbank-parser`](crates/talkbank-parser/) | Parser — tree-sitter CST to typed model |
 | [`talkbank-transform`](crates/talkbank-transform/) | Pipelines: parse+validate, CHAT/JSON roundtrip, batch caching |
 | [`talkbank-clan`](crates/talkbank-clan/) | 80 CLAN subcommands: 34 analysis, 21 transforms, 15 converters |
 | [`talkbank-cli`](crates/talkbank-cli/) | `chatter` CLI binary with interactive TUI |

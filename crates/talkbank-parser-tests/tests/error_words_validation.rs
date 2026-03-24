@@ -16,7 +16,6 @@
 
 use regex::Regex;
 use std::sync::LazyLock;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
@@ -88,7 +87,7 @@ Testing {} error words...",
 
     for (word, expected_code) in &error_words {
         let errors = ErrorCollector::new();
-        let result = ChatParser::parse_word(&parser, word, 0, &errors);
+        let result = parser.parse_word_fragment(word, 0, &errors);
 
         // Should either fail to parse OR produce errors
         if result.is_some() && errors.into_vec().is_empty() {

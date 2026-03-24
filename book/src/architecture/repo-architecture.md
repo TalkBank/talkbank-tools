@@ -1,5 +1,8 @@
 # Repository Architecture and Boundaries
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Current Structural Inventory
 - `spec/`: construct and error specification corpus plus generator workspace (`spec/tools`).
 - `grammar/`: tree-sitter grammar source and generated parser artifacts.
@@ -21,15 +24,14 @@
 /crates/
   talkbank-model/       data model, validation, alignment, errors, parser API trait
   talkbank-derive/      proc macros (SemanticEq, SpanShift, ValidationTagged)
-  talkbank-parser/      canonical parser implementation (tree-sitter)
-  talkbank-direct-parser/ direct parser (chumsky, fragment-first with selective recovery)
+  talkbank-parser/      parser (tree-sitter)
   talkbank-transform/   pipelines, CHAT↔JSON, caching, parallel validation
   talkbank-clan/        CLAN analysis commands and format converters
   talkbank-cli/         chatter CLI
   talkbank-lsp/         LSP server
   send2clan-sys/        FFI to CLAN app
   talkbank-parser-tests/ parser equivalence and roundtrip tests
-/corpus/                reference corpus (74 files, 100% required)
+/corpus/                reference corpus (78 files, 100% required)
 /schema/                JSON Schema for ChatFile AST
 /vscode/                VS Code extension (TypeScript)
 /book/                  mdBook documentation

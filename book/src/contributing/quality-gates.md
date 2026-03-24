@@ -1,5 +1,8 @@
 # Testing and Quality Gates
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 > **Note:** This page was originally a gap analysis from 2026-02-18. Most gaps identified have since been fixed — CI now runs all G0–G10 gates. See [Testing](testing.md) for current gate definitions.
 
 ## Verified Current Baseline

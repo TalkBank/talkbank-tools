@@ -1,4 +1,4 @@
-//! Compare TreeSitterParser and TreeSitterParser output for a specific file.
+//! Parse a CHAT file with TreeSitterParser and report results.
 //!
 //! Usage:
 //! ```bash
@@ -14,10 +14,9 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::SemanticEq;
-use talkbank_model::{ChatParser, ParseOutcome};
+use talkbank_model::ParseOutcome;
+use talkbank_parser::TreeSitterParser;
 
 /// Entry point for this binary target.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -31,97 +30,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = PathBuf::from(&args[1]);
     let input = fs::read_to_string(&path)?;
 
-    println!("=== Comparing parsers for: {} ===\n", path.display());
+    println!("=== Parsing file: {} ===\n", path.display());
 
-    // Parse with TreeSitterParser
-    let ts = TreeSitterParser::new()?;
-    let ts_errors = ErrorCollector::new();
-    let ts_result = ChatParser::parse_chat_file(&ts, &input, 0, &ts_errors);
+    let parser = TreeSitterParser::new()?;
+    let errors = ErrorCollector::new();
+    let result = parser.parse_chat_file_fragment(&input, 0, &errors);
 
-    // Parse with TreeSitterParser
-    let direct = TreeSitterParser::new()?;
-    let direct_errors = ErrorCollector::new();
-    let direct_result = ChatParser::parse_chat_file(&direct, &input, 0, &direct_errors);
+    match result {
+        ParseOutcome::Parsed(chat_file) => {
+            println!("Parse succeeded");
 
-    match (ts_result, direct_result) {
-        (ParseOutcome::Parsed(ts_file), ParseOutcome::Parsed(direct_file)) => {
-            println!("✓ Both parsers succeeded\n");
-
-            // Check semantic equivalence
-            if ts_file.semantic_eq(&direct_file) {
-                println!("✓ SEMANTICALLY EQUIVALENT");
+            let errs = errors.to_vec();
+            if errs.is_empty() {
+                println!("No errors");
             } else {
-                println!("✗ SEMANTIC MISMATCH\n");
-                let ts_errs = ts_errors.to_vec();
-                let direct_errs = direct_errors.to_vec();
-                if !ts_errs.is_empty() || !direct_errs.is_empty() {
-                    println!("TreeSitter errors ({}):", ts_errs.len());
-                    for err in ts_errs {
-                        println!("  - {}", err.message);
-                    }
-                    println!("Direct errors ({}):", direct_errs.len());
-                    for err in direct_errs {
-                        println!("  - {}", err.message);
-                    }
-                    println!();
+                println!("\nErrors ({}):", errs.len());
+                for err in &errs {
+                    println!("  - {}", err.message);
                 }
-
-                // Serialize both to JSON for comparison
-                let ts_json = match serde_json::to_string_pretty(&ts_file) {
-                    Ok(json) => json,
-                    Err(err) => {
-                        eprintln!("TreeSitter JSON serialization failed: {err}");
-                        "JSON serialization failed".to_string()
-                    }
-                };
-                let direct_json = match serde_json::to_string_pretty(&direct_file) {
-                    Ok(json) => json,
-                    Err(err) => {
-                        eprintln!("Direct JSON serialization failed: {err}");
-                        "JSON serialization failed".to_string()
-                    }
-                };
-
-                // Write to temp files
-                let ts_path = "/tmp/ts_output.json";
-                let direct_path = "/tmp/direct_output.json";
-
-                fs::write(ts_path, &ts_json)?;
-                fs::write(direct_path, &direct_json)?;
-
-                println!("TreeSitter output written to: {}", ts_path);
-                println!("Direct output written to: {}", direct_path);
-                println!("\nCompare with:");
-                println!("  diff {} {}", ts_path, direct_path);
-                println!("  code --diff {} {}", ts_path, direct_path);
             }
+
+            // Serialize to JSON for inspection
+            let json = match serde_json::to_string_pretty(&chat_file) {
+                Ok(json) => json,
+                Err(err) => {
+                    eprintln!("JSON serialization failed: {err}");
+                    "JSON serialization failed".to_string()
+                }
+            };
+
+            let output_path = "/tmp/parser_output.json";
+            fs::write(output_path, &json)?;
+            println!("\nOutput written to: {}", output_path);
         }
-        (ParseOutcome::Parsed(_), ParseOutcome::Rejected) => {
-            println!("✗ TreeSitterParser FAILED (TreeSitter succeeded)");
-            let errors = direct_errors.into_vec();
-            println!("\nTreeSitterParser errors ({}):", errors.len());
-            for err in errors {
-                println!("  - {}", err.message);
-            }
-        }
-        (ParseOutcome::Rejected, ParseOutcome::Parsed(_)) => {
-            println!("✗ TreeSitterParser FAILED (Direct succeeded)");
-            let errors = ts_errors.into_vec();
-            println!("\nTreeSitterParser errors ({}):", errors.len());
-            for err in errors {
-                println!("  - {}", err.message);
-            }
-        }
-        (ParseOutcome::Rejected, ParseOutcome::Rejected) => {
-            println!("✗ BOTH parsers FAILED");
-            let ts_errs = ts_errors.into_vec();
-            let direct_errs = direct_errors.into_vec();
-            println!("\nTreeSitterParser errors ({}):", ts_errs.len());
-            for err in ts_errs {
-                println!("  - {}", err.message);
-            }
-            println!("\nTreeSitterParser errors ({}):", direct_errs.len());
-            for err in direct_errs {
+        ParseOutcome::Rejected => {
+            println!("Parse FAILED");
+            let errs = errors.into_vec();
+            println!("\nErrors ({}):", errs.len());
+            for err in errs {
                 println!("  - {}", err.message);
             }
         }

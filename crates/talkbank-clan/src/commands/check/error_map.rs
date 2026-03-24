@@ -50,8 +50,8 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::UnclosedParenthesis => 28, // Unmatched (
         ErrorCode::UnbalancedOverlap => 24,   // Unmatched <
         ErrorCode::MissingOverlapEnd => 25,   // Unmatched >
-        ErrorCode::UnmatchedScopedAnnotationBegin => 22,
-        ErrorCode::UnmatchedScopedAnnotationEnd => 23,
+        ErrorCode::UnmatchedContentAnnotationBegin => 22,
+        ErrorCode::UnmatchedContentAnnotationEnd => 23,
         ErrorCode::UnmatchedUnderlineBegin => 22,
         ErrorCode::UnmatchedUnderlineEnd => 23,
         ErrorCode::UnmatchedLongFeatureBegin => 22,

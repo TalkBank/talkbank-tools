@@ -1,7 +1,6 @@
 //! Generate informative descriptions for CHAT construct examples
 
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::model::{WordCategory, WordContent};
 use talkbank_model::{ParseErrors, ParseOutcome};
@@ -36,7 +35,7 @@ pub fn generate_description(input: &str, fence_type: &str) -> Result<String, Des
 fn generate_word_description(input: &str) -> Result<String, DescriptionError> {
     let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
-    let word = match ChatParser::parse_word(&parser, input, 0, &errors) {
+    let word = match parser.parse_word_fragment(input, 0, &errors) {
         ParseOutcome::Parsed(word) => word,
         ParseOutcome::Rejected => {
             return Err(parse_error("word", ParseErrors::from(errors.into_vec())));
@@ -140,8 +139,9 @@ fn generate_word_description(input: &str) -> Result<String, DescriptionError> {
 
 /// Generate description for complete CHAT file examples
 fn generate_chatfile_description(input: &str) -> Result<String, DescriptionError> {
+    let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let chat_file =
-        talkbank_parser::parse_chat_file(input).map_err(|err| parse_error("chat file", err))?;
+        parser.parse_chat_file(input).map_err(|err| parse_error("chat file", err))?;
 
     let mut has_mor = false;
     let mut has_gra = false;

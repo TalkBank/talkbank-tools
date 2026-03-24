@@ -1,5 +1,8 @@
 # Diagnostic and JSON Output Contract
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 This page documents the machine-readable JSON surfaces currently exposed by the
 top-level `chatter` CLI. It does not try to freeze every JSON payload emitted by
 `chatter clan`; those command-specific formats should be checked per command.

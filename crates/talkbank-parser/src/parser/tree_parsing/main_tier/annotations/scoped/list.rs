@@ -6,15 +6,29 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition>
 
 use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
-use crate::model::ScopedAnnotation;
+use crate::model::ContentAnnotation;
 use crate::node_types::WHITESPACES;
 use crate::parser::tree_parsing::parser_helpers::is_base_annotation;
 use talkbank_model::ParseOutcome;
+use talkbank_model::model::RetraceKind;
 use tree_sitter::Node;
 
-use super::single::parse_single_annotation;
+use super::single::{ParsedAnnotation, parse_single_annotation};
 
-/// Converts a `base_annotations` node into `Vec<ScopedAnnotation>`.
+/// Result of parsing a list of scoped annotations, separating content
+/// annotations from an optional retrace marker.
+///
+/// In CHAT, at most one retrace marker can appear in an annotation list.
+/// The parser splits the annotations here so callers don't need to inspect
+/// annotation contents to detect retraces.
+pub(crate) struct ParsedAnnotations {
+    /// Non-retrace content annotations (e.g., `[*]`, `[= text]`, `[!]`)
+    pub content: Vec<ContentAnnotation>,
+    /// Optional retrace marker (`[/]`, `[//]`, `[///]`, `[/-]`, `[/?]`)
+    pub retrace: Option<RetraceKind>,
+}
+
+/// Converts a `base_annotations` node into `ParsedAnnotations`.
 ///
 /// **Grammar Rule:**
 /// ```text
@@ -29,10 +43,11 @@ pub(crate) fn parse_scoped_annotations(
     node: Node,
     source: &str,
     errors: &impl ErrorSink,
-) -> Vec<ScopedAnnotation> {
+) -> ParsedAnnotations {
     let child_count = node.child_count();
     // Pre-allocate: child_count / 2 pairs of (whitespace, annotation)
-    let mut annotations = Vec::with_capacity(child_count / 2);
+    let mut content = Vec::with_capacity(child_count / 2);
+    let mut retrace = None;
     let mut idx = 0;
 
     // Grammar: repeat1(seq(whitespaces, base_annotation))
@@ -44,7 +59,7 @@ pub(crate) fn parse_scoped_annotations(
                 idx += 1;
             } else {
                 errors.report(ParseError::new(
-                    ErrorCode::ScopedAnnotationParseError,
+                    ErrorCode::ContentAnnotationParseError,
                     Severity::Error,
                     SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
                     ErrorContext::new(source, child.start_byte()..child.end_byte(), ""),
@@ -67,12 +82,15 @@ pub(crate) fn parse_scoped_annotations(
         {
             if is_base_annotation(child.kind()) {
                 if let ParseOutcome::Parsed(ann) = parse_single_annotation(child, source, errors) {
-                    annotations.push(ann);
+                    match ann {
+                        ParsedAnnotation::Content(c) => content.push(c),
+                        ParsedAnnotation::Retrace(kind) => retrace = Some(kind),
+                    }
                 }
                 idx += 1;
             } else {
                 errors.report(ParseError::new(
-                    ErrorCode::ScopedAnnotationParseError,
+                    ErrorCode::ContentAnnotationParseError,
                     Severity::Error,
                     SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
                     ErrorContext::new(source, child.start_byte()..child.end_byte(), ""),
@@ -87,5 +105,5 @@ pub(crate) fn parse_scoped_annotations(
         }
     }
 
-    annotations
+    ParsedAnnotations { content, retrace }
 }

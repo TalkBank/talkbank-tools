@@ -1,5 +1,8 @@
 # Memory and Ownership
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 This chapter documents the memory management and ownership patterns used across the
 TalkBank Rust crates. Understanding these decisions helps contributors make
 consistent choices when adding new code.
@@ -117,7 +120,7 @@ inline-small-string use case more naturally).
 
 | Pattern | Where | What it protects |
 |---------|-------|------------------|
-| `RefCell<Option<Parser>>` in `thread_local!` | `talkbank-parser` | Tree-sitter `Parser` needs `&mut self` but isn't `Sync`. One per thread. |
+| `RefCell<Parser>` inside `TreeSitterParser` | `talkbank-parser` | Tree-sitter `Parser` needs `&mut self` but isn't `Sync`. Callers create a `TreeSitterParser` and pass `&TreeSitterParser` everywhere. |
 | <code>DashMap&lt;Arc&lt;str&gt;, Arc&lt;str&gt;&gt;</code> | String interners | Concurrent interning during parallel parsing. Shard-level locks. |
 | `OnceLock<StringInterner>` | 5 global interners | Lazy init, lock-free after first access |
 | `LazyLock<Regex>` | All regex patterns workspace-wide | Compile-once, no per-call overhead |
@@ -156,8 +159,8 @@ fn process_node<'a>(node: Node<'a>, source: &str) -> ParseResult<...> {
 }
 ```
 
-The direct parser (chumsky) operates differently: it consumes `&str` and returns
-owned model types directly, with no intermediate CST.
+The tree-sitter parser consumes `&str`, produces a CST, and the Rust traversal
+code constructs owned model types from CST nodes.
 
 ## SQLite Memory-Mapped I/O
 

@@ -5,6 +5,7 @@
 Structural order error
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E370
 - **Category**: Alignment count mismatch

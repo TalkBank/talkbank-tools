@@ -8,9 +8,9 @@
 //! rendered consistently in validation diagnostics, caret reconstruction, and
 //! batchalign exports.
 
-use super::ScopedAnnotation;
+use super::ContentAnnotation;
 
-impl ScopedAnnotation {
+impl ContentAnnotation {
     /// Serializes one scoped annotation in canonical CHAT bracket syntax.
     ///
     /// Known variants emit normalized spellings (`[*]`, `[/]`, `[= ...]`, ...),
@@ -20,7 +20,7 @@ impl ScopedAnnotation {
     /// main-tier, bracketed, and replacement contexts.
     pub fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
         match self {
-            ScopedAnnotation::Error(error) => match error.code.as_ref() {
+            ContentAnnotation::Error(error) => match error.code.as_ref() {
                 None => w.write_str("[*]"),
                 Some(code) => {
                     w.write_str("[* ")?;
@@ -28,62 +28,57 @@ impl ScopedAnnotation {
                     w.write_char(']')
                 }
             },
-            ScopedAnnotation::Explanation(explanation) => {
+            ContentAnnotation::Explanation(explanation) => {
                 w.write_str("[= ")?;
                 w.write_str(&explanation.text)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::Addition(addition) => {
+            ContentAnnotation::Addition(addition) => {
                 w.write_str("[+ ")?;
                 w.write_str(&addition.text)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::OverlapBegin(overlap) => {
+            ContentAnnotation::OverlapBegin(overlap) => {
                 if let Some(idx) = overlap.index.as_ref() {
                     write!(w, "[<{}]", idx)
                 } else {
                     w.write_str("[<]")
                 }
             }
-            ScopedAnnotation::OverlapEnd(overlap) => {
+            ContentAnnotation::OverlapEnd(overlap) => {
                 if let Some(idx) = overlap.index.as_ref() {
                     write!(w, "[>{}]", idx)
                 } else {
                     w.write_str("[>]")
                 }
             }
-            ScopedAnnotation::PartialRetracing => w.write_str("[/]"),
-            ScopedAnnotation::Retracing => w.write_str("[//]"),
-            ScopedAnnotation::MultipleRetracing => w.write_str("[///]"),
-            ScopedAnnotation::Reformulation => w.write_str("[/-]"),
-            ScopedAnnotation::UncertainRetracing => w.write_str("[/?]"),
-            ScopedAnnotation::CaContinuationMarker => w.write_str("[^c]"),
-            ScopedAnnotation::ScopedStressing => w.write_str("[!]"),
-            ScopedAnnotation::ScopedContrastiveStressing => w.write_str("[!!]"),
-            ScopedAnnotation::ScopedBestGuess => w.write_str("[!*]"),
-            ScopedAnnotation::ScopedUncertain => w.write_str("[?]"),
-            ScopedAnnotation::Paralinguistic(paralinguistic) => {
+            ContentAnnotation::CaContinuation => w.write_str("[^c]"),
+            ContentAnnotation::Stressing => w.write_str("[!]"),
+            ContentAnnotation::ContrastiveStressing => w.write_str("[!!]"),
+            ContentAnnotation::BestGuess => w.write_str("[!*]"),
+            ContentAnnotation::Uncertain => w.write_str("[?]"),
+            ContentAnnotation::Paralinguistic(paralinguistic) => {
                 w.write_str("[=! ")?;
                 w.write_str(&paralinguistic.text)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::Alternative(alternative) => {
+            ContentAnnotation::Alternative(alternative) => {
                 w.write_str("[=? ")?;
                 w.write_str(&alternative.text)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::PercentComment(comment) => {
+            ContentAnnotation::PercentComment(comment) => {
                 w.write_str("[% ")?;
                 w.write_str(&comment.text)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::Duration(duration) => {
+            ContentAnnotation::Duration(duration) => {
                 w.write_str("[# ")?;
                 w.write_str(&duration.time)?;
                 w.write_char(']')
             }
-            ScopedAnnotation::ExcludeMarker => w.write_str("[e]"),
-            ScopedAnnotation::Unknown(unknown) => {
+            ContentAnnotation::Exclude => w.write_str("[e]"),
+            ContentAnnotation::Unknown(unknown) => {
                 w.write_char('[')?;
                 w.write_str(&unknown.marker)?;
                 if !unknown.text.is_empty() {
@@ -96,7 +91,7 @@ impl ScopedAnnotation {
     }
 }
 
-impl std::fmt::Display for ScopedAnnotation {
+impl std::fmt::Display for ContentAnnotation {
     /// Formats one scoped annotation using CHAT serialization.
     ///
     /// This wraps [`Self::write_chat`] so consumers writing to `Display` receive

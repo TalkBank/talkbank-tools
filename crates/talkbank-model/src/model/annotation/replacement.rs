@@ -29,7 +29,7 @@
 //! *CHI: the wed [: red] ball .
 //! ```
 
-use super::{ScopedAnnotation, Word, WriteChat};
+use super::{ContentAnnotation, Word, WriteChat};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
@@ -204,7 +204,7 @@ impl crate::validation::Validate for ReplacementWords {
 
 /// Scoped annotations attached to a replaced word (e.g., `[*]`, `[= text]`).
 ///
-/// Wraps a `Vec<ScopedAnnotation>` and provides collection-like access via `Deref`.
+/// Wraps a `Vec<ContentAnnotation>` and provides collection-like access via `Deref`.
 ///
 /// # Reference
 ///
@@ -214,11 +214,11 @@ impl crate::validation::Validate for ReplacementWords {
 )]
 #[serde(transparent)]
 #[schemars(transparent)]
-pub struct ReplacedWordAnnotations(pub Vec<ScopedAnnotation>);
+pub struct ReplacedWordAnnotations(pub Vec<ContentAnnotation>);
 
 impl ReplacedWordAnnotations {
     /// Wraps scoped annotations attached to a replaced word.
-    pub fn new(annotations: Vec<ScopedAnnotation>) -> Self {
+    pub fn new(annotations: Vec<ContentAnnotation>) -> Self {
         Self(annotations)
     }
 
@@ -229,7 +229,7 @@ impl ReplacedWordAnnotations {
 }
 
 impl Deref for ReplacedWordAnnotations {
-    type Target = Vec<ScopedAnnotation>;
+    type Target = Vec<ContentAnnotation>;
 
     /// Exposes annotations as a read-only slice-like vector.
     fn deref(&self) -> &Self::Target {
@@ -244,16 +244,16 @@ impl DerefMut for ReplacedWordAnnotations {
     }
 }
 
-impl From<Vec<ScopedAnnotation>> for ReplacedWordAnnotations {
+impl From<Vec<ContentAnnotation>> for ReplacedWordAnnotations {
     /// Wraps raw annotation vectors into the semantic newtype.
-    fn from(annotations: Vec<ScopedAnnotation>) -> Self {
+    fn from(annotations: Vec<ContentAnnotation>) -> Self {
         Self(annotations)
     }
 }
 
 impl<'a> IntoIterator for &'a ReplacedWordAnnotations {
-    type Item = &'a ScopedAnnotation;
-    type IntoIter = std::slice::Iter<'a, ScopedAnnotation>;
+    type Item = &'a ContentAnnotation;
+    type IntoIter = std::slice::Iter<'a, ContentAnnotation>;
 
     /// Iterates over borrowed scoped annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -262,8 +262,8 @@ impl<'a> IntoIterator for &'a ReplacedWordAnnotations {
 }
 
 impl<'a> IntoIterator for &'a mut ReplacedWordAnnotations {
-    type Item = &'a mut ScopedAnnotation;
-    type IntoIter = std::slice::IterMut<'a, ScopedAnnotation>;
+    type Item = &'a mut ContentAnnotation;
+    type IntoIter = std::slice::IterMut<'a, ContentAnnotation>;
 
     /// Iterates over mutable scoped annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -272,8 +272,8 @@ impl<'a> IntoIterator for &'a mut ReplacedWordAnnotations {
 }
 
 impl IntoIterator for ReplacedWordAnnotations {
-    type Item = ScopedAnnotation;
-    type IntoIter = std::vec::IntoIter<ScopedAnnotation>;
+    type Item = ContentAnnotation;
+    type IntoIter = std::vec::IntoIter<ContentAnnotation>;
 
     /// Consumes the wrapper and yields owned annotations.
     fn into_iter(self) -> Self::IntoIter {
@@ -298,7 +298,7 @@ impl crate::validation::Validate for ReplacedWordAnnotations {
         let label = context.field_label.unwrap_or("annotation");
 
         for annotation in &self.0 {
-            if let ScopedAnnotation::Unknown(unknown) = annotation {
+            if let ContentAnnotation::Unknown(unknown) = annotation {
                 let marker = &unknown.marker;
                 let message = format!(
                     "\"{}\" is not a known scoped annotation type: known types are *, =, +, <, >, //, ///",
@@ -438,7 +438,7 @@ impl crate::validation::Validate for Replacement {
 /// # Examples
 ///
 /// ```
-/// use talkbank_model::model::{ReplacedWord, Replacement, ScopedAnnotation, ScopedError, Word};
+/// use talkbank_model::model::{ReplacedWord, Replacement, ContentAnnotation, ScopedError, Word};
 ///
 /// // Simple replacement
 /// let replaced = ReplacedWord::new(
@@ -451,7 +451,7 @@ impl crate::validation::Validate for Replacement {
 ///     Word::new_unchecked("goed", "goed"),
 ///     Replacement::from_word(Word::new_unchecked("went", "went"))
 /// ).with_scoped_annotations(vec![
-///     ScopedAnnotation::Error(ScopedError { code: Some("grammar".into()) })
+///     ContentAnnotation::Error(ScopedError { code: Some("grammar".into()) })
 /// ]);
 /// ```
 ///
@@ -505,7 +505,7 @@ impl ReplacedWord {
     }
 
     /// Replaces scoped annotations attached to this replaced word.
-    pub fn with_scoped_annotations(mut self, scoped: Vec<ScopedAnnotation>) -> Self {
+    pub fn with_scoped_annotations(mut self, scoped: Vec<ContentAnnotation>) -> Self {
         self.scoped_annotations = scoped.into();
         self
     }

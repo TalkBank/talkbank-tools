@@ -3,7 +3,6 @@
 //! These tests document expected behavior and regressions.
 
 use rstest::rstest;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_parser_tests::test_error::TestError;
 
@@ -24,7 +23,7 @@ use super::helpers::parser_suite;
 fn word_round_trip(#[case] input: &str) -> Result<(), TestError> {
     for parser in parser_suite()? {
         let errors = ErrorCollector::new();
-        let word = ChatParser::parse_word(&parser.0, input, 0, &errors);
+        let word = parser.0.parse_word_fragment(input, 0, &errors);
 
         let word = word.ok_or_else(|| {
             TestError::Failure(format!(

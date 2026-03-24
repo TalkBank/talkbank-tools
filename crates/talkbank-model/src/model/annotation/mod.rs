@@ -1,6 +1,6 @@
 //! Annotation types (square bracket constructs)
 //!
-//! - `ScopedAnnotation` - Annotations with scope markers `[*]`, `[!]`, etc.
+//! - `ContentAnnotation` - Annotations with scope markers `[*]`, `[!]`, etc.
 //! - `Replacement` - Replacement text `[: word]`
 //! - `ReplacedWord` - Word with its replacement
 //! - `Annotated` - Base annotated item

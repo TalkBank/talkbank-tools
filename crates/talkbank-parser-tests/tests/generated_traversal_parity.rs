@@ -257,6 +257,8 @@ fn test_speaker_parity_with_existing_parser() {
     let lang: tree_sitter::Language = tree_sitter_talkbank::LANGUAGE.into();
     parser.set_language(&lang).expect("set language");
 
+    let chat_parser = talkbank_parser::TreeSitterParser::new().expect("grammar loads");
+
     let mut total_tiers = 0;
     let mut matching_speakers = 0;
     let mut files = 0;
@@ -270,9 +272,9 @@ fn test_speaker_parity_with_existing_parser() {
         let tree = parser.parse(&source, None).expect("parse");
         let mut t = TestTraversal;
 
-        // Parse with the existing hand-written parser
-        let Ok(existing) = talkbank_parser::parse_chat_file(&source) else {
-            continue; // Skip files that fail to parse with the existing parser
+        // Parse with the Rust parser
+        let Ok(existing) = chat_parser.parse_chat_file(&source) else {
+            continue; // Skip files that fail to parse
         };
 
         // Collect speakers from generated traversal

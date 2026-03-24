@@ -1,5 +1,8 @@
 # Introduction
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 [TalkBank](https://talkbank.org/) is the world's largest open repository of spoken language data. This repository (`talkbank-tools`) is the complete CHAT toolchain: a tree-sitter grammar, 10 Rust crates, a CLI with interactive TUI, a Language Server, a VS Code extension, and 77 reimplemented CLAN analysis commands. All tools run on **Windows, macOS, and Linux**.
 
 ## What's In This Repo
@@ -27,7 +30,7 @@ grammar/        Tree-sitter grammar (372 rules, 380 node types)
 spec/           Source of truth: CHAT specification + error specs
 crates/         10 Rust crates (parsers, model, validation, CLAN, CLI, LSP)
 vscode/         VS Code extension (TypeScript)
-corpus/         Reference corpus (74 .cha files, 20 languages)
+corpus/         Reference corpus (78 .cha files, 20 languages)
 schema/         JSON Schema for the CHAT AST
 tests/          Integration tests and fixtures
 fuzz/           Fuzz testing targets

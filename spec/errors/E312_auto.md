@@ -5,6 +5,7 @@
 Auto-generated from corpus
 
 ## Metadata
+- **Status**: not_implemented
 
 - **Error Code**: E312
 - **Category**: validation

@@ -8,7 +8,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Word_Timing_Tier>
 
 use crate::model::{
-    BracketedContent, BracketedItem, ReplacedWord, ScopedAnnotation, UtteranceContent, Word,
+    BracketedContent, BracketedItem, ReplacedWord, ContentAnnotation, UtteranceContent, Word,
 };
 
 use super::domain::TierDomain;
@@ -147,6 +147,15 @@ fn count_alignable_item(item: &UtteranceContent, domain: TierDomain) -> usize {
                 0
             }
         }
+        UtteranceContent::Retrace(retrace) => {
+            // Retrace content is excluded from %mor (not morphologically analyzed),
+            // but included in %pho/%sin/%wor (the words were phonologically produced).
+            if domain == TierDomain::Mor {
+                0
+            } else {
+                count_bracketed_alignable_content(&retrace.content, domain)
+            }
+        }
         // All remaining variants are non-alignable for every dependent tier:
         // events, markers, formatting, freecodes, overlap points, internal bullets.
         UtteranceContent::Event(_)
@@ -211,6 +220,14 @@ fn count_bracketed_item(item: &BracketedItem, domain: TierDomain) -> usize {
                 0
             }
         }
+        BracketedItem::Retrace(retrace) => {
+            // Retrace content is excluded from %mor but counted for %pho/%sin/%wor.
+            if domain == TierDomain::Mor {
+                0
+            } else {
+                count_bracketed_alignable_content(&retrace.content, domain)
+            }
+        }
         // All remaining variants are non-alignable inside bracketed content:
         // pauses, actions, events, markers, formatting, freecodes, overlap points.
         BracketedItem::Event(_)
@@ -235,7 +252,7 @@ fn count_bracketed_item(item: &BracketedItem, domain: TierDomain) -> usize {
 /// Counts one word token after per-domain exclusion rules.
 fn count_alignable_word(
     word: &Word,
-    annotations: &[ScopedAnnotation],
+    annotations: &[ContentAnnotation],
     domain: TierDomain,
 ) -> usize {
     // For individual words, retrace annotations only skip for Mor domain.
@@ -373,6 +390,12 @@ fn extract_alignable_from_item(
                 });
             }
         }
+        UtteranceContent::Retrace(retrace) => {
+            // Retrace content is excluded from %mor but extracted for %pho/%sin/%wor.
+            if domain != TierDomain::Mor {
+                extract_alignable_from_bracketed_content(&retrace.content, domain, output);
+            }
+        }
         // All remaining variants produce no alignable items:
         // events, markers, formatting, freecodes, overlap points, internal bullets.
         UtteranceContent::Event(_)
@@ -464,6 +487,12 @@ fn extract_alignable_from_bracketed_item(
                 });
             }
         }
+        BracketedItem::Retrace(retrace) => {
+            // Retrace content is excluded from %mor but extracted for %pho/%sin/%wor.
+            if domain != TierDomain::Mor {
+                extract_alignable_from_bracketed_content(&retrace.content, domain, output);
+            }
+        }
         // All remaining variants produce no alignable items inside bracketed content:
         // pauses, actions, events, markers, formatting, freecodes, overlap points.
         BracketedItem::Event(_)
@@ -490,7 +519,7 @@ fn extract_alignable_from_bracketed_item(
 /// For MOR alignment, retrace-ignored annotations suppress the token.
 fn extract_alignable_from_word(
     word: &Word,
-    annotations: &[ScopedAnnotation],
+    annotations: &[ContentAnnotation],
     domain: TierDomain,
     output: &mut Vec<TierPosition>,
 ) {

@@ -33,7 +33,7 @@
 //! | `age_format` | `2;05.24` | [`parse_age_format_token`] |
 
 use talkbank_model::model::{
-    AgeValue, LanguageCode, OverlapMarkerIndex, ScopedAlternative, ScopedAnnotation,
+    AgeValue, LanguageCode, OverlapMarkerIndex, ScopedAlternative, ContentAnnotation,
     ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd,
     ScopedParalinguistic, ScopedPercentComment,
 };
@@ -72,42 +72,42 @@ fn strip_annotation(token_text: &str, prefix: &str) -> Option<smol_str::SmolStr>
 /// Parse an atomic `explanation_annotation` token `[= text]`.
 ///
 /// Returns `None` if the format doesn't match.
-pub fn parse_explanation_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_explanation_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[= ")
-        .map(|text| ScopedAnnotation::Explanation(ScopedExplanation { text }))
+        .map(|text| ContentAnnotation::Explanation(ScopedExplanation { text }))
 }
 
 /// Parse an atomic `para_annotation` token `[=! text]`.
 ///
 /// Returns `None` if the format doesn't match.
-pub fn parse_para_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_para_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[=! ")
-        .map(|text| ScopedAnnotation::Paralinguistic(ScopedParalinguistic { text }))
+        .map(|text| ContentAnnotation::Paralinguistic(ScopedParalinguistic { text }))
 }
 
 /// Parse an atomic `alt_annotation` token `[=? text]`.
 ///
 /// Returns `None` if the format doesn't match.
-pub fn parse_alt_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_alt_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[=? ")
-        .map(|text| ScopedAnnotation::Alternative(ScopedAlternative { text }))
+        .map(|text| ContentAnnotation::Alternative(ScopedAlternative { text }))
 }
 
 /// Parse an atomic `percent_annotation` token `[% text]`.
 ///
 /// Returns `None` if the format doesn't match.
-pub fn parse_percent_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_percent_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[% ")
-        .map(|text| ScopedAnnotation::PercentComment(ScopedPercentComment { text }))
+        .map(|text| ContentAnnotation::PercentComment(ScopedPercentComment { text }))
 }
 
 /// Parse an atomic `duration_annotation` token `[# time]`.
 ///
 /// Returns `None` if the format doesn't match.
 /// The time string is returned as-is; Rust validation checks the format.
-pub fn parse_duration_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_duration_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[# ")
-        .map(|time| ScopedAnnotation::Duration(ScopedDuration { time }))
+        .map(|time| ContentAnnotation::Duration(ScopedDuration { time }))
 }
 
 // ---------------------------------------------------------------------------
@@ -116,9 +116,9 @@ pub fn parse_duration_token(token_text: &str) -> Option<ScopedAnnotation> {
 
 /// Parse an atomic `error_marker_annotation` token `[*]` or `[* code]`.
 ///
-/// Returns `ScopedAnnotation::Error` with an optional error code string.
+/// Returns `ContentAnnotation::Error` with an optional error code string.
 /// Returns `None` only if the token doesn't match the `[*...]` format at all.
-pub fn parse_error_marker_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_error_marker_token(token_text: &str) -> Option<ContentAnnotation> {
     let inner = token_text.strip_prefix('[')?.strip_suffix(']')?;
     let after_star = inner.strip_prefix('*')?;
 
@@ -135,7 +135,7 @@ pub fn parse_error_marker_token(token_text: &str) -> Option<ScopedAnnotation> {
         }
     };
 
-    Some(ScopedAnnotation::Error(ScopedError { code }))
+    Some(ContentAnnotation::Error(ScopedError { code }))
 }
 
 // ---------------------------------------------------------------------------
@@ -156,22 +156,22 @@ fn extract_overlap_index(inner: &str) -> Option<OverlapMarkerIndex> {
 
 /// Parse an atomic `indexed_overlap_precedes` token `[<]` or `[<N]`.
 ///
-/// Returns `ScopedAnnotation::OverlapBegin` with optional index.
+/// Returns `ContentAnnotation::OverlapBegin` with optional index.
 /// Returns `None` if the format doesn't match.
-pub fn parse_overlap_precedes_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_overlap_precedes_token(token_text: &str) -> Option<ContentAnnotation> {
     let inner = token_text.strip_prefix("[<")?.strip_suffix(']')?;
     let index = extract_overlap_index(inner);
-    Some(ScopedAnnotation::OverlapBegin(ScopedOverlapBegin { index }))
+    Some(ContentAnnotation::OverlapBegin(ScopedOverlapBegin { index }))
 }
 
 /// Parse an atomic `indexed_overlap_follows` token `[>]` or `[>N]`.
 ///
-/// Returns `ScopedAnnotation::OverlapEnd` with optional index.
+/// Returns `ContentAnnotation::OverlapEnd` with optional index.
 /// Returns `None` if the format doesn't match.
-pub fn parse_overlap_follows_token(token_text: &str) -> Option<ScopedAnnotation> {
+pub fn parse_overlap_follows_token(token_text: &str) -> Option<ContentAnnotation> {
     let inner = token_text.strip_prefix("[>")?.strip_suffix(']')?;
     let index = extract_overlap_index(inner);
-    Some(ScopedAnnotation::OverlapEnd(ScopedOverlapEnd { index }))
+    Some(ContentAnnotation::OverlapEnd(ScopedOverlapEnd { index }))
 }
 
 // ---------------------------------------------------------------------------
@@ -226,56 +226,56 @@ mod tests {
     #[test]
     fn explanation() {
         let ann = parse_explanation_token("[= laughing]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Explanation(e) if e.text == "laughing"));
+        assert!(matches!(ann, ContentAnnotation::Explanation(e) if e.text == "laughing"));
     }
 
     /// Tests para.
     #[test]
     fn para() {
         let ann = parse_para_token("[=! whispers]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Paralinguistic(p) if p.text == "whispers"));
+        assert!(matches!(ann, ContentAnnotation::Paralinguistic(p) if p.text == "whispers"));
     }
 
     /// Tests alt.
     #[test]
     fn alt() {
         let ann = parse_alt_token("[=? word]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Alternative(a) if a.text == "word"));
+        assert!(matches!(ann, ContentAnnotation::Alternative(a) if a.text == "word"));
     }
 
     /// Tests percent.
     #[test]
     fn percent() {
         let ann = parse_percent_token("[% some comment]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::PercentComment(p) if p.text == "some comment"));
+        assert!(matches!(ann, ContentAnnotation::PercentComment(p) if p.text == "some comment"));
     }
 
     /// Tests duration.
     #[test]
     fn duration() {
         let ann = parse_duration_token("[# 2.5]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Duration(d) if d.time == "2.5"));
+        assert!(matches!(ann, ContentAnnotation::Duration(d) if d.time == "2.5"));
     }
 
     /// Tests error marker no code.
     #[test]
     fn error_marker_no_code() {
         let ann = parse_error_marker_token("[*]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Error(e) if e.code.is_none()));
+        assert!(matches!(ann, ContentAnnotation::Error(e) if e.code.is_none()));
     }
 
     /// Tests error marker with code.
     #[test]
     fn error_marker_with_code() {
         let ann = parse_error_marker_token("[* s:r]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::Error(e) if e.code.as_deref() == Some("s:r")));
+        assert!(matches!(ann, ContentAnnotation::Error(e) if e.code.as_deref() == Some("s:r")));
     }
 
     /// Tests overlap precedes no index.
     #[test]
     fn overlap_precedes_no_index() {
         let ann = parse_overlap_precedes_token("[<]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::OverlapBegin(o) if o.index.is_none()));
+        assert!(matches!(ann, ContentAnnotation::OverlapBegin(o) if o.index.is_none()));
     }
 
     /// Tests overlap precedes with index.
@@ -283,7 +283,7 @@ mod tests {
     fn overlap_precedes_with_index() {
         let ann = parse_overlap_precedes_token("[<2]").unwrap();
         assert!(
-            matches!(ann, ScopedAnnotation::OverlapBegin(o) if o.index.map(|i| i.0) == Some(2))
+            matches!(ann, ContentAnnotation::OverlapBegin(o) if o.index.map(|i| i.0) == Some(2))
         );
     }
 
@@ -291,14 +291,14 @@ mod tests {
     #[test]
     fn overlap_follows_no_index() {
         let ann = parse_overlap_follows_token("[>]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::OverlapEnd(o) if o.index.is_none()));
+        assert!(matches!(ann, ContentAnnotation::OverlapEnd(o) if o.index.is_none()));
     }
 
     /// Tests overlap follows with index.
     #[test]
     fn overlap_follows_with_index() {
         let ann = parse_overlap_follows_token("[>3]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::OverlapEnd(o) if o.index.map(|i| i.0) == Some(3)));
+        assert!(matches!(ann, ContentAnnotation::OverlapEnd(o) if o.index.map(|i| i.0) == Some(3)));
     }
 
     /// Tests overlap with spaces.
@@ -306,7 +306,7 @@ mod tests {
     fn overlap_with_spaces() {
         // [< ] — space but no index
         let ann = parse_overlap_precedes_token("[< ]").unwrap();
-        assert!(matches!(ann, ScopedAnnotation::OverlapBegin(o) if o.index.is_none()));
+        assert!(matches!(ann, ContentAnnotation::OverlapBegin(o) if o.index.is_none()));
     }
 
     /// Tests age format full.

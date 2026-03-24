@@ -3,528 +3,528 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "languages": [
-    "eng"
-  ],
   "lines": [
     {
+      "line_type": "header",
       "header": {
         "type": "utf8"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "begin"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "languages",
         "codes": [
           "eng"
-        ],
-        "type": "languages"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "participants",
         "entries": [
           {
+            "speaker_code": "CHI",
             "name": null,
-            "role": "Child",
-            "speaker_code": "CHI"
+            "role": "Child"
           },
           {
+            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother",
-            "speaker_code": "MOT"
+            "role": "Mother"
           }
-        ],
-        "type": "participants"
-      },
-      "line_type": "header"
+        ]
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "age": "3;0",
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Child",
+        "corpus": "corpus",
         "speaker": "CHI",
-        "type": "id"
-      },
-      "line_type": "header"
+        "age": "3;0",
+        "role": "Child"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "corpus": "corpus",
+        "type": "id",
         "language": [
           "eng"
         ],
-        "role": "Mother",
+        "corpus": "corpus",
         "speaker": "MOT",
-        "type": "id"
-      },
-      "line_type": "header"
+        "role": "Mother"
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Episode and inline headers: @New Episode, @G, @Bg, @Eg, @Bck, @Blank, @Number, @Page, @T",
-              "type": "text"
+              "type": "text",
+              "text": "Episode and inline headers: @New Episode, @G, @Bg, @Eg, @Bck, @Blank, @Number, @Page, @T"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
+        "type": "comment",
         "content": {
           "segments": [
             {
-              "text": "Constructs: new_episode_header, g_header, bg_header, eg_header,",
-              "type": "text"
+              "type": "text",
+              "text": "Constructs: new_episode_header, g_header, bg_header, eg_header,"
             },
             {
               "type": "continuation"
             },
             {
-              "text": "bck_header, blank_header, number_header, page_header, t_header",
-              "type": "text"
+              "type": "text",
+              "text": "bck_header, blank_header, number_header, page_header, t_header"
             }
           ]
-        },
-        "type": "comment"
-      },
-      "line_type": "header"
+        }
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "bck": "background noise from traffic outside",
-        "type": "bck"
-      },
-      "line_type": "header"
+        "type": "bck",
+        "bck": "background noise from traffic outside"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "label": "morning routine",
-        "type": "lazy_gem"
-      },
-      "line_type": "header"
+        "type": "lazy_gem",
+        "label": "morning routine"
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "I",
               "cleaned_text": "I",
               "content": [
                 {
-                  "content": "I",
-                  "type": "text"
+                  "type": "text",
+                  "content": "I"
                 }
-              ],
-              "raw_text": "I",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "want",
               "cleaned_text": "want",
               "content": [
                 {
-                  "content": "want",
-                  "type": "text"
+                  "type": "text",
+                  "content": "want"
                 }
-              ],
-              "raw_text": "want",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "cereal",
               "cleaned_text": "cereal",
               "content": [
                 {
-                  "content": "cereal",
-                  "type": "text"
+                  "type": "text",
+                  "content": "cereal"
                 }
-              ],
-              "raw_text": "cereal",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "okay",
               "cleaned_text": "okay",
               "content": [
                 {
-                  "content": "okay",
-                  "type": "text"
+                  "type": "text",
+                  "content": "okay"
                 }
-              ],
-              "raw_text": "okay",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "let",
               "cleaned_text": "let",
               "content": [
                 {
-                  "content": "let",
-                  "type": "text"
+                  "type": "text",
+                  "content": "let"
                 }
-              ],
-              "raw_text": "let",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "me",
               "cleaned_text": "me",
               "content": [
                 {
-                  "content": "me",
-                  "type": "text"
+                  "type": "text",
+                  "content": "me"
                 }
-              ],
-              "raw_text": "me",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "get",
               "cleaned_text": "get",
               "content": [
                 {
-                  "content": "get",
-                  "type": "text"
+                  "type": "text",
+                  "content": "get"
                 }
-              ],
-              "raw_text": "get",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "content": "a",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "a",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "bowl",
               "cleaned_text": "bowl",
               "content": [
                 {
-                  "content": "bowl",
-                  "type": "text"
+                  "type": "text",
+                  "content": "bowl"
                 }
-              ],
-              "raw_text": "bowl",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
-        "text": "cereal preparation",
-        "type": "t"
-      },
-      "line_type": "header"
+        "type": "t",
+        "text": "cereal preparation"
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "new_episode"
-      },
-      "line_type": "header"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "number": "2",
-        "type": "number"
-      },
-      "line_type": "header"
+        "type": "number",
+        "number": "2"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "page": "42",
-        "type": "page"
-      },
-      "line_type": "header"
+        "type": "page",
+        "page": "42"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "label": "afternoon play",
-        "type": "begin_gem"
-      },
-      "line_type": "header"
+        "type": "begin_gem",
+        "label": "afternoon play"
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "can",
               "cleaned_text": "can",
               "content": [
                 {
-                  "content": "can",
-                  "type": "text"
+                  "type": "text",
+                  "content": "can"
                 }
-              ],
-              "raw_text": "can",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "we",
               "cleaned_text": "we",
               "content": [
                 {
-                  "content": "we",
-                  "type": "text"
+                  "type": "text",
+                  "content": "we"
                 }
-              ],
-              "raw_text": "we",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "go",
               "cleaned_text": "go",
               "content": [
                 {
-                  "content": "go",
-                  "type": "text"
+                  "type": "text",
+                  "content": "go"
                 }
-              ],
-              "raw_text": "go",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "outside",
               "cleaned_text": "outside",
               "content": [
                 {
-                  "content": "outside",
-                  "type": "text"
+                  "type": "text",
+                  "content": "outside"
                 }
-              ],
-              "raw_text": "outside",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "question"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "blank"
-      },
-      "line_type": "header"
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "MOT",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "sure",
               "cleaned_text": "sure",
               "content": [
                 {
-                  "content": "sure",
-                  "type": "text"
+                  "type": "text",
+                  "content": "sure"
                 }
-              ],
-              "raw_text": "sure",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "let",
               "cleaned_text": "let",
               "content": [
                 {
-                  "content": "let",
-                  "type": "text"
+                  "type": "text",
+                  "content": "let"
                 }
-              ],
-              "raw_text": "let",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "us",
               "cleaned_text": "us",
               "content": [
                 {
-                  "content": "us",
-                  "type": "text"
+                  "type": "text",
+                  "content": "us"
                 }
-              ],
-              "raw_text": "us",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "get",
               "cleaned_text": "get",
               "content": [
                 {
-                  "content": "get",
-                  "type": "text"
+                  "type": "text",
+                  "content": "get"
                 }
-              ],
-              "raw_text": "get",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "your",
               "cleaned_text": "your",
               "content": [
                 {
-                  "content": "your",
-                  "type": "text"
+                  "type": "text",
+                  "content": "your"
                 }
-              ],
-              "raw_text": "your",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "shoes",
               "cleaned_text": "shoes",
               "content": [
                 {
-                  "content": "shoes",
-                  "type": "text"
+                  "type": "text",
+                  "content": "shoes"
                 }
-              ],
-              "raw_text": "shoes",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "period"
           }
-        },
-        "speaker": "MOT"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
-        "label": "afternoon play",
-        "type": "end_gem"
-      },
-      "line_type": "header"
+        "type": "end_gem",
+        "label": "afternoon play"
+      }
     },
     {
+      "line_type": "header",
       "header": {
-        "label": null,
-        "type": "begin_gem"
-      },
-      "line_type": "header"
+        "type": "begin_gem",
+        "label": null
+      }
     },
     {
       "line_type": "utterance",
       "main": {
+        "speaker": "CHI",
         "content": {
           "content": [
             {
+              "type": "word",
+              "raw_text": "look",
               "cleaned_text": "look",
               "content": [
                 {
-                  "content": "look",
-                  "type": "text"
+                  "type": "text",
+                  "content": "look"
                 }
-              ],
-              "raw_text": "look",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "content": "a",
-                  "type": "text"
+                  "type": "text",
+                  "content": "a"
                 }
-              ],
-              "raw_text": "a",
-              "type": "word"
+              ]
             },
             {
+              "type": "word",
+              "raw_text": "butterfly",
               "cleaned_text": "butterfly",
               "content": [
                 {
-                  "content": "butterfly",
-                  "type": "text"
+                  "type": "text",
+                  "content": "butterfly"
                 }
-              ],
-              "raw_text": "butterfly",
-              "type": "word"
+              ]
             }
           ],
           "terminator": {
             "type": "exclamation"
           }
-        },
-        "speaker": "CHI"
+        }
       }
     },
     {
+      "line_type": "header",
       "header": {
-        "label": null,
-        "type": "end_gem"
-      },
-      "line_type": "header"
+        "type": "end_gem",
+        "label": null
+      }
     },
     {
+      "line_type": "header",
       "header": {
         "type": "end"
-      },
-      "line_type": "header"
+      }
     }
   ],
-  "options": [],
   "participants": {
     "CHI": {
-      "birth_date": null,
       "code": "CHI",
+      "name": null,
+      "role": "Child",
       "id": {
-        "age": "3;0",
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Child",
-        "speaker": "CHI"
+        "corpus": "corpus",
+        "speaker": "CHI",
+        "age": "3;0",
+        "role": "Child"
       },
-      "name": null,
-      "role": "Child"
+      "birth_date": null
     },
     "MOT": {
-      "birth_date": null,
       "code": "MOT",
+      "name": null,
+      "role": "Mother",
       "id": {
-        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "role": "Mother",
-        "speaker": "MOT"
+        "corpus": "corpus",
+        "speaker": "MOT",
+        "role": "Mother"
       },
-      "name": null,
-      "role": "Mother"
+      "birth_date": null
     }
-  }
+  },
+  "languages": [
+    "eng"
+  ],
+  "options": []
 }

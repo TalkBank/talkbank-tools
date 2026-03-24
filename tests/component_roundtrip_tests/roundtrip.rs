@@ -8,7 +8,6 @@
 use serde_json::Value;
 use std::path::PathBuf;
 use talkbank_parser::TreeSitterParser;
-use talkbank_model::ChatParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::WriteChat;
 use talkbank_model::model::{Utterance, Word};
@@ -24,21 +23,21 @@ where
     true_roundtrip_tier_with_validation(chat_input, parse_fn, |_| Vec::new())
 }
 
-/// Parse a word through the direct parser.
+/// Parse a word through the tree-sitter parser.
 pub fn parse_word_direct(input: &str) -> Result<Word, ParseErrors> {
     let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
-    match ChatParser::parse_word(&parser, input, 0, &errors) {
+    match parser.parse_word_fragment(input, 0, &errors) {
         ParseOutcome::Parsed(word) => Ok(word),
         ParseOutcome::Rejected => Err(ParseErrors::from(errors.into_vec())),
     }
 }
 
-/// Parse an utterance fragment through the direct parser.
+/// Parse an utterance fragment through the tree-sitter parser.
 pub fn parse_utterance_direct(input: &str) -> Result<Utterance, ParseErrors> {
     let parser = TreeSitterParser::new().expect("TreeSitterParser should construct");
     let errors = ErrorCollector::new();
-    match ChatParser::parse_utterance(&parser, input, 0, &errors) {
+    match parser.parse_utterance_fragment(input, 0, &errors) {
         ParseOutcome::Parsed(utterance) => Ok(utterance),
         ParseOutcome::Rejected => Err(ParseErrors::from(errors.into_vec())),
     }

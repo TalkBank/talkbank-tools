@@ -43,23 +43,16 @@ impl ParserImpl {
         &self,
         content: &str,
     ) -> Result<talkbank_model::ChatFile, TestError> {
-        let result = match self {
-            ParserImpl::TreeSitter(p) => p.parse_chat_file(content),
-            ParserImpl::Direct(_) => {
-                unreachable!("validation_parser_suite only constructs the tree-sitter parser")
-            }
-        };
-        result.map_err(|errors| TestError::ParseErrors {
+        self.0.parse_chat_file(content).map_err(|errors| TestError::ParseErrors {
             parser: self.name(),
             errors,
         })
     }
 }
 
-/// Returns only TreeSitter parser for validation tests
-/// (TreeSitterParser doesn't implement validation yet)
+/// Returns the parser for validation tests.
 pub fn validation_parser_suite() -> Result<Vec<ParserImpl>, TestError> {
     TreeSitterParser::new()
-        .map(|parser| vec![ParserImpl::TreeSitter(parser)])
+        .map(|parser| vec![ParserImpl(parser)])
         .map_err(|source| TestError::TreeSitterInit { source })
 }

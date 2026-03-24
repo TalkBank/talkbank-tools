@@ -1,5 +1,8 @@
 # Boundary Vocabulary
 
+**Status:** Current
+**Last updated:** 2026-03-24 01:32 EDT
+
 This page defines the naming rules used for major architecture seams in `talkbank-tools`. It started with the audit of `*sink*` abstractions, but the same vocabulary now covers renderers, services, coordinators, and reporters.
 
 For `batchalign3` integration, the same names should be used when talking
@@ -124,7 +127,7 @@ Use `Service` for a capability boundary that hides access mechanics.
 
 A service may:
 
-- wrap thread-local or cached internals
+- wrap reusable or cached internals
 - expose small closures or methods to feature code
 - keep storage details out of callers
 

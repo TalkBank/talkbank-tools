@@ -53,20 +53,20 @@ pub fn parse_and_validate(
 ) -> Result<ChatFile, PipelineError>
 ```
 
-This creates a `TreeSitterParser`, then delegates to the generic version:
+This creates a `TreeSitterParser`, then delegates to the `_with_parser` variant:
 
 ```rust
-pub fn parse_and_validate_with_parser_generic<P: ChatParser>(
-    parser: &P,
+pub fn parse_and_validate_with_parser(
+    parser: &TreeSitterParser,
     content: &str,
     options: ParseValidateOptions,
 ) -> Result<ChatFile, PipelineError>
 ```
 
-The generic function:
+The function:
 
-1. Creates a `ErrorCollector` to collect parse errors
-2. Calls `parser.parse_chat_file(content, 0, &parse_errors)`
+1. Creates an `ErrorCollector` to collect parse errors
+2. Calls `parser.parse_chat_file_fragment(content, 0, &parse_errors)`
 3. If any `Severity::Error` errors, returns `Err(PipelineError::Parse(...))`
 4. If `options.alignment` is set, calls `chat_file.validate_with_alignment()`
 5. Otherwise if `options.validate`, calls `chat_file.validate()`
@@ -98,29 +98,27 @@ pub fn chat_to_json(
 
 ## Stage 2: Tree-sitter Parsing
 
-### The ChatParser trait
+### TreeSitterParser
 
 ```
-talkbank-model/src/parser_trait.rs
+talkbank-parser/src/parser/chat_file_parser/parser_struct.rs
 ```
 
-All parsers implement the `ChatParser` trait:
+`TreeSitterParser` is the sole parser. Create one and reuse it:
 
 ```rust
-pub trait ChatParser {
-    fn parse_chat_file(
-        &self, input: &str, offset: usize, errors: &impl ErrorSink,
-    ) -> ParseOutcome<ChatFile>;
+let parser = TreeSitterParser::new()?;
 
-    fn parse_utterance(...) -> ParseOutcome<Utterance>;
-    fn parse_main_tier(...) -> ParseOutcome<MainTier>;
-    fn parse_word(...) -> ParseOutcome<Word>;
-    fn parse_mor_tier(...) -> ParseOutcome<MorTier>;
-    fn parse_gra_tier(...) -> ParseOutcome<GraTier>;
-    fn parse_pho_tier(...) -> ParseOutcome<PhoTier>;
-    fn parse_wor_tier(...) -> ParseOutcome<WorTier>;
-    // ... every CHAT construct is independently parseable
-}
+// Full-file parsing (Result API):
+let chat_file = parser.parse_chat_file(input)?;
+
+// Fragment parsing with offset + streaming errors:
+parser.parse_chat_file_fragment(input, offset, &errors)  // -> ParseOutcome<ChatFile>
+parser.parse_word_fragment(input, offset, &errors)        // -> ParseOutcome<Word>
+parser.parse_main_tier_fragment(input, offset, &errors)   // -> ParseOutcome<MainTier>
+parser.parse_mor_tier_fragment(input, offset, &errors)    // -> ParseOutcome<MorTier>
+parser.parse_gra_tier_fragment(input, offset, &errors)    // -> ParseOutcome<GraTier>
+// ... every CHAT construct is independently parseable
 ```
 
 `ParseOutcome<T>` replaces ambiguous `Option<T>`:
@@ -693,7 +691,7 @@ pub fn json_to_chat(input: &PathBuf, output: Option<&PathBuf>) {
 | Crate | Role |
 |-------|------|
 | `talkbank-parser` | CST parsing + CST→AST conversion |
-| `talkbank-model` | `ChatParser` trait, `ParseOutcome`, AST types, validation, alignment, `ErrorSink`, `ParseError`, error codes |
+| `talkbank-model` | `ParseOutcome`, AST types, validation, alignment, `ErrorSink`, `ParseError`, error codes |
 | `talkbank-transform` | Pipeline orchestration (parse + validate + convert), JSON serialization + schema validation, `ParseValidateOptions` |
 | `talkbank-cli` | CLI commands invoking the pipeline |
 

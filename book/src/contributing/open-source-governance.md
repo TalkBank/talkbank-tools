@@ -1,5 +1,8 @@
 # GitHub Readiness and Open Source Governance
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 ## Objective
 Prepare `talkbank-tools` to operate as a healthy public project with clear legal, security,
 contribution, and release processes.

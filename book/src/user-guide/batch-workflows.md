@@ -1,5 +1,8 @@
 # Batch Workflows
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 The `chatter` CLI is designed for processing large CHAT corpora efficiently. This page covers common batch workflows.
 
 ## Validating a Corpus
@@ -73,7 +76,7 @@ Do not delete the cache file manually while `chatter` is running.
 
 ## Reference Corpus Validation
 
-The `talkbank-tools` repository includes a reference corpus of 74 files at `corpus/reference/`. Both parsers must agree on these files at 100%:
+The `talkbank-tools` repository includes a reference corpus of 78 files at `corpus/reference/`. The parser must handle these files at 100%:
 
 ```bash
 cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'

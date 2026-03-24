@@ -87,7 +87,7 @@ summarised here with its rationale.
 ### Decision 1: `[*]` bare annotation — E214 disabled
 
 - **Previous behaviour**: `E214` emitted when `[*]` appeared without an explicit
-  error code (empty `ScopedAnnotation::Error`).
+  error code (empty `ContentAnnotation::Error`).
 - **Current behaviour**: Bare `[*]` is accepted without error.
 - **Implementation**: Removed validation branch in
   `talkbank-model/src/model/annotation/annotated.rs`.

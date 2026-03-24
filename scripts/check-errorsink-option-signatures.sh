@@ -17,7 +17,6 @@ cd "$ROOT_DIR"
 
 FILE_LIST="$(
   find \
-    crates/talkbank-direct-parser/src \
     crates/talkbank-parser/src \
     -name '*.rs' -type f
 )"

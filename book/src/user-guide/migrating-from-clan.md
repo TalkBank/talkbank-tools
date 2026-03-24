@@ -1,5 +1,8 @@
 # Migrating from CLAN to `talkbank-tools`
 
+**Status:** Current
+**Last updated:** 2026-03-24 00:01 EDT
+
 This page is for two audiences:
 
 - users moving day-to-day workflows from legacy CLAN binaries to `chatter`

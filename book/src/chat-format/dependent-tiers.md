@@ -1,5 +1,8 @@
 # Dependent Tiers
 
+**Status:** Reference
+**Last updated:** 2026-03-24 00:01 EDT
+
 Dependent tiers appear on lines beginning with `%` immediately after an utterance. They provide annotations linked to the main tier content.
 
 CHAT defines four structural categories of dependent tiers:

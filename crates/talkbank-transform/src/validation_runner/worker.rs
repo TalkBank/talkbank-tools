@@ -7,7 +7,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use super::cache::{CacheOutcome, ValidationCache};
-use super::config::{CacheMode, ParserKind, ValidationConfig};
+use super::config::{CacheMode, ValidationConfig};
 use super::roundtrip;
 use super::types::{
     ErrorEvent, FileCompleteEvent, FileStatus, RoundtripEvent, ValidationEvent, ValidationStats,
