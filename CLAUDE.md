@@ -115,6 +115,8 @@ cd fuzz && cargo fuzz run fuzz_parse_chat_file
 
 ## Architecture
 
+**CHAT manual:** https://talkbank.org/0info/manuals/CHAT.html — the authoritative reference for the transcript format this project parses and validates.
+
 ```
 grammar/        Tree-sitter grammar for CHAT format
   grammar.js      Grammar definition (edit this)
