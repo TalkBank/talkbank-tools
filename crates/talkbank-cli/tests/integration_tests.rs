@@ -419,6 +419,177 @@ fn test_to_json_with_validation() -> Result<(), TestError> {
 }
 
 // ============================================================================
+// ToJson Directory Mode Tests
+// ============================================================================
+
+/// Tests to-json directory mode creates JSON files preserving structure.
+#[test]
+fn test_to_json_directory_mode() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input_dir = dir.path().join("corpus");
+    let sub_dir = input_dir.join("sub");
+    fs::create_dir_all(&sub_dir)?;
+    fs::write(input_dir.join("a.cha"), VALID_CHAT)?;
+    fs::write(sub_dir.join("b.cha"), VALID_CHAT)?;
+
+    let output_dir = dir.path().join("json");
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("2 converted"));
+
+    // Verify structure preserved
+    assert!(output_dir.join("a.json").exists());
+    assert!(output_dir.join("sub/b.json").exists());
+
+    // Verify valid JSON
+    let content = fs::read_to_string(output_dir.join("a.json"))?;
+    let _: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| TestError::Failure(format!("Invalid JSON: {e}")))?;
+    Ok(())
+}
+
+/// Tests incremental mode skips up-to-date files.
+#[test]
+fn test_to_json_incremental() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input_dir = dir.path().join("corpus");
+    fs::create_dir_all(&input_dir)?;
+    fs::write(input_dir.join("a.cha"), VALID_CHAT)?;
+
+    let output_dir = dir.path().join("json");
+
+    // First run: should convert
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("1 converted, 0 up-to-date"));
+
+    // Second run: should skip (up-to-date)
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("0 converted, 1 up-to-date"));
+    Ok(())
+}
+
+/// Tests --force ignores mtime and reconverts all files.
+#[test]
+fn test_to_json_force() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input_dir = dir.path().join("corpus");
+    fs::create_dir_all(&input_dir)?;
+    fs::write(input_dir.join("a.cha"), VALID_CHAT)?;
+
+    let output_dir = dir.path().join("json");
+
+    // First run
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .assert()
+        .success();
+
+    // Force run: should reconvert despite up-to-date
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .arg("--force")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("1 converted, 0 up-to-date"));
+    Ok(())
+}
+
+/// Tests --prune removes orphaned .json files.
+#[test]
+fn test_to_json_prune() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input_dir = dir.path().join("corpus");
+    fs::create_dir_all(&input_dir)?;
+    fs::write(input_dir.join("a.cha"), VALID_CHAT)?;
+
+    let output_dir = dir.path().join("json");
+
+    // First run: convert
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .assert()
+        .success();
+
+    // Create an orphaned .json file
+    fs::write(output_dir.join("orphan.json"), "{}")?;
+    assert!(output_dir.join("orphan.json").exists());
+
+    // Run with --prune
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-validation")
+        .arg("--skip-schema-validation")
+        .arg("--prune")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("1 pruned"));
+
+    // Orphan should be gone, original should remain
+    assert!(!output_dir.join("orphan.json").exists());
+    assert!(output_dir.join("a.json").exists());
+    Ok(())
+}
+
+/// Tests directory mode requires --output-dir.
+#[test]
+fn test_to_json_directory_requires_output_dir() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input_dir = dir.path().join("corpus");
+    fs::create_dir_all(&input_dir)?;
+    fs::write(input_dir.join("a.cha"), VALID_CHAT)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("to-json")
+        .arg(&input_dir)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--output-dir"));
+    Ok(())
+}
+
+// ============================================================================
 // FromJson Command Tests
 // ============================================================================
 

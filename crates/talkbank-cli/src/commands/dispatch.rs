@@ -115,7 +115,6 @@ impl CommandFamilyService for ValidationCommandService {
                 quiet,
                 max_errors,
                 roundtrip,
-                parser,
                 audit,
             } => run_validate_command(
                 path,
@@ -123,7 +122,7 @@ impl CommandFamilyService for ValidationCommandService {
                     rules: ValidateCommandRules {
                         alignment: AlignmentValidationMode::from_enabled(!skip_alignment),
                         roundtrip: RoundtripValidationMode::from_enabled(roundtrip),
-                        parser_kind: parser.into(),
+                        parser_kind: talkbank_transform::ParserKind::TreeSitter,
                     },
                     execution: ValidateCommandExecution {
                         cache_refresh: CacheRefreshMode::from_force(force),
@@ -179,23 +178,45 @@ impl CommandFamilyService for UtilityCommandService {
             Commands::ToJson {
                 input,
                 output,
+                output_dir,
                 pretty,
+                force,
+                prune,
+                jobs,
                 validate: _,
                 alignment: _,
                 skip_alignment,
                 skip_validation,
                 skip_schema_validation,
             } => {
-                let do_validate = !skip_validation;
-                let run_alignment = !skip_alignment && !skip_validation;
-                chat_to_json(
-                    &input,
-                    output.as_ref(),
-                    pretty,
-                    do_validate,
-                    run_alignment,
-                    skip_schema_validation,
-                );
+                if input.is_dir() {
+                    let out_dir = output_dir.unwrap_or_else(|| {
+                        eprintln!("Error: directory input requires --output-dir");
+                        std::process::exit(1);
+                    });
+                    super::json::chat_to_json_directory(
+                        &input,
+                        &out_dir,
+                        pretty,
+                        !skip_validation,
+                        !skip_alignment && !skip_validation,
+                        skip_schema_validation,
+                        force,
+                        prune,
+                        jobs,
+                    );
+                } else {
+                    let do_validate = !skip_validation;
+                    let run_alignment = !skip_alignment && !skip_validation;
+                    chat_to_json(
+                        &input,
+                        output.as_ref(),
+                        pretty,
+                        do_validate,
+                        run_alignment,
+                        skip_schema_validation,
+                    );
+                }
             }
             Commands::FromJson { input, output } => json_to_chat(&input, output.as_ref()),
             Commands::Clean {
@@ -277,6 +298,9 @@ fn run_debug(command: crate::cli::DebugCommands) {
             database,
         } => {
             super::debug::run_overlap_audit(&path, database.as_deref());
+        }
+        DebugCommands::LinkerAudit { path, anomalies } => {
+            super::debug::run_linker_audit(&path, anomalies.as_deref());
         }
     }
 }

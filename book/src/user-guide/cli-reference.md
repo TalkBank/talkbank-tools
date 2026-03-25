@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-03-25 18:35 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -84,14 +84,30 @@ chatter normalize input.cha --validate
 ## JSON Conversion
 
 ```bash
-chatter to-json input.cha -o output.json
-chatter to-json input.cha --skip-validation
+# Single file
+chatter to-json input.cha                          # JSON to stdout
+chatter to-json input.cha -o output.json           # JSON to file
+
+# Directory (recursive, preserves structure)
+chatter to-json corpus/ --output-dir json/         # incremental by default (mtime check)
+chatter to-json corpus/ --output-dir json/ --force  # full rebuild
+chatter to-json corpus/ --output-dir json/ --prune  # remove orphaned .json files
+chatter to-json corpus/ --output-dir json/ --jobs 4 # parallel workers
+
+# Reverse and schema
 chatter from-json input.json -o output.cha
 chatter schema
 chatter schema --url
 ```
 
-`to-json` validates by default. Use `--skip-validation`, `--skip-alignment`, or `--skip-schema-validation` only when you explicitly want to bypass those checks.
+**Single-file mode:** `to-json` validates by default. Use `--skip-validation`,
+`--skip-alignment`, or `--skip-schema-validation` to bypass checks.
+
+**Directory mode:** Walks recursively, converting each `.cha` to `.json` under `--output-dir`
+with the same relative path. **Incremental by default**: skips files whose JSON is
+already newer than the source. Use `--force` to rebuild all. Use `--prune` to remove
+`.json` files with no matching `.cha` (handles renames/deletions). Use `--jobs N` for
+parallel conversion (defaults to number of CPUs).
 
 ## Editing and Inspection Commands
 

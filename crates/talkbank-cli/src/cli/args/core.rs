@@ -127,11 +127,6 @@ pub enum Commands {
         #[arg(long, help = "Test serialization idempotency (developer tool)")]
         roundtrip: bool,
 
-        /// Parser backend to use for validation.
-        /// "tree-sitter" is the canonical parser (default); "direct" is experimental.
-        #[arg(long, value_enum, default_value_t = ParserKindArg::TreeSitter)]
-        parser: ParserKindArg,
-
         /// Audit mode: stream errors to JSONL file without caching (for bulk corpus validation).
         /// Reads from cache to skip clean files (fast), but doesn't write new errors to cache (avoids OOM).
         /// Generates summary statistics at the end.
@@ -165,24 +160,40 @@ pub enum Commands {
     },
 
     /// Convert CHAT file to JSON
-    #[command(long_about = "Convert a CHAT transcript to JSON.\n\n\
+    #[command(long_about = "Convert CHAT transcript(s) to JSON.\n\n\
         Output conforms to the TalkBank CHAT JSON Schema:\n\
         https://talkbank.org/schemas/v0.1/chat-file.json\n\n\
-        Validation and alignment are enabled by default. Use --skip-alignment \
-        to disable alignment, or --skip-validation to disable validation.\n\n\
-        By default the output is also validated against the schema. Use \
-        --skip-schema-validation to disable this check.")]
+        Single file: prints JSON to stdout or writes to --output.\n\
+        Directory: requires --output-dir. Walks recursively, preserving structure.\n\
+        Incremental by default: skips files whose JSON is already up-to-date (mtime check).\n\
+        Use --force to rebuild all. Use --prune to remove orphaned .json files.")]
     ToJson {
-        /// Input CHAT file path
+        /// Input CHAT file or directory path
         input: PathBuf,
 
-        /// Output JSON file path (if not specified, prints to stdout)
-        #[arg(short, long)]
+        /// Output JSON file path (single-file mode; prints to stdout if omitted)
+        #[arg(short, long, conflicts_with = "output_dir")]
         output: Option<PathBuf>,
+
+        /// Output directory (directory mode; preserves relative structure)
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
 
         /// Pretty-print JSON (default: true)
         #[arg(short, long, default_value = "true")]
         pretty: bool,
+
+        /// Force full rebuild (ignore mtime, reconvert all files)
+        #[arg(long)]
+        force: bool,
+
+        /// Remove .json files with no matching .cha source (directory mode)
+        #[arg(long)]
+        prune: bool,
+
+        /// Number of parallel workers for directory mode
+        #[arg(short, long)]
+        jobs: Option<usize>,
 
         /// [Deprecated] Validation is now on by default. This flag is ignored.
         #[arg(long, hide = true)]
@@ -199,7 +210,7 @@ pub enum Commands {
         )]
         skip_alignment: bool,
 
-        /// Skip data model validation (parse only)
+        /// Skip data model validation (parse only, always produce JSON)
         #[arg(
             long = "skip-validation",
             help = "Skip validation of the CHAT data model (parse only, no alignment)"
@@ -380,6 +391,22 @@ pub enum DebugCommands {
         #[arg(long, value_name = "PATH")]
         database: Option<PathBuf>,
     },
+
+    /// Audit linker and special terminator usage across a corpus
+    ///
+    /// Analyzes cross-utterance pairing correctness for linkers (+<, ++, +^,
+    /// +", +,, +≋, +≈) and special terminators (+..., +/., +//., +"/.etc.).
+    /// Reports frequency tables, pairing violations, orphaned terminators,
+    /// and +< overlap block patterns.
+    LinkerAudit {
+        /// Path to CHAT file(s) or directory
+        path: Vec<PathBuf>,
+
+        /// Write per-anomaly JSON lines to this file. Each line is a JSON
+        /// object with file, line, anomaly type, context, and suggested fix.
+        #[arg(long, value_name = "PATH")]
+        anomalies: Option<PathBuf>,
+    },
 }
 
 /// Cache maintenance subcommands under `talkbank cache`.
@@ -408,21 +435,3 @@ pub enum CacheCommands {
     },
 }
 
-/// Parser backend choice for CLI.
-///
-/// Maps to `talkbank_transform::ParserKind` via `From` impl.
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum ParserKindArg {
-    /// Tree-sitter parser (default, canonical)
-    #[value(name = "tree-sitter")]
-    TreeSitter,
-}
-
-impl From<ParserKindArg> for talkbank_transform::ParserKind {
-    /// Convert the CLI parser selector into the transform-layer parser enum.
-    fn from(arg: ParserKindArg) -> Self {
-        match arg {
-            ParserKindArg::TreeSitter => talkbank_transform::ParserKind::TreeSitter,
-        }
-    }
-}

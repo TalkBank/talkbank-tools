@@ -25,6 +25,7 @@ pub mod keymap;
 pub mod kideval;
 pub mod kideval_columns;
 pub mod kwal;
+pub mod linker_audit;
 pub mod maxwd;
 pub mod megrasp;
 pub mod mlt;
