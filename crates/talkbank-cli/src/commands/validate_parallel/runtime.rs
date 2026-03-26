@@ -71,7 +71,9 @@ pub fn run_validation_runtime(
                 // Filter suppressed error codes before rendering
                 if !suppress_set.is_empty() {
                     let pre_count = error_event.errors.len();
-                    error_event.errors.retain(|e| !suppress_set.contains(e.code.as_str()));
+                    error_event
+                        .errors
+                        .retain(|e| !suppress_set.contains(e.code.as_str()));
                     if error_event.errors.is_empty() && pre_count > 0 {
                         files_fully_suppressed += 1;
                     }
@@ -104,16 +106,15 @@ pub fn run_validation_runtime(
         }
     };
 
+    // Adjust stats before rendering: files whose errors were entirely
+    // suppressed should not count as invalid in the summary or exit code.
+    let mut stats = stats;
+    if files_fully_suppressed > 0 {
+        stats.invalid_files = stats.invalid_files.saturating_sub(files_fully_suppressed);
+    }
+
     renderer.handle_finished(&stats, files_completed, execution.max_errors, error_count);
     renderer.print_summary(path, &stats, rules.roundtrip.enabled());
-
-    // Adjust stats: files whose errors were entirely suppressed should not
-    // count as invalid for the exit code.
-    if files_fully_suppressed > 0 {
-        let mut adjusted = stats;
-        adjusted.invalid_files = adjusted.invalid_files.saturating_sub(files_fully_suppressed);
-        return adjusted;
-    }
     stats
 }
 
