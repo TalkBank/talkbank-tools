@@ -90,13 +90,48 @@ fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
     let mut codes = Vec::new();
     for item in raw {
         match item.to_lowercase().as_str() {
-            // TEMPORARY: %xphosyl/%xphoaln/%xmodsyl cross-tier alignment (PhonTalk-generated).
+            // TEMPORARY: %xmodsyl/%xphosyl/%xphoaln cross-tier alignment (PhonTalk-generated).
+            // E725: %modsyl vs %mod, E726: %phosyl vs %pho,
+            // E727: %phoaln vs %mod, E728: %phoaln vs %pho.
             // Remove once Greg fixes the PhonTalk data quality issues.
-            "xphon" => codes.extend(["E726", "E727", "E728"].map(String::from)),
+            "xphon" => codes.extend(["E725", "E726", "E727", "E728"].map(String::from)),
             _ => codes.push(item.to_uppercase()),
         }
     }
     codes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::expand_suppress_groups;
+
+    #[test]
+    fn xphon_expands_to_all_phon_cross_tier_codes() {
+        let result = expand_suppress_groups(vec!["xphon".to_string()]);
+        // E725: %modsyl vs %mod
+        // E726: %phosyl vs %pho
+        // E727: %phoaln vs %mod
+        // E728: %phoaln vs %pho
+        assert!(result.contains(&"E725".to_string()), "missing E725 (modsyl/mod)");
+        assert!(result.contains(&"E726".to_string()), "missing E726 (phosyl/pho)");
+        assert!(result.contains(&"E727".to_string()), "missing E727 (phoaln/mod)");
+        assert!(result.contains(&"E728".to_string()), "missing E728 (phoaln/pho)");
+        assert_eq!(result.len(), 4);
+    }
+
+    #[test]
+    fn literal_codes_pass_through_uppercased() {
+        let result = expand_suppress_groups(vec!["e316".to_string()]);
+        assert_eq!(result, vec!["E316"]);
+    }
+
+    #[test]
+    fn mixed_groups_and_codes() {
+        let result = expand_suppress_groups(vec!["xphon".to_string(), "E316".to_string()]);
+        assert_eq!(result.len(), 5);
+        assert!(result.contains(&"E725".to_string()));
+        assert!(result.contains(&"E316".to_string()));
+    }
 }
 
 /// Execute one top-level `chatter validate` invocation.
