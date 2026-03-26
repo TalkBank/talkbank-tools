@@ -10,7 +10,9 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition>
 
 use crate::error::ErrorSink;
-use crate::model::{Annotated, BracketedContent, BracketedItem, ReplacedWord, Retrace, UtteranceContent};
+use crate::model::{
+    Annotated, BracketedContent, BracketedItem, ReplacedWord, Retrace, UtteranceContent,
+};
 use crate::node_types::{BASE_ANNOTATIONS, REPLACEMENT, STANDALONE_WORD, WHITESPACES};
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
@@ -110,7 +112,19 @@ pub(crate) fn parse_word_content(
         if let ParseOutcome::Parsed(repl) = replacement {
             // Word with replacement [: ...]
             let replaced = ReplacedWord::new(w, repl).with_scoped_annotations(annotations);
-            ParseOutcome::parsed(UtteranceContent::ReplacedWord(Box::new(replaced)))
+            if let Some(kind) = retrace_kind {
+                // Replaced word inside a retrace: word [: replacement] [* error] [//]
+                // Wrap the ReplacedWord in a Retrace node so it is excluded from
+                // %mor alignment counting.
+                let span = replaced.span;
+                let bracketed = BracketedContent::new(vec![BracketedItem::ReplacedWord(
+                    Box::new(replaced),
+                )]);
+                let retrace = Retrace::new(bracketed, kind).with_span(span);
+                ParseOutcome::parsed(UtteranceContent::Retrace(Box::new(retrace)))
+            } else {
+                ParseOutcome::parsed(UtteranceContent::ReplacedWord(Box::new(replaced)))
+            }
         } else if let Some(kind) = retrace_kind {
             // Single-word retrace: wrap word in BracketedContent
             let span = w.span;
