@@ -40,6 +40,7 @@ pub fn validate_file(
     quiet: bool,
     interface: ValidationInterface,
     theme: Theme,
+    suppress: &[String],
 ) {
     let check_alignment = alignment.enabled();
 
@@ -71,6 +72,12 @@ pub fn validate_file(
         ParseValidateOptions::default().with_validation()
     };
 
+    // Build suppression set for error filtering
+    let suppress_set: std::collections::HashSet<String> = suppress
+        .iter()
+        .map(|s| s.to_uppercase())
+        .collect();
+
     // Use different error sinks based on output format and TUI mode
     // JSON/TUI needs structured values, interactive CLI streams to terminal plus collecting.
     let mut errors = if matches!(format, OutputFormat::Json) || interface.uses_tui() {
@@ -98,6 +105,18 @@ pub fn validate_file(
                 std::process::exit(1);
             }
         }
+    } else if !suppress_set.is_empty() {
+        // Text mode with suppression: collect first, then filter, then display
+        // (cannot stream-and-suppress because TerminalErrorSink prints immediately)
+        let error_sink = ErrorCollector::new();
+
+        match parse_and_validate_streaming(&content, options.clone(), &error_sink) {
+            Ok(_) => error_sink.into_vec(),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
     } else {
         // Interactive mode (not TUI): stream errors immediately to terminal AND collect for caching/output
         let terminal_sink = TerminalErrorSink::new(path, &content);
@@ -115,6 +134,11 @@ pub fn validate_file(
 
     // Enhance errors with source context for proper miette display (TUI, JSON output, etc.)
     talkbank_model::enhance_errors_with_source(&mut errors, &content);
+
+    // Filter out suppressed error codes
+    if !suppress_set.is_empty() {
+        errors.retain(|e| !suppress_set.contains(e.code.as_str()));
+    }
 
     // Cache the results (pass/fail only)
     set_cached_validation(cache.as_ref(), path, check_alignment, errors.is_empty());

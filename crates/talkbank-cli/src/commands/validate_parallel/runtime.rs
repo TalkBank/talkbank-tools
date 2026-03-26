@@ -26,10 +26,13 @@ pub fn run_validation_runtime(
         traversal,
         execution,
         presentation,
+        suppress,
     } = options;
     let ValidationPresentation::Streaming(output) = presentation else {
         unreachable!("audit presentation is handled before the runtime entrypoint");
     };
+
+    let suppress_set: std::collections::HashSet<String> = suppress.into_iter().collect();
 
     let config = ValidationConfig {
         check_alignment: rules.alignment.enabled(),
@@ -57,14 +60,26 @@ pub fn run_validation_runtime(
     let mut final_stats = None;
     let mut error_count = 0usize;
     let mut files_completed = 0usize;
+    // Track files whose errors were entirely suppressed (for exit code adjustment)
+    let mut files_fully_suppressed = 0usize;
 
     for event in events_rx {
         match event {
             ValidationEvent::Discovering => renderer.handle_discovering(),
             ValidationEvent::Started { total_files } => renderer.handle_started(total_files),
-            ValidationEvent::Errors(error_event) => {
-                error_count = error_count.saturating_add(renderer.handle_errors(&error_event));
-                cancel_if_error_limit_reached(&cancel_tx, execution.max_errors, error_count);
+            ValidationEvent::Errors(mut error_event) => {
+                // Filter suppressed error codes before rendering
+                if !suppress_set.is_empty() {
+                    let pre_count = error_event.errors.len();
+                    error_event.errors.retain(|e| !suppress_set.contains(e.code.as_str()));
+                    if error_event.errors.is_empty() && pre_count > 0 {
+                        files_fully_suppressed += 1;
+                    }
+                }
+                if !error_event.errors.is_empty() {
+                    error_count = error_count.saturating_add(renderer.handle_errors(&error_event));
+                    cancel_if_error_limit_reached(&cancel_tx, execution.max_errors, error_count);
+                }
             }
             ValidationEvent::RoundtripComplete(rt_event) => {
                 error_count =
@@ -91,6 +106,14 @@ pub fn run_validation_runtime(
 
     renderer.handle_finished(&stats, files_completed, execution.max_errors, error_count);
     renderer.print_summary(path, &stats, rules.roundtrip.enabled());
+
+    // Adjust stats: files whose errors were entirely suppressed should not
+    // count as invalid for the exit code.
+    if files_fully_suppressed > 0 {
+        let mut adjusted = stats;
+        adjusted.invalid_files = adjusted.invalid_files.saturating_sub(files_fully_suppressed);
+        return adjusted;
+    }
     stats
 }
 

@@ -123,6 +123,22 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         disposition: WideStructDisposition::TransportRecord,
         reason: "fluency report record",
     },
+    WideStructAllowance {
+        path: "crates/talkbank-clan/src/commands/linker_audit.rs",
+        struct_name: "FileStats",
+        max_fields: 51,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "per-file linker/terminator audit statistics record",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-clan/src/commands/linker_audit.rs",
+        struct_name: "CorpusSummary",
+        max_fields: 49,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "corpus-wide linker/terminator audit summary record",
+    },
     // (removed: extract_corpus_candidates Args — bootstrap tooling being dismantled)
     WideStructAllowance {
         path: "crates/talkbank-clan/src/database/entry.rs",
@@ -131,6 +147,38 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
         reason: "database metadata row shape",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
+        struct_name: "IdDemographicFieldsChildren",
+        max_fields: 16,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "generated CST traversal struct for @ID demographic fields",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
+        struct_name: "IdRoleFieldsChildren",
+        max_fields: 10,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "generated CST traversal struct for @ID role fields",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-parser-tests/src/generated_traversal.rs",
+        struct_name: "TypesHeaderChildren",
+        max_fields: 12,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "generated CST traversal struct for @Types header",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-re2c-parser/src/ast.rs",
+        struct_name: "IdHeaderParsed",
+        max_fields: 10,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::RealAggregate,
+        reason: "parsed @ID header with all demographic/role fields",
     },
     WideStructAllowance {
         path: "crates/talkbank-cli/src/cli/args/clan_common.rs",
@@ -341,7 +389,11 @@ fn struct_name_from_declaration(line: &str) -> Option<String> {
     let name = declaration.split('{').next()?.trim();
     let name = name.split('<').next()?.trim();
     let name = name.split_whitespace().next()?.trim();
-    if name.is_empty() { None } else { Some(name.to_string()) }
+    if name.is_empty() {
+        None
+    } else {
+        Some(name.to_string())
+    }
 }
 
 fn brace_delta(line: &str) -> isize {
@@ -401,28 +453,41 @@ pub fn run(root: &Path) -> Result<()> {
         if info.field_count > allowance.max_fields {
             failures.push(format!(
                 "{}:{}: {} grew from reviewed max {} fields to {} ({}, {})",
-                info.path, info.line, info.struct_name,
-                allowance.max_fields, info.field_count,
-                allowance.disposition.label(), allowance.reason
+                info.path,
+                info.line,
+                info.struct_name,
+                allowance.max_fields,
+                info.field_count,
+                allowance.disposition.label(),
+                allowance.reason
             ));
         }
         if info.bool_field_count > allowance.max_bool_fields {
             failures.push(format!(
                 "{}:{}: {} grew from reviewed max {} bool fields to {} ({}, {})",
-                info.path, info.line, info.struct_name,
-                allowance.max_bool_fields, info.bool_field_count,
-                allowance.disposition.label(), allowance.reason
+                info.path,
+                info.line,
+                info.struct_name,
+                allowance.max_bool_fields,
+                info.bool_field_count,
+                allowance.disposition.label(),
+                allowance.reason
             ));
         }
     }
 
     for allowance in WIDE_STRUCT_ALLOWANCES {
-        let key = (allowance.path.to_string(), allowance.struct_name.to_string());
+        let key = (
+            allowance.path.to_string(),
+            allowance.struct_name.to_string(),
+        );
         if !actual_by_key.contains_key(&key) {
             failures.push(format!(
                 "{}: stale audit entry for {} ({}, {})",
-                allowance.path, allowance.struct_name,
-                allowance.disposition.label(), allowance.reason
+                allowance.path,
+                allowance.struct_name,
+                allowance.disposition.label(),
+                allowance.reason
             ));
         }
     }

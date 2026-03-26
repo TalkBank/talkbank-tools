@@ -183,6 +183,8 @@ pub struct ValidateDirectoryOptions {
     pub execution: ValidationExecution,
     /// Presentation mode for the validation stream.
     pub presentation: ValidationPresentation,
+    /// Error codes to suppress (uppercased, e.g., ["E726", "E727"]).
+    pub suppress: Vec<String>,
 }
 
 /// Validate all CHAT files in a directory with parallel processing and streaming output.

@@ -136,6 +136,20 @@ pub enum Commands {
             value_name = "OUTPUT_FILE"
         )]
         audit: Option<PathBuf>,
+
+        /// Suppress error codes or named groups. Suppressed errors are not
+        /// reported and do not cause a non-zero exit code.
+        ///
+        /// Named groups:
+        ///   "xphon" — E726/E727/E728: %xphosyl/%xphoaln/%xmodsyl cross-tier alignment
+        ///
+        /// Can mix groups and codes: --suppress xphon,E316
+        #[arg(
+            long,
+            value_delimiter = ',',
+            help = "Suppress error codes or groups (e.g., --suppress xphon or --suppress E726,E727)"
+        )]
+        suppress: Vec<String>,
     },
 
     /// Normalize CHAT file to canonical format

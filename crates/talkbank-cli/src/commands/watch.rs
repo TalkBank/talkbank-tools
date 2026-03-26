@@ -173,6 +173,7 @@ fn validate_with_header(path: &Path, check_alignment: bool, clear_screen: bool) 
         false,
         ValidationInterface::Plain,
         Theme::default(),
+        &[],
     );
 
     println!();

@@ -77,6 +77,26 @@ pub struct ValidateCommandOptions {
     pub execution: ValidateCommandExecution,
     /// Output, audit, and TUI settings.
     pub presentation: ValidateCommandPresentation,
+    /// Error codes to suppress (e.g., ["E726", "E727", "E728"]).
+    /// Suppressed errors are not reported and do not affect the exit code.
+    pub suppress: Vec<String>,
+}
+
+/// Expand named suppress groups into concrete error codes.
+///
+/// Named groups provide user-friendly shorthand for sets of related error codes.
+/// Unknown names are treated as literal error codes (e.g., "E726").
+fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
+    let mut codes = Vec::new();
+    for item in raw {
+        match item.to_lowercase().as_str() {
+            // TEMPORARY: %xphosyl/%xphoaln/%xmodsyl cross-tier alignment (PhonTalk-generated).
+            // Remove once Greg fixes the PhonTalk data quality issues.
+            "xphon" => codes.extend(["E726", "E727", "E728"].map(String::from)),
+            _ => codes.push(item.to_uppercase()),
+        }
+    }
+    codes
 }
 
 /// Execute one top-level `chatter validate` invocation.
@@ -85,7 +105,9 @@ pub fn run_validate_command(path: PathBuf, options: ValidateCommandOptions) {
         rules,
         execution,
         presentation,
+        suppress: raw_suppress,
     } = options;
+    let suppress = expand_suppress_groups(raw_suppress);
     let ValidateCommandRules {
         alignment,
         roundtrip,
@@ -123,6 +145,7 @@ pub fn run_validate_command(path: PathBuf, options: ValidateCommandOptions) {
                 quiet,
                 interface,
                 theme,
+                &suppress,
             );
         }
         ValidationTraversalMode::Recursive => {
@@ -149,6 +172,7 @@ pub fn run_validate_command(path: PathBuf, options: ValidateCommandOptions) {
                             theme,
                         }),
                     },
+                    suppress: suppress.iter().map(|s| s.to_uppercase()).collect(),
                 },
             );
 
