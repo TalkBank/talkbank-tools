@@ -179,7 +179,7 @@ impl CommandFamilyService for UtilityCommandService {
                 input,
                 output,
                 output_dir,
-                pretty,
+                compact,
                 force,
                 prune,
                 jobs,
@@ -189,6 +189,7 @@ impl CommandFamilyService for UtilityCommandService {
                 skip_validation,
                 skip_schema_validation,
             } => {
+                let pretty = !compact;
                 if input.is_dir() {
                     let out_dir = output_dir.unwrap_or_else(|| {
                         eprintln!("Error: directory input requires --output-dir");

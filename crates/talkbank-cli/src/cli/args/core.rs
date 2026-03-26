@@ -179,9 +179,9 @@ pub enum Commands {
         #[arg(long)]
         output_dir: Option<PathBuf>,
 
-        /// Pretty-print JSON (default: true)
-        #[arg(short, long, default_value = "true")]
-        pretty: bool,
+        /// Compact (minified) JSON output instead of pretty-printed
+        #[arg(long)]
+        compact: bool,
 
         /// Force full rebuild (ignore mtime, reconvert all files)
         #[arg(long)]
@@ -434,4 +434,3 @@ pub enum CacheCommands {
         dry_run: bool,
     },
 }
-

@@ -372,7 +372,6 @@ fn test_to_json_pretty_vs_compact() -> Result<(), TestError> {
     let pretty_output = assert_cmd::cargo::cargo_bin_cmd!("chatter")
         .arg("to-json")
         .arg(&file_path)
-        .arg("--pretty")
         .output()?;
 
     let pretty_json = String::from_utf8(pretty_output.stdout)
@@ -382,7 +381,7 @@ fn test_to_json_pretty_vs_compact() -> Result<(), TestError> {
     let compact_output = assert_cmd::cargo::cargo_bin_cmd!("chatter")
         .arg("to-json")
         .arg(&file_path)
-        .arg("--pretty=false")
+        .arg("--compact")
         .output()?;
 
     let compact_json = String::from_utf8(compact_output.stdout)
