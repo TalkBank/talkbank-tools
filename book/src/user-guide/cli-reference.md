@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-03-26 10:33 EDT
+**Last updated:** 2026-03-26 14:38 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -34,7 +34,7 @@ flowchart TD
 ## Top-Level Commands
 
 ```bash
-chatter validate PATH
+chatter validate PATH...
 chatter normalize INPUT
 chatter to-json INPUT
 chatter from-json INPUT
@@ -53,21 +53,41 @@ Use `chatter --help` or `chatter <command> --help` for the exact live surface.
 
 ## `validate`
 
-Validate one file or a directory tree of `.cha` files.
+Validate CHAT file(s) or directory tree(s). Accepts multiple paths.
 
-```bash
-chatter validate file.cha
-chatter validate corpus/
-chatter validate corpus/ --format json
-chatter validate corpus/ --force --audit audit.jsonl
+```
+Usage: chatter validate [OPTIONS] <PATH>...
 ```
 
-Important options:
+```bash
+chatter validate file.cha                         # single file
+chatter validate file1.cha file2.cha file3.cha    # multiple files
+chatter validate corpus/                          # directory (recursive, parallel)
+chatter validate file.cha corpus/ other.cha       # mix of files and directories
+chatter validate corpus/ -f json                  # structured JSON output
+chatter validate corpus/ --force                  # ignore cache, revalidate everything
+chatter validate corpus/ --force --audit out.jsonl # bulk audit to JSONL file
+chatter validate corpus/ --suppress xphon         # suppress named error group
+chatter validate corpus/ --suppress E726,E727     # suppress specific error codes
+chatter validate corpus/ -j 8                     # use 8 parallel workers
+chatter validate corpus/ --max-errors 50          # stop after 50 errors
+```
 
-- `--format text|json` for human-readable or structured output
-- `--skip-alignment` to disable dependent-tier alignment checks
-- `--force` to ignore cached clean results and revalidate
-- `--audit OUTPUT.jsonl` to stream bulk-validation results without caching new errors
+Options:
+
+| Flag | Description |
+|------|-------------|
+| `-f, --format text\|json` | Output format (default: text) |
+| `--skip-alignment` | Skip dependent-tier alignment checks |
+| `--force` | Ignore cache, revalidate all files |
+| `-j, --jobs N` | Parallel workers for directory mode (default: CPU count) |
+| `--quiet` | Only emit errors, suppress success messages |
+| `--max-errors N` | Stop after N errors across all files |
+| `--roundtrip` | Test serialization idempotency (developer tool) |
+| `--audit FILE` | Stream errors to JSONL file (bulk audit mode) |
+| `--suppress CODES` | Suppress error codes or groups (comma-separated) |
+
+**Suppress groups:** `xphon` = E726/E727/E728 (%xphosyl/%xphoaln/%xmodsyl cross-tier alignment). Can mix groups and codes: `--suppress xphon,E316`.
 
 ## `normalize`
 
