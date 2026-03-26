@@ -1,6 +1,6 @@
 # Summary
 
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-03-26 10:33 EDT
 
 [Introduction](introduction.md)
 
@@ -23,6 +23,7 @@
 - [Overview](chat-format/overview.md)
 - [Headers](chat-format/headers.md)
 - [Utterances](chat-format/utterances.md)
+- [Retraces and Repetitions](chat-format/retraces.md)
 - [Dependent Tiers](chat-format/dependent-tiers.md)
   - [The %mor Tier](chat-format/mor-tier.md)
   - [Phon Tiers](chat-format/phon-tiers.md)

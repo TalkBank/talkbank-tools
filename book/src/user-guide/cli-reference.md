@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-03-25 18:35 EDT
+**Last updated:** 2026-03-26 10:33 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -85,14 +85,16 @@ chatter normalize input.cha --validate
 
 ```bash
 # Single file
-chatter to-json input.cha                          # JSON to stdout
+chatter to-json input.cha                          # pretty-printed JSON to stdout
+chatter to-json input.cha --compact                # minified JSON to stdout
 chatter to-json input.cha -o output.json           # JSON to file
 
 # Directory (recursive, preserves structure)
-chatter to-json corpus/ --output-dir json/         # incremental by default (mtime check)
-chatter to-json corpus/ --output-dir json/ --force  # full rebuild
-chatter to-json corpus/ --output-dir json/ --prune  # remove orphaned .json files
-chatter to-json corpus/ --output-dir json/ --jobs 4 # parallel workers
+chatter to-json corpus/ --output-dir json/          # incremental by default (mtime check)
+chatter to-json corpus/ --output-dir json/ --compact # minified output (saves disk)
+chatter to-json corpus/ --output-dir json/ --force   # full rebuild
+chatter to-json corpus/ --output-dir json/ --prune   # remove orphaned .json files
+chatter to-json corpus/ --output-dir json/ --jobs 4  # parallel workers
 
 # Reverse and schema
 chatter from-json input.json -o output.cha

@@ -1,7 +1,7 @@
 # Alignment Architecture in talkbank-tools
 
 **Status:** Current
-**Last updated:** 2026-03-23 23:49 EDT
+**Last updated:** 2026-03-26 10:33 EDT
 
 This document describes all alignment data structures, algorithms, and
 design decisions in the `talkbank-tools` crate workspace.
@@ -100,7 +100,7 @@ main-tier content. The domain enum makes these policy branches explicit.
 
 | Rule | Mor | Pho | Sin | Wor |
 |------|-----|-----|-----|-----|
-| Skip retrace groups | Yes | No | No | No |
+| Skip retrace groups ([details](../chat-format/retraces.md#alignment-behavior)) | Yes | No | No | No |
 | Count pauses | No | Yes | No | No |
 | PhoGroup handling | Recurse | Atomic (1) | Skip (0) | Recurse |
 | SinGroup handling | Recurse | Skip (0) | Atomic (1) | Recurse |
@@ -108,6 +108,30 @@ main-tier content. The domain enum makes these policy branches explicit.
 | Include untranscribed | No | Yes | Yes | No |
 | Include tag-marker separators | Yes | No | No | No |
 | ReplacedWord aligns to | Replacement | Original | Original | Replacement |
+
+### Retrace Filtering
+
+Retraces are the most alignment-critical content type. A `Retrace` node
+wraps content the speaker said then corrected. The alignment rule:
+
+- **%mor (Mor domain):** Skip entirely. Returns count `0`. The retrace was
+  a false start; only the correction carries morphological analysis.
+- **%pho, %sin, %wor:** Recurse into the retrace content. The words were
+  physically produced and have phonological/timing/gestural data.
+
+This is implemented in `count_alignable_item()` and `walk_words()`. Both
+check `domain == TierDomain::Mor` on the `UtteranceContent::Retrace`
+variant and skip or recurse accordingly.
+
+**Critical invariant:** The parser must emit `UtteranceContent::Retrace`
+for *all* retrace patterns, including single-word retraces with
+replacements (`word [: repl] [* err] [//]`). If a retrace is
+accidentally emitted as a bare `ReplacedWord`, it will be counted for
+%mor alignment, causing false E705 errors. This invariant is enforced by
+`tests/retrace_replaced_word_regression.rs`.
+
+For the full retrace data model, parsing pipeline, and CHAT examples,
+see [Retraces and Repetitions](../chat-format/retraces.md).
 
 ### AlignmentPair (`types.rs`)
 
