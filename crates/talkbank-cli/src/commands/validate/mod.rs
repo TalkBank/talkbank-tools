@@ -100,7 +100,11 @@ fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
 }
 
 /// Execute one top-level `chatter validate` invocation.
-pub fn run_validate_command(path: PathBuf, options: ValidateCommandOptions) {
+///
+/// Accepts one or more paths. Each path can be a file or directory.
+/// Multiple files are validated individually. A single directory uses
+/// the parallel directory validation pipeline.
+pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions) {
     let ValidateCommandOptions {
         rules,
         execution,
@@ -126,59 +130,73 @@ pub fn run_validate_command(path: PathBuf, options: ValidateCommandOptions) {
         theme,
     } = presentation;
 
-    let traversal = if path.is_file() {
-        ValidationTraversalMode::from_recursive(false)
-    } else if path.is_dir() {
-        ValidationTraversalMode::from_recursive(true)
-    } else {
-        eprintln!("Error: {:?} is not a file or directory", path);
-        std::process::exit(1);
-    };
-
-    match traversal {
-        ValidationTraversalMode::SingleFile => {
-            validate_file(
-                &path,
-                format,
-                alignment,
-                cache_refresh,
-                quiet,
-                interface,
-                theme,
-                &suppress,
-            );
+    // Classify paths into files and directories
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for p in &paths {
+        if p.is_file() {
+            files.push(p.clone());
+        } else if p.is_dir() {
+            dirs.push(p.clone());
+        } else {
+            eprintln!("Error: {:?} is not a file or directory", p);
+            std::process::exit(1);
         }
-        ValidationTraversalMode::Recursive => {
-            let stats = validate_directory_parallel(
-                &path,
-                ValidateDirectoryOptions {
-                    rules: ValidationRules {
-                        alignment,
-                        roundtrip,
-                        parser_kind,
-                    },
-                    traversal,
-                    execution: ValidationExecution {
-                        cache_refresh,
-                        jobs,
-                        max_errors,
-                    },
-                    presentation: match audit_output {
-                        Some(output_path) => ValidationPresentation::Audit { output_path },
-                        None => ValidationPresentation::Streaming(StreamingValidationOutput {
-                            format,
-                            quiet,
-                            interface,
-                            theme,
-                        }),
-                    },
-                    suppress: suppress.iter().map(|s| s.to_uppercase()).collect(),
+    }
+
+    let mut had_errors = false;
+
+    // Validate individual files
+    for file_path in &files {
+        validate_file(
+            file_path,
+            format,
+            alignment,
+            cache_refresh,
+            quiet,
+            interface,
+            theme.clone(),
+            &suppress,
+        );
+    }
+
+    // Validate directories (use parallel pipeline for each)
+    for dir_path in &dirs {
+        let stats = validate_directory_parallel(
+            dir_path,
+            ValidateDirectoryOptions {
+                rules: ValidationRules {
+                    alignment,
+                    roundtrip,
+                    parser_kind,
                 },
-            );
+                traversal: ValidationTraversalMode::Recursive,
+                execution: ValidationExecution {
+                    cache_refresh,
+                    jobs,
+                    max_errors,
+                },
+                presentation: match &audit_output {
+                    Some(output_path) => ValidationPresentation::Audit {
+                        output_path: output_path.clone(),
+                    },
+                    None => ValidationPresentation::Streaming(StreamingValidationOutput {
+                        format,
+                        quiet,
+                        interface,
+                        theme: theme.clone(),
+                    }),
+                },
+                suppress: suppress.clone(),
+            },
+        );
 
-            if stats.invalid_files > 0 || stats.parse_errors > 0 {
-                std::process::exit(1);
-            }
+        if stats.invalid_files > 0 || stats.parse_errors > 0 {
+            had_errors = true;
         }
+    }
+
+    if had_errors {
+        std::process::exit(1);
     }
 }

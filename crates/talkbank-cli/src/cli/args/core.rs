@@ -89,8 +89,9 @@ pub enum AlignmentTier {
 pub enum Commands {
     /// Validate CHAT file(s)
     Validate {
-        /// Path to CHAT file or directory
-        path: PathBuf,
+        /// Path(s) to CHAT file(s) or directory(ies)
+        #[arg(required = true)]
+        path: Vec<PathBuf>,
 
         /// Output format: text (default) or json
         #[arg(short, long, value_enum, default_value_t = OutputFormat::Text, help = "Validation output style (text|json)")]
