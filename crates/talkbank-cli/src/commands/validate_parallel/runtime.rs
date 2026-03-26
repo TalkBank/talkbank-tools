@@ -49,10 +49,12 @@ pub fn run_validation_runtime(
     let cache = initialize_validation_cache(path, execution.cache_refresh);
 
     if output.interface.uses_tui() {
-        return run_tui_loop(path, &config, cache, output.theme);
+        return run_tui_loop(path, &config, cache, output.theme, &suppress_set);
     }
 
     let (events_rx, cancel_tx) = validate_directory_streaming(path, &config, cache);
+    let (filtered_rx, files_fully_suppressed) =
+        filter_suppressed_events(events_rx, &suppress_set);
     install_ctrlc_handler(&cancel_tx);
 
     let json_mode = matches!(output.format, crate::cli::OutputFormat::Json);
@@ -60,28 +62,14 @@ pub fn run_validation_runtime(
     let mut final_stats = None;
     let mut error_count = 0usize;
     let mut files_completed = 0usize;
-    // Track files whose errors were entirely suppressed (for exit code adjustment)
-    let mut files_fully_suppressed = 0usize;
 
-    for event in events_rx {
+    for event in filtered_rx {
         match event {
             ValidationEvent::Discovering => renderer.handle_discovering(),
             ValidationEvent::Started { total_files } => renderer.handle_started(total_files),
-            ValidationEvent::Errors(mut error_event) => {
-                // Filter suppressed error codes before rendering
-                if !suppress_set.is_empty() {
-                    let pre_count = error_event.errors.len();
-                    error_event
-                        .errors
-                        .retain(|e| !suppress_set.contains(e.code.as_str()));
-                    if error_event.errors.is_empty() && pre_count > 0 {
-                        files_fully_suppressed += 1;
-                    }
-                }
-                if !error_event.errors.is_empty() {
-                    error_count = error_count.saturating_add(renderer.handle_errors(&error_event));
-                    cancel_if_error_limit_reached(&cancel_tx, execution.max_errors, error_count);
-                }
+            ValidationEvent::Errors(error_event) => {
+                error_count = error_count.saturating_add(renderer.handle_errors(&error_event));
+                cancel_if_error_limit_reached(&cancel_tx, execution.max_errors, error_count);
             }
             ValidationEvent::RoundtripComplete(rt_event) => {
                 error_count =
@@ -109,8 +97,9 @@ pub fn run_validation_runtime(
     // Adjust stats before rendering: files whose errors were entirely
     // suppressed should not count as invalid in the summary or exit code.
     let mut stats = stats;
-    if files_fully_suppressed > 0 {
-        stats.invalid_files = stats.invalid_files.saturating_sub(files_fully_suppressed);
+    let suppressed = files_fully_suppressed.load(Ordering::Relaxed);
+    if suppressed > 0 {
+        stats.invalid_files = stats.invalid_files.saturating_sub(suppressed);
     }
 
     renderer.handle_finished(&stats, files_completed, execution.max_errors, error_count);
@@ -124,10 +113,12 @@ fn run_tui_loop(
     config: &ValidationConfig,
     cache: Option<Arc<talkbank_transform::CachePool>>,
     theme: crate::ui::Theme,
+    suppress_set: &std::collections::HashSet<String>,
 ) -> ValidationStatsSnapshot {
     loop {
         let (events_rx, cancel_tx) = validate_directory_streaming(path, config, cache.clone());
-        match run_validation_tui_streaming(events_rx, cancel_tx, theme.clone()) {
+        let (filtered_rx, _suppressed) = filter_suppressed_events(events_rx, suppress_set);
+        match run_validation_tui_streaming(filtered_rx, cancel_tx, theme.clone()) {
             Ok(TuiAction::Quit) => return empty_stats(false),
             Ok(TuiAction::ForceQuit) => std::process::exit(130),
             Ok(TuiAction::Rerun) => {
@@ -139,6 +130,50 @@ fn run_tui_loop(
             }
         }
     }
+}
+
+/// Filter suppressed error codes from the validation event stream.
+///
+/// Returns a new receiver that has suppressed errors removed, plus an atomic
+/// counter of files whose errors were entirely suppressed (for stats adjustment).
+/// If `suppress_set` is empty, returns the original receiver unchanged.
+fn filter_suppressed_events(
+    events_rx: crossbeam_channel::Receiver<ValidationEvent>,
+    suppress_set: &std::collections::HashSet<String>,
+) -> (
+    crossbeam_channel::Receiver<ValidationEvent>,
+    Arc<AtomicUsize>,
+) {
+    let suppressed_count = Arc::new(AtomicUsize::new(0));
+    if suppress_set.is_empty() {
+        return (events_rx, suppressed_count);
+    }
+
+    let (filtered_tx, filtered_rx) = crossbeam_channel::unbounded();
+    let suppress_set = suppress_set.clone();
+    let count = Arc::clone(&suppressed_count);
+    std::thread::spawn(move || {
+        for event in events_rx {
+            match event {
+                ValidationEvent::Errors(mut error_event) => {
+                    let pre_count = error_event.errors.len();
+                    error_event
+                        .errors
+                        .retain(|e| !suppress_set.contains(e.code.as_str()));
+                    if error_event.errors.is_empty() && pre_count > 0 {
+                        count.fetch_add(1, Ordering::Relaxed);
+                    }
+                    if !error_event.errors.is_empty() {
+                        let _ = filtered_tx.send(ValidationEvent::Errors(error_event));
+                    }
+                }
+                other => {
+                    let _ = filtered_tx.send(other);
+                }
+            }
+        }
+    });
+    (filtered_rx, suppressed_count)
 }
 
 /// Install the Ctrl+C handler used by non-interactive validation modes.
