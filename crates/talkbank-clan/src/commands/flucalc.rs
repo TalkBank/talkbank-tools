@@ -37,7 +37,9 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
-use talkbank_model::{BracketedItem, ContentAnnotation, RetraceKind, Utterance, UtteranceContent, WordCategory};
+use talkbank_model::{
+    BracketedItem, ContentAnnotation, RetraceKind, Utterance, UtteranceContent, WordCategory,
+};
 
 use crate::framework::{
     AnalysisCommand, AnalysisResult, CommandOutput, FileContext, OutputFormat, Section, TableRow,

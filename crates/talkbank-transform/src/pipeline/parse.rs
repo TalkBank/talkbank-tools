@@ -12,8 +12,8 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use talkbank_model::ChatFile;
-use talkbank_model::ParseValidateOptions;
 use talkbank_model::ParseOutcome;
+use talkbank_model::ParseValidateOptions;
 use talkbank_model::{ErrorCode, ErrorCollector, ErrorSink, ParseError, ParseErrors, Severity};
 use talkbank_parser::TreeSitterParser;
 
@@ -55,8 +55,8 @@ pub fn parse_and_validate(
     content: &str,
     options: ParseValidateOptions,
 ) -> Result<ChatFile, PipelineError> {
-    let parser = TreeSitterParser::new()
-        .map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
+    let parser =
+        TreeSitterParser::new().map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
     parse_and_validate_with_parser(&parser, content, options)
 }
 
@@ -151,8 +151,8 @@ pub fn parse_and_validate_streaming(
     options: ParseValidateOptions,
     errors: &impl ErrorSink,
 ) -> Result<ChatFile, PipelineError> {
-    let parser = TreeSitterParser::new()
-        .map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
+    let parser =
+        TreeSitterParser::new().map_err(|e| PipelineError::ParserCreation(format!("{e}")))?;
     parse_and_validate_streaming_with_parser(&parser, content, options, errors)
 }
 

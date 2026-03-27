@@ -26,11 +26,7 @@ fn word_round_trip(#[case] input: &str) -> Result<(), TestError> {
         let word = parser.0.parse_word_fragment(input, 0, &errors);
 
         let word = word.ok_or_else(|| {
-            TestError::Failure(format!(
-                "[{}] Failed to parse '{}'",
-                parser.name(),
-                input
-            ))
+            TestError::Failure(format!("[{}] Failed to parse '{}'", parser.name(), input))
         })?;
         if !errors.is_empty() {
             return Err(TestError::Failure(format!(

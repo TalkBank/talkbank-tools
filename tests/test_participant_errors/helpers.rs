@@ -43,10 +43,12 @@ impl ParserImpl {
         &self,
         content: &str,
     ) -> Result<talkbank_model::ChatFile, TestError> {
-        self.0.parse_chat_file(content).map_err(|errors| TestError::ParseErrors {
-            parser: self.name(),
-            errors,
-        })
+        self.0
+            .parse_chat_file(content)
+            .map_err(|errors| TestError::ParseErrors {
+                parser: self.name(),
+                errors,
+            })
     }
 }
 

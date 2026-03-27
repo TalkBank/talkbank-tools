@@ -150,7 +150,7 @@ pub fn run_overlap_audit(paths: &[PathBuf], database_path: Option<&Path>) {
 pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     use std::collections::HashMap;
 
-    use talkbank_model::model::{Linker, Line, Terminator};
+    use talkbank_model::model::{Line, Linker, Terminator};
 
     let mut anomaly_writer: Option<std::io::BufWriter<std::fs::File>> = anomalies_path.map(|p| {
         let file = std::fs::File::create(p).unwrap_or_else(|e| {
@@ -244,11 +244,17 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     }
 
     fn is_trailing_off(t: &Terminator) -> bool {
-        matches!(t, Terminator::TrailingOff { .. } | Terminator::TrailingOffQuestion { .. })
+        matches!(
+            t,
+            Terminator::TrailingOff { .. } | Terminator::TrailingOffQuestion { .. }
+        )
     }
 
     fn is_interruption(t: &Terminator) -> bool {
-        matches!(t, Terminator::Interruption { .. } | Terminator::InterruptedQuestion { .. })
+        matches!(
+            t,
+            Terminator::Interruption { .. } | Terminator::InterruptedQuestion { .. }
+        )
     }
 
     /// Helper: get the main tier text for an utterance (e.g., "*CHI: hello .").
@@ -312,7 +318,10 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
             for linker in linkers {
                 file_has_linker = true;
                 let label = match linker {
-                    Linker::LazyOverlapPrecedes => { has_lazy = true; "+<" }
+                    Linker::LazyOverlapPrecedes => {
+                        has_lazy = true;
+                        "+<"
+                    }
                     Linker::OtherCompletion => "++",
                     Linker::QuickUptakeOverlap => "+^",
                     Linker::QuotationFollows => "+\"",
@@ -345,14 +354,18 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                     pp_first += 1;
                     file_anomalies += 1;
                     if let Some(ref mut w) = anomaly_writer {
-                        let _ = writeln!(w, "{}", serde_json::json!({
-                            "file": file_str, "utt_index": idx,
-                            "type": "pp_first_utterance",
-                            "severity": "error",
-                            "speaker": speaker,
-                            "text": utt_text(utt),
-                            "suggested_fix": "Remove ++ or add preceding utterance",
-                        }));
+                        let _ = writeln!(
+                            w,
+                            "{}",
+                            serde_json::json!({
+                                "file": file_str, "utt_index": idx,
+                                "type": "pp_first_utterance",
+                                "severity": "error",
+                                "speaker": speaker,
+                                "text": utt_text(utt),
+                                "suggested_fix": "Remove ++ or add preceding utterance",
+                            })
+                        );
                     }
                 } else if let Some(ps) = prev_speaker {
                     let ptl = prev_term_label.unwrap_or("(none)");
@@ -361,17 +374,21 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                         pp_same_speaker += 1;
                         file_anomalies += 1;
                         if let Some(ref mut w) = anomaly_writer {
-                            let _ = writeln!(w, "{}", serde_json::json!({
-                                "file": file_str, "utt_index": idx,
-                                "type": "pp_same_speaker",
-                                "severity": "auto_fixable",
-                                "speaker": speaker,
-                                "prev_speaker": ps,
-                                "prev_terminator": ptl,
-                                "prev_text": utt_text(utterances[idx - 1]),
-                                "text": utt_text(utt),
-                                "suggested_fix": {"action": "replace_linker", "old": "++", "new": "+,"},
-                            }));
+                            let _ = writeln!(
+                                w,
+                                "{}",
+                                serde_json::json!({
+                                    "file": file_str, "utt_index": idx,
+                                    "type": "pp_same_speaker",
+                                    "severity": "auto_fixable",
+                                    "speaker": speaker,
+                                    "prev_speaker": ps,
+                                    "prev_terminator": ptl,
+                                    "prev_text": utt_text(utterances[idx - 1]),
+                                    "text": utt_text(utt),
+                                    "suggested_fix": {"action": "replace_linker", "old": "++", "new": "+,"},
+                                })
+                            );
                         }
                     } else if prev_term.is_some_and(is_trailing_off) {
                         pp_correct += 1;
@@ -379,17 +396,21 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                         pp_wrong_term += 1;
                         file_anomalies += 1;
                         if let Some(ref mut w) = anomaly_writer {
-                            let _ = writeln!(w, "{}", serde_json::json!({
-                                "file": file_str, "utt_index": idx,
-                                "type": "pp_wrong_terminator",
-                                "severity": "review",
-                                "speaker": speaker,
-                                "prev_speaker": ps,
-                                "prev_terminator": ptl,
-                                "prev_text": utt_text(utterances[idx - 1]),
-                                "text": utt_text(utt),
-                                "suggested_fix": {"action": "change_prev_terminator", "old": ptl, "new": "+..."},
-                            }));
+                            let _ = writeln!(
+                                w,
+                                "{}",
+                                serde_json::json!({
+                                    "file": file_str, "utt_index": idx,
+                                    "type": "pp_wrong_terminator",
+                                    "severity": "review",
+                                    "speaker": speaker,
+                                    "prev_speaker": ps,
+                                    "prev_terminator": ptl,
+                                    "prev_text": utt_text(utterances[idx - 1]),
+                                    "text": utt_text(utt),
+                                    "suggested_fix": {"action": "change_prev_terminator", "old": ptl, "new": "+..."},
+                                })
+                            );
                         }
                     }
                 }
@@ -403,14 +424,18 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                         *sc_prev_term_dist.entry("(no_prior)").or_default() += 1;
                         file_anomalies += 1;
                         if let Some(ref mut w) = anomaly_writer {
-                            let _ = writeln!(w, "{}", serde_json::json!({
-                                "file": file_str, "utt_index": idx,
-                                "type": "sc_no_prior",
-                                "severity": "error",
-                                "speaker": speaker,
-                                "text": utt_text(utt),
-                                "suggested_fix": "Remove +, or add preceding same-speaker utterance",
-                            }));
+                            let _ = writeln!(
+                                w,
+                                "{}",
+                                serde_json::json!({
+                                    "file": file_str, "utt_index": idx,
+                                    "type": "sc_no_prior",
+                                    "severity": "error",
+                                    "speaker": speaker,
+                                    "text": utt_text(utt),
+                                    "suggested_fix": "Remove +, or add preceding same-speaker utterance",
+                                })
+                            );
                         }
                     }
                     Some(&tl) => {
@@ -421,15 +446,19 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                             sc_wrong_term += 1;
                             file_anomalies += 1;
                             if let Some(ref mut w) = anomaly_writer {
-                                let _ = writeln!(w, "{}", serde_json::json!({
-                                    "file": file_str, "utt_index": idx,
-                                    "type": "sc_wrong_terminator",
-                                    "severity": "review",
-                                    "speaker": speaker,
-                                    "prev_same_speaker_terminator": tl,
-                                    "text": utt_text(utt),
-                                    "suggested_fix": {"action": "change_prev_terminator", "old": tl, "new": "+/."},
-                                }));
+                                let _ = writeln!(
+                                    w,
+                                    "{}",
+                                    serde_json::json!({
+                                        "file": file_str, "utt_index": idx,
+                                        "type": "sc_wrong_terminator",
+                                        "severity": "review",
+                                        "speaker": speaker,
+                                        "prev_same_speaker_terminator": tl,
+                                        "text": utt_text(utt),
+                                        "suggested_fix": {"action": "change_prev_terminator", "old": tl, "new": "+/."},
+                                    })
+                                );
                             }
                         }
                     }
@@ -437,40 +466,55 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
             }
 
             // ── +" pairing ─────────────────────────────────────────
-            if linkers.iter().any(|l| matches!(l, Linker::QuotationFollows)) {
+            if linkers
+                .iter()
+                .any(|l| matches!(l, Linker::QuotationFollows))
+            {
                 match last_term_by_speaker.get(speaker) {
                     None => {
                         qf_no_prior += 1;
                         file_anomalies += 1;
                         if let Some(ref mut w) = anomaly_writer {
-                            let _ = writeln!(w, "{}", serde_json::json!({
-                                "file": file_str, "utt_index": idx,
-                                "type": "qf_no_prior",
-                                "severity": "error",
-                                "speaker": speaker,
-                                "text": utt_text(utt),
-                                "suggested_fix": "Remove +\" or add preceding same-speaker utterance with +\"/.  terminator",
-                            }));
+                            let _ = writeln!(
+                                w,
+                                "{}",
+                                serde_json::json!({
+                                    "file": file_str, "utt_index": idx,
+                                    "type": "qf_no_prior",
+                                    "severity": "error",
+                                    "speaker": speaker,
+                                    "text": utt_text(utt),
+                                    "suggested_fix": "Remove +\" or add preceding same-speaker utterance with +\"/.  terminator",
+                                })
+                            );
                         }
                     }
                     Some(&"+\"/.") => qf_correct += 1,
                     Some(&prev_tl) => {
                         // Check if previous same-speaker also had +" (chaining)
-                        if last_linker_by_speaker.get(speaker).and_then(|l| *l).is_some_and(|l| matches!(l, Linker::QuotationFollows)) {
+                        if last_linker_by_speaker
+                            .get(speaker)
+                            .and_then(|l| *l)
+                            .is_some_and(|l| matches!(l, Linker::QuotationFollows))
+                        {
                             qf_chained += 1;
                         } else {
                             qf_wrong_term += 1;
                             file_anomalies += 1;
                             if let Some(ref mut w) = anomaly_writer {
-                                let _ = writeln!(w, "{}", serde_json::json!({
-                                    "file": file_str, "utt_index": idx,
-                                    "type": "qf_wrong_terminator",
-                                    "severity": "review",
-                                    "speaker": speaker,
-                                    "prev_same_speaker_terminator": prev_tl,
-                                    "text": utt_text(utt),
-                                    "suggested_fix": {"action": "change_prev_terminator", "old": prev_tl, "new": "+\"/."},
-                                }));
+                                let _ = writeln!(
+                                    w,
+                                    "{}",
+                                    serde_json::json!({
+                                        "file": file_str, "utt_index": idx,
+                                        "type": "qf_wrong_terminator",
+                                        "severity": "review",
+                                        "speaker": speaker,
+                                        "prev_same_speaker_terminator": prev_tl,
+                                        "text": utt_text(utt),
+                                        "suggested_fix": {"action": "change_prev_terminator", "old": prev_tl, "new": "+\"/."},
+                                    })
+                                );
                             }
                         }
                     }
@@ -515,7 +559,10 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
             }
 
             // ── +^ ─────────────────────────────────────────────────
-            if linkers.iter().any(|l| matches!(l, Linker::QuickUptakeOverlap)) {
+            if linkers
+                .iter()
+                .any(|l| matches!(l, Linker::QuickUptakeOverlap))
+            {
                 if prev_speaker.is_some_and(|ps| ps == speaker) {
                     qu_same += 1;
                 } else {
@@ -531,7 +578,10 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
                     tcu_tech_diff += 1;
                 }
             }
-            if linkers.iter().any(|l| matches!(l, Linker::NoBreakTcuContinuation)) {
+            if linkers
+                .iter()
+                .any(|l| matches!(l, Linker::NoBreakTcuContinuation))
+            {
                 if prev_speaker.is_some_and(|ps| ps == speaker) {
                     tcu_nb_same += 1;
                 } else {
@@ -541,14 +591,24 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
 
             // ── Orphans ────────────────────────────────────────────
             if let Some(term) = terminator {
-                if is_trailing_off(term) { trailing_off_total += 1; }
-                if is_interruption(term) { interruption_total += 1; }
+                if is_trailing_off(term) {
+                    trailing_off_total += 1;
+                }
+                if is_interruption(term) {
+                    interruption_total += 1;
+                }
             }
             if let Some(pt) = prev_term {
-                if is_trailing_off(pt) && linkers.iter().any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion)) {
+                if is_trailing_off(pt)
+                    && linkers
+                        .iter()
+                        .any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion))
+                {
                     trailing_off_followed += 1;
                 }
-                if is_interruption(pt) && linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
+                if is_interruption(pt)
+                    && linkers.iter().any(|l| matches!(l, Linker::SelfCompletion))
+                {
                     interruption_followed += 1;
                 }
             }
@@ -560,7 +620,9 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
             if let Some(term) = terminator {
                 last_term_by_speaker.insert(speaker, term_label(term));
             }
-            let primary_linker = linkers.iter().find(|l| !matches!(l, Linker::LazyOverlapPrecedes));
+            let primary_linker = linkers
+                .iter()
+                .find(|l| !matches!(l, Linker::LazyOverlapPrecedes));
             last_linker_by_speaker.insert(speaker, primary_linker);
         }
 
@@ -574,8 +636,12 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
             }
         }
 
-        if file_has_linker { files_with_linkers += 1; }
-        if file_anomalies > 0 { files_with_anomalies += 1; }
+        if file_has_linker {
+            files_with_linkers += 1;
+        }
+        if file_anomalies > 0 {
+            files_with_anomalies += 1;
+        }
 
         // Anomaly records are written inline above; no per-file summary needed
 
@@ -609,9 +675,18 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     println!();
     println!("--- ++ (Other Completion) Pairing ---");
     println!("  Total:                          {pp_total:>8}");
-    println!("  Correct (diff spk + +...):      {pp_correct:>8} ({})", pct(pp_correct, pp_total));
-    println!("  ANOMALY: same speaker:          {pp_same_speaker:>8} ({})", pct(pp_same_speaker, pp_total));
-    println!("  ANOMALY: wrong terminator:      {pp_wrong_term:>8} ({})", pct(pp_wrong_term, pp_total));
+    println!(
+        "  Correct (diff spk + +...):      {pp_correct:>8} ({})",
+        pct(pp_correct, pp_total)
+    );
+    println!(
+        "  ANOMALY: same speaker:          {pp_same_speaker:>8} ({})",
+        pct(pp_same_speaker, pp_total)
+    );
+    println!(
+        "  ANOMALY: wrong terminator:      {pp_wrong_term:>8} ({})",
+        pct(pp_wrong_term, pp_total)
+    );
     println!("  ANOMALY: first utterance:       {pp_first:>8}");
     println!("  Preceding terminator distribution:");
     let mut sorted_pp: Vec<_> = pp_prev_term_dist.iter().collect();
@@ -624,8 +699,14 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     println!();
     println!("--- +, (Self Completion) Pairing ---");
     println!("  Total:                          {sc_total:>8}");
-    println!("  Correct (same spk + +/.):       {sc_correct:>8} ({})", pct(sc_correct, sc_total));
-    println!("  ANOMALY: wrong terminator:      {sc_wrong_term:>8} ({})", pct(sc_wrong_term, sc_total));
+    println!(
+        "  Correct (same spk + +/.):       {sc_correct:>8} ({})",
+        pct(sc_correct, sc_total)
+    );
+    println!(
+        "  ANOMALY: wrong terminator:      {sc_wrong_term:>8} ({})",
+        pct(sc_wrong_term, sc_total)
+    );
     println!("  ANOMALY: no prior same-speaker:  {sc_no_prior:>8}");
     println!("  Preceding same-speaker terminator distribution:");
     let mut sorted_sc: Vec<_> = sc_prev_term_dist.iter().collect();
@@ -638,9 +719,18 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     println!();
     println!("--- +\" (Quotation) Pairing ---");
     println!("  Total:                          {qf_total:>8}");
-    println!("  Correct (same spk + +\"/.)       {qf_correct:>8} ({})", pct(qf_correct, qf_total));
-    println!("  Chained (same spk + +\"):        {qf_chained:>8} ({})", pct(qf_chained, qf_total));
-    println!("  ANOMALY: wrong terminator:      {qf_wrong_term:>8} ({})", pct(qf_wrong_term, qf_total));
+    println!(
+        "  Correct (same spk + +\"/.)       {qf_correct:>8} ({})",
+        pct(qf_correct, qf_total)
+    );
+    println!(
+        "  Chained (same spk + +\"):        {qf_chained:>8} ({})",
+        pct(qf_chained, qf_total)
+    );
+    println!(
+        "  ANOMALY: wrong terminator:      {qf_wrong_term:>8} ({})",
+        pct(qf_wrong_term, qf_total)
+    );
     println!("  ANOMALY: no prior same-speaker:  {qf_no_prior:>8}");
 
     println!();
@@ -670,10 +760,16 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
     println!("--- Orphaned Special Terminators ---");
     println!("  +... total:                     {trailing_off_total:>8}");
     println!("  +... followed by ++/+,:         {trailing_off_followed:>8}");
-    println!("  +... orphaned:                  {:>8}", trailing_off_total - trailing_off_followed);
+    println!(
+        "  +... orphaned:                  {:>8}",
+        trailing_off_total - trailing_off_followed
+    );
     println!("  +/. total:                      {interruption_total:>8}");
     println!("  +/. followed by +,:             {interruption_followed:>8}");
-    println!("  +/. orphaned:                   {:>8}", interruption_total - interruption_followed);
+    println!(
+        "  +/. orphaned:                   {:>8}",
+        interruption_total - interruption_followed
+    );
 
     if let Some(path) = anomalies_path {
         eprintln!("\nAnomalies written: {}", path.display());
@@ -681,7 +777,11 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
 }
 
 fn pct(n: usize, total: usize) -> String {
-    if total == 0 { "0%".to_owned() } else { format!("{:.1}%", n as f64 / total as f64 * 100.0) }
+    if total == 0 {
+        "0%".to_owned()
+    } else {
+        format!("{:.1}%", n as f64 / total as f64 * 100.0)
+    }
 }
 
 /// Recursively collect .cha files from paths.

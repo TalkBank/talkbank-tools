@@ -18,8 +18,8 @@
 //! grammar and model to make them pass.
 
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::WriteChat;
 use talkbank_model::ParseOutcome;
+use talkbank_model::model::WriteChat;
 use talkbank_parser_tests::test_error::TestError;
 
 use super::parser_impl::parser_suite;
@@ -61,12 +61,7 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
         };
 
         // Must have exactly 1 item
-        assert_eq!(
-            tier.items.len(),
-            1,
-            "[{}] expected 1 item",
-            "tree-sitter"
-        );
+        assert_eq!(tier.items.len(), 1, "[{}] expected 1 item", "tree-sitter");
 
         let word = &tier.items[0].main;
         // POS must be "n:prop", not just "n"
@@ -321,12 +316,9 @@ fn legacy_mor_roundtrip_subcategories() -> Result<(), TestError> {
 
         let serialized = tier.to_content();
         assert_eq!(
-            serialized,
-            input,
+            serialized, input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            "tree-sitter",
-            input,
-            serialized
+            "tree-sitter", input, serialized
         );
     }
     Ok(())
@@ -363,12 +355,9 @@ fn legacy_mor_roundtrip_fusional() -> Result<(), TestError> {
 
         let serialized = tier.to_content();
         assert_eq!(
-            serialized,
-            input,
+            serialized, input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            "tree-sitter",
-            input,
-            serialized
+            "tree-sitter", input, serialized
         );
     }
     Ok(())
@@ -405,12 +394,9 @@ fn legacy_mor_roundtrip_clitic_with_subcategory() -> Result<(), TestError> {
 
         let serialized = tier.to_content();
         assert_eq!(
-            serialized,
-            input,
+            serialized, input,
             "[{}] Roundtrip mismatch:\n  Input:    {}\n  Output:   {}",
-            "tree-sitter",
-            input,
-            serialized
+            "tree-sitter", input, serialized
         );
     }
     Ok(())

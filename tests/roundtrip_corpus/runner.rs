@@ -10,11 +10,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::test_utils::diagnostics::print_pipeline_error;
-use crate::test_utils::roundtrip::{
-    parse_for_roundtrip, parse_for_roundtrip_with_parser,
-};
-use talkbank_parser::TreeSitterParser;
+use crate::test_utils::roundtrip::{parse_for_roundtrip, parse_for_roundtrip_with_parser};
 use talkbank_model::model::{ChatFile, SemanticEq, WriteChat};
+use talkbank_parser::TreeSitterParser;
 use talkbank_transform::PipelineError;
 use talkbank_transform::to_json_pretty_validated;
 

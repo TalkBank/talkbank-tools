@@ -8,8 +8,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::{SemanticEq, WriteChat};
 use talkbank_model::ParseOutcome;
+use talkbank_model::model::{SemanticEq, WriteChat};
 use talkbank_model::{Header, Line};
 use talkbank_parser_tests::test_error::TestError;
 

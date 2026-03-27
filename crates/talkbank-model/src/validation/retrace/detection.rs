@@ -29,9 +29,7 @@ pub fn contains_retrace_marker(main_tier: &MainTier) -> bool {
 pub fn utterance_item_has_retrace(item: &UtteranceContent) -> bool {
     match item {
         UtteranceContent::Retrace(_) => true,
-        UtteranceContent::AnnotatedGroup(ann) => {
-            bracketed_content_has_retrace(&ann.inner.content)
-        }
+        UtteranceContent::AnnotatedGroup(ann) => bracketed_content_has_retrace(&ann.inner.content),
         UtteranceContent::Group(group) => bracketed_content_has_retrace(&group.content),
         UtteranceContent::PhoGroup(pho) => bracketed_content_has_retrace(&pho.content),
         UtteranceContent::SinGroup(sin) => bracketed_content_has_retrace(&sin.content),
@@ -54,9 +52,7 @@ pub fn bracketed_content_has_retrace(content: &BracketedContent) -> bool {
 pub fn bracketed_item_has_retrace(item: &BracketedItem) -> bool {
     match item {
         BracketedItem::Retrace(_) => true,
-        BracketedItem::AnnotatedGroup(ann) => {
-            bracketed_content_has_retrace(&ann.inner.content)
-        }
+        BracketedItem::AnnotatedGroup(ann) => bracketed_content_has_retrace(&ann.inner.content),
         BracketedItem::PhoGroup(pho) => bracketed_content_has_retrace(&pho.content),
         BracketedItem::SinGroup(sin) => bracketed_content_has_retrace(&sin.content),
         BracketedItem::Quotation(quot) => bracketed_content_has_retrace(&quot.content),

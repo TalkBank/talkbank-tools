@@ -73,10 +73,8 @@ pub fn validate_file(
     };
 
     // Build suppression set for error filtering
-    let suppress_set: std::collections::HashSet<String> = suppress
-        .iter()
-        .map(|s| s.to_uppercase())
-        .collect();
+    let suppress_set: std::collections::HashSet<String> =
+        suppress.iter().map(|s| s.to_uppercase()).collect();
 
     // Use different error sinks based on output format and TUI mode
     // JSON/TUI needs structured values, interactive CLI streams to terminal plus collecting.

@@ -53,6 +53,10 @@ pub use cod::{
     CodSemanticElement, CodSemanticItem, CodSemanticTier, cod_item_values, cod_semantic_tier,
 };
 pub use command::{AnalysisCommand, FileContext};
+pub use domain_types::{
+    CodeDepth, FrequencyThreshold, GemLabel, KeywordPattern, OverlapThreshold, TierKind,
+    UtteranceLimit, WordLimit, WordPattern,
+};
 pub use filter::{
     FilterConfig, GemFilter, ParseUtteranceRangeError, SpeakerFilter, TierFilter, UtteranceRange,
     WordFilter, parse_utterance_range,
@@ -65,10 +69,6 @@ pub use transform::{TransformCommand, TransformError, run_transform};
 pub use word_filter::{
     countable_words, countable_words_in_utterance, countable_words_in_utterance_with_retracings,
     countable_words_with_retracings, has_countable_words, is_countable_word, word_pattern_matches,
-};
-pub use domain_types::{
-    CodeDepth, FrequencyThreshold, GemLabel, KeywordPattern, OverlapThreshold, TierKind,
-    UtteranceLimit, WordLimit, WordPattern,
 };
 
 // ── Shared domain type aliases ──────────────────────────────────────

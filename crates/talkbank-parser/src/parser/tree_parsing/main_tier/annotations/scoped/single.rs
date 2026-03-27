@@ -121,20 +121,32 @@ pub(crate) fn parse_single_annotation(
             errors,
         ),
         // Scoped symbols — already atomic tokens, no payload
-        SCOPED_STRESSING => ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Stressing)),
-        SCOPED_CONTRASTIVE_STRESSING => {
-            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::ContrastiveStressing))
+        SCOPED_STRESSING => {
+            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Stressing))
         }
-        SCOPED_BEST_GUESS => ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::BestGuess)),
-        SCOPED_UNCERTAIN => ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Uncertain)),
+        SCOPED_CONTRASTIVE_STRESSING => ParseOutcome::parsed(ParsedAnnotation::Content(
+            ContentAnnotation::ContrastiveStressing,
+        )),
+        SCOPED_BEST_GUESS => {
+            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::BestGuess))
+        }
+        SCOPED_UNCERTAIN => {
+            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Uncertain))
+        }
         // Retrace markers — parsed as RetraceKind, not ContentAnnotation
         RETRACE_COMPLETE => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Full)),
         RETRACE_PARTIAL => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Partial)),
         RETRACE_MULTIPLE => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Multiple)),
-        RETRACE_REFORMULATION => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Reformulation)),
-        RETRACE_UNCERTAIN => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Uncertain)),
+        RETRACE_REFORMULATION => {
+            ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Reformulation))
+        }
+        RETRACE_UNCERTAIN => {
+            ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Uncertain))
+        }
         // Exclude marker — already atomic token
-        EXCLUDE_MARKER => ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Exclude)),
+        EXCLUDE_MARKER => {
+            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Exclude))
+        }
         _ => {
             errors.report(ParseError::new(
                 ErrorCode::ContentAnnotationParseError,

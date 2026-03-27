@@ -52,9 +52,7 @@ fn words_inside_group() {
 
 #[test]
 fn retrace_group_skipped_for_mor() {
-    let bracketed = BracketedContent::new(vec![BracketedItem::Word(
-        boxed_word("retraced"),
-    )]);
+    let bracketed = BracketedContent::new(vec![BracketedItem::Word(boxed_word("retraced"))]);
     let retrace = Retrace::new(bracketed, RetraceKind::Full).as_group();
     let content = vec![
         UtteranceContent::Retrace(Box::new(retrace)),

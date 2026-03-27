@@ -25,11 +25,11 @@ use talkbank_model::model::{
     Header, IDHeader, IntTier, MainTier, MorTier, MorWord, ParticipantEntry, PhoTier, PhoWord,
     SinTier, SitTier, SpaTier, Utterance, WorTier, Word,
 };
-use talkbank_model::{FragmentSemanticContext, ParseOutcome};
 use talkbank_model::{
     ErrorCode, ErrorContext, ErrorSink, OffsetAdjustingErrorSink, ParseError, ParseErrors,
     Severity, SourceLocation, Span, SpanShift,
 };
+use talkbank_model::{FragmentSemanticContext, ParseOutcome};
 
 use super::parser_impl::{wrapper_parse_generic_tier, wrapper_parse_tier};
 use crate::parser::TreeSitterParser;
@@ -391,58 +391,146 @@ impl TreeSitterParser {
     // =========================================================================
 
     /// Parse a %sin tier with offset adjustment and streaming errors.
-    pub fn parse_sin_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<SinTier> {
-        wrapper_parse_tier(self, "%sin:\t", input, offset, errors, |tier| match tier { DependentTier::Sin(tier) => Some(tier), _ => None })
+    pub fn parse_sin_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<SinTier> {
+        wrapper_parse_tier(self, "%sin:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Sin(tier) => Some(tier),
+            _ => None,
+        })
     }
 
     /// Parse a %act tier with offset adjustment and streaming errors.
-    pub fn parse_act_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<ActTier> {
-        wrapper_parse_tier(self, "%act:\t", input, offset, errors, |tier| match tier { DependentTier::Act(t) => Some(t), _ => None })
+    pub fn parse_act_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<ActTier> {
+        wrapper_parse_tier(self, "%act:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Act(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %cod tier with offset adjustment and streaming errors.
-    pub fn parse_cod_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<CodTier> {
-        wrapper_parse_tier(self, "%cod:\t", input, offset, errors, |tier| match tier { DependentTier::Cod(t) => Some(t), _ => None })
+    pub fn parse_cod_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<CodTier> {
+        wrapper_parse_tier(self, "%cod:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Cod(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %com tier with offset adjustment and streaming errors.
-    pub fn parse_com_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<ComTier> {
-        wrapper_parse_tier(self, "%com:\t", input, offset, errors, |tier| match tier { DependentTier::Com(t) => Some(t), _ => None })
+    pub fn parse_com_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<ComTier> {
+        wrapper_parse_tier(self, "%com:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Com(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %exp tier with offset adjustment and streaming errors.
-    pub fn parse_exp_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<ExpTier> {
-        wrapper_parse_tier(self, "%exp:\t", input, offset, errors, |tier| match tier { DependentTier::Exp(t) => Some(t), _ => None })
+    pub fn parse_exp_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<ExpTier> {
+        wrapper_parse_tier(self, "%exp:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Exp(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %add tier with offset adjustment and streaming errors.
-    pub fn parse_add_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<AddTier> {
-        wrapper_parse_tier(self, "%add:\t", input, offset, errors, |tier| match tier { DependentTier::Add(t) => Some(t), _ => None })
+    pub fn parse_add_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<AddTier> {
+        wrapper_parse_tier(self, "%add:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Add(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %gpx tier with offset adjustment and streaming errors.
-    pub fn parse_gpx_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<GpxTier> {
-        wrapper_parse_tier(self, "%gpx:\t", input, offset, errors, |tier| match tier { DependentTier::Gpx(t) => Some(t), _ => None })
+    pub fn parse_gpx_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<GpxTier> {
+        wrapper_parse_tier(self, "%gpx:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Gpx(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %int tier with offset adjustment and streaming errors.
-    pub fn parse_int_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<IntTier> {
-        wrapper_parse_tier(self, "%int:\t", input, offset, errors, |tier| match tier { DependentTier::Int(t) => Some(t), _ => None })
+    pub fn parse_int_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<IntTier> {
+        wrapper_parse_tier(self, "%int:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Int(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %spa tier with offset adjustment and streaming errors.
-    pub fn parse_spa_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<SpaTier> {
-        wrapper_parse_tier(self, "%spa:\t", input, offset, errors, |tier| match tier { DependentTier::Spa(t) => Some(t), _ => None })
+    pub fn parse_spa_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<SpaTier> {
+        wrapper_parse_tier(self, "%spa:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Spa(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %sit tier with offset adjustment and streaming errors.
-    pub fn parse_sit_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<SitTier> {
-        wrapper_parse_tier(self, "%sit:\t", input, offset, errors, |tier| match tier { DependentTier::Sit(t) => Some(t), _ => None })
+    pub fn parse_sit_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<SitTier> {
+        wrapper_parse_tier(self, "%sit:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Sit(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse a %wor tier with offset adjustment and streaming errors.
-    pub fn parse_wor_tier_fragment(&self, input: &str, offset: usize, errors: &impl ErrorSink) -> ParseOutcome<WorTier> {
-        wrapper_parse_tier(self, "%wor:\t", input, offset, errors, |tier| match tier { DependentTier::Wor(t) => Some(t), _ => None })
+    pub fn parse_wor_tier_fragment(
+        &self,
+        input: &str,
+        offset: usize,
+        errors: &impl ErrorSink,
+    ) -> ParseOutcome<WorTier> {
+        wrapper_parse_tier(self, "%wor:\t", input, offset, errors, |tier| match tier {
+            DependentTier::Wor(t) => Some(t),
+            _ => None,
+        })
     }
 
     /// Parse any dependent tier line (including prefix) with offset adjustment and streaming errors.

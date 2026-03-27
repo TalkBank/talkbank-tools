@@ -1,8 +1,8 @@
 //! Shared parser-suite utilities for root integration tests.
 
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::{ChatFile, ErrorSink};
 use talkbank_parser::ParserInitError;
+use talkbank_parser::TreeSitterParser;
 
 /// Shared initialization failure for test parser suites.
 #[derive(Debug, thiserror::Error)]

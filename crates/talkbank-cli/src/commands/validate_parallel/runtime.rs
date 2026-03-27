@@ -53,8 +53,7 @@ pub fn run_validation_runtime(
     }
 
     let (events_rx, cancel_tx) = validate_directory_streaming(path, &config, cache);
-    let (filtered_rx, files_fully_suppressed) =
-        filter_suppressed_events(events_rx, &suppress_set);
+    let (filtered_rx, files_fully_suppressed) = filter_suppressed_events(events_rx, &suppress_set);
     install_ctrlc_handler(&cancel_tx);
 
     let json_mode = matches!(output.format, crate::cli::OutputFormat::Json);
@@ -104,6 +103,13 @@ pub fn run_validation_runtime(
 
     renderer.handle_finished(&stats, files_completed, execution.max_errors, error_count);
     renderer.print_summary(path, &stats, rules.roundtrip.enabled());
+
+    if suppressed > 0 {
+        eprintln!(
+            "Suppressed: {suppressed} file(s) had only suppressed errors (not counted as invalid)"
+        );
+    }
+
     stats
 }
 
@@ -153,6 +159,11 @@ fn filter_suppressed_events(
     let suppress_set = suppress_set.clone();
     let count = Arc::clone(&suppressed_count);
     std::thread::spawn(move || {
+        // Track files whose errors were entirely suppressed, so we can
+        // rewrite their FileComplete status from Invalid → Valid.
+        let mut fully_suppressed_files: std::collections::HashSet<std::path::PathBuf> =
+            std::collections::HashSet::new();
+
         for event in events_rx {
             match event {
                 ValidationEvent::Errors(mut error_event) => {
@@ -162,10 +173,27 @@ fn filter_suppressed_events(
                         .retain(|e| !suppress_set.contains(e.code.as_str()));
                     if error_event.errors.is_empty() && pre_count > 0 {
                         count.fetch_add(1, Ordering::Relaxed);
+                        fully_suppressed_files.insert(error_event.path.clone());
                     }
                     if !error_event.errors.is_empty() {
                         let _ = filtered_tx.send(ValidationEvent::Errors(error_event));
                     }
+                }
+                ValidationEvent::FileComplete(mut file_event) => {
+                    // If this file's errors were entirely suppressed, report it as Valid
+                    if fully_suppressed_files.remove(&file_event.path) {
+                        file_event.status =
+                            talkbank_transform::validation_runner::FileStatus::Valid {
+                                cache_hit: false,
+                            };
+                    }
+                    let _ = filtered_tx.send(ValidationEvent::FileComplete(file_event));
+                }
+                ValidationEvent::Finished(mut snapshot) => {
+                    // Adjust the final stats to reflect suppression
+                    let suppressed = count.load(Ordering::Relaxed);
+                    snapshot.invalid_files = snapshot.invalid_files.saturating_sub(suppressed);
+                    let _ = filtered_tx.send(ValidationEvent::Finished(snapshot));
                 }
                 other => {
                     let _ = filtered_tx.send(other);

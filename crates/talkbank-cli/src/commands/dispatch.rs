@@ -116,6 +116,7 @@ impl CommandFamilyService for ValidationCommandService {
                 max_errors,
                 roundtrip,
                 audit,
+                suppress,
             } => run_validate_command(
                 path,
                 ValidateCommandOptions {
@@ -136,6 +137,7 @@ impl CommandFamilyService for ValidationCommandService {
                         interface: ValidationInterface::from_tui(context.should_use_tui),
                         theme: context.theme.clone(),
                     },
+                    suppress,
                 },
             ),
             Commands::ShowAlignment {

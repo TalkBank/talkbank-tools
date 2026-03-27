@@ -11,6 +11,7 @@ members = [
     "crates/talkbank-cli",
     "crates/talkbank-lsp",
     "crates/send2clan-sys",
+    "crates/talkbank-re2c-parser",
     "desktop/src-tauri",
 ]
 exclude = [

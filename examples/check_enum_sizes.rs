@@ -168,7 +168,10 @@ fn main() {
 
     println!("Header:          {} bytes", size_of::<Header>());
     println!("Postcode:        {} bytes", size_of::<Postcode>());
-    println!("ContentAnnotation: {} bytes", size_of::<ContentAnnotation>());
+    println!(
+        "ContentAnnotation: {} bytes",
+        size_of::<ContentAnnotation>()
+    );
 
     println!("\n=== Summary ===\n");
 

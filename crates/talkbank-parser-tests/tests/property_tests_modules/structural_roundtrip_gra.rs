@@ -4,8 +4,8 @@
 //! parse → serialize → reparse stability across both parsers.
 
 use proptest::prelude::*;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
+use talkbank_parser::TreeSitterParser;
 
 use super::slow_test_config;
 

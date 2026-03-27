@@ -60,7 +60,6 @@ struct Args {
     /// Skip alignment validation for faster batch runs
     #[arg(long)]
     no_alignment: bool,
-
 }
 
 /// Entry point for this binary target.
@@ -118,12 +117,7 @@ fn main() {
 }
 
 /// Run custom streaming mode with bounded memory and caching
-fn run_custom_mode(
-    corpus_dir: &Path,
-    no_cache: bool,
-    emit_artifacts: bool,
-    check_alignment: bool,
-) {
+fn run_custom_mode(corpus_dir: &Path, no_cache: bool, emit_artifacts: bool, check_alignment: bool) {
     use indicatif::{ProgressBar, ProgressStyle};
 
     let parser_kind = roundtrip_corpus::runner::RoundtripParserKind::TreeSitter;

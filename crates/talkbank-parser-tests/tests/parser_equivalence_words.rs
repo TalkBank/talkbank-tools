@@ -17,9 +17,9 @@
 //! cargo test parser_equivalence_words -- --nocapture
 //! ```
 
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::ParseOutcome;
+use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::golden::golden_words_minimal;
 use talkbank_parser_tests::test_error::TestError;
 

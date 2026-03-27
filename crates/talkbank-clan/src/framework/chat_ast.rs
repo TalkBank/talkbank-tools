@@ -1,8 +1,8 @@
 use talkbank_model::alignment::helpers::{WordItem, walk_words};
 use talkbank_model::dependent_tier::TimTier;
 use talkbank_model::{
-    BracketedItem, BulletContent, BulletContentSegment, DependentTier, GraTier, MainTier, MorTier,
-    ContentAnnotation, UtteranceContent, WriteChat,
+    BracketedItem, BulletContent, BulletContentSegment, ContentAnnotation, DependentTier, GraTier,
+    MainTier, MorTier, UtteranceContent, WriteChat,
 };
 
 use crate::framework::is_countable_word;

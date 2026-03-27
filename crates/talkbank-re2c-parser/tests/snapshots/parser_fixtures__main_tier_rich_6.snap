@@ -1,0 +1,35 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: CHI
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Word:
+        category: ~
+        body:
+          - Text: in
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations: []
+        raw_text: in
+    - Word:
+        category: ~
+        body:
+          - Text: xeili
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations: []
+        raw_text: xeili
+  terminator:
+    TrailingOff: +...
+  postcodes: []
+  media_bullet:
+    MediaBullet:
+      start_time: "639034"
+      end_time: "642127"

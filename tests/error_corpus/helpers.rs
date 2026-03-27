@@ -102,7 +102,10 @@ impl ParserImpl {
     pub fn collect_all_errors(&self, content: &str) -> Vec<talkbank_model::ParseError> {
         let parse_errors = ErrorCollector::new();
 
-        let chat_file_opt = self.0.parse_chat_file_fragment(content, 0, &parse_errors).into_option();
+        let chat_file_opt = self
+            .0
+            .parse_chat_file_fragment(content, 0, &parse_errors)
+            .into_option();
 
         if let Some(mut chat_file) = chat_file_opt {
             // TEMPORARY: skip %wor alignment - semantics still being worked out

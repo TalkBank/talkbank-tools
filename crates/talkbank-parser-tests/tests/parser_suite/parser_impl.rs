@@ -19,7 +19,6 @@ pub type ParserImpl = TreeSitterParser;
 /// Single-parser suite. Historically returned two parsers for cross-backend
 /// comparison. Now returns one TreeSitterParser.
 pub fn parser_suite() -> Result<Vec<ParserImpl>, TestError> {
-    let parser =
-        TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let parser = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     Ok(vec![parser])
 }

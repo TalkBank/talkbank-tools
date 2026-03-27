@@ -69,34 +69,34 @@ struct FileStats {
     term_ca_no_break: usize,
 
     // ++ pairing analysis
-    pp_correct: usize,       // ++ after different-speaker +...
-    pp_same_speaker: usize,  // ++ after same speaker (should be +,)
+    pp_correct: usize,          // ++ after different-speaker +...
+    pp_same_speaker: usize,     // ++ after same speaker (should be +,)
     pp_wrong_terminator: usize, // ++ after different speaker but not +...
-    pp_first_utterance: usize, // ++ as first utterance in file
+    pp_first_utterance: usize,  // ++ as first utterance in file
 
     // +, pairing analysis
-    sc_correct: usize,       // +, after same-speaker +/.
+    sc_correct: usize,          // +, after same-speaker +/.
     sc_wrong_terminator: usize, // +, after same speaker but not +/.
-    sc_no_prior: usize,      // +, with no prior same-speaker utterance
+    sc_no_prior: usize,         // +, with no prior same-speaker utterance
 
     // +" pairing analysis
-    qf_correct: usize,       // +" after same-speaker +"/.
-    qf_chained: usize,       // +" after same-speaker +"
+    qf_correct: usize,          // +" after same-speaker +"/.
+    qf_chained: usize,          // +" after same-speaker +"
     qf_wrong_terminator: usize, // +" after same speaker but not +"/. or +"
-    qf_no_prior: usize,      // +" with no prior same-speaker utterance
+    qf_no_prior: usize,         // +" with no prior same-speaker utterance
 
     // Quotation balance
     quot_follows_terms: usize, // +"/. terminators
     quot_follows_links: usize, // +" linkers
 
     // +< overlap block analysis
-    lo_blocks: usize,         // Number of +< blocks
-    lo_block_size_1: usize,   // Single +< (isolated)
-    lo_block_size_2: usize,   // Pair of +<
-    lo_block_size_3plus: usize, // 3+ consecutive +<
-    lo_same_speaker_start: usize, // +< where speaker == previous speaker and not in block
+    lo_blocks: usize,                // Number of +< blocks
+    lo_block_size_1: usize,          // Single +< (isolated)
+    lo_block_size_2: usize,          // Pair of +<
+    lo_block_size_3plus: usize,      // 3+ consecutive +<
+    lo_same_speaker_start: usize,    // +< where speaker == previous speaker and not in block
     lo_max_speakers_in_block: usize, // Max distinct speakers in any block
-    lo_combined_with_other: usize, // +< combined with another linker
+    lo_combined_with_other: usize,   // +< combined with another linker
 
     // +^ analysis
     qu_same_speaker: usize,
@@ -232,57 +232,157 @@ impl LinkerAuditResult {
 
         // ── Linker frequency table ─────────────────────────────────
         let mut fields = IndexMap::new();
-        fields.insert("+< (lazy overlap)".to_owned(), s.total_lazy_overlap.to_string());
-        fields.insert("++ (other completion)".to_owned(), s.total_other_completion.to_string());
-        fields.insert("+^ (quick uptake)".to_owned(), s.total_quick_uptake.to_string());
-        fields.insert("+\" (quotation follows)".to_owned(), s.total_quotation_follows.to_string());
-        fields.insert("+, (self completion)".to_owned(), s.total_self_completion.to_string());
-        fields.insert("+≋ (TCU continuation)".to_owned(), s.total_tcu_continuation.to_string());
-        fields.insert("+≈ (no-break TCU)".to_owned(), s.total_no_break_tcu.to_string());
-        result.add_section(Section::with_fields("Linker Frequencies".to_owned(), fields));
+        fields.insert(
+            "+< (lazy overlap)".to_owned(),
+            s.total_lazy_overlap.to_string(),
+        );
+        fields.insert(
+            "++ (other completion)".to_owned(),
+            s.total_other_completion.to_string(),
+        );
+        fields.insert(
+            "+^ (quick uptake)".to_owned(),
+            s.total_quick_uptake.to_string(),
+        );
+        fields.insert(
+            "+\" (quotation follows)".to_owned(),
+            s.total_quotation_follows.to_string(),
+        );
+        fields.insert(
+            "+, (self completion)".to_owned(),
+            s.total_self_completion.to_string(),
+        );
+        fields.insert(
+            "+≋ (TCU continuation)".to_owned(),
+            s.total_tcu_continuation.to_string(),
+        );
+        fields.insert(
+            "+≈ (no-break TCU)".to_owned(),
+            s.total_no_break_tcu.to_string(),
+        );
+        result.add_section(Section::with_fields(
+            "Linker Frequencies".to_owned(),
+            fields,
+        ));
 
         // ── Terminator frequency table ─────────────────────────────
         let mut fields = IndexMap::new();
-        fields.insert("+... (trailing off)".to_owned(), s.total_trailing_off.to_string());
-        fields.insert("+..? (trailing off question)".to_owned(), s.total_trailing_off_question.to_string());
-        fields.insert("+/. (interruption)".to_owned(), s.total_interruption.to_string());
-        fields.insert("+/? (interrupted question)".to_owned(), s.total_interrupted_question.to_string());
-        fields.insert("+//. (self-interruption)".to_owned(), s.total_self_interruption.to_string());
-        fields.insert("+//? (self-interrupted question)".to_owned(), s.total_self_interrupted_question.to_string());
-        fields.insert("+!? (broken question)".to_owned(), s.total_broken_question.to_string());
-        fields.insert("+\"/. (quotation follows)".to_owned(), s.total_quotation_follows_term.to_string());
-        fields.insert("+\". (quotation precedes)".to_owned(), s.total_quotation_precedes_term.to_string());
-        fields.insert("+. (break for coding)".to_owned(), s.total_break_for_coding.to_string());
-        result.add_section(Section::with_fields("Special Terminator Frequencies".to_owned(), fields));
+        fields.insert(
+            "+... (trailing off)".to_owned(),
+            s.total_trailing_off.to_string(),
+        );
+        fields.insert(
+            "+..? (trailing off question)".to_owned(),
+            s.total_trailing_off_question.to_string(),
+        );
+        fields.insert(
+            "+/. (interruption)".to_owned(),
+            s.total_interruption.to_string(),
+        );
+        fields.insert(
+            "+/? (interrupted question)".to_owned(),
+            s.total_interrupted_question.to_string(),
+        );
+        fields.insert(
+            "+//. (self-interruption)".to_owned(),
+            s.total_self_interruption.to_string(),
+        );
+        fields.insert(
+            "+//? (self-interrupted question)".to_owned(),
+            s.total_self_interrupted_question.to_string(),
+        );
+        fields.insert(
+            "+!? (broken question)".to_owned(),
+            s.total_broken_question.to_string(),
+        );
+        fields.insert(
+            "+\"/. (quotation follows)".to_owned(),
+            s.total_quotation_follows_term.to_string(),
+        );
+        fields.insert(
+            "+\". (quotation precedes)".to_owned(),
+            s.total_quotation_precedes_term.to_string(),
+        );
+        fields.insert(
+            "+. (break for coding)".to_owned(),
+            s.total_break_for_coding.to_string(),
+        );
+        result.add_section(Section::with_fields(
+            "Special Terminator Frequencies".to_owned(),
+            fields,
+        ));
 
         // ── ++ pairing analysis ────────────────────────────────────
-        let pp_total = s.pp_correct + s.pp_same_speaker + s.pp_wrong_terminator + s.pp_first_utterance;
+        let pp_total =
+            s.pp_correct + s.pp_same_speaker + s.pp_wrong_terminator + s.pp_first_utterance;
         let mut fields = IndexMap::new();
         fields.insert("Total ++".to_owned(), pp_total.to_string());
-        fields.insert("Correct (diff speaker + +...)".to_owned(), pct_str(s.pp_correct, pp_total));
-        fields.insert("ANOMALY: same speaker (should be +,)".to_owned(), pct_str(s.pp_same_speaker, pp_total));
-        fields.insert("ANOMALY: wrong terminator".to_owned(), pct_str(s.pp_wrong_terminator, pp_total));
-        fields.insert("ANOMALY: first utterance".to_owned(), pct_str(s.pp_first_utterance, pp_total));
-        result.add_section(Section::with_fields("++ (Other Completion) Pairing".to_owned(), fields));
+        fields.insert(
+            "Correct (diff speaker + +...)".to_owned(),
+            pct_str(s.pp_correct, pp_total),
+        );
+        fields.insert(
+            "ANOMALY: same speaker (should be +,)".to_owned(),
+            pct_str(s.pp_same_speaker, pp_total),
+        );
+        fields.insert(
+            "ANOMALY: wrong terminator".to_owned(),
+            pct_str(s.pp_wrong_terminator, pp_total),
+        );
+        fields.insert(
+            "ANOMALY: first utterance".to_owned(),
+            pct_str(s.pp_first_utterance, pp_total),
+        );
+        result.add_section(Section::with_fields(
+            "++ (Other Completion) Pairing".to_owned(),
+            fields,
+        ));
 
         // ── +, pairing analysis ────────────────────────────────────
         let sc_total = s.sc_correct + s.sc_wrong_terminator + s.sc_no_prior;
         let mut fields = IndexMap::new();
         fields.insert("Total +,".to_owned(), sc_total.to_string());
-        fields.insert("Correct (same speaker + +/.)".to_owned(), pct_str(s.sc_correct, sc_total));
-        fields.insert("ANOMALY: wrong terminator".to_owned(), pct_str(s.sc_wrong_terminator, sc_total));
-        fields.insert("ANOMALY: no prior same-speaker".to_owned(), pct_str(s.sc_no_prior, sc_total));
-        result.add_section(Section::with_fields("+, (Self Completion) Pairing".to_owned(), fields));
+        fields.insert(
+            "Correct (same speaker + +/.)".to_owned(),
+            pct_str(s.sc_correct, sc_total),
+        );
+        fields.insert(
+            "ANOMALY: wrong terminator".to_owned(),
+            pct_str(s.sc_wrong_terminator, sc_total),
+        );
+        fields.insert(
+            "ANOMALY: no prior same-speaker".to_owned(),
+            pct_str(s.sc_no_prior, sc_total),
+        );
+        result.add_section(Section::with_fields(
+            "+, (Self Completion) Pairing".to_owned(),
+            fields,
+        ));
 
         // ── +" pairing analysis ────────────────────────────────────
         let qf_total = s.qf_correct + s.qf_chained + s.qf_wrong_terminator + s.qf_no_prior;
         let mut fields = IndexMap::new();
         fields.insert("Total +\"".to_owned(), qf_total.to_string());
-        fields.insert("Correct (same speaker + +\"/.)".to_owned(), pct_str(s.qf_correct, qf_total));
-        fields.insert("Chained (same speaker + +\")".to_owned(), pct_str(s.qf_chained, qf_total));
-        fields.insert("ANOMALY: wrong terminator".to_owned(), pct_str(s.qf_wrong_terminator, qf_total));
-        fields.insert("ANOMALY: no prior same-speaker".to_owned(), pct_str(s.qf_no_prior, qf_total));
-        result.add_section(Section::with_fields("+\" (Quotation) Pairing".to_owned(), fields));
+        fields.insert(
+            "Correct (same speaker + +\"/.)".to_owned(),
+            pct_str(s.qf_correct, qf_total),
+        );
+        fields.insert(
+            "Chained (same speaker + +\")".to_owned(),
+            pct_str(s.qf_chained, qf_total),
+        );
+        fields.insert(
+            "ANOMALY: wrong terminator".to_owned(),
+            pct_str(s.qf_wrong_terminator, qf_total),
+        );
+        fields.insert(
+            "ANOMALY: no prior same-speaker".to_owned(),
+            pct_str(s.qf_no_prior, qf_total),
+        );
+        result.add_section(Section::with_fields(
+            "+\" (Quotation) Pairing".to_owned(),
+            fields,
+        ));
 
         // ── +< block analysis ──────────────────────────────────────
         let mut fields = IndexMap::new();
@@ -290,15 +390,30 @@ impl LinkerAuditResult {
         fields.insert("Isolated (size 1)".to_owned(), s.lo_isolated.to_string());
         fields.insert("Pairs (size 2)".to_owned(), s.lo_pairs.to_string());
         fields.insert("Large (size 3+)".to_owned(), s.lo_large_blocks.to_string());
-        fields.insert("Same-speaker start (suspicious)".to_owned(), s.lo_same_speaker_start.to_string());
-        fields.insert("Combined with other linker".to_owned(), s.lo_combined_with_other.to_string());
-        result.add_section(Section::with_fields("+< (Lazy Overlap) Blocks".to_owned(), fields));
+        fields.insert(
+            "Same-speaker start (suspicious)".to_owned(),
+            s.lo_same_speaker_start.to_string(),
+        );
+        fields.insert(
+            "Combined with other linker".to_owned(),
+            s.lo_combined_with_other.to_string(),
+        );
+        result.add_section(Section::with_fields(
+            "+< (Lazy Overlap) Blocks".to_owned(),
+            fields,
+        ));
 
         // ── +^ analysis ────────────────────────────────────────────
         let mut fields = IndexMap::new();
         fields.insert("Same speaker".to_owned(), s.qu_same_speaker.to_string());
-        fields.insert("Different speaker".to_owned(), s.qu_diff_speaker.to_string());
-        result.add_section(Section::with_fields("+^ (Quick Uptake) Speaker".to_owned(), fields));
+        fields.insert(
+            "Different speaker".to_owned(),
+            s.qu_diff_speaker.to_string(),
+        );
+        result.add_section(Section::with_fields(
+            "+^ (Quick Uptake) Speaker".to_owned(),
+            fields,
+        ));
 
         // ── TCU analysis ───────────────────────────────────────────
         if s.tcu_tech_same + s.tcu_tech_diff > 0 || s.tcu_nb_same + s.tcu_nb_diff > 0 {
@@ -313,24 +428,39 @@ impl LinkerAuditResult {
         // ── Orphaned terminators ───────────────────────────────────
         let mut fields = IndexMap::new();
         fields.insert("+... total".to_owned(), s.trailing_off_total.to_string());
-        fields.insert("+... followed by ++/+,".to_owned(), s.trailing_off_followed.to_string());
+        fields.insert(
+            "+... followed by ++/+,".to_owned(),
+            s.trailing_off_followed.to_string(),
+        );
         fields.insert(
             "+... orphaned".to_owned(),
             (s.trailing_off_total - s.trailing_off_followed).to_string(),
         );
         fields.insert("+/. total".to_owned(), s.interruption_total.to_string());
-        fields.insert("+/. followed by +,".to_owned(), s.interruption_followed.to_string());
+        fields.insert(
+            "+/. followed by +,".to_owned(),
+            s.interruption_followed.to_string(),
+        );
         fields.insert(
             "+/. orphaned".to_owned(),
             (s.interruption_total - s.interruption_followed).to_string(),
         );
-        result.add_section(Section::with_fields("Orphaned Special Terminators".to_owned(), fields));
+        result.add_section(Section::with_fields(
+            "Orphaned Special Terminators".to_owned(),
+            fields,
+        ));
 
         // ── Overall ────────────────────────────────────────────────
         let mut fields = IndexMap::new();
         fields.insert("Files analyzed".to_owned(), s.files_total.to_string());
-        fields.insert("Files with linkers/special terminators".to_owned(), s.files_with_linkers.to_string());
-        fields.insert("Files with anomalies".to_owned(), s.files_with_anomalies.to_string());
+        fields.insert(
+            "Files with linkers/special terminators".to_owned(),
+            s.files_with_linkers.to_string(),
+        );
+        fields.insert(
+            "Files with anomalies".to_owned(),
+            s.files_with_anomalies.to_string(),
+        );
         result.add_section(Section::with_fields("Summary".to_owned(), fields));
 
         result
@@ -534,7 +664,9 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
                 TerminatorKind::Interruption => stats.term_interruption += 1,
                 TerminatorKind::InterruptedQuestion => stats.term_interrupted_question += 1,
                 TerminatorKind::SelfInterruption => stats.term_self_interruption += 1,
-                TerminatorKind::SelfInterruptedQuestion => stats.term_self_interrupted_question += 1,
+                TerminatorKind::SelfInterruptedQuestion => {
+                    stats.term_self_interrupted_question += 1
+                }
                 TerminatorKind::BrokenQuestion => stats.term_broken_question += 1,
                 TerminatorKind::QuotationFollows => stats.term_quotation_follows += 1,
                 TerminatorKind::QuotationPrecedes => stats.term_quotation_precedes += 1,
@@ -552,7 +684,12 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
             } else if let Some(ps) = prev_speaker {
                 if ps == speaker {
                     stats.pp_same_speaker += 1;
-                } else if prev_terminator.is_some_and(|t| matches!(t, TerminatorKind::TrailingOff | TerminatorKind::TrailingOffQuestion)) {
+                } else if prev_terminator.is_some_and(|t| {
+                    matches!(
+                        t,
+                        TerminatorKind::TrailingOff | TerminatorKind::TrailingOffQuestion
+                    )
+                }) {
                     stats.pp_correct += 1;
                 } else {
                     stats.pp_wrong_terminator += 1;
@@ -564,7 +701,12 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         if linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
             match last_term_by_speaker.get(speaker) {
                 None => stats.sc_no_prior += 1,
-                Some(t) if matches!(t, TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion) => {
+                Some(t)
+                    if matches!(
+                        t,
+                        TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion
+                    ) =>
+                {
                     stats.sc_correct += 1;
                 }
                 Some(_) => stats.sc_wrong_terminator += 1,
@@ -572,14 +714,21 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         }
 
         // ── +" (Quotation Follows) pairing ─────────────────────────
-        if linkers.iter().any(|l| matches!(l, Linker::QuotationFollows)) {
+        if linkers
+            .iter()
+            .any(|l| matches!(l, Linker::QuotationFollows))
+        {
             stats.quot_follows_links += 1;
             match last_term_by_speaker.get(speaker) {
                 None => stats.qf_no_prior += 1,
                 Some(TerminatorKind::QuotationFollows) => stats.qf_correct += 1,
                 _ => {
                     // Check if previous same-speaker had +" linker (chaining)
-                    if last_linker_by_speaker.get(speaker).and_then(|l| l.as_ref()).is_some_and(|l| matches!(l, Linker::QuotationFollows)) {
+                    if last_linker_by_speaker
+                        .get(speaker)
+                        .and_then(|l| l.as_ref())
+                        .is_some_and(|l| matches!(l, Linker::QuotationFollows))
+                    {
                         stats.qf_chained += 1;
                     } else {
                         stats.qf_wrong_terminator += 1;
@@ -624,7 +773,10 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         }
 
         // ── +^ analysis ───────────────────────────────────────────
-        if linkers.iter().any(|l| matches!(l, Linker::QuickUptakeOverlap)) {
+        if linkers
+            .iter()
+            .any(|l| matches!(l, Linker::QuickUptakeOverlap))
+        {
             if prev_speaker.is_some_and(|ps| ps == speaker) {
                 stats.qu_same_speaker += 1;
             } else {
@@ -640,7 +792,10 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
                 stats.tcu_tech_diff_speaker += 1;
             }
         }
-        if linkers.iter().any(|l| matches!(l, Linker::NoBreakTcuContinuation)) {
+        if linkers
+            .iter()
+            .any(|l| matches!(l, Linker::NoBreakTcuContinuation))
+        {
             if prev_speaker.is_some_and(|ps| ps == speaker) {
                 stats.tcu_nb_same_speaker += 1;
             } else {
@@ -659,12 +814,21 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         }
         // Check if previous terminator was "followed"
         if let Some(pt) = prev_terminator {
-            if matches!(pt, TerminatorKind::TrailingOff | TerminatorKind::TrailingOffQuestion) {
-                if linkers.iter().any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion)) {
+            if matches!(
+                pt,
+                TerminatorKind::TrailingOff | TerminatorKind::TrailingOffQuestion
+            ) {
+                if linkers
+                    .iter()
+                    .any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion))
+                {
                     stats.trailing_off_followed += 1;
                 }
             }
-            if matches!(pt, TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion) {
+            if matches!(
+                pt,
+                TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion
+            ) {
                 if linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
                     stats.interruption_followed += 1;
                 }
@@ -679,7 +843,10 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
             last_term_by_speaker.insert(speaker, tk);
         }
         // Track the primary non-+< linker for quotation chaining
-        let primary_linker = linkers.iter().find(|l| !matches!(l, Linker::LazyOverlapPrecedes)).cloned();
+        let primary_linker = linkers
+            .iter()
+            .find(|l| !matches!(l, Linker::LazyOverlapPrecedes))
+            .cloned();
         last_linker_by_speaker.insert(speaker, primary_linker);
     }
 
@@ -737,8 +904,16 @@ impl AnalysisCommand for LinkerAuditCommand {
     }
 
     fn finalize(&self, state: Self::State) -> LinkerAuditResult {
-        let files_with_linkers = state.files.iter().filter(|f| f.has_any_linker_or_special_terminator()).count();
-        let files_with_anomalies = state.files.iter().filter(|f| f.total_anomalies() > 0).count();
+        let files_with_linkers = state
+            .files
+            .iter()
+            .filter(|f| f.has_any_linker_or_special_terminator())
+            .count();
+        let files_with_anomalies = state
+            .files
+            .iter()
+            .filter(|f| f.total_anomalies() > 0)
+            .count();
 
         let summary = CorpusSummary {
             files_total: state.files.len(),
@@ -752,14 +927,34 @@ impl AnalysisCommand for LinkerAuditCommand {
             total_tcu_continuation: state.files.iter().map(|f| f.linker_tcu_continuation).sum(),
             total_no_break_tcu: state.files.iter().map(|f| f.linker_no_break_tcu).sum(),
             total_trailing_off: state.files.iter().map(|f| f.term_trailing_off).sum(),
-            total_trailing_off_question: state.files.iter().map(|f| f.term_trailing_off_question).sum(),
+            total_trailing_off_question: state
+                .files
+                .iter()
+                .map(|f| f.term_trailing_off_question)
+                .sum(),
             total_interruption: state.files.iter().map(|f| f.term_interruption).sum(),
-            total_interrupted_question: state.files.iter().map(|f| f.term_interrupted_question).sum(),
+            total_interrupted_question: state
+                .files
+                .iter()
+                .map(|f| f.term_interrupted_question)
+                .sum(),
             total_self_interruption: state.files.iter().map(|f| f.term_self_interruption).sum(),
-            total_self_interrupted_question: state.files.iter().map(|f| f.term_self_interrupted_question).sum(),
+            total_self_interrupted_question: state
+                .files
+                .iter()
+                .map(|f| f.term_self_interrupted_question)
+                .sum(),
             total_broken_question: state.files.iter().map(|f| f.term_broken_question).sum(),
-            total_quotation_follows_term: state.files.iter().map(|f| f.term_quotation_follows).sum(),
-            total_quotation_precedes_term: state.files.iter().map(|f| f.term_quotation_precedes).sum(),
+            total_quotation_follows_term: state
+                .files
+                .iter()
+                .map(|f| f.term_quotation_follows)
+                .sum(),
+            total_quotation_precedes_term: state
+                .files
+                .iter()
+                .map(|f| f.term_quotation_precedes)
+                .sum(),
             total_break_for_coding: state.files.iter().map(|f| f.term_break_for_coding).sum(),
             total_ca_technical_break: state.files.iter().map(|f| f.term_ca_technical_break).sum(),
             total_ca_no_break: state.files.iter().map(|f| f.term_ca_no_break).sum(),

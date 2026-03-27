@@ -33,19 +33,17 @@ pub(super) fn parse_word(parser: &TreeSitterParser, input: &str) -> ParseResult<
 
     let tree = {
         let mut ts_parser = parser.parser.borrow_mut();
-        ts_parser
-            .parse(input.as_bytes(), None)
-            .ok_or_else(|| {
-                let mut errors = ParseErrors::new();
-                errors.push(ParseError::new(
-                    ErrorCode::TreeParsingError,
-                    Severity::Error,
-                    SourceLocation::from_offsets(0, input.len()),
-                    ErrorContext::new(input, 0..input.len(), input),
-                    "Tree-sitter parse returned None",
-                ));
-                errors
-            })?
+        ts_parser.parse(input.as_bytes(), None).ok_or_else(|| {
+            let mut errors = ParseErrors::new();
+            errors.push(ParseError::new(
+                ErrorCode::TreeParsingError,
+                Severity::Error,
+                SourceLocation::from_offsets(0, input.len()),
+                ErrorContext::new(input, 0..input.len(), input),
+                "Tree-sitter parse returned None",
+            ));
+            errors
+        })?
     };
 
     // Navigate: source_file → standalone_word

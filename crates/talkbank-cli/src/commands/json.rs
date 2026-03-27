@@ -212,16 +212,14 @@ pub fn chat_to_json_directory(
     prune: bool,
     jobs: Option<usize>,
 ) {
-    let _span = span!(Level::INFO, "chat_to_json_directory", input = %input_dir.display()).entered();
+    let _span =
+        span!(Level::INFO, "chat_to_json_directory", input = %input_dir.display()).entered();
 
     // Collect all .cha files
     let cha_files: Vec<PathBuf> = WalkDir::new(input_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file()
-                && e.path().extension().is_some_and(|ext| ext == "cha")
-        })
+        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "cha"))
         .map(|e| e.into_path())
         .collect();
 
@@ -347,19 +345,13 @@ fn convert_one_file(
     failed: &AtomicUsize,
 ) {
     // Compute relative path and output path
-    let rel = cha_path
-        .strip_prefix(input_dir)
-        .unwrap_or(cha_path);
+    let rel = cha_path.strip_prefix(input_dir).unwrap_or(cha_path);
     let json_path = output_dir.join(rel).with_extension("json");
 
     // Incremental: skip if json is newer than cha
     if !force {
-        if let (Ok(cha_meta), Ok(json_meta)) =
-            (fs::metadata(cha_path), fs::metadata(&json_path))
-        {
-            if let (Ok(cha_mtime), Ok(json_mtime)) =
-                (cha_meta.modified(), json_meta.modified())
-            {
+        if let (Ok(cha_meta), Ok(json_meta)) = (fs::metadata(cha_path), fs::metadata(&json_path)) {
+            if let (Ok(cha_mtime), Ok(json_mtime)) = (cha_meta.modified(), json_meta.modified()) {
                 if json_mtime >= cha_mtime {
                     skipped.fetch_add(1, Ordering::Relaxed);
                     return;
@@ -399,10 +391,7 @@ fn convert_one_file(
             // Ensure parent directory exists
             if let Some(parent) = json_path.parent() {
                 if let Err(e) = fs::create_dir_all(parent) {
-                    eprintln!(
-                        "ERROR: cannot create directory {}: {e}",
-                        parent.display()
-                    );
+                    eprintln!("ERROR: cannot create directory {}: {e}", parent.display());
                     failed.fetch_add(1, Ordering::Relaxed);
                     return;
                 }
@@ -430,8 +419,7 @@ fn prune_orphaned_json(input_dir: &Path, output_dir: &Path) -> usize {
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
-            e.file_type().is_file()
-                && e.path().extension().is_some_and(|ext| ext == "json")
+            e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "json")
         })
     {
         let json_path = entry.path();

@@ -1,0 +1,11 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: tier
+---
+relations:
+  - index: "1"
+    head: "0"
+    relation: ROOT
+  - index: "2"
+    head: "1"
+    relation: PUNCT

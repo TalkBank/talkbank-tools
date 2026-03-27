@@ -53,8 +53,7 @@ pub fn parse_file_snapshot(
 /// }
 /// ```
 pub fn spec_word_test(input: &str) -> Result<(), TestError> {
-    let parser = TreeSitterParser::new()
-        .map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let parser = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     let snapshot = parse_word_snapshot(&parser, input)?;
     insta::assert_json_snapshot!(snapshot);
     Ok(())
@@ -93,8 +92,7 @@ pub fn reference_file_test(path: &str) -> Result<(), TestError> {
         // DEFAULT: If the file stem is unavailable, use a stable snapshot name.
         .unwrap_or("unknown");
 
-    let parser = TreeSitterParser::new()
-        .map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let parser = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     let snapshot = parse_file_snapshot(&parser, &content)?;
 
     insta::assert_json_snapshot!(filename, snapshot);
@@ -103,15 +101,13 @@ pub fn reference_file_test(path: &str) -> Result<(), TestError> {
 
 /// Test helper: parse with tree-sitter and snapshot a word.
 pub fn legacy_tree_sitter_word_snapshot(input: &str) -> Result<serde_json::Value, TestError> {
-    let parser = TreeSitterParser::new()
-        .map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let parser = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     parse_word_snapshot(&parser, input)
 }
 
 /// Test helper: parse file with tree-sitter and snapshot the result.
 pub fn legacy_tree_sitter_file_snapshot(path: &str) -> Result<serde_json::Value, TestError> {
     let content = std::fs::read_to_string(path)?;
-    let parser = TreeSitterParser::new()
-        .map_err(|err| TestError::ParserInit(err.to_string()))?;
+    let parser = TreeSitterParser::new().map_err(|err| TestError::ParserInit(err.to_string()))?;
     parse_file_snapshot(&parser, &content)
 }

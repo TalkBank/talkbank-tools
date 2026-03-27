@@ -65,12 +65,7 @@ pub fn collect_bracketed_item(
             collect_bracketed_content(&quot.content, leaf_kinds, retrace_checks, retrace_index);
         }
         BracketedItem::Retrace(retrace) => {
-            collect_bracketed_content(
-                &retrace.content,
-                leaf_kinds,
-                retrace_checks,
-                retrace_index,
-            );
+            collect_bracketed_content(&retrace.content, leaf_kinds, retrace_checks, retrace_index);
             // Record retrace check at the content variant level
             retrace_checks.push(RetraceCheck {
                 retrace_index: *retrace_index,
@@ -95,4 +90,3 @@ pub fn collect_bracketed_item(
         }
     }
 }
-

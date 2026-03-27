@@ -1,0 +1,21 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: NON
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Action:
+        zero:
+          Zero: "0"
+        annotations: []
+  terminator:
+    Period: "."
+  postcodes: []
+  media_bullet:
+    MediaBullet:
+      start_time: "2160"
+      end_time: "3110"

@@ -390,7 +390,9 @@ mod tests {
     /// Configured output limit should cap number of reported longest words.
     #[test]
     fn maxwd_respects_limit() {
-        let config = MaxwdConfig { limit: crate::framework::WordLimit::new(2) };
+        let config = MaxwdConfig {
+            limit: crate::framework::WordLimit::new(2),
+        };
         let command = MaxwdCommand::new(config);
         let mut state = MaxwdState::default();
 

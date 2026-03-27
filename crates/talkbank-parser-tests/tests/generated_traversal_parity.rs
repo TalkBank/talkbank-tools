@@ -82,8 +82,7 @@ fn test_main_tier_all_fields_present() {
 
 #[test]
 fn test_participants_header() {
-    let source =
-        "@UTF8\n@Begin\n@Participants:\tCHI Target_Child, MOT Mother\n*CHI:\thi .\n@End\n";
+    let source = "@UTF8\n@Begin\n@Participants:\tCHI Target_Child, MOT Mother\n*CHI:\thi .\n@End\n";
     let tree = parse_chat(source);
     let mut t = TestTraversal;
     let mut found = false;
@@ -180,31 +179,81 @@ fn test_corpus_wide_extraction() {
 
             // Call extraction for key SEQ rules to verify they work
             match kind {
-                "full_document" => { let _ = t.extract_full_document(node); }
-                "main_tier" => { let _ = t.extract_main_tier(node); }
-                "utterance" => { let _ = t.extract_utterance(node); }
-                "tier_body" => { let _ = t.extract_tier_body(node); }
-                "utterance_end" => { let _ = t.extract_utterance_end(node); }
-                "participants_header" => { let _ = t.extract_participants_header(node); }
-                "languages_header" => { let _ = t.extract_languages_header(node); }
-                "id_header" => { let _ = t.extract_id_header(node); }
-                "date_header" => { let _ = t.extract_date_header(node); }
-                "media_header" => { let _ = t.extract_media_header(node); }
-                "comment_header" => { let _ = t.extract_comment_header(node); }
-                "mor_dependent_tier" => { let _ = t.extract_mor_dependent_tier(node); }
-                "gra_dependent_tier" => { let _ = t.extract_gra_dependent_tier(node); }
-                "pho_dependent_tier" => { let _ = t.extract_pho_dependent_tier(node); }
-                "com_dependent_tier" => { let _ = t.extract_com_dependent_tier(node); }
-                "word_with_optional_annotations" => { let _ = t.extract_word_with_optional_annotations(node); }
-                "nonword_with_optional_annotations" => { let _ = t.extract_nonword_with_optional_annotations(node); }
-                "mor_word" => { let _ = t.extract_mor_word(node); }
-                "mor_content" => { let _ = t.extract_mor_content(node); }
-                "gra_relation" => { let _ = t.extract_gra_relation(node); }
-                "replacement" => { let _ = t.extract_replacement(node); }
-                "group_with_annotations" => { let _ = t.extract_group_with_annotations(node); }
-                "begin_header" => { let _ = t.extract_begin_header(node); }
-                "end_header" => { let _ = t.extract_end_header(node); }
-                "utf8_header" => { let _ = t.extract_utf8_header(node); }
+                "full_document" => {
+                    let _ = t.extract_full_document(node);
+                }
+                "main_tier" => {
+                    let _ = t.extract_main_tier(node);
+                }
+                "utterance" => {
+                    let _ = t.extract_utterance(node);
+                }
+                "tier_body" => {
+                    let _ = t.extract_tier_body(node);
+                }
+                "utterance_end" => {
+                    let _ = t.extract_utterance_end(node);
+                }
+                "participants_header" => {
+                    let _ = t.extract_participants_header(node);
+                }
+                "languages_header" => {
+                    let _ = t.extract_languages_header(node);
+                }
+                "id_header" => {
+                    let _ = t.extract_id_header(node);
+                }
+                "date_header" => {
+                    let _ = t.extract_date_header(node);
+                }
+                "media_header" => {
+                    let _ = t.extract_media_header(node);
+                }
+                "comment_header" => {
+                    let _ = t.extract_comment_header(node);
+                }
+                "mor_dependent_tier" => {
+                    let _ = t.extract_mor_dependent_tier(node);
+                }
+                "gra_dependent_tier" => {
+                    let _ = t.extract_gra_dependent_tier(node);
+                }
+                "pho_dependent_tier" => {
+                    let _ = t.extract_pho_dependent_tier(node);
+                }
+                "com_dependent_tier" => {
+                    let _ = t.extract_com_dependent_tier(node);
+                }
+                "word_with_optional_annotations" => {
+                    let _ = t.extract_word_with_optional_annotations(node);
+                }
+                "nonword_with_optional_annotations" => {
+                    let _ = t.extract_nonword_with_optional_annotations(node);
+                }
+                "mor_word" => {
+                    let _ = t.extract_mor_word(node);
+                }
+                "mor_content" => {
+                    let _ = t.extract_mor_content(node);
+                }
+                "gra_relation" => {
+                    let _ = t.extract_gra_relation(node);
+                }
+                "replacement" => {
+                    let _ = t.extract_replacement(node);
+                }
+                "group_with_annotations" => {
+                    let _ = t.extract_group_with_annotations(node);
+                }
+                "begin_header" => {
+                    let _ = t.extract_begin_header(node);
+                }
+                "end_header" => {
+                    let _ = t.extract_end_header(node);
+                }
+                "utf8_header" => {
+                    let _ = t.extract_utf8_header(node);
+                }
                 _ => {}
             }
         });
@@ -212,18 +261,39 @@ fn test_corpus_wide_extraction() {
         files_parsed += 1;
     }
 
-    assert!(files_parsed >= 74, "Should parse all 74 files, got {files_parsed}");
+    assert!(
+        files_parsed >= 74,
+        "Should parse all 74 files, got {files_parsed}"
+    );
 
     // Print corpus stats
     let total_nodes: usize = kind_counts.values().sum();
     let extracted_kinds = [
-        "full_document", "main_tier", "utterance", "tier_body", "utterance_end",
-        "participants_header", "languages_header", "id_header", "date_header",
-        "media_header", "comment_header", "mor_dependent_tier", "gra_dependent_tier",
-        "pho_dependent_tier", "com_dependent_tier", "word_with_optional_annotations",
-        "nonword_with_optional_annotations", "mor_word", "mor_content",
-        "gra_relation", "replacement", "group_with_annotations",
-        "begin_header", "end_header", "utf8_header",
+        "full_document",
+        "main_tier",
+        "utterance",
+        "tier_body",
+        "utterance_end",
+        "participants_header",
+        "languages_header",
+        "id_header",
+        "date_header",
+        "media_header",
+        "comment_header",
+        "mor_dependent_tier",
+        "gra_dependent_tier",
+        "pho_dependent_tier",
+        "com_dependent_tier",
+        "word_with_optional_annotations",
+        "nonword_with_optional_annotations",
+        "mor_word",
+        "mor_content",
+        "gra_relation",
+        "replacement",
+        "group_with_annotations",
+        "begin_header",
+        "end_header",
+        "utf8_header",
     ];
     let extracted_total: usize = extracted_kinds
         .iter()
@@ -320,122 +390,470 @@ fn test_speaker_parity_with_existing_parser() {
 #[allow(non_snake_case, clippy::too_many_lines)]
 fn try_extract(t: &mut TestTraversal, node: tree_sitter::Node) -> bool {
     match node.kind() {
-        "_id_demographic_fields" => { let _ = t.extract__id_demographic_fields(node); true }
-        "_id_identity_fields" => { let _ = t.extract__id_identity_fields(node); true }
-        "_id_role_fields" => { let _ = t.extract__id_role_fields(node); true }
-        "act_dependent_tier" => { let _ = t.extract_act_dependent_tier(node); true }
-        "activities_header" => { let _ = t.extract_activities_header(node); true }
-        "add_dependent_tier" => { let _ = t.extract_add_dependent_tier(node); true }
-        "alt_dependent_tier" => { let _ = t.extract_alt_dependent_tier(node); true }
-        "bck_header" => { let _ = t.extract_bck_header(node); true }
-        "begin_header" => { let _ = t.extract_begin_header(node); true }
-        "bg_header" => { let _ = t.extract_bg_header(node); true }
-        "birth_of_header" => { let _ = t.extract_birth_of_header(node); true }
-        "birthplace_of_header" => { let _ = t.extract_birthplace_of_header(node); true }
-        "blank_header" => { let _ = t.extract_blank_header(node); true }
-        "cod_dependent_tier" => { let _ = t.extract_cod_dependent_tier(node); true }
-        "coh_dependent_tier" => { let _ = t.extract_coh_dependent_tier(node); true }
-        "color_words_header" => { let _ = t.extract_color_words_header(node); true }
-        "com_dependent_tier" => { let _ = t.extract_com_dependent_tier(node); true }
-        "comment_header" => { let _ = t.extract_comment_header(node); true }
-        "date_header" => { let _ = t.extract_date_header(node); true }
-        "def_dependent_tier" => { let _ = t.extract_def_dependent_tier(node); true }
-        "full_document" => { let _ = t.extract_full_document(node); true }
-        "eg_header" => { let _ = t.extract_eg_header(node); true }
-        "end_header" => { let _ = t.extract_end_header(node); true }
-        "eng_dependent_tier" => { let _ = t.extract_eng_dependent_tier(node); true }
-        "err_dependent_tier" => { let _ = t.extract_err_dependent_tier(node); true }
-        "event" => { let _ = t.extract_event(node); true }
-        "exp_dependent_tier" => { let _ = t.extract_exp_dependent_tier(node); true }
-        "fac_dependent_tier" => { let _ = t.extract_fac_dependent_tier(node); true }
-        "flo_dependent_tier" => { let _ = t.extract_flo_dependent_tier(node); true }
-        "font_header" => { let _ = t.extract_font_header(node); true }
-        "g_header" => { let _ = t.extract_g_header(node); true }
-        "gls_dependent_tier" => { let _ = t.extract_gls_dependent_tier(node); true }
-        "gpx_dependent_tier" => { let _ = t.extract_gpx_dependent_tier(node); true }
-        "gra_contents" => { let _ = t.extract_gra_contents(node); true }
-        "gra_dependent_tier" => { let _ = t.extract_gra_dependent_tier(node); true }
-        "gra_relation" => { let _ = t.extract_gra_relation(node); true }
-        "group_with_annotations" => { let _ = t.extract_group_with_annotations(node); true }
-        "header_sep" => { let _ = t.extract_header_sep(node); true }
-        "id_contents" => { let _ = t.extract_id_contents(node); true }
-        "id_header" => { let _ = t.extract_id_header(node); true }
-        "int_dependent_tier" => { let _ = t.extract_int_dependent_tier(node); true }
-        "l1_of_header" => { let _ = t.extract_l1_of_header(node); true }
-        "languages_contents" => { let _ = t.extract_languages_contents(node); true }
-        "languages_header" => { let _ = t.extract_languages_header(node); true }
-        "location_header" => { let _ = t.extract_location_header(node); true }
-        "long_feature_begin" => { let _ = t.extract_long_feature_begin(node); true }
-        "long_feature_end" => { let _ = t.extract_long_feature_end(node); true }
-        "main_pho_group" => { let _ = t.extract_main_pho_group(node); true }
-        "main_sin_group" => { let _ = t.extract_main_sin_group(node); true }
-        "main_tier" => { let _ = t.extract_main_tier(node); true }
-        "media_contents" => { let _ = t.extract_media_contents(node); true }
-        "media_header" => { let _ = t.extract_media_header(node); true }
-        "mod_dependent_tier" => { let _ = t.extract_mod_dependent_tier(node); true }
-        "modsyl_dependent_tier" => { let _ = t.extract_modsyl_dependent_tier(node); true }
-        "mor_content" => { let _ = t.extract_mor_content(node); true }
-        "mor_contents" => { let _ = t.extract_mor_contents(node); true }
-        "mor_dependent_tier" => { let _ = t.extract_mor_dependent_tier(node); true }
-        "mor_feature" => { let _ = t.extract_mor_feature(node); true }
-        "mor_post_clitic" => { let _ = t.extract_mor_post_clitic(node); true }
-        "mor_word" => { let _ = t.extract_mor_word(node); true }
-        "new_episode_header" => { let _ = t.extract_new_episode_header(node); true }
-        "nonvocal_begin" => { let _ = t.extract_nonvocal_begin(node); true }
-        "nonvocal_end" => { let _ = t.extract_nonvocal_end(node); true }
-        "nonvocal_simple" => { let _ = t.extract_nonvocal_simple(node); true }
-        "nonword_with_optional_annotations" => { let _ = t.extract_nonword_with_optional_annotations(node); true }
-        "number_header" => { let _ = t.extract_number_header(node); true }
-        "options_contents" => { let _ = t.extract_options_contents(node); true }
-        "options_header" => { let _ = t.extract_options_header(node); true }
-        "ort_dependent_tier" => { let _ = t.extract_ort_dependent_tier(node); true }
-        "other_spoken_event" => { let _ = t.extract_other_spoken_event(node); true }
-        "page_header" => { let _ = t.extract_page_header(node); true }
-        "par_dependent_tier" => { let _ = t.extract_par_dependent_tier(node); true }
-        "participant" => { let _ = t.extract_participant(node); true }
-        "participants_contents" => { let _ = t.extract_participants_contents(node); true }
-        "participants_header" => { let _ = t.extract_participants_header(node); true }
-        "pho_dependent_tier" => { let _ = t.extract_pho_dependent_tier(node); true }
-        "pho_grouped_content" => { let _ = t.extract_pho_grouped_content(node); true }
-        "pho_groups" => { let _ = t.extract_pho_groups(node); true }
-        "pho_words" => { let _ = t.extract_pho_words(node); true }
-        "phoaln_dependent_tier" => { let _ = t.extract_phoaln_dependent_tier(node); true }
-        "phosyl_dependent_tier" => { let _ = t.extract_phosyl_dependent_tier(node); true }
-        "pid_header" => { let _ = t.extract_pid_header(node); true }
-        "quotation" => { let _ = t.extract_quotation(node); true }
-        "recording_quality_header" => { let _ = t.extract_recording_quality_header(node); true }
-        "replacement" => { let _ = t.extract_replacement(node); true }
-        "room_layout_header" => { let _ = t.extract_room_layout_header(node); true }
-        "sin_dependent_tier" => { let _ = t.extract_sin_dependent_tier(node); true }
-        "sin_grouped_content" => { let _ = t.extract_sin_grouped_content(node); true }
-        "sin_groups" => { let _ = t.extract_sin_groups(node); true }
-        "sit_dependent_tier" => { let _ = t.extract_sit_dependent_tier(node); true }
-        "situation_header" => { let _ = t.extract_situation_header(node); true }
-        "spa_dependent_tier" => { let _ = t.extract_spa_dependent_tier(node); true }
-        "t_header" => { let _ = t.extract_t_header(node); true }
-        "tape_location_header" => { let _ = t.extract_tape_location_header(node); true }
-        "thumbnail_header" => { let _ = t.extract_thumbnail_header(node); true }
-        "tier_body" => { let _ = t.extract_tier_body(node); true }
-        "tier_sep" => { let _ = t.extract_tier_sep(node); true }
-        "tim_dependent_tier" => { let _ = t.extract_tim_dependent_tier(node); true }
-        "time_duration_header" => { let _ = t.extract_time_duration_header(node); true }
-        "time_start_header" => { let _ = t.extract_time_start_header(node); true }
-        "transcriber_header" => { let _ = t.extract_transcriber_header(node); true }
-        "transcription_header" => { let _ = t.extract_transcription_header(node); true }
-        "types_header" => { let _ = t.extract_types_header(node); true }
-        "unsupported_dependent_tier" => { let _ = t.extract_unsupported_dependent_tier(node); true }
-        "unsupported_header" => { let _ = t.extract_unsupported_header(node); true }
-        "unsupported_line" => { let _ = t.extract_unsupported_line(node); true }
-        "utf8_header" => { let _ = t.extract_utf8_header(node); true }
-        "utterance" => { let _ = t.extract_utterance(node); true }
-        "utterance_end" => { let _ = t.extract_utterance_end(node); true }
-        "videos_header" => { let _ = t.extract_videos_header(node); true }
-        "warning_header" => { let _ = t.extract_warning_header(node); true }
-        "window_header" => { let _ = t.extract_window_header(node); true }
-        "wor_dependent_tier" => { let _ = t.extract_wor_dependent_tier(node); true }
-        "wor_tier_body" => { let _ = t.extract_wor_tier_body(node); true }
-        "word_with_optional_annotations" => { let _ = t.extract_word_with_optional_annotations(node); true }
-        "x_dependent_tier" => { let _ = t.extract_x_dependent_tier(node); true }
+        "_id_demographic_fields" => {
+            let _ = t.extract__id_demographic_fields(node);
+            true
+        }
+        "_id_identity_fields" => {
+            let _ = t.extract__id_identity_fields(node);
+            true
+        }
+        "_id_role_fields" => {
+            let _ = t.extract__id_role_fields(node);
+            true
+        }
+        "act_dependent_tier" => {
+            let _ = t.extract_act_dependent_tier(node);
+            true
+        }
+        "activities_header" => {
+            let _ = t.extract_activities_header(node);
+            true
+        }
+        "add_dependent_tier" => {
+            let _ = t.extract_add_dependent_tier(node);
+            true
+        }
+        "alt_dependent_tier" => {
+            let _ = t.extract_alt_dependent_tier(node);
+            true
+        }
+        "bck_header" => {
+            let _ = t.extract_bck_header(node);
+            true
+        }
+        "begin_header" => {
+            let _ = t.extract_begin_header(node);
+            true
+        }
+        "bg_header" => {
+            let _ = t.extract_bg_header(node);
+            true
+        }
+        "birth_of_header" => {
+            let _ = t.extract_birth_of_header(node);
+            true
+        }
+        "birthplace_of_header" => {
+            let _ = t.extract_birthplace_of_header(node);
+            true
+        }
+        "blank_header" => {
+            let _ = t.extract_blank_header(node);
+            true
+        }
+        "cod_dependent_tier" => {
+            let _ = t.extract_cod_dependent_tier(node);
+            true
+        }
+        "coh_dependent_tier" => {
+            let _ = t.extract_coh_dependent_tier(node);
+            true
+        }
+        "color_words_header" => {
+            let _ = t.extract_color_words_header(node);
+            true
+        }
+        "com_dependent_tier" => {
+            let _ = t.extract_com_dependent_tier(node);
+            true
+        }
+        "comment_header" => {
+            let _ = t.extract_comment_header(node);
+            true
+        }
+        "date_header" => {
+            let _ = t.extract_date_header(node);
+            true
+        }
+        "def_dependent_tier" => {
+            let _ = t.extract_def_dependent_tier(node);
+            true
+        }
+        "full_document" => {
+            let _ = t.extract_full_document(node);
+            true
+        }
+        "eg_header" => {
+            let _ = t.extract_eg_header(node);
+            true
+        }
+        "end_header" => {
+            let _ = t.extract_end_header(node);
+            true
+        }
+        "eng_dependent_tier" => {
+            let _ = t.extract_eng_dependent_tier(node);
+            true
+        }
+        "err_dependent_tier" => {
+            let _ = t.extract_err_dependent_tier(node);
+            true
+        }
+        "event" => {
+            let _ = t.extract_event(node);
+            true
+        }
+        "exp_dependent_tier" => {
+            let _ = t.extract_exp_dependent_tier(node);
+            true
+        }
+        "fac_dependent_tier" => {
+            let _ = t.extract_fac_dependent_tier(node);
+            true
+        }
+        "flo_dependent_tier" => {
+            let _ = t.extract_flo_dependent_tier(node);
+            true
+        }
+        "font_header" => {
+            let _ = t.extract_font_header(node);
+            true
+        }
+        "g_header" => {
+            let _ = t.extract_g_header(node);
+            true
+        }
+        "gls_dependent_tier" => {
+            let _ = t.extract_gls_dependent_tier(node);
+            true
+        }
+        "gpx_dependent_tier" => {
+            let _ = t.extract_gpx_dependent_tier(node);
+            true
+        }
+        "gra_contents" => {
+            let _ = t.extract_gra_contents(node);
+            true
+        }
+        "gra_dependent_tier" => {
+            let _ = t.extract_gra_dependent_tier(node);
+            true
+        }
+        "gra_relation" => {
+            let _ = t.extract_gra_relation(node);
+            true
+        }
+        "group_with_annotations" => {
+            let _ = t.extract_group_with_annotations(node);
+            true
+        }
+        "header_sep" => {
+            let _ = t.extract_header_sep(node);
+            true
+        }
+        "id_contents" => {
+            let _ = t.extract_id_contents(node);
+            true
+        }
+        "id_header" => {
+            let _ = t.extract_id_header(node);
+            true
+        }
+        "int_dependent_tier" => {
+            let _ = t.extract_int_dependent_tier(node);
+            true
+        }
+        "l1_of_header" => {
+            let _ = t.extract_l1_of_header(node);
+            true
+        }
+        "languages_contents" => {
+            let _ = t.extract_languages_contents(node);
+            true
+        }
+        "languages_header" => {
+            let _ = t.extract_languages_header(node);
+            true
+        }
+        "location_header" => {
+            let _ = t.extract_location_header(node);
+            true
+        }
+        "long_feature_begin" => {
+            let _ = t.extract_long_feature_begin(node);
+            true
+        }
+        "long_feature_end" => {
+            let _ = t.extract_long_feature_end(node);
+            true
+        }
+        "main_pho_group" => {
+            let _ = t.extract_main_pho_group(node);
+            true
+        }
+        "main_sin_group" => {
+            let _ = t.extract_main_sin_group(node);
+            true
+        }
+        "main_tier" => {
+            let _ = t.extract_main_tier(node);
+            true
+        }
+        "media_contents" => {
+            let _ = t.extract_media_contents(node);
+            true
+        }
+        "media_header" => {
+            let _ = t.extract_media_header(node);
+            true
+        }
+        "mod_dependent_tier" => {
+            let _ = t.extract_mod_dependent_tier(node);
+            true
+        }
+        "modsyl_dependent_tier" => {
+            let _ = t.extract_modsyl_dependent_tier(node);
+            true
+        }
+        "mor_content" => {
+            let _ = t.extract_mor_content(node);
+            true
+        }
+        "mor_contents" => {
+            let _ = t.extract_mor_contents(node);
+            true
+        }
+        "mor_dependent_tier" => {
+            let _ = t.extract_mor_dependent_tier(node);
+            true
+        }
+        "mor_feature" => {
+            let _ = t.extract_mor_feature(node);
+            true
+        }
+        "mor_post_clitic" => {
+            let _ = t.extract_mor_post_clitic(node);
+            true
+        }
+        "mor_word" => {
+            let _ = t.extract_mor_word(node);
+            true
+        }
+        "new_episode_header" => {
+            let _ = t.extract_new_episode_header(node);
+            true
+        }
+        "nonvocal_begin" => {
+            let _ = t.extract_nonvocal_begin(node);
+            true
+        }
+        "nonvocal_end" => {
+            let _ = t.extract_nonvocal_end(node);
+            true
+        }
+        "nonvocal_simple" => {
+            let _ = t.extract_nonvocal_simple(node);
+            true
+        }
+        "nonword_with_optional_annotations" => {
+            let _ = t.extract_nonword_with_optional_annotations(node);
+            true
+        }
+        "number_header" => {
+            let _ = t.extract_number_header(node);
+            true
+        }
+        "options_contents" => {
+            let _ = t.extract_options_contents(node);
+            true
+        }
+        "options_header" => {
+            let _ = t.extract_options_header(node);
+            true
+        }
+        "ort_dependent_tier" => {
+            let _ = t.extract_ort_dependent_tier(node);
+            true
+        }
+        "other_spoken_event" => {
+            let _ = t.extract_other_spoken_event(node);
+            true
+        }
+        "page_header" => {
+            let _ = t.extract_page_header(node);
+            true
+        }
+        "par_dependent_tier" => {
+            let _ = t.extract_par_dependent_tier(node);
+            true
+        }
+        "participant" => {
+            let _ = t.extract_participant(node);
+            true
+        }
+        "participants_contents" => {
+            let _ = t.extract_participants_contents(node);
+            true
+        }
+        "participants_header" => {
+            let _ = t.extract_participants_header(node);
+            true
+        }
+        "pho_dependent_tier" => {
+            let _ = t.extract_pho_dependent_tier(node);
+            true
+        }
+        "pho_grouped_content" => {
+            let _ = t.extract_pho_grouped_content(node);
+            true
+        }
+        "pho_groups" => {
+            let _ = t.extract_pho_groups(node);
+            true
+        }
+        "pho_words" => {
+            let _ = t.extract_pho_words(node);
+            true
+        }
+        "phoaln_dependent_tier" => {
+            let _ = t.extract_phoaln_dependent_tier(node);
+            true
+        }
+        "phosyl_dependent_tier" => {
+            let _ = t.extract_phosyl_dependent_tier(node);
+            true
+        }
+        "pid_header" => {
+            let _ = t.extract_pid_header(node);
+            true
+        }
+        "quotation" => {
+            let _ = t.extract_quotation(node);
+            true
+        }
+        "recording_quality_header" => {
+            let _ = t.extract_recording_quality_header(node);
+            true
+        }
+        "replacement" => {
+            let _ = t.extract_replacement(node);
+            true
+        }
+        "room_layout_header" => {
+            let _ = t.extract_room_layout_header(node);
+            true
+        }
+        "sin_dependent_tier" => {
+            let _ = t.extract_sin_dependent_tier(node);
+            true
+        }
+        "sin_grouped_content" => {
+            let _ = t.extract_sin_grouped_content(node);
+            true
+        }
+        "sin_groups" => {
+            let _ = t.extract_sin_groups(node);
+            true
+        }
+        "sit_dependent_tier" => {
+            let _ = t.extract_sit_dependent_tier(node);
+            true
+        }
+        "situation_header" => {
+            let _ = t.extract_situation_header(node);
+            true
+        }
+        "spa_dependent_tier" => {
+            let _ = t.extract_spa_dependent_tier(node);
+            true
+        }
+        "t_header" => {
+            let _ = t.extract_t_header(node);
+            true
+        }
+        "tape_location_header" => {
+            let _ = t.extract_tape_location_header(node);
+            true
+        }
+        "thumbnail_header" => {
+            let _ = t.extract_thumbnail_header(node);
+            true
+        }
+        "tier_body" => {
+            let _ = t.extract_tier_body(node);
+            true
+        }
+        "tier_sep" => {
+            let _ = t.extract_tier_sep(node);
+            true
+        }
+        "tim_dependent_tier" => {
+            let _ = t.extract_tim_dependent_tier(node);
+            true
+        }
+        "time_duration_header" => {
+            let _ = t.extract_time_duration_header(node);
+            true
+        }
+        "time_start_header" => {
+            let _ = t.extract_time_start_header(node);
+            true
+        }
+        "transcriber_header" => {
+            let _ = t.extract_transcriber_header(node);
+            true
+        }
+        "transcription_header" => {
+            let _ = t.extract_transcription_header(node);
+            true
+        }
+        "types_header" => {
+            let _ = t.extract_types_header(node);
+            true
+        }
+        "unsupported_dependent_tier" => {
+            let _ = t.extract_unsupported_dependent_tier(node);
+            true
+        }
+        "unsupported_header" => {
+            let _ = t.extract_unsupported_header(node);
+            true
+        }
+        "unsupported_line" => {
+            let _ = t.extract_unsupported_line(node);
+            true
+        }
+        "utf8_header" => {
+            let _ = t.extract_utf8_header(node);
+            true
+        }
+        "utterance" => {
+            let _ = t.extract_utterance(node);
+            true
+        }
+        "utterance_end" => {
+            let _ = t.extract_utterance_end(node);
+            true
+        }
+        "videos_header" => {
+            let _ = t.extract_videos_header(node);
+            true
+        }
+        "warning_header" => {
+            let _ = t.extract_warning_header(node);
+            true
+        }
+        "window_header" => {
+            let _ = t.extract_window_header(node);
+            true
+        }
+        "wor_dependent_tier" => {
+            let _ = t.extract_wor_dependent_tier(node);
+            true
+        }
+        "wor_tier_body" => {
+            let _ = t.extract_wor_tier_body(node);
+            true
+        }
+        "word_with_optional_annotations" => {
+            let _ = t.extract_word_with_optional_annotations(node);
+            true
+        }
+        "x_dependent_tier" => {
+            let _ = t.extract_x_dependent_tier(node);
+            true
+        }
         _ => false,
     }
 }
@@ -515,7 +933,8 @@ fn test_all_116_extraction_methods_no_panics() {
 #[test]
 fn test_options_header_semantic_conversion() {
     // File with @Options: CA
-    let source = "@UTF8\n@Begin\n@Participants:\tCHI Target_Child\n@Options:\tCA\n*CHI:\thi .\n@End\n";
+    let source =
+        "@UTF8\n@Begin\n@Participants:\tCHI Target_Child\n@Options:\tCA\n*CHI:\thi .\n@End\n";
     let tree = parse_chat(source);
     let mut t = TestTraversal;
     let mut found_option = false;
@@ -548,8 +967,7 @@ fn test_options_header_semantic_conversion() {
 #[test]
 fn test_options_header_unknown_value() {
     // File with @Options: SomeUnknownOption
-    let source =
-        "@UTF8\n@Begin\n@Participants:\tCHI Target_Child\n@Options:\tSomeUnknownOption\n*CHI:\thi .\n@End\n";
+    let source = "@UTF8\n@Begin\n@Participants:\tCHI Target_Child\n@Options:\tSomeUnknownOption\n*CHI:\thi .\n@End\n";
     let tree = parse_chat(source);
     let mut t = TestTraversal;
     let mut found = false;

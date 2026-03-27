@@ -39,17 +39,16 @@
 //! 4. Fix issues
 //! 5. Run full corpus equivalence (final validation)
 
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::ParseOutcome;
+use talkbank_parser::TreeSitterParser;
 
 /// Parse a CHAT file input and verify it succeeds.
 ///
 /// Returns Ok(()) if the parser produces a valid ChatFile.
 /// Returns Err(message) if parsing fails.
 fn parse_chat_file(input: &str, description: &str) -> Result<(), String> {
-    let parser =
-        TreeSitterParser::new().map_err(|e| format!("TreeSitter init failed: {}", e))?;
+    let parser = TreeSitterParser::new().map_err(|e| format!("TreeSitter init failed: {}", e))?;
 
     let errors = ErrorCollector::new();
     let result = parser.parse_chat_file_fragment(input, 0, &errors);

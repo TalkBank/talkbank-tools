@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::{DependentTier, SemanticEq, WriteChat};
 use talkbank_model::ParseOutcome;
+use talkbank_model::model::{DependentTier, SemanticEq, WriteChat};
 use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 use walkdir::WalkDir;
@@ -156,17 +156,18 @@ fn reference_dependent_tiers_roundtrip_for_every_parser() -> Result<(), TestErro
             for tier in collect_dependent_tiers(&parsed_file) {
                 let tier_line = tier_to_full_line(&tier);
                 let tier_errors = ErrorCollector::new();
-                let reparsed = match parser.parse_dependent_tier_fragment(&tier_line, 0, &tier_errors) {
-                    ParseOutcome::Parsed(tier) => tier,
-                    ParseOutcome::Rejected => {
-                        return Err(TestError::Failure(format!(
-                            "[{}] parse_dependent_tier rejected `{}` from {}",
-                            "tree-sitter",
-                            tier_line,
-                            relative_display(path)
-                        )));
-                    }
-                };
+                let reparsed =
+                    match parser.parse_dependent_tier_fragment(&tier_line, 0, &tier_errors) {
+                        ParseOutcome::Parsed(tier) => tier,
+                        ParseOutcome::Rejected => {
+                            return Err(TestError::Failure(format!(
+                                "[{}] parse_dependent_tier rejected `{}` from {}",
+                                "tree-sitter",
+                                tier_line,
+                                relative_display(path)
+                            )));
+                        }
+                    };
 
                 if !tier_errors.is_empty() {
                     return Err(TestError::Failure(format!(

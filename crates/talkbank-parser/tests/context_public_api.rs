@@ -1,6 +1,6 @@
 use talkbank_model::ChatOptionFlag;
-use talkbank_model::FragmentSemanticContext;
 use talkbank_model::ErrorCollector;
+use talkbank_model::FragmentSemanticContext;
 use talkbank_parser::TreeSitterParser;
 
 fn parser() -> TreeSitterParser {

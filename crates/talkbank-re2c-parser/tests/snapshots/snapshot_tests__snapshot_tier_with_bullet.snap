@@ -1,0 +1,12 @@
+---
+source: crates/talkbank-re2c-parser/tests/snapshot_tests.rs
+expression: tokens
+---
+- kind: TextSegment
+  text: "some text "
+- kind: "MediaBullet { start_time: \"100\", end_time: \"200\" }"
+  text: "100"
+- kind: TextSegment
+  text: " more text"
+- kind: Newline
+  text: "\n"

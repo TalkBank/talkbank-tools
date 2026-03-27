@@ -1,0 +1,26 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: FAN
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Event:
+        - EventMarker: "&="
+        - Word:
+            raw_text: w3_33
+            prefix: ~
+            body: w3_33
+            form_marker: ~
+            lang_suffix: ~
+            pos_tag: ~
+  terminator:
+    Period: "."
+  postcodes: []
+  media_bullet:
+    MediaBullet:
+      start_time: "5600"
+      end_time: "6600"

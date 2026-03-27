@@ -112,10 +112,22 @@ mod tests {
         // E726: %phosyl vs %pho
         // E727: %phoaln vs %mod
         // E728: %phoaln vs %pho
-        assert!(result.contains(&"E725".to_string()), "missing E725 (modsyl/mod)");
-        assert!(result.contains(&"E726".to_string()), "missing E726 (phosyl/pho)");
-        assert!(result.contains(&"E727".to_string()), "missing E727 (phoaln/mod)");
-        assert!(result.contains(&"E728".to_string()), "missing E728 (phoaln/pho)");
+        assert!(
+            result.contains(&"E725".to_string()),
+            "missing E725 (modsyl/mod)"
+        );
+        assert!(
+            result.contains(&"E726".to_string()),
+            "missing E726 (phosyl/pho)"
+        );
+        assert!(
+            result.contains(&"E727".to_string()),
+            "missing E727 (phoaln/mod)"
+        );
+        assert!(
+            result.contains(&"E728".to_string()),
+            "missing E728 (phoaln/pho)"
+        );
         assert_eq!(result.len(), 4);
     }
 

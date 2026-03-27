@@ -7,11 +7,11 @@
 
 use serde_json::Value;
 use std::path::PathBuf;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::WriteChat;
 use talkbank_model::model::{Utterance, Word};
 use talkbank_model::{ParseError, ParseErrors, ParseOutcome};
+use talkbank_parser::TreeSitterParser;
 use thiserror::Error;
 
 /// Helper function to perform true roundtrip test (no validation).

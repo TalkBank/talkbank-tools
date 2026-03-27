@@ -13,9 +13,9 @@
 //! All tests run on the TreeSitterParser backend.
 
 use proptest::prelude::*;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::model::Word;
 use talkbank_model::{ErrorCollector, ErrorSink, ParseResult};
+use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
 /// Thin wrapper around TreeSitterParser that exposes the parse_word API

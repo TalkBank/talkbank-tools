@@ -103,4 +103,3 @@ pub fn collect_utterance_content(
         }
     }
 }
-

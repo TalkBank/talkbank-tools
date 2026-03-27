@@ -48,11 +48,9 @@ fn is_comma_licensing(item: &UtteranceContent) -> bool {
         // Pauses license commas (matching CLAN CHECK behavior).
         UtteranceContent::Pause(_) => true,
         // Retrace content may contain spoken words — recurse to check.
-        UtteranceContent::Retrace(retrace) => retrace
-            .content
-            .content
-            .iter()
-            .any(is_spoken_bracketed_item),
+        UtteranceContent::Retrace(retrace) => {
+            retrace.content.content.iter().any(is_spoken_bracketed_item)
+        }
         // Events, separators, actions, markers, etc. do not license commas.
         UtteranceContent::Event(_)
         | UtteranceContent::AnnotatedEvent(_)
@@ -92,11 +90,9 @@ fn is_spoken_bracketed_item(item: &BracketedItem) -> bool {
         // Pauses license commas (matching CLAN CHECK behavior).
         BracketedItem::Pause(_) => true,
         // Retrace content may contain spoken words — recurse to check.
-        BracketedItem::Retrace(retrace) => retrace
-            .content
-            .content
-            .iter()
-            .any(is_spoken_bracketed_item),
+        BracketedItem::Retrace(retrace) => {
+            retrace.content.content.iter().any(is_spoken_bracketed_item)
+        }
         // Events, actions, separators, markers, etc. do not license commas.
         BracketedItem::Event(_)
         | BracketedItem::AnnotatedEvent(_)

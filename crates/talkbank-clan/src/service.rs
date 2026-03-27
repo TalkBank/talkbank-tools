@@ -44,8 +44,6 @@ use crate::framework::{
 
 use super::service_types::*;
 
-
-
 pub struct AnalysisService {
     runner: AnalysisRunner,
 }
@@ -395,12 +393,12 @@ impl Default for AnalysisService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service_types::*;
     use crate::commands::chains::ChainsConfig;
     use crate::commands::corelex::CorelexConfig;
-    use crate::commands::sugar::SugarConfig;
     use crate::commands::rely::RelyConfig;
+    use crate::commands::sugar::SugarConfig;
     use crate::commands::trnfix::TrnfixConfig;
+    use crate::service_types::*;
 
     #[test]
     fn analysis_command_name_round_trips_wire_names() {

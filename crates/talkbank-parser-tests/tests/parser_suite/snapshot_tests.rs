@@ -59,11 +59,7 @@ fn parser_word_snapshot() -> Result<(), TestError> {
                 label.push_str(" [KNOWN BUG]");
             }
 
-            rows.push(format_snapshot_entry(
-                "tree-sitter",
-                &label,
-                &parsed,
-            )?);
+            rows.push(format_snapshot_entry("tree-sitter", &label, &parsed)?);
         }
     }
 
@@ -95,11 +91,7 @@ fn parser_mor_snapshot() -> Result<(), TestError> {
             sink.to_vec()
         );
 
-        rows.push(format_snapshot_entry(
-            "tree-sitter",
-            "%mor tier",
-            &mor,
-        )?);
+        rows.push(format_snapshot_entry("tree-sitter", "%mor tier", &mor)?);
     }
 
     assert_snapshot!(rows.join("\n\n"));

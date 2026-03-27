@@ -1,0 +1,6 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result
+---
+codes:
+  - deu

@@ -172,7 +172,9 @@ mod tests {
     fn parse_file(path: &Path) -> Result<ChatFile, TestError> {
         let content = fs::read_to_string(path).map_err(|source| TestError::Io { source })?;
         let parser = TreeSitterParser::new().expect("grammar loads");
-        parser.parse_chat_file(&content).map_err(|source| TestError::Parse { source })
+        parser
+            .parse_chat_file(&content)
+            .map_err(|source| TestError::Parse { source })
     }
 
     /// Assert that a required header appears in the parsed file.

@@ -208,7 +208,10 @@ fn build_filter(spec: FilterSpec) -> Option<FilterConfig> {
         }),
         FilterSpec::WordInclude(words) => Some(FilterConfig {
             words: WordFilter {
-                include: words.iter().map(|word| talkbank_clan::framework::WordPattern::from(*word)).collect(),
+                include: words
+                    .iter()
+                    .map(|word| talkbank_clan::framework::WordPattern::from(*word))
+                    .collect(),
                 ..WordFilter::default()
             },
             ..FilterConfig::default()
@@ -361,7 +364,9 @@ pub fn run_rust_filtered(
                 .find(|w| w[0] == "--limit")
                 .and_then(|w| w[1].parse().ok())
                 .unwrap_or(20);
-            run_and_render!(MaxwdCommand::new(MaxwdConfig { limit: talkbank_clan::framework::WordLimit::new(limit) }))
+            run_and_render!(MaxwdCommand::new(MaxwdConfig {
+                limit: talkbank_clan::framework::WordLimit::new(limit)
+            }))
         }
         "kwal" => {
             use talkbank_clan::commands::kwal::{KwalCommand, KwalConfig};
@@ -371,7 +376,10 @@ pub fn run_rust_filtered(
                 .map(|w| w[1].to_owned())
                 .collect();
             run_and_render!(KwalCommand::new(KwalConfig {
-                keywords: keywords.into_iter().map(talkbank_clan::framework::KeywordPattern::from).collect(),
+                keywords: keywords
+                    .into_iter()
+                    .map(talkbank_clan::framework::KeywordPattern::from)
+                    .collect(),
             }))
         }
         "chip" => {
@@ -405,7 +413,9 @@ pub fn run_rust_filtered(
         }
         "codes" => {
             use talkbank_clan::commands::codes::{CodesCommand, CodesConfig};
-            run_and_render!(CodesCommand::new(CodesConfig { max_depth: talkbank_clan::framework::CodeDepth::new(0) }))
+            run_and_render!(CodesCommand::new(CodesConfig {
+                max_depth: talkbank_clan::framework::CodeDepth::new(0)
+            }))
         }
         "chains" => {
             use talkbank_clan::commands::chains::{ChainsCommand, ChainsConfig};
@@ -413,7 +423,9 @@ pub fn run_rust_filtered(
         }
         "sugar" => {
             use talkbank_clan::commands::sugar::{SugarCommand, SugarConfig};
-            run_and_render!(SugarCommand::new(SugarConfig { min_utterances: talkbank_clan::framework::UtteranceLimit::new(0) }))
+            run_and_render!(SugarCommand::new(SugarConfig {
+                min_utterances: talkbank_clan::framework::UtteranceLimit::new(0)
+            }))
         }
         "timedur" => {
             use talkbank_clan::commands::timedur::TimedurCommand;
@@ -480,7 +492,10 @@ pub fn run_rust_filtered(
                 .map(|w| w[1].to_string())
                 .unwrap_or_else(|| "cod".to_string());
             run_and_render!(KeymapCommand::new(KeymapConfig {
-                keywords: keywords.into_iter().map(talkbank_clan::framework::KeywordPattern::from).collect(),
+                keywords: keywords
+                    .into_iter()
+                    .map(talkbank_clan::framework::KeywordPattern::from)
+                    .collect(),
                 tier: talkbank_clan::framework::TierKind::from(tier.as_str()),
             }))
         }

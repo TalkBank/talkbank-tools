@@ -332,6 +332,7 @@ pub struct WordStressMarker {
     pub marker_type: WordStressMarkerType,
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[semantic_eq(skip)]
     pub span: Option<crate::Span>,
 }
 
@@ -390,26 +391,40 @@ impl Validate for WordStressMarker {
 )]
 pub struct WordLengthening {
     /// Number of colons (`:` = 1, `::` = 2, `:::` = 3).
-    #[serde(default = "WordLengthening::default_count", skip_serializing_if = "WordLengthening::is_one")]
+    #[serde(
+        default = "WordLengthening::default_count",
+        skip_serializing_if = "WordLengthening::is_one"
+    )]
     pub count: u8,
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[semantic_eq(skip)]
     pub span: Option<crate::Span>,
 }
 
 impl WordLengthening {
     /// Builds a lengthening marker with count 1 and no span metadata.
     pub fn new() -> Self {
-        Self { count: 1, span: None }
+        Self {
+            count: 1,
+            span: None,
+        }
     }
 
     /// Builds a lengthening marker with a specific colon count.
     pub fn with_count(count: u8) -> Self {
-        Self { count: count.max(1), span: None }
+        Self {
+            count: count.max(1),
+            span: None,
+        }
     }
 
-    fn default_count() -> u8 { 1 }
-    fn is_one(count: &u8) -> bool { *count <= 1 }
+    fn default_count() -> u8 {
+        1
+    }
+    fn is_one(count: &u8) -> bool {
+        *count <= 1
+    }
 
     /// Sets source span metadata.
     pub fn with_span(mut self, span: crate::Span) -> Self {
@@ -458,6 +473,7 @@ impl Validate for WordLengthening {
 pub struct WordSyllablePause {
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[semantic_eq(skip)]
     pub span: Option<crate::Span>,
 }
 
@@ -511,6 +527,7 @@ impl Validate for WordSyllablePause {
 pub struct WordCompoundMarker {
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[semantic_eq(skip)]
     pub span: Option<crate::Span>,
 }
 
@@ -552,6 +569,7 @@ impl Validate for WordCompoundMarker {
 pub struct WordCliticBoundary {
     /// Source span for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[semantic_eq(skip)]
     pub span: Option<crate::Span>,
 }
 

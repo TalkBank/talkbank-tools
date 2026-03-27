@@ -5,8 +5,8 @@
 #![allow(dead_code)] // Some utilities are for future batch workflows
 
 use talkbank_model::ParseValidateOptions;
-use talkbank_model::model::ChatFile;
 use talkbank_model::Severity;
+use talkbank_model::model::ChatFile;
 use talkbank_parser::TreeSitterParser;
 use talkbank_transform::{PipelineError, parse_and_validate, parse_and_validate_with_parser};
 
@@ -70,4 +70,3 @@ pub fn parse_for_roundtrip_with_parser(
         Err(e) => Err(e),
     }
 }
-

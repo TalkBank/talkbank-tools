@@ -4,8 +4,8 @@
 //! pauses, fillers) and verifies parse → serialize → reparse stability.
 
 use proptest::prelude::*;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
+use talkbank_parser::TreeSitterParser;
 
 use super::slow_test_config;
 

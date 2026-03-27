@@ -1,0 +1,38 @@
+[package]
+name = "talkbank-re2c-parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "CHAT parser using re2c lexer and handwritten recursive-descent parser"
+
+[dependencies]
+# Workspace crates
+talkbank-model = { workspace = true }
+
+# Error handling and diagnostics
+thiserror = { workspace = true }
+miette = { workspace = true }
+
+# Parsing and Lexing
+phf = { version = "0.13", features = ["macros"] }
+strum = { version = "0.28", features = ["derive"] }
+
+# Logging
+tracing = { workspace = true }
+
+# Domain types
+indexmap = { workspace = true }
+serde = { workspace = true }
+smallvec = { workspace = true }
+smol_str = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+proptest = { workspace = true }
+serde_json = { workspace = true }
+talkbank-parser = { workspace = true }
+walkdir = { workspace = true }
+
+[build-dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"

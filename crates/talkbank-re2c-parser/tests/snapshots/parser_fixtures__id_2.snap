@@ -1,0 +1,14 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: parsed
+---
+language: eng
+corpus: Lyon
+speaker: MAF
+age: ""
+sex: ""
+group: ""
+ses: ""
+role: Male
+education: ""
+custom_field: Male_Adult_Far

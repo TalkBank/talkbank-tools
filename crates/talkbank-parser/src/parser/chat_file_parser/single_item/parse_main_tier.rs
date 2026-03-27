@@ -26,19 +26,17 @@ pub(super) fn parse_main_tier(parser: &TreeSitterParser, input: &str) -> ParseRe
 
     let tree = {
         let mut ts_parser = parser.parser.borrow_mut();
-        ts_parser
-            .parse(to_parse.as_bytes(), None)
-            .ok_or_else(|| {
-                let mut errors = ParseErrors::new();
-                errors.push(ParseError::new(
-                    ErrorCode::TreeParsingError,
-                    Severity::Error,
-                    SourceLocation::from_offsets(0, input.len()),
-                    ErrorContext::new(input, 0..input.len(), input),
-                    "Tree-sitter parse returned None",
-                ));
-                errors
-            })?
+        ts_parser.parse(to_parse.as_bytes(), None).ok_or_else(|| {
+            let mut errors = ParseErrors::new();
+            errors.push(ParseError::new(
+                ErrorCode::TreeParsingError,
+                Severity::Error,
+                SourceLocation::from_offsets(0, input.len()),
+                ErrorContext::new(input, 0..input.len(), input),
+                "Tree-sitter parse returned None",
+            ));
+            errors
+        })?
     };
 
     // Navigate: source_file → main_tier
@@ -48,7 +46,10 @@ pub(super) fn parse_main_tier(parser: &TreeSitterParser, input: &str) -> ParseRe
             .filter(|c| c.kind() == "main_tier")
             .ok_or_else(|| {
                 let mut errors = ParseErrors::new();
-                let actual = root.child(0).map(|c| c.kind().to_string()).unwrap_or_default();
+                let actual = root
+                    .child(0)
+                    .map(|c| c.kind().to_string())
+                    .unwrap_or_default();
                 errors.push(ParseError::new(
                     ErrorCode::MissingMainTier,
                     Severity::Error,

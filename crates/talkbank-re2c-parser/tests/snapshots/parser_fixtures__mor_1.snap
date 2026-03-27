@@ -1,0 +1,12 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: tier
+---
+items:
+  - main:
+      pos: intj
+      lemma: goedzo
+      features: []
+    post_clitics: []
+terminator:
+  Period: "."

@@ -51,9 +51,9 @@ mod other_spoken;
 mod overlap;
 mod pause;
 mod postcode;
+mod retrace;
 mod separator;
 mod terminator;
-mod retrace;
 mod tier_content;
 mod utterance_content;
 
@@ -80,9 +80,9 @@ pub use utterance_content::*;
 // Re-export word types at content level
 pub use word::{
     CADelimiter, CADelimiterType, CAElement, CAElementType, FormType, UnderlineMarker, Word,
-    WordCategory, WordContent, WordContents, WordLanguageMarker, WordLengthening, WordShortening,
-    WordStressMarker, WordStressMarkerType, WordSyllablePause, WordText, WordUnderlineBegin,
-    WordUnderlineEnd,
+    WordCategory, WordCliticBoundary, WordCompoundMarker, WordContent, WordContents,
+    WordLanguageMarker, WordLengthening, WordShortening, WordStressMarker, WordStressMarkerType,
+    WordSyllablePause, WordText, WordUnderlineBegin, WordUnderlineEnd,
 };
 
 // Re-export types needed by submodules via super::

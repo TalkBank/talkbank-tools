@@ -177,17 +177,18 @@ fn reference_utterances_roundtrip_for_every_parser() -> Result<(), TestError> {
 
                 let utterance_text = utterance.to_chat();
                 let utterance_errors = ErrorCollector::new();
-                let reparsed = match parser.parse_utterance_fragment(&utterance_text, 0, &utterance_errors) {
-                    ParseOutcome::Parsed(utterance) => utterance,
-                    ParseOutcome::Rejected => {
-                        return Err(TestError::Failure(format!(
-                            "[{}] parse_utterance rejected `{}` from {}",
-                            "tree-sitter",
-                            utterance_text,
-                            path.display()
-                        )));
-                    }
-                };
+                let reparsed =
+                    match parser.parse_utterance_fragment(&utterance_text, 0, &utterance_errors) {
+                        ParseOutcome::Parsed(utterance) => utterance,
+                        ParseOutcome::Rejected => {
+                            return Err(TestError::Failure(format!(
+                                "[{}] parse_utterance rejected `{}` from {}",
+                                "tree-sitter",
+                                utterance_text,
+                                path.display()
+                            )));
+                        }
+                    };
 
                 if !utterance_errors.is_empty() {
                     return Err(TestError::Failure(format!(
@@ -247,7 +248,8 @@ fn main_tier_ca_omission_parses_with_ca_context_for_every_parser() -> Result<(),
 
     for parser in parser_suite()? {
         let errors = ErrorCollector::new();
-        let parsed = match parser.parse_main_tier_fragment_with_context(input, 0, &context, &errors) {
+        let parsed = match parser.parse_main_tier_fragment_with_context(input, 0, &context, &errors)
+        {
             ParseOutcome::Parsed(main) => main,
             ParseOutcome::Rejected => {
                 return Err(TestError::Failure(format!(
@@ -269,9 +271,7 @@ fn main_tier_ca_omission_parses_with_ca_context_for_every_parser() -> Result<(),
         if serialized != input {
             return Err(TestError::Failure(format!(
                 "[{}] parse_main_tier_with_context roundtrip mismatch: expected `{}`, got `{}`",
-                "tree-sitter",
-                input,
-                serialized
+                "tree-sitter", input, serialized
             )));
         }
     }

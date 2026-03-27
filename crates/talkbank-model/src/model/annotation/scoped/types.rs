@@ -210,7 +210,6 @@ pub enum ContentAnnotation {
     Unknown(ScopedUnknown),
 }
 
-
 /// Error marking data for `[*]` or `[* code]` annotations.
 ///
 /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Error_Coding>

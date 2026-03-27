@@ -1,0 +1,8 @@
+---
+source: crates/talkbank-re2c-parser/tests/snapshot_tests.rs
+expression: tokens
+---
+- kind: "TypesFields { design: \"cross\", activity: \"toyplay\", group: \"TD\" }"
+  text: cross
+- kind: Newline
+  text: "\n"

@@ -1,0 +1,53 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: MOT
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Word:
+        category: ~
+        body:
+          - Text: en
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations: []
+        raw_text: en
+    - Word:
+        category: ~
+        body:
+          - Text: la
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations: []
+        raw_text: la
+    - Word:
+        category: ~
+        body:
+          - Text: tierra
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations: []
+        raw_text: tierra
+    - Event:
+        - EventMarker: "&="
+        - Word:
+            raw_text: points
+            prefix: ~
+            body: points
+            form_marker: ~
+            lang_suffix: ~
+            pos_tag: ~
+  terminator:
+    Question: "?"
+  postcodes: []
+  media_bullet:
+    MediaBullet:
+      start_time: "164754"
+      end_time: "165474"

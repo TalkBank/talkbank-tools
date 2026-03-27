@@ -17,9 +17,9 @@
 
 use crate::alignment::helpers::{domain::TierDomain, rules::should_skip_group};
 use crate::model::{
-    Action, BracketedItem, Bullet, Event, Freecode, LongFeatureBegin, LongFeatureEnd,
-    NonvocalBegin, NonvocalEnd, NonvocalSimple, OtherSpokenEvent, OverlapPoint, Pause,
-    ReplacedWord, ContentAnnotation, Separator, UnderlineMarker, UtteranceContent, Word,
+    Action, BracketedItem, Bullet, ContentAnnotation, Event, Freecode, LongFeatureBegin,
+    LongFeatureEnd, NonvocalBegin, NonvocalEnd, NonvocalSimple, OtherSpokenEvent, OverlapPoint,
+    Pause, ReplacedWord, Separator, UnderlineMarker, UtteranceContent, Word,
 };
 
 // ---------------------------------------------------------------------------

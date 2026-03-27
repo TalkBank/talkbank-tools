@@ -8,7 +8,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Word_Timing_Tier>
 
 use crate::model::{
-    BracketedContent, BracketedItem, ReplacedWord, ContentAnnotation, UtteranceContent, Word,
+    BracketedContent, BracketedItem, ContentAnnotation, ReplacedWord, UtteranceContent, Word,
 };
 
 use super::domain::TierDomain;

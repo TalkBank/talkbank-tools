@@ -197,6 +197,8 @@ pub use content::{
     // Word types
     Word,
     WordCategory,
+    WordCliticBoundary,
+    WordCompoundMarker,
     WordContent,
     WordContents,
     WordLanguageMarker,
@@ -212,8 +214,8 @@ pub use content::{
 
 // Re-export annotation types
 pub use annotation::{
-    Annotated, OverlapMarkerIndex, ReplacedWord, Replacement, ScopedAddition, ScopedAlternative,
-    ContentAnnotation, ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin,
+    Annotated, ContentAnnotation, OverlapMarkerIndex, ReplacedWord, Replacement, ScopedAddition,
+    ScopedAlternative, ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin,
     ScopedOverlapEnd, ScopedParalinguistic, ScopedPercentComment, ScopedUnknown,
 };
 

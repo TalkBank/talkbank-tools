@@ -431,7 +431,11 @@ impl AnalysisCommand for KidevalCommand {
                 };
 
                 // Compute DSS score
-                let dss_max = self.config.dss_max_utterances.get().min(accum.mor_items.len());
+                let dss_max = self
+                    .config
+                    .dss_max_utterances
+                    .get()
+                    .min(accum.mor_items.len());
                 let mut dss_total = 0u32;
                 for items in accum.mor_items.iter().take(dss_max) {
                     let (_, total) = dss_score(items, &self.dss_rules);

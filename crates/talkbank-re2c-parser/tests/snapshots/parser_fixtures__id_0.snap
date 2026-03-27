@@ -1,0 +1,14 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: parsed
+---
+language: eng
+corpus: Lyon
+speaker: SIL
+age: ""
+sex: ""
+group: ""
+ses: ""
+role: LENA
+education: ""
+custom_field: Silence

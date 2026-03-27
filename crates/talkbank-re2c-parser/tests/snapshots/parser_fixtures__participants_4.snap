@@ -1,0 +1,14 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result
+---
+entries:
+  - words:
+      - CHI
+      - Target_Child
+  - words:
+      - INV2
+      - Investigator
+  - words:
+      - INV1
+      - Investigator

@@ -117,9 +117,8 @@ pub(crate) fn parse_word_content(
                 // Wrap the ReplacedWord in a Retrace node so it is excluded from
                 // %mor alignment counting.
                 let span = replaced.span;
-                let bracketed = BracketedContent::new(vec![BracketedItem::ReplacedWord(
-                    Box::new(replaced),
-                )]);
+                let bracketed =
+                    BracketedContent::new(vec![BracketedItem::ReplacedWord(Box::new(replaced))]);
                 let retrace = Retrace::new(bracketed, kind).with_span(span);
                 ParseOutcome::parsed(UtteranceContent::Retrace(Box::new(retrace)))
             } else {

@@ -16,13 +16,13 @@ use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, Sou
 use crate::model::Word;
 use crate::parser::tree_parsing::parser_helpers::extract_utf8_text;
 use smallvec::SmallVec;
+use talkbank_model::ParseOutcome;
 use talkbank_model::content::word::{
     FormType, WordCategory, WordCliticBoundary, WordCompoundMarker, WordContent, WordContents,
     WordLanguageMarker, WordLengthening, WordShortening, WordStressMarker, WordStressMarkerType,
     WordSyllablePause, WordText, WordUnderlineBegin, WordUnderlineEnd,
 };
 use talkbank_model::model::{LanguageCode, OverlapIndex, OverlapPoint, OverlapPointKind};
-use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
 
 /// Convert a tree-sitter `standalone_word` node into the typed `Word` model.
@@ -214,9 +214,9 @@ fn build_word_contents(
                     Some('⌋') => OverlapPointKind::BottomOverlapEnd,
                     _ => OverlapPointKind::TopOverlapBegin, // fallback
                 };
-                let index = chars.next().and_then(|c| {
-                    c.to_digit(10).map(|d| OverlapIndex::new(d))
-                });
+                let index = chars
+                    .next()
+                    .and_then(|c| c.to_digit(10).map(|d| OverlapIndex::new(d)));
                 items.push(WordContent::OverlapPoint(OverlapPoint {
                     kind,
                     index,
@@ -279,29 +279,29 @@ fn build_word_contents(
             }
             "underline_begin" => {
                 items.push(WordContent::UnderlineBegin(WordUnderlineBegin {
-                    span: talkbank_model::Span::from_usize(
-                        child.start_byte(),
-                        child.end_byte(),
-                    ),
+                    span: talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
                 }));
             }
             "underline_end" => {
                 items.push(WordContent::UnderlineEnd(WordUnderlineEnd {
-                    span: talkbank_model::Span::from_usize(
-                        child.start_byte(),
-                        child.end_byte(),
-                    ),
+                    span: talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
                 }));
             }
             "syllable_pause" => {
-                items.push(WordContent::SyllablePause(WordSyllablePause::new().with_span(
-                    talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
-                )));
+                items.push(WordContent::SyllablePause(
+                    WordSyllablePause::new().with_span(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                ));
             }
             "tilde" => {
-                items.push(WordContent::CliticBoundary(WordCliticBoundary::new().with_span(
-                    talkbank_model::Span::from_usize(child.start_byte(), child.end_byte()),
-                )));
+                items.push(WordContent::CliticBoundary(
+                    WordCliticBoundary::new().with_span(talkbank_model::Span::from_usize(
+                        child.start_byte(),
+                        child.end_byte(),
+                    )),
+                ));
             }
             _ => {
                 // Skip whitespace and unknown children
@@ -314,11 +314,7 @@ fn build_word_contents(
 ///
 /// The token is a single `token.immediate` matching `@s(?::[a-z]{2,3}(?:[+&][a-z]{2,3})*)?`.
 /// Examples: `@s`, `@s:eng`, `@s:eng+zho+fra`, `@s:eng&zho&fra`.
-fn build_lang_marker(
-    node: Node,
-    source: &str,
-    errors: &impl ErrorSink,
-) -> WordLanguageMarker {
+fn build_lang_marker(node: Node, source: &str, errors: &impl ErrorSink) -> WordLanguageMarker {
     let text = extract_utf8_text(node, source, errors, "word_lang_suffix", "");
 
     // Strip the @s prefix
@@ -331,16 +327,10 @@ fn build_lang_marker(
 
     // Check for & separator (ambiguous) vs + separator (multiple)
     if codes_str.contains('&') {
-        let codes: Vec<LanguageCode> = codes_str
-            .split('&')
-            .map(LanguageCode::new)
-            .collect();
+        let codes: Vec<LanguageCode> = codes_str.split('&').map(LanguageCode::new).collect();
         WordLanguageMarker::Ambiguous(codes)
     } else if codes_str.contains('+') {
-        let codes: Vec<LanguageCode> = codes_str
-            .split('+')
-            .map(LanguageCode::new)
-            .collect();
+        let codes: Vec<LanguageCode> = codes_str.split('+').map(LanguageCode::new).collect();
         WordLanguageMarker::Multiple(codes)
     } else {
         // Single code

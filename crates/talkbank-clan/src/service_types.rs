@@ -603,7 +603,9 @@ impl AnalysisRequestBuilder {
 
 impl AnalysisRequest {
     /// Validate and construct a `kwal` request.
-    pub fn kwal(keywords: Vec<crate::framework::KeywordPattern>) -> Result<Self, AnalysisServiceError> {
+    pub fn kwal(
+        keywords: Vec<crate::framework::KeywordPattern>,
+    ) -> Result<Self, AnalysisServiceError> {
         if keywords.is_empty() {
             return Err(AnalysisServiceError::InvalidRequest(
                 "kwal requires at least one keyword".to_owned(),
@@ -614,7 +616,10 @@ impl AnalysisRequest {
     }
 
     /// Validate and construct a `keymap` request.
-    pub fn keymap(keywords: Vec<crate::framework::KeywordPattern>, tier: crate::framework::TierKind) -> Result<Self, AnalysisServiceError> {
+    pub fn keymap(
+        keywords: Vec<crate::framework::KeywordPattern>,
+        tier: crate::framework::TierKind,
+    ) -> Result<Self, AnalysisServiceError> {
         if keywords.is_empty() {
             return Err(AnalysisServiceError::InvalidRequest(
                 "keymap requires at least one keyword".to_owned(),
@@ -638,4 +643,3 @@ pub enum AnalysisServiceError {
     #[error(transparent)]
     Runner(#[from] RunnerError),
 }
-

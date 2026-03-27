@@ -87,7 +87,11 @@ fn single_word_retrace_with_replacement_full() {
 
     // Verify the retrace kind
     if let UtteranceContent::Retrace(retrace) = &content[0] {
-        assert_eq!(retrace.kind, RetraceKind::Full, "expected [//] = Full retrace");
+        assert_eq!(
+            retrace.kind,
+            RetraceKind::Full,
+            "expected [//] = Full retrace"
+        );
     }
 }
 
@@ -114,7 +118,11 @@ fn single_word_retrace_with_replacement_partial() {
     );
 
     if let UtteranceContent::Retrace(retrace) = &content[0] {
-        assert_eq!(retrace.kind, RetraceKind::Partial, "expected [/] = Partial retrace");
+        assert_eq!(
+            retrace.kind,
+            RetraceKind::Partial,
+            "expected [/] = Partial retrace"
+        );
     }
 
     // Second item: bare ReplacedWord (the correction, not retraced)

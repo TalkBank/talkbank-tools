@@ -33,7 +33,7 @@
 //! | `age_format` | `2;05.24` | [`parse_age_format_token`] |
 
 use talkbank_model::model::{
-    AgeValue, LanguageCode, OverlapMarkerIndex, ScopedAlternative, ContentAnnotation,
+    AgeValue, ContentAnnotation, LanguageCode, OverlapMarkerIndex, ScopedAlternative,
     ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd,
     ScopedParalinguistic, ScopedPercentComment,
 };
@@ -161,7 +161,9 @@ fn extract_overlap_index(inner: &str) -> Option<OverlapMarkerIndex> {
 pub fn parse_overlap_precedes_token(token_text: &str) -> Option<ContentAnnotation> {
     let inner = token_text.strip_prefix("[<")?.strip_suffix(']')?;
     let index = extract_overlap_index(inner);
-    Some(ContentAnnotation::OverlapBegin(ScopedOverlapBegin { index }))
+    Some(ContentAnnotation::OverlapBegin(ScopedOverlapBegin {
+        index,
+    }))
 }
 
 /// Parse an atomic `indexed_overlap_follows` token `[>]` or `[>N]`.

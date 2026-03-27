@@ -118,7 +118,10 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             run_analysis_and_print(
                 AnalysisCommandName::Kwal,
                 AnalysisOptions {
-                    keywords: keyword.into_iter().map(talkbank_clan::framework::KeywordPattern::from).collect(),
+                    keywords: keyword
+                        .into_iter()
+                        .map(talkbank_clan::framework::KeywordPattern::from)
+                        .collect(),
                     ..AnalysisOptions::default()
                 },
                 &path,
@@ -301,7 +304,10 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             run_analysis_and_print(
                 AnalysisCommandName::Keymap,
                 AnalysisOptions {
-                    keywords: keyword.into_iter().map(talkbank_clan::framework::KeywordPattern::from).collect(),
+                    keywords: keyword
+                        .into_iter()
+                        .map(talkbank_clan::framework::KeywordPattern::from)
+                        .collect(),
                     tier: option_if_not_default(tier, KeymapConfig::default().tier),
                     ..AnalysisOptions::default()
                 },

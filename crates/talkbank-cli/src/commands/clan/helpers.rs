@@ -169,13 +169,29 @@ pub(super) fn build_filter(common: &CommonAnalysisArgs) -> FilterConfig {
     };
 
     let gem_filter = GemFilter {
-        include: common.gem.iter().map(|s| GemLabel::from(s.as_str())).collect(),
-        exclude: common.exclude_gem.iter().map(|s| GemLabel::from(s.as_str())).collect(),
+        include: common
+            .gem
+            .iter()
+            .map(|s| GemLabel::from(s.as_str()))
+            .collect(),
+        exclude: common
+            .exclude_gem
+            .iter()
+            .map(|s| GemLabel::from(s.as_str()))
+            .collect(),
     };
 
     let word_filter = WordFilter {
-        include: common.include_word.iter().map(|s| WordPattern::from(s.as_str())).collect(),
-        exclude: common.exclude_word.iter().map(|s| WordPattern::from(s.as_str())).collect(),
+        include: common
+            .include_word
+            .iter()
+            .map(|s| WordPattern::from(s.as_str()))
+            .collect(),
+        exclude: common
+            .exclude_word
+            .iter()
+            .map(|s| WordPattern::from(s.as_str()))
+            .collect(),
     };
 
     FilterConfig {

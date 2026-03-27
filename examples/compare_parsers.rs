@@ -5,8 +5,8 @@
 use std::env;
 use std::error::Error;
 use std::fmt;
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::model::{SemanticDiff, SemanticEq};
+use talkbank_parser::TreeSitterParser;
 
 /// Type representing UsageError.
 #[derive(Debug)]

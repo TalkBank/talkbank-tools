@@ -28,8 +28,8 @@
 
 use smallvec::SmallVec;
 use talkbank_model::{
-    BracketedItem, ChatFile, DependentTier, Line, NonEmptyString, TextTier,
-    UtteranceContent, Word, WriteChat,
+    BracketedItem, ChatFile, DependentTier, Line, NonEmptyString, TextTier, UtteranceContent, Word,
+    WriteChat,
 };
 
 use crate::framework::word_filter::is_countable_word;

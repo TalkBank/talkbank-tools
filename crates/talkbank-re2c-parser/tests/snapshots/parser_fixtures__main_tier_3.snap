@@ -1,0 +1,21 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: OLN
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Action:
+        zero:
+          Zero: "0"
+        annotations: []
+  terminator:
+    Period: "."
+  postcodes: []
+  media_bullet:
+    MediaBullet:
+      start_time: "3110"
+      end_time: "4450"

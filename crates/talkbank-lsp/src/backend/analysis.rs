@@ -19,9 +19,7 @@ use serde_json::Value;
 use talkbank_clan::database;
 use talkbank_clan::framework::DiscoveredChatFiles;
 use talkbank_clan::service::AnalysisService;
-use talkbank_clan::service_types::{
-    AnalysisOptions, AnalysisPlan, AnalysisRequestBuilder,
-};
+use talkbank_clan::service_types::{AnalysisOptions, AnalysisPlan, AnalysisRequestBuilder};
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::Url;
 
@@ -106,26 +104,51 @@ fn build_analysis_options(request: &AnalyzeRequest) -> Result<AnalysisOptions, S
         words: options.words,
         main_tier: options.main_tier,
         limit: options.limit.map(talkbank_clan::framework::WordLimit::from),
-        keywords: options.keywords.iter().map(|s| talkbank_clan::framework::KeywordPattern::from(s.as_str())).collect(),
+        keywords: options
+            .keywords
+            .iter()
+            .map(|s| talkbank_clan::framework::KeywordPattern::from(s.as_str()))
+            .collect(),
         search: options.search.clone(),
-        max_depth: options.max_depth.map(talkbank_clan::framework::CodeDepth::from),
-        tier: options.tier.as_deref().map(talkbank_clan::framework::TierKind::from),
-        threshold: options.threshold.map(talkbank_clan::framework::FrequencyThreshold::from),
-        max_utterances: options.max_utterances.map(talkbank_clan::framework::UtteranceLimit::from),
+        max_depth: options
+            .max_depth
+            .map(talkbank_clan::framework::CodeDepth::from),
+        tier: options
+            .tier
+            .as_deref()
+            .map(talkbank_clan::framework::TierKind::from),
+        threshold: options
+            .threshold
+            .map(talkbank_clan::framework::FrequencyThreshold::from),
+        max_utterances: options
+            .max_utterances
+            .map(talkbank_clan::framework::UtteranceLimit::from),
         database_path: options.database_path.clone(),
         database_filter: options.database_filter.clone().map(Into::into),
         syllable_mode: options.syllable_mode,
-        dss_max_utterances: options.dss_max_utterances.map(talkbank_clan::framework::UtteranceLimit::from),
-        ipsyn_max_utterances: options.ipsyn_max_utterances.map(talkbank_clan::framework::UtteranceLimit::from),
+        dss_max_utterances: options
+            .dss_max_utterances
+            .map(talkbank_clan::framework::UtteranceLimit::from),
+        ipsyn_max_utterances: options
+            .ipsyn_max_utterances
+            .map(talkbank_clan::framework::UtteranceLimit::from),
         rules_path: None,
         dss_rules_path: None,
         ipsyn_rules_path: None,
         script_path: options.script_path.clone(),
         second_file,
         template_path: options.template_path.clone(),
-        min_utterances: options.min_utterances.map(talkbank_clan::framework::UtteranceLimit::from),
-        tier1: options.tier1.as_deref().map(talkbank_clan::framework::TierKind::from),
-        tier2: options.tier2.as_deref().map(talkbank_clan::framework::TierKind::from),
+        min_utterances: options
+            .min_utterances
+            .map(talkbank_clan::framework::UtteranceLimit::from),
+        tier1: options
+            .tier1
+            .as_deref()
+            .map(talkbank_clan::framework::TierKind::from),
+        tier2: options
+            .tier2
+            .as_deref()
+            .map(talkbank_clan::framework::TierKind::from),
         sort_by_frequency: options.sort_by_frequency,
     })
 }

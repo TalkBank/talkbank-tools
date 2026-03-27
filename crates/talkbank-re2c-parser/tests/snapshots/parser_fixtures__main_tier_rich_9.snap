@@ -1,0 +1,28 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: result.unwrap()
+---
+speaker:
+  Speaker: CHI
+tier_body:
+  linkers: []
+  langcode: ~
+  contents:
+    - Word:
+        category: ~
+        body:
+          - Text: "no"
+        form_marker: ~
+        lang: ~
+        pos_tag: ~
+        annotations:
+          - Paralinguistic: cries
+        raw_text: "no"
+  terminator:
+    Period: "."
+  postcodes:
+    - Postcode: SR
+  media_bullet:
+    MediaBullet:
+      start_time: "171921"
+      end_time: "173802"

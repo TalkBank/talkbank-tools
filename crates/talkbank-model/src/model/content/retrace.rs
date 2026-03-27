@@ -31,9 +31,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use talkbank_derive::{SemanticEq, SpanShift};
 
+use crate::Span;
 use crate::model::annotation::ContentAnnotation;
 use crate::model::content::bracketed::BracketedContent;
-use crate::Span;
 
 /// Content that was spoken but then corrected/repeated.
 ///
@@ -108,7 +108,9 @@ impl Retrace {
 ///
 /// - [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_Scope)
 /// - [Correction](https://talkbank.org/0info/manuals/CHAT.html#Retracing_Scope)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, SemanticEq)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, SemanticEq,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RetraceKind {
     /// `[/]` — partial repetition (speaker repeats part of what they said)
@@ -168,8 +170,8 @@ impl crate::model::WriteChat for Retrace {
     }
 }
 
-use crate::validation::{Validate, ValidationContext};
 use crate::ErrorSink;
+use crate::validation::{Validate, ValidationContext};
 
 impl Validate for Retrace {
     fn validate(&self, _context: &ValidationContext, _errors: &impl ErrorSink) {

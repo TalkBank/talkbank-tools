@@ -1,0 +1,9 @@
+---
+source: crates/talkbank-re2c-parser/tests/parser_fixtures.rs
+expression: tier
+---
+items:
+  - Word:
+      segments:
+        - ˈplɔm
+terminator: ~

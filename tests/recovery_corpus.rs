@@ -240,7 +240,10 @@ fn cascading_recovery_parser_details() {
     assert_eq!(utterances.len(), 6);
 
     // Utt 0 (CHI: hello) — clean
-    assert!(!matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[0].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Utt 1 (MOT: hi baby) — bad %gra (BROKEN_GRA)
     if let ParseHealthState::Tainted(health) = &utterances[1].parse_health {
@@ -255,10 +258,16 @@ fn cascading_recovery_parser_details() {
     }
 
     // Utt 2 (FAT: how are you?) — clean
-    assert!(!matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[2].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Utt 3 (CHI: good) — clean
-    assert!(!matches!(utterances[3].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[3].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Utt 4 (MOT: want some milk?) — bad %mor (BADWORD1) and bad %gra (BADREL)
     if let ParseHealthState::Tainted(health) = &utterances[4].parse_health {
@@ -273,7 +282,10 @@ fn cascading_recovery_parser_details() {
     }
 
     // Utt 5 (CHI: yes please) — clean
-    assert!(!matches!(utterances[5].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[5].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Verify multiple error types reported
     let mor_errors = errors
@@ -302,7 +314,10 @@ fn degraded_main_tier_parser_recovery() {
 
     // Utt 0 — clean
     assert_eq!(utterances[0].main.speaker.as_str(), "CHI");
-    assert!(!matches!(utterances[0].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[0].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Utt 1 — degraded (speaker extracted, content empty, main tainted)
     assert_eq!(utterances[1].main.speaker.as_str(), "MOT");
@@ -321,7 +336,10 @@ fn degraded_main_tier_parser_recovery() {
 
     // Utt 2 — clean
     assert_eq!(utterances[2].main.speaker.as_str(), "CHI");
-    assert!(!matches!(utterances[2].parse_health, ParseHealthState::Tainted(_)),);
+    assert!(!matches!(
+        utterances[2].parse_health,
+        ParseHealthState::Tainted(_)
+    ),);
 
     // Errors should be reported for the malformed main tier
     assert!(

@@ -13,9 +13,9 @@
 //!
 //! All tests use insta snapshots for easy review and maintenance.
 
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::ErrorCollector;
 use talkbank_model::{SemanticEq, WriteChat};
+use talkbank_parser::TreeSitterParser;
 use talkbank_parser_tests::test_error::TestError;
 
 // ============================================================================
@@ -36,7 +36,9 @@ fn make_parser() -> Result<TreeSitterParser, TestError> {
 fn test_parse_word_offset_zero() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let word = parser.parse_word_fragment("hello", 0, &errors).into_option();
+    let word = parser
+        .parse_word_fragment("hello", 0, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -51,7 +53,9 @@ fn test_parse_word_offset_zero() -> Result<(), TestError> {
 fn test_parse_word_with_offset() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let word = parser.parse_word_fragment("world", 1000, &errors).into_option();
+    let word = parser
+        .parse_word_fragment("world", 1000, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -66,7 +70,9 @@ fn test_parse_word_with_offset() -> Result<(), TestError> {
 fn test_parse_word_complex_with_offset() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let word = parser.parse_word_fragment("dog@c", 500, &errors).into_option();
+    let word = parser
+        .parse_word_fragment("dog@c", 500, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -85,7 +91,9 @@ fn test_parse_word_complex_with_offset() -> Result<(), TestError> {
 fn test_parse_main_tier_offset_zero() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let main = parser.parse_main_tier_fragment("*CHI:\thello .", 0, &errors).into_option();
+    let main = parser
+        .parse_main_tier_fragment("*CHI:\thello .", 0, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -121,7 +129,9 @@ fn test_parse_main_tier_with_offset() -> Result<(), TestError> {
 fn test_parse_mor_tier_offset_zero() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let mor = parser.parse_mor_tier_fragment("pro|I v|want .", 0, &errors).into_option();
+    let mor = parser
+        .parse_mor_tier_fragment("pro|I v|want .", 0, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -136,7 +146,9 @@ fn test_parse_mor_tier_offset_zero() -> Result<(), TestError> {
 fn test_parse_mor_tier_with_offset() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let mor = parser.parse_mor_tier_fragment("pro|I v|want .", 300, &errors).into_option();
+    let mor = parser
+        .parse_mor_tier_fragment("pro|I v|want .", 300, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -181,7 +193,9 @@ fn test_error_offset_in_word() -> Result<(), TestError> {
 fn test_error_offset_in_main_tier() -> Result<(), TestError> {
     let parser = make_parser()?;
     let errors = ErrorCollector::new();
-    let main = parser.parse_main_tier_fragment("*CHI:\txx .", 500, &errors).into_option();
+    let main = parser
+        .parse_main_tier_fragment("*CHI:\txx .", 500, &errors)
+        .into_option();
 
     // Verify error spans are offset-adjusted
     let error_vec = errors.into_vec();
@@ -230,9 +244,7 @@ fn test_roundtrip_with_offset() -> Result<(), TestError> {
     let main2 = parser
         .parse_main_tier_fragment(&serialized, offset, &errors2)
         .into_option()
-        .ok_or_else(|| {
-            TestError::Failure("Should parse successfully on roundtrip".to_string())
-        })?;
+        .ok_or_else(|| TestError::Failure("Should parse successfully on roundtrip".to_string()))?;
 
     // Verify semantic equality
     let is_semantically_equal = main1.semantic_eq(&main2);
@@ -259,7 +271,9 @@ fn test_multiple_fragments_different_offsets() -> Result<(), TestError> {
         .iter()
         .map(|(input, offset)| {
             let errors = ErrorCollector::new();
-            let word = parser.parse_word_fragment(input, *offset, &errors).into_option();
+            let word = parser
+                .parse_word_fragment(input, *offset, &errors)
+                .into_option();
             (input, offset, word, errors.into_vec())
         })
         .collect();
@@ -285,7 +299,9 @@ fn test_offset_with_multibyte_utf8() -> Result<(), TestError> {
     let input = "hello😊world";
     let offset = 1000;
 
-    let word = parser.parse_word_fragment(input, offset, &errors).into_option();
+    let word = parser
+        .parse_word_fragment(input, offset, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -304,7 +320,9 @@ fn test_offset_with_chinese_characters() -> Result<(), TestError> {
     let input = "你好";
     let offset = 500;
 
-    let word = parser.parse_word_fragment(input, offset, &errors).into_option();
+    let word = parser
+        .parse_word_fragment(input, offset, &errors)
+        .into_option();
 
     insta::with_settings!({
         snapshot_suffix => "TreeSitter"
@@ -326,7 +344,9 @@ fn test_parser_equivalence_word_with_offset() -> Result<(), TestError> {
     let offset = 100;
 
     let errors = ErrorCollector::new();
-    let word = parser.parse_word_fragment(input, offset, &errors).into_option();
+    let word = parser
+        .parse_word_fragment(input, offset, &errors)
+        .into_option();
 
     insta::assert_debug_snapshot!(word);
 
@@ -341,7 +361,9 @@ fn test_parser_equivalence_main_tier_with_offset() -> Result<(), TestError> {
     let offset = 200;
 
     let errors = ErrorCollector::new();
-    let main = parser.parse_main_tier_fragment(input, offset, &errors).into_option();
+    let main = parser
+        .parse_main_tier_fragment(input, offset, &errors)
+        .into_option();
 
     insta::assert_debug_snapshot!(main);
 
@@ -356,7 +378,9 @@ fn test_parser_equivalence_mor_tier_with_offset() -> Result<(), TestError> {
     let offset = 300;
 
     let errors = ErrorCollector::new();
-    let mor = parser.parse_mor_tier_fragment(input, offset, &errors).into_option();
+    let mor = parser
+        .parse_mor_tier_fragment(input, offset, &errors)
+        .into_option();
 
     insta::assert_debug_snapshot!(mor);
 

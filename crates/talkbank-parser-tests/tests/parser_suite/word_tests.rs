@@ -4,8 +4,8 @@
 //! `parse_word` -> `WriteChat` for both parser backends.
 
 use talkbank_model::ErrorCollector;
-use talkbank_model::model::WriteChat;
 use talkbank_model::ParseOutcome;
+use talkbank_model::model::WriteChat;
 use talkbank_parser_tests::GoldenBugs;
 use talkbank_parser_tests::golden::golden_words;
 use talkbank_parser_tests::test_error::TestError;
@@ -59,8 +59,7 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
                 ParseOutcome::Rejected => {
                     return Err(TestError::Failure(format!(
                         "[{}] parser rejected word `{}` despite no sink errors",
-                        "tree-sitter",
-                        word
+                        "tree-sitter", word
                     )));
                 }
             };
@@ -69,8 +68,7 @@ fn golden_word_roundtrip_for_every_parser() -> Result<(), TestError> {
             let mut serialized = String::new();
             parsed.write_chat(&mut serialized)?;
             assert_eq!(
-                serialized,
-                *word,
+                serialized, *word,
                 "[{}] word roundtrip changed representation",
                 "tree-sitter"
             );

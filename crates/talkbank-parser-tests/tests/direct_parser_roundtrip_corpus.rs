@@ -16,8 +16,8 @@
 //! ```
 
 use std::path::{Path, PathBuf};
-use talkbank_parser::TreeSitterParser;
 use talkbank_model::model::{SemanticEq, WriteChat};
+use talkbank_parser::TreeSitterParser;
 use walkdir::WalkDir;
 
 /// Find all .cha files in a directory tree.

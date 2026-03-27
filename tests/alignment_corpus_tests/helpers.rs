@@ -37,10 +37,12 @@ pub enum TestError {
 impl ParserImpl {
     /// Parses chat file result.
     pub fn parse_chat_file_result(&self, content: &str) -> Result<ChatFile, TestError> {
-        self.0.parse_chat_file(content).map_err(|errors| TestError::ParseErrors {
-            parser: self.name(),
-            errors,
-        })
+        self.0
+            .parse_chat_file(content)
+            .map_err(|errors| TestError::ParseErrors {
+                parser: self.name(),
+                errors,
+            })
     }
 }
 
