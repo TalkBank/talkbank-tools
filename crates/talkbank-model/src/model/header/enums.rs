@@ -228,14 +228,30 @@ impl JsonSchema for Transcription {
 // MediaStatus
 // ---------------------------------------------------------------------------
 
-/// Optional third token in `@Media` describing link availability.
+/// Optional third token in `@Media` describing the link/transcription state.
+///
+/// These statuses describe the **relationship between the transcript and the
+/// media**, NOT whether the media file exists on disk. A file marked
+/// `unlinked` almost certainly has media available — the transcriber just
+/// hasn't aligned (bulletted) the utterances to timestamps yet.
+///
+/// # CHAT Manual Reference
+///
+/// <https://talkbank.org/0info/manuals/CHAT.html#Media_Header>
 #[derive(Debug, Clone, PartialEq, Eq, Hash, SemanticEq, SpanShift, ValidationTagged)]
 pub enum MediaStatus {
-    /// `missing`
+    /// `missing` — the media file is known to be absent or lost.
+    /// Processing commands that need audio (align, transcribe) should
+    /// skip this file with a clear diagnostic.
     Missing,
-    /// `unlinked`
+    /// `unlinked` — the media file EXISTS but utterances have not been
+    /// aligned to timestamps yet (no bullets / time marks).
+    /// This is the NORMAL state for a transcript before forced alignment.
+    /// Processing commands SHOULD resolve and use the media — the whole
+    /// point of `align` is to create the links that are currently absent.
     Unlinked,
-    /// `notrans`
+    /// `notrans` — the media exists but no transcription has been done.
+    /// The file may contain only headers and `@Comment` lines.
     Notrans,
     /// Unrecognized value preserved for validation.
     Unsupported(String),
