@@ -965,8 +965,11 @@ impl<'a> Iterator for Lexer<'a> {
         // Group delimiters ‹ › are separate tokens.
         // ═══════════════════════════════════════════════════════
 
-        // PHO word: IPA characters (permissive — excludes only structural chars)
-        <PHO_CONTENT> [^\x00 \t\r\n+\u2039\u203A\u0015.?!(]+ {
+        // PHO word: IPA characters (permissive — excludes only structural chars).
+        // First char excludes . so standalone "." matches Period terminator below.
+        // Rest chars INCLUDE . for syllable boundaries (e.g., mɐ.nɛ).
+        // This matches grammar.js pho_word which includes . in its character class.
+        <PHO_CONTENT> [^\x00 \t\r\n+\u2039\u203A\u0015.?!(] [^\x00 \t\r\n+\u2039\u203A\u0015?!(]* {
             emit!(PhoWord);
         }
 

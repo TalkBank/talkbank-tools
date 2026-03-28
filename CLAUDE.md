@@ -230,6 +230,19 @@ make verify         # Run all verification gates
 
 ## Critical Policies
 
+### Always Fix Root Causes, Never Symptoms
+
+When a bug is found, trace it to its architectural origin and fix it
+there. Do not add workarounds, "pragmatic" patches, or band-aids that
+mask the real problem. "Pragmatic" is banned as a justification for
+incomplete fixes.
+
+When you discover a wrong architecture, fix it — do not perpetuate it.
+If a bug reveals an incorrect architectural assumption, note the flaw
+explicitly, then fix the architecture. A detection/workaround that
+prevents a crash is not a fix — it is evidence the architecture needs
+changing.
+
 ### Test Failures Are Bugs Until Proven Otherwise
 
 **When a test fails, STOP and ask the user.** Do not assume the test
