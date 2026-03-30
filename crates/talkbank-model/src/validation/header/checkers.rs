@@ -65,19 +65,37 @@ pub(super) fn check_id_header(id_header: &IDHeader, span: Span, errors: &impl Er
         errors.report(err);
     }
 
-    if let Some(ref age) = id_header.age
-        && age.has_validation_issue()
-    {
-        let raw = age.as_str();
-        let mut err = ParseError::new(
-            ErrorCode::InvalidAgeFormat,
-            Severity::Error,
-            SourceLocation::at_offset(span.start as usize),
-            ErrorContext::new(raw, 0..raw.len(), "id_age"),
-            format!("Age should be in format years;months.days, got: {}", raw),
-        );
-        err.location.span = span;
-        errors.report(err);
+    if let Some(ref age) = id_header.age {
+        if age.has_validation_issue() {
+            let raw = age.as_str();
+            let mut err = ParseError::new(
+                ErrorCode::InvalidAgeFormat,
+                Severity::Error,
+                SourceLocation::at_offset(span.start as usize),
+                ErrorContext::new(raw, 0..raw.len(), "id_age"),
+                format!("Age should be in format years;months.days, got: {}", raw),
+            );
+            err.location.span = span;
+            errors.report(err);
+        } else if age.needs_zero_padding() {
+            // CHECK 153: month or day missing initial zero
+            let raw = age.as_str();
+            let mut err = ParseError::new(
+                ErrorCode::InvalidAgeFormat,
+                Severity::Warning,
+                SourceLocation::at_offset(span.start as usize),
+                ErrorContext::new(raw, 0..raw.len(), "id_age"),
+                format!(
+                    "Age month or day missing initial zero: '{}'. Use two-digit months and days (e.g., 1;08.02)",
+                    raw
+                ),
+            )
+            .with_suggestion(
+                "Run \"chstring +q +1\" to fix, or manually zero-pad: 1;8. → 1;08.",
+            );
+            err.location.span = span;
+            errors.report(err);
+        }
     }
 }
 

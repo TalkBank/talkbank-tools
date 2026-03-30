@@ -12,7 +12,7 @@ fn test_happy_path_complete_valid_file() -> Result<(), TestError> {
 @Begin
 @Languages:	eng
 @Participants:	CHI Ruth Target_Child, MOT Mother, FAT Father
-@ID:	eng|corpus|CHI|2;6.0||||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.00||||Target_Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @ID:	eng|corpus|FAT|||||Father|||
 @Date:	15-JAN-2020

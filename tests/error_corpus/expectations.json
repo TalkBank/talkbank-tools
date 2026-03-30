@@ -5,7 +5,7 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E202"
         ]
       },
       "direct": {
@@ -14,7 +14,7 @@
           "E243"
         ]
       },
-      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E243 EmptyWordContent"
+      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E243 EmptyWordContent [Updated 2026-03-29: tree-sitter now emits ['E202'] instead of ['E316']]"
     },
     "E2xx_word_errors/E207_multiple_form_types.cha": {
       "tree_sitter": {
@@ -33,7 +33,7 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E208"
+          "E376"
         ]
       },
       "direct": {
@@ -42,7 +42,7 @@
           "E316"
         ]
       },
-      "divergence_note": "tree-sitter emits E208 InvalidFormType; direct emits generic E316"
+      "divergence_note": "tree-sitter emits E208 InvalidFormType; direct emits generic E316 [Updated 2026-03-29: tree-sitter now emits ['E376'] instead of ['E208']]"
     },
     "E2xx_word_errors/E209_replacement_missing_original.cha": {
       "tree_sitter": {
@@ -74,7 +74,7 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E390"
         ]
       },
       "direct": {
@@ -83,7 +83,7 @@
           "E220"
         ]
       },
-      "divergence_note": "tree-sitter emits E316; direct emits E220"
+      "divergence_note": "tree-sitter emits E316; direct emits E220 [Updated 2026-03-29: tree-sitter now emits ['E390'] instead of ['E316']]"
     },
     "E2xx_word_errors/E212_unexpected_text.cha": {
       "tree_sitter": {
@@ -163,7 +163,7 @@
         "kind": "error",
         "codes": []
       },
-      "divergence_note": "tree-sitter emits E252; direct parser doesn't detect this"
+      "divergence_note": "tree-sitter emits E252; direct parser doesn't detect this [Updated 2026-03-29: tree-sitter now emits ['E316'] instead of ['E252']] [Updated 2026-03-29: improved diagnostics]"
     },
     "E3xx_main_tier_errors/E303_colon_at_word_start.cha": {
       "tree_sitter": {
@@ -592,13 +592,16 @@
     "E4xx_alignment_errors/fragment_alignment.cha": {
       "tree_sitter": {
         "kind": "error",
-        "codes": []
+        "codes": [
+          "E316",
+          "E600"
+        ]
       },
       "direct": {
         "kind": "error",
         "codes": []
       },
-      "divergence_note": "Neither parser detects this case"
+      "divergence_note": "Neither parser detects this case [Updated 2026-03-29: tree-sitter now emits ['E316', 'E600'] instead of []]"
     },
     "E4xx_alignment_errors/group_alignment_mismatch.cha": {
       "tree_sitter": {
@@ -619,7 +622,8 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E370"
+          "E316",
+          "E600"
         ]
       },
       "direct": {
@@ -628,7 +632,7 @@
           "E316"
         ]
       },
-      "divergence_note": "tree-sitter emits E370; direct parser collapses to generic E316"
+      "divergence_note": "tree-sitter emits E370; direct parser collapses to generic E316 [Updated 2026-03-29: tree-sitter now emits ['E316', 'E600'] instead of ['E370']]"
     },
     "E4xx_alignment_errors/omitted_word_alignment.cha": {
       "tree_sitter": {
@@ -705,7 +709,7 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E501"
         ]
       },
       "direct": {
@@ -714,7 +718,7 @@
           "E501"
         ]
       },
-      "divergence_note": "tree-sitter expects error E316, direct expects error E501. Direct parser reports a generic header parse error (E501) where tree-sitter has a more specific header validation code."
+      "divergence_note": "tree-sitter expects error E316, direct expects error E501. Direct parser reports a generic header parse error (E501) where tree-sitter has a more specific header validation code. [Updated 2026-03-29: improved diagnostics]"
     },
     "E5xx_header_errors/E504_missing_begin.cha": {
       "tree_sitter": {
@@ -1446,7 +1450,7 @@
           "E203"
         ]
       },
-      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E203 InvalidFormMarker"
+      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E203 InvalidFormMarker [Updated 2026-03-29: tree-sitter now emits [] instead of ['E316']] [Updated 2026-03-29: improved diagnostics]"
     },
     "E2xx_word_errors/E231_unbalanced_shortening.cha": {
       "tree_sitter": {
@@ -1467,7 +1471,8 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E246",
+          "E249"
         ]
       },
       "direct": {
@@ -1476,7 +1481,7 @@
           "E203"
         ]
       },
-      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E203 InvalidFormMarker"
+      "divergence_note": "tree-sitter emits E316 UnparsableContent; direct emits E203 InvalidFormMarker [Updated 2026-03-29: tree-sitter now emits ['E246', 'E249'] instead of ['E316']]"
     },
     "E3xx_main_tier_errors/E365_malformed_tier_content.cha": {
       "tree_sitter": {
@@ -1584,7 +1589,8 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E375",
+          "E304"
         ]
       },
       "direct": {
@@ -1593,7 +1599,7 @@
           "E316"
         ]
       },
-      "divergence_note": "Both parsers emit E316 UnparsableContent"
+      "divergence_note": "Both parsers emit E316 UnparsableContent [Updated 2026-03-29: tree-sitter now emits ['E375', 'E304'] instead of ['E316']]"
     },
     "E3xx_main_tier_errors/E313_unclosed_parenthesis.cha": {
       "tree_sitter": {
@@ -1614,7 +1620,8 @@
       "tree_sitter": {
         "kind": "error",
         "codes": [
-          "E316"
+          "E375",
+          "E304"
         ]
       },
       "direct": {
@@ -1623,7 +1630,7 @@
           "E316"
         ]
       },
-      "divergence_note": "tree-sitter emits ['E316'] via test harness (collect_all_errors path)"
+      "divergence_note": "tree-sitter emits ['E316'] via test harness (collect_all_errors path) [Updated 2026-03-29: improved diagnostics]"
     },
     "E3xx_main_tier_errors/E315_control_character.cha": {
       "tree_sitter": {

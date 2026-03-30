@@ -15,7 +15,7 @@ Auto-generated from corpus
 
 **Source**: `error_corpus/E5xx_header_errors/E501_duplicate_header.cha`
 **Trigger**: Two @Begin headers
-**Expected Error Codes**: E316
+**Expected Error Codes**: E501
 
 ```chat
 @UTF8

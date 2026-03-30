@@ -98,6 +98,38 @@ impl AgeValue {
         }
     }
 
+    /// Returns true if months or days are single-digit without zero-padding.
+    ///
+    /// CLAN CHECK error 153: "Age's month or day are missing initial zero."
+    ///
+    /// CLAN only checks this when the age contains a period (`.`), meaning
+    /// the days component is present. Without a period, single-digit months
+    /// like `2;6` are accepted. With a period, both month and day must be
+    /// two digits: `1;8.` → `1;08.`, `3;0.5` → `3;00.05`.
+    pub fn needs_zero_padding(&self) -> bool {
+        match self {
+            Self::Valid { raw, .. } => {
+                let Some((_years, rest)) = raw.split_once(';') else {
+                    return false;
+                };
+                // Only check when period is present (days component exists)
+                let Some((months_str, days_str)) = rest.split_once('.') else {
+                    return false;
+                };
+                // Month needs padding if single digit (0-9)
+                if months_str.len() == 1 && months_str.as_bytes()[0].is_ascii_digit() {
+                    return true;
+                }
+                // Day needs padding if non-empty single digit (0-9)
+                if days_str.len() == 1 && days_str.as_bytes()[0].is_ascii_digit() {
+                    return true;
+                }
+                false
+            }
+            Self::Unsupported(_) => false,
+        }
+    }
+
     /// Backward-compatible constructor matching the old `string_newtype` API.
     pub fn new(value: impl AsRef<str>) -> Self {
         Self::from_text(value.as_ref())

@@ -197,9 +197,49 @@ pub fn run_check(path: &Path, content: &str, config: &CheckConfig) -> CheckResul
 
     let mut errors = convert_errors(content, &collected, config);
 
+    // Refine CHECK numbers using error message content.
+    // Our internal error codes are broader than CLAN's CHECK numbers —
+    // one ErrorCode may cover multiple CHECK conditions. The message text
+    // distinguishes them.
+    refine_check_numbers(&mut errors);
+
+    // CLAN's first pass stops at certain fatal structural errors.
+    // Mimic that behavior: suppress cascading errors.
+    suppress_cascading_errors(&mut errors, content);
+
+    // For CHECK 47 (digits in words), CLAN also emits CHECK 38
+    // ("numbers should be written out in words") for standalone
+    // digit words like "3". Don't emit 38 for digits embedded in
+    // words like "hel3lo".
+    let digit_errors: Vec<CheckError> = errors
+        .iter()
+        .filter(|e| {
+            if e.error_number != 47 || !e.message.contains("numeric digits") {
+                return false;
+            }
+            if let Some(start) = e.message.find('"')
+                && let Some(end) = e.message[start + 1..].find('"')
+            {
+                let word = &e.message[start + 1..start + 1 + end];
+                return word.chars().all(|c| c.is_ascii_digit());
+            }
+            false
+        })
+        .map(|e| CheckError {
+            error_number: 38,
+            line: e.line,
+            message: "Numbers should be written out in words.".to_string(),
+            context: e.context.clone(),
+            error_code: e.error_code.clone(),
+        })
+        .collect();
+    errors.extend(digit_errors);
+
     // Additional checks that require the parsed AST
     if let Ok(file) = &parse_result {
-        run_additional_checks(file, config, &mut errors);
+        // Extract filename stem for media matching (CHECK 157)
+        let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        run_additional_checks(file, config, file_stem, &mut errors);
     }
 
     CheckResult {
@@ -244,13 +284,187 @@ fn convert_errors(content: &str, errors: &[ParseError], config: &CheckConfig) ->
         .collect()
 }
 
+/// Suppress cascading errors that result from a single root cause.
+///
+/// CLAN CHECK's two-pass architecture naturally suppresses cascading errors
+/// because pass 1 failures prevent pass 2 from running. Our single-pass
+/// architecture reports everything, so we need to manually suppress
+/// cascading errors to match CLAN's output.
+fn suppress_cascading_errors(errors: &mut Vec<CheckError>, content: &str) {
+    // Compute presence flags upfront to avoid borrow conflicts
+    let has_7 = errors.iter().any(|e| e.error_number == 7);
+    let has_6 = errors.iter().any(|e| e.error_number == 6);
+    let has_16 = errors.iter().any(|e| e.error_number == 16);
+    let has_44 = errors.iter().any(|e| e.error_number == 44);
+    let has_53 = errors.iter().any(|e| e.error_number == 53);
+    let has_60 = errors.iter().any(|e| e.error_number == 60);
+    let has_69 = errors.iter().any(|e| e.error_number == 69);
+    let has_143 = errors.iter().any(|e| e.error_number == 143);
+    let _ = has_7; // suppress unused warning
+
+    // (16) extended chars in speaker → suppress all cascading errors
+    if has_16 {
+        errors.retain(|e| e.error_number == 16);
+        return;
+    }
+
+    // (53) duplicate @Begin → suppress cascading structural errors
+    if has_53 {
+        errors.retain(|e| e.error_number == 53);
+        return;
+    }
+
+    // (69) missing UTF8: suppress all others IF the file truly lacks @UTF8.
+    if has_69 {
+        let text = content.trim_start_matches('\u{FEFF}');
+        if !text.starts_with("@UTF8") {
+            // Genuine missing @UTF8 — CLAN stops here
+            errors.retain(|e| e.error_number == 69);
+            return;
+        }
+        // Spurious (69) — remove it
+        errors.retain(|e| e.error_number != 69);
+    }
+
+    // (6) missing @Begin: suppress cascading parse failures
+    if has_6 {
+        errors.retain(|e| matches!(e.error_number, 6 | 69));
+        return;
+    }
+
+    // (44) content after @End → suppress spurious (7) "missing @End"
+    if has_44 {
+        errors.retain(|e| e.error_number != 7);
+    }
+
+    // (143) malformed @ID → suppress (60) "missing @ID"
+    if has_143 {
+        errors.retain(|e| e.error_number != 60);
+    }
+
+    // (60) missing @ID → suppress (18) "speaker not defined"
+    if has_60 && !has_143 {
+        errors.retain(|e| e.error_number != 18);
+    }
+}
+
+/// Refine CHECK error numbers using message content.
+///
+/// Our internal error codes are broader than CLAN's CHECK numbering — one
+/// `ErrorCode` may cover multiple CHECK conditions. This function inspects
+/// the error message text to assign the most precise CHECK number.
+fn refine_check_numbers(errors: &mut [CheckError]) {
+    for err in errors.iter_mut() {
+        let msg = err.message.to_lowercase();
+
+        // E305 (MissingTerminator) → 21 covers three CHECK cases:
+        // 21: "Utterance delimiter expected" (missing terminator)
+        // 36: "Utterance delimiter must be at the end" (text after delimiter)
+        // 50: "Redundant utterance delimiter"
+        if err.error_number == 21 {
+            if msg.contains("redundant") {
+                err.error_number = 50;
+            } else if msg.contains("after") && msg.contains("delimiter") {
+                err.error_number = 36;
+            }
+        }
+
+        // E303 (SyntaxError) → 8, but CHECK 4 is "space instead of TAB"
+        if err.error_number == 8 && msg.contains("space") && msg.contains("tab") {
+            err.error_number = 4;
+        }
+
+        // E525 (UnknownHeader) → 17, but CHECK 2 is "missing colon" for headers without ':'
+        if err.error_number == 17 && msg.contains("@page") {
+            err.error_number = 2; // @Page without colon → "missing colon"
+        }
+
+        // E522/E523 (SpeakerNotDefined/OrphanIDHeader) → 18, but also covers:
+        // 60: "@ID tier is missing" (when no @ID for a speaker)
+        if err.error_number == 18 && msg.contains("@id") {
+            err.error_number = 60;
+        }
+
+        // E519 (InvalidLanguageCode) → 121, but also covers:
+        // 122: "Language on @ID not defined on @Languages"
+        if err.error_number == 121 && msg.contains("@id") && msg.contains("@languages") {
+            err.error_number = 122;
+        }
+
+        // E532 (InvalidParticipantRole) → 15, but also covers:
+        // 142: "Role on @ID differs from @Participants"
+        if err.error_number == 15 && msg.contains("@id") && msg.contains("@participants") {
+            err.error_number = 142;
+        }
+
+        // E375 (ContentAnnotationParseError) → 48, but also covers:
+        // 22: "Unmatched [" (unclosed bracket)
+        // 161: "Space required before [" (missing space)
+        if err.error_number == 48 {
+            if msg.contains("space") && msg.contains("before") && msg.contains("bracket") {
+                err.error_number = 161;
+            } else if msg.contains("unmatched") || msg.contains("unclosed") {
+                err.error_number = 22;
+            } else if msg.contains("control character") {
+                err.error_number = 48; // keep as-is, correct
+            }
+        }
+
+        // E304 (MissingSpeaker) → 12, but sometimes it's really 21 (missing terminator)
+        // when the parser interprets a missing terminator as a speaker issue
+        if err.error_number == 12 && msg.contains("terminator") {
+            err.error_number = 21;
+        }
+
+        // E501 (DuplicateHeader) → 44: when we detect "content after @End",
+        // also suppress the spurious "Missing @End" (7) that follows
+        // (the duplicate @End consumed the real one). Mark for removal.
+        // Handled below after the loop.
+
+        // E315 (InvalidControlCharacter) → 86, but CHECK 48 is "illegal character"
+        if err.error_number == 86 && msg.contains("control character") {
+            err.error_number = 48;
+        }
+
+        // E220 (IllegalDigits) → 47, but CLAN also emits 38 ("numbers should be
+        // written out in words") for standalone digit words. We handle this by
+        // duplicating the error with both numbers in post-processing below.
+
+        // Speaker with non-ASCII characters → CHECK 16
+        if msg.contains("non-ascii") && msg.contains("speaker") {
+            err.error_number = 16;
+        }
+
+        // DuplicateHeader → 44 for "content after @End", but 53 for "duplicate @Begin"
+        if err.error_number == 44 && msg.contains("@begin") {
+            err.error_number = 53;
+        }
+
+        // Suppress (143) when followed by (60) for same speaker — @ID parse fail + no @ID
+        // Handled in post-processing below
+    }
+}
+
 /// Additional checks that run on the parsed AST (not covered by parse+validate).
-fn run_additional_checks(file: &ChatFile, config: &CheckConfig, errors: &mut Vec<CheckError>) {
+fn run_additional_checks(
+    file: &ChatFile,
+    config: &CheckConfig,
+    file_stem: &str,
+    errors: &mut Vec<CheckError>,
+) {
     if config.check_target_child {
         check_target_child(file, config, errors);
     }
     if config.check_unused_speakers {
         check_unused_speakers(file, config, errors);
+    }
+
+    // CHECK 13: Duplicate speaker declaration
+    check_duplicate_speakers(file, config, errors);
+
+    // CHECK 157: Media filename must match data filename
+    if !file_stem.is_empty() {
+        check_media_filename(file, config, file_stem, errors);
     }
 }
 
@@ -313,6 +527,87 @@ fn check_unused_speakers(file: &ChatFile, config: &CheckConfig, errors: &mut Vec
     }
 }
 
+/// Check for duplicate speaker codes in @Participants (CHECK 13).
+fn check_duplicate_speakers(file: &ChatFile, config: &CheckConfig, errors: &mut Vec<CheckError>) {
+    if !config.should_report(13) {
+        return;
+    }
+
+    // Check @Participants header for duplicate speaker codes.
+    // The parsed ChatFile deduplicates, so we check the raw Participants entries.
+    for line in file.lines.iter() {
+        if let Line::Header { header, .. } = line
+            && let Header::Participants { entries } = header.as_ref()
+        {
+            let mut seen: BTreeSet<&str> = BTreeSet::new();
+            for entry in entries.iter() {
+                let code = entry.speaker_code.as_str();
+                if !code.is_empty() && !seen.insert(code) {
+                    errors.push(CheckError {
+                        error_number: 13,
+                        line: 0,
+                        message: format!("Duplicate speaker declaration for '{code}'."),
+                        context: String::new(),
+                        error_code: String::new(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Also check for duplicate @ID tiers for the same speaker
+    let mut seen_id_speakers: BTreeSet<&str> = BTreeSet::new();
+    for line in file.lines.iter() {
+        if let Line::Header { header, .. } = line
+            && let Header::ID(id) = header.as_ref()
+        {
+            let speaker = id.speaker.as_str();
+            if !speaker.is_empty() && !seen_id_speakers.insert(speaker) {
+                errors.push(CheckError {
+                    error_number: 13,
+                    line: 0,
+                    message: format!("Duplicate @ID declaration for speaker '{speaker}'."),
+                    context: String::new(),
+                    error_code: String::new(),
+                });
+            }
+        }
+    }
+}
+
+/// Check that @Media filename matches the data filename (CHECK 157).
+fn check_media_filename(
+    file: &ChatFile,
+    config: &CheckConfig,
+    file_stem: &str,
+    errors: &mut Vec<CheckError>,
+) {
+    if !config.should_report(157) {
+        return;
+    }
+
+    for line in file.lines.iter() {
+        if let Line::Header { header, .. } = line
+            && let Header::Media(media) = header.as_ref()
+        {
+            let media_name = media.filename.as_str();
+            if !media_name.eq_ignore_ascii_case(file_stem) {
+                errors.push(CheckError {
+                    error_number: 157,
+                    line: 0,
+                    message: format!(
+                        "Media file name '{}' does not match data file name '{}'.",
+                        media_name, file_stem
+                    ),
+                    context: String::new(),
+                    error_code: String::new(),
+                });
+            }
+            break; // Only check first @Media
+        }
+    }
+}
+
 /// Convert a byte offset to a 1-based line number.
 fn byte_offset_to_line(content: &str, offset: usize) -> usize {
     content[..offset.min(content.len())]
@@ -364,7 +659,7 @@ mod tests {
     fn test_check_valid_file() {
         let content = "\u{FEFF}@UTF8\n@Begin\n@Languages:\teng\n\
             @Participants:\tCHI Target_Child\n\
-            @ID:\teng|test|CHI|2;0.||||Target_Child|||\n\
+            @ID:\teng|test|CHI|2;00.||||Target_Child|||\n\
             *CHI:\tdog .\n@End\n";
         let config = CheckConfig::default();
         let result = run_check(Path::new("test.cha"), content, &config);
@@ -379,7 +674,7 @@ mod tests {
     fn test_check_missing_end() {
         let content = "\u{FEFF}@UTF8\n@Begin\n@Languages:\teng\n\
             @Participants:\tCHI Target_Child\n\
-            @ID:\teng|test|CHI|2;0.||||Target_Child|||\n\
+            @ID:\teng|test|CHI|2;00.||||Target_Child|||\n\
             *CHI:\tdog .\n";
         let config = CheckConfig::default();
         let result = run_check(Path::new("test.cha"), content, &config);

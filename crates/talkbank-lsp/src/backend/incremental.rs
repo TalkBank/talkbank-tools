@@ -269,8 +269,13 @@ pub fn collect_utterances_and_header_changes<'a>(
     let mut header_ranges: Vec<(usize, usize, bool)> = Vec::new();
 
     let root = tree.root_node();
-    let mut cursor = root.walk();
-    for child in root.children(&mut cursor) {
+    // Grammar wraps content in a full_document node; descend into it if present.
+    let doc_node = root
+        .children(&mut root.walk())
+        .find(|c| c.kind() == talkbank_parser::node_types::FULL_DOCUMENT)
+        .unwrap_or(root);
+    let mut cursor = doc_node.walk();
+    for child in doc_node.children(&mut cursor) {
         if child.is_missing() || child.is_error() {
             continue;
         }
@@ -568,11 +573,13 @@ mod tests {
         assert_eq!(find_line_for_offset(&offsets, 17), 2);
     }
 
+    /// Minimal valid CHAT preamble for splice tests.
+    const PREAMBLE: &str = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|test|CHI|||||Child|||\n";
+
     #[test]
     fn test_detect_splice_insertion_at_end() {
-        let old_text = "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n@End\n";
-        let new_text =
-            "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n*CHI:\tworld .\n@End\n";
+        let old_text = &format!("{PREAMBLE}*CHI:\thello .\n@End\n");
+        let new_text = &format!("{PREAMBLE}*CHI:\thello .\n*CHI:\tworld .\n@End\n");
 
         let (old_tree, new_tree) = incremental_parse(old_text, new_text);
         let diff_start = compute_diff_start(old_text, new_text);
@@ -588,9 +595,8 @@ mod tests {
 
     #[test]
     fn test_detect_splice_insertion_at_front() {
-        let old_text = "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\tworld .\n@End\n";
-        let new_text =
-            "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n*CHI:\tworld .\n@End\n";
+        let old_text = &format!("{PREAMBLE}*CHI:\tworld .\n@End\n");
+        let new_text = &format!("{PREAMBLE}*CHI:\thello .\n*CHI:\tworld .\n@End\n");
 
         let (old_tree, new_tree) = incremental_parse(old_text, new_text);
         let diff_start = compute_diff_start(old_text, new_text);
@@ -606,9 +612,8 @@ mod tests {
 
     #[test]
     fn test_detect_splice_deletion() {
-        let old_text =
-            "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n*CHI:\tworld .\n@End\n";
-        let new_text = "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n@End\n";
+        let old_text = &format!("{PREAMBLE}*CHI:\thello .\n*CHI:\tworld .\n@End\n");
+        let new_text = &format!("{PREAMBLE}*CHI:\thello .\n@End\n");
 
         let (old_tree, new_tree) = incremental_parse(old_text, new_text);
         let diff_start = compute_diff_start(old_text, new_text);
@@ -624,9 +629,8 @@ mod tests {
 
     #[test]
     fn test_detect_splice_count_diff_too_large() {
-        let old_text = "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\thello .\n@End\n";
-        let new_text =
-            "@UTF8\n@Begin\n@Participants:\tCHI Child\n*CHI:\ta .\n*CHI:\tb .\n*CHI:\tc .\n@End\n";
+        let old_text = &format!("{PREAMBLE}*CHI:\thello .\n@End\n");
+        let new_text = &format!("{PREAMBLE}*CHI:\ta .\n*CHI:\tb .\n*CHI:\tc .\n@End\n");
 
         let (old_tree, new_tree) = incremental_parse(old_text, new_text);
         let diff_start = compute_diff_start(old_text, new_text);

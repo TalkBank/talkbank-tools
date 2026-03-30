@@ -29,7 +29,7 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::MissingRequiredHeader => 6, // @Begin missing (approximate)
         ErrorCode::MissingEndHeader => 7,      // @End missing
         ErrorCode::MissingUTF8Header => 69,    // UTF8 header missing
-        ErrorCode::DuplicateHeader => 53,      // Duplicate @Begin (approximate)
+        ErrorCode::DuplicateHeader => 44,      // Content after @End / file must end with @End
         ErrorCode::InvalidIDFormat => 143,     // @ID needs 10 fields
         ErrorCode::EmptyParticipantsHeader => 12, // Missing speaker name
         ErrorCode::InvalidParticipantRole => 15, // Illegal role
@@ -64,10 +64,17 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::IllegalCharactersInWord => 48, // Illegal characters
         ErrorCode::InvalidWordFormat => 48, // Illegal word format
         ErrorCode::MalformedWordContent => 48, // Malformed word
+        ErrorCode::MissingFormType => 48, // Missing special form marker
+        ErrorCode::InvalidFormType => 147, // Undeclared form marker in depfile
+        ErrorCode::EmptySpokenContent => 155, // "(word)" → use "0word"
+        ErrorCode::IllegalUntranscribed => 135, // Illegal use of xxx/yyy/www
 
         // -- Tier errors --
         ErrorCode::DuplicateDependentTier => 40, // Duplicate code tiers
         ErrorCode::OrphanedDependentTier => 39,  // Code tier after header
+        ErrorCode::UnknownHeader => 17,          // Tier not declared in depfile
+        ErrorCode::UnsupportedDependentTier => 17, // Unknown dependent tier
+        ErrorCode::UnsupportedOption => 11,      // Symbol not in depfile
 
         // -- Temporal errors --
         ErrorCode::InvalidMediaBullet => 89, // Wrong chars in bullet
@@ -75,6 +82,10 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::TimestampBackwards => 82, // BEG > END
         ErrorCode::TierBeginTimeNotMonotonic => 83, // BEG < prev BEG
         ErrorCode::SpeakerSelfOverlap => 133, // Speaker self-overlap
+        ErrorCode::BulletOverlap => 84,      // Cross-speaker bullet overlap
+        ErrorCode::SpeakerBulletSelfOverlap => 133, // Same-speaker bullet timing overlap
+        ErrorCode::BulletGap => 85,          // Gap between tiers
+        ErrorCode::MissingBullet => 110,     // Missing bullet (+c mode)
 
         // -- Tier alignment --
         ErrorCode::MorCountMismatchTooFew | ErrorCode::MorCountMismatchTooMany => 140,
@@ -86,13 +97,29 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::GraParseError => 87,  // Malformed structure
         ErrorCode::InvalidMorphologyFormat => 134,
 
+        // -- Annotation errors --
+        ErrorCode::UnknownAnnotation => 48, // Illegal character/unknown annotation
+        ErrorCode::SyllablePauseNotBetweenSpokenMaterial => 48, // Syllable pause misplacement
+        ErrorCode::TierValidationError => 87, // Malformed structure (generic tier error)
+        ErrorCode::GraInvalidHeadIndex => 87, // Malformed gra structure
+        ErrorCode::TreeParsingError => 48,  // CST traversal error → illegal content
+
         // -- Formatting --
-        ErrorCode::ConsecutiveCommas => 107, // Only single commas
+        ErrorCode::ConsecutiveCommas => 156, // Replace ,, with special character
         ErrorCode::UnbalancedQuotation => 117, // Character pairs
         ErrorCode::UnbalancedCADelimiter => 117,
+        ErrorCode::NestedQuotation => 117, // Quotation pairing issue
+
+        // -- Replacement/annotation errors --
+        ErrorCode::ReplacementOnNonword => 141, // [: ...] preceded by only one word
+        ErrorCode::ReplacementContainsOmission => 158, // [: ...] has real word, not 0...
+        ErrorCode::ReplacementContainsUntranscribed => 158, // [: ...] has real word, not xxx
+        ErrorCode::ContentAnnotationParseError => 48, // Scoped annotation parse error
+        ErrorCode::EmptyParticipantRole => 12,  // Missing speaker name/role
 
         // -- Misc --
-        ErrorCode::EmptyUtterance => 70, // Expected text or "0"
+        ErrorCode::EmptyUtterance => 70,   // Expected text or "0"
+        ErrorCode::EmptyWordContent => 70, // Word content is empty (subcase of 70)
         ErrorCode::InvalidControlCharacter => 86, // Re-enter using Unicode
         ErrorCode::StructuralOrderError => 87, // Malformed structure
         ErrorCode::InvalidPostcode => 108, // Postcodes before bullet

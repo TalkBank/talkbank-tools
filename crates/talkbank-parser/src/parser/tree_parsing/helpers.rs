@@ -102,6 +102,40 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, context: &str) -> Par
         .with_suggestion("Remove or replace control characters (only tabs are allowed)");
     }
 
+    // Redundant terminator in utterance_end (. after .)
+    if context == "utterance_end"
+        && (error_text.trim() == "." || error_text.trim() == "!" || error_text.trim() == "?")
+    {
+        return ParseError::new(
+            ErrorCode::MissingTerminator,
+            Severity::Error,
+            SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
+            ErrorContext::new(error_text, 0..error_text.len(), error_text),
+            "Redundant utterance delimiter".to_string(),
+        )
+        .with_suggestion("Remove the extra terminator — only one is allowed per utterance");
+    }
+
+    // Text after terminator in utterance_end
+    if context == "utterance_end"
+        && !error_text.is_empty()
+        && error_text
+            .trim()
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == ' ')
+    {
+        return ParseError::new(
+            ErrorCode::MissingTerminator,
+            Severity::Error,
+            SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
+            ErrorContext::new(error_text, 0..error_text.len(), error_text),
+            "Text after utterance delimiter is not allowed".to_string(),
+        )
+        .with_suggestion(
+            "Utterance delimiter (. ! ?) must be the last item before any bullet or end of line",
+        );
+    }
+
     // Generic fallback: Show what was found
     ParseError::new(
         ErrorCode::UnparsableContent,

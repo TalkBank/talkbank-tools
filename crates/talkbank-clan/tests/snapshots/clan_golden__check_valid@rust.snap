@@ -2,4 +2,4 @@
 source: tests/clan_golden.rs
 expression: rust_output
 ---
-CHECK: no errors found.
+ALL FILES CHECKED OUT OK!

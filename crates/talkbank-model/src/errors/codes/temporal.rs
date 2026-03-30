@@ -44,3 +44,16 @@ pub const E701: ErrorCode = ErrorCode::TierBeginTimeNotMonotonic;
 /// Rule: For consecutive utterances by the same speaker,
 /// current.start_ms >= (previous.end_ms - 500)
 pub const E704: ErrorCode = ErrorCode::SpeakerSelfOverlap;
+
+/// E729: Cross-speaker bullet overlap (CLAN Error 84)
+///
+/// Cross-speaker constraint: BEG time of current tier is before END time of
+/// previous tier (by a different speaker). Unlike E704, this is cross-speaker
+/// and is reported as a warning since cross-speaker overlap can be intentional.
+pub const E729: ErrorCode = ErrorCode::BulletOverlap;
+
+/// E731: Speaker bullet self-overlap via timing (CLAN Error 133, bullet-based)
+///
+/// Supplements E704 (which checks overlap markers) with actual bullet timing.
+/// Same-speaker BEG < previous END without tolerance threshold.
+pub const E731: ErrorCode = ErrorCode::SpeakerBulletSelfOverlap;

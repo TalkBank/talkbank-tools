@@ -582,6 +582,32 @@ pub enum ErrorCode {
     /// `%phoaln` tier word count does not match `%pho` tier.
     #[code("E728")]
     PhoalnPhoCountMismatch,
+    /// Bullet start time overlaps with previous tier's end time (CLAN Error 84).
+    ///
+    /// Current tier's BEG is less than the previous tier's END, indicating
+    /// overlapping timing. Unlike speaker self-overlap (E704), this applies
+    /// across different speakers.
+    #[code("E729")]
+    BulletOverlap,
+    /// Bullet timing gap exceeds threshold (CLAN Error 85).
+    ///
+    /// Gap between current tier's BEG and previous tier's END exceeds the
+    /// acceptable discontinuity threshold. Only reported in bullet consistency
+    /// mode (`+c0`).
+    #[code("E730")]
+    BulletGap,
+    /// Speaker's bullet start time is before their own previous bullet end time
+    /// (CLAN Error 133).
+    ///
+    /// Supplements the overlap-marker-based E704 with actual bullet timing
+    /// check for same-speaker self-overlap.
+    #[code("E731")]
+    SpeakerBulletSelfOverlap,
+    /// Missing bullet on tier when bullet consistency mode is active (CLAN Error 110).
+    ///
+    /// When `+c0` or `+c1` is specified, every main tier must have timing.
+    #[code("E732")]
+    MissingBullet,
 
     // =========================================================================
     // Warnings (Wxxx)

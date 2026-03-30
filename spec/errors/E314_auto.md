@@ -15,7 +15,7 @@ Auto-generated from corpus
 
 **Source**: `E3xx_main_tier_errors/E314_incomplete_annotation.cha`
 **Trigger**: See example below
-**Expected Error Codes**: E316
+**Expected Error Codes**: E375
 
 ```chat
 @UTF8

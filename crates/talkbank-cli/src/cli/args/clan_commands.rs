@@ -930,9 +930,8 @@ pub enum ClanCommands {
     /// Validate CHAT file(s) with CLAN CHECK-compatible output and flags
     #[command(about = "Validate CHAT file(s) (CLAN 'check' command)")]
     Check {
-        /// Path to CHAT file or directory (required unless --list-errors)
-        #[arg(required_unless_present = "list_errors")]
-        path: Option<PathBuf>,
+        /// Path to CHAT file(s) or directory (required unless --list-errors)
+        paths: Vec<PathBuf>,
 
         /// Check bullet consistency (0=full, 1=missing only)
         #[arg(long)]
@@ -1109,14 +1108,14 @@ mod tests {
             let parsed = TestCli::parse_from(["test-cli", "check", "--list-errors"]);
 
             let ClanCommands::Check {
-                path, list_errors, ..
+                paths, list_errors, ..
             } = parsed.command
             else {
                 panic!("expected check command");
             };
 
             assert!(list_errors);
-            assert!(path.is_none());
+            assert!(paths.is_empty());
         });
     }
 }

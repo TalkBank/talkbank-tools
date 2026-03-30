@@ -1259,8 +1259,14 @@ export default grammar({
     // Form marker: @letter codes with optional :suffix.
     // Examples: @b, @c, @z:grm, @n:eng, @fp:is
     // The full set from the CHAT manual plus @z (user-defined).
+    // Form marker: @b, @c, @z:grm, @n:eng, @fp:is, etc.
+    // Consumes ALL alphabetic chars after @ so invalid markers like @dima
+    // become a single token (validated by Rust parser, not silently split).
+    // Excludes bare @s which must go to word_lang_suffix.
+    // Valid: @u @b @c @d @f @fp @g @i @k @l @ls @n @o @p @q @sas @si @sl @t @wp @x @z
+    // Invalid but parsed: @dima @ap @junk (flagged by Rust as E203)
     form_marker: $ => token.immediate(
-      /@(?:u|b|c|d|f|fp|g|i|k|l|ls|n|o|p|q|sas|si|sl|t|wp|x|z)(?::[a-zA-Z0-9_]+)?/
+      /@(?:s[a-zA-Z][-a-zA-Z]*|[a-rt-zA-RT-Z][-a-zA-Z]*)(?::[a-zA-Z0-9_]+)?/
     ),
     // Language suffix: @s or @s:eng or @s:eng+zho+fra or @s:eng&zho&fra
     // Single immediate token to prevent colon/& from being consumed by other rules.

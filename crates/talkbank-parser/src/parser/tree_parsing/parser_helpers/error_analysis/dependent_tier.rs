@@ -21,13 +21,13 @@ pub(crate) fn analyze_dependent_tier_error_with_context(
         Ok(text) => text,
         Err(_) => {
             return ParseError::new(
-                ErrorCode::UnparsableContent,
+                ErrorCode::InvalidControlCharacter,
                 Severity::Error,
                 SourceLocation::from_offsets(start, end),
                 ErrorContext::new(source, start..end, ""),
-                "Could not decode dependent tier parse error as UTF-8",
+                "Could not decode dependent tier content as valid UTF-8",
             )
-            .with_suggestion("Re-parse with matching source bytes and retry diagnostic analysis");
+            .with_suggestion("Re-enter using Unicode standard characters");
         }
     };
 
@@ -58,6 +58,18 @@ pub(crate) fn analyze_dependent_tier_error_with_context(
             "Invalid MOR chunk format - missing pipe separator",
         )
         .with_suggestion("MOR chunks must have format: pos|stem (e.g., v|hello, n|world)");
+    }
+
+    // Double comma in dependent tier
+    if error_text.contains(",,") {
+        return ParseError::new(
+            ErrorCode::ConsecutiveCommas,
+            Severity::Error,
+            SourceLocation::from_offsets(start, end),
+            ErrorContext::new(source, start..end, error_text),
+            "Double comma found in dependent tier",
+        )
+        .with_suggestion("Use single comma or replace ,, with special character");
     }
 
     // Generic dependent tier error

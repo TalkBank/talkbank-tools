@@ -25,7 +25,7 @@ fn golden_check_target_child() {
     let relative = file.strip_prefix(base).unwrap_or(&file);
     let result = run_check(relative, &content, &config);
     let rust_output = if result.errors.is_empty() && !result.has_errors {
-        "CHECK: no errors found.".to_string()
+        "ALL FILES CHECKED OUT OK!".to_string()
     } else {
         result.render_text()
     };

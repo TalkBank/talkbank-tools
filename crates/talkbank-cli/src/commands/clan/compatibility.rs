@@ -8,7 +8,7 @@
 
 use crate::cli::ClanCommands;
 use talkbank_clan::commands::check::{CheckConfig, list_all_errors, run_check};
-use talkbank_clan::framework::CommandOutput;
+use talkbank_clan::framework::{CommandOutput, DiscoveredChatFiles};
 use talkbank_clan::service_types::{AnalysisCommandName, AnalysisOptions};
 
 use super::helpers::{
@@ -18,7 +18,7 @@ use super::helpers::{
 pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
     match command {
         ClanCommands::Check {
-            path,
+            paths,
             bullets,
             include_errors,
             exclude_errors,
@@ -33,12 +33,21 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                 return Ok(());
             }
 
-            let path = match path {
-                Some(p) => p,
-                None => exit_with_error(
-                    "Error: path is required unless --list-errors is used".to_owned(),
-                ),
-            };
+            if paths.is_empty() {
+                exit_with_error("Error: path is required unless --list-errors is used".to_owned());
+            }
+
+            let discovered = DiscoveredChatFiles::from_paths(&paths);
+            for skipped in discovered.skipped_paths() {
+                eprintln!(
+                    "Warning: {:?} is not a file or directory, skipping",
+                    skipped
+                );
+            }
+            let files = discovered.into_files();
+            if files.is_empty() {
+                exit_with_error("Error: no .cha files found".to_owned());
+            }
 
             let config = CheckConfig {
                 bullets,
@@ -51,20 +60,28 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                 check_ud_features: check_ud,
             };
 
-            let content = read_file_or_exit(&path);
-            let result = run_check(&path, &content, &config);
+            let mut any_errors = false;
+            let mut all_output = String::new();
+            for file_path in &files {
+                let content = read_file_or_exit(file_path);
+                let result = run_check(file_path, &content, &config);
+                if result.has_errors || !result.errors.is_empty() {
+                    any_errors = true;
+                }
+                let text = result.render_text();
+                if !text.is_empty() {
+                    all_output.push_str(&text);
+                }
+            }
 
-            if result.errors.is_empty() && !result.has_errors {
-                eprintln!("CHECK: no errors found.");
+            if !all_output.is_empty() {
+                print!("{all_output}");
+            }
+            if any_errors {
+                eprintln!("Warning: Please repeat CHECK until no error messages are reported!");
+                std::process::exit(1);
             } else {
-                let output = result.render_text();
-                if !output.is_empty() {
-                    print!("{output}");
-                }
-                if result.has_errors {
-                    eprintln!("Warning: Please repeat CHECK until no error messages are reported!");
-                    std::process::exit(1);
-                }
+                eprintln!("ALL FILES CHECKED OUT OK!");
             }
         }
         ClanCommands::Fixit { path, output } => run_normalize_alias(&path, output.as_deref()),

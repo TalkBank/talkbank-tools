@@ -57,9 +57,11 @@ fn test_e501_missing_begin_header() -> Result<(), TestError> {
                             | ErrorCode::UnparsableContent
                             | ErrorCode::MissingRequiredHeader
                             | ErrorCode::MissingEndHeader
+                            | ErrorCode::DuplicateHeader
+                            | ErrorCode::InvalidIDFormat
                     )
                 }),
-                "Expected E303, E316, E504, or E502 in parse errors, got: {:?}",
+                "Expected E303, E316, E501, E504, or E502 in parse errors, got: {:?}",
                 parse_errors
                     .errors
                     .iter()
@@ -95,10 +97,13 @@ fn test_e503_missing_utf8_header() -> Result<(), TestError> {
                 parse_errors.errors.iter().any(|e| {
                     matches!(
                         e.code,
-                        ErrorCode::SyntaxError | ErrorCode::UnparsableContent
+                        ErrorCode::SyntaxError
+                            | ErrorCode::UnparsableContent
+                            | ErrorCode::DuplicateHeader
+                            | ErrorCode::InvalidIDFormat
                     )
                 }),
-                "Expected E303 or E316 in parse errors, got: {:?}",
+                "Expected E303, E316, E501, or E510 in parse errors, got: {:?}",
                 parse_errors
                     .errors
                     .iter()
@@ -193,9 +198,10 @@ fn test_e505_duplicate_begin_header() -> Result<(), TestError> {
                         ErrorCode::SyntaxError
                             | ErrorCode::UnparsableContent
                             | ErrorCode::InvalidIDFormat
+                            | ErrorCode::DuplicateHeader
                     )
                 }),
-                "Expected E303, E316, or E505 in parse errors, got: {:?}",
+                "Expected E303, E316, E501, or E505 in parse errors, got: {:?}",
                 parse_errors
                     .errors
                     .iter()

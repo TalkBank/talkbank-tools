@@ -296,6 +296,9 @@ impl<S: ValidationState> ChatFile<S> {
             header::check_header(header, *span, &context, errors);
         }
 
+        // Cross-header validation: @ID language vs @Languages, role mismatch
+        check_cross_header_consistency(self, &headers_with_spans, errors);
+
         // Validate utterances - stream errors directly
         for utt in self.utterances() {
             utt.validate(&context, errors);
@@ -544,6 +547,75 @@ fn check_media_filename_match(
 
             // Only check the first @Media header
             break;
+        }
+    }
+}
+
+/// Cross-header consistency checks:
+/// - CHECK 122: @ID language not defined on @Languages
+/// - CHECK 142: Role on @ID differs from @Participants
+fn check_cross_header_consistency<S: ValidationState>(
+    file: &ChatFile<S>,
+    headers: &[(&Header, crate::Span)],
+    errors: &impl crate::ErrorSink,
+) {
+    use crate::model::LanguageCode;
+    use crate::{ErrorCode, ErrorContext, ParseError, Severity, SourceLocation};
+
+    // Collect declared languages from @Languages header
+    let declared_languages: HashSet<&LanguageCode> = file.languages.0.iter().collect();
+
+    for (header, span) in headers {
+        if let Header::ID(id_header) = header {
+            // CHECK 122: @ID language not in @Languages
+            for id_lang in &id_header.language.0 {
+                if !declared_languages.is_empty() && !declared_languages.contains(id_lang) {
+                    let lang_str = id_lang.as_str();
+                    let mut err = ParseError::new(
+                        ErrorCode::InvalidLanguageCode,
+                        Severity::Error,
+                        SourceLocation::at_offset(span.start as usize),
+                        ErrorContext::new(lang_str, 0..lang_str.len(), "id_language"),
+                        format!(
+                            "Language '{}' on @ID tier is not defined on @Languages header",
+                            lang_str
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "Add '{}' to @Languages header or fix the @ID language field",
+                        lang_str
+                    ));
+                    err.location.span = *span;
+                    errors.report(err);
+                }
+            }
+
+            // CHECK 142: Role on @ID differs from @Participants
+            let id_speaker = &id_header.speaker;
+            let id_role = id_header.role.as_str();
+            if !id_speaker.is_empty()
+                && !id_role.is_empty()
+                && let Some(participant) = file
+                    .participants
+                    .get(&crate::model::SpeakerCode::from(id_speaker.as_str()))
+            {
+                let participant_role = participant.role.as_str();
+                if !participant_role.is_empty() && participant_role != id_role {
+                    let mut err = ParseError::new(
+                        ErrorCode::InvalidParticipantRole,
+                        Severity::Error,
+                        SourceLocation::at_offset(span.start as usize),
+                        ErrorContext::new(id_role, 0..id_role.len(), "id_role"),
+                        format!(
+                            "Speaker '{}' has role '{}' on @ID but '{}' on @Participants",
+                            id_speaker, id_role, participant_role
+                        ),
+                    )
+                    .with_suggestion("Ensure @ID role matches @Participants role for each speaker");
+                    err.location.span = *span;
+                    errors.report(err);
+                }
+            }
         }
     }
 }

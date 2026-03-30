@@ -129,7 +129,7 @@ fn clean_file_cached_as_valid() {
     let file_path = dir.path().join("clean.cha");
     fs::write(
         &file_path,
-        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|demo|CHI|2;0.0|male|||Target_Child|||\n*CHI:\thello .\n@End\n",
+        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|demo|CHI|2;00.00|male|||Target_Child|||\n*CHI:\thello .\n@End\n",
     )
     .expect("write clean test chat file");
 
@@ -167,7 +167,7 @@ fn dropped_cancel_sender_does_not_cancel_and_jobs_zero_still_processes_files() {
     let file_path = dir.path().join("sample.cha");
     fs::write(
         &file_path,
-        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|demo|CHI|2;0.0|male|||Target_Child|||\n*CHI:\thello .\n@End\n",
+        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|demo|CHI|2;00.00|male|||Target_Child|||\n*CHI:\thello .\n@End\n",
     )
     .expect("write test chat file");
 

@@ -35,12 +35,11 @@ pub(crate) fn check_bullet(bullet: &Bullet, errors: &impl ErrorSink) {
 
 /// Validate chronological ordering across a sequence of bullets.
 ///
-/// Emits `E362` when a bullet starts before the previous bullet's start time.
+/// Emits `E701` when a bullet starts before the previous bullet's start time.
 pub fn check_bullet_monotonicity(bullets: &[&Bullet], errors: &impl ErrorSink) {
     for i in 1..bullets.len() {
-        // E362: Check monotonicity - each start time must be >= previous start time
+        // E701: Check monotonicity - each start time must be >= previous start time
         if bullets[i].timing.start_ms < bullets[i - 1].timing.start_ms {
-            // Use bullet's serialized form for error context
             let bullet_text = bullets[i].to_chat_string();
 
             errors.report(
@@ -59,3 +58,5 @@ pub fn check_bullet_monotonicity(bullets: &[&Bullet], errors: &impl ErrorSink) {
         }
     }
 }
+
+// Cross-speaker bullet overlap is implemented in validation::temporal::validate_cross_speaker_overlap().

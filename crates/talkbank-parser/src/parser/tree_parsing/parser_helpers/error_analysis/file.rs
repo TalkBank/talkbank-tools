@@ -171,6 +171,36 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
             }
         }
 
+        // @Page header (not a standard CHAT header but used in some files)
+        if error_text.starts_with("@Page") {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::UnknownHeader,
+                    Severity::Warning,
+                    SourceLocation::from_offsets(start, end),
+                    ErrorContext::new(source, start..end, error_text),
+                    "@Page header is not a standard CHAT header",
+                )
+                .with_suggestion("@Page is a legacy header. Consider removing it."),
+            );
+            return;
+        }
+
+        // @Comment with spaces instead of tab after colon
+        if error_text.starts_with("@Comment:") && !error_text.contains(":\t") {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::SyntaxError,
+                    Severity::Error,
+                    SourceLocation::from_offsets(start, end),
+                    ErrorContext::new(source, start..end, error_text),
+                    "Space character instead of TAB after header colon",
+                )
+                .with_suggestion("Replace spaces after ':' with a single TAB character"),
+            );
+            return;
+        }
+
         // Check for @ID errors
         // ERROR node with @ID means tree-sitter failed to parse the structure
         // Don't try to manually parse it - just report it's malformed
@@ -185,6 +215,120 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
                 )
                 .with_suggestion(
                     "Format: @ID:\tlang|corpus|speaker|age|sex|group|SES|role|education|custom|",
+                ),
+            );
+            return;
+        }
+    }
+
+    // Duplicate @Begin
+    if error_text.starts_with("@Begin") {
+        errors.report(
+            ParseError::new(
+                ErrorCode::DuplicateHeader,
+                Severity::Error,
+                SourceLocation::from_offsets(start, end),
+                ErrorContext::new(source, start..end, error_text),
+                "Only one @Begin is allowed per file",
+            )
+            .with_suggestion("Remove the duplicate @Begin header"),
+        );
+        return;
+    }
+
+    // Content after @End
+    if error_text.starts_with("@End") {
+        errors.report(
+            ParseError::new(
+                ErrorCode::DuplicateHeader,
+                Severity::Error,
+                SourceLocation::from_offsets(start, end),
+                ErrorContext::new(source, start..end, error_text),
+                "Content after @End is not allowed",
+            )
+            .with_suggestion("Remove all content after @End. Only one @End is allowed per file."),
+        );
+        return;
+    }
+
+    // Main tier containing caret prefix (^word), inline annotations ([%add:]),
+    // or other content that causes the entire line to be an ERROR node
+    if error_text.starts_with('*') && error_text.contains(":\t") {
+        let content_start = error_text.find(":\t").unwrap_or(0) + 2;
+        let content = error_text[content_start..].trim();
+
+        // ^word — caret/blocking prefix (obsolete CHAT construct)
+        if content.starts_with('^') {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::SyllablePauseNotBetweenSpokenMaterial,
+                    Severity::Error,
+                    SourceLocation::from_offsets(start + content_start, end),
+                    ErrorContext::new(source, start..end, error_text),
+                    format!(
+                        "'^' cannot appear at utterance start — '{}' is not valid CHAT",
+                        content.split_whitespace().next().unwrap_or(content)
+                    ),
+                )
+                .with_suggestion(
+                    "'^' is a syllable pause marker (ba^na^na). It cannot be used as a word prefix.",
+                ),
+            );
+            return;
+        }
+
+        // [%add: ...] or similar inline dependent tier annotation
+        if content.starts_with("[%") {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::ContentAnnotationParseError,
+                    Severity::Error,
+                    SourceLocation::from_offsets(start + content_start, end),
+                    ErrorContext::new(source, start..end, error_text),
+                    "Inline dependent tier annotation cannot appear at utterance start".to_string(),
+                )
+                .with_suggestion(
+                    "Place [%add: ...] after the word it modifies, not at utterance start",
+                ),
+            );
+            return;
+        }
+
+        // <group> [x N] — repetition that fails to parse at file level
+        if content.contains("[x ") || content.contains("[x\t") {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::ContentAnnotationParseError,
+                    Severity::Error,
+                    SourceLocation::from_offsets(start, end),
+                    ErrorContext::new(source, start..end, error_text),
+                    "Could not parse utterance containing repetition count [x N]".to_string(),
+                )
+                .with_suggestion(
+                    "Check repetition format: word [x N] or <group> [x N]. \
+                     The number must follow [x with a space.",
+                ),
+            );
+            return;
+        }
+    }
+
+    // Main tier with non-ASCII speaker name (e.g., *CHIé:)
+    if error_text.starts_with('*')
+        && let Some(colon_pos) = error_text.find(':')
+    {
+        let speaker = &error_text[1..colon_pos];
+        if !speaker.is_ascii() {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::SpeakerNotDefined,
+                    Severity::Error,
+                    SourceLocation::from_offsets(start, start + 1 + colon_pos),
+                    ErrorContext::new(source, start..start + 1 + colon_pos, ""),
+                    format!("Speaker name '{}' contains non-ASCII characters", speaker),
+                )
+                .with_suggestion(
+                    "Speaker codes must use only ASCII letters, digits, and underscores (A-Z, 0-9, _)",
                 ),
             );
             return;

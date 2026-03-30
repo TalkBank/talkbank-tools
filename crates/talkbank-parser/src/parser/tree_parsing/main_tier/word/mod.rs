@@ -90,8 +90,17 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
                     let label = label.strip_prefix(':').unwrap_or(label);
                     form_type = Some(FormType::UserDefined(label.to_string()));
                 } else {
-                    // Unknown form marker — preserve as user-defined
+                    // Unknown form marker — report error (CHECK 147)
                     let marker = text.strip_prefix('@').unwrap_or(text);
+                    errors.report(ParseError::new(
+                        ErrorCode::InvalidFormType,
+                        Severity::Error,
+                        SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
+                        ErrorContext::new(source, child.start_byte()..child.end_byte(), ""),
+                        format!("Undeclared form marker '@{}'", marker),
+                    ).with_suggestion(
+                        "Valid form markers: @b @c @d @f @fp @g @i @k @l @ls @n @o @p @q @sas @si @sl @t @u @wp @x @z"
+                    ));
                     form_type = Some(FormType::UserDefined(marker.to_string()));
                 }
             }
@@ -110,10 +119,10 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
     }
 
     // If no content items were collected, use raw_text as a single Text item
-    if content_items.is_empty() {
-        if let Some(wt) = WordText::new(raw_text) {
-            content_items.push(WordContent::Text(wt));
-        }
+    if content_items.is_empty()
+        && let Some(wt) = WordText::new(raw_text)
+    {
+        content_items.push(WordContent::Text(wt));
     }
 
     // Compute cleaned_text from content items (Text + Shortening only)
@@ -125,6 +134,20 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
             _ => None,
         })
         .collect();
+
+    // Guard: parser recovery can produce a word node with empty text (e.g.,
+    // from `[: unclosed`). Report an error instead of panicking via
+    // `new_unchecked`.
+    if raw_text.is_empty() {
+        errors.report(ParseError::new(
+            ErrorCode::UnparsableContent,
+            Severity::Error,
+            SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
+            ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
+            "Word node has empty text".to_string(),
+        ));
+        return ParseOutcome::rejected();
+    }
 
     let mut word = Word::new_unchecked(raw_text, &cleaned);
     word.span = span;

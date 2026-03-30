@@ -139,7 +139,7 @@ fn check_clean_file_keeps_stable_success_message() -> Result<(), TestError> {
 
     assert_exit_code(&output, 0, "clean CHECK should succeed");
     assert_eq!(stdout_string(&output), "");
-    assert_eq!(stderr_string(&output), "CHECK: no errors found.\n");
+    assert_eq!(stderr_string(&output), "ALL FILES CHECKED OUT OK!\n");
     Ok(())
 }
 
@@ -189,6 +189,79 @@ fn check_list_errors_succeeds_without_path() -> Result<(), TestError> {
         stdout_string(&output)
     );
     assert_eq!(stderr_string(&output), "");
+    Ok(())
+}
+
+#[test]
+fn check_directory_processes_all_cha_files() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+
+    // Two valid files in a directory
+    let valid = "\u{FEFF}@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|2;00.||||Target_Child|||\n*CHI:\thello .\n@End\n";
+    fs::write(dir.path().join("a.cha"), valid)?;
+    fs::write(dir.path().join("b.cha"), valid)?;
+
+    let dir_str = dir.path().to_string_lossy().into_owned();
+    let output = harness.run_output(&["clan", "check", dir_str.as_str()])?;
+
+    assert_exit_code(&output, 0, "directory of valid files should succeed");
+    assert_eq!(stdout_string(&output), "");
+    assert_eq!(stderr_string(&output), "ALL FILES CHECKED OUT OK!\n");
+    Ok(())
+}
+
+#[test]
+fn check_directory_reports_errors_across_files() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+
+    let valid = "\u{FEFF}@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|2;00.||||Target_Child|||\n*CHI:\thello .\n@End\n";
+    let invalid = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n";
+    fs::write(dir.path().join("good.cha"), valid)?;
+    fs::write(dir.path().join("bad.cha"), invalid)?;
+
+    let dir_str = dir.path().to_string_lossy().into_owned();
+    let output = harness.run_output(&["clan", "check", dir_str.as_str()])?;
+
+    assert_exit_code(&output, 1, "directory with broken file should fail");
+    assert!(
+        stdout_string(&output).contains("Missing required @End header"),
+        "expected @End error in output, got `{}`",
+        stdout_string(&output)
+    );
+    assert!(
+        stderr_string(&output).contains("Please repeat CHECK"),
+        "expected repeat warning, got `{}`",
+        stderr_string(&output)
+    );
+    Ok(())
+}
+
+#[test]
+fn check_multiple_file_args() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let file = corpus_file("core/basic-conversation.cha");
+    let file2 = corpus_file("tiers/mor-gra.cha");
+
+    let output = harness.run_output(&["clan", "check", file.as_str(), file2.as_str()])?;
+
+    assert_exit_code(&output, 0, "multiple valid files should succeed");
+    assert_eq!(stderr_string(&output), "ALL FILES CHECKED OUT OK!\n");
+    Ok(())
+}
+
+#[test]
+fn check_plus_u_maps_to_check_ud_in_check_context() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let file = corpus_file("tiers/mor-gra.cha");
+
+    let legacy = harness.run_output(&["clan", "check", "+u", file.as_str()])?;
+    let modern = harness.run_output(&["clan", "check", "--check-ud", file.as_str()])?;
+
+    assert_eq!(legacy.status.code(), modern.status.code());
+    assert_eq!(stdout_string(&legacy), stdout_string(&modern));
+    assert_eq!(stderr_string(&legacy), stderr_string(&modern));
     Ok(())
 }
 

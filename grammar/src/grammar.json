@@ -3327,7 +3327,7 @@
       "type": "IMMEDIATE_TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "@(?:u|b|c|d|f|fp|g|i|k|l|ls|n|o|p|q|sas|si|sl|t|wp|x|z)(?::[a-zA-Z0-9_]+)?"
+        "value": "@(?:s[a-zA-Z][-a-zA-Z]*|[a-rt-zA-RT-Z][-a-zA-Z]*)(?::[a-zA-Z0-9_]+)?"
       }
     },
     "word_lang_suffix": {

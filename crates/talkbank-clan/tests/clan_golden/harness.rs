@@ -533,7 +533,7 @@ pub fn run_rust_check(file: &Path) -> String {
     let result = run_check(file, &content, &config);
 
     if result.errors.is_empty() && !result.has_errors {
-        "CHECK: no errors found.".to_string()
+        "ALL FILES CHECKED OUT OK!".to_string()
     } else {
         result.render_text()
     }

@@ -93,7 +93,8 @@ fn try_rewrite_clan_flag(arg: &str, is_check: bool) -> Option<Vec<String>> {
         // +r6 — include retracings
         (b'+', b'r') if rest == "6" => Some(vec!["--include-retracings".into()]),
 
-        // +u — merge speakers (no-op, merge is default)
+        // +u: For CHECK, +u means validate UD features; for other commands, merge speakers (no-op)
+        (b'+', b'u') if rest.is_empty() && is_check => Some(vec!["--check-ud".into()]),
         (b'+', b'u') if rest.is_empty() => Some(vec![]),
 
         // +dN — display mode
@@ -600,6 +601,21 @@ mod tests {
         let result = rewrite_clan_args(&input);
         // +g1 is a no-op (prosodic delimiters always recognized)
         assert_eq!(result, args("check file.cha"));
+    }
+
+    #[test]
+    fn check_u_maps_to_check_ud() {
+        let input = args("check +u file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("check --check-ud file.cha"));
+    }
+
+    #[test]
+    fn non_check_u_is_noop() {
+        let input = args("freq +u file.cha");
+        let result = rewrite_clan_args(&input);
+        // +u is a no-op (merge is default) for non-CHECK commands
+        assert_eq!(result, args("freq file.cha"));
     }
 
     #[test]
