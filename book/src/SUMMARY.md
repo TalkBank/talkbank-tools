@@ -1,6 +1,6 @@
 # Summary
 
-**Last updated:** 2026-03-26 10:33 EDT
+**Last updated:** 2026-03-29 23:08 EDT
 
 [Introduction](introduction.md)
 
@@ -53,6 +53,7 @@
 - [Wide Struct Audit](architecture/wide-structs.md)
 - [Spec Tooling](architecture/spec-tooling.md)
 - [Symbol Registry](architecture/symbol-registry.md)
+- [Bullet Validation](architecture/bullet-validation.md)
 - [Alignment](architecture/alignment.md)
 - [Memory and Ownership](architecture/memory-and-ownership.md)
 - [Algorithms and Data Structures](architecture/algorithms.md)

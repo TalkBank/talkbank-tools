@@ -75,12 +75,15 @@ fn utterance(main: MainTier) -> Utterance {
 /// Tests e701 global timeline monotonicity violation.
 #[test]
 fn test_e701_global_timeline_monotonicity_violation() {
-    // Test E701: Second utterance starts before first
+    // Test E701: Same speaker's second utterance starts before their first.
+    // E701 is scoped to per-speaker (cross-speaker non-monotonicity is normal
+    // conversational overlap, not an error).
     let file = create_test_file(vec![
         Line::header(Header::Utf8),
         Line::header(Header::Begin),
-        Line::utterance(utterance(main_tier_with_bullet("CHI", 1000, 2000))), // First: 1000-2000ms
-        Line::utterance(utterance(main_tier_with_bullet("MOT", 500, 1500))),  // Starts at 500ms
+        Line::utterance(utterance(main_tier_with_bullet("CHI", 1000, 2000))), // CHI: 1000-2000ms
+        Line::utterance(utterance(main_tier_with_bullet("MOT", 3000, 4000))), // MOT: 3000-4000ms
+        Line::utterance(utterance(main_tier_with_bullet("CHI", 500, 1500))),  // CHI: 500ms < CHI's 1000ms
         Line::header(Header::End),
     ]);
 
@@ -88,20 +91,48 @@ fn test_e701_global_timeline_monotonicity_violation() {
     file.validate(&errors, None);
     let error_vec = errors.into_vec();
 
-    // Should have E701 error
+    // Should have E701 error for same-speaker non-monotonicity
     assert!(
         error_vec
             .iter()
             .any(|e| e.code == ErrorCode::TierBeginTimeNotMonotonic),
-        "Expected E701 error for non-monotonic timeline, got: {:#?}",
+        "Expected E701 error for same-speaker non-monotonic timeline, got: {:#?}",
         error_vec
     );
 }
 
-/// Tests e701 global timeline monotonic passes.
+/// Tests e701 cross-speaker non-monotonicity does NOT fire (normal overlap).
 #[test]
-fn test_e701_global_timeline_monotonic_passes() {
-    // Test that monotonic timeline passes
+fn test_e701_cross_speaker_non_monotonic_does_not_fire() {
+    // Cross-speaker non-monotonicity is normal conversational overlap.
+    // MOT starts at 500ms while CHI started at 1000ms — this is just
+    // two speakers talking at the same time, not an error.
+    let file = create_test_file(vec![
+        Line::header(Header::Utf8),
+        Line::header(Header::Begin),
+        Line::utterance(utterance(main_tier_with_bullet("CHI", 1000, 2000))), // CHI: 1000-2000ms
+        Line::utterance(utterance(main_tier_with_bullet("MOT", 500, 1500))),  // MOT: 500ms (overlap)
+        Line::header(Header::End),
+    ]);
+
+    let errors = ErrorCollector::new();
+    file.validate(&errors, None);
+    let error_vec = errors.into_vec();
+
+    // Should NOT have E701 — different speakers overlapping is fine
+    assert!(
+        !error_vec
+            .iter()
+            .any(|e| e.code == ErrorCode::TierBeginTimeNotMonotonic),
+        "Cross-speaker non-monotonicity should NOT fire E701, got: {:#?}",
+        error_vec
+    );
+}
+
+/// Tests e701 same-speaker monotonic passes.
+#[test]
+fn test_e701_same_speaker_monotonic_passes() {
+    // Same speaker with monotonically increasing start times — no error.
     let file = create_test_file(vec![
         Line::header(Header::Utf8),
         Line::header(Header::Begin),

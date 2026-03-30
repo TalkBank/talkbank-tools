@@ -272,12 +272,14 @@ actual CLAN CHECK binary (`~/talkbank/OSX-CLAN/src/unix/bin/check`).
 | 69 | UTF8 missing | E500 → 69 | **Exact** (+ extras) |
 | 70 | Empty utterance | E253 → 70 | **Exact** |
 | 82 | BEG > END | E701 → 82 | **Exact** |
+| 83 | BEG < prev BEG | E701 → 83 | **Intentional divergence**: chatter scopes to same-speaker; CLAN fires cross-speaker (see `book/src/architecture/bullet-validation.md`) |
+| 84 | Cross-speaker overlap | E729 (off by default) | **Intentional divergence**: not in default validation; CLAN requires `+c0` |
 | 94 | Terminator mismatch | E707 → 94 | **Exact** |
 | 117 | Unpaired CA delimiter | E372 → 117 | **Exact** |
 | 120 | Two-letter language code | E375 → 48 | Different number |
 | 121 | Unknown language code | E519 → 121 | **Exact** |
 | 122 | @ID lang not in @Languages | E519 → 121 | Mapped (new) |
-| 133 | Speaker self-overlap | E704 → 133 | **Exact** |
+| 133 | Speaker self-overlap | E704 → 133 | **Higher count than CLAN** due to CLAN's error-83-shadows-133 bug (see `book/src/architecture/bullet-validation.md`) |
 | 140 | %MOR size mismatch | E705 → 140 | **Exact** |
 | 142 | Role mismatch | E532 → 15 | Different number (new) |
 | 143 | @ID needs 10 fields | E510 → 143 | **Exact** |

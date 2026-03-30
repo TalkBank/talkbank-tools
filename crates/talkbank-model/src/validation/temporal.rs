@@ -1,7 +1,7 @@
 //! Temporal validation for media bullets
 //!
 //! Implements CLAN CHECK command temporal constraints:
-//! - E701 (Error 83): Global timeline monotonicity
+//! - E701 (Error 83): Per-speaker start-time monotonicity
 //! - E704 (Error 133): Per-speaker overlap with 500ms tolerance
 //! - E729 (Error 84): Cross-speaker overlap (opt-in only, CLAN `+c0`)
 //!
@@ -38,7 +38,7 @@ const SPEAKER_OVERLAP_TOLERANCE_MS: u64 = 500;
 /// Validates temporal constraints on utterance bullets.
 ///
 /// This follows CLAN CHECK semantics for bullet timing:
-/// 1. Global timeline monotonicity (`E701` / Error 83)
+/// 1. Per-speaker start-time monotonicity (`E701` / Error 83)
 /// 2. Per-speaker self-overlap with tolerance (`E704` / Error 133)
 ///
 /// The check is skipped when CA mode is enabled, where timing constraints are
@@ -55,7 +55,7 @@ pub fn validate_temporal_constraints<S: ValidationState>(
     // Collect all relevant bullets in document order
     let bullets = collect_bullets(file);
 
-    // 1. Global timeline monotonicity (E701 - CLAN Error 83)
+    // 1. Per-speaker start-time monotonicity (E701 - CLAN Error 83)
     validate_global_timeline(&bullets, errors);
 
     // 2. Per-speaker overlap (E704 - CLAN Error 133)
@@ -166,46 +166,54 @@ fn has_transcribed_bracketed(content: &crate::model::BracketedContent) -> bool {
     })
 }
 
-/// Validate global timeline monotonicity (`E701`, CLAN Error 83).
+/// Validate per-speaker start-time monotonicity (`E701`, CLAN Error 83).
 ///
-/// Rule: Each utterance's bullet must have start time >= previous utterance's bullet start time
-/// This check is corpus-global (not speaker-specific) and runs before overlap checks.
+/// Rule: Each speaker's utterances must have non-decreasing start times.
+/// Cross-speaker non-monotonicity is expected in multi-party conversations
+/// (speakers naturally overlap), so only same-speaker violations are reported.
+///
+/// CLAN fires error 83 globally (cross-speaker), but its early-return
+/// implementation accidentally suppresses many cross-speaker hits. We scope
+/// to same-speaker intentionally — it matches the real intent of detecting
+/// disordered timestamps without flagging normal conversational overlap.
 fn validate_global_timeline(bullets: &[BulletInfo], errors: &impl ErrorSink) {
-    let mut prev_bullet: Option<&BulletInfo> = None;
+    let mut speaker_last_start: HashMap<&str, (usize, u64)> = HashMap::new();
 
     for bullet_info in bullets {
-        if let Some(prev) = prev_bullet
-            && bullet_info.bullet.timing.start_ms < prev.bullet.timing.start_ms
-        {
-            errors.report(
-                ParseError::new(
-                    E701,
-                    Severity::Error,
-                    SourceLocation::new(bullet_info.bullet.span),
-                    ErrorContext::new(
-                        bullet_text(bullet_info.bullet),
-                        Span::from_usize(0, bullet_text(bullet_info.bullet).len()),
-                        bullet_text(bullet_info.bullet),
-                    ),
-                    format!(
-                        "Tier begin time not monotonic: utterance {} (speaker '{}') starts at {}ms \
-                         but previous utterance {} (speaker '{}') started at {}ms",
-                        bullet_info.utterance_idx + 1,
-                        bullet_info.speaker,
-                        bullet_info.bullet.timing.start_ms,
-                        prev.utterance_idx + 1,
-                        prev.speaker,
-                        prev.bullet.timing.start_ms
-                    ),
-                )
-                .with_suggestion(format!(
-                    "Adjust bullet to start at or after {}ms",
-                    prev.bullet.timing.start_ms
-                )),
-            );
+        if let Some(&(prev_idx, prev_start_ms)) = speaker_last_start.get(bullet_info.speaker) {
+            if bullet_info.bullet.timing.start_ms < prev_start_ms {
+                errors.report(
+                    ParseError::new(
+                        E701,
+                        Severity::Error,
+                        SourceLocation::new(bullet_info.bullet.span),
+                        ErrorContext::new(
+                            bullet_text(bullet_info.bullet),
+                            Span::from_usize(0, bullet_text(bullet_info.bullet).len()),
+                            bullet_text(bullet_info.bullet),
+                        ),
+                        format!(
+                            "Same-speaker start time not monotonic: speaker '{}' utterance {} \
+                             starts at {}ms but their utterance {} started at {}ms",
+                            bullet_info.speaker,
+                            bullet_info.utterance_idx + 1,
+                            bullet_info.bullet.timing.start_ms,
+                            prev_idx + 1,
+                            prev_start_ms
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "Adjust bullet to start at or after {}ms",
+                        prev_start_ms
+                    )),
+                );
+            }
         }
 
-        prev_bullet = Some(bullet_info);
+        speaker_last_start.insert(
+            bullet_info.speaker,
+            (bullet_info.utterance_idx, bullet_info.bullet.timing.start_ms),
+        );
     }
 }
 
