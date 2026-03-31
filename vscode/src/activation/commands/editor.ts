@@ -9,6 +9,14 @@ import {
     stopCoderMode,
 } from '../../coderPanel';
 import {
+    startReview,
+    stopReview,
+    reviewNext,
+    reviewPrev,
+    rateUtterance,
+    skipUtterance,
+} from '../../commands/review';
+import {
     ExtensionCommandRunner,
     registerEffectCommand,
 } from '../../effectCommandRuntime';
@@ -33,5 +41,15 @@ export function registerEditorCommands(
         registerEffectCommand('talkbank.stopCoder', runner, () => stopCoderMode()),
         registerEffectCommand('talkbank.coderNext', runner, () => coderNext()),
         registerEffectCommand('talkbank.coderInsertCode', runner, () => coderInsertCode()),
+        // Review mode commands
+        registerEffectCommand('talkbank.startReview', runner, () => startReview()),
+        registerEffectCommand('talkbank.stopReview', runner, () => stopReview()),
+        registerEffectCommand('talkbank.reviewNext', runner, () => reviewNext()),
+        registerEffectCommand('talkbank.reviewPrev', runner, () => reviewPrev()),
+        registerEffectCommand('talkbank.reviewGood', runner, () => rateUtterance('ok')),
+        registerEffectCommand('talkbank.reviewEarly', runner, () => rateUtterance('early')),
+        registerEffectCommand('talkbank.reviewLate', runner, () => rateUtterance('late')),
+        registerEffectCommand('talkbank.reviewWrong', runner, () => rateUtterance('wrong')),
+        registerEffectCommand('talkbank.reviewSkip', runner, () => skipUtterance()),
     ];
 }

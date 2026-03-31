@@ -1,5 +1,7 @@
 # Dependent Tier Alignment Rules
 
+**Last modified:** 2026-03-30 17:12 EDT
+
 This document specifies the alignment validation rules for all dependent tiers
 that participate in alignment during CHAT file validation.
 
@@ -83,7 +85,9 @@ item.
 - Retraced/reformulated content (annotations: `[/]`, `[//]`, `[///]`, `[//?]`,
   `[/-]`, `[e]`)
 - Fragment-like words: `Nonword`, `Filler`, `PhonologicalFragment` categories
-- Untranscribed material: `xxx`, `yyy`, `www`
+- Untranscribed material: `xxx`, `yyy`, `www` (matched **case-insensitively** —
+  uppercase `XXX` is illegal per E241 but still excluded from alignment to
+  prevent spurious %mor entries when morphotag runs on legacy corpora)
 - Pauses, events, actions
 
 **Terminator handling:** The main tier terminator and the `%mor` terminator are

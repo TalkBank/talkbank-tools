@@ -16,6 +16,11 @@ use talkbank_model::Span;
 use talkbank_model::model::WordCompoundMarker;
 
 // ═══════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
 // Word token → WordContent
 // ═══════════════════════════════════════════════════════════════
 
@@ -207,13 +212,25 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
             UtteranceContent::Pause(Pause::new(duration))
         }
         ast::ContentItem::Event(toks) => {
-            // Skip EventMarker("&="), join only EventSegment content
-            let event_text: String = toks
-                .iter()
-                .filter(|t| !matches!(t, Token::EventMarker(_)))
+            // The lexer emits a single Event token with the description text.
+            let event_text = toks
+                .first()
                 .map(|t| t.text())
-                .collect();
-            UtteranceContent::Event(Event::new(event_text.as_str()))
+                .unwrap_or("");
+            UtteranceContent::Event(Event::new(event_text))
+        }
+        ast::ContentItem::AnnotatedEvent { event, annotations } => {
+            let event_text = event.text();
+            let event_model = Event::new(event_text);
+            let scoped = annotations_to_scoped(annotations);
+            if scoped.is_empty() {
+                UtteranceContent::Event(event_model)
+            } else {
+                UtteranceContent::AnnotatedEvent(
+                    Annotated::new(event_model)
+                        .with_scoped_annotations(scoped),
+                )
+            }
         }
         ast::ContentItem::Separator(tok) => {
             UtteranceContent::Separator(separator_token_to_model(tok))
@@ -294,10 +311,16 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
             Token::MediaBullet {
                 start_time,
                 end_time,
+                skip,
+                ..
             } => {
                 let start_ms: u64 = start_time.parse().unwrap_or(0);
                 let end_ms: u64 = end_time.parse().unwrap_or(0);
-                UtteranceContent::InternalBullet(Bullet::new(start_ms, end_ms))
+                let mut bullet = Bullet::new(start_ms, end_ms);
+                if *skip {
+                    bullet = bullet.with_skip(true);
+                }
+                UtteranceContent::InternalBullet(bullet)
             }
             _ => unreachable!(),
         },
@@ -498,12 +521,24 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
             Some(BracketedItem::Pause(Pause::new(duration)))
         }
         ast::ContentItem::Event(toks) => {
-            let event_text: String = toks
-                .iter()
-                .filter(|t| !matches!(t, Token::EventMarker(_)))
+            let event_text = toks
+                .first()
                 .map(|t| t.text())
-                .collect();
-            Some(BracketedItem::Event(Event::new(event_text.as_str())))
+                .unwrap_or("");
+            Some(BracketedItem::Event(Event::new(event_text)))
+        }
+        ast::ContentItem::AnnotatedEvent { event, annotations } => {
+            let event_text = event.text();
+            let event_model = Event::new(event_text);
+            let scoped = annotations_to_scoped(annotations);
+            if scoped.is_empty() {
+                Some(BracketedItem::Event(event_model))
+            } else {
+                Some(BracketedItem::AnnotatedEvent(
+                    Annotated::new(event_model)
+                        .with_scoped_annotations(scoped),
+                ))
+            }
         }
         ast::ContentItem::Action { annotations, .. } => {
             let scoped = annotations_to_scoped(annotations);
@@ -665,6 +700,32 @@ fn parsed_annotation_to_scoped(ann: &ast::ParsedAnnotation<'_>) -> Option<Conten
 // Terminator conversion
 // ═══════════════════════════════════════════════════════════════
 
+/// Promote a trailing CA intonation arrow separator to a terminator.
+///
+/// CA intonation arrows (⇗ ↗ → ↘ ⇘) serve dual roles: mid-content
+/// separators AND utterance-final terminators. The chumsky parser
+/// always consumes them as separators (like TreeSitter's greedy rule).
+/// When no explicit terminator was found, the trailing arrow should be
+/// promoted. This matches TreeSitter's `resolve_ca_terminator`.
+fn resolve_ca_terminator(
+    mut content: Vec<UtteranceContent>,
+    terminator: Option<Terminator>,
+) -> (Vec<UtteranceContent>, Option<Terminator>) {
+    if terminator.is_some() {
+        return (content, terminator);
+    }
+
+    // Check if the last content item is a CA intonation separator
+    if let Some(UtteranceContent::Separator(sep)) = content.last() {
+        if let Some(term) = sep.to_ca_terminator() {
+            content.pop();
+            return (content, Some(term));
+        }
+    }
+
+    (content, terminator)
+}
+
 /// Convert a terminator token to model Terminator.
 pub fn token_to_terminator(tok: &Token<'_>) -> Terminator {
     let s = Span::DUMMY;
@@ -705,6 +766,13 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
         .terminator
         .as_ref()
         .map(|t| token_to_terminator(t));
+
+    // CA terminator promotion: when no terminator was found, check if the
+    // trailing content item is a CA intonation arrow separator. If so,
+    // promote it to a terminator. This matches the TreeSitter parser's
+    // `resolve_ca_terminator` post-hoc fixup.
+    let (content_items, terminator) = resolve_ca_terminator(content_items, terminator);
+
     let mut main_tier = MainTier::new(speaker, content_items, terminator);
 
     // Linkers
@@ -743,16 +811,25 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
         main_tier = main_tier.with_postcodes(postcodes);
     }
 
-    // Media bullet
+    // Media bullet — utterance-level timing.
+    // TreeSitter puts the last bullet in BOTH content (InternalBullet) AND
+    // the utterance-level bullet field. The re2c parser consumes all bullets
+    // as content items, so we extract the last one for the utterance field.
     if let Some(bullet_tok) = &mt.tier_body.media_bullet {
         if let Token::MediaBullet {
             start_time,
             end_time,
+            skip,
+            ..
         } = bullet_tok
         {
             let start_ms: u64 = start_time.parse().unwrap_or(0);
             let end_ms: u64 = end_time.parse().unwrap_or(0);
-            main_tier = main_tier.with_bullet(Bullet::new(start_ms, end_ms));
+            let mut bullet = Bullet::new(start_ms, end_ms);
+            if *skip {
+                bullet = bullet.with_skip(true);
+            }
+            main_tier = main_tier.with_bullet(bullet);
         }
     }
 
@@ -1334,6 +1411,7 @@ fn tokens_to_bullet_content(tokens: &[Token<'_>]) -> BulletContent {
             Token::MediaBullet {
                 start_time,
                 end_time,
+                ..
             } => {
                 let start_ms = start_time.parse().unwrap_or(0);
                 let end_ms = end_time.parse().unwrap_or(0);
@@ -1518,6 +1596,7 @@ fn text_tier_to_bullet_content(parsed: &ast::TextTierParsed<'_>) -> BulletConten
                 Token::MediaBullet {
                     start_time,
                     end_time,
+                    ..
                 } => {
                     let s: u64 = start_time.parse().unwrap_or(0);
                     let e: u64 = end_time.parse().unwrap_or(0);
@@ -1612,10 +1691,19 @@ pub fn sin_tier_from_text(input: &str) -> talkbank_model::model::SinTier {
 
 /// Parse %wor tier content and convert to model WorTier.
 pub fn wor_tier_from_input(input: &str) -> WorTier {
+    use chumsky::Parser as _;
     use talkbank_model::model::dependent_tier::wor::WorItem;
-    // %wor uses same word rules as main tier. Parse words from input.
-    let mut p = crate::parser::Parser::new(input, crate::lexer::COND_MAIN_CONTENT);
-    let contents = p.parse_contents();
+
+    // %wor uses same word rules as main tier. Parse words via chumsky.
+    let tokens = crate::parser::lex_to_tokens(
+        input,
+        crate::lexer::COND_MAIN_CONTENT,
+    );
+    let contents = crate::parser::main_tier::contents_parser()
+        .parse(tokens)
+        .into_result()
+        .unwrap_or_default();
+
     let mut items = Vec::new();
     for item in &contents {
         match item {

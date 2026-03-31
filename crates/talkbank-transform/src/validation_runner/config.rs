@@ -8,12 +8,14 @@
 
 /// Which parser backend to use for validation.
 ///
-/// Only tree-sitter is supported. The direct (Chumsky) parser has been removed.
-/// This enum is retained for cache key compatibility.
+/// Tree-sitter is the default and supports incremental reparsing (used by LSP).
+/// Re2c is a DFA-based parser that is faster for batch validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParserKind {
-    /// Tree-sitter parser (the only parser)
+    /// Tree-sitter parser (default, supports incremental reparsing).
     TreeSitter,
+    /// Re2c DFA parser (faster batch validation, no incremental support).
+    Re2c,
 }
 
 impl ParserKind {
@@ -21,6 +23,7 @@ impl ParserKind {
     pub fn cache_label(self) -> &'static str {
         match self {
             ParserKind::TreeSitter => "tree-sitter",
+            ParserKind::Re2c => "re2c",
         }
     }
 }

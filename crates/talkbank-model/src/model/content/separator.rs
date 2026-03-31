@@ -228,6 +228,45 @@ impl Separator {
     pub fn is_comma(&self) -> bool {
         matches!(self, Separator::Comma { .. })
     }
+
+    /// Returns `true` when this separator is a CA intonation arrow.
+    ///
+    /// CA intonation arrows can function as utterance terminators when they
+    /// appear at the end of a main tier line. The tree-sitter grammar's greedy
+    /// `contents` rule always parses them as separators, so the Rust parser
+    /// promotes the trailing arrow to a terminator in a post-hoc fixup.
+    pub fn is_ca_intonation_arrow(&self) -> bool {
+        matches!(
+            self,
+            Separator::RisingToHigh { .. }
+                | Separator::RisingToMid { .. }
+                | Separator::Level { .. }
+                | Separator::FallingToMid { .. }
+                | Separator::FallingToLow { .. }
+        )
+    }
+
+    /// Convert a CA intonation arrow separator to the corresponding terminator.
+    ///
+    /// Returns `None` if this separator is not a CA intonation arrow.
+    pub fn to_ca_terminator(&self) -> Option<super::Terminator> {
+        match self {
+            Separator::RisingToHigh { span } => {
+                Some(super::Terminator::CaRisingToHigh { span: *span })
+            }
+            Separator::RisingToMid { span } => {
+                Some(super::Terminator::CaRisingToMid { span: *span })
+            }
+            Separator::Level { span } => Some(super::Terminator::CaLevel { span: *span }),
+            Separator::FallingToMid { span } => {
+                Some(super::Terminator::CaFallingToMid { span: *span })
+            }
+            Separator::FallingToLow { span } => {
+                Some(super::Terminator::CaFallingToLow { span: *span })
+            }
+            _ => None,
+        }
+    }
 }
 
 impl WriteChat for Separator {

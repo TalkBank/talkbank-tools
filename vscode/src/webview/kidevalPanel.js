@@ -21,7 +21,8 @@ const ACCENT_COLORS = [
 ];
 
 // -- DOM refs -------------------------------------------------------------
-const dbSelect = document.getElementById('db-select');
+const langSelect = document.getElementById('lang-select');
+const activitySelect = document.getElementById('activity-select');
 const genderSelect = document.getElementById('gender-select');
 const ageFrom = document.getElementById('age-from');
 const ageTo = document.getElementById('age-to');
@@ -30,8 +31,30 @@ const btnRunNoDb = document.getElementById('btn-run-no-db');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const fileNameEl = document.getElementById('file-name');
+const dbInfoPanel = document.getElementById('db-info-panel');
+const dbInfoName = document.getElementById('db-info-name');
+const dbInfoDetails = document.getElementById('db-info-details');
+const dbGrid = document.getElementById('db-grid');
 
 let databases = [];
+let selectedDbPath = '';
+let fileLanguage = '';
+let fileActivity = '';
+
+// -- Language / activity name maps ----------------------------------------
+const LANGUAGE_NAMES = {
+    eng: 'English (NA)', engu: 'English (UK)', fra: 'French',
+    jpn: 'Japanese', spa: 'Spanish', zho: 'Chinese',
+    nld: 'Dutch', yue: 'Cantonese', hrv: 'Croatian',
+    deu: 'German', ell: 'Greek', eus: 'Basque',
+    tha: 'Thai', por: 'Portuguese', ind: 'Indonesian',
+};
+
+const ACTIVITY_NAMES = {
+    narrative: 'Narrative', toyplay: 'Toyplay',
+    eval: 'Evaluation', 'eval-d': 'Dementia Eval',
+    general: 'General',
+};
 
 // -- Apply mode config to header ------------------------------------------
 document.getElementById('cmd-eyebrow').textContent =
@@ -45,9 +68,8 @@ setStatus('Discovering databases\u2026', false);
 
 // -- Event listeners ------------------------------------------------------
 
-dbSelect.addEventListener('change', () => {
-    btnRun.disabled = !dbSelect.value;
-});
+langSelect.addEventListener('change', onLanguageChange);
+activitySelect.addEventListener('change', onActivityChange);
 
 btnRun.addEventListener('click', () => {
     runAnalysis(true);
@@ -73,6 +95,11 @@ window.addEventListener('message', (event) => {
             break;
         case 'fileInfo':
             fileNameEl.textContent = msg.fileName;
+            // Auto-detect language and activity from file metadata
+            if (msg.language) { fileLanguage = msg.language; }
+            if (msg.activity) { fileActivity = msg.activity; }
+            // Re-apply auto-detection if databases are already loaded
+            if (databases.length > 0) { applyAutoDetection(); }
             break;
     }
 });
@@ -82,39 +109,161 @@ window.addEventListener('message', (event) => {
 function handleDatabases(dbs) {
     databases = dbs || [];
 
-    dbSelect.innerHTML = '';
-
     if (databases.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No databases found';
-        dbSelect.appendChild(opt);
+        langSelect.innerHTML = '<option value="">No databases found</option>';
+        activitySelect.innerHTML = '<option value="">—</option>';
+        dbGrid.innerHTML = '<tr><td class="empty">No normative databases found.</td></tr>';
         btnRun.disabled = true;
         setStatus('No normative databases found. You can still run without a database.', false);
         return;
     }
 
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'Select a database…';
-    dbSelect.appendChild(placeholder);
-
-    for (const db of databases) {
+    // Populate language dropdown from unique languages
+    const langs = [...new Set(databases.map(db => db.language).filter(Boolean))].sort();
+    langSelect.innerHTML = '<option value="">Select language…</option>';
+    for (const lang of langs) {
         const opt = document.createElement('option');
-        opt.value = db.path;
-        opt.textContent = formatDbName(db);
-        dbSelect.appendChild(opt);
+        opt.value = lang;
+        opt.textContent = LANGUAGE_NAMES[lang] || lang;
+        langSelect.appendChild(opt);
     }
 
-    btnRun.disabled = true;
-    setStatus('Ready. Select a database and click Run, or run without database comparison.', false);
+    // Render availability grid
+    renderAvailabilityGrid(databases);
+
+    // Auto-detect from file metadata
+    applyAutoDetection();
+
+    setStatus('Select language and activity, then compare with database.', false);
 }
 
-function formatDbName(db) {
-    const lang = db.language ? db.language.toUpperCase() : '???';
-    const corpus = db.corpus_type || 'unknown';
-    const count = db.entry_count != null ? ` (${db.entry_count} entries)` : '';
-    return `${lang} — ${corpus}${count}`;
+function applyAutoDetection() {
+    if (fileLanguage && langSelect.querySelector(`option[value="${fileLanguage}"]`)) {
+        langSelect.value = fileLanguage;
+        onLanguageChange();
+    }
+    if (fileActivity && activitySelect.querySelector(`option[value="${fileActivity}"]`)) {
+        activitySelect.value = fileActivity;
+        onActivityChange();
+    }
+}
+
+function onLanguageChange() {
+    const lang = langSelect.value;
+
+    // Filter databases for selected language
+    const matching = databases.filter(db => db.language === lang);
+    const activities = [...new Set(matching.map(db => db.corpus_type).filter(Boolean))].sort();
+
+    activitySelect.innerHTML = '';
+    if (activities.length === 0) {
+        activitySelect.innerHTML = '<option value="">—</option>';
+    } else if (activities.length === 1) {
+        // Auto-select the only activity
+        const opt = document.createElement('option');
+        opt.value = activities[0];
+        opt.textContent = ACTIVITY_NAMES[activities[0]] || activities[0];
+        activitySelect.appendChild(opt);
+    } else {
+        activitySelect.innerHTML = '<option value="">Select activity…</option>';
+        for (const act of activities) {
+            const opt = document.createElement('option');
+            opt.value = act;
+            opt.textContent = ACTIVITY_NAMES[act] || act;
+            activitySelect.appendChild(opt);
+        }
+    }
+
+    onActivityChange();
+}
+
+function onActivityChange() {
+    const lang = langSelect.value;
+    const activity = activitySelect.value;
+
+    // Find matching database
+    const match = databases.find(
+        db => db.language === lang && db.corpus_type === activity
+    );
+
+    if (match) {
+        dbInfoPanel.style.display = '';
+        const fileName = match.name || (match.path ? match.path.split('/').pop() : '');
+        dbInfoName.textContent = fileName;
+        const langName = LANGUAGE_NAMES[match.language] || match.language || '';
+        const actName = ACTIVITY_NAMES[match.corpus_type] || match.corpus_type || '';
+        const count = match.entry_count != null ? `${match.entry_count} samples` : '';
+        dbInfoDetails.textContent = [count, langName, actName].filter(Boolean).join(' \u00b7 ');
+        selectedDbPath = match.path;
+        btnRun.disabled = false;
+    } else {
+        dbInfoPanel.style.display = 'none';
+        selectedDbPath = '';
+        btnRun.disabled = true;
+    }
+
+    highlightGridCell(lang, activity);
+}
+
+function renderAvailabilityGrid(dbs) {
+    const langs = [...new Set(dbs.map(db => db.language).filter(Boolean))].sort();
+    const activities = [...new Set(dbs.map(db => db.corpus_type).filter(Boolean))].sort();
+
+    // Build lookup: {lang: {activity: db}}
+    const lookup = {};
+    for (const db of dbs) {
+        if (!db.language || !db.corpus_type) continue;
+        if (!lookup[db.language]) lookup[db.language] = {};
+        lookup[db.language][db.corpus_type] = db;
+    }
+
+    let html = '<thead><tr><th></th>';
+    for (const act of activities) {
+        html += `<th>${ACTIVITY_NAMES[act] || act}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    for (const lang of langs) {
+        html += `<tr><td class="grid-lang">${LANGUAGE_NAMES[lang] || lang}</td>`;
+        for (const act of activities) {
+            const db = lookup[lang] && lookup[lang][act];
+            if (db) {
+                const count = db.entry_count != null ? db.entry_count : '';
+                html += `<td class="grid-cell grid-available" `
+                    + `data-lang="${lang}" data-activity="${act}" `
+                    + `title="${count} samples">`
+                    + `\u25cf ${count}</td>`;
+            } else {
+                html += '<td class="grid-cell grid-empty">\u2014</td>';
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</tbody>';
+
+    dbGrid.innerHTML = html;
+
+    // Click handler on available cells
+    dbGrid.querySelectorAll('.grid-available').forEach(cell => {
+        cell.addEventListener('click', () => {
+            langSelect.value = cell.dataset.lang;
+            onLanguageChange();
+            activitySelect.value = cell.dataset.activity;
+            onActivityChange();
+        });
+    });
+}
+
+function highlightGridCell(lang, activity) {
+    dbGrid.querySelectorAll('.grid-cell').forEach(cell => {
+        cell.classList.remove('grid-selected');
+    });
+    if (lang && activity) {
+        const cell = dbGrid.querySelector(
+            `.grid-available[data-lang="${lang}"][data-activity="${activity}"]`
+        );
+        if (cell) cell.classList.add('grid-selected');
+    }
 }
 
 // -- Run analysis ---------------------------------------------------------
@@ -127,8 +276,8 @@ function runAnalysis(withDatabase) {
 
     const msg = { command: 'runAnalysis' };
 
-    if (withDatabase && dbSelect.value) {
-        msg.databasePath = dbSelect.value;
+    if (withDatabase && selectedDbPath) {
+        msg.databasePath = selectedDbPath;
         msg.databaseFilter = buildFilter();
     }
 
@@ -153,7 +302,7 @@ function buildFilter() {
 // -- Render results -------------------------------------------------------
 
 function handleResults(data) {
-    btnRun.disabled = !dbSelect.value;
+    btnRun.disabled = !selectedDbPath;
     btnRunNoDb.disabled = false;
     resultsEl.innerHTML = '';
 

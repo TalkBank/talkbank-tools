@@ -25,7 +25,7 @@ tier_body:
         lang: ~
         pos_tag: ~
         annotations:
-          - Replacement: " tistakēl"
+          - Replacement: tistakēl
         raw_text: stakēl
     - Word:
         category: ~

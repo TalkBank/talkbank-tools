@@ -313,6 +313,26 @@
         {
           "type": "SYMBOL",
           "name": "ca_technical_break_linker"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "rising_to_high"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "rising_to_mid"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "level_pitch"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "falling_to_mid"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "falling_to_low"
         }
       ]
     },

@@ -14,6 +14,7 @@ thiserror = { workspace = true }
 miette = { workspace = true }
 
 # Parsing and Lexing
+chumsky = "=1.0.0-alpha.8"
 phf = { version = "0.13", features = ["macros"] }
 strum = { version = "0.28", features = ["derive"] }
 

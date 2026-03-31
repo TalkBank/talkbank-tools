@@ -13,4 +13,5 @@ pub use clan_commands::ClanCommands;
 pub use clan_common::{ClanOutputFormat, CommonAnalysisArgs};
 pub use core::{
     AlignmentTier, CacheCommands, Cli, Commands, DebugCommands, LogFormat, OutputFormat,
+    ParserBackend,
 };

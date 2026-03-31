@@ -276,6 +276,15 @@ export default grammar({
       $.ca_no_break_linker,
       $.ca_technical_break,
       $.ca_technical_break_linker,
+      // CA intonation contours — also appear mid-content as separators.
+      // Tree-sitter's LR context resolves the ambiguity: when at utterance end
+      // (followed by bullet/newline), these match as terminators; when mid-content
+      // (followed by more words), they match as separators.
+      $.rising_to_high,
+      $.rising_to_mid,
+      $.level_pitch,
+      $.falling_to_mid,
+      $.falling_to_low,
     ),
 
     // Basic terminators

@@ -90,7 +90,14 @@ expression: snapshot
           "segments": [
             {
               "type": "text",
-              "text": "Constructs: x_dependent_tier, x_tier_prefix"
+              "text": "Constructs: x_dependent_tier, x_tier_prefix, media bullets in user-defined tiers,"
+            },
+            {
+              "type": "continuation"
+            },
+            {
+              "type": "text",
+              "text": "NAK-delimited timing in opaque tier content, multi-field user-defined tiers"
             }
           ]
         }
@@ -157,6 +164,67 @@ expression: snapshot
           "data": {
             "label": "xmod",
             "content": "extra model"
+          }
+        }
+      ]
+    },
+    {
+      "line_type": "utterance",
+      "main": {
+        "speaker": "MOT",
+        "content": {
+          "content": [
+            {
+              "type": "word",
+              "raw_text": "zero",
+              "cleaned_text": "zero",
+              "content": [
+                {
+                  "type": "text",
+                  "content": "zero"
+                }
+              ]
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        }
+      },
+      "dependent_tiers": [
+        {
+          "type": "UserDefined",
+          "data": {
+            "label": "xp",
+            "content": "LAT"
+          }
+        },
+        {
+          "type": "UserDefined",
+          "data": {
+            "label": "xcod",
+            "content": "$5ml $0 tsp $na"
+          }
+        },
+        {
+          "type": "UserDefined",
+          "data": {
+            "label": "xs1",
+            "content": "swallow 3093_4877"
+          }
+        },
+        {
+          "type": "UserDefined",
+          "data": {
+            "label": "xs2",
+            "content": "multiple swallow 46639_50559"
+          }
+        },
+        {
+          "type": "UserDefined",
+          "data": {
+            "label": "xdb",
+            "content": "average_dB=\"-29.52\" peak_dB=\"-18.64\""
           }
         }
       ]

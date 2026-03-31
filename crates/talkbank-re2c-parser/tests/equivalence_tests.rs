@@ -228,3 +228,102 @@ fn equivalence_word() {
         words.len()
     );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Offset parameter wiring tests
+// ═══════════════════════════════════════════════════════════════
+//
+// The re2c parser currently produces Span::DUMMY (0,0) for all spans.
+// SpanShift::shift_spans_after skips DUMMY spans (by design). So the
+// offset parameter is wired through but has no visible effect until real
+// byte-offset spans are added to the re2c parser's AST→model conversion.
+//
+// These tests verify that non-zero offsets don't cause panics or errors,
+// and that the parsing results are semantically identical regardless of
+// offset (since all spans are currently DUMMY).
+
+/// Verify that parse_chat_file at non-zero offset produces identical
+/// semantic content (spans are DUMMY, so shifting is a no-op).
+#[test]
+fn offset_wiring_chat_file_no_panic() {
+    let re2c = Re2cParser::new();
+    let re2c_errors = ErrorCollector::new();
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI||||Target_Child|||\n*CHI:\thello world .\n@End\n";
+
+    // Parsing at offset 0 and offset 200 should both succeed
+    let zero = re2c.parse_chat_file(input, 0, &re2c_errors);
+    let shifted = re2c.parse_chat_file(input, 200, &re2c_errors);
+
+    assert!(matches!(zero, ParseOutcome::Parsed(_)));
+    assert!(matches!(shifted, ParseOutcome::Parsed(_)));
+
+    // Both should produce semantically equivalent output
+    let (ParseOutcome::Parsed(zero_file), ParseOutcome::Parsed(shifted_file)) =
+        (zero, shifted)
+    else {
+        unreachable!();
+    };
+    assert!(zero_file.semantic_eq(&shifted_file));
+}
+
+/// Verify that parse_word at non-zero offset succeeds.
+#[test]
+fn offset_wiring_word_no_panic() {
+    let re2c = Re2cParser::new();
+    let re2c_errors = ErrorCollector::new();
+
+    let zero = re2c.parse_word("hello", 0, &re2c_errors);
+    let shifted = re2c.parse_word("hello", 100, &re2c_errors);
+
+    assert!(matches!(zero, ParseOutcome::Parsed(_)));
+    assert!(matches!(shifted, ParseOutcome::Parsed(_)));
+}
+
+/// Verify that parse_main_tier at non-zero offset succeeds.
+#[test]
+fn offset_wiring_main_tier_no_panic() {
+    let re2c = Re2cParser::new();
+    let re2c_errors = ErrorCollector::new();
+
+    let zero = re2c.parse_main_tier("*CHI:\thello .\n", 0, &re2c_errors);
+    let shifted = re2c.parse_main_tier("*CHI:\thello .\n", 500, &re2c_errors);
+
+    assert!(matches!(zero, ParseOutcome::Parsed(_)));
+    assert!(matches!(shifted, ParseOutcome::Parsed(_)));
+}
+
+/// Verify that parse_mor_tier at non-zero offset succeeds.
+#[test]
+fn offset_wiring_mor_tier_no_panic() {
+    let re2c = Re2cParser::new();
+    let re2c_errors = ErrorCollector::new();
+
+    let zero = re2c.parse_mor_tier("pro|I v|want .\n", 0, &re2c_errors);
+    let shifted = re2c.parse_mor_tier("pro|I v|want .\n", 300, &re2c_errors);
+
+    assert!(matches!(zero, ParseOutcome::Parsed(_)));
+    assert!(matches!(shifted, ParseOutcome::Parsed(_)));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Error reporting tests
+// ═══════════════════════════════════════════════════════════════
+
+/// Verify that parse_chat_file reports errors for malformed input
+/// via the ErrorSink (not silently swallowed).
+#[test]
+fn error_reporting_unhandled_tokens() {
+    let re2c = Re2cParser::new();
+    let errors = ErrorCollector::new();
+
+    // Input with an unrecognizable line (not @, *, or %)
+    let input = "@UTF8\n@Begin\nGARBAGE LINE\n@End\n";
+    let result = re2c.parse_chat_file(input, 0, &errors);
+    assert!(matches!(result, ParseOutcome::Parsed(_)));
+
+    let error_vec = errors.to_vec();
+    assert!(
+        !error_vec.is_empty(),
+        "malformed input should produce at least one diagnostic, got none"
+    );
+}

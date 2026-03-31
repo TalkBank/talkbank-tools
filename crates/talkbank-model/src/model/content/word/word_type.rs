@@ -298,9 +298,13 @@ impl Word {
     ///
     /// Derives the untranscribed status by checking the cleaned text against
     /// the three canonical untranscribed markers: "xxx", "yyy", "www".
+    /// The match is case-insensitive because legacy corpora use uppercase
+    /// variants (e.g., "XXX") which are illegal (E241) but still represent
+    /// untranscribed material. Without this, the morphotag pipeline would
+    /// send uppercase variants to Stanza and produce spurious %mor entries.
     pub fn compute_untranscribed(&self) -> Option<UntranscribedStatus> {
         let cleaned = self.compute_cleaned_text();
-        match cleaned.as_str() {
+        match cleaned.to_ascii_lowercase().as_str() {
             "xxx" => Some(UntranscribedStatus::Unintelligible),
             "yyy" => Some(UntranscribedStatus::Phonetic),
             "www" => Some(UntranscribedStatus::Untranscribed),

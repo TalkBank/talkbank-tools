@@ -64,6 +64,22 @@ fn mor_skips_untranscribed_but_pho_counts() {
     assert_eq!(count_tier_positions(&items, TierDomain::Pho), 1);
 }
 
+/// Uppercase `XXX` is illegal CHAT (E241) but still represents untranscribed
+/// material. The extraction layer must recognize it case-insensitively so that
+/// morphotag does not produce a spurious `x|XXX` entry on the `%mor` tier.
+#[test]
+fn mor_skips_uppercase_untranscribed() {
+    for text in &["XXX", "Xxx", "YYY", "Yyy", "WWW", "Www"] {
+        let word = Word::new_unchecked(*text, *text);
+        let items = vec![UtteranceContent::Word(Box::new(word))];
+        assert_eq!(
+            count_tier_positions(&items, TierDomain::Mor),
+            0,
+            "{text} should be non-alignable for Mor (case-insensitive untranscribed)"
+        );
+    }
+}
+
 /// Confirms timestamp-shaped tokens are excluded from `%wor` counts.
 #[test]
 fn wor_skips_timestamp_tokens() {

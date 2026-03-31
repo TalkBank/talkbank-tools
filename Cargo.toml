@@ -135,6 +135,7 @@ talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.1.0" }
 talkbank-model = { path = "crates/talkbank-model", version = "0.1.0" }
 talkbank-parser = { path = "crates/talkbank-parser", version = "0.1.0" }
 talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.1.0" }
+talkbank-re2c-parser = { path = "crates/talkbank-re2c-parser", version = "0.1.0" }
 talkbank-transform = { path = "crates/talkbank-transform", version = "0.1.0" }
 
 tempfile = "3.27"

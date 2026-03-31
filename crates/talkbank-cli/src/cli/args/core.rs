@@ -71,6 +71,19 @@ pub enum OutputFormat {
     Json,
 }
 
+/// Which parser backend to use for CHAT parsing.
+///
+/// Tree-sitter (default) supports incremental reparsing and is used by the LSP.
+/// Re2c is a DFA-based parser that is faster for batch validation.
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+pub enum ParserBackend {
+    /// Tree-sitter parser (default, supports incremental reparsing)
+    #[default]
+    TreeSitter,
+    /// Re2c DFA parser (faster batch validation)
+    Re2c,
+}
+
 /// Dependent tiers that `show-alignment` can filter on.
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
 pub enum AlignmentTier {
@@ -127,6 +140,12 @@ pub enum Commands {
         /// Tests serialization idempotency. Developer tool for parser/serializer testing.
         #[arg(long, help = "Test serialization idempotency (developer tool)")]
         roundtrip: bool,
+
+        /// Parser backend for CHAT parsing.
+        /// tree-sitter (default) supports incremental reparsing.
+        /// re2c is a DFA-based parser that is faster for batch validation.
+        #[arg(long, value_enum, default_value_t)]
+        parser: ParserBackend,
 
         /// Audit mode: stream errors to JSONL file without caching (for bulk corpus validation).
         /// Reads from cache to skip clean files (fast), but doesn't write new errors to cache (avoids OOM).

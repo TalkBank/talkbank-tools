@@ -15,7 +15,7 @@
     "url": "https://github.com/TalkBank/talkbank-tools/issues"
   },
   "engines": {
-    "vscode": "^1.85.0",
+    "vscode": "^1.110.0",
     "node": ">=18.0.0"
   },
   "categories": [
@@ -380,6 +380,54 @@
         "title": "Coder: Insert Code…",
         "category": "TalkBank",
         "icon": "$(tag)"
+      },
+      {
+        "command": "talkbank.startReview",
+        "title": "Start Review Mode",
+        "category": "TalkBank",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "talkbank.stopReview",
+        "title": "Stop Review Mode",
+        "category": "TalkBank"
+      },
+      {
+        "command": "talkbank.reviewNext",
+        "title": "Review: Next Flagged",
+        "category": "TalkBank",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "talkbank.reviewPrev",
+        "title": "Review: Previous Flagged",
+        "category": "TalkBank",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "talkbank.reviewGood",
+        "title": "Review: Rate Good",
+        "category": "TalkBank"
+      },
+      {
+        "command": "talkbank.reviewEarly",
+        "title": "Review: Rate Early",
+        "category": "TalkBank"
+      },
+      {
+        "command": "talkbank.reviewLate",
+        "title": "Review: Rate Late",
+        "category": "TalkBank"
+      },
+      {
+        "command": "talkbank.reviewWrong",
+        "title": "Review: Rate Wrong",
+        "category": "TalkBank"
+      },
+      {
+        "command": "talkbank.reviewSkip",
+        "title": "Review: Skip",
+        "category": "TalkBank"
       }
     ],
     "keybindings": [
@@ -455,6 +503,41 @@
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
         "when": "editorLangId == chat && talkbank.coderActive"
+      },
+      {
+        "command": "talkbank.reviewNext",
+        "key": "alt+]",
+        "when": "editorLangId == chat && talkbank.reviewActive"
+      },
+      {
+        "command": "talkbank.reviewPrev",
+        "key": "alt+[",
+        "when": "editorLangId == chat && talkbank.reviewActive"
+      },
+      {
+        "command": "talkbank.reviewGood",
+        "key": "1",
+        "when": "editorLangId == chat && talkbank.reviewActive && !editorTextFocus"
+      },
+      {
+        "command": "talkbank.reviewEarly",
+        "key": "2",
+        "when": "editorLangId == chat && talkbank.reviewActive && !editorTextFocus"
+      },
+      {
+        "command": "talkbank.reviewLate",
+        "key": "3",
+        "when": "editorLangId == chat && talkbank.reviewActive && !editorTextFocus"
+      },
+      {
+        "command": "talkbank.reviewWrong",
+        "key": "4",
+        "when": "editorLangId == chat && talkbank.reviewActive && !editorTextFocus"
+      },
+      {
+        "command": "talkbank.reviewSkip",
+        "key": "5",
+        "when": "editorLangId == chat && talkbank.reviewActive && !editorTextFocus"
       }
     ],
     "submenus": [

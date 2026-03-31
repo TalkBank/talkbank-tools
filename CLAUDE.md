@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-24 07:21 EDT
+**Last modified:** 2026-03-30 09:57 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -306,7 +306,7 @@ Every `match` on `UtteranceContent` or `BracketedItem` must explicitly list all 
 When CHAT rules refer to "consecutive", "sequential", or "adjacent" items on the main tier, this ALWAYS means **document order via recursive traversal** — NOT adjacent indices in the flat `Vec<UtteranceContent>`. Items inside groups (`<...>`, `"..."`, etc.) are part of the sequence. Always use `walk_words` or equivalent in-order walker, never raw index adjacency.
 
 ### Reference Corpus (100% Required)
-`corpus/reference/` (74 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
+`corpus/reference/` (87 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
 ```bash
 make verify
 cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
@@ -633,11 +633,60 @@ chatter validate path/to/corpus/ --skip-alignment     # Faster (skip tier alignm
 
 Key flags: `--roundtrip`, `--force`, `--skip-alignment`, `--max-errors N`, `--jobs N`, `--quiet`, `--format json`.
 
+## Re2c Parser Parity Testing
+
+The `talkbank-re2c-parser` crate is an independent CHAT parser used as a
+**specification oracle**. Its purpose is to find gaps in specs and reference
+corpus — every divergence between re2c and TreeSitter is a missing test.
+
+**The parser is the testing tool. Specs are the output.**
+
+### Workflow
+
+1. Run the full corpus comparison (99,744 files, ~20 min in release):
+   ```bash
+   cargo test -p talkbank-re2c-parser --test full_corpus_parse_test --release -- --ignored --nocapture
+   ```
+
+2. Categorize divergences:
+   ```bash
+   cargo test -p talkbank-re2c-parser --test categorize_divergences --release -- --ignored --nocapture
+   ```
+
+3. For each divergence category:
+   a. Find a representative file from the wild corpus
+   b. Identify the CHAT construct causing the divergence
+   c. **Add a construct spec** in `spec/constructs/`
+   d. **Add or update a reference corpus file** in `corpus/reference/`
+   e. Run `make test-gen` to regenerate tests
+   f. Fix the re2c parser to match (or file a bug on TreeSitter if it's wrong)
+
+4. Re-run the corpus comparison to verify reduction.
+
+### Reports
+
+Corpus tests write to `/tmp/re2c_*.json`. Always check timestamps.
+Do NOT pipe corpus test output through grep — run directly and tail the output file.
+
+### CLI Integration
+
+```bash
+chatter validate --parser re2c corpus/reference/   # Validate with re2c parser
+chatter validate --parser re2c --roundtrip corpus/  # + roundtrip test
+```
+
+TreeSitterParser is the default. Re2c is opt-in via `--parser re2c`.
+LSP always uses TreeSitterParser (needs incremental parsing).
+
+### Current Status
+
+See `crates/talkbank-re2c-parser/docs/parity-report.md` for detailed metrics.
+
 ## Status and Limitations
 
 - Specs are the source of truth; regenerate tests/docs after spec changes.
 - Generated artifacts should not be edited by hand.
-- Tree-sitter parser is the sole parser. The Chumsky direct parser has been removed.
+- Tree-sitter parser is the default. Re2c parser available via `--parser re2c`.
 - Do not delete the validation cache (`~/Library/Caches/talkbank-chat/` on macOS, `~/.cache/talkbank-chat/` on Linux, `%LocalAppData%\talkbank-chat\` on Windows) without explicit request.
 - Rust edition 2024.
 

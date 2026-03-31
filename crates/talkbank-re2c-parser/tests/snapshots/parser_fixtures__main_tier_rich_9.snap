@@ -24,5 +24,7 @@ tier_body:
     - Postcode: SR
   media_bullet:
     MediaBullet:
+      raw_text: "\u0015171921_173802\u0015"
       start_time: "171921"
       end_time: "173802"
+      skip: false

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-26 22:41 EDT
+**Last modified:** 2026-03-29 23:35 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A CHAT transcript parser using **re2rust** (re2c's Rust backend) for lexing and a handwritten recursive-descent parser. Lives in the `talkbank-tools` workspace as `talkbank-re2c-parser`.
 
-**Status:** Implements the `ChatParser` trait from `talkbank-model`. The public type is `Re2cParser`. Lexer validated against 99,907 CHAT files with zero errors.
+**Status:** Implements the `ChatParser` trait from `talkbank-model`. The public type is `Re2cParser`. Lexer validated against 99,907 CHAT files with zero errors. Integrated into the CLI via `chatter validate --parser re2c`.
 
 ## Architecture: Rich Word Token
 
@@ -112,8 +112,32 @@ The build script (`build.rs`) runs `re2rust` on `src/lexer.re` → `OUT_DIR/lexe
 - **Parser tests:** `tests/golden_parse.rs`, `tests/parser_fixtures.rs` — parsed AST structures.
 - **Equivalence tests:** `tests/equivalence_tests.rs` — Re2cParser vs TreeSitterParser comparison via `ChatParser` trait.
 - **Model study:** `tests/model_study.rs` — reference corpus equivalence. 6 files have known divergences (overlaps, nonvocals, phon syllabification, wor tier, CA) — these are refinement TODOs, not regressions.
+- **Full corpus tests:** `tests/full_corpus_parse_test.rs` — 99,744-file SemanticEq comparison.
+  `tests/categorize_divergences.rs` — categorizes divergences by diff path.
+  `tests/subcategorize_main_tier.rs` — sub-categorizes main tier divergences.
 - **When a test fails, STOP and ask.** CHAT semantics are domain-specific.
 - **Slow tests:** Mark with `#[ignore]` and run via `--ignored` flag.
+
+### Running Corpus Tests
+
+Corpus tests take 10-20 minutes. They write reports to `/tmp/re2c_*.json`.
+
+```bash
+# Full parse comparison (SemanticEq on all 99,744 files)
+cargo test -p talkbank-re2c-parser --test full_corpus_parse_test --release -- --ignored --nocapture
+
+# Categorize divergences (span-stripped JSON diff)
+cargo test -p talkbank-re2c-parser --test categorize_divergences --release -- --ignored --nocapture
+
+# Sub-categorize main tier divergences
+cargo test -p talkbank-re2c-parser --test subcategorize_main_tier --release -- --ignored --nocapture
+```
+
+**Pitfalls:**
+- Do NOT pipe corpus test output through grep — it loses data. Run directly and use `tail` on the output file.
+- Always check `/tmp/re2c_divergence_categories.json` timestamp after runs to verify freshness.
+- If results look stale, `cargo build --release -p talkbank-re2c-parser --tests` forces recompilation.
+- Reports are overwritten on each run. Compare timestamps, not just content.
 
 ### Lexer Validation Status
 
@@ -137,13 +161,28 @@ The lexer NEVER fails — it always returns tokens, some of which may be error t
 - Every `pub` type and function has a doc comment.
 - File size: ≤400 lines recommended, ≤800 hard limit.
 
-## Known Equivalence Gaps
+## Pipeline Integration
 
-6 reference corpus files have semantic differences between Re2cParser and TreeSitterParser:
-- `nonvocal-and-long-features.cha` — nonvocal/long-feature handling
-- `overlaps.cha` — overlap point placement in words
-- `phon-syllabification.cha` — syllabification tier parsing
-- `wor.cha` — %wor tier word extraction
-- `1082.cha`, `000829.cha` — CA/word feature edge cases
+The re2c parser is wired into the main pipeline as an alternative to TreeSitterParser:
 
-These are refinement TODOs for body parser tuning, not architectural issues.
+```bash
+# Use re2c parser for validation
+chatter validate --parser re2c corpus/reference/
+
+# Use re2c parser with roundtrip testing
+chatter validate --parser re2c --roundtrip corpus/reference/
+```
+
+Key integration points:
+- `ParserKind::Re2c` in `talkbank-transform/src/validation_runner/config.rs`
+- `ParserDispatch` enum in `worker.rs` wraps both parser backends
+- `ParserBackend` CLI enum in `talkbank-cli/src/cli/args/core.rs`
+- Cache keys include the parser label (`"re2c"` vs `"tree-sitter"`)
+- TreeSitterParser remains the default; LSP always uses TreeSitterParser
+
+## Equivalence Status
+
+All 85 reference corpus files pass SemanticEq equivalence with TreeSitterParser.
+All 85 files validate and roundtrip successfully with `--parser re2c`.
+6 previously-known gaps (nonvocals, overlaps, phon-syllabification, wor, CA)
+have all been resolved.

@@ -42,6 +42,11 @@ import {
     createCoderCommandStateStore,
 } from './coderState';
 import {
+    ReviewCommandStateService,
+    ReviewCommandStateStore,
+    createReviewCommandStateStore,
+} from './reviewState';
+import {
     NodeTextFileService,
     TextFileService as TextFileServiceTag,
     TextFileService,
@@ -79,6 +84,7 @@ export type ExtensionCommandRequirements =
     | TranscriptionCommandStateStore
     | WalkerCommandStateStore
     | CoderCommandStateStore
+    | ReviewCommandStateStore
     | TextFileService;
 
 /**
@@ -164,6 +170,7 @@ export function makeExtensionCommandLayer(
     const transcriptionState = createTranscriptionCommandStateStore();
     const walkerState = createWalkerCommandStateStore();
     const coderState = createCoderCommandStateStore();
+    const reviewState = createReviewCommandStateStore();
     const textFileService = new NodeTextFileService();
 
     return Layer.mergeAll(
@@ -180,6 +187,7 @@ export function makeExtensionCommandLayer(
         Layer.succeed(TranscriptionCommandStateService, transcriptionState),
         Layer.succeed(WalkerCommandStateService, walkerState),
         Layer.succeed(CoderCommandStateService, coderState),
+        Layer.succeed(ReviewCommandStateService, reviewState),
         Layer.succeed(TextFileServiceTag, textFileService),
     );
 }

@@ -1299,7 +1299,8 @@ expression: snapshot
                   "type": "text",
                   "content": "XXX"
                 }
-              ]
+              ],
+              "untranscribed": "unintelligible"
             }
           ],
           "terminator": {

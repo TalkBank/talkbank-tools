@@ -7,7 +7,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use super::cache::{CacheOutcome, ValidationCache};
-use super::config::{CacheMode, ValidationConfig};
+use super::config::{CacheMode, ParserKind, ValidationConfig};
 use super::roundtrip;
 use super::types::{
     ErrorEvent, FileCompleteEvent, FileStatus, RoundtripEvent, ValidationEvent, ValidationStats,
@@ -16,9 +16,50 @@ use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use talkbank_model::ChatFile;
+use talkbank_model::{ChatFile, ChatParser, ErrorSink, ParseOutcome};
 use talkbank_model::{ParseError, Severity};
 use talkbank_parser::TreeSitterParser;
+use talkbank_re2c_parser::Re2cParser;
+
+/// Dispatch enum wrapping both parser backends.
+///
+/// Avoids trait objects (which would require `ErrorSink` monomorphization)
+/// while keeping the worker code parser-agnostic.
+pub(super) enum ParserDispatch {
+    /// Tree-sitter parser (default, supports incremental reparsing).
+    TreeSitter(TreeSitterParser),
+    /// Re2c DFA parser (faster batch validation).
+    Re2c(Re2cParser),
+}
+
+impl ParserDispatch {
+    /// Create the appropriate parser for the given `ParserKind`.
+    pub(super) fn new(kind: ParserKind) -> Result<Self, String> {
+        match kind {
+            ParserKind::TreeSitter => TreeSitterParser::new()
+                .map(ParserDispatch::TreeSitter)
+                .map_err(|e| format!("{e}")),
+            ParserKind::Re2c => Ok(ParserDispatch::Re2c(Re2cParser::new())),
+        }
+    }
+
+    /// Parse a complete CHAT file with streaming error reporting.
+    ///
+    /// Both backends always return a ChatFile (best-effort recovery).
+    pub(super) fn parse_chat_file_streaming(
+        &self,
+        input: &str,
+        errors: &impl ErrorSink,
+    ) -> ChatFile {
+        match self {
+            Self::TreeSitter(p) => p.parse_chat_file_streaming(input, errors),
+            Self::Re2c(p) => match p.parse_chat_file(input, 0, errors) {
+                ParseOutcome::Parsed(cf) => cf,
+                ParseOutcome::Rejected => ChatFile::new(vec![]),
+            },
+        }
+    }
+}
 
 /// Main loop executed by each validation worker thread.
 pub(super) fn worker_loop<C>(
@@ -31,15 +72,13 @@ pub(super) fn worker_loop<C>(
 ) where
     C: ValidationCache + Send + Sync,
 {
-    let parser = match TreeSitterParser::new() {
+    let parser = match ParserDispatch::new(config.parser_kind) {
         Ok(p) => p,
         Err(e) => {
-            tracing::error!(error = ?e, "Error creating tree-sitter parser");
+            tracing::error!(error = %e, "Error creating parser ({:?})", config.parser_kind);
             return;
         }
     };
-    // ParserKind is ignored — tree-sitter is the only parser now.
-    let _ = config.parser_kind;
 
     loop {
         // Check for cancellation
@@ -225,7 +264,7 @@ pub(super) fn worker_loop<C>(
 /// Run roundtrip test and emit events. Returns the resulting FileStatus.
 fn run_roundtrip_and_emit<C>(
     chat_file: &ChatFile,
-    parser: &TreeSitterParser,
+    parser: &ParserDispatch,
     file_path: &Path,
     config: &ValidationConfig,
     cache: &Option<Arc<C>>,
@@ -359,7 +398,7 @@ fn validate_single_file_streaming(
     file_path: &Path,
     content: Arc<str>,
     check_alignment: bool,
-    parser: &TreeSitterParser,
+    parser: &ParserDispatch,
     event_tx: &Sender<ValidationEvent>,
 ) -> (Vec<ParseError>, Option<ChatFile>) {
     // Collect all errors during validation (no streaming)

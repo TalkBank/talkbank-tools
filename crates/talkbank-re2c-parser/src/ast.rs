@@ -50,8 +50,15 @@ pub enum ContentItem<'a> {
     Group(Group<'a>),
     /// grammar.js: quotation = seq(left_double_quote, contents, right_double_quote)
     Quotation(Quotation<'a>),
-    /// Event: &= + event_segment tokens
+    /// Bare event: &=description (no annotations)
     Event(Vec<Token<'a>>),
+    /// Event with annotations: &=description [annotation1] [annotation2] ...
+    /// grammar.js: nonword_with_optional_annotations wraps events.
+    /// Retrace markers are dropped (not applicable to events).
+    AnnotatedEvent {
+        event: Token<'a>,
+        annotations: Vec<ParsedAnnotation<'a>>,
+    },
     /// Media bullet
     MediaBullet(Token<'a>),
     /// CA element or delimiter

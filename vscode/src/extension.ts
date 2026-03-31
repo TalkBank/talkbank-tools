@@ -5,6 +5,7 @@ import { ClanIntegration } from './clanIntegration';
 import { disposeSpecialChars } from './specialChars';
 import { activateLanguageServer } from './activation/lsp';
 import { registerBulletDecorations } from './activation/bullets';
+import { registerReviewDecorations } from './activation/reviewDecorations';
 import { activateValidationExplorer } from './activation/validation';
 import { registerExtensionCommands } from './activation/commands';
 import { createExtensionCommandRunner } from './effectCommandRuntime';
@@ -24,6 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
     activeClient = client;
     const commandClient = new TalkbankExecuteCommandClient(client);
     context.subscriptions.push(...registerBulletDecorations(runtimeServices.runtimeContext));
+    context.subscriptions.push(...registerReviewDecorations());
     context.subscriptions.push(
         ...activateValidationExplorer({
             ...runtimeServices,

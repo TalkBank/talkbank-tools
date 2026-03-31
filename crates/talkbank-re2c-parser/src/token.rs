@@ -254,8 +254,10 @@ pub enum Token<'a> {
     PrefixNonword(&'a str),
     /// grammar.js: token('&+') — fragment
     PrefixFragment(&'a str),
-    /// grammar.js: event_marker = token('&=')
-    EventMarker(&'a str),
+    /// grammar.js: event = seq(event_marker, event_segment+)
+    /// Complete event token: the tag-extracted event description text
+    /// (e.g., "laughs" from `&=laughs`, "clears:throat" from `&=clears:throat`).
+    Event(&'a str),
     /// grammar.js: zero = token(prec(3, '0'))
     Zero(&'a str),
 
@@ -340,9 +342,14 @@ pub enum Token<'a> {
     /// grammar.js: media_url = token(/\u0015\d+_\d+-?\u0015/)
     /// Media bullet with tag-extracted timestamps.
     /// Pattern: `\u{0015}start_end-?\u{0015}`, tags mark start (t1..t2) and end (t3..t4).
+    /// `raw_text` carries the full original slice including NAK delimiters,
+    /// so no downstream reconstruction is needed.
+    /// `skip` is true when a dash precedes the closing NAK (`\x15start_end-\x15`).
     MediaBullet {
+        raw_text: &'a str,
         start_time: &'a str,
         end_time: &'a str,
+        skip: bool,
     },
 
     // ── CA elements (typed — one variant per CAElementType) ──
@@ -620,7 +627,7 @@ impl<'a> Token<'a> {
             | Token::PrefixFiller(s)
             | Token::PrefixNonword(s)
             | Token::PrefixFragment(s)
-            | Token::EventMarker(s)
+            | Token::Event(s)
             | Token::Zero(s)
             | Token::FormMarker(s)
             | Token::PosTag(s)
@@ -703,7 +710,7 @@ impl<'a> Token<'a> {
             Token::Word { raw_text, .. } => raw_text,
             Token::WordLangSuffix(opt) => opt.unwrap_or("@s"),
             Token::OtherSpokenEvent { speaker, .. } => speaker,
-            Token::MediaBullet { start_time, .. } => start_time,
+            Token::MediaBullet { raw_text, .. } => raw_text,
             Token::HeaderBirthOf(s) | Token::HeaderBirthplaceOf(s) | Token::HeaderL1Of(s) => s,
             Token::MorWord { pos, .. } => pos,
             Token::GraRelation { index, .. } => index,

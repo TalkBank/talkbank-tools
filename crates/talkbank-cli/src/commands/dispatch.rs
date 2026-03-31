@@ -115,6 +115,7 @@ impl CommandFamilyService for ValidationCommandService {
                 quiet,
                 max_errors,
                 roundtrip,
+                parser,
                 audit,
                 suppress,
             } => run_validate_command(
@@ -123,7 +124,14 @@ impl CommandFamilyService for ValidationCommandService {
                     rules: ValidateCommandRules {
                         alignment: AlignmentValidationMode::from_enabled(!skip_alignment),
                         roundtrip: RoundtripValidationMode::from_enabled(roundtrip),
-                        parser_kind: talkbank_transform::ParserKind::TreeSitter,
+                        parser_kind: match parser {
+                            crate::cli::ParserBackend::TreeSitter => {
+                                talkbank_transform::ParserKind::TreeSitter
+                            }
+                            crate::cli::ParserBackend::Re2c => {
+                                talkbank_transform::ParserKind::Re2c
+                            }
+                        },
                     },
                     execution: ValidateCommandExecution {
                         cache_refresh: CacheRefreshMode::from_force(force),

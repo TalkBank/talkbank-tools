@@ -3,7 +3,7 @@
 //!
 //! cargo test -p talkbank-re2c-parser --test model_study -- --nocapture --ignored
 
-use talkbank_model::SemanticEq;
+use talkbank_model::{ChatParser, SemanticEq};
 use talkbank_parser::TreeSitterParser;
 
 fn ts() -> TreeSitterParser {
@@ -626,5 +626,85 @@ fn study_gra_tier() {
         eprintln!("{}", serde_json::to_string_pretty(&t).unwrap());
     } else {
         eprintln!("REJECTED");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Single-file divergence debugger
+// ═══════════════════════════════════════════════════════════════
+
+/// Debug a single file: parse with both parsers, find first divergent utterance.
+///
+/// Set FILE env var or edit the default path. Run:
+/// ```bash
+/// FILE=path/to.cha cargo test -p talkbank-re2c-parser --test model_study -- debug_single_file --nocapture --ignored
+/// ```
+#[test]
+#[ignore]
+fn debug_single_file() {
+    let path = std::env::var("FILE").unwrap_or_else(|_| {
+        format!(
+            "{}/talkbank/data/ca-data/Bergmann/003_Moramin1.cha",
+            std::env::var("HOME").unwrap()
+        )
+    });
+    let content = std::fs::read_to_string(&path).expect("read file");
+
+    let ts_parser = ts();
+    let re2c_parser = talkbank_re2c_parser::Re2cParser::new();
+    let errors = talkbank_model::errors::ErrorCollector::new();
+
+    let ts_file = ts_parser.parse_chat_file_streaming(&content, &errors);
+    let re2c_file = match re2c_parser.parse_chat_file(&content, 0, &errors) {
+        talkbank_model::ParseOutcome::Parsed(f) => f,
+        _ => {
+            eprintln!("Re2c REJECTED");
+            return;
+        }
+    };
+
+    if ts_file.semantic_eq(&re2c_file) {
+        eprintln!("EQUIVALENT — no divergence");
+        return;
+    }
+
+    let ts_utts: Vec<_> = ts_file.utterances().collect();
+    let re2c_utts: Vec<_> = re2c_file.utterances().collect();
+    eprintln!("DIVERGENT: ts={} utts, re2c={} utts", ts_utts.len(), re2c_utts.len());
+
+    if ts_utts.len() != re2c_utts.len() {
+        eprintln!("  Utterance COUNT mismatch — different line parsing");
+    }
+
+    for (i, (t, r)) in ts_utts.iter().zip(re2c_utts.iter()).enumerate() {
+        if !t.semantic_eq(r) {
+            let tc = &t.main.content;
+            let rc = &r.main.content;
+            eprintln!("  First divergent utterance: {i}");
+            eprintln!("  Speaker: {}", t.main.speaker);
+            eprintln!("  TS:   {} items, bullet={}, term={:?}",
+                tc.content.len(), tc.bullet.is_some(),
+                tc.terminator.as_ref().map(|t| format!("{t:?}")));
+            eprintln!("  Re2c: {} items, bullet={}, term={:?}",
+                rc.content.len(), rc.bullet.is_some(),
+                rc.terminator.as_ref().map(|t| format!("{t:?}")));
+
+            let max = tc.content.len().max(rc.content.len());
+            for j in 0..max {
+                let ts_t = tc.content.get(j)
+                    .map(|c| format!("{:?}", std::mem::discriminant(c)))
+                    .unwrap_or_else(|| "<missing>".into());
+                let re_t = rc.content.get(j)
+                    .map(|c| format!("{:?}", std::mem::discriminant(c)))
+                    .unwrap_or_else(|| "<missing>".into());
+                let marker = if ts_t != re_t { " <<<" } else { "" };
+                eprintln!("    [{j}] ts={ts_t:30} re2c={re_t}{marker}");
+            }
+
+            if t.dependent_tiers.len() != r.dependent_tiers.len() {
+                eprintln!("  Deps: ts={}, re2c={}", t.dependent_tiers.len(), r.dependent_tiers.len());
+            }
+            break;
+        }
     }
 }

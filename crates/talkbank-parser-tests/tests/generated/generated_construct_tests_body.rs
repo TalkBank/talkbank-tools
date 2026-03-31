@@ -39,6 +39,15 @@ fn test_id_single() -> Result<(), talkbank_parser_tests::test_error::TestError> 
 
 #[test]
 /// Tests expected behavior.
+fn test_id_trailing_whitespace() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@ID:\teng|corpus|PAR|43;|male|Broca||Participant||73.9 |\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_languages_single() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@End")?;
@@ -138,9 +147,54 @@ fn test_colon_separator() -> Result<(), talkbank_parser_tests::test_error::TestE
 
 #[test]
 /// Tests expected behavior.
+fn test_event_compound() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t&=clears:throat .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_event_in_group() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t<&=laughs> [<] .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_event_with_annotation() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\tone &=ges [//] the computer do it .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_fused_terminator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\ttrying to+...\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_group_multiple_annotations() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\t<really> [?] [<] .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_inline_bullet_continuation() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*PAT:\tI think you could use new clothes→ 0_2633\n\t(1.0) 2633_4026\n@End")?;
 
     Ok(())
 }
@@ -741,6 +795,15 @@ fn test_pho_example_9() -> Result<(), talkbank_parser_tests::test_error::TestErr
 
 #[test]
 /// Tests expected behavior.
+fn test_pho_pause_as_word() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello there .\n%pho:\twow (..) kijz .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_sin_example_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello .\n%sin:\tsign\n@End")?;
@@ -798,6 +861,15 @@ fn test_unsupported_tier_example_1() -> Result<(), talkbank_parser_tests::test_e
 fn test_wor_example_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\tword .\n%wor:\tword 123_456 .\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_x_tier_with_bullets() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*SLP:\t0 .\n%xs1:\tswallow 3093_4877\n@End")?;
 
     Ok(())
 }

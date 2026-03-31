@@ -33,6 +33,16 @@ pub(crate) fn terminator_from_node_kind(kind: &str, span: Span) -> Option<Termin
         CA_NO_BREAK_LINKER => Some(Terminator::CaNoBreakLinker { span }),
         CA_TECHNICAL_BREAK => Some(Terminator::CaTechnicalBreak { span }),
         CA_TECHNICAL_BREAK_LINKER => Some(Terminator::CaTechnicalBreakLinker { span }),
+        // CA intonation arrows — currently routed here by the grammar's
+        // terminator rule, though in practice the greedy `contents` rule
+        // consumes them first. The post-hoc promotion in convert/mod.rs
+        // handles the common case; this mapping covers any future grammar
+        // change that routes arrows to utterance_end directly.
+        RISING_TO_HIGH => Some(Terminator::CaRisingToHigh { span }),
+        RISING_TO_MID => Some(Terminator::CaRisingToMid { span }),
+        LEVEL_PITCH => Some(Terminator::CaLevel { span }),
+        FALLING_TO_MID => Some(Terminator::CaFallingToMid { span }),
+        FALLING_TO_LOW => Some(Terminator::CaFallingToLow { span }),
         _ => None,
     }
 }

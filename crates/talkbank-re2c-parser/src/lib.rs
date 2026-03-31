@@ -91,6 +91,10 @@ pub mod lexer {
     /// %wor uses MAIN_CONTENT — same word rules as main tier.
     pub const COND_WOR_CONTENT: usize = YYC_MAIN_CONTENT;
     pub const COND_TIER_CONTENT: usize = YYC_TIER_CONTENT;
+    /// %com: text_with_bullets_and_pics (adds inline_pic to TIER_CONTENT).
+    pub const COND_COM_CONTENT: usize = YYC_COM_CONTENT;
+    /// User-defined tiers (%x*): text_with_bullets.
+    pub const COND_USER_TIER_CONTENT: usize = YYC_USER_TIER_CONTENT;
     pub const COND_HEADER_CONTENT: usize = YYC_HEADER_CONTENT;
     pub const COND_ID_CONTENT: usize = YYC_ID_CONTENT;
     pub const COND_TYPES_CONTENT: usize = YYC_TYPES_CONTENT;

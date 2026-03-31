@@ -14,7 +14,7 @@ expression: tokens
   text: hɛloʊ
 - kind: Whitespace
   text: " "
-- kind: Period
+- kind: PhoWord
   text: "."
 - kind: Newline
   text: "\n"

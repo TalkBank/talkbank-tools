@@ -8,9 +8,10 @@ use talkbank_re2c_parser::lexer::Lexer;
 use talkbank_re2c_parser::token::Token;
 
 use talkbank_re2c_parser::lexer::{
-    COND_GRA_CONTENT, COND_ID_CONTENT, COND_INITIAL, COND_LANGUAGES_CONTENT, COND_MAIN_CONTENT,
-    COND_MEDIA_CONTENT, COND_MOR_CONTENT, COND_PARTICIPANTS_CONTENT, COND_PHO_CONTENT,
-    COND_SIN_CONTENT, COND_TIER_CONTENT, COND_TYPES_CONTENT,
+    COND_COM_CONTENT, COND_GRA_CONTENT, COND_ID_CONTENT, COND_INITIAL, COND_LANGUAGES_CONTENT,
+    COND_MAIN_CONTENT, COND_MEDIA_CONTENT, COND_MOR_CONTENT, COND_PARTICIPANTS_CONTENT,
+    COND_PHO_CONTENT, COND_SIN_CONTENT, COND_TIER_CONTENT, COND_TYPES_CONTENT,
+    COND_USER_TIER_CONTENT,
 };
 
 /// Lex input starting from INITIAL condition.
@@ -377,11 +378,30 @@ fn lex_filler_prefix() {
 }
 
 #[test]
-fn lex_event_marker() {
+fn lex_event() {
     let tokens = lex("*X:\t&=laughs .\n");
     assert!(
-        tokens.iter().any(|t| matches!(t, Token::EventMarker("&="))),
-        "got {tokens:?}"
+        tokens.iter().any(|t| matches!(t, Token::Event("laughs"))),
+        "expected Event(\"laughs\"), got {tokens:?}"
+    );
+}
+
+#[test]
+fn lex_event_compound() {
+    let tokens = lex("*X:\t&=clears:throat .\n");
+    assert!(
+        tokens.iter().any(|t| matches!(t, Token::Event("clears:throat"))),
+        "expected Event(\"clears:throat\"), got {tokens:?}"
+    );
+}
+
+#[test]
+fn lex_event_in_group() {
+    // The `>` must NOT be part of the event text
+    let tokens = lex("*X:\t<&=laughs> [<] .\n");
+    assert!(
+        tokens.iter().any(|t| matches!(t, Token::Event("laughs"))),
+        "expected Event(\"laughs\") without trailing >, got {tokens:?}"
     );
 }
 
@@ -1308,12 +1328,29 @@ fn lex_comment_with_inline_pic() {
 // ═══════════════════════════════════════════════════════════════
 
 #[test]
-fn lex_tier_content_with_inline_pic() {
+fn lex_com_content_with_inline_pic() {
+    // Only %com and @Comment tiers support inline pics (grammar.js: text_with_bullets_and_pics)
+    let tokens = lex_with(
+        "text \u{0015}%pic:\"img.jpg\"\u{0015} more\n",
+        COND_COM_CONTENT,
+    );
+    assert!(
+        tokens.iter().any(|t| matches!(t, Token::InlinePic(_))),
+        "expected InlinePic in COM_CONTENT, got {tokens:?}"
+    );
+}
+
+#[test]
+fn lex_tier_content_no_inline_pic() {
+    // Standard tiers (TIER_CONTENT) do NOT support inline pics
     let tokens = lex_with(
         "text \u{0015}%pic:\"img.jpg\"\u{0015} more\n",
         COND_TIER_CONTENT,
     );
-    assert!(tokens.iter().any(|t| matches!(t, Token::InlinePic(_))));
+    assert!(
+        !tokens.iter().any(|t| matches!(t, Token::InlinePic(_))),
+        "TIER_CONTENT should NOT parse inline pics"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1477,26 +1514,27 @@ fn lex_corpus_main_tiers_no_panic() {
 // ═══════════════════════════════════════════════════════════════
 
 #[test]
-fn tier_content_inline_pic() {
+fn com_content_inline_pic() {
     // %com content: text followed by \u0015%pic:"filename"\u0015
+    // Only COM_CONTENT supports inline pics (grammar.js: text_with_bullets_and_pics)
     let input = "pic002 \u{0015}%pic:\"a18/image002.jpg\"\u{0015}\n";
-    let tokens = lex_with(input, COND_TIER_CONTENT);
+    let tokens = lex_with(input, COND_COM_CONTENT);
     eprintln!("tokens: {tokens:?}");
     assert!(
         tokens.iter().any(|t| matches!(t, Token::InlinePic(_))),
-        "expected InlinePic token, got: {tokens:?}"
+        "expected InlinePic token in COM_CONTENT, got: {tokens:?}"
     );
 }
 
 #[test]
-fn tier_content_inline_pic_standalone() {
-    // Just the pic marker
+fn com_content_inline_pic_standalone() {
+    // Just the pic marker in COM_CONTENT
     let input = "\u{0015}%pic:\"photo.jpg\"\u{0015}\n";
-    let tokens = lex_with(input, COND_TIER_CONTENT);
+    let tokens = lex_with(input, COND_COM_CONTENT);
     eprintln!("tokens: {tokens:?}");
     assert!(
         tokens.iter().any(|t| matches!(t, Token::InlinePic(_))),
-        "expected InlinePic token, got: {tokens:?}"
+        "expected InlinePic token in COM_CONTENT, got: {tokens:?}"
     );
 }
 

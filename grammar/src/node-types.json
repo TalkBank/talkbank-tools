@@ -438,11 +438,23 @@
         "named": true
       },
       {
+        "type": "falling_to_low",
+        "named": true
+      },
+      {
+        "type": "falling_to_mid",
+        "named": true
+      },
+      {
         "type": "interrupted_question",
         "named": true
       },
       {
         "type": "interruption",
+        "named": true
+      },
+      {
+        "type": "level_pitch",
         "named": true
       },
       {
@@ -459,6 +471,14 @@
       },
       {
         "type": "quoted_period_simple",
+        "named": true
+      },
+      {
+        "type": "rising_to_high",
+        "named": true
+      },
+      {
+        "type": "rising_to_mid",
         "named": true
       },
       {

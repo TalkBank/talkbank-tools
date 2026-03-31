@@ -122,5 +122,7 @@ tier_body:
   postcodes: []
   media_bullet:
     MediaBullet:
+      raw_text: "\u0015428510_429651\u0015"
       start_time: "428510"
       end_time: "429651"
+      skip: false

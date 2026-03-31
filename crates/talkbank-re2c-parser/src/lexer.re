@@ -79,11 +79,13 @@ impl<'a> Iterator for Lexer<'a> {
         }
 
         /// Emit token whose content is the tag-extracted slice t1..t2.
+        /// Whitespace is stripped from both ends (CHAT convention: field
+        /// content never has semantically meaningful leading/trailing spaces).
         /// The LexerSpan still covers the full match (start..end).
         macro_rules! emit_t1t2 {
             ($variant:ident) => {{
                 let end = self.cursor;
-                return Some((Token::$variant(&yyinput[self.t1..self.t2]), start..end));
+                return Some((Token::$variant(yyinput[self.t1..self.t2].trim()), start..end));
             }};
         }
 
@@ -112,6 +114,11 @@ impl<'a> Iterator for Lexer<'a> {
         // constructs (shortenings, lengthening, CA markers, etc.) are
         // separate alternatives in the word body pattern.
         // ═══════════════════════════════════════════════════════
+
+        // Event segment character: same as ws_first but allows colon (:)
+        // for compound events like &=clears:throat.
+        // Translated from grammar.js EVENT_SEGMENT_FORBIDDEN.
+        ev_char = [^ \t\r\n\x00,;!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
 
         // Word segment first character: excludes 0 and all structural/CA chars
         ws_first = [^ \t\r\n\x00,;:!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB0];
@@ -236,7 +243,8 @@ impl<'a> Iterator for Lexer<'a> {
 
         // ── Headers with bullet-aware content (text_with_bullets) ──
         // @Comment uses text_with_bullets_and_pics per grammar.js
-        <INITIAL> "@Comment:\t" => TIER_CONTENT { emit!(HeaderPrefix); }
+        // @Comment uses text_with_bullets_and_pics (same as %com)
+        <INITIAL> "@Comment:\t" => COM_CONTENT { emit!(HeaderPrefix); }
         // @Bg, @Eg, @G optional content variants also get bullet support
         // (handled in optional-content section below)
 
@@ -294,19 +302,34 @@ impl<'a> Iterator for Lexer<'a> {
         // Rich token: the entire %label:\t is one token, and the lexer
         // enters the correct content condition directly.
         // This avoids the parser having to inspect the label and re-lex.
+        // ── Tier dispatch: each tier class gets its own lexer condition ──
+
+        // Structured tiers (parsed into typed AST)
         <INITIAL> "%mor:\t" => MOR_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%trn:\t" => MOR_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%gra:\t" => GRA_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%pho:\t" => PHO_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%mod:\t" => PHO_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%sin:\t" => SIN_CONTENT { emit!(TierPrefix); }
-        // %modsyl, %phosyl, %phoaln use text_with_bullets (grammar.js) → TIER_CONTENT
+
+        // %wor uses MAIN_CONTENT rules — same word tokenization as main tier
+        <INITIAL> "%wor:\t" => MAIN_CONTENT { emit!(TierPrefix); }
+
+        // %com: text_with_bullets_and_pics (adds inline_pic)
+        <INITIAL> "%com:\t" => COM_CONTENT { emit!(TierPrefix); }
+
+        // User-defined tiers (%x*): text_with_bullets
+        // Must come before the catch-all since re2c uses first-match.
+        <INITIAL> "%x" [a-zA-Z] [a-zA-Z0-9]* ":\t" => USER_TIER_CONTENT {
+            emit!(TierPrefix);
+        }
+
+        // Phon project tiers: text_with_bullets
         <INITIAL> "%modsyl:\t" => TIER_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%phosyl:\t" => TIER_CONTENT { emit!(TierPrefix); }
         <INITIAL> "%phoaln:\t" => TIER_CONTENT { emit!(TierPrefix); }
-        // %wor uses MAIN_CONTENT rules — same word tokenization as main tier
-        <INITIAL> "%wor:\t" => MAIN_CONTENT { emit!(TierPrefix); }
-        // All other dependent tiers: generic text content
+
+        // All other known tiers: text_with_bullets
         <INITIAL> "%" [a-zA-Z][a-zA-Z0-9]* ":\t" => TIER_CONTENT {
             emit!(TierPrefix);
         }
@@ -356,19 +379,20 @@ impl<'a> Iterator for Lexer<'a> {
 
         <ID_CONTENT> [^\x00|\r\n]* @t1 "|" [^\x00|\r\n]* @t2 "|" [^\x00|\r\n]* @t3 "|" [^\x00|\r\n]* @t4 "|" [^\x00|\r\n]* @t5 "|" [^\x00|\r\n]* @t6 "|" [^\x00|\r\n]* @t7 "|" [^\x00|\r\n]* @t8 "|" [^\x00|\r\n]* @t9 "|" [^\x00|\r\n]* "|" {
             // Tags mark pipe positions. Fields are between pipes.
+            // Trim trailing whitespace from each field — CHAT convention
+            // is that field content excludes trailing spaces.
             let end = self.cursor;
-            // Last field ends 1 char before cursor (trailing |)
             return Some((Token::IdFields {
-                language: &yyinput[start..self.t1],
-                corpus: &yyinput[self.t1+1..self.t2],
-                speaker: &yyinput[self.t2+1..self.t3],
-                age: &yyinput[self.t3+1..self.t4],
-                sex: &yyinput[self.t4+1..self.t5],
-                group: &yyinput[self.t5+1..self.t6],
-                ses: &yyinput[self.t6+1..self.t7],
-                role: &yyinput[self.t7+1..self.t8],
-                education: &yyinput[self.t8+1..self.t9],
-                custom: &yyinput[self.t9+1..end-1], // -1 for trailing |
+                language: yyinput[start..self.t1].trim(),
+                corpus: yyinput[self.t1+1..self.t2].trim(),
+                speaker: yyinput[self.t2+1..self.t3].trim(),
+                age: yyinput[self.t3+1..self.t4].trim(),
+                sex: yyinput[self.t4+1..self.t5].trim(),
+                group: yyinput[self.t5+1..self.t6].trim(),
+                ses: yyinput[self.t6+1..self.t7].trim(),
+                role: yyinput[self.t7+1..self.t8].trim(),
+                education: yyinput[self.t8+1..self.t9].trim(),
+                custom: yyinput[self.t9+1..end-1].trim(), // -1 for trailing |
             }, start..end));
         }
 
@@ -534,28 +558,28 @@ impl<'a> Iterator for Lexer<'a> {
         // Listed longest-first for re2c precedence.
 
         // Extended terminators — must come before single-char '+' compound marker
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+..." { emit!(TrailingOff); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+//." { emit!(SelfInterruption); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+/." { emit!(Interruption); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+//?" { emit!(SelfInterruptedQuestion); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+/?" { emit!(InterruptedQuestion); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+!?" { emit!(BrokenQuestion); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+\"/." { emit!(QuotedNewLine); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+\"." { emit!(QuotedPeriodSimple); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+..?" { emit!(TrailingOffQuestion); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "+." { emit!(BreakForCoding); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+..." { emit!(TrailingOff); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+//." { emit!(SelfInterruption); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+/." { emit!(Interruption); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+//?" { emit!(SelfInterruptedQuestion); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+/?" { emit!(InterruptedQuestion); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+!?" { emit!(BrokenQuestion); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+\"/." { emit!(QuotedNewLine); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+\"." { emit!(QuotedPeriodSimple); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+..?" { emit!(TrailingOffQuestion); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "+." { emit!(BreakForCoding); }
 
         // Basic terminators
         // grammar.js: period = '.', question = '?', exclamation = '!'
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "." { emit!(Period); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "?" { emit!(Question); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "!" { emit!(Exclamation); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "." { emit!(Period); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "?" { emit!(Question); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "!" { emit!(Exclamation); }
 
         // CA terminators
         // grammar.js: ca_no_break = token(prec(10, '≈'))
         // grammar.js: ca_technical_break = token(prec(10, '\u224B'))
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "\u2248" { emit!(CaNoBreak); }
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "\u224B" { emit!(CaTechnicalBreak); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u2248" { emit!(CaNoBreak); }
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u224B" { emit!(CaTechnicalBreak); }
 
         // ── Linkers (grammar.js: all with prec(10)) ──
         // These must come before single '+' compound marker.
@@ -739,8 +763,11 @@ impl<'a> Iterator for Lexer<'a> {
         <MAIN_CONTENT> "&~" { emit!(PrefixNonword); }
         <MAIN_CONTENT> "&+" { emit!(PrefixFragment); }
 
-        // grammar.js: event_marker = token('&=')
-        <MAIN_CONTENT> "&=" { emit!(EventMarker); }
+        // grammar.js: event = seq(event_marker, event_segment+)
+        // Single token: &= followed by one or more event segment chars.
+        // Event segments allow colon (for &=clears:throat) but exclude
+        // all structural chars (brackets, CA symbols, etc.).
+        <MAIN_CONTENT> "&=" @t1 ev_char+ @t2 { emit_t1t2!(Event); }
 
         // grammar.js: zero = token(prec(3, '0'))
         <MAIN_CONTENT> "0" { emit!(Zero); }
@@ -826,11 +853,24 @@ impl<'a> Iterator for Lexer<'a> {
         // grammar.js: inline_bullet = seq(bullet_start, start_time, '_', end_time, bullet_end)
         // grammar.js: media_url = token(/\u0015\d+_\d+-?\u0015/)
         // Tags mark start_time and end_time boundaries for zero-copy extraction.
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "-"? "\u0015" {
+        // Skip bullet: dash before closing NAK (e.g., \x150_2633-\x15)
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "-" "\u0015" {
             let end = self.cursor;
             return Some((Token::MediaBullet {
+                raw_text: &yyinput[start..end],
                 start_time: &yyinput[self.t1..self.t2],
                 end_time: &yyinput[self.t3..self.t4],
+                skip: true,
+            }, start..end));
+        }
+        // Normal bullet: no dash (e.g., \x150_2633\x15)
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "\u0015" {
+            let end = self.cursor;
+            return Some((Token::MediaBullet {
+                raw_text: &yyinput[start..end],
+                start_time: &yyinput[self.t1..self.t2],
+                end_time: &yyinput[self.t3..self.t4],
+                skip: false,
             }, start..end));
         }
 
@@ -965,26 +1005,17 @@ impl<'a> Iterator for Lexer<'a> {
         // Group delimiters ‹ › are separate tokens.
         // ═══════════════════════════════════════════════════════
 
-        // PHO word: IPA characters (permissive — excludes only structural chars).
-        // First char excludes . so standalone "." matches Period terminator below.
-        // Rest chars INCLUDE . for syllable boundaries (e.g., mɐ.nɛ).
-        // This matches grammar.js pho_word which includes . in its character class.
-        <PHO_CONTENT> [^\x00 \t\r\n+\u2039\u203A\u0015.?!(] [^\x00 \t\r\n+\u2039\u203A\u0015?!(]* {
+        // PHO word: IPA + phonological characters.
+        // grammar.js: pho_word includes (, ., ), ^, * in its character class.
+        // So (..) is a pho_word, NOT a pause — pauses are main tier only.
+        // First char excludes only structural separators (space, +, ‹, ›, NAK).
+        // Dot and parens are INCLUDED (unlike main tier).
+        <PHO_CONTENT> [^\x00 \t\r\n+\u2039\u203A\u0015] [^\x00 \t\r\n+\u2039\u203A\u0015]* {
             emit!(PhoWord);
         }
 
         // Plus joins compound phonological words
         <PHO_CONTENT> "+" { emit!(PhoPlus); }
-
-        // Pauses can appear in %pho/%mod tiers: (...), (..), (.)
-        <PHO_CONTENT> "(...)" { emit!(PauseLong); }
-        <PHO_CONTENT> "(..)" { emit!(PauseMedium); }
-        <PHO_CONTENT> "(.)" { emit!(PauseShort); }
-
-        // Terminators in %pho
-        <PHO_CONTENT> "." { emit!(Period); }
-        <PHO_CONTENT> "?" { emit!(Question); }
-        <PHO_CONTENT> "!" { emit!(Exclamation); }
 
         // PHO group delimiters
         <PHO_CONTENT> "\u2039" { emit!(PhoGroupBegin); }
@@ -1014,19 +1045,43 @@ impl<'a> Iterator for Lexer<'a> {
         // The dispatch in INITIAL sends %wor:\t → MAIN_CONTENT.
 
         // ═══════════════════════════════════════════════════════
-        // TIER_CONTENT — Generic dependent tier body
+        // TIER_CONTENT — Standard dependent tier body (text_with_bullets)
         // grammar.js: text_with_bullets = repeat1(choice(text_segment, inline_bullet, continuation))
         // grammar.js: text_segment = /[^\u0015\r\n]+/
+        // Used by: %act, %add, %cod, %err, %exp, %gpx, %int, %sit, %spa,
+        //          %tim, %alt, %coh, %def, %fac, %flo, %gls, %ort, %par,
+        //          %modsyl, %phosyl, %phoaln
+        // ═══════════════════════════════════════════════════════
+
+        <TIER_CONTENT> [^\x00\u0015\r\n]+ {
+            emit!(TextSegment);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // COM_CONTENT — %com tier body (text_with_bullets_and_pics)
+        // grammar.js: text_with_bullets_and_pics = repeat1(choice(
+        //   text_segment, inline_bullet, inline_pic, continuation))
+        // Identical to TIER_CONTENT but adds inline_pic support.
         // ═══════════════════════════════════════════════════════
 
         // grammar.js: inline_pic = token(/\u0015%pic:"[a-zA-Z0-9][a-zA-Z0-9\/\-_'.]*"\u0015/)
-        // Tag marks the filename (between quotes)
-        <TIER_CONTENT> "\u0015%pic:\"" @t1 [a-zA-Z0-9] [a-zA-Z0-9/\-_'.]* @t2 "\"" "\u0015" {
+        <COM_CONTENT> "\u0015%pic:\"" @t1 [a-zA-Z0-9] [a-zA-Z0-9/\-_'.]* @t2 "\"" "\u0015" {
             emit_t1t2!(InlinePic);
         }
 
-        // grammar.js: text_segment = /[^\u0015\r\n]+/
-        <TIER_CONTENT> [^\x00\u0015\r\n]+ {
+        <COM_CONTENT> [^\x00\u0015\r\n]+ {
+            emit!(TextSegment);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // USER_TIER_CONTENT — User-defined tier body (%x*)
+        // grammar.js: x_dependent_tier uses text_with_bullets
+        // Currently identical to TIER_CONTENT. Having a separate
+        // condition lets us evolve user-defined tier handling
+        // independently (e.g., opaque text if needed).
+        // ═══════════════════════════════════════════════════════
+
+        <USER_TIER_CONTENT> [^\x00\u0015\r\n]+ {
             emit!(TextSegment);
         }
 
@@ -1060,6 +1115,12 @@ impl<'a> Iterator for Lexer<'a> {
 
         // TIER_CONTENT: unexpected char in generic tier body
         <TIER_CONTENT> [^\x00\r\n] { emit!(ErrorInTierContent); }
+
+        // COM_CONTENT: unexpected char in %com tier body
+        <COM_CONTENT> [^\x00\r\n] { emit!(ErrorInTierContent); }
+
+        // USER_TIER_CONTENT: unexpected char in user-defined tier body
+        <USER_TIER_CONTENT> [^\x00\r\n] { emit!(ErrorInTierContent); }
 
         // HEADER_CONTENT: unexpected char in header value
         <HEADER_CONTENT> [^\x00\r\n] { emit!(ErrorInHeaderContent); }

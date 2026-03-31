@@ -54,6 +54,7 @@
 - [Spec Tooling](architecture/spec-tooling.md)
 - [Symbol Registry](architecture/symbol-registry.md)
 - [Bullet Validation](architecture/bullet-validation.md)
+- [CA Terminator Resolution](architecture/ca-terminator-resolution.md)
 - [Alignment](architecture/alignment.md)
 - [Memory and Ownership](architecture/memory-and-ownership.md)
 - [Algorithms and Data Structures](architecture/algorithms.md)

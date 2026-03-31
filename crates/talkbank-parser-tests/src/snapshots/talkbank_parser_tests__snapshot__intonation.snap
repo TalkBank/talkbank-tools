@@ -156,12 +156,11 @@ expression: snapshot
                   "content": "high"
                 }
               ]
-            },
-            {
-              "type": "separator",
-              "kind": "rising_to_high"
             }
-          ]
+          ],
+          "terminator": {
+            "type": "ca_rising_to_high"
+          }
         }
       }
     },
@@ -203,12 +202,11 @@ expression: snapshot
                   "content": "mid"
                 }
               ]
-            },
-            {
-              "type": "separator",
-              "kind": "rising_to_mid"
             }
-          ]
+          ],
+          "terminator": {
+            "type": "ca_rising_to_mid"
+          }
         }
       }
     },
@@ -239,12 +237,11 @@ expression: snapshot
                   "content": "pitch"
                 }
               ]
-            },
-            {
-              "type": "separator",
-              "kind": "level"
             }
-          ]
+          ],
+          "terminator": {
+            "type": "ca_level"
+          }
         }
       }
     },
@@ -286,12 +283,11 @@ expression: snapshot
                   "content": "mid"
                 }
               ]
-            },
-            {
-              "type": "separator",
-              "kind": "falling_to_mid"
             }
-          ]
+          ],
+          "terminator": {
+            "type": "ca_falling_to_mid"
+          }
         }
       }
     },
@@ -333,12 +329,11 @@ expression: snapshot
                   "content": "low"
                 }
               ]
-            },
-            {
-              "type": "separator",
-              "kind": "falling_to_low"
             }
-          ]
+          ],
+          "terminator": {
+            "type": "ca_falling_to_low"
+          }
         }
       }
     },

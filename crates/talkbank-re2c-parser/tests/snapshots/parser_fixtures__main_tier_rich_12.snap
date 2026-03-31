@@ -67,5 +67,7 @@ tier_body:
   postcodes: []
   media_bullet:
     MediaBullet:
+      raw_text: "\u0015542638_545282\u0015"
       start_time: "542638"
       end_time: "545282"
+      skip: false

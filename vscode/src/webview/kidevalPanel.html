@@ -316,6 +316,70 @@
             opacity: 0.6;
             margin-bottom: 16px;
         }
+
+        /* -- Database info card ------------------------------------------- */
+        .db-info-name {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        /* -- Availability grid -------------------------------------------- */
+        .db-grid {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .db-grid th {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 9.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 6px 10px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            font-weight: 500;
+            opacity: 0.75;
+        }
+
+        .grid-lang {
+            font-family: 'EB Garamond', Georgia, serif;
+            font-size: 14px;
+            padding: 6px 12px;
+            text-align: left;
+        }
+
+        .grid-cell {
+            text-align: center;
+            padding: 8px 10px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 11px;
+            border-radius: 3px;
+            cursor: default;
+            transition: background 0.15s;
+        }
+
+        .grid-available {
+            cursor: pointer;
+            color: #4ec9b0;
+        }
+
+        .grid-available:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+
+        .grid-cell.grid-selected {
+            background: color-mix(in srgb, var(--vscode-button-background) 20%, transparent);
+            outline: 2px solid var(--vscode-button-background);
+        }
+
+        .grid-empty {
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.4;
+        }
     </style>
 </head>
 <body>
@@ -328,12 +392,18 @@
 <!--INJECT_CONFIG-->
 
     <div class="config-panel">
-        <div class="config-title">Normative Database</div>
+        <div class="config-title">File Characteristics</div>
         <div class="config-row">
-            <div class="config-field wide">
-                <label class="config-label" for="db-select">Database</label>
-                <select id="db-select">
-                    <option value="">Loading databases…</option>
+            <div class="config-field">
+                <label class="config-label" for="lang-select">Language</label>
+                <select id="lang-select">
+                    <option value="">Loading…</option>
+                </select>
+            </div>
+            <div class="config-field">
+                <label class="config-label" for="activity-select">Activity Type</label>
+                <select id="activity-select">
+                    <option value="">—</option>
                 </select>
             </div>
             <div class="config-field">
@@ -355,11 +425,25 @@
                 <input type="number" id="age-to" min="0" max="200" placeholder="—">
             </div>
         </div>
-        <div class="btn-row">
-            <button class="btn-run" id="btn-run" disabled>Run with Database</button>
-            <button class="btn-run-no-db" id="btn-run-no-db">Run without Database</button>
-            <button class="btn-run" id="btn-export-csv" disabled>Export CSV</button>
-        </div>
+    </div>
+
+    <div class="config-panel" id="db-info-panel" style="display:none">
+        <div class="config-title">Matching Database</div>
+        <div id="db-info-name" class="db-info-name"></div>
+        <div id="db-info-details" class="db-info"></div>
+    </div>
+
+    <div class="config-panel" id="db-grid-panel">
+        <div class="config-title">Available Databases</div>
+        <table id="db-grid" class="db-grid">
+            <tr><td class="empty">Loading databases…</td></tr>
+        </table>
+    </div>
+
+    <div class="btn-row" style="margin-bottom: 28px;">
+        <button class="btn-run" id="btn-run" disabled>Compare with Database</button>
+        <button class="btn-run-no-db" id="btn-run-no-db">Run without Database</button>
+        <button class="btn-run" id="btn-export-csv" disabled>Export CSV</button>
     </div>
 
     <div id="status" class="status"></div>

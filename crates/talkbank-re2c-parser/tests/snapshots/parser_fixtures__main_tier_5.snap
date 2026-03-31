@@ -9,18 +9,13 @@ tier_body:
   langcode: ~
   contents:
     - Event:
-        - EventMarker: "&="
-        - Word:
-            raw_text: w3_33
-            prefix: ~
-            body: w3_33
-            form_marker: ~
-            lang_suffix: ~
-            pos_tag: ~
+        - Event: w3_33
   terminator:
     Period: "."
   postcodes: []
   media_bullet:
     MediaBullet:
+      raw_text: "\u00155600_6600\u0015"
       start_time: "5600"
       end_time: "6600"
+      skip: false
