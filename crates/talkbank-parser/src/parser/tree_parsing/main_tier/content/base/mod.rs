@@ -15,7 +15,7 @@ pub(crate) use overlap_point::parse_overlap_point;
 use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
 use crate::model::UtteranceContent;
 use crate::node_types::{
-    FREECODE, LONG_FEATURE, MEDIA_URL, NONVOCAL, NONWORD_WITH_OPTIONAL_ANNOTATIONS,
+    BULLET, FREECODE, LONG_FEATURE, NONVOCAL, NONWORD_WITH_OPTIONAL_ANNOTATIONS,
     OTHER_SPOKEN_EVENT, OVERLAP_POINT, PAUSE_TOKEN, SEPARATOR, UNDERLINE_BEGIN, UNDERLINE_END,
     WORD_WITH_OPTIONAL_ANNOTATIONS,
 };
@@ -58,7 +58,7 @@ pub(crate) fn parse_base_content(
             }
             NONWORD_WITH_OPTIONAL_ANNOTATIONS => parse_nonword_content(child, source, errors),
             FREECODE => parse_freecode(child, source, errors),
-            MEDIA_URL => internal_bullet::parse_internal_bullet(child, source, errors),
+            BULLET => internal_bullet::parse_internal_bullet(child, source, errors),
             OVERLAP_POINT => overlap_point::parse_overlap_point(child, source, errors),
             SEPARATOR => {
                 // Parse separator using node kind dispatch

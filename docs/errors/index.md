@@ -634,6 +634,14 @@ Auto-generated from corpus
 |------|------|----------|
 | [E360](E360.md) | generated from corpus | error |
 
+## Main tier validation (E3x)
+
+The media bullet contains a deprecated skip flag (dash before closing NAK delimiter). The skip flag was deprecated as of 2026-03-31 (confirmed by Brian MacWhinney). Only 10 occurrences exist in 7 files across the entire 99,742-file corpus.
+
+| Code | Name | Severity |
+|------|------|----------|
+| [E360](E360.md) | E360: Deprecated Skip Bullet | error |
+
 ## validation (E3x)
 
 Auto-generated from corpus

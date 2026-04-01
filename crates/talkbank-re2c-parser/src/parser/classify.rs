@@ -162,6 +162,7 @@ pub fn is_separator(d: Option<TokenDiscriminants>) -> bool {
         Some(
             TokenDiscriminants::Comma
                 | TokenDiscriminants::Semicolon
+                | TokenDiscriminants::Colon
                 | TokenDiscriminants::CaContinuationMarker
                 | TokenDiscriminants::TagMarker
                 | TokenDiscriminants::VocativeMarker

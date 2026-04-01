@@ -28,11 +28,16 @@ smallvec = { workspace = true }
 smol_str = { workspace = true }
 
 [dev-dependencies]
+divan = { workspace = true }
 insta = { workspace = true }
 proptest = { workspace = true }
 serde_json = { workspace = true }
 talkbank-parser = { workspace = true }
 walkdir = { workspace = true }
+
+[[bench]]
+name = "parse_comparison"
+harness = false
 
 [build-dependencies]
 syn = { version = "2.0", features = ["full"] }

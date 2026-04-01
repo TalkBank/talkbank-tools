@@ -200,10 +200,17 @@ export default grammar({
     // Used in text_with_bullets for content between bullets
     text_segment: $ => /[^\u0015\r\n]+/,
 
-    // Inline media bullet: \u0015NUMBER_NUMBER\u0015
-    // Used in dependent tiers and @Comment headers where bullets appear inline with text
-    // Structured: bullet_start + start_time + "_" + end_time + bullet_end
-    inline_bullet: $ => seq(
+    // Media bullet: \u0015START_END\u0015 or \u0015START_END-\u0015 (skip)
+    //
+    // ONE structured rule used everywhere bullets appear:
+    // - `utterance_end` (terminal timing after terminator)
+    // - `base_content_item` (inline timing between words)
+    // - `text_with_bullets` (dependent tier timing)
+    // - `wor_tier_body` (word-level timing)
+    //
+    // The skip dash (-) before closing NAK is extremely rare (10 occurrences
+    // in 99,742 files) but syntactically valid.
+    bullet: $ => seq(
       $.bullet_start,
       field('start_time', $.bullet_timestamp),
       '_',
@@ -234,7 +241,7 @@ export default grammar({
     // Includes continuation lines (\n\t) to handle multi-line tiers
     text_with_bullets_and_pics: $ => repeat1(choice(
       $.text_segment,
-      $.inline_bullet,
+      $.bullet,
       $.inline_pic,
       $.continuation
     )),
@@ -245,7 +252,7 @@ export default grammar({
     // Includes continuation lines (\n\t) to handle multi-line tiers
     text_with_bullets: $ => repeat1(choice(
       $.text_segment,
-      $.inline_bullet,
+      $.bullet,
       $.continuation
     )),
 
@@ -692,7 +699,7 @@ export default grammar({
         )
       )),
       repeat(seq(
-        choice($.wor_word_item, $.inline_bullet, $.comma, $.tag_marker, $.vocative_marker),
+        choice($.wor_word_item, $.bullet, $.comma, $.tag_marker, $.vocative_marker),
         $.whitespaces
       )),
       optional($.terminator),
@@ -722,8 +729,9 @@ export default grammar({
       optional($.terminator),
       // Postcode annotations: [+ bch], [+ foo], etc.
       optional($.final_codes),
-      // Optional media bullet
-      optional(seq(optional($.whitespaces), $.media_url)),
+      // Optional media bullet — appears AFTER terminator in CHAT text.
+      // Uses the unified `bullet` rule (structured, not opaque).
+      optional(seq(optional($.whitespaces), $.bullet)),
       optional($.whitespaces),  // Allow trailing whitespace before newline
       $.newline
     ),
@@ -739,15 +747,8 @@ export default grammar({
       )
     ),
 
-    // ANTLR: url: URL milliseconds BULLET_UNDERSCORE milliseconds (BULLET_URL | BULLET_URL_SKIP)
-    // URL = \u0015, BULLET_URL = \u0015, BULLET_URL_SKIP = "-" \u0015
-    // This is media timing information like \u00152041689_2042652\u0015 or \u00152041689_2042652-\u0015
-    // Note: No space before URL - it comes directly after final codes or terminator
-    // Media bullet: \u0015START_END\u0015 or \u0015START_END-\u0015 (skip)
-    // Reference: https://talkbank.org/0info/manuals/CHAT.html#Media_Linking
-    // Maps to JSON Schema: { start_ms: number, end_ms: number, skip: boolean }
-    // Coarsened to single token — tree-sitter parser extracts timestamps via text parsing
-    media_url: $ => token(/\u0015\d+_\d+-?\u0015/),
+    // media_url DELETED — replaced by the unified `bullet` rule (structured,
+    // not opaque). See `bullet` definition near `text_with_bullets`.
 
     // ============================================================================
     // CONTENT ITEMS
@@ -776,7 +777,7 @@ export default grammar({
       $.long_feature,
       $.nonvocal,
       $.freecode,
-      $.media_url,
+      $.bullet,
     ),
 
     // Separator is its own first-class content item (not attached to preceding content)

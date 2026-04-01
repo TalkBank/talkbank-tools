@@ -11,13 +11,13 @@ use crate::error::{
 };
 use crate::model::{Bullet, Postcode, Terminator};
 use crate::node_types::{
-    FINAL_CODES, MEDIA_URL, NEWLINE, POSTCODE, SPACE, TERMINATOR, WHITESPACES,
+    BULLET, FINAL_CODES, NEWLINE, POSTCODE, SPACE, TERMINATOR, WHITESPACES,
 };
 use talkbank_model::Span;
 use tree_sitter::Node;
 
 use crate::parser::tree_parsing::helpers::unexpected_node_error;
-use crate::parser::tree_parsing::media_bullet::parse_media_bullet;
+
 use crate::parser::tree_parsing::postcode::parse_postcode_node;
 use talkbank_model::ParseOutcome;
 
@@ -104,10 +104,15 @@ pub fn parse_utterance_end(node: Node, source: &str) -> UtteranceEndResult {
                     }
                 }
                 WHITESPACES | SPACE | NEWLINE => {}
-                MEDIA_URL => {
-                    let (parsed_bullet, bullet_errors) = parse_media_bullet(child, source);
-                    bullet = parsed_bullet;
-                    errors.extend(bullet_errors);
+                BULLET => {
+                    if let Some((start_ms, end_ms)) =
+                        crate::parser::tree_parsing::media_bullet::parse_bullet_node_timestamps(
+                            child, source,
+                        )
+                    {
+                        let span = Span::new(child.start_byte() as u32, child.end_byte() as u32);
+                        bullet = Some(Bullet::new(start_ms, end_ms).with_span(span));
+                    }
                 }
                 _ => {
                     errors.push(unexpected_node_error(child, source, "utterance_end"));

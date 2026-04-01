@@ -14,7 +14,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Working_with_Media>
 
 use crate::node_types::{
-    COMMA, INLINE_BULLET, LANGCODE, NEWLINE, TAG_MARKER, TERMINATOR, VOCATIVE_MARKER, WHITESPACES,
+    BULLET, COMMA, LANGCODE, NEWLINE, TAG_MARKER, TERMINATOR, VOCATIVE_MARKER, WHITESPACES,
     WOR_TIER_BODY, WOR_WORD_ITEM,
 };
 use talkbank_model::ErrorSink;
@@ -68,7 +68,7 @@ pub fn parse_wor_tier(node: Node, source: &str, errors: &impl ErrorSink) -> WorT
                     items.push(WorItem::Word(Box::new(w)));
                 }
             }
-            INLINE_BULLET => {
+            BULLET => {
                 // Pair this bullet with the preceding word (if any)
                 if let Some(bullet) = parse_inline_bullet(child, source)
                     && let Some(WorItem::Word(w)) = items.last_mut()
@@ -132,11 +132,8 @@ fn extract_langcode(node: Node, source: &str) -> Option<talkbank_model::model::L
 /// Parse an inline_bullet node into a Bullet.
 ///
 /// After grammar coarsening, `inline_bullet` is a single token.
-/// We extract timestamps via text parsing.
 fn parse_inline_bullet(node: Node, source: &str) -> Option<Bullet> {
-    use crate::parser::tree_parsing::media_bullet::parse_bullet_text;
-
-    let text = node.utf8_text(source.as_bytes()).ok()?;
-    let (start_ms, end_ms, _skip) = parse_bullet_text(text)?;
+    let (start_ms, end_ms) =
+        crate::parser::tree_parsing::media_bullet::parse_bullet_node_timestamps(node, source)?;
     Some(Bullet::new(start_ms, end_ms))
 }

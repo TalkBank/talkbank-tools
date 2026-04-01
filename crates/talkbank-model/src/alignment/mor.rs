@@ -11,7 +11,7 @@ use super::helpers::{
 };
 use super::types::AlignmentPair;
 use crate::model::{MainTier, MorTier, WriteChat};
-use crate::{ErrorCode, ErrorContext, ErrorLabel, ParseError, Severity, SourceLocation};
+use crate::{ErrorCode, ErrorLabel, ParseError, Severity};
 use schemars::JsonSchema;
 use talkbank_derive::SpanShift;
 
@@ -166,13 +166,13 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
         let detailed_message =
             format_positional_mismatch("Main tier", "%mor tier", &main_items, &mor_items);
 
-        let error = ParseError::new(
+        let error = ParseError::at_span(
             ErrorCode::new("E705"),
             Severity::Error,
-            main.span.into(),
-            ErrorContext::new("", main.span.to_range(), ""),
+            main.span,
             detailed_message,
         )
+        .with_label(ErrorLabel::new(main.span, "Main tier"))
         .with_label(ErrorLabel::new(mor.span, "%mor tier"))
         .with_suggestion("Each alignable word in main tier must have corresponding %mor item");
 
@@ -196,13 +196,13 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
         let detailed_message =
             format_positional_mismatch("Main tier", "%mor tier", &main_items, &mor_items);
 
-        let error = ParseError::new(
+        let error = ParseError::at_span(
             ErrorCode::new("E706"),
             Severity::Error,
-            main.span.into(),
-            ErrorContext::new("", main.span.to_range(), ""),
+            main.span,
             detailed_message,
         )
+        .with_label(ErrorLabel::new(main.span, "Main tier"))
         .with_label(ErrorLabel::new(mor.span, "%mor tier"))
         .with_suggestion("Remove extra %mor items or add corresponding words to main tier");
 
@@ -241,14 +241,8 @@ fn build_alignment_error(
         )
     };
 
-    let mut error = ParseError::new(
-        error_code,
-        Severity::Error,
-        SourceLocation::new(location_span),
-        ErrorContext::new("", location_span, ""),
-        message,
-    )
-    .with_suggestion(suggestion_text);
+    let mut error = ParseError::at_span(error_code, Severity::Error, location_span, message)
+        .with_suggestion(suggestion_text);
 
     if !main.span.is_dummy() {
         error

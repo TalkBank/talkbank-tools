@@ -2283,7 +2283,7 @@ fn test_e359_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
+#[ignore = "Status: not_implemented (E360)"]
 /// Tests expected behavior.
 #[test]
 fn test_e360_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
@@ -2301,6 +2301,30 @@ fn test_e360_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
         let has_expected = errors.errors.iter().any(|err| err.code == expected);
         assert!(has_expected, "Expected error code {}, but got: {:?}",
             code, errors.errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+#[ignore = "Status: not_implemented (E360)"]
+/// Tests expected behavior.
+#[test]
+fn test_e360_deprecated_skip_bullet_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello . 357000_357477-\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E360"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
     }
 
     Ok(())

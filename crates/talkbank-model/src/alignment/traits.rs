@@ -215,15 +215,10 @@ pub fn positional_align<T: AlignableTier>(
             (tier.error_code_too_many(), tier.suggestion_too_many())
         };
 
-        let error = ParseError::new(
-            code,
-            Severity::Error,
-            main.span.into(),
-            ErrorContext::new("", main.span.to_range(), ""),
-            detailed_message,
-        )
-        .with_label(ErrorLabel::new(tier.span(), tier.tier_name()))
-        .with_suggestion(suggestion);
+        let error = ParseError::at_span(code, Severity::Error, main.span, detailed_message)
+            .with_label(ErrorLabel::new(main.span, "Main tier"))
+            .with_label(ErrorLabel::new(tier.span(), tier.tier_name()))
+            .with_suggestion(suggestion);
 
         errors.push(error);
 

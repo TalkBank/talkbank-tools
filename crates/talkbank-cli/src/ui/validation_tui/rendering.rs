@@ -18,19 +18,20 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use super::state::{Focus, TuiState};
+use super::state::{DetailMetrics, Focus, TuiState};
 use super::text_processing::{process_source_line_for_display, process_text_for_display};
 use talkbank_model::SourceLocation;
 
 /// Render header for streaming validation.
 pub fn render_header_streaming(f: &mut Frame, area: Rect, state: &TuiState, complete: bool) {
     let title = if complete {
-        let total = state.total_files;
+        let total = state.progress.total_files;
         let invalid = state
+            .progress
             .final_invalid_files
             .unwrap_or_else(|| state.total_files_with_errors());
         format!("Done | {} files with errors / {} files", invalid, total)
-    } else if state.discovering {
+    } else if state.progress.discovering {
         "Discovering files...".to_string()
     } else {
         "Validating...".to_string()
@@ -60,8 +61,9 @@ pub fn render_header_streaming(f: &mut Frame, area: Rect, state: &TuiState, comp
         .alignment(Alignment::Center);
     f.render_widget(header, rows[0]);
 
-    let ratio = if state.total_files > 0 {
-        (state.files_processed_display as f64 / state.total_files as f64).clamp(0.0, 1.0)
+    let ratio = if state.progress.total_files > 0 {
+        (state.progress.files_processed_display as f64 / state.progress.total_files as f64)
+            .clamp(0.0, 1.0)
     } else if complete {
         1.0
     } else {
@@ -139,8 +141,16 @@ pub fn render_file_list(f: &mut Frame, area: Rect, state: &mut TuiState) {
     f.render_stateful_widget(list, area, &mut state.file_list_state);
 }
 
-/// Render error details pane.
-pub fn render_error_details(f: &mut Frame, area: Rect, state: &mut TuiState) {
+/// Render error details pane with line-level scrolling.
+///
+/// Uses `Paragraph` with `.scroll()` instead of `List` so that tall error
+/// items (e.g., mor 1:1 alignment tables) can be scrolled line-by-line
+/// rather than being clipped at the viewport boundary.
+pub fn render_error_details(
+    f: &mut Frame,
+    area: Rect,
+    state: &mut TuiState,
+) -> Option<DetailMetrics> {
     let filename = match state.current_file() {
         Some(file) => file.path.display().to_string(),
         None => "No file".to_string(),
@@ -151,11 +161,9 @@ pub fn render_error_details(f: &mut Frame, area: Rect, state: &mut TuiState) {
         format!(" Errors in {} — Tab to focus & scroll ", filename)
     };
 
-    // Collect errors without holding a reference to state
     let has_file = state.current_file().is_some();
     let is_focused = state.focus == Focus::ErrorList;
 
-    // Extract theme colors before borrowing state.files
     let color_error = state.theme.error;
     let color_location = state.theme.location;
     let color_line_num = state.theme.line_number;
@@ -164,159 +172,175 @@ pub fn render_error_details(f: &mut Frame, area: Rect, state: &mut TuiState) {
     let color_focus_border = state.theme.focus_border;
     let color_selected_bg = state.theme.selected_bg;
 
-    if has_file {
-        let file_idx = state.selected_file_idx;
-        let items: Vec<ListItem> = if let Some(file) = state.files.get(file_idx) {
-            file.errors
-                .iter()
-                .map(|error| {
-                    let code = error.code.as_str();
-                    let message = &error.message;
-                    let (line, column) = error_line_column(error, &file.source);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(if is_focused {
+            Style::default().fg(color_focus_border)
+        } else {
+            Style::default()
+        });
 
-                    // Process error message for display (handle tabs, bullets, underline markers)
-                    // Split multi-line messages (e.g., alignment tables) into separate Line objects
-                    let message_lines: Vec<&str> = message.split('\n').collect();
-                    let mut lines = Vec::new();
+    if !has_file {
+        let no_file = Paragraph::new("No file selected")
+            .block(block)
+            .wrap(Wrap { trim: false });
+        f.render_widget(no_file, area);
+        return None;
+    }
 
-                    // First line gets the error code prefix
-                    let mut first_line_spans = vec![
-                        Span::styled(
-                            format!("[{}]", code),
-                            Style::default()
-                                .fg(color_error)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(" "),
-                    ];
-                    if let Some(first) = message_lines.first() {
-                        first_line_spans.extend(process_text_for_display(first));
-                    }
-                    lines.push(Line::from(first_line_spans));
+    let file_idx = state.selected_file_idx;
+    let selected_error = state.selected_error_idx;
 
-                    // Subsequent message lines rendered with indentation
-                    for msg_line in message_lines.iter().skip(1) {
-                        let mut line_spans = vec![Span::raw("  ")];
-                        line_spans.extend(process_text_for_display(msg_line));
-                        lines.push(Line::from(line_spans));
-                    }
+    // Build a flat list of Line objects for all errors, tracking where each
+    // error starts so we can highlight the selected one and auto-scroll.
+    let mut all_lines: Vec<Line> = Vec::new();
+    let mut error_line_starts: Vec<u16> = Vec::new();
 
-                    lines.push(Line::from(vec![Span::styled(
-                        format!("  Line {}:{}", line, column),
-                        Style::default().fg(color_location),
-                    )]));
+    if let Some(file) = state.files.get(file_idx) {
+        for (error_idx, error) in file.errors.iter().enumerate() {
+            let is_selected = error_idx == selected_error;
+            // Style applied to all lines belonging to this error for selection highlight
+            let bg_style = if is_selected {
+                Style::default().bg(color_selected_bg)
+            } else {
+                Style::default()
+            };
 
-                    // Add source context if available (miette-style)
-                    if let Some(ctx) = &error.context
-                        && !ctx.source_text.is_empty()
-                    {
-                        let context_line = match ctx.line_offset {
-                            Some(offset) => offset,
-                            None => line,
-                        };
+            error_line_starts.push((all_lines.len()).min(u16::MAX as usize) as u16);
 
-                        let span_start = ctx.span.start as usize;
-                        let span_end = ctx.span.end as usize;
+            let code = error.code.as_str();
+            let message = &error.message;
+            let (line, column) = error_line_column(error, &file.source);
 
-                        // Split source text into individual lines
-                        let source_lines: Vec<&str> = ctx.source_text.split('\n').collect();
+            let message_lines: Vec<&str> = message.split('\n').collect();
 
-                        lines.push(Line::from(""));
+            // Selection indicator + error code prefix
+            let prefix = if is_selected && is_focused {
+                "↵ "
+            } else {
+                "  "
+            };
+            let mut first_line_spans = vec![
+                Span::raw(prefix),
+                Span::styled(
+                    format!("[{}]", code),
+                    Style::default()
+                        .fg(color_error)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(" "),
+            ];
+            if let Some(first) = message_lines.first() {
+                first_line_spans.extend(process_text_for_display(first));
+            }
+            all_lines.push(Line::from(first_line_spans).style(bg_style));
 
-                        let mut byte_offset = 0usize;
-                        for (i, src_line) in source_lines.iter().enumerate() {
-                            let line_start = byte_offset;
-                            let line_end = byte_offset + src_line.len();
-                            let line_num = context_line + i;
+            // Subsequent message lines
+            for msg_line in message_lines.iter().skip(1) {
+                let mut line_spans = vec![Span::raw("    ")];
+                line_spans.extend(process_text_for_display(msg_line));
+                all_lines.push(Line::from(line_spans).style(bg_style));
+            }
 
-                            // Process this line for display
-                            let line_span_start =
-                                span_start.max(line_start).saturating_sub(line_start);
-                            let line_span_end = span_end.min(line_end).saturating_sub(line_start);
+            // Location line
+            all_lines.push(
+                Line::from(vec![Span::styled(
+                    format!("    Line {}:{}", line, column),
+                    Style::default().fg(color_location),
+                )])
+                .style(bg_style),
+            );
 
-                            let (display_spans, display_offset, display_length) =
-                                process_source_line_for_display(
-                                    src_line,
-                                    line_span_start,
-                                    line_span_end,
-                                );
+            // Source context (miette-style)
+            if let Some(ctx) = &error.context
+                && !ctx.source_text.is_empty()
+            {
+                let context_line = match ctx.line_offset {
+                    Some(offset) => offset,
+                    None => line,
+                };
 
-                            let line_num_prefix = format!("  {} ", line_num);
+                let span_start = ctx.span.start as usize;
+                let span_end = ctx.span.end as usize;
+                let source_lines: Vec<&str> = ctx.source_text.split('\n').collect();
 
-                            let mut source_spans = vec![Span::styled(
-                                format!("{}│ ", line_num_prefix),
-                                Style::default().fg(color_line_num),
-                            )];
-                            source_spans.extend(display_spans);
-                            lines.push(Line::from(source_spans));
+                all_lines.push(Line::from(""));
 
-                            // Add caret line if the primary span overlaps this source line
-                            if span_start < line_end && span_end > line_start {
-                                let line_num_display_width = line_num_prefix.width();
-                                let spaces = " ".repeat(display_offset);
-                                let carets = "^".repeat(display_length.max(1));
+                let mut byte_offset = 0usize;
+                for (i, src_line) in source_lines.iter().enumerate() {
+                    let line_start = byte_offset;
+                    let line_end = byte_offset + src_line.len();
+                    let line_num = context_line + i;
 
-                                lines.push(Line::from(vec![
-                                    Span::raw(" ".repeat(line_num_display_width)),
-                                    Span::raw("│ "),
-                                    Span::styled(
-                                        format!("{}{}", spaces, carets),
-                                        Style::default()
-                                            .fg(color_caret)
-                                            .add_modifier(Modifier::BOLD),
-                                    ),
-                                ]));
-                            }
+                    let line_span_start = span_start.max(line_start).saturating_sub(line_start);
+                    let line_span_end = span_end.min(line_end).saturating_sub(line_start);
 
-                            // +1 for the '\n' separator
-                            byte_offset = line_end + 1;
-                        }
-                    }
+                    let (display_spans, display_offset, display_length) =
+                        process_source_line_for_display(src_line, line_span_start, line_span_end);
 
-                    // Add suggestion if available
-                    if let Some(ref suggestion) = error.suggestion {
-                        lines.push(Line::from(vec![
-                            Span::styled("  💡 ", Style::default().fg(color_suggestion)),
-                            Span::raw(suggestion),
+                    let line_num_prefix = format!("    {} ", line_num);
+                    let mut source_spans = vec![Span::styled(
+                        format!("{}│ ", line_num_prefix),
+                        Style::default().fg(color_line_num),
+                    )];
+                    source_spans.extend(display_spans);
+                    all_lines.push(Line::from(source_spans));
+
+                    if span_start < line_end && span_end > line_start {
+                        let line_num_display_width = line_num_prefix.width();
+                        let spaces = " ".repeat(display_offset);
+                        let carets = "^".repeat(display_length.max(1));
+
+                        all_lines.push(Line::from(vec![
+                            Span::raw(" ".repeat(line_num_display_width)),
+                            Span::raw("│ "),
+                            Span::styled(
+                                format!("{}{}", spaces, carets),
+                                Style::default()
+                                    .fg(color_caret)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
                         ]));
                     }
 
-                    lines.push(Line::from("")); // Spacing between errors
+                    byte_offset = line_end + 1;
+                }
+            }
 
-                    ListItem::new(lines)
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+            // Suggestion
+            if let Some(ref suggestion) = error.suggestion {
+                all_lines.push(Line::from(vec![
+                    Span::styled("    💡 ", Style::default().fg(color_suggestion)),
+                    Span::raw(suggestion),
+                ]));
+            }
 
-        let highlight_sym = if is_focused { "↵ " } else { "  " };
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(title)
-                    .border_style(if is_focused {
-                        Style::default().fg(color_focus_border)
-                    } else {
-                        Style::default()
-                    }),
-            )
-            .highlight_style(
-                Style::default()
-                    .add_modifier(Modifier::BOLD)
-                    .bg(color_selected_bg),
-            )
-            .highlight_symbol(highlight_sym);
-
-        f.render_stateful_widget(list, area, &mut state.error_list_state);
-    } else {
-        let no_file = Paragraph::new("No file selected")
-            .block(Block::default().borders(Borders::ALL).title(title))
-            .wrap(Wrap { trim: false });
-
-        f.render_widget(no_file, area);
+            // Blank separator between errors
+            all_lines.push(Line::from(""));
+        }
     }
+
+    let inner = block.inner(area);
+    let viewport_height = inner.height;
+    let total_lines = (all_lines.len()).min(u16::MAX as usize) as u16;
+
+    // Clamp scroll offset before rendering
+    let max_scroll = total_lines.saturating_sub(viewport_height);
+    let scroll_offset = state.scroll.offset.min(max_scroll);
+
+    let paragraph = Paragraph::new(all_lines)
+        .block(block)
+        .scroll((scroll_offset, 0));
+
+    f.render_widget(paragraph, area);
+
+    // Return metrics so the caller can update scroll state
+    Some(DetailMetrics {
+        viewport_height,
+        total_lines,
+        error_line_starts,
+    })
 }
 
 /// Resolve line and column for an error, computing from byte span when needed.
@@ -327,10 +351,24 @@ fn error_line_column(error: &talkbank_model::ParseError, source: &str) -> (usize
     }
 }
 
-/// Build the prominent action row that tells users about Enter → CLAN.
+/// Build the prominent action row that tells users about Enter → CLAN,
+/// or shows a transient status message (e.g., send2clan error).
 ///
 /// Row 1 of the two-row footer. Bright colors, bold text so it can't be missed.
 fn render_footer_action_row(f: &mut Frame, area: Rect, state: &TuiState) {
+    // Show status message (e.g., send2clan failure) instead of the action hint
+    if let Some(ref msg) = state.status_message {
+        let status_line = Line::from(vec![Span::styled(
+            msg.as_str(),
+            Style::default()
+                .fg(state.theme.error)
+                .add_modifier(Modifier::BOLD),
+        )]);
+        let status_bar = Paragraph::new(status_line).alignment(Alignment::Center);
+        f.render_widget(status_bar, area);
+        return;
+    }
+
     let action_line = Line::from(vec![
         Span::styled(
             " ↵ Enter ",
@@ -369,8 +407,10 @@ fn render_footer_nav_row(
     let mut spans = vec![
         Span::styled("Tab", Style::default().add_modifier(Modifier::BOLD)),
         Span::raw(tab_label),
-        Span::styled("j/k/↑↓", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled("j/k", Style::default().add_modifier(Modifier::BOLD)),
         Span::raw(": Navigate  "),
+        Span::styled("J/K", Style::default().add_modifier(Modifier::BOLD)),
+        Span::raw(": Scroll  "),
     ];
 
     for (key, label) in extra_hints {

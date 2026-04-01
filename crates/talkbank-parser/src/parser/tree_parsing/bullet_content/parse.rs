@@ -97,8 +97,8 @@ pub fn parse_bullet_content(node: Node, source: &str, errors: &impl ErrorSink) -
                 idx += 1;
             }
 
-            INLINE_BULLET => {
-                // Parse inline bullet: seq(bullet_end, natural_number, underscore, natural_number, bullet_end)
+            BULLET => {
+                // Parse structured bullet: seq(bullet_start, start_time, '_', end_time, bullet_end)
                 if let ParseOutcome::Parsed((start_ms, end_ms)) =
                     parse_inline_bullet(child, source, errors)
                 {

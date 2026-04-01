@@ -133,6 +133,7 @@
       "$"
     ],
     "event_segment_forbidden_symbols": [
+      "&",
       ",",
       ";",
       "!",

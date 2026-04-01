@@ -10,8 +10,8 @@
 
 use super::*;
 use crate::model::{
-    MainTier, PhoItem, PhoTier, PhoTierType, PhoWord, SinItem, SinTier, SinToken, Terminator,
-    UtteranceContent, WorTier, Word,
+    MainTier, Mor, MorTier, MorTierType, MorWord, PhoItem, PhoTier, PhoTierType, PhoWord,
+    PosCategory, SinItem, SinTier, SinToken, Terminator, UtteranceContent, WorTier, Word,
 };
 use crate::{ErrorCode, Span};
 
@@ -251,4 +251,129 @@ fn test_wor_alignment_does_not_count_terminator() {
         alignment.errors
     );
     assert_eq!(alignment.pairs.len(), 13); // 13 word-to-word pairs
+}
+
+/// Helper: build a simple Mor item from POS and lemma strings.
+fn simple_mor(pos: &str, lemma: &str) -> Mor {
+    Mor::new(MorWord::new(PosCategory::new(pos), lemma))
+}
+
+/// Anchors `%mor` underflow errors (E705) to the main-tier span.
+///
+/// When the main tier has more alignable items than `%mor`, the primary
+/// span is the main utterance so editors highlight the authoritative source.
+#[test]
+fn test_mor_alignment_error_too_few_has_proper_location() {
+    // Main tier has 2 words, mor tier has only 1 → E705
+    let main = MainTier::new(
+        "CHI",
+        vec![
+            UtteranceContent::Word(Box::new(Word::new_unchecked("one", "one"))),
+            UtteranceContent::Word(Box::new(Word::new_unchecked("two", "two"))),
+        ],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(0, 20)); // *CHI: one two .
+
+    let mor = MorTier::new(MorTierType::Mor, vec![simple_mor("num", "one")])
+        .with_span(Span::from_usize(21, 35)) // %mor: num|one
+        .with_terminator(Some(".".into()));
+
+    let alignment = align_main_to_mor(&main, &mor);
+
+    assert!(!alignment.is_error_free());
+    assert_eq!(alignment.errors.len(), 1);
+
+    let error = &alignment.errors[0];
+    assert_eq!(error.code, ErrorCode::new("E705"));
+
+    // Primary span should be the main tier
+    assert_eq!(error.location.span.start, 0);
+    assert_eq!(error.location.span.end, 20);
+
+    // Should have labels for both tiers
+    assert!(
+        error.labels.len() >= 2,
+        "Expected labels for both main and mor tiers, got {}",
+        error.labels.len()
+    );
+}
+
+/// Anchors `%mor` overflow errors (E706) to the main-tier span.
+///
+/// Even when the dependent tier has more items, the primary location
+/// remains the main utterance for consistency with other tier aligners.
+#[test]
+fn test_mor_alignment_error_too_many_has_proper_location() {
+    // Mor tier has 2 items, main tier has only 1 → E706
+    let main = MainTier::new(
+        "CHI",
+        vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
+            "one", "one",
+        )))],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(0, 15)); // *CHI: one .
+
+    let mor = MorTier::new(
+        MorTierType::Mor,
+        vec![simple_mor("num", "one"), simple_mor("num", "two")],
+    )
+    .with_span(Span::from_usize(16, 40)) // %mor: num|one num|two
+    .with_terminator(Some(".".into()));
+
+    let alignment = align_main_to_mor(&main, &mor);
+
+    assert!(!alignment.is_error_free());
+    assert_eq!(alignment.errors.len(), 1);
+
+    let error = &alignment.errors[0];
+    assert_eq!(error.code, ErrorCode::new("E706"));
+
+    // Primary span should be the main tier (consistent with pho/sin/wor)
+    assert_eq!(error.location.span.start, 0);
+    assert_eq!(error.location.span.end, 15);
+
+    // Should have labels for both tiers
+    assert!(
+        error.labels.len() >= 2,
+        "Expected labels for both main and mor tiers, got {}",
+        error.labels.len()
+    );
+}
+
+/// Verifies that E706 errors have no bogus ErrorContext with empty source text.
+///
+/// The alignment module does not have access to the source text, so it must
+/// create errors with `context: None` (via `at_span`), not with a dummy
+/// `ErrorContext { source_text: "", span: <absolute bytes> }`.
+#[test]
+fn test_mor_alignment_errors_have_no_bogus_context() {
+    let main = MainTier::new(
+        "CHI",
+        vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
+            "one", "one",
+        )))],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(0, 15));
+
+    let mor = MorTier::new(
+        MorTierType::Mor,
+        vec![simple_mor("num", "one"), simple_mor("num", "two")],
+    )
+    .with_span(Span::from_usize(16, 40))
+    .with_terminator(Some(".".into()));
+
+    let alignment = align_main_to_mor(&main, &mor);
+
+    for error in &alignment.errors {
+        // context should be None (no source text available at alignment time),
+        // NOT Some(ErrorContext { source_text: "", ... })
+        assert!(
+            error.context.is_none(),
+            "Alignment error should not have a dummy ErrorContext; \
+             source context is populated later by enhance_errors_with_source"
+        );
+    }
 }

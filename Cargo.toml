@@ -59,7 +59,7 @@ unicode-width = { workspace = true }
 walkdir = { workspace = true }
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Franklin Chen <franklinchen@franklinchen.com>"]
 license = "BSD-3-Clause"
@@ -115,7 +115,7 @@ regex = "1.12"
 reqwest = { version = "0.13", features = ["multipart", "json", "blocking"] }
 rstest = "0.26.1"
 schemars = { version = "1.2", features = ["indexmap2", "smol_str03"] }
-send2clan-sys = { path = "crates/send2clan-sys", version = "0.1.0" }
+send2clan-sys = { path = "crates/send2clan-sys", version = "0.2.0" }
 
 # Core dependencies (shared across crates)
 serde = { version = "1.0", features = ["derive", "rc"] }
@@ -126,17 +126,17 @@ smallvec = { version = "1.15", features = ["serde", "union", "const_generics"] }
 smol_str = { version = "0.3", features = ["serde"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
-talkbank-clan = { path = "crates/talkbank-clan", version = "0.1.0" }
-talkbank-cli = { path = "crates/talkbank-cli", version = "0.1.0" }
+talkbank-clan = { path = "crates/talkbank-clan", version = "0.2.0" }
+talkbank-cli = { path = "crates/talkbank-cli", version = "0.2.0" }
 
 # TalkBank crates — path for local dev, version for crates.io publishing
-talkbank-derive = { path = "crates/talkbank-derive", version = "0.1.0" }
-talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.1.0" }
-talkbank-model = { path = "crates/talkbank-model", version = "0.1.0" }
-talkbank-parser = { path = "crates/talkbank-parser", version = "0.1.0" }
-talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.1.0" }
-talkbank-re2c-parser = { path = "crates/talkbank-re2c-parser", version = "0.1.0" }
-talkbank-transform = { path = "crates/talkbank-transform", version = "0.1.0" }
+talkbank-derive = { path = "crates/talkbank-derive", version = "0.2.0" }
+talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.2.0" }
+talkbank-model = { path = "crates/talkbank-model", version = "0.2.0" }
+talkbank-parser = { path = "crates/talkbank-parser", version = "0.2.0" }
+talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.2.0" }
+talkbank-re2c-parser = { path = "crates/talkbank-re2c-parser", version = "0.2.0" }
+talkbank-transform = { path = "crates/talkbank-transform", version = "0.2.0" }
 
 tempfile = "3.27"
 text-size = "1.1"
@@ -152,7 +152,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Tree-sitter parsing
 tree-sitter = "0.26"
 tree-sitter-highlight = "0.26"
-tree-sitter-talkbank = { path = "grammar", version = "0.1.0" }
+tree-sitter-talkbank = { path = "grammar", version = "0.2.0" }
 
 # Grammar-driven tooling (from ~/tree-sitter-grammar-utils)
 tree-sitter-node-types = { path = "../../tree-sitter-grammar-utils/crates/tree-sitter-node-types" }

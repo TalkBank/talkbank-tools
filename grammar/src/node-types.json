@@ -665,15 +665,15 @@
       "required": true,
       "types": [
         {
+          "type": "bullet",
+          "named": true
+        },
+        {
           "type": "freecode",
           "named": true
         },
         {
           "type": "long_feature",
-          "named": true
-        },
-        {
-          "type": "media_url",
           "named": true
         },
         {
@@ -860,6 +860,46 @@
         },
         {
           "type": "newline",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "bullet",
+    "named": true,
+    "fields": {
+      "end_time": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bullet_timestamp",
+            "named": true
+          }
+        ]
+      },
+      "start_time": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bullet_timestamp",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "bullet_end",
+          "named": true
+        },
+        {
+          "type": "bullet_start",
           "named": true
         }
       ]
@@ -2001,46 +2041,6 @@
     "type": "id_speaker",
     "named": true,
     "fields": {}
-  },
-  {
-    "type": "inline_bullet",
-    "named": true,
-    "fields": {
-      "end_time": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "bullet_timestamp",
-            "named": true
-          }
-        ]
-      },
-      "start_time": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "bullet_timestamp",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "bullet_end",
-          "named": true
-        },
-        {
-          "type": "bullet_start",
-          "named": true
-        }
-      ]
-    }
   },
   {
     "type": "int_dependent_tier",
@@ -4027,11 +4027,11 @@
       "required": true,
       "types": [
         {
-          "type": "continuation",
+          "type": "bullet",
           "named": true
         },
         {
-          "type": "inline_bullet",
+          "type": "continuation",
           "named": true
         },
         {
@@ -4050,11 +4050,11 @@
       "required": true,
       "types": [
         {
-          "type": "continuation",
+          "type": "bullet",
           "named": true
         },
         {
-          "type": "inline_bullet",
+          "type": "continuation",
           "named": true
         },
         {
@@ -4499,11 +4499,11 @@
       "required": true,
       "types": [
         {
-          "type": "final_codes",
+          "type": "bullet",
           "named": true
         },
         {
-          "type": "media_url",
+          "type": "final_codes",
           "named": true
         },
         {
@@ -4649,11 +4649,11 @@
       "required": true,
       "types": [
         {
-          "type": "comma",
+          "type": "bullet",
           "named": true
         },
         {
-          "type": "inline_bullet",
+          "type": "comma",
           "named": true
         },
         {
@@ -5305,10 +5305,6 @@
   },
   {
     "type": "media_prefix",
-    "named": true
-  },
-  {
-    "type": "media_url",
     "named": true
   },
   {

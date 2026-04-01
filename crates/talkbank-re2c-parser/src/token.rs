@@ -282,6 +282,8 @@ pub enum Token<'a> {
     Comma(&'a str),
     /// grammar.js: semicolon = ';'
     Semicolon(&'a str),
+    /// grammar.js: colon = ':' (standalone separator, not word-internal lengthening)
+    Colon(&'a str),
     /// grammar.js: tag_marker = '\u201E' (double low-9 quotation mark)
     TagMarker(&'a str),
     /// grammar.js: vocative_marker = '\u2021' (double dagger)
@@ -344,12 +346,10 @@ pub enum Token<'a> {
     /// Pattern: `\u{0015}start_end-?\u{0015}`, tags mark start (t1..t2) and end (t3..t4).
     /// `raw_text` carries the full original slice including NAK delimiters,
     /// so no downstream reconstruction is needed.
-    /// `skip` is true when a dash precedes the closing NAK (`\x15start_end-\x15`).
     MediaBullet {
         raw_text: &'a str,
         start_time: &'a str,
         end_time: &'a str,
-        skip: bool,
     },
 
     // ── CA elements (typed — one variant per CAElementType) ──
@@ -633,6 +633,7 @@ impl<'a> Token<'a> {
             | Token::PosTag(s)
             | Token::Comma(s)
             | Token::Semicolon(s)
+            | Token::Colon(s)
             | Token::TagMarker(s)
             | Token::VocativeMarker(s)
             | Token::UnmarkedEnding(s)

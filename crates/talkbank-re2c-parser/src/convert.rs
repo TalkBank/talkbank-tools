@@ -311,16 +311,11 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
             Token::MediaBullet {
                 start_time,
                 end_time,
-                skip,
                 ..
             } => {
                 let start_ms: u64 = start_time.parse().unwrap_or(0);
                 let end_ms: u64 = end_time.parse().unwrap_or(0);
-                let mut bullet = Bullet::new(start_ms, end_ms);
-                if *skip {
-                    bullet = bullet.with_skip(true);
-                }
-                UtteranceContent::InternalBullet(bullet)
+                UtteranceContent::InternalBullet(Bullet::new(start_ms, end_ms))
             }
             _ => unreachable!(),
         },
@@ -456,6 +451,7 @@ fn separator_token_to_model(tok: &Token<'_>) -> Separator {
     match tok {
         Token::Comma(_) => Separator::Comma { span: s },
         Token::Semicolon(_) => Separator::Semicolon { span: s },
+        Token::Colon(_) => Separator::Colon { span: s },
         Token::CaContinuationMarker(_) => Separator::CaContinuation { span: s },
         Token::TagMarker(_) => Separator::Tag { span: s },
         Token::VocativeMarker(_) => Separator::Vocative { span: s },
@@ -621,6 +617,16 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
                 BracketedContent::new(items),
             )))
         }
+        ast::ContentItem::Quotation(q) => {
+            let items: Vec<BracketedItem> = q
+                .contents
+                .iter()
+                .filter_map(|c| content_item_to_bracketed(c))
+                .collect();
+            Some(BracketedItem::Quotation(Quotation::new(
+                BracketedContent::new(items),
+            )))
+        }
         _ => None,
     }
 }
@@ -707,25 +713,6 @@ fn parsed_annotation_to_scoped(ann: &ast::ParsedAnnotation<'_>) -> Option<Conten
 /// always consumes them as separators (like TreeSitter's greedy rule).
 /// When no explicit terminator was found, the trailing arrow should be
 /// promoted. This matches TreeSitter's `resolve_ca_terminator`.
-fn resolve_ca_terminator(
-    mut content: Vec<UtteranceContent>,
-    terminator: Option<Terminator>,
-) -> (Vec<UtteranceContent>, Option<Terminator>) {
-    if terminator.is_some() {
-        return (content, terminator);
-    }
-
-    // Check if the last content item is a CA intonation separator
-    if let Some(UtteranceContent::Separator(sep)) = content.last() {
-        if let Some(term) = sep.to_ca_terminator() {
-            content.pop();
-            return (content, Some(term));
-        }
-    }
-
-    (content, terminator)
-}
-
 /// Convert a terminator token to model Terminator.
 pub fn token_to_terminator(tok: &Token<'_>) -> Terminator {
     let s = Span::DUMMY;
@@ -767,13 +754,28 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
         .as_ref()
         .map(|t| token_to_terminator(t));
 
-    // CA terminator promotion: when no terminator was found, check if the
-    // trailing content item is a CA intonation arrow separator. If so,
-    // promote it to a terminator. This matches the TreeSitter parser's
-    // `resolve_ca_terminator` post-hoc fixup.
-    let (content_items, terminator) = resolve_ca_terminator(content_items, terminator);
-
+    // Post-hoc promotions: resolve trailing content items that should be
     let mut main_tier = MainTier::new(speaker, content_items, terminator);
+
+    // Post-hoc promotions via the shared TierContent method.
+    // Order: extract bullet first, then CA terminator (arrow is last after bullet pop).
+    main_tier.content.extract_terminal_bullet();
+    main_tier.content.resolve_ca_terminator();
+
+    // Grammar-routed bullet from tier_body.media_bullet takes priority
+    // over the extracted one (it's correctly classified by the chumsky parser).
+    if let Some(bullet_tok) = &mt.tier_body.media_bullet {
+        if let Token::MediaBullet {
+            start_time,
+            end_time,
+            ..
+        } = bullet_tok
+        {
+            let start_ms: u64 = start_time.parse().unwrap_or(0);
+            let end_ms: u64 = end_time.parse().unwrap_or(0);
+            main_tier = main_tier.with_bullet(Bullet::new(start_ms, end_ms));
+        }
+    }
 
     // Linkers
     if !mt.tier_body.linkers.is_empty() {
@@ -809,28 +811,6 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
             })
             .collect();
         main_tier = main_tier.with_postcodes(postcodes);
-    }
-
-    // Media bullet — utterance-level timing.
-    // TreeSitter puts the last bullet in BOTH content (InternalBullet) AND
-    // the utterance-level bullet field. The re2c parser consumes all bullets
-    // as content items, so we extract the last one for the utterance field.
-    if let Some(bullet_tok) = &mt.tier_body.media_bullet {
-        if let Token::MediaBullet {
-            start_time,
-            end_time,
-            skip,
-            ..
-        } = bullet_tok
-        {
-            let start_ms: u64 = start_time.parse().unwrap_or(0);
-            let end_ms: u64 = end_time.parse().unwrap_or(0);
-            let mut bullet = Bullet::new(start_ms, end_ms);
-            if *skip {
-                bullet = bullet.with_skip(true);
-            }
-            main_tier = main_tier.with_bullet(bullet);
-        }
     }
 
     main_tier
@@ -1055,35 +1035,48 @@ impl<'a> From<&ast::ChatFile<'a>> for talkbank_model::model::ChatFile {
                 }
             })
             .collect();
-        // Build participants map from @Participants and @ID headers
+        // Build participants map from @ID headers, enriched with
+        // @Participants metadata. This matches TreeSitterParser's behavior:
+        // only participants with @ID headers appear in the map. The validator
+        // detects missing @ID (E522) by comparing @Participants entries
+        // against the participants map.
+        //
+        // First pass: collect @Participants entries by speaker code (for name/role).
+        let mut declared: indexmap::IndexMap<SpeakerCode, (Option<ParticipantName>, ParticipantRole)> =
+            indexmap::IndexMap::new();
+        for line in &lines {
+            if let talkbank_model::model::Line::Header { header, .. } = line {
+                if let Header::Participants { entries } = header.as_ref() {
+                    for entry in entries.iter() {
+                        declared.insert(
+                            entry.speaker_code.clone(),
+                            (entry.name.clone(), entry.role.clone()),
+                        );
+                    }
+                }
+            }
+        }
+        // Second pass: build participants from @ID headers only.
         let mut participants = indexmap::IndexMap::new();
         for line in &lines {
             if let talkbank_model::model::Line::Header { header, .. } = line {
                 match header.as_ref() {
-                    Header::Participants { entries } => {
-                        for entry in entries.iter() {
-                            let code = entry.speaker_code.clone();
-                            participants.insert(
-                                code.clone(),
-                                talkbank_model::model::Participant {
-                                    code: code.clone(),
-                                    name: entry.name.clone(),
-                                    role: entry.role.clone(),
-                                    id: IDHeader::new(
-                                        LanguageCode::empty(),
-                                        code.clone(),
-                                        entry.role.clone(),
-                                    ),
-                                    birth_date: None,
-                                },
-                            );
-                        }
-                    }
                     Header::ID(id_header) => {
                         let code = id_header.speaker.clone();
-                        if let Some(p) = participants.get_mut(&code) {
-                            p.id = id_header.clone();
-                        }
+                        let (name, role) = declared
+                            .get(&code)
+                            .cloned()
+                            .unwrap_or((None, id_header.role.clone()));
+                        participants.insert(
+                            code.clone(),
+                            talkbank_model::model::Participant {
+                                code: code.clone(),
+                                name,
+                                role,
+                                id: id_header.clone(),
+                                birth_date: None,
+                            },
+                        );
                     }
                     Header::Birth { participant, date } => {
                         if let Some(p) = participants.get_mut(participant) {

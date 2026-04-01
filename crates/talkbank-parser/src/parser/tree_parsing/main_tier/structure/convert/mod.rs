@@ -69,13 +69,17 @@ pub fn convert_main_tier_node(
     let mut content = body.content;
     let mut terminator = end.terminator;
     let mut bullet = end.bullet;
-    resolve_ca_terminator(&mut content, &mut terminator, &mut bullet);
 
     let mut main_tier = MainTier::new(speaker, content, terminator)
         .with_span(span)
         .with_speaker_span(prefix.speaker_span)
         .with_linkers(body.linkers)
         .with_postcodes(end.postcodes);
+
+    // Post-hoc promotions via the shared TierContent methods.
+    // Order: extract bullet first, then CA terminator (arrow is last after bullet pop).
+    main_tier.content.extract_terminal_bullet();
+    main_tier.content.resolve_ca_terminator();
 
     if let Some(span) = content_span {
         main_tier = main_tier.with_content_span(span);
@@ -85,7 +89,10 @@ pub fn convert_main_tier_node(
         main_tier = main_tier.with_language_code(lang_code);
     }
 
+    // Bullet: grammar-routed (from utterance_end) takes priority,
+    // then promoted bullet (from trailing content InternalBullet).
     if let Some(b) = bullet {
+        // Grammar-routed bullet from utterance_end takes priority.
         main_tier = main_tier.with_bullet(b);
     }
 
@@ -215,60 +222,3 @@ pub(super) fn report_cst_access_failure(
     report_cst_access_error(node, source, errors, idx);
 }
 
-// ---------------------------------------------------------------------------
-// CA terminator resolution
-// ---------------------------------------------------------------------------
-
-/// Resolve CA intonation arrow ambiguity at the CST→AST boundary.
-///
-/// CA intonation arrows (`→ ↗ ⇗ ↘ ⇘`) serve dual roles in CHAT:
-/// - **Utterance-final**: terminators marking the prosodic end of an utterance
-/// - **Mid-content**: prosodic annotations marking intonation on a phrase
-///
-/// Tree-sitter's greedy `repeat1` in the `contents` grammar rule always
-/// consumes these arrows as separators, even at utterance boundaries where
-/// they function as terminators. This is an inherent LR(1) limitation: the
-/// parser cannot distinguish "last arrow before end" from "arrow followed by
-/// more content" without consuming the token first. The `contents` rule also
-/// consumes any subsequent `media_url` (bullet) as an `InternalBullet` content
-/// item rather than the terminal `TierContent.bullet`.
-///
-/// This function resolves the ambiguity in the CST→AST conversion. When
-/// `utterance_end` has neither terminator nor bullet (meaning the grammar
-/// consumed everything into `contents`), it promotes trailing content items
-/// to their correct AST roles:
-///
-/// 1. Trailing `InternalBullet`(s) → `TierContent.bullet` (the last one wins)
-/// 2. Trailing CA arrow `Separator` → `Terminator`
-///
-/// This does NOT affect:
-/// - Mid-content arrows (followed by more words/pauses) — they stay as separators
-/// - LENA/HomeBank continuation-line InternalBullets — those have a terminator
-///   on the continuation line, so `utterance_end.terminator` is `Some`
-/// - Standard terminators (`.` `?` `!`) — already correctly routed by the grammar
-fn resolve_ca_terminator(
-    content: &mut Vec<UtteranceContent>,
-    terminator: &mut Option<Terminator>,
-    bullet: &mut Option<crate::model::Bullet>,
-) {
-    if terminator.is_some() || bullet.is_some() {
-        return;
-    }
-
-    // Pop trailing InternalBullet(s) — the last one becomes the terminal bullet.
-    while let Some(UtteranceContent::InternalBullet(_)) = content.last() {
-        if let Some(UtteranceContent::InternalBullet(b)) = content.pop() {
-            *bullet = Some(b);
-        }
-    }
-
-    // If the now-last item is a CA intonation arrow separator, promote it
-    // to terminator.
-    if let Some(UtteranceContent::Separator(sep)) = content.last() {
-        if sep.is_ca_intonation_arrow() {
-            if let Some(UtteranceContent::Separator(sep)) = content.pop() {
-                *terminator = sep.to_ca_terminator();
-            }
-        }
-    }
-}

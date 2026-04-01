@@ -128,47 +128,30 @@ pub fn run_validation_tui_streaming(
         if poll(Duration::from_millis(50))?
             && let Event::Key(key) = event::read()?
         {
-            match (key.code, key.modifiers) {
-                // Cancel validation
-                (KeyCode::Char('c'), KeyModifiers::NONE) => {
-                    cancel_tx.send(()).ok();
-                }
-                // Quit immediately on Ctrl+C
-                (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                    ctrl_c_count += 1;
-                    cancel_tx.send(()).ok();
-                    if ctrl_c_count >= 2 {
-                        break Ok(TuiAction::ForceQuit);
+            // Clear any transient status message on keypress
+            state.status_message = None;
+
+            if !state.handle_common_key(key.code, key.modifiers) {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('c'), KeyModifiers::NONE) => {
+                        cancel_tx.send(()).ok();
                     }
-                }
-                // Quit
-                (KeyCode::Char('q'), KeyModifiers::NONE) | (KeyCode::Esc, _) => {
-                    cancel_tx.send(()).ok();
-                    break Ok(TuiAction::Quit);
-                }
-                // Navigate up
-                (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
-                    state.move_up();
-                }
-                // Navigate down
-                (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
-                    state.move_down();
-                }
-                // Toggle focus
-                (KeyCode::Tab, _) => {
-                    state.toggle_focus();
-                }
-                // Open in CLAN
-                (KeyCode::Enter, _) => {
-                    if let Err(e) = state.open_in_clan() {
-                        let _ = e;
+                    (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                        ctrl_c_count += 1;
+                        cancel_tx.send(()).ok();
+                        if ctrl_c_count >= 2 {
+                            break Ok(TuiAction::ForceQuit);
+                        }
                     }
+                    (KeyCode::Char('q'), KeyModifiers::NONE) | (KeyCode::Esc, _) => {
+                        cancel_tx.send(()).ok();
+                        break Ok(TuiAction::Quit);
+                    }
+                    (KeyCode::Char('r'), KeyModifiers::NONE) if validation_complete => {
+                        break Ok(TuiAction::Rerun);
+                    }
+                    _ => {}
                 }
-                // Rerun validation (only after completion)
-                (KeyCode::Char('r'), KeyModifiers::NONE) if validation_complete => {
-                    break Ok(TuiAction::Rerun);
-                }
-                _ => {}
             }
         }
 
@@ -215,28 +198,26 @@ pub fn run_validation_tui_streaming(
                     }
                 }
                 Ok(ValidationEvent::Discovering) => {
-                    state.discovering = true;
+                    state.progress.discovering = true;
                 }
                 Ok(ValidationEvent::Started { total_files }) => {
-                    state.total_files = total_files;
-                    state.discovering = false;
+                    state.progress.total_files = total_files;
+                    state.progress.discovering = false;
                 }
-                Ok(ValidationEvent::RoundtripComplete(_)) => {
-                    // Roundtrip events handled via FileComplete status
-                }
+                Ok(ValidationEvent::RoundtripComplete(_)) => {}
                 Ok(ValidationEvent::FileComplete(_)) => {
-                    state.files_processed += 1;
+                    state.progress.files_processed += 1;
                     state.update_progress_display(false);
                 }
                 Ok(ValidationEvent::Finished(snapshot)) => {
                     validation_complete = true;
-                    state.total_files = snapshot.total_files;
-                    state.files_processed = snapshot.total_files;
+                    state.progress.total_files = snapshot.total_files;
+                    state.progress.files_processed = snapshot.total_files;
                     state.update_progress_display(true);
-                    state.final_valid_files = Some(snapshot.valid_files);
-                    state.final_invalid_files = Some(snapshot.invalid_files);
-                    state.final_cache_hits = Some(snapshot.cache_hits);
-                    state.final_cache_misses = Some(snapshot.cache_misses);
+                    state.progress.final_valid_files = Some(snapshot.valid_files);
+                    state.progress.final_invalid_files = Some(snapshot.invalid_files);
+                    state.progress.final_cache_hits = Some(snapshot.cache_hits);
+                    state.progress.final_cache_misses = Some(snapshot.cache_misses);
                 }
                 Err(crossbeam_channel::TryRecvError::Empty) => break,
                 Err(crossbeam_channel::TryRecvError::Disconnected) => {
@@ -271,38 +252,22 @@ where
         terminal.draw(|f| ui(f, state))?;
 
         if let Event::Key(key) = event::read()? {
-            match (key.code, key.modifiers) {
-                // Quit
-                (KeyCode::Char('q'), KeyModifiers::NONE) | (KeyCode::Esc, _) => {
-                    return Ok(TuiAction::Quit);
-                }
-                // Navigate up
-                (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
-                    state.move_up();
-                }
-                // Navigate down
-                (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
-                    state.move_down();
-                }
-                // Toggle focus
-                (KeyCode::Tab, _) => {
-                    state.toggle_focus();
-                }
-                // Open in CLAN
-                (KeyCode::Enter, _) => {
-                    if let Err(e) = state.open_in_clan() {
-                        eprintln!("Failed to open in CLAN: {}", e);
+            // Clear any transient status message on keypress
+            state.status_message = None;
+
+            if !state.handle_common_key(key.code, key.modifiers) {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('q'), KeyModifiers::NONE) | (KeyCode::Esc, _) => {
+                        return Ok(TuiAction::Quit);
                     }
+                    (KeyCode::Char('r'), KeyModifiers::NONE) => {
+                        return Ok(TuiAction::Rerun);
+                    }
+                    (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                        return Ok(TuiAction::Quit);
+                    }
+                    _ => {}
                 }
-                // Rerun validation
-                (KeyCode::Char('r'), KeyModifiers::NONE) => {
-                    return Ok(TuiAction::Rerun);
-                }
-                // Quit with Ctrl+C
-                (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                    return Ok(TuiAction::Quit);
-                }
-                _ => {}
             }
         }
     }
@@ -319,7 +284,6 @@ fn ui_streaming(f: &mut Frame, state: &mut TuiState, validation_complete: bool) 
         ])
         .split(f.area());
 
-    // Render header with validation status
     render_header_streaming(f, chunks[0], state, validation_complete);
 
     if state.files.is_empty() {
@@ -327,11 +291,11 @@ fn ui_streaming(f: &mut Frame, state: &mut TuiState, validation_complete: bool) 
         let msg = if validation_complete {
             format!(
                 "✓ {} files validated, no errors found! Press 'q' to quit.",
-                state.total_files
+                state.progress.total_files
             )
-        } else if state.discovering {
+        } else if state.progress.discovering {
             "Discovering files... (press 'c' to cancel)".to_string()
-        } else if state.total_files > 0 {
+        } else if state.progress.total_files > 0 {
             "Validating files... (press 'c' to cancel)".to_string()
         } else {
             "Validating... (press 'c' to cancel)".to_string()
@@ -359,14 +323,12 @@ fn ui_streaming(f: &mut Frame, state: &mut TuiState, validation_complete: bool) 
             ])
             .split(chunks[1]);
 
-        // Render file list
         render_file_list(f, main_chunks[0], state);
-
-        // Render error details
-        render_error_details(f, main_chunks[1], state);
+        if let Some(metrics) = render_error_details(f, main_chunks[1], state) {
+            state.apply_detail_metrics(metrics);
+        }
     }
 
-    // Render footer with streaming-specific controls
     render_footer_streaming(f, chunks[2], state, validation_complete);
 }
 
@@ -381,7 +343,6 @@ fn ui(f: &mut Frame, state: &mut TuiState) {
         ])
         .split(f.area());
 
-    // Render header
     render_header(f, chunks[0], state);
 
     // Split main content into two panes
@@ -393,12 +354,10 @@ fn ui(f: &mut Frame, state: &mut TuiState) {
         ])
         .split(chunks[1]);
 
-    // Render file list
     render_file_list(f, main_chunks[0], state);
+    if let Some(metrics) = render_error_details(f, main_chunks[1], state) {
+        state.apply_detail_metrics(metrics);
+    }
 
-    // Render error details
-    render_error_details(f, main_chunks[1], state);
-
-    // Render footer
     render_footer(f, chunks[2], state);
 }

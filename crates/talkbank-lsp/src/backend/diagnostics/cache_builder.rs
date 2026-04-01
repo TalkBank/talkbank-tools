@@ -180,7 +180,6 @@ pub fn bullet_signature(utterance: &Utterance) -> Option<u64> {
         let mut hasher = DefaultHasher::new();
         bullet.timing.start_ms.hash(&mut hasher);
         bullet.timing.end_ms.hash(&mut hasher);
-        bullet.skip.hash(&mut hasher);
         hasher.finish()
     })
 }

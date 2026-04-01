@@ -23,10 +23,25 @@ use crate::token::Token;
 /// a leaked slice. Both are leaked so `&'a [Token<'a>]` has a stable
 /// lifetime for chumsky's `Input` trait.
 pub(crate) fn lex_to_tokens<'a>(input: &str, start_condition: usize) -> &'a [Token<'a>] {
+    let (tokens, _) = lex_to_tokens_and_source(input, start_condition);
+    tokens
+}
+
+/// Lex input and return both the token slice and the leaked source string.
+///
+/// The leaked source (minus trailing NUL) can be reused as `ChatFile.source`,
+/// avoiding a second `Box::leak` in entry points.
+pub(crate) fn lex_to_tokens_and_source<'a>(
+    input: &str,
+    start_condition: usize,
+) -> (&'a [Token<'a>], &'a str) {
     let mut padded = input.to_string();
     padded.push('\0');
     let padded: &'a str = Box::leak(padded.into_boxed_str());
     let lexer = Lexer::new(padded, start_condition);
     let tokens: Vec<Token<'a>> = lexer.map(|(tok, _span)| tok).collect();
-    Box::leak(tokens.into_boxed_slice())
+    let token_slice = Box::leak(tokens.into_boxed_slice());
+    // Source is the padded string minus the NUL sentinel
+    let source = &padded[..padded.len() - 1];
+    (token_slice, source)
 }

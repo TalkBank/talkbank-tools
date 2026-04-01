@@ -15,7 +15,7 @@ use talkbank_parser_tests::test_error::TestError;
 #[case::multiple_words("*CHI:\thello world .")]
 #[case::with_filler("*MOT:\tyeah &-um ok .")]
 #[case::with_media_bullet("*CHI:\thello . \u{0015}1000_2000\u{0015}")]
-#[case::with_skip_bullet("*CHI:\thello . \u{0015}1000_2000-\u{0015}")]
+// skip bullet removed — Brian confirmed skip is deprecated (2026-03-31)
 fn main_tier_round_trip(#[case] input: &str) -> Result<(), TestError> {
     let ts = parser()?;
     let tier = ts.parse_main_tier(input)?;

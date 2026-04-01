@@ -714,7 +714,12 @@ pub const WOR_WORD_ITEM: &str = "wor_word_item";
 
 // === Media and Timing ===
 
-/// Inline timing bullet for media alignment.
+/// Timing bullet for media alignment (unified structured rule).
+/// Used in utterance_end, base_content_item, text_with_bullets, wor_tier_body.
+pub const BULLET: &str = "bullet";
+/// Timestamp child inside a `bullet` node.
+pub const BULLET_TIMESTAMP: &str = "bullet_timestamp";
+/// Legacy alias (grammar renamed inline_bullet → bullet).
 pub const INLINE_BULLET: &str = "inline_bullet";
 /// Inline picture reference.
 pub const INLINE_PIC: &str = "inline_pic";

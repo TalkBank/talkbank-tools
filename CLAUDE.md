@@ -205,10 +205,20 @@ make symbols-gen    # Validates registry, generates grammar + Rust symbol sets
 When any grammar source changes (especially `grammar/grammar.js`), run this full sequence:
 1. `cd grammar && tree-sitter generate` — **MANDATORY after every grammar.js edit, including reverts**
 2. `cd grammar && tree-sitter test`
-3. `cargo nextest run -p talkbank-parser && cargo nextest run -p talkbank-parser-tests`
-4. `cargo nextest run --test bare_timestamp_regression`
-5. Re-run at least one real-file CLI validation command covering the changed syntax path.
-6. `make generated-check`
+3. Regenerate typed CST traversal (requires `~/tree-sitter-grammar-utils`):
+   ```bash
+   cd ~/tree-sitter-grammar-utils && cargo run --example generate_traversal \
+     -p tree-sitter-node-types -- \
+     ~/talkbank/talkbank-tools/grammar/src/grammar.json \
+     ~/talkbank/talkbank-tools/grammar/src/node-types.json \
+     --skip whitespaces \
+     2>/dev/null > ~/talkbank/talkbank-tools/crates/talkbank-parser-tests/src/generated_traversal.rs
+   ```
+4. `make test-gen` — regenerate corpus tests and error tests from specs
+5. `cargo nextest run -p talkbank-parser && cargo nextest run -p talkbank-parser-tests`
+6. `cargo nextest run --test bare_timestamp_regression`
+7. Re-run at least one real-file CLI validation command covering the changed syntax path.
+8. `make generated-check`
 
 Rules:
 - Do not trust parser/validator debugging output until step 1 is complete.

@@ -170,9 +170,10 @@ pub fn rich_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clone {
 // Legacy word parser (sub-token word assembly)
 // ═══════════════════════════════════════════════════════════
 
-/// Parse a legacy word from individual sub-tokens (WordSegment, prefixes, CA markers, etc.).
+/// Parse a word from individual sub-tokens (WordSegment, prefixes, CA markers, etc.).
 /// Used when the lexer emits sub-tokens instead of a single rich Word token.
-pub fn legacy_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clone {
+/// This path fires for inputs where the rich Word regex (`w_body`) doesn't match.
+pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clone {
     // A word token: any token that is_word_token accepts
     let word_tok = select! {
         tok if is_word_token(TokenDiscriminants::from(&tok)) => tok,
@@ -426,7 +427,7 @@ pub fn contents_parser<'a>() -> impl Parser<'a, Tokens<'a>, Vec<ContentItem<'a>>
 
         // A single content item: one of many alternatives.
         // Order matters for chumsky's `choice` — more specific alternatives first.
-        // overlap_point and pause must precede legacy_word because their tokens
+        // overlap_point and pause must precede subtoken_word because their tokens
         // are also in is_word_token (overlap markers, etc.).
         let content_item = choice((
             group,
@@ -439,7 +440,7 @@ pub fn contents_parser<'a>() -> impl Parser<'a, Tokens<'a>, Vec<ContentItem<'a>>
             overlap_point(),
             pause(),
             separator(),
-            legacy_word(),
+            subtoken_word(),
             freecode(),
             structural_markers(),
             inline_media_bullet(),

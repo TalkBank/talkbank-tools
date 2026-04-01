@@ -118,6 +118,10 @@ impl<'a> Iterator for Lexer<'a> {
         // Event segment character: same as ws_first but allows colon (:)
         // for compound events like &=clears:throat.
         // Translated from grammar.js EVENT_SEGMENT_FORBIDDEN.
+        // Event description chars: characters allowed after &= in event markers.
+        // TODO: Brian to adjudicate whether & should be allowed (for &=&=squeals).
+        // Currently & is excluded, matching the original re2c lexer. TreeSitter's
+        // grammar allows & in event_segment but this may be an oversight.
         ev_char = [^ \t\r\n\x00,;!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
 
         // Word segment first character: excludes 0 and all structural/CA chars
@@ -630,7 +634,8 @@ impl<'a> Iterator for Lexer<'a> {
         <MAIN_CONTENT> "[^c]" { emit!(CaContinuationMarker); }
 
         // grammar.js: error_marker_annotation = token(prec(8, /\[\*[^\]]*\]/))
-        <MAIN_CONTENT> "[*" " "? @t1 [^\x00\] ]* @t2 "]" { emit_t1t2!(ErrorMarkerAnnotation); }
+        // Content can contain spaces (e.g., [* s: ur]), so only exclude ] and NUL.
+        <MAIN_CONTENT> "[*" " "? @t1 [^\x00\]]* @t2 "]" { emit_t1t2!(ErrorMarkerAnnotation); }
 
         // grammar.js: indexed_overlap_precedes/follows — tag marks optional index digit
         <MAIN_CONTENT> "[<" " "? @t1 [1-9]? @t2 " "? "]" { emit_t1t2!(OverlapPrecedes); }
@@ -658,14 +663,10 @@ impl<'a> Iterator for Lexer<'a> {
         // PauseTimed: tags mark the numeric content
         <MAIN_CONTENT> "(" @t1 [0-9]+ (":" [0-9]+)? "." [0-9]* @t2 ")" { emit_t1t2!(PauseTimed); }
 
-        // Shortening: tags mark the inner text (between parens)
-        // grammar.js: shortening = seq('(', word_segment, ')')
-        <MAIN_CONTENT> "(" @t1 [^\x00 \t\r\n)]+ @t2 ")" { emit_t1t2!(Shortening); }
-
-        // Unclosed paren — error recovery
-        <MAIN_CONTENT> "(" [^\x00 \t\r\n)]* {
-            emit!(ErrorUnclosedParen);
-        }
+        // NOTE: Shortening and ErrorUnclosedParen rules moved AFTER the Word
+        // rules (below) so that standalone `(parens)` matches as a rich Word
+        // token. The Word rule's w_body includes w_short, so it handles
+        // shortenings within word bodies AND standalone shortenings.
 
         // ── Separators (grammar.js: non_colon_separator) ──
         <MAIN_CONTENT> "," { emit!(Comma); }
@@ -755,6 +756,19 @@ impl<'a> Iterator for Lexer<'a> {
             return Some((Token::Word { raw_text, prefix: None, body, form_marker, lang_suffix, pos_tag }, start..end));
         }
 
+        // ── Shortening sub-token (AFTER Word rules for correct priority) ──
+        // When `(parens)` appears standalone, the Word rule above matches it
+        // as a rich Word token. This sub-token rule is a fallback for cases
+        // where the Word rule doesn't match (e.g., after a prefix that
+        // doesn't match w_prefix).
+        // grammar.js: shortening = seq('(', word_segment, ')')
+        <MAIN_CONTENT> "(" @t1 [^\x00 \t\r\n)]+ @t2 ")" { emit_t1t2!(Shortening); }
+
+        // Unclosed paren — error recovery
+        <MAIN_CONTENT> "(" [^\x00 \t\r\n)]* {
+            emit!(ErrorUnclosedParen);
+        }
+
         // ── Word sub-tokens (kept for body re-lexing and standalone use) ──
 
         // ── Word prefixes ──
@@ -772,8 +786,14 @@ impl<'a> Iterator for Lexer<'a> {
         // grammar.js: zero = token(prec(3, '0'))
         <MAIN_CONTENT> "0" { emit!(Zero); }
 
-        // ── Word-internal markers ──
-        // grammar.js: lengthening = token(prec(5, /:{1,}/))
+        // ── Standalone colon = separator (not lengthening) ──
+        // grammar.js: colon = ':' (separator); lengthening is word-internal only
+        // Inside word bodies, `:` is handled by w_body's w_atom ":"+.
+        // Standalone `:` between words is a separator.
+        <MAIN_CONTENT> ":" { emit!(Colon); }
+
+        // Lengthening sub-token: multiple colons that didn't match as part of
+        // a word body. This is a fallback — normally `::` appears inside words.
         <MAIN_CONTENT> ":"+ { emit!(Lengthening); }
 
         // grammar.js: compound marker = '+' (in _word_marker)
@@ -850,27 +870,15 @@ impl<'a> Iterator for Lexer<'a> {
         <MAIN_CONTENT> "$" @t1 [a-zA-Z:]+ { emit_t1!(PosTag); }
 
         // ── Media bullet (RICH TOKEN with tagged timestamps) ──
-        // grammar.js: inline_bullet = seq(bullet_start, start_time, '_', end_time, bullet_end)
-        // grammar.js: media_url = token(/\u0015\d+_\d+-?\u0015/)
+        // grammar.js: bullet = seq(bullet_start, start_time, '_', end_time, bullet_end)
         // Tags mark start_time and end_time boundaries for zero-copy extraction.
-        // Skip bullet: dash before closing NAK (e.g., \x150_2633-\x15)
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "-" "\u0015" {
+        // Legacy skip dash (-) before closing NAK is silently accepted (deprecated).
+        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "-"? "\u0015" {
             let end = self.cursor;
             return Some((Token::MediaBullet {
                 raw_text: &yyinput[start..end],
                 start_time: &yyinput[self.t1..self.t2],
                 end_time: &yyinput[self.t3..self.t4],
-                skip: true,
-            }, start..end));
-        }
-        // Normal bullet: no dash (e.g., \x150_2633\x15)
-        <MAIN_CONTENT, MOR_CONTENT, GRA_CONTENT, TIER_CONTENT, COM_CONTENT, USER_TIER_CONTENT> "\u0015" @t1 [0-9]+ @t2 "_" @t3 [0-9]+ @t4 "\u0015" {
-            let end = self.cursor;
-            return Some((Token::MediaBullet {
-                raw_text: &yyinput[start..end],
-                start_time: &yyinput[self.t1..self.t2],
-                end_time: &yyinput[self.t3..self.t4],
-                skip: false,
             }, start..end));
         }
 

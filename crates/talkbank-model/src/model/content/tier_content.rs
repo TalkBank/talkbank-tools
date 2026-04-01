@@ -134,6 +134,51 @@ impl TierContent {
         self
     }
 
+    /// Extract the last `InternalBullet` from content into the `bullet` field.
+    ///
+    /// The grammar's greedy `contents` rule consumes all media bullets as
+    /// content items, including the utterance-final one. This method moves
+    /// the trailing `InternalBullet`(s) to the `bullet` serialization slot
+    /// so that WriteChat emits the bullet after the terminator (correct
+    /// CHAT format: `hello . \u0015100_200\u0015`).
+    ///
+    /// Called at the parse-to-model boundary by both TreeSitter and re2c
+    /// parsers. Idempotent: does nothing if `bullet` is already set.
+    pub fn extract_terminal_bullet(&mut self) {
+        use super::utterance_content::UtteranceContent;
+        if self.bullet.is_some() {
+            return;
+        }
+        // Pop trailing InternalBullet(s). The last one becomes the terminal bullet.
+        while let Some(UtteranceContent::InternalBullet(_)) = self.content.last() {
+            if let Some(UtteranceContent::InternalBullet(b)) = self.content.pop() {
+                self.bullet = Some(b);
+            }
+        }
+    }
+
+    /// Promote a trailing CA intonation arrow separator to a terminator.
+    ///
+    /// CA intonation arrows (⇗ ↗ → ↘ ⇘) serve dual roles: mid-content
+    /// separators AND utterance-final terminators. The grammar's greedy
+    /// `contents` rule always consumes them as separators. When no explicit
+    /// terminator was found, the trailing arrow should be promoted.
+    ///
+    /// Call AFTER `extract_terminal_bullet` so the arrow is the last item.
+    pub fn resolve_ca_terminator(&mut self) {
+        use super::utterance_content::UtteranceContent;
+        if self.terminator.is_some() {
+            return;
+        }
+        if let Some(UtteranceContent::Separator(sep)) = self.content.last() {
+            if sep.is_ca_intonation_arrow() {
+                if let Some(UtteranceContent::Separator(sep)) = self.content.pop() {
+                    self.terminator = sep.to_ca_terminator();
+                }
+            }
+        }
+    }
+
     /// Sets source span for content region.
     pub fn with_content_span(mut self, span: Span) -> Self {
         self.content_span = Some(span);

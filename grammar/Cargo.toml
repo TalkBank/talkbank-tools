@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-talkbank"
 description = "TalkBank CHAT transcription format"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Franklin Chen <franklinchen@franklinchen.com>"]
 license = "BSD-3-Clause"
 readme = "README.md"

@@ -147,7 +147,7 @@
       "type": "PATTERN",
       "value": "[^\\u0015\\r\\n]+"
     },
-    "inline_bullet": {
+    "bullet": {
       "type": "SEQ",
       "members": [
         {
@@ -210,7 +210,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "inline_bullet"
+            "name": "bullet"
           },
           {
             "type": "SYMBOL",
@@ -234,7 +234,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "inline_bullet"
+            "name": "bullet"
           },
           {
             "type": "SYMBOL",
@@ -1888,7 +1888,7 @@
                   },
                   {
                     "type": "SYMBOL",
-                    "name": "inline_bullet"
+                    "name": "bullet"
                   },
                   {
                     "type": "SYMBOL",
@@ -2009,7 +2009,7 @@
                 },
                 {
                   "type": "SYMBOL",
-                  "name": "media_url"
+                  "name": "bullet"
                 }
               ]
             },
@@ -2050,13 +2050,6 @@
             "name": "postcode"
           }
         ]
-      }
-    },
-    "media_url": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PATTERN",
-        "value": "\\u0015\\d+_\\d+-?\\u0015"
       }
     },
     "base_content_item": {
@@ -2100,7 +2093,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "media_url"
+          "name": "bullet"
         }
       ]
     },
@@ -3388,7 +3381,7 @@
         "value": 1,
         "content": {
           "type": "PATTERN",
-          "value": "[^,;!?.()\\[\\]⌈⌉⌊⌋〔〕\\\\←→↖↗↘↙⇗⇘<>≈≋⁑↑↓↻≠∙∾⤆⤇Ἡ⁇§⁎°↫∆∇∬∮▁▔◉☺♋Ϋ\\u0015\\u0001\\u0002\\u0003\\u0004\\u0007\\u0008\\t\\n\\r ‹›\"“”@*%+~∞≡]+"
+          "value": "[^&,;!?.()\\[\\]⌈⌉⌊⌋〔〕\\\\←→↖↗↘↙⇗⇘<>≈≋⁑↑↓↻≠∙∾⤆⤇Ἡ⁇§⁎°↫∆∇∬∮▁▔◉☺♋Ϋ\\u0015\\u0001\\u0002\\u0003\\u0004\\u0007\\u0008\\t\\n\\r ‹›\"“”@*%+~∞≡]+"
         }
       }
     },

@@ -19,20 +19,34 @@ use tree_sitter::Node;
 /// Bullet delimiter character (U+0015)
 const BULLET_CHAR: char = '\u{15}';
 
-/// Parse bullet text content from a coarsened token node.
+/// Parse bullet text content from a token node.
 ///
-/// Input format: `\u{15}START_END\u{15}` or `\u{15}START_END-\u{15}`
-/// Returns `(start_ms, end_ms, skip)` on success.
-pub(crate) fn parse_bullet_text(text: &str) -> Option<(u64, u64, bool)> {
+/// Input format: `\u{15}START_END\u{15}`
+/// Returns `(start_ms, end_ms)` on success.
+pub(crate) fn parse_bullet_text(text: &str) -> Option<(u64, u64)> {
     let inner = text.strip_prefix(BULLET_CHAR)?.strip_suffix(BULLET_CHAR)?;
-    let (inner, skip) = match inner.strip_suffix('-') {
-        Some(stripped) => (stripped, true),
-        None => (inner, false),
-    };
+    // Strip legacy skip dash if present (deprecated, 7 files in corpus)
+    let inner = inner.strip_suffix('-').unwrap_or(inner);
     let (start_str, end_str) = inner.split_once('_')?;
     let start_ms = start_str.parse::<u64>().ok()?;
     let end_ms = end_str.parse::<u64>().ok()?;
-    Some((start_ms, end_ms, skip))
+    Some((start_ms, end_ms))
+}
+
+/// Extract `(start_ms, end_ms)` from a structured `bullet` CST node.
+///
+/// The grammar's `bullet` rule has field names `start_time` and `end_time`.
+/// Returns `None` if either field is missing or unparseable.
+pub(crate) fn parse_bullet_node_timestamps(node: Node, source: &str) -> Option<(u64, u64)> {
+    let start_ms: u64 = node
+        .child_by_field_name("start_time")
+        .and_then(|n| n.utf8_text(source.as_bytes()).ok())
+        .and_then(|s| s.parse().ok())?;
+    let end_ms: u64 = node
+        .child_by_field_name("end_time")
+        .and_then(|n| n.utf8_text(source.as_bytes()).ok())
+        .and_then(|s| s.parse().ok())?;
+    Some((start_ms, end_ms))
 }
 
 /// Parse media_url node into Bullet
@@ -61,7 +75,7 @@ pub fn parse_media_bullet(node: Node, source: &str) -> (Option<Bullet>, ErrorVec
         }
     };
 
-    let Some((start_ms, end_ms, skip)) = parse_bullet_text(text) else {
+    let Some((start_ms, end_ms)) = parse_bullet_text(text) else {
         errors.push(ParseError::new(
             ErrorCode::InvalidMediaBullet,
             Severity::Error,
@@ -85,7 +99,6 @@ pub fn parse_media_bullet(node: Node, source: &str) -> (Option<Bullet>, ErrorVec
 
     let span = Span::new(node.start_byte() as u32, node.end_byte() as u32);
     let bullet = Bullet::new(start_ms, end_ms)
-        .with_skip(skip)
         .with_span(span);
     (Some(bullet), errors)
 }
@@ -94,21 +107,20 @@ pub fn parse_media_bullet(node: Node, source: &str) -> (Option<Bullet>, ErrorVec
 mod tests {
     use super::*;
 
-    /// Tests parse bullet text normal.
     #[test]
     fn test_parse_bullet_text_normal() {
         assert_eq!(
             parse_bullet_text("\u{15}123_456\u{15}"),
-            Some((123, 456, false))
+            Some((123, 456))
         );
     }
 
-    /// Tests parse bullet text skip.
+    /// Legacy skip dash is stripped silently (deprecated).
     #[test]
-    fn test_parse_bullet_text_skip() {
+    fn test_parse_bullet_text_legacy_skip_stripped() {
         assert_eq!(
             parse_bullet_text("\u{15}123_456-\u{15}"),
-            Some((123, 456, true))
+            Some((123, 456))
         );
     }
 

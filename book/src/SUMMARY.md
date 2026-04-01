@@ -47,6 +47,7 @@
 - [Grammar Redesign](architecture/grammar-redesign.md)
 - [Parser-Model Contracts](architecture/parser-model-contracts.md)
 - [Parser Error Recovery](architecture/parser-error-recovery.md)
+- [Parser Backends](architecture/parser-backends.md)
 - [Leniency Policy](architecture/leniency-policy.md)
 - [Error Diagnostics UX](architecture/error-diagnostics-ux.md)
 - [Boundary Vocabulary](architecture/boundary-vocabulary.md)

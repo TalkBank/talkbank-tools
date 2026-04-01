@@ -1583,3 +1583,273 @@ fn long_feature_tags() {
         "expected LongFeatureEnd(\"X\"), got: {tokens:?}"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Bug fix regression tests — these test specific bugs found
+// via corpus divergence analysis.
+// ═══════════════════════════════════════════════════════════════
+
+/// Pauses `(.)`, `(..)`, `(...)` must NOT be captured as Word/Shortening.
+/// They're structural pause tokens that come before the Word rule.
+#[test]
+fn lex_pause_not_shortening() {
+    for (input, expected) in [
+        ("(.) ", "PauseShort"),
+        ("(..) ", "PauseMedium"),
+        ("(...) ", "PauseLong"),
+    ] {
+        let tokens = lex_with(input, COND_MAIN_CONTENT);
+        assert!(
+            !tokens.iter().any(|t| matches!(t, Token::Word { .. } | Token::Shortening(_))),
+            "{expected}: '{input}' should NOT produce Word or Shortening, got {tokens:?}"
+        );
+    }
+}
+
+/// Timed pauses `(1.2)` must be PauseTimed, not Shortening.
+#[test]
+fn lex_timed_pause_not_shortening() {
+    let tokens = lex_with("(1.2) ", COND_MAIN_CONTENT);
+    assert!(
+        tokens.iter().any(|t| matches!(t, Token::PauseTimed(_))),
+        "(1.2) should produce PauseTimed, got {tokens:?}"
+    );
+}
+
+/// `&` is forbidden in event labels (`&=LABEL`). `&=&=squeals` is a data
+/// quality issue in 2 corpus files. Both parsers reject `&`:
+/// - TreeSitter: `&` in EVENT_SEGMENT_FORBIDDEN_BASE
+/// - Re2c: `&` excluded from ev_char
+///
+/// The re2c lexer splits `&=&=squeals`: first `&=` fails (next char `&`
+/// not in ev_char), falls to Ampersand; then `&=squeals` → Event("squeals").
+#[test]
+fn lex_event_ampersand_forbidden() {
+    let tokens = lex("*X:\t&=&=squeals .\n");
+    let event = tokens.iter().find(|t| matches!(t, Token::Event(_)));
+    assert!(event.is_some(), "expected an Event token, got {tokens:?}");
+    if let Some(Token::Event(text)) = event {
+        assert_eq!(
+            *text, "squeals",
+            "event text should be 'squeals' (& forbidden in labels), got '{text}'"
+        );
+    }
+}
+
+/// Continuation line in %mor tier: tab-indented continuation should be
+/// lexed as whitespace (Continuation token), not break the tier.
+/// Found in: many files with long %mor tiers that span multiple lines.
+#[test]
+fn lex_mor_continuation() {
+    let input = "%mor:\tpro|I v|want\n\tn|cookie .\n";
+    let tokens = lex(input);
+    // Should have TierPrefix, MorWord, MorWord, Continuation, MorWord, Period
+    let mor_word_count = tokens
+        .iter()
+        .filter(|t| matches!(t, Token::MorWord { .. }))
+        .count();
+    assert_eq!(
+        mor_word_count, 3,
+        "expected 3 MorWord tokens across continuation, got {mor_word_count}. tokens: {tokens:?}"
+    );
+}
+
+/// Continuation line in %gra tier.
+#[test]
+fn lex_gra_continuation() {
+    let input = "%gra:\t1|2|SUBJ 2|0|ROOT\n\t3|2|OBJ\n";
+    let tokens = lex(input);
+    let gra_count = tokens
+        .iter()
+        .filter(|t| matches!(t, Token::GraRelation { .. }))
+        .count();
+    assert_eq!(
+        gra_count, 3,
+        "expected 3 GraRelation tokens across continuation, got {gra_count}. tokens: {tokens:?}"
+    );
+}
+
+/// Standalone shortening `(parens)` should produce a rich Word token,
+/// not a bare Shortening sub-token. The Word rule's w_body includes
+/// w_short, so `(parens)` is a valid word body.
+#[test]
+fn lex_standalone_shortening_is_word() {
+    let tokens = lex_with("(parens) ", COND_MAIN_CONTENT);
+    assert!(
+        tokens.iter().any(|t| matches!(t, Token::Word { .. })),
+        "standalone (parens) should produce Word, got {tokens:?}"
+    );
+    assert!(
+        !tokens.iter().any(|t| matches!(t, Token::Shortening(_))),
+        "standalone (parens) should NOT produce bare Shortening sub-token"
+    );
+}
+
+/// Standalone `:` in content is a colon SEPARATOR, not a lengthening.
+/// grammar.js: separator = choice(non_colon_separator, colon)
+/// Colon is only lengthening INSIDE a word body (handled by w_body).
+#[test]
+fn lex_standalone_colon_is_separator() {
+    // In MAIN_CONTENT, standalone : should be a separator, not Lengthening
+    let tokens = lex("*X:\thello : world .\n");
+    // The colon between words should be a separator (like comma/semicolon)
+    // It should NOT be Lengthening (that's only inside word bodies)
+    let has_lengthening = tokens.iter().any(|t| matches!(t, Token::Lengthening(_)));
+    assert!(
+        !has_lengthening,
+        "standalone : between words should NOT be Lengthening, got {tokens:?}"
+    );
+}
+
+/// Colon INSIDE a word IS lengthening: `da:h` → Word with body containing `:`.
+#[test]
+fn lex_colon_inside_word_is_lengthening() {
+    let tokens = lex("*X:\tda:h .\n");
+    // The Word token should contain the colon in its body
+    let word = tokens.iter().find(|t| matches!(t, Token::Word { .. }));
+    assert!(word.is_some(), "expected Word token, got {tokens:?}");
+    if let Some(Token::Word { body, .. }) = word {
+        assert!(
+            body.contains(':'),
+            "word body should contain colon for lengthening, got body={body:?}"
+        );
+    }
+}
+
+/// CA intonation arrow after word should lex as a separator token,
+/// not be consumed into the word body.
+#[test]
+fn lex_ca_intonation_arrow_after_word() {
+    // → (U+2192) is an intonation contour that appears after words in CA
+    let tokens = lex_with("no\u{2192} ", COND_MAIN_CONTENT);
+    let has_word = tokens.iter().any(|t| matches!(t, Token::Word { .. }));
+    let has_arrow = tokens
+        .iter()
+        .any(|t| matches!(t, Token::LevelPitch(_)));
+    assert!(
+        has_word,
+        "expected a Word token before arrow, got {tokens:?}"
+    );
+    assert!(
+        has_arrow,
+        "expected LevelPitch arrow token after word, got {tokens:?}"
+    );
+}
+
+/// Regression: MSU03b.cha line 42 — this line should produce multiple Word tokens.
+/// The re2c parser was producing only 1 content item.
+#[test]
+fn lex_filler_in_utterance() {
+    let tokens = lex("*INV:\tokay , so , &-um how is your talking .\n");
+    let word_count = tokens.iter().filter(|t| matches!(t, Token::Word { .. })).count();
+    eprintln!("word count: {word_count}");
+    for (i, tok) in tokens.iter().enumerate() {
+        eprintln!("  [{i}] {:?} = {:?}",
+            talkbank_re2c_parser::token::TokenDiscriminants::from(tok),
+            tok.text());
+    }
+    assert!(
+        word_count >= 7,
+        "expected at least 7 words in 'okay , so , &-um how is your talking .', got {word_count}"
+    );
+}
+
+/// Regression: MSU03b line 42 — parse_main_tier should produce 7+ content items.
+/// The lexer produces 7 Word tokens, but the chumsky parser was producing only 1.
+#[test]
+fn parse_main_tier_filler_utterance() {
+    let input = "*INV:\tokay , so , &-um how is your talking .\n";
+    let result = talkbank_re2c_parser::parser::parse_main_tier(input);
+    assert!(result.is_some(), "parse_main_tier should succeed, got None");
+    let mt = result.unwrap();
+    let content_len = mt.tier_body.contents.len();
+    eprintln!("Content items: {content_len}");
+    for (i, item) in mt.tier_body.contents.iter().enumerate() {
+        eprintln!("  [{i}] {:?}", std::mem::discriminant(item));
+    }
+    assert!(
+        content_len >= 7,
+        "expected at least 7 content items (words + separators), got {content_len}"
+    );
+}
+
+/// Regression: MSU03b — file-level parse with bullet should produce full content.
+#[test]
+fn parse_file_filler_with_bullet() {
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tINV Investigator\n@ID:\teng|corpus|INV|||||Investigator|||\n*INV:\tokay , so , &-um how is your talking . \x1561209_62810\x15\n@End\n";
+    let parsed = talkbank_re2c_parser::parser::parse_chat_file(input);
+    // Find the utterance
+    let utterance = parsed.lines.iter().find(|l| matches!(l, talkbank_re2c_parser::ast::Line::Utterance(_)));
+    assert!(utterance.is_some(), "should have one utterance");
+    if let Some(talkbank_re2c_parser::ast::Line::Utterance(u)) = utterance {
+        let content_len = u.main_tier.tier_body.contents.len();
+        eprintln!("File-level content items: {content_len}");
+        for (i, item) in u.main_tier.tier_body.contents.iter().enumerate() {
+            eprintln!("  [{i}] {:?}", std::mem::discriminant(item));
+        }
+        assert!(
+            content_len >= 7,
+            "expected at least 7 content items at file level, got {content_len}"
+        );
+    }
+}
+
+/// Regression: MSU03b.cha — file produces 279 model lines, TS produces 280.
+/// One utterance is being dropped by the chumsky parser.
+#[test]
+fn parse_file_msu03b_line_count() {
+    let path = format!(
+        "{}/data/aphasia-data/English/Protocol/MSU/PWA/MSU03b.cha",
+        env!("CARGO_MANIFEST_DIR")
+            .replace("/talkbank-tools/crates/talkbank-re2c-parser", "")
+    );
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        eprintln!("MSU03b.cha not found, skipping");
+        return;
+    };
+    let errors = talkbank_model::ErrorCollector::new();
+    let parsed = talkbank_re2c_parser::parser::parse_chat_file_streaming(&content, &errors);
+    let file = talkbank_model::model::ChatFile::from(&parsed);
+    eprintln!("Model lines: {}", file.lines.len());
+    // Report any errors from the parse
+    let errs = errors.to_vec();
+    if !errs.is_empty() {
+        eprintln!("Parse errors: {}", errs.len());
+        for e in &errs {
+            eprintln!("  {}: {:?}", e.code.as_str(), e.message);
+        }
+    }
+    assert_eq!(file.lines.len(), 280, "should match TreeSitter's 280 model lines");
+}
+
+/// Regression: MSU03b line 91 — error marker [* s: ur] with colon-space in content.
+#[test]
+fn parse_main_tier_error_marker_with_colon() {
+    let input = "*INV:\tthat's with the attic [: accident] [* s: ur] [//] thing .\n";
+    let result = talkbank_re2c_parser::parser::parse_main_tier(input);
+    assert!(result.is_some(), "parse_main_tier should succeed for error marker with colon, got None");
+    let mt = result.unwrap();
+    eprintln!("Content items: {}", mt.tier_body.contents.len());
+    assert!(
+        mt.tier_body.contents.len() >= 4,
+        "expected at least 4 content items, got {}",
+        mt.tier_body.contents.len()
+    );
+}
+
+/// Debug: what tokens does the lexer produce for error marker [* s: ur]?
+#[test]
+fn lex_error_marker_with_colon() {
+    let tokens = lex("*X:\tthat's [* s: ur] .\n");
+    eprintln!("Tokens for [* s: ur]:");
+    for (i, tok) in tokens.iter().enumerate() {
+        eprintln!("  [{i}] {:?} = {:?}",
+            talkbank_re2c_parser::token::TokenDiscriminants::from(tok),
+            tok.text());
+    }
+    // Check for ErrorMarkerAnnotation token
+    let has_error_marker = tokens.iter().any(|t|
+        matches!(t, Token::ErrorMarkerAnnotation(_))
+    );
+    assert!(has_error_marker, "should have ErrorMarkerAnnotation, got {tokens:?}");
+}

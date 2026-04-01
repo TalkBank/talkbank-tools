@@ -63,7 +63,6 @@ pub(crate) struct AlignmentPairView {
 pub(crate) struct SidecarTiming {
     pub start_ms: u64,
     pub end_ms: u64,
-    pub skip: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +198,6 @@ fn bullet_to_timing(bullet: &talkbank_model::model::Bullet) -> SidecarTiming {
     SidecarTiming {
         start_ms: bullet.timing.start_ms,
         end_ms: bullet.timing.end_ms,
-        skip: bullet.skip,
     }
 }
 

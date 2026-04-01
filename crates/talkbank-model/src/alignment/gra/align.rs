@@ -5,7 +5,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier>
 
 use crate::model::{GraTier, MorTier};
-use crate::{ErrorCode, ErrorContext, ParseError, Severity, SourceLocation};
+use crate::{ErrorCode, ErrorLabel, ParseError, Severity};
 
 use super::super::format::format_positional_mismatch;
 use super::super::helpers::{TierPosition, to_chat_display_string as to_string};
@@ -51,24 +51,15 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
         let detailed_message =
             format_positional_mismatch("%mor chunks", "%gra relations", &mor_items, &gra_items);
 
-        let mut error = ParseError::new(
+        let error = ParseError::at_span(
             ErrorCode::GraInvalidWordIndex,
             Severity::Error,
-            SourceLocation::new(mor.span),
-            ErrorContext::new("", mor.span, ""),
+            mor.span,
             detailed_message,
         )
+        .with_label(ErrorLabel::new(mor.span, "%mor tier"))
+        .with_label(ErrorLabel::new(gra.span, "%gra tier"))
         .with_suggestion("Each %mor chunk (including pre/post-clitics) needs a %gra relation");
-        if !mor.span.is_dummy() {
-            error
-                .labels
-                .push(crate::ErrorLabel::new(mor.span, "%mor tier"));
-        }
-        if !gra.span.is_dummy() {
-            error
-                .labels
-                .push(crate::ErrorLabel::new(gra.span, "%gra tier"));
-        }
 
         alignment = alignment.with_error(error);
 
@@ -83,24 +74,15 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
         let detailed_message =
             format_positional_mismatch("%mor chunks", "%gra relations", &mor_items, &gra_items);
 
-        let mut error = ParseError::new(
+        let error = ParseError::at_span(
             ErrorCode::GraInvalidHeadIndex,
             Severity::Error,
-            SourceLocation::new(mor.span),
-            ErrorContext::new("", mor.span, ""),
+            mor.span,
             detailed_message,
         )
+        .with_label(ErrorLabel::new(mor.span, "%mor tier"))
+        .with_label(ErrorLabel::new(gra.span, "%gra tier"))
         .with_suggestion("Remove extra %gra relations or add corresponding %mor chunks");
-        if !mor.span.is_dummy() {
-            error
-                .labels
-                .push(crate::ErrorLabel::new(mor.span, "%mor tier"));
-        }
-        if !gra.span.is_dummy() {
-            error
-                .labels
-                .push(crate::ErrorLabel::new(gra.span, "%gra tier"));
-        }
 
         alignment = alignment.with_error(error);
 
@@ -117,11 +99,10 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
         for relation in gra.relations.iter() {
             if relation.index == 0 || relation.index > max_index {
                 alignment = alignment.with_error(
-                    ParseError::new(
+                    ParseError::at_span(
                         ErrorCode::GraInvalidWordIndex,
                         Severity::Error,
-                        SourceLocation::new(gra.span),
-                        ErrorContext::new("", gra.span, ""),
+                        gra.span,
                         format!(
                             "%gra relation word index {} is out of bounds for %mor chunk count {}",
                             relation.index, mor_chunk_count
@@ -136,11 +117,10 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
 
             if relation.head > max_index {
                 alignment = alignment.with_error(
-                    ParseError::new(
+                    ParseError::at_span(
                         ErrorCode::GraInvalidHeadIndex,
                         Severity::Error,
-                        SourceLocation::new(gra.span),
-                        ErrorContext::new("", gra.span, ""),
+                        gra.span,
                         format!(
                             "%gra relation head index {} is out of bounds for %mor chunk count {}",
                             relation.head, mor_chunk_count

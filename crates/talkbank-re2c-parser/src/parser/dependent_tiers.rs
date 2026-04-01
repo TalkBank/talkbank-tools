@@ -251,7 +251,7 @@ pub fn wor_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, (Vec<WorItemParsed<'
     };
 
     // A word (rich or legacy) followed by optional timing bullet
-    let word_with_bullet = choice((main_tier::rich_word(), main_tier::legacy_word()))
+    let word_with_bullet = choice((main_tier::rich_word(), main_tier::subtoken_word()))
         .then(ws().ignore_then(timing_bullet()).or_not())
         .map(|(content_item, bullet)| {
             match content_item {

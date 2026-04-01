@@ -60,7 +60,7 @@ static int validate_parameters(const char* filePath, int lineNumber, int columnN
         return SEND2CLAN_ERR_INVALID_PARAMETER;
     }
 
-    // Reject excessively long paths (DOS prevention)
+    // Reject excessively long paths (DoS prevention)
     if (strlen(filePath) > 4096) {
         return SEND2CLAN_ERR_INVALID_PARAMETER;
     }
@@ -197,16 +197,15 @@ static int launch_clan_app(long timeOut) {
 }
 
 static int send_message_to_clan(long timeOut, const char* filePath, int lineNumber, int columnNumber, const char* message) {
-    // Format the message
-    char formattedMessage[1024];
+    // Format the message. The buffer is sized generously for typical error
+    // messages. If the message is longer (e.g., mor 1:1 alignment tables),
+    // snprintf truncates it — CLAN seeing a truncated message is far better
+    // than silently failing to send anything at all.
+    char formattedMessage[8192];
     const char* msg = message ? message : "";
-    int result = snprintf(formattedMessage, sizeof(formattedMessage), 
-                         "*** File \"%s\": line %d, column %d: %s", 
-                         filePath, lineNumber, columnNumber, msg);
-    
-    if (result >= (int)sizeof(formattedMessage)) {
-        return SEND2CLAN_ERR_INVALID_PARAMETER;
-    }
+    snprintf(formattedMessage, sizeof(formattedMessage),
+             "*** File \"%s\": line %d, column %d: %s",
+             filePath, lineNumber, columnNumber, msg);
 
 #ifdef __APPLE__
     AEDesc programDescriptor;

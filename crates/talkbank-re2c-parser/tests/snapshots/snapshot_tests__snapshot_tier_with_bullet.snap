@@ -4,7 +4,7 @@ expression: tokens
 ---
 - kind: TextSegment
   text: "some text "
-- kind: "MediaBullet { raw_text: \"\\u{15}100_200\\u{15}\", start_time: \"100\", end_time: \"200\", skip: false }"
+- kind: "MediaBullet { raw_text: \"\\u{15}100_200\\u{15}\", start_time: \"100\", end_time: \"200\" }"
   text: "\u0015100_200\u0015"
 - kind: TextSegment
   text: " more text"

@@ -1,14 +1,52 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-29 23:35 EDT
+**Last modified:** 2026-03-31 06:41 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What This Is
 
-A CHAT transcript parser using **re2rust** (re2c's Rust backend) for lexing and a handwritten recursive-descent parser. Lives in the `talkbank-tools` workspace as `talkbank-re2c-parser`.
+A CHAT transcript parser using **re2rust** (re2c's Rust backend) for lexing and **chumsky** parser combinators for parsing. Lives in the `talkbank-tools` workspace as `talkbank-re2c-parser`.
 
-**Status:** Implements the `ChatParser` trait from `talkbank-model`. The public type is `Re2cParser`. Lexer validated against 99,907 CHAT files with zero errors. Integrated into the CLI via `chatter validate --parser re2c`.
+**Status:** Implements the `ChatParser` trait from `talkbank-model`. The public type is `Re2cParser`. Lexer validated against 99,907 CHAT files with zero errors. Integrated into the CLI via `chatter validate --parser re2c`. **4-8x faster** than TreeSitterParser on reference corpus.
+
+## Architecture
+
+```
+re2c DFA Lexer  -->  Chumsky Combinators  -->  AST  -->  talkbank-model
+  (lexer.re)          (parser/*.rs)       (ast.rs)     (convert.rs)
+```
+
+**Two-stage pipeline:**
+1. **Lexer** (`lexer.re`, ~63k lines) — re2c DFA produces rich tokens with tagged field extraction. Validated on 99,907 files.
+2. **Parser** (`parser/`, 8 modules, ~1,800 lines) — chumsky 1.0-alpha combinators consume `&[Token]` and produce AST types.
+3. **Conversion** (`convert.rs`, ~1,800 lines) — `From` impls map AST to talkbank-model. Source-free (AST is self-contained via `raw_text` fields).
+
+### Parser Module Structure
+
+```
+src/parser/
+  mod.rs              (32 lines)   Module declarations, lex_to_tokens helper
+  main_tier.rs        (536 lines)  Chumsky: contents, words, groups, tier_body, main_tier
+  dependent_tiers.rs  (334 lines)  Chumsky: %mor, %gra, %pho, %sin, %wor, text tiers
+  classify.rs         (252 lines)  Token classification: is_terminator, is_annotation, etc.
+  word_body.rs        (231 lines)  Char-level word body scanner (not chumsky)
+  file.rs             (223 lines)  Imperative file-level parser with error reporting
+  entry_points.rs     (155 lines)  Public API: parse_chat_file, parse_main_tier, etc.
+  headers.rs          (75 lines)   Chumsky: @ID, @Languages, @Participants
+```
+
+### Key Design Decisions
+
+**Chumsky 1.0-alpha.8** (pinned exact version). Token-stream input via `&[Token<'a>]`. The `select!` macro matches token variants by value. `recursive()` handles nested groups/quotations.
+
+**Leaked allocations.** `lex_to_tokens()` NUL-pads the input, leaks it, lexes to `Vec<Token>`, leaks that too. This gives chumsky a `&'a [Token<'a>]` with a stable lifetime. Acceptable for a testing/validation tool.
+
+**Imperative file parser.** The file-level parser (`file.rs`) uses an imperative loop rather than chumsky because dependent tier dispatch is prefix-text-based (`%mor:` vs `%gra:` etc.), which doesn't map to chumsky's token-variant matching.
+
+**CA terminator promotion.** CA intonation arrows (⇗ ↗ → ↘ ⇘) serve dual roles: mid-content separators and utterance-final terminators. Chumsky always parses them as separators. `convert.rs` promotes trailing arrows to terminators at the AST-to-model boundary (same strategy as TreeSitterParser's `resolve_ca_terminator`).
+
+**Subtoken word assembly.** When the lexer produces sub-tokens instead of a single rich `Token::Word` (edge cases where the `w_body` regex doesn't match), `subtoken_word()` in `main_tier.rs` assembles them. The `display_text()` helper reconstructs raw_text with structural delimiters (e.g., `Shortening("x")` -> `"(x)"`).
 
 ## Architecture: Rich Word Token
 
@@ -25,11 +63,7 @@ Token::Word {
 }
 ```
 
-**Design rationale:** "Word" is a first-class concept. Lex-only consumers (syntax highlighting, token counting) should see words as coherent units without parsing. The re2c DFA determines word boundaries; the parser handles body internals.
-
-**Body parsing:** The body is too complex for fixed re2c tags (variable-length sequences of text segments, shortenings, compounds, CA markers, etc.). The parser's `parse_word_body(body: &str) -> Vec<WordBodyItem>` scans the body string.
-
-**Source elimination:** Because the Word token carries `raw_text`, the AST's `WordWithAnnotations` has `raw_text: &str` (not a span). Conversion functions never need `source: &str` — the AST is self-contained. `From` impls work for all types.
+**Body parsing:** The body is too complex for fixed re2c tags (variable-length sequences of text segments, shortenings, compounds, CA markers, etc.). `parse_word_body(body: &str) -> Vec<WordBodyItem>` in `word_body.rs` scans the body string.
 
 ### Other Rich Tokens
 
@@ -92,6 +126,25 @@ re2c conditions are numbered states that change what rules are active:
 
 Conversion functions in `convert.rs` are source-free — all use `From` impls or take only AST types.
 
+## Performance
+
+Benchmarked with divan on reference corpus files. All content pre-loaded; zero I/O.
+
+| Benchmark | TreeSitter | Re2c+Chumsky | Speedup |
+|-----------|-----------|-------------|---------|
+| basic-conversation (13 lines) | 44 us | 9.6 us | 4.6x |
+| mor-gra (dependent tiers) | 69 us | 9.4 us | 7.3x |
+| intonation (CA) | 78 us | 19 us | 4.1x |
+| zho-conversation (CJK) | 128 us | 19 us | 6.6x |
+| impdenis (complex, large) | 7,734 us | 970 us | 8.0x |
+| **batch 35 files** | **21.7 ms** | **3.0 ms** | **7.2x** |
+
+Re2c DFA lexing accounts for 15-31% of total parse time. Chumsky combinator overhead is 69-85%.
+
+TreeSitter constructor cost is negligible (<1% difference between ctor and reuse benchmarks).
+
+Run benchmarks: `cargo bench -p talkbank-re2c-parser --bench parse_comparison`
+
 ## Build & Test
 
 ```sh
@@ -103,18 +156,17 @@ cargo test -p talkbank-re2c-parser --jobs 1   # fallback
 
 Requires `re2rust` (part of re2c) on PATH: `brew install re2c`.
 
-The build script (`build.rs`) runs `re2rust` on `src/lexer.re` → `OUT_DIR/lexer.rs`. Edit `lexer.re`, not generated output. Use `\x00` (not `\0`) for NUL — re2c treats `\0` as octal prefix.
+The build script (`build.rs`) runs `re2rust` on `src/lexer.re` -> `OUT_DIR/lexer.rs`. Edit `lexer.re`, not generated output. Use `\x00` (not `\0`) for NUL — re2c treats `\0` as octal prefix.
 
 ## Testing
 
-- **Lexer tests:** `tests/lexer_tests.rs` — unit tests per token type using start conditions. Checks Word token fields (prefix, body, form_marker, lang_suffix, pos_tag).
+- **Lexer tests:** `tests/lexer_tests.rs` — unit tests per token type using start conditions.
 - **Corpus lexer tests:** `tests/corpus_lex_tests.rs` — lex real lines from `~/talkbank/data/*-data` (99,907 .cha files). All 12 pass.
 - **Parser tests:** `tests/golden_parse.rs`, `tests/parser_fixtures.rs` — parsed AST structures.
 - **Equivalence tests:** `tests/equivalence_tests.rs` — Re2cParser vs TreeSitterParser comparison via `ChatParser` trait.
-- **Model study:** `tests/model_study.rs` — reference corpus equivalence. 6 files have known divergences (overlaps, nonvocals, phon syllabification, wor tier, CA) — these are refinement TODOs, not regressions.
+- **Model study:** `tests/model_study.rs` — reference corpus equivalence (87 files). All pass except 2 CA files with known raw_text divergences in the subtoken word path.
 - **Full corpus tests:** `tests/full_corpus_parse_test.rs` — 99,744-file SemanticEq comparison.
-  `tests/categorize_divergences.rs` — categorizes divergences by diff path.
-  `tests/subcategorize_main_tier.rs` — sub-categorizes main tier divergences.
+- **Benchmarks:** `benches/parse_comparison.rs` — divan benchmarks comparing both parsers.
 - **When a test fails, STOP and ask.** CHAT semantics are domain-specific.
 - **Slow tests:** Mark with `#[ignore]` and run via `--ignored` flag.
 
@@ -178,11 +230,10 @@ Key integration points:
 - `ParserDispatch` enum in `worker.rs` wraps both parser backends
 - `ParserBackend` CLI enum in `talkbank-cli/src/cli/args/core.rs`
 - Cache keys include the parser label (`"re2c"` vs `"tree-sitter"`)
-- TreeSitterParser remains the default; LSP always uses TreeSitterParser
+- TreeSitterParser remains the default; LSP always uses TreeSitterParser (needs incremental parsing)
 
 ## Equivalence Status
 
-All 85 reference corpus files pass SemanticEq equivalence with TreeSitterParser.
-All 85 files validate and roundtrip successfully with `--parser re2c`.
-6 previously-known gaps (nonvocals, overlaps, phon-syllabification, wor, CA)
-have all been resolved.
+All 87 reference corpus files pass SemanticEq equivalence with TreeSitterParser.
+All 87 files validate and roundtrip successfully with `--parser re2c`.
+260/260 crate tests pass.
