@@ -7,7 +7,7 @@ pub use crate::ui::ThemePreset;
 
 /// TalkBank utilities for CHAT format validation and transformation
 #[derive(Parser)]
-#[command(name = "talkbank", version, long_version = concat!(env!("CARGO_PKG_VERSION"), " (build ", env!("BUILD_HASH"), ")"))]
+#[command(name = "chatter", version, long_version = concat!(env!("CARGO_PKG_VERSION"), " (build ", env!("BUILD_HASH"), ")"))]
 #[command(about = "Tools for validating and transforming TalkBank CHAT files", long_about = None)]
 pub struct Cli {
     /// Logging verbosity level (can be repeated: -v, -vv, -vvv)

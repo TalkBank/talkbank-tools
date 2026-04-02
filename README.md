@@ -7,7 +7,9 @@ The CHAT toolchain from [TalkBank](https://talkbank.org/). Parses, validates, co
 
 **`chatter`** is the CLI. The same engine powers a **VS Code extension** with live diagnostics and a **Rust API** for building your own tools.
 
-**Windows, macOS, and Linux.**
+**Windows, macOS, and Linux.** See [docs/PLATFORM-SUPPORT.md](docs/PLATFORM-SUPPORT.md) for platform support tiers.
+
+**Release status:** The CLI (`chatter`) and Rust crates are the primary stable product. The VS Code extension is in preview. The desktop app is experimental. See [docs/RELEASE-CONTRACT.md](docs/RELEASE-CONTRACT.md) for details.
 
 ## Install
 
@@ -129,6 +131,8 @@ This makes CHAT data accessible to Python, JavaScript, R, or any language that r
 
 ## VS Code Extension
 
+> **Status: Preview** — Functional and actively developed, but not yet at 1.0.
+
 A full-featured CHAT editor that replaces the legacy CLAN application. See [`vscode/`](vscode/) for installation, [full documentation](book/src/user-guide/vscode-extension.md) for details.
 
 - **Live validation** — same 198 error codes as `chatter validate`, with quick fixes (Cmd+.)
@@ -148,6 +152,8 @@ A full-featured CHAT editor that replaces the legacy CLAN application. See [`vsc
 ---
 
 ## Desktop App
+
+> **Status: Experimental** — The desktop app is in early development and not yet part of the public release.
 
 A native desktop application for validating CHAT files — designed for linguists and researchers who prefer a graphical interface over the terminal. Drag-and-drop files or folders, see errors with source context, and click through a collapsible file tree.
 

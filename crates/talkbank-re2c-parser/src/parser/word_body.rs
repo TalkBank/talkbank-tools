@@ -82,13 +82,13 @@ pub fn parse_word_body(body: &str) -> Vec<WordBodyItem<'_>> {
                 let end = chars.peek().map_or(body.len(), |&(j, _)| j);
                 let overlap_text = &body[i..end];
                 // Check for trailing digit
-                if let Some(&(_, d)) = chars.peek() {
-                    if d.is_ascii_digit() && d != '0' {
-                        chars.next();
-                        let end2 = chars.peek().map_or(body.len(), |&(j, _)| j);
-                        items.push(WordBodyItem::OverlapPoint(kind, &body[i..end2]));
-                        continue;
-                    }
+                if let Some(&(_, d)) = chars.peek()
+                    && d.is_ascii_digit() && d != '0'
+                {
+                    chars.next();
+                    let end2 = chars.peek().map_or(body.len(), |&(j, _)| j);
+                    items.push(WordBodyItem::OverlapPoint(kind, &body[i..end2]));
+                    continue;
                 }
                 items.push(WordBodyItem::OverlapPoint(kind, overlap_text));
             }

@@ -9,32 +9,35 @@ use crate::model::{AlignmentSet, AlignmentUnits, ParseHealthState, ParseHealthTi
 use crate::validation::ValidationContext;
 use crate::{ErrorCode, ParseError, Span, Utterance};
 
+/// One side of a tier alignment relationship (label, span, tier identity).
+struct TierSide<'a> {
+    label: &'a str,
+    span: Span,
+    tier: ParseHealthTier,
+}
+
 fn alignment_blocked_warning(
     health: ParseHealthState,
     alignment_name: &str,
-    left_label: &str,
-    left_span: Span,
-    left_tier: ParseHealthTier,
-    right_label: &str,
-    right_span: Span,
-    right_tier: ParseHealthTier,
+    left: TierSide<'_>,
+    right: TierSide<'_>,
 ) -> ParseError {
     match health {
         ParseHealthState::Unknown => unknown_alignment_warning(
             alignment_name,
-            left_label,
-            left_span,
-            right_label,
-            right_span,
+            left.label,
+            left.span,
+            right.label,
+            right.span,
         ),
         _ => skipped_alignment_warning(
             alignment_name,
-            left_label,
-            health.is_tier_clean(left_tier),
-            left_span,
-            right_label,
-            health.is_tier_clean(right_tier),
-            right_span,
+            left.label,
+            health.is_tier_clean(left.tier),
+            left.span,
+            right.label,
+            health.is_tier_clean(right.tier),
+            right.span,
         ),
     }
 }
@@ -42,9 +45,7 @@ fn alignment_blocked_warning(
 fn grouped_alignment_blocked_warning(
     health: ParseHealthState,
     alignment_name: &str,
-    left_label: &str,
-    left_span: Span,
-    left_tier: ParseHealthTier,
+    left: TierSide<'_>,
     right_label: &str,
     right_span: Span,
     right_clean: bool,
@@ -52,16 +53,16 @@ fn grouped_alignment_blocked_warning(
     match health {
         ParseHealthState::Unknown => unknown_alignment_warning(
             alignment_name,
-            left_label,
-            left_span,
+            left.label,
+            left.span,
             right_label,
             right_span,
         ),
         _ => skipped_alignment_warning(
             alignment_name,
-            left_label,
-            health.is_tier_clean(left_tier),
-            left_span,
+            left.label,
+            health.is_tier_clean(left.tier),
+            left.span,
             right_label,
             right_clean,
             right_span,
@@ -102,12 +103,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "main↔%mor",
-                        "main tier",
-                        self.main.span,
-                        ParseHealthTier::Main,
-                        "%mor tier",
-                        mor_span,
-                        ParseHealthTier::Mor,
+                        TierSide { label: "main tier", span: self.main.span, tier: ParseHealthTier::Main },
+                        TierSide { label: "%mor tier", span: mor_span, tier: ParseHealthTier::Mor },
                     ),
                 ));
             }
@@ -123,12 +120,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "%mor↔%gra",
-                        "%mor tier",
-                        mor_span,
-                        ParseHealthTier::Mor,
-                        "%gra tier",
-                        gra_span,
-                        ParseHealthTier::Gra,
+                        TierSide { label: "%mor tier", span: mor_span, tier: ParseHealthTier::Mor },
+                        TierSide { label: "%gra tier", span: gra_span, tier: ParseHealthTier::Gra },
                     ),
                 ));
             }
@@ -145,12 +138,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "main↔%pho",
-                        "main tier",
-                        self.main.span,
-                        ParseHealthTier::Main,
-                        "%pho tier",
-                        pho_span,
-                        ParseHealthTier::Pho,
+                        TierSide { label: "main tier", span: self.main.span, tier: ParseHealthTier::Main },
+                        TierSide { label: "%pho tier", span: pho_span, tier: ParseHealthTier::Pho },
                     ),
                 ));
             }
@@ -164,12 +153,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "main↔%wor",
-                        "main tier",
-                        self.main.span,
-                        ParseHealthTier::Main,
-                        "%wor tier",
-                        wor_span,
-                        ParseHealthTier::Wor,
+                        TierSide { label: "main tier", span: self.main.span, tier: ParseHealthTier::Main },
+                        TierSide { label: "%wor tier", span: wor_span, tier: ParseHealthTier::Wor },
                     ),
                 ));
             }
@@ -186,12 +171,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "main↔%mod",
-                        "main tier",
-                        self.main.span,
-                        ParseHealthTier::Main,
-                        "%mod tier",
-                        mod_span,
-                        ParseHealthTier::Mod,
+                        TierSide { label: "main tier", span: self.main.span, tier: ParseHealthTier::Main },
+                        TierSide { label: "%mod tier", span: mod_span, tier: ParseHealthTier::Mod },
                     ),
                 ));
             }
@@ -208,12 +189,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "main↔%sin",
-                        "main tier",
-                        self.main.span,
-                        ParseHealthTier::Main,
-                        "%sin tier",
-                        sin_span,
-                        ParseHealthTier::Sin,
+                        TierSide { label: "main tier", span: self.main.span, tier: ParseHealthTier::Main },
+                        TierSide { label: "%sin tier", span: sin_span, tier: ParseHealthTier::Sin },
                     ),
                 ));
             }
@@ -239,12 +216,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "%modsyl↔%mod",
-                        "%modsyl tier",
-                        modsyl_span,
-                        ParseHealthTier::Modsyl,
-                        "%mod tier",
-                        mod_span,
-                        ParseHealthTier::Mod,
+                        TierSide { label: "%modsyl tier", span: modsyl_span, tier: ParseHealthTier::Modsyl },
+                        TierSide { label: "%mod tier", span: mod_span, tier: ParseHealthTier::Mod },
                     ),
                 ));
             }
@@ -266,12 +239,8 @@ impl Utterance {
                     alignment_blocked_warning(
                         health,
                         "%phosyl↔%pho",
-                        "%phosyl tier",
-                        phosyl_span,
-                        ParseHealthTier::Phosyl,
-                        "%pho tier",
-                        pho_span,
-                        ParseHealthTier::Pho,
+                        TierSide { label: "%phosyl tier", span: phosyl_span, tier: ParseHealthTier::Phosyl },
+                        TierSide { label: "%pho tier", span: pho_span, tier: ParseHealthTier::Pho },
                     ),
                 ));
             }
@@ -328,9 +297,7 @@ impl Utterance {
                     grouped_alignment_blocked_warning(
                         health,
                         "%phoaln↔%mod/%pho",
-                        "%phoaln tier",
-                        phoaln_span,
-                        ParseHealthTier::Phoaln,
+                        TierSide { label: "%phoaln tier", span: phoaln_span, tier: ParseHealthTier::Phoaln },
                         "%mod/%pho tiers",
                         first_non_dummy_span([mod_span, pho_span]),
                         health.is_tier_clean(ParseHealthTier::Mod)

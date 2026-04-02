@@ -26,10 +26,10 @@ fn parse_first_utterance_content(chat: &str, speaker: &str) -> Vec<UtteranceCont
     };
 
     for line in &file.lines {
-        if let Line::Utterance(utt) = line {
-            if utt.main.speaker.as_str() == speaker {
-                return utt.main.content.content.0.clone();
-            }
+        if let Line::Utterance(utt) = line
+            && utt.main.speaker.as_str() == speaker
+        {
+            return utt.main.content.content.0.clone();
         }
     }
     panic!("no utterance found for speaker {speaker}");

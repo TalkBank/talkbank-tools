@@ -50,3 +50,13 @@ mutants.out.old/
 
 # Coverage
 lcov*.info
+
+# Internal review docs (not for public repo)
+/release-review-book/
+/docs/JOINT-RELEASE-SEQUENCE.md
+/docs/PLATFORM-SUPPORT.md
+/docs/RELEASE-CONTRACT.md
+/docs/VERSIONING.md
+
+# Stray symlinks
+/talkbank-tools

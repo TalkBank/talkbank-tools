@@ -201,7 +201,7 @@ src/
 │   ├── bulletParser.ts            # Fallback parser for •beg_end• timing markers (when LSP unavailable)
 │   ├── mediaResolver.ts           # Resolve @Media: to filesystem path
 │   ├── speakerFilter.ts           # Legacy speaker filter (retained for tests; primary path uses LSP)
-│   ├── cliLocator.ts              # Finds talkbank/chatter binary
+│   ├── cliLocator.ts              # Finds chatter binary (CLI + validation)
 │   └── projectLocator.ts          # Finds project root via Cargo.toml
 └── test/                          # Unit tests (vitest)
 

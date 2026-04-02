@@ -26,10 +26,10 @@ describe('findTalkBankCli', () => {
         vi.restoreAllMocks();
     });
 
-    it('should find talkbank in debug directory when it exists', async () => {
+    it('should find chatter in debug directory when it exists', async () => {
         // Arrange
         mockFs = createMockFileSystem({
-            '/project/target/debug/talkbank': 'binary'
+            '/project/target/debug/chatter': 'binary'
         });
 
         const options: CliLocatorOptions = {
@@ -41,14 +41,14 @@ describe('findTalkBankCli', () => {
         const result = await findTalkBankCli(options);
 
         // Assert
-        expect(result).toBe('/project/target/debug/talkbank');
-        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/debug/talkbank');
+        expect(result).toBe('/project/target/debug/chatter');
+        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/debug/chatter');
     });
 
-    it('should find talkbank in release directory when debug does not exist', async () => {
+    it('should find chatter in release directory when debug does not exist', async () => {
         // Arrange
         mockFs = createMockFileSystem({
-            '/project/target/release/talkbank': 'binary'
+            '/project/target/release/chatter': 'binary'
         });
 
         const options: CliLocatorOptions = {
@@ -60,16 +60,16 @@ describe('findTalkBankCli', () => {
         const result = await findTalkBankCli(options);
 
         // Assert
-        expect(result).toBe('/project/target/release/talkbank');
-        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/debug/talkbank');
-        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/release/talkbank');
+        expect(result).toBe('/project/target/release/chatter');
+        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/debug/chatter');
+        expect(mockFs.existsSync).toHaveBeenCalledWith('/project/target/release/chatter');
     });
 
     it('should fall back to PATH when not found in project', async () => {
         // Arrange
         mockFs = createMockFileSystem({});
         mockExecSync = createMockExecSync({
-            stdout: '/usr/local/bin/talkbank\n'
+            stdout: '/usr/local/bin/chatter\n'
         });
 
         const options: CliLocatorOptions = {
@@ -82,19 +82,19 @@ describe('findTalkBankCli', () => {
         const result = await findTalkBankCli(options);
 
         // Assert
-        expect(result).toBe('/usr/local/bin/talkbank');
+        expect(result).toBe('/usr/local/bin/chatter');
         expect(mockExecSync).toHaveBeenCalledWith(
-            'which talkbank',
+            'which chatter',
             expect.objectContaining({ encoding: 'utf-8' })
         );
     });
 
-    it('should return null when talkbank is not found anywhere', async () => {
+    it('should return null when chatter is not found anywhere', async () => {
         // Arrange
         mockFs = createMockFileSystem({});
         mockExecSync = createMockExecSync({
             shouldThrow: true,
-            errorMessage: 'Command failed: which talkbank',
+            errorMessage: 'Command failed: which chatter',
             exitCode: 1
         });
 
@@ -114,7 +114,7 @@ describe('findTalkBankCli', () => {
     it('should handle undefined projectRoot', async () => {
         // Arrange
         mockExecSync = createMockExecSync({
-            stdout: '/usr/local/bin/talkbank\n'
+            stdout: '/usr/local/bin/chatter\n'
         });
 
         const options: CliLocatorOptions = {
@@ -126,14 +126,14 @@ describe('findTalkBankCli', () => {
         const result = await findTalkBankCli(options);
 
         // Assert
-        expect(result).toBe('/usr/local/bin/talkbank');
+        expect(result).toBe('/usr/local/bin/chatter');
     });
 
     it('should prefer debug over release build', async () => {
         // Arrange - both debug and release exist
         mockFs = createMockFileSystem({
-            '/project/target/debug/talkbank': 'debug-binary',
-            '/project/target/release/talkbank': 'release-binary'
+            '/project/target/debug/chatter': 'debug-binary',
+            '/project/target/release/chatter': 'release-binary'
         });
 
         const options: CliLocatorOptions = {
@@ -145,7 +145,7 @@ describe('findTalkBankCli', () => {
         const result = await findTalkBankCli(options);
 
         // Assert
-        expect(result).toBe('/project/target/debug/talkbank');
+        expect(result).toBe('/project/target/debug/chatter');
     });
 });
 

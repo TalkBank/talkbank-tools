@@ -67,13 +67,13 @@ export class ExecutableService implements
         const { projectRoot } = options;
 
         if (projectRoot) {
-            const localBuild = this.findTargetBinary(projectRoot, 'talkbank');
+            const localBuild = this.findTargetBinary(projectRoot, 'chatter');
             if (localBuild) {
                 return localBuild;
             }
         }
 
-        return this.findOnPath('talkbank');
+        return this.findOnPath('chatter');
     }
 
     runTalkBankCli(cliPath: string, args: string[]): string {
@@ -139,12 +139,18 @@ export class ExecutableService implements
     }
 
     private findOnPath(command: string): string | null {
+        // Use platform-appropriate path discovery: `where.exe` on Windows,
+        // `which` on Unix. Both return the full path to the executable.
+        const whichCommand = process.platform === 'win32'
+            ? `where.exe ${command}`
+            : `which ${command}`;
         try {
-            const result = this.execSyncFn(`which ${command}`, {
+            const result = this.execSyncFn(whichCommand, {
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
-            const found = result.toString().trim();
+            // `where.exe` may return multiple lines; take the first match.
+            const found = result.toString().trim().split(/\r?\n/)[0];
             return found || null;
         } catch {
             return null;

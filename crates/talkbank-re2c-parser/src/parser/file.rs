@@ -99,10 +99,10 @@ pub fn parse_file_with_errors<'a>(
                 {
                     Ok(main_tier) => {
                         let dep_tiers = parse_dependent_tiers(tokens, &mut pos, errors);
-                        lines.push(Line::Utterance(Utterance {
+                        lines.push(Line::Utterance(Box::new(Utterance {
                             main_tier,
                             dependent_tiers: dep_tiers,
-                        }));
+                        })));
                     }
                     Err(_) => {
                         // Report E321: unparsable utterance.

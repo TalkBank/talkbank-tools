@@ -1,0 +1,88 @@
+name: VS Code Extension Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Extension version to release (must match package.json)"
+        required: true
+
+jobs:
+  release:
+    name: Package and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - name: Install dependencies
+        working-directory: vscode
+        run: npm ci
+
+      - name: Compile
+        working-directory: vscode
+        run: npm run compile
+
+      - name: Lint
+        working-directory: vscode
+        run: npm run lint
+
+      - name: Test
+        working-directory: vscode
+        run: npm run test
+
+      - name: Verify metadata
+        working-directory: vscode
+        run: |
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          PKG_LICENSE=$(node -e "console.log(require('./package.json').license)")
+          PKG_PUBLISHER=$(node -e "console.log(require('./package.json').publisher)")
+          PKG_ENGINE=$(node -e "console.log(require('./package.json').engines.vscode)")
+
+          echo "Version: $PKG_VERSION (expected: ${{ inputs.version }})"
+          echo "License: $PKG_LICENSE"
+          echo "Publisher: $PKG_PUBLISHER"
+          echo "VS Code engine: $PKG_ENGINE"
+
+          if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match input (${{ inputs.version }})"
+            exit 1
+          fi
+          if [ "$PKG_LICENSE" != "BSD-3-Clause" ]; then
+            echo "::error::License must be BSD-3-Clause, got $PKG_LICENSE"
+            exit 1
+          fi
+          if [ -z "$PKG_PUBLISHER" ]; then
+            echo "::error::Publisher is not set"
+            exit 1
+          fi
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        working-directory: vscode
+        run: vsce package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: talkbank-chat-${{ inputs.version }}.vsix
+          path: vscode/*.vsix
+
+      # Uncomment when ready to publish to the VS Code Marketplace.
+      # Requires a VSCE_PAT secret configured in the repository.
+      # See: https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+      # - name: Publish to Marketplace
+      #   working-directory: vscode
+      #   env:
+      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      #   run: vsce publish

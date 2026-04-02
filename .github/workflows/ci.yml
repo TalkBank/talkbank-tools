@@ -2,11 +2,20 @@ name: CI
 
 on:
   push:
+    branches: [main]
     tags:
       - "v*"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
+  # NOTE: The desktop app (desktop/) is experimental and explicitly excluded
+  # from CI gates. It is not part of the public release contract.
+  # See docs/RELEASE-CONTRACT.md for the full surface classification.
+  # When desktop reaches preview status, add a desktop build + smoke job here.
+  # Related: T119/T120 (signing workflows) are deferred until desktop is included.
+
   rust-check-and-test:
     name: Rust Check and Test
     runs-on: ubuntu-latest
@@ -60,6 +69,13 @@ jobs:
 
       - name: G9 — Golden tier roundtrip (%mor, %gra, %pho, %wor)
         run: cargo test -p talkbank-parser-tests --test parser_suite
+
+      - name: "T018/T019 — CLI artifact smoke test"
+        run: |
+          cargo build --release -p talkbank-cli
+          ./target/release/chatter --help
+          ./target/release/chatter --version
+          ./target/release/chatter validate corpus/reference/ --quiet --force
 
   reference-corpus-roundtrip:
     name: Reference Corpus Roundtrip (74 files, must be 100%)
@@ -296,6 +312,47 @@ jobs:
           npm run lint
           npm run test
 
+  cross-platform-smoke:
+    name: CLI Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: smoke-${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build --release -p talkbank-cli
+
+      - name: Smoke test — chatter --help
+        run: ./target/release/chatter --help
+        if: runner.os != 'Windows'
+
+      - name: Smoke test — chatter --version
+        run: ./target/release/chatter --version
+        if: runner.os != 'Windows'
+
+      - name: Smoke test — chatter --help (Windows)
+        run: .\target\release\chatter.exe --help
+        if: runner.os == 'Windows'
+
+      - name: Smoke test — chatter --version (Windows)
+        run: .\target\release\chatter.exe --version
+        if: runner.os == 'Windows'
+
   ci-report:
     name: CI Gate Summary
     runs-on: ubuntu-latest
@@ -308,6 +365,7 @@ jobs:
       - chat-manual-anchor-check
       - grammar
       - vscode
+      - cross-platform-smoke
 
     steps:
       - name: Write gate summary
@@ -334,6 +392,7 @@ jobs:
             echo "| Generated artifacts match committed sources | Generated Artifacts | $(result_to_badge '${{ needs.generated-artifacts.result }}') |"
             echo "| Grammar generate + test, parser.c unchanged | Grammar | $(result_to_badge '${{ needs.grammar.result }}') |"
             echo "| VS Code extension compile + lint + test | VS Code Extension | $(result_to_badge '${{ needs.vscode.result }}') |"
+            echo "| CLI build + smoke test on macOS and Windows | Cross-Platform Smoke | $(result_to_badge '${{ needs.cross-platform-smoke.result }}') |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -344,7 +403,8 @@ jobs:
                 "${{ needs.generated-artifacts.result }}"     != "success" ||
                 "${{ needs.chat-manual-anchor-check.result }}" != "success" ||
                 "${{ needs.grammar.result }}"                 != "success" ||
-                "${{ needs.vscode.result }}"                  != "success" ]]; then
+                "${{ needs.vscode.result }}"                  != "success" ||
+                "${{ needs.cross-platform-smoke.result }}"   != "success" ]]; then
               echo "### ❌ One or more gates failed — see job logs above" >> "$GITHUB_STEP_SUMMARY"
               exit 1
           fi

@@ -406,7 +406,7 @@ fn word_with_annotations_to_model(w: &ast::WordWithAnnotations<'_>) -> Utterance
         };
         let replacement_words: Vec<Word> = replacement_text
             .split_whitespace()
-            .map(|w_text| parse_word_to_model(w_text))
+            .map(parse_word_to_model)
             .collect();
         let replacement = Replacement::new(replacement_words);
 
@@ -484,7 +484,7 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
                 };
                 let replacement_words: Vec<Word> = replacement_text
                     .split_whitespace()
-                    .map(|w_text| parse_word_to_model(w_text))
+                    .map(parse_word_to_model)
                     .collect();
                 let replacement = Replacement::new(replacement_words);
                 let scoped: Vec<ContentAnnotation> = w
@@ -595,10 +595,10 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
             }
             Some(BracketedItem::Retrace(Box::new(retrace)))
         }
-        ast::ContentItem::Annotation(tok) => match tok {
-            Token::Freecode(s) => Some(BracketedItem::Freecode(Freecode::new(*s))),
-            _ => None,
-        },
+        ast::ContentItem::Annotation(Token::Freecode(s)) => {
+            Some(BracketedItem::Freecode(Freecode::new(*s)))
+        }
+        ast::ContentItem::Annotation(_) => None,
         ast::ContentItem::PhoGroup(contents) => {
             let items: Vec<BracketedItem> = contents
                 .iter()
@@ -764,17 +764,16 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
 
     // Grammar-routed bullet from tier_body.media_bullet takes priority
     // over the extracted one (it's correctly classified by the chumsky parser).
-    if let Some(bullet_tok) = &mt.tier_body.media_bullet {
-        if let Token::MediaBullet {
+    if let Some(bullet_tok) = &mt.tier_body.media_bullet
+        && let Token::MediaBullet {
             start_time,
             end_time,
             ..
         } = bullet_tok
-        {
-            let start_ms: u64 = start_time.parse().unwrap_or(0);
-            let end_ms: u64 = end_time.parse().unwrap_or(0);
-            main_tier = main_tier.with_bullet(Bullet::new(start_ms, end_ms));
-        }
+    {
+        let start_ms: u64 = start_time.parse().unwrap_or(0);
+        let end_ms: u64 = end_time.parse().unwrap_or(0);
+        main_tier = main_tier.with_bullet(Bullet::new(start_ms, end_ms));
     }
 
     // Linkers
@@ -783,9 +782,7 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
             .tier_body
             .linkers
             .iter()
-            .filter_map(|tok| match tok {
-                tok => linker_token_to_model(tok),
-            })
+            .filter_map(|tok| linker_token_to_model(tok))
             .collect();
         main_tier = main_tier.with_linkers(linkers);
     }
@@ -869,18 +866,18 @@ pub fn dependent_tier_to_model(
             use talkbank_model::model::dependent_tier::wor::WorItem;
             let wor_items: Vec<WorItem> = items
                 .iter()
-                .filter_map(|item| match item {
+                .map(|item| match item {
                     ast::WorItemParsed::Word { word, bullet } => {
                         let mut w = word_from_parsed(word);
                         if let Some((start_ms, end_ms)) = bullet {
                             w = w.with_inline_bullet(Bullet::new(*start_ms, *end_ms));
                         }
-                        Some(WorItem::Word(Box::new(w)))
+                        WorItem::Word(Box::new(w))
                     }
-                    ast::WorItemParsed::Separator(tok) => Some(WorItem::Separator {
+                    ast::WorItemParsed::Separator(tok) => WorItem::Separator {
                         text: tok.text().to_string(),
                         span: Span::DUMMY,
-                    }),
+                    },
                 })
                 .collect();
             let mut wor = WorTier::new(wor_items);
@@ -956,7 +953,7 @@ pub fn dependent_tier_to_model(
                 "wor" => {
                     let raw_text: String = content.iter().map(|t| t.text()).collect();
                     let wor = crate::convert::wor_tier_from_input(&raw_text);
-                    return talkbank_model::model::DependentTier::Wor(wor);
+                    talkbank_model::model::DependentTier::Wor(wor)
                 }
                 // Phon project syllabification tiers (with or without x prefix)
                 "modsyl" | "xmodsyl" => {
@@ -1031,7 +1028,7 @@ impl<'a> From<&ast::ChatFile<'a>> for talkbank_model::model::ChatFile {
                     span: Span::DUMMY,
                 },
                 ast::Line::Utterance(u) => {
-                    talkbank_model::model::Line::Utterance(Box::new(utterance_to_model(u)))
+                    talkbank_model::model::Line::Utterance(Box::new(utterance_to_model(u.as_ref())))
                 }
             })
             .collect();
@@ -1045,14 +1042,14 @@ impl<'a> From<&ast::ChatFile<'a>> for talkbank_model::model::ChatFile {
         let mut declared: indexmap::IndexMap<SpeakerCode, (Option<ParticipantName>, ParticipantRole)> =
             indexmap::IndexMap::new();
         for line in &lines {
-            if let talkbank_model::model::Line::Header { header, .. } = line {
-                if let Header::Participants { entries } = header.as_ref() {
-                    for entry in entries.iter() {
-                        declared.insert(
-                            entry.speaker_code.clone(),
-                            (entry.name.clone(), entry.role.clone()),
-                        );
-                    }
+            if let talkbank_model::model::Line::Header { header, .. } = line
+                && let Header::Participants { entries } = header.as_ref()
+            {
+                for entry in entries.iter() {
+                    declared.insert(
+                        entry.speaker_code.clone(),
+                        (entry.name.clone(), entry.role.clone()),
+                    );
                 }
             }
         }
@@ -1561,7 +1558,7 @@ fn convert_sin_tier(sin: &ast::SinTierParsed<'_>) -> talkbank_model::model::SinT
         .map(|item| match item {
             ast::SinItemParsed::Token(s) => SinItem::Token(SinToken::new_unchecked(s)),
             ast::SinItemParsed::Group(words) => SinItem::SinGroup(SinGroupGestures::new(
-                words.iter().map(|s| SinToken::new_unchecked(s)).collect(),
+                words.iter().map(SinToken::new_unchecked).collect(),
             )),
         })
         .collect();
@@ -1862,15 +1859,15 @@ fn normalize_ca_omission_word(word: &mut Word) {
     if word.category.is_some() {
         return;
     }
-    if word.content.len() == 1 {
-        if let WordContent::Shortening(shortening) = &word.content[0] {
-            // Reclassify: Shortening → Text, category → CAOmission
-            let text = shortening.as_ref().to_string();
-            word.category = Some(WordCategory::CAOmission);
-            word.content = WordContents::new(smallvec::smallvec![WordContent::Text(
-                WordText::new_unchecked(&text)
-            )]);
-        }
+    if word.content.len() == 1
+        && let WordContent::Shortening(shortening) = &word.content[0]
+    {
+        // Reclassify: Shortening → Text, category → CAOmission
+        let text = shortening.as_ref().to_string();
+        word.category = Some(WordCategory::CAOmission);
+        word.content = WordContents::new(smallvec::smallvec![WordContent::Text(
+            WordText::new_unchecked(&text)
+        )]);
     }
 }
 

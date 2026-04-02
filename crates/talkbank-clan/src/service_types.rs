@@ -9,51 +9,35 @@
 //! not need to route analysis work through raw command-name strings.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
 use thiserror::Error;
 
-use crate::commands::chains::{ChainsCommand, ChainsConfig};
-use crate::commands::chip::ChipCommand;
-use crate::commands::codes::{CodesCommand, CodesConfig};
-use crate::commands::combo::{ComboCommand, ComboConfig};
-use crate::commands::complexity::ComplexityCommand;
-use crate::commands::cooccur::CooccurCommand;
-use crate::commands::corelex::{CorelexCommand, CorelexConfig};
-use crate::commands::dist::DistCommand;
-use crate::commands::dss::{DssCommand, DssConfig};
-use crate::commands::eval::{EvalCommand, EvalConfig};
-use crate::commands::flucalc::{FlucalcCommand, FlucalcConfig};
-use crate::commands::freq::{FreqCommand, FreqConfig};
-use crate::commands::freqpos::FreqposCommand;
-use crate::commands::gemlist::GemlistCommand;
-use crate::commands::ipsyn::{IpsynCommand, IpsynConfig};
-use crate::commands::keymap::{KeymapCommand, KeymapConfig};
-use crate::commands::kideval::{KidevalCommand, KidevalConfig};
-use crate::commands::kwal::{KwalCommand, KwalConfig};
-use crate::commands::maxwd::{MaxwdCommand, MaxwdConfig};
-use crate::commands::mlt::MltCommand;
-use crate::commands::mlu::{MluCommand, MluConfig};
-use crate::commands::modrep::ModrepCommand;
-use crate::commands::mortable::{MortableCommand, MortableConfig};
-use crate::commands::phonfreq::PhonfreqCommand;
-use crate::commands::rely::{RelyConfig, run_rely};
-use crate::commands::script::{ScriptCommand, ScriptConfig};
-use crate::commands::sugar::{SugarCommand, SugarConfig};
-use crate::commands::timedur::TimedurCommand;
-use crate::commands::trnfix::{TrnfixCommand, TrnfixConfig};
-use crate::commands::uniq::{UniqCommand, UniqConfig};
-use crate::commands::vocd::VocdCommand;
-use crate::commands::wdlen::WdlenCommand;
-use crate::commands::wdsize::{WdsizeCommand, WdsizeConfig};
-use crate::framework::{
-    AnalysisCommand, AnalysisRunner, CommandOutput, FilterConfig, OutputFormat, RunnerError,
-    TransformError,
-};
+use crate::commands::chains::ChainsConfig;
+use crate::commands::codes::CodesConfig;
+use crate::commands::combo::ComboConfig;
+use crate::commands::corelex::CorelexConfig;
+use crate::commands::dss::DssConfig;
+use crate::commands::eval::EvalConfig;
+use crate::commands::flucalc::FlucalcConfig;
+use crate::commands::freq::FreqConfig;
+use crate::commands::ipsyn::IpsynConfig;
+use crate::commands::keymap::KeymapConfig;
+use crate::commands::kideval::KidevalConfig;
+use crate::commands::kwal::KwalConfig;
+use crate::commands::maxwd::MaxwdConfig;
+use crate::commands::mlu::MluConfig;
+use crate::commands::mortable::MortableConfig;
+use crate::commands::rely::RelyConfig;
+use crate::commands::script::ScriptConfig;
+use crate::commands::sugar::SugarConfig;
+use crate::commands::trnfix::TrnfixConfig;
+use crate::commands::uniq::UniqConfig;
+use crate::commands::wdsize::WdsizeConfig;
+use crate::framework::{RunnerError, TransformError};
 
 /// Typed identifier for one supported CLAN analysis command.
 ///

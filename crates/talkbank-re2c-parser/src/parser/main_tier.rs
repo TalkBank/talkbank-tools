@@ -323,13 +323,13 @@ pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clo
 
             // Standalone zero (0) with no body → Action, not Word.
             // This distinguishes `0` (action) from `0word` (omission).
-            if category == Some(WordCategory::Omission) && body.is_empty() {
-                if let Some(zt) = zero_tok {
-                    return ContentItem::Action {
-                        zero: zt,
-                        annotations,
-                    };
-                }
+            if category == Some(WordCategory::Omission) && body.is_empty()
+                && let Some(zt) = zero_tok
+            {
+                return ContentItem::Action {
+                    zero: zt,
+                    annotations,
+                };
             }
 
             let word = WordWithAnnotations {

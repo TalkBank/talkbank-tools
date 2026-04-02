@@ -3,7 +3,7 @@ name = "chatter-desktop"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.89.0"
-description = "Desktop validation app for CHAT files"
+description = "Desktop validation app for CHAT files (experimental, not yet released)"
 publish = false
 
 [lib]

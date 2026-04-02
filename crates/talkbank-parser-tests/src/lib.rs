@@ -118,6 +118,13 @@ pub mod feature_signature;
 ///   grammar/src/grammar.json grammar/src/node-types.json \
 ///   --skip whitespaces > crates/talkbank-parser-tests/src/generated_traversal.rs
 /// ```
+///
+/// TODO(generator): The generator (`~/tree-sitter-grammar-utils`) emits code
+/// that triggers several clippy/rustc warnings, suppressed below. The generator
+/// itself should be improved to emit cleaner code:
+/// - avoid writing `idx` when the value is never read (127 instances)
+/// - normalize double underscores in method names (e.g. `extract__id_role_fields`)
+/// - emit `///` doc stubs for all pub items
 #[allow(
     dead_code,
     clippy::all,
@@ -125,7 +132,9 @@ pub mod feature_signature;
     clippy::nursery,
     missing_docs,
     unused_variables,
-    unused_mut
+    unused_mut,
+    unused_assignments,
+    non_snake_case
 )]
 pub mod generated_traversal;
 pub mod snapshot;

@@ -239,7 +239,7 @@ fn build_word_contents(
                 };
                 let index = chars
                     .next()
-                    .and_then(|c| c.to_digit(10).map(|d| OverlapIndex::new(d)));
+                    .and_then(|c| c.to_digit(10).map(OverlapIndex::new));
                 items.push(WordContent::OverlapPoint(OverlapPoint {
                     kind,
                     index,

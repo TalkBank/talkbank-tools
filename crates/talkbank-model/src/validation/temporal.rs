@@ -180,34 +180,34 @@ fn validate_global_timeline(bullets: &[BulletInfo], errors: &impl ErrorSink) {
     let mut speaker_last_start: HashMap<&str, (usize, u64)> = HashMap::new();
 
     for bullet_info in bullets {
-        if let Some(&(prev_idx, prev_start_ms)) = speaker_last_start.get(bullet_info.speaker) {
-            if bullet_info.bullet.timing.start_ms < prev_start_ms {
-                errors.report(
-                    ParseError::new(
-                        E701,
-                        Severity::Error,
-                        SourceLocation::new(bullet_info.bullet.span),
-                        ErrorContext::new(
-                            bullet_text(bullet_info.bullet),
-                            Span::from_usize(0, bullet_text(bullet_info.bullet).len()),
-                            bullet_text(bullet_info.bullet),
-                        ),
-                        format!(
-                            "Same-speaker start time not monotonic: speaker '{}' utterance {} \
-                             starts at {}ms but their utterance {} started at {}ms",
-                            bullet_info.speaker,
-                            bullet_info.utterance_idx + 1,
-                            bullet_info.bullet.timing.start_ms,
-                            prev_idx + 1,
-                            prev_start_ms
-                        ),
-                    )
-                    .with_suggestion(format!(
-                        "Adjust bullet to start at or after {}ms",
+        if let Some(&(prev_idx, prev_start_ms)) = speaker_last_start.get(bullet_info.speaker)
+            && bullet_info.bullet.timing.start_ms < prev_start_ms
+        {
+            errors.report(
+                ParseError::new(
+                    E701,
+                    Severity::Error,
+                    SourceLocation::new(bullet_info.bullet.span),
+                    ErrorContext::new(
+                        bullet_text(bullet_info.bullet),
+                        Span::from_usize(0, bullet_text(bullet_info.bullet).len()),
+                        bullet_text(bullet_info.bullet),
+                    ),
+                    format!(
+                        "Same-speaker start time not monotonic: speaker '{}' utterance {} \
+                         starts at {}ms but their utterance {} started at {}ms",
+                        bullet_info.speaker,
+                        bullet_info.utterance_idx + 1,
+                        bullet_info.bullet.timing.start_ms,
+                        prev_idx + 1,
                         prev_start_ms
-                    )),
-                );
-            }
+                    ),
+                )
+                .with_suggestion(format!(
+                    "Adjust bullet to start at or after {}ms",
+                    prev_start_ms
+                )),
+            );
         }
 
         speaker_last_start.insert(

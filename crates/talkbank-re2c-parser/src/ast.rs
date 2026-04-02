@@ -388,7 +388,7 @@ pub struct ChatFile<'a> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Line<'a> {
     Header(HeaderParsed<'a>),
-    Utterance(Utterance<'a>),
+    Utterance(Box<Utterance<'a>>),
 }
 
 /// An utterance: main tier + dependent tiers.

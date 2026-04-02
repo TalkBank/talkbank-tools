@@ -161,7 +161,7 @@ export class ValidationExecutor {
             : await this.findTalkBankCliPath();
 
         if (!cliPath) {
-            throw new Error('talkbank CLI not found. Please build the project first.');
+            throw new Error('chatter CLI not found. Please build the project first.');
         }
 
         return cliPath;

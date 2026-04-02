@@ -15,6 +15,7 @@ use crate::node_types::{LINE, MAIN_TIER, UTTERANCE};
 use tree_sitter::{Node, Tree};
 
 /// Returns the first `main_tier` node reachable under line/utterance wrappers.
+#[allow(dead_code)] // Public API for single-item parse entry points
 pub fn find_main_tier_node<'a>(tree: &'a Tree, _source: &str) -> ParseResult<Node<'a>> {
     let root = tree.root_node();
     let mut cursor = root.walk();

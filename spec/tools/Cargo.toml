@@ -26,7 +26,7 @@ regex = { workspace = true }
 chrono = "0.4"
 tera = { workspace = true }
 unicode-normalization = { workspace = true }
-chumsky = { workspace = true }
+
 
 # Tree-sitter (for template generation and CST extraction)
 tree-sitter = { workspace = true }

@@ -37,13 +37,11 @@ use crate::commands::uniq::UniqCommand;
 use crate::commands::vocd::VocdCommand;
 use crate::commands::wdlen::WdlenCommand;
 use crate::commands::wdsize::WdsizeCommand;
-use crate::framework::{
-    AnalysisCommand, AnalysisRunner, CommandOutput, FilterConfig, OutputFormat, RunnerError,
-    TransformError,
-};
+use crate::framework::{AnalysisCommand, AnalysisRunner, CommandOutput, FilterConfig, OutputFormat};
 
 use super::service_types::*;
 
+/// Entry point for running CLAN analysis commands on CHAT files.
 pub struct AnalysisService {
     runner: AnalysisRunner,
 }

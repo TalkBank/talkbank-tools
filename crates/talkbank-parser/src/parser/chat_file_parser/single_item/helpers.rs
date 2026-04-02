@@ -24,7 +24,7 @@ pub(crate) const MINIMAL_CHAT_PREFIX: &str = "@UTF8\n@Begin\n@Languages:\teng\n@
 pub(crate) const MINIMAL_CHAT_SUFFIX: &str = "@End\n";
 
 /// Parse a synthetic wrapper document and return its CST.
-pub(super) fn parse_tree(
+pub(super) fn _parse_tree(
     parser: &TreeSitterParser,
     input: &str,
     wrapped: &str,
@@ -47,7 +47,7 @@ pub(super) fn parse_tree(
 }
 
 /// Locate the `main_tier` node in a parsed wrapper tree.
-pub(super) fn find_main_tier_node_in_tree<'a>(
+pub(super) fn _find_main_tier_node_in_tree<'a>(
     tree: &'a tree_sitter::Tree,
     wrapped: &'a str,
 ) -> ParseResult<tree_sitter::Node<'a>> {

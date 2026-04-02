@@ -15,4 +15,4 @@ mod list;
 mod single;
 mod symbols;
 
-pub(crate) use list::{ParsedAnnotations, parse_scoped_annotations};
+pub(crate) use list::parse_scoped_annotations;

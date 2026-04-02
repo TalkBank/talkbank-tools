@@ -66,9 +66,9 @@ pub fn convert_main_tier_node(
         None
     };
 
-    let mut content = body.content;
-    let mut terminator = end.terminator;
-    let mut bullet = end.bullet;
+    let content = body.content;
+    let terminator = end.terminator;
+    let bullet = end.bullet;
 
     let mut main_tier = MainTier::new(speaker, content, terminator)
         .with_span(span)

@@ -11,6 +11,11 @@ on:
   #   tags:
   #     - "v*"
 
+env:
+  # Canonical release tag: use the manual input when dispatched, fall back
+  # to the pushed ref (for future tag-triggered runs).
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
 permissions:
   contents: write
 
@@ -47,10 +52,30 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --target ${{ matrix.target }} -p talkbank-cli
 
+      - name: Smoke test — chatter --help (native only)
+        if: >-
+          (runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu') ||
+          (runner.os == 'macOS' && matrix.target == 'aarch64-apple-darwin')
+        run: ./target/${{ matrix.target }}/release/chatter --help
+
+      - name: Smoke test — chatter --version (native only)
+        if: >-
+          (runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu') ||
+          (runner.os == 'macOS' && matrix.target == 'aarch64-apple-darwin')
+        run: ./target/${{ matrix.target }}/release/chatter --version
+
+      - name: Smoke test — chatter --help (Windows)
+        if: runner.os == 'Windows'
+        run: .\target\${{ matrix.target }}\release\chatter.exe --help
+
+      - name: Smoke test — chatter --version (Windows)
+        if: runner.os == 'Windows'
+        run: .\target\${{ matrix.target }}\release\chatter.exe --version
+
       - name: Package archive (Unix)
         if: runner.os != 'Windows'
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           ARCHIVE="chatter-v${VERSION}-${{ matrix.target }}.tar.gz"
           tar czf "${ARCHIVE}" \
             -C target/${{ matrix.target }}/release \
@@ -61,7 +86,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $VERSION = "${{ github.ref_name }}".TrimStart("v")
+          $VERSION = "${{ env.RELEASE_TAG }}".TrimStart("v")
           $ARCHIVE = "chatter-v${VERSION}-${{ matrix.target }}.zip"
           Compress-Archive -Path "target/${{ matrix.target }}/release/chatter.exe" -DestinationPath $ARCHIVE
           echo "ARCHIVE=${ARCHIVE}" >> $env:GITHUB_ENV
@@ -81,12 +106,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate tag version matches Cargo.toml
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate tag version matches workspace version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          CARGO_VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          TAG_VERSION="${RELEASE_TAG#v}"
+          CARGO_VERSION=$(cargo metadata --format-version=1 --no-deps \
+            | jq -r '.packages[] | select(.name == "talkbank-cli") | .version')
           if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
-            echo "::error::Tag version (${TAG_VERSION}) does not match Cargo.toml version (${CARGO_VERSION})"
+            echo "::error::Tag version (${TAG_VERSION}) does not match workspace version (${CARGO_VERSION})"
             exit 1
           fi
 

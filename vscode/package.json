@@ -4,7 +4,7 @@
   "description": "Language support for CHAT transcription format: real-time validation, 30 CLAN analysis commands, syntax highlighting, cross-tier alignment, dependency graphs, media playback, waveform view, and transcription mode",
   "version": "0.1.0",
   "publisher": "talkbank",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",

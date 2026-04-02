@@ -8,7 +8,6 @@
 //! Usage:
 //!   cargo run --bin enhance_specs -- --spec-dir ../spec/errors
 
-use chumsky::{error::Simple, prelude::*};
 use clap::Parser as ClapParser;
 use comrak::nodes::{AstNode, NodeValue};
 use comrak::{format_commonmark, parse_document, Arena, Options};
@@ -404,22 +403,12 @@ fn normalize_whitespace(value: &str) -> String {
     out
 }
 
+/// Parse `": <value>"` — strip colon prefix, trim leading whitespace, return the rest.
 fn parse_value_after_separator(value: &str) -> Option<String> {
-    let parser = parse_value_after_separator_parser();
-    parser.parse(value).into_result().ok()
-}
-
-fn parse_value_after_separator_parser<'src>(
-) -> impl chumsky::Parser<'src, &'src str, String, extra::Err<Simple<'src, char>>> {
-    let ws = one_of(" \t").repeated();
-    let value = any::<_, extra::Err<Simple<'src, char>>>()
-        .filter(|c: &char| *c != '\n' && *c != '\r')
-        .repeated()
-        .collect::<String>();
-    just(':')
-        .then_ignore(ws)
-        .ignore_then(value)
-        .then_ignore(end())
+    let rest = value.strip_prefix(':')?;
+    let trimmed = rest.trim_start_matches([' ', '\t']);
+    let line = trimmed.lines().next().unwrap_or(trimmed);
+    Some(line.to_string())
 }
 
 fn generate_chat_rule(error_code: &str) -> String {

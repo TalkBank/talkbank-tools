@@ -1,7 +1,7 @@
 # CLAN Command Parity Audit
 
 **Status:** Current
-**Last updated:** 2026-03-29 21:53 EDT
+**Last updated:** 2026-04-02 07:56 EDT
 
 ## Goal
 
@@ -154,27 +154,32 @@ invoke CLAN transform binaries.
 
 ## Converter Commands
 
-All converters accept single `PathBuf` + optional `--output`.
+All converters accept single `PathBuf` + optional `--output`. Golden tests
+live in `crates/talkbank-clan/tests/converter_golden.rs`. Each test produces
+two insta snapshots (`@rust` and `@clan`); converters without a CLAN binary
+produce only a `@rust` snapshot.
 
-| Command | Golden Tests | Dir Support | Notes |
-|---------|:---:|:---:|-------|
-| chat2text | N | N | |
-| chat2srt | N | N | |
-| chat2vtt | N | N | |
-| chat2praat | N | N | |
-| chat2elan | N | N | |
-| text2chat | N | N | |
-| srt2chat | N | N | |
-| lipp2chat | N | N | |
-| elan2chat | N | N | |
-| praat2chat | N | N | |
-| lena2chat | N | N | |
-| play2chat | N | N | |
-| lab2chat | N | N | |
-| rtf2chat | N | N | |
-| salt2chat | N | N | |
+| Command | Golden Tests | CLAN Binary | Dir Support | Notes |
+|---------|:---:|:---:|:---:|-------|
+| chat2text | Y | N | N | Rust-only snapshot (includes `--speakers` variant) |
+| chat2srt | Y | N | N | Rust-only snapshot (no CLAN binary) |
+| chat2vtt | — | — | — | **Not implemented in code** (listed in audit only) |
+| chat2praat | Y | Y | N | |
+| chat2elan | Y | Y | N | |
+| text2chat | Y | Y | N | |
+| srt2chat | Y | Y | N | |
+| lipp2chat | Y | Y | N | |
+| elan2chat | Y | Y | N | |
+| praat2chat | Y | Y | N | |
+| lena2chat | Y | Y | N | |
+| play2chat | Y | Y | N | |
+| lab2chat | Y | N | N | Rust-only snapshot (no CLAN binary) |
+| rtf2chat | Y | N | N | Rust-only snapshot (no CLAN binary) |
+| salt2chat | Y | Y | N | |
 
-**Gap:** No golden tests for any converter. These need CLAN binary comparison.
+All 13 implemented converters have golden tests. 10 use CLAN binary
+comparison; 3 (chat2srt, lab2chat, rtf2chat) use Rust-only snapshots because
+no corresponding CLAN binary is available. chat2vtt is not yet implemented.
 
 ---
 

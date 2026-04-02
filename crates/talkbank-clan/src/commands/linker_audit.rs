@@ -526,7 +526,7 @@ fn is_interruption(term: &Terminator) -> bool {
 }
 
 /// Check if a terminator is the quotation-follows terminator.
-fn is_quotation_follows_term(term: &Terminator) -> bool {
+fn _is_quotation_follows_term(term: &Terminator) -> bool {
     matches!(term, Terminator::QuotedNewLine { .. })
 }
 
@@ -701,12 +701,9 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         if linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
             match last_term_by_speaker.get(speaker) {
                 None => stats.sc_no_prior += 1,
-                Some(t)
-                    if matches!(
-                        t,
-                        TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion
-                    ) =>
-                {
+                Some(
+                    TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion,
+                ) => {
                     stats.sc_correct += 1;
                 }
                 Some(_) => stats.sc_wrong_terminator += 1,
@@ -759,10 +756,10 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
 
                 // Check if +< starts with same speaker as previous utterance
                 // (when not continuing a block)
-                if let Some(ps) = prev_speaker {
-                    if ps == speaker {
-                        stats.lo_same_speaker_start += 1;
-                    }
+                if let Some(ps) = prev_speaker
+                    && ps == speaker
+                {
+                    stats.lo_same_speaker_start += 1;
                 }
             }
         } else if in_lazy_block {
@@ -817,21 +814,18 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
             if matches!(
                 pt,
                 TerminatorKind::TrailingOff | TerminatorKind::TrailingOffQuestion
-            ) {
-                if linkers
-                    .iter()
-                    .any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion))
-                {
-                    stats.trailing_off_followed += 1;
-                }
+            ) && linkers
+                .iter()
+                .any(|l| matches!(l, Linker::OtherCompletion | Linker::SelfCompletion))
+            {
+                stats.trailing_off_followed += 1;
             }
             if matches!(
                 pt,
                 TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion
-            ) {
-                if linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
-                    stats.interruption_followed += 1;
-                }
+            ) && linkers.iter().any(|l| matches!(l, Linker::SelfCompletion))
+            {
+                stats.interruption_followed += 1;
             }
         }
 

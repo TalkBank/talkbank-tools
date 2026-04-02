@@ -129,7 +129,7 @@ impl ChatParser for Re2cParser {
         let parsed = crate::parser::parse_chat_file(input);
         for line in &parsed.lines {
             if let crate::ast::Line::Utterance(u) = line {
-                return ParseOutcome::parsed(shifted(ModelUtterance::from(u), offset));
+                return ParseOutcome::parsed(shifted(ModelUtterance::from(u.as_ref()), offset));
             }
         }
         ParseOutcome::rejected()
@@ -353,13 +353,13 @@ impl ChatParser for Re2cParser {
     ) -> ParseOutcome<ModelDependentTier> {
         let parsed = crate::parser::parse_chat_file(input);
         for line in &parsed.lines {
-            if let crate::ast::Line::Utterance(u) = line {
-                if let Some(tier) = u.dependent_tiers.first() {
-                    return ParseOutcome::parsed(shifted(
-                        crate::convert::dependent_tier_to_model(tier),
-                        offset,
-                    ));
-                }
+            if let crate::ast::Line::Utterance(u) = line
+                && let Some(tier) = u.dependent_tiers.first()
+            {
+                return ParseOutcome::parsed(shifted(
+                    crate::convert::dependent_tier_to_model(tier),
+                    offset,
+                ));
             }
         }
         ParseOutcome::rejected()

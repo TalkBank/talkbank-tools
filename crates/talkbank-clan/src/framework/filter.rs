@@ -22,7 +22,6 @@ use std::str::FromStr;
 use talkbank_model::{Header, SpeakerCode, Utterance};
 use thiserror::Error;
 
-use super::domain_types::{GemLabel, WordPattern};
 use super::word_filter::{countable_words_in_utterance, word_pattern_matches};
 
 /// Shared filtering criteria applied before utterances reach a command.
@@ -344,6 +343,7 @@ pub fn update_active_gems(headers: &[Header], active_gems: &mut Vec<String>) {
 
 #[cfg(test)]
 mod tests {
+    use super::super::domain_types::{GemLabel, WordPattern};
     use super::*;
 
     /// Empty speaker filters should allow any speaker code.

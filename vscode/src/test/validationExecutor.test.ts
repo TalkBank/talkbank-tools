@@ -128,7 +128,7 @@ describe('ValidationExecutor', () => {
         });
 
         await expect(executor.validateFile('/tmp/example.cha')).rejects.toThrow(
-            'talkbank CLI not found. Please build the project first.'
+            'chatter CLI not found. Please build the project first.'
         );
     });
 });

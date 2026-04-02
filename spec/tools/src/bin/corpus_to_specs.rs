@@ -9,7 +9,6 @@
 //!     --corpus-dir ~/talkbank-tools/tests/error_corpus \
 //!     --spec-dir ../spec/errors
 
-use chumsky::{error::Simple, prelude::*};
 use clap::Parser as ClapParser;
 use std::collections::HashMap;
 use std::fs;
@@ -427,101 +426,78 @@ fn extract_code_from_filename(path: &Path) -> Option<String> {
     }
 }
 
+/// Parse a comment directive from a CHAT comment line.
+///
+/// Recognized forms:
+/// - `"Expected error: E123"` or `"Expected error: E123 (description)"`
+/// - `"Expected tree-sitter error: E456 (description)"`
+/// - `"Expected direct error: E789"`
+/// - `"Expected warning: W100"`
+/// - `"Trigger: some text"`
+/// - `"Category: some text"`
+/// - `"ERROR CORPUS TEST FILE"`
 fn parse_comment_directive(text: &str) -> Option<CommentDirective> {
-    let parser = directive_parser();
-    parser.parse(text).into_result().ok()
+    let text = text.trim();
+
+    if text == "ERROR CORPUS TEST FILE" {
+        return Some(CommentDirective::CorpusMarker);
+    }
+
+    // Try each "Expected ..." prefix, all mapping to the same code+description parse.
+    for prefix in [
+        "Expected error:",
+        "Expected tree-sitter error:",
+        "Expected direct error:",
+    ] {
+        if let Some(rest) = text.strip_prefix(prefix) {
+            let (code, description) = parse_code_and_description(rest)?;
+            return Some(CommentDirective::ExpectedError { code, description });
+        }
+    }
+
+    if let Some(rest) = text.strip_prefix("Expected warning:") {
+        let (code, _) = parse_code_and_description(rest)?;
+        return Some(CommentDirective::ExpectedWarning { code });
+    }
+
+    if let Some(rest) = text.strip_prefix("Trigger:") {
+        let value = rest.trim_start_matches([' ', '\t']);
+        return Some(CommentDirective::Trigger(value.to_string()));
+    }
+
+    if let Some(rest) = text.strip_prefix("Category:") {
+        let value = rest.trim_start_matches([' ', '\t']);
+        return Some(CommentDirective::Category(value.to_string()));
+    }
+
+    None
 }
 
-fn directive_parser<'src>(
-) -> impl chumsky::Parser<'src, &'src str, CommentDirective, extra::Err<Simple<'src, char>>> {
-    let ws = one_of(" \t").repeated();
-    let digits = any::<_, extra::Err<Simple<'src, char>>>()
-        .filter(|c: &char| c.is_ascii_digit())
-        .repeated()
-        .at_least(1)
-        .collect::<String>();
-    let code = one_of("EW")
-        .then(digits)
-        .map(|(prefix, digits): (char, String)| {
-            let mut out = String::new();
-            out.push(prefix);
-            out.push_str(&digits);
-            out
-        });
+/// Parse an error/warning code like `"E123"` or `"W456"`, optionally followed
+/// by `"(description text)"`.
+fn parse_code_and_description(input: &str) -> Option<(String, Option<String>)> {
+    let input = input.trim_start_matches([' ', '\t']);
 
-    let description = just('(')
-        .ignore_then(
-            any::<_, extra::Err<Simple<'src, char>>>()
-                .filter(|c: &char| *c != ')')
-                .repeated()
-                .collect::<String>(),
-        )
-        .then_ignore(just(')'))
-        .or_not();
+    // Code must start with E or W followed by digits.
+    let first = input.chars().next()?;
+    if first != 'E' && first != 'W' {
+        return None;
+    }
+    let digit_end = input[1..]
+        .find(|c: char| !c.is_ascii_digit())
+        .map(|i| i + 1)
+        .unwrap_or(input.len());
+    if digit_end <= 1 {
+        return None; // No digits after prefix.
+    }
+    let code = input[..digit_end].to_string();
 
-    let expected_error = just("Expected error")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(code)
-        .then_ignore(ws)
-        .then(description)
-        .map(|(code, description)| CommentDirective::ExpectedError { code, description });
+    // Optional description in parentheses after whitespace.
+    let rest = input[digit_end..].trim_start_matches([' ', '\t']);
+    let description = rest
+        .strip_prefix('(')
+        .and_then(|inner| inner.strip_suffix(')'))
+        .map(|s| s.to_string());
 
-    let expected_ts_error = just("Expected tree-sitter error")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(code)
-        .then_ignore(ws)
-        .then(description)
-        .map(|(code, description)| CommentDirective::ExpectedError { code, description });
-
-    let expected_direct_error = just("Expected direct error")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(code)
-        .then_ignore(ws)
-        .then(description)
-        .map(|(code, description)| CommentDirective::ExpectedError { code, description });
-
-    let expected_warning = just("Expected warning")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(code)
-        .map(|code| CommentDirective::ExpectedWarning { code });
-
-    let trigger = just("Trigger")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(
-            any::<_, extra::Err<Simple<'src, char>>>()
-                .filter(|c: &char| *c != '\n' && *c != '\r')
-                .repeated()
-                .collect::<String>(),
-        )
-        .map(CommentDirective::Trigger);
-
-    let category = just("Category")
-        .then_ignore(just(':'))
-        .then_ignore(ws)
-        .ignore_then(
-            any::<_, extra::Err<Simple<'src, char>>>()
-                .filter(|c: &char| *c != '\n' && *c != '\r')
-                .repeated()
-                .collect::<String>(),
-        )
-        .map(CommentDirective::Category);
-
-    let corpus_marker = just("ERROR CORPUS TEST FILE").map(|_| CommentDirective::CorpusMarker);
-
-    choice((
-        expected_error,
-        expected_ts_error,
-        expected_direct_error,
-        expected_warning,
-        trigger,
-        category,
-        corpus_marker,
-    ))
-    .then_ignore(ws)
-    .then_ignore(end())
+    Some((code, description))
 }

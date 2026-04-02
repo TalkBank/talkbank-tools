@@ -170,12 +170,11 @@ impl TierContent {
         if self.terminator.is_some() {
             return;
         }
-        if let Some(UtteranceContent::Separator(sep)) = self.content.last() {
-            if sep.is_ca_intonation_arrow() {
-                if let Some(UtteranceContent::Separator(sep)) = self.content.pop() {
-                    self.terminator = sep.to_ca_terminator();
-                }
-            }
+        if let Some(UtteranceContent::Separator(sep)) = self.content.last()
+            && sep.is_ca_intonation_arrow()
+            && let Some(UtteranceContent::Separator(sep)) = self.content.pop()
+        {
+            self.terminator = sep.to_ca_terminator();
         }
     }
 

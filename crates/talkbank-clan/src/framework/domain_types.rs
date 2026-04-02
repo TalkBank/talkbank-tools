@@ -190,6 +190,7 @@ impl PartialEq<&str> for TierKind {
 pub struct KeywordPattern(pub String);
 
 impl KeywordPattern {
+    /// Return the keyword pattern as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -228,6 +229,7 @@ impl std::ops::Deref for KeywordPattern {
 pub struct WordPattern(pub String);
 
 impl WordPattern {
+    /// Return the word pattern as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -266,6 +268,7 @@ impl std::ops::Deref for WordPattern {
 pub struct GemLabel(pub String);
 
 impl GemLabel {
+    /// Return the gem label as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -308,9 +311,11 @@ impl std::ops::Deref for GemLabel {
 pub struct UtteranceLimit(pub usize);
 
 impl UtteranceLimit {
+    /// Create a new utterance limit (0 means no limit).
     pub const fn new(n: usize) -> Self {
         Self(n)
     }
+    /// Return the raw limit value.
     pub const fn get(self) -> usize {
         self.0
     }
@@ -342,9 +347,11 @@ impl FromStr for UtteranceLimit {
 pub struct FrequencyThreshold(pub u64);
 
 impl FrequencyThreshold {
+    /// Create a new frequency threshold.
     pub const fn new(n: u64) -> Self {
         Self(n)
     }
+    /// Return the raw threshold value.
     pub const fn get(self) -> u64 {
         self.0
     }
@@ -376,9 +383,11 @@ impl FromStr for FrequencyThreshold {
 pub struct CodeDepth(pub usize);
 
 impl CodeDepth {
+    /// Create a new code depth (0 means all levels).
     pub const fn new(n: usize) -> Self {
         Self(n)
     }
+    /// Return the raw depth value.
     pub const fn get(self) -> usize {
         self.0
     }
@@ -414,9 +423,11 @@ impl FromStr for CodeDepth {
 pub struct WordLimit(pub usize);
 
 impl WordLimit {
+    /// Create a new word limit.
     pub const fn new(n: usize) -> Self {
         Self(n)
     }
+    /// Return the raw limit value.
     pub const fn get(self) -> usize {
         self.0
     }
@@ -449,9 +460,11 @@ impl FromStr for WordLimit {
 pub struct OverlapThreshold(pub f64);
 
 impl OverlapThreshold {
+    /// Create a new overlap threshold (0.0–1.0).
     pub const fn new(ratio: f64) -> Self {
         Self(ratio)
     }
+    /// Return the raw ratio value.
     pub const fn get(self) -> f64 {
         self.0
     }
