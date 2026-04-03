@@ -22,7 +22,6 @@ thiserror = { workspace = true }
 toml = { workspace = true } #unified
 tree-sitter = { workspace = true }
 tree-sitter-talkbank = { workspace = true }
-tree-sitter-node-types = { workspace = true }
 walkdir = { workspace = true } #unified
 
 [dev-dependencies]

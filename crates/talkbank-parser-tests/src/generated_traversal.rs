@@ -9,7 +9,131 @@
 //!
 //! Implement `GrammarTraversal` and override extraction methods
 //! where you need custom recovery.
-use tree_sitter_node_types::slot::{NodeSlot, AsRawNode, classify_child};
+//!
+//! This file is standalone — it has no dependencies beyond `tree_sitter`.
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::module_name_repetitions,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::unused_self,
+    dead_code,
+    unused_assignments,
+    unused_imports,
+)]
+/// What exists at a child position in the CST.
+///
+/// `T` is a typed node wrapper (e.g., `SpeakerNode`) that guarantees the
+/// node kind matches the grammar expectation. `Present` and `Missing` both
+/// carry a `T` because MISSING nodes have the expected `kind()` — the
+/// type is correct, only the content is absent.
+#[derive(Debug, Clone)]
+pub enum NodeSlot<'tree, T> {
+    /// A valid node with the expected kind and content.
+    Present(T),
+    /// A tree-sitter MISSING placeholder (kind correct, zero-length span).
+    Missing(T),
+    /// A tree-sitter ERROR node (unparseable region).
+    Error(tree_sitter::Node<'tree>),
+    /// A node with an unexpected kind at this position.
+    Unexpected(tree_sitter::Node<'tree>),
+    /// No node exists at this position (child list too short).
+    Absent,
+}
+impl<T> NodeSlot<'_, T> {
+    /// Get the typed node if present (not MISSING, not error).
+    #[must_use]
+    pub const fn ok(&self) -> Option<&T> {
+        match self {
+            Self::Present(n) => Some(n),
+            _ => None,
+        }
+    }
+    /// Get the typed node if present, consuming the slot.
+    #[must_use]
+    pub fn into_ok(self) -> Option<T> {
+        match self {
+            Self::Present(n) => Some(n),
+            _ => None,
+        }
+    }
+    /// Get the typed node if present OR missing (kind is correct either way).
+    #[must_use]
+    pub const fn typed(&self) -> Option<&T> {
+        match self {
+            Self::Present(n) | Self::Missing(n) => Some(n),
+            _ => None,
+        }
+    }
+    /// Whether a valid, non-MISSING node is present.
+    #[must_use]
+    pub const fn is_present(&self) -> bool {
+        matches!(self, Self::Present(_))
+    }
+    /// Whether this is a MISSING placeholder.
+    #[must_use]
+    pub const fn is_missing(&self) -> bool {
+        matches!(self, Self::Missing(_))
+    }
+    /// Whether this is an ERROR node.
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Error(_))
+    }
+    /// Whether this is an unexpected node kind.
+    #[must_use]
+    pub const fn is_unexpected(&self) -> bool {
+        matches!(self, Self::Unexpected(_))
+    }
+    /// Whether no node exists at this position.
+    #[must_use]
+    pub const fn is_absent(&self) -> bool {
+        matches!(self, Self::Absent)
+    }
+    /// Whether this slot has any problem (not `Present`).
+    #[must_use]
+    pub const fn has_error(&self) -> bool {
+        !self.is_present()
+    }
+}
+impl<'tree, T: AsRawNode<'tree>> NodeSlot<'tree, T> {
+    /// Get the raw tree-sitter node, regardless of slot state.
+    /// Returns `None` only for `Absent`.
+    #[must_use]
+    pub fn raw_node(&self) -> Option<tree_sitter::Node<'tree>> {
+        match self {
+            Self::Present(n) | Self::Missing(n) => Some(n.raw_node()),
+            Self::Error(n) | Self::Unexpected(n) => Some(*n),
+            Self::Absent => None,
+        }
+    }
+}
+/// Trait for typed node wrappers to expose the underlying `tree_sitter::Node`.
+pub trait AsRawNode<'tree> {
+    /// Get the underlying tree-sitter node.
+    fn raw_node(&self) -> tree_sitter::Node<'tree>;
+}
+/// Classify a tree-sitter node at a position where `expected_kind` was expected.
+#[must_use]
+fn classify_child<'tree, T, F>(
+    node: tree_sitter::Node<'tree>,
+    expected_kind: &str,
+    wrap: F,
+) -> NodeSlot<'tree, T>
+where
+    F: FnOnce(tree_sitter::Node<'tree>) -> T,
+{
+    if node.is_error() {
+        NodeSlot::Error(node)
+    } else if node.is_missing() {
+        NodeSlot::Missing(wrap(node))
+    } else if node.kind() == expected_kind {
+        NodeSlot::Present(wrap(node))
+    } else {
+        NodeSlot::Unexpected(node)
+    }
+}
 ///Typed wrapper for `_id_demographic_fields` nodes. Kind is verified at construction.
 #[derive(Debug, Clone, Copy)]
 pub struct IdDemographicFieldsNode<'tree>(pub tree_sitter::Node<'tree>);
@@ -18,16 +142,19 @@ impl<'tree> AsRawNode<'tree> for IdDemographicFieldsNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdDemographicFieldsNode<'tree> {
+impl IdDemographicFieldsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -40,16 +167,19 @@ impl<'tree> AsRawNode<'tree> for IdIdentityFieldsNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdIdentityFieldsNode<'tree> {
+impl IdIdentityFieldsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -62,16 +192,19 @@ impl<'tree> AsRawNode<'tree> for IdRoleFieldsNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdRoleFieldsNode<'tree> {
+impl IdRoleFieldsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -84,16 +217,19 @@ impl<'tree> AsRawNode<'tree> for ActTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ActTierPrefixNode<'tree> {
+impl ActTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -106,16 +242,19 @@ impl<'tree> AsRawNode<'tree> for ActivitiesPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ActivitiesPrefixNode<'tree> {
+impl ActivitiesPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -128,16 +267,19 @@ impl<'tree> AsRawNode<'tree> for AddTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> AddTierPrefixNode<'tree> {
+impl AddTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -150,16 +292,19 @@ impl<'tree> AsRawNode<'tree> for AltTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> AltTierPrefixNode<'tree> {
+impl AltTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -172,16 +317,19 @@ impl<'tree> AsRawNode<'tree> for AmpersandNode<'tree> {
         self.0
     }
 }
-impl<'tree> AmpersandNode<'tree> {
+impl AmpersandNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -194,16 +342,19 @@ impl<'tree> AsRawNode<'tree> for AnnotationContentNode<'tree> {
         self.0
     }
 }
-impl<'tree> AnnotationContentNode<'tree> {
+impl AnnotationContentNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -216,16 +367,19 @@ impl<'tree> AsRawNode<'tree> for BaseAnnotationsNode<'tree> {
         self.0
     }
 }
-impl<'tree> BaseAnnotationsNode<'tree> {
+impl BaseAnnotationsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -238,16 +392,19 @@ impl<'tree> AsRawNode<'tree> for BckPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> BckPrefixNode<'tree> {
+impl BckPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -260,16 +417,19 @@ impl<'tree> AsRawNode<'tree> for BeginHeaderNode<'tree> {
         self.0
     }
 }
-impl<'tree> BeginHeaderNode<'tree> {
+impl BeginHeaderNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -282,16 +442,19 @@ impl<'tree> AsRawNode<'tree> for BgPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> BgPrefixNode<'tree> {
+impl BgPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -304,16 +467,19 @@ impl<'tree> AsRawNode<'tree> for BirthOfPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> BirthOfPrefixNode<'tree> {
+impl BirthOfPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -326,16 +492,19 @@ impl<'tree> AsRawNode<'tree> for BirthplaceOfPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> BirthplaceOfPrefixNode<'tree> {
+impl BirthplaceOfPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -348,16 +517,19 @@ impl<'tree> AsRawNode<'tree> for BlankPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> BlankPrefixNode<'tree> {
+impl BlankPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -370,16 +542,19 @@ impl<'tree> AsRawNode<'tree> for BulletEndNode<'tree> {
         self.0
     }
 }
-impl<'tree> BulletEndNode<'tree> {
+impl BulletEndNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -392,16 +567,19 @@ impl<'tree> AsRawNode<'tree> for BulletStartNode<'tree> {
         self.0
     }
 }
-impl<'tree> BulletStartNode<'tree> {
+impl BulletStartNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -414,16 +592,19 @@ impl<'tree> AsRawNode<'tree> for BulletTimestampNode<'tree> {
         self.0
     }
 }
-impl<'tree> BulletTimestampNode<'tree> {
+impl BulletTimestampNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -436,16 +617,19 @@ impl<'tree> AsRawNode<'tree> for CodTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> CodTierPrefixNode<'tree> {
+impl CodTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -458,16 +642,19 @@ impl<'tree> AsRawNode<'tree> for CohTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> CohTierPrefixNode<'tree> {
+impl CohTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -480,16 +667,19 @@ impl<'tree> AsRawNode<'tree> for ColonNode<'tree> {
         self.0
     }
 }
-impl<'tree> ColonNode<'tree> {
+impl ColonNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -502,16 +692,19 @@ impl<'tree> AsRawNode<'tree> for ColorWordsPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ColorWordsPrefixNode<'tree> {
+impl ColorWordsPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -524,16 +717,19 @@ impl<'tree> AsRawNode<'tree> for ComTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ComTierPrefixNode<'tree> {
+impl ComTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -546,16 +742,19 @@ impl<'tree> AsRawNode<'tree> for CommaNode<'tree> {
         self.0
     }
 }
-impl<'tree> CommaNode<'tree> {
+impl CommaNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -568,16 +767,19 @@ impl<'tree> AsRawNode<'tree> for CommentPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> CommentPrefixNode<'tree> {
+impl CommentPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -590,16 +792,19 @@ impl<'tree> AsRawNode<'tree> for ContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> ContentsNode<'tree> {
+impl ContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -612,16 +817,19 @@ impl<'tree> AsRawNode<'tree> for DateContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> DateContentsNode<'tree> {
+impl DateContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -634,16 +842,19 @@ impl<'tree> AsRawNode<'tree> for DatePrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> DatePrefixNode<'tree> {
+impl DatePrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -656,16 +867,19 @@ impl<'tree> AsRawNode<'tree> for DefTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> DefTierPrefixNode<'tree> {
+impl DefTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -678,16 +892,19 @@ impl<'tree> AsRawNode<'tree> for EgPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> EgPrefixNode<'tree> {
+impl EgPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -700,16 +917,19 @@ impl<'tree> AsRawNode<'tree> for EndHeaderNode<'tree> {
         self.0
     }
 }
-impl<'tree> EndHeaderNode<'tree> {
+impl EndHeaderNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -722,16 +942,19 @@ impl<'tree> AsRawNode<'tree> for EngTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> EngTierPrefixNode<'tree> {
+impl EngTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -744,16 +967,19 @@ impl<'tree> AsRawNode<'tree> for ErrTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ErrTierPrefixNode<'tree> {
+impl ErrTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -766,16 +992,19 @@ impl<'tree> AsRawNode<'tree> for EventMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> EventMarkerNode<'tree> {
+impl EventMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -788,16 +1017,19 @@ impl<'tree> AsRawNode<'tree> for EventSegmentNode<'tree> {
         self.0
     }
 }
-impl<'tree> EventSegmentNode<'tree> {
+impl EventSegmentNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -810,16 +1042,19 @@ impl<'tree> AsRawNode<'tree> for ExpTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ExpTierPrefixNode<'tree> {
+impl ExpTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -832,16 +1067,19 @@ impl<'tree> AsRawNode<'tree> for FacTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> FacTierPrefixNode<'tree> {
+impl FacTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -854,16 +1092,19 @@ impl<'tree> AsRawNode<'tree> for FinalCodesNode<'tree> {
         self.0
     }
 }
-impl<'tree> FinalCodesNode<'tree> {
+impl FinalCodesNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -876,16 +1117,19 @@ impl<'tree> AsRawNode<'tree> for FloTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> FloTierPrefixNode<'tree> {
+impl FloTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -898,16 +1142,19 @@ impl<'tree> AsRawNode<'tree> for FontPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> FontPrefixNode<'tree> {
+impl FontPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -920,16 +1167,19 @@ impl<'tree> AsRawNode<'tree> for FormMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> FormMarkerNode<'tree> {
+impl FormMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -942,16 +1192,19 @@ impl<'tree> AsRawNode<'tree> for FreeTextNode<'tree> {
         self.0
     }
 }
-impl<'tree> FreeTextNode<'tree> {
+impl FreeTextNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -964,16 +1217,19 @@ impl<'tree> AsRawNode<'tree> for GPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> GPrefixNode<'tree> {
+impl GPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -986,16 +1242,19 @@ impl<'tree> AsRawNode<'tree> for GlsTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> GlsTierPrefixNode<'tree> {
+impl GlsTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1008,16 +1267,19 @@ impl<'tree> AsRawNode<'tree> for GpxTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> GpxTierPrefixNode<'tree> {
+impl GpxTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1030,16 +1292,19 @@ impl<'tree> AsRawNode<'tree> for GraContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraContentsNode<'tree> {
+impl GraContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1052,16 +1317,19 @@ impl<'tree> AsRawNode<'tree> for GraHeadNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraHeadNode<'tree> {
+impl GraHeadNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1074,16 +1342,19 @@ impl<'tree> AsRawNode<'tree> for GraIndexNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraIndexNode<'tree> {
+impl GraIndexNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1096,16 +1367,19 @@ impl<'tree> AsRawNode<'tree> for GraRelationNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraRelationNode<'tree> {
+impl GraRelationNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1118,16 +1392,19 @@ impl<'tree> AsRawNode<'tree> for GraRelationNameNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraRelationNameNode<'tree> {
+impl GraRelationNameNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1140,16 +1417,19 @@ impl<'tree> AsRawNode<'tree> for GraTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> GraTierPrefixNode<'tree> {
+impl GraTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1162,16 +1442,19 @@ impl<'tree> AsRawNode<'tree> for GreaterThanNode<'tree> {
         self.0
     }
 }
-impl<'tree> GreaterThanNode<'tree> {
+impl GreaterThanNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1184,16 +1467,19 @@ impl<'tree> AsRawNode<'tree> for HeaderGapNode<'tree> {
         self.0
     }
 }
-impl<'tree> HeaderGapNode<'tree> {
+impl HeaderGapNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1206,16 +1492,19 @@ impl<'tree> AsRawNode<'tree> for HeaderSepNode<'tree> {
         self.0
     }
 }
-impl<'tree> HeaderSepNode<'tree> {
+impl HeaderSepNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1228,16 +1517,19 @@ impl<'tree> AsRawNode<'tree> for HyphenNode<'tree> {
         self.0
     }
 }
-impl<'tree> HyphenNode<'tree> {
+impl HyphenNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1250,16 +1542,19 @@ impl<'tree> AsRawNode<'tree> for IdAgeNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdAgeNode<'tree> {
+impl IdAgeNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1272,16 +1567,19 @@ impl<'tree> AsRawNode<'tree> for IdContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdContentsNode<'tree> {
+impl IdContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1294,16 +1592,19 @@ impl<'tree> AsRawNode<'tree> for IdCorpusNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdCorpusNode<'tree> {
+impl IdCorpusNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1316,16 +1617,19 @@ impl<'tree> AsRawNode<'tree> for IdCustomFieldNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdCustomFieldNode<'tree> {
+impl IdCustomFieldNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1338,16 +1642,19 @@ impl<'tree> AsRawNode<'tree> for IdEducationNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdEducationNode<'tree> {
+impl IdEducationNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1360,16 +1667,19 @@ impl<'tree> AsRawNode<'tree> for IdGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdGroupNode<'tree> {
+impl IdGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1382,16 +1692,19 @@ impl<'tree> AsRawNode<'tree> for IdLanguagesNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdLanguagesNode<'tree> {
+impl IdLanguagesNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1404,16 +1717,19 @@ impl<'tree> AsRawNode<'tree> for IdPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdPrefixNode<'tree> {
+impl IdPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1426,16 +1742,19 @@ impl<'tree> AsRawNode<'tree> for IdRoleNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdRoleNode<'tree> {
+impl IdRoleNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1448,16 +1767,19 @@ impl<'tree> AsRawNode<'tree> for IdSesNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdSesNode<'tree> {
+impl IdSesNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1470,16 +1792,19 @@ impl<'tree> AsRawNode<'tree> for IdSexNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdSexNode<'tree> {
+impl IdSexNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1492,16 +1817,19 @@ impl<'tree> AsRawNode<'tree> for IdSpeakerNode<'tree> {
         self.0
     }
 }
-impl<'tree> IdSpeakerNode<'tree> {
+impl IdSpeakerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1514,16 +1842,19 @@ impl<'tree> AsRawNode<'tree> for IntTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> IntTierPrefixNode<'tree> {
+impl IntTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1536,16 +1867,19 @@ impl<'tree> AsRawNode<'tree> for L1OfPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> L1OfPrefixNode<'tree> {
+impl L1OfPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1558,16 +1892,19 @@ impl<'tree> AsRawNode<'tree> for LanguageCodeNode<'tree> {
         self.0
     }
 }
-impl<'tree> LanguageCodeNode<'tree> {
+impl LanguageCodeNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1580,16 +1917,19 @@ impl<'tree> AsRawNode<'tree> for LanguagesContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> LanguagesContentsNode<'tree> {
+impl LanguagesContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1602,16 +1942,19 @@ impl<'tree> AsRawNode<'tree> for LanguagesPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> LanguagesPrefixNode<'tree> {
+impl LanguagesPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1624,16 +1967,19 @@ impl<'tree> AsRawNode<'tree> for LeftBracketNode<'tree> {
         self.0
     }
 }
-impl<'tree> LeftBracketNode<'tree> {
+impl LeftBracketNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1646,16 +1992,19 @@ impl<'tree> AsRawNode<'tree> for LeftDoubleQuoteNode<'tree> {
         self.0
     }
 }
-impl<'tree> LeftDoubleQuoteNode<'tree> {
+impl LeftDoubleQuoteNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1668,16 +2017,19 @@ impl<'tree> AsRawNode<'tree> for LessThanNode<'tree> {
         self.0
     }
 }
-impl<'tree> LessThanNode<'tree> {
+impl LessThanNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1690,16 +2042,19 @@ impl<'tree> AsRawNode<'tree> for LinkersNode<'tree> {
         self.0
     }
 }
-impl<'tree> LinkersNode<'tree> {
+impl LinkersNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1712,16 +2067,19 @@ impl<'tree> AsRawNode<'tree> for LocationPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> LocationPrefixNode<'tree> {
+impl LocationPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1734,16 +2092,19 @@ impl<'tree> AsRawNode<'tree> for LongFeatureBeginMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> LongFeatureBeginMarkerNode<'tree> {
+impl LongFeatureBeginMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1756,16 +2117,19 @@ impl<'tree> AsRawNode<'tree> for LongFeatureEndMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> LongFeatureEndMarkerNode<'tree> {
+impl LongFeatureEndMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1778,16 +2142,19 @@ impl<'tree> AsRawNode<'tree> for LongFeatureLabelNode<'tree> {
         self.0
     }
 }
-impl<'tree> LongFeatureLabelNode<'tree> {
+impl LongFeatureLabelNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1800,16 +2167,19 @@ impl<'tree> AsRawNode<'tree> for MainTierNode<'tree> {
         self.0
     }
 }
-impl<'tree> MainTierNode<'tree> {
+impl MainTierNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1822,16 +2192,19 @@ impl<'tree> AsRawNode<'tree> for MediaContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> MediaContentsNode<'tree> {
+impl MediaContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1844,16 +2217,19 @@ impl<'tree> AsRawNode<'tree> for MediaFilenameNode<'tree> {
         self.0
     }
 }
-impl<'tree> MediaFilenameNode<'tree> {
+impl MediaFilenameNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1866,16 +2242,19 @@ impl<'tree> AsRawNode<'tree> for MediaPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> MediaPrefixNode<'tree> {
+impl MediaPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1888,16 +2267,19 @@ impl<'tree> AsRawNode<'tree> for MediaTypeNode<'tree> {
         self.0
     }
 }
-impl<'tree> MediaTypeNode<'tree> {
+impl MediaTypeNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1910,16 +2292,19 @@ impl<'tree> AsRawNode<'tree> for ModTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ModTierPrefixNode<'tree> {
+impl ModTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1932,16 +2317,19 @@ impl<'tree> AsRawNode<'tree> for ModsylTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ModsylTierPrefixNode<'tree> {
+impl ModsylTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1954,16 +2342,19 @@ impl<'tree> AsRawNode<'tree> for MorContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorContentsNode<'tree> {
+impl MorContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1976,16 +2367,19 @@ impl<'tree> AsRawNode<'tree> for MorFeatureValueNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorFeatureValueNode<'tree> {
+impl MorFeatureValueNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -1998,16 +2392,19 @@ impl<'tree> AsRawNode<'tree> for MorLemmaNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorLemmaNode<'tree> {
+impl MorLemmaNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2020,16 +2417,19 @@ impl<'tree> AsRawNode<'tree> for MorPosNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorPosNode<'tree> {
+impl MorPosNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2042,16 +2442,19 @@ impl<'tree> AsRawNode<'tree> for MorTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorTierPrefixNode<'tree> {
+impl MorTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2064,16 +2467,19 @@ impl<'tree> AsRawNode<'tree> for MorWordNode<'tree> {
         self.0
     }
 }
-impl<'tree> MorWordNode<'tree> {
+impl MorWordNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2086,16 +2492,19 @@ impl<'tree> AsRawNode<'tree> for NewEpisodePrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> NewEpisodePrefixNode<'tree> {
+impl NewEpisodePrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2108,16 +2517,19 @@ impl<'tree> AsRawNode<'tree> for NewlineNode<'tree> {
         self.0
     }
 }
-impl<'tree> NewlineNode<'tree> {
+impl NewlineNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2130,16 +2542,19 @@ impl<'tree> AsRawNode<'tree> for NonvocalBeginMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> NonvocalBeginMarkerNode<'tree> {
+impl NonvocalBeginMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2152,16 +2567,19 @@ impl<'tree> AsRawNode<'tree> for NonvocalEndMarkerNode<'tree> {
         self.0
     }
 }
-impl<'tree> NonvocalEndMarkerNode<'tree> {
+impl NonvocalEndMarkerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2174,16 +2592,19 @@ impl<'tree> AsRawNode<'tree> for NonwordNode<'tree> {
         self.0
     }
 }
-impl<'tree> NonwordNode<'tree> {
+impl NonwordNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2196,16 +2617,19 @@ impl<'tree> AsRawNode<'tree> for NumberOptionNode<'tree> {
         self.0
     }
 }
-impl<'tree> NumberOptionNode<'tree> {
+impl NumberOptionNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2218,16 +2642,19 @@ impl<'tree> AsRawNode<'tree> for NumberPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> NumberPrefixNode<'tree> {
+impl NumberPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2240,16 +2667,19 @@ impl<'tree> AsRawNode<'tree> for OptionNameNode<'tree> {
         self.0
     }
 }
-impl<'tree> OptionNameNode<'tree> {
+impl OptionNameNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2262,16 +2692,19 @@ impl<'tree> AsRawNode<'tree> for OptionsContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> OptionsContentsNode<'tree> {
+impl OptionsContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2284,16 +2717,19 @@ impl<'tree> AsRawNode<'tree> for OptionsPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> OptionsPrefixNode<'tree> {
+impl OptionsPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2306,16 +2742,19 @@ impl<'tree> AsRawNode<'tree> for OrtTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> OrtTierPrefixNode<'tree> {
+impl OrtTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2328,16 +2767,19 @@ impl<'tree> AsRawNode<'tree> for PageNumberNode<'tree> {
         self.0
     }
 }
-impl<'tree> PageNumberNode<'tree> {
+impl PageNumberNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2350,16 +2792,19 @@ impl<'tree> AsRawNode<'tree> for PagePrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> PagePrefixNode<'tree> {
+impl PagePrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2372,16 +2817,19 @@ impl<'tree> AsRawNode<'tree> for ParTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ParTierPrefixNode<'tree> {
+impl ParTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2394,16 +2842,19 @@ impl<'tree> AsRawNode<'tree> for ParticipantNode<'tree> {
         self.0
     }
 }
-impl<'tree> ParticipantNode<'tree> {
+impl ParticipantNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2416,16 +2867,19 @@ impl<'tree> AsRawNode<'tree> for ParticipantsContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> ParticipantsContentsNode<'tree> {
+impl ParticipantsContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2438,16 +2892,19 @@ impl<'tree> AsRawNode<'tree> for ParticipantsPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ParticipantsPrefixNode<'tree> {
+impl ParticipantsPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2460,16 +2917,19 @@ impl<'tree> AsRawNode<'tree> for PhoBeginGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoBeginGroupNode<'tree> {
+impl PhoBeginGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2482,16 +2942,19 @@ impl<'tree> AsRawNode<'tree> for PhoEndGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoEndGroupNode<'tree> {
+impl PhoEndGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2504,16 +2967,19 @@ impl<'tree> AsRawNode<'tree> for PhoGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoGroupNode<'tree> {
+impl PhoGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2526,16 +2992,19 @@ impl<'tree> AsRawNode<'tree> for PhoGroupsNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoGroupsNode<'tree> {
+impl PhoGroupsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2548,16 +3017,19 @@ impl<'tree> AsRawNode<'tree> for PhoTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoTierPrefixNode<'tree> {
+impl PhoTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2570,16 +3042,19 @@ impl<'tree> AsRawNode<'tree> for PhoWordNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoWordNode<'tree> {
+impl PhoWordNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2592,16 +3067,19 @@ impl<'tree> AsRawNode<'tree> for PhoWordsNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoWordsNode<'tree> {
+impl PhoWordsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2614,16 +3092,19 @@ impl<'tree> AsRawNode<'tree> for PhoalnTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhoalnTierPrefixNode<'tree> {
+impl PhoalnTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2636,16 +3117,19 @@ impl<'tree> AsRawNode<'tree> for PhosylTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> PhosylTierPrefixNode<'tree> {
+impl PhosylTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2658,16 +3142,19 @@ impl<'tree> AsRawNode<'tree> for PidPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> PidPrefixNode<'tree> {
+impl PidPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2680,16 +3167,19 @@ impl<'tree> AsRawNode<'tree> for PipeNode<'tree> {
         self.0
     }
 }
-impl<'tree> PipeNode<'tree> {
+impl PipeNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2702,16 +3192,19 @@ impl<'tree> AsRawNode<'tree> for PosTagNode<'tree> {
         self.0
     }
 }
-impl<'tree> PosTagNode<'tree> {
+impl PosTagNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2724,16 +3217,19 @@ impl<'tree> AsRawNode<'tree> for RecordingQualityOptionNode<'tree> {
         self.0
     }
 }
-impl<'tree> RecordingQualityOptionNode<'tree> {
+impl RecordingQualityOptionNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2746,16 +3242,19 @@ impl<'tree> AsRawNode<'tree> for RecordingQualityPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> RecordingQualityPrefixNode<'tree> {
+impl RecordingQualityPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2768,16 +3267,19 @@ impl<'tree> AsRawNode<'tree> for RestOfLineNode<'tree> {
         self.0
     }
 }
-impl<'tree> RestOfLineNode<'tree> {
+impl RestOfLineNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2790,16 +3292,19 @@ impl<'tree> AsRawNode<'tree> for RightBraceNode<'tree> {
         self.0
     }
 }
-impl<'tree> RightBraceNode<'tree> {
+impl RightBraceNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2812,16 +3317,19 @@ impl<'tree> AsRawNode<'tree> for RightBracketNode<'tree> {
         self.0
     }
 }
-impl<'tree> RightBracketNode<'tree> {
+impl RightBracketNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2834,16 +3342,19 @@ impl<'tree> AsRawNode<'tree> for RightDoubleQuoteNode<'tree> {
         self.0
     }
 }
-impl<'tree> RightDoubleQuoteNode<'tree> {
+impl RightDoubleQuoteNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2856,16 +3367,19 @@ impl<'tree> AsRawNode<'tree> for RoomLayoutPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> RoomLayoutPrefixNode<'tree> {
+impl RoomLayoutPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2878,16 +3392,19 @@ impl<'tree> AsRawNode<'tree> for SinBeginGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinBeginGroupNode<'tree> {
+impl SinBeginGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2900,16 +3417,19 @@ impl<'tree> AsRawNode<'tree> for SinEndGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinEndGroupNode<'tree> {
+impl SinEndGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2922,16 +3442,19 @@ impl<'tree> AsRawNode<'tree> for SinGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinGroupNode<'tree> {
+impl SinGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2944,16 +3467,19 @@ impl<'tree> AsRawNode<'tree> for SinGroupsNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinGroupsNode<'tree> {
+impl SinGroupsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2966,16 +3492,19 @@ impl<'tree> AsRawNode<'tree> for SinTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinTierPrefixNode<'tree> {
+impl SinTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -2988,16 +3517,19 @@ impl<'tree> AsRawNode<'tree> for SinWordNode<'tree> {
         self.0
     }
 }
-impl<'tree> SinWordNode<'tree> {
+impl SinWordNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3010,16 +3542,19 @@ impl<'tree> AsRawNode<'tree> for SitTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> SitTierPrefixNode<'tree> {
+impl SitTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3032,16 +3567,19 @@ impl<'tree> AsRawNode<'tree> for SituationPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> SituationPrefixNode<'tree> {
+impl SituationPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3054,16 +3592,19 @@ impl<'tree> AsRawNode<'tree> for SpaTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> SpaTierPrefixNode<'tree> {
+impl SpaTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3076,16 +3617,19 @@ impl<'tree> AsRawNode<'tree> for SpaceNode<'tree> {
         self.0
     }
 }
-impl<'tree> SpaceNode<'tree> {
+impl SpaceNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3098,16 +3642,19 @@ impl<'tree> AsRawNode<'tree> for SpeakerNode<'tree> {
         self.0
     }
 }
-impl<'tree> SpeakerNode<'tree> {
+impl SpeakerNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3120,16 +3667,19 @@ impl<'tree> AsRawNode<'tree> for StandaloneWordNode<'tree> {
         self.0
     }
 }
-impl<'tree> StandaloneWordNode<'tree> {
+impl StandaloneWordNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3142,16 +3692,19 @@ impl<'tree> AsRawNode<'tree> for StarNode<'tree> {
         self.0
     }
 }
-impl<'tree> StarNode<'tree> {
+impl StarNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3164,16 +3717,19 @@ impl<'tree> AsRawNode<'tree> for TPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TPrefixNode<'tree> {
+impl TPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3186,16 +3742,19 @@ impl<'tree> AsRawNode<'tree> for TabNode<'tree> {
         self.0
     }
 }
-impl<'tree> TabNode<'tree> {
+impl TabNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3208,16 +3767,19 @@ impl<'tree> AsRawNode<'tree> for TapeLocationPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TapeLocationPrefixNode<'tree> {
+impl TapeLocationPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3230,16 +3792,19 @@ impl<'tree> AsRawNode<'tree> for TerminatorNode<'tree> {
         self.0
     }
 }
-impl<'tree> TerminatorNode<'tree> {
+impl TerminatorNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3252,16 +3817,19 @@ impl<'tree> AsRawNode<'tree> for TextWithBulletsNode<'tree> {
         self.0
     }
 }
-impl<'tree> TextWithBulletsNode<'tree> {
+impl TextWithBulletsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3274,16 +3842,19 @@ impl<'tree> AsRawNode<'tree> for TextWithBulletsAndPicsNode<'tree> {
         self.0
     }
 }
-impl<'tree> TextWithBulletsAndPicsNode<'tree> {
+impl TextWithBulletsAndPicsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3296,16 +3867,19 @@ impl<'tree> AsRawNode<'tree> for ThumbnailPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> ThumbnailPrefixNode<'tree> {
+impl ThumbnailPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3318,16 +3892,19 @@ impl<'tree> AsRawNode<'tree> for TierBodyNode<'tree> {
         self.0
     }
 }
-impl<'tree> TierBodyNode<'tree> {
+impl TierBodyNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3340,16 +3917,19 @@ impl<'tree> AsRawNode<'tree> for TierSepNode<'tree> {
         self.0
     }
 }
-impl<'tree> TierSepNode<'tree> {
+impl TierSepNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3362,16 +3942,19 @@ impl<'tree> AsRawNode<'tree> for TildeNode<'tree> {
         self.0
     }
 }
-impl<'tree> TildeNode<'tree> {
+impl TildeNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3384,16 +3967,19 @@ impl<'tree> AsRawNode<'tree> for TimTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TimTierPrefixNode<'tree> {
+impl TimTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3406,16 +3992,19 @@ impl<'tree> AsRawNode<'tree> for TimeDurationContentsNode<'tree> {
         self.0
     }
 }
-impl<'tree> TimeDurationContentsNode<'tree> {
+impl TimeDurationContentsNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3428,16 +4017,19 @@ impl<'tree> AsRawNode<'tree> for TimeDurationPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TimeDurationPrefixNode<'tree> {
+impl TimeDurationPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3450,16 +4042,19 @@ impl<'tree> AsRawNode<'tree> for TimeStartPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TimeStartPrefixNode<'tree> {
+impl TimeStartPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3472,16 +4067,19 @@ impl<'tree> AsRawNode<'tree> for TranscriberPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TranscriberPrefixNode<'tree> {
+impl TranscriberPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3494,16 +4092,19 @@ impl<'tree> AsRawNode<'tree> for TranscriptionOptionNode<'tree> {
         self.0
     }
 }
-impl<'tree> TranscriptionOptionNode<'tree> {
+impl TranscriptionOptionNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3516,16 +4117,19 @@ impl<'tree> AsRawNode<'tree> for TranscriptionPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TranscriptionPrefixNode<'tree> {
+impl TranscriptionPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3538,16 +4142,19 @@ impl<'tree> AsRawNode<'tree> for TypesActivityNode<'tree> {
         self.0
     }
 }
-impl<'tree> TypesActivityNode<'tree> {
+impl TypesActivityNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3560,16 +4167,19 @@ impl<'tree> AsRawNode<'tree> for TypesDesignNode<'tree> {
         self.0
     }
 }
-impl<'tree> TypesDesignNode<'tree> {
+impl TypesDesignNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3582,16 +4192,19 @@ impl<'tree> AsRawNode<'tree> for TypesGroupNode<'tree> {
         self.0
     }
 }
-impl<'tree> TypesGroupNode<'tree> {
+impl TypesGroupNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3604,16 +4217,19 @@ impl<'tree> AsRawNode<'tree> for TypesPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> TypesPrefixNode<'tree> {
+impl TypesPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3626,16 +4242,19 @@ impl<'tree> AsRawNode<'tree> for Utf8HeaderNode<'tree> {
         self.0
     }
 }
-impl<'tree> Utf8HeaderNode<'tree> {
+impl Utf8HeaderNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3648,16 +4267,19 @@ impl<'tree> AsRawNode<'tree> for UtteranceEndNode<'tree> {
         self.0
     }
 }
-impl<'tree> UtteranceEndNode<'tree> {
+impl UtteranceEndNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3670,16 +4292,19 @@ impl<'tree> AsRawNode<'tree> for VideosPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> VideosPrefixNode<'tree> {
+impl VideosPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3692,16 +4317,19 @@ impl<'tree> AsRawNode<'tree> for WarningPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> WarningPrefixNode<'tree> {
+impl WarningPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3714,16 +4342,19 @@ impl<'tree> AsRawNode<'tree> for WhitespacesNode<'tree> {
         self.0
     }
 }
-impl<'tree> WhitespacesNode<'tree> {
+impl WhitespacesNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3736,16 +4367,19 @@ impl<'tree> AsRawNode<'tree> for WindowPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> WindowPrefixNode<'tree> {
+impl WindowPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3758,16 +4392,19 @@ impl<'tree> AsRawNode<'tree> for WorTierBodyNode<'tree> {
         self.0
     }
 }
-impl<'tree> WorTierBodyNode<'tree> {
+impl WorTierBodyNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3780,16 +4417,19 @@ impl<'tree> AsRawNode<'tree> for WorTierPrefixNode<'tree> {
         self.0
     }
 }
-impl<'tree> WorTierPrefixNode<'tree> {
+impl WorTierPrefixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3802,16 +4442,19 @@ impl<'tree> AsRawNode<'tree> for WordBodyNode<'tree> {
         self.0
     }
 }
-impl<'tree> WordBodyNode<'tree> {
+impl WordBodyNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3824,16 +4467,19 @@ impl<'tree> AsRawNode<'tree> for WordLangSuffixNode<'tree> {
         self.0
     }
 }
-impl<'tree> WordLangSuffixNode<'tree> {
+impl WordLangSuffixNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -3846,16 +4492,19 @@ impl<'tree> AsRawNode<'tree> for WordSegmentNode<'tree> {
         self.0
     }
 }
-impl<'tree> WordSegmentNode<'tree> {
+impl WordSegmentNode<'_> {
     /// The source text of this node.
+    #[must_use]
     pub fn text<'s>(&self, source: &'s str) -> &'s str {
         self.0.utf8_text(source.as_bytes()).unwrap_or("")
     }
     /// The byte range of this node in the source.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.0.start_byte()..self.0.end_byte()
     }
     /// Whether this is a MISSING placeholder node.
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         self.0.is_missing()
     }
@@ -4857,7 +5506,7 @@ pub struct PidHeaderChildren<'tree> {
 ///Extracted children for `pos_tag` nodes.
 #[derive(Debug)]
 pub struct PosTagChildren<'tree> {
-    pub _phantom: std::marker::PhantomData<&'tree ()>,
+    _phantom: std::marker::PhantomData<&'tree ()>,
 }
 ///Extracted children for `postcode` nodes.
 #[derive(Debug)]
@@ -11696,7 +12345,9 @@ pub trait GrammarTraversal {
         if (idx as usize) < child_count {
             idx += 1;
         }
-        PosTagChildren { _phantom: std::marker::PhantomData }
+        PosTagChildren {
+            _phantom: std::marker::PhantomData,
+        }
     }
     ///Extract children from a `postcode` node.
     ///

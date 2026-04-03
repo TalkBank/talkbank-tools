@@ -32,17 +32,14 @@ jobs:
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: G0 — Parser signature guardrail
-        run: scripts/check-errorsink-option-signatures.sh
-
-      - name: G1 — Rust workspace compile check
-        run: cargo check --all-targets
-
       - name: Rustfmt check
         run: cargo fmt --all -- --check
 
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+      - name: G0 — Parser signature guardrail
+        run: scripts/check-errorsink-option-signatures.sh
+
+      - name: G1 — Clippy (compiles + lints)
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Cargo test (model + parser + clan)
         run: |

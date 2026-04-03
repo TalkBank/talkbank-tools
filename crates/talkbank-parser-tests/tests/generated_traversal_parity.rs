@@ -9,7 +9,6 @@
 use std::collections::BTreeMap;
 
 use talkbank_parser_tests::generated_traversal::*;
-use tree_sitter_node_types::slot::NodeSlot;
 
 /// Minimal traversal implementation — uses all generated defaults.
 struct TestTraversal;

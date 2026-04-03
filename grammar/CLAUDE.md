@@ -86,8 +86,9 @@ cd ~/tree-sitter-grammar-utils && cargo run --example generate_traversal \
   2>/dev/null > ~/talkbank/talkbank-tools/crates/talkbank-parser-tests/src/generated_traversal.rs
 ```
 
-After regeneration, check for empty structs with unused lifetime parameters —
-add `PhantomData` if needed (tree-sitter-grammar-utils issue).
+The generated file is standalone (no external deps beyond `tree_sitter`)
+and handles its own lint suppression. Empty children structs automatically
+include `PhantomData` to anchor the lifetime parameter.
 
 ## Architecture / Module Map
 ```
