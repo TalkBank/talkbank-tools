@@ -20,7 +20,7 @@
     clippy::unused_self,
     dead_code,
     unused_assignments,
-    unused_imports,
+    unused_imports
 )]
 /// What exists at a child position in the CST.
 ///
@@ -7199,11 +7199,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -7252,11 +7248,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "activities_prefix",
-                    ActivitiesPrefixNode,
-                );
+                child_0 = classify_child(child, "activities_prefix", ActivitiesPrefixNode);
                 idx += 1;
             }
         }
@@ -7333,11 +7325,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -7396,11 +7384,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                text = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                text = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -7462,11 +7446,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -7626,10 +7606,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        BgHeaderChildren {
-            child_0,
-            child_2,
-        }
+        BgHeaderChildren { child_0, child_2 }
     }
     ///Extract children from a `birth_of_header` node.
     ///
@@ -7751,11 +7728,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "birthplace_of_prefix",
-                    BirthplaceOfPrefixNode,
-                );
+                child_0 = classify_child(child, "birthplace_of_prefix", BirthplaceOfPrefixNode);
                 idx += 1;
             }
         }
@@ -7843,10 +7816,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        BlankHeaderChildren {
-            child_0,
-            child_1,
-        }
+        BlankHeaderChildren { child_0, child_1 }
     }
     ///Extract children from a `bullet` node.
     ///
@@ -7856,10 +7826,7 @@ pub trait GrammarTraversal {
     ///- `(terminal)` [required]
     ///- `bullet_timestamp` (field: `end_time`) [required]
     ///- `bullet_end` [required]
-    fn extract_bullet<'tree>(
-        &mut self,
-        node: tree_sitter::Node<'tree>,
-    ) -> BulletChildren<'tree> {
+    fn extract_bullet<'tree>(&mut self, node: tree_sitter::Node<'tree>) -> BulletChildren<'tree> {
         let child_count = node.child_count();
         let mut idx: u32 = 0;
         let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
@@ -7887,11 +7854,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                start_time = classify_child(
-                    child,
-                    "bullet_timestamp",
-                    BulletTimestampNode,
-                );
+                start_time = classify_child(child, "bullet_timestamp", BulletTimestampNode);
                 idx += 1;
             }
         }
@@ -7902,11 +7865,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                end_time = classify_child(
-                    child,
-                    "bullet_timestamp",
-                    BulletTimestampNode,
-                );
+                end_time = classify_child(child, "bullet_timestamp", BulletTimestampNode);
                 idx += 1;
             }
         }
@@ -7969,11 +7928,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8036,11 +7991,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8089,11 +8040,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "color_words_prefix",
-                    ColorWordsPrefixNode,
-                );
+                child_0 = classify_child(child, "color_words_prefix", ColorWordsPrefixNode);
                 idx += 1;
             }
         }
@@ -8367,11 +8314,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8430,11 +8373,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                time = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                time = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -8494,10 +8433,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        EgHeaderChildren {
-            child_0,
-            child_2,
-        }
+        EgHeaderChildren { child_0, child_2 }
     }
     ///Extract children from a `end_header` node.
     ///
@@ -8580,11 +8516,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8647,11 +8579,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8674,10 +8602,7 @@ pub trait GrammarTraversal {
     ///Production (children in order):
     ///- `event_marker` [required]
     ///- `event_segment` (field: `description`) [required]
-    fn extract_event<'tree>(
-        &mut self,
-        node: tree_sitter::Node<'tree>,
-    ) -> EventChildren<'tree> {
+    fn extract_event<'tree>(&mut self, node: tree_sitter::Node<'tree>) -> EventChildren<'tree> {
         let child_count = node.child_count();
         let mut idx: u32 = 0;
         let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
@@ -8757,11 +8682,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8820,11 +8741,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                text = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                text = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -8886,11 +8803,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -8953,11 +8866,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -9209,11 +9118,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -9276,11 +9181,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -9458,11 +9359,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                relation = classify_child(
-                    child,
-                    "gra_relation_name",
-                    GraRelationNameNode,
-                );
+                relation = classify_child(child, "gra_relation_name", GraRelationNameNode);
                 idx += 1;
             }
         }
@@ -9526,11 +9423,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                annotations = classify_child(
-                    child,
-                    "base_annotations",
-                    BaseAnnotationsNode,
-                );
+                annotations = classify_child(child, "base_annotations", BaseAnnotationsNode);
                 idx += 1;
             }
         }
@@ -9579,10 +9472,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        HeaderSepChildren {
-            child_0,
-            child_1,
-        }
+        HeaderSepChildren { child_0, child_1 }
     }
     ///Extract children from a `id_contents` node.
     ///
@@ -9613,22 +9503,14 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "_id_identity_fields",
-                    IdIdentityFieldsNode,
-                );
+                child_0 = classify_child(child, "_id_identity_fields", IdIdentityFieldsNode);
                 idx += 1;
             }
         }
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "_id_demographic_fields",
-                    IdDemographicFieldsNode,
-                );
+                child_1 = classify_child(child, "_id_demographic_fields", IdDemographicFieldsNode);
                 idx += 1;
             }
         }
@@ -9753,11 +9635,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -9952,9 +9830,7 @@ pub trait GrammarTraversal {
         if (idx as usize) < child_count {
             idx += 1;
         }
-        LanguagesContentsChildren {
-            child_0,
-        }
+        LanguagesContentsChildren { child_0 }
     }
     ///Extract children from a `languages_header` node.
     ///
@@ -10001,11 +9877,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "languages_contents",
-                    LanguagesContentsNode,
-                );
+                child_2 = classify_child(child, "languages_contents", LanguagesContentsNode);
                 idx += 1;
             }
         }
@@ -10133,11 +10005,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "long_feature_label",
-                    LongFeatureLabelNode,
-                );
+                child_2 = classify_child(child, "long_feature_label", LongFeatureLabelNode);
                 idx += 1;
             }
         }
@@ -10183,22 +10051,15 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "long_feature_end_marker",
-                    LongFeatureEndMarkerNode,
-                );
+                child_1 =
+                    classify_child(child, "long_feature_end_marker", LongFeatureEndMarkerNode);
                 idx += 1;
             }
         }
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "long_feature_label",
-                    LongFeatureLabelNode,
-                );
+                child_2 = classify_child(child, "long_feature_label", LongFeatureLabelNode);
                 idx += 1;
             }
         }
@@ -10612,11 +10473,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "modsyl_tier_prefix",
-                    ModsylTierPrefixNode,
-                );
+                child_0 = classify_child(child, "modsyl_tier_prefix", ModsylTierPrefixNode);
                 idx += 1;
             }
         }
@@ -10630,11 +10487,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -10823,18 +10676,11 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "mor_feature_value",
-                    MorFeatureValueNode,
-                );
+                child_1 = classify_child(child, "mor_feature_value", MorFeatureValueNode);
                 idx += 1;
             }
         }
-        MorFeatureChildren {
-            child_0,
-            child_1,
-        }
+        MorFeatureChildren { child_0, child_1 }
     }
     ///Extract children from a `mor_post_clitic` node.
     ///
@@ -10874,10 +10720,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        MorPostCliticChildren {
-            child_0,
-            child_1,
-        }
+        MorPostCliticChildren { child_0, child_1 }
     }
     ///Extract children from a `mor_word` node.
     ///
@@ -10964,11 +10807,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "new_episode_prefix",
-                    NewEpisodePrefixNode,
-                );
+                child_0 = classify_child(child, "new_episode_prefix", NewEpisodePrefixNode);
                 idx += 1;
             }
         }
@@ -10979,10 +10818,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        NewEpisodeHeaderChildren {
-            child_0,
-            child_1,
-        }
+        NewEpisodeHeaderChildren { child_0, child_1 }
     }
     ///Extract children from a `nonvocal_begin` node.
     ///
@@ -11020,22 +10856,14 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "nonvocal_begin_marker",
-                    NonvocalBeginMarkerNode,
-                );
+                child_1 = classify_child(child, "nonvocal_begin_marker", NonvocalBeginMarkerNode);
                 idx += 1;
             }
         }
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "long_feature_label",
-                    LongFeatureLabelNode,
-                );
+                child_2 = classify_child(child, "long_feature_label", LongFeatureLabelNode);
                 idx += 1;
             }
         }
@@ -11081,22 +10909,14 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "nonvocal_end_marker",
-                    NonvocalEndMarkerNode,
-                );
+                child_1 = classify_child(child, "nonvocal_end_marker", NonvocalEndMarkerNode);
                 idx += 1;
             }
         }
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "long_feature_label",
-                    LongFeatureLabelNode,
-                );
+                child_2 = classify_child(child, "long_feature_label", LongFeatureLabelNode);
                 idx += 1;
             }
         }
@@ -11144,22 +10964,14 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_1 = classify_child(
-                    child,
-                    "nonvocal_begin_marker",
-                    NonvocalBeginMarkerNode,
-                );
+                child_1 = classify_child(child, "nonvocal_begin_marker", NonvocalBeginMarkerNode);
                 idx += 1;
             }
         }
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "long_feature_label",
-                    LongFeatureLabelNode,
-                );
+                child_2 = classify_child(child, "long_feature_label", LongFeatureLabelNode);
                 idx += 1;
             }
         }
@@ -11429,11 +11241,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -11632,11 +11440,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -11695,11 +11499,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                text = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                text = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -11761,10 +11561,7 @@ pub trait GrammarTraversal {
                 }
             }
         }
-        ParticipantChildren {
-            code,
-            child_2,
-        }
+        ParticipantChildren { code, child_2 }
     }
     ///Extract children from a `participants_contents` node.
     ///
@@ -11800,9 +11597,7 @@ pub trait GrammarTraversal {
         if (idx as usize) < child_count {
             idx += 1;
         }
-        ParticipantsContentsChildren {
-            child_0,
-        }
+        ParticipantsContentsChildren { child_0 }
     }
     ///Extract children from a `participants_header` node.
     ///
@@ -11835,11 +11630,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "participants_prefix",
-                    ParticipantsPrefixNode,
-                );
+                child_0 = classify_child(child, "participants_prefix", ParticipantsPrefixNode);
                 idx += 1;
             }
         }
@@ -11853,11 +11644,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "participants_contents",
-                    ParticipantsContentsNode,
-                );
+                child_2 = classify_child(child, "participants_contents", ParticipantsContentsNode);
                 idx += 1;
             }
         }
@@ -11916,11 +11703,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                text = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                text = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -12034,9 +11817,7 @@ pub trait GrammarTraversal {
         if (idx as usize) < child_count {
             idx += 1;
         }
-        PhoGroupedContentChildren {
-            child_0,
-        }
+        PhoGroupedContentChildren { child_0 }
     }
     ///Extract children from a `pho_groups` node.
     ///
@@ -12141,11 +11922,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "phoaln_tier_prefix",
-                    PhoalnTierPrefixNode,
-                );
+                child_0 = classify_child(child, "phoaln_tier_prefix", PhoalnTierPrefixNode);
                 idx += 1;
             }
         }
@@ -12159,11 +11936,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -12212,11 +11985,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "phosyl_tier_prefix",
-                    PhosylTierPrefixNode,
-                );
+                child_0 = classify_child(child, "phosyl_tier_prefix", PhosylTierPrefixNode);
                 idx += 1;
             }
         }
@@ -12230,11 +11999,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -12320,10 +12085,7 @@ pub trait GrammarTraversal {
     ///Production (children in order):
     ///- `(terminal)` [required]
     ///- `(terminal)` [required]
-    fn extract_pos_tag<'tree>(
-        &mut self,
-        node: tree_sitter::Node<'tree>,
-    ) -> PosTagChildren<'tree> {
+    fn extract_pos_tag<'tree>(&mut self, node: tree_sitter::Node<'tree>) -> PosTagChildren<'tree> {
         let child_count = node.child_count();
         let mut idx: u32 = 0;
         let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
@@ -12390,11 +12152,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                code = classify_child(
-                    child,
-                    "annotation_content",
-                    AnnotationContentNode,
-                );
+                code = classify_child(child, "annotation_content", AnnotationContentNode);
                 idx += 1;
             }
         }
@@ -12440,11 +12198,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "left_double_quote",
-                    LeftDoubleQuoteNode,
-                );
+                child_0 = classify_child(child, "left_double_quote", LeftDoubleQuoteNode);
                 idx += 1;
             }
         }
@@ -12458,11 +12212,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "right_double_quote",
-                    RightDoubleQuoteNode,
-                );
+                child_2 = classify_child(child, "right_double_quote", RightDoubleQuoteNode);
                 idx += 1;
             }
         }
@@ -12632,11 +12382,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "room_layout_prefix",
-                    RoomLayoutPrefixNode,
-                );
+                child_0 = classify_child(child, "room_layout_prefix", RoomLayoutPrefixNode);
                 idx += 1;
             }
         }
@@ -12806,9 +12552,7 @@ pub trait GrammarTraversal {
         if (idx as usize) < child_count {
             idx += 1;
         }
-        SinGroupedContentChildren {
-            child_0,
-        }
+        SinGroupedContentChildren { child_0 }
     }
     ///Extract children from a `sin_groups` node.
     ///
@@ -12891,11 +12635,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -13021,11 +12761,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -13211,11 +12947,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "tape_location_prefix",
-                    TapeLocationPrefixNode,
-                );
+                child_0 = classify_child(child, "tape_location_prefix", TapeLocationPrefixNode);
                 idx += 1;
             }
         }
@@ -13408,10 +13140,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        TierSepChildren {
-            child_0,
-            child_1,
-        }
+        TierSepChildren { child_0, child_1 }
     }
     ///Extract children from a `tim_dependent_tier` node.
     ///
@@ -13458,11 +13187,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }
@@ -13511,11 +13236,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "time_duration_prefix",
-                    TimeDurationPrefixNode,
-                );
+                child_0 = classify_child(child, "time_duration_prefix", TimeDurationPrefixNode);
                 idx += 1;
             }
         }
@@ -13529,11 +13250,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "time_duration_contents",
-                    TimeDurationContentsNode,
-                );
+                child_2 = classify_child(child, "time_duration_contents", TimeDurationContentsNode);
                 idx += 1;
             }
         }
@@ -13582,11 +13299,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "time_start_prefix",
-                    TimeStartPrefixNode,
-                );
+                child_0 = classify_child(child, "time_start_prefix", TimeStartPrefixNode);
                 idx += 1;
             }
         }
@@ -13600,11 +13313,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "time_duration_contents",
-                    TimeDurationContentsNode,
-                );
+                child_2 = classify_child(child, "time_duration_contents", TimeDurationContentsNode);
                 idx += 1;
             }
         }
@@ -13653,11 +13362,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "transcriber_prefix",
-                    TranscriberPrefixNode,
-                );
+                child_0 = classify_child(child, "transcriber_prefix", TranscriberPrefixNode);
                 idx += 1;
             }
         }
@@ -13720,11 +13425,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_0 = classify_child(
-                    child,
-                    "transcription_prefix",
-                    TranscriptionPrefixNode,
-                );
+                child_0 = classify_child(child, "transcription_prefix", TranscriptionPrefixNode);
                 idx += 1;
             }
         }
@@ -13738,11 +13439,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "transcription_option",
-                    TranscriptionOptionNode,
-                );
+                child_2 = classify_child(child, "transcription_option", TranscriptionOptionNode);
                 idx += 1;
             }
         }
@@ -13959,10 +13656,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        UnsupportedDependentTierChildren {
-            child_1,
-            child_3,
-        }
+        UnsupportedDependentTierChildren { child_1, child_3 }
     }
     ///Extract children from a `unsupported_header` node.
     ///
@@ -14496,10 +14190,7 @@ pub trait GrammarTraversal {
                 idx += 1;
             }
         }
-        WorTierBodyChildren {
-            child_2,
-            child_3,
-        }
+        WorTierBodyChildren { child_2, child_3 }
     }
     ///Extract children from a `word_with_optional_annotations` node.
     ///
@@ -14546,10 +14237,7 @@ pub trait GrammarTraversal {
                 }
             }
         }
-        WordWithOptionalAnnotationsChildren {
-            word,
-            annotations,
-        }
+        WordWithOptionalAnnotationsChildren { word, annotations }
     }
     ///Extract children from a `x_dependent_tier` node.
     ///
@@ -14592,11 +14280,7 @@ pub trait GrammarTraversal {
         skip_extras(node, &mut idx, child_count);
         if (idx as usize) < child_count {
             if let Some(child) = node.child(idx) {
-                child_2 = classify_child(
-                    child,
-                    "text_with_bullets",
-                    TextWithBulletsNode,
-                );
+                child_2 = classify_child(child, "text_with_bullets", TextWithBulletsNode);
                 idx += 1;
             }
         }

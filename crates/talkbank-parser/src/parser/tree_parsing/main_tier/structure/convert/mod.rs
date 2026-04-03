@@ -221,4 +221,3 @@ pub(super) fn report_cst_access_failure(
 ) {
     report_cst_access_error(node, source, errors, idx);
 }
-

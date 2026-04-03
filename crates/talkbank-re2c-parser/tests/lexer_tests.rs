@@ -390,7 +390,9 @@ fn lex_event() {
 fn lex_event_compound() {
     let tokens = lex("*X:\t&=clears:throat .\n");
     assert!(
-        tokens.iter().any(|t| matches!(t, Token::Event("clears:throat"))),
+        tokens
+            .iter()
+            .any(|t| matches!(t, Token::Event("clears:throat"))),
         "expected Event(\"clears:throat\"), got {tokens:?}"
     );
 }
@@ -1600,7 +1602,9 @@ fn lex_pause_not_shortening() {
     ] {
         let tokens = lex_with(input, COND_MAIN_CONTENT);
         assert!(
-            !tokens.iter().any(|t| matches!(t, Token::Word { .. } | Token::Shortening(_))),
+            !tokens
+                .iter()
+                .any(|t| matches!(t, Token::Word { .. } | Token::Shortening(_))),
             "{expected}: '{input}' should NOT produce Word or Shortening, got {tokens:?}"
         );
     }
@@ -1723,9 +1727,7 @@ fn lex_ca_intonation_arrow_after_word() {
     // → (U+2192) is an intonation contour that appears after words in CA
     let tokens = lex_with("no\u{2192} ", COND_MAIN_CONTENT);
     let has_word = tokens.iter().any(|t| matches!(t, Token::Word { .. }));
-    let has_arrow = tokens
-        .iter()
-        .any(|t| matches!(t, Token::LevelPitch(_)));
+    let has_arrow = tokens.iter().any(|t| matches!(t, Token::LevelPitch(_)));
     assert!(
         has_word,
         "expected a Word token before arrow, got {tokens:?}"
@@ -1741,12 +1743,17 @@ fn lex_ca_intonation_arrow_after_word() {
 #[test]
 fn lex_filler_in_utterance() {
     let tokens = lex("*INV:\tokay , so , &-um how is your talking .\n");
-    let word_count = tokens.iter().filter(|t| matches!(t, Token::Word { .. })).count();
+    let word_count = tokens
+        .iter()
+        .filter(|t| matches!(t, Token::Word { .. }))
+        .count();
     eprintln!("word count: {word_count}");
     for (i, tok) in tokens.iter().enumerate() {
-        eprintln!("  [{i}] {:?} = {:?}",
+        eprintln!(
+            "  [{i}] {:?} = {:?}",
             talkbank_re2c_parser::token::TokenDiscriminants::from(tok),
-            tok.text());
+            tok.text()
+        );
     }
     assert!(
         word_count >= 7,
@@ -1779,7 +1786,10 @@ fn parse_file_filler_with_bullet() {
     let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tINV Investigator\n@ID:\teng|corpus|INV|||||Investigator|||\n*INV:\tokay , so , &-um how is your talking . \x1561209_62810\x15\n@End\n";
     let parsed = talkbank_re2c_parser::parser::parse_chat_file(input);
     // Find the utterance
-    let utterance = parsed.lines.iter().find(|l| matches!(l, talkbank_re2c_parser::ast::Line::Utterance(_)));
+    let utterance = parsed
+        .lines
+        .iter()
+        .find(|l| matches!(l, talkbank_re2c_parser::ast::Line::Utterance(_)));
     assert!(utterance.is_some(), "should have one utterance");
     if let Some(talkbank_re2c_parser::ast::Line::Utterance(u)) = utterance {
         let content_len = u.main_tier.tier_body.contents.len();
@@ -1800,8 +1810,7 @@ fn parse_file_filler_with_bullet() {
 fn parse_file_msu03b_line_count() {
     let path = format!(
         "{}/data/aphasia-data/English/Protocol/MSU/PWA/MSU03b.cha",
-        env!("CARGO_MANIFEST_DIR")
-            .replace("/talkbank-tools/crates/talkbank-re2c-parser", "")
+        env!("CARGO_MANIFEST_DIR").replace("/talkbank-tools/crates/talkbank-re2c-parser", "")
     );
     let Ok(content) = std::fs::read_to_string(&path) else {
         eprintln!("MSU03b.cha not found, skipping");
@@ -1819,7 +1828,11 @@ fn parse_file_msu03b_line_count() {
             eprintln!("  {}: {:?}", e.code.as_str(), e.message);
         }
     }
-    assert_eq!(file.lines.len(), 280, "should match TreeSitter's 280 model lines");
+    assert_eq!(
+        file.lines.len(),
+        280,
+        "should match TreeSitter's 280 model lines"
+    );
 }
 
 /// Regression: MSU03b line 91 — error marker [* s: ur] with colon-space in content.
@@ -1827,7 +1840,10 @@ fn parse_file_msu03b_line_count() {
 fn parse_main_tier_error_marker_with_colon() {
     let input = "*INV:\tthat's with the attic [: accident] [* s: ur] [//] thing .\n";
     let result = talkbank_re2c_parser::parser::parse_main_tier(input);
-    assert!(result.is_some(), "parse_main_tier should succeed for error marker with colon, got None");
+    assert!(
+        result.is_some(),
+        "parse_main_tier should succeed for error marker with colon, got None"
+    );
     let mt = result.unwrap();
     eprintln!("Content items: {}", mt.tier_body.contents.len());
     assert!(
@@ -1843,13 +1859,18 @@ fn lex_error_marker_with_colon() {
     let tokens = lex("*X:\tthat's [* s: ur] .\n");
     eprintln!("Tokens for [* s: ur]:");
     for (i, tok) in tokens.iter().enumerate() {
-        eprintln!("  [{i}] {:?} = {:?}",
+        eprintln!(
+            "  [{i}] {:?} = {:?}",
             talkbank_re2c_parser::token::TokenDiscriminants::from(tok),
-            tok.text());
+            tok.text()
+        );
     }
     // Check for ErrorMarkerAnnotation token
-    let has_error_marker = tokens.iter().any(|t|
-        matches!(t, Token::ErrorMarkerAnnotation(_))
+    let has_error_marker = tokens
+        .iter()
+        .any(|t| matches!(t, Token::ErrorMarkerAnnotation(_)));
+    assert!(
+        has_error_marker,
+        "should have ErrorMarkerAnnotation, got {tokens:?}"
     );
-    assert!(has_error_marker, "should have ErrorMarkerAnnotation, got {tokens:?}");
 }

@@ -258,8 +258,7 @@ fn offset_wiring_chat_file_no_panic() {
     assert!(matches!(shifted, ParseOutcome::Parsed(_)));
 
     // Both should produce semantically equivalent output
-    let (ParseOutcome::Parsed(zero_file), ParseOutcome::Parsed(shifted_file)) =
-        (zero, shifted)
+    let (ParseOutcome::Parsed(zero_file), ParseOutcome::Parsed(shifted_file)) = (zero, shifted)
     else {
         unreachable!();
     };

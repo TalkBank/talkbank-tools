@@ -3,6 +3,7 @@ name = "talkbank-re2c-parser"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+license.workspace = true
 description = "CHAT parser using re2c lexer and handwritten recursive-descent parser"
 
 [dependencies]

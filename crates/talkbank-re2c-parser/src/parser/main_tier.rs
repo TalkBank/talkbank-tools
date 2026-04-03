@@ -217,13 +217,9 @@ pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clo
                     Token::PosTag(s) => pos_tag = Some(s),
                     Token::WordSegment(s) => body.push(WordBodyItem::Text(s)),
                     Token::Shortening(s) => body.push(WordBodyItem::Shortening(s)),
-                    Token::Lengthening(s) => {
-                        body.push(WordBodyItem::Lengthening(s.len() as u8))
-                    }
+                    Token::Lengthening(s) => body.push(WordBodyItem::Lengthening(s.len() as u8)),
                     Token::CompoundMarker(_) => body.push(WordBodyItem::CompoundMarker),
-                    Token::StressPrimary(_) => {
-                        body.push(WordBodyItem::Stress(StressKind::Primary))
-                    }
+                    Token::StressPrimary(_) => body.push(WordBodyItem::Stress(StressKind::Primary)),
                     Token::StressSecondary(_) => {
                         body.push(WordBodyItem::Stress(StressKind::Secondary))
                     }
@@ -283,9 +279,9 @@ pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clo
                     Token::CaSofter(_) => {
                         body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::Softer))
                     }
-                    Token::CaSegmentRepetition(_) => {
-                        body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::SegmentRepetition))
-                    }
+                    Token::CaSegmentRepetition(_) => body.push(WordBodyItem::CaDelimiter(
+                        CaDelimiterKind::SegmentRepetition,
+                    )),
                     Token::CaFaster(_) => {
                         body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::Faster))
                     }
@@ -313,9 +309,7 @@ pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clo
                     Token::CaBreathyVoice(_) => {
                         body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::BreathyVoice))
                     }
-                    Token::CaYawn(_) => {
-                        body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::Yawn))
-                    }
+                    Token::CaYawn(_) => body.push(WordBodyItem::CaDelimiter(CaDelimiterKind::Yawn)),
                     Token::Ampersand(_) => body.push(WordBodyItem::Text("&")),
                     other => body.push(WordBodyItem::Text(other.text())),
                 }
@@ -323,7 +317,8 @@ pub fn subtoken_word<'a>() -> impl Parser<'a, Tokens<'a>, ContentItem<'a>> + Clo
 
             // Standalone zero (0) with no body → Action, not Word.
             // This distinguishes `0` (action) from `0word` (omission).
-            if category == Some(WordCategory::Omission) && body.is_empty()
+            if category == Some(WordCategory::Omission)
+                && body.is_empty()
                 && let Some(zt) = zero_tok
             {
                 return ContentItem::Action {
@@ -494,8 +489,7 @@ fn linkers<'a>() -> impl Parser<'a, Tokens<'a>, Vec<Token<'a>>> + Clone {
 ///   utterance_end
 /// )
 pub fn tier_body_parser<'a>() -> impl Parser<'a, Tokens<'a>, TierBody<'a>> + Clone {
-    let langcode = select! { tok @ Token::Langcode(_) => tok }
-        .then_ignore(ws());
+    let langcode = select! { tok @ Token::Langcode(_) => tok }.then_ignore(ws());
 
     // Utterance end: optional(terminator), optional(postcodes), optional(media_bullet), newline
     let media_bullet = select! { tok @ Token::MediaBullet { .. } => tok };

@@ -153,9 +153,11 @@ fn sub_classify(path: &str, ts_val: &str, re2c_val: &str) -> String {
 
     // Catch-all: use last path segment
     let last = path.rsplit('.').next().unwrap_or(path);
-    format!("other:{last} (ts={}, re2c={})",
+    format!(
+        "other:{last} (ts={}, re2c={})",
         ts_val.chars().take(40).collect::<String>(),
-        re2c_val.chars().take(40).collect::<String>())
+        re2c_val.chars().take(40).collect::<String>()
+    )
 }
 
 fn corpus_base() -> PathBuf {
@@ -197,7 +199,11 @@ fn subcategorize_main_tier_divergences() {
 
     for (i, path) in files.iter().enumerate() {
         if i > 0 && i % 10000 == 0 {
-            eprintln!("  Progress: {}/{} ({main_tier_divergent} main_tier divergences)", i, files.len());
+            eprintln!(
+                "  Progress: {}/{} ({main_tier_divergent} main_tier divergences)",
+                i,
+                files.len()
+            );
         }
 
         let content = match std::fs::read_to_string(path) {
@@ -224,8 +230,7 @@ fn subcategorize_main_tier_divergences() {
         strip_spans(&mut ts_json);
         strip_spans(&mut re2c_json);
 
-        if let Some((diff_path, ts_val, re2c_val)) = find_first_diff(&ts_json, &re2c_json, "", 0)
-        {
+        if let Some((diff_path, ts_val, re2c_val)) = find_first_diff(&ts_json, &re2c_json, "", 0) {
             // Only sub-categorize main tier divergences
             if diff_path.contains(".main.") || diff_path.contains(".main_") {
                 main_tier_divergent += 1;
@@ -234,7 +239,11 @@ fn subcategorize_main_tier_divergences() {
 
                 let examples = subcat_examples.entry(subcat).or_default();
                 if examples.len() < 5 {
-                    let file_str = path.strip_prefix(&base).unwrap_or(path).display().to_string();
+                    let file_str = path
+                        .strip_prefix(&base)
+                        .unwrap_or(path)
+                        .display()
+                        .to_string();
                     examples.push((file_str, diff_path));
                 }
             }
@@ -268,7 +277,11 @@ fn subcategorize_main_tier_divergences() {
         .map(|(subcat, count)| {
             let examples = subcat_examples
                 .get(*subcat)
-                .map(|ex| ex.iter().map(|(f, p)| serde_json::json!({"file": f, "path": p})).collect::<Vec<_>>())
+                .map(|ex| {
+                    ex.iter()
+                        .map(|(f, p)| serde_json::json!({"file": f, "path": p}))
+                        .collect::<Vec<_>>()
+                })
                 .unwrap_or_default();
             serde_json::json!({ "subcategory": subcat, "count": count, "examples": examples })
         })

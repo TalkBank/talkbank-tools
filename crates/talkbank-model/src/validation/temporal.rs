@@ -25,9 +25,9 @@ use std::collections::HashMap;
 // Import error codes
 // E729 is retained for future strict-bullet mode (CLAN `+c0`) but not used
 // in default validation. See `validate_cross_speaker_overlap()`.
-use crate::codes::temporal::{E701, E704};
 #[allow(unused_imports)]
 use crate::codes::temporal::E729;
+use crate::codes::temporal::{E701, E704};
 
 /// CLAN Error 133 tolerance for same-speaker overlap in milliseconds.
 ///
@@ -212,7 +212,10 @@ fn validate_global_timeline(bullets: &[BulletInfo], errors: &impl ErrorSink) {
 
         speaker_last_start.insert(
             bullet_info.speaker,
-            (bullet_info.utterance_idx, bullet_info.bullet.timing.start_ms),
+            (
+                bullet_info.utterance_idx,
+                bullet_info.bullet.timing.start_ms,
+            ),
         );
     }
 }

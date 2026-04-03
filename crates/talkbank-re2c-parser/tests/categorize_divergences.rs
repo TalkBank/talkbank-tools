@@ -98,8 +98,7 @@ fn find_first_json_diff(
                     } else {
                         format!("{path}.{key}")
                     };
-                    if let Some(diff) = find_first_json_diff(val_a, val_b, &child_path, depth + 1)
-                    {
+                    if let Some(diff) = find_first_json_diff(val_a, val_b, &child_path, depth + 1) {
                         return Some(diff);
                     }
                 } else {
@@ -175,7 +174,9 @@ fn classify_diff_path(path: &str) -> Category {
         };
     }
 
-    if path.contains(".dependent_tiers[]") || path.contains(".dependent_tiers[") && path.ends_with(']') && !path.contains('.') {
+    if path.contains(".dependent_tiers[]")
+        || path.contains(".dependent_tiers[") && path.ends_with(']') && !path.contains('.')
+    {
         return Category::DependentTierCount;
     }
 
@@ -361,10 +362,7 @@ fn categorize_corpus_divergences() {
             for (file, path, ts_val, re2c_val) in examples {
                 eprintln!("    file: {file}");
                 eprintln!("    path: {path}");
-                eprintln!(
-                    "    ts:   {}",
-                    ts_val.chars().take(100).collect::<String>()
-                );
+                eprintln!("    ts:   {}", ts_val.chars().take(100).collect::<String>());
                 eprintln!(
                     "    re2c: {}",
                     re2c_val.chars().take(100).collect::<String>()

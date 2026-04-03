@@ -7,7 +7,7 @@ use chumsky::prelude::*;
 use crate::ast::*;
 use crate::token::Token;
 
-use super::dependent_tiers::{ws, opt_newline};
+use super::dependent_tiers::{opt_newline, ws};
 
 /// Chumsky input type.
 type Tokens<'a> = &'a [Token<'a>];
@@ -31,8 +31,8 @@ pub fn id_header_parser<'a>() -> impl Parser<'a, Tokens<'a>, IdHeaderParsed<'a>>
 // ═══════════════════════════════════════════════════════════
 
 /// Parse a `@Languages` header content.
-pub fn languages_header_parser<'a>(
-) -> impl Parser<'a, Tokens<'a>, LanguagesHeaderParsed<'a>> + Clone {
+pub fn languages_header_parser<'a>()
+-> impl Parser<'a, Tokens<'a>, LanguagesHeaderParsed<'a>> + Clone {
     let code = select! { Token::LanguageCode(s) => s };
     let comma = select! { Token::Comma(_) => () };
 
@@ -51,8 +51,8 @@ pub fn languages_header_parser<'a>(
 // ═══════════════════════════════════════════════════════════
 
 /// Parse a `@Participants` header content.
-pub fn participants_header_parser<'a>(
-) -> impl Parser<'a, Tokens<'a>, ParticipantsHeaderParsed<'a>> + Clone {
+pub fn participants_header_parser<'a>()
+-> impl Parser<'a, Tokens<'a>, ParticipantsHeaderParsed<'a>> + Clone {
     let word = select! { Token::ParticipantWord(s) => s };
     let comma = select! { Token::Comma(_) => () };
 

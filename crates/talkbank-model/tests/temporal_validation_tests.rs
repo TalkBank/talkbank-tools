@@ -83,7 +83,7 @@ fn test_e701_global_timeline_monotonicity_violation() {
         Line::header(Header::Begin),
         Line::utterance(utterance(main_tier_with_bullet("CHI", 1000, 2000))), // CHI: 1000-2000ms
         Line::utterance(utterance(main_tier_with_bullet("MOT", 3000, 4000))), // MOT: 3000-4000ms
-        Line::utterance(utterance(main_tier_with_bullet("CHI", 500, 1500))),  // CHI: 500ms < CHI's 1000ms
+        Line::utterance(utterance(main_tier_with_bullet("CHI", 500, 1500))), // CHI: 500ms < CHI's 1000ms
         Line::header(Header::End),
     ]);
 
@@ -111,7 +111,7 @@ fn test_e701_cross_speaker_non_monotonic_does_not_fire() {
         Line::header(Header::Utf8),
         Line::header(Header::Begin),
         Line::utterance(utterance(main_tier_with_bullet("CHI", 1000, 2000))), // CHI: 1000-2000ms
-        Line::utterance(utterance(main_tier_with_bullet("MOT", 500, 1500))),  // MOT: 500ms (overlap)
+        Line::utterance(utterance(main_tier_with_bullet("MOT", 500, 1500))), // MOT: 500ms (overlap)
         Line::header(Header::End),
     ]);
 

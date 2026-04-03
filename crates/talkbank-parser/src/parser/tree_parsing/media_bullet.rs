@@ -98,8 +98,7 @@ pub fn parse_media_bullet(node: Node, source: &str) -> (Option<Bullet>, ErrorVec
     }
 
     let span = Span::new(node.start_byte() as u32, node.end_byte() as u32);
-    let bullet = Bullet::new(start_ms, end_ms)
-        .with_span(span);
+    let bullet = Bullet::new(start_ms, end_ms).with_span(span);
     (Some(bullet), errors)
 }
 
@@ -109,19 +108,13 @@ mod tests {
 
     #[test]
     fn test_parse_bullet_text_normal() {
-        assert_eq!(
-            parse_bullet_text("\u{15}123_456\u{15}"),
-            Some((123, 456))
-        );
+        assert_eq!(parse_bullet_text("\u{15}123_456\u{15}"), Some((123, 456)));
     }
 
     /// Legacy skip dash is stripped silently (deprecated).
     #[test]
     fn test_parse_bullet_text_legacy_skip_stripped() {
-        assert_eq!(
-            parse_bullet_text("\u{15}123_456-\u{15}"),
-            Some((123, 456))
-        );
+        assert_eq!(parse_bullet_text("\u{15}123_456-\u{15}"), Some((123, 456)));
     }
 
     /// Tests parse bullet text invalid.

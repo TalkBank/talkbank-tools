@@ -18,17 +18,11 @@ fn main() {
 mod file_parse {
     use super::*;
 
-    const BASIC: &str =
-        include_str!("../../../corpus/reference/core/basic-conversation.cha");
-    const MOR_GRA: &str =
-        include_str!("../../../corpus/reference/tiers/mor-gra.cha");
-    const INTONATION: &str =
-        include_str!("../../../corpus/reference/ca/intonation.cha");
-    const CJK: &str =
-        include_str!("../../../corpus/reference/languages/zho-conversation.cha");
-    const COMPOUNDS: &str = include_str!(
-        "../../../corpus/reference/word-features/impdenis.cha"
-    );
+    const BASIC: &str = include_str!("../../../corpus/reference/core/basic-conversation.cha");
+    const MOR_GRA: &str = include_str!("../../../corpus/reference/tiers/mor-gra.cha");
+    const INTONATION: &str = include_str!("../../../corpus/reference/ca/intonation.cha");
+    const CJK: &str = include_str!("../../../corpus/reference/languages/zho-conversation.cha");
+    const COMPOUNDS: &str = include_str!("../../../corpus/reference/word-features/impdenis.cha");
 
     // ── TreeSitter with constructor cost ────────────────────────
 
@@ -100,15 +94,11 @@ mod file_parse {
 
     #[divan::bench(name = "basic__re2c")]
     fn basic_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(BASIC))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(BASIC)));
     }
     #[divan::bench(name = "mor_gra__re2c")]
     fn mor_gra_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(MOR_GRA))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(MOR_GRA)));
     }
     #[divan::bench(name = "ca__re2c")]
     fn ca_re2c(b: divan::Bencher) {
@@ -118,9 +108,7 @@ mod file_parse {
     }
     #[divan::bench(name = "cjk__re2c")]
     fn cjk_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(CJK))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(CJK)));
     }
     #[divan::bench(name = "complex__re2c")]
     fn complex_re2c(b: divan::Bencher) {
@@ -193,8 +181,7 @@ mod batch_parse {
         let files = corpus();
         b.bench_local(|| {
             for input in files {
-                let _ =
-                    talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(input));
+                let _ = talkbank_re2c_parser::parser::parse_chat_file(divan::black_box(input));
             }
         });
     }
@@ -220,23 +207,17 @@ mod tier_parse {
 
     #[divan::bench(name = "main_tier__re2c")]
     fn main_tier_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_main_tier(divan::black_box(MAIN))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_main_tier(divan::black_box(MAIN)));
     }
 
     #[divan::bench(name = "mor_tier__re2c")]
     fn mor_tier_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_mor_tier(divan::black_box(MOR))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_mor_tier(divan::black_box(MOR)));
     }
 
     #[divan::bench(name = "gra_tier__re2c")]
     fn gra_tier_re2c(b: divan::Bencher) {
-        b.bench_local(|| {
-            talkbank_re2c_parser::parser::parse_gra_tier(divan::black_box(GRA))
-        });
+        b.bench_local(|| talkbank_re2c_parser::parser::parse_gra_tier(divan::black_box(GRA)));
     }
 }
 
@@ -249,8 +230,7 @@ mod lex_only {
 
     const MAIN: &str = "*CHI:\thello world , do you want ice+cream ?\n";
     const MOR: &str = "pro|I v|want det|a n|cookie-PL .\n";
-    const FILE: &str =
-        include_str!("../../../corpus/reference/tiers/mor-gra.cha");
+    const FILE: &str = include_str!("../../../corpus/reference/tiers/mor-gra.cha");
 
     #[divan::bench(name = "lex_main_tier")]
     fn lex_main(b: divan::Bencher) {
@@ -262,10 +242,7 @@ mod lex_only {
     #[divan::bench(name = "lex_mor_tier")]
     fn lex_mor(b: divan::Bencher) {
         b.bench_local(|| {
-            talkbank_re2c_parser::lex_line(
-                divan::black_box(MOR),
-                lexer::COND_MOR_CONTENT,
-            )
+            talkbank_re2c_parser::lex_line(divan::black_box(MOR), lexer::COND_MOR_CONTENT)
         });
     }
 

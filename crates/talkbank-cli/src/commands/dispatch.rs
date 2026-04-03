@@ -128,9 +128,7 @@ impl CommandFamilyService for ValidationCommandService {
                             crate::cli::ParserBackend::TreeSitter => {
                                 talkbank_transform::ParserKind::TreeSitter
                             }
-                            crate::cli::ParserBackend::Re2c => {
-                                talkbank_transform::ParserKind::Re2c
-                            }
+                            crate::cli::ParserBackend::Re2c => talkbank_transform::ParserKind::Re2c,
                         },
                     },
                     execution: ValidateCommandExecution {

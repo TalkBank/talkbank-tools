@@ -113,9 +113,7 @@ impl ChatParser for Re2cParser {
     ) -> ParseOutcome<ParticipantEntry> {
         let parsed = crate::parser::parse_participants_header(input);
         match parsed.entries.first() {
-            Some(entry) => {
-                ParseOutcome::parsed(shifted(ParticipantEntry::from(entry), offset))
-            }
+            Some(entry) => ParseOutcome::parsed(shifted(ParticipantEntry::from(entry), offset)),
             None => ParseOutcome::rejected(),
         }
     }
@@ -142,9 +140,7 @@ impl ChatParser for Re2cParser {
         _errors: &impl ErrorSink,
     ) -> ParseOutcome<ModelMainTier> {
         match crate::parser::parse_main_tier(input) {
-            Some(parsed) => {
-                ParseOutcome::parsed(shifted(ModelMainTier::from(&parsed), offset))
-            }
+            Some(parsed) => ParseOutcome::parsed(shifted(ModelMainTier::from(&parsed), offset)),
             None => ParseOutcome::rejected(),
         }
     }
@@ -339,10 +335,7 @@ impl ChatParser for Re2cParser {
         offset: usize,
         _errors: &impl ErrorSink,
     ) -> ParseOutcome<WorTier> {
-        ParseOutcome::parsed(shifted(
-            crate::convert::wor_tier_from_input(input),
-            offset,
-        ))
+        ParseOutcome::parsed(shifted(crate::convert::wor_tier_from_input(input), offset))
     }
 
     fn parse_dependent_tier(

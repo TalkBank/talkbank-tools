@@ -670,7 +670,11 @@ fn debug_single_file() {
 
     let ts_utts: Vec<_> = ts_file.utterances().collect();
     let re2c_utts: Vec<_> = re2c_file.utterances().collect();
-    eprintln!("DIVERGENT: ts={} utts, re2c={} utts", ts_utts.len(), re2c_utts.len());
+    eprintln!(
+        "DIVERGENT: ts={} utts, re2c={} utts",
+        ts_utts.len(),
+        re2c_utts.len()
+    );
 
     if ts_utts.len() != re2c_utts.len() {
         eprintln!("  Utterance COUNT mismatch — different line parsing");
@@ -682,19 +686,29 @@ fn debug_single_file() {
             let rc = &r.main.content;
             eprintln!("  First divergent utterance: {i}");
             eprintln!("  Speaker: {}", t.main.speaker);
-            eprintln!("  TS:   {} items, bullet={}, term={:?}",
-                tc.content.len(), tc.bullet.is_some(),
-                tc.terminator.as_ref().map(|t| format!("{t:?}")));
-            eprintln!("  Re2c: {} items, bullet={}, term={:?}",
-                rc.content.len(), rc.bullet.is_some(),
-                rc.terminator.as_ref().map(|t| format!("{t:?}")));
+            eprintln!(
+                "  TS:   {} items, bullet={}, term={:?}",
+                tc.content.len(),
+                tc.bullet.is_some(),
+                tc.terminator.as_ref().map(|t| format!("{t:?}"))
+            );
+            eprintln!(
+                "  Re2c: {} items, bullet={}, term={:?}",
+                rc.content.len(),
+                rc.bullet.is_some(),
+                rc.terminator.as_ref().map(|t| format!("{t:?}"))
+            );
 
             let max = tc.content.len().max(rc.content.len());
             for j in 0..max {
-                let ts_t = tc.content.get(j)
+                let ts_t = tc
+                    .content
+                    .get(j)
                     .map(|c| format!("{:?}", std::mem::discriminant(c)))
                     .unwrap_or_else(|| "<missing>".into());
-                let re_t = rc.content.get(j)
+                let re_t = rc
+                    .content
+                    .get(j)
                     .map(|c| format!("{:?}", std::mem::discriminant(c)))
                     .unwrap_or_else(|| "<missing>".into());
                 let marker = if ts_t != re_t { " <<<" } else { "" };
@@ -702,7 +716,11 @@ fn debug_single_file() {
             }
 
             if t.dependent_tiers.len() != r.dependent_tiers.len() {
-                eprintln!("  Deps: ts={}, re2c={}", t.dependent_tiers.len(), r.dependent_tiers.len());
+                eprintln!(
+                    "  Deps: ts={}, re2c={}",
+                    t.dependent_tiers.len(),
+                    r.dependent_tiers.len()
+                );
             }
             break;
         }

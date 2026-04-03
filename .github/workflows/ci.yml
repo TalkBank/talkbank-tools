@@ -24,6 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install re2c (for re2c parser build)
+        run: sudo apt-get install -y re2c
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -82,6 +85,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install re2c
+        run: sudo apt-get install -y re2c
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -120,6 +126,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Install re2c
+        run: sudo apt-get install -y re2c
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -322,6 +331,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Install re2c (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y re2c
+
+      - name: Install re2c (macOS)
+        if: runner.os == 'macOS'
+        run: brew install re2c
+
+      - name: Install re2c (Windows)
+        if: runner.os == 'Windows'
+        run: choco install re2c -y
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

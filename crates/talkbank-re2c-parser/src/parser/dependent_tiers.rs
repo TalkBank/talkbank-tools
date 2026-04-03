@@ -138,7 +138,12 @@ pub fn pho_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, PhoTier<'a>> + Clone
     let group_end = select! { Token::PhoGroupEnd(_) => () };
 
     let pho_group = group_begin
-        .ignore_then(pho_word_parser().padded_by(ws()).repeated().collect::<Vec<_>>())
+        .ignore_then(
+            pho_word_parser()
+                .padded_by(ws())
+                .repeated()
+                .collect::<Vec<_>>(),
+        )
         .then_ignore(group_end)
         .map(PhoItemParsed::Group);
 
@@ -148,23 +153,18 @@ pub fn pho_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, PhoTier<'a>> + Clone
         pause.to(PhoItemParsed::Word(PhoWordParsed { segments: vec![] })),
     ));
 
-    ws().ignore_then(
-        pho_item
-            .padded_by(ws())
-            .repeated()
-            .collect::<Vec<_>>(),
-    )
-    .then(ws().ignore_then(terminator).or_not())
-    .then_ignore(ws())
-    .then_ignore(opt_newline())
-    .map(|(items, terminator): (Vec<PhoItemParsed<'_>>, _)| {
-        // Filter out empty words from skipped pauses
-        let items = items
-            .into_iter()
-            .filter(|item| !matches!(item, PhoItemParsed::Word(w) if w.segments.is_empty()))
-            .collect();
-        PhoTier { items, terminator }
-    })
+    ws().ignore_then(pho_item.padded_by(ws()).repeated().collect::<Vec<_>>())
+        .then(ws().ignore_then(terminator).or_not())
+        .then_ignore(ws())
+        .then_ignore(opt_newline())
+        .map(|(items, terminator): (Vec<PhoItemParsed<'_>>, _)| {
+            // Filter out empty words from skipped pauses
+            let items = items
+                .into_iter()
+                .filter(|item| !matches!(item, PhoItemParsed::Word(w) if w.segments.is_empty()))
+                .collect();
+            PhoTier { items, terminator }
+        })
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -188,14 +188,9 @@ pub fn sin_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, SinTierParsed<'a>> +
 
     let sin_item = choice((sin_group, sin_word.map(SinItemParsed::Token)));
 
-    ws().ignore_then(
-        sin_item
-            .padded_by(ws())
-            .repeated()
-            .collect::<Vec<_>>(),
-    )
-    .then_ignore(opt_newline())
-    .map(|items| SinTierParsed { items })
+    ws().ignore_then(sin_item.padded_by(ws()).repeated().collect::<Vec<_>>())
+        .then_ignore(opt_newline())
+        .map(|items| SinTierParsed { items })
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -241,7 +236,8 @@ fn timing_bullet<'a>() -> impl Parser<'a, Tokens<'a>, (u64, u64)> + Clone {
 }
 
 /// Parse a `%wor` tier body: words with optional timing bullets.
-pub fn wor_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, (Vec<WorItemParsed<'a>>, Option<Token<'a>>)> + Clone {
+pub fn wor_tier_parser<'a>()
+-> impl Parser<'a, Tokens<'a>, (Vec<WorItemParsed<'a>>, Option<Token<'a>>)> + Clone {
     let terminator = select! {
         tok if is_terminator(Some(TokenDiscriminants::from(&tok))) => tok,
     };
@@ -312,23 +308,16 @@ pub fn wor_tier_parser<'a>() -> impl Parser<'a, Tokens<'a>, (Vec<WorItemParsed<'
         skip_bullet.to(WorItemParsed::Separator(Token::Whitespace(""))), // placeholder, filtered
     ));
 
-    ws().ignore_then(
-        wor_item
-            .padded_by(ws())
-            .repeated()
-            .collect::<Vec<_>>(),
-    )
-    .then(ws().ignore_then(terminator).or_not())
-    .then_ignore(ws())
-    .then_ignore(opt_newline())
-    .map(|(items, terminator)| {
-        // Filter out placeholder items from orphan bullets
-        let items = items
-            .into_iter()
-            .filter(|item| {
-                !matches!(item, WorItemParsed::Separator(Token::Whitespace(_)))
-            })
-            .collect();
-        (items, terminator)
-    })
+    ws().ignore_then(wor_item.padded_by(ws()).repeated().collect::<Vec<_>>())
+        .then(ws().ignore_then(terminator).or_not())
+        .then_ignore(ws())
+        .then_ignore(opt_newline())
+        .map(|(items, terminator)| {
+            // Filter out placeholder items from orphan bullets
+            let items = items
+                .into_iter()
+                .filter(|item| !matches!(item, WorItemParsed::Separator(Token::Whitespace(_))))
+                .collect();
+            (items, terminator)
+        })
 }

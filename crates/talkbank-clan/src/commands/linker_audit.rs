@@ -701,9 +701,7 @@ fn analyze_file(utterances: &[&Utterance], filename: &str) -> FileStats {
         if linkers.iter().any(|l| matches!(l, Linker::SelfCompletion)) {
             match last_term_by_speaker.get(speaker) {
                 None => stats.sc_no_prior += 1,
-                Some(
-                    TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion,
-                ) => {
+                Some(TerminatorKind::Interruption | TerminatorKind::InterruptedQuestion) => {
                     stats.sc_correct += 1;
                 }
                 Some(_) => stats.sc_wrong_terminator += 1,

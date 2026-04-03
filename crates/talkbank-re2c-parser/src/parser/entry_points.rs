@@ -80,10 +80,8 @@ pub fn parse_participants_header(input: &str) -> ParticipantsHeaderParsed<'_> {
 pub fn parse_word(input: &str) -> Option<WordWithAnnotations<'_>> {
     use chumsky::Parser as _;
     let tokens = lex_to_tokens(input, crate::lexer::COND_MAIN_CONTENT);
-    let word_parser = chumsky::primitive::choice((
-        main_tier::rich_word(),
-        main_tier::subtoken_word(),
-    ));
+    let word_parser =
+        chumsky::primitive::choice((main_tier::rich_word(), main_tier::subtoken_word()));
     let item = word_parser.parse(tokens).into_result().ok()?;
     match item {
         ContentItem::Word(w) => Some(w),
@@ -104,8 +102,17 @@ pub fn parse_mor_word(input: &str) -> Option<MorWordParsed<'_>> {
 /// Parse a single GraRelation from %gra content.
 pub fn parse_gra_relation(input: &str) -> Option<GraRelationParsed<'_>> {
     let tokens = lex_to_tokens(input, crate::lexer::COND_GRA_CONTENT);
-    if let Some(Token::GraRelation { index, head, relation }) = tokens.first().cloned() {
-        Some(GraRelationParsed { index, head, relation })
+    if let Some(Token::GraRelation {
+        index,
+        head,
+        relation,
+    }) = tokens.first().cloned()
+    {
+        Some(GraRelationParsed {
+            index,
+            head,
+            relation,
+        })
     } else {
         None
     }
@@ -143,10 +150,7 @@ pub fn parse_chat_file(input: &str) -> ChatFile<'_> {
 }
 
 /// Parse a complete CHAT file with streaming error reporting (AST, borrows).
-pub fn parse_chat_file_streaming<'a>(
-    input: &'a str,
-    errors: &impl ErrorSink,
-) -> ChatFile<'a> {
+pub fn parse_chat_file_streaming<'a>(input: &'a str, errors: &impl ErrorSink) -> ChatFile<'a> {
     let (tokens, source) = super::lex_to_tokens_and_source(input, 0);
     file::parse_file_with_errors(tokens, source, errors)
 }

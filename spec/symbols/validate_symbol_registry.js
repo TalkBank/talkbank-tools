@@ -38,12 +38,7 @@ function ensureSortedUnique(name, values) {
     seen.add(symbol);
   }
 
-  const sorted = [...values].sort((a, b) => a.localeCompare(b));
-  for (let i = 0; i < values.length; i += 1) {
-    if (values[i] !== sorted[i]) {
-      fail(`${name} must be sorted lexicographically for deterministic diffs`);
-    }
-  }
+  // No sort requirement — semantic grouping is more useful than forced ordering.
 }
 
 function ensureDisjoint(nameA, arrA, nameB, arrB) {

@@ -10,9 +10,7 @@ use crate::error::{
     ErrorCode, ErrorCollector, ErrorContext, ErrorVec, ParseError, Severity, SourceLocation,
 };
 use crate::model::{Bullet, Postcode, Terminator};
-use crate::node_types::{
-    BULLET, FINAL_CODES, NEWLINE, POSTCODE, SPACE, TERMINATOR, WHITESPACES,
-};
+use crate::node_types::{BULLET, FINAL_CODES, NEWLINE, POSTCODE, SPACE, TERMINATOR, WHITESPACES};
 use talkbank_model::Span;
 use tree_sitter::Node;
 

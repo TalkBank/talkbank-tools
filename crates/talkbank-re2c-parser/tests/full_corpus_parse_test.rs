@@ -122,10 +122,9 @@ fn full_corpus_parse_equivalence() {
             let ts_file = ts.parse_chat_file_streaming(&content, &ts_errors);
 
             let re2c_errors = ErrorCollector::new();
-            let re2c_result =
-                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    re2c.parse_chat_file(&content, 0, &re2c_errors)
-                }));
+            let re2c_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                re2c.parse_chat_file(&content, 0, &re2c_errors)
+            }));
 
             match re2c_result {
                 Ok(ParseOutcome::Parsed(re2c_file)) => {
@@ -140,9 +139,7 @@ fn full_corpus_parse_equivalence() {
                     let message = panic_info
                         .downcast_ref::<String>()
                         .cloned()
-                        .or_else(|| {
-                            panic_info.downcast_ref::<&str>().map(|s| s.to_string())
-                        })
+                        .or_else(|| panic_info.downcast_ref::<&str>().map(|s| s.to_string()))
                         .unwrap_or_else(|| "unknown panic".to_string());
                     Some(DivergenceKind::Re2cPanic { message })
                 }

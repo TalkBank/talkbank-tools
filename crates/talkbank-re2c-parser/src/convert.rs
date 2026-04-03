@@ -19,7 +19,6 @@ use talkbank_model::model::WordCompoundMarker;
 // Helpers
 // ═══════════════════════════════════════════════════════════════
 
-
 // ═══════════════════════════════════════════════════════════════
 // Word token → WordContent
 // ═══════════════════════════════════════════════════════════════
@@ -213,10 +212,7 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
         }
         ast::ContentItem::Event(toks) => {
             // The lexer emits a single Event token with the description text.
-            let event_text = toks
-                .first()
-                .map(|t| t.text())
-                .unwrap_or("");
+            let event_text = toks.first().map(|t| t.text()).unwrap_or("");
             UtteranceContent::Event(Event::new(event_text))
         }
         ast::ContentItem::AnnotatedEvent { event, annotations } => {
@@ -227,8 +223,7 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
                 UtteranceContent::Event(event_model)
             } else {
                 UtteranceContent::AnnotatedEvent(
-                    Annotated::new(event_model)
-                        .with_scoped_annotations(scoped),
+                    Annotated::new(event_model).with_scoped_annotations(scoped),
                 )
             }
         }
@@ -517,10 +512,7 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
             Some(BracketedItem::Pause(Pause::new(duration)))
         }
         ast::ContentItem::Event(toks) => {
-            let event_text = toks
-                .first()
-                .map(|t| t.text())
-                .unwrap_or("");
+            let event_text = toks.first().map(|t| t.text()).unwrap_or("");
             Some(BracketedItem::Event(Event::new(event_text)))
         }
         ast::ContentItem::AnnotatedEvent { event, annotations } => {
@@ -531,8 +523,7 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
                 Some(BracketedItem::Event(event_model))
             } else {
                 Some(BracketedItem::AnnotatedEvent(
-                    Annotated::new(event_model)
-                        .with_scoped_annotations(scoped),
+                    Annotated::new(event_model).with_scoped_annotations(scoped),
                 ))
             }
         }
@@ -1039,8 +1030,10 @@ impl<'a> From<&ast::ChatFile<'a>> for talkbank_model::model::ChatFile {
         // against the participants map.
         //
         // First pass: collect @Participants entries by speaker code (for name/role).
-        let mut declared: indexmap::IndexMap<SpeakerCode, (Option<ParticipantName>, ParticipantRole)> =
-            indexmap::IndexMap::new();
+        let mut declared: indexmap::IndexMap<
+            SpeakerCode,
+            (Option<ParticipantName>, ParticipantRole),
+        > = indexmap::IndexMap::new();
         for line in &lines {
             if let talkbank_model::model::Line::Header { header, .. } = line
                 && let Header::Participants { entries } = header.as_ref()
@@ -1685,10 +1678,7 @@ pub fn wor_tier_from_input(input: &str) -> WorTier {
     use talkbank_model::model::dependent_tier::wor::WorItem;
 
     // %wor uses same word rules as main tier. Parse words via chumsky.
-    let tokens = crate::parser::lex_to_tokens(
-        input,
-        crate::lexer::COND_MAIN_CONTENT,
-    );
+    let tokens = crate::parser::lex_to_tokens(input, crate::lexer::COND_MAIN_CONTENT);
     let contents = crate::parser::main_tier::contents_parser()
         .parse(tokens)
         .into_result()

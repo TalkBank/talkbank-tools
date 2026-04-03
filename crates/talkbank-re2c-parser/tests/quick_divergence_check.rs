@@ -10,8 +10,7 @@ use talkbank_parser::TreeSitterParser;
 fn check_sample_divergences() {
     let base = format!(
         "{}/data",
-        env!("CARGO_MANIFEST_DIR")
-            .replace("/talkbank-tools/crates/talkbank-re2c-parser", "")
+        env!("CARGO_MANIFEST_DIR").replace("/talkbank-tools/crates/talkbank-re2c-parser", "")
     );
 
     let files = [

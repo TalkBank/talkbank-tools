@@ -256,7 +256,10 @@ fn error_parity_audit() {
                     eprintln!("  {label}:");
                     eprintln!("    TS:   {:?}", ts_codes);
                     eprintln!("    Re2c: {:?}", re2c_codes);
-                    eprintln!("    Input (first 100): {:?}", &case.input[..case.input.len().min(100)]);
+                    eprintln!(
+                        "    Input (first 100): {:?}",
+                        &case.input[..case.input.len().min(100)]
+                    );
                 }
             }
         }
@@ -322,4 +325,3 @@ fn re2c_never_panics_on_invalid_input() {
 
     eprintln!("Recovery test: {tested} invalid inputs parsed without panic");
 }
-
