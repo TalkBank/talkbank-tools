@@ -6,6 +6,7 @@ Auto-generated from corpus
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E253
 - **Category**: validation
@@ -15,8 +16,14 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E253_empty_word_content.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E253
+**Trigger**: Utterance with only whitespace before terminator — triggers E305 instead
+**Expected Error Codes**: E305
+
+Note: The example produces E305 (MissingTerminator / empty utterance detected
+at the main tier level) rather than E253 (EmptyWordContent, a word-level
+validation). E253 fires when a parsed Word object has empty content, which
+requires the parser to produce a word node with no text — a condition that
+does not arise from this input.
 
 ```chat
 @UTF8

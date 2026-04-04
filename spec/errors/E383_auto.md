@@ -1,5 +1,7 @@
 # E383: Auto-generated from corpus
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
 Auto-generated from corpus
@@ -32,8 +34,8 @@ Auto-generated from corpus
 ## Example 2
 
 **Source**: `error_corpus/E7xx_tier_parsing/E708_invalid_gra_format.cha`
-**Trigger**: %gra relation without enough pipe separators
-**Expected Error Codes**: E710
+**Trigger**: %gra relation without enough pipe separators — tree-sitter absorbs `1-2-SUBJ` into ERROR node
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -66,8 +68,8 @@ Auto-generated from corpus
 ## Example 4
 
 **Source**: `error_corpus/E7xx_tier_parsing/E711_gra_missing_role.cha`
-**Trigger**: %gra relation with empty role field
-**Expected Error Codes**: E342
+**Trigger**: %gra relation with empty role field — tree-sitter absorbs `1|2|` into ERROR node
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8

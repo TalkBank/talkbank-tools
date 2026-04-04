@@ -3,1185 +3,1561 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "dan",
+    "tur"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "dan",
           "tur"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "LAR",
             "name": null,
-            "role": "Teacher"
+            "role": "Teacher",
+            "speaker_code": "LAR"
           },
           {
-            "speaker_code": "STU",
             "name": null,
-            "role": "Student"
+            "role": "Student",
+            "speaker_code": "STU"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "dan"
         ],
-        "corpus": "Koge",
-        "speaker": "LAR",
-        "role": "Teacher"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "dan"
-        ],
-        "corpus": "Koge",
-        "speaker": "STU",
-        "role": "Student"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Danish teacher-student interview in school setting"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: Danish language coverage, Latin script"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "LAR",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "så",
-              "cleaned_text": "så",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "så"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "kan",
-              "cleaned_text": "kan",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "kan"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "vi",
-              "cleaned_text": "vi",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "vi"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "sidde",
-              "cleaned_text": "sidde",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "sidde"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "her",
-              "cleaned_text": "her",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "her"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "og",
-              "cleaned_text": "og",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "og"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "snakke",
-              "cleaned_text": "snakke",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "snakke"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "lidt",
-              "cleaned_text": "lidt",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "lidt"
-                }
-              ]
-            },
-            {
-              "type": "pause",
-              "duration": {
-                "type": "short"
-              }
-            },
-            {
-              "type": "word",
-              "raw_text": "se",
-              "cleaned_text": "se",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "se"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "det",
-              "cleaned_text": "det",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "det"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "er",
-              "cleaned_text": "er",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "er"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "Buster",
-              "cleaned_text": "Buster",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Buster"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "han",
-              "cleaned_text": "han",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "han"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "er",
-              "cleaned_text": "er",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "er"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "i",
-              "cleaned_text": "i",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "i"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "skole",
-              "cleaned_text": "skole",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "skole"
-                }
-              ]
-            },
-            {
-              "type": "pause",
-              "duration": {
-                "type": "short"
-              }
-            },
-            {
-              "type": "word",
-              "raw_text": "men",
-              "cleaned_text": "men",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "men"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "nu",
-              "cleaned_text": "nu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nu"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "har",
-              "cleaned_text": "har",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "har"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "vi",
-              "cleaned_text": "vi",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "vi"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "jo",
-              "cleaned_text": "jo",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jo"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ikke",
-              "cleaned_text": "ikke",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ikke"
-                }
-              ]
-            },
-            {
-              "type": "retrace",
-              "content": {
-                "content": [
-                  {
-                    "type": "word",
-                    "raw_text": "øh",
-                    "cleaned_text": "øh",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "øh"
-                      }
-                    ]
-                  }
-                ]
-              },
-              "kind": "full"
-            },
-            {
-              "type": "word",
-              "raw_text": "men",
-              "cleaned_text": "men",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "men"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "nu",
-              "cleaned_text": "nu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nu"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "har",
-              "cleaned_text": "har",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "har"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "vi",
-              "cleaned_text": "vi",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "vi"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ikke",
-              "cleaned_text": "ikke",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ikke"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "haft",
-              "cleaned_text": "haft",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "haft"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "båndoptageren",
-              "cleaned_text": "båndoptageren",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "båndoptageren"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "tændt",
-              "cleaned_text": "tændt",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "tændt"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "mens",
-              "cleaned_text": "mens",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mens"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "vi",
-              "cleaned_text": "vi",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "vi"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "så",
-              "cleaned_text": "så",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "så"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "filmen",
-              "cleaned_text": "filmen",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "filmen"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "Koge",
+        "language": [
+          "dan"
+        ],
+        "role": "Teacher",
+        "speaker": "LAR",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "Koge",
+        "language": [
+          "dan"
+        ],
+        "role": "Student",
+        "speaker": "STU",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Danish teacher-student interview in school setting",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: Danish language coverage, Latin script",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "så"
+                  "lemma": "så",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "kunne",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "kunne",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "vi",
                   "features": [
                     "Prs",
                     "Nom",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "vi",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
+                  "features": [
+                    "Inf",
+                    "S"
+                  ],
                   "lemma": "sidde",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "her",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "og",
+                  "pos": "cconj"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "her"
-                }
-              },
-              {
-                "main": {
-                  "pos": "cconj",
-                  "lemma": "og"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "snakke",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "lidt",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "lidt"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "se",
-                  "features": [
-                    "Inf",
-                    "S"
-                  ]
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "det",
                   "features": [
                     "Prs",
                     "Acc",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "det",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "være",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "være",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "Buster",
                   "features": [
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "Buster",
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "han",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "han",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Pres",
+                    "S"
+                  ],
                   "lemma": "være",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "i",
+                  "pos": "adp"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "skole",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "men",
+                  "pos": "cconj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "nu",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adp",
-                  "lemma": "i"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "skole"
-                }
-              },
-              {
-                "main": {
-                  "pos": "cconj",
-                  "lemma": "men"
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "nu"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "have",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "S"
-                  ]
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "vi",
                   "features": [
                     "Prs",
                     "Nom",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "vi",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "jo"
+                  "lemma": "jo",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "ikke"
+                  "lemma": "ikke",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "men"
+                  "lemma": "men",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "nu"
+                  "lemma": "nu",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "have",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "have",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "vi",
                   "features": [
                     "Prs",
                     "Nom",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "vi",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "ikke"
+                  "lemma": "ikke",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "have",
                   "features": [
                     "Part",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "have",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
+                  "features": [
+                    "Acc"
+                  ],
                   "lemma": "båndoptager",
-                  "features": [
-                    "Acc"
-                  ]
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "tænde",
                   "features": [
                     "Part",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "tænde",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "mens"
+                  "lemma": "mens",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "vi",
                   "features": [
                     "Prs",
                     "Nom",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "vi",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "se",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "se",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "film",
                   "features": [
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "film",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 4,
+                "index": 1,
                 "relation": "ADVMOD"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "AUX"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "NSUBJ"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "index": 5,
                 "head": 4,
+                "index": 5,
                 "relation": "ADVMOD-LMOD"
               },
               {
-                "index": 6,
                 "head": 7,
+                "index": 6,
                 "relation": "CC"
               },
               {
-                "index": 7,
                 "head": 4,
+                "index": 7,
                 "relation": "CONJ"
               },
               {
-                "index": 8,
                 "head": 7,
+                "index": 8,
                 "relation": "ADVMOD"
               },
               {
-                "index": 9,
                 "head": 7,
+                "index": 9,
                 "relation": "XCOMP"
               },
               {
-                "index": 10,
                 "head": 7,
+                "index": 10,
                 "relation": "OBJ"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "COP"
               },
               {
-                "index": 12,
                 "head": 9,
+                "index": 12,
                 "relation": "OBJ"
               },
               {
-                "index": 13,
                 "head": 14,
+                "index": 13,
                 "relation": "NSUBJ"
               },
               {
-                "index": 14,
                 "head": 12,
+                "index": 14,
                 "relation": "ACL-RELCL"
               },
               {
-                "index": 15,
                 "head": 16,
+                "index": 15,
                 "relation": "CASE"
               },
               {
-                "index": 16,
                 "head": 14,
+                "index": 16,
                 "relation": "OBL"
               },
               {
-                "index": 17,
                 "head": 19,
+                "index": 17,
                 "relation": "CC"
               },
               {
-                "index": 18,
                 "head": 19,
+                "index": 18,
                 "relation": "ADVMOD"
               },
               {
-                "index": 19,
                 "head": 4,
+                "index": 19,
                 "relation": "CONJ"
               },
               {
-                "index": 20,
                 "head": 19,
+                "index": 20,
                 "relation": "NSUBJ"
               },
               {
+                "head": 19,
                 "index": 21,
-                "head": 19,
                 "relation": "ADVMOD"
               },
               {
+                "head": 19,
                 "index": 22,
-                "head": 19,
                 "relation": "ADVMOD"
               },
               {
-                "index": 23,
                 "head": 28,
+                "index": 23,
                 "relation": "CC"
               },
               {
-                "index": 24,
                 "head": 28,
+                "index": 24,
                 "relation": "ADVMOD"
               },
               {
-                "index": 25,
                 "head": 28,
+                "index": 25,
                 "relation": "AUX"
               },
               {
-                "index": 26,
                 "head": 28,
+                "index": 26,
                 "relation": "NSUBJ"
               },
               {
-                "index": 27,
                 "head": 28,
+                "index": 27,
                 "relation": "ADVMOD"
               },
               {
-                "index": 28,
                 "head": 19,
+                "index": 28,
                 "relation": "CONJ"
               },
               {
-                "index": 29,
                 "head": 28,
+                "index": 29,
                 "relation": "OBJ"
               },
               {
-                "index": 30,
                 "head": 28,
+                "index": 30,
                 "relation": "XCOMP"
               },
               {
-                "index": 31,
                 "head": 33,
+                "index": 31,
                 "relation": "MARK"
               },
               {
-                "index": 32,
                 "head": 33,
+                "index": 32,
                 "relation": "NSUBJ"
               },
               {
-                "index": 33,
                 "head": 30,
+                "index": 33,
                 "relation": "ADVCL"
               },
               {
-                "index": 34,
                 "head": 33,
+                "index": 34,
                 "relation": "OBJ"
               },
               {
-                "index": 35,
                 "head": 4,
+                "index": 35,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "STU",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "ja",
-              "cleaned_text": "ja",
+              "cleaned_text": "så",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ja"
+                  "content": "så",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "så",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "kan",
+              "content": [
+                {
+                  "content": "kan",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "kan",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vi",
+              "content": [
+                {
+                  "content": "vi",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vi",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "sidde",
+              "content": [
+                {
+                  "content": "sidde",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "sidde",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "her",
+              "content": [
+                {
+                  "content": "her",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "her",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "og",
+              "content": [
+                {
+                  "content": "og",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "og",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "snakke",
+              "content": [
+                {
+                  "content": "snakke",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "snakke",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "lidt",
+              "content": [
+                {
+                  "content": "lidt",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "lidt",
+              "type": "word"
+            },
+            {
+              "duration": {
+                "type": "short"
+              },
+              "type": "pause"
+            },
+            {
+              "cleaned_text": "se",
+              "content": [
+                {
+                  "content": "se",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "se",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "det",
+              "content": [
+                {
+                  "content": "det",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "det",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "er",
+              "content": [
+                {
+                  "content": "er",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "er",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "Buster",
+              "content": [
+                {
+                  "content": "Buster",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Buster",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "han",
+              "content": [
+                {
+                  "content": "han",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "han",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "er",
+              "content": [
+                {
+                  "content": "er",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "er",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "i",
+              "content": [
+                {
+                  "content": "i",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "i",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "skole",
+              "content": [
+                {
+                  "content": "skole",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "skole",
+              "type": "word"
+            },
+            {
+              "duration": {
+                "type": "short"
+              },
+              "type": "pause"
+            },
+            {
+              "cleaned_text": "men",
+              "content": [
+                {
+                  "content": "men",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "men",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "nu",
+              "content": [
+                {
+                  "content": "nu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "har",
+              "content": [
+                {
+                  "content": "har",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "har",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vi",
+              "content": [
+                {
+                  "content": "vi",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vi",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "jo",
+              "content": [
+                {
+                  "content": "jo",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jo",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ikke",
+              "content": [
+                {
+                  "content": "ikke",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ikke",
+              "type": "word"
+            },
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "øh",
+                    "content": [
+                      {
+                        "content": "øh",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "øh",
+                    "type": "word"
+                  }
+                ]
+              },
+              "kind": "full",
+              "type": "retrace"
+            },
+            {
+              "cleaned_text": "men",
+              "content": [
+                {
+                  "content": "men",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "men",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "nu",
+              "content": [
+                {
+                  "content": "nu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "har",
+              "content": [
+                {
+                  "content": "har",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "har",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vi",
+              "content": [
+                {
+                  "content": "vi",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vi",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ikke",
+              "content": [
+                {
+                  "content": "ikke",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ikke",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "haft",
+              "content": [
+                {
+                  "content": "haft",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "haft",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "båndoptageren",
+              "content": [
+                {
+                  "content": "båndoptageren",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "båndoptageren",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "tændt",
+              "content": [
+                {
+                  "content": "tændt",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "tændt",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "mens",
+              "content": [
+                {
+                  "content": "mens",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "mens",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vi",
+              "content": [
+                {
+                  "content": "vi",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vi",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "så",
+              "content": [
+                {
+                  "content": "så",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "så",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "filmen",
+              "content": [
+                {
+                  "content": "filmen",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "filmen",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "LAR"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "intj",
-                  "lemma": "ja"
+                  "lemma": "ja",
+                  "pos": "intj"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "LAR",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "nej",
+              "cleaned_text": "ja",
+              "content": [
+                {
+                  "content": "ja",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ja",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "STU"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "lemma": "nej",
+                  "pos": "intj"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "være",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Acc",
+                    "S3"
+                  ],
+                  "lemma": "det",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Def",
+                    "Ind",
+                    "Sing"
+                  ],
+                  "lemma": "en",
+                  "pos": "det"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "S1"
+                  ],
+                  "lemma": "god",
+                  "pos": "adj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "film",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Int,Rel",
+                    "S1"
+                  ],
+                  "lemma": "hvad",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Pres",
+                    "S"
+                  ],
+                  "lemma": "kunne",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S2"
+                  ],
+                  "lemma": "du",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Inf",
+                    "S"
+                  ],
+                  "lemma": "huske",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Int,Rel",
+                    "S1"
+                  ],
+                  "lemma": "hvad",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Acc"
+                  ],
+                  "lemma": "dreng",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S3"
+                  ],
+                  "lemma": "han",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "hedde",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Int,Rel",
+                    "S1"
+                  ],
+                  "lemma": "hvad",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "hedde",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "dreng",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "i",
+                  "pos": "adp"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "film",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Pres",
+                    "S"
+                  ],
+                  "lemma": "kunne",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S2"
+                  ],
+                  "lemma": "du",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "ikke",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Inf",
+                    "S"
+                  ],
+                  "lemma": "huske",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Acc",
+                    "S3"
+                  ],
+                  "lemma": "det",
+                  "pos": "pron"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 0,
+                "index": 1,
+                "relation": "ROOT"
+              },
+              {
+                "head": 6,
+                "index": 2,
+                "relation": "COP"
+              },
+              {
+                "head": 6,
+                "index": 3,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 6,
+                "index": 4,
+                "relation": "DET"
+              },
+              {
+                "head": 6,
+                "index": 5,
+                "relation": "AMOD"
+              },
+              {
+                "head": 1,
+                "index": 6,
+                "relation": "DEP"
+              },
+              {
+                "head": 10,
+                "index": 7,
+                "relation": "OBJ"
+              },
+              {
+                "head": 10,
+                "index": 8,
+                "relation": "AUX"
+              },
+              {
+                "head": 10,
+                "index": 9,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 6,
+                "index": 10,
+                "relation": "ACL-RELCL"
+              },
+              {
+                "head": 14,
+                "index": 11,
+                "relation": "OBJ"
+              },
+              {
+                "head": 14,
+                "index": 12,
+                "relation": "OBJ"
+              },
+              {
+                "head": 14,
+                "index": 13,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 10,
+                "index": 14,
+                "relation": "OBJ"
+              },
+              {
+                "head": 16,
+                "index": 15,
+                "relation": "OBJ"
+              },
+              {
+                "head": 14,
+                "index": 16,
+                "relation": "CCOMP"
+              },
+              {
+                "head": 16,
+                "index": 17,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 19,
+                "index": 18,
+                "relation": "CASE"
+              },
+              {
+                "head": 17,
+                "index": 19,
+                "relation": "NMOD"
+              },
+              {
+                "head": 23,
+                "index": 20,
+                "relation": "AUX"
+              },
+              {
+                "head": 23,
+                "index": 21,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 23,
+                "index": 22,
+                "relation": "ADVMOD"
+              },
+              {
+                "head": 16,
+                "index": 23,
+                "relation": "XCOMP"
+              },
+              {
+                "head": 23,
+                "index": 24,
+                "relation": "OBJ"
+              },
+              {
+                "head": 1,
+                "index": 25,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
               "cleaned_text": "nej",
               "content": [
                 {
-                  "type": "text",
-                  "content": "nej"
+                  "content": "nej",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "nej",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "var",
               "cleaned_text": "var",
               "content": [
                 {
-                  "type": "text",
-                  "content": "var"
+                  "content": "var",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "var",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "det",
               "cleaned_text": "det",
               "content": [
                 {
-                  "type": "text",
-                  "content": "det"
+                  "content": "det",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "det",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "en",
               "cleaned_text": "en",
               "content": [
                 {
-                  "type": "text",
-                  "content": "en"
+                  "content": "en",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "en",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "god",
               "cleaned_text": "god",
               "content": [
                 {
-                  "type": "text",
-                  "content": "god"
+                  "content": "god",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "god",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "film",
               "cleaned_text": "film",
               "content": [
                 {
-                  "type": "text",
-                  "content": "film"
+                  "content": "film",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "film",
+              "type": "word"
             },
             {
-              "type": "pause",
               "duration": {
                 "type": "short"
-              }
+              },
+              "type": "pause"
             },
             {
-              "type": "word",
-              "raw_text": "hvad",
               "cleaned_text": "hvad",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hvad"
+                  "content": "hvad",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hvad",
+              "type": "word"
             },
             {
-              "type": "annotated_group",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "kan",
                     "cleaned_text": "kan",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "kan"
+                        "content": "kan",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "kan",
+                    "type": "word"
                   },
                   {
-                    "type": "word",
-                    "raw_text": "du",
                     "cleaned_text": "du",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "du"
+                        "content": "du",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "du",
+                    "type": "word"
                   }
                 ]
               },
@@ -1189,973 +1565,597 @@ expression: snapshot
                 {
                   "type": "overlap_end"
                 }
-              ]
+              ],
+              "type": "annotated_group"
             },
             {
-              "type": "word",
-              "raw_text": "huske",
               "cleaned_text": "huske",
               "content": [
                 {
-                  "type": "text",
-                  "content": "huske"
+                  "content": "huske",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "huske",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hvad",
               "cleaned_text": "hvad",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hvad"
+                  "content": "hvad",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hvad",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "drengen",
               "cleaned_text": "drengen",
               "content": [
                 {
-                  "type": "text",
-                  "content": "drengen"
+                  "content": "drengen",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "drengen",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "han",
               "cleaned_text": "han",
               "content": [
                 {
-                  "type": "text",
-                  "content": "han"
+                  "content": "han",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "han",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hed",
               "cleaned_text": "hed",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hed"
+                  "content": "hed",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hed",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hvad",
               "cleaned_text": "hvad",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hvad"
+                  "content": "hvad",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hvad",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hed",
               "cleaned_text": "hed",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hed"
+                  "content": "hed",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hed",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "drengen",
               "cleaned_text": "drengen",
               "content": [
                 {
-                  "type": "text",
-                  "content": "drengen"
+                  "content": "drengen",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "drengen",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "i",
               "cleaned_text": "i",
               "content": [
                 {
-                  "type": "text",
-                  "content": "i"
+                  "content": "i",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "i",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "filmen",
               "cleaned_text": "filmen",
               "content": [
                 {
-                  "type": "text",
-                  "content": "filmen"
+                  "content": "filmen",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "filmen",
+              "type": "word"
             },
             {
-              "type": "pause",
               "duration": {
                 "type": "short"
-              }
+              },
+              "type": "pause"
             },
             {
-              "type": "word",
-              "raw_text": "kan",
               "cleaned_text": "kan",
               "content": [
                 {
-                  "type": "text",
-                  "content": "kan"
+                  "content": "kan",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "kan",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "du",
               "cleaned_text": "du",
               "content": [
                 {
-                  "type": "text",
-                  "content": "du"
+                  "content": "du",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "du",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ikke",
               "cleaned_text": "ikke",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ikke"
+                  "content": "ikke",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "ikke",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "huske",
               "cleaned_text": "huske",
               "content": [
                 {
-                  "type": "text",
-                  "content": "huske"
+                  "content": "huske",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "huske",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "det",
               "cleaned_text": "det",
               "content": [
                 {
-                  "type": "text",
-                  "content": "det"
+                  "content": "det",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "det",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "intj",
-                  "lemma": "nej"
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "være",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "det",
-                  "features": [
-                    "Prs",
-                    "Acc",
-                    "S3"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "det",
-                  "lemma": "en",
-                  "features": [
-                    "Def",
-                    "Ind",
-                    "Sing"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "god",
-                  "features": [
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "film"
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "hvad",
-                  "features": [
-                    "Int,Rel",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "kunne",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "du",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S2"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "huske",
-                  "features": [
-                    "Inf",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "hvad",
-                  "features": [
-                    "Int,Rel",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "dreng",
-                  "features": [
-                    "Acc"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "han",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S3"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "hedde",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "hvad",
-                  "features": [
-                    "Int,Rel",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "hedde",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "dreng"
-                }
-              },
-              {
-                "main": {
-                  "pos": "adp",
-                  "lemma": "i"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "film"
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "kunne",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "du",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S2"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "ikke"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "huske",
-                  "features": [
-                    "Inf",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "det",
-                  "features": [
-                    "Prs",
-                    "Acc",
-                    "S3"
-                  ]
-                }
-              }
-            ],
-            "terminator": "."
-          }
         },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 2,
-                "head": 6,
-                "relation": "COP"
-              },
-              {
-                "index": 3,
-                "head": 6,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 4,
-                "head": 6,
-                "relation": "DET"
-              },
-              {
-                "index": 5,
-                "head": 6,
-                "relation": "AMOD"
-              },
-              {
-                "index": 6,
-                "head": 1,
-                "relation": "DEP"
-              },
-              {
-                "index": 7,
-                "head": 10,
-                "relation": "OBJ"
-              },
-              {
-                "index": 8,
-                "head": 10,
-                "relation": "AUX"
-              },
-              {
-                "index": 9,
-                "head": 10,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 10,
-                "head": 6,
-                "relation": "ACL-RELCL"
-              },
-              {
-                "index": 11,
-                "head": 14,
-                "relation": "OBJ"
-              },
-              {
-                "index": 12,
-                "head": 14,
-                "relation": "OBJ"
-              },
-              {
-                "index": 13,
-                "head": 14,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 14,
-                "head": 10,
-                "relation": "OBJ"
-              },
-              {
-                "index": 15,
-                "head": 16,
-                "relation": "OBJ"
-              },
-              {
-                "index": 16,
-                "head": 14,
-                "relation": "CCOMP"
-              },
-              {
-                "index": 17,
-                "head": 16,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 18,
-                "head": 19,
-                "relation": "CASE"
-              },
-              {
-                "index": 19,
-                "head": 17,
-                "relation": "NMOD"
-              },
-              {
-                "index": 20,
-                "head": 23,
-                "relation": "AUX"
-              },
-              {
-                "index": 21,
-                "head": 23,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 22,
-                "head": 23,
-                "relation": "ADVMOD"
-              },
-              {
-                "index": 23,
-                "head": 16,
-                "relation": "XCOMP"
-              },
-              {
-                "index": 24,
-                "head": 23,
-                "relation": "OBJ"
-              },
-              {
-                "index": 25,
-                "head": 1,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
+        "speaker": "LAR"
+      }
     },
     {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "STU",
-        "content": {
-          "content": [
-            {
-              "type": "annotated_group",
-              "content": {
-                "content": [
-                  {
-                    "type": "word",
-                    "raw_text": "ja",
-                    "cleaned_text": "ja",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "ja"
-                      }
-                    ]
-                  }
-                ]
-              },
-              "scoped_annotations": [
-                {
-                  "type": "overlap_begin"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "mm",
-              "cleaned_text": "mm",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mm"
-                }
-              ]
-            },
-            {
-              "type": "annotated_group",
-              "content": {
-                "content": [
-                  {
-                    "type": "word",
-                    "raw_text": "Buster",
-                    "cleaned_text": "Buster",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "Buster"
-                      }
-                    ]
-                  }
-                ]
-              },
-              "scoped_annotations": [
-                {
-                  "type": "overlap_begin"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "intj",
-                  "lemma": "ja"
+                  "lemma": "ja",
+                  "pos": "intj"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "millimeter",
                   "features": [
                     "Plur"
-                  ]
+                  ],
+                  "lemma": "millimeter",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "Buster"
+                  "lemma": "Buster",
+                  "pos": "propn"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "LIST"
               },
               {
-                "index": 3,
                 "head": 2,
+                "index": 3,
                 "relation": "NMOD"
               },
               {
-                "index": 4,
                 "head": 1,
+                "index": 4,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "LAR",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "jeg",
-              "cleaned_text": "jeg",
-              "content": [
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "ja",
+                    "content": [
+                      {
+                        "content": "ja",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "ja",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
                 {
-                  "type": "text",
-                  "content": "jeg"
+                  "type": "overlap_begin"
                 }
-              ]
+              ],
+              "type": "annotated_group"
             },
             {
-              "type": "word",
-              "raw_text": "kan",
-              "cleaned_text": "kan",
+              "cleaned_text": "mm",
               "content": [
                 {
-                  "type": "text",
-                  "content": "kan"
+                  "content": "mm",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "mm",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ikke",
-              "cleaned_text": "ikke",
-              "content": [
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "Buster",
+                    "content": [
+                      {
+                        "content": "Buster",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "Buster",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
                 {
-                  "type": "text",
-                  "content": "ikke"
+                  "type": "overlap_begin"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "høre",
-              "cleaned_text": "høre",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "høre"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "hvad",
-              "cleaned_text": "hvad",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "hvad"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "du",
-              "cleaned_text": "du",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "du"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "siger",
-              "cleaned_text": "siger",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "siger"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "næsten",
-              "cleaned_text": "næsten",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "næsten"
-                }
-              ]
+              ],
+              "type": "annotated_group"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "STU"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "jeg",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "jeg",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "kunne",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "kunne",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "ikke"
+                  "lemma": "ikke",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "høre",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "høre",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "hvad",
                   "features": [
                     "Int,Rel",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "hvad",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "du",
                   "features": [
                     "Prs",
                     "Nom",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "du",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "sige",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "sige",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "næsten"
+                  "lemma": "næsten",
+                  "pos": "adv"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 4,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "AUX"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "ADVMOD"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "index": 5,
                 "head": 7,
+                "index": 5,
                 "relation": "OBJ"
               },
               {
-                "index": 6,
                 "head": 7,
+                "index": 6,
                 "relation": "NSUBJ"
               },
               {
-                "index": 7,
                 "head": 4,
+                "index": 7,
                 "relation": "OBJ"
               },
               {
-                "index": 8,
                 "head": 7,
+                "index": 8,
                 "relation": "ADVMOD"
               },
               {
-                "index": 9,
                 "head": 4,
+                "index": 9,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "jeg",
+              "content": [
+                {
+                  "content": "jeg",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jeg",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "kan",
+              "content": [
+                {
+                  "content": "kan",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "kan",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ikke",
+              "content": [
+                {
+                  "content": "ikke",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ikke",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "høre",
+              "content": [
+                {
+                  "content": "høre",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "høre",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "hvad",
+              "content": [
+                {
+                  "content": "hvad",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "hvad",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "du",
+              "content": [
+                {
+                  "content": "du",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "du",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "siger",
+              "content": [
+                {
+                  "content": "siger",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "siger",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "næsten",
+              "content": [
+                {
+                  "content": "næsten",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "næsten",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "LAR"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "LAR": {
+      "birth_date": null,
       "code": "LAR",
-      "name": null,
-      "role": "Teacher",
       "id": {
+        "corpus": "Koge",
         "language": [
           "dan"
         ],
-        "corpus": "Koge",
-        "speaker": "LAR",
-        "role": "Teacher"
+        "role": "Teacher",
+        "speaker": "LAR"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Teacher"
     },
     "STU": {
+      "birth_date": null,
       "code": "STU",
-      "name": null,
-      "role": "Student",
       "id": {
+        "corpus": "Koge",
         "language": [
           "dan"
         ],
-        "corpus": "Koge",
-        "speaker": "STU",
-        "role": "Student"
+        "role": "Student",
+        "speaker": "STU"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Student"
     }
-  },
-  "languages": [
-    "dan",
-    "tur"
-  ],
-  "options": []
+  }
 }

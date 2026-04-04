@@ -1,8 +1,10 @@
 # E346: Unmatched scoped annotation end
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
-Unmatched scoped annotation end
+Unmatched scoped annotation end marker (`>` without matching `<`). This is a cross-utterance validator (`check_quoted_linker`) that is currently DISABLED (`enable_quotation_validation: false`).
 
 ## Metadata
 - **Status**: not_implemented
@@ -15,8 +17,8 @@ Unmatched scoped annotation end
 ## Example 1
 
 **Source**: `error_corpus/parse_errors/E346_unmatched_scoped_end.cha`
-**Trigger**: Closing \> without matching \<
-**Expected Error Codes**: E346
+**Trigger**: Closing `>` without matching `<` — tree-sitter absorbs into ERROR node
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -41,4 +43,5 @@ See CHAT manual sections on main tier syntax and utterance structure. Every utte
 ## Notes
 
 - Auto-generated from error corpus
+- This error code is emitted during cross-utterance quotation validation (`quoted_linker.rs`) which is currently disabled (`enable_quotation_validation: false`). The spec example uses an unmatched `>` which tree-sitter cannot parse, producing E316 instead. Even with a parseable example, the validator is disabled and would not fire.
 - Review and enhance this specification as needed

@@ -5,7 +5,8 @@
 Missing form type after @
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E202
 - **Category**: Parser error
@@ -16,7 +17,7 @@ Missing form type after @
 
 **Source**: `E2xx_word_errors/E202_empty_word.cha`
 **Trigger**: @ symbol with no form type marker
-**Expected Error Codes**: E316
+**Expected Error Codes**: E202
 
 ```chat
 @UTF8

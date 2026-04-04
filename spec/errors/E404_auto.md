@@ -1,8 +1,15 @@
-# E404: Auto-generated from corpus
+# E404: Orphaned dependent tier
+
+**Last updated:** 2026-04-04 08:28 EDT
 
 ## Description
 
-Auto-generated from corpus
+A dependent tier (`%mor`, `%gra`, etc.) appears before any main tier in the
+file. E404 (OrphanedDependentTier) is emitted by
+`report_top_level_dependent_tier_error()` in `helpers.rs` when a `%`-prefixed
+ERROR node appears before any utterance. However, a `%mor:` line immediately
+after headers causes the tree-sitter grammar to catastrophically fail,
+producing header validation errors instead of E404.
 
 ## Metadata
 - **Status**: not_implemented
@@ -15,8 +22,17 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E404_orphaned_dependent_tier.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E404
+**Trigger**: `%mor:` tier appears before any `*SPK:` main tier. The
+tree-sitter grammar's error recovery breaks down: the orphaned dependent tier
+causes the parser to fail to recognize ALL preceding headers, producing
+cascading header validation errors.
+**Expected Error Codes**: E501, E502, E503, E504, E505
+
+Note: E404 IS emitted in the parser for orphaned dependent tiers, but only
+when the tree-sitter grammar successfully parses the file structure around the
+orphaned tier (producing an ERROR node that starts with `%`). In this example,
+the orphaned `%mor:` right after headers causes a catastrophic parse failure
+where no headers are recognized at all, so E501-E505 fire instead.
 
 ```chat
 @UTF8
@@ -42,5 +58,8 @@ See CHAT manual sections on dependent tier syntax (%mor, %gra, etc.). The CHAT m
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E404 IS emitted in real-world parsing (when the grammar's error recovery
+  handles the orphaned tier as an ERROR node), but the specific example here
+  causes tree-sitter to fail too severely for E404 to fire.
+- The cascading failure from a `%mor:` immediately after headers causes the
+  parser to miss all headers, producing E501-E505 instead.

@@ -3,346 +3,346 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "eng"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "eng"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother"
+            "role": "Mother",
+            "speaker_code": "MOT"
           }
-        ]
-      }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "corpus",
-        "speaker": "CHI",
         "age": "2;06",
-        "sex": "male",
-        "group": "TD",
-        "ses": "UC",
-        "role": "Child",
+        "corpus": "corpus",
+        "custom_field": "custom field",
         "education": "graduate",
-        "custom_field": "custom field"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
+        "group": "TD",
         "language": [
           "eng"
         ],
+        "role": "Child",
+        "ses": "UC",
+        "sex": "male",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
         "corpus": "corpus",
-        "speaker": "MOT",
-        "sex": "female",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
         "ses": "White,MC",
-        "role": "Mother"
-      }
+        "sex": "female",
+        "speaker": "MOT",
+        "type": "id"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "time_start",
-        "start": "8:30:31"
-      }
+        "start": "8:30:31",
+        "type": "time_start"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "time_duration",
-        "duration": "17:30-18:00"
-      }
+        "duration": "17:30-18:00",
+        "type": "time_duration"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "types",
-        "design": "long",
         "activity": "toyplay",
-        "group": "TD"
-      }
+        "design": "long",
+        "group": "TD",
+        "type": "types"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "options",
         "options": [
           "CA",
           "dummy"
-        ]
-      }
+        ],
+        "type": "options"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Time, type, and option headers"
+              "text": "Time, type, and option headers",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Constructs: time_start_header, time_duration_header, time_duration_contents,"
+              "text": "Constructs: time_start_header, time_duration_header, time_duration_contents,",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "types_header, types_design, types_activity, types_group,"
+              "text": "types_header, types_design, types_activity, types_group,",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "options_header, options_contents, option_name,"
+              "text": "options_header, options_contents, option_name,",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "id_corpus, id_age, id_sex, id_group, id_ses, id_education, id_custom_field"
+              "text": "id_corpus, id_age, id_sex, id_group, id_ses, id_education, id_custom_field",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "look",
               "cleaned_text": "look",
               "content": [
                 {
-                  "type": "text",
-                  "content": "look"
+                  "content": "look",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "look",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "at",
               "cleaned_text": "at",
               "content": [
                 {
-                  "type": "text",
-                  "content": "at"
+                  "content": "at",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "at",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "doggy",
               "cleaned_text": "doggy",
               "content": [
                 {
-                  "type": "text",
-                  "content": "doggy"
+                  "content": "doggy",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "doggy",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "CHI"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "yes",
               "cleaned_text": "yes",
               "content": [
                 {
-                  "type": "text",
-                  "content": "yes"
+                  "content": "yes",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "yes",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "he",
               "cleaned_text": "he",
               "content": [
                 {
-                  "type": "text",
-                  "content": "he"
+                  "content": "he",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "he",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "is",
               "cleaned_text": "is",
               "content": [
                 {
-                  "type": "text",
-                  "content": "is"
+                  "content": "is",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "is",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "type": "text",
-                  "content": "a"
+                  "content": "a",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "a",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "nice",
               "cleaned_text": "nice",
               "content": [
                 {
-                  "type": "text",
-                  "content": "nice"
+                  "content": "nice",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "nice",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "doggy",
               "cleaned_text": "doggy",
               "content": [
                 {
-                  "type": "text",
-                  "content": "doggy"
+                  "content": "doggy",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "doggy",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "MOT"
       }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
-    }
-  ],
-  "participants": {
-    "CHI": {
-      "code": "CHI",
-      "name": null,
-      "role": "Child",
-      "id": {
-        "language": [
-          "eng"
-        ],
-        "corpus": "corpus",
-        "speaker": "CHI",
-        "age": "2;06",
-        "sex": "male",
-        "group": "TD",
-        "ses": "UC",
-        "role": "Child",
-        "education": "graduate",
-        "custom_field": "custom field"
       },
-      "birth_date": null
-    },
-    "MOT": {
-      "code": "MOT",
-      "name": null,
-      "role": "Mother",
-      "id": {
-        "language": [
-          "eng"
-        ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "sex": "female",
-        "ses": "White,MC",
-        "role": "Mother"
-      },
-      "birth_date": null
+      "line_type": "header"
     }
-  },
-  "languages": [
-    "eng"
   ],
   "options": [
     "CA",
     "dummy"
-  ]
+  ],
+  "participants": {
+    "CHI": {
+      "birth_date": null,
+      "code": "CHI",
+      "id": {
+        "age": "2;06",
+        "corpus": "corpus",
+        "custom_field": "custom field",
+        "education": "graduate",
+        "group": "TD",
+        "language": [
+          "eng"
+        ],
+        "role": "Child",
+        "ses": "UC",
+        "sex": "male",
+        "speaker": "CHI"
+      },
+      "name": null,
+      "role": "Child"
+    },
+    "MOT": {
+      "birth_date": null,
+      "code": "MOT",
+      "id": {
+        "corpus": "corpus",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
+        "ses": "White,MC",
+        "sex": "female",
+        "speaker": "MOT"
+      },
+      "name": null,
+      "role": "Mother"
+    }
+  }
 }

@@ -6,6 +6,7 @@ Empty replacement
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E208
 - **Category**: validation
@@ -16,7 +17,13 @@ Empty replacement
 
 **Source**: `error_corpus/validation_errors/E208_empty_replacement.cha`
 **Trigger**: Replacement with empty target
-**Expected Error Codes**: E208
+**Expected Error Codes**: E376
+
+Note: The parser produces E376 (ReplacementParseError) for `[: ]` because
+tree-sitter's error recovery inserts a placeholder node for the missing word.
+E208 (EmptyReplacement) exists in model validation but requires the parser to
+successfully build a Replacement with zero words, which does not currently
+happen for this input.
 
 ```chat
 @UTF8

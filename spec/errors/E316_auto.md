@@ -6,6 +6,7 @@ Unparsable content
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E316
 - **Category**: Main tier validation
@@ -101,7 +102,11 @@ Unparsable content
 
 **Source**: `E5xx_header_errors/E501_duplicate_header.cha`
 **Trigger**: Two @Begin headers
-**Expected Error Codes**: E316
+**Expected Error Codes**: E501
+
+Note: The duplicate `@Begin` header is detected as E501 (DuplicateHeader)
+rather than E316 (UnparsableContent) because the parser has a specific check
+for duplicate headers.
 
 ```chat
 @UTF8

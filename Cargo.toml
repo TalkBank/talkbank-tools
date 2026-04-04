@@ -138,10 +138,12 @@ talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.2.
 talkbank-re2c-parser = { path = "crates/talkbank-re2c-parser", version = "0.2.0" }
 talkbank-transform = { path = "crates/talkbank-transform", version = "0.2.0" }
 
+phf = { version = "0.11", features = ["macros"] }
+phf_codegen = "0.11"
 tempfile = "3.27"
 text-size = "1.1"
 thiserror = "^2.0.18"
-tokio = { version = "1.50", features = ["full"] }
+tokio = { version = "1.51", features = ["full"] }
 toml = "^1.1.2"
 tower-lsp = "0.20"
 

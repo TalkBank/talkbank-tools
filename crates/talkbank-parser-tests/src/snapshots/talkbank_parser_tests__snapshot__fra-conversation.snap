@@ -3,767 +3,767 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "fra"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "fra"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child"
+            "role": "Target_Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "CHR",
             "name": null,
-            "role": "Investigator"
+            "role": "Investigator",
+            "speaker_code": "CHR"
           }
-        ]
-      }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "id",
-        "language": [
-          "fra"
-        ],
-        "corpus": "Champaud",
-        "speaker": "CHI",
         "age": "1;09.06",
-        "role": "Target_Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
+        "corpus": "Champaud",
         "language": [
           "fra"
         ],
+        "role": "Target_Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
         "corpus": "Champaud",
+        "language": [
+          "fra"
+        ],
+        "role": "Investigator",
         "speaker": "CHR",
-        "role": "Investigator"
-      }
+        "type": "id"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "French early child language acquisition data"
+              "text": "French early child language acquisition data",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Constructs: French language coverage, Latin script"
+              "text": "Constructs: French language coverage, Latin script",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "lemma": "merci",
+                  "pos": "intj"
+                }
+              }
+            ],
+            "terminator": "!",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 0,
+                "index": 1,
+                "relation": "ROOT"
+              },
+              {
+                "head": 1,
+                "index": 2,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "merci",
               "cleaned_text": "merci",
               "content": [
                 {
-                  "type": "text",
-                  "content": "merci"
+                  "content": "merci",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "merci",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "exclamation"
           }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "intj",
-                  "lemma": "merci"
-                }
-              }
-            ],
-            "terminator": "!"
-          }
         },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 2,
-                "head": 1,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "s'il",
-              "cleaned_text": "s'il",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "s'il"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "te",
-              "cleaned_text": "te",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "te"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "plaît",
-              "cleaned_text": "plaît",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "plaît"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "intj",
-                  "lemma": "sil"
+                  "lemma": "sil",
+                  "pos": "intj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "toi",
                   "features": [
                     "Prs",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "toi",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "plaire",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "plaire",
+                  "pos": "verb"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "DISCOURSE"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "OBJ"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 3,
+                "index": 4,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "la",
-              "cleaned_text": "la",
+              "cleaned_text": "s'il",
               "content": [
                 {
-                  "type": "text",
-                  "content": "la"
+                  "content": "s'il",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "s'il",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "soupe",
-              "cleaned_text": "soupe",
+              "cleaned_text": "te",
               "content": [
                 {
-                  "type": "text",
-                  "content": "soupe"
+                  "content": "te",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "te",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "manger",
-              "cleaned_text": "manger",
+              "cleaned_text": "plaît",
               "content": [
                 {
-                  "type": "text",
-                  "content": "manger"
+                  "content": "plaît",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "veut",
-              "cleaned_text": "veut",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "veut"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "pas",
-              "cleaned_text": "pas",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "pas"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "Grégoire",
-              "cleaned_text": "Grégoire",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Grégoire"
-                }
-              ]
+              ],
+              "raw_text": "plaît",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "le",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "le",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "soupe",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "soupe",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "manger",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "manger",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "vouloir",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "vouloir",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "pas"
+                  "lemma": "pas",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "Grégoire",
                   "features": [
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "Grégoire",
+                  "pos": "propn"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 2,
+                "index": 1,
                 "relation": "DET"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "NSUBJ"
               },
               {
-                "index": 3,
                 "head": 2,
+                "index": 3,
                 "relation": "ACL"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "index": 5,
                 "head": 4,
+                "index": 5,
                 "relation": "ADVMOD"
               },
               {
-                "index": 6,
                 "head": 4,
+                "index": 6,
                 "relation": "OBJ"
               },
               {
-                "index": 7,
                 "head": 4,
+                "index": 7,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "chaussures",
-              "cleaned_text": "chaussures",
+              "cleaned_text": "la",
               "content": [
                 {
-                  "type": "text",
-                  "content": "chaussures"
+                  "content": "la",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "la",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "Victor",
-              "cleaned_text": "Victor",
+              "cleaned_text": "soupe",
               "content": [
                 {
-                  "type": "text",
-                  "content": "Victor"
+                  "content": "soupe",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "soupe",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "manger",
+              "content": [
+                {
+                  "content": "manger",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "manger",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "veut",
+              "content": [
+                {
+                  "content": "veut",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "veut",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "pas",
+              "content": [
+                {
+                  "content": "pas",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "pas",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "Grégoire",
+              "content": [
+                {
+                  "content": "Grégoire",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Grégoire",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "chaussure",
                   "features": [
                     "Fem",
                     "Plur"
-                  ]
+                  ],
+                  "lemma": "chaussure",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "Victor"
+                  "lemma": "Victor",
+                  "pos": "propn"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "APPOS"
               },
               {
-                "index": 3,
                 "head": 1,
+                "index": 3,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHR",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "grégoire",
-              "cleaned_text": "grégoire",
+              "cleaned_text": "chaussures",
               "content": [
                 {
-                  "type": "text",
-                  "content": "grégoire"
+                  "content": "chaussures",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "chaussures",
+              "type": "word"
             },
             {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "ou",
-              "cleaned_text": "ou",
+              "cleaned_text": "Victor",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ou"
+                  "content": "Victor",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "est",
-              "cleaned_text": "est",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "est"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "le",
-              "cleaned_text": "le",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "le"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "jouet",
-              "cleaned_text": "jouet",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jouet"
-                }
-              ]
+              ],
+              "raw_text": "Victor",
+              "type": "word"
             }
           ],
           "terminator": {
-            "type": "question"
+            "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "grégoire",
                   "features": [
                     "Masc"
-                  ]
+                  ],
+                  "lemma": "grégoire",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "ou"
+                  "lemma": "ou",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "être",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "être",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "le",
                   "features": [
                     "Masc",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "le",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "jouet",
                   "features": [
                     "Masc"
-                  ]
+                  ],
+                  "lemma": "jouet",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "?"
-          }
+            "terminator": "?",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 6,
+                "index": 1,
                 "relation": "DISLOCATED"
               },
               {
-                "index": 2,
                 "head": 6,
+                "index": 2,
                 "relation": "PUNCT"
               },
               {
-                "index": 3,
                 "head": 6,
+                "index": 3,
                 "relation": "CC"
               },
               {
-                "index": 4,
                 "head": 6,
+                "index": 4,
                 "relation": "COP"
               },
               {
-                "index": 5,
                 "head": 6,
+                "index": 5,
                 "relation": "DET"
               },
               {
-                "index": 6,
                 "head": 0,
+                "index": 6,
                 "relation": "ROOT"
               },
               {
-                "index": 7,
                 "head": 6,
+                "index": 7,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "grégoire",
+              "content": [
+                {
+                  "content": "grégoire",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "grégoire",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "ou",
+              "content": [
+                {
+                  "content": "ou",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ou",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "est",
+              "content": [
+                {
+                  "content": "est",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "est",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "le",
+              "content": [
+                {
+                  "content": "le",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "le",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "jouet",
+              "content": [
+                {
+                  "content": "jouet",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jouet",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "question"
+          }
+        },
+        "speaker": "CHR"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": null,
-      "role": "Target_Child",
       "id": {
+        "age": "1;09.06",
+        "corpus": "Champaud",
         "language": [
           "fra"
         ],
-        "corpus": "Champaud",
-        "speaker": "CHI",
-        "age": "1;09.06",
-        "role": "Target_Child"
+        "role": "Target_Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Target_Child"
     },
     "CHR": {
+      "birth_date": null,
       "code": "CHR",
-      "name": null,
-      "role": "Investigator",
       "id": {
+        "corpus": "Champaud",
         "language": [
           "fra"
         ],
-        "corpus": "Champaud",
-        "speaker": "CHR",
-        "role": "Investigator"
+        "role": "Investigator",
+        "speaker": "CHR"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Investigator"
     }
-  },
-  "languages": [
-    "fra"
-  ],
-  "options": []
+  }
 }

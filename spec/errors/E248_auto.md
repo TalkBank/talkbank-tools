@@ -1,48 +1,66 @@
-# E248: Auto-generated from corpus
+# E248 — Bare `@s` shortcut in tertiary language context
+
+**Status:** Current
+**Last updated:** 2026-04-04 07:36 EDT
 
 ## Description
 
-Auto-generated from corpus
+The bare `@s` shortcut toggles between the first two languages declared in
+`@Languages`. When an utterance is scoped to a **tertiary** language (position
+3 or later in the `@Languages` list) via `[- code]`, bare `@s` is ambiguous —
+it could mean either the primary or secondary language. The speaker must use an
+explicit code (`@s:eng`, `@s:spa`, etc.) instead.
 
 ## Metadata
-- **Status**: not_implemented
-- **Layer**: validation
 
 - **Error Code**: E248
 - **Category**: validation
 - **Level**: word
 - **Layer**: validation
+- **Status**: implemented
 
 ## Example 1
 
-**Source**: `error_corpus/validation_errors/E248_tertiary_without_code.cha`
-**Trigger**: See example below
+A file declares three languages. The utterance is scoped to the third language
+(`zho`) via `[- zho]`. Using bare `@s` is ambiguous — does it mean `eng` or
+`spa`?
+
 **Expected Error Codes**: E248
 
 ```chat
 @UTF8
 @Begin
-@Languages:	eng
+@Languages:	eng, spa, zho
 @Participants:	CHI Target_Child
 @ID:	eng|corpus|CHI|||||Target_Child|||
-@Languages:	eng, spa
-@Comment:	ERROR: Tertiary language (@t) requires explicit code
-@Comment:	Invalid: 'hello@t' - Must specify language code
-*CHI:	hello@t .
+*CHI:	[- zho] ni3hao3@s .
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse this CHAT file, but validation should report the error.
-
-**Trigger**: See example above
+The parser should successfully parse this CHAT file. Validation should report
+E248 on the word `ni3hao3@s` because the `@s` shortcut cannot resolve when the
+utterance language (`zho`) is tertiary. The fix is to use an explicit language
+code: `ni3hao3@s:eng` or `ni3hao3@s:spa`.
 
 ## CHAT Rule
 
-See CHAT manual sections on word-level syntax and special markers. The CHAT manual is available at: https://talkbank.org/0info/manuals/CHAT.pdf
+The `@s` shortcut is defined in the CHAT manual:
+<https://talkbank.org/0info/manuals/CHAT.html#SecondLanguage_Marker_Single>
+
+The `[- code]` utterance-scoped language marker is documented at:
+<https://talkbank.org/0info/manuals/CHAT.html#Language_Switching>
+
+> The `@s` marker without an explicit language code toggles between the first
+> and second language listed in `@Languages`. When more than two languages are
+> declared, any word in a tertiary-scoped utterance must use `@s:LANGCODE`
+> explicitly.
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- Three or more languages are common in bilingualism corpora (e.g., a child
+  exposed to English, Spanish, and a heritage language).
+- The error message suggests using `@s:eng` as a concrete fix example.
+- Resolution falls back to the tier language so downstream validation can
+  continue, but the error is always emitted.

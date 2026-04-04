@@ -1,5 +1,7 @@
 # E724: GRA has circular dependency
 
+**Last updated:** 2026-04-04 08:28 EDT
+
 ## Description
 
 A %gra tier contains a circular dependency where following parent pointers creates a cycle. This violates the fundamental requirement that dependency structures must form a tree.
@@ -32,13 +34,10 @@ A %gra tier contains a circular dependency where following parent pointers creat
 ```
 
 **Analysis:**
-```
-Word 1 → 2 (DISCOURSE)
-Word 2 → 1 (ADVMOD)
-Word 3 → 1 (PUNCT)
-
-Cycle: 1 → 2 → 1
-```
+Word 1 → 2 (DISCOURSE),
+Word 2 → 1 (ADVMOD),
+Word 3 → 1 (PUNCT).
+Cycle: 1 → 2 → 1.
 
 ## Example 2: Complex Multi-Node Cycle
 
@@ -59,14 +58,11 @@ Cycle: 1 → 2 → 1
 ```
 
 **Analysis:**
-```
-Word 1 → 3 (FLAT)
-Word 2 → 3 (PUNCT)
-Word 3 → 1 (APPOS)  ← Points back to word 1!
-Word 4 → 1 (PUNCT)
-
-Cycle: 1 → 3 → 1
-```
+Word 1 → 3 (FLAT),
+Word 2 → 3 (PUNCT),
+Word 3 → 1 (APPOS) -- points back to word 1,
+Word 4 → 1 (PUNCT).
+Cycle: 1 → 3 → 1.
 
 ## Example 3: ROOT with Non-Self Head (Python Bug Pattern)
 
@@ -87,14 +83,11 @@ Cycle: 1 → 3 → 1
 ```
 
 **Analysis:**
-```
-Word 1 → 2 (NSUBJ)
-Word 2 → 3 (ROOT)  ← ROOT shouldn't point to another word!
-Word 3 → 2 (OBJ)   ← Points back to word 2!
-Word 4 → 2 (PUNCT)
-
-Cycle: 2 → 3 → 2
-```
+Word 1 → 2 (NSUBJ),
+Word 2 → 3 (ROOT) -- ROOT shouldn't point to another word,
+Word 3 → 2 (OBJ) -- points back to word 2,
+Word 4 → 2 (PUNCT).
+Cycle: 2 → 3 → 2.
 
 ## Detection Algorithm
 

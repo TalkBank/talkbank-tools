@@ -6,6 +6,7 @@ Missing required element
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E342
 - **Category**: Word validation
@@ -16,7 +17,12 @@ Missing required element
 
 **Source**: `E2xx_word_errors/E211_replacement_missing_corrected.cha`
 **Trigger**: Replacement containing 0 (omission marker)
-**Expected Error Codes**: E316
+**Expected Error Codes**: E390
+
+Note: The replacement `[: 0]` contains an omission marker (`0`), which
+triggers E390 (ReplacementContainsOmission) rather than E316 (UnparsableContent)
+or E342 (MissingRequiredElement). The parser successfully parses the replacement
+and then validates its content.
 
 ```chat
 @UTF8

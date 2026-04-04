@@ -1,44 +1,51 @@
-# E701: Auto-generated from corpus
+# E701 — Per-speaker start-time not monotonically increasing
+
+**Status:** Current
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-Auto-generated from corpus
+Each utterance's first media bullet must have a start time greater than or
+equal to the previous utterance's first bullet start time (for the same
+speaker). Corresponds to CLAN CHECK Error 83.
 
 ## Metadata
-- **Status**: not_implemented
-- **Layer**: validation
 
 - **Error Code**: E701
-- **Category**: Dependent tier parsing
-- **Level**: tier
+- **Category**: Temporal validation
+- **Level**: utterance
 - **Layer**: validation
+- **Status**: implemented
 
 ## Example 1
 
-**Source**: `E7xx_tier_parsing/E701_empty_mor_chunk.cha`
-**Trigger**: %mor tier with empty chunk (consecutive spaces)
+**Trigger**: Same speaker's second utterance starts before the first
 **Expected Error Codes**: E701
 
 ```chat
 @UTF8
 @Begin
 @Languages:	eng
-@Participants:	CHI Child
-@ID:	eng|corpus|CHI|||||Child|||
-*CHI:	hello world .
-%mor:	v|hello  n|world .
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+*CHI:	hello . 5000_6000
+*CHI:	world . 3000_4000
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+Validation should report E701 on the second `*CHI:` utterance because its
+bullet start time (3000ms) is less than the first utterance's start time
+(5000ms). The timestamps must be monotonically increasing per speaker.
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+<https://talkbank.org/0info/manuals/CHAT.html#Bullets>
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- Skipped in CA mode (`@Options: CA`) where timing constraints are relaxed.
+- Implementation: `crates/talkbank-model/src/validation/temporal.rs`
+- E704 (same-speaker overlap with 500ms tolerance) may also fire for the same
+  input when overlap exceeds the tolerance threshold.

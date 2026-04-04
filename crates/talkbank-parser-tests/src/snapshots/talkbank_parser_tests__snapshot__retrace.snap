@@ -1,1099 +1,1098 @@
 ---
 source: crates/talkbank-parser-tests/src/snapshot.rs
-assertion_line: 98
 expression: snapshot
 ---
 {
+  "languages": [
+    "eng"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "eng"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother"
+            "role": "Mother",
+            "speaker_code": "MOT"
           }
-        ]
-      }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "corpus",
-        "speaker": "CHI",
         "age": "3;0",
-        "role": "Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
+        "role": "Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
         "corpus": "corpus",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
         "speaker": "MOT",
-        "role": "Mother"
-      }
+        "type": "id"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Retrace annotations: partial [/], complete [//], multiple [///],"
+              "text": "Retrace annotations: partial [/], complete [//], multiple [///],",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "uncertain [/?], reformulation [/-]"
+              "text": "uncertain [/?], reformulation [/-]",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Constructs: retrace_partial, retrace_complete, retrace_multiple,"
+              "text": "Constructs: retrace_partial, retrace_complete, retrace_multiple,",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "retrace_uncertain, retrace_reformulation"
+              "text": "retrace_uncertain, retrace_reformulation",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "--- Single-word retraces (no angle brackets) ---"
+              "text": "--- Single-word retraces (no angle brackets) ---",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "I",
                     "cleaned_text": "I",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "I"
+                        "content": "I",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "I",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "partial"
+              "kind": "partial",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "I",
               "cleaned_text": "I",
               "content": [
                 {
-                  "type": "text",
-                  "content": "I"
+                  "content": "I",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "I",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "want",
               "cleaned_text": "want",
               "content": [
                 {
-                  "type": "text",
-                  "content": "want"
+                  "content": "want",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "want",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "that",
               "cleaned_text": "that",
               "content": [
                 {
-                  "type": "text",
-                  "content": "that"
+                  "content": "that",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "that",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "CHI"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "dog",
                     "cleaned_text": "dog",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "dog"
+                        "content": "dog",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "dog",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "full"
+              "kind": "full",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "cat",
               "cleaned_text": "cat",
               "content": [
                 {
-                  "type": "text",
-                  "content": "cat"
+                  "content": "cat",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "cat",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ran",
               "cleaned_text": "ran",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ran"
+                  "content": "ran",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "ran",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "MOT"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "I",
               "cleaned_text": "I",
               "content": [
                 {
-                  "type": "text",
-                  "content": "I"
+                  "content": "I",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "I",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "want",
               "cleaned_text": "want",
               "content": [
                 {
-                  "type": "text",
-                  "content": "want"
+                  "content": "want",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "want",
+              "type": "word"
             },
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "the",
                     "cleaned_text": "the",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "the"
+                        "content": "the",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "the",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "multiple"
+              "kind": "multiple",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "give",
               "cleaned_text": "give",
               "content": [
                 {
-                  "type": "text",
-                  "content": "give"
+                  "content": "give",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "give",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "me",
               "cleaned_text": "me",
               "content": [
                 {
-                  "type": "text",
-                  "content": "me"
+                  "content": "me",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "me",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "that",
               "cleaned_text": "that",
               "content": [
                 {
-                  "type": "text",
-                  "content": "that"
+                  "content": "that",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "that",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "CHI"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "is",
               "cleaned_text": "is",
               "content": [
                 {
-                  "type": "text",
-                  "content": "is"
+                  "content": "is",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "is",
+              "type": "word"
             },
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "that",
                     "cleaned_text": "that",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "that"
+                        "content": "that",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "that",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "uncertain"
+              "kind": "uncertain",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "a",
               "cleaned_text": "a",
               "content": [
                 {
-                  "type": "text",
-                  "content": "a"
+                  "content": "a",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "a",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "toy",
               "cleaned_text": "toy",
               "content": [
                 {
-                  "type": "text",
-                  "content": "toy"
+                  "content": "toy",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "toy",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "question"
           }
-        }
+        },
+        "speaker": "MOT"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "ana",
                     "cleaned_text": "ana",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "ana"
+                        "content": "ana",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "ana",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "full"
+              "kind": "full",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "an",
               "cleaned_text": "an",
               "content": [
                 {
-                  "type": "text",
-                  "content": "an"
+                  "content": "an",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "an",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "CHI"
       }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "book",
                     "cleaned_text": "book",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "book"
+                        "content": "book",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "book",
+                    "type": "word"
                   }
                 ]
               },
-              "kind": "reformulation"
+              "kind": "reformulation",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "magazine",
               "cleaned_text": "magazine",
               "content": [
                 {
-                  "type": "text",
-                  "content": "magazine"
+                  "content": "magazine",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "magazine",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "is",
               "cleaned_text": "is",
               "content": [
                 {
-                  "type": "text",
-                  "content": "is"
+                  "content": "is",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "is",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "here",
               "cleaned_text": "here",
               "content": [
                 {
-                  "type": "text",
-                  "content": "here"
+                  "content": "here",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "here",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "MOT"
       }
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "--- Single-word retraces WITH replacement [: ] ---"
+              "text": "--- Single-word retraces WITH replacement [: ] ---",
+              "type": "text"
             }
           ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "These are the critical case: word [: replacement] [* error] [//] correction"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "The retrace must wrap the replaced word; the replacement must NOT"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "be counted for %mor alignment."
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "retrace",
-              "content": {
-                "content": [
-                  {
-                    "type": "replaced_word",
-                    "word": {
-                      "raw_text": "tika@u",
-                      "cleaned_text": "tika",
-                      "content": [
-                        {
-                          "type": "text",
-                          "content": "tika"
-                        }
-                      ],
-                      "form_type": "u"
-                    },
-                    "replacement": {
-                      "words": [
-                        {
-                          "raw_text": "kitty",
-                          "cleaned_text": "kitty",
-                          "content": [
-                            {
-                              "type": "text",
-                              "content": "kitty"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    "scoped_annotations": [
-                      {
-                        "type": "error",
-                        "code": "p:n"
-                      }
-                    ]
-                  }
-                ]
-              },
-              "kind": "full"
-            },
-            {
-              "type": "word",
-              "raw_text": "kitty",
-              "cleaned_text": "kitty",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "kitty"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "is",
-              "cleaned_text": "is",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "is"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "nice",
-              "cleaned_text": "nice",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nice"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        },
+        "type": "comment"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "These are the critical case: word [: replacement] [* error] [//] correction",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "The retrace must wrap the replaced word; the replacement must NOT",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "be counted for %mor alignment.",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "kitty"
+                  "lemma": "kitty",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "be",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "be",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "adj",
-                  "lemma": "nice",
                   "features": [
                     "S1"
-                  ]
+                  ],
+                  "lemma": "nice",
+                  "pos": "adj"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "COP"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 3,
+                "index": 4,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "replaced_word",
-                    "word": {
-                      "raw_text": "lɛɾɪ@u",
-                      "cleaned_text": "lɛɾɪ",
-                      "content": [
-                        {
-                          "type": "text",
-                          "content": "lɛɾɪ"
-                        }
-                      ],
-                      "form_type": "u"
-                    },
                     "replacement": {
                       "words": [
                         {
-                          "raw_text": "later",
-                          "cleaned_text": "later",
+                          "cleaned_text": "kitty",
                           "content": [
                             {
-                              "type": "text",
-                              "content": "later"
+                              "content": "kitty",
+                              "type": "text"
                             }
-                          ]
+                          ],
+                          "raw_text": "kitty"
                         }
                       ]
                     },
                     "scoped_annotations": [
                       {
-                        "type": "error",
-                        "code": "p:n"
+                        "code": "p:n",
+                        "type": "error"
                       }
-                    ]
+                    ],
+                    "type": "replaced_word",
+                    "word": {
+                      "cleaned_text": "tika",
+                      "content": [
+                        {
+                          "content": "tika",
+                          "type": "text"
+                        }
+                      ],
+                      "form_type": "u",
+                      "raw_text": "tika@u"
+                    }
                   }
                 ]
               },
-              "kind": "full"
+              "kind": "full",
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "later",
-              "cleaned_text": "later",
+              "cleaned_text": "kitty",
               "content": [
                 {
-                  "type": "text",
-                  "content": "later"
+                  "content": "kitty",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "kitty",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "in",
-              "cleaned_text": "in",
+              "cleaned_text": "is",
               "content": [
                 {
-                  "type": "text",
-                  "content": "in"
+                  "content": "is",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "is",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "the",
-              "cleaned_text": "the",
+              "cleaned_text": "nice",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "nice",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "day",
-              "cleaned_text": "day",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "day"
-                }
-              ]
+              ],
+              "raw_text": "nice",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "late"
+                  "lemma": "late",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "in"
+                  "lemma": "in",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "the",
                   "features": [
                     "Def",
                     "Art"
-                  ]
+                  ],
+                  "lemma": "the",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "day"
+                  "lemma": "day",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 4,
+                "index": 1,
                 "relation": "ADVMOD"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "CASE"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "DET"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "index": 5,
                 "head": 4,
+                "index": 5,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "replaced_word",
-                    "word": {
-                      "raw_text": "male",
-                      "cleaned_text": "male",
-                      "content": [
-                        {
-                          "type": "text",
-                          "content": "male"
-                        }
-                      ]
-                    },
                     "replacement": {
                       "words": [
                         {
-                          "raw_text": "female",
-                          "cleaned_text": "female",
+                          "cleaned_text": "later",
                           "content": [
                             {
-                              "type": "text",
-                              "content": "female"
+                              "content": "later",
+                              "type": "text"
                             }
-                          ]
+                          ],
+                          "raw_text": "later"
                         }
                       ]
                     },
                     "scoped_annotations": [
                       {
-                        "type": "error",
-                        "code": "s:r"
+                        "code": "p:n",
+                        "type": "error"
                       }
-                    ]
+                    ],
+                    "type": "replaced_word",
+                    "word": {
+                      "cleaned_text": "lɛɾɪ",
+                      "content": [
+                        {
+                          "content": "lɛɾɪ",
+                          "type": "text"
+                        }
+                      ],
+                      "form_type": "u",
+                      "raw_text": "lɛɾɪ@u"
+                    }
                   }
                 ]
               },
-              "kind": "partial"
+              "kind": "full",
+              "type": "retrace"
             },
             {
-              "type": "replaced_word",
-              "word": {
-                "raw_text": "male",
-                "cleaned_text": "male",
+              "cleaned_text": "later",
+              "content": [
+                {
+                  "content": "later",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "later",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "in",
+              "content": [
+                {
+                  "content": "in",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "in",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "content": "the",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "the",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "day",
+              "content": [
+                {
+                  "content": "day",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "day",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "MOT"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "features": [
+                    "S1"
+                  ],
+                  "lemma": "female",
+                  "pos": "adj"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 0,
+                "index": 1,
+                "relation": "ROOT"
+              },
+              {
+                "head": 1,
+                "index": 2,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "content": {
                 "content": [
                   {
-                    "type": "text",
-                    "content": "male"
+                    "replacement": {
+                      "words": [
+                        {
+                          "cleaned_text": "female",
+                          "content": [
+                            {
+                              "content": "female",
+                              "type": "text"
+                            }
+                          ],
+                          "raw_text": "female"
+                        }
+                      ]
+                    },
+                    "scoped_annotations": [
+                      {
+                        "code": "s:r",
+                        "type": "error"
+                      }
+                    ],
+                    "type": "replaced_word",
+                    "word": {
+                      "cleaned_text": "male",
+                      "content": [
+                        {
+                          "content": "male",
+                          "type": "text"
+                        }
+                      ],
+                      "raw_text": "male"
+                    }
                   }
                 ]
               },
+              "kind": "partial",
+              "type": "retrace"
+            },
+            {
               "replacement": {
                 "words": [
                   {
-                    "raw_text": "female",
                     "cleaned_text": "female",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "female"
+                        "content": "female",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "female"
                   }
                 ]
               },
               "scoped_annotations": [
                 {
-                  "type": "error",
-                  "code": "s:r"
+                  "code": "s:r",
+                  "type": "error"
                 }
-              ]
+              ],
+              "type": "replaced_word",
+              "word": {
+                "cleaned_text": "male",
+                "content": [
+                  {
+                    "content": "male",
+                    "type": "text"
+                  }
+                ],
+                "raw_text": "male"
+              }
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "female",
-                  "features": [
-                    "S1"
-                  ]
-                }
-              }
-            ],
-            "terminator": "."
-          }
         },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 2,
-                "head": 1,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": null,
-      "role": "Child",
       "id": {
+        "age": "3;0",
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "corpus": "corpus",
-        "speaker": "CHI",
-        "age": "3;0",
-        "role": "Child"
+        "role": "Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Child"
     },
     "MOT": {
+      "birth_date": null,
       "code": "MOT",
-      "name": null,
-      "role": "Mother",
       "id": {
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "role": "Mother"
+        "role": "Mother",
+        "speaker": "MOT"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Mother"
     }
-  },
-  "languages": [
-    "eng"
-  ],
-  "options": []
+  }
 }

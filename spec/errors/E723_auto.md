@@ -1,21 +1,23 @@
 # E723: GRA has multiple ROOTs
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
-GRA has multiple ROOTs
+`%gra` tier has multiple ROOT relations. Every `%gra` tier should have exactly one ROOT (relation with `head=0` or `head=self`).
 
 ## Metadata
 
 - **Error Code**: E723
 - **Category**: validation
 - **Level**: tier
-- **Layer**: parser
+- **Layer**: validation
 - **Status**: not_implemented
 
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E723_gra_multiple_roots.cha`
-**Trigger**: Multiple relations with head=0 (ROOT)
+**Trigger**: Multiple relations with head=self (ROOT), excluding terminator PUNCT
 **Expected Error Codes**: E723
 
 ```chat
@@ -24,15 +26,15 @@ GRA has multiple ROOTs
 @Languages:	eng
 @Participants:	CHI Target_Child
 @ID:	eng|corpus|CHI|||||Target_Child|||
-*CHI:	I want .
-%mor:	pro|I v|want .
-%gra:	1|0|ROOT 2|0|ROOT .
+*CHI:	I want cookie .
+%mor:	pro|I v|want n|cookie .
+%gra:	1|1|ROOT 2|2|ROOT 3|1|PUNCT
 @End
 ```
 
 ## Expected Behavior
 
-The parser should reject this CHAT input and report a parse error at the location of the invalid syntax.
+The validator should report E723 (warning) because the `%gra` tier has 2 ROOT relations (indices 1 and 2 both have `head=self`).
 
 **Trigger**: See example above
 
@@ -42,5 +44,6 @@ See CHAT manual sections on dependent tier formats (%mor, %gra, %pho, etc.). Eac
 
 ## Notes
 
-- Auto-generated from error corpus
+- The previous example had a trailing ` .` on the `%gra` tier and only 2 words. `%gra` tiers do not have terminators. Also, the validation excludes the last item (terminator PUNCT) from root counting, so a 3-word example is needed to trigger E723 with 2 non-terminator roots.
+- E723 is emitted as a Warning (not Error) since 2026-02-14 due to non-conforming corpus data.
 - Review and enhance this specification as needed

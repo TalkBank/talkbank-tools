@@ -3,171 +3,106 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "fra"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "fra"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother"
+            "role": "Mother",
+            "speaker_code": "MOT"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "fra"
         ],
-        "corpus": "corpus",
-        "speaker": "CHI",
-        "age": "2;6",
-        "role": "Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "fra"
-        ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "role": "Mother"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Phonological tier with pho group delimiters and complex groupings"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: pho_groups with grouping brackets"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "A",
-              "cleaned_text": "A",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "A"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "B",
-              "cleaned_text": "B",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "B"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "C",
-              "cleaned_text": "C",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "C"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "D",
-              "cleaned_text": "D",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "D"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "E",
-              "cleaned_text": "E",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "E"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "age": "2;6",
+        "corpus": "corpus",
+        "language": [
+          "fra"
+        ],
+        "role": "Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "corpus",
+        "language": [
+          "fra"
+        ],
+        "role": "Mother",
+        "speaker": "MOT",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Phonological tier with pho group delimiters and complex groupings",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: pho_groups with grouping brackets",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Pho",
           "data": {
-            "tier_type": "Pho",
             "items": [
               [
                 "a",
@@ -180,51 +115,116 @@ expression: snapshot
               ],
               "f",
               "g"
-            ]
-          }
+            ],
+            "tier_type": "Pho"
+          },
+          "type": "Pho"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "A",
+              "content": [
+                {
+                  "content": "A",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "A",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "B",
+              "content": [
+                {
+                  "content": "B",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "B",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "C",
+              "content": [
+                {
+                  "content": "C",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "C",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "D",
+              "content": [
+                {
+                  "content": "D",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "D",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "E",
+              "content": [
+                {
+                  "content": "E",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "E",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": null,
-      "role": "Child",
       "id": {
+        "age": "2;6",
+        "corpus": "corpus",
         "language": [
           "fra"
         ],
-        "corpus": "corpus",
-        "speaker": "CHI",
-        "age": "2;6",
-        "role": "Child"
+        "role": "Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Child"
     },
     "MOT": {
+      "birth_date": null,
       "code": "MOT",
-      "name": null,
-      "role": "Mother",
       "id": {
+        "corpus": "corpus",
         "language": [
           "fra"
         ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "role": "Mother"
+        "role": "Mother",
+        "speaker": "MOT"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Mother"
     }
-  },
-  "languages": [
-    "fra"
-  ],
-  "options": []
+  }
 }

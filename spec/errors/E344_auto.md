@@ -1,8 +1,10 @@
 # E344: Invalid scoped annotation nesting
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
-Invalid scoped annotation nesting
+Invalid nesting of scoped annotations (quotation precedes pattern). This is a cross-utterance validator (`check_quotation_precedes`) that is currently DISABLED (`enable_quotation_validation: false`).
 
 ## Metadata
 - **Status**: not_implemented
@@ -15,8 +17,8 @@ Invalid scoped annotation nesting
 ## Example 1
 
 **Source**: `error_corpus/parse_errors/E344_invalid_scoped_nesting.cha`
-**Trigger**: Overlapping scoped annotations of same type
-**Expected Error Codes**: E344
+**Trigger**: Overlapping scoped annotations — tree-sitter absorbs nested angle brackets into ERROR node
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -41,4 +43,5 @@ See CHAT manual sections on main tier syntax and utterance structure. Every utte
 ## Notes
 
 - Auto-generated from error corpus
+- This error code is emitted during cross-utterance quotation validation (`quotation_precedes.rs`) which is currently disabled (`enable_quotation_validation: false`). The spec example uses nested angle brackets which tree-sitter cannot parse, producing E316 instead. Even with a parseable example, the validator is disabled and would not fire.
 - Review and enhance this specification as needed

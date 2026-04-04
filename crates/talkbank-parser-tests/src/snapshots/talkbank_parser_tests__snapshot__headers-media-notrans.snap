@@ -3,153 +3,153 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
-  "lines": [
-    {
-      "line_type": "header",
-      "header": {
-        "type": "utf8"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "begin"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "languages",
-        "codes": [
-          "eng"
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "participants",
-        "entries": [
-          {
-            "speaker_code": "MOT",
-            "name": null,
-            "role": "Mother"
-          },
-          {
-            "speaker_code": "CHI",
-            "name": null,
-            "role": "Target_Child"
-          }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "sample",
-        "speaker": "MOT",
-        "role": "Mother"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "sample",
-        "speaker": "CHI",
-        "age": "1;10.04",
-        "role": "Target_Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "media",
-        "filename": "headers-media-notrans",
-        "media_type": "video",
-        "status": "notrans"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Media header with notrans (not yet transcribed) status"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: notrans_value — file has no utterances, media awaits transcription"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "end"
-      }
-    }
-  ],
-  "participants": {
-    "MOT": {
-      "code": "MOT",
-      "name": null,
-      "role": "Mother",
-      "id": {
-        "language": [
-          "eng"
-        ],
-        "corpus": "sample",
-        "speaker": "MOT",
-        "role": "Mother"
-      },
-      "birth_date": null
-    },
-    "CHI": {
-      "code": "CHI",
-      "name": null,
-      "role": "Target_Child",
-      "id": {
-        "language": [
-          "eng"
-        ],
-        "corpus": "sample",
-        "speaker": "CHI",
-        "age": "1;10.04",
-        "role": "Target_Child"
-      },
-      "birth_date": null
-    }
-  },
   "languages": [
     "eng"
   ],
-  "options": [],
+  "lines": [
+    {
+      "header": {
+        "type": "utf8"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "type": "begin"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "codes": [
+          "eng"
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "entries": [
+          {
+            "name": null,
+            "role": "Mother",
+            "speaker_code": "MOT"
+          },
+          {
+            "name": null,
+            "role": "Target_Child",
+            "speaker_code": "CHI"
+          }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "sample",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
+        "speaker": "MOT",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "age": "1;10.04",
+        "corpus": "sample",
+        "language": [
+          "eng"
+        ],
+        "role": "Target_Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "filename": "headers-media-notrans",
+        "media_type": "video",
+        "status": "notrans",
+        "type": "media"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Media header with notrans (not yet transcribed) status",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: notrans_value — file has no utterances, media awaits transcription",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "type": "end"
+      },
+      "line_type": "header"
+    }
+  ],
   "media": {
     "filename": "headers-media-notrans",
     "media_type": "video",
     "status": "notrans"
+  },
+  "options": [],
+  "participants": {
+    "CHI": {
+      "birth_date": null,
+      "code": "CHI",
+      "id": {
+        "age": "1;10.04",
+        "corpus": "sample",
+        "language": [
+          "eng"
+        ],
+        "role": "Target_Child",
+        "speaker": "CHI"
+      },
+      "name": null,
+      "role": "Target_Child"
+    },
+    "MOT": {
+      "birth_date": null,
+      "code": "MOT",
+      "id": {
+        "corpus": "sample",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
+        "speaker": "MOT"
+      },
+      "name": null,
+      "role": "Mother"
+    }
   }
 }

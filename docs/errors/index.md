@@ -20,19 +20,19 @@ Test-only sentinel error code. Used exclusively in the test suite toverify error
 
 ## validation (E0x)
 
-Auto-generated from corpus
+The input string is empty. E003 (EmptyString) is the default error code forempty fields during model validation, but an empty filedoes not trigger E003 end-to-end. Instead, the parser produces headervalidation errors (missing @UTF8, @End, @Participants, etc.) and E316(unparsable content) because there are no headers to find.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E003](E003.md) | generated from corpus | error |
+| [E003](E003.md) | E003: Empty string input | error |
 
 ## validation (E1x)
 
-Auto-generated from corpus
+A line in the CHAT file does not match any valid line format (must start with, , , or be a continuation tab). E101 (InvalidLineFormat) is definedas an error code but is not currently emitted by the tree-sitter parser. Theparser produces header validation errors for the missing scaffolding and doesnot reach E101 detection.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E101](E101.md) | generated from corpus | error |
+| [E101](E101.md) | E101: Invalid line format | error |
 
 ## Parser error (E2x)
 
@@ -76,51 +76,51 @@ Empty replacement
 
 ## validation (E2x)
 
-Empty spoken content
+A word on the main tier consists entirely of shortening notation withno actual spoken material. In CHAT, means the sounds were omitted — itis not the same as the word being spoken. To mark an omitted word, use (zero-word) instead.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E209](E209.md) | E209: Empty spoken content | error |
+| [E209](E209.md) | E209 — Word has no spoken content | error |
 
 ## Word validation (E2x)
 
-Replacement not allowed for phonological fragment
+Deprecated. This error code was replaced by E387 ().The validation logic now emits E387 instead of E210 for the same condition.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E210](E210.md) | E210: Replacement not allowed for phonological fragment | error |
-
-## Parser error (E2x)
-
-Auto-generated from corpus
-
-| Code | Name | Severity |
-|------|------|----------|
-| [E212](E212.md) | generated from corpus | error |
+| [E210](E210.md) | E210: Deprecated — replaced by E387 | error |
 
 ## Word validation (E2x)
 
-Replacement word cannot be untranscribed
+A word on the main tier has an invalid format that does not match any recognizedCHAT word structure. The validator reports E212 for specific structuralviolations such as CA omissions used outside CA mode, CA omissions withoutspoken text, or standalone shortenings.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E213](E213.md) | E213: Replacement word cannot be untranscribed | error |
+| [E212](E212.md) | E212: Invalid word format | error |
+
+## Word validation (E2x)
+
+Deprecated. This error code was replaced by E391(). The validation logic now emits E391instead of E213 for the same condition.
+
+| Code | Name | Severity |
+|------|------|----------|
+| [E213](E213.md) | E213: Deprecated — replaced by E391 | error |
 
 ## validation (E2x)
 
-Auto-generated from corpus
+A scoped annotation (e.g., error annotation , replacement ) hasan empty content list. The validator reports E214 when annotated content haszero scoped annotations attached.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E214](E214.md) | generated from corpus | error |
+| [E214](E214.md) | E214: Empty scoped annotation content | error |
 
 ## Word validation (E2x)
 
-Auto-generated from corpus
+A word on the main tier contains numeric digits in a language context that doesnot permit them. Most natural languages (English, Spanish, French, etc.) do notallow bare digits in words on the main tier. A small set of languages (Chinese,Welsh, Vietnamese, Thai, Cantonese, etc.) permit digits as part of tonenotation or numerals.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E220](E220.md) | generated from corpus | error |
+| [E220](E220.md) | E220 — Illegal digits in word content | error |
 
 ## validation (E2x)
 
@@ -140,11 +140,11 @@ Auto-generated from corpus
 
 ## validation (E2x)
 
-Auto-generated from corpus
+Compound marker () cannot be at the start of a word. Valid compounds have the form .
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E232](E232.md) | generated from corpus | error |
+| [E232](E232.md) | E232: Compound marker at word start | error |
 
 ## validation (E2x)
 
@@ -172,11 +172,11 @@ The marker 'xx' is used for untranscribed speech, but this is not allowed in CHA
 
 ## validation (E2x)
 
-Auto-generated from corpus
+Quotation marks must be balanced within an utterance.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E242](E242.md) | generated from corpus | error |
+| [E242](E242.md) | E242: Unbalanced quotation marks | error |
 
 ## validation (E2x)
 
@@ -196,19 +196,19 @@ Auto-generated from corpus
 
 ## validation (E2x)
 
-Auto-generated from corpus
+A primary stress marker () or secondary stress marker appears at the startof a word but is not followed by any spoken material. The marker has nothingto attach to.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E245](E245.md) | generated from corpus | error |
+| [E245](E245.md) | E245 — Stress marker without following spoken material | error |
 
 ## validation (E2x)
 
-Auto-generated from corpus
+A lengthening marker () appears before any spoken material in a word ratherthan after it. In CHAT, the colon indicates phonological lengthening andmust follow the spoken text it modifies (e.g., is valid, isnot).
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E246](E246.md) | generated from corpus | error |
+| [E246](E246.md) | E246: Lengthening marker not after spoken material | error |
 
 ## validation (E2x)
 
@@ -220,19 +220,19 @@ Auto-generated from corpus
 
 ## validation (E2x)
 
-Auto-generated from corpus
+The bare shortcut toggles between the first two languages declared in. When an utterance is scoped to a tertiary language (position3 or later in the list) via , bare is ambiguous —it could mean either the primary or secondary language. The speaker must use anexplicit code (, , etc.) instead.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E248](E248.md) | generated from corpus | error |
+| [E248](E248.md) | E248 — Bare  shortcut in tertiary language context | error |
 
 ## validation (E2x)
 
-Auto-generated from corpus
+The shortcut means "the other language" — it toggles between the primaryand secondary language declared in . When there is no secondarylanguage (the header lists only one language), has notarget to resolve to. The speaker must use an explicit language code(, , etc.) or add a second language to the header.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E249](E249.md) | generated from corpus | error |
+| [E249](E249.md) | E249 — Bare  shortcut with no secondary language | error |
 
 ## validation (E2x)
 
@@ -244,7 +244,7 @@ Auto-generated from corpus
 
 ## validation (E2x)
 
-Empty word content text
+A word content text segment (the spoken text portion of a word or the textinside a shortening) is empty. The validator reports E251 when a or element validates to empty via its inner wrapper.
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -292,7 +292,7 @@ Empty speaker code
 
 ## validation (E3x)
 
-Missing required node
+Expected tree-sitter node is missing. E302 (MissingNode) fires whentree-sitter's error recovery inserts a MISSING placeholder node, indicatingthe grammar expected a specific construct that was not found. This is aninternal parser condition triggered by tree-sitter error recovery, not byspecific CHAT syntax patterns. It also fires in speaker code validation forinvalid characters.
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -348,7 +348,7 @@ Invalid speaker format
 
 ## validation (E3x)
 
-Unexpected syntax
+Unexpected syntax encountered during parsing. E309 (UnexpectedSyntax) fireswhen the parser encounters an ERROR node from tree-sitter that containsunexpected content. The error is emitted from in.
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -356,11 +356,11 @@ Unexpected syntax
 
 ## Main tier validation (E3x)
 
-Auto-generated from corpus
+Tree-sitter's internal parser returned (e.g., due to timeout orcancellation) or the parse outcome was rejected with no other errors collected.E310 is a catch-all for complete parse failures where no more specific errorcode applies.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E310](E310.md) | generated from corpus | error |
+| [E310](E310.md) | E310: Parser failed to produce valid parse tree | error |
 
 ## Main tier validation (E3x)
 
@@ -444,11 +444,11 @@ The main tier speaker prefix has a zero-width (MISSING) colon node.This occurs w
 
 ## validation (E3x)
 
-Auto-generated from corpus
+Missing colon after speaker code on main tier. E323 (MissingColonAfterSpeaker)fires in when the tree-sitter grammar parses a main tier but thecolon child node is missing. However, when the colon is absent, the grammartypically fails to match the main tier pattern at all, producing an ERROR node(E316 UnparsableContent) rather than a partial main tier with a missing colon.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E323](E323.md) | generated from corpus | error |
+| [E323](E323.md) | E323: Missing colon after speaker code | error |
 
 ## validation (E3x)
 
@@ -516,7 +516,7 @@ Missing required element
 
 ## validation (E3x)
 
-Invalid scoped annotation nesting
+Invalid nesting of scoped annotations (quotation precedes pattern). This is a cross-utterance validator () that is currently DISABLED ().
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -524,7 +524,7 @@ Invalid scoped annotation nesting
 
 ## validation (E3x)
 
-Unmatched scoped annotation begin
+Unmatched scoped annotation begin marker ( without matching ).
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -532,7 +532,7 @@ Unmatched scoped annotation begin
 
 ## validation (E3x)
 
-Unmatched scoped annotation end
+Unmatched scoped annotation end marker ( without matching ). This is a cross-utterance validator () that is currently DISABLED ().
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -540,19 +540,19 @@ Unmatched scoped annotation end
 
 ## validation (E3x)
 
-An indexed top overlap region (⌈2...⌉2) on one speaker has no matchingindexed bottom overlap region (⌊2...⌋2) from a different speaker within thenearby utterances, or vice versa. Reported as a warning.
+An indexed top overlap region (e.g., ) on one speaker has nomatching indexed bottom overlap region () from a different speaker,or vice versa. Reported as a warning because some onset-only markingconventions exist.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E347](E347.md) | speaker overlap | error |
+| [E347](E347.md) | speaker overlap (indexed markers) | error |
 
 ## validation (E3x)
 
-A closing overlap marker (⌉ or ⌋) appears without a preceding opening marker(⌈ or ⌊) within the same utterance. Reported as a warning.
+Reserved for within-utterance overlap pairing violations: a closing marker( or ) without a preceding opening marker ( or ) in the sameutterance, or vice versa.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E348](E348.md) | E348: Unpaired overlap marker within utterance | error |
+| [E348](E348.md) | E348 — Unpaired overlap marker within utterance | error |
 
 ## cross_utterance (E3x)
 
@@ -676,11 +676,11 @@ Auto-generated from corpus
 
 ## validation (E3x)
 
-Auto-generated from corpus
+A header or tier has content that does not match any recognized CHAT headerstructure. The parser reports E365 when it encounters an unknown node typeduring header dispatch in the CST.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E365](E365.md) | generated from corpus | error |
+| [E365](E365.md) | E365: Malformed tier content | error |
 
 ## validation (E3x)
 
@@ -700,11 +700,11 @@ Auto-generated from corpus
 
 ## Alignment count mismatch (E3x)
 
-Structural order error
+A structural ordering violation in the utterance content, such as groups orreplacements that do not align correctly with dependent tier items.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E370](E370.md) | E370: Structural order error | error |
+| [E370](E370.md) | E370 — Structural order error | error |
 
 ## validation (E3x)
 
@@ -828,11 +828,11 @@ Duplicate dependent tiers
 
 ## validation (E4x)
 
-Auto-generated from corpus
+A dependent tier (, , etc.) appears before any main tier in thefile. E404 (OrphanedDependentTier) is emitted by in when a -prefixedERROR node appears before any utterance. However, a line immediatelyafter headers causes the tree-sitter grammar to catastrophically fail,producing header validation errors instead of E404.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E404](E404.md) | generated from corpus | error |
+| [E404](E404.md) | E404: Orphaned dependent tier | error |
 
 ## Header validation (E5x)
 
@@ -1068,11 +1068,11 @@ Lazy gem inside background
 
 ## validation (E5x)
 
-Auto-generated from corpus
+The filename in the header does not match the name of the CHAT filebeing parsed (case-insensitive comparison). For example, if contains, E531 is reported because does not match .
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E531](E531.md) | generated from corpus | error |
+| [E531](E531.md) | E531: Media filename mismatch | error |
 
 ## validation (E5x)
 
@@ -1234,13 +1234,13 @@ An utterance contains a dependent tier with a label that is not a standard CHAT 
 |------|------|----------|
 | [E605](E605.md) | E605: Unsupported Dependent Tier | error |
 
-## Dependent tier parsing (E7x)
+## Temporal validation (E7x)
 
-Auto-generated from corpus
+Each utterance's first media bullet must have a start time greater than orequal to the previous utterance's first bullet start time (for the samespeaker). Corresponds to CLAN CHECK Error 83.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E701](E701.md) | generated from corpus | error |
+| [E701](E701.md) | speaker start | error |
 
 ## Dependent tier parsing (E7x)
 
@@ -1284,11 +1284,11 @@ The %mor tier has a terminator but the main tier does not, or vice versa.One tie
 
 ## Dependent tier parsing (E7x)
 
-GRA relation missing index
+A grammar relation on the tier is malformed — missing an index, head,or relation label, or containing non-integer values where integers are expected.The tier format is for each word.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E708](E708.md) | E708: GRA relation missing index | error |
+| [E708](E708.md) | E708: Malformed grammar relation on %gra tier | error |
 
 ## validation (E7x)
 
@@ -1380,7 +1380,7 @@ Mor-Gra count mismatch
 
 ## validation (E7x)
 
-GRA non-sequential index
+tier indices must be sequential (1, 2, 3, ..., N). Non-sequential indices indicate a malformed dependency structure.
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -1388,7 +1388,7 @@ GRA non-sequential index
 
 ## validation (E7x)
 
-GRA has no ROOT
+tier has no ROOT relation. Every tier must have exactly one relation with or (the ROOT of the dependency tree).
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -1396,7 +1396,7 @@ GRA has no ROOT
 
 ## validation (E7x)
 
-GRA has multiple ROOTs
+tier has multiple ROOT relations. Every tier should have exactly one ROOT (relation with or ).
 
 | Code | Name | Severity |
 |------|------|----------|
@@ -1468,19 +1468,19 @@ Auto-generated from corpus
 
 ## Warnings (W6x)
 
-Auto-generated from corpus
+A user-defined dependent tier () uses a label that matches a knownstandard tier name. For example, should be updated to since is now a recognized standard tier. This is a warning to encouragemigration from legacy experimental naming to the current standard.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [W602](W602.md) | generated from corpus | error |
+| [W602](W602.md) | W602: Deprecated experimental tier name | error |
 
 ## validation (W7x)
 
-Auto-generated from corpus
+ROOT relation where the head index does not point to self (i.e., and ). This warning code () is defined in the error code enum but is never emitted by any validation code path.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [W724](W724.md) | generated from corpus | error |
+| [W724](W724.md) | W724: GRA ROOT head not self | error |
 
 ## validation (W9x)
 

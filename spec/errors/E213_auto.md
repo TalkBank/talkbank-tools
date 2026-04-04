@@ -1,8 +1,13 @@
-# E213: Replacement word cannot be untranscribed
+# E213: Deprecated — replaced by E391
+
+**Status:** Current
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-Replacement word cannot be untranscribed
+**Deprecated.** This error code was replaced by E391
+(`ReplacementContainsUntranscribed`). The validation logic now emits E391
+instead of E213 for the same condition.
 
 ## Metadata
 
@@ -10,11 +15,11 @@ Replacement word cannot be untranscribed
 - **Category**: Word validation
 - **Level**: word
 - **Layer**: validation
+- **Status**: deprecated
 
 ## Example 1
 
-**Source**: `E2xx_word_errors/E213_unexpected_scoped_annotation.cha`
-**Trigger**: Replacement containing xxx (untranscribed marker)
+**Trigger**: Replacement containing `xxx` (untranscribed marker)
 **Expected Error Codes**: E391
 
 ```chat
@@ -27,15 +32,7 @@ Replacement word cannot be untranscribed
 @End
 ```
 
-## Expected Behavior
-
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
-
-## CHAT Rule
-
-[Add link to relevant CHAT manual section]
-
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E213 is deprecated. See E391 for the active error code.
+- The example above triggers E391, not E213.

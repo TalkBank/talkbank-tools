@@ -6,6 +6,7 @@ Invalid grammar index
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E709
 - **Category**: validation
@@ -15,8 +16,14 @@ Invalid grammar index
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E709_invalid_grammar_index.cha`
-**Trigger**: GRA relation has non-numeric index
-**Expected Error Codes**: E709
+**Trigger**: GRA relation has non-numeric index — triggers E600 instead
+**Expected Error Codes**: E600
+
+Note: The non-numeric index `abc` in `abc|0|ROOT` causes a tree-sitter parse
+failure at the tier level, producing E600 (TierValidationError) rather than
+E709 (InvalidGrammarIndex). E709 fires when the index IS a valid number but
+is 0 (since GRA indices are 1-indexed). The grammar expects numeric indices,
+so `abc` never reaches the Rust GRA relation parser.
 
 ```chat
 @UTF8

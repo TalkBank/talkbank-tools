@@ -1,11 +1,21 @@
-# E365: Auto-generated from corpus
+# E365: Malformed tier content
 
 ## Description
 
-Auto-generated from corpus
+A header or tier has content that does not match any recognized CHAT header
+structure. The parser reports E365 when it encounters an unknown node type
+during header dispatch in the CST.
+
+**Validation not yet implemented for this spec example.** The example has a
+`%pho` dependent tier with content `***bad***`. The `%pho` tier is parsed by
+the dedicated phonology tier parser, not by the generic header dispatch that
+emits E365. The `MalformedTierContent` check in `header_dispatch/parse.rs`
+fires for unrecognized header node types in the CST, which requires a node
+that does not match any known header pattern.
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 - **Layer**: validation
 
 - **Error Code**: E365
@@ -16,7 +26,7 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `E3xx_main_tier_errors/E365_malformed_tier_content.cha`
-**Trigger**: See example below
+**Trigger**: Tier with unrecognizable content
 **Expected Error Codes**: E365
 
 ```chat
@@ -32,13 +42,22 @@ Auto-generated from corpus
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The parser should report E365 when a header/tier node in the CST has an
+unrecognized node type that does not match any known dispatch target. The check
+exists in `crates/talkbank-parser/src/parser/chat_file_parser/header_dispatch/parse.rs`.
+
+**Trigger conditions**: A CST node in the header/tier area with a node type
+not matching any of the known header types (`@Languages`, `@Participants`,
+`@ID`, etc.) or known tier types (`%mor`, `%gra`, `%pho`, etc.).
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+See CHAT manual on dependent tiers and header format. The CHAT manual is
+available at: https://talkbank.org/0info/manuals/CHAT.pdf
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- The `%pho` tier is a recognized tier type and gets its own parser,
+  so malformed content within it produces different error codes
+- E365 fires at the header dispatch level for entirely unrecognized node types
+- The code IS emitted in the codebase but requires CST-level anomalies

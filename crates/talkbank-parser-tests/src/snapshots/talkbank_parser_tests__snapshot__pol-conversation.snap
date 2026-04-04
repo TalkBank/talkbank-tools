@@ -3,1966 +3,1966 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "pol"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "pol"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Target_Child"
+            "role": "Target_Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "MAM",
             "name": null,
-            "role": "Mother"
+            "role": "Mother",
+            "speaker_code": "MAM"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "pol"
         ],
-        "corpus": "Szuman",
-        "speaker": "CHI",
-        "age": "3;03.00",
-        "role": "Target_Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "pol"
-        ],
-        "corpus": "Szuman",
-        "speaker": "MAM",
-        "role": "Mother"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Polish mother-child conversation about time and family"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: Polish language coverage, Latin script with diacritics"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "mamo",
-              "cleaned_text": "mamo",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mamo"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "jak",
-              "cleaned_text": "jak",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jak"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ty",
-              "cleaned_text": "ty",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ty"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "byłaś",
-              "cleaned_text": "byłaś",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "byłaś"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "malutka",
-              "cleaned_text": "malutka",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "malutka"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "i",
-              "cleaned_text": "i",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "i"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ja",
-              "cleaned_text": "ja",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ja"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "to"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "nas",
-              "cleaned_text": "nas",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nas"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "tata",
-              "cleaned_text": "tata",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "tata"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "woził",
-              "cleaned_text": "woził",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "woził"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "w",
-              "cleaned_text": "w",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "w"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "wózeczku",
-              "cleaned_text": "wózeczku",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "wózeczku"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "question"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "age": "3;03.00",
+        "corpus": "Szuman",
+        "language": [
+          "pol"
+        ],
+        "role": "Target_Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "Szuman",
+        "language": [
+          "pol"
+        ],
+        "role": "Mother",
+        "speaker": "MAM",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Polish mother-child conversation about time and family",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: Polish language coverage, Latin script with diacritics",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "mamo",
                   "features": [
                     "Fem",
                     "Voc"
-                  ]
+                  ],
+                  "lemma": "mamo",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "jak"
+                  "lemma": "jak",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "ty",
                   "features": [
                     "Prs",
                     "Nom",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "ty",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "być",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "być",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "adj",
-                  "lemma": "malutki",
                   "features": [
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "malutki",
+                  "pos": "adj"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "i"
+                  "lemma": "i",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "ja",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "ja",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "to"
+                  "lemma": "to",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "my",
                   "features": [
                     "Prs",
                     "Acc",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "my",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "tata",
                   "features": [
                     "Masc",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "tata",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "wozić",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "wozić",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "w"
+                  "lemma": "w",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "wózeczek",
                   "features": [
                     "Masc",
                     "Loc"
-                  ]
+                  ],
+                  "lemma": "wózeczek",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "?"
-          }
+            "terminator": "?",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 13,
+                "index": 1,
                 "relation": "VOCATIVE"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "PUNCT"
               },
               {
-                "index": 3,
                 "head": 6,
+                "index": 3,
                 "relation": "MARK"
               },
               {
-                "index": 4,
                 "head": 6,
+                "index": 4,
                 "relation": "NSUBJ"
               },
               {
-                "index": 5,
                 "head": 6,
+                "index": 5,
                 "relation": "COP"
               },
               {
-                "index": 6,
                 "head": 13,
+                "index": 6,
                 "relation": "ADVCL"
               },
               {
-                "index": 7,
                 "head": 8,
+                "index": 7,
                 "relation": "CC"
               },
               {
-                "index": 8,
                 "head": 6,
+                "index": 8,
                 "relation": "CONJ"
               },
               {
-                "index": 9,
                 "head": 6,
+                "index": 9,
                 "relation": "PUNCT"
               },
               {
-                "index": 10,
                 "head": 13,
+                "index": 10,
                 "relation": "MARK"
               },
               {
-                "index": 11,
                 "head": 13,
+                "index": 11,
                 "relation": "OBJ"
               },
               {
-                "index": 12,
                 "head": 13,
+                "index": 12,
                 "relation": "NSUBJ"
               },
               {
-                "index": 13,
                 "head": 0,
+                "index": 13,
                 "relation": "ROOT"
               },
               {
-                "index": 14,
                 "head": 15,
+                "index": 14,
                 "relation": "CASE"
               },
               {
-                "index": 15,
                 "head": 13,
+                "index": 15,
                 "relation": "OBL"
               },
               {
-                "index": 16,
                 "head": 13,
+                "index": 16,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "MAM",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "nie",
-              "cleaned_text": "nie",
+              "cleaned_text": "mamo",
               "content": [
                 {
-                  "type": "text",
-                  "content": "nie"
+                  "content": "mamo",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "mamo",
+              "type": "word"
             },
             {
-              "type": "separator",
-              "kind": "comma"
+              "kind": "comma",
+              "type": "separator"
             },
             {
-              "type": "word",
-              "raw_text": "Basiu",
-              "cleaned_text": "Basiu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Basiu"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "jak",
               "cleaned_text": "jak",
               "content": [
                 {
-                  "type": "text",
-                  "content": "jak"
+                  "content": "jak",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "mama",
-              "cleaned_text": "mama",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mama"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "była",
-              "cleaned_text": "była",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "była"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "malutka",
-              "cleaned_text": "malutka",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "malutka"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "to"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ciebie",
-              "cleaned_text": "ciebie",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ciebie"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "jeszcze",
-              "cleaned_text": "jeszcze",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jeszcze"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "nie",
-              "cleaned_text": "nie",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nie"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "było",
-              "cleaned_text": "było",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "było"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "a",
-              "cleaned_text": "a",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "a"
-                }
-              ]
-            },
-            {
-              "type": "word",
+              ],
               "raw_text": "jak",
-              "cleaned_text": "jak",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jak"
-                }
-              ]
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ty",
               "cleaned_text": "ty",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ty"
+                  "content": "ty",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "ty",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "byłaś",
               "cleaned_text": "byłaś",
               "content": [
                 {
-                  "type": "text",
-                  "content": "byłaś"
+                  "content": "byłaś",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "to"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "mama",
-              "cleaned_text": "mama",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mama"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "już",
-              "cleaned_text": "już",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "już"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "była",
-              "cleaned_text": "była",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "była"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "duża",
-              "cleaned_text": "duża",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "duża"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "intj",
-                  "lemma": "nie"
-                }
-              },
-              {
-                "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "Basia",
-                  "features": [
-                    "Fem",
-                    "Voc"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "jak"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "mama",
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "być",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "malutki",
-                  "features": [
-                    "Nom",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "to"
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "ty",
-                  "features": [
-                    "Prs",
-                    "Gen",
-                    "S2"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "jeszcze"
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "nie"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "być",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
-                }
-              },
-              {
-                "main": {
-                  "pos": "cconj",
-                  "lemma": "a"
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "jak"
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "ty",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S2"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "byłać",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Pres",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "to"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "mama",
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "już"
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "być",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Past",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "duży",
-                  "features": [
-                    "Nom",
-                    "S1"
-                  ]
-                }
-              }
-            ],
-            "terminator": "."
-          }
-        },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 13,
-                "relation": "DISCOURSE-INTJ"
-              },
-              {
-                "index": 2,
-                "head": 3,
-                "relation": "PUNCT"
-              },
-              {
-                "index": 3,
-                "head": 13,
-                "relation": "VOCATIVE"
-              },
-              {
-                "index": 4,
-                "head": 3,
-                "relation": "PUNCT"
-              },
-              {
-                "index": 5,
-                "head": 8,
-                "relation": "MARK"
-              },
-              {
-                "index": 6,
-                "head": 8,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 7,
-                "head": 8,
-                "relation": "COP"
-              },
-              {
-                "index": 8,
-                "head": 13,
-                "relation": "ADVCL"
-              },
-              {
-                "index": 9,
-                "head": 13,
-                "relation": "MARK"
-              },
-              {
-                "index": 10,
-                "head": 13,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 11,
-                "head": 13,
-                "relation": "ADVMOD-EMPH"
-              },
-              {
-                "index": 12,
-                "head": 13,
-                "relation": "ADVMOD-NEG"
-              },
-              {
-                "index": 13,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 14,
-                "head": 23,
-                "relation": "PUNCT"
-              },
-              {
-                "index": 15,
-                "head": 23,
-                "relation": "CC"
-              },
-              {
-                "index": 16,
-                "head": 18,
-                "relation": "MARK"
-              },
-              {
-                "index": 17,
-                "head": 18,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 18,
-                "head": 23,
-                "relation": "PARATAXIS-INSERT"
-              },
-              {
-                "index": 19,
-                "head": 23,
-                "relation": "MARK"
-              },
-              {
-                "index": 20,
-                "head": 23,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 21,
-                "head": 23,
-                "relation": "ADVMOD-EMPH"
-              },
-              {
-                "index": 22,
-                "head": 23,
-                "relation": "COP"
-              },
-              {
-                "index": 23,
-                "head": 13,
-                "relation": "CONJ"
-              },
-              {
-                "index": 24,
-                "head": 13,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "a",
-              "cleaned_text": "a",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "a"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "kiedy",
-              "cleaned_text": "kiedy",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "kiedy"
-                }
-              ]
-            },
-            {
-              "type": "word",
+              ],
               "raw_text": "byłaś",
-              "cleaned_text": "byłaś",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "byłaś"
-                }
-              ]
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "malutka",
               "cleaned_text": "malutka",
               "content": [
                 {
-                  "type": "text",
-                  "content": "malutka"
+                  "content": "malutka",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "malutka",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "i",
+              "content": [
+                {
+                  "content": "i",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "i",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ja",
+              "content": [
+                {
+                  "content": "ja",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ja",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "nas",
+              "content": [
+                {
+                  "content": "nas",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nas",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "tata",
+              "content": [
+                {
+                  "content": "tata",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "tata",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "woził",
+              "content": [
+                {
+                  "content": "woził",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "woził",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "w",
+              "content": [
+                {
+                  "content": "w",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "w",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "wózeczku",
+              "content": [
+                {
+                  "content": "wózeczku",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "wózeczku",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "question"
           }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "cconj",
-                  "lemma": "a"
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "kiedy"
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
-                  "lemma": "być",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Pres",
-                    "S3"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "malutki",
-                  "features": [
-                    "Nom",
-                    "S1"
-                  ]
-                }
-              }
-            ],
-            "terminator": "?"
-          }
         },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 4,
-                "relation": "CC"
-              },
-              {
-                "index": 2,
-                "head": 4,
-                "relation": "ADVMOD"
-              },
-              {
-                "index": 3,
-                "head": 4,
-                "relation": "COP"
-              },
-              {
-                "index": 4,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 5,
-                "head": 4,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "CHI",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "muszę",
-              "cleaned_text": "muszę",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "muszę"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "zobaczyć",
-              "cleaned_text": "zobaczyć",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "zobaczyć"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "czy",
-              "cleaned_text": "czy",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "czy"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "zimno",
-              "cleaned_text": "zimno",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "zimno"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "Halinka",
-              "cleaned_text": "Halinka",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Halinka"
-                }
-              ]
-            },
-            {
-              "type": "annotated_word",
-              "raw_text": "czy",
-              "cleaned_text": "czy",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "czy"
-                }
-              ],
-              "scoped_annotations": [
-                {
-                  "type": "error",
-                  "code": null
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "może",
-              "cleaned_text": "może",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "może"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "iść",
-              "cleaned_text": "iść",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "iść"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "na",
-              "cleaned_text": "na",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "na"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "spacer",
-              "cleaned_text": "spacer",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "spacer"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "musieć",
+                  "lemma": "nie",
+                  "pos": "intj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
                   "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Pres",
-                    "S1"
-                  ]
+                    "Fem",
+                    "Voc"
+                  ],
+                  "lemma": "Basia",
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "zobaczyć",
-                  "features": [
-                    "Inf",
-                    "Perf",
-                    "S"
-                  ]
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "jak",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "part",
-                  "lemma": "czy"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "zimno",
-                  "features": [
-                    "Neut",
-                    "Nom"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "Halinka",
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "cconj",
-                  "lemma": "czy"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "móc",
-                  "features": [
-                    "Fin",
-                    "Imp",
-                    "Ind",
-                    "Pres",
-                    "S3"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "iść",
-                  "features": [
-                    "Inf",
-                    "Imp",
-                    "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adp",
-                  "lemma": "na"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "spacer",
-                  "features": [
-                    "Masc",
-                    "Acc"
-                  ]
-                }
-              }
-            ],
-            "terminator": "."
-          }
-        },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 2,
-                "head": 1,
-                "relation": "XCOMP"
-              },
-              {
-                "index": 3,
-                "head": 5,
-                "relation": "PUNCT"
-              },
-              {
-                "index": 4,
-                "head": 9,
-                "relation": "ADVMOD"
-              },
-              {
-                "index": 5,
-                "head": 2,
-                "relation": "OBJ"
-              },
-              {
-                "index": 6,
-                "head": 7,
-                "relation": "PUNCT"
-              },
-              {
-                "index": 7,
-                "head": 5,
-                "relation": "CONJ"
-              },
-              {
-                "index": 8,
-                "head": 9,
-                "relation": "CC"
-              },
-              {
-                "index": 9,
-                "head": 1,
-                "relation": "CONJ"
-              },
-              {
-                "index": 10,
-                "head": 9,
-                "relation": "XCOMP"
-              },
-              {
-                "index": 11,
-                "head": 12,
-                "relation": "CASE"
-              },
-              {
-                "index": 12,
-                "head": 10,
-                "relation": "OBL"
-              },
-              {
-                "index": 13,
-                "head": 1,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "MAM",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "nie",
-              "cleaned_text": "nie",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "nie"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "mama",
-              "cleaned_text": "mama",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mama"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "była",
-              "cleaned_text": "była",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "była"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "już",
-              "cleaned_text": "już",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "już"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "duża",
-              "cleaned_text": "duża",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "duża"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "taka",
-              "cleaned_text": "taka",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "taka"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "jak",
-              "cleaned_text": "jak",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jak"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "teraz",
-              "cleaned_text": "teraz",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "teraz"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "jak",
-              "cleaned_text": "jak",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "jak"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ty",
-              "cleaned_text": "ty",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ty"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "się",
-              "cleaned_text": "się",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "się"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "urodziłaś",
-              "cleaned_text": "urodziłaś",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "urodziłaś"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "intj",
-                  "lemma": "nie"
-                }
-              },
-              {
-                "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
+                  ],
                   "lemma": "mama",
-                  "features": [
-                    "Fem",
-                    "Nom"
-                  ]
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "być",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "być",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "part",
-                  "lemma": "już"
-                }
-              },
-              {
-                "main": {
-                  "pos": "adj",
-                  "lemma": "duży",
                   "features": [
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "malutki",
+                  "pos": "adj"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "to",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "taki",
+                  "features": [
+                    "Prs",
+                    "Gen",
+                    "S2"
+                  ],
+                  "lemma": "ty",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "jeszcze",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "nie",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "być",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "a",
+                  "pos": "cconj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "jak",
+                  "pos": "sconj"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S2"
+                  ],
+                  "lemma": "ty",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Pres",
+                    "S1"
+                  ],
+                  "lemma": "byłać",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "to",
+                  "pos": "sconj"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ],
+                  "lemma": "mama",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "już",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "być",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Nom",
+                    "S1"
+                  ],
+                  "lemma": "duży",
+                  "pos": "adj"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 13,
+                "index": 1,
+                "relation": "DISCOURSE-INTJ"
+              },
+              {
+                "head": 3,
+                "index": 2,
+                "relation": "PUNCT"
+              },
+              {
+                "head": 13,
+                "index": 3,
+                "relation": "VOCATIVE"
+              },
+              {
+                "head": 3,
+                "index": 4,
+                "relation": "PUNCT"
+              },
+              {
+                "head": 8,
+                "index": 5,
+                "relation": "MARK"
+              },
+              {
+                "head": 8,
+                "index": 6,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 8,
+                "index": 7,
+                "relation": "COP"
+              },
+              {
+                "head": 13,
+                "index": 8,
+                "relation": "ADVCL"
+              },
+              {
+                "head": 13,
+                "index": 9,
+                "relation": "MARK"
+              },
+              {
+                "head": 13,
+                "index": 10,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 13,
+                "index": 11,
+                "relation": "ADVMOD-EMPH"
+              },
+              {
+                "head": 13,
+                "index": 12,
+                "relation": "ADVMOD-NEG"
+              },
+              {
+                "head": 0,
+                "index": 13,
+                "relation": "ROOT"
+              },
+              {
+                "head": 23,
+                "index": 14,
+                "relation": "PUNCT"
+              },
+              {
+                "head": 23,
+                "index": 15,
+                "relation": "CC"
+              },
+              {
+                "head": 18,
+                "index": 16,
+                "relation": "MARK"
+              },
+              {
+                "head": 18,
+                "index": 17,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 23,
+                "index": 18,
+                "relation": "PARATAXIS-INSERT"
+              },
+              {
+                "head": 23,
+                "index": 19,
+                "relation": "MARK"
+              },
+              {
+                "head": 23,
+                "index": 20,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 23,
+                "index": 21,
+                "relation": "ADVMOD-EMPH"
+              },
+              {
+                "head": 23,
+                "index": 22,
+                "relation": "COP"
+              },
+              {
+                "head": 13,
+                "index": 23,
+                "relation": "CONJ"
+              },
+              {
+                "head": 13,
+                "index": 24,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "nie",
+              "content": [
+                {
+                  "content": "nie",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nie",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "Basiu",
+              "content": [
+                {
+                  "content": "Basiu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Basiu",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "jak",
+              "content": [
+                {
+                  "content": "jak",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jak",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "mama",
+              "content": [
+                {
+                  "content": "mama",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "mama",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "była",
+              "content": [
+                {
+                  "content": "była",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "była",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "malutka",
+              "content": [
+                {
+                  "content": "malutka",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "malutka",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ciebie",
+              "content": [
+                {
+                  "content": "ciebie",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ciebie",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "jeszcze",
+              "content": [
+                {
+                  "content": "jeszcze",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jeszcze",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "nie",
+              "content": [
+                {
+                  "content": "nie",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nie",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "było",
+              "content": [
+                {
+                  "content": "było",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "było",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "a",
+              "content": [
+                {
+                  "content": "a",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "a",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "jak",
+              "content": [
+                {
+                  "content": "jak",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jak",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ty",
+              "content": [
+                {
+                  "content": "ty",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ty",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "byłaś",
+              "content": [
+                {
+                  "content": "byłaś",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "byłaś",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "mama",
+              "content": [
+                {
+                  "content": "mama",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "mama",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "już",
+              "content": [
+                {
+                  "content": "już",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "już",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "była",
+              "content": [
+                {
+                  "content": "była",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "była",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "duża",
+              "content": [
+                {
+                  "content": "duża",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "duża",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "MAM"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "lemma": "a",
+                  "pos": "cconj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "kiedy",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Pres",
+                    "S3"
+                  ],
+                  "lemma": "być",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Nom",
+                    "S1"
+                  ],
+                  "lemma": "malutki",
+                  "pos": "adj"
+                }
+              }
+            ],
+            "terminator": "?",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 4,
+                "index": 1,
+                "relation": "CC"
+              },
+              {
+                "head": 4,
+                "index": 2,
+                "relation": "ADVMOD"
+              },
+              {
+                "head": 4,
+                "index": 3,
+                "relation": "COP"
+              },
+              {
+                "head": 0,
+                "index": 4,
+                "relation": "ROOT"
+              },
+              {
+                "head": 4,
+                "index": 5,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "a",
+              "content": [
+                {
+                  "content": "a",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "a",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "kiedy",
+              "content": [
+                {
+                  "content": "kiedy",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "kiedy",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "byłaś",
+              "content": [
+                {
+                  "content": "byłaś",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "byłaś",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "malutka",
+              "content": [
+                {
+                  "content": "malutka",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "malutka",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "question"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Pres",
+                    "S1"
+                  ],
+                  "lemma": "musieć",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Inf",
+                    "Perf",
+                    "S"
+                  ],
+                  "lemma": "zobaczyć",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "czy",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Neut",
+                    "Nom"
+                  ],
+                  "lemma": "zimno",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ],
+                  "lemma": "Halinka",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "czy",
+                  "pos": "cconj"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Pres",
+                    "S3"
+                  ],
+                  "lemma": "móc",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Inf",
+                    "Imp",
+                    "S"
+                  ],
+                  "lemma": "iść",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "na",
+                  "pos": "adp"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Masc",
+                    "Acc"
+                  ],
+                  "lemma": "spacer",
+                  "pos": "noun"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 0,
+                "index": 1,
+                "relation": "ROOT"
+              },
+              {
+                "head": 1,
+                "index": 2,
+                "relation": "XCOMP"
+              },
+              {
+                "head": 5,
+                "index": 3,
+                "relation": "PUNCT"
+              },
+              {
+                "head": 9,
+                "index": 4,
+                "relation": "ADVMOD"
+              },
+              {
+                "head": 2,
+                "index": 5,
+                "relation": "OBJ"
+              },
+              {
+                "head": 7,
+                "index": 6,
+                "relation": "PUNCT"
+              },
+              {
+                "head": 5,
+                "index": 7,
+                "relation": "CONJ"
+              },
+              {
+                "head": 9,
+                "index": 8,
+                "relation": "CC"
+              },
+              {
+                "head": 1,
+                "index": 9,
+                "relation": "CONJ"
+              },
+              {
+                "head": 9,
+                "index": 10,
+                "relation": "XCOMP"
+              },
+              {
+                "head": 12,
+                "index": 11,
+                "relation": "CASE"
+              },
+              {
+                "head": 10,
+                "index": 12,
+                "relation": "OBL"
+              },
+              {
+                "head": 1,
+                "index": 13,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "muszę",
+              "content": [
+                {
+                  "content": "muszę",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "muszę",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "zobaczyć",
+              "content": [
+                {
+                  "content": "zobaczyć",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "zobaczyć",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "czy",
+              "content": [
+                {
+                  "content": "czy",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "czy",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "zimno",
+              "content": [
+                {
+                  "content": "zimno",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "zimno",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "Halinka",
+              "content": [
+                {
+                  "content": "Halinka",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Halinka",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "czy",
+              "content": [
+                {
+                  "content": "czy",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "czy",
+              "scoped_annotations": [
+                {
+                  "code": null,
+                  "type": "error"
+                }
+              ],
+              "type": "annotated_word"
+            },
+            {
+              "cleaned_text": "może",
+              "content": [
+                {
+                  "content": "może",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "może",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "iść",
+              "content": [
+                {
+                  "content": "iść",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "iść",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "na",
+              "content": [
+                {
+                  "content": "na",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "na",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "spacer",
+              "content": [
+                {
+                  "content": "spacer",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "spacer",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "lemma": "nie",
+                  "pos": "intj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fem",
+                    "Nom"
+                  ],
+                  "lemma": "mama",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Imp",
+                    "Ind",
+                    "Past",
+                    "S"
+                  ],
+                  "lemma": "być",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "już",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Nom",
+                    "S1"
+                  ],
+                  "lemma": "duży",
+                  "pos": "adj"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "cm",
+                  "pos": "cm"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Fem",
                     "Def",
                     "Dem",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "taki",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "jak"
+                  "lemma": "jak",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "teraz"
+                  "lemma": "teraz",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "jak"
+                  "lemma": "jak",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "ty",
                   "features": [
                     "Prs",
                     "Nom",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "ty",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "się",
                   "features": [
                     "Prs",
                     "reflx",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "się",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "urodziłać",
                   "features": [
                     "Fin",
                     "Perf",
                     "Ind",
                     "Past",
                     "S"
-                  ]
+                  ],
+                  "lemma": "urodziłać",
+                  "pos": "verb"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 6,
+                "index": 1,
                 "relation": "DISCOURSE-INTJ"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "PUNCT"
               },
               {
-                "index": 3,
                 "head": 6,
+                "index": 3,
                 "relation": "NSUBJ"
               },
               {
-                "index": 4,
                 "head": 6,
+                "index": 4,
                 "relation": "COP"
               },
               {
-                "index": 5,
                 "head": 6,
+                "index": 5,
                 "relation": "ADVMOD-EMPH"
               },
               {
-                "index": 6,
                 "head": 0,
+                "index": 6,
                 "relation": "ROOT"
               },
               {
-                "index": 7,
                 "head": 8,
+                "index": 7,
                 "relation": "PUNCT"
               },
               {
-                "index": 8,
                 "head": 6,
+                "index": 8,
                 "relation": "CONJ"
               },
               {
-                "index": 9,
                 "head": 10,
+                "index": 9,
                 "relation": "MARK"
               },
               {
-                "index": 10,
                 "head": 8,
+                "index": 10,
                 "relation": "OBL-CMPR"
               },
               {
-                "index": 11,
                 "head": 15,
+                "index": 11,
                 "relation": "PUNCT"
               },
               {
-                "index": 12,
                 "head": 15,
+                "index": 12,
                 "relation": "MARK"
               },
               {
-                "index": 13,
                 "head": 15,
+                "index": 13,
                 "relation": "NSUBJ"
               },
               {
-                "index": 14,
                 "head": 15,
+                "index": 14,
                 "relation": "EXPL-PV"
               },
               {
-                "index": 15,
                 "head": 8,
+                "index": 15,
                 "relation": "ADVCL-CMPR"
               },
               {
-                "index": 16,
                 "head": 6,
+                "index": 16,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "nie",
+              "content": [
+                {
+                  "content": "nie",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "nie",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "mama",
+              "content": [
+                {
+                  "content": "mama",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "mama",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "była",
+              "content": [
+                {
+                  "content": "była",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "była",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "już",
+              "content": [
+                {
+                  "content": "już",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "już",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "duża",
+              "content": [
+                {
+                  "content": "duża",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "duża",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "taka",
+              "content": [
+                {
+                  "content": "taka",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "taka",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "jak",
+              "content": [
+                {
+                  "content": "jak",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jak",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "teraz",
+              "content": [
+                {
+                  "content": "teraz",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "teraz",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "jak",
+              "content": [
+                {
+                  "content": "jak",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "jak",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ty",
+              "content": [
+                {
+                  "content": "ty",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ty",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "się",
+              "content": [
+                {
+                  "content": "się",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "się",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "urodziłaś",
+              "content": [
+                {
+                  "content": "urodziłaś",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "urodziłaś",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "MAM"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": null,
-      "role": "Target_Child",
       "id": {
+        "age": "3;03.00",
+        "corpus": "Szuman",
         "language": [
           "pol"
         ],
-        "corpus": "Szuman",
-        "speaker": "CHI",
-        "age": "3;03.00",
-        "role": "Target_Child"
+        "role": "Target_Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Target_Child"
     },
     "MAM": {
+      "birth_date": null,
       "code": "MAM",
-      "name": null,
-      "role": "Mother",
       "id": {
+        "corpus": "Szuman",
         "language": [
           "pol"
         ],
-        "corpus": "Szuman",
-        "speaker": "MAM",
-        "role": "Mother"
+        "role": "Mother",
+        "speaker": "MAM"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Mother"
     }
-  },
-  "languages": [
-    "pol"
-  ],
-  "options": []
+  }
 }

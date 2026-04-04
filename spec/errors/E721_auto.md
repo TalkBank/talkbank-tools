@@ -1,21 +1,23 @@
 # E721: GRA non-sequential index
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
-GRA non-sequential index
+`%gra` tier indices must be sequential (1, 2, 3, ..., N). Non-sequential indices indicate a malformed dependency structure.
 
 ## Metadata
 
 - **Error Code**: E721
 - **Category**: validation
 - **Level**: tier
-- **Layer**: parser
+- **Layer**: validation
 - **Status**: not_implemented
 
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E721_gra_non_sequential.cha`
-**Trigger**: GRA indices not in sequential order
+**Trigger**: GRA indices not in sequential order (1, 3, 2 instead of 1, 2, 3)
 **Expected Error Codes**: E721
 
 ```chat
@@ -26,13 +28,13 @@ GRA non-sequential index
 @ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	I want cookie .
 %mor:	pro|I v|want n|cookie .
-%gra:	1|2|SUBJ 3|2|OBJ 2|0|ROOT .
+%gra:	1|2|SUBJ 3|2|OBJ 2|0|ROOT
 @End
 ```
 
 ## Expected Behavior
 
-The parser should reject this CHAT input and report a parse error at the location of the invalid syntax.
+The validator should report E721 because the `%gra` indices are not sequential: position 2 has index 3 (expected 2).
 
 **Trigger**: See example above
 
@@ -42,5 +44,5 @@ See CHAT manual sections on dependent tier formats (%mor, %gra, %pho, etc.). Eac
 
 ## Notes
 
-- Auto-generated from error corpus
+- The previous example had a trailing ` .` on the `%gra` tier which caused tree-sitter to produce E316 (unparsable content). `%gra` tiers do not have terminators — removed the trailing period to allow the tier to parse correctly so the E721 structural validation can fire.
 - Review and enhance this specification as needed

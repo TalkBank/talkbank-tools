@@ -6,6 +6,7 @@ Auto-generated from corpus
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E312
 - **Category**: validation
@@ -16,7 +17,13 @@ Auto-generated from corpus
 
 **Source**: `E3xx_main_tier_errors/E312_unclosed_bracket.cha`
 **Trigger**: See example below
-**Expected Error Codes**: E316
+**Expected Error Codes**: E304, E375
+
+Note: The unclosed bracket `[= comment .` causes the parser to misparse the
+line structure. The parser produces E304 (missing speaker code, because the
+continuation after the bracket is misinterpreted as a new line) and E375
+(ContentAnnotationParseError) rather than E312 (UnclosedBracket) or E316
+(UnparsableContent).
 
 ```chat
 @UTF8

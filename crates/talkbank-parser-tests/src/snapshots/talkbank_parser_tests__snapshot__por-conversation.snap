@@ -3,977 +3,1130 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "por"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "por"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": "Denise",
-            "role": "Target_Child"
+            "role": "Target_Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "INV",
             "name": "Conceição",
-            "role": "Investigator"
+            "role": "Investigator",
+            "speaker_code": "INV"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "por"
         ],
-        "corpus": "AlegreX",
-        "speaker": "CHI",
-        "age": "5;10.",
-        "group": "MC",
-        "role": "Target_Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "por"
-        ],
-        "corpus": "AlegreX",
-        "speaker": "INV",
-        "role": "Investigator"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Brazilian Portuguese child narrative interview"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: Portuguese language coverage, Latin script with diacritics"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "INV",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "uma",
-              "cleaned_text": "uma",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "uma"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "coisa",
-              "cleaned_text": "coisa",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "coisa"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "Denise",
-              "cleaned_text": "Denise",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Denise"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "que",
-              "cleaned_text": "que",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "que"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "aconteceu",
-              "cleaned_text": "aconteceu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "aconteceu"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "contigo",
-              "cleaned_text": "contigo",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "contigo"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "qualquer",
-              "cleaned_text": "qualquer",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "qualquer"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "coisa",
-              "cleaned_text": "coisa",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "coisa"
-                }
-              ]
-            },
-            {
-              "type": "pause",
-              "duration": {
-                "type": "short"
-              }
-            },
-            {
-              "type": "word",
-              "raw_text": "uma",
-              "cleaned_text": "uma",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "uma"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "historinha",
-              "cleaned_text": "historinha",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "historinha"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "age": "5;10.",
+        "corpus": "AlegreX",
+        "group": "MC",
+        "language": [
+          "por"
+        ],
+        "role": "Target_Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "AlegreX",
+        "language": [
+          "por"
+        ],
+        "role": "Investigator",
+        "speaker": "INV",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Brazilian Portuguese child narrative interview",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: Portuguese language coverage, Latin script with diacritics",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "um",
                   "features": [
                     "Fem",
                     "Ind",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "um",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
+                  "features": [
+                    "Fem"
+                  ],
                   "lemma": "coisa",
-                  "features": [
-                    "Fem"
-                  ]
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
+                  "features": [
+                    "Fem"
+                  ],
                   "lemma": "Denise",
-                  "features": [
-                    "Fem"
-                  ]
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "que",
                   "features": [
                     "Rel",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "que",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "acontecer",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "acontecer",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "intj",
-                  "lemma": "contigo"
+                  "lemma": "contigo",
+                  "pos": "intj"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "qualquer",
                   "features": [
                     "Fem",
                     "Def",
                     "Ind",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "qualquer",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "coisa",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "coisa",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "um",
                   "features": [
                     "Fem",
                     "Ind",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "um",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "historinha",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "historinha",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 2,
+                "index": 1,
                 "relation": "DET"
               },
               {
-                "index": 2,
                 "head": 0,
+                "index": 2,
                 "relation": "ROOT"
               },
               {
-                "index": 3,
                 "head": 2,
+                "index": 3,
                 "relation": "APPOS"
               },
               {
-                "index": 4,
                 "head": 5,
+                "index": 4,
                 "relation": "NSUBJ"
               },
               {
-                "index": 5,
                 "head": 2,
+                "index": 5,
                 "relation": "ACL-RELCL"
               },
               {
-                "index": 6,
                 "head": 5,
+                "index": 6,
                 "relation": "ADVMOD"
               },
               {
-                "index": 7,
                 "head": 5,
+                "index": 7,
                 "relation": "PUNCT"
               },
               {
-                "index": 8,
                 "head": 9,
+                "index": 8,
                 "relation": "DET"
               },
               {
-                "index": 9,
                 "head": 2,
+                "index": 9,
                 "relation": "PARATAXIS"
               },
               {
-                "index": 10,
                 "head": 11,
+                "index": 10,
                 "relation": "DET"
               },
               {
-                "index": 11,
                 "head": 2,
+                "index": 11,
                 "relation": "APPOS"
               },
               {
-                "index": 12,
                 "head": 2,
+                "index": 12,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "eu",
-              "cleaned_text": "eu",
+              "cleaned_text": "uma",
               "content": [
                 {
-                  "type": "text",
-                  "content": "eu"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "(es)tou",
-              "cleaned_text": "estou",
-              "content": [
-                {
-                  "type": "shortening",
-                  "content": "es"
-                },
-                {
-                  "type": "text",
-                  "content": "tou"
-                }
-              ]
-            },
-            {
-              "type": "annotated_word",
-              "raw_text": "doente",
-              "cleaned_text": "doente",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "doente"
+                  "content": "uma",
+                  "type": "text"
                 }
               ],
-              "scoped_annotations": [
-                {
-                  "type": "stressing"
-                }
-              ]
+              "raw_text": "uma",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "a",
-              "cleaned_text": "a",
+              "cleaned_text": "coisa",
               "content": [
                 {
-                  "type": "text",
-                  "content": "a"
+                  "content": "coisa",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "coisa",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "mãe",
-              "cleaned_text": "mãe",
+              "cleaned_text": "Denise",
               "content": [
                 {
-                  "type": "text",
-                  "content": "mãe"
+                  "content": "Denise",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "Denise",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "vai",
-              "cleaned_text": "vai",
+              "cleaned_text": "que",
               "content": [
                 {
-                  "type": "text",
-                  "content": "vai"
+                  "content": "que",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "que",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "me",
-              "cleaned_text": "me",
+              "cleaned_text": "aconteceu",
               "content": [
                 {
-                  "type": "text",
-                  "content": "me"
+                  "content": "aconteceu",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "aconteceu",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "levar",
-              "cleaned_text": "levar",
+              "cleaned_text": "contigo",
               "content": [
                 {
-                  "type": "text",
-                  "content": "levar"
+                  "content": "contigo",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "contigo",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hoje",
-              "cleaned_text": "hoje",
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "qualquer",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hoje"
+                  "content": "qualquer",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "qualquer",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "no",
-              "cleaned_text": "no",
+              "cleaned_text": "coisa",
               "content": [
                 {
-                  "type": "text",
-                  "content": "no"
+                  "content": "coisa",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "coisa",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "médico",
-              "cleaned_text": "médico",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "médico"
-                }
-              ]
-            },
-            {
-              "type": "pause",
               "duration": {
-                "type": "long"
-              }
+                "type": "short"
+              },
+              "type": "pause"
             },
             {
-              "type": "word",
-              "raw_text": "e",
-              "cleaned_text": "e",
+              "cleaned_text": "uma",
               "content": [
                 {
-                  "type": "text",
-                  "content": "e"
+                  "content": "uma",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "uma",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "eu",
-              "cleaned_text": "eu",
+              "cleaned_text": "historinha",
               "content": [
                 {
-                  "type": "text",
-                  "content": "eu"
+                  "content": "historinha",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "vomitei",
-              "cleaned_text": "vomitei",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "vomitei"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "no",
-              "cleaned_text": "no",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "no"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ônibus",
-              "cleaned_text": "ônibus",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ônibus"
-                }
-              ]
+              ],
+              "raw_text": "historinha",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "INV"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "estar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "estar",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "adj",
-                  "lemma": "doente",
                   "features": [
                     "S1"
-                  ]
+                  ],
+                  "lemma": "doente",
+                  "pos": "adj"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "o",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "o",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "mãe",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "mãe",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "ir",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ir",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "Acc",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "levar",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "levar",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "hoje"
+                  "lemma": "hoje",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ele",
                   "features": [
                     "Masc",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ele",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "médico",
                   "features": [
                     "Masc",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "médico",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "e"
+                  "lemma": "e",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "vomitar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "vomitar",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ele",
                   "features": [
                     "Masc",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ele",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ônibus",
                   "features": [
                     "Masc",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "ônibus",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "COP"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 5,
+                "index": 4,
                 "relation": "DET"
               },
               {
-                "index": 5,
                 "head": 8,
+                "index": 5,
                 "relation": "NSUBJ"
               },
               {
-                "index": 6,
                 "head": 8,
+                "index": 6,
                 "relation": "AUX"
               },
               {
-                "index": 7,
                 "head": 8,
+                "index": 7,
                 "relation": "OBJ"
               },
               {
-                "index": 8,
                 "head": 3,
+                "index": 8,
                 "relation": "CSUBJ"
               },
               {
-                "index": 9,
                 "head": 8,
+                "index": 9,
                 "relation": "ADVMOD"
               },
               {
-                "index": 10,
                 "head": 11,
+                "index": 10,
                 "relation": "DET"
               },
               {
-                "index": 11,
                 "head": 8,
+                "index": 11,
                 "relation": "OBJ"
               },
               {
-                "index": 12,
                 "head": 14,
+                "index": 12,
                 "relation": "CC"
               },
               {
-                "index": 13,
                 "head": 14,
+                "index": 13,
                 "relation": "NSUBJ"
               },
               {
-                "index": 14,
                 "head": 3,
+                "index": 14,
                 "relation": "CONJ"
               },
               {
-                "index": 15,
                 "head": 16,
+                "index": 15,
                 "relation": "DET"
               },
               {
-                "index": 16,
                 "head": 14,
+                "index": 16,
                 "relation": "OBJ"
               },
               {
-                "index": 17,
                 "head": 3,
+                "index": 17,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "eu",
               "cleaned_text": "eu",
               "content": [
                 {
-                  "type": "text",
-                  "content": "eu"
+                  "content": "eu",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "eu",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "cai",
+              "cleaned_text": "estou",
+              "content": [
+                {
+                  "content": "es",
+                  "type": "shortening"
+                },
+                {
+                  "content": "tou",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "(es)tou",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "doente",
+              "content": [
+                {
+                  "content": "doente",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "doente",
+              "scoped_annotations": [
+                {
+                  "type": "stressing"
+                }
+              ],
+              "type": "annotated_word"
+            },
+            {
+              "cleaned_text": "a",
+              "content": [
+                {
+                  "content": "a",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "a",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "mãe",
+              "content": [
+                {
+                  "content": "mãe",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "mãe",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vai",
+              "content": [
+                {
+                  "content": "vai",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vai",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "me",
+              "content": [
+                {
+                  "content": "me",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "me",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "levar",
+              "content": [
+                {
+                  "content": "levar",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "levar",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "hoje",
+              "content": [
+                {
+                  "content": "hoje",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "hoje",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "no",
+              "content": [
+                {
+                  "content": "no",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "no",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "médico",
+              "content": [
+                {
+                  "content": "médico",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "médico",
+              "type": "word"
+            },
+            {
+              "duration": {
+                "type": "long"
+              },
+              "type": "pause"
+            },
+            {
+              "cleaned_text": "e",
+              "content": [
+                {
+                  "content": "e",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "e",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "eu",
+              "content": [
+                {
+                  "content": "eu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "eu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "vomitei",
+              "content": [
+                {
+                  "content": "vomitei",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "vomitei",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "no",
+              "content": [
+                {
+                  "content": "no",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "no",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ônibus",
+              "content": [
+                {
+                  "content": "ônibus",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ônibus",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S1"
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fin",
+                    "Ind",
+                    "Pres",
+                    "S3"
+                  ],
+                  "lemma": "cair",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Masc",
+                    "Ind",
+                    "Art",
+                    "Sing"
+                  ],
+                  "lemma": "um",
+                  "pos": "det"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Masc",
+                    "Acc"
+                  ],
+                  "lemma": "tombão",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "lá",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "em",
+                  "pos": "adp"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Fem"
+                  ],
+                  "lemma": "casa",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "aqui",
+                  "pos": "adv"
+                }
+              },
+              {
+                "main": {
+                  "features": [
+                    "Prs",
+                    "Nom",
+                    "S1"
+                  ],
+                  "lemma": "ó",
+                  "pos": "pron"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 2,
+                "index": 1,
+                "relation": "NSUBJ"
+              },
+              {
+                "head": 0,
+                "index": 2,
+                "relation": "ROOT"
+              },
+              {
+                "head": 4,
+                "index": 3,
+                "relation": "DET"
+              },
+              {
+                "head": 2,
+                "index": 4,
+                "relation": "OBJ"
+              },
+              {
+                "head": 2,
+                "index": 5,
+                "relation": "ADVMOD"
+              },
+              {
+                "head": 7,
+                "index": 6,
+                "relation": "CASE"
+              },
+              {
+                "head": 5,
+                "index": 7,
+                "relation": "OBL"
+              },
+              {
+                "head": 2,
+                "index": 8,
+                "relation": "ADVMOD"
+              },
+              {
+                "head": 2,
+                "index": 9,
+                "relation": "OBJ"
+              },
+              {
+                "head": 2,
+                "index": 10,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "eu",
+              "content": [
+                {
+                  "content": "eu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "eu",
+              "type": "word"
+            },
+            {
               "cleaned_text": "cai",
               "content": [
                 {
-                  "type": "text",
-                  "content": "cai"
+                  "content": "cai",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "cai",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "um",
               "cleaned_text": "um",
               "content": [
                 {
-                  "type": "text",
-                  "content": "um"
+                  "content": "um",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "um",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "tombão",
               "cleaned_text": "tombão",
               "content": [
                 {
-                  "type": "text",
-                  "content": "tombão"
+                  "content": "tombão",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "tombão",
+              "type": "word"
             },
             {
-              "type": "annotated_group",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "lá",
                     "cleaned_text": "lá",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "lá"
+                        "content": "lá",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "lá",
+                    "type": "word"
                   },
                   {
-                    "type": "word",
-                    "raw_text": "em",
                     "cleaned_text": "em",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "em"
+                        "content": "em",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "em",
+                    "type": "word"
                   },
                   {
-                    "type": "word",
-                    "raw_text": "casa",
                     "cleaned_text": "casa",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "casa"
+                        "content": "casa",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "casa",
+                    "type": "word"
                   }
                 ]
               },
@@ -981,1127 +1134,974 @@ expression: snapshot
                 {
                   "type": "stressing"
                 }
-              ]
+              ],
+              "type": "annotated_group"
             },
             {
-              "type": "retrace",
               "content": {
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "aqui",
                     "cleaned_text": "aqui",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "aqui"
+                        "content": "aqui",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "aqui",
+                    "type": "word"
                   },
                   {
-                    "type": "word",
-                    "raw_text": "ó",
                     "cleaned_text": "ó",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "ó"
+                        "content": "ó",
+                        "type": "text"
                       }
-                    ]
+                    ],
+                    "raw_text": "ó",
+                    "type": "word"
                   }
                 ]
               },
+              "is_group": true,
               "kind": "partial",
-              "is_group": true
+              "type": "retrace"
             },
             {
-              "type": "word",
-              "raw_text": "aqui",
               "cleaned_text": "aqui",
               "content": [
                 {
-                  "type": "text",
-                  "content": "aqui"
+                  "content": "aqui",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "aqui",
+              "type": "word"
             },
             {
-              "type": "annotated_word",
-              "raw_text": "ó",
               "cleaned_text": "ó",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ó"
+                  "content": "ó",
+                  "type": "text"
                 }
               ],
+              "raw_text": "ó",
               "scoped_annotations": [
                 {
-                  "type": "explanation",
-                  "text": "indica a parte machucada do corpo"
+                  "text": "indica a parte machucada do corpo",
+                  "type": "explanation"
                 }
-              ]
+              ],
+              "type": "annotated_word"
             }
           ],
           "terminator": {
             "type": "period"
-          }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S1"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
-                  "lemma": "cair",
-                  "features": [
-                    "Fin",
-                    "Ind",
-                    "Pres",
-                    "S3"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "det",
-                  "lemma": "um",
-                  "features": [
-                    "Masc",
-                    "Ind",
-                    "Art",
-                    "Sing"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "tombão",
-                  "features": [
-                    "Masc",
-                    "Acc"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "lá"
-                }
-              },
-              {
-                "main": {
-                  "pos": "adp",
-                  "lemma": "em"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "casa",
-                  "features": [
-                    "Fem"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "adv",
-                  "lemma": "aqui"
-                }
-              },
-              {
-                "main": {
-                  "pos": "pron",
-                  "lemma": "ó",
-                  "features": [
-                    "Prs",
-                    "Nom",
-                    "S1"
-                  ]
-                }
-              }
-            ],
-            "terminator": "."
           }
         },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 2,
-                "relation": "NSUBJ"
-              },
-              {
-                "index": 2,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 3,
-                "head": 4,
-                "relation": "DET"
-              },
-              {
-                "index": 4,
-                "head": 2,
-                "relation": "OBJ"
-              },
-              {
-                "index": 5,
-                "head": 2,
-                "relation": "ADVMOD"
-              },
-              {
-                "index": 6,
-                "head": 7,
-                "relation": "CASE"
-              },
-              {
-                "index": 7,
-                "head": 5,
-                "relation": "OBL"
-              },
-              {
-                "index": 8,
-                "head": 2,
-                "relation": "ADVMOD"
-              },
-              {
-                "index": 9,
-                "head": 2,
-                "relation": "OBJ"
-              },
-              {
-                "index": 10,
-                "head": 2,
-                "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "INV",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "conta",
-              "cleaned_text": "conta",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "conta"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "pra",
-              "cleaned_text": "pra",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "pra"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "mim",
-              "cleaned_text": "mim",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "mim"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "como",
-              "cleaned_text": "como",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "como"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "é",
-              "cleaned_text": "é",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "é"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "que",
-              "cleaned_text": "que",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "que"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "foi",
-              "cleaned_text": "foi",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "foi"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "o",
-              "cleaned_text": "o",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "o"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "tombo",
-              "cleaned_text": "tombo",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "tombo"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "que",
-              "cleaned_text": "que",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "que"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "tu",
-              "cleaned_text": "tu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "tu"
-                }
-              ]
-            },
-            {
-              "type": "replaced_word",
-              "word": {
-                "raw_text": "caiu",
-                "cleaned_text": "caiu",
-                "content": [
-                  {
-                    "type": "text",
-                    "content": "caiu"
-                  }
-                ]
-              },
-              "replacement": {
-                "words": [
-                  {
-                    "raw_text": "caiste",
-                    "cleaned_text": "caiste",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "caiste"
-                      }
-                    ]
-                  }
-                ]
-              }
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "conta",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "conta",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "pra"
+                  "lemma": "pra",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "como"
+                  "lemma": "como",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "ser",
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "que"
-                }
-              },
-              {
-                "main": {
-                  "pos": "aux",
+                  ],
                   "lemma": "ser",
+                  "pos": "aux"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "que",
+                  "pos": "sconj"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ser",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "o",
                   "features": [
                     "Masc",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "o",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "tombo",
                   "features": [
                     "Masc"
-                  ]
+                  ],
+                  "lemma": "tombo",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "que",
                   "features": [
                     "Rel",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "que",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "tu",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "tu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "caistar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "caistar",
+                  "pos": "verb"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "CASE"
               },
               {
-                "index": 3,
                 "head": 1,
+                "index": 3,
                 "relation": "NMOD"
               },
               {
-                "index": 4,
                 "head": 9,
+                "index": 4,
                 "relation": "ADVMOD"
               },
               {
-                "index": 5,
                 "head": 9,
+                "index": 5,
                 "relation": "DISCOURSE"
               },
               {
-                "index": 6,
                 "head": 5,
+                "index": 6,
                 "relation": "FIXED"
               },
               {
-                "index": 7,
                 "head": 9,
+                "index": 7,
                 "relation": "COP"
               },
               {
-                "index": 8,
                 "head": 9,
+                "index": 8,
                 "relation": "DET"
               },
               {
-                "index": 9,
                 "head": 1,
+                "index": 9,
                 "relation": "NSUBJ"
               },
               {
-                "index": 10,
                 "head": 12,
+                "index": 10,
                 "relation": "OBJ"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "NSUBJ"
               },
               {
-                "index": 12,
                 "head": 9,
+                "index": 12,
                 "relation": "ACL-RELCL"
               },
               {
-                "index": 13,
                 "head": 1,
+                "index": 13,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "eu",
-              "cleaned_text": "eu",
+              "cleaned_text": "conta",
               "content": [
                 {
-                  "type": "text",
-                  "content": "eu"
+                  "content": "conta",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "conta",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "(es)tava",
-              "cleaned_text": "estava",
+              "cleaned_text": "pra",
               "content": [
                 {
-                  "type": "shortening",
-                  "content": "es"
-                },
-                {
-                  "type": "text",
-                  "content": "tava"
+                  "content": "pra",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "pra",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "brincando",
-              "cleaned_text": "brincando",
+              "cleaned_text": "mim",
               "content": [
                 {
-                  "type": "text",
-                  "content": "brincando"
+                  "content": "mim",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "mim",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "com",
-              "cleaned_text": "com",
+              "cleaned_text": "como",
               "content": [
                 {
-                  "type": "text",
-                  "content": "com"
+                  "content": "como",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "como",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "o",
+              "cleaned_text": "é",
+              "content": [
+                {
+                  "content": "é",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "é",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "que",
+              "content": [
+                {
+                  "content": "que",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "que",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "foi",
+              "content": [
+                {
+                  "content": "foi",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "foi",
+              "type": "word"
+            },
+            {
               "cleaned_text": "o",
               "content": [
                 {
-                  "type": "text",
-                  "content": "o"
+                  "content": "o",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "o",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "meu",
-              "cleaned_text": "meu",
+              "cleaned_text": "tombo",
               "content": [
                 {
-                  "type": "text",
-                  "content": "meu"
+                  "content": "tombo",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "tombo",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "primo",
-              "cleaned_text": "primo",
+              "cleaned_text": "que",
               "content": [
                 {
-                  "type": "text",
-                  "content": "primo"
+                  "content": "que",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "que",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "Leonardo",
-              "cleaned_text": "Leonardo",
+              "cleaned_text": "tu",
               "content": [
                 {
-                  "type": "text",
-                  "content": "Leonardo"
+                  "content": "tu",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "tu",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "eu",
-              "cleaned_text": "eu",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "eu"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "e",
-              "cleaned_text": "e",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "e"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ele",
-              "cleaned_text": "ele",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ele"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "caimos",
-              "cleaned_text": "caimos",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "caimos"
-                }
-              ]
-            },
-            {
-              "type": "annotated_group",
-              "content": {
-                "content": [
+              "replacement": {
+                "words": [
                   {
-                    "type": "word",
-                    "raw_text": "um",
-                    "cleaned_text": "um",
+                    "cleaned_text": "caiste",
                     "content": [
                       {
-                        "type": "text",
-                        "content": "um"
+                        "content": "caiste",
+                        "type": "text"
                       }
-                    ]
-                  },
-                  {
-                    "type": "word",
-                    "raw_text": "tombo",
-                    "cleaned_text": "tombo",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "tombo"
-                      }
-                    ]
+                    ],
+                    "raw_text": "caiste"
                   }
                 ]
               },
-              "scoped_annotations": [
-                {
-                  "type": "stressing"
-                }
-              ]
-            },
-            {
-              "type": "annotated_group",
-              "content": {
+              "type": "replaced_word",
+              "word": {
+                "cleaned_text": "caiu",
                 "content": [
                   {
-                    "type": "word",
-                    "raw_text": "lá",
-                    "cleaned_text": "lá",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "lá"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "word",
-                    "raw_text": "em",
-                    "cleaned_text": "em",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "em"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "word",
-                    "raw_text": "casa",
-                    "cleaned_text": "casa",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "casa"
-                      }
-                    ]
+                    "content": "caiu",
+                    "type": "text"
                   }
-                ]
-              },
-              "scoped_annotations": [
-                {
-                  "type": "stressing"
-                }
-              ]
+                ],
+                "raw_text": "caiu"
+              }
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "INV"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "estar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Imp",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "estar",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "brincar",
                   "features": [
                     "Ger",
                     "S"
-                  ]
+                  ],
+                  "lemma": "brincar",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "com"
+                  "lemma": "com",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "o",
                   "features": [
                     "Masc",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "o",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "meu",
                   "features": [
                     "Masc",
                     "Def",
                     "Prs",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "meu",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "primo",
                   "features": [
                     "Masc",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "primo",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "Leonardo",
                   "features": [
                     "Masc"
-                  ]
+                  ],
+                  "lemma": "Leonardo",
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "eu",
                   "features": [
                     "Prs",
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "eu",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "e"
+                  "lemma": "e",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "ele",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ele",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "cair",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "cair",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "um",
                   "features": [
                     "Masc",
                     "Ind",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "um",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "tombo",
                   "features": [
                     "Masc",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "tombo",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "lá"
+                  "lemma": "lá",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "em"
+                  "lemma": "em",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "casa",
                   "features": [
                     "Fem"
-                  ]
+                  ],
+                  "lemma": "casa",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "AUX"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 7,
+                "index": 4,
                 "relation": "CASE"
               },
               {
+                "head": 7,
                 "index": 5,
-                "head": 7,
                 "relation": "DET"
               },
               {
+                "head": 7,
                 "index": 6,
-                "head": 7,
                 "relation": "DET"
               },
               {
-                "index": 7,
                 "head": 3,
+                "index": 7,
                 "relation": "OBJ"
               },
               {
-                "index": 8,
                 "head": 7,
+                "index": 8,
                 "relation": "APPOS"
               },
               {
-                "index": 9,
                 "head": 12,
+                "index": 9,
                 "relation": "NSUBJ"
               },
               {
-                "index": 10,
                 "head": 12,
+                "index": 10,
                 "relation": "CC"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "NSUBJ"
               },
               {
-                "index": 12,
                 "head": 3,
+                "index": 12,
                 "relation": "CONJ"
               },
               {
-                "index": 13,
                 "head": 14,
+                "index": 13,
                 "relation": "DET"
               },
               {
-                "index": 14,
                 "head": 12,
+                "index": 14,
                 "relation": "OBJ"
               },
               {
-                "index": 15,
                 "head": 12,
+                "index": 15,
                 "relation": "ADVMOD"
               },
               {
-                "index": 16,
                 "head": 17,
+                "index": 16,
                 "relation": "CASE"
               },
               {
-                "index": 17,
                 "head": 15,
+                "index": 17,
                 "relation": "OBL"
               },
               {
-                "index": 18,
                 "head": 3,
+                "index": 18,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "eu",
+              "content": [
+                {
+                  "content": "eu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "eu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "estava",
+              "content": [
+                {
+                  "content": "es",
+                  "type": "shortening"
+                },
+                {
+                  "content": "tava",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "(es)tava",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "brincando",
+              "content": [
+                {
+                  "content": "brincando",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "brincando",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "com",
+              "content": [
+                {
+                  "content": "com",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "com",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "o",
+              "content": [
+                {
+                  "content": "o",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "o",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "meu",
+              "content": [
+                {
+                  "content": "meu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "meu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "primo",
+              "content": [
+                {
+                  "content": "primo",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "primo",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "Leonardo",
+              "content": [
+                {
+                  "content": "Leonardo",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Leonardo",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "eu",
+              "content": [
+                {
+                  "content": "eu",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "eu",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "e",
+              "content": [
+                {
+                  "content": "e",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "e",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ele",
+              "content": [
+                {
+                  "content": "ele",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ele",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "caimos",
+              "content": [
+                {
+                  "content": "caimos",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "caimos",
+              "type": "word"
+            },
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "um",
+                    "content": [
+                      {
+                        "content": "um",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "um",
+                    "type": "word"
+                  },
+                  {
+                    "cleaned_text": "tombo",
+                    "content": [
+                      {
+                        "content": "tombo",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "tombo",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
+                {
+                  "type": "stressing"
+                }
+              ],
+              "type": "annotated_group"
+            },
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "lá",
+                    "content": [
+                      {
+                        "content": "lá",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "lá",
+                    "type": "word"
+                  },
+                  {
+                    "cleaned_text": "em",
+                    "content": [
+                      {
+                        "content": "em",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "em",
+                    "type": "word"
+                  },
+                  {
+                    "cleaned_text": "casa",
+                    "content": [
+                      {
+                        "content": "casa",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "casa",
+                    "type": "word"
+                  }
+                ]
+              },
+              "scoped_annotations": [
+                {
+                  "type": "stressing"
+                }
+              ],
+              "type": "annotated_group"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "CHI"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": "Denise",
-      "role": "Target_Child",
       "id": {
+        "age": "5;10.",
+        "corpus": "AlegreX",
+        "group": "MC",
         "language": [
           "por"
         ],
-        "corpus": "AlegreX",
-        "speaker": "CHI",
-        "age": "5;10.",
-        "group": "MC",
-        "role": "Target_Child"
+        "role": "Target_Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": "Denise",
+      "role": "Target_Child"
     },
     "INV": {
+      "birth_date": null,
       "code": "INV",
-      "name": "Conceição",
-      "role": "Investigator",
       "id": {
+        "corpus": "AlegreX",
         "language": [
           "por"
         ],
-        "corpus": "AlegreX",
-        "speaker": "INV",
-        "role": "Investigator"
+        "role": "Investigator",
+        "speaker": "INV"
       },
-      "birth_date": null
+      "name": "Conceição",
+      "role": "Investigator"
     }
-  },
-  "languages": [
-    "por"
-  ],
-  "options": []
+  }
 }

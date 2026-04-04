@@ -7,7 +7,7 @@
 //! that indicate syntactic subordination. Two sets of relations are
 //! supported:
 //!
-//! - **UD (Universal Dependencies)**: CSUBJ, CCOMP, XCOMP, ACL, ADVCL, NSUBJ
+//! - **UD (Universal Dependencies)**: CSUBJ, CCOMP, XCOMP, ACL, ADVCL, APPOS, EXPL
 //! - **Legacy CLAN**: CSUBJ, COMP, CPRED, CPOBJ, COBJ, CJCT, XJCT, NJCT, CMOD, XMOD
 //!
 //! The command auto-detects which set to use based on the relations found.
@@ -58,8 +58,10 @@ pub struct SpeakerComplexity {
     pub acl: u64,
     /// ADVCL (adverbial clause modifier) count.
     pub advcl: u64,
-    /// NSUBJ (nominal subject) count — UD only.
-    pub nsubj: u64,
+    /// APPOS (appositional modifier) count — UD only.
+    pub appos: u64,
+    /// EXPL (expletive) count — UD only.
+    pub expl: u64,
     /// COMP (complement) count — legacy only.
     pub comp: u64,
     /// CPRED (clausal predicate) count — legacy only.
@@ -98,7 +100,7 @@ impl SpeakerComplexity {
 /// Whether the corpus uses UD or legacy dependency relations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum RelationStyle {
-    /// Universal Dependencies (CSUBJ, CCOMP, XCOMP, ACL, ADVCL, NSUBJ).
+    /// Universal Dependencies (CSUBJ, CCOMP, XCOMP, ACL, ADVCL, APPOS, EXPL).
     Ud,
     /// Legacy CLAN (CSUBJ, COMP, CPRED, CPOBJ, COBJ, CJCT, XJCT, NJCT, CMOD, XMOD).
     Legacy,
@@ -126,7 +128,7 @@ impl CommandOutput for ComplexityResult {
         );
         let _ = write!(out, ",CSUBJ");
         if self.style == RelationStyle::Ud {
-            let _ = write!(out, ",CCOMP,XCOMP,ACL,ADVCL,NSUBJ");
+            let _ = write!(out, ",CCOMP,XCOMP,ACL,ADVCL,APPOS,EXPL");
         } else {
             let _ = write!(out, ",COMP,CPRED,CPOBJ,COBJ,CJCT,XJCT,NJCT,CMOD,XMOD");
         }
@@ -138,8 +140,8 @@ impl CommandOutput for ComplexityResult {
             if self.style == RelationStyle::Ud {
                 let _ = write!(
                     out,
-                    ",{},{},{},{},{}",
-                    sp.ccomp, sp.xcomp, sp.acl, sp.advcl, sp.nsubj
+                    ",{},{},{},{},{},{}",
+                    sp.ccomp, sp.xcomp, sp.acl, sp.advcl, sp.appos, sp.expl
                 );
             } else {
                 let _ = write!(
@@ -184,7 +186,10 @@ impl ComplexityResult {
                         values: vec!["ADVCL".to_owned(), sp.advcl.to_string()],
                     },
                     TableRow {
-                        values: vec!["NSUBJ".to_owned(), sp.nsubj.to_string()],
+                        values: vec!["APPOS".to_owned(), sp.appos.to_string()],
+                    },
+                    TableRow {
+                        values: vec!["EXPL".to_owned(), sp.expl.to_string()],
                     },
                 ]);
             } else {
@@ -247,7 +252,8 @@ struct SpeakerAccum {
     xcomp: u64,
     acl: u64,
     advcl: u64,
-    nsubj: u64,
+    appos: u64,
+    expl: u64,
     comp: u64,
     cpred: u64,
     cpobj: u64,
@@ -303,8 +309,13 @@ impl SpeakerAccum {
                 self.tokens += 1;
                 self.has_ud = true;
             }
-            "NSUBJ" => {
-                self.nsubj += 1;
+            "APPOS" => {
+                self.appos += 1;
+                self.tokens += 1;
+                self.has_ud = true;
+            }
+            "EXPL" => {
+                self.expl += 1;
                 self.tokens += 1;
                 self.has_ud = true;
             }
@@ -365,7 +376,8 @@ impl SpeakerAccum {
             xcomp: self.xcomp,
             acl: self.acl,
             advcl: self.advcl,
-            nsubj: self.nsubj,
+            appos: self.appos,
+            expl: self.expl,
             comp: self.comp,
             cpred: self.cpred,
             cpobj: self.cpobj,
@@ -488,7 +500,7 @@ mod tests {
             "CHI",
             &["he", "said", "wants", "go"],
             vec![
-                GrammaticalRelation::new(1, 2, "NSUBJ"),
+                GrammaticalRelation::new(1, 2, "APPOS"),
                 GrammaticalRelation::new(2, 0, "ROOT"),
                 GrammaticalRelation::new(3, 2, "CCOMP"),
                 GrammaticalRelation::new(4, 3, "XCOMP"),
@@ -502,7 +514,7 @@ mod tests {
 
         let sp = &result.speakers[0];
         assert_eq!(sp.speaker, "CHI");
-        assert_eq!(sp.nsubj, 1);
+        assert_eq!(sp.appos, 1);
         assert_eq!(sp.ccomp, 1);
         assert_eq!(sp.xcomp, 1);
         assert_eq!(sp.tokens, 3);
@@ -581,9 +593,9 @@ mod tests {
             "CHI",
             &["he", "said", "he", "wants", "go"],
             vec![
-                GrammaticalRelation::new(1, 2, "NSUBJ"),
+                GrammaticalRelation::new(1, 2, "APPOS"),
                 GrammaticalRelation::new(2, 0, "ROOT"),
-                GrammaticalRelation::new(3, 4, "NSUBJ"),
+                GrammaticalRelation::new(3, 4, "EXPL"),
                 GrammaticalRelation::new(4, 2, "CCOMP"),
                 GrammaticalRelation::new(5, 4, "XCOMP"),
             ],
@@ -592,7 +604,7 @@ mod tests {
 
         let result = cmd.finalize(state);
         let sp = &result.speakers[0];
-        // NSUBJ(2) + CCOMP(1) + XCOMP(1) = 4 tokens, 5 total
+        // APPOS(1) + EXPL(1) + CCOMP(1) + XCOMP(1) = 4 tokens, 5 total
         assert_eq!(sp.tokens, 4);
         assert_eq!(sp.total_tokens, 5);
         assert!((sp.ratio() - 0.8).abs() < 0.001);

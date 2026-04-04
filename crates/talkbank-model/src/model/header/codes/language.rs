@@ -233,12 +233,34 @@ impl Validate for LanguageCode {
                     SourceLocation::at_offset(0),
                     ErrorContext::new(self.as_str(), 0..self.0.len(), "language_code"),
                     format!(
-                        "Language code '{}' is not a recognized ISO 639-3 code",
+                        "Language code '{}' is a disallowed placeholder",
                         self.0
                     ),
                 )
                 .with_suggestion(
                     "Use a valid ISO 639-3 code (e.g., eng, spa, deu) in @Languages and @ID",
+                ),
+            );
+        }
+
+        // Check ISO 639-3 membership for codes that pass format checks.
+        if is_three_lowercase
+            && !is_disallowed_placeholder_language_code(self.as_str())
+            && !super::iso639::is_valid_iso639_3(self.as_str())
+        {
+            errors.report(
+                ParseError::new(
+                    ErrorCode::InvalidLanguageCode,
+                    Severity::Error,
+                    SourceLocation::at_offset(0),
+                    ErrorContext::new(self.as_str(), 0..self.0.len(), "language_code"),
+                    format!(
+                        "Language code '{}' is not in the ISO 639-3 registry",
+                        self.0
+                    ),
+                )
+                .with_suggestion(
+                    "Use a valid ISO 639-3 code. See https://iso639-3.sil.org/ for the full list",
                 ),
             );
         }
@@ -291,5 +313,46 @@ mod tests {
     fn regular_code_is_not_undetermined() {
         let code = LanguageCode::new("eng");
         assert!(!code.is_undetermined());
+    }
+
+    /// Helper to validate a language code and collect errors.
+    fn validate_code(code: &str) -> Vec<crate::ParseError> {
+        let lc = LanguageCode::new(code);
+        let ctx = ValidationContext::new();
+        let errors = crate::ErrorCollector::new();
+        lc.validate(&ctx, &errors);
+        errors.into_vec()
+    }
+
+    #[test]
+    fn validate_rejects_non_iso639_3_code() {
+        // "cye" is 3 lowercase letters but NOT in ISO 639-3.
+        let errors = validate_code("cye");
+        assert!(
+            errors.iter().any(|e| e.code.as_str() == "E519"),
+            "Expected E519 for non-ISO 639-3 code 'cye', got: {:?}",
+            errors.iter().map(|e| e.code.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn validate_accepts_valid_iso639_3_code() {
+        let errors = validate_code("eng");
+        assert!(
+            errors.is_empty(),
+            "Expected no errors for 'eng', got: {:?}",
+            errors.iter().map(|e| e.code.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn validate_accepts_valid_uncommon_iso639_3_code() {
+        // "nle" (East Nyala) is a valid ISO 639-3 code, even if suspicious.
+        let errors = validate_code("nle");
+        assert!(
+            errors.is_empty(),
+            "Expected no errors for valid ISO 639-3 code 'nle', got: {:?}",
+            errors.iter().map(|e| e.code.as_str()).collect::<Vec<_>>()
+        );
     }
 }

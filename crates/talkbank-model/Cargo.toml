@@ -16,6 +16,7 @@ dashmap = { workspace = true }
 indexmap = { workspace = true }
 miette = { workspace = true }
 parking_lot = { workspace = true }
+phf = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,6 +34,9 @@ insta = { workspace = true }
 proptest = { workspace = true }
 rstest = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[build-dependencies]
+phf_codegen = { workspace = true }
 
 [features]
 default = []

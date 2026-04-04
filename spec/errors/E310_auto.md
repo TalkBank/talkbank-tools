@@ -1,11 +1,21 @@
-# E310: Auto-generated from corpus
+# E310: Parser failed to produce valid parse tree
 
 ## Description
 
-Auto-generated from corpus
+Tree-sitter's internal parser returned `None` (e.g., due to timeout or
+cancellation) or the parse outcome was rejected with no other errors collected.
+E310 is a catch-all for complete parse failures where no more specific error
+code applies.
+
+**Validation not yet implemented for this spec example.** The example is a
+valid CHAT file (headers only, no utterances) which parses successfully.
+E310 fires when tree-sitter itself fails to produce a parse tree, which
+requires genuinely unparseable input or a parser timeout — not merely
+missing utterances.
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 - **Layer**: validation
 
 - **Error Code**: E310
@@ -30,13 +40,23 @@ Auto-generated from corpus
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The parser should report E310 when it cannot produce a valid parse tree at all.
+The check exists in `crates/talkbank-parser/src/parser/chat_file_parser/chat_file/parse.rs`
+and `helpers.rs`.
+
+**Trigger conditions**: Tree-sitter returns `None` from `parse()`, or the parse
+outcome is `Rejected` with an empty error list. This typically requires
+severely malformed input that tree-sitter cannot recover from at all.
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+A valid CHAT file must be parseable by the tree-sitter grammar. The CHAT manual
+is available at: https://talkbank.org/0info/manuals/CHAT.pdf
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- The example is a valid CHAT file with only headers and no utterances,
+  which parses successfully
+- E310 is difficult to trigger from well-formed CHAT text; it requires
+  input that causes tree-sitter's parser to fail entirely
+- The code IS emitted in the codebase as a fallback for total parse failure

@@ -105,6 +105,20 @@ impl<'a> Iterator for Lexer<'a> {
         re2c:YYSETCONDITION = "self.condition = @@;";
 
         // ═══════════════════════════════════════════════════════
+        //
+        // NOTE: re2c reports "2nd degree of nondeterminism" for tags t2-t4
+        // in the Word rules (~lines 726-749) and TYPES_CONTENT (~line 416).
+        // These use tagged sub-match extraction with optional groups and
+        // alternations (optional form marker `@f`, optional lang suffix
+        // `@s:eng`, comma-separated type fields). re2c's DFA cannot
+        // statically resolve which path sets the tag. At runtime, re2c
+        // correctly resolves the tags via leftmost-longest matching.
+        // Validated on all 99,907 CHAT files with zero errors.
+        // Restructuring to avoid this would require multi-pass lexing or
+        // intermediate states, adding complexity with no correctness benefit.
+        // Suppressed via -Wno-nondeterministic-tags in build.rs.
+        //
+        // ═══════════════════════════════════════════════════════
         // NAMED DEFINITIONS — Word character classes
         //
         // Translated from grammar.js WORD_SEGMENT_FORBIDDEN_FIRST/REST.
@@ -122,13 +136,13 @@ impl<'a> Iterator for Lexer<'a> {
         // TODO: Brian to adjudicate whether & should be allowed (for &=&=squeals).
         // Currently & is excluded, matching the original re2c lexer. TreeSitter's
         // grammar allows & in event_segment but this may be an oversight.
-        ev_char = [^ \t\r\n\x00,;!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
+        ev_char = [^ \t\r\n\x00,;!?.()[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
 
         // Word segment first character: excludes 0 and all structural/CA chars
-        ws_first = [^ \t\r\n\x00,;:!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB0];
+        ws_first = [^ \t\r\n\x00,;:!?.()[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB0];
 
         // Word segment rest characters: allows 0, excludes backslash
-        ws_rest = [^ \t\r\n\x00,;:!?.()\[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
+        ws_rest = [^ \t\r\n\x00,;:!?.()[\]{}~^+$@&*%"<>\\\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB];
 
         // Word text segment: first char + zero or more rest chars
         w_text = ws_first ws_rest*;
@@ -756,13 +770,8 @@ impl<'a> Iterator for Lexer<'a> {
             return Some((Token::Word { raw_text, prefix: None, body, form_marker, lang_suffix, pos_tag }, start..end));
         }
 
-        // ── Shortening sub-token (AFTER Word rules for correct priority) ──
-        // When `(parens)` appears standalone, the Word rule above matches it
-        // as a rich Word token. This sub-token rule is a fallback for cases
-        // where the Word rule doesn't match (e.g., after a prefix that
-        // doesn't match w_prefix).
-        // grammar.js: shortening = seq('(', word_segment, ')')
-        <MAIN_CONTENT> "(" @t1 [^\x00 \t\r\n)]+ @t2 ")" { emit_t1t2!(Shortening); }
+        // NOTE: Shortening sub-token rule removed — shadowed by Word rules above.
+        // `(parens)` is matched as part of w_body by the Word rule at higher priority.
 
         // Unclosed paren — error recovery
         <MAIN_CONTENT> "(" [^\x00 \t\r\n)]* {
@@ -805,9 +814,8 @@ impl<'a> Iterator for Lexer<'a> {
         // These remain as comments for reference; body-internal overlaps
         // are handled by the Word rule's w_overlap pattern.)
 
-        // grammar.js: stress_marker = token(choice('\u02C8', '\u02CC'))
-        <MAIN_CONTENT> "\u02C8" { emit!(StressPrimary); }   // ˈ
-        <MAIN_CONTENT> "\u02CC" { emit!(StressSecondary); }  // ˌ
+        // NOTE: Stress marker sub-token rules removed — shadowed by Word rule
+        // which matches ˈ and ˌ as part of w_body.
 
         // grammar.js: syllable_pause = '^'
         <MAIN_CONTENT> "^" { emit!(SyllablePause); }
@@ -933,7 +941,7 @@ impl<'a> Iterator for Lexer<'a> {
         //
         // Simplified: exclude all structural chars. Anything not matched by
         // specific rules above falls here.
-        <MAIN_CONTENT> [^ \t\r\n\x00,;:!?.()\[\]{}~^+$@&*%"<>\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB0] [^ \t\r\n\x00,;:!?.()\[\]{}~^+$@&*%"<>\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB]* {
+        <MAIN_CONTENT> [^ \t\r\n\x00,;:!?.()[\]{}~^+$@&*%"<>\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB0] [^ \t\r\n\x00,;:!?.()[\]{}~^+$@&*%"<>\u0015\u0001\u0002\u0003\u0004\u0007\u0008\u2308\u2309\u230A\u230B\u3014\u3015\u2039\u203A\u02C8\u02CC\u201C\u201D\u201E\u2021\u2248\u224B\u221E\u2261\u21D7\u2197\u2192\u2198\u21D8\u2051\u2191\u2193\u21BB\u2260\u2219\u223E\u2906\u2907\u1F29\u2047\u00A7\u204E\u00B0\u21AB\u2206\u2207\u222C\u222E\u2581\u2594\u25C9\u263A\u264B\u03AB]* {
             emit!(WordSegment);
         }
 
@@ -966,7 +974,7 @@ impl<'a> Iterator for Lexer<'a> {
         //
         // grammar.js splits mor_lemma from mor_feature at -, but we capture
         // the whole thing as one rich token. The parser splits on | and -.
-        <MOR_CONTENT> [^\x00.?!|+~$#@%=&\[\]<>()\-,; \t\r\n\u201C\u201D]+ @t1 "|" @t2 [^\x00.?|+~ \t\r\n\u201C\u201D]+ {
+        <MOR_CONTENT> [^\x00.?!|+~$#@%=&[\]<>()\-,; \t\r\n\u201C\u201D]+ @t1 "|" @t2 [^\x00.?|+~ \t\r\n\u201C\u201D]+ {
             let end = self.cursor;
             return Some((Token::MorWord {
                 pos: &yyinput[start..self.t1],
@@ -1042,7 +1050,8 @@ impl<'a> Iterator for Lexer<'a> {
             emit!(SinWord);
         }
 
-        <SIN_CONTENT> "0" { emit!(Zero); }
+        // NOTE: SIN_CONTENT Zero rule removed — shadowed by SinWord rule above
+        // which matches "0" via [a-zA-Z0-9:_\-]+.
 
         <SIN_CONTENT> "\u3014" { emit!(SinGroupBegin); }
         <SIN_CONTENT> "\u3015" { emit!(SinGroupEnd); }
@@ -1130,8 +1139,8 @@ impl<'a> Iterator for Lexer<'a> {
         // USER_TIER_CONTENT: unexpected char in user-defined tier body
         <USER_TIER_CONTENT> [^\x00\r\n] { emit!(ErrorInTierContent); }
 
-        // HEADER_CONTENT: unexpected char in header value
-        <HEADER_CONTENT> [^\x00\r\n] { emit!(ErrorInHeaderContent); }
+        // NOTE: HEADER_CONTENT error fallback removed — shadowed by the
+        // greedy HeaderContent rule which matches [^\x00\r\n]+.
 
         // Global fallback — catches anything not handled above.
         // Should never fire if per-condition fallbacks are complete.

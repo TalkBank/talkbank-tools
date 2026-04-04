@@ -1,8 +1,12 @@
-# E210: Replacement not allowed for phonological fragment
+# E210: Deprecated — replaced by E387
+
+**Status:** Current
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-Replacement not allowed for phonological fragment
+**Deprecated.** This error code was replaced by E387 (`ReplacementOnFragment`).
+The validation logic now emits E387 instead of E210 for the same condition.
 
 ## Metadata
 
@@ -10,11 +14,11 @@ Replacement not allowed for phonological fragment
 - **Category**: Word validation
 - **Level**: word
 - **Layer**: validation
+- **Status**: deprecated
 
 ## Example 1
 
-**Source**: `E2xx_word_errors/E210_replacement_missing_arrow.cha`
-**Trigger**: Replacement on word with &+ prefix
+**Trigger**: Replacement on word with `&+` prefix (phonological fragment)
 **Expected Error Codes**: E387
 
 ```chat
@@ -27,15 +31,7 @@ Replacement not allowed for phonological fragment
 @End
 ```
 
-## Expected Behavior
-
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
-
-## CHAT Rule
-
-[Add link to relevant CHAT manual section]
-
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E210 is deprecated. See E387 for the active error code.
+- The example above triggers E387, not E210.

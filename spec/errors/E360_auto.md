@@ -7,6 +7,7 @@ Auto-generated from corpus
 ## Metadata
 
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 - **Error Code**: E360
 - **Category**: validation
 - **Level**: utterance
@@ -15,8 +16,8 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `E3xx_main_tier_errors/E360_invalid_media_bullet.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E360
+**Trigger**: Zero-duration timestamp (start == end, both 0ms) — triggers E362 instead
+**Expected Error Codes**: E362
 
 ```chat
 @UTF8

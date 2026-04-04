@@ -6,6 +6,7 @@ Auto-generated from corpus
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E388
 - **Category**: validation
@@ -15,8 +16,8 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `E2xx_word_errors/E388_replacement_on_nonword.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E311, E316
+**Trigger**: Replacement annotation on a paralinguistic event (non-word)
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8

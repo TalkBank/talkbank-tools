@@ -1,7 +1,6 @@
 ---
 source: crates/talkbank-clan/tests/clan_golden/rust_only.rs
-assertion_line: 156
-expression: rust_output
+expression: output.rust_output
 ---
 {
   "speakers": [
@@ -12,7 +11,8 @@ expression: rust_output
       "xcomp": 0,
       "acl": 0,
       "advcl": 0,
-      "nsubj": 2,
+      "appos": 0,
+      "expl": 0,
       "comp": 0,
       "cpred": 0,
       "cpobj": 0,
@@ -22,7 +22,7 @@ expression: rust_output
       "njct": 0,
       "cmod": 0,
       "xmod": 0,
-      "tokens": 2,
+      "tokens": 0,
       "total_tokens": 5
     },
     {
@@ -32,7 +32,8 @@ expression: rust_output
       "xcomp": 0,
       "acl": 0,
       "advcl": 0,
-      "nsubj": 0,
+      "appos": 0,
+      "expl": 0,
       "comp": 0,
       "cpred": 0,
       "cpobj": 0,

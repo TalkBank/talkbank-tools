@@ -3,1469 +3,1469 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "zho"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "zho"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "PAR0",
             "name": null,
-            "role": "Participant"
+            "role": "Participant",
+            "speaker_code": "PAR0"
           }
-        ]
-      }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "id",
+        "corpus": "Xinjiang",
         "language": [
           "zho"
         ],
-        "corpus": "Xinjiang",
+        "role": "Participant",
         "speaker": "PAR0",
-        "role": "Participant"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "media",
-        "filename": "chinese-adult-conversation",
-        "media_type": "audio"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Chinese (Mandarin) adult conversation with audio, %mor, %gra, %wor tiers"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: audio-linked CJK file with word-level timing"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "PAR0",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "好",
-              "cleaned_text": "好",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "好"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "请",
-              "cleaned_text": "请",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "请"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "中",
-              "cleaned_text": "中",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "中"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "二",
-              "cleaned_text": "二",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "二"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "班",
-              "cleaned_text": "班",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "班"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "的",
-              "cleaned_text": "的",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "的"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "阿",
-              "cleaned_text": "阿",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "阿"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "尔",
-              "cleaned_text": "尔",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "尔"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "法",
-              "cleaned_text": "法",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "法"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "来",
-              "cleaned_text": "来",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "来"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "用",
-              "cleaned_text": "用",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "用"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "维",
-              "cleaned_text": "维",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "维"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "语",
-              "cleaned_text": "语",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "语"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "来",
-              "cleaned_text": "来",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "来"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "给",
-              "cleaned_text": "给",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "给"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "我们",
-              "cleaned_text": "我们",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "我们"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "讲",
-              "cleaned_text": "讲",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "讲"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "一下",
-              "cleaned_text": "一下",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "一下"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "这个",
-              "cleaned_text": "这个",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "这个"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "故",
-              "cleaned_text": "故",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "故"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "事",
-              "cleaned_text": "事",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "事"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "开始",
-              "cleaned_text": "开始",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "开始"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "吧",
-              "cleaned_text": "吧",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "吧"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          },
-          "bullet": {
-            "start_ms": 1070,
-            "end_ms": 6270
-          }
-        }
+        "type": "id"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "filename": "chinese-adult-conversation",
+        "media_type": "audio",
+        "type": "media"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Chinese (Mandarin) adult conversation with audio, %mor, %gra, %wor tiers",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: audio-linked CJK file with word-level timing",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "好"
+                  "lemma": "好",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
+                  "features": [
+                    "Inf",
+                    "S"
+                  ],
                   "lemma": "请",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "中",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "二",
+                  "pos": "num"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "班",
+                  "pos": "noun"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "的",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "阿",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "尔",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "法",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "来",
+                  "pos": "sconj"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "中"
-                }
-              },
-              {
-                "main": {
-                  "pos": "num",
-                  "lemma": "二"
-                }
-              },
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "班"
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "的"
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "阿"
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "尔"
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "法"
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "来"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "用",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "维",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "语",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "来",
+                  "pos": "sconj"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "维"
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "语"
-                }
-              },
-              {
-                "main": {
-                  "pos": "sconj",
-                  "lemma": "来"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "给",
-                  "features": [
-                    "Inf",
-                    "S"
-                  ]
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "我",
                   "features": [
                     "Int",
                     "P1"
-                  ]
+                  ],
+                  "lemma": "我",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "讲",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "讲",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "一下",
                   "features": [
                     "Inf",
                     "Perf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "一下",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "这个",
                   "features": [
                     "Def"
-                  ]
+                  ],
+                  "lemma": "这个",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "故"
+                  "lemma": "故",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "事"
+                  "lemma": "事",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "开始",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "开始",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "part",
-                  "lemma": "吧"
+                  "lemma": "吧",
+                  "pos": "part"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 2,
+                "index": 1,
                 "relation": "ADVMOD"
               },
               {
-                "index": 2,
                 "head": 15,
+                "index": 2,
                 "relation": "ADVCL"
               },
               {
-                "index": 3,
                 "head": 5,
+                "index": 3,
                 "relation": "NMOD"
               },
               {
-                "index": 4,
                 "head": 5,
+                "index": 4,
                 "relation": "NUMMOD"
               },
               {
-                "index": 5,
                 "head": 9,
+                "index": 5,
                 "relation": "NMOD"
               },
               {
-                "index": 6,
                 "head": 5,
+                "index": 6,
                 "relation": "CASE"
               },
               {
-                "index": 7,
                 "head": 9,
+                "index": 7,
                 "relation": "NMOD"
               },
               {
-                "index": 8,
                 "head": 7,
+                "index": 8,
                 "relation": "FLAT-NAME"
               },
               {
-                "index": 9,
                 "head": 15,
+                "index": 9,
                 "relation": "NSUBJ"
               },
               {
-                "index": 10,
                 "head": 15,
+                "index": 10,
                 "relation": "MARK"
               },
               {
-                "index": 11,
                 "head": 15,
+                "index": 11,
                 "relation": "ADVCL"
               },
               {
-                "index": 12,
                 "head": 13,
+                "index": 12,
                 "relation": "COMPOUND"
               },
               {
-                "index": 13,
                 "head": 11,
+                "index": 13,
                 "relation": "OBJ"
               },
               {
-                "index": 14,
                 "head": 15,
+                "index": 14,
                 "relation": "MARK"
               },
               {
-                "index": 15,
                 "head": 0,
+                "index": 15,
                 "relation": "ROOT"
               },
               {
-                "index": 16,
                 "head": 17,
+                "index": 16,
                 "relation": "NSUBJ"
               },
               {
-                "index": 17,
                 "head": 15,
+                "index": 17,
                 "relation": "CCOMP"
               },
               {
-                "index": 18,
                 "head": 17,
+                "index": 18,
                 "relation": "AUX"
               },
               {
-                "index": 19,
                 "head": 21,
+                "index": 19,
                 "relation": "DET"
               },
               {
-                "index": 20,
                 "head": 22,
+                "index": 20,
                 "relation": "MARK"
               },
               {
-                "index": 21,
                 "head": 22,
+                "index": 21,
                 "relation": "NSUBJ"
               },
               {
-                "index": 22,
                 "head": 17,
+                "index": 22,
                 "relation": "CCOMP"
               },
               {
-                "index": 23,
                 "head": 22,
+                "index": 23,
                 "relation": "DISCOURSE"
               },
               {
-                "index": 24,
                 "head": 15,
+                "index": 24,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         },
         {
-          "type": "Wor",
           "data": {
-            "language_code": null,
+            "bullet": null,
             "items": [
               {
-                "kind": "word",
-                "raw_text": "好",
                 "cleaned_text": "好",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "好"
+                    "content": "好",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 1070,
-                  "end_ms": 1610
-                }
+                  "end_ms": 1610,
+                  "start_ms": 1070
+                },
+                "kind": "word",
+                "raw_text": "好"
               },
               {
-                "kind": "word",
-                "raw_text": "请",
                 "cleaned_text": "请",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "请"
+                    "content": "请",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 1610,
-                  "end_ms": 2290
-                }
+                  "end_ms": 2290,
+                  "start_ms": 1610
+                },
+                "kind": "word",
+                "raw_text": "请"
               },
               {
-                "kind": "word",
-                "raw_text": "中",
                 "cleaned_text": "中",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "中"
+                    "content": "中",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 2290,
-                  "end_ms": 2550
-                }
+                  "end_ms": 2550,
+                  "start_ms": 2290
+                },
+                "kind": "word",
+                "raw_text": "中"
               },
               {
-                "kind": "word",
-                "raw_text": "二",
                 "cleaned_text": "二",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "二"
+                    "content": "二",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 2550,
-                  "end_ms": 2650
-                }
+                  "end_ms": 2650,
+                  "start_ms": 2550
+                },
+                "kind": "word",
+                "raw_text": "二"
               },
               {
-                "kind": "word",
-                "raw_text": "班",
                 "cleaned_text": "班",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "班"
+                    "content": "班",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 2650,
-                  "end_ms": 2790
-                }
+                  "end_ms": 2790,
+                  "start_ms": 2650
+                },
+                "kind": "word",
+                "raw_text": "班"
               },
               {
-                "kind": "word",
-                "raw_text": "的",
                 "cleaned_text": "的",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "的"
+                    "content": "的",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 2790,
-                  "end_ms": 3030
-                }
+                  "end_ms": 3030,
+                  "start_ms": 2790
+                },
+                "kind": "word",
+                "raw_text": "的"
               },
               {
-                "kind": "word",
-                "raw_text": "阿",
                 "cleaned_text": "阿",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "阿"
+                    "content": "阿",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 3030,
-                  "end_ms": 3390
-                }
+                  "end_ms": 3390,
+                  "start_ms": 3030
+                },
+                "kind": "word",
+                "raw_text": "阿"
               },
               {
-                "kind": "word",
-                "raw_text": "尔",
                 "cleaned_text": "尔",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "尔"
+                    "content": "尔",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "尔"
               },
               {
-                "kind": "word",
-                "raw_text": "法",
                 "cleaned_text": "法",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "法"
+                    "content": "法",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 3390,
-                  "end_ms": 3630
-                }
+                  "end_ms": 3630,
+                  "start_ms": 3390
+                },
+                "kind": "word",
+                "raw_text": "法"
               },
               {
-                "kind": "word",
-                "raw_text": "来",
                 "cleaned_text": "来",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "来"
+                    "content": "来",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 3630,
-                  "end_ms": 3830
-                }
+                  "end_ms": 3830,
+                  "start_ms": 3630
+                },
+                "kind": "word",
+                "raw_text": "来"
               },
               {
-                "kind": "word",
-                "raw_text": "用",
                 "cleaned_text": "用",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "用"
+                    "content": "用",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 3830,
-                  "end_ms": 4310
-                }
+                  "end_ms": 4310,
+                  "start_ms": 3830
+                },
+                "kind": "word",
+                "raw_text": "用"
               },
               {
-                "kind": "word",
-                "raw_text": "维",
                 "cleaned_text": "维",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "维"
+                    "content": "维",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "维"
               },
               {
-                "kind": "word",
-                "raw_text": "语",
                 "cleaned_text": "语",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "语"
+                    "content": "语",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "语"
               },
               {
-                "kind": "word",
-                "raw_text": "来",
                 "cleaned_text": "来",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "来"
+                    "content": "来",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 4310,
-                  "end_ms": 4390
-                }
+                  "end_ms": 4390,
+                  "start_ms": 4310
+                },
+                "kind": "word",
+                "raw_text": "来"
               },
               {
-                "kind": "word",
-                "raw_text": "给",
                 "cleaned_text": "给",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "给"
+                    "content": "给",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 4390,
-                  "end_ms": 4490
-                }
+                  "end_ms": 4490,
+                  "start_ms": 4390
+                },
+                "kind": "word",
+                "raw_text": "给"
               },
               {
-                "kind": "word",
-                "raw_text": "我们",
                 "cleaned_text": "我们",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "我们"
+                    "content": "我们",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 4490,
-                  "end_ms": 4710
-                }
+                  "end_ms": 4710,
+                  "start_ms": 4490
+                },
+                "kind": "word",
+                "raw_text": "我们"
               },
               {
-                "kind": "word",
-                "raw_text": "讲",
                 "cleaned_text": "讲",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "讲"
+                    "content": "讲",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 4710,
-                  "end_ms": 4990
-                }
+                  "end_ms": 4990,
+                  "start_ms": 4710
+                },
+                "kind": "word",
+                "raw_text": "讲"
               },
               {
-                "kind": "word",
-                "raw_text": "一下",
                 "cleaned_text": "一下",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "一下"
+                    "content": "一下",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 4990,
-                  "end_ms": 5090
-                }
+                  "end_ms": 5090,
+                  "start_ms": 4990
+                },
+                "kind": "word",
+                "raw_text": "一下"
               },
               {
-                "kind": "word",
-                "raw_text": "这个",
                 "cleaned_text": "这个",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "这个"
+                    "content": "这个",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 5090,
-                  "end_ms": 5290
-                }
+                  "end_ms": 5290,
+                  "start_ms": 5090
+                },
+                "kind": "word",
+                "raw_text": "这个"
               },
               {
-                "kind": "word",
-                "raw_text": "故",
                 "cleaned_text": "故",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "故"
+                    "content": "故",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 5290,
-                  "end_ms": 5570
-                }
+                  "end_ms": 5570,
+                  "start_ms": 5290
+                },
+                "kind": "word",
+                "raw_text": "故"
               },
               {
-                "kind": "word",
-                "raw_text": "事",
                 "cleaned_text": "事",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "事"
+                    "content": "事",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 5570,
-                  "end_ms": 5950
-                }
+                  "end_ms": 5950,
+                  "start_ms": 5570
+                },
+                "kind": "word",
+                "raw_text": "事"
               },
               {
-                "kind": "word",
-                "raw_text": "开始",
                 "cleaned_text": "开始",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "开始"
+                    "content": "开始",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 5950,
-                  "end_ms": 6270
-                }
+                  "end_ms": 6270,
+                  "start_ms": 5950
+                },
+                "kind": "word",
+                "raw_text": "开始"
               },
               {
-                "kind": "word",
-                "raw_text": "吧",
                 "cleaned_text": "吧",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "吧"
+                    "content": "吧",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "吧"
               }
             ],
+            "language_code": null,
             "terminator": {
               "type": "period"
-            },
-            "bullet": null
-          }
+            }
+          },
+          "type": "Wor"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "PAR0",
         "content": {
+          "bullet": {
+            "end_ms": 6270,
+            "start_ms": 1070
+          },
           "content": [
             {
-              "type": "word",
-              "raw_text": "用",
+              "cleaned_text": "好",
+              "content": [
+                {
+                  "content": "好",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "好",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "请",
+              "content": [
+                {
+                  "content": "请",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "请",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "中",
+              "content": [
+                {
+                  "content": "中",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "中",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "二",
+              "content": [
+                {
+                  "content": "二",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "二",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "班",
+              "content": [
+                {
+                  "content": "班",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "班",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "的",
+              "content": [
+                {
+                  "content": "的",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "的",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "阿",
+              "content": [
+                {
+                  "content": "阿",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "阿",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "尔",
+              "content": [
+                {
+                  "content": "尔",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "尔",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "法",
+              "content": [
+                {
+                  "content": "法",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "法",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "来",
+              "content": [
+                {
+                  "content": "来",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "来",
+              "type": "word"
+            },
+            {
               "cleaned_text": "用",
               "content": [
                 {
-                  "type": "text",
-                  "content": "用"
+                  "content": "用",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "用",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "维",
               "cleaned_text": "维",
               "content": [
                 {
-                  "type": "text",
-                  "content": "维"
+                  "content": "维",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "语",
-              "cleaned_text": "语",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "语"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "哦",
-              "cleaned_text": "哦",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "哦"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "你",
-              "cleaned_text": "你",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "你"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "让",
-              "cleaned_text": "让",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "让"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "他",
-              "cleaned_text": "他",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "他"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "说",
-              "cleaned_text": "说",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "说"
-                }
-              ]
-            },
-            {
-              "type": "word",
+              ],
               "raw_text": "维",
-              "cleaned_text": "维",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "维"
-                }
-              ]
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "语",
               "cleaned_text": "语",
               "content": [
                 {
-                  "type": "text",
-                  "content": "语"
+                  "content": "语",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "语",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "来",
+              "content": [
+                {
+                  "content": "来",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "来",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "给",
+              "content": [
+                {
+                  "content": "给",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "给",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "我们",
+              "content": [
+                {
+                  "content": "我们",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "我们",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "讲",
+              "content": [
+                {
+                  "content": "讲",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "讲",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "一下",
+              "content": [
+                {
+                  "content": "一下",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "一下",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "这个",
+              "content": [
+                {
+                  "content": "这个",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "这个",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "故",
+              "content": [
+                {
+                  "content": "故",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "故",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "事",
+              "content": [
+                {
+                  "content": "事",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "事",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "开始",
+              "content": [
+                {
+                  "content": "开始",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "开始",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "吧",
+              "content": [
+                {
+                  "content": "吧",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "吧",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
-          },
-          "bullet": {
-            "start_ms": 6470,
-            "end_ms": 10290
           }
-        }
-      },
+        },
+        "speaker": "PAR0"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "verb",
+                  "features": [
+                    "Inf",
+                    "S"
+                  ],
                   "lemma": "用",
+                  "pos": "verb"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "维",
+                  "pos": "propn"
+                }
+              },
+              {
+                "main": {
+                  "lemma": "语",
+                  "pos": "part"
+                }
+              },
+              {
+                "main": {
                   "features": [
                     "Inf",
                     "S"
-                  ]
-                }
-              },
-              {
-                "main": {
-                  "pos": "propn",
-                  "lemma": "维"
-                }
-              },
-              {
-                "main": {
-                  "pos": "part",
-                  "lemma": "语"
-                }
-              },
-              {
-                "main": {
-                  "pos": "verb",
+                  ],
                   "lemma": "哦",
-                  "features": [
-                    "Inf",
-                    "S"
-                  ]
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "你",
                   "features": [
                     "Int",
                     "S2"
-                  ]
+                  ],
+                  "lemma": "你",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "让",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "让",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "他",
                   "features": [
                     "Int",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "他",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "说",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "说",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "维"
+                  "lemma": "维",
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "part",
-                  "lemma": "语"
+                  "lemma": "语",
+                  "pos": "part"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 4,
+                "index": 1,
                 "relation": "ADVCL"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "COMPOUND"
               },
               {
-                "index": 3,
                 "head": 1,
+                "index": 3,
                 "relation": "OBJ"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
+                "head": 6,
                 "index": 5,
-                "head": 6,
                 "relation": "NSUBJ"
               },
               {
-                "index": 6,
                 "head": 4,
+                "index": 6,
                 "relation": "CCOMP"
               },
               {
-                "index": 7,
                 "head": 8,
+                "index": 7,
                 "relation": "NSUBJ"
               },
               {
-                "index": 8,
                 "head": 6,
+                "index": 8,
                 "relation": "CCOMP"
               },
               {
-                "index": 9,
                 "head": 10,
+                "index": 9,
                 "relation": "COMPOUND"
               },
               {
-                "index": 10,
                 "head": 8,
+                "index": 10,
                 "relation": "OBJ"
               },
               {
-                "index": 11,
                 "head": 4,
+                "index": 11,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         },
         {
-          "type": "Wor",
           "data": {
-            "language_code": null,
+            "bullet": null,
             "items": [
               {
-                "kind": "word",
-                "raw_text": "用",
                 "cleaned_text": "用",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "用"
+                    "content": "用",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 6470,
-                  "end_ms": 7030
-                }
+                  "end_ms": 7030,
+                  "start_ms": 6470
+                },
+                "kind": "word",
+                "raw_text": "用"
               },
               {
-                "kind": "word",
-                "raw_text": "维",
                 "cleaned_text": "维",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "维"
+                    "content": "维",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "维"
               },
               {
-                "kind": "word",
-                "raw_text": "语",
                 "cleaned_text": "语",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "语"
+                    "content": "语",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "语"
               },
               {
-                "kind": "word",
-                "raw_text": "哦",
                 "cleaned_text": "哦",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "哦"
+                    "content": "哦",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 7030,
-                  "end_ms": 7310
-                }
+                  "end_ms": 7310,
+                  "start_ms": 7030
+                },
+                "kind": "word",
+                "raw_text": "哦"
               },
               {
-                "kind": "word",
-                "raw_text": "你",
                 "cleaned_text": "你",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "你"
+                    "content": "你",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 7310,
-                  "end_ms": 9410
-                }
+                  "end_ms": 9410,
+                  "start_ms": 7310
+                },
+                "kind": "word",
+                "raw_text": "你"
               },
               {
-                "kind": "word",
-                "raw_text": "让",
                 "cleaned_text": "让",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "让"
+                    "content": "让",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 9410,
-                  "end_ms": 9510
-                }
+                  "end_ms": 9510,
+                  "start_ms": 9410
+                },
+                "kind": "word",
+                "raw_text": "让"
               },
               {
-                "kind": "word",
-                "raw_text": "他",
                 "cleaned_text": "他",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "他"
+                    "content": "他",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 9510,
-                  "end_ms": 9710
-                }
+                  "end_ms": 9710,
+                  "start_ms": 9510
+                },
+                "kind": "word",
+                "raw_text": "他"
               },
               {
-                "kind": "word",
-                "raw_text": "说",
                 "cleaned_text": "说",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "说"
+                    "content": "说",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 9710,
-                  "end_ms": 10290
-                }
+                  "end_ms": 10290,
+                  "start_ms": 9710
+                },
+                "kind": "word",
+                "raw_text": "说"
               },
               {
-                "kind": "word",
-                "raw_text": "维",
                 "cleaned_text": "维",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "维"
+                    "content": "维",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "维"
               },
               {
-                "kind": "word",
-                "raw_text": "语",
                 "cleaned_text": "语",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "语"
+                    "content": "语",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "语"
               }
             ],
+            "language_code": null,
             "terminator": {
               "type": "period"
-            },
-            "bullet": null
-          }
+            }
+          },
+          "type": "Wor"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "bullet": {
+            "end_ms": 10290,
+            "start_ms": 6470
+          },
+          "content": [
+            {
+              "cleaned_text": "用",
+              "content": [
+                {
+                  "content": "用",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "用",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "维",
+              "content": [
+                {
+                  "content": "维",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "维",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "语",
+              "content": [
+                {
+                  "content": "语",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "语",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "哦",
+              "content": [
+                {
+                  "content": "哦",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "哦",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "你",
+              "content": [
+                {
+                  "content": "你",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "你",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "让",
+              "content": [
+                {
+                  "content": "让",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "让",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "他",
+              "content": [
+                {
+                  "content": "他",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "他",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "说",
+              "content": [
+                {
+                  "content": "说",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "说",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "维",
+              "content": [
+                {
+                  "content": "维",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "维",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "语",
+              "content": [
+                {
+                  "content": "语",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "语",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "PAR0"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
-    }
-  ],
-  "participants": {
-    "PAR0": {
-      "code": "PAR0",
-      "name": null,
-      "role": "Participant",
-      "id": {
-        "language": [
-          "zho"
-        ],
-        "corpus": "Xinjiang",
-        "speaker": "PAR0",
-        "role": "Participant"
       },
-      "birth_date": null
+      "line_type": "header"
     }
-  },
-  "languages": [
-    "zho"
   ],
-  "options": [],
   "media": {
     "filename": "chinese-adult-conversation",
     "media_type": "audio"
+  },
+  "options": [],
+  "participants": {
+    "PAR0": {
+      "birth_date": null,
+      "code": "PAR0",
+      "id": {
+        "corpus": "Xinjiang",
+        "language": [
+          "zho"
+        ],
+        "role": "Participant",
+        "speaker": "PAR0"
+      },
+      "name": null,
+      "role": "Participant"
+    }
   }
 }

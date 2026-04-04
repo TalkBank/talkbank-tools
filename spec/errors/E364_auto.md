@@ -6,6 +6,7 @@ Auto-generated from corpus
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E364
 - **Category**: validation
@@ -15,8 +16,13 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `E2xx_word_errors/E364_malformed_word_content.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E316
+**Trigger**: `@s:+` — language marker with `+` instead of language code
+**Expected Error Codes**: E246, E249
+
+Note: The parser successfully parses `hello@s:+` but the `+` after `@s:` is
+not a valid language code. This triggers E246 (LengtheningMarkerPosition, since
+`+` is misinterpreted) and E249 (MissingLanguageContext), rather than E316
+(UnparsableContent) or E364 (MalformedWordContent).
 
 ```chat
 @UTF8

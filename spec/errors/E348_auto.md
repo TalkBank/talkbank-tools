@@ -1,30 +1,39 @@
-# E348: Unpaired overlap marker within utterance
+# E348 — Unpaired overlap marker within utterance
+
+**Status:** Current
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-A closing overlap marker (⌉ or ⌋) appears without a preceding opening marker
-(⌈ or ⌊) within the same utterance. Reported as a warning.
+Reserved for within-utterance overlap pairing violations: a closing marker
+(`⌉` or `⌋`) without a preceding opening marker (`⌈` or `⌊`) in the same
+utterance, or vice versa.
 
-**Onset-only marking (opening without closing) is suppressed.** An opening marker
-without a matching close is standard Jeffersonian CA convention — the transcriber
-marks where overlap begins, with the end implied by the end of the shorter turn.
-See `docs/overlap-validation-audit.md` in talkbank-dev for the full investigation.
+**Deliberately suppressed.** Within-utterance unpaired markers are almost always
+legitimate cross-utterance overlap spans — the opening marker appears on one
+utterance and the closing marker on a later utterance by the same speaker.
+Cross-utterance overlap pairing is handled by E347, which correctly matches
+indexed markers across speakers.
 
-Markers are matched by kind (top/bottom) and index (2-9 or unindexed).
+When E348 was temporarily enabled, it produced 2,152 false positives on
+hand-edited SBCSAE data (commit `ff9e41e0`, 2026-03-19). The check was
+suppressed after empirical validation.
+
+Onset-only marking (opening without closing) is a legitimate Jeffersonian CA
+convention — the transcriber marks where overlap begins, with the end implied.
 
 ## Metadata
-- **Status**: not_implemented
-- **Layer**: validation
 
 - **Error Code**: E348
 - **Category**: validation
 - **Level**: utterance
 - **Layer**: validation
+- **Status**: not_implemented
 
 ## Example 1
 
-**Source**: `error_corpus/parse_errors/E348_missing_overlap_end.cha`
-**Trigger**: Overlap begin marker without matching end
+**Trigger**: Opening overlap without closing in same utterance (legitimate
+cross-utterance span, not an error)
 **Expected Error Codes**: E348
 
 ```chat
@@ -39,17 +48,10 @@ Markers are matched by kind (top/bottom) and index (2-9 or unindexed).
 @End
 ```
 
-## Expected Behavior
-
-The parser should reject this CHAT input and report a parse error at the location of the invalid syntax.
-
-**Trigger**: See example above
-
-## CHAT Rule
-
-See CHAT manual sections on main tier syntax and utterance structure. Every utterance must end with a terminator (., ?, or \!). The CHAT manual is available at: https://talkbank.org/0info/manuals/CHAT.pdf
-
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- `check_overlap_pairing()` in `validation/utterance/overlap.rs` exists as a
+  stub with empty match arms — this is a deliberate design decision.
+- Cross-utterance overlap pairing is handled by E347 (indexed markers).
+- E348 remains reserved for future use if a genuine within-utterance-only
+  pairing violation is identified.

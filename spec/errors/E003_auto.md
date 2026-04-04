@@ -1,8 +1,14 @@
-# E003: Auto-generated from corpus
+# E003: Empty string input
+
+**Last updated:** 2026-04-04 08:28 EDT
 
 ## Description
 
-Auto-generated from corpus
+The input string is empty. E003 (EmptyString) is the default error code for
+empty `NonEmptyString` fields during model validation, but an empty *file*
+does not trigger E003 end-to-end. Instead, the parser produces header
+validation errors (missing @UTF8, @End, @Participants, etc.) and E316
+(unparsable content) because there are no headers to find.
 
 ## Metadata
 - **Status**: not_implemented
@@ -15,8 +21,12 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `error_corpus/parse_errors/E003_empty_string.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E003
+**Trigger**: Empty input — no CHAT content at all
+**Expected Error Codes**: E316, E502, E503, E504
+
+Note: E003 is not reachable from an empty file. The parser emits header
+validation errors instead. E003 fires internally for empty `NonEmptyString`
+fields, not at the file level.
 
 ```chat
 
@@ -34,5 +44,8 @@ See the CHAT manual for format specifications: https://talkbank.org/0info/manual
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E003 (EmptyString) is used as the default error code in `NonEmptyString`
+  validation when no field-specific code is provided, but it is not reachable
+  from an empty file input through the end-to-end parse+validate pipeline.
+- An empty file produces E316 (unparsable content), E502 (missing @End),
+  E503 (missing @UTF8), and E504 (missing required headers) instead.

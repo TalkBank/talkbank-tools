@@ -7,6 +7,7 @@ The media bullet contains a deprecated skip flag (dash before closing NAK delimi
 ## Metadata
 
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 - **Error Code**: E360
 - **Category**: Main tier validation
 - **Level**: utterance
@@ -15,8 +16,8 @@ The media bullet contains a deprecated skip flag (dash before closing NAK delimi
 ## Example 1
 
 **Source**: `content/deprecated-skip-bullet.cha`
-**Trigger**: Media bullet with dash before closing NAK
-**Expected Error Codes**: E360
+**Trigger**: Media bullet with dash before closing NAK — triggers E316 instead
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8

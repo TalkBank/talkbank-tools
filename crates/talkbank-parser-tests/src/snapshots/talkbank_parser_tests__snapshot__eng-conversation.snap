@@ -3,1019 +3,1019 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "eng"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "eng"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "SPE",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "SPE"
           },
           {
-            "speaker_code": "GES",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "GES"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "eng"
         ],
-        "corpus": "MDT",
-        "speaker": "SPE",
-        "role": "Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "MDT",
-        "speaker": "GES",
-        "role": "Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "English child narrative with gesture annotation"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: English language coverage"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "SPE",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "Triangle",
-              "cleaned_text": "Triangle",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Triangle"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "kept",
-              "cleaned_text": "kept",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "kept"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "going",
-              "cleaned_text": "going",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "going"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "MDT",
+        "language": [
+          "eng"
+        ],
+        "role": "Child",
+        "speaker": "SPE",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "MDT",
+        "language": [
+          "eng"
+        ],
+        "role": "Child",
+        "speaker": "GES",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "English child narrative with gesture annotation",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: English language coverage",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "triangle"
+                  "lemma": "triangle",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "keep",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3",
                     "irr"
-                  ]
+                  ],
+                  "lemma": "keep",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "go",
                   "features": [
                     "Ger",
                     "S"
-                  ]
+                  ],
+                  "lemma": "go",
+                  "pos": "verb"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 2,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 0,
+                "index": 2,
                 "relation": "ROOT"
               },
               {
-                "index": 3,
                 "head": 2,
+                "index": 3,
                 "relation": "XCOMP"
               },
               {
-                "index": 4,
                 "head": 2,
+                "index": 4,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "GES",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "angle",
-              "cleaned_text": "angle",
+              "cleaned_text": "Triangle",
               "content": [
                 {
-                  "type": "text",
-                  "content": "angle"
+                  "content": "Triangle",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "Triangle",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "kept",
               "cleaned_text": "kept",
               "content": [
                 {
-                  "type": "text",
-                  "content": "kept"
+                  "content": "kept",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "kept",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "going",
               "cleaned_text": "going",
               "content": [
                 {
-                  "type": "text",
-                  "content": "going"
+                  "content": "going",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "going",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "SPE"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "angle"
+                  "lemma": "angle",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "keep",
                   "features": [
                     "Part",
                     "Past",
                     "S",
                     "irr"
-                  ]
+                  ],
+                  "lemma": "keep",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "go",
                   "features": [
                     "Ger",
                     "S"
-                  ]
+                  ],
+                  "lemma": "go",
+                  "pos": "verb"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 2,
+                "index": 1,
                 "relation": "NSUBJ-PASS"
               },
               {
-                "index": 2,
                 "head": 0,
+                "index": 2,
                 "relation": "ROOT"
               },
               {
-                "index": 3,
                 "head": 2,
+                "index": 3,
                 "relation": "XCOMP"
               },
               {
-                "index": 4,
                 "head": 2,
+                "index": 4,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "SPE",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "and",
-              "cleaned_text": "and",
+              "cleaned_text": "angle",
               "content": [
                 {
-                  "type": "text",
-                  "content": "and"
+                  "content": "angle",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "angle",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "he",
-              "cleaned_text": "he",
+              "cleaned_text": "kept",
               "content": [
                 {
-                  "type": "text",
-                  "content": "he"
+                  "content": "kept",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "kept",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "twirled",
-              "cleaned_text": "twirled",
+              "cleaned_text": "going",
               "content": [
                 {
-                  "type": "text",
-                  "content": "twirled"
+                  "content": "going",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "up",
-              "cleaned_text": "up",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "up"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "the",
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "the"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "hill",
-              "cleaned_text": "hill",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "hill"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "until",
-              "cleaned_text": "until",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "until"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "he",
-              "cleaned_text": "he",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "he"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "got",
-              "cleaned_text": "got",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "got"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "to"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "the",
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "the"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "top",
-              "cleaned_text": "top",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "top"
-                }
-              ]
+              ],
+              "raw_text": "going",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "GES"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "and"
+                  "lemma": "and",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "he",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "he",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "twirl",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "twirl",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "up"
+                  "lemma": "up",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "the",
                   "features": [
                     "Def",
                     "Art"
-                  ]
+                  ],
+                  "lemma": "the",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "hill"
+                  "lemma": "hill",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "until"
+                  "lemma": "until",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "he",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "he",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "get",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3",
                     "irr"
-                  ]
+                  ],
+                  "lemma": "get",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "to"
+                  "lemma": "to",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "the",
                   "features": [
                     "Def",
                     "Art"
-                  ]
+                  ],
+                  "lemma": "the",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "top"
+                  "lemma": "top",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "CC"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "NSUBJ"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 6,
+                "index": 4,
                 "relation": "CASE"
               },
               {
-                "index": 5,
                 "head": 6,
+                "index": 5,
                 "relation": "DET"
               },
               {
-                "index": 6,
                 "head": 3,
+                "index": 6,
                 "relation": "OBL"
               },
               {
-                "index": 7,
                 "head": 9,
+                "index": 7,
                 "relation": "MARK"
               },
               {
-                "index": 8,
                 "head": 9,
+                "index": 8,
                 "relation": "NSUBJ"
               },
               {
-                "index": 9,
                 "head": 3,
+                "index": 9,
                 "relation": "ADVCL"
               },
               {
-                "index": 10,
                 "head": 12,
+                "index": 10,
                 "relation": "CASE"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "DET"
               },
               {
-                "index": 12,
                 "head": 9,
+                "index": 12,
                 "relation": "OBL"
               },
               {
-                "index": 13,
                 "head": 3,
+                "index": 13,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "GES",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "twirled",
+              "cleaned_text": "and",
+              "content": [
+                {
+                  "content": "and",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "and",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "he",
+              "content": [
+                {
+                  "content": "he",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "he",
+              "type": "word"
+            },
+            {
               "cleaned_text": "twirled",
               "content": [
                 {
-                  "type": "text",
-                  "content": "twirled"
+                  "content": "twirled",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "twirled",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "up",
               "cleaned_text": "up",
               "content": [
                 {
-                  "type": "text",
-                  "content": "up"
+                  "content": "up",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "up",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "hill",
               "cleaned_text": "hill",
               "content": [
                 {
-                  "type": "text",
-                  "content": "hill"
+                  "content": "hill",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hill",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "until",
+              "content": [
+                {
+                  "content": "until",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "until",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "he",
+              "content": [
+                {
+                  "content": "he",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "he",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "got",
+              "content": [
+                {
+                  "content": "got",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "got",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "content": "the",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "the",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "top",
+              "content": [
+                {
+                  "content": "top",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "top",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "SPE"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "twirl",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "twirl",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "up"
+                  "lemma": "up",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "the",
                   "features": [
                     "Def",
                     "Art"
-                  ]
+                  ],
+                  "lemma": "the",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "hill",
                   "features": [
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "hill",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "COMPOUND-PRT"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "DET"
               },
               {
-                "index": 4,
                 "head": 1,
+                "index": 4,
                 "relation": "OBJ"
               },
               {
-                "index": 5,
                 "head": 1,
+                "index": 5,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "GES",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "until",
-              "cleaned_text": "until",
+              "cleaned_text": "twirled",
               "content": [
                 {
-                  "type": "text",
-                  "content": "until"
+                  "content": "twirled",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "twirled",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "he",
-              "cleaned_text": "he",
+              "cleaned_text": "up",
               "content": [
                 {
-                  "type": "text",
-                  "content": "he"
+                  "content": "up",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "up",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "got",
-              "cleaned_text": "got",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "got"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "to"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "the",
               "cleaned_text": "the",
               "content": [
                 {
-                  "type": "text",
-                  "content": "the"
+                  "content": "the",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "the",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "to",
-              "cleaned_text": "to",
+              "cleaned_text": "hill",
               "content": [
                 {
-                  "type": "text",
-                  "content": "to"
+                  "content": "hill",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "hill",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "GES"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "sconj",
-                  "lemma": "until"
+                  "lemma": "until",
+                  "pos": "sconj"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "he",
                   "features": [
                     "Prs",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "he",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "get",
                   "features": [
                     "Fin",
                     "Ind",
                     "Past",
                     "S3",
                     "irr"
-                  ]
+                  ],
+                  "lemma": "get",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "to"
+                  "lemma": "to",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "the",
                   "features": [
                     "Def",
                     "Art"
-                  ]
+                  ],
+                  "lemma": "the",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "to"
+                  "lemma": "to",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "MARK"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "NSUBJ"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 6,
+                "index": 4,
                 "relation": "CASE"
               },
               {
-                "index": 5,
                 "head": 6,
+                "index": 5,
                 "relation": "DET"
               },
               {
-                "index": 6,
                 "head": 3,
+                "index": 6,
                 "relation": "OBL"
               },
               {
-                "index": 7,
                 "head": 3,
+                "index": 7,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "until",
+              "content": [
+                {
+                  "content": "until",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "until",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "he",
+              "content": [
+                {
+                  "content": "he",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "he",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "got",
+              "content": [
+                {
+                  "content": "got",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "got",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "the",
+              "content": [
+                {
+                  "content": "the",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "the",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "to",
+              "content": [
+                {
+                  "content": "to",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "to",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "GES"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
-    "SPE": {
-      "code": "SPE",
-      "name": null,
-      "role": "Child",
-      "id": {
-        "language": [
-          "eng"
-        ],
-        "corpus": "MDT",
-        "speaker": "SPE",
-        "role": "Child"
-      },
-      "birth_date": null
-    },
     "GES": {
+      "birth_date": null,
       "code": "GES",
-      "name": null,
-      "role": "Child",
       "id": {
+        "corpus": "MDT",
         "language": [
           "eng"
         ],
-        "corpus": "MDT",
-        "speaker": "GES",
-        "role": "Child"
+        "role": "Child",
+        "speaker": "GES"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Child"
+    },
+    "SPE": {
+      "birth_date": null,
+      "code": "SPE",
+      "id": {
+        "corpus": "MDT",
+        "language": [
+          "eng"
+        ],
+        "role": "Child",
+        "speaker": "SPE"
+      },
+      "name": null,
+      "role": "Child"
     }
-  },
-  "languages": [
-    "eng"
-  ],
-  "options": []
+  }
 }

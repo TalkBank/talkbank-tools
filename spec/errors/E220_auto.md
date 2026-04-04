@@ -1,77 +1,71 @@
-# E220: Auto-generated from corpus
+# E220 — Illegal digits in word content
+
+**Status:** Current
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-Auto-generated from corpus
+A word on the main tier contains numeric digits in a language context that does
+not permit them. Most natural languages (English, Spanish, French, etc.) do not
+allow bare digits in words on the main tier. A small set of languages (Chinese,
+Welsh, Vietnamese, Thai, Cantonese, etc.) permit digits as part of tone
+notation or numerals.
 
 ## Metadata
-- **Status**: not_implemented
-- **Layer**: validation
 
 - **Error Code**: E220
 - **Category**: Word validation
 - **Level**: word
 - **Layer**: validation
+- **Status**: implemented
 
 ## Example 1
 
-**Source**: `E2xx_word_errors/E220_unknown_shortening.cha`
-**Trigger**: Shortening with unknown type marker
+**Trigger**: English word containing a digit
 **Expected Error Codes**: E220
 
 ```chat
 @UTF8
 @Begin
 @Languages:	eng
-@Participants:	CHI Child
-@ID:	eng|corpus|CHI|||||Child|||
-*CHI:	hel(z)o [: hello] world .
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+*CHI:	hello3 .
 @End
 ```
 
 ## Example 2
 
-**Source**: `E2xx_word_errors/E209_replacement_missing_original.cha`
-**Trigger**: Word with empty cleaned text and no untranscribed marker
+**Trigger**: Word with digits in Spanish (also not digit-allowing)
 **Expected Error Codes**: E220
 
 ```chat
 @UTF8
 @Begin
-@Languages:	eng
-@Participants:	CHI Child
-@ID:	eng|corpus|CHI|||||Child|||
-@Comment:	Note: May need programmatic test - hard to trigger from CHAT
-*CHI:	0 world .
-@End
-```
-
-## Example 3
-
-**Source**: `E3xx_main_tier_errors/E340_unsupported_content_type.cha`
-**Trigger**: Try to trigger internal parser bug with unsupported content
-**Expected Error Codes**: E220
-
-```chat
-@UTF8
-@Begin
-@Languages:	eng
-@Participants:	CHI Child
-@ID:	eng|corpus|CHI|||||Child|||
-@Comment:	Note: This may need adjustment after testing
-*CHI:	hello \x00 world .
+@Languages:	spa
+@Participants:	CHI Target_Child
+@ID:	spa|corpus|CHI|||||Target_Child|||
+*CHI:	hola2 .
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+Validation should report E220 on words containing digits when the language does
+not allow them. The fix is either to spell out the number or use the
+appropriate CHAT notation for the content.
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+<https://talkbank.org/0info/manuals/CHAT.html>
+
+Languages that allow digits in words: `zho`, `cym`, `vie`, `tha`, `nan`,
+`yue`, `min`, `hak`. All other languages flag digits as E220.
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- Omission words (`0word`) are exempt — the `0` prefix is valid CHAT notation.
+- For mixed/ambiguous language markers (`@s:eng+zho`), digits are allowed if
+  ANY candidate language permits them.
+- The digit-allowing language list is defined in
+  `validation/context.rs::LANGUAGES_ALLOWING_NUMBERS`.

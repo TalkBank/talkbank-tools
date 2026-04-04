@@ -1,8 +1,10 @@
 # E345: Unmatched scoped annotation begin
 
+**Last updated:** 2026-04-04 08:15 EDT
+
 ## Description
 
-Unmatched scoped annotation begin
+Unmatched scoped annotation begin marker (`<` without matching `>`).
 
 ## Metadata
 
@@ -15,8 +17,8 @@ Unmatched scoped annotation begin
 ## Example 1
 
 **Source**: `error_corpus/parse_errors/E345_unmatched_scoped_begin.cha`
-**Trigger**: Opening \< without matching \>
-**Expected Error Codes**: E345
+**Trigger**: Opening `<` without matching `>` — tree-sitter absorbs into ERROR node
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -41,4 +43,5 @@ See CHAT manual sections on main tier syntax and utterance structure. Every utte
 ## Notes
 
 - Auto-generated from error corpus
+- This error code (E345 / `UnmatchedContentAnnotationBegin`) is defined in the error code enum but is never emitted by any validation or parser code path. Tree-sitter's error recovery absorbs the unmatched `<` into an ERROR node, producing E316 instead. The code exists in the CHECK error map (`error_map.rs`) for CLAN parity but has no runtime emission path.
 - Review and enhance this specification as needed

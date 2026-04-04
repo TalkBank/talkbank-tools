@@ -6,6 +6,7 @@ Auto-generated from corpus
 
 ## Metadata
 - **Status**: not_implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E243
 - **Category**: validation
@@ -15,8 +16,14 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E243_illegal_characters.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E243
+**Trigger**: Word ending with bare `@` (no form type) — triggers E202 instead
+**Expected Error Codes**: E202
+
+Note: The example `hell@` triggers E202 (MissingFormType) rather than E243
+(IllegalCharactersInWord) because the parser detects the bare `@` as a missing
+form type marker. E243 fires at the validation layer on parsed words containing
+whitespace, control characters, or bullet markers — conditions that are
+difficult to reach via normal CHAT input.
 
 ```chat
 @UTF8

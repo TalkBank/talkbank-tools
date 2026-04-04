@@ -3,1646 +3,1646 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "ell"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "ell"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "PAR1",
             "name": null,
-            "role": "Participant"
+            "role": "Participant",
+            "speaker_code": "PAR1"
           },
           {
-            "speaker_code": "PAR0",
             "name": null,
-            "role": "Participant"
+            "role": "Participant",
+            "speaker_code": "PAR0"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "ell"
         ],
-        "corpus": "Dem@Care",
-        "speaker": "PAR1",
-        "role": "Participant"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "ell"
-        ],
-        "corpus": "Dem@Care",
-        "speaker": "PAR0",
-        "role": "Participant"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Modern Greek conversation describing a picture"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: Greek script, Modern Greek language coverage"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "PAR1",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "Ναι",
-              "cleaned_text": "Ναι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Ναι"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "να",
-              "cleaned_text": "να",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "να"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "σας",
-              "cleaned_text": "σας",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "σας"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "τα",
-              "cleaned_text": "τα",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "τα"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "πω",
-              "cleaned_text": "πω",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "πω"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "είναι",
-              "cleaned_text": "είναι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "είναι"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ένα",
-              "cleaned_text": "ένα",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ένα"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "παιδάκι",
-              "cleaned_text": "παιδάκι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "παιδάκι"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "ταχτοποιεί",
-              "cleaned_text": "ταχτοποιεί",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ταχτοποιεί"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "κάτι",
-              "cleaned_text": "κάτι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "κάτι"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "στο",
-              "cleaned_text": "στο",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "στο"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ντουλάπι",
-              "cleaned_text": "ντουλάπι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ντουλάπι"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "ζάχαρη",
-              "cleaned_text": "ζάχαρη",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ζάχαρη"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "καφέ",
-              "cleaned_text": "καφέ",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "καφέ"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "τι",
-              "cleaned_text": "τι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "τι"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "είναι",
-              "cleaned_text": "είναι",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "είναι"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "Dem@Care",
+        "language": [
+          "ell"
+        ],
+        "role": "Participant",
+        "speaker": "PAR1",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "Dem@Care",
+        "language": [
+          "ell"
+        ],
+        "role": "Participant",
+        "speaker": "PAR0",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Modern Greek conversation describing a picture",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: Greek script, Modern Greek language coverage",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "adv",
-                  "lemma": "ναι"
+                  "lemma": "ναι",
+                  "pos": "adv"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "να",
                   "features": [
                     "Inf",
                     "S"
-                  ]
+                  ],
+                  "lemma": "να",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "μου",
                   "features": [
                     "Prs",
                     "Gen",
                     "P2"
-                  ]
+                  ],
+                  "lemma": "μου",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "εγώ",
                   "features": [
                     "Prs",
                     "Acc",
                     "P3"
-                  ]
+                  ],
+                  "lemma": "εγώ",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "λέγω",
                   "features": [
                     "Fin",
                     "Perf",
                     "Ind",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "λέγω",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "είμαι",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "είμαι",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ένας",
                   "features": [
                     "Neut",
                     "Ind",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ένας",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "παιδάκι",
                   "features": [
                     "Neut",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "παιδάκι",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "ταχτοποιώ",
                   "features": [
                     "Fin",
                     "Perf",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ταχτοποιώ",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "κάτι",
                   "features": [
                     "Ind",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "κάτι",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "στο"
+                  "lemma": "στο",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ντουλάπι",
                   "features": [
                     "Neut",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "ντουλάπι",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ζάχαρη",
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "ζάχαρη",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "καφέ",
                   "features": [
                     "Neut",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "καφέ",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "τι",
                   "features": [
                     "Int",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "τι",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "είμαι",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "είμαι",
+                  "pos": "aux"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 5,
+                "index": 1,
                 "relation": "ADVMOD"
               },
               {
-                "index": 2,
                 "head": 5,
+                "index": 2,
                 "relation": "AUX"
               },
               {
+                "head": 5,
                 "index": 3,
-                "head": 5,
                 "relation": "OBJ"
               },
               {
+                "head": 5,
                 "index": 4,
-                "head": 5,
                 "relation": "OBJ"
               },
               {
-                "index": 5,
                 "head": 9,
+                "index": 5,
                 "relation": "ADVCL"
               },
               {
-                "index": 6,
                 "head": 5,
+                "index": 6,
                 "relation": "PUNCT"
               },
               {
-                "index": 7,
                 "head": 9,
+                "index": 7,
                 "relation": "COP"
               },
               {
-                "index": 8,
                 "head": 9,
+                "index": 8,
                 "relation": "DET"
               },
               {
-                "index": 9,
                 "head": 0,
+                "index": 9,
                 "relation": "ROOT"
               },
               {
-                "index": 10,
                 "head": 11,
+                "index": 10,
                 "relation": "PUNCT"
               },
               {
-                "index": 11,
                 "head": 9,
+                "index": 11,
                 "relation": "CONJ"
               },
               {
-                "index": 12,
                 "head": 11,
+                "index": 12,
                 "relation": "OBJ"
               },
               {
-                "index": 13,
                 "head": 14,
+                "index": 13,
                 "relation": "CASE"
               },
               {
-                "index": 14,
                 "head": 12,
+                "index": 14,
                 "relation": "NMOD"
               },
               {
-                "index": 15,
                 "head": 16,
+                "index": 15,
                 "relation": "PUNCT"
               },
               {
+                "head": 14,
                 "index": 16,
-                "head": 14,
                 "relation": "CONJ"
               },
               {
-                "index": 17,
                 "head": 18,
+                "index": 17,
                 "relation": "PUNCT"
               },
               {
-                "index": 18,
                 "head": 14,
+                "index": 18,
                 "relation": "CONJ"
               },
               {
-                "index": 19,
                 "head": 18,
+                "index": 19,
                 "relation": "NMOD"
               },
               {
-                "index": 20,
                 "head": 18,
+                "index": 20,
                 "relation": "COP"
               },
               {
-                "index": 21,
                 "head": 9,
+                "index": 21,
                 "relation": "PUNCT"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "PAR0",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "Καφέ",
-              "cleaned_text": "Καφέ",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Καφέ"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Mor",
-          "data": {
-            "tier_type": "Mor",
-            "items": [
-              {
-                "main": {
-                  "pos": "noun",
-                  "lemma": "καφέ",
-                  "features": [
-                    "Neut",
-                    "Acc"
-                  ]
-                }
               }
             ],
-            "terminator": "."
-          }
-        },
-        {
-          "type": "Gra",
-          "data": {
-            "tier_type": "Gra",
-            "relations": [
-              {
-                "index": 1,
-                "head": 0,
-                "relation": "ROOT"
-              },
-              {
-                "index": 2,
-                "head": 1,
-                "relation": "PUNCT"
-              }
-            ]
-          }
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "PAR1",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "Ζάχαρη",
-              "cleaned_text": "Ζάχαρη",
+              "cleaned_text": "Ναι",
               "content": [
                 {
-                  "type": "text",
-                  "content": "Ζάχαρη"
+                  "content": "Ναι",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "Ναι",
+              "type": "word"
             },
             {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "τι",
-              "cleaned_text": "τι",
+              "cleaned_text": "να",
               "content": [
                 {
-                  "type": "text",
-                  "content": "τι"
+                  "content": "να",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "να",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "είναι",
-              "cleaned_text": "είναι",
+              "cleaned_text": "σας",
               "content": [
                 {
-                  "type": "text",
-                  "content": "είναι"
+                  "content": "σας",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "σας",
+              "type": "word"
             },
             {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "στο",
-              "cleaned_text": "στο",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "στο"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "άλλο",
-              "cleaned_text": "άλλο",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "άλλο"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "η",
-              "cleaned_text": "η",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "η"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "κυρία",
-              "cleaned_text": "κυρία",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "κυρία"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "πλένει",
-              "cleaned_text": "πλένει",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "πλένει"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "τα",
               "cleaned_text": "τα",
               "content": [
                 {
-                  "type": "text",
-                  "content": "τα"
+                  "content": "τα",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "τα",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "πιάτα",
-              "cleaned_text": "πιάτα",
+              "cleaned_text": "πω",
               "content": [
                 {
-                  "type": "text",
-                  "content": "πιάτα"
+                  "content": "πω",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "πω",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "είναι",
+              "content": [
+                {
+                  "content": "είναι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "είναι",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ένα",
+              "content": [
+                {
+                  "content": "ένα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ένα",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "παιδάκι",
+              "content": [
+                {
+                  "content": "παιδάκι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "παιδάκι",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "ταχτοποιεί",
+              "content": [
+                {
+                  "content": "ταχτοποιεί",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ταχτοποιεί",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "κάτι",
+              "content": [
+                {
+                  "content": "κάτι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "κάτι",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "στο",
+              "content": [
+                {
+                  "content": "στο",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "στο",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ντουλάπι",
+              "content": [
+                {
+                  "content": "ντουλάπι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ντουλάπι",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "ζάχαρη",
+              "content": [
+                {
+                  "content": "ζάχαρη",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ζάχαρη",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "καφέ",
+              "content": [
+                {
+                  "content": "καφέ",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "καφέ",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "τι",
+              "content": [
+                {
+                  "content": "τι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "τι",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "είναι",
+              "content": [
+                {
+                  "content": "είναι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "είναι",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "PAR1"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ζάχαρη",
+                  "features": [
+                    "Neut",
+                    "Acc"
+                  ],
+                  "lemma": "καφέ",
+                  "pos": "noun"
+                }
+              }
+            ],
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
+        },
+        {
+          "data": {
+            "relations": [
+              {
+                "head": 0,
+                "index": 1,
+                "relation": "ROOT"
+              },
+              {
+                "head": 1,
+                "index": 2,
+                "relation": "PUNCT"
+              }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
+        }
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "Καφέ",
+              "content": [
+                {
+                  "content": "Καφέ",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Καφέ",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "PAR0"
+      }
+    },
+    {
+      "dependent_tiers": [
+        {
+          "data": {
+            "items": [
+              {
+                "main": {
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "ζάχαρη",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "τι",
                   "features": [
                     "Int",
                     "Nom",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "τι",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "είμαι",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "είμαι",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "στο"
+                  "lemma": "στο",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "άλλος",
                   "features": [
                     "Neut",
                     "Def",
                     "Ind",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "άλλος",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ο",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ο",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "κυρία",
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "κυρία",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "πλένω",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "πλένω",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ο",
                   "features": [
                     "Neut",
                     "Def",
                     "Art",
                     "Plur"
-                  ]
+                  ],
+                  "lemma": "ο",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "πιάτα",
                   "features": [
                     "Neut",
                     "Plur",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "πιάτα",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 1,
+                "index": 2,
                 "relation": "PUNCT"
               },
               {
-                "index": 3,
                 "head": 10,
+                "index": 3,
                 "relation": "NSUBJ"
               },
               {
-                "index": 4,
                 "head": 10,
+                "index": 4,
                 "relation": "COP"
               },
               {
-                "index": 5,
                 "head": 10,
+                "index": 5,
                 "relation": "PUNCT"
               },
               {
-                "index": 6,
                 "head": 9,
+                "index": 6,
                 "relation": "CASE"
               },
               {
+                "head": 9,
                 "index": 7,
-                "head": 9,
                 "relation": "DET"
               },
               {
+                "head": 9,
                 "index": 8,
-                "head": 9,
                 "relation": "DET"
               },
               {
-                "index": 9,
                 "head": 10,
+                "index": 9,
                 "relation": "NSUBJ"
               },
               {
-                "index": 10,
                 "head": 1,
+                "index": 10,
                 "relation": "PARATAXIS"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "DET"
               },
               {
-                "index": 12,
                 "head": 10,
+                "index": 12,
                 "relation": "OBJ"
               },
               {
-                "index": 13,
                 "head": 1,
+                "index": 13,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "PAR1",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "Είναι",
-              "cleaned_text": "Είναι",
+              "cleaned_text": "Ζάχαρη",
               "content": [
                 {
-                  "type": "text",
-                  "content": "Είναι"
+                  "content": "Ζάχαρη",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "Ζάχαρη",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "μια",
-              "cleaned_text": "μια",
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "τι",
               "content": [
                 {
-                  "type": "text",
-                  "content": "μια"
+                  "content": "τι",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "τι",
+              "type": "word"
             },
             {
-              "type": "retrace",
-              "content": {
-                "content": [
-                  {
-                    "type": "word",
-                    "raw_text": "κουζίνα",
-                    "cleaned_text": "κουζίνα",
-                    "content": [
-                      {
-                        "type": "text",
-                        "content": "κουζίνα"
-                      }
-                    ]
-                  }
-                ]
-              },
-              "kind": "partial"
-            },
-            {
-              "type": "word",
-              "raw_text": "κουζίνα",
-              "cleaned_text": "κουζίνα",
+              "cleaned_text": "είναι",
               "content": [
                 {
-                  "type": "text",
-                  "content": "κουζίνα"
+                  "content": "είναι",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "είναι",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ηλεκτρική",
-              "cleaned_text": "ηλεκτρική",
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "στο",
               "content": [
                 {
-                  "type": "text",
-                  "content": "ηλεκτρική"
+                  "content": "στο",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "στο",
+              "type": "word"
             },
             {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "με",
-              "cleaned_text": "με",
+              "cleaned_text": "άλλο",
               "content": [
                 {
-                  "type": "text",
-                  "content": "με"
+                  "content": "άλλο",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "άλλο",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "ροχή",
-              "cleaned_text": "ροχή",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ροχή"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "της",
-              "cleaned_text": "της",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "της"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "ντουλάπια",
-              "cleaned_text": "ντουλάπια",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ντουλάπια"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "παράθυρο",
-              "cleaned_text": "παράθυρο",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "παράθυρο"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "με",
-              "cleaned_text": "με",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "με"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "κουρτίνα",
-              "cleaned_text": "κουρτίνα",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "κουρτίνα"
-                }
-              ]
-            },
-            {
-              "type": "separator",
-              "kind": "comma"
-            },
-            {
-              "type": "word",
-              "raw_text": "πάτομα",
-              "cleaned_text": "πάτομα",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "πάτομα"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "και",
-              "cleaned_text": "και",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "και"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "η",
               "cleaned_text": "η",
               "content": [
                 {
-                  "type": "text",
-                  "content": "η"
+                  "content": "η",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "η",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "κυρία",
               "cleaned_text": "κυρία",
               "content": [
                 {
-                  "type": "text",
-                  "content": "κυρία"
+                  "content": "κυρία",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "κυρία",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "σκουπίζει",
-              "cleaned_text": "σκουπίζει",
+              "cleaned_text": "πλένει",
               "content": [
                 {
-                  "type": "text",
-                  "content": "σκουπίζει"
+                  "content": "πλένει",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "πλένει",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "τα",
               "cleaned_text": "τα",
               "content": [
                 {
-                  "type": "text",
-                  "content": "τα"
+                  "content": "τα",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "τα",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "πιάτα",
               "cleaned_text": "πιάτα",
               "content": [
                 {
-                  "type": "text",
-                  "content": "πιάτα"
+                  "content": "πιάτα",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "πιάτα",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
-      },
+        },
+        "speaker": "PAR1"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "είμαι",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "είμαι",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ένας",
                   "features": [
                     "Fem",
                     "Ind",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ένας",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "κουζίνα",
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "κουζίνα",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "adj",
-                  "lemma": "ηλεκτρικός",
                   "features": [
                     "Nom",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "ηλεκτρικός",
+                  "pos": "adj"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "με"
+                  "lemma": "με",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ροχή",
                   "features": [
                     "Fem",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "ροχή",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "μου",
                   "features": [
                     "Prs",
                     "Gen",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "μου",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "ντουλάπιο",
                   "features": [
                     "Neut",
                     "Plur",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "ντουλάπιο",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "παράθυρο",
                   "features": [
                     "Neut",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "παράθυρο",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "adp",
-                  "lemma": "με"
+                  "lemma": "με",
+                  "pos": "adp"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "κουρτίνα",
                   "features": [
                     "Fem",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "κουρτίνα",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cm",
-                  "lemma": "cm"
+                  "lemma": "cm",
+                  "pos": "cm"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "πάτομο",
                   "features": [
                     "Neut",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "πάτομο",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "cconj",
-                  "lemma": "και"
+                  "lemma": "και",
+                  "pos": "cconj"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ο",
                   "features": [
                     "Fem",
                     "Def",
                     "Art",
                     "Sing"
-                  ]
+                  ],
+                  "lemma": "ο",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "κυρία",
                   "features": [
                     "Fem",
                     "Nom"
-                  ]
+                  ],
+                  "lemma": "κυρία",
+                  "pos": "noun"
                 }
               },
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "σκουπίζω",
                   "features": [
                     "Fin",
                     "Imp",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "σκουπίζω",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "det",
-                  "lemma": "ο",
                   "features": [
                     "Neut",
                     "Def",
                     "Art",
                     "Plur"
-                  ]
+                  ],
+                  "lemma": "ο",
+                  "pos": "det"
                 }
               },
               {
                 "main": {
-                  "pos": "noun",
-                  "lemma": "πιάτα",
                   "features": [
                     "Neut",
                     "Plur",
                     "Acc"
-                  ]
+                  ],
+                  "lemma": "πιάτα",
+                  "pos": "noun"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "COP"
               },
               {
-                "index": 2,
                 "head": 3,
+                "index": 2,
                 "relation": "DET"
               },
               {
-                "index": 3,
                 "head": 0,
+                "index": 3,
                 "relation": "ROOT"
               },
               {
-                "index": 4,
                 "head": 3,
+                "index": 4,
                 "relation": "AMOD"
               },
               {
-                "index": 5,
                 "head": 7,
+                "index": 5,
                 "relation": "PUNCT"
               },
               {
-                "index": 6,
                 "head": 7,
+                "index": 6,
                 "relation": "CASE"
               },
               {
-                "index": 7,
                 "head": 3,
+                "index": 7,
                 "relation": "OBL"
               },
               {
-                "index": 8,
                 "head": 7,
+                "index": 8,
                 "relation": "NMOD"
               },
               {
-                "index": 9,
                 "head": 10,
+                "index": 9,
                 "relation": "PUNCT"
               },
               {
-                "index": 10,
                 "head": 7,
+                "index": 10,
                 "relation": "CONJ"
               },
               {
-                "index": 11,
                 "head": 12,
+                "index": 11,
                 "relation": "PUNCT"
               },
               {
-                "index": 12,
                 "head": 3,
+                "index": 12,
                 "relation": "CONJ"
               },
               {
-                "index": 13,
                 "head": 14,
+                "index": 13,
                 "relation": "CASE"
               },
               {
-                "index": 14,
                 "head": 12,
+                "index": 14,
                 "relation": "NMOD"
               },
               {
-                "index": 15,
                 "head": 16,
+                "index": 15,
                 "relation": "PUNCT"
               },
               {
-                "index": 16,
                 "head": 4,
+                "index": 16,
                 "relation": "CONJ"
               },
               {
-                "index": 17,
                 "head": 20,
+                "index": 17,
                 "relation": "CC"
               },
               {
-                "index": 18,
                 "head": 19,
+                "index": 18,
                 "relation": "DET"
               },
               {
-                "index": 19,
                 "head": 20,
+                "index": 19,
                 "relation": "NSUBJ"
               },
               {
-                "index": 20,
                 "head": 3,
+                "index": 20,
                 "relation": "CONJ"
               },
               {
-                "index": 21,
                 "head": 22,
+                "index": 21,
                 "relation": "DET"
               },
               {
-                "index": 22,
                 "head": 20,
+                "index": 22,
                 "relation": "OBJ"
               },
               {
-                "index": 23,
                 "head": 3,
+                "index": 23,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "content": [
+            {
+              "cleaned_text": "Είναι",
+              "content": [
+                {
+                  "content": "Είναι",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Είναι",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "μια",
+              "content": [
+                {
+                  "content": "μια",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "μια",
+              "type": "word"
+            },
+            {
+              "content": {
+                "content": [
+                  {
+                    "cleaned_text": "κουζίνα",
+                    "content": [
+                      {
+                        "content": "κουζίνα",
+                        "type": "text"
+                      }
+                    ],
+                    "raw_text": "κουζίνα",
+                    "type": "word"
+                  }
+                ]
+              },
+              "kind": "partial",
+              "type": "retrace"
+            },
+            {
+              "cleaned_text": "κουζίνα",
+              "content": [
+                {
+                  "content": "κουζίνα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "κουζίνα",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ηλεκτρική",
+              "content": [
+                {
+                  "content": "ηλεκτρική",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ηλεκτρική",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "με",
+              "content": [
+                {
+                  "content": "με",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "με",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ροχή",
+              "content": [
+                {
+                  "content": "ροχή",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ροχή",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "της",
+              "content": [
+                {
+                  "content": "της",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "της",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "ντουλάπια",
+              "content": [
+                {
+                  "content": "ντουλάπια",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ντουλάπια",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "παράθυρο",
+              "content": [
+                {
+                  "content": "παράθυρο",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "παράθυρο",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "με",
+              "content": [
+                {
+                  "content": "με",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "με",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "κουρτίνα",
+              "content": [
+                {
+                  "content": "κουρτίνα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "κουρτίνα",
+              "type": "word"
+            },
+            {
+              "kind": "comma",
+              "type": "separator"
+            },
+            {
+              "cleaned_text": "πάτομα",
+              "content": [
+                {
+                  "content": "πάτομα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "πάτομα",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "και",
+              "content": [
+                {
+                  "content": "και",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "και",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "η",
+              "content": [
+                {
+                  "content": "η",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "η",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "κυρία",
+              "content": [
+                {
+                  "content": "κυρία",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "κυρία",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "σκουπίζει",
+              "content": [
+                {
+                  "content": "σκουπίζει",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "σκουπίζει",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "τα",
+              "content": [
+                {
+                  "content": "τα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "τα",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "πιάτα",
+              "content": [
+                {
+                  "content": "πιάτα",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "πιάτα",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "PAR1"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
-    "PAR1": {
-      "code": "PAR1",
-      "name": null,
-      "role": "Participant",
-      "id": {
-        "language": [
-          "ell"
-        ],
-        "corpus": "Dem@Care",
-        "speaker": "PAR1",
-        "role": "Participant"
-      },
-      "birth_date": null
-    },
     "PAR0": {
+      "birth_date": null,
       "code": "PAR0",
-      "name": null,
-      "role": "Participant",
       "id": {
+        "corpus": "Dem@Care",
         "language": [
           "ell"
         ],
-        "corpus": "Dem@Care",
-        "speaker": "PAR0",
-        "role": "Participant"
+        "role": "Participant",
+        "speaker": "PAR0"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Participant"
+    },
+    "PAR1": {
+      "birth_date": null,
+      "code": "PAR1",
+      "id": {
+        "corpus": "Dem@Care",
+        "language": [
+          "ell"
+        ],
+        "role": "Participant",
+        "speaker": "PAR1"
+      },
+      "name": null,
+      "role": "Participant"
     }
-  },
-  "languages": [
-    "ell"
-  ],
-  "options": []
+  }
 }

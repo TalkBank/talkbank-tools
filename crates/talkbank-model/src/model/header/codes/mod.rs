@@ -19,6 +19,7 @@ mod participant;
 mod ses;
 mod speaker;
 pub(crate) mod time_values;
+pub(crate) mod iso639;
 
 // Re-export all public types
 pub use age::AgeValue;

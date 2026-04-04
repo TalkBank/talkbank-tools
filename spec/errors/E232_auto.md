@@ -1,8 +1,10 @@
-# E232: Auto-generated from corpus
+# E232: Compound marker at word start
+
+**Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
 
-Auto-generated from corpus
+Compound marker (`+`) cannot be at the start of a word. Valid compounds have the form `left+right`.
 
 ## Metadata
 - **Status**: not_implemented
@@ -15,8 +17,8 @@ Auto-generated from corpus
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E232_compound_marker_at_start.cha`
-**Trigger**: See example below
-**Expected Error Codes**: E232
+**Trigger**: Leading `+` in word — tree-sitter absorbs into ERROR node before word validation runs
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -43,4 +45,5 @@ See CHAT manual sections on word-level syntax and special markers. The CHAT manu
 ## Notes
 
 - Auto-generated from error corpus
+- This error code is emitted during word validation (model layer) and cannot currently be triggered by standalone CHAT input. Tree-sitter's grammar treats `+word` as a linker pattern or ERROR node, producing E316 before word-level validation can run. The E232 check exists in `word_validate.rs` and fires when a `Word` model object has a leading compound marker, but the parser never constructs such a word from `+hello` input.
 - Review and enhance this specification as needed

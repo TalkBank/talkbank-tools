@@ -3,316 +3,316 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "eng"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "eng"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "CHI",
             "name": null,
-            "role": "Child"
+            "role": "Child",
+            "speaker_code": "CHI"
           },
           {
-            "speaker_code": "MOT",
             "name": null,
-            "role": "Mother"
+            "role": "Mother",
+            "speaker_code": "MOT"
           }
-        ]
-      }
+        ],
+        "type": "participants"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "id",
-        "language": [
-          "eng"
-        ],
-        "corpus": "corpus",
-        "speaker": "CHI",
         "age": "3;0",
-        "role": "Child"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "role": "Mother"
-      }
+        "role": "Child",
+        "speaker": "CHI",
+        "type": "id"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
+        "corpus": "corpus",
+        "language": [
+          "eng"
+        ],
+        "role": "Mother",
+        "speaker": "MOT",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Descriptive text tiers: %com, %act, %gpx, %sit, %exp"
+              "text": "Descriptive text tiers: %com, %act, %gpx, %sit, %exp",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "comment",
         "content": {
           "segments": [
             {
-              "type": "text",
-              "text": "Constructs: com_dependent_tier, act_dependent_tier, gpx_dependent_tier,"
+              "text": "Constructs: com_dependent_tier, act_dependent_tier, gpx_dependent_tier,",
+              "type": "text"
             },
             {
               "type": "continuation"
             },
             {
-              "type": "text",
-              "text": "sit_dependent_tier, exp_dependent_tier"
+              "text": "sit_dependent_tier, exp_dependent_tier",
+              "type": "text"
             }
           ]
-        }
-      }
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
     },
     {
+      "dependent_tiers": [
+        {
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "text": "CHI is pointing at the bird in the tree",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "type": "Com"
+        },
+        {
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "text": "pointing with right hand toward window",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "type": "Act"
+        },
+        {
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "text": "extends arm, opens hand",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "type": "Gpx"
+        },
+        {
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "text": "seated at table with toys",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "type": "Sit"
+        },
+        {
+          "data": {
+            "content": {
+              "segments": [
+                {
+                  "text": "CHI appears excited",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "type": "Exp"
+        }
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "CHI",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "look",
               "cleaned_text": "look",
               "content": [
                 {
-                  "type": "text",
-                  "content": "look"
+                  "content": "look",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "look",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "at",
               "cleaned_text": "at",
               "content": [
                 {
-                  "type": "text",
-                  "content": "at"
+                  "content": "at",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "at",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "that",
               "cleaned_text": "that",
               "content": [
                 {
-                  "type": "text",
-                  "content": "that"
+                  "content": "that",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "that",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "exclamation"
           }
-        }
-      },
-      "dependent_tiers": [
-        {
-          "type": "Com",
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "type": "text",
-                  "text": "CHI is pointing at the bird in the tree"
-                }
-              ]
-            }
-          }
         },
-        {
-          "type": "Act",
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "type": "text",
-                  "text": "pointing with right hand toward window"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "Gpx",
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "type": "text",
-                  "text": "extends arm, opens hand"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "Sit",
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "type": "text",
-                  "text": "seated at table with toys"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "Exp",
-          "data": {
-            "content": {
-              "segments": [
-                {
-                  "type": "text",
-                  "text": "CHI appears excited"
-                }
-              ]
-            }
-          }
-        }
-      ]
+        "speaker": "CHI"
+      }
     },
     {
       "line_type": "utterance",
       "main": {
-        "speaker": "MOT",
         "content": {
           "content": [
             {
-              "type": "word",
-              "raw_text": "yes",
               "cleaned_text": "yes",
               "content": [
                 {
-                  "type": "text",
-                  "content": "yes"
+                  "content": "yes",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "yes",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "I",
               "cleaned_text": "I",
               "content": [
                 {
-                  "type": "text",
-                  "content": "I"
+                  "content": "I",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "I",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "see",
               "cleaned_text": "see",
               "content": [
                 {
-                  "type": "text",
-                  "content": "see"
+                  "content": "see",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "see",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "it",
               "cleaned_text": "it",
               "content": [
                 {
-                  "type": "text",
-                  "content": "it"
+                  "content": "it",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "it",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
           }
-        }
+        },
+        "speaker": "MOT"
       }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
+  "options": [],
   "participants": {
     "CHI": {
+      "birth_date": null,
       "code": "CHI",
-      "name": null,
-      "role": "Child",
       "id": {
+        "age": "3;0",
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "corpus": "corpus",
-        "speaker": "CHI",
-        "age": "3;0",
-        "role": "Child"
+        "role": "Child",
+        "speaker": "CHI"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Child"
     },
     "MOT": {
+      "birth_date": null,
       "code": "MOT",
-      "name": null,
-      "role": "Mother",
       "id": {
+        "corpus": "corpus",
         "language": [
           "eng"
         ],
-        "corpus": "corpus",
-        "speaker": "MOT",
-        "role": "Mother"
+        "role": "Mother",
+        "speaker": "MOT"
       },
-      "birth_date": null
+      "name": null,
+      "role": "Mother"
     }
-  },
-  "languages": [
-    "eng"
-  ],
-  "options": []
+  }
 }

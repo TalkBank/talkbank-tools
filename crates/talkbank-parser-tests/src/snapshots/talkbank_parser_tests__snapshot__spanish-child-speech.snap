@@ -3,618 +3,618 @@ source: crates/talkbank-parser-tests/src/snapshot.rs
 expression: snapshot
 ---
 {
+  "languages": [
+    "spa"
+  ],
   "lines": [
     {
-      "line_type": "header",
       "header": {
         "type": "utf8"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
         "type": "begin"
-      }
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "languages",
         "codes": [
           "spa"
-        ]
-      }
+        ],
+        "type": "languages"
+      },
+      "line_type": "header"
     },
     {
-      "line_type": "header",
       "header": {
-        "type": "participants",
         "entries": [
           {
-            "speaker_code": "PAR1",
             "name": null,
-            "role": "Participant"
+            "role": "Participant",
+            "speaker_code": "PAR1"
           },
           {
-            "speaker_code": "PAR0",
             "name": null,
-            "role": "Participant"
+            "role": "Participant",
+            "speaker_code": "PAR0"
           }
-        ]
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "spa"
         ],
-        "corpus": "OreaPine",
-        "speaker": "PAR1",
-        "role": "Participant"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "id",
-        "language": [
-          "spa"
-        ],
-        "corpus": "OreaPine",
-        "speaker": "PAR0",
-        "role": "Participant"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "media",
-        "filename": "spanish-child-speech",
-        "media_type": "audio"
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Spanish child speech with audio, %mor, %gra, %wor tiers"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "header",
-      "header": {
-        "type": "comment",
-        "content": {
-          "segments": [
-            {
-              "type": "text",
-              "text": "Constructs: audio-linked file with word-level timing"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "speaker": "PAR1",
-        "content": {
-          "content": [
-            {
-              "type": "word",
-              "raw_text": "hola",
-              "cleaned_text": "hola",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "hola"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "qué",
-              "cleaned_text": "qué",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "qué"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "es",
-              "cleaned_text": "es",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "es"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "este",
-              "cleaned_text": "este",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "este"
-                }
-              ]
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          },
-          "bullet": {
-            "start_ms": 3990,
-            "end_ms": 7734
-          }
-        }
+        "type": "participants"
       },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "OreaPine",
+        "language": [
+          "spa"
+        ],
+        "role": "Participant",
+        "speaker": "PAR1",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "corpus": "OreaPine",
+        "language": [
+          "spa"
+        ],
+        "role": "Participant",
+        "speaker": "PAR0",
+        "type": "id"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "filename": "spanish-child-speech",
+        "media_type": "audio",
+        "type": "media"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Spanish child speech with audio, %mor, %gra, %wor tiers",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
+      "header": {
+        "content": {
+          "segments": [
+            {
+              "text": "Constructs: audio-linked file with word-level timing",
+              "type": "text"
+            }
+          ]
+        },
+        "type": "comment"
+      },
+      "line_type": "header"
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "verb",
-                  "lemma": "holar",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S"
-                  ]
+                  ],
+                  "lemma": "holar",
+                  "pos": "verb"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "qué",
                   "features": [
                     "Int",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "qué",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "ser",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ser",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "este",
                   "features": [
                     "Dem",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "este",
+                  "pos": "pron"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 0,
+                "index": 1,
                 "relation": "ROOT"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "NSUBJ"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "COP"
               },
               {
-                "index": 4,
                 "head": 1,
+                "index": 4,
                 "relation": "CCOMP"
               },
               {
-                "index": 5,
                 "head": 1,
+                "index": 5,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         },
         {
-          "type": "Wor",
           "data": {
-            "language_code": null,
+            "bullet": null,
             "items": [
               {
-                "kind": "word",
-                "raw_text": "hola",
                 "cleaned_text": "hola",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "hola"
+                    "content": "hola",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 3990,
-                  "end_ms": 6810
-                }
+                  "end_ms": 6810,
+                  "start_ms": 3990
+                },
+                "kind": "word",
+                "raw_text": "hola"
               },
               {
-                "kind": "word",
-                "raw_text": "qué",
                 "cleaned_text": "qué",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "qué"
+                    "content": "qué",
+                    "type": "text"
                   }
-                ]
+                ],
+                "kind": "word",
+                "raw_text": "qué"
               },
               {
-                "kind": "word",
-                "raw_text": "es",
                 "cleaned_text": "es",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "es"
+                    "content": "es",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 6810,
-                  "end_ms": 7250
-                }
+                  "end_ms": 7250,
+                  "start_ms": 6810
+                },
+                "kind": "word",
+                "raw_text": "es"
               },
               {
-                "kind": "word",
-                "raw_text": "este",
                 "cleaned_text": "este",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "este"
+                    "content": "este",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 7250,
-                  "end_ms": 7734
-                }
+                  "end_ms": 7734,
+                  "start_ms": 7250
+                },
+                "kind": "word",
+                "raw_text": "este"
               }
             ],
+            "language_code": null,
             "terminator": {
               "type": "period"
-            },
-            "bullet": null
-          }
+            }
+          },
+          "type": "Wor"
         }
-      ]
-    },
-    {
+      ],
       "line_type": "utterance",
       "main": {
-        "speaker": "PAR1",
         "content": {
+          "bullet": {
+            "end_ms": 7734,
+            "start_ms": 3990
+          },
           "content": [
             {
-              "type": "word",
-              "raw_text": "qué",
+              "cleaned_text": "hola",
+              "content": [
+                {
+                  "content": "hola",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "hola",
+              "type": "word"
+            },
+            {
               "cleaned_text": "qué",
               "content": [
                 {
-                  "type": "text",
-                  "content": "qué"
+                  "content": "qué",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "qué",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "es",
               "cleaned_text": "es",
               "content": [
                 {
-                  "type": "text",
-                  "content": "es"
+                  "content": "es",
+                  "type": "text"
                 }
-              ]
+              ],
+              "raw_text": "es",
+              "type": "word"
             },
             {
-              "type": "word",
-              "raw_text": "eso",
-              "cleaned_text": "eso",
+              "cleaned_text": "este",
               "content": [
                 {
-                  "type": "text",
-                  "content": "eso"
+                  "content": "este",
+                  "type": "text"
                 }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "Lucía",
-              "cleaned_text": "Lucía",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "Lucía"
-                }
-              ]
-            },
-            {
-              "type": "word",
-              "raw_text": "ah",
-              "cleaned_text": "ah",
-              "content": [
-                {
-                  "type": "text",
-                  "content": "ah"
-                }
-              ]
+              ],
+              "raw_text": "este",
+              "type": "word"
             }
           ],
           "terminator": {
             "type": "period"
-          },
-          "bullet": {
-            "start_ms": 9257,
-            "end_ms": 11539
           }
-        }
-      },
+        },
+        "speaker": "PAR1"
+      }
+    },
+    {
       "dependent_tiers": [
         {
-          "type": "Mor",
           "data": {
-            "tier_type": "Mor",
             "items": [
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "qué",
                   "features": [
                     "Int",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "qué",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "aux",
-                  "lemma": "ser",
                   "features": [
                     "Fin",
                     "Ind",
                     "Pres",
                     "S3"
-                  ]
+                  ],
+                  "lemma": "ser",
+                  "pos": "aux"
                 }
               },
               {
                 "main": {
-                  "pos": "pron",
-                  "lemma": "ese",
                   "features": [
                     "Dem",
                     "S1"
-                  ]
+                  ],
+                  "lemma": "ese",
+                  "pos": "pron"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "lucía"
+                  "lemma": "lucía",
+                  "pos": "propn"
                 }
               },
               {
                 "main": {
-                  "pos": "propn",
-                  "lemma": "ah"
+                  "lemma": "ah",
+                  "pos": "propn"
                 }
               }
             ],
-            "terminator": "."
-          }
+            "terminator": ".",
+            "tier_type": "Mor"
+          },
+          "type": "Mor"
         },
         {
-          "type": "Gra",
           "data": {
-            "tier_type": "Gra",
             "relations": [
               {
-                "index": 1,
                 "head": 3,
+                "index": 1,
                 "relation": "NSUBJ"
               },
               {
-                "index": 2,
                 "head": 4,
+                "index": 2,
                 "relation": "COP"
               },
               {
-                "index": 3,
                 "head": 4,
+                "index": 3,
                 "relation": "NSUBJ"
               },
               {
-                "index": 4,
                 "head": 0,
+                "index": 4,
                 "relation": "ROOT"
               },
               {
-                "index": 5,
                 "head": 4,
+                "index": 5,
                 "relation": "FLAT"
               },
               {
-                "index": 6,
                 "head": 4,
+                "index": 6,
                 "relation": "PUNCT"
               }
-            ]
-          }
+            ],
+            "tier_type": "Gra"
+          },
+          "type": "Gra"
         },
         {
-          "type": "Wor",
           "data": {
-            "language_code": null,
+            "bullet": null,
             "items": [
               {
-                "kind": "word",
-                "raw_text": "qué",
                 "cleaned_text": "qué",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "qué"
+                    "content": "qué",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 9257,
-                  "end_ms": 10390
-                }
+                  "end_ms": 10390,
+                  "start_ms": 9257
+                },
+                "kind": "word",
+                "raw_text": "qué"
               },
               {
-                "kind": "word",
-                "raw_text": "es",
                 "cleaned_text": "es",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "es"
+                    "content": "es",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 10390,
-                  "end_ms": 10570
-                }
+                  "end_ms": 10570,
+                  "start_ms": 10390
+                },
+                "kind": "word",
+                "raw_text": "es"
               },
               {
-                "kind": "word",
-                "raw_text": "eso",
                 "cleaned_text": "eso",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "eso"
+                    "content": "eso",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 10570,
-                  "end_ms": 10790
-                }
+                  "end_ms": 10790,
+                  "start_ms": 10570
+                },
+                "kind": "word",
+                "raw_text": "eso"
               },
               {
-                "kind": "word",
-                "raw_text": "Lucía",
                 "cleaned_text": "Lucía",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "Lucía"
+                    "content": "Lucía",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 10790,
-                  "end_ms": 11150
-                }
+                  "end_ms": 11150,
+                  "start_ms": 10790
+                },
+                "kind": "word",
+                "raw_text": "Lucía"
               },
               {
-                "kind": "word",
-                "raw_text": "ah",
                 "cleaned_text": "ah",
                 "content": [
                   {
-                    "type": "text",
-                    "content": "ah"
+                    "content": "ah",
+                    "type": "text"
                   }
                 ],
                 "inline_bullet": {
-                  "start_ms": 11150,
-                  "end_ms": 11539
-                }
+                  "end_ms": 11539,
+                  "start_ms": 11150
+                },
+                "kind": "word",
+                "raw_text": "ah"
               }
             ],
+            "language_code": null,
             "terminator": {
               "type": "period"
-            },
-            "bullet": null
-          }
+            }
+          },
+          "type": "Wor"
         }
-      ]
+      ],
+      "line_type": "utterance",
+      "main": {
+        "content": {
+          "bullet": {
+            "end_ms": 11539,
+            "start_ms": 9257
+          },
+          "content": [
+            {
+              "cleaned_text": "qué",
+              "content": [
+                {
+                  "content": "qué",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "qué",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "es",
+              "content": [
+                {
+                  "content": "es",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "es",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "eso",
+              "content": [
+                {
+                  "content": "eso",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "eso",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "Lucía",
+              "content": [
+                {
+                  "content": "Lucía",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "Lucía",
+              "type": "word"
+            },
+            {
+              "cleaned_text": "ah",
+              "content": [
+                {
+                  "content": "ah",
+                  "type": "text"
+                }
+              ],
+              "raw_text": "ah",
+              "type": "word"
+            }
+          ],
+          "terminator": {
+            "type": "period"
+          }
+        },
+        "speaker": "PAR1"
+      }
     },
     {
-      "line_type": "header",
       "header": {
         "type": "end"
-      }
+      },
+      "line_type": "header"
     }
   ],
-  "participants": {
-    "PAR1": {
-      "code": "PAR1",
-      "name": null,
-      "role": "Participant",
-      "id": {
-        "language": [
-          "spa"
-        ],
-        "corpus": "OreaPine",
-        "speaker": "PAR1",
-        "role": "Participant"
-      },
-      "birth_date": null
-    },
-    "PAR0": {
-      "code": "PAR0",
-      "name": null,
-      "role": "Participant",
-      "id": {
-        "language": [
-          "spa"
-        ],
-        "corpus": "OreaPine",
-        "speaker": "PAR0",
-        "role": "Participant"
-      },
-      "birth_date": null
-    }
-  },
-  "languages": [
-    "spa"
-  ],
-  "options": [],
   "media": {
     "filename": "spanish-child-speech",
     "media_type": "audio"
+  },
+  "options": [],
+  "participants": {
+    "PAR0": {
+      "birth_date": null,
+      "code": "PAR0",
+      "id": {
+        "corpus": "OreaPine",
+        "language": [
+          "spa"
+        ],
+        "role": "Participant",
+        "speaker": "PAR0"
+      },
+      "name": null,
+      "role": "Participant"
+    },
+    "PAR1": {
+      "birth_date": null,
+      "code": "PAR1",
+      "id": {
+        "corpus": "OreaPine",
+        "language": [
+          "spa"
+        ],
+        "role": "Participant",
+        "speaker": "PAR1"
+      },
+      "name": null,
+      "role": "Participant"
+    }
   }
 }

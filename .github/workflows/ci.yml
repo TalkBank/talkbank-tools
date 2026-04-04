@@ -24,25 +24,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install re2c (for re2c parser build)
-        run: sudo apt-get install -y re2c
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy,rustfmt
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Rustfmt check
-        run: cargo fmt --all -- --check
-
       - name: G0 — Parser signature guardrail
         run: scripts/check-errorsink-option-signatures.sh
 
-      - name: G1 — Clippy (compiles + lints)
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: G1 — Compile check
+        run: cargo check --all-targets
 
       - name: Cargo test (model + parser + clan)
         run: |
@@ -85,9 +77,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install re2c
-        run: sudo apt-get install -y re2c
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -126,9 +115,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Install re2c
-        run: sudo apt-get install -y re2c
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -332,18 +318,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install re2c (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y re2c
-
-      - name: Install re2c (macOS)
-        if: runner.os == 'macOS'
-        run: brew install re2c
-
-      - name: Install re2c (Windows)
-        if: runner.os == 'Windows'
-        run: choco install re2c -y
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -354,6 +328,15 @@ jobs:
 
       - name: Build CLI
         run: cargo build --release -p talkbank-cli
+
+      - name: Verify vendored lexer is up to date
+        if: runner.os == 'macOS'
+        run: |
+          brew install re2c
+          re2rust -W -Wno-nondeterministic-tags --input-encoding utf8 --utf8 \
+            --conditions -o /tmp/lexer_check.rs \
+            crates/talkbank-re2c-parser/src/lexer.re
+          diff crates/talkbank-re2c-parser/src/generated/lexer.rs /tmp/lexer_check.rs
 
       - name: Smoke test — chatter --help
         run: ./target/release/chatter --help

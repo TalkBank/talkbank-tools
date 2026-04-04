@@ -10,7 +10,8 @@ Valid form types: `@b`, `@c`, `@d`, `@f`, `@fp`, `@g`, `@i`, `@k`, `@l`,
 `@z`, `@s` (language marker).
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
+- **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E202
 - **Category**: Word validation
@@ -25,7 +26,9 @@ Valid form types: `@b`, `@c`, `@d`, `@f`, `@fp`, `@g`, `@i`, `@k`, `@l`,
 ```chat
 @UTF8
 @Begin
+@Languages:	eng
 @Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	hello@ .
 @End
 ```
@@ -33,12 +36,18 @@ Valid form types: `@b`, `@c`, `@d`, `@f`, `@fp`, `@g`, `@i`, `@k`, `@l`,
 ## Example 2
 
 **Trigger**: Word with `@` followed by invalid form letter
-**Expected Error Codes**: E202
+**Expected Error Codes**: E203
+
+Note: `@j` is recognized as a form type syntactically, but `j` is not a valid
+form type value. This triggers E203 (InvalidFormType) rather than E202
+(MissingFormType).
 
 ```chat
 @UTF8
 @Begin
+@Languages:	eng
 @Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	dog@j .
 @End
 ```
