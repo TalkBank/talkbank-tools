@@ -8,27 +8,26 @@
 // Include the generated phf::Set from build.rs.
 include!(concat!(env!("OUT_DIR"), "/iso639_3_set.rs"));
 
+/// Returns `true` if the ISO 639-3 code set was populated at build time.
+///
+/// Returns `false` when the vendored `data/iso639-3.txt` was missing at build
+/// time (should not happen in normal circumstances — the file is committed
+/// to the repo). Tests that require a populated set can use this as a guard.
+pub fn iso639_3_set_available() -> bool {
+    !ISO_639_3_CODES.is_empty()
+}
+
 /// Check whether a 3-letter code is a valid ISO 639-3 language code.
 ///
 /// Returns `true` if the code is in the official registry. Returns `true`
-/// for an empty set (graceful degradation when the ISO file was not
-/// available at build time).
+/// when the set is empty (graceful degradation — see `iso639_3_set_available`).
 pub fn is_valid_iso639_3(code: &str) -> bool {
-    if ISO_639_3_CODES.is_empty() {
-        // Empty set means the ISO file wasn't available at build time.
+    if !iso639_3_set_available() {
+        // Empty set means the data file wasn't available at build time.
         // Degrade gracefully: don't reject any codes.
         return true;
     }
     ISO_639_3_CODES.contains(code)
-}
-
-/// Returns `true` if the ISO 639-3 code set was populated at build time.
-///
-/// Returns `false` when `clan-info` was not available during the build
-/// (e.g., in CI environments or developer machines without the sub-repo
-/// cloned). Tests that require a populated set should skip via this guard.
-pub fn iso639_3_set_available() -> bool {
-    !ISO_639_3_CODES.is_empty()
 }
 
 #[cfg(test)]

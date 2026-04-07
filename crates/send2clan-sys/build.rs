@@ -18,6 +18,12 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         build.define("_WIN32", None);
+        // We always compile send2clan as a static library (cc::Build::compile
+        // produces a static archive). Without SEND2CLAN_STATIC_BUILD, the
+        // SEND2CLAN_API macro in send2clan.h resolves to __declspec(dllimport),
+        // which conflicts with the function *definitions* in send2clan.c and
+        // causes MSVC error C2491.
+        build.define("SEND2CLAN_STATIC_BUILD", None);
     }
 
     build.compile("send2clan");
