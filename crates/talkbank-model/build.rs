@@ -1,7 +1,25 @@
 //! Build script for talkbank-model.
 //!
 //! Generates a compile-time perfect hash set of ISO 639-3 language codes from
-//! the authoritative registry at `clan-info/lib/fixes/ISO 639-3.txt`.
+//! the vendored registry at `data/iso639-3.txt` (committed inside this crate).
+//!
+//! The ISO 639-3 data file was extracted from `clan-info/lib/fixes/ISO 639-3.txt`
+//! and vendored into this crate so CI and fresh clones always have it without
+//! needing to clone the private `clan-info` submodule.
+//!
+//! ## Syncing the vendored list
+//!
+//! The ISO 639-3 standard is updated infrequently (new codes are occasionally
+//! added for newly-documented languages; retired codes are deprecated but kept).
+//! When the master list in `clan-info/lib/fixes/ISO 639-3.txt` is updated,
+//! sync `data/iso639-3.txt` manually:
+//!
+//! ```bash
+//! cp clan-info/lib/fixes/ISO\ 639-3.txt talkbank-tools/crates/talkbank-model/data/iso639-3.txt
+//! ```
+//!
+//! There is no automated check for this — syncing is a periodic maintenance
+//! task, not a CI gate.
 //!
 //! The generated file is written to `$OUT_DIR/iso639_3_set.rs` and included
 //! by `src/model/header/codes/iso639.rs` at compile time.
@@ -18,30 +36,42 @@ fn main() {
 
 /// Parse the ISO 639-3 registry and generate a `phf::Set<&str>`.
 fn generate_iso639_3_set() {
-    // The ISO 639-3 file lives in clan-info/ which is a sibling repo in the
-    // talkbank-dev workspace. Walk up from the crate root to find it.
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let crate_root = Path::new(&manifest_dir);
 
-    // Try workspace root (talkbank-tools/) → parent (talkbank-dev/) → clan-info/
-    let iso_file = crate_root
+    // Primary: vendored copy committed inside this crate (data/iso639-3.txt).
+    // Always present in CI and fresh clones — no external submodule needed.
+    let vendored = crate_root.join("data/iso639-3.txt");
+
+    // Fallback: clan-info sibling repo in the talkbank-dev workspace.
+    // Used when a developer clones clan-info alongside talkbank-tools.
+    let clan_info_path = crate_root
         .parent() // crates/
         .and_then(|p| p.parent()) // talkbank-tools/
         .and_then(|p| p.parent()) // talkbank-dev/
         .map(|workspace| workspace.join("clan-info/lib/fixes/ISO 639-3.txt"));
 
-    let iso_path = match iso_file {
-        Some(ref p) if p.exists() => p.clone(),
-        _ => {
-            // Fallback: emit an empty set if the file isn't available
-            // (e.g., CI without clan-info cloned).
+    let iso_path = if vendored.exists() {
+        vendored
+    } else if let Some(ref p) = clan_info_path {
+        if p.exists() {
+            p.clone()
+        } else {
+            // Neither source found — emit an empty set (graceful degradation).
             eprintln!(
-                "cargo:warning=ISO 639-3 file not found, generating empty set. \
-                 Language code membership validation will be disabled."
+                "cargo:warning=ISO 639-3 file not found at data/iso639-3.txt or \
+                 clan-info/lib/fixes/. Language code membership validation will be disabled."
             );
             generate_empty_set();
             return;
         }
+    } else {
+        eprintln!(
+            "cargo:warning=ISO 639-3 file not found, generating empty set. \
+             Language code membership validation will be disabled."
+        );
+        generate_empty_set();
+        return;
     };
 
     println!("cargo:rerun-if-changed={}", iso_path.display());

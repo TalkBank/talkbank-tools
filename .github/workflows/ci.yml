@@ -334,6 +334,7 @@ jobs:
         run: |
           brew install re2c
           re2rust -W -Wno-nondeterministic-tags --input-encoding utf8 --utf8 \
+            --no-generation-date \
             --conditions -o /tmp/lexer_check.rs \
             crates/talkbank-re2c-parser/src/lexer.re
           diff crates/talkbank-re2c-parser/src/generated/lexer.rs /tmp/lexer_check.rs

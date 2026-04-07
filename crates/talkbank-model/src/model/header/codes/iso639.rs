@@ -22,6 +22,15 @@ pub fn is_valid_iso639_3(code: &str) -> bool {
     ISO_639_3_CODES.contains(code)
 }
 
+/// Returns `true` if the ISO 639-3 code set was populated at build time.
+///
+/// Returns `false` when `clan-info` was not available during the build
+/// (e.g., in CI environments or developer machines without the sub-repo
+/// cloned). Tests that require a populated set should skip via this guard.
+pub fn iso639_3_set_available() -> bool {
+    !ISO_639_3_CODES.is_empty()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,10 +66,10 @@ mod tests {
 
     #[test]
     fn set_is_populated() {
-        // Sanity check that the build script generated a non-empty set.
+        // The ISO 639-3 data is vendored in data/iso639-3.txt — always present.
         assert!(
-            !ISO_639_3_CODES.is_empty(),
-            "ISO 639-3 set should be populated (is clan-info cloned?)"
+            iso639_3_set_available(),
+            "ISO 639-3 set should be populated (data/iso639-3.txt missing?)"
         );
     }
 
