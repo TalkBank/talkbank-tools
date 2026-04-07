@@ -1,8 +1,8 @@
-# E714: Pho count mismatch - too few pho tokens
+# E714: Alignment count mismatch - too few tier tokens
 
 ## Description
 
-Pho count mismatch - too few pho tokens
+Alignment count mismatch: a pho/mod/wor tier has fewer alignable items than the main tier.
 
 ## Metadata
 
@@ -41,3 +41,7 @@ The parser should successfully parse these CHAT files (unless marked as parser l
 
 - Auto-generated from error corpus
 - Review and enhance this specification as needed
+- This example uses pho, but the same code is also reused for mod and wor
+- For wor, spoken fragments, nonwords, and untranscribed placeholders
+  (`xxx`/`yyy`/`www`) count everywhere they are spoken; omitting them from `%wor`
+  can legitimately trigger this error

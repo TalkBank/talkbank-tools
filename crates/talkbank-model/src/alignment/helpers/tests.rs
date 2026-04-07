@@ -6,9 +6,8 @@
 use super::{TierDomain, count_tier_positions};
 use crate::Span;
 use crate::model::{
-    Annotated, BracketedContent, BracketedItem, Group, Pause, PauseDuration, PhoGroup,
-    ReplacedWord, Replacement, Retrace, RetraceKind, Separator, SinGroup, UtteranceContent, Word,
-    WordCategory,
+    BracketedContent, BracketedItem, Pause, PauseDuration, PhoGroup, ReplacedWord, Replacement,
+    Retrace, RetraceKind, Separator, SinGroup, UtteranceContent, Word, WordCategory,
 };
 
 /// Confirms `%mor` skips retraced items while `%pho` and `%wor` still count them.
@@ -24,9 +23,9 @@ fn mor_skips_retrace_content() {
     assert_eq!(count_tier_positions(&items, TierDomain::Wor), 1);
 }
 
-/// Confirms replacement branches contribute replacement-word counts in `%mor` and `%wor`.
+/// Confirms `%mor` follows replacement words but `%wor` follows the original spoken form.
 #[test]
-fn mor_counts_replacement_words() {
+fn mor_counts_replacement_words_but_wor_uses_original_surface() {
     let base = Word::new_unchecked("goed", "goed");
     let replacement = Replacement::new(vec![
         Word::new_unchecked("went", "went"),
@@ -42,26 +41,27 @@ fn mor_counts_replacement_words() {
         count_tier_positions(std::slice::from_ref(&replaced), TierDomain::Pho),
         1
     );
-    // Wor uses replacement words (like Mor), matching Python batchalign's lexer
-    // which substitutes replacement text. "goed [: went home]" → 2 wor items.
+    // %wor aligns to the originally spoken token, not the correction.
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&replaced), TierDomain::Wor),
-        2
+        1
     );
 }
 
-/// Confirms untranscribed tokens are excluded from `%mor/%wor` but kept for `%pho`.
+/// Confirms untranscribed tokens are excluded from `%mor` but kept for `%wor/%pho`.
 #[test]
-fn mor_skips_untranscribed_but_pho_counts() {
-    let word = Word::new_unchecked("xxx", "xxx");
-    let items = vec![UtteranceContent::Word(Box::new(word))];
+fn mor_skips_untranscribed_but_wor_and_pho_count() {
+    for text in &["xxx", "yyy", "www"] {
+        let word = Word::new_unchecked(*text, *text);
+        let items = vec![UtteranceContent::Word(Box::new(word))];
 
-    // Mor skips untranscribed material (xxx, yyy, www) - no linguistic content
-    assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
-    // Wor excludes untranscribed (matching Python batchalign's lexer filtering)
-    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 0);
-    // Pho counts everything that was phonologically produced
-    assert_eq!(count_tier_positions(&items, TierDomain::Pho), 1);
+        // Mor skips untranscribed material (xxx, yyy, www) - no linguistic content
+        assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
+        // %wor times spoken token slots regardless of transcription status.
+        assert_eq!(count_tier_positions(&items, TierDomain::Wor), 1);
+        // Pho counts everything that was phonologically produced
+        assert_eq!(count_tier_positions(&items, TierDomain::Pho), 1);
+    }
 }
 
 /// Uppercase `XXX` is illegal CHAT (E241) but still represents untranscribed
@@ -221,33 +221,30 @@ fn pho_skips_fragment_with_replacement() {
         count_tier_positions(std::slice::from_ref(&replaced), TierDomain::Pho),
         0
     );
-    // Wor uses replacement words (like Mor). For "&+fr [: friend]", the replacement
-    // "friend" is a regular word that IS alignable, so Wor counts 1.
+    // %wor still times the originally spoken fragment, so the replaced node
+    // contributes one alignable word.
     assert_eq!(count_tier_positions(&[replaced], TierDomain::Wor), 1);
 }
 
-/// Confirms `%wor` excludes nonwords/fragments but keeps fillers.
+/// Confirms `%wor` includes spoken word tokens regardless of completeness.
 #[test]
-fn wor_excludes_nonwords_and_fragments_but_includes_fillers() {
-    // Nonwords (&~gaga) are excluded from Wor (Python batchalign TokenType.ANNOT)
+fn wor_includes_fragments_nonwords_fillers_and_untranscribed() {
     let nonword = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&~gaga", "gaga").with_category(WordCategory::Nonword),
     ));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&nonword), TierDomain::Wor),
-        0
+        1
     );
 
-    // Fragments (&+fr) are excluded from Wor
     let fragment = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&+fr", "fr").with_category(WordCategory::PhonologicalFragment),
     ));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&fragment), TierDomain::Wor),
-        0
+        1
     );
 
-    // Fillers (&-um) are INCLUDED in Wor — they appear in %wor tiers
     let filler = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&-um", "um").with_category(WordCategory::Filler),
     ));
@@ -256,7 +253,12 @@ fn wor_excludes_nonwords_and_fragments_but_includes_fillers() {
         1
     );
 
-    // Pho includes all of these (everything phonologically produced)
+    let untranscribed = UtteranceContent::Word(Box::new(Word::new_unchecked("xxx", "xxx")));
+    assert_eq!(
+        count_tier_positions(std::slice::from_ref(&untranscribed), TierDomain::Wor),
+        1
+    );
+
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&nonword), TierDomain::Pho),
         1
@@ -265,4 +267,44 @@ fn wor_excludes_nonwords_and_fragments_but_includes_fillers() {
         count_tier_positions(std::slice::from_ref(&fragment), TierDomain::Pho),
         1
     );
+    assert_eq!(
+        count_tier_positions(std::slice::from_ref(&untranscribed), TierDomain::Pho),
+        1
+    );
+}
+
+/// OCSC 4009: retraced fragments count for `%wor`.
+#[test]
+fn wor_counts_retraced_fragment_from_ocsc_4009() {
+    let retrace = Retrace::new(
+        BracketedContent::new(vec![
+            BracketedItem::Word(Box::new(Word::new_unchecked("one", "one"))),
+            BracketedItem::Word(Box::new(
+                Word::new_unchecked("&+ss", "ss").with_category(WordCategory::PhonologicalFragment),
+            )),
+        ]),
+        RetraceKind::Partial,
+    );
+    let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
+
+    assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
+    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 2);
+}
+
+/// OCSC 4026: retraced untranscribed placeholders count for `%wor`.
+#[test]
+fn wor_counts_retraced_untranscribed_from_ocsc_4026() {
+    let retrace = Retrace::new(
+        BracketedContent::new(vec![
+            BracketedItem::Word(Box::new(Word::new_unchecked("a", "a"))),
+            BracketedItem::Word(Box::new(Word::new_unchecked("pumpkin", "pumpkin"))),
+            BracketedItem::Word(Box::new(Word::new_unchecked("and", "and"))),
+            BracketedItem::Word(Box::new(Word::new_unchecked("a", "a"))),
+            BracketedItem::Word(Box::new(Word::new_unchecked("xxx", "xxx"))),
+        ]),
+        RetraceKind::Partial,
+    );
+    let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
+
+    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 5);
 }

@@ -10,8 +10,9 @@
 
 use super::*;
 use crate::model::{
-    MainTier, Mor, MorTier, MorTierType, MorWord, PhoItem, PhoTier, PhoTierType, PhoWord,
+    Bullet, MainTier, Mor, MorTier, MorTierType, MorWord, PhoItem, PhoTier, PhoTierType, PhoWord,
     PosCategory, SinItem, SinTier, SinToken, Terminator, UtteranceContent, WorTier, Word,
+    WordCategory,
 };
 use crate::{ErrorCode, Span};
 
@@ -251,6 +252,41 @@ fn test_wor_alignment_does_not_count_terminator() {
         alignment.errors
     );
     assert_eq!(alignment.pairs.len(), 13); // 13 word-to-word pairs
+}
+
+/// Confirms `%wor` alignment accepts timed filler words copied from the main tier.
+///
+/// Brian's OCSC report boils down to this shape: the main tier has a filler
+/// like `&-dt`, and `%wor` carries one timed token for that spoken material.
+/// That should align cleanly.
+#[test]
+fn test_wor_alignment_allows_timed_fillers() {
+    let main = MainTier::new(
+        "PAR",
+        vec![
+            UtteranceContent::Word(Box::new(
+                Word::new_unchecked("&-dt", "dt").with_category(WordCategory::Filler),
+            )),
+            UtteranceContent::Word(Box::new(Word::simple("there"))),
+        ],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(0, 24)); // *PAR: &-dt there .
+
+    let wor = WorTier::from_words(vec![
+        Word::simple("dt").with_inline_bullet(Bullet::new(0, 120)),
+        Word::simple("there").with_inline_bullet(Bullet::new(120, 260)),
+    ])
+    .with_span(Span::from_usize(25, 55)); // %wor: dt 0_120 there 120_260
+
+    let alignment = align_main_to_wor(&main, &wor);
+
+    assert!(
+        alignment.is_error_free(),
+        "Expected timed filler to align in %wor, got: {:?}",
+        alignment.errors
+    );
+    assert_eq!(alignment.pairs.len(), 2);
 }
 
 /// Helper: build a simple Mor item from POS and lemma strings.

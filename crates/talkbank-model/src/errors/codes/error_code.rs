@@ -540,10 +540,10 @@ pub enum ErrorCode {
     /// `%gra` head index is out of range.
     #[code("E713")]
     GraInvalidHeadIndex,
-    /// `%pho` tier has fewer words than main tier.
+    /// `%pho`, `%mod`, or `%wor` tier has fewer alignable words than main tier.
     #[code("E714")]
     PhoCountMismatchTooFew,
-    /// `%pho` tier has more words than main tier.
+    /// `%pho`, `%mod`, or `%wor` tier has more alignable words than main tier.
     #[code("E715")]
     PhoCountMismatchTooMany,
     /// `%mor` tier terminator value does not match main tier.

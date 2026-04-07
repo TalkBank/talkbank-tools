@@ -42,6 +42,7 @@ use super::{
 use crate::alignment::helpers::{WordItem, walk_words};
 use crate::model::content::word::Word;
 use crate::model::dependent_tier::{WorItem, WorTier};
+use crate::model::{BracketedContent, BracketedItem, ReplacedWord};
 use crate::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation, Span};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -257,33 +258,57 @@ impl MainTier {
 
 /// Collect flat WorItems from main tier content for %wor generation.
 ///
-/// Uses the closure-based walker to traverse content, then applies %wor-specific
-/// leaf handling: alignable words become `WorItem::Word`, tag-marker separators
-/// become `WorItem::Separator`, and replaced words use their replacement text
-/// (matching Python batchalign's lexer behavior).
+/// `%wor` generation is almost leaf-local, but replaced-word handling and
+/// separator emission differ from the generic walkers. We therefore recurse
+/// explicitly instead of using `walk_words()`.
 fn collect_wor_items_content(content: &[UtteranceContent], out: &mut Vec<WorItem>) {
-    use crate::alignment::helpers::{
-        WordItem, counts_for_tier, is_tag_marker_separator, walk_words,
-    };
+    for item in content {
+        collect_wor_item(item, false, out);
+    }
+}
 
-    walk_words(content, None, &mut |leaf| match leaf {
-        WordItem::Word(word) => {
-            if counts_for_tier(word, crate::alignment::TierDomain::Wor) {
+fn collect_wor_item(item: &UtteranceContent, in_retrace: bool, out: &mut Vec<WorItem>) {
+    use crate::alignment::helpers::{counts_for_tier_in_context, is_tag_marker_separator};
+
+    match item {
+        UtteranceContent::Word(word) => {
+            if counts_for_tier_in_context(word, crate::alignment::TierDomain::Wor, in_retrace) {
                 out.push(WorItem::Word(Box::new(wor_word_from_main(word))));
             }
         }
-        WordItem::ReplacedWord(replaced) => {
-            if !replaced.replacement.words.is_empty() {
-                for word in &replaced.replacement.words {
-                    if counts_for_tier(word, crate::alignment::TierDomain::Wor) {
-                        out.push(WorItem::Word(Box::new(wor_word_from_main(word))));
-                    }
-                }
-            } else if counts_for_tier(&replaced.word, crate::alignment::TierDomain::Wor) {
-                out.push(WorItem::Word(Box::new(wor_word_from_main(&replaced.word))));
+        UtteranceContent::AnnotatedWord(annotated) => {
+            if counts_for_tier_in_context(
+                &annotated.inner,
+                crate::alignment::TierDomain::Wor,
+                in_retrace,
+            ) {
+                out.push(WorItem::Word(Box::new(wor_word_from_main(
+                    &annotated.inner,
+                ))));
             }
         }
-        WordItem::Separator(sep) => {
+        UtteranceContent::ReplacedWord(replaced) => {
+            collect_wor_replaced_word(replaced, in_retrace, out);
+        }
+        UtteranceContent::Group(group) => {
+            collect_wor_bracketed_content(&group.content, in_retrace, out);
+        }
+        UtteranceContent::AnnotatedGroup(annotated) => {
+            collect_wor_bracketed_content(&annotated.inner.content, in_retrace, out);
+        }
+        UtteranceContent::PhoGroup(pho) => {
+            collect_wor_bracketed_content(&pho.content, in_retrace, out);
+        }
+        UtteranceContent::SinGroup(sin) => {
+            collect_wor_bracketed_content(&sin.content, in_retrace, out);
+        }
+        UtteranceContent::Quotation(quotation) => {
+            collect_wor_bracketed_content(&quotation.content, in_retrace, out);
+        }
+        UtteranceContent::Retrace(retrace) => {
+            collect_wor_bracketed_content(&retrace.content, true, out);
+        }
+        UtteranceContent::Separator(sep) => {
             if is_tag_marker_separator(sep) {
                 out.push(WorItem::Separator {
                     text: sep.to_chat_string(),
@@ -291,7 +316,105 @@ fn collect_wor_items_content(content: &[UtteranceContent], out: &mut Vec<WorItem
                 });
             }
         }
-    });
+        UtteranceContent::Event(_)
+        | UtteranceContent::AnnotatedEvent(_)
+        | UtteranceContent::Pause(_)
+        | UtteranceContent::AnnotatedAction(_)
+        | UtteranceContent::Freecode(_)
+        | UtteranceContent::OverlapPoint(_)
+        | UtteranceContent::InternalBullet(_)
+        | UtteranceContent::LongFeatureBegin(_)
+        | UtteranceContent::LongFeatureEnd(_)
+        | UtteranceContent::UnderlineBegin(_)
+        | UtteranceContent::UnderlineEnd(_)
+        | UtteranceContent::NonvocalBegin(_)
+        | UtteranceContent::NonvocalEnd(_)
+        | UtteranceContent::NonvocalSimple(_)
+        | UtteranceContent::OtherSpokenEvent(_) => {}
+    }
+}
+
+fn collect_wor_bracketed_content(
+    content: &BracketedContent,
+    in_retrace: bool,
+    out: &mut Vec<WorItem>,
+) {
+    for item in &content.content {
+        collect_wor_bracketed_item(item, in_retrace, out);
+    }
+}
+
+fn collect_wor_bracketed_item(item: &BracketedItem, in_retrace: bool, out: &mut Vec<WorItem>) {
+    use crate::alignment::helpers::{counts_for_tier_in_context, is_tag_marker_separator};
+
+    match item {
+        BracketedItem::Word(word) => {
+            if counts_for_tier_in_context(word, crate::alignment::TierDomain::Wor, in_retrace) {
+                out.push(WorItem::Word(Box::new(wor_word_from_main(word))));
+            }
+        }
+        BracketedItem::AnnotatedWord(annotated) => {
+            if counts_for_tier_in_context(
+                &annotated.inner,
+                crate::alignment::TierDomain::Wor,
+                in_retrace,
+            ) {
+                out.push(WorItem::Word(Box::new(wor_word_from_main(
+                    &annotated.inner,
+                ))));
+            }
+        }
+        BracketedItem::ReplacedWord(replaced) => {
+            collect_wor_replaced_word(replaced, in_retrace, out);
+        }
+        BracketedItem::AnnotatedGroup(annotated) => {
+            collect_wor_bracketed_content(&annotated.inner.content, in_retrace, out);
+        }
+        BracketedItem::PhoGroup(pho) => {
+            collect_wor_bracketed_content(&pho.content, in_retrace, out);
+        }
+        BracketedItem::SinGroup(sin) => {
+            collect_wor_bracketed_content(&sin.content, in_retrace, out);
+        }
+        BracketedItem::Quotation(quotation) => {
+            collect_wor_bracketed_content(&quotation.content, in_retrace, out);
+        }
+        BracketedItem::Retrace(retrace) => {
+            collect_wor_bracketed_content(&retrace.content, true, out);
+        }
+        BracketedItem::Separator(sep) => {
+            if is_tag_marker_separator(sep) {
+                out.push(WorItem::Separator {
+                    text: sep.to_chat_string(),
+                    span: sep.span(),
+                });
+            }
+        }
+        BracketedItem::Event(_)
+        | BracketedItem::AnnotatedEvent(_)
+        | BracketedItem::Pause(_)
+        | BracketedItem::Action(_)
+        | BracketedItem::AnnotatedAction(_)
+        | BracketedItem::OverlapPoint(_)
+        | BracketedItem::InternalBullet(_)
+        | BracketedItem::Freecode(_)
+        | BracketedItem::LongFeatureBegin(_)
+        | BracketedItem::LongFeatureEnd(_)
+        | BracketedItem::UnderlineBegin(_)
+        | BracketedItem::UnderlineEnd(_)
+        | BracketedItem::NonvocalBegin(_)
+        | BracketedItem::NonvocalEnd(_)
+        | BracketedItem::NonvocalSimple(_)
+        | BracketedItem::OtherSpokenEvent(_) => {}
+    }
+}
+
+fn collect_wor_replaced_word(entry: &ReplacedWord, in_retrace: bool, out: &mut Vec<WorItem>) {
+    use crate::alignment::helpers::counts_for_tier_in_context;
+
+    if counts_for_tier_in_context(&entry.word, crate::alignment::TierDomain::Wor, in_retrace) {
+        out.push(WorItem::Word(Box::new(wor_word_from_main(&entry.word))));
+    }
 }
 
 /// Build a `%wor` word from a main-tier word, preserving inline timing.

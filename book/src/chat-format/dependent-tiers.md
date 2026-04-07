@@ -71,11 +71,64 @@ Multiple simultaneous gestures use bracket grouping: `〔g:toy:hold g:toy:shake�
 
 ### %wor — Word Timing
 
-The `%wor` tier carries word-level timing annotations for media synchronization. Words may include inline bullets with millisecond timestamps. Word text is display-only ("eye candy") — timing data comes from the bullet fields.
+The `%wor` tier carries word-level timing annotations for media synchronization.
+Words may include inline bullets with millisecond timestamps. Word text is
+display-only ("eye candy") — timing data comes from the bullet fields.
+
+`%wor` is **not** a flat "all tokens except punctuation" tier. It follows a
+word-level alignment rule:
+
+- **Regular words** count.
+- **Fillers** (`&-um`, `&-uh`, `&-you_know`) count.
+- **Fragments** (`&+...`) count.
+- **Nonwords** (`&~...`) count.
+- **Untranscribed placeholders** (`xxx`, `yyy`, `www`) count.
+- **Replacements** keep the **original spoken word slot** for `%wor`; the
+  replacement text matters for `%mor`, not `%wor`.
+- **Retrace scope does not change `%wor` membership.**
+- **Overlap markers do not change `%wor` membership.**
+
+These bullets define **membership only**. After `%wor` membership is determined,
+alignment is **strictly 1:1**: every counted main-tier item must have exactly one
+`%wor` word, and every `%wor` word must correspond to exactly one counted
+main-tier item. There are no optional `%wor` classes.
 
 ```chat
 *CHI:	I want cookies .
 %wor:	I want cookies .
+```
+
+Exact corpus-shaped contrast:
+
+```chat
+*CHI:	<one &+ss> [/] one play ground .
+%wor:	one •321008_321148• ss •321148_321368• one •321809_321969• play •322049_322310• ground •322390_322890• .
+
+*EXP:	&+ih <the what> [/] what's letter &+th is this ?
+%wor:	ih •49063_49103• the •49103_49163• what •49183_50205• what's •50205_50405• letter •50405_50685• th •50886_50946• is •50946_51046• this •51086_51586• ?
+
+*EXP:	what's is dis [: this] ?
+%wor:	what's •37050_37471• is •37491_37631• dis •37631_38131• ?
+
+*CHI:	xxx snack .
+%wor:	xxx •884568_884668• snack •884668_885168• .
+
+*CHI:	&~um a boat .
+%wor:	um •1073579_1073779• a •1073779_1073799• boat •1076861_1077361• .
+
+*CHI:	&-mm [<] bananas are good .
+%wor:	bananas •1949566_1949766• are •1949846_1949987• good •1950067_1950567• .
+# INVALID: filler `&-mm` counts for `%wor`, so omitting it is an alignment error.
+```
+
+```mermaid
+flowchart TD
+    A["Main-tier word candidate"] --> B{"Timestamp token / omission / empty?"}
+    B -->|Yes| OUT["Excluded from %wor"]
+    B -->|No| IN["Counts for %wor"]
+
+    style IN fill:#afa,stroke:#333
+    style OUT fill:#faa,stroke:#333
 ```
 
 ## Phon Phonological Tiers

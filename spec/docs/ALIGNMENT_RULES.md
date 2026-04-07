@@ -198,32 +198,49 @@ exactly one `%wor` word.
 
 - Regular words
 - Fillers (`&-um`) -- they appear in `%wor` tiers as spoken content
-- Retraced/reformulated content -- the words **were spoken** and need timing
-- Replacement words: the **replacement** words are counted (same as Mor), since
-  Python batchalign's lexer completely substitutes the replacement text
+- Phonological fragments (`&+...`)
+- Nonwords (`&~...`)
+- Untranscribed placeholders (`xxx`/`yyy`/`www`)
+- Retraced/reformulated content -- retrace does not change `%wor` membership;
+  spoken tokens count both inside and outside retrace
+- Replacement words: the **original spoken** word slot is counted, not the
+  editorial replacement
 - PhoGroups and SinGroups: their inner words are counted recursively
 
 **What is excluded:**
 
-- Nonwords (`&~gaga`) -- Python batchalign's `TokenType.ANNOT` filtering
-- Fragments (`&+fr`) -- Python batchalign's `TokenType.ANNOT` filtering
-- Untranscribed material (`xxx`, `yyy`, `www`) -- excluded by batchalign
 - Timestamp tokens (shaped like `100_200`) -- these are `%wor` alignment
   metadata (onset/offset times), not lexical tokens
 - Omissions (`0word`)
 - Pauses (only words get timing, not pauses)
 - Tag separators
 - AnnotatedActions
+- Overlap markers do not affect `%wor` membership
+
+**Strictness invariant:** the list above is a deterministic membership rule, not
+an optionality rule. Once a main-tier item counts for `%wor`, it must align to
+exactly one `%wor` word. Omitted fillers are therefore invalid: if `&-mm`
+counts on the main tier and `%wor` omits it, E714 is correct.
+
+**Concrete rule consequences:**
+
+- `what's is dis [: this] ?` -> `%wor` aligns `dis`, not `this`
+- `xxx snack .` -> `%wor` aligns `xxx snack`
+- `&~um a boat .` -> `%wor` aligns `um a boat`
+- `<one &+ss> [/] one play ground .` -> `%wor` aligns the fragment in the same
+  way it would outside retrace
 
 **Key difference from `%mor`:** `%wor` **includes** retraced words because they
 were spoken and need word-level timing. `%mor` **excludes** retraced words
-because morphological analysis applies to the intended utterance. Both use
-**replacement** words when present.
+because morphological analysis applies to the intended utterance. `%wor` also
+includes spoken fragments, nonwords, and untranscribed placeholders, while
+`%mor` excludes them. `%wor` uses the **original spoken** word for replacements;
+`%mor` uses the **replacement** word.
 
 **Key difference from `%pho`:** `%wor` **excludes** pauses (pauses don't get
-word-level timing), nonwords, fragments, and untranscribed material. `%pho`
-**includes** all of these. `%wor` uses **replacement** words, while `%pho` uses
-the **original** word.
+word-level timing). `%pho` also includes non-word produced material like pauses,
+whereas `%wor` stays word-slot only. `%wor` and `%pho` both follow the original
+spoken word for replacements.
 
 **Error codes:** Currently reuses E714/E715 (`PhoCountMismatchTooFew` /
 `PhoCountMismatchTooMany`). The error messages mention "`%wor` tier"

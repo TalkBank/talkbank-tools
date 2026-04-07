@@ -13,7 +13,7 @@ use crate::model::{
 
 use super::domain::TierDomain;
 use super::rules::{
-    annotations_have_alignment_ignore, counts_for_tier, is_tag_marker_separator,
+    annotations_have_alignment_ignore, counts_for_tier_in_context, is_tag_marker_separator,
     should_align_replaced_word_in_pho_sin, should_skip_group,
 };
 use super::to_chat_display_string as to_string;
@@ -34,7 +34,7 @@ pub struct TierPosition {
 pub fn collect_tier_items(content: &[UtteranceContent], domain: TierDomain) -> Vec<TierPosition> {
     let mut items = Vec::new();
     for item in content {
-        extract_alignable_from_item(item, domain, &mut items);
+        extract_alignable_from_item(item, domain, false, &mut items);
     }
     items
 }
@@ -46,7 +46,7 @@ pub fn collect_tier_items(content: &[UtteranceContent], domain: TierDomain) -> V
 pub fn count_tier_positions(content: &[UtteranceContent], domain: TierDomain) -> usize {
     content
         .iter()
-        .map(|item| count_alignable_item(item, domain))
+        .map(|item| count_alignable_item(item, domain, false))
         .sum()
 }
 
@@ -90,42 +90,49 @@ pub fn count_tier_positions_until(
     content
         .iter()
         .take(max_index)
-        .map(|item| count_alignable_item(item, domain))
+        .map(|item| count_alignable_item(item, domain, false))
         .sum()
 }
 
 /// Counts one main-tier item's contribution in the target alignment domain.
-fn count_alignable_item(item: &UtteranceContent, domain: TierDomain) -> usize {
+fn count_alignable_item(item: &UtteranceContent, domain: TierDomain, in_retrace: bool) -> usize {
     match item {
-        UtteranceContent::Word(word) => count_alignable_word(word, &[], domain),
-        UtteranceContent::AnnotatedWord(annotated) => {
-            count_alignable_word(&annotated.inner, &annotated.scoped_annotations, domain)
+        UtteranceContent::Word(word) => count_alignable_word(word, &[], domain, in_retrace),
+        UtteranceContent::AnnotatedWord(annotated) => count_alignable_word(
+            &annotated.inner,
+            &annotated.scoped_annotations,
+            domain,
+            in_retrace,
+        ),
+        UtteranceContent::ReplacedWord(replaced) => {
+            count_alignable_replaced_word(replaced, domain, in_retrace)
         }
-        UtteranceContent::ReplacedWord(replaced) => count_alignable_replaced_word(replaced, domain),
-        UtteranceContent::Group(group) => count_bracketed_alignable_content(&group.content, domain),
+        UtteranceContent::Group(group) => {
+            count_bracketed_alignable_content(&group.content, domain, in_retrace)
+        }
         UtteranceContent::AnnotatedGroup(annotated) => {
             if should_skip_group(&annotated.scoped_annotations, domain) {
                 0
             } else {
-                count_bracketed_alignable_content(&annotated.inner.content, domain)
+                count_bracketed_alignable_content(&annotated.inner.content, domain, in_retrace)
             }
         }
         UtteranceContent::PhoGroup(pho) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                count_bracketed_alignable_content(&pho.content, domain)
+                count_bracketed_alignable_content(&pho.content, domain, in_retrace)
             }
             TierDomain::Pho => 1,
             TierDomain::Sin => 0,
         },
         UtteranceContent::SinGroup(sin) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                count_bracketed_alignable_content(&sin.content, domain)
+                count_bracketed_alignable_content(&sin.content, domain, in_retrace)
             }
             TierDomain::Sin => 1,
             TierDomain::Pho => 0,
         },
         UtteranceContent::Quotation(quot) => {
-            count_bracketed_alignable_content(&quot.content, domain)
+            count_bracketed_alignable_content(&quot.content, domain, in_retrace)
         }
         UtteranceContent::Separator(sep) => {
             if domain == TierDomain::Mor && is_tag_marker_separator(sep) {
@@ -153,7 +160,7 @@ fn count_alignable_item(item: &UtteranceContent, domain: TierDomain) -> usize {
             if domain == TierDomain::Mor {
                 0
             } else {
-                count_bracketed_alignable_content(&retrace.content, domain)
+                count_bracketed_alignable_content(&retrace.content, domain, true)
             }
         }
         // All remaining variants are non-alignable for every dependent tier:
@@ -175,44 +182,55 @@ fn count_alignable_item(item: &UtteranceContent, domain: TierDomain) -> usize {
 }
 
 /// Counts bracketed content recursively for alignment in `domain`.
-fn count_bracketed_alignable_content(content: &BracketedContent, domain: TierDomain) -> usize {
+fn count_bracketed_alignable_content(
+    content: &BracketedContent,
+    domain: TierDomain,
+    in_retrace: bool,
+) -> usize {
     content
         .content
         .iter()
-        .map(|item| count_bracketed_item(item, domain))
+        .map(|item| count_bracketed_item(item, domain, in_retrace))
         .sum()
 }
 
 /// Counts one bracketed item's alignment contribution in `domain`.
-fn count_bracketed_item(item: &BracketedItem, domain: TierDomain) -> usize {
+fn count_bracketed_item(item: &BracketedItem, domain: TierDomain, in_retrace: bool) -> usize {
     match item {
-        BracketedItem::Word(word) => count_alignable_word(word, &[], domain),
-        BracketedItem::AnnotatedWord(annotated) => {
-            count_alignable_word(&annotated.inner, &annotated.scoped_annotations, domain)
+        BracketedItem::Word(word) => count_alignable_word(word, &[], domain, in_retrace),
+        BracketedItem::AnnotatedWord(annotated) => count_alignable_word(
+            &annotated.inner,
+            &annotated.scoped_annotations,
+            domain,
+            in_retrace,
+        ),
+        BracketedItem::ReplacedWord(replaced) => {
+            count_alignable_replaced_word(replaced, domain, in_retrace)
         }
-        BracketedItem::ReplacedWord(replaced) => count_alignable_replaced_word(replaced, domain),
         BracketedItem::AnnotatedGroup(annotated) => {
             if should_skip_group(&annotated.scoped_annotations, domain) {
                 0
             } else {
-                count_bracketed_alignable_content(&annotated.inner.content, domain)
+                count_bracketed_alignable_content(&annotated.inner.content, domain, in_retrace)
             }
         }
         BracketedItem::PhoGroup(pho) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                count_bracketed_alignable_content(&pho.content, domain)
+                count_bracketed_alignable_content(&pho.content, domain, in_retrace)
             }
             TierDomain::Pho => 1,
             TierDomain::Sin => 0,
         },
         BracketedItem::SinGroup(sin) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                count_bracketed_alignable_content(&sin.content, domain)
+                count_bracketed_alignable_content(&sin.content, domain, in_retrace)
             }
             TierDomain::Sin => 1,
             TierDomain::Pho => 0,
         },
-        BracketedItem::Quotation(quot) => count_bracketed_alignable_content(&quot.content, domain),
+        BracketedItem::Quotation(quot) => {
+            count_bracketed_alignable_content(&quot.content, domain, in_retrace)
+        }
         BracketedItem::Separator(sep) => {
             if domain == TierDomain::Mor && is_tag_marker_separator(sep) {
                 1
@@ -225,7 +243,7 @@ fn count_bracketed_item(item: &BracketedItem, domain: TierDomain) -> usize {
             if domain == TierDomain::Mor {
                 0
             } else {
-                count_bracketed_alignable_content(&retrace.content, domain)
+                count_bracketed_alignable_content(&retrace.content, domain, true)
             }
         }
         // All remaining variants are non-alignable inside bracketed content:
@@ -254,6 +272,7 @@ fn count_alignable_word(
     word: &Word,
     annotations: &[ContentAnnotation],
     domain: TierDomain,
+    in_retrace: bool,
 ) -> usize {
     // For individual words, retrace annotations only skip for Mor domain.
     // Retraced words may still appear in %pho/%sin (they were spoken, just corrected).
@@ -262,7 +281,7 @@ fn count_alignable_word(
         return 0;
     }
 
-    if !counts_for_tier(word, domain) {
+    if !counts_for_tier_in_context(word, domain, in_retrace) {
         return 0;
     }
 
@@ -270,29 +289,37 @@ fn count_alignable_word(
 }
 
 /// Counts a `ReplacedWord` node after replacement/retrace rules.
-fn count_alignable_replaced_word(entry: &ReplacedWord, domain: TierDomain) -> usize {
+fn count_alignable_replaced_word(
+    entry: &ReplacedWord,
+    domain: TierDomain,
+    in_retrace: bool,
+) -> usize {
     // For replaced words (like groups), retrace annotations only skip for Mor domain
     if domain == TierDomain::Mor && annotations_have_alignment_ignore(&entry.scoped_annotations) {
         return 0;
     }
 
     match domain {
-        TierDomain::Mor | TierDomain::Wor => {
-            // %mor and %wor align to replacement words when present.
-            // Python batchalign's lexer completely substitutes the replacement text,
-            // so both morphological analysis and word-level timing use the corrected form.
+        TierDomain::Mor => {
+            // %mor aligns to replacement words when present because
+            // morphology follows the corrected transcript slot.
             if !entry.replacement.words.is_empty() {
                 entry
                     .replacement
                     .words
                     .iter()
-                    .filter(|word| counts_for_tier(word, domain))
+                    .filter(|word| counts_for_tier_in_context(word, domain, in_retrace))
                     .count()
-            } else if counts_for_tier(&entry.word, domain) {
+            } else if counts_for_tier_in_context(&entry.word, domain, in_retrace) {
                 1
             } else {
                 0
             }
+        }
+        TierDomain::Wor => {
+            // %wor aligns to the originally spoken surface form, not the
+            // editorial replacement.
+            usize::from(counts_for_tier_in_context(&entry.word, domain, in_retrace))
         }
         TierDomain::Pho | TierDomain::Sin => {
             // %pho and %sin align to the original word (what was actually
@@ -318,30 +345,39 @@ fn count_alignable_replaced_word(entry: &ReplacedWord, domain: TierDomain) -> us
 fn extract_alignable_from_item(
     item: &UtteranceContent,
     domain: TierDomain,
+    in_retrace: bool,
     output: &mut Vec<TierPosition>,
 ) {
     match item {
-        UtteranceContent::Word(word) => extract_alignable_from_word(word, &[], domain, output),
+        UtteranceContent::Word(word) => {
+            extract_alignable_from_word(word, &[], domain, in_retrace, output)
+        }
         UtteranceContent::AnnotatedWord(annotated) => extract_alignable_from_word(
             &annotated.inner,
             &annotated.scoped_annotations,
             domain,
+            in_retrace,
             output,
         ),
         UtteranceContent::ReplacedWord(replaced) => {
-            extract_alignable_from_replaced_word(replaced, domain, output)
+            extract_alignable_from_replaced_word(replaced, domain, in_retrace, output)
         }
         UtteranceContent::Group(group) => {
-            extract_alignable_from_bracketed_content(&group.content, domain, output)
+            extract_alignable_from_bracketed_content(&group.content, domain, in_retrace, output)
         }
         UtteranceContent::AnnotatedGroup(annotated) => {
             if !should_skip_group(&annotated.scoped_annotations, domain) {
-                extract_alignable_from_bracketed_content(&annotated.inner.content, domain, output)
+                extract_alignable_from_bracketed_content(
+                    &annotated.inner.content,
+                    domain,
+                    in_retrace,
+                    output,
+                )
             }
         }
         UtteranceContent::PhoGroup(pho) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                extract_alignable_from_bracketed_content(&pho.content, domain, output)
+                extract_alignable_from_bracketed_content(&pho.content, domain, in_retrace, output)
             }
             TierDomain::Pho => {
                 output.push(TierPosition {
@@ -353,7 +389,7 @@ fn extract_alignable_from_item(
         },
         UtteranceContent::SinGroup(sin) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                extract_alignable_from_bracketed_content(&sin.content, domain, output)
+                extract_alignable_from_bracketed_content(&sin.content, domain, in_retrace, output)
             }
             TierDomain::Sin => {
                 output.push(TierPosition {
@@ -364,7 +400,7 @@ fn extract_alignable_from_item(
             TierDomain::Pho => {}
         },
         UtteranceContent::Quotation(quot) => {
-            extract_alignable_from_bracketed_content(&quot.content, domain, output)
+            extract_alignable_from_bracketed_content(&quot.content, domain, in_retrace, output)
         }
         UtteranceContent::Separator(sep) => {
             if domain == TierDomain::Mor && is_tag_marker_separator(sep) {
@@ -393,7 +429,7 @@ fn extract_alignable_from_item(
         UtteranceContent::Retrace(retrace) => {
             // Retrace content is excluded from %mor but extracted for %pho/%sin/%wor.
             if domain != TierDomain::Mor {
-                extract_alignable_from_bracketed_content(&retrace.content, domain, output);
+                extract_alignable_from_bracketed_content(&retrace.content, domain, true, output);
             }
         }
         // All remaining variants produce no alignable items:
@@ -421,10 +457,11 @@ fn extract_alignable_from_item(
 fn extract_alignable_from_bracketed_content(
     content: &BracketedContent,
     domain: TierDomain,
+    in_retrace: bool,
     output: &mut Vec<TierPosition>,
 ) {
     for item in &content.content {
-        extract_alignable_from_bracketed_item(item, domain, output);
+        extract_alignable_from_bracketed_item(item, domain, in_retrace, output);
     }
 }
 
@@ -434,27 +471,36 @@ fn extract_alignable_from_bracketed_content(
 fn extract_alignable_from_bracketed_item(
     item: &BracketedItem,
     domain: TierDomain,
+    in_retrace: bool,
     output: &mut Vec<TierPosition>,
 ) {
     match item {
-        BracketedItem::Word(word) => extract_alignable_from_word(word, &[], domain, output),
+        BracketedItem::Word(word) => {
+            extract_alignable_from_word(word, &[], domain, in_retrace, output)
+        }
         BracketedItem::AnnotatedWord(annotated) => extract_alignable_from_word(
             &annotated.inner,
             &annotated.scoped_annotations,
             domain,
+            in_retrace,
             output,
         ),
         BracketedItem::ReplacedWord(replaced) => {
-            extract_alignable_from_replaced_word(replaced, domain, output)
+            extract_alignable_from_replaced_word(replaced, domain, in_retrace, output)
         }
         BracketedItem::AnnotatedGroup(annotated) => {
             if !should_skip_group(&annotated.scoped_annotations, domain) {
-                extract_alignable_from_bracketed_content(&annotated.inner.content, domain, output)
+                extract_alignable_from_bracketed_content(
+                    &annotated.inner.content,
+                    domain,
+                    in_retrace,
+                    output,
+                )
             }
         }
         BracketedItem::PhoGroup(pho) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                extract_alignable_from_bracketed_content(&pho.content, domain, output)
+                extract_alignable_from_bracketed_content(&pho.content, domain, in_retrace, output)
             }
             TierDomain::Pho => {
                 output.push(TierPosition {
@@ -466,7 +512,7 @@ fn extract_alignable_from_bracketed_item(
         },
         BracketedItem::SinGroup(sin) => match domain {
             TierDomain::Mor | TierDomain::Wor => {
-                extract_alignable_from_bracketed_content(&sin.content, domain, output)
+                extract_alignable_from_bracketed_content(&sin.content, domain, in_retrace, output)
             }
             TierDomain::Sin => {
                 output.push(TierPosition {
@@ -477,7 +523,7 @@ fn extract_alignable_from_bracketed_item(
             TierDomain::Pho => {}
         },
         BracketedItem::Quotation(quot) => {
-            extract_alignable_from_bracketed_content(&quot.content, domain, output)
+            extract_alignable_from_bracketed_content(&quot.content, domain, in_retrace, output)
         }
         BracketedItem::Separator(sep) => {
             if domain == TierDomain::Mor && is_tag_marker_separator(sep) {
@@ -490,7 +536,7 @@ fn extract_alignable_from_bracketed_item(
         BracketedItem::Retrace(retrace) => {
             // Retrace content is excluded from %mor but extracted for %pho/%sin/%wor.
             if domain != TierDomain::Mor {
-                extract_alignable_from_bracketed_content(&retrace.content, domain, output);
+                extract_alignable_from_bracketed_content(&retrace.content, domain, true, output);
             }
         }
         // All remaining variants produce no alignable items inside bracketed content:
@@ -521,13 +567,14 @@ fn extract_alignable_from_word(
     word: &Word,
     annotations: &[ContentAnnotation],
     domain: TierDomain,
+    in_retrace: bool,
     output: &mut Vec<TierPosition>,
 ) {
     if domain == TierDomain::Mor && annotations_have_alignment_ignore(annotations) {
         return;
     }
 
-    if !counts_for_tier(word, domain) {
+    if !counts_for_tier_in_context(word, domain, in_retrace) {
         return;
     }
 
@@ -539,11 +586,12 @@ fn extract_alignable_from_word(
 
 /// Extracts alignable units from a replaced-word node.
 ///
-/// MOR/WOR domains prefer replacement words when available, whereas PHO/SIN
-/// keep the originally produced form for alignment.
+/// %mor prefers replacement words when available, whereas %pho/%sin/%wor keep
+/// the originally produced form for alignment.
 fn extract_alignable_from_replaced_word(
     entry: &ReplacedWord,
     domain: TierDomain,
+    in_retrace: bool,
     output: &mut Vec<TierPosition>,
 ) {
     if domain == TierDomain::Mor && annotations_have_alignment_ignore(&entry.scoped_annotations) {
@@ -551,18 +599,29 @@ fn extract_alignable_from_replaced_word(
     }
 
     match domain {
-        TierDomain::Mor | TierDomain::Wor => {
-            // %mor and %wor align to replacement words when present.
+        TierDomain::Mor => {
+            // %mor aligns to replacement words when present because
+            // morphology follows the corrected transcript slot.
             if !entry.replacement.words.is_empty() {
                 for word in &entry.replacement.words {
-                    if counts_for_tier(word, domain) {
+                    if counts_for_tier_in_context(word, domain, in_retrace) {
                         output.push(TierPosition {
                             text: to_string(word),
                             description: None,
                         });
                     }
                 }
-            } else if counts_for_tier(&entry.word, domain) {
+            } else if counts_for_tier_in_context(&entry.word, domain, in_retrace) {
+                output.push(TierPosition {
+                    text: to_string(&entry.word),
+                    description: None,
+                });
+            }
+        }
+        TierDomain::Wor => {
+            // %wor aligns to the originally spoken surface form, not the
+            // editorial replacement.
+            if counts_for_tier_in_context(&entry.word, domain, in_retrace) {
                 output.push(TierPosition {
                     text: to_string(&entry.word),
                     description: None,

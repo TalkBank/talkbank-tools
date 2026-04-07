@@ -73,6 +73,43 @@ The number of `%mor` items must match the number of alignable words on the main 
   home            — ⊖
 ```
 
+### E714 / E715: `%pho`, `%mod`, or `%wor` count mismatch
+
+The same two codes are reused for "too few" / "too many" count mismatches on
+`%pho`, `%mod`, and `%wor`.
+
+For `%wor`, the main-tier side is a spoken-token inventory:
+
+- regular words and fillers count
+- fragments, nonwords, and `xxx`/`yyy`/`www` count
+- retrace does not change `%wor` membership
+- replacements keep the original spoken surface word for `%wor`
+
+That context-sensitivity decides **membership**, not leniency. Once an item is
+in the `%wor` set, alignment is still **strict 1:1**. So if a filler like
+`&-mm` counts on the main tier and `%wor` omits it, E714 is the correct result.
+
+So this is valid:
+
+```chat
+*CHI:	<one &+ss> [/] one play ground .
+%wor:	one •321008_321148• ss •321148_321368• one •321809_321969• play •322049_322310• ground •322390_322890• .
+```
+
+But this is also valid:
+
+```chat
+*EXP:	&+ih <the what> [/] what's letter &+th is this ?
+%wor:	ih •49063_49103• the •49103_49163• what •49183_50205• what's •50205_50405• letter •50405_50685• th •50886_50946• is •50946_51046• this •51086_51586• ?
+```
+
+And this is valid too:
+
+```chat
+*EXP:	what's is dis [: this] ?
+%wor:	what's •37050_37471• is •37491_37631• dis •37631_38131• ?
+```
+
 ### E721: %gra sequential index error
 
 `%gra` entries must have sequential 1-based indices: `1|...|... 2|...|... 3|...|...`

@@ -45,10 +45,20 @@ fn is_alignment_ignore_annotation(annotation: &ContentAnnotation) -> bool {
 
 /// Return whether a word participates in alignment for the target domain.
 ///
-/// This is the canonical domain gate used by counting, extraction, and
-/// metadata-alignment passes, so behavior must stay synchronized across all
-/// call sites.
+/// This is the canonical domain gate used by callers that do not carry
+/// container context.
 pub fn counts_for_tier(word: &Word, domain: TierDomain) -> bool {
+    counts_for_tier_in_context(word, domain, false)
+}
+
+/// Return whether a word participates in alignment for the target domain,
+/// given whether it appears inside retraced content.
+///
+/// The `in_retrace` parameter remains for call-site compatibility, but `%wor`
+/// membership no longer depends on retrace ancestry. `%wor` now models spoken
+/// main-tier word slots directly, regardless of whether those words appear
+/// inside or outside a retrace container.
+pub fn counts_for_tier_in_context(word: &Word, domain: TierDomain, _in_retrace: bool) -> bool {
     // Empty words (from parser artifacts) should never align
     if word.cleaned_text().is_empty() {
         return false;
@@ -66,11 +76,11 @@ pub fn counts_for_tier(word: &Word, domain: TierDomain) -> bool {
         // %mor = linguistic/morphological content (excludes ALL fragments, untranscribed)
         TierDomain::Mor => is_linguistic_content(word),
 
-        // %wor = word-level timing, matching Python batchalign's lexer rules.
-        // Includes: regular words, fillers (&-um)
-        // Excludes: nonwords (&~gaga), fragments (&+fr), untranscribed (xxx/yyy/www),
-        //           timing tokens (123_456)
-        TierDomain::Wor => !is_wor_timing_token(word) && !is_wor_excluded_word(word),
+        // %wor = word-level timing over spoken main-tier word slots.
+        // If the transcript represents something as a spoken word token, it
+        // participates in %wor regardless of whether it is a regular word,
+        // filler, fragment, nonword, or untranscribed placeholder.
+        TierDomain::Wor => !is_wor_timing_token(word),
 
         // %pho and %sin include everything that was phonologically/gesturally produced
         // This includes fragments, untranscribed material, etc.
@@ -80,8 +90,7 @@ pub fn counts_for_tier(word: &Word, domain: TierDomain) -> bool {
 
 /// Return whether the word category is fragment-like for strict domains.
 ///
-/// Fragment-like categories are filtered in `%mor` and conditionally in `%wor`
-/// to match legacy batchalign behavior.
+/// Fragment-like categories are filtered only in stricter domains like `%mor`.
 fn is_fragment_like(word: &Word) -> bool {
     matches!(
         word.category,
@@ -96,19 +105,6 @@ fn is_fragment_like(word: &Word) -> bool {
 /// - Untranscribed material: xxx, yyy, www
 fn is_linguistic_content(word: &Word) -> bool {
     !is_fragment_like(word) && word.untranscribed().is_none()
-}
-
-/// Return whether a word is excluded from `%wor` alignment rules.
-///
-/// Python batchalign's lexer filters out `TokenType.ANNOT` tokens from %wor,
-/// which maps to nonwords (&~) and fragments (&+). Untranscribed material
-/// (xxx/yyy/www) is also excluded. Fillers (&-um) are NOT excluded — they
-/// appear in %wor tiers as spoken content that gets timed.
-fn is_wor_excluded_word(word: &Word) -> bool {
-    matches!(
-        word.category,
-        Some(WordCategory::Nonword | WordCategory::PhonologicalFragment)
-    ) || word.untranscribed().is_some()
 }
 
 /// Return whether a word token is `%wor` timing metadata (`start_end` digits).

@@ -168,7 +168,7 @@ flowchart TD
     RT -->|"Mor domain"| SKIP["SKIP\n(return 0)\nNot morphologically analyzed"]
     RT -->|"Pho domain"| COUNT["COUNT\nPhonologically produced"]
     RT -->|"Sin domain"| COUNT2["COUNT\nGesturally produced"]
-    RT -->|"Wor domain"| COUNT3["COUNT\nHas word timing"]
+    RT -->|"Wor domain"| COUNT3["RECURSE\napply retrace-aware %wor leaf rule"]
 
     style SKIP fill:#faa,stroke:#333
     style COUNT fill:#afa,stroke:#333
@@ -187,6 +187,22 @@ carries the morphological analysis.
 it happened, including false starts. The retrace was physically spoken,
 so it appears in these tiers.
 
+For `%wor`, retrace ancestry does **not** change leaf-level membership:
+
+- spoken word tokens count both inside and outside retrace
+- that includes fillers, fragments, nonwords, and untranscribed placeholders
+- overlap annotations do not affect `%wor` membership
+
+Exact corpus-shaped contrast:
+
+```chat
+*CHI:	<one &+ss> [/] one play ground .
+%wor:	one •321008_321148• ss •321148_321368• one •321809_321969• play •322049_322310• ground •322390_322890• .
+
+*CHI:	&+ih <the what> [/] what's letter &+th is this ?
+%wor:	ih •49063_49103• the •49103_49163• what •49183_50205• what's •50205_50405• letter •50405_50685• th •50886_50946• is •50946_51046• this •51086_51586• ?
+```
+
 ### Implementation
 
 Counting: `count_alignable_item()` in `alignment/helpers/count.rs`:
@@ -196,7 +212,7 @@ UtteranceContent::Retrace(retrace) => {
     if domain == TierDomain::Mor {
         0  // excluded from morphological alignment
     } else {
-        count_bracketed_alignable_content(&retrace.content, domain)
+        count_bracketed_alignable_content(&retrace.content, domain, true)
     }
 }
 ```
@@ -210,6 +226,10 @@ UtteranceContent::Retrace(retrace) => {
     }
 }
 ```
+
+`%wor` generation and overlap counting still use dedicated recursive helpers,
+but now for `%wor`-specific sequencing details like replacement handling rather
+than for retrace-sensitive membership.
 
 ## Validation
 

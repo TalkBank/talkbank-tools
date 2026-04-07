@@ -104,10 +104,11 @@ main-tier content. The domain enum makes these policy branches explicit.
 | Count pauses | No | Yes | No | No |
 | PhoGroup handling | Recurse | Atomic (1) | Skip (0) | Recurse |
 | SinGroup handling | Recurse | Skip (0) | Atomic (1) | Recurse |
-| Include fragments | No | Yes | Yes | Partial |
-| Include untranscribed | No | Yes | Yes | No |
+| Include fragments | No | Yes | Yes | Yes |
+| Include nonwords | No | Yes | Yes | Yes |
+| Include untranscribed | No | Yes | Yes | Yes |
 | Include tag-marker separators | Yes | No | No | No |
-| ReplacedWord aligns to | Replacement | Original | Original | Replacement |
+| ReplacedWord aligns to | Replacement | Original | Original | Original |
 
 ### Retrace Filtering
 
@@ -116,8 +117,11 @@ wraps content the speaker said then corrected. The alignment rule:
 
 - **%mor (Mor domain):** Skip entirely. Returns count `0`. The retrace was
   a false start; only the correction carries morphological analysis.
-- **%pho, %sin, %wor:** Recurse into the retrace content. The words were
-  physically produced and have phonological/timing/gestural data.
+- **%pho, %sin:** Recurse into the retrace content. The words were physically
+  produced and have phonological/gestural data.
+- **%wor:** Recurse into the retrace content. Retrace ancestry does **not**
+  change membership; `%wor` counts the same spoken word tokens inside and
+  outside retrace.
 
 This is implemented in `count_alignable_item()` and `walk_words()`. Both
 check `domain == TierDomain::Mor` on the `UtteranceContent::Retrace`
@@ -180,15 +184,36 @@ The counting algorithm traverses `UtteranceContent` (24 variants) and
 Each variant is classified per domain:
 
 **Word filtering** (`rules.rs`):
-- `counts_for_tier(word, domain)` — the canonical domain gate
+- `counts_for_tier(word, domain)` — default domain gate
+- `counts_for_tier_in_context(word, domain, in_retrace)` — call-site-compatible
+  gate; `%wor` no longer changes membership based on retrace ancestry
 - Mor: excludes fragments (`&-`, `&~`, `&+`), untranscribed (`xxx`/`yyy`/`www`), omissions
-- Wor: excludes nonwords (`&~`), fragments (`&+`), untranscribed, timing tokens (`123_456`);
-  includes fillers (`&-um`)
+- Wor: counts spoken word tokens including fillers, fragments, nonwords, and
+  untranscribed placeholders. `%wor` still excludes timing tokens (`123_456`)
+  and omissions in all contexts
 - Pho/Sin: include everything (all produced speech/gesture)
+
+**Strictness invariant:** context-sensitive counting decides **which** main-tier
+items participate in `%wor`, but it does **not** loosen alignment. Once the Wor
+domain count is computed, `%wor` validation remains exact 1:1 positional
+alignment. A counted filler cannot be silently omitted from `%wor`; if it is
+missing, E714 is correct.
 
 **Retrace filtering**: `Retrace` is a first-class `UtteranceContent` / `BracketedItem`
 variant (not an annotation on `AnnotatedGroup`). The walker skips `Retrace` content
 for Mor domain; other domains recurse into it.
+
+```mermaid
+flowchart TD
+    A["Leaf word"] --> B{"Domain == Wor?"}
+    B -->|No| OTHER["Apply ordinary domain rule"]
+    B -->|Yes| C{"Timestamp token / omission / empty?"}
+    C -->|Yes| OUT["Exclude"]
+    C -->|No| IN["Count"]
+
+    style IN fill:#afa,stroke:#333
+    style OUT fill:#faa,stroke:#333
+```
 
 **Exclude filtering** (`rules.rs`):
 - `should_skip_group(annotations, domain)` — `AnnotatedGroup`/`AnnotatedWord` with
@@ -251,12 +276,15 @@ unwrapped automatically. `WordItem::Word` carries only the `&Word` reference.
 - `strip_timing_from_content()` — needs container mutation via `retain()`
 - `count.rs` — Pho/Sin treat PhoGroup/SinGroup as counted atomic units (1),
   while the walker skips them entirely
+- `%wor` generation / overlap counting — retrace-aware `%wor` rules need leaf
+  ancestry (`in_retrace`), but `walk_words()` intentionally exposes only the
+  flattened leaf items
 
 ### Downstream Users
 
 | Call site | Domain | Purpose |
 |-----------|--------|---------|
-| `talkbank-model` `main_tier.rs` | Wor | %wor tier generation |
+| `talkbank-model` `main_tier.rs` | None | CA omission context detection |
 | `batchalign-chat-ops` `extract.rs` | Mor/Wor | NLP word extraction |
 | `batchalign-chat-ops` `fa/extraction.rs` | Wor | FA word extraction |
 | `batchalign-chat-ops` `fa/injection.rs` | Wor | Timing injection |

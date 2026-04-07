@@ -104,7 +104,7 @@ fn build_main_units(
     let mut units = Vec::new();
     let mut index = 0;
     for item in content {
-        let count = count_main_item_units(item, domain);
+        let count = count_main_item_units(item, domain, false);
         if count > 0 {
             for _ in 0..count {
                 units.push(AlignmentUnit { index, span: None });
@@ -118,20 +118,27 @@ fn build_main_units(
 fn count_main_item_units(
     item: &crate::model::UtteranceContent,
     domain: crate::alignment::TierDomain,
+    in_retrace: bool,
 ) -> usize {
     use crate::alignment::helpers::{annotations_have_alignment_ignore, is_tag_marker_separator};
-    use crate::alignment::helpers::{counts_for_tier, should_skip_group};
+    use crate::alignment::helpers::{counts_for_tier_in_context, should_skip_group};
     use crate::model::UtteranceContent;
 
     match item {
-        UtteranceContent::Word(word) => usize::from(counts_for_tier(word, domain)),
+        UtteranceContent::Word(word) => {
+            usize::from(counts_for_tier_in_context(word, domain, in_retrace))
+        }
         UtteranceContent::AnnotatedWord(annotated) => {
             if domain == crate::alignment::TierDomain::Mor
                 && annotations_have_alignment_ignore(&annotated.scoped_annotations)
             {
                 0
             } else {
-                usize::from(counts_for_tier(&annotated.inner, domain))
+                usize::from(counts_for_tier_in_context(
+                    &annotated.inner,
+                    domain,
+                    in_retrace,
+                ))
             }
         }
         UtteranceContent::ReplacedWord(replaced) => match domain {
@@ -143,45 +150,54 @@ fn count_main_item_units(
                         .replacement
                         .words
                         .iter()
-                        .filter(|word| counts_for_tier(word, domain))
+                        .filter(|word| counts_for_tier_in_context(word, domain, in_retrace))
                         .count()
                 } else {
-                    usize::from(counts_for_tier(&replaced.word, domain))
+                    usize::from(counts_for_tier_in_context(
+                        &replaced.word,
+                        domain,
+                        in_retrace,
+                    ))
                 }
             }
-            crate::alignment::TierDomain::Pho
-            | crate::alignment::TierDomain::Sin
-            | crate::alignment::TierDomain::Wor => usize::from(
+            crate::alignment::TierDomain::Wor => usize::from(counts_for_tier_in_context(
+                &replaced.word,
+                domain,
+                in_retrace,
+            )),
+            crate::alignment::TierDomain::Pho | crate::alignment::TierDomain::Sin => usize::from(
                 crate::alignment::helpers::should_align_replaced_word_in_pho_sin(
                     &replaced.word,
                     !replaced.replacement.words.is_empty(),
                 ),
             ),
         },
-        UtteranceContent::Group(group) => count_bracketed_units(&group.content.content, domain),
+        UtteranceContent::Group(group) => {
+            count_bracketed_units(&group.content.content, domain, in_retrace)
+        }
         UtteranceContent::AnnotatedGroup(annotated) => {
             if should_skip_group(&annotated.scoped_annotations, domain) {
                 0
             } else {
-                count_bracketed_units(&annotated.inner.content.content, domain)
+                count_bracketed_units(&annotated.inner.content.content, domain, in_retrace)
             }
         }
         UtteranceContent::PhoGroup(pho) => match domain {
             crate::alignment::TierDomain::Mor | crate::alignment::TierDomain::Wor => {
-                count_bracketed_units(&pho.content.content, domain)
+                count_bracketed_units(&pho.content.content, domain, in_retrace)
             }
             crate::alignment::TierDomain::Pho => 1,
             crate::alignment::TierDomain::Sin => 0,
         },
         UtteranceContent::SinGroup(sin) => match domain {
             crate::alignment::TierDomain::Mor | crate::alignment::TierDomain::Wor => {
-                count_bracketed_units(&sin.content.content, domain)
+                count_bracketed_units(&sin.content.content, domain, in_retrace)
             }
             crate::alignment::TierDomain::Sin => 1,
             crate::alignment::TierDomain::Pho => 0,
         },
         UtteranceContent::Quotation(quotation) => {
-            count_bracketed_units(&quotation.content.content, domain)
+            count_bracketed_units(&quotation.content.content, domain, in_retrace)
         }
         UtteranceContent::Separator(sep) => {
             usize::from(domain == crate::alignment::TierDomain::Mor && is_tag_marker_separator(sep))
@@ -190,6 +206,13 @@ fn count_main_item_units(
         UtteranceContent::AnnotatedAction(_) => {
             usize::from(domain == crate::alignment::TierDomain::Sin)
         }
+        UtteranceContent::Retrace(retrace) => {
+            if domain == crate::alignment::TierDomain::Mor {
+                0
+            } else {
+                count_bracketed_units(&retrace.content.content, domain, true)
+            }
+        }
         _ => 0,
     }
 }
@@ -197,8 +220,9 @@ fn count_main_item_units(
 fn count_bracketed_units(
     items: &[crate::model::BracketedItem],
     domain: crate::alignment::TierDomain,
+    in_retrace: bool,
 ) -> usize {
-    use crate::alignment::helpers::counts_for_tier;
+    use crate::alignment::helpers::counts_for_tier_in_context;
     use crate::alignment::helpers::{annotations_have_alignment_ignore, is_tag_marker_separator};
     use crate::alignment::helpers::{should_align_replaced_word_in_pho_sin, should_skip_group};
     use crate::model::BracketedItem;
@@ -206,14 +230,20 @@ fn count_bracketed_units(
     items
         .iter()
         .map(|item| match item {
-            BracketedItem::Word(word) => usize::from(counts_for_tier(word, domain)),
+            BracketedItem::Word(word) => {
+                usize::from(counts_for_tier_in_context(word, domain, in_retrace))
+            }
             BracketedItem::AnnotatedWord(annotated) => {
                 if domain == crate::alignment::TierDomain::Mor
                     && annotations_have_alignment_ignore(&annotated.scoped_annotations)
                 {
                     0
                 } else {
-                    usize::from(counts_for_tier(&annotated.inner, domain))
+                    usize::from(counts_for_tier_in_context(
+                        &annotated.inner,
+                        domain,
+                        in_retrace,
+                    ))
                 }
             }
             BracketedItem::ReplacedWord(replaced) => match domain {
@@ -225,15 +255,22 @@ fn count_bracketed_units(
                             .replacement
                             .words
                             .iter()
-                            .filter(|word| counts_for_tier(word, domain))
+                            .filter(|word| counts_for_tier_in_context(word, domain, in_retrace))
                             .count()
                     } else {
-                        usize::from(counts_for_tier(&replaced.word, domain))
+                        usize::from(counts_for_tier_in_context(
+                            &replaced.word,
+                            domain,
+                            in_retrace,
+                        ))
                     }
                 }
-                crate::alignment::TierDomain::Pho
-                | crate::alignment::TierDomain::Sin
-                | crate::alignment::TierDomain::Wor => {
+                crate::alignment::TierDomain::Wor => usize::from(counts_for_tier_in_context(
+                    &replaced.word,
+                    domain,
+                    in_retrace,
+                )),
+                crate::alignment::TierDomain::Pho | crate::alignment::TierDomain::Sin => {
                     usize::from(should_align_replaced_word_in_pho_sin(
                         &replaced.word,
                         !replaced.replacement.words.is_empty(),
@@ -244,31 +281,38 @@ fn count_bracketed_units(
                 if should_skip_group(&annotated.scoped_annotations, domain) {
                     0
                 } else {
-                    count_bracketed_units(&annotated.inner.content.content, domain)
+                    count_bracketed_units(&annotated.inner.content.content, domain, in_retrace)
                 }
             }
             BracketedItem::PhoGroup(pho) => match domain {
                 crate::alignment::TierDomain::Mor | crate::alignment::TierDomain::Wor => {
-                    count_bracketed_units(&pho.content.content, domain)
+                    count_bracketed_units(&pho.content.content, domain, in_retrace)
                 }
                 crate::alignment::TierDomain::Pho => 1,
                 crate::alignment::TierDomain::Sin => 0,
             },
             BracketedItem::SinGroup(sin) => match domain {
                 crate::alignment::TierDomain::Mor | crate::alignment::TierDomain::Wor => {
-                    count_bracketed_units(&sin.content.content, domain)
+                    count_bracketed_units(&sin.content.content, domain, in_retrace)
                 }
                 crate::alignment::TierDomain::Sin => 1,
                 crate::alignment::TierDomain::Pho => 0,
             },
             BracketedItem::Quotation(quotation) => {
-                count_bracketed_units(&quotation.content.content, domain)
+                count_bracketed_units(&quotation.content.content, domain, in_retrace)
             }
             BracketedItem::Separator(sep) => usize::from(
                 domain == crate::alignment::TierDomain::Mor && is_tag_marker_separator(sep),
             ),
             BracketedItem::Pause(_) => 0,
             BracketedItem::AnnotatedAction(_) | BracketedItem::Action(_) => 0,
+            BracketedItem::Retrace(retrace) => {
+                if domain == crate::alignment::TierDomain::Mor {
+                    0
+                } else {
+                    count_bracketed_units(&retrace.content.content, domain, true)
+                }
+            }
             _ => 0,
         })
         .sum()

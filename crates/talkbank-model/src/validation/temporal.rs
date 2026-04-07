@@ -340,6 +340,9 @@ fn bullet_text(bullet: &Bullet) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::has_transcribed_content;
+    use crate::model::{UtteranceContent, Word, WordCategory};
+
     // Note: Full integration tests should go in talkbank-model/tests/
 
     /// Documents expected tolerance behavior around the `E704` boundary.
@@ -351,5 +354,23 @@ mod tests {
         // 499ms overlap should pass (within tolerance)
         // 501ms overlap should fail
         // This is a unit test - full integration tests elsewhere
+    }
+
+    #[test]
+    fn fillers_count_as_timeable_content_for_utterance_bullets() {
+        let content = vec![UtteranceContent::Word(Box::new(
+            Word::new_unchecked("&-you_know", "you_know").with_category(WordCategory::Filler),
+        ))];
+
+        assert!(has_transcribed_content(&content));
+    }
+
+    #[test]
+    fn untranscribed_only_content_is_not_timeable_for_utterance_bullets() {
+        let content = vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
+            "xxx", "xxx",
+        )))];
+
+        assert!(!has_transcribed_content(&content));
     }
 }

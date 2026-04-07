@@ -1332,19 +1332,19 @@ Gra head index invalid
 
 ## Alignment count mismatch (E7x)
 
-Pho count mismatch - too few pho tokens
+Alignment count mismatch: a pho/mod/wor tier has fewer alignable items than the main tier.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E714](E714.md) | too few pho tokens | error |
+| [E714](E714.md) | too few tier tokens | error |
 
 ## Alignment count mismatch (E7x)
 
-Pho count mismatch - too many pho tokens
+Alignment count mismatch: a pho/mod/wor tier has more alignable items than the main tier.
 
 | Code | Name | Severity |
 |------|------|----------|
-| [E715](E715.md) | too many pho tokens | error |
+| [E715](E715.md) | too many tier tokens | error |
 
 ## Alignment terminator mismatch (E7x)
 

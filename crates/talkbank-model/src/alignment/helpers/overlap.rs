@@ -11,7 +11,7 @@
 //! This parallels the overlap collection in `validation/utterance/overlap.rs`
 //! but tracks word positions rather than collecting points for validation.
 
-use crate::alignment::helpers::{TierDomain, counts_for_tier};
+use crate::alignment::helpers::{TierDomain, counts_for_tier_in_context};
 use crate::model::{
     BracketedItem, OverlapIndex, OverlapPointKind, UtteranceContent, Word, WordContent,
 };
@@ -149,7 +149,7 @@ pub fn extract_overlap_info(content: &[UtteranceContent]) -> OverlapMarkerInfo {
     let mut markers: Vec<MarkerOccurrence> = Vec::new();
     let mut word_count: usize = 0;
 
-    walk_content(content, &mut word_count, &mut markers);
+    walk_content(content, &mut word_count, &mut markers, false);
 
     let regions = pair_markers(&markers);
 
@@ -182,7 +182,7 @@ pub fn walk_overlap_points(
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
 ) {
     let mut word_count: usize = 0;
-    walk_content_visiting(content, &mut word_count, visitor);
+    walk_content_visiting(content, &mut word_count, visitor, false);
 }
 
 /// Walk top-level content, calling visitor for each overlap point.
@@ -190,6 +190,7 @@ fn walk_content_visiting(
     items: &[UtteranceContent],
     word_count: &mut usize,
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
+    in_retrace: bool,
 ) {
     for item in items {
         match item {
@@ -200,34 +201,36 @@ fn walk_content_visiting(
                 });
             }
             UtteranceContent::Word(word) => {
-                scan_word_visiting(word, word_count, visitor);
+                scan_word_visiting(word, word_count, visitor, in_retrace);
             }
             UtteranceContent::AnnotatedWord(word) => {
-                scan_word_visiting(&word.inner, word_count, visitor);
+                scan_word_visiting(&word.inner, word_count, visitor, in_retrace);
             }
             UtteranceContent::ReplacedWord(replaced) => {
-                scan_word_visiting(&replaced.word, word_count, visitor);
-                for word in &replaced.replacement.words {
-                    scan_word_visiting(word, word_count, visitor);
-                }
+                scan_word_visiting(&replaced.word, word_count, visitor, in_retrace);
             }
             UtteranceContent::Group(group) => {
-                walk_bracketed_visiting(&group.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&group.content.content.0, word_count, visitor, in_retrace);
             }
             UtteranceContent::AnnotatedGroup(group) => {
-                walk_bracketed_visiting(&group.inner.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(
+                    &group.inner.content.content.0,
+                    word_count,
+                    visitor,
+                    in_retrace,
+                );
             }
             UtteranceContent::Quotation(q) => {
-                walk_bracketed_visiting(&q.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&q.content.content.0, word_count, visitor, in_retrace);
             }
             UtteranceContent::PhoGroup(g) => {
-                walk_bracketed_visiting(&g.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&g.content.content.0, word_count, visitor, in_retrace);
             }
             UtteranceContent::SinGroup(g) => {
-                walk_bracketed_visiting(&g.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&g.content.content.0, word_count, visitor, in_retrace);
             }
             UtteranceContent::Retrace(retrace) => {
-                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor, true);
             }
             UtteranceContent::AnnotatedEvent(_)
             | UtteranceContent::Event(_)
@@ -253,6 +256,7 @@ fn walk_bracketed_visiting(
     items: &[BracketedItem],
     word_count: &mut usize,
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
+    in_retrace: bool,
 ) {
     for item in items {
         match item {
@@ -263,31 +267,33 @@ fn walk_bracketed_visiting(
                 });
             }
             BracketedItem::Word(word) => {
-                scan_word_visiting(word, word_count, visitor);
+                scan_word_visiting(word, word_count, visitor, in_retrace);
             }
             BracketedItem::AnnotatedWord(annotated) => {
-                scan_word_visiting(&annotated.inner, word_count, visitor);
+                scan_word_visiting(&annotated.inner, word_count, visitor, in_retrace);
             }
             BracketedItem::ReplacedWord(replaced) => {
-                scan_word_visiting(&replaced.word, word_count, visitor);
-                for word in &replaced.replacement.words {
-                    scan_word_visiting(word, word_count, visitor);
-                }
+                scan_word_visiting(&replaced.word, word_count, visitor, in_retrace);
             }
             BracketedItem::AnnotatedGroup(annotated) => {
-                walk_bracketed_visiting(&annotated.inner.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(
+                    &annotated.inner.content.content.0,
+                    word_count,
+                    visitor,
+                    in_retrace,
+                );
             }
             BracketedItem::PhoGroup(g) => {
-                walk_bracketed_visiting(&g.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&g.content.content.0, word_count, visitor, in_retrace);
             }
             BracketedItem::SinGroup(g) => {
-                walk_bracketed_visiting(&g.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&g.content.content.0, word_count, visitor, in_retrace);
             }
             BracketedItem::Quotation(q) => {
-                walk_bracketed_visiting(&q.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&q.content.content.0, word_count, visitor, in_retrace);
             }
             BracketedItem::Retrace(retrace) => {
-                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor);
+                walk_bracketed_visiting(&retrace.content.content.0, word_count, visitor, true);
             }
             BracketedItem::Event(_)
             | BracketedItem::AnnotatedEvent(_)
@@ -314,6 +320,7 @@ fn scan_word_visiting(
     word: &Word,
     word_count: &mut usize,
     visitor: &mut impl FnMut(OverlapPointVisit<'_>),
+    in_retrace: bool,
 ) {
     for wc in word.content.iter() {
         if let WordContent::OverlapPoint(m) = wc {
@@ -323,7 +330,7 @@ fn scan_word_visiting(
             });
         }
     }
-    if counts_for_tier(word, TierDomain::Wor) {
+    if counts_for_tier_in_context(word, TierDomain::Wor, in_retrace) {
         *word_count += 1;
     }
 }
@@ -421,7 +428,12 @@ fn pair_markers(markers: &[MarkerOccurrence]) -> Vec<OverlapRegion> {
 /// Intra-word markers like `butt⌈er⌉` have the overlap point embedded in
 /// `WordContent::OverlapPoint`. Opening markers (⌈⌊) are recorded before
 /// the word is counted; closing markers (⌉⌋) are recorded after.
-fn scan_word(word: &Word, word_count: &mut usize, markers: &mut Vec<MarkerOccurrence>) {
+fn scan_word(
+    word: &Word,
+    word_count: &mut usize,
+    markers: &mut Vec<MarkerOccurrence>,
+    in_retrace: bool,
+) {
     // Opening markers (⌈⌊) record position BEFORE the word.
     for wc in word.content.iter() {
         if let WordContent::OverlapPoint(marker) = wc
@@ -434,7 +446,7 @@ fn scan_word(word: &Word, word_count: &mut usize, markers: &mut Vec<MarkerOccurr
         }
     }
 
-    if counts_for_tier(word, TierDomain::Wor) {
+    if counts_for_tier_in_context(word, TierDomain::Wor, in_retrace) {
         *word_count += 1;
     }
 
@@ -456,6 +468,7 @@ fn walk_content(
     items: &[UtteranceContent],
     word_count: &mut usize,
     markers: &mut Vec<MarkerOccurrence>,
+    in_retrace: bool,
 ) {
     for item in items {
         match item {
@@ -463,34 +476,39 @@ fn walk_content(
                 record_marker(markers, m.kind, m.index, *word_count);
             }
             UtteranceContent::Word(word) => {
-                scan_word(word, word_count, markers);
+                scan_word(word, word_count, markers, in_retrace);
             }
             UtteranceContent::AnnotatedWord(word) => {
-                scan_word(&word.inner, word_count, markers);
+                scan_word(&word.inner, word_count, markers, in_retrace);
             }
             UtteranceContent::ReplacedWord(replaced) => {
-                scan_word(&replaced.word, word_count, markers);
+                scan_word(&replaced.word, word_count, markers, in_retrace);
                 for word in &replaced.replacement.words {
-                    scan_word(word, word_count, markers);
+                    scan_word(word, word_count, markers, in_retrace);
                 }
             }
             UtteranceContent::Group(group) => {
-                walk_bracketed(&group.content.content.0, word_count, markers);
+                walk_bracketed(&group.content.content.0, word_count, markers, in_retrace);
             }
             UtteranceContent::AnnotatedGroup(group) => {
-                walk_bracketed(&group.inner.content.content.0, word_count, markers);
+                walk_bracketed(
+                    &group.inner.content.content.0,
+                    word_count,
+                    markers,
+                    in_retrace,
+                );
             }
             UtteranceContent::Quotation(q) => {
-                walk_bracketed(&q.content.content.0, word_count, markers);
+                walk_bracketed(&q.content.content.0, word_count, markers, in_retrace);
             }
             UtteranceContent::PhoGroup(g) => {
-                walk_bracketed(&g.content.content.0, word_count, markers);
+                walk_bracketed(&g.content.content.0, word_count, markers, in_retrace);
             }
             UtteranceContent::SinGroup(g) => {
-                walk_bracketed(&g.content.content.0, word_count, markers);
+                walk_bracketed(&g.content.content.0, word_count, markers, in_retrace);
             }
             UtteranceContent::Retrace(retrace) => {
-                walk_bracketed(&retrace.content.content.0, word_count, markers);
+                walk_bracketed(&retrace.content.content.0, word_count, markers, true);
             }
             UtteranceContent::AnnotatedEvent(_)
             | UtteranceContent::Event(_)
@@ -516,6 +534,7 @@ fn walk_bracketed(
     items: &[BracketedItem],
     word_count: &mut usize,
     markers: &mut Vec<MarkerOccurrence>,
+    in_retrace: bool,
 ) {
     for item in items {
         match item {
@@ -523,31 +542,36 @@ fn walk_bracketed(
                 record_marker(markers, m.kind, m.index, *word_count);
             }
             BracketedItem::Word(word) => {
-                scan_word(word, word_count, markers);
+                scan_word(word, word_count, markers, in_retrace);
             }
             BracketedItem::AnnotatedWord(annotated) => {
-                scan_word(&annotated.inner, word_count, markers);
+                scan_word(&annotated.inner, word_count, markers, in_retrace);
             }
             BracketedItem::ReplacedWord(replaced) => {
-                scan_word(&replaced.word, word_count, markers);
+                scan_word(&replaced.word, word_count, markers, in_retrace);
                 for word in &replaced.replacement.words {
-                    scan_word(word, word_count, markers);
+                    scan_word(word, word_count, markers, in_retrace);
                 }
             }
             BracketedItem::AnnotatedGroup(annotated) => {
-                walk_bracketed(&annotated.inner.content.content.0, word_count, markers);
+                walk_bracketed(
+                    &annotated.inner.content.content.0,
+                    word_count,
+                    markers,
+                    in_retrace,
+                );
             }
             BracketedItem::PhoGroup(g) => {
-                walk_bracketed(&g.content.content.0, word_count, markers);
+                walk_bracketed(&g.content.content.0, word_count, markers, in_retrace);
             }
             BracketedItem::SinGroup(g) => {
-                walk_bracketed(&g.content.content.0, word_count, markers);
+                walk_bracketed(&g.content.content.0, word_count, markers, in_retrace);
             }
             BracketedItem::Quotation(q) => {
-                walk_bracketed(&q.content.content.0, word_count, markers);
+                walk_bracketed(&q.content.content.0, word_count, markers, in_retrace);
             }
             BracketedItem::Retrace(retrace) => {
-                walk_bracketed(&retrace.content.content.0, word_count, markers);
+                walk_bracketed(&retrace.content.content.0, word_count, markers, true);
             }
             BracketedItem::Event(_)
             | BracketedItem::AnnotatedEvent(_)
