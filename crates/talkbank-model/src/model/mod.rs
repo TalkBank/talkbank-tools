@@ -155,6 +155,7 @@ pub use content::{
     BracketedContent,
     BracketedItem,
     Bullet,
+    BulletSource,
     CADelimiter,
     CADelimiterType,
     CAElement,

@@ -12,9 +12,47 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use talkbank_derive::{SemanticEq, SpanShift};
 
+/// Provenance of a media timing bullet.
+///
+/// Bullets are set in two distinct ways — by the UTR pre-pass (provisional)
+/// and by human annotation or FA post-processing (authoritative). The source
+/// field is not serialized and has no effect on CHAT output; it is used
+/// exclusively by `batchalign-chat-ops` to decide how to update the utterance
+/// bullet after FA word timings are injected.
+///
+/// ## Rules encoded by each variant
+///
+/// - `Utr` — `update_utterance_bullet` **overwrites** this bullet with the
+///   FA word span. The UTR window was a provisional grouping hint; once FA
+///   has produced word timings the hint is discarded.
+///
+/// - `Authoritative` — `update_utterance_bullet` **unions** this bullet with
+///   the FA word span (never shrinks). Hand-linked annotations may cover
+///   leading fillers, trailing gestures, or other non-alignable content whose
+///   timing would be lost if the bullet were blindly overwritten with the
+///   word span.
+///
+/// The default is `Authoritative`, which matches the behavior of all bullets
+/// that arrive from a parsed CHAT file or were constructed programmatically
+/// after FA (e.g., by `Bullet::new`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum BulletSource {
+    /// Provisional hint from the UTR (Utterance Timing Recovery) pre-pass.
+    ///
+    /// FA word timings overwrite this bullet.
+    Utr,
+    /// Hand-linked annotation, previous FA run, or FA-derived timing.
+    ///
+    /// FA word timings union with (never shrink) this bullet.
+    #[default]
+    Authoritative,
+}
+
 /// Media timing bullet attached to an utterance or header-level comment payload.
 ///
-/// Start/end offsets are stored in milliseconds.
+/// Start/end offsets are stored in milliseconds. The `source` field records
+/// whether the bullet is a provisional UTR hint or an authoritative annotation;
+/// it is not serialized and does not appear in CHAT output.
 ///
 /// # CHAT Format
 ///
@@ -46,14 +84,40 @@ pub struct Bullet {
     #[serde(skip)]
     #[schemars(skip)]
     pub span: crate::Span,
+
+    /// Provenance of this bullet (not serialized, not part of CHAT output).
+    ///
+    /// Controls whether `update_utterance_bullet` overwrites or unions when
+    /// FA word timings are available. See [`BulletSource`] for invariants.
+    #[serde(skip)]
+    #[schemars(skip)]
+    #[semantic_eq(skip)]
+    #[span_shift(skip)]
+    pub source: BulletSource,
 }
 
 impl Bullet {
-    /// Build a bullet with dummy span metadata.
+    /// Build an authoritative bullet with dummy span metadata.
+    ///
+    /// Use this constructor for FA-derived timing, hand-linked annotations,
+    /// and any bullet that should not be overwritten by a subsequent UTR or FA pass.
     pub fn new(start_ms: u64, end_ms: u64) -> Self {
         Self {
             timing: MediaTiming::new(start_ms, end_ms),
             span: crate::Span::DUMMY,
+            source: BulletSource::Authoritative,
+        }
+    }
+
+    /// Build a provisional UTR hint bullet.
+    ///
+    /// UTR sets this before FA runs to mark the audio window for grouping.
+    /// `update_utterance_bullet` will overwrite it once FA produces word timings.
+    pub fn utr_hint(start_ms: u64, end_ms: u64) -> Self {
+        Self {
+            timing: MediaTiming::new(start_ms, end_ms),
+            span: crate::Span::DUMMY,
+            source: BulletSource::Utr,
         }
     }
 
