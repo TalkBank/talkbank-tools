@@ -48,21 +48,41 @@ fn mor_counts_replacement_words_but_wor_uses_original_surface() {
     );
 }
 
-/// Confirms untranscribed tokens are excluded from `%mor` but kept for `%wor/%pho`.
+/// Confirms untranscribed tokens are excluded from both `%mor` and `%wor`,
+/// but kept for `%pho`.
+///
+/// `xxx`/`yyy`/`www` have no known phoneme sequence — CTC forced alignment
+/// cannot produce timings for them. Including them in `%wor` contributes no
+/// timing information and wastes cursor slots that would shift subsequent word
+/// timings. `%pho` still counts them because phonological tier annotation may
+/// independently note the presence of an unintelligible vocalization.
 #[test]
-fn mor_skips_untranscribed_but_wor_and_pho_count() {
+fn wor_excludes_untranscribed_tokens() {
     for text in &["xxx", "yyy", "www"] {
         let word = Word::new_unchecked(*text, *text);
         let items = vec![UtteranceContent::Word(Box::new(word))];
 
-        // Mor skips untranscribed material (xxx, yyy, www) - no linguistic content
-        assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
-        // %wor times spoken token slots regardless of transcription status.
-        assert_eq!(count_tier_positions(&items, TierDomain::Wor), 1);
-        // Pho counts everything that was phonologically produced
-        assert_eq!(count_tier_positions(&items, TierDomain::Pho), 1);
+        // Mor skips untranscribed material - no linguistic content
+        assert_eq!(
+            count_tier_positions(&items, TierDomain::Mor),
+            0,
+            "{text}: Mor must skip untranscribed"
+        );
+        // %wor must also skip untranscribed tokens — no alignment timing is possible
+        assert_eq!(
+            count_tier_positions(&items, TierDomain::Wor),
+            0,
+            "{text}: Wor must exclude untranscribed (no alignable phoneme sequence)"
+        );
+        // Pho still counts the unintelligible vocalization event
+        assert_eq!(
+            count_tier_positions(&items, TierDomain::Pho),
+            1,
+            "{text}: Pho must count untranscribed vocalizations"
+        );
     }
 }
+
 
 /// Uppercase `XXX` is illegal CHAT (E241) but still represents untranscribed
 /// material. The extraction layer must recognize it case-insensitively so that
@@ -221,44 +241,56 @@ fn pho_skips_fragment_with_replacement() {
         count_tier_positions(std::slice::from_ref(&replaced), TierDomain::Pho),
         0
     );
-    // %wor still times the originally spoken fragment, so the replaced node
-    // contributes one alignable word.
-    assert_eq!(count_tier_positions(&[replaced], TierDomain::Wor), 1);
+    // Fragments are excluded from %wor regardless of replacement context.
+    assert_eq!(count_tier_positions(&[replaced], TierDomain::Wor), 0);
 }
 
-/// Confirms `%wor` includes spoken word tokens regardless of completeness.
+/// Confirms `%wor` excludes fragments (`&+`) and nonwords (`&~`) but includes
+/// fillers (`&-`). This matches BA2's policy: BA2 classified `&+` and `&~` as
+/// `TokenType.ANNOT` (excluded from %wor) while `&-` was `TokenType.FP`
+/// (included). Untranscribed tokens (`xxx`/`yyy`/`www`) are also excluded —
+/// see `wor_excludes_untranscribed_tokens`.
 #[test]
-fn wor_includes_fragments_nonwords_fillers_and_untranscribed() {
+fn wor_excludes_fragments_and_nonwords_but_includes_fillers() {
+    // Nonwords (&~) are excluded from %wor — no meaningful timing for gestural/interactional sounds
     let nonword = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&~gaga", "gaga").with_category(WordCategory::Nonword),
     ));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&nonword), TierDomain::Wor),
-        1
+        0,
+        "nonword (&~) must be excluded from %wor"
     );
 
+    // Fragments (&+) are excluded from %wor — incomplete phoneme sequences
     let fragment = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&+fr", "fr").with_category(WordCategory::PhonologicalFragment),
     ));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&fragment), TierDomain::Wor),
-        1
+        0,
+        "fragment (&+) must be excluded from %wor"
     );
 
+    // Fillers (&-) ARE included in %wor — they are real spoken words with alignable phoneme sequences
     let filler = UtteranceContent::Word(Box::new(
         Word::new_unchecked("&-um", "um").with_category(WordCategory::Filler),
     ));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&filler), TierDomain::Wor),
-        1
+        1,
+        "filler (&-) must be included in %wor"
     );
 
+    // Untranscribed tokens have no alignable phoneme sequence — excluded from %wor.
     let untranscribed = UtteranceContent::Word(Box::new(Word::new_unchecked("xxx", "xxx")));
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&untranscribed), TierDomain::Wor),
-        1
+        0,
+        "untranscribed (xxx) must be excluded from %wor"
     );
 
+    // %pho still counts all vocalizations, including untranscribed and gestural ones.
     assert_eq!(
         count_tier_positions(std::slice::from_ref(&nonword), TierDomain::Pho),
         1
@@ -273,9 +305,11 @@ fn wor_includes_fragments_nonwords_fillers_and_untranscribed() {
     );
 }
 
-/// OCSC 4009: retraced fragments count for `%wor`.
+/// OCSC 4009: retraced content counts for `%wor`, but fragments within the
+/// retrace are excluded (fragments are excluded from `%wor` regardless of
+/// retrace context).
 #[test]
-fn wor_counts_retraced_fragment_from_ocsc_4009() {
+fn wor_counts_retraced_words_but_not_retraced_fragments_from_ocsc_4009() {
     let retrace = Retrace::new(
         BracketedContent::new(vec![
             BracketedItem::Word(Box::new(Word::new_unchecked("one", "one"))),
@@ -288,23 +322,28 @@ fn wor_counts_retraced_fragment_from_ocsc_4009() {
     let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
 
     assert_eq!(count_tier_positions(&items, TierDomain::Mor), 0);
-    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 2);
+    // Fragment (&+ss) is excluded from %wor; only "one" counts.
+    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 1);
 }
 
-/// OCSC 4026: retraced untranscribed placeholders count for `%wor`.
+/// OCSC 4026: retraced regular words still count for `%wor`; the `xxx`
+/// placeholder in the original retrace does NOT count because untranscribed
+/// tokens have no alignable phoneme sequence. The count is 4 (not 5).
 #[test]
-fn wor_counts_retraced_untranscribed_from_ocsc_4026() {
+fn wor_counts_retraced_words_from_ocsc_4026_excluding_untranscribed() {
     let retrace = Retrace::new(
         BracketedContent::new(vec![
             BracketedItem::Word(Box::new(Word::new_unchecked("a", "a"))),
             BracketedItem::Word(Box::new(Word::new_unchecked("pumpkin", "pumpkin"))),
             BracketedItem::Word(Box::new(Word::new_unchecked("and", "and"))),
             BracketedItem::Word(Box::new(Word::new_unchecked("a", "a"))),
+            // xxx is untranscribed — not counted by %wor (no phoneme sequence to align)
             BracketedItem::Word(Box::new(Word::new_unchecked("xxx", "xxx"))),
         ]),
         RetraceKind::Partial,
     );
     let items = vec![UtteranceContent::Retrace(Box::new(retrace))];
 
-    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 5);
+    // 4 real words; xxx excluded from %wor alignment count
+    assert_eq!(count_tier_positions(&items, TierDomain::Wor), 4);
 }

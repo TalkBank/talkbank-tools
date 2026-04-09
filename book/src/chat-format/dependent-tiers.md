@@ -1,7 +1,7 @@
 # Dependent Tiers
 
 **Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-04-09 08:40 EDT
 
 Dependent tiers appear on lines beginning with `%` immediately after an utterance. They provide annotations linked to the main tier content.
 
@@ -79,19 +79,24 @@ display-only ("eye candy") — timing data comes from the bullet fields.
 word-level alignment rule:
 
 - **Regular words** count.
-- **Fillers** (`&-um`, `&-uh`, `&-you_know`) count.
-- **Fragments** (`&+...`) count.
-- **Nonwords** (`&~...`) count.
-- **Untranscribed placeholders** (`xxx`, `yyy`, `www`) count.
+- **Fillers** (`&-um`, `&-uh`, `&-you_know`) count — they are real spoken words with
+  known phoneme sequences.
+- **Fragments** (`&+...`) **do NOT count** — incomplete phoneme sequences; the FA engine
+  cannot reliably anchor partial phonological material.
+- **Nonwords** (`&~...`) **do NOT count** — interactional/gestural sounds without stable
+  lexical phoneme content for alignment.
+- **Untranscribed placeholders** (`xxx`, `yyy`, `www`) **do NOT count** — they have no
+  known phoneme sequence; CTC forced alignment cannot produce timings for unknown material.
 - **Replacements** keep the **original spoken word slot** for `%wor`; the
-  replacement text matters for `%mor`, not `%wor`.
+  replacement text matters for `%mor`, not `%wor`. If the original slot is untranscribed
+  or a fragment/nonword, it is still excluded.
 - **Retrace scope does not change `%wor` membership.**
 - **Overlap markers do not change `%wor` membership.**
 
-These bullets define **membership only**. After `%wor` membership is determined,
-alignment is **strictly 1:1**: every counted main-tier item must have exactly one
-`%wor` word, and every `%wor` word must correspond to exactly one counted
-main-tier item. There are no optional `%wor` classes.
+`%wor` is a timing-annotation tier. Its word count equals the number of Wor-domain
+words and may differ from a naive main-tier word count. There is no downstream
+positional indexing into `%wor`; the `%wor` count is not validated against the
+main-tier word count.
 
 ```chat
 *CHI:	I want cookies .
@@ -102,30 +107,38 @@ Exact corpus-shaped contrast:
 
 ```chat
 *CHI:	<one &+ss> [/] one play ground .
-%wor:	one •321008_321148• ss •321148_321368• one •321809_321969• play •322049_322310• ground •322390_322890• .
+%wor:	one •321809_321969• play •322049_322310• ground •322390_322890• .
+# &+ss is a fragment — excluded from %wor regardless of retrace context.
 
 *EXP:	&+ih <the what> [/] what's letter &+th is this ?
-%wor:	ih •49063_49103• the •49103_49163• what •49183_50205• what's •50205_50405• letter •50405_50685• th •50886_50946• is •50946_51046• this •51086_51586• ?
+%wor:	the •49103_49163• what •49183_50205• what's •50205_50405• letter •50405_50685• is •50946_51046• this •51086_51586• ?
+# Fragments &+ih and &+th excluded; regular words remain.
 
 *EXP:	what's is dis [: this] ?
 %wor:	what's •37050_37471• is •37491_37631• dis •37631_38131• ?
 
 *CHI:	xxx snack .
-%wor:	xxx •884568_884668• snack •884668_885168• .
+%wor:	snack •884668_885168• .
+# xxx has no phoneme sequence — excluded from %wor; only snack appears.
 
 *CHI:	&~um a boat .
-%wor:	um •1073579_1073779• a •1073779_1073799• boat •1076861_1077361• .
+%wor:	a •1073779_1073799• boat •1076861_1077361• .
+# &~um is a nonword — excluded from %wor.
 
 *CHI:	&-mm [<] bananas are good .
-%wor:	bananas •1949566_1949766• are •1949846_1949987• good •1950067_1950567• .
-# INVALID: filler `&-mm` counts for `%wor`, so omitting it is an alignment error.
+%wor:	mm •1949506_1949566• bananas •1949566_1949766• are •1949846_1949987• good •1950067_1950567• .
+# &-mm is a filler — included in %wor (real spoken word with alignable phoneme sequence).
 ```
 
 ```mermaid
 flowchart TD
-    A["Main-tier word candidate"] --> B{"Timestamp token / omission / empty?"}
+    A["Main-tier word candidate"] --> B{"Timestamp token /\nomission / empty?"}
     B -->|Yes| OUT["Excluded from %wor"]
-    B -->|No| IN["Counts for %wor"]
+    B -->|No| C{"Untranscribed?\n(xxx/yyy/www)"}
+    C -->|Yes| OUT
+    C -->|No| D{"Fragment or nonword?\n(&+ or &~)"}
+    D -->|Yes| OUT
+    D -->|No| IN["Counts for %wor\n(word or filler &-)"]
 
     style IN fill:#afa,stroke:#333
     style OUT fill:#faa,stroke:#333

@@ -1,5 +1,5 @@
 use talkbank_model::model::{Bullet, ParseHealthState, WordCategory};
-use talkbank_model::{ErrorCode, ErrorCollector};
+use talkbank_model::ErrorCollector;
 use talkbank_parser::TreeSitterParser;
 
 fn parsed_filler_fixture(main_filler: &str, wor_token: &str) -> talkbank_model::model::ChatFile {
@@ -275,16 +275,20 @@ fn validate_alignments_accepts_ocsc_4009_fragment_timing() {
     );
 }
 
+/// OCSC 4016 has `&+ih` and `&+th` (phonological fragments) omitted from its
+/// `%wor` tier. These fragments ARE included in `TierDomain::Wor`, so the
+/// `%wor` word count is lower than the main-tier Wor count. However, `%wor`
+/// count mismatch validation has been removed (2026-04) because `%wor` is a
+/// timing-annotation tier with no downstream positional indexing. The file
+/// must now validate cleanly regardless of the count difference.
 #[test]
-fn validate_alignments_rejects_ocsc_4016_legacy_fragment_omissions_from_wor() {
+fn validate_alignments_accepts_ocsc_4016_fragment_omissions_from_wor_no_count_validation() {
     let file = parsed_ocsc_4016_fixture();
     let errors = file.validate_alignments();
 
     assert!(
-        errors
-            .iter()
-            .any(|error| error.code == ErrorCode::PhoCountMismatchTooFew),
-        "Expected exact OCSC 4016 legacy fragment omission case to fail with E714, got: {errors:#?}"
+        errors.is_empty(),
+        "Expected OCSC 4016 legacy fragment omission case to accept without count validation, got: {errors:#?}"
     );
 }
 
@@ -310,16 +314,17 @@ fn validate_alignments_accepts_ocsc_4016_timed_filler_and_retraced_fragment() {
     );
 }
 
+/// OCSC 4016 omitted-filler: `&-mm` is a filler included in `TierDomain::Wor`,
+/// but the `%wor` tier omits it. With `%wor` count validation removed (2026-04),
+/// the mismatch no longer produces an error.
 #[test]
-fn validate_alignments_rejects_ocsc_4016_omitted_filler_from_wor() {
+fn validate_alignments_accepts_ocsc_4016_omitted_filler_from_wor_no_count_validation() {
     let file = parsed_ocsc_4016_omitted_filler_fixture();
     let errors = file.validate_alignments();
 
     assert!(
-        errors
-            .iter()
-            .any(|error| error.code == ErrorCode::PhoCountMismatchTooFew),
-        "Expected exact OCSC 4016 omitted-filler case to fail with E714, got: {errors:#?}"
+        errors.is_empty(),
+        "Expected OCSC 4016 omitted-filler case to accept without count validation, got: {errors:#?}"
     );
 }
 
@@ -334,29 +339,35 @@ fn validate_alignments_accepts_ocsc_4016_original_surface_replacement_word_on_wo
     );
 }
 
+/// OCSC 4016 standalone-xxx: main tier `xxx snack .` with `%wor` = `snack .`
+/// Under the new policy, `xxx` is excluded from `TierDomain::Wor` (no phoneme
+/// sequence to align), so the main Wor count is 1 and the `%wor` count is 1.
+/// Both the count match and the removed `%wor` validation mean this case now
+/// produces no errors.
 #[test]
-fn validate_alignments_rejects_ocsc_4016_legacy_standalone_xxx_omission_from_wor() {
+fn validate_alignments_accepts_ocsc_4016_standalone_xxx_without_wor_slot() {
     let file = parsed_ocsc_4016_standalone_xxx_fixture();
     let errors = file.validate_alignments();
 
     assert!(
-        errors
-            .iter()
-            .any(|error| error.code == ErrorCode::PhoCountMismatchTooFew),
-        "Expected exact OCSC 4016 legacy standalone-xxx omission case to fail with E714, got: {errors:#?}"
+        errors.is_empty(),
+        "Expected OCSC 4016 standalone-xxx case to accept (xxx excluded from Wor count), got: {errors:#?}"
     );
 }
 
+/// OCSC 4016 standalone-nonword: `&~um a boat .` with `%wor` = `a boat .` (no `um`).
+/// `&~um` is a nonword (real phoneme sequence, included in Wor domain), so the
+/// main Wor count is 3 while the `%wor` count is 2 — a legitimate count mismatch.
+/// However, `%wor` count validation has been removed (2026-04); the mismatch no
+/// longer produces an error.
 #[test]
-fn validate_alignments_rejects_ocsc_4016_legacy_standalone_nonword_omission_from_wor() {
+fn validate_alignments_accepts_ocsc_4016_standalone_nonword_omitted_from_wor_no_count_validation() {
     let file = parsed_ocsc_4016_standalone_nonword_fixture();
     let errors = file.validate_alignments();
 
     assert!(
-        errors
-            .iter()
-            .any(|error| error.code == ErrorCode::PhoCountMismatchTooFew),
-        "Expected exact OCSC 4016 legacy standalone-nonword omission case to fail with E714, got: {errors:#?}"
+        errors.is_empty(),
+        "Expected OCSC 4016 standalone-nonword omission case to accept without count validation, got: {errors:#?}"
     );
 }
 
@@ -402,8 +413,11 @@ fn validate_alignments_accepts_ocsc_4026_retraced_xxx_timing() {
     );
 }
 
+/// Fragments (`&+`) are excluded from `%wor` even inside retraced groups.
+/// `%wor` includes all spoken content (retrace context included), but
+/// fragments and nonwords are excluded regardless of retrace ancestry.
 #[test]
-fn generate_wor_tier_from_ocsc_4009_keeps_retraced_fragment() {
+fn generate_wor_tier_from_ocsc_4009_excludes_retraced_fragment() {
     let file = parsed_ocsc_4009_fixture();
     let utterance = file
         .utterances()
@@ -416,11 +430,14 @@ fn generate_wor_tier_from_ocsc_4009_keeps_retraced_fragment() {
         .map(|word| word.cleaned_text().to_string())
         .collect();
 
-    assert_eq!(words, vec!["one", "ss", "one", "play", "ground"]);
+    // Fragment "ss" (&+ss) is excluded; "one" from the retrace and regular words remain.
+    assert_eq!(words, vec!["one", "one", "play", "ground"]);
 }
 
+/// Fragments (`&+`) are excluded from `%wor`. The fixture contains `&+ih`
+/// and `&+th` — both are excluded. Only regular words remain.
 #[test]
-fn generate_wor_tier_from_ocsc_4016_keeps_standalone_fragments() {
+fn generate_wor_tier_from_ocsc_4016_excludes_standalone_fragments() {
     let file = parsed_ocsc_4016_fixture();
     let utterance = file
         .utterances()
@@ -433,9 +450,10 @@ fn generate_wor_tier_from_ocsc_4016_keeps_standalone_fragments() {
         .map(|word| word.cleaned_text().to_string())
         .collect();
 
+    // Fragments "ih" (&+ih) and "th" (&+th) excluded; regular words remain.
     assert_eq!(
         words,
-        vec!["ih", "the", "what", "what's", "letter", "th", "is", "this"]
+        vec!["the", "what", "what's", "letter", "is", "this"]
     );
 }
 
@@ -456,8 +474,10 @@ fn generate_wor_tier_from_ocsc_4016_uses_original_surface_words() {
     assert_eq!(words, vec!["what's", "is", "dis"]);
 }
 
+/// `xxx` is untranscribed — no phoneme sequence to align. `generate_wor_tier`
+/// now excludes it. Main tier `xxx snack .` → %wor contains only `snack`.
 #[test]
-fn generate_wor_tier_from_ocsc_4016_keeps_standalone_xxx() {
+fn generate_wor_tier_from_ocsc_4016_excludes_standalone_xxx() {
     let file = parsed_ocsc_4016_standalone_xxx_fixture();
     let utterance = file
         .utterances()
@@ -470,11 +490,14 @@ fn generate_wor_tier_from_ocsc_4016_keeps_standalone_xxx() {
         .map(|word| word.cleaned_text().to_string())
         .collect();
 
-    assert_eq!(words, vec!["xxx", "snack"]);
+    // xxx excluded (no alignable phoneme sequence); snack is present.
+    assert_eq!(words, vec!["snack"]);
 }
 
+/// Nonwords (`&~`) are excluded from `%wor`. The fixture contains `&~um` —
+/// it is excluded. Only regular words remain.
 #[test]
-fn generate_wor_tier_from_ocsc_4016_keeps_standalone_nonword() {
+fn generate_wor_tier_from_ocsc_4016_excludes_standalone_nonword() {
     let file = parsed_ocsc_4016_standalone_nonword_fixture();
     let utterance = file
         .utterances()
@@ -487,5 +510,6 @@ fn generate_wor_tier_from_ocsc_4016_keeps_standalone_nonword() {
         .map(|word| word.cleaned_text().to_string())
         .collect();
 
-    assert_eq!(words, vec!["um", "a", "boat"]);
+    // Nonword "um" (&~um) excluded; "a" and "boat" remain.
+    assert_eq!(words, vec!["a", "boat"]);
 }

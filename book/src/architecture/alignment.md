@@ -1,7 +1,7 @@
 # Alignment Architecture in talkbank-tools
 
 **Status:** Current
-**Last updated:** 2026-03-26 10:33 EDT
+**Last updated:** 2026-04-09 08:40 EDT
 
 This document describes all alignment data structures, algorithms, and
 design decisions in the `talkbank-tools` crate workspace.
@@ -104,9 +104,10 @@ main-tier content. The domain enum makes these policy branches explicit.
 | Count pauses | No | Yes | No | No |
 | PhoGroup handling | Recurse | Atomic (1) | Skip (0) | Recurse |
 | SinGroup handling | Recurse | Skip (0) | Atomic (1) | Recurse |
-| Include fragments | No | Yes | Yes | Yes |
-| Include nonwords | No | Yes | Yes | Yes |
-| Include untranscribed | No | Yes | Yes | Yes |
+| Include fragments (`&+`) | No | Yes | Yes | **No** |
+| Include nonwords (`&~`) | No | Yes | Yes | **No** |
+| Include fillers (`&-`) | No | Yes | Yes | Yes |
+| Include untranscribed | No | Yes | Yes | **No** |
 | Include tag-marker separators | Yes | No | No | No |
 | ReplacedWord aligns to | Replacement | Original | Original | Original |
 
@@ -188,16 +189,17 @@ Each variant is classified per domain:
 - `counts_for_tier_in_context(word, domain, in_retrace)` — call-site-compatible
   gate; `%wor` no longer changes membership based on retrace ancestry
 - Mor: excludes fragments (`&-`, `&~`, `&+`), untranscribed (`xxx`/`yyy`/`www`), omissions
-- Wor: counts spoken word tokens including fillers, fragments, nonwords, and
-  untranscribed placeholders. `%wor` still excludes timing tokens (`123_456`)
-  and omissions in all contexts
+- Wor: includes regular words and fillers (`&-`). **Excludes** fragments (`&+`),
+  nonwords (`&~`), untranscribed placeholders (`xxx`/`yyy`/`www`), timing tokens
+  (`123_456`), and omissions. This matches batchalign2's policy: `&-` was
+  `TokenType.FP` (included), while `&+` and `&~` were `TokenType.ANNOT` (excluded).
 - Pho/Sin: include everything (all produced speech/gesture)
 
-**Strictness invariant:** context-sensitive counting decides **which** main-tier
-items participate in `%wor`, but it does **not** loosen alignment. Once the Wor
-domain count is computed, `%wor` validation remains exact 1:1 positional
-alignment. A counted filler cannot be silently omitted from `%wor`; if it is
-missing, E714 is correct.
+**No %wor count validation**: `%wor` is a timing-annotation tier. Its word count
+reflects the Wor-domain population for a given utterance. There is no downstream
+positional indexing into `%wor`, and `validate_alignments()` does NOT check the
+`%wor` word count against the main tier. Old corpus files may have `xxx`, fragments,
+or nonwords in `%wor` (pre-2026-04 behavior) without producing false errors.
 
 **Retrace filtering**: `Retrace` is a first-class `UtteranceContent` / `BracketedItem`
 variant (not an annotation on `AnnotatedGroup`). The walker skips `Retrace` content

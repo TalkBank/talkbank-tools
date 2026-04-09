@@ -140,7 +140,7 @@ impl<S: ValidationState> ChatFile<S> {
     /// running full file-level validation.
     pub fn validate_alignments(&self) -> Vec<ParseError> {
         use crate::alignment::{
-            align_main_to_mor, align_main_to_pho, align_main_to_sin, align_main_to_wor,
+            align_main_to_mor, align_main_to_pho, align_main_to_sin,
             align_mor_to_gra,
         };
 
@@ -185,23 +185,17 @@ impl<S: ValidationState> ChatFile<S> {
                 ));
             }
 
-            // Main → %wor alignment
-            if health.can_align_main_to_wor()
-                && let Some(wor) = utt.wor_tier()
-            {
-                let alignment = align_main_to_wor(&utt.main, wor);
-                errors.extend(alignment.errors);
-            } else if health.is_unknown()
-                && let Some(wor) = utt.wor_tier()
-            {
-                errors.push(unknown_alignment_warning(
-                    "main↔%wor",
-                    "main tier",
-                    utt.main.span,
-                    "%wor tier",
-                    wor.span,
-                ));
-            }
+            // Main → %wor alignment is intentionally NOT validated here.
+            //
+            // `%wor` is a timing-annotation tier, not a structural alignment tier.
+            // Its word count equals the number of Wor-domain words from the main
+            // tier (real words + fragments + fillers, but NOT untranscribed tokens
+            // like `xxx`/`yyy`/`www`). Old corpus files aligned before 2026-04 may
+            // have a different word count because the old policy included `xxx`.
+            // Emitting E71x errors for these files would be false positives.
+            //
+            // The `align_main_to_wor` import is still used by the `%wor` injection
+            // layer in batchalign-chat-ops when verifying injected timings.
 
             // Main → %pho alignment
             if health.can_align_main_to_pho()

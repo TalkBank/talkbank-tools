@@ -77,15 +77,50 @@ pub fn counts_for_tier_in_context(word: &Word, domain: TierDomain, _in_retrace: 
         TierDomain::Mor => is_linguistic_content(word),
 
         // %wor = word-level timing over spoken main-tier word slots.
-        // If the transcript represents something as a spoken word token, it
-        // participates in %wor regardless of whether it is a regular word,
-        // filler, fragment, nonword, or untranscribed placeholder.
-        TierDomain::Wor => !is_wor_timing_token(word),
+        //
+        // %wor is a timing-annotation tier: it records word-level start/end
+        // bullets for tokens the FA engine can meaningfully anchor to audio.
+        //
+        // Excluded:
+        // - Untranscribed (`xxx`, `yyy`, `www`): no known phoneme sequence;
+        //   CTC alignment cannot produce timings for unknown material.
+        // - Phonological fragments (`&+`, WordCategory::PhonologicalFragment):
+        //   incomplete phoneme sequences.
+        // - Nonwords (`&~`, WordCategory::Nonword): interactional/gestural
+        //   sounds without stable phonemic content.
+        //
+        // Included:
+        // - Regular words and fillers (`&-`, WordCategory::Filler): stable,
+        //   alignable phoneme sequences.
+        //
+        // This matches batchalign2: BA2 classified `&+` and `&~` as
+        // `TokenType.ANNOT` (excluded), while `&-` was `TokenType.FP`
+        // (included). See batchalign2/formats/chat/lexer.py `__handle`.
+        TierDomain::Wor => {
+            !is_wor_timing_token(word)
+                && word.untranscribed().is_none()
+                && !is_wor_excluded_category(word)
+        }
 
         // %pho and %sin include everything that was phonologically/gesturally produced
         // This includes fragments, untranscribed material, etc.
         TierDomain::Pho | TierDomain::Sin => true,
     }
+}
+
+/// Return whether a word category is excluded from `%wor`.
+///
+/// Excluded: phonological fragments (`&+`) and nonwords (`&~`).
+/// NOT excluded: fillers (`&-`), which have stable, alignable phoneme sequences.
+///
+/// This matches batchalign2: both `&+` and `&~` were `TokenType.ANNOT` (excluded
+/// from `phonated_words`), while `&-` was `TokenType.FP` (included).
+/// See `batchalign2/formats/chat/lexer.py` `__handle`.
+fn is_wor_excluded_category(word: &Word) -> bool {
+    matches!(
+        word.category,
+        Some(WordCategory::Nonword | WordCategory::PhonologicalFragment)
+    )
 }
 
 /// Return whether the word category is fragment-like for strict domains.
