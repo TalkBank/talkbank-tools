@@ -166,6 +166,14 @@ impl AlignableTier for WorTier {
 /// assert_eq!(alignment.pairs.len(), 4); // excludes retrace + terminator
 /// ```
 pub fn align_main_to_wor(main: &MainTier, wor: &WorTier) -> WorAlignment {
-    let (pairs, errors) = positional_align(main, wor);
-    WorAlignment { pairs, errors }
+    let (pairs, _errors) = positional_align(main, wor);
+    // `%wor` is a timing-annotation tier — stale word counts are common when a
+    // transcript is edited without re-aligning, and count mismatches carry no
+    // diagnostic value for corpus validation.  Pairs are still computed so that
+    // the batchalign injection layer can use positional evidence for timing, but
+    // error diagnostics are unconditionally discarded.
+    WorAlignment {
+        pairs,
+        errors: vec![],
+    }
 }

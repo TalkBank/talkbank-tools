@@ -2,6 +2,113 @@ use super::diagnostics::build_count_mismatch_error;
 use crate::Utterance;
 use crate::{ErrorCode, ErrorContext, ParseError, Severity, Span};
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{MainTier, Terminator, UtteranceContent, Word};
+    use crate::Span;
+
+    /// Helper: two-word main tier.
+    fn two_word_main() -> MainTier {
+        MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::new_unchecked("one", "one"))),
+                UtteranceContent::Word(Box::new(Word::new_unchecked("two", "two"))),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        )
+        .with_span(Span::from_usize(0, 20))
+    }
+
+    /// Helper: one-word main tier.
+    fn one_word_main() -> MainTier {
+        MainTier::new(
+            "CHI",
+            vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
+                "one", "one",
+            )))],
+            Terminator::Period { span: Span::DUMMY },
+        )
+        .with_span(Span::from_usize(0, 15))
+    }
+
+    /// `%mod` underflow must emit E733, not E714.
+    ///
+    /// Before the fix, `build_phonology_alignment_from_counts` hardcoded E714 for
+    /// all phonology-family tiers. After the fix, the caller passes tier-specific
+    /// codes and %mod gets its own E733/E734 range.
+    #[test]
+    fn mod_alignment_too_few_emits_e733_not_e714() {
+        // Two-word main tier, %mod has only 1 item → underflow.
+        let main = two_word_main();
+        let alignment = build_phonology_alignment_from_counts(
+            &main,
+            1,
+            Span::from_usize(21, 35),
+            "%mod",
+            ErrorCode::ModCountMismatchTooFew,
+            ErrorCode::ModCountMismatchTooMany,
+        );
+
+        assert!(
+            !alignment.is_error_free(),
+            "Expected an underflow error for %mod"
+        );
+        let error = &alignment.errors[0];
+        assert_eq!(
+            error.code,
+            ErrorCode::ModCountMismatchTooFew,
+            "Expected E733 (ModCountMismatchTooFew), got {:?}",
+            error.code
+        );
+    }
+
+    /// `%mod` overflow must emit E734, not E715.
+    #[test]
+    fn mod_alignment_too_many_emits_e734_not_e715() {
+        // One-word main tier, %mod has 2 items → overflow.
+        let main = one_word_main();
+        let alignment = build_phonology_alignment_from_counts(
+            &main,
+            2,
+            Span::from_usize(16, 40),
+            "%mod",
+            ErrorCode::ModCountMismatchTooFew,
+            ErrorCode::ModCountMismatchTooMany,
+        );
+
+        assert!(
+            !alignment.is_error_free(),
+            "Expected an overflow error for %mod"
+        );
+        let error = &alignment.errors[0];
+        assert_eq!(
+            error.code,
+            ErrorCode::ModCountMismatchTooMany,
+            "Expected E734 (ModCountMismatchTooMany), got {:?}",
+            error.code
+        );
+    }
+
+    /// `%pho` still emits E714/E715 — the parameterized API must not break %pho.
+    #[test]
+    fn pho_alignment_too_few_still_emits_e714() {
+        let main = two_word_main();
+        let alignment = build_phonology_alignment_from_counts(
+            &main,
+            1,
+            Span::from_usize(21, 35),
+            "%pho",
+            ErrorCode::PhoCountMismatchTooFew,
+            ErrorCode::PhoCountMismatchTooMany,
+        );
+
+        assert!(!alignment.is_error_free());
+        assert_eq!(alignment.errors[0].code, ErrorCode::PhoCountMismatchTooFew);
+    }
+}
+
 pub(super) fn build_mor_tier_from_items(
     utterance: &Utterance,
     items: &[crate::model::Mor],
@@ -14,11 +121,24 @@ pub(super) fn build_mor_tier_from_items(
     tier
 }
 
+/// Build a [`PhoAlignment`] from raw counts, emitting tier-specific error codes.
+///
+/// Both `%pho` and `%mod` use this builder, but they report different error
+/// codes so diagnostics are unambiguously scoped to a single tier:
+///
+/// | Tier  | `too_few_code` | `too_many_code` |
+/// |-------|---------------|----------------|
+/// | `%pho` | E714 (`PhoCountMismatchTooFew`) | E715 (`PhoCountMismatchTooMany`) |
+/// | `%mod` | E733 (`ModCountMismatchTooFew`) | E734 (`ModCountMismatchTooMany`) |
+///
+/// Pass the appropriate codes at each call site in `compute.rs`.
 pub(super) fn build_phonology_alignment_from_counts(
     main: &crate::model::MainTier,
     item_count: usize,
     tier_span: Span,
     tier_label: &str,
+    too_few_code: ErrorCode,
+    too_many_code: ErrorCode,
 ) -> crate::alignment::PhoAlignment {
     let mut alignment = crate::alignment::PhoAlignment::new();
 
@@ -34,7 +154,7 @@ pub(super) fn build_phonology_alignment_from_counts(
 
     if main_count > item_count {
         let error = ParseError::new(
-            ErrorCode::PhoCountMismatchTooFew,
+            too_few_code,
             Severity::Error,
             main.span.into(),
             ErrorContext::new("", main.span.to_range(), ""),
@@ -53,7 +173,7 @@ pub(super) fn build_phonology_alignment_from_counts(
         }
     } else if item_count > main_count {
         let error = ParseError::new(
-            ErrorCode::PhoCountMismatchTooMany,
+            too_many_code,
             Severity::Error,
             tier_span.into(),
             ErrorContext::new("", tier_span.to_range(), ""),

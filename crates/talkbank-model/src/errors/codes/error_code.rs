@@ -608,6 +608,21 @@ pub enum ErrorCode {
     /// When `+c0` or `+c1` is specified, every main tier must have timing.
     #[code("E732")]
     MissingBullet,
+    /// `%mod` tier has fewer words than main tier.
+    ///
+    /// The model-phonology tier (`%mod`) has fewer alignable tokens than the
+    /// main-tier words. Each main-tier word must have a corresponding `%mod`
+    /// token. This code is separate from E714 (`%pho`) because the two tiers
+    /// represent distinct phonological layers.
+    #[code("E733")]
+    ModCountMismatchTooFew,
+    /// `%mod` tier has more words than main tier.
+    ///
+    /// The model-phonology tier (`%mod`) has more alignable tokens than the
+    /// main-tier words. Remove the extra `%mod` tokens so counts match.
+    /// This code is separate from E715 (`%pho`) for the same reason as E733.
+    #[code("E734")]
+    ModCountMismatchTooMany,
 
     // =========================================================================
     // Warnings (Wxxx)

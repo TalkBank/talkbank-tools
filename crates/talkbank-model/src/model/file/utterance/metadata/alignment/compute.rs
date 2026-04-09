@@ -147,7 +147,12 @@ impl Utterance {
             let item_count = tier.items.0.len();
             if health.can_align_main_to_pho() {
                 metadata.pho = Some(build_phonology_alignment_from_counts(
-                    &self.main, item_count, pho_span, "%pho",
+                    &self.main,
+                    item_count,
+                    pho_span,
+                    "%pho",
+                    crate::ErrorCode::PhoCountMismatchTooFew,
+                    crate::ErrorCode::PhoCountMismatchTooMany,
                 ));
             } else {
                 metadata.pho = Some(crate::alignment::PhoAlignment::new().with_error(
@@ -196,7 +201,12 @@ impl Utterance {
             let item_count = tier.items.0.len();
             if health.can_align_main_to_mod() {
                 metadata.mod_ = Some(build_phonology_alignment_from_counts(
-                    &self.main, item_count, mod_span, "%mod",
+                    &self.main,
+                    item_count,
+                    mod_span,
+                    "%mod",
+                    crate::ErrorCode::ModCountMismatchTooFew,
+                    crate::ErrorCode::ModCountMismatchTooMany,
                 ));
             } else {
                 metadata.mod_ = Some(crate::alignment::PhoAlignment::new().with_error(

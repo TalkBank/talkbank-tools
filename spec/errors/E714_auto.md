@@ -1,8 +1,12 @@
-# E714: Alignment count mismatch - too few tier tokens
+# E714: `%pho` alignment count mismatch — too few tokens
 
 ## Description
 
-Alignment count mismatch: a pho/mod/wor tier has fewer alignable items than the main tier.
+The `%pho` (actual phonology) tier has fewer alignable tokens than the main tier.
+Each main-tier word must have a corresponding `%pho` token.
+
+`%mod` count mismatches use E733. `%wor` is a timing-annotation tier and is
+never validated for count mismatches.
 
 ## Metadata
 
@@ -40,8 +44,4 @@ The parser should successfully parse these CHAT files (unless marked as parser l
 ## Notes
 
 - Auto-generated from error corpus
-- Review and enhance this specification as needed
-- This example uses pho, but the same code is also reused for mod and wor
-- For wor, spoken fragments, nonwords, and untranscribed placeholders
-  (`xxx`/`yyy`/`www`) count everywhere they are spoken; omitting them from `%wor`
-  can legitimately trigger this error
+- E714 is scoped to `%pho` only; `%mod` uses E733, `%wor` is never validated

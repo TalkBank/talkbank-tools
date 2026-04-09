@@ -157,12 +157,16 @@ fn test_sin_alignment_error_too_many_has_proper_location() {
     assert_eq!(error.location.span.end, 15);
 }
 
-/// Anchors `%wor` count mismatches to the main-tier span.
+/// `%wor` count mismatches must never emit validation errors.
 ///
-/// This keeps `%wor` mismatch reporting consistent with other dependent tiers.
+/// `%wor` is a timing-annotation tier, not a structural mirror of the main tier.
+/// Stale word counts are common when a transcript is edited without re-aligning.
+/// The validator must never flag `%wor` count differences — the alignment pairs
+/// are still computed for the batchalign injection layer, but the errors list is
+/// always empty.
 #[test]
-fn test_wor_alignment_error_has_proper_location() {
-    // Main tier has 2 words, wor tier has only 1 timing bullet - should error
+fn test_wor_alignment_never_emits_errors_on_count_mismatch() {
+    // Main tier has 2 words, wor tier has only 1 — mismatched, but errors must be empty.
     let main = MainTier::new(
         "CHI",
         vec![
@@ -171,23 +175,48 @@ fn test_wor_alignment_error_has_proper_location() {
         ],
         Terminator::Period { span: Span::DUMMY },
     )
-    .with_span(Span::from_usize(0, 20)); // *CHI: one two .
+    .with_span(Span::from_usize(0, 20));
 
-    // Create a wor tier with just one word (insufficient for 2-word main tier)
     let wor = WorTier::from_words(vec![Word::new_unchecked("one", "one")])
-        .with_span(Span::from_usize(21, 35)); // %wor: one
+        .with_span(Span::from_usize(21, 35));
 
     let alignment = align_main_to_wor(&main, &wor);
 
-    assert!(!alignment.is_error_free());
-    assert_eq!(alignment.errors.len(), 1);
+    assert!(
+        alignment.errors.is_empty(),
+        "%wor alignment must never emit validation errors; \
+         stale word counts are expected after transcript edits. \
+         Got: {:?}",
+        alignment.errors
+    );
+}
 
-    let error = &alignment.errors[0];
-    assert_eq!(error.code, ErrorCode::PhoCountMismatchTooFew);
+/// `%wor` overflow mismatches also produce no errors.
+#[test]
+fn test_wor_alignment_never_emits_errors_on_too_many() {
+    // Wor tier has 3 words, main tier has only 1 — no errors expected.
+    let main = MainTier::new(
+        "CHI",
+        vec![UtteranceContent::Word(Box::new(Word::new_unchecked("one", "one")))],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(0, 15));
 
-    // The error should point to the main tier
-    assert_eq!(error.location.span.start, 0);
-    assert_eq!(error.location.span.end, 20);
+    let wor = WorTier::from_words(vec![
+        Word::new_unchecked("one", "one"),
+        Word::new_unchecked("two", "two"),
+        Word::new_unchecked("three", "three"),
+    ])
+    .with_span(Span::from_usize(16, 45));
+
+    let alignment = align_main_to_wor(&main, &wor);
+
+    assert!(
+        alignment.errors.is_empty(),
+        "%wor alignment must never emit validation errors (too-many case). \
+         Got: {:?}",
+        alignment.errors
+    );
 }
 
 /// Confirms `%wor` alignment excludes terminators from token-count matching.

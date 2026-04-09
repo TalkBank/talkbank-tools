@@ -13,16 +13,22 @@
 //! - Alignable content: words, tag markers, groups (recursively), replacements
 //! - Excluded: retraces, repeats, scoped annotations themselves
 //!
-//! ## Main → %pho/%mod Alignment
+//! ## Main → %pho Alignment
 //! - Each alignable unit in main tier corresponds to exactly one token
-//! - Alignable content: same as %mor alignment (words, tag markers, groups, replacements)
-//! - %pho = actual pronunciation, %mod = target pronunciation
-//! - Both use PhoAlignment type and align_main_to_pho function
+//! - Alignable content: words, tag markers, groups (recursively), replacements
+//! - Count mismatches reported as E714 (too few) / E715 (too many)
+//!
+//! ## Main → %mod Alignment
+//! - Same structural rules as %pho, but %mod = target/model pronunciation
+//! - Uses the same `PhoAlignment` type but different error codes:
+//!   E733 (too few) / E734 (too many)
 //!
 //! ## Main → %wor Alignment
 //! - Each alignable unit in main tier corresponds to exactly one %wor token
 //! - Uses Wor domain (includes retraced words — they were spoken)
 //! - Uses its own WorAlignment type (not PhoAlignment)
+//! - **Count mismatches emit NO validation errors** — `%wor` is a timing-annotation
+//!   tier; stale word counts after transcript edits are expected and not flagged
 //!
 //! ## Main → %sin Alignment
 //! - Each alignable unit in main tier corresponds to exactly one gesture/sign token
