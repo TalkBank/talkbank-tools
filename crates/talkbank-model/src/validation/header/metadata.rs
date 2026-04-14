@@ -37,7 +37,7 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
         errors.report(
             make_err(
                 date,
-                "Invalid @Date format (expected DD-MMM-YYYY with hyphens)".to_string(),
+                format!("Invalid @Date format '{}': expected DD-MMM-YYYY with hyphens", date),
             )
             .with_suggestion(
                 "Use format: 01-JAN-2024 (two-digit day, uppercase month, four-digit year)",
@@ -52,7 +52,7 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
         errors.report(
             make_err(
                 day_str,
-                format!("Invalid day '{}' (must be two digits)", day_str),
+                format!("Invalid @Date day '{}': must be exactly two digits", day_str),
             )
             .with_suggestion("Use two-digit day (e.g., 01, 02, 15)"),
         );
@@ -61,14 +61,14 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
             errors.report(
                 make_err(
                     day_str,
-                    format!("Invalid day '{}' (must be 01-31)", day_str),
+                    format!("Invalid @Date day '{}': must be between 01 and 31", day_str),
                 )
                 .with_suggestion("Use a valid day between 01 and 31"),
             );
         }
     } else {
         errors.report(
-            make_err(day_str, format!("Invalid day '{}' (not a number)", day_str))
+            make_err(day_str, format!("Invalid @Date day '{}': not a number", day_str))
                 .with_suggestion("Day must be a number (01-31)"),
         );
     }
@@ -90,7 +90,7 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
             make_err(
                 month_str,
                 format!(
-                    "Invalid month '{}' (must be uppercase three-letter abbreviation)",
+                    "Invalid @Date month '{}': must be an uppercase three-letter abbreviation",
                     month_str
                 ),
             )
@@ -102,7 +102,7 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
         errors.report(
             make_err(
                 year_str,
-                format!("Invalid year '{}' (must be four digits)", year_str),
+                format!("Invalid @Date year '{}': must be exactly four digits", year_str),
             )
             .with_suggestion("Use four-digit year (e.g., 2024)"),
         );
@@ -110,7 +110,7 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
         errors.report(
             make_err(
                 year_str,
-                format!("Invalid year '{}' (not a number)", year_str),
+                format!("Invalid @Date year '{}': not a number", year_str),
             )
             .with_suggestion("Year must be a four-digit number"),
         );

@@ -1,6 +1,6 @@
 # Summary
 
-**Last updated:** 2026-03-29 23:08 EDT
+**Last updated:** 2026-04-13 19:23 EDT
 
 [Introduction](introduction.md)
 
@@ -9,6 +9,7 @@
 # User Guide
 
 - [Installation](user-guide/installation.md)
+  - [Quick Start](user-guide/quick-start.md)
 - [CLI Reference](user-guide/cli-reference.md)
 - [Migrating from CLAN](user-guide/migrating-from-clan.md)
 - [Validation Errors](user-guide/validation-errors.md)
@@ -16,6 +17,7 @@
 - [Desktop App](user-guide/desktop-app.md)
 - [CLAN Line Numbering](user-guide/clan-line-numbering.md)
 - [Batch Workflows](user-guide/batch-workflows.md)
+- [CI Integration](user-guide/ci-integration.md)
 - [CHAT Processing Playbook (Editors & Analysts)](user-guide/chat-processing-playbook.md)
 
 # CHAT Format

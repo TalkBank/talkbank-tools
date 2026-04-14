@@ -77,4 +77,4 @@ cargo test
 - [spec/errors/README.md](../errors/README.md) — error spec format reference
 
 ---
-Last Updated: 2026-03-05
+Last Updated: 2026-04-12 06:55 EDT

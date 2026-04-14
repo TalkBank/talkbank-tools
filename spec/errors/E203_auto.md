@@ -1,11 +1,11 @@
-# E203: Auto-generated from corpus
+# E203: Invalid form type marker
 
 ## Description
 
-Auto-generated from corpus
+Word contains an invalid or undeclared `@` form type marker (e.g., `dog@b@c` has multiple stacked markers).
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E203
 - **Category**: validation

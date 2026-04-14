@@ -21,3 +21,5 @@ syn = { workspace = true }
 [dev-dependencies]
 trybuild = { workspace = true }
 talkbank-model = { workspace = true }
+serde = { workspace = true }
+schemars = { workspace = true }

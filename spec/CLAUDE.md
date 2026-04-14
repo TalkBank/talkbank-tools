@@ -1,7 +1,7 @@
 # spec — CHAT Specification
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:22 EDT
+**Last updated:** 2026-04-12 06:55 EDT
 
 ## How This Works
 
@@ -24,9 +24,9 @@ it will be deleted next time someone runs `make test-gen`.
 
 | Location | Files | Purpose |
 |----------|------:|---------|
-| `spec/constructs/` | 112 | Valid CHAT examples with expected CSTs |
-| `spec/errors/` | 187 | Invalid CHAT examples with expected error codes |
-| → `grammar/test/corpus/` | 166 | Generated tree-sitter tests |
+| `spec/constructs/` | 131 | Valid CHAT examples with expected CSTs |
+| `spec/errors/` | 190 | Invalid CHAT examples with expected error codes |
+| → `grammar/test/corpus/` | 180 | Generated tree-sitter tests |
 | → `tests/generated/` | 167 | Generated Rust parser/validation tests |
 | → `docs/errors/` | 182 | Generated error documentation pages |
 

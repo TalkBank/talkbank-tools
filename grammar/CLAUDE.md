@@ -1,5 +1,7 @@
 # Grammar — Tree-sitter Grammar for CHAT
 
+**Last modified:** 2026-04-13 11:14 EDT
+
 ## Overview
 Tree-sitter grammar definition for CHAT (`grammar.js`) plus generated parser and corpus tests.
 Grammar changes require regeneration and re-running tests.
@@ -19,7 +21,7 @@ Do not draw conclusions from parser output until regeneration has been done.
 
 1. NEVER edit `src/parser.c` directly; it is generated from `grammar.js`.
 2. NEVER hand-edit `test/corpus/`; it is generated from upstream specs.
-3. The 74-file reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
+3. The 88-file reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
 4. If verification fails and a fix is not immediate, revert the grammar change before proceeding.
 
 ### Stop Conditions
@@ -193,4 +195,4 @@ Always regenerate after revert so generated artifacts match current `grammar.js`
 - https://github.com/TalkBank/talkbank-tools/tree/main/spec
 
 ---
-Last Updated: 2026-03-23 16:54 EDT
+Last Updated: 2026-04-12 06:55 EDT

@@ -99,13 +99,13 @@ describe('LSP activation', () => {
             start: vi.fn(),
         } as never));
         const executableService = createExecutableService({
-            findTalkbankLspBinary: vi.fn(() => '/tmp/custom-chatter'),
+            findTalkbankLspBinary: vi.fn(() => '/tmp/custom-talkbank-lsp'),
         });
         const workspace = {
             createFileSystemWatcher: vi.fn(() => 'watcher' as never),
         };
         const runtimeContext = createRuntimeContext({
-            getConfiguredLspBinaryPath: () => '/tmp/configured-chatter',
+            getConfiguredLspBinaryPath: () => '/tmp/configured-talkbank-lsp',
         });
         const context = {
             asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`,
@@ -120,19 +120,19 @@ describe('LSP activation', () => {
 
         expect(executableService.findTalkbankLspBinary).toHaveBeenCalledWith(
             context,
-            '/tmp/configured-chatter',
+            '/tmp/configured-talkbank-lsp',
         );
         expect(createLanguageClient).toHaveBeenCalledWith(
             'talkbank-lsp',
             'TalkBank Language Server',
             expect.objectContaining({
                 run: expect.objectContaining({
-                    command: '/tmp/custom-chatter',
-                    args: ['lsp'],
+                    command: '/tmp/custom-talkbank-lsp',
+                    args: [],
                 }),
                 debug: expect.objectContaining({
-                    command: '/tmp/custom-chatter',
-                    args: ['lsp'],
+                    command: '/tmp/custom-talkbank-lsp',
+                    args: [],
                 }),
             }),
             expect.objectContaining({

@@ -36,7 +36,6 @@ pub(super) fn has_self_completion_linker(utterance: &Utterance) -> bool {
 ///
 /// Other-completion (++) means a different speaker is finishing or continuing
 /// another speaker's incomplete thought.
-#[allow(dead_code)]
 pub(super) fn has_other_completion_linker(utterance: &Utterance) -> bool {
     utterance
         .main

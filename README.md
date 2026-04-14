@@ -13,10 +13,26 @@ The CHAT toolchain from [TalkBank](https://talkbank.org/). Parses, validates, co
 
 ## Install
 
-Download a pre-built binary from [GitHub Releases](https://github.com/TalkBank/talkbank-tools/releases), or build from source:
+### Pre-built binaries (recommended)
+
+Download the release archive for your platform from **[GitHub Releases](https://github.com/TalkBank/talkbank-tools/releases)**. Each archive contains two binaries: `chatter` (the CLI) and `talkbank-lsp` (the standalone language server for editor integrations):
+
+| Platform | Archive |
+|----------|---------|
+| macOS (Apple Silicon) | `chatter-aarch64-apple-darwin.tar.gz` |
+| macOS (Intel) | `chatter-x86_64-apple-darwin.tar.gz` |
+| Linux (x86_64) | `chatter-x86_64-unknown-linux-gnu.tar.gz` |
+| Windows (x86_64) | `chatter-x86_64-pc-windows-msvc.zip` |
+
+Extract and add to your PATH, then verify: `chatter --version`
+
+### Build from source
+
+Requires [Rust](https://rustup.rs/) (stable):
 
 ```bash
-cargo install --path crates/talkbank-cli
+cargo install --path crates/talkbank-cli   # installs chatter
+cargo install --path crates/talkbank-lsp   # installs talkbank-lsp (optional, for editor integrations)
 ```
 
 ---

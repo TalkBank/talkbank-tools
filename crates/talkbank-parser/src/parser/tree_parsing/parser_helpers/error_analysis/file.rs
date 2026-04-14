@@ -211,10 +211,10 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
                     Severity::Error,
                     SourceLocation::from_offsets(start, end),
                     ErrorContext::new(source, start..end, error_text),
-                    "Malformed @ID header - tree-sitter failed to parse structure",
+                    "Invalid @ID header format: structure could not be parsed",
                 )
                 .with_suggestion(
-                    "Format: @ID:\tlang|corpus|speaker|age|sex|group|SES|role|education|custom|",
+                    "@ID requires exactly 10 pipe-separated fields: @ID:\tlang|corpus|speaker|age|sex|group|SES|role|education|custom|",
                 ),
             );
             return;
@@ -229,9 +229,9 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
                 Severity::Error,
                 SourceLocation::from_offsets(start, end),
                 ErrorContext::new(source, start..end, error_text),
-                "Only one @Begin is allowed per file",
+                "Duplicate @Begin header: only one @Begin is allowed per file",
             )
-            .with_suggestion("Remove the duplicate @Begin header"),
+            .with_suggestion("Remove the extra @Begin header"),
         );
         return;
     }
@@ -244,9 +244,9 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
                 Severity::Error,
                 SourceLocation::from_offsets(start, end),
                 ErrorContext::new(source, start..end, error_text),
-                "Content after @End is not allowed",
+                "Duplicate @End header or content after @End: nothing may follow the @End line",
             )
-            .with_suggestion("Remove all content after @End. Only one @End is allowed per file."),
+            .with_suggestion("Remove all content after @End — only one @End is allowed per file"),
         );
         return;
     }
@@ -325,10 +325,10 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
                     Severity::Error,
                     SourceLocation::from_offsets(start, start + 1 + colon_pos),
                     ErrorContext::new(source, start..start + 1 + colon_pos, ""),
-                    format!("Speaker name '{}' contains non-ASCII characters", speaker),
+                    format!("Speaker '{}' contains non-ASCII characters and cannot be resolved", speaker),
                 )
                 .with_suggestion(
-                    "Speaker codes must use only ASCII letters, digits, and underscores (A-Z, 0-9, _)",
+                    "Speaker codes must use only uppercase ASCII letters and digits (e.g., CHI, MOT, SP1)",
                 ),
             );
             return;
@@ -336,17 +336,20 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
     }
 
     // Generic file-level error
-    errors.report(ParseError::new(
-        ErrorCode::UnparsableContent,
-        Severity::Error,
-        SourceLocation::from_offsets(start, end),
-        ErrorContext::new(source, start..end, error_text),
-        format!(
-            "Could not parse content: {}",
-            match error_text.lines().next() {
-                Some(line) => line,
-                None => error_text,
-            }
-        ),
-    ));
+    errors.report(
+        ParseError::new(
+            ErrorCode::UnparsableContent,
+            Severity::Error,
+            SourceLocation::from_offsets(start, end),
+            ErrorContext::new(source, start..end, error_text),
+            format!(
+                "Unparsable content at file level: '{}'",
+                match error_text.lines().next() {
+                    Some(line) => line,
+                    None => error_text,
+                }
+            ),
+        )
+        .with_suggestion("Check CHAT format specification for valid syntax at this position"),
+    );
 }

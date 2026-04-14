@@ -130,9 +130,6 @@ pub enum ErrorCode {
     /// Invalid nesting of scoped annotations.
     #[code("E344")]
     InvalidContentAnnotationNesting,
-    /// Unmatched scoped annotation begin marker.
-    #[code("E345")]
-    UnmatchedContentAnnotationBegin,
     /// Unmatched scoped annotation end marker.
     #[code("E346")]
     UnmatchedContentAnnotationEnd,
@@ -217,18 +214,9 @@ pub enum ErrorCode {
     /// Failed to parse replacement annotation content.
     #[code("E376")]
     ReplacementParseError,
-    /// Failed to parse `%pho` tier content.
-    #[code("E381")]
-    PhoParseError,
     /// Failed to parse `%mor` tier content.
     #[code("E382")]
     MorParseError,
-    /// Failed to parse `%gra` tier content.
-    #[code("E383")]
-    GraParseError,
-    /// Failed to parse `%sin` tier content.
-    #[code("E384")]
-    SinParseError,
     /// Replacement `[: text]` on fragment or phonological fragment (`&+`).
     #[code("E387")]
     ReplacementOnFragment,
@@ -627,9 +615,6 @@ pub enum ErrorCode {
     // =========================================================================
     // Warnings (Wxxx)
     // =========================================================================
-    /// `%gra` ROOT relation head does not point to self.
-    #[code("W724")]
-    GraRootHeadNotSelf,
     /// Speaker code not found in `@Participants` (non-fatal).
     #[code("W108")]
     SpeakerNotFoundInParticipants,

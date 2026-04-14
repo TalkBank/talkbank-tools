@@ -2,19 +2,22 @@
 
 ## Description
 
-Mor-Gra count mismatch
+The number of `%mor` chunks does not equal the number of `%gra` relations
+for an utterance. `%gra` aligns 1-to-1 with `%mor` chunks (not items — a
+`%mor` item with post-clitics produces multiple chunks).
 
 ## Metadata
 
 - **Error Code**: E720
 - **Category**: Alignment count mismatch
 - **Level**: tier
-- **Layer**: parser
-- **Status**: not_implemented
+- **Layer**: validation
+- **Status**: implemented
 
 ## Example
 
 ```chat
+@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
@@ -29,15 +32,22 @@ Mor-Gra count mismatch
 
 ## Expected Behavior
 
-The parser should reject this CHAT input and report a parse error at the location of the invalid syntax.
+Validation reports E720 when the number of `%mor` chunks and `%gra`
+relations disagree. The diagnostic includes a column-by-column layout
+showing both tiers so the author can see which entries are missing or
+extra.
 
-**Trigger**: %mor has 3 chunks but %gra has 4 relations
+**Trigger**: %mor has 4 chunks but %gra has 5 relations.
 
 ## CHAT Rule
 
-See CHAT manual sections on dependent tier formats (%mor, %gra, %pho, etc.). Each tier type has specific syntax requirements. The CHAT manual is available at: https://talkbank.org/0info/manuals/CHAT.pdf
+See CHAT manual sections on dependent tier formats (%mor, %gra). Each
+`%mor` chunk requires a corresponding `%gra` relation; clitics in `%mor`
+produce additional chunks that also need relations.
 
 ## Notes
 
-- Auto-generated from error corpus file: `error_corpus/E4xx_alignment_errors/E720_mor_gra_count_mismatch.cha`
-- Review and enhance this specification as needed
+- E720 is emitted by the `align_mor_to_gra` alignment pass in
+  `talkbank-model`.
+- E712 (GraInvalidWordIndex) and E713 (GraInvalidHeadIndex) are reserved
+  for per-relation index validation; count mismatches use E720.

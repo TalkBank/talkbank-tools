@@ -24,8 +24,6 @@ pub enum SurfaceFamily {
     Cache,
     /// Schema-printing surface.
     Schema,
-    /// Published language-server entrypoint.
-    Lsp,
     /// Top-level gateway into the CLAN subcommand surface.
     ClanHub,
     /// CLAN analysis/statistics commands.
@@ -100,8 +98,6 @@ const SCHEMA_COVERAGE: &[CoverageExpectation] = &[
     CoverageExpectation::OutputContract,
 ];
 
-const LSP_COVERAGE: &[CoverageExpectation] = &[CoverageExpectation::HelpContract];
-
 const CLAN_HUB_COVERAGE: &[CoverageExpectation] = &[
     CoverageExpectation::HelpContract,
     CoverageExpectation::LegacyCompatibility,
@@ -166,13 +162,6 @@ pub const SURFACE_GROUPS: &[SurfaceGroup] = &[
         commands: &["schema"],
         coverage: SCHEMA_COVERAGE,
         note: "JSON schema printing surface",
-    },
-    SurfaceGroup {
-        scope: SurfaceScope::TopLevel,
-        family: SurfaceFamily::Lsp,
-        commands: &["lsp"],
-        coverage: LSP_COVERAGE,
-        note: "published stdio language-server entrypoint",
     },
     SurfaceGroup {
         scope: SurfaceScope::TopLevel,

@@ -4,8 +4,8 @@
 @Participants:	CHI Target_Child
 @ID:	eng|corpus|CHI|||||Target_Child|||
 @Comment:	Expected error: E709 (Invalid grammar index)
-@Comment:	Trigger: GRA relation has non-numeric index
+@Comment:	Trigger: First slot of %gra relation is 0 (must be >= 1)
 *CHI:	hello .
 %mor:	co|hello .
-%gra:	abc|0|ROOT .
+%gra:	0|0|ROOT 1|0|PUNCT
 @End

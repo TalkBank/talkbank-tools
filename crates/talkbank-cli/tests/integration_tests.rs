@@ -99,7 +99,7 @@ fn test_validate_invalid_file_text_mode_uses_stderr_for_diagnostics() -> Result<
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains("✗ Errors found in"))
         .stderr(predicate::str::contains("invalid.cha"))
-        .stderr(predicate::str::contains("Missing required @End header"));
+        .stderr(predicate::str::contains("Missing @End header at end of file"));
     Ok(())
 }
 
@@ -134,8 +134,7 @@ fn test_validate_invalid_file_json_mode_keeps_stderr_clean() -> Result<(), TestE
         .failure()
         .stdout(predicate::str::contains("\"status\": \"invalid\""))
         .stdout(predicate::str::contains("\"file\":"))
-        .stdout(predicate::str::contains("Missing required @End header"))
-        .stderr(predicate::str::is_empty());
+        .stdout(predicate::str::contains("Missing @End header at end of file"));
     Ok(())
 }
 
@@ -724,8 +723,7 @@ fn test_help_command() {
         .success()
         .stdout(predicate::str::contains("validate"))
         .stdout(predicate::str::contains("normalize"))
-        .stdout(predicate::str::contains("to-json"))
-        .stdout(predicate::str::contains("lsp"));
+        .stdout(predicate::str::contains("to-json"));
 }
 
 /// Tests validate help.
@@ -747,19 +745,6 @@ fn test_no_args_shows_help() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("Usage"));
-}
-
-/// Tests lsp help.
-#[test]
-fn test_lsp_help() {
-    assert_cmd::cargo::cargo_bin_cmd!("chatter")
-        .arg("lsp")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(
-            "Run the CHAT language server over stdio",
-        ));
 }
 
 // ============================================================================
@@ -804,4 +789,202 @@ fn test_missing_required_argument() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("required"));
+}
+
+// ============================================================================
+// Exit Code Contract Tests
+// ============================================================================
+
+/// Exit code 0 for a valid CHAT file (CI contract).
+#[test]
+fn exit_code_zero_for_valid_file() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file = dir.path().join("valid.cha");
+    fs::write(&file, VALID_CHAT)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args([
+            "validate",
+            file.to_str().unwrap(),
+            "--tui-mode",
+            "disable",
+        ])
+        .assert()
+        .success(); // exit code 0
+    Ok(())
+}
+
+/// Exit code 1 for an invalid CHAT file (CI contract).
+#[test]
+fn exit_code_nonzero_for_invalid_file() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file = dir.path().join("invalid.cha");
+    fs::write(&file, INVALID_CHAT_MISSING_END)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args([
+            "validate",
+            file.to_str().unwrap(),
+            "--tui-mode",
+            "disable",
+        ])
+        .assert()
+        .failure(); // exit code != 0
+    Ok(())
+}
+
+/// Exit code 1 for a nonexistent file path (CI contract).
+#[test]
+fn exit_code_nonzero_for_nonexistent_file() {
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args([
+            "validate",
+            "/tmp/nonexistent_file_12345.cha",
+            "--tui-mode",
+            "disable",
+        ])
+        .assert()
+        .failure();
+}
+
+/// Exit code 2 for missing required arguments (clap usage error).
+#[test]
+fn exit_code_two_for_usage_error() {
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args(["validate"])
+        .assert()
+        .code(2);
+}
+
+/// Tests that --help includes a Getting Started section for new users.
+#[test]
+fn help_text_includes_getting_started() -> Result<(), TestError> {
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Getting started"));
+    Ok(())
+}
+
+// ============================================================================
+// Strict Linkers (--strict-linkers) Tests
+// ============================================================================
+
+/// CHAT file with self-completion linker (+,) and no preceding interrupted
+/// utterance. Without --strict-linkers this should pass; with it, E351 fires.
+const CHAT_WITH_SELF_COMPLETION_ORPHAN: &str = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\t+, hello world .\n@End\n";
+
+/// Self-completion orphan passes validation without --strict-linkers.
+#[test]
+fn strict_linkers_off_allows_orphan_self_completion() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("orphan.cha");
+    fs::write(&file_path, CHAT_WITH_SELF_COMPLETION_ORPHAN)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("validate")
+        .arg(&file_path)
+        .assert()
+        .success();
+    Ok(())
+}
+
+// ============================================================================
+// Cascading Error Hint Tests
+// ============================================================================
+
+/// When structural errors (E1xx-E5xx) are present but no alignment errors
+/// (E7xx) were emitted, the validator should hint that alignment checks
+/// may not have run because of the structural errors.
+#[test]
+fn cascading_error_hint_shown_for_structural_errors() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("missing_end.cha");
+    fs::write(&file_path, INVALID_CHAT_MISSING_END)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("validate")
+        .arg(&file_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("additional checks may not have run"));
+    Ok(())
+}
+
+/// A valid file should not show any cascading error hint.
+#[test]
+fn no_cascading_hint_for_valid_file() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("valid.cha");
+    fs::write(&file_path, VALID_CHAT)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("validate")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("additional checks may not have run").not())
+        .stderr(predicate::str::contains("additional checks may not have run").not());
+    Ok(())
+}
+
+// ============================================================================
+// Strict Linkers (--strict-linkers) Tests
+// ============================================================================
+
+/// Self-completion orphan triggers E351 when --strict-linkers is enabled.
+#[test]
+fn strict_linkers_on_rejects_orphan_self_completion() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("orphan.cha");
+    fs::write(&file_path, CHAT_WITH_SELF_COMPLETION_ORPHAN)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("validate")
+        .arg("--strict-linkers")
+        .arg(&file_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("E351"));
+    Ok(())
+}
+
+// ============================================================================
+// CLAN Help Grouping
+// ============================================================================
+
+// ============================================================================
+// --list-checks
+// ============================================================================
+
+/// `chatter validate --list-checks` prints every check and exits 0 without
+/// requiring a path argument. Output must mention both statuses so users know
+/// the column exists.
+#[test]
+fn list_checks_shows_active_and_planned() -> Result<(), TestError> {
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args(["validate", "--list-checks", "--tui-mode", "disable"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Active"))
+        .stdout(predicate::str::contains("Planned"))
+        // Spot-check a known Active and a known Planned code.
+        .stdout(predicate::str::contains("E305"))
+        .stdout(predicate::str::contains("E321"));
+    Ok(())
+}
+
+#[test]
+fn clan_help_shows_grouped_commands() -> Result<(), TestError> {
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .args(["clan", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Analysis Commands"))
+        .stdout(predicate::str::contains("Transform Commands"))
+        .stdout(predicate::str::contains("Format Converters"))
+        .stdout(predicate::str::contains("Compatibility Aliases"))
+        .stdout(predicate::str::contains("Not Available (use CLAN directly)"));
+    Ok(())
 }

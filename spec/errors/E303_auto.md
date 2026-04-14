@@ -6,6 +6,7 @@ Unexpected node - helper function
 
 ## Metadata
 - **Status**: not_implemented
+- **Status note**: Unreachable via tree-sitter parser for this example. E303 (SyntaxError) is emitted by `error_analysis/file.rs` and by the re2c parser, but the example's missing `@UTF8`/`@Participants`/`@ID` scaffolding triggers header-level errors (E501-E505) before the syntax-error path is reached. Tree-sitter's error recovery also absorbs `{{{ world }}}` into ERROR nodes routed through other codes (E316/E375).
 
 - **Error Code**: E303
 - **Category**: Parser bugs (experimental)

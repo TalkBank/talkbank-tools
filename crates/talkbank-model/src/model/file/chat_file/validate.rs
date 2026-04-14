@@ -34,12 +34,12 @@ fn unknown_alignment_warning(
         crate::SourceLocation::new(location),
         crate::ErrorContext::new("", location.to_range(), ""),
         format!(
-            "Skipped {} alignment because parse provenance is unknown for {} and {}",
+            "Tier validation warning: skipped {} alignment because parse provenance is unknown for {} and {}",
             alignment_name, left_label, right_label
         ),
     )
     .with_suggestion(
-        "Run parser-backed validation or explicitly mark parse provenance before alignment checks",
+        "Run parser-backed validation to establish parse provenance before alignment checks",
     );
 
     if !left_span.is_dummy() {
@@ -72,6 +72,7 @@ fn build_validation_context(
 
     let ca_mode = file_uses_ca_mode(headers);
     let bullets_mode = file_uses_bullets_mode(headers);
+    let enable_quotation_validation = config.strict_linkers_enabled();
 
     crate::validation::ValidationContext::from_shared(std::sync::Arc::new(
         crate::validation::SharedValidationData {
@@ -79,7 +80,7 @@ fn build_validation_context(
             default_language: default_language.cloned(),
             declared_languages: declared_languages.to_vec(),
             ca_mode,
-            enable_quotation_validation: false, // Disabled by default
+            enable_quotation_validation,
             bullets_mode,
             config,
         },
@@ -140,8 +141,7 @@ impl<S: ValidationState> ChatFile<S> {
     /// running full file-level validation.
     pub fn validate_alignments(&self) -> Vec<ParseError> {
         use crate::alignment::{
-            align_main_to_mor, align_main_to_pho, align_main_to_sin,
-            align_mor_to_gra,
+            align_main_to_mor, align_main_to_pho, align_main_to_sin, align_mor_to_gra,
         };
 
         let mut errors = Vec::new();

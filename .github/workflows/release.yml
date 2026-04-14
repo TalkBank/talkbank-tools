@@ -50,7 +50,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }} -p talkbank-cli
+        run: cargo build --release --target ${{ matrix.target }} -p talkbank-cli -p talkbank-lsp
 
       - name: Smoke test — chatter --help (native only)
         if: >-
@@ -79,7 +79,7 @@ jobs:
           ARCHIVE="chatter-v${VERSION}-${{ matrix.target }}.tar.gz"
           tar czf "${ARCHIVE}" \
             -C target/${{ matrix.target }}/release \
-            chatter
+            chatter talkbank-lsp
           echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
 
       - name: Package archive (Windows)
@@ -88,7 +88,7 @@ jobs:
         run: |
           $VERSION = "${{ env.RELEASE_TAG }}".TrimStart("v")
           $ARCHIVE = "chatter-v${VERSION}-${{ matrix.target }}.zip"
-          Compress-Archive -Path "target/${{ matrix.target }}/release/chatter.exe" -DestinationPath $ARCHIVE
+          Compress-Archive -Path "target/${{ matrix.target }}/release/chatter.exe","target/${{ matrix.target }}/release/talkbank-lsp.exe" -DestinationPath $ARCHIVE
           echo "ARCHIVE=${ARCHIVE}" >> $env:GITHUB_ENV
 
       - name: Upload artifact

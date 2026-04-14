@@ -93,5 +93,5 @@ post-hoc promotion logic:
 
 ## Detailed Parity Report
 
-See [`crates/talkbank-re2c-parser/docs/parity-report.md`](../../crates/talkbank-re2c-parser/docs/parity-report.md)
+See [`crates/talkbank-re2c-parser/docs/parity-report.md`](https://github.com/TalkBank/talkbank-tools/blob/main/crates/talkbank-re2c-parser/docs/parity-report.md)
 for the full gap analysis, divergence categories, and remaining work items.

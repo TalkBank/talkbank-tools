@@ -139,13 +139,40 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
     // from `[: unclosed`). Report an error instead of panicking via
     // `new_unchecked`.
     if raw_text.is_empty() {
-        errors.report(ParseError::new(
-            ErrorCode::UnparsableContent,
-            Severity::Error,
-            SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
-            ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
-            "Word node has empty text".to_string(),
-        ));
+        errors.report(
+            ParseError::new(
+                ErrorCode::UnparsableContent,
+                Severity::Error,
+                SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
+                ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
+                "Unparsable content: word node produced empty text after parser recovery",
+            )
+            .with_suggestion("Check for unclosed brackets or missing word content near this position"),
+        );
+        return ParseOutcome::rejected();
+    }
+
+    // Guard: a word whose cleaned text is empty (e.g., only a stress marker
+    // `ˈ` or only a lengthening marker `:`) would panic inside
+    // `NonEmptyString::new_unchecked`. Emit E245 (stress marker not before
+    // spoken material) for the lone-stress-marker case and reject the word
+    // rather than fabricating a dummy `Word`.
+    if cleaned.is_empty() {
+        errors.report(
+            ParseError::new(
+                ErrorCode::StressNotBeforeSpokenMaterial,
+                Severity::Error,
+                SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
+                ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
+                format!(
+                    "Word '{}' contains no spoken material after markers are stripped",
+                    raw_text
+                ),
+            )
+            .with_suggestion(
+                "Stress and lengthening markers must attach to actual spoken material",
+            ),
+        );
         return ParseOutcome::rejected();
     }
 

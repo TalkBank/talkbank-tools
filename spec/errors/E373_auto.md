@@ -7,7 +7,7 @@ overlap brackets (`⌈⌉⌊⌋`), the index must be 2–9. For scoped overlap
 annotations (`[<]`, `[>]`), the index must be 1–9.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E373
 - **Category**: overlap
@@ -16,7 +16,25 @@ annotations (`[<]`, `[>]`), the index must be 1–9.
 
 ## Example 1
 
-**Trigger**: Scoped overlap annotation with index 0
+**Source**: `error_corpus/validation_errors/E373_invalid_overlap_index.cha`
+**Trigger**: CA overlap bracket with index 1 (valid range is 2-9)
+**Expected Error Codes**: E373
+
+```chat
+@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	ERROR: Overlap index must be 2-9
+*CHI:	⌈1 hello ⌉ .
+@End
+```
+
+## Example 2
+
+**Trigger**: Scoped overlap annotation with index 0 (tree-sitter unreachable — produces E316)
+**Expected Error Codes**: E316
 
 ```chat
 @UTF8
@@ -27,22 +45,6 @@ annotations (`[<]`, `[>]`), the index must be 1–9.
 @ID:	eng|test|CHI||male|||Target_Child|||
 *MOT:	I think [<0] so .
 *CHI:	yeah [>0] .
-@End
-```
-
-## Example 2
-
-**Trigger**: Scoped overlap annotation with index exceeding 9
-
-```chat
-@UTF8
-@Begin
-@Languages:	eng
-@Participants:	MOT Mother, CHI Target_Child
-@ID:	eng|test|MOT||female|||Mother|||
-@ID:	eng|test|CHI||male|||Target_Child|||
-*MOT:	I think [<10] so .
-*CHI:	yeah [>10] .
 @End
 ```
 

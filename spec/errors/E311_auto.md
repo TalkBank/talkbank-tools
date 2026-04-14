@@ -6,6 +6,7 @@ Failed to parse utterance
 
 ## Metadata
 - **Status**: not_implemented
+- **Status note**: Unreachable via tree-sitter parser. E311 (UnexpectedNode) is emitted by `chat_file_parser/single_item/helpers.rs` and `utterance_parser.rs`, but tree-sitter's error recovery wraps malformed utterance content in ERROR nodes that surface as E316 (UnparsableContent) before the unexpected-node check runs. The nested/unclosed bracket example `[: unclosed replacement [* error] .` is absorbed into an ERROR node, producing E316.
 
 - **Error Code**: E311
 - **Category**: Main tier validation

@@ -7,7 +7,6 @@ use crate::cli::Commands;
 use crate::ui::Theme;
 
 use super::cache::run_cache_command;
-use super::run_lsp;
 use super::validate::{
     ValidateCommandExecution, ValidateCommandOptions, ValidateCommandPresentation,
     ValidateCommandRules, run_validate_command,
@@ -33,7 +32,6 @@ enum CommandFamily {
     Validation,
     Utility,
     Cache,
-    Lsp,
     Clan,
     Debug,
 }
@@ -46,7 +44,6 @@ struct CommandServices {
     validation: ValidationCommandService,
     utility: UtilityCommandService,
     cache: CacheCommandService,
-    lsp: LspCommandService,
     clan: ClanCommandService,
     debug: DebugCommandService,
 }
@@ -57,7 +54,6 @@ impl CommandServices {
             validation: ValidationCommandService,
             utility: UtilityCommandService,
             cache: CacheCommandService,
-            lsp: LspCommandService,
             clan: ClanCommandService,
             debug: DebugCommandService,
         }
@@ -68,7 +64,6 @@ impl CommandServices {
             CommandFamily::Validation => self.validation.dispatch(command, context),
             CommandFamily::Utility => self.utility.dispatch(command, context),
             CommandFamily::Cache => self.cache.dispatch(command, context),
-            CommandFamily::Lsp => self.lsp.dispatch(command, context),
             CommandFamily::Clan => self.clan.dispatch(command, context),
             CommandFamily::Debug => self.debug.dispatch(command, context),
         }
@@ -89,7 +84,6 @@ impl Commands {
             | Self::NewFile { .. }
             | Self::Schema { .. } => CommandFamily::Utility,
             Self::Cache { .. } => CommandFamily::Cache,
-            Self::Lsp => CommandFamily::Lsp,
             Self::Clan { .. } => CommandFamily::Clan,
             Self::Debug { .. } => CommandFamily::Debug,
         }
@@ -108,6 +102,7 @@ impl CommandFamilyService for ValidationCommandService {
         match command {
             Commands::Validate {
                 path,
+                list_checks,
                 format,
                 skip_alignment,
                 force,
@@ -116,9 +111,17 @@ impl CommandFamilyService for ValidationCommandService {
                 max_errors,
                 roundtrip,
                 parser,
+                strict_linkers,
                 audit,
                 suppress,
-            } => run_validate_command(
+            } => {
+                // Short-circuit: --list-checks prints the check list and
+                // exits successfully without touching any files.
+                if list_checks {
+                    super::list_checks::print_check_list();
+                    return;
+                }
+                run_validate_command(
                 path,
                 ValidateCommandOptions {
                     rules: ValidateCommandRules {
@@ -130,6 +133,7 @@ impl CommandFamilyService for ValidationCommandService {
                             }
                             crate::cli::ParserBackend::Re2c => talkbank_transform::ParserKind::Re2c,
                         },
+                        strict_linkers,
                     },
                     execution: ValidateCommandExecution {
                         cache_refresh: CacheRefreshMode::from_force(force),
@@ -145,7 +149,8 @@ impl CommandFamilyService for ValidationCommandService {
                     },
                     suppress,
                 },
-            ),
+            );
+            }
             Commands::ShowAlignment {
                 input,
                 tier,
@@ -261,17 +266,6 @@ impl CommandFamilyService for CacheCommandService {
         match command {
             Commands::Cache { command } => run_cache_command(command),
             _ => unreachable!("cache service received unsupported command"),
-        }
-    }
-}
-
-struct LspCommandService;
-
-impl CommandFamilyService for LspCommandService {
-    fn dispatch(&self, command: Commands, _context: &CommandContext) {
-        match command {
-            Commands::Lsp => run_lsp(),
-            _ => unreachable!("lsp service received unsupported command"),
         }
     }
 }

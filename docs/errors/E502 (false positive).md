@@ -1,6 +1,10 @@
 # E502 (false positive): E502 false positive: %wor parse error cascades to entire file
 
+> ✅ Active — This check is active in the validator.
+
 **Severity**: error
+
+**Status**: ✅ Active
 
 ## Description
 

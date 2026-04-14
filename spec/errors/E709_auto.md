@@ -2,11 +2,14 @@
 
 ## Description
 
-Invalid grammar index
+A `%gra` relation uses an invalid index. `%gra` indices are 1-indexed: the
+first word is `1`, and `0` is reserved for the ROOT attachment in the
+dependent slot (`n|0|ROOT`). Using `0` in the first (index) slot of a
+relation triggers E709.
 
 ## Metadata
-- **Status**: not_implemented
-- **Last updated**: 2026-04-04 08:15 EDT
+- **Status**: implemented
+- **Last updated**: 2026-04-13 22:00 EDT
 
 - **Error Code**: E709
 - **Category**: validation
@@ -16,14 +19,8 @@ Invalid grammar index
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E709_invalid_grammar_index.cha`
-**Trigger**: GRA relation has non-numeric index — triggers E600 instead
-**Expected Error Codes**: E600
-
-Note: The non-numeric index `abc` in `abc|0|ROOT` causes a tree-sitter parse
-failure at the tier level, producing E600 (TierValidationError) rather than
-E709 (InvalidGrammarIndex). E709 fires when the index IS a valid number but
-is 0 (since GRA indices are 1-indexed). The grammar expects numeric indices,
-so `abc` never reaches the Rust GRA relation parser.
+**Trigger**: First slot of a `%gra` relation is `0` (indices are 1-indexed)
+**Expected Error Codes**: E709
 
 ```chat
 @UTF8
@@ -33,21 +30,23 @@ so `abc` never reaches the Rust GRA relation parser.
 @ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	hello .
 %mor:	co|hello .
-%gra:	abc|0|ROOT .
+%gra:	0|0|ROOT 1|0|PUNCT
 @End
 ```
 
 ## Expected Behavior
 
-The parser should reject this CHAT input and report a parse error at the location of the invalid syntax.
-
-**Trigger**: See example above
+The `%gra` parser should report E709 when a relation's index (first slot)
+is 0. Indices are 1-indexed; 0 is only valid in the dependent (second)
+slot as the ROOT attachment target.
 
 ## CHAT Rule
 
-See CHAT manual sections on dependent tier formats (%mor, %gra, %pho, etc.). Each tier type has specific syntax requirements. The CHAT manual is available at: https://talkbank.org/0info/manuals/CHAT.pdf
+See the CHAT manual on dependent tier formats (%gra). Each relation has
+the form `<index>|<dependent>|<role>`. The index must be at least 1.
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- Non-numeric indices (e.g., `abc|0|ROOT`) are rejected at the grammar
+  level and produce E600 instead; E709 fires only when the index is a
+  valid integer but equals 0.

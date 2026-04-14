@@ -9,6 +9,7 @@ patterns (missing form type, empty replacement, unknown annotation).
 
 ## Metadata
 - **Status**: not_implemented
+- **Status note**: Unreachable via tree-sitter parser. The catch-all fallback at utterance error analysis is always preempted by more specific error patterns (E316, E375). The re2c parser may reach this code path.
 
 - **Error Code**: E321
 - **Category**: parser\_recovery

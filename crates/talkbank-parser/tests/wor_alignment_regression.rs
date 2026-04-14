@@ -1,5 +1,5 @@
-use talkbank_model::model::{Bullet, ParseHealthState, WordCategory};
 use talkbank_model::ErrorCollector;
+use talkbank_model::model::{Bullet, ParseHealthState, WordCategory};
 use talkbank_parser::TreeSitterParser;
 
 fn parsed_filler_fixture(main_filler: &str, wor_token: &str) -> talkbank_model::model::ChatFile {
@@ -451,10 +451,7 @@ fn generate_wor_tier_from_ocsc_4016_excludes_standalone_fragments() {
         .collect();
 
     // Fragments "ih" (&+ih) and "th" (&+th) excluded; regular words remain.
-    assert_eq!(
-        words,
-        vec!["the", "what", "what's", "letter", "is", "this"]
-    );
+    assert_eq!(words, vec!["the", "what", "what's", "letter", "is", "this"]);
 }
 
 #[test]

@@ -7,6 +7,18 @@ This repository contains the CHAT specification and core Rust library crates:
 - `crates/` contains the core Rust library crates (parsing, model, validation, etc.).
 
 The grammar lives in `grammar/`.
+
+### External Dependency Note
+
+The file `crates/talkbank-parser-tests/src/generated_traversal.rs` is generated
+by [`tree-sitter-grammar-utils`](https://github.com/TalkBank/tree-sitter-grammar-utils),
+which is not yet published. If your changes require regenerating this file
+(i.e., you modified `grammar/grammar.js` in a way that changes the CST node
+types), note this in your PR and a maintainer will regenerate it.
+
+Most contributions (spec changes, validation logic, CLAN commands, CLI features)
+do not require this step.
+
 The CLI and LSP live in `crates/talkbank-cli/` and `crates/talkbank-lsp/`.
 
 ## Development Setup

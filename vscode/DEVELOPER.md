@@ -1,7 +1,7 @@
 # TalkBank CHAT VS Code Extension — Developer Guide
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-04-13 20:34 EDT
 
 Internal reference for maintainers of the VS Code extension and LSP server.
 
@@ -617,7 +617,7 @@ The TextMate grammar (`chat.tmLanguage.json`) provides fallback highlighting whe
 
 Triggered by `onLanguage:chat` (opening any `.cha` file). `activate()` in `extension.ts`:
 
-1. Finds the `chatter` binary and spawns `chatter lsp` via stdio transport
+1. Finds the `talkbank-lsp` binary and spawns it via stdio transport
 2. Registers bullet time-marker decorations (dimmed opacity)
 3. Registers 20+ command handlers (analysis, media, walker, transcription, etc.)
 4. Creates `ValidationExplorerProvider` tree view
@@ -626,12 +626,12 @@ Triggered by `onLanguage:chat` (opening any `.cha` file). `activate()` in `exten
 
 ### LSP binary resolution
 
-The LSP launcher searches for the `chatter` binary in this order, then invokes it with `lsp`:
-1. System PATH (via `which chatter`) — works for installed/distributed builds
-2. `target/debug/chatter` relative to the extension directory
-3. `target/release/chatter` relative to the extension directory
+The LSP launcher searches for the standalone `talkbank-lsp` binary in this order:
+1. System PATH (via `which talkbank-lsp`) — works for installed/distributed builds
+2. `target/debug/talkbank-lsp` relative to the extension directory
+3. `target/release/talkbank-lsp` relative to the extension directory
 
-If none are found, it falls back to the debug path (which will fail with a clear LSP error message).
+If none are found, it falls back to the debug path (which will fail with a clear LSP error message). The binary is spawned with no arguments — it speaks LSP over stdio directly.
 
 ### Validation Explorer
 
@@ -651,7 +651,7 @@ Defined in `package.json` under `contributes.configuration`:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `talkbank.lsp.binaryPath` | string | `""` | Absolute path to the `chatter` binary used for `chatter lsp`. Empty = auto-detect. |
+| `talkbank.lsp.binaryPath` | string | `""` | Absolute path to the `talkbank-lsp` binary. Empty = auto-detect. |
 | `talkbank.inlayHints.enabled` | boolean | `true` | Show inlay hints for timing durations and tier relationships. |
 | `talkbank.validation.severity` | string | `"all"` | Filter diagnostics by severity level. |
 | `talkbank.walker.*` | various | — | Walk length, loop count, backspace amount, pause length, playback speed. |

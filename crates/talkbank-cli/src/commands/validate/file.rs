@@ -41,6 +41,7 @@ pub fn validate_file(
     interface: ValidationInterface,
     theme: Theme,
     suppress: &[String],
+    strict_linkers: bool,
 ) {
     let check_alignment = alignment.enabled();
 
@@ -66,11 +67,14 @@ pub fn validate_file(
 
     // Build pipeline options (alignment adds `%wor`/`%pho` checks while validation-only skips them).
     // Alignment is on by default; use --skip-alignment to disable
-    let options = if check_alignment {
+    let mut options = if check_alignment {
         ParseValidateOptions::default().with_alignment()
     } else {
         ParseValidateOptions::default().with_validation()
     };
+    if strict_linkers {
+        options = options.with_strict_linkers();
+    }
 
     // Build suppression set for error filtering
     let suppress_set: std::collections::HashSet<String> =
@@ -212,6 +216,9 @@ pub fn validate_file(
     // If we are in text mode, we already streamed errors via TerminalErrorSink.
     // If there are errors, we don't need to print them again via output_validation_result.
     if matches!(format, OutputFormat::Text) && !errors.is_empty() {
+        if !quiet && crate::output::should_show_cascading_hint(&errors) {
+            eprintln!("{}", crate::output::CASCADING_HINT);
+        }
         std::process::exit(1);
     }
 

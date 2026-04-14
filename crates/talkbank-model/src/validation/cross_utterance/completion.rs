@@ -36,72 +36,93 @@ use std::collections::HashMap;
 ///
 /// This replaces the O(n²) per-utterance backward search with a stack-based
 /// approach that processes all utterances in a single forward pass.
+///
+/// # Why two per-speaker structures
+///
+/// To distinguish E351 ("no preceding same-speaker utterance at all") from
+/// E352 ("preceding same-speaker utterance exists but wrong terminator"),
+/// we maintain two structures per speaker:
+///
+/// 1. `interruption_stacks` — stack of indices of utterances that ended with
+///    `+/.` (the interruption terminator). A `+,` pops the top entry for
+///    instant O(1) self-completion matching.
+/// 2. `last_seen` — index of the most recent utterance from that speaker
+///    regardless of terminator. Used to detect E352 when the interruption
+///    stack is empty but the speaker has been seen before.
+///
+/// Decision on encountering `+,`:
+/// - stack non-empty: pop, good match (the popped utterance always ends with
+///   `+/.` by construction, so no further check needed).
+/// - stack empty but `last_seen` present: E352 (wrong terminator).
+/// - speaker never seen: E351 (no preceding utterance).
 pub(super) fn check_self_completion_all(utterances: &[Utterance], errors: &impl ErrorSink) {
-    // Stack of interruption indices per speaker
+    // Stack of interruption indices per speaker (only `+/.` terminated).
     let mut interruption_stacks: HashMap<&str, Vec<usize>> = HashMap::new();
+    // Most recent utterance index per speaker regardless of terminator.
+    let mut last_seen: HashMap<&str, usize> = HashMap::new();
 
     for (idx, utterance) in utterances.iter().enumerate() {
         let speaker = utterance.main.speaker.as_str();
 
         // Check if this has self-completion linker (+,)
         if has_self_completion_linker_internal(utterance) {
-            // Try to match with previous interruption from same speaker
-            match interruption_stacks.get_mut(speaker) {
-                Some(stack) if !stack.is_empty() => {
-                    if let Some(prev_idx) = stack.pop() {
-                        let prev_utt = &utterances[prev_idx];
+            let stack_has_match = interruption_stacks
+                .get(speaker)
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
 
-                        // Verify it ended with interruption terminator
-                        let has_interruption = match prev_utt.main.content.terminator.as_ref() {
-                            Some(term) => matches!(term, Terminator::Interruption { .. }),
-                            None => false,
-                        };
-
-                        if !has_interruption {
-                            errors.report(
-                                ParseError::new(
-                                    ErrorCode::MissingQuoteEnd,
-                                    Severity::Error,
-                                    SourceLocation::new(utterance.main.span),
-                                    ErrorContext::new(
-                                        format!("*{}: +, ...", speaker),
-                                        utterance.main.span,
-                                        "self-completion linker",
-                                    ),
-                                    format!(
-                                        "Self-completion linker (+,) but preceding same-speaker utterance doesn't end with +/. (interruption terminator) from speaker {}",
-                                        speaker
-                                    ),
-                                )
-                                .with_suggestion("Change the preceding utterance terminator to +/. to mark it as interrupted")
-                            );
-                        }
-                    }
+            if stack_has_match {
+                // Happy path: pop the matching `+/.` interruption. The
+                // popped utterance always ends with `+/.` by construction.
+                if let Some(stack) = interruption_stacks.get_mut(speaker) {
+                    let _ = stack.pop();
                 }
-                _ => {
-                    // No prior utterance from this speaker
-                    errors.report(
-                        ParseError::new(
-                            ErrorCode::MissingQuoteBegin,
-                            Severity::Error,
-                            SourceLocation::new(utterance.main.span),
-                            ErrorContext::new(
-                                format!("*{}: +, ...", speaker),
-                                utterance.main.span,
-                                "self-completion linker",
-                            ),
-                            format!(
-                                "Self-completion linker (+,) without any preceding utterance from same speaker ({})",
-                                speaker
-                            ),
-                        )
-                        .with_suggestion("Self-completion is used to resume an interrupted utterance; ensure there's a prior interrupted utterance with +/. terminator")
-                    );
-                }
+            } else if last_seen.contains_key(speaker) {
+                // E352: speaker has a prior utterance, but it did not end
+                // with `+/.` (so it never entered the interruption stack).
+                errors.report(
+                    ParseError::new(
+                        ErrorCode::MissingQuoteEnd,
+                        Severity::Error,
+                        SourceLocation::new(utterance.main.span),
+                        ErrorContext::new(
+                            format!("*{}: +, ...", speaker),
+                            utterance.main.span,
+                            "self-completion linker",
+                        ),
+                        format!(
+                            "Self-completion linker (+,) but preceding same-speaker utterance doesn't end with +/. (interruption terminator) from speaker {}",
+                            speaker
+                        ),
+                    )
+                    .with_suggestion("Change the preceding utterance terminator to +/. to mark it as interrupted")
+                );
+            } else {
+                // E351: no prior utterance from this speaker at all.
+                errors.report(
+                    ParseError::new(
+                        ErrorCode::MissingQuoteBegin,
+                        Severity::Error,
+                        SourceLocation::new(utterance.main.span),
+                        ErrorContext::new(
+                            format!("*{}: +, ...", speaker),
+                            utterance.main.span,
+                            "self-completion linker",
+                        ),
+                        format!(
+                            "Self-completion linker (+,) without any preceding utterance from same speaker ({})",
+                            speaker
+                        ),
+                    )
+                    .with_suggestion("Self-completion is used to resume an interrupted utterance; ensure there's a prior interrupted utterance with +/. terminator")
+                );
             }
         }
 
-        // Check if this utterance ends with interruption terminator (+/.)
+        // Record this utterance as the most recent for its speaker.
+        last_seen.insert(speaker, idx);
+
+        // If it ends with `+/.`, also push onto the interruption stack.
         if let Some(ref term) = utterance.main.content.terminator
             && matches!(term, Terminator::Interruption { .. })
         {
@@ -191,7 +212,6 @@ pub(super) fn check_self_completion(utterances: &[Utterance], idx: usize) -> Vec
 /// Validate one `++` other-completion linker usage.
 ///
 /// Requires: Most recent utterance by DIFFERENT speaker ended with +... (trailing off)
-#[allow(dead_code)]
 pub(super) fn check_other_completion(utterances: &[Utterance], idx: usize) -> Vec<ParseError> {
     let mut errors = Vec::new();
     let utterance = &utterances[idx];

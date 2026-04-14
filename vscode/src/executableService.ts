@@ -91,17 +91,17 @@ export class ExecutableService implements
             return configuredPath;
         }
 
-        const pathBinary = this.findOnPath('chatter');
+        const pathBinary = this.findOnPath('talkbank-lsp');
         if (pathBinary && this.fsOps.existsSync(pathBinary)) {
             return pathBinary;
         }
 
-        const localBuild = this.findExtensionTargetBinary(context, 'chatter');
+        const localBuild = this.findExtensionTargetBinary(context, 'talkbank-lsp');
         if (localBuild) {
             return localBuild;
         }
 
-        return this.defaultExtensionBinaryPath(context, 'chatter');
+        return this.defaultExtensionBinaryPath(context, 'talkbank-lsp');
     }
 
     async findSend2ClanBinary(startPath?: string | null): Promise<string | null> {

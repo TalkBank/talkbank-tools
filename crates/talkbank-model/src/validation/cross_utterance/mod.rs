@@ -124,8 +124,13 @@ pub(crate) fn check_cross_utterance_patterns_with_sink(
             errors.report_all(quoted_linker::check_quoted_linker(utterances, idx));
         }
 
-        // Other-completion linker (++) - temporarily disabled.
-        // See module-level documentation for rationale.
+        // Other-completion linker (++) — gated behind runtime flag.
+        // See module-level documentation for rationale on default-disabled state.
+        if context.shared.enable_quotation_validation
+            && helpers::has_other_completion_linker(utterance)
+        {
+            errors.report_all(completion::check_other_completion(utterances, idx));
+        }
     }
 
     // Self-completion linker (E352) - O(n) batch validation

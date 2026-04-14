@@ -1,5 +1,7 @@
 # VS Code Extension — TalkBank CHAT Editor
 
+**Last modified:** 2026-04-13 11:14 EDT
+
 ## Overview
 
 VS Code extension providing real-time validation, CLAN analysis, media playback,
@@ -22,8 +24,8 @@ vscode/
 │   └── utils/                 # alignmentSidecar, bulletParser (fallback), mediaResolver, speakerFilter, cliLocator
 ├── syntaxes/chat.tmLanguage.json  # TextMate grammar (fallback highlighting)
 ├── package.json               # Extension manifest (commands, keybindings, menus)
-├── DEVELOPER.md               # 603-line architecture guide (read this first)
-├── GUIDE.md                   # 509-line user guide
+├── DEVELOPER.md               # Architecture guide (read this first)
+├── GUIDE.md                   # User guide
 └── CLAN-FEATURES.md           # Feature parity vs legacy CLAN app
 ```
 
@@ -89,4 +91,4 @@ combo, keymap, mortable, script, rely).
 - `CLAN-FEATURES.md` — feature parity assessment vs macOS CLAN app
 
 ---
-Last Updated: 2026-03-01
+Last Updated: 2026-04-12 06:56 EDT

@@ -1,5 +1,5 @@
 /**
- * Utility for locating the `chatter` binary used for TalkBank LSP activation.
+ * Utility for locating the `talkbank-lsp` binary used for TalkBank LSP activation.
  */
 
 import type * as vscode from 'vscode';
@@ -7,7 +7,8 @@ import type * as vscode from 'vscode';
 import type { ExtensionRuntimeServices } from '../runtimeServices';
 
 /**
- * Find the `chatter` binary used to launch `chatter lsp` for the VS Code extension.
+ * Find the standalone `talkbank-lsp` binary that the VS Code extension spawns
+ * as its language server. Ships alongside `chatter` in the release archive.
  *
  * @param context - Extension activation context.
  * @returns Absolute path to the LSP server binary.

@@ -104,15 +104,18 @@ pub(super) fn find_header_node_in_tree(root: Node, index: usize) -> ParseResult<
     }
 
     let mut errors = ParseErrors::new();
-    errors.push(ParseError::new(
-        ErrorCode::TierValidationError,
-        Severity::Error,
-        SourceLocation::at_offset(0),
-        ErrorContext::new("", 0..0, ""),
-        format!(
-            "Header {} not found in CST (found {} headers)",
-            index, found_count
-        ),
-    ));
+    errors.push(
+        ParseError::new(
+            ErrorCode::TierValidationError,
+            Severity::Error,
+            SourceLocation::at_offset(0),
+            ErrorContext::new("", 0..0, ""),
+            format!(
+                "Tier validation error: header at index {} not found in CST (only {} headers present)",
+                index, found_count
+            ),
+        )
+        .with_suggestion("Check that all header lines are well-formed and appear before utterances"),
+    );
     Err(errors)
 }

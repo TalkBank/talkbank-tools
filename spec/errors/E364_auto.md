@@ -1,12 +1,13 @@
-# E364: Auto-generated from corpus
+# E364: Malformed word content
 
 ## Description
 
-Auto-generated from corpus
+Word content is structurally malformed — the parser recognized a word node but its internal structure is invalid (e.g., `@s:+` with `+` instead of a language code).
 
 ## Metadata
 - **Status**: not_implemented
-- **Last updated**: 2026-04-04 08:15 EDT
+- **Last updated**: 2026-04-13 14:42 EDT
+- **Status note**: Difficult to trigger via tree-sitter parser. E364 requires tree-sitter to insert a MISSING node where a word is expected, creating a structurally valid word node with malformed internal content. Tree-sitter's error recovery typically produces E316 (unparsable content), E305 (empty utterance), or more specific error codes instead. The `@s:+` example triggers E246+E249, not E364. An utterance with only a terminator (` .`) triggers E305. The re2c parser may reach this code path.
 
 - **Error Code**: E364
 - **Category**: validation
@@ -36,13 +37,20 @@ not a valid language code. This triggers E246 (LengtheningMarkerPosition, since
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The parser should report E364 when a word node is structurally recognized
+by tree-sitter but has malformed internal content. However, tree-sitter's
+error recovery typically produces other, more specific error codes.
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+See CHAT manual on word structure. Words must have valid content including
+any special markers (`@s:`, `@l`, etc.).
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E364 check exists in the parser but requires a specific tree-sitter error
+  recovery pattern (MISSING node in word position) that is hard to trigger
+- The `@s:+` example produces E246 (LengtheningMarkerPosition) and E249
+  (MissingLanguageContext), not E364
+- A space-only utterance (`*CHI:  .`) produces E305 (EmptyUtterance)
+- The re2c parser may have different error recovery producing E364

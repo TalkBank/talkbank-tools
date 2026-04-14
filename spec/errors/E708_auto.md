@@ -6,18 +6,11 @@ A grammar relation on the `%gra` tier is malformed — missing an index, head,
 or relation label, or containing non-integer values where integers are expected.
 The `%gra` tier format is `index|head|RELATION` for each word.
 
-**Validation not yet implemented for this spec example.** The example has
-`|2|SUBJ 2|0|ROOT` where the first relation has an empty index field. The
-`MalformedGrammarRelation` check in `crates/talkbank-parser/src/parser/tier_parsers/gra/relation.rs`
-does fire for missing or invalid indices, but the tree-sitter grammar may parse
-`|2|SUBJ` differently than expected — the leading `|` may cause the grammar to
-not recognize this as a GRA relation at all, producing a different error or
-no error.
-
 ## Metadata
 - **Status**: not_implemented
-- **Last updated**: 2026-04-04 08:15 EDT
+- **Last updated**: 2026-04-13 14:42 EDT
 - **Layer**: validation
+- **Status note**: Unreachable via tree-sitter parser. The grammar rule `gra_index: $ => /[0-9]+/` pre-validates that indices are numeric, so non-integer indices cause a tier-level ERROR node (E600) before relation-level parsing runs. The `MalformedGrammarRelation` code path in `gra/relation.rs` would fire for parse failures of structurally-valid GRA relation nodes, but tree-sitter's strict regex prevents such nodes from being created with invalid index/head content. The re2c parser may reach this code path.
 
 - **Error Code**: E708
 - **Category**: Dependent tier parsing
@@ -61,7 +54,9 @@ available at: https://talkbank.org/0info/manuals/CHAT.pdf
 ## Notes
 
 - Validation logic exists in `gra/relation.rs` with multiple emission points
+- The grammar requires `gra_index` and `gra_head` to match `[0-9]+`, so
+  non-numeric indices never create a `gra_relation` CST node
 - The example has `|2|SUBJ` (missing index / leading pipe) which the grammar
-  may not parse as a GRA relation node at all
-- The code IS emitted in the codebase for malformed GRA relations that the
-  grammar does recognize as relation nodes
+  does not parse as a GRA relation node at all — it becomes an ERROR node
+- The code IS emitted in the codebase for malformed GRA relations, but the
+  tree-sitter grammar's strict regex pre-validates the content

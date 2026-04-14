@@ -36,12 +36,12 @@ impl Validate for Utterance {
                     crate::SourceLocation::new(self.main.speaker_span),
                     crate::ErrorContext::new(speaker_str, self.main.speaker_span, speaker_str),
                     format!(
-                        "Utterance uses speaker '{}' not declared in @Participants",
+                        "Speaker '{}' used on main tier but not declared in @Participants",
                         speaker_str
                     ),
                 )
                 .with_suggestion(format!(
-                    "Add '{}' to @Participants header or use a different speaker code",
+                    "Add '{}' to the @Participants line, or correct the speaker code on this utterance",
                     speaker_str
                 )),
             );

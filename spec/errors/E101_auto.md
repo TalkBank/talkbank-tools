@@ -12,6 +12,7 @@ not reach E101 detection.
 
 ## Metadata
 - **Status**: not_implemented
+- **Status note**: Unreachable via tree-sitter parser. E101 (InvalidLineFormat) is defined in the error code enum but is not emitted by any production code path; it is only referenced by the CLAN CHECK error mapping in `error_map.rs`. The tree-sitter parser routes unrecognizable lines through header validation (E501-E504) or more specific parser-recovery codes (E319, E320, E321). The example's missing `@UTF8`/`@Participants`/`@ID` scaffolding causes E501-E504 to fire instead.
 
 - **Error Code**: E101
 - **Category**: validation

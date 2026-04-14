@@ -11,7 +11,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::cli::OutputFormat;
-use crate::output::print_errors;
+use crate::output::{CASCADING_HINT, print_errors, should_show_cascading_hint};
 use talkbank_model::ParseError;
 
 /// Format validation results according to the requested output style (JSON or human-readable text).
@@ -56,6 +56,12 @@ pub(super) fn output_validation_result(
             json_output["cached"] = serde_json::json!(true);
         }
 
+        if should_show_cascading_hint(errors) {
+            json_output["note"] = serde_json::json!(
+                "Some additional checks may not have run because of structural errors. Fix the structural errors first, then re-validate."
+            );
+        }
+
         match serde_json::to_string_pretty(&json_output) {
             Ok(serialized) => println!("{}", serialized),
             Err(err) => eprintln!("Error serializing JSON output: {}", err),
@@ -76,6 +82,10 @@ pub(super) fn output_validation_result(
                 Ok(content) => print_errors(path, &content, errors),
                 Err(err) => eprintln!("Error reading {}: {}", path.display(), err),
             }
+        }
+
+        if !quiet && should_show_cascading_hint(errors) {
+            eprintln!("{}", CASCADING_HINT);
         }
     }
 }

@@ -235,6 +235,7 @@ fn retrace_with_replacement_does_not_cause_e705() {
     let options = ParseValidateOptions {
         validate: true,
         alignment: true,
+        strict_linkers: false,
     };
 
     let result = talkbank_transform::parse_and_validate(chat, options);

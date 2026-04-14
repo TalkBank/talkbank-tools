@@ -18,7 +18,11 @@ fn listed_commands(help: &str) -> BTreeSet<String> {
 
     for line in help.lines() {
         let trimmed = line.trim();
-        if trimmed == "Commands:" {
+        if trimmed == "Commands:" || trimmed.ends_with("Commands:")
+            || trimmed.ends_with("Converters:")
+            || trimmed.ends_with("Aliases:")
+            || trimmed.starts_with("Not Available")
+        {
             in_commands = true;
             continue;
         }

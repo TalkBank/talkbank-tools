@@ -1,6 +1,6 @@
 # LSP Connection
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-04-13 20:34 EDT
 
 The TalkBank extension is powered by a Rust language server (`talkbank-lsp`) that communicates with VS Code over stdio. If the language server fails to start or crashes, most extension features will not work. This chapter covers how to diagnose and fix LSP connection issues.
 
@@ -20,19 +20,19 @@ This shows the LSP communication logs and any server stderr output. Look for:
 
 ## Binary Not Found
 
-**Symptom:** The Output panel shows an error about not finding the `chatter` binary.
+**Symptom:** The Output panel shows an error about not finding the `talkbank-lsp` binary.
 
-The extension searches for the binary in three locations, then launches it with the `lsp` subcommand:
+The extension searches for the standalone language-server binary in three locations:
 
-1. **System PATH** -- runs `which chatter` (or `where chatter` on Windows)
-2. **`target/debug/chatter`** -- relative to the extension directory (development builds)
-3. **`target/release/chatter`** -- relative to the extension directory (release builds)
+1. **System PATH** -- runs `which talkbank-lsp` (or `where talkbank-lsp` on Windows)
+2. **`target/debug/talkbank-lsp`** -- relative to the extension directory (development builds)
+3. **`target/release/talkbank-lsp`** -- relative to the extension directory (release builds)
 
 **Fixes:**
 
-- Build the binary: `cargo build -p talkbank-cli` (debug) or `cargo build --release -p talkbank-cli` (release)
-- Or set `talkbank.lsp.binaryPath` in your settings to the absolute path of the `chatter` binary
-- Verify the binary exists and is executable: `which chatter` or `ls -la target/release/chatter`
+- Build the binary: `cargo build -p talkbank-lsp` (debug) or `cargo build --release -p talkbank-lsp` (release)
+- Or set `talkbank.lsp.binaryPath` in your settings to the absolute path of the `talkbank-lsp` binary
+- Verify the binary exists and is executable: `which talkbank-lsp` or `ls -la target/release/talkbank-lsp`
 
 ## Enabling Trace Logging
 

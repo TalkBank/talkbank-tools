@@ -35,11 +35,10 @@ fn test_other_completion_valid() {
     );
 }
 
-/// Other-completion without a preceding utterance triggers `E353` (currently ignored).
+/// Other-completion without a preceding utterance triggers `E353`.
 ///
-/// Kept as TDD coverage while the rule is not yet implemented.
+/// Activated by `--strict-linkers` flag (sets `enable_quotation_validation`).
 #[test]
-#[ignore = "TDD gap test - other-completion validation not yet implemented"]
 fn test_e353_other_completion_no_preceding() {
     let utterances = vec![make_utterance(
         "WIN",
@@ -53,11 +52,11 @@ fn test_e353_other_completion_no_preceding() {
     assert_eq!(errors[0].code.as_str(), "E353");
 }
 
-/// Wrong source terminator for other-completion triggers `E354` (currently ignored).
+/// Wrong source terminator for other-completion triggers `E354`.
 ///
 /// The source utterance should end with trailing-off marker `+...`.
+/// Activated by `--strict-linkers` flag.
 #[test]
-#[ignore = "TDD gap test - other-completion validation not yet implemented"]
 fn test_e354_other_completion_wrong_terminator() {
     let utterances = vec![
         make_utterance(
@@ -80,11 +79,11 @@ fn test_e354_other_completion_wrong_terminator() {
     assert!(errors[0].message.contains("doesn't end with +..."));
 }
 
-/// Same-speaker other-completion triggers `E355` (currently ignored).
+/// Same-speaker other-completion triggers `E355`.
 ///
 /// Other-completion requires speaker change between source and completion utterances.
+/// Activated by `--strict-linkers` flag.
 #[test]
-#[ignore = "TDD gap test - other-completion validation not yet implemented"]
 fn test_e355_other_completion_same_speaker() {
     let utterances = vec![
         make_utterance(

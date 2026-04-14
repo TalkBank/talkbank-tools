@@ -12,7 +12,7 @@
 - **Category**: validation
 - **Level**: tier
 - **Layer**: validation
-- **Status**: not_implemented
+- **Status**: implemented
 
 ## Example 1
 
@@ -28,7 +28,7 @@
 @ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	I want cookie .
 %mor:	pro|I v|want n|cookie .
-%gra:	1|1|ROOT 2|2|ROOT 3|1|PUNCT
+%gra:	1|1|ROOT 2|2|ROOT 3|1|OBJ 4|1|PUNCT
 @End
 ```
 

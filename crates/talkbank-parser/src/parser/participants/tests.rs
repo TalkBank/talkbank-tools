@@ -90,7 +90,7 @@ fn test_e522_missing_id() {
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].code.to_string(), "E522");
     assert!(errors[0].message.contains("CHI"));
-    assert!(errors[0].message.contains("no @ID header"));
+    assert!(errors[0].message.contains("no matching @ID header"));
 }
 
 /// Tests e523 orphan id.

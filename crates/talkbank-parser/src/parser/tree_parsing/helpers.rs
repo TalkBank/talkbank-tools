@@ -28,10 +28,10 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, context: &str) -> Par
                 Severity::Error,
                 SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
                 ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
-                format!("Could not decode parse error node as UTF-8 in {}", context),
+                format!("Unparsable content in {}: node bytes are not valid UTF-8", context),
             )
             .with_suggestion(
-                "Ensure input bytes match the parsed source span before error analysis",
+                "Ensure the file is saved as valid UTF-8 encoding",
             );
         }
     };
@@ -147,14 +147,14 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, context: &str) -> Par
             error_text_clean,
         ),
         format!(
-            "Could not parse '{}' in {}",
+            "Unparsable content in {}: '{}'",
+            context,
             if error_text.chars().count() > 30 {
                 let truncated: String = error_text.chars().take(30).collect();
                 format!("{}...", truncated)
             } else {
                 error_text.to_string()
             },
-            context
         ),
     )
     .with_suggestion("Check CHAT format specification for valid syntax in this context")

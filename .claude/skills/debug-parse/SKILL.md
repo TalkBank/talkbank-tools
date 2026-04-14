@@ -86,7 +86,7 @@ Run full corpus check:
 ```bash
 cd $REPO_ROOT
 cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
-# Must be: 73 passed, 0 failed
+# Must be: 93 passed, 0 failed
 ```
 
 ## Step 6: Roundtrip Test

@@ -41,11 +41,10 @@ fn test_self_completion_valid() {
     );
 }
 
-/// Self-completion with no prior utterance triggers `E351` (currently ignored).
+/// Self-completion with no prior utterance triggers `E351`.
 ///
-/// Kept as a TDD regression fixture for eventual rule reactivation.
+/// Activated by `--strict-linkers` flag (sets `enable_quotation_validation`).
 #[test]
-#[ignore = "E351 validation disabled (2025-12-24) - see cross_utterance/mod.rs for rationale"]
 fn test_e351_self_completion_no_preceding_utterance() {
     let utterances = vec![make_utterance(
         "CHI",
@@ -64,11 +63,18 @@ fn test_e351_self_completion_no_preceding_utterance() {
     );
 }
 
-/// Wrong terminator on source utterance triggers `E352` (currently ignored).
+/// Wrong terminator on source utterance triggers `E352`.
 ///
 /// Self-completion source is expected to end with interruption marker `+/.`.
+/// Activated by `--strict-linkers` flag.
+///
+/// The O(n) stack-based algorithm in `check_self_completion_all` tracks both
+/// (a) a per-speaker stack of interruption indices (for O(1) `+/.` matching)
+/// and (b) a per-speaker "last seen index" regardless of terminator. When a
+/// `+,` has no matching `+/.` on the stack but the speaker has been seen
+/// before, the algorithm emits E352 (wrong terminator). If the speaker has
+/// never been seen, it emits E351 (no preceding utterance).
 #[test]
-#[ignore = "E352 validation disabled (2025-12-24) - see cross_utterance/mod.rs for rationale"]
 fn test_e352_self_completion_wrong_terminator() {
     let utterances = vec![
         make_utterance(

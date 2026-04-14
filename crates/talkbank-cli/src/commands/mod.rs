@@ -8,7 +8,6 @@
 //! - `watch` - Continuous validation on file changes
 //! - `lint` - Auto-fixable issue detection and repair
 //! - `cache` - Cache management (stats, clear)
-//! - `lsp` - published `chatter lsp` language-server entrypoint
 //! - `new_file` - Create new minimal valid CHAT files
 //!
 //! # Related CHAT Manual Sections
@@ -26,7 +25,7 @@ pub mod debug;
 mod dispatch;
 pub mod json;
 pub mod lint;
-pub mod lsp;
+pub mod list_checks;
 pub mod new_file;
 pub mod normalize;
 pub mod schema;
@@ -40,7 +39,6 @@ pub use clean::clean_file;
 pub use dispatch::{CommandContext, dispatch_command};
 pub use json::{chat_to_json, json_to_chat};
 pub use lint::lint_files;
-pub use lsp::run_lsp;
 pub use new_file::create_new_file;
 pub use normalize::normalize_chat;
 pub use schema::run_schema;

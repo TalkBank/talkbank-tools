@@ -101,7 +101,7 @@ pub fn parse_id_header(node: Node, source: &str, errors: &impl ErrorSink) -> Hea
         source,
         errors,
         ErrorCode::EmptyIDRole,
-        "Missing id_role field in @ID header",
+        "Empty role field in @ID header: the role (8th field) must not be blank",
     );
 
     let education = parse_optional_text_field(

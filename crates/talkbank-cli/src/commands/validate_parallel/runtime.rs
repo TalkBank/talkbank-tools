@@ -44,6 +44,7 @@ pub fn run_validation_runtime(
         },
         roundtrip: rules.roundtrip.enabled(),
         parser_kind: rules.parser_kind,
+        strict_linkers: rules.strict_linkers,
     };
 
     let cache = initialize_validation_cache(path, execution.cache_refresh);

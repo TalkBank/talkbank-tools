@@ -90,3 +90,9 @@ mod structural_roundtrip_gra;
 mod structural_roundtrip_main;
 mod structural_roundtrip_mor;
 mod word_parsing;
+
+// Domain-property suites (span math, alignment, error codes)
+mod alignment_count_properties;
+mod error_code_properties;
+mod span_properties;
+mod span_shift_properties;

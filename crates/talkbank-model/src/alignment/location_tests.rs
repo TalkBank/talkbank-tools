@@ -197,7 +197,9 @@ fn test_wor_alignment_never_emits_errors_on_too_many() {
     // Wor tier has 3 words, main tier has only 1 — no errors expected.
     let main = MainTier::new(
         "CHI",
-        vec![UtteranceContent::Word(Box::new(Word::new_unchecked("one", "one")))],
+        vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
+            "one", "one",
+        )))],
         Terminator::Period { span: Span::DUMMY },
     )
     .with_span(Span::from_usize(0, 15));

@@ -149,7 +149,7 @@
         "talkbank.lsp.binaryPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the chatter binary. Leave empty to auto-detect chatter from PATH or target/ directory and launch it with the lsp subcommand."
+          "description": "Absolute path to the talkbank-lsp binary. Leave empty to auto-detect from PATH or the talkbank-tools target/ directory."
         },
         "talkbank.inlayHints.enabled": {
           "type": "boolean",

@@ -3,7 +3,6 @@
 @Languages:	eng
 @Participants:	CHI Target_Child
 @ID:	eng|corpus|CHI|||||Target_Child|||
-@Comment:	ERROR: Dependent tier without preceding main tier
-@Comment:	Invalid: %mor without *CHI:
-%mor:	pro|I v|want n|cookie .
+%mor:	co|hello .
+*CHI:	hello .
 @End

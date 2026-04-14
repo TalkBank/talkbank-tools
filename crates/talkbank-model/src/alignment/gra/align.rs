@@ -43,7 +43,12 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
         alignment = alignment.with_pair(GraAlignmentPair::new(Some(i), Some(i)));
     }
 
-    // Handle length mismatch
+    // Handle length mismatch.
+    //
+    // Emit E720 (MorGraCountMismatch) for count disagreements between
+    // %mor chunks and %gra relations. E712 (GraInvalidWordIndex) and E713
+    // (GraInvalidHeadIndex) are reserved for per-relation validation
+    // (explicit word/head indices that fall outside the valid range) below.
     if mor_chunk_count > gra_count {
         // %mor has more chunks - %gra tier too short
         let mor_items = extract_mor_chunk_items(mor);
@@ -52,7 +57,7 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
             format_positional_mismatch("%mor chunks", "%gra relations", &mor_items, &gra_items);
 
         let error = ParseError::at_span(
-            ErrorCode::GraInvalidWordIndex,
+            ErrorCode::MorGraCountMismatch,
             Severity::Error,
             mor.span,
             detailed_message,
@@ -75,7 +80,7 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
             format_positional_mismatch("%mor chunks", "%gra relations", &mor_items, &gra_items);
 
         let error = ParseError::at_span(
-            ErrorCode::GraInvalidHeadIndex,
+            ErrorCode::MorGraCountMismatch,
             Severity::Error,
             mor.span,
             detailed_message,

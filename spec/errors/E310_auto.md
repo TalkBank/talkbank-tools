@@ -17,6 +17,7 @@ missing utterances.
 - **Status**: not_implemented
 - **Last updated**: 2026-04-04 08:15 EDT
 - **Layer**: validation
+- **Status note**: Unreachable via tree-sitter parser for any parseable input. E310 (ParseFailed) fires only when tree-sitter's `parse()` returns `None` (e.g., timeout or cancellation) or when the parse outcome is `Rejected` with an empty error list. Tree-sitter's error recovery produces a CST for essentially any textual input, so this path cannot be exercised from a CHAT fragment. The example parses successfully as a headers-only file and produces no errors.
 
 - **Error Code**: E310
 - **Category**: Main tier validation

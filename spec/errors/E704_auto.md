@@ -5,7 +5,7 @@
 A single speaker has consecutive utterances with overlap markers (`⌈⌉`/`⌊⌋`) that overlap with each other. Overlap markers should indicate simultaneous speech between **different** speakers, not self-overlap.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E704
 - **Category**: validation
@@ -36,12 +36,12 @@ same-speaker layered annotation. See `docs/overlap-validation-audit.md` in talkb
 @End
 ```
 
-## Example 2: Corpus — Spanish CA data
+## Corpus Evidence: Spanish CA data
 
 **Trigger**: Same speaker with overlapping timing in consecutive utterances
 **Corpus**: slabank-data, ca-data
 
-```chat
+```text
 *M2:	⌊ hhh hhh ⌋ no pude ir al mall ...
 *S2:	⌊ eight thirty ⌋ .
 ```

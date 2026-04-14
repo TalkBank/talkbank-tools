@@ -1,11 +1,11 @@
-# E388: Auto-generated from corpus
+# E388: Replacement on non-word
 
 ## Description
 
-Auto-generated from corpus
+Replacement annotation `[: ...]` is attached to a non-word element (e.g., a paralinguistic event like `&=laugh`), which cannot be replaced.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E388

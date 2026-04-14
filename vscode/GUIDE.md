@@ -1,7 +1,7 @@
 # TalkBank CHAT for VS Code — User Guide
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-04-13 20:34 EDT
 
 A comprehensive language extension for editing and validating CHAT transcription files (`.cha`) inside Visual Studio Code. The extension provides real-time validation, cross-tier alignment visualization, dependency graph rendering, and deep IDE integration with the CHAT format used by TalkBank, CHILDES, and related corpora.
 
@@ -103,7 +103,7 @@ npm run compile
 code --extensionDevelopmentPath=.
 ```
 
-The extension activates automatically when you open any `.cha` file. It searches for the `chatter` binary on your system PATH first, then falls back to `target/debug/` or `target/release/` relative to the project root and launches the server with `chatter lsp`.
+The extension activates automatically when you open any `.cha` file. It searches for the standalone `talkbank-lsp` binary on your system PATH first, then falls back to `target/debug/` or `target/release/` relative to the project root.
 
 ---
 
@@ -1071,7 +1071,7 @@ The extension exposes the following settings (accessible via `Cmd+,` / `Ctrl+,` 
 | **Validation** | | | |
 | `talkbank.validation.severity` | string | `"all"` | Filter which diagnostics are shown: `"all"`, `"errorsOnly"`, or `"errorsAndWarnings"` |
 | **Advanced** | | | |
-| `talkbank.lsp.binaryPath` | string | — | Override the auto-detected `chatter` binary path used for `chatter lsp` |
+| `talkbank.lsp.binaryPath` | string | — | Override the auto-detected `talkbank-lsp` binary path |
 
 ---
 
@@ -1079,10 +1079,10 @@ The extension exposes the following settings (accessible via `Cmd+,` / `Ctrl+,` 
 
 ### The language server isn't starting
 
-The extension looks for the `chatter` binary in three places, then launches it with `lsp`:
-1. System PATH (via `which chatter`)
-2. `target/debug/chatter` relative to the extension directory
-3. `target/release/chatter` relative to the extension directory
+The extension looks for the standalone `talkbank-lsp` binary in three places:
+1. System PATH (via `which talkbank-lsp`)
+2. `target/debug/talkbank-lsp` relative to the extension directory
+3. `target/release/talkbank-lsp` relative to the extension directory
 
 Make sure you've built it:
 

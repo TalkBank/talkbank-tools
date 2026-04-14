@@ -158,7 +158,7 @@ fn check_invalid_file_exits_one_with_warning() -> Result<(), TestError> {
 
     assert_exit_code(&output, 1, "invalid CHECK should fail");
     assert!(
-        stdout_string(&output).contains("Missing required @End header(7)"),
+        stdout_string(&output).contains("Missing @End header at end of file(7)"),
         "expected missing @End diagnostic, got `{}`",
         stdout_string(&output)
     );
@@ -226,7 +226,7 @@ fn check_directory_reports_errors_across_files() -> Result<(), TestError> {
 
     assert_exit_code(&output, 1, "directory with broken file should fail");
     assert!(
-        stdout_string(&output).contains("Missing required @End header"),
+        stdout_string(&output).contains("Missing @End header at end of file"),
         "expected @End error in output, got `{}`",
         stdout_string(&output)
     );

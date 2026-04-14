@@ -125,6 +125,15 @@ pub fn impl_error_code_enum(input: TokenStream) -> TokenStream {
         }
     });
 
+    // Generate the const slice of every variant for iteration.
+    // Lets callers enumerate every known code without hand-maintaining a list.
+    let all_variants = variants_with_codes.iter().map(|(variant_name, _, _)| {
+        quote! {
+            #enum_name::#variant_name
+        }
+    });
+    let variant_count = variants_with_codes.len();
+
     quote! {
         #(#attrs)*
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -153,6 +162,23 @@ pub fn impl_error_code_enum(input: TokenStream) -> TokenStream {
             /// Return a stable documentation URL for this code.
             pub fn documentation_url(&self) -> String {
                 format!("https://talkbank.org/errors/{}", self.as_str())
+            }
+
+            /// Return every known variant in declaration order.
+            ///
+            /// Used by tooling that needs to enumerate all codes (e.g., the
+            /// `chatter validate --list-checks` flag). The returned slice is
+            /// `'static` — callers do not need to allocate.
+            pub fn all() -> &'static [Self; #variant_count] {
+                const ALL: [#enum_name; #variant_count] = [
+                    #(#all_variants,)*
+                ];
+                &ALL
+            }
+
+            /// Iterator over every known variant in declaration order.
+            pub fn iter() -> std::slice::Iter<'static, Self> {
+                Self::all().iter()
             }
         }
 

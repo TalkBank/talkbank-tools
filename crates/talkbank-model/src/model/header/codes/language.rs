@@ -232,10 +232,7 @@ impl Validate for LanguageCode {
                     Severity::Error,
                     SourceLocation::at_offset(0),
                     ErrorContext::new(self.as_str(), 0..self.0.len(), "language_code"),
-                    format!(
-                        "Language code '{}' is a disallowed placeholder",
-                        self.0
-                    ),
+                    format!("Language code '{}' is a disallowed placeholder", self.0),
                 )
                 .with_suggestion(
                     "Use a valid ISO 639-3 code (e.g., eng, spa, deu) in @Languages and @ID",

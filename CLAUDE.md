@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-30 09:57 EDT
+**Last modified:** 2026-04-13 11:14 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -65,14 +65,16 @@ No special setup beyond a working Rust toolchain. `cargo run` handles incrementa
 ## Build, Test, and Lint
 
 ```bash
-# Monorepo-level
+# Monorepo-level (run `make help` for all 29 targets)
 make build          # Generate symbols + build Rust workspace
 make test           # Rust workspace tests + doctests + spec tools
 make check          # Fast compile check (both workspaces)
-make verify         # Canonical pre-merge gates (G0–G10)
+make verify         # Canonical pre-merge gates (G0–G11)
 make test-gen       # Regenerate tests from specs
 make smoke CRATE=x  # Fast: compile check + test one crate
 make check-specs    # Verify every error code has a spec file
+make ci-local       # Quick local CI approximation
+make coverage       # Code coverage report
 
 # Rust workspace
 cargo fmt
@@ -130,8 +132,8 @@ spec/           Source of truth: CHAT specification
   tools/          Generators (separate Cargo workspace)
 
 crates/         All Rust crates (see below)
-corpus/         Reference corpus (74 files, must pass 100%)
-  reference/      Sacred 74-file set (20 languages, 100% coverage)
+corpus/         Reference corpus (88 files, must pass 100%)
+  reference/      Sacred 88-file set (20 languages, 100% coverage)
 tests/          Integration tests and fixtures
 schema/         JSON Schema for ChatFile AST
 vscode/         VS Code extension (TypeScript)
@@ -152,15 +154,18 @@ flowchart TD
     lsp["talkbank-lsp\nLanguage Server Protocol"]
     s2c["send2clan-sys\nFFI to CLAN app"]
     desktop["chatter-desktop\nDesktop validation app (Tauri)"]
+    re2c["talkbank-re2c-parser\nAlternate parser (equivalence oracle)"]
     tests["talkbank-parser-tests\nEquivalence tests"]
 
     derive --> model
     model --> parser
+    model --> re2c
     parser --> transform
     transform --> clan & cli & lsp & desktop
     clan --> cli & lsp
     s2c --> cli & desktop
     parser --> tests
+    re2c --> tests
 ```
 
 Downstream consumer: `batchalign3` (path deps to this workspace's crates).
@@ -177,8 +182,10 @@ Downstream consumer: `batchalign3` (path deps to this workspace's crates).
 | `talkbank-cli` | `cli/`, `commands/`, `ui/` | `chatter` binary: validate, normalize, to-json, clan dispatch |
 | `talkbank-lsp` | `backend/`, `alignment/`, `graph/` | LSP server with tree-sitter incremental parsing |
 | `send2clan-sys` | `ffi.rs`, `api/` | C FFI to CLAN app (macOS Apple Events, Windows WM_APP) |
+| `talkbank-re2c-parser` | `re2c/`, `lexer.rs`, `parser.rs` | Alternate parser using re2c lexer (equivalence oracle for tree-sitter parser) |
 | `talkbank-parser-tests` | golden word lists, `generated/` | Parser equivalence, roundtrip, property tests |
 | `chatter-desktop` | `commands.rs`, `events.rs` | Native desktop validation app (Tauri v2, React) |
+| `xtask` | `main.rs` | Cargo xtask build helpers (symbol generation, etc.) |
 
 ### Two Cargo Workspaces (plus desktop)
 
@@ -316,7 +323,7 @@ Every `match` on `UtteranceContent` or `BracketedItem` must explicitly list all 
 When CHAT rules refer to "consecutive", "sequential", or "adjacent" items on the main tier, this ALWAYS means **document order via recursive traversal** — NOT adjacent indices in the flat `Vec<UtteranceContent>`. Items inside groups (`<...>`, `"..."`, etc.) are part of the sequence. Always use `walk_words` or equivalent in-order walker, never raw index adjacency.
 
 ### Reference Corpus (100% Required)
-`corpus/reference/` (87 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
+`corpus/reference/` (88 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
 ```bash
 make verify
 cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
@@ -326,7 +333,7 @@ cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
 For any change touching parser, data model, validation, alignment, serialization, or roundtrip logic:
 1. `cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'`
 2. `cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus`
-3. Both must show `73 passed, 0 failed` before any commit.
+3. Both must show `93 passed, 0 failed` before any commit.
 
 ### Pre-Push Gate: `make verify` is MANDATORY
 
@@ -352,7 +359,7 @@ Investigate first. See also: Grammar Change Workflow section.
 
 ### Known Testing Gaps (not_implemented specs)
 
-112 error specs are marked `Status: not_implemented` — the parser/validator
+69 of 190 error specs are marked `Status: not_implemented` — the parser/validator
 does not yet produce the expected error code for the given input. These are
 tracked in `spec/errors/` files with `- **Status**: not_implemented`.
 
@@ -700,12 +707,12 @@ See `crates/talkbank-re2c-parser/docs/parity-report.md` for detailed metrics.
 - Do not delete the validation cache (`~/Library/Caches/talkbank-chat/` on macOS, `~/.cache/talkbank-chat/` on Linux, `%LocalAppData%\talkbank-chat\` on Windows) without explicit request.
 - Rust edition 2024.
 
-## See Also
+## Sub-Project CLAUDE.md Files
 
-- `desktop/CLAUDE.md` — Desktop validation app (Tauri v2, React) — **mandates TUI parity**
-- `vscode/CLAUDE.md` — VS Code extension (TypeScript)
-- `spec/CLAUDE.md` — specification structure and templates
-- `grammar/CLAUDE.md` — tree-sitter grammar design patterns
-
----
-Last Updated: 2026-03-23
+| File | Scope |
+|------|-------|
+| `grammar/CLAUDE.md` | Tree-sitter grammar design, 4-step verification, strict+catch-all pattern |
+| `spec/CLAUDE.md` | Specification structure, templates, `make test-gen` workflow |
+| `spec/tools/CLAUDE.md` | Spec generator binaries, spec/runtime-tools sibling crate |
+| `vscode/CLAUDE.md` | VS Code extension: CLAN commands, LSP, DOT rendering |
+| `desktop/CLAUDE.md` | Desktop app (Tauri v2, React) — **mandates TUI parity** |

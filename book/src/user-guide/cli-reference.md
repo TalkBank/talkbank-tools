@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-03-26 14:38 EDT
+**Last updated:** 2026-04-13 19:23 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -181,9 +181,20 @@ Legacy CLAN `+flag` syntax is accepted where documented by the command help, but
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success |
-| `1` | Validation or processing failure |
-| `2` | CLI usage error |
+| `0` | Success -- all files valid, or command completed without errors |
+| `1` | Failure -- validation errors found, parse errors, or command failed |
+| `2` | Usage error -- invalid arguments or missing required options (from clap) |
+
+`chatter validate` exits with code 1 if **any** file has validation errors
+or parse errors. This makes it safe to use in scripts and CI pipelines:
+
+```bash
+chatter validate corpus/ --quiet --tui-mode disable || echo "Validation failed"
+```
+
+Use `--quiet` to suppress per-file success output while still relying on
+exit codes. Use `--format json` for machine-readable structured output
+(JSON objects go to stdout; exit code still reflects pass/fail).
 
 ## Output Contracts
 

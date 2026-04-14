@@ -97,17 +97,19 @@ export function activateLanguageServer(
     context: vscode.ExtensionContext,
     services: LanguageServerActivationServices,
 ): LanguageClient {
-    const chatterBinary = services.executableService.findTalkbankLspBinary(
+    const lspBinary = services.executableService.findTalkbankLspBinary(
         context,
         services.runtimeContext.getConfiguredLspBinaryPath(),
     );
-    const serverArgs = ['lsp'];
+    // The standalone `talkbank-lsp` binary takes no subcommand — it speaks LSP
+    // over stdio as soon as it starts.
+    const serverArgs: string[] = [];
     const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
     const serverOptions: ServerOptions = {
-        run: { command: chatterBinary, args: serverArgs, transport: TransportKind.stdio } as any,
+        run: { command: lspBinary, args: serverArgs, transport: TransportKind.stdio } as any,
         debug: {
-            command: chatterBinary,
+            command: lspBinary,
             args: serverArgs,
             transport: TransportKind.stdio,
             options: debugOptions

@@ -50,7 +50,6 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
         ErrorCode::UnclosedParenthesis => 28, // Unmatched (
         ErrorCode::UnbalancedOverlap => 24,   // Unmatched <
         ErrorCode::MissingOverlapEnd => 25,   // Unmatched >
-        ErrorCode::UnmatchedContentAnnotationBegin => 22,
         ErrorCode::UnmatchedContentAnnotationEnd => 23,
         ErrorCode::UnmatchedUnderlineBegin => 22,
         ErrorCode::UnmatchedUnderlineEnd => 23,
@@ -94,7 +93,6 @@ pub fn check_error_number(code: &ErrorCode) -> u16 {
 
         // -- Mor/Gra structural --
         ErrorCode::MorParseError => 134, // Illegal — run "mor"
-        ErrorCode::GraParseError => 87,  // Malformed structure
         ErrorCode::InvalidMorphologyFormat => 134,
 
         // -- Annotation errors --

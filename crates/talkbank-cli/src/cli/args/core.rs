@@ -8,7 +8,23 @@ pub use crate::ui::ThemePreset;
 /// TalkBank utilities for CHAT format validation and transformation
 #[derive(Parser)]
 #[command(name = "chatter", version, long_version = concat!(env!("CARGO_PKG_VERSION"), " (build ", env!("BUILD_HASH"), ")"))]
-#[command(about = "Tools for validating and transforming TalkBank CHAT files", long_about = None)]
+#[command(
+    about = "Tools for validating and transforming TalkBank CHAT files",
+    long_about = None,
+    after_long_help = "\
+Getting started:
+  chatter validate myfile.cha          Validate a CHAT file
+  chatter validate corpus/             Validate an entire corpus
+  chatter clan freq myfile.cha         Run frequency analysis
+  chatter to-json myfile.cha           Convert to JSON
+
+Exit codes:
+  0    All files valid / command succeeded
+  1    Validation errors found or command failed
+  2    Invalid arguments or missing required options
+
+Full documentation: https://talkbank.org/tools/"
+)]
 pub struct Cli {
     /// Logging verbosity level (can be repeated: -v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
@@ -102,9 +118,23 @@ pub enum AlignmentTier {
 pub enum Commands {
     /// Validate CHAT file(s)
     Validate {
-        /// Path(s) to CHAT file(s) or directory(ies)
-        #[arg(required = true)]
+        /// Path(s) to CHAT file(s) or directory(ies).
+        ///
+        /// Not required when `--list-checks` is supplied, since that mode
+        /// exits before reading any files.
+        #[arg(required_unless_present = "list_checks")]
         path: Vec<PathBuf>,
+
+        /// Print every validation check and its Active/Planned status, then exit.
+        ///
+        /// Does not read any files. The list is derived from the
+        /// `ErrorCode` enum and a hard-coded Planned list that mirrors
+        /// `spec/errors/*.md` statuses.
+        #[arg(
+            long,
+            help = "List all validation checks with Active/Planned status, then exit"
+        )]
+        list_checks: bool,
 
         /// Output format: text (default) or json
         #[arg(short, long, value_enum, default_value_t = OutputFormat::Text, help = "Validation output style (text|json)")]
@@ -156,6 +186,18 @@ pub enum Commands {
             value_name = "OUTPUT_FILE"
         )]
         audit: Option<PathBuf>,
+
+        /// Enable strict cross-utterance linker validation (E351-E355).
+        ///
+        /// Checks that self-completion (+,) and other-completion (++)
+        /// linkers are paired with the correct preceding terminators
+        /// (+/. and +... respectively). Disabled by default because
+        /// many existing corpora do not follow these strict conventions.
+        #[arg(
+            long = "strict-linkers",
+            help = "Enable strict linker pairing validation (E351-E355)"
+        )]
+        strict_linkers: bool,
 
         /// Suppress error codes or named groups. Suppressed errors are not
         /// reported and do not cause a non-zero exit code.
@@ -383,9 +425,6 @@ pub enum Commands {
         )]
         url: bool,
     },
-
-    /// Run the CHAT language server over stdio
-    Lsp,
 
     /// CLAN analysis and transform commands
     #[command(

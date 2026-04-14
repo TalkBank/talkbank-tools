@@ -59,10 +59,10 @@ pub(crate) fn check_headers(
                 Severity::Error,
                 SourceLocation::at_offset(span.start as usize),
                 ErrorContext::new(*name, 0..name.len(), *name),
-                format!("Duplicate @{} header found ({} occurrences)", name, count),
+                format!("Duplicate @{} header: found {} occurrences, but only one is allowed", name, count),
             )
             .with_suggestion(format!(
-                "Remove duplicate @{} headers - only one allowed per file",
+                "Remove the extra @{} headers so only one remains",
                 name
             ));
             err.location.span = span;
@@ -84,9 +84,12 @@ pub(crate) fn check_headers(
                     Severity::Error,
                     SourceLocation::at_offset(eof_offset),
                     ErrorContext::new("", 0..0, ""),
-                    format!("Missing required @{} header", required),
+                    format!("Missing required @{} header in file preamble", required),
                 )
-                .with_suggestion(format!("Add @{} header to the file", required)),
+                .with_suggestion(format!(
+                    "Add an @{} line to the file header section (before any utterances)",
+                    required
+                )),
             );
         }
     }
@@ -99,9 +102,9 @@ pub(crate) fn check_headers(
                 Severity::Error,
                 SourceLocation::at_offset(eof_offset),
                 ErrorContext::new("", 0..0, ""),
-                "Missing required @UTF8 header",
+                "Missing @UTF8 header: every CHAT file must declare its encoding",
             )
-            .with_suggestion("Add @UTF8 as the first line of the file"),
+            .with_suggestion("Add @UTF8 as the very first line of the file"),
         );
     }
 
@@ -112,9 +115,9 @@ pub(crate) fn check_headers(
                 Severity::Error,
                 SourceLocation::at_offset(eof_offset),
                 ErrorContext::new("", 0..0, ""),
-                "Missing required @End header",
+                "Missing @End header at end of file",
             )
-            .with_suggestion("Add @End header at the end of the file"),
+            .with_suggestion("Add @End as the last line of the file"),
         );
     }
 
@@ -130,12 +133,12 @@ pub(crate) fn check_headers(
                 SourceLocation::at_offset(span.start as usize),
                 ErrorContext::new(speaker_str, 0..speaker_str.len(), speaker_str),
                 format!(
-                    "@ID references speaker '{}' not declared in @Participants",
+                    "Speaker '{}' referenced in @ID header but not declared in @Participants",
                     speaker_str
                 ),
             )
             .with_suggestion(format!(
-                "Add '{}' to @Participants header or remove the @ID header",
+                "Add '{}' to the @Participants line, or remove this @ID header",
                 speaker_str
             ));
             err.location.span = *span;

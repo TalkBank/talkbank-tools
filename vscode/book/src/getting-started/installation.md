@@ -1,6 +1,6 @@
 # Installation
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-04-13 20:34 EDT
 
 This chapter walks you through installing VS Code, the TalkBank CHAT extension,
 and the language server binary that powers it. By the end, you will have a
@@ -14,10 +14,12 @@ real-time validation, and all the features described in this book.
 You need two things:
 
 1. **Visual Studio Code Insiders** version 1.110 or later
-2. **The `chatter` binary** (the language server that powers every feature)
+2. **The `talkbank-lsp` binary** (the language server that powers every feature)
 
 The extension itself is a `.vsix` package installed into VS Code. It
-communicates with `chatter` over stdio using the Language Server Protocol.
+communicates with `talkbank-lsp` over stdio using the Language Server Protocol.
+The `talkbank-lsp` binary ships in the same release archive as the `chatter`
+CLI — installing the release places both on your PATH.
 
 ---
 
@@ -52,20 +54,21 @@ sudo snap install code-insiders --classic
 
 ---
 
-## Step 2: Install the `chatter` Binary
+## Step 2: Install the `talkbank-lsp` Binary
 
-The `chatter` binary is the Rust CLI that includes the language server
-(`chatter lsp`). The extension launches it automatically.
+`talkbank-lsp` is the standalone Rust language server the extension spawns.
+It ships in the same release archive as `chatter` (the CLI) — installing a
+release gives you both binaries.
 
 ### From a release build
 
-If you have a pre-built `chatter` binary, place it somewhere on your system
-PATH:
+If you have a pre-built release archive, place both binaries somewhere on
+your system PATH:
 
 ```bash
 # Example: copy to /usr/local/bin
-cp chatter /usr/local/bin/
-chatter --version
+cp chatter talkbank-lsp /usr/local/bin/
+talkbank-lsp --version
 ```
 
 ### Building from source
@@ -73,17 +76,18 @@ chatter --version
 From the `talkbank-tools` repository root:
 
 ```bash
-cargo build --release -p talkbank-cli
+cargo build --release -p talkbank-lsp -p talkbank-cli
 ```
 
-The binary is at `target/release/chatter`. You can either add `target/release/`
-to your PATH or copy the binary to a standard location.
+The binaries are at `target/release/talkbank-lsp` and `target/release/chatter`.
+You can either add `target/release/` to your PATH or copy the binaries to a
+standard location.
 
 ### Fleet machines (Ansible)
 
-On TalkBank fleet machines, `chatter` is deployed via Ansible. The deploy
-playbook builds the binary and copies it to each machine. You do not need to
-install it manually.
+On TalkBank fleet machines, both `talkbank-lsp` and `chatter` are deployed
+via Ansible. The deploy playbook builds the binaries and copies them to each
+machine. You do not need to install them manually.
 
 ---
 
@@ -92,7 +96,7 @@ install it manually.
 ### Option A: Ansible deployment (fleet machines)
 
 On fleet machines, the extension `.vsix` is deployed automatically alongside
-`chatter`. No manual installation is needed.
+`talkbank-lsp` and `chatter`. No manual installation is needed.
 
 ### Option B: Manual `.vsix` install
 
@@ -147,22 +151,21 @@ If you see plain, uncolored text, the extension did not activate. Check:
 
 ## How the LSP Binary Is Found
 
-When the extension starts, it searches for the `chatter` binary in this order:
+When the extension starts, it searches for the `talkbank-lsp` binary in this order:
 
 1. **`talkbank.lsp.binaryPath` setting** -- if you have set an explicit path in
    VS Code settings, that path is used directly
-2. **System PATH** -- searches for `chatter` using the standard `which` lookup
-3. **`target/debug/chatter`** -- relative to the workspace root (for developers
-   running from the source tree)
-4. **`target/release/chatter`** -- relative to the workspace root
+2. **System PATH** -- searches for `talkbank-lsp` using the standard `which` lookup
+3. **`target/debug/talkbank-lsp`** -- relative to the extension directory (for
+   developers running from the source tree)
+4. **`target/release/talkbank-lsp`** -- relative to the extension directory
 
-The extension launches the binary with the `lsp` subcommand:
-`chatter lsp`. This starts the language server, which communicates with VS Code
-over stdio.
+The binary is spawned with no arguments. It speaks the Language Server Protocol
+over stdio as soon as it starts.
 
 If none of these paths find a valid binary, you will see an error notification.
 Set the `talkbank.lsp.binaryPath` setting to the absolute path of your
-`chatter` binary to resolve this. See [Settings Reference](../configuration/settings.md)
+`talkbank-lsp` binary to resolve this. See [Settings Reference](../configuration/settings.md)
 for details.
 
 ---

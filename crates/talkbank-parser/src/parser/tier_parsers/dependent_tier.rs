@@ -197,7 +197,7 @@ fn extract_tier_from_node(
                         Severity::Error,
                         SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
                         ErrorContext::new(original_input, 0..original_input.len(), original_input),
-                        "Dependent tier prefix is not valid UTF-8",
+                        "Unparsable content: dependent tier prefix is not valid UTF-8",
                     ));
                     return ParseOutcome::rejected();
                 }
@@ -213,7 +213,7 @@ fn extract_tier_from_node(
                         Severity::Error,
                         SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
                         ErrorContext::new(original_input, 0..original_input.len(), original_input),
-                        "Dependent tier content is not valid UTF-8",
+                        "Unparsable content: dependent tier content is not valid UTF-8",
                     ));
                     return ParseOutcome::rejected();
                 }

@@ -97,8 +97,26 @@ pub fn parse_and_validate_with_parser(
     if options.validate || options.alignment {
         let validation_errors = ErrorCollector::new();
 
+        // Build a model-level ValidationConfig when strict-linkers is requested.
+        let model_config = if options.strict_linkers {
+            Some(talkbank_model::ValidationConfig::new().with_strict_linkers())
+        } else {
+            None
+        };
+
         if options.alignment {
-            chat_file.validate_with_alignment(&validation_errors, None);
+            // validate_with_alignment does not accept a config — it calls
+            // validate() internally. For strict-linkers support we fall back
+            // to validate_with_config (which runs the same checks minus
+            // the pre-alignment computation). The alignment pass is implicit
+            // when the ChatFile already has alignments computed.
+            if let Some(config) = model_config {
+                chat_file.validate_with_config(config, &validation_errors, None);
+            } else {
+                chat_file.validate_with_alignment(&validation_errors, None);
+            }
+        } else if let Some(config) = model_config {
+            chat_file.validate_with_config(config, &validation_errors, None);
         } else {
             chat_file.validate(&validation_errors, None);
         }
@@ -178,8 +196,21 @@ pub fn parse_and_validate_streaming_with_parser(
     };
 
     if options.validate || options.alignment {
+        // Build a model-level ValidationConfig when strict-linkers is requested.
+        let model_config = if options.strict_linkers {
+            Some(talkbank_model::ValidationConfig::new().with_strict_linkers())
+        } else {
+            None
+        };
+
         if options.alignment {
-            chat_file.validate_with_alignment(errors, None);
+            if let Some(config) = model_config {
+                chat_file.validate_with_config(config, errors, None);
+            } else {
+                chat_file.validate_with_alignment(errors, None);
+            }
+        } else if let Some(config) = model_config {
+            chat_file.validate_with_config(config, errors, None);
         } else {
             chat_file.validate(errors, None);
         }

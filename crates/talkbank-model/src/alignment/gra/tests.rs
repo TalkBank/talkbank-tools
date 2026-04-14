@@ -68,7 +68,9 @@ fn test_gra_alignment_mor_longer() {
     assert_eq!(alignment.pairs.len(), 3); // 1 valid + 2 placeholders
     assert!(!alignment.is_error_free());
     assert_eq!(alignment.errors.len(), 1);
-    assert_eq!(alignment.errors[0].code.as_str(), "E712");
+    // E720 (MorGraCountMismatch) reflects that the tier cardinalities disagree.
+    // E712/E713 are reserved for per-relation index validation.
+    assert_eq!(alignment.errors[0].code.as_str(), "E720");
 
     // First pair valid, next two are placeholders
     assert!(alignment.pairs[0].is_complete());
@@ -93,7 +95,9 @@ fn test_gra_alignment_gra_longer() {
     assert_eq!(alignment.pairs.len(), 3); // 1 valid + 2 placeholders
     assert!(!alignment.is_error_free());
     assert_eq!(alignment.errors.len(), 1);
-    assert_eq!(alignment.errors[0].code.as_str(), "E713");
+    // E720 (MorGraCountMismatch) reflects that the tier cardinalities disagree.
+    // E712/E713 are reserved for per-relation index validation.
+    assert_eq!(alignment.errors[0].code.as_str(), "E720");
 
     // First pair valid, next two are placeholders
     assert!(alignment.pairs[0].is_complete());

@@ -69,7 +69,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/talkbank-clan/src/commands/complexity.rs",
         struct_name: "SpeakerAccum",
-        max_fields: 19,
+        max_fields: 20,
         max_bool_fields: 2,
         disposition: WideStructDisposition::RefactorTarget,
         reason: "accumulator mixes counters and mode flags",
@@ -85,10 +85,18 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     WideStructAllowance {
         path: "crates/talkbank-clan/src/commands/complexity.rs",
         struct_name: "SpeakerComplexity",
-        max_fields: 18,
+        max_fields: 19,
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
         reason: "complexity report record",
+    },
+    WideStructAllowance {
+        path: "crates/talkbank-re2c-parser/src/generated/lexer.rs",
+        struct_name: "Lexer",
+        max_fields: 22,
+        max_bool_fields: 0,
+        disposition: WideStructDisposition::TransportRecord,
+        reason: "re2c-generated DFA lexer state — fields are scanner registers, not refactorable",
     },
     WideStructAllowance {
         path: "crates/talkbank-cli/src/ui/validation_tui/state.rs",

@@ -89,10 +89,10 @@ pub(crate) fn analyze_header_error(
                         Severity::Error,
                         SourceLocation::from_offsets(start, end),
                         ErrorContext::new(source, start..end, error_text),
-                        "Malformed @ID header - tree-sitter failed to parse structure",
+                        "Invalid @ID header format: structure could not be parsed",
                     )
                     .with_suggestion(
-                        "Format: @ID:\tlang|corpus|speaker|age|sex|group|SES|role|education|custom|",
+                        "@ID requires exactly 10 pipe-separated fields: @ID:\tlang|corpus|speaker|age|sex|group|SES|role|education|custom|",
                     ),
                 );
                 return;

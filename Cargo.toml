@@ -170,6 +170,11 @@ opt-level = 1                       # Optimize third-party deps (one-time cost)
 [profile.dev.build-override]
 opt-level = 3                       # Optimize proc macros and build scripts
 
+[profile.release]
+lto = true              # Fat LTO — one-time cost per deploy, maximum optimization
+codegen-units = 1       # Single codegen unit for best cross-crate inlining
+strip = true            # Strip symbols from deployed binaries
+
 [profile.test]
 split-debuginfo = "unpacked"
 debug = "line-tables-only"

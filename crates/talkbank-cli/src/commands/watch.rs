@@ -174,6 +174,7 @@ fn validate_with_header(path: &Path, check_alignment: bool, clear_screen: bool) 
         ValidationInterface::Plain,
         Theme::default(),
         &[],
+        false, // strict_linkers disabled in watch mode
     );
 
     println!();

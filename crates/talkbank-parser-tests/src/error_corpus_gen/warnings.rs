@@ -52,22 +52,6 @@ pub fn generate_wxxx_warnings(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // W724: GraRootHeadNotSelf
-    write_file(
-        &dir.join("W724_gra_root_head_not_self.cha"),
-        ChatFileBuilder::new()
-            .speaker("CHI", "Target_Child")
-            .custom_header("@Comment:\tExpected warning: W724 (GRA ROOT head not self)")
-            .custom_header(
-                "@Comment:\tTrigger: ROOT relation where head index does not point to self",
-            )
-            .utterance("CHI", "I want .")
-            .dependent_tier("mor", "pro|I v|want .")
-            .dependent_tier("gra", "1|2|SUBJ 2|1|ROOT .")
-            .build(),
-    )?;
-    count += 1;
-
     // W999: LegacyWarning
     write_file(
         &dir.join("W999_legacy_warning.cha"),

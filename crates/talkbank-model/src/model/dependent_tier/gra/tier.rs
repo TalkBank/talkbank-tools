@@ -254,7 +254,7 @@ pub fn validate_gra_structure(
         );
     }
 
-    // Check 3: Circular dependencies (W724) - Fast O(N) check
+    // Check 3: Circular dependencies (E724) - Fast O(N) check
     if has_any_cycle(relations) {
         errors.report(
             ParseError::at_span(

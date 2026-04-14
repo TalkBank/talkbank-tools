@@ -39,7 +39,6 @@
 //!            ├─ ValidationCommandService
 //!            ├─ UtilityCommandService
 //!            ├─ CacheCommandService
-//!            ├─ LspCommandService    ← delegates to talkbank-lsp library
 //!            └─ ClanCommandService   ← delegates to talkbank-clan library
 //! ```
 //!
@@ -47,7 +46,7 @@
 //! and `Commands` enum). The dispatch switch is in [`cli::run`](cli/run.rs).
 //! Each command handler is a function in the [`commands`] module, which in turn
 //! calls into the core library crates (`talkbank-transform`, `talkbank-model`,
-//! `talkbank-lsp`, `talkbank-clan`).
+//! `talkbank-clan`).
 //!
 //! # TUI / interactive mode
 //!
@@ -113,7 +112,7 @@ pub mod output;
 pub mod progress;
 pub mod ui;
 
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 use std::panic::{AssertUnwindSafe, PanicHookInfo, catch_unwind, resume_unwind};
 
 /// Entry point for this binary target.
@@ -128,7 +127,15 @@ fn main() {
 
     let raw_args: Vec<String> = std::env::args().collect();
     let rewritten = rewrite_chatter_clan_args(&raw_args);
-    let cli = cli::Cli::parse_from(rewritten);
+
+    // Build the clap Command, apply CLAN subcommand help grouping, then parse.
+    // Clap 4 does not support grouping subcommands under different headings
+    // via derive attributes, so we post-process the command tree.
+    let cmd = cli::apply_clan_help_grouping(cli::Cli::command());
+    let matches = cmd.get_matches_from(rewritten);
+    let cli = cli::Cli::from_arg_matches(&matches)
+        .expect("clap should have validated all arguments");
+
     let result = catch_unwind(AssertUnwindSafe(|| {
         cli::run(cli);
     }));

@@ -1,11 +1,19 @@
 # TalkBank CHAT for VS Code
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-04-13 20:34 EDT
 
 Full language support for CHAT transcription files (`.cha`) — the format used by [TalkBank](https://talkbank.org), [CHILDES](https://childes.talkbank.org), and related corpora for linguistic research on conversational data.
 
 This extension replaces the macOS CLAN application with a modern, cross-platform editing environment inside VS Code.
+
+## Screenshots
+
+| Feature | Preview |
+|---------|---------|
+| Real-time validation | ![Validation diagnostics](images/screenshots/validation.png) |
+| Intelligent completion | ![Completion suggestions](images/screenshots/completion.png) |
+| Dependency graph (`%gra`) | ![Dependency graph](images/screenshots/dependency-graph.png) |
 
 ## Features
 
@@ -176,9 +184,9 @@ The extension goes well beyond replicating the macOS CLAN application. Features 
 ## Requirements
 
 - VS Code 1.85 or later
-- The `chatter` binary (the extension launches the language server with `chatter lsp`)
+- The `talkbank-lsp` binary (ships in the same release archive as `chatter`)
 
-The extension searches for `chatter` on your system PATH first, then falls back to development build paths and launches it with the `lsp` subcommand.
+The extension searches for `talkbank-lsp` on your system PATH first, then falls back to `target/debug/` and `target/release/` relative to the extension directory.
 
 ## Settings
 
@@ -192,7 +200,7 @@ The extension searches for `chatter` on your system PATH first, then falls back 
 | `talkbank.media.defaultSpeed` | `100` | Playback speed percentage (25–200) |
 | `talkbank.inlayHints.enabled` | `true` | Show inline alignment mismatch hints |
 | `talkbank.validation.severity` | `"all"` | Filter diagnostics: `"all"`, `"errorsOnly"`, `"errorsAndWarnings"` |
-| `talkbank.lsp.binaryPath` | (auto) | Override path to the `chatter` binary used for `chatter lsp` |
+| `talkbank.lsp.binaryPath` | (auto) | Override path to the `talkbank-lsp` binary |
 
 ## Documentation
 

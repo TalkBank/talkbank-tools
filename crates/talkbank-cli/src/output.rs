@@ -33,6 +33,31 @@ pub fn print_errors(path: &Path, content: &str, errors: &[ParseError]) {
     }
 }
 
+/// Check whether a set of errors contains structural errors (E0xx-E5xx) but no
+/// alignment errors (E7xx). When structural errors taint the parse, alignment
+/// checks are silently skipped. This helper detects that situation so callers
+/// can emit a hint telling the user to fix structural errors first.
+pub fn should_show_cascading_hint(errors: &[ParseError]) -> bool {
+    let mut has_structural = false;
+    let mut has_alignment = false;
+
+    for error in errors {
+        let code_str = error.code.as_str();
+        // Structural errors: E0xx, E1xx, E2xx, E3xx, E4xx, E5xx
+        // Alignment errors: E7xx
+        match code_str.as_bytes() {
+            [b'E', b'0'..=b'5', ..] => has_structural = true,
+            [b'E', b'7', ..] => has_alignment = true,
+            _ => {}
+        }
+    }
+
+    has_structural && !has_alignment
+}
+
+/// The cascading error hint text, printed to stderr in text mode.
+pub const CASCADING_HINT: &str = "  note: Some additional checks may not have run because of structural errors above.\n        Fix the structural errors first, then re-validate.";
+
 /// ErrorSink that prints errors immediately to the terminal using miette rendering.
 pub struct TerminalErrorSink {
     path: PathBuf,

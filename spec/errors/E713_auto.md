@@ -2,19 +2,22 @@
 
 ## Description
 
-Gra head index invalid
+A `%gra` relation has a head index that falls outside the valid range
+`0..=N`, where `N` is the number of `%mor` chunks in the utterance. Index
+`0` is reserved for the ROOT head; otherwise the head index must point to
+an existing chunk.
 
 ## Metadata
 
 - **Error Code**: E713
-- **Category**: Alignment count mismatch
+- **Category**: validation
 - **Level**: tier
 - **Layer**: validation
 
 ## Example 1
 
-**Source**: `E4xx_alignment_errors/E720_mor_gra_count_mismatch.cha`
-**Trigger**: %mor has 3 chunks but %gra has 4 relations
+**Trigger**: head index exceeds %mor chunk count (per-relation validation,
+cardinalities match)
 **Expected Error Codes**: E713
 
 ```chat
@@ -22,24 +25,28 @@ Gra head index invalid
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
-@Comment:	Note: %gra aligns to %mor chunks, not items!
-*CHI:	I want cookie .
-%mor:	pro|I v|want n|cookie .
-%gra:	1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|4|EXTRA 5|2|PUNCT
-@Comment:	ERROR: %mor has 4 chunks (3 words + terminator) but %gra has 5 relations
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	ERROR: head index 9 is out of range for 3 mor chunks
+*CHI:	I want .
+%mor:	pro|I v|want .
+%gra:	1|2|SUBJ 2|0|ROOT 3|9|PUNCT
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+With `%mor` providing 3 chunks and `%gra` providing 3 relations (matching
+counts), the third relation's head index `9` is invalid. The parser should
+successfully parse this CHAT file, but validation should report E713 on
+that relation.
 
 ## CHAT Rule
 
-[Add link to relevant CHAT manual section]
+See CHAT manual sections on dependent tier formats (%mor, %gra). Each
+%gra relation is `index|head|label`; `head` must be `0` for ROOT or the
+1-based position of an existing %mor chunk.
 
 ## Notes
 
-- Auto-generated from error corpus
-- Review and enhance this specification as needed
+- E713 applies to per-relation head-index validation.
+- Count-cardinality mismatches between %mor and %gra are reported as E720.

@@ -194,6 +194,7 @@ pub(super) fn worker_loop<C>(
                     &file_path,
                     source.clone(),
                     config.check_alignment,
+                    config.strict_linkers,
                     &parser,
                     &event_tx,
                 );
@@ -398,6 +399,7 @@ fn validate_single_file_streaming(
     file_path: &Path,
     content: Arc<str>,
     check_alignment: bool,
+    strict_linkers: bool,
     parser: &ParserDispatch,
     event_tx: &Sender<ValidationEvent>,
 ) -> (Vec<ParseError>, Option<ChatFile>) {
@@ -407,8 +409,11 @@ fn validate_single_file_streaming(
     // Parse with error collection
     let mut chat_file = parser.parse_chat_file_streaming(content.as_ref(), &collector);
 
-    // Validate with error collection
-    if check_alignment {
+    // Validate with error collection, optionally enabling strict linker checks.
+    if strict_linkers {
+        let config = talkbank_model::ValidationConfig::new().with_strict_linkers();
+        chat_file.validate_with_config(config, &collector, None);
+    } else if check_alignment {
         chat_file.validate_with_alignment(&collector, None);
     } else {
         chat_file.validate(&collector, None);

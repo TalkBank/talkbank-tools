@@ -7,7 +7,7 @@ use std::path::Path;
 
 use indicatif::ProgressStyle;
 
-use crate::output::print_errors;
+use crate::output::{CASCADING_HINT, print_errors, should_show_cascading_hint};
 use crate::progress::ProgressThrottle;
 use talkbank_transform::validation_runner::{
     ErrorEvent, FileCompleteEvent, FileStatus, RoundtripEvent, ValidationStatsSnapshot,
@@ -114,6 +114,9 @@ impl ValidationRenderer for TextRenderer {
         print_errors(&error_event.path, &error_event.source, &error_event.errors);
         if error_event.source.is_empty() {
             eprintln!("  note: errors from cache (use --force to re-validate)");
+        }
+        if !self.quiet && should_show_cascading_hint(&error_event.errors) {
+            eprintln!("{}", CASCADING_HINT);
         }
         error_event.errors.len()
     }
@@ -253,13 +256,20 @@ impl ValidationRenderer for JsonRenderer {
             })
             .collect();
 
-        let line = serde_json::json!({
+        let mut line = serde_json::json!({
             "type": "file",
             "file": error_event.path.to_string_lossy(),
             "status": "invalid",
             "error_count": error_event.errors.len(),
             "errors": json_errors
         });
+
+        if should_show_cascading_hint(&error_event.errors) {
+            line["note"] = serde_json::json!(
+                "Some additional checks may not have run because of structural errors. Fix the structural errors first, then re-validate."
+            );
+        }
+
         println!("{}", line);
         error_event.errors.len()
     }

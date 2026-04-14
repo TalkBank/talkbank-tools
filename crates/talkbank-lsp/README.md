@@ -1,16 +1,16 @@
 # talkbank-lsp
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-04-13 20:30 EDT
 
 [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) implementation for [CHAT format](https://talkbank.org/0info/manuals/CHAT.html).
 
 ## Overview
 
-`talkbank-lsp` provides the reusable IDE server implementation behind
-`chatter lsp` for CHAT transcription files via
-the Language Server Protocol. It uses tree-sitter for incremental parsing and
-the `talkbank-model` validation pipeline for real-time diagnostics.
+`talkbank-lsp` is both a library (reusable IDE server implementation) and a
+standalone stdio binary (`talkbank-lsp`) for CHAT transcription files via the
+Language Server Protocol. It uses tree-sitter for incremental parsing and the
+`talkbank-model` validation pipeline for real-time diagnostics.
 
 ## Features
 
@@ -27,14 +27,14 @@ the `talkbank-model` validation pipeline for real-time diagnostics.
 ### VS Code
 
 Install the [TalkBank VS Code extension](../../vscode/), which bundles and
-launches `chatter lsp` automatically.
+launches the `talkbank-lsp` binary automatically.
 
 ### Other Editors
 
 Any editor with LSP support can use the server. Start it with:
 
 ```bash
-chatter lsp
+talkbank-lsp
 ```
 
 The server communicates over stdio using the standard LSP JSON-RPC protocol.

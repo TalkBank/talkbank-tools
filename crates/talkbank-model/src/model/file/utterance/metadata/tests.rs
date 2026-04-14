@@ -543,7 +543,7 @@ fn parse_health_taints_only_gra_alignment_when_gra_tier_is_tainted() -> Result<(
     assert_eq!(gra.errors[0].code, ErrorCode::TierValidationError);
     assert_eq!(gra.errors[0].severity, Severity::Warning);
     assert!(gra.errors[0].message.contains(
-        "Skipped %mor↔%gra alignment because %gra tier had parse errors during recovery"
+        "Tier validation warning: skipped %mor↔%gra alignment because %gra tier had parse errors during recovery"
     ));
     Ok(())
 }
@@ -572,7 +572,7 @@ fn parse_health_taints_main_dependent_alignments_but_keeps_mor_gra_alignment() -
     assert_eq!(mor.errors.len(), 1);
     assert_eq!(mor.errors[0].code, ErrorCode::TierValidationError);
     assert!(mor.errors[0].message.contains(
-        "Skipped main↔%mor alignment because main tier had parse errors during recovery"
+        "Tier validation warning: skipped main↔%mor alignment because main tier had parse errors during recovery"
     ));
 
     let pho = alignments
@@ -582,7 +582,7 @@ fn parse_health_taints_main_dependent_alignments_but_keeps_mor_gra_alignment() -
     assert_eq!(pho.errors.len(), 1);
     assert_eq!(pho.errors[0].code, ErrorCode::TierValidationError);
     assert!(pho.errors[0].message.contains(
-        "Skipped main↔%pho alignment because main tier had parse errors during recovery"
+        "Tier validation warning: skipped main↔%pho alignment because main tier had parse errors during recovery"
     ));
 
     let wor = alignments
@@ -592,7 +592,7 @@ fn parse_health_taints_main_dependent_alignments_but_keeps_mor_gra_alignment() -
     assert_eq!(wor.errors.len(), 1);
     assert_eq!(wor.errors[0].code, ErrorCode::TierValidationError);
     assert!(wor.errors[0].message.contains(
-        "Skipped main↔%wor alignment because main tier had parse errors during recovery"
+        "Tier validation warning: skipped main↔%wor alignment because main tier had parse errors during recovery"
     ));
 
     assert!(

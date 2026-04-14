@@ -1,11 +1,11 @@
-# E243: Auto-generated from corpus
+# E243: Illegal characters in word
 
 ## Description
 
-Auto-generated from corpus
+Word contains illegal characters such as whitespace, control characters, or bullet markers that are not valid in word content.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E243

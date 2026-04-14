@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-03-31 06:41 EDT
+**Last modified:** 2026-04-13 11:14 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -164,7 +164,7 @@ The build script (`build.rs`) runs `re2rust` on `src/lexer.re` -> `OUT_DIR/lexer
 - **Corpus lexer tests:** `tests/corpus_lex_tests.rs` — lex real lines from `~/talkbank/data/*-data` (99,907 .cha files). All 12 pass.
 - **Parser tests:** `tests/golden_parse.rs`, `tests/parser_fixtures.rs` — parsed AST structures.
 - **Equivalence tests:** `tests/equivalence_tests.rs` — Re2cParser vs TreeSitterParser comparison via `ChatParser` trait.
-- **Model study:** `tests/model_study.rs` — reference corpus equivalence (87 files). All pass except 2 CA files with known raw_text divergences in the subtoken word path.
+- **Model study:** `tests/model_study.rs` — reference corpus equivalence (88 files). All pass except 2 CA files with known raw_text divergences in the subtoken word path.
 - **Full corpus tests:** `tests/full_corpus_parse_test.rs` — 99,744-file SemanticEq comparison.
 - **Benchmarks:** `benches/parse_comparison.rs` — divan benchmarks comparing both parsers.
 - **When a test fails, STOP and ask.** CHAT semantics are domain-specific.
@@ -234,6 +234,6 @@ Key integration points:
 
 ## Equivalence Status
 
-All 87 reference corpus files pass SemanticEq equivalence with TreeSitterParser.
-All 87 files validate and roundtrip successfully with `--parser re2c`.
+All 88 reference corpus files pass SemanticEq equivalence with TreeSitterParser.
+All 88 files validate and roundtrip successfully with `--parser re2c`.
 260/260 crate tests pass.

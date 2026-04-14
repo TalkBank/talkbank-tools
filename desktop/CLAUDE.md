@@ -1,7 +1,7 @@
 # CLAUDE.md — Chatter Desktop App
 
 **Status:** Current
-**Last updated:** 2026-03-17
+**Last updated:** 2026-04-13 11:14 EDT
 
 ## Overview
 
@@ -10,6 +10,8 @@ Native desktop validation app for CHAT files, built with Tauri v2 (Rust backend,
 ## Functional Parity with TUI
 
 **The desktop app must achieve full functional parity with the `chatter validate` TUI.** Every feature the TUI provides for displaying validation results must work equivalently in the desktop app. The TUI is the reference implementation.
+
+**Current parity status: ~70%.** Progress throttling and some navigation keybindings are not yet implemented. See the feature parity tables below for details.
 
 ### Error Display Parity (mandatory)
 

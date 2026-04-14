@@ -1,11 +1,11 @@
-# E230: Auto-generated from corpus
+# E230: Unbalanced CA delimiter
 
 ## Description
 
-Auto-generated from corpus
+Compound delimiter (`∆`) is not properly balanced — opening delimiter has no matching closing delimiter.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Layer**: validation
 
 - **Error Code**: E230

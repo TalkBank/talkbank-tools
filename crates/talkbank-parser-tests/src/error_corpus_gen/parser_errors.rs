@@ -110,18 +110,6 @@ pub fn generate_e3xx_parser_errors(root: &Path) -> GenResult {
     )?;
     count += 1;
 
-    // E345: UnmatchedContentAnnotationBegin
-    write_file(
-        &dir.join("E345_unmatched_scoped_begin.cha"),
-        ChatFileBuilder::new()
-            .speaker("CHI", "Target_Child")
-            .custom_header("@Comment:\tExpected error: E345 (Unmatched scoped annotation begin)")
-            .custom_header("@Comment:\tTrigger: Opening < without matching >")
-            .utterance("CHI", "hello <world .")
-            .build(),
-    )?;
-    count += 1;
-
     // E346: UnmatchedContentAnnotationEnd
     write_file(
         &dir.join("E346_unmatched_scoped_end.cha"),

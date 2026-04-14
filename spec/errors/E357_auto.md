@@ -7,7 +7,7 @@ marker in the same utterance. The end marker has no open underline to
 close.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Layer**: validation
 
 - **Error Code**: E357
@@ -17,15 +17,18 @@ close.
 
 ## Example 1
 
-**Trigger**: Underline end marker without preceding begin marker
+**Source**: `error_corpus/validation_errors/E357_unmatched_underline_end.cha`
+**Trigger**: Underline end marker (`\x02\x02`) without preceding begin marker (`\x02\x01`)
+**Expected Error Codes**: E357
 
 ```chat
 @UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|test|CHI||female|||Target_Child|||
-*CHI:	I really↘ want it .
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	ERROR: Unmatched underline end marker
+*CHI:	hello world .
 @End
 ```
 

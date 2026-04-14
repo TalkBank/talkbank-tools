@@ -76,10 +76,6 @@ mod tests {
     fn set_has_expected_size() {
         // The official ISO 639-3 registry has ~8,367 codes.
         let count = ISO_639_3_CODES.len();
-        assert!(
-            count > 8000,
-            "Expected 8000+ codes, got {}",
-            count
-        );
+        assert!(count > 8000, "Expected 8000+ codes, got {}", count);
     }
 }

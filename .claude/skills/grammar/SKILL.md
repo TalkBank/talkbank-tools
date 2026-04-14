@@ -13,7 +13,7 @@ Modify the CHAT grammar and verify the change. `$ARGUMENTS` should describe what
 
 1. **NEVER edit `src/parser.c`** — it is generated from `grammar.js`
 2. **NEVER hand-edit `test/corpus/`** — it is generated from specs
-3. The 74-file reference corpus must remain at 100% parser equivalence
+3. The 88-file reference corpus must remain at 100% parser equivalence
 4. If verification fails and a fix is not immediate, revert the grammar change
 
 ## Step 1: Understand Current Grammar

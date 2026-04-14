@@ -73,6 +73,11 @@ pub struct ParseValidateOptions {
     ///
     /// This implies `validate = true`.
     pub alignment: bool,
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    ///
+    /// When true, self-completion (`+,`) and other-completion (`++`) linkers
+    /// are checked for correct pairing with preceding terminators.
+    pub strict_linkers: bool,
 }
 
 impl ParseValidateOptions {
@@ -86,6 +91,15 @@ impl ParseValidateOptions {
     pub fn with_alignment(mut self) -> Self {
         self.alignment = true;
         self.validate = true; // alignment implies validation
+        self
+    }
+
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    ///
+    /// Checks that self-completion (`+,`) and other-completion (`++`)
+    /// linkers are paired with the correct preceding terminators.
+    pub fn with_strict_linkers(mut self) -> Self {
+        self.strict_linkers = true;
         self
     }
 

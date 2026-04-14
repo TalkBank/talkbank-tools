@@ -85,7 +85,7 @@ fn test_parse_errors_separation() {
     ));
 
     errors.push(ParseError::new(
-        ErrorCode::GraRootHeadNotSelf,
+        ErrorCode::SpeakerNotFoundInParticipants,
         Severity::Warning,
         SourceLocation::from_offsets(5, 9),
         ErrorContext::new("line 2", 0..4, "text"),
@@ -121,7 +121,7 @@ fn test_parse_tracker_counts_severities() {
 
     tracker.report(make_test_error("E001"));
     tracker.report(ParseError::new(
-        ErrorCode::GraRootHeadNotSelf,
+        ErrorCode::SpeakerNotFoundInParticipants,
         Severity::Warning,
         SourceLocation::from_offsets(0, 4),
         ErrorContext::new("test", 0..4, "test"),
@@ -162,7 +162,7 @@ fn test_error_collector_has_errors() {
 
     // Add a warning
     sink.report(ParseError::new(
-        ErrorCode::GraRootHeadNotSelf,
+        ErrorCode::SpeakerNotFoundInParticipants,
         Severity::Warning,
         SourceLocation::from_offsets(0, 4),
         ErrorContext::new("test", 0..4, "test"),

@@ -1,15 +1,15 @@
 #![warn(missing_docs)]
 //! TalkBank LSP — Language Server Protocol implementation for CHAT format.
 //!
-//! This crate provides the core logic behind the `chatter lsp` entrypoint:
-//! incremental tree-sitter parsing, real-time validation diagnostics, hover
-//! information (alignment timing, speaker details), completions, code actions,
-//! and semantic token highlighting.
+//! This crate provides the core logic behind the standalone `talkbank-lsp`
+//! binary: incremental tree-sitter parsing, real-time validation diagnostics,
+//! hover information (alignment timing, speaker details), completions, code
+//! actions, and semantic token highlighting.
 //!
 //! The library is split into public modules so that integration tests can
 //! exercise individual subsystems without going through the full LSP wire
 //! protocol. The reusable stdio server entrypoint exposed here is what powers
-//! `chatter lsp`.
+//! the `talkbank-lsp` binary (see `src/bin/talkbank-lsp.rs`).
 //!
 //! # Related CHAT Manual Sections
 //!
@@ -38,7 +38,7 @@ pub async fn serve_stdio() {
 
 /// Create a Tokio runtime and serve the TalkBank language server over stdio.
 ///
-/// This is the reusable entrypoint for callers such as `chatter lsp`.
+/// This is the reusable entrypoint for the standalone `talkbank-lsp` binary.
 pub fn run_stdio_server() -> std::io::Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async {
         serve_stdio().await;

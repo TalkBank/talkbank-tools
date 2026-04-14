@@ -83,7 +83,6 @@ fn wor_excludes_untranscribed_tokens() {
     }
 }
 
-
 /// Uppercase `XXX` is illegal CHAT (E241) but still represents untranscribed
 /// material. The extraction layer must recognize it case-insensitively so that
 /// morphotag does not produce a spurious `x|XXX` entry on the `%mor` tier.

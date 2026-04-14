@@ -24,11 +24,11 @@ pub(super) fn skipped_alignment_warning(
         SourceLocation::new(location),
         ErrorContext::new("", location.to_range(), ""),
         format!(
-            "Skipped {} alignment because {} had parse errors during recovery",
+            "Tier validation warning: skipped {} alignment because {} had parse errors during recovery",
             alignment_name, tainted
         ),
     )
-    .with_suggestion("Fix parse errors in the tainted tier(s) and rerun alignment validation");
+    .with_suggestion("Fix parse errors in the affected tier(s) first, then rerun validation");
 
     if !left_clean && !left_span.is_dummy() {
         error.labels.push(ErrorLabel::new(left_span, left_label));
@@ -55,7 +55,7 @@ pub(super) fn unknown_alignment_warning(
         SourceLocation::new(location),
         ErrorContext::new("", location.to_range(), ""),
         format!(
-            "Skipped {} alignment because parse provenance is unknown for {} and {}",
+            "Tier validation warning: skipped {} alignment because parse provenance is unknown for {} and {}",
             alignment_name, left_label, right_label
         ),
     )

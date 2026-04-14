@@ -79,13 +79,14 @@ pub(crate) fn analyze_dependent_tier_error_with_context(
         SourceLocation::from_offsets(start, end),
         ErrorContext::new(source, start..end, error_text),
         format!(
-            "Could not parse dependent tier: {}",
+            "Unparsable content on dependent tier: '{}'",
             match error_text.lines().next() {
                 Some(line) => line,
                 None => error_text,
             }
         ),
     )
+    .with_suggestion("Check dependent tier format — each entry must follow the tier-specific syntax")
 }
 
 /// Backward-compatible wrapper without explicit tier context.

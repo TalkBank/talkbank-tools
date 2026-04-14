@@ -1,11 +1,11 @@
-# E253: Auto-generated from corpus
+# E253: Empty word content
 
 ## Description
 
-Auto-generated from corpus
+A parsed Word object has empty content — the word node exists in the CST but contains no text.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Last updated**: 2026-04-04 08:15 EDT
 
 - **Error Code**: E253

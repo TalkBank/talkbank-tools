@@ -28,5 +28,9 @@ tree-sitter = { workspace = true }
 tree-sitter-talkbank = { workspace = true }
 walkdir = { workspace = true }
 
+[[bin]]
+name = "talkbank-lsp"
+path = "src/bin/talkbank-lsp.rs"
+
 [dev-dependencies]
 insta = { workspace = true }

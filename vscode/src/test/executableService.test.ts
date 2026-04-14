@@ -62,13 +62,13 @@ describe('ExecutableService', () => {
         expect(unref).toHaveBeenCalled();
     });
 
-    it('prefers a configured chatter path for LSP activation when it exists', () => {
+    it('prefers a configured talkbank-lsp path for LSP activation when it exists', () => {
         const mockFs = createMockFileSystem({
-            '/tmp/chatter': 'binary'
+            '/tmp/talkbank-lsp': 'binary'
         });
         const execSync = createMockExecSync({
             shouldThrow: true,
-            errorMessage: 'Command failed: which chatter'
+            errorMessage: 'Command failed: which talkbank-lsp'
         });
         const service = new ExecutableService({
             fs: mockFs,
@@ -78,16 +78,16 @@ describe('ExecutableService', () => {
             asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`
         } as any;
 
-        expect(service.findTalkbankLspBinary(context, '/tmp/chatter')).toBe('/tmp/chatter');
+        expect(service.findTalkbankLspBinary(context, '/tmp/talkbank-lsp')).toBe('/tmp/talkbank-lsp');
         expect(execSync).not.toHaveBeenCalled();
     });
 
-    it('finds chatter on PATH for LSP activation', () => {
+    it('finds talkbank-lsp on PATH for LSP activation', () => {
         const mockFs = createMockFileSystem({
-            '/usr/local/bin/chatter': 'binary'
+            '/usr/local/bin/talkbank-lsp': 'binary'
         });
         const execSync = createMockExecSync({
-            stdout: '/usr/local/bin/chatter\n'
+            stdout: '/usr/local/bin/talkbank-lsp\n'
         });
         const service = new ExecutableService({
             fs: mockFs,
@@ -97,9 +97,9 @@ describe('ExecutableService', () => {
             asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`
         } as any;
 
-        expect(service.findTalkbankLspBinary(context)).toBe('/usr/local/bin/chatter');
+        expect(service.findTalkbankLspBinary(context)).toBe('/usr/local/bin/talkbank-lsp');
         expect(execSync).toHaveBeenCalledWith(
-            'which chatter',
+            'which talkbank-lsp',
             expect.objectContaining({
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -107,13 +107,13 @@ describe('ExecutableService', () => {
         );
     });
 
-    it('falls back to local chatter builds for LSP activation', () => {
+    it('falls back to local talkbank-lsp builds for LSP activation', () => {
         const mockFs = createMockFileSystem({
-            '/extension/../target/release/chatter': 'binary'
+            '/extension/../target/release/talkbank-lsp': 'binary'
         });
         const execSync = createMockExecSync({
             shouldThrow: true,
-            errorMessage: 'Command failed: which chatter'
+            errorMessage: 'Command failed: which talkbank-lsp'
         });
         const service = new ExecutableService({
             fs: mockFs,
@@ -123,13 +123,13 @@ describe('ExecutableService', () => {
             asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`
         } as any;
 
-        expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/release/chatter');
+        expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/release/talkbank-lsp');
     });
 
-    it('uses chatter.exe for the final Windows fallback path', () => {
+    it('uses talkbank-lsp.exe for the final Windows fallback path', () => {
         const execSync = createMockExecSync({
             shouldThrow: true,
-            errorMessage: 'Command failed: which chatter'
+            errorMessage: 'Command failed: which talkbank-lsp'
         });
         const service = new ExecutableService({
             fs: createMockFileSystem({}),
@@ -142,7 +142,7 @@ describe('ExecutableService', () => {
         Object.defineProperty(process, 'platform', { value: 'win32' });
 
         try {
-            expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/debug/chatter.exe');
+            expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/debug/talkbank-lsp.exe');
         } finally {
             Object.defineProperty(process, 'platform', { value: originalPlatform });
         }

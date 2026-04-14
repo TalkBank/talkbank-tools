@@ -61,7 +61,6 @@ These are categories where the parser currently reports E316 instead:
 | E211 | OmissionInReplacement | Deprecated |
 | E214 | EmptyAnnotatedScopedAnnotations | Annotated word with empty annotations |
 | E251 | EmptyWordContentText | Word text segment is empty |
-| E253 | EmptyWordContent | Word has no content items |
 | E258 | ConsecutiveCommas | Two commas in a row |
 
 ### Validation — Tier Level (13)
@@ -69,7 +68,6 @@ These are categories where the parser currently reports E316 instead:
 |------|---------|-------|
 | E383 | GraParseError | %gra parse failure |
 | E385 | WordParseError | Word in tier context |
-| E388 | ReplacementOnNonword | `[:` on nonword |
 | E700 | UnexpectedTierNode | Unknown tier node type |
 | E701 | TierBeginTimeNotMonotonic | Timeline violations |
 | E703 | UnexpectedMorphologyNode | Bad %mor node |
@@ -99,7 +97,6 @@ These are categories where the parser currently reports E316 instead:
 |------|---------|-------|
 | W210 | MissingWhitespaceBeforeContent | Formatting warning |
 | W211 | MissingWhitespaceAfterOverlap | Formatting warning |
-| W724 | GraRootHeadNotSelf | %gra ROOT head index != self |
 
 ## Non-Standard Specs (11)
 

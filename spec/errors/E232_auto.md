@@ -7,7 +7,7 @@
 Compound marker (`+`) cannot be at the start of a word. Valid compounds have the form `left+right`.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E232
 - **Category**: validation

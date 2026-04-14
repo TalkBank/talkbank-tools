@@ -5,8 +5,8 @@ use crate::{ErrorCode, ErrorContext, ParseError, Severity, Span};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{MainTier, Terminator, UtteranceContent, Word};
     use crate::Span;
+    use crate::model::{MainTier, Terminator, UtteranceContent, Word};
 
     /// Helper: two-word main tier.
     fn two_word_main() -> MainTier {

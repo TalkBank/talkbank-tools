@@ -205,10 +205,10 @@ fn report_top_level_dependent_tier_error(
         (
             ErrorCode::TierValidationError,
             format!(
-                "Could not fully parse dependent tier content: {}",
+                "Tier validation error: could not fully parse dependent tier '{}'",
                 first_line.trim_end()
             ),
-            "Fix tier-internal format (tokenization, delimiters, and required fields)",
+            "Fix tier-internal format — check tokenization, pipe delimiters, and required fields",
         )
     } else {
         (
@@ -286,13 +286,16 @@ pub(super) fn parse_lines_with_old_tree(
 
     // Check if the root node itself has errors AND is empty (e.g., empty file)
     if root_node.has_error() && root_node.child_count() == 0 {
-        errors.report(ParseError::new(
-            ErrorCode::UnparsableContent,
-            Severity::Error,
-            SourceLocation::from_offsets(0, input.len().max(1)),
-            ErrorContext::new(input, 0..input.len().max(1), input),
-            "Empty or unparsable file - CHAT files must contain at minimum @UTF8, @Begin, and @End headers",
-        ));
+        errors.report(
+            ParseError::new(
+                ErrorCode::UnparsableContent,
+                Severity::Error,
+                SourceLocation::from_offsets(0, input.len().max(1)),
+                ErrorContext::new(input, 0..input.len().max(1), input),
+                "Unparsable content: file is empty or contains no recognizable CHAT structure",
+            )
+            .with_suggestion("CHAT files must contain at minimum @UTF8, @Begin, and @End headers"),
+        );
         return (Vec::new(), None);
     }
 
@@ -429,13 +432,16 @@ pub(super) fn parse_lines_with_old_tree(
     // (e.g., missing @End), the loop recovers lines and the validation layer
     // can catch the missing header.
     if root_is_error && lines.is_empty() {
-        errors.report(ParseError::new(
-            ErrorCode::UnparsableContent,
-            Severity::Error,
-            SourceLocation::from_offsets(0, input.len().max(1)),
-            ErrorContext::new(input, 0..input.len().max(1), input),
-            "File structure error - CHAT files must contain @UTF8, @Begin, and @End headers",
-        ));
+        errors.report(
+            ParseError::new(
+                ErrorCode::UnparsableContent,
+                Severity::Error,
+                SourceLocation::from_offsets(0, input.len().max(1)),
+                ErrorContext::new(input, 0..input.len().max(1), input),
+                "Unparsable content: file structure is not valid CHAT and no lines could be recovered",
+            )
+            .with_suggestion("CHAT files must contain @UTF8, @Begin, @Participants, @Languages, and @End headers"),
+        );
     }
 
     info!("Parsed {} lines", lines.len());

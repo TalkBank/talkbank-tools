@@ -40,6 +40,8 @@ pub struct ValidateCommandRules {
     pub roundtrip: RoundtripValidationMode,
     /// Parser backend selection.
     pub parser_kind: ParserKind,
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    pub strict_linkers: bool,
 }
 
 /// Execution settings for the top-level `chatter validate` command.
@@ -163,6 +165,7 @@ pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions
         alignment,
         roundtrip,
         parser_kind,
+        strict_linkers,
     } = rules;
     let ValidateCommandExecution {
         cache_refresh,
@@ -204,6 +207,7 @@ pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions
             interface,
             theme.clone(),
             &suppress,
+            strict_linkers,
         );
     }
 
@@ -216,6 +220,7 @@ pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions
                     alignment,
                     roundtrip,
                     parser_kind,
+                    strict_linkers,
                 },
                 traversal: ValidationTraversalMode::Recursive,
                 execution: ValidationExecution {

@@ -31,7 +31,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 talkbank-clan = { workspace = true }
-talkbank-lsp = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser-tests = { workspace = true }
 talkbank-transform = { workspace = true }

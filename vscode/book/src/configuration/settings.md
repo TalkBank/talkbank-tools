@@ -1,6 +1,6 @@
 # Settings Reference
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-04-13 20:34 EDT
 
 All extension settings are accessible via **File > Preferences > Settings** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and searching for "talkbank". Settings can also be edited directly in `settings.json`.
 
@@ -38,7 +38,7 @@ All extension settings are accessible via **File > Preferences > Settings** (`Cm
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `talkbank.lsp.binaryPath` | string | `""` (empty) | Absolute path to the `chatter` binary used for the language server. The extension launches the server with `chatter lsp`. When empty (the default), the extension auto-detects the binary by searching: (1) system PATH via `which chatter`, (2) `target/debug/chatter` relative to the project, (3) `target/release/chatter` relative to the project. Set this only if auto-detection does not work for your setup. |
+| `talkbank.lsp.binaryPath` | string | `""` (empty) | Absolute path to the standalone `talkbank-lsp` binary. When empty (the default), the extension auto-detects the binary by searching: (1) system PATH via `which talkbank-lsp`, (2) `target/debug/talkbank-lsp` relative to the extension, (3) `target/release/talkbank-lsp` relative to the extension. Set this only if auto-detection does not work for your setup. |
 
 ## Settings in JSON
 
@@ -54,7 +54,7 @@ To edit settings directly in `settings.json`, add entries like:
   "talkbank.bullets.display": "hidden",
   "talkbank.inlayHints.enabled": false,
   "talkbank.validation.severity": "errorsOnly",
-  "talkbank.lsp.binaryPath": "/usr/local/bin/chatter"
+  "talkbank.lsp.binaryPath": "/usr/local/bin/talkbank-lsp"
 }
 ```
 

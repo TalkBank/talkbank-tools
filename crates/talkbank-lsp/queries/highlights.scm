@@ -103,11 +103,8 @@
 ; Postcodes ([+ code])
 (postcode) @attribute
 
-; Inline media bullets
-(inline_bullet) @number
-
-; Media timestamp bullets
-(media_url) @number
+; Media timing bullets (unified rule — was inline_bullet + media_url before grammar consolidation)
+(bullet) @number
 
 ; ===== Nonwords & Special Items =====
 

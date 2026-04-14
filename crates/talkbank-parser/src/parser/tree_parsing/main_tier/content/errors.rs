@@ -386,7 +386,7 @@ pub(crate) fn analyze_word_error(error_node: Node, source: &str) -> ParseError {
         SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
         ErrorContext::new(error_text, 0..error_text.len(), error_text),
         format!(
-            "Failed to parse content '{}' - unexpected syntax",
+            "Unparsable content on main tier: '{}'",
             error_text
         ),
     )

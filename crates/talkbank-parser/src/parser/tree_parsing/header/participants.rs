@@ -294,7 +294,7 @@ fn parse_participant_entry(
                     speaker_node.start_byte()..speaker_node.end_byte(),
                     PARTICIPANT,
                 ),
-                "Could not decode participant speaker code as UTF-8",
+                "Unparsable content: participant speaker code is not valid UTF-8",
             ));
             return ParseOutcome::rejected();
         }
@@ -320,7 +320,7 @@ fn parse_participant_entry(
                     Severity::Error,
                     SourceLocation::from_offsets(child.start_byte(), child.end_byte()),
                     ErrorContext::new(source, child.start_byte()..child.end_byte(), PARTICIPANT),
-                    "Could not decode participant token as UTF-8",
+                    "Unparsable content: participant name or role token is not valid UTF-8",
                 )),
             }
         }

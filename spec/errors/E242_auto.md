@@ -7,7 +7,7 @@
 Quotation marks must be balanced within an utterance.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E242
 - **Category**: validation

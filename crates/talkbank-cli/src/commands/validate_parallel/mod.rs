@@ -159,6 +159,8 @@ pub struct ValidationRules {
     pub roundtrip: RoundtripValidationMode,
     /// Which parser backend should power validation.
     pub parser_kind: ParserKind,
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    pub strict_linkers: bool,
 }
 
 /// Execution policy for one validation run.

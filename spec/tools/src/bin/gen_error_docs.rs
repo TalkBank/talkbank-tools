@@ -61,7 +61,9 @@ fn main() -> anyhow::Result<()> {
     let mut page_count = 0;
     for spec in &specs {
         for error in &spec.errors {
-            let page = markdown::generate_error_page(error);
+            // Category-level status applies to every error in the spec;
+            // see ErrorMetadata::status and generate_error_page docs.
+            let page = markdown::generate_error_page(error, &spec.metadata.status);
             let page_path = args.output_dir.join(format!("{}.md", error.code));
             std::fs::write(&page_path, page)?;
             println!("✓ Generated: {}", page_path.display());

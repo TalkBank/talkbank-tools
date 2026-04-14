@@ -78,13 +78,16 @@ impl TreeSitterParser {
                 .parse(wrapped, None)
                 .ok_or_else(|| {
                     let mut errors = ParseErrors::new();
-                    errors.push(ParseError::new(
-                        ErrorCode::TierValidationError,
-                        Severity::Error,
-                        SourceLocation::from_offsets(0, input.len()),
-                        ErrorContext::new(input, 0..input.len(), "header"),
-                        "Tree-sitter failed to parse header",
-                    ));
+                    errors.push(
+                        ParseError::new(
+                            ErrorCode::TierValidationError,
+                            Severity::Error,
+                            SourceLocation::from_offsets(0, input.len()),
+                            ErrorContext::new(input, 0..input.len(), "header"),
+                            "Tier validation error: tree-sitter could not parse this header line",
+                        )
+                        .with_suggestion("Check that the header line follows CHAT format (e.g., @Header:<TAB>value)"),
+                    );
                     errors
                 })?;
 
@@ -107,13 +110,16 @@ impl TreeSitterParser {
             let input_end = input_offset + input.len();
             if header_node.start_byte() < input_offset || header_node.start_byte() >= input_end {
                 let mut errors = ParseErrors::new();
-                errors.push(ParseError::new(
-                    ErrorCode::TierValidationError,
-                    Severity::Error,
-                    SourceLocation::from_offsets(0, input.len()),
-                    ErrorContext::new(input, 0..input.len(), "header"),
-                    "Header node found outside input range (likely from wrapper)",
-                ));
+                errors.push(
+                    ParseError::new(
+                        ErrorCode::TierValidationError,
+                        Severity::Error,
+                        SourceLocation::from_offsets(0, input.len()),
+                        ErrorContext::new(input, 0..input.len(), "header"),
+                        "Tier validation error: header node resolved outside input range (wrapper artifact)",
+                    )
+                    .with_suggestion("Check header formatting — the line may be malformed or in the wrong position"),
+                );
                 return Err(errors);
             }
 

@@ -1,7 +1,7 @@
 # E245 — Stress marker without following spoken material
 
 **Status:** Current
-**Last updated:** 2026-04-04 08:15 EDT
+**Last updated:** 2026-04-13 12:00 EDT
 
 ## Description
 
@@ -14,8 +14,8 @@ to attach to.
 - **Error Code**: E245
 - **Category**: validation
 - **Level**: word
-- **Layer**: validation
-- **Status**: not_implemented
+- **Layer**: parser
+- **Status**: implemented
 
 ## Example 1
 
@@ -34,13 +34,10 @@ to attach to.
 
 ## Expected Behavior
 
-Validation should report E245 on the word `ˈ` because the stress marker has
-no following spoken material.
-
-**Known bug:** This example currently causes a panic in
-`NonEmptyString::new_unchecked` because the parser strips the stress marker
-and leaves an empty string for word content. The panic must be fixed before
-this validation check can be implemented.
+The parser reports E245 on the word `ˈ` because after stripping the stress
+marker there is no remaining spoken material for it to attach to. The word
+is rejected (no dummy `Word` is fabricated) so downstream validation does
+not see a zero-content word.
 
 ## CHAT Rule
 
@@ -49,6 +46,9 @@ See CHAT manual sections on stress markers and word-level syntax:
 
 ## Notes
 
-- The panic is tracked as a pre-existing parser bug (empty word content after
-  stress marker stripping).
-- E245 validation cannot be implemented until the panic is fixed.
+- Detection lives in the tree-sitter CST→model conversion for
+  `standalone_word` (see `talkbank-parser` `word/mod.rs`). Triggered when
+  the cleaned text (Text + Shortening items) is empty while the word body
+  was non-empty in source.
+- The regression test is
+  `crates/talkbank-parser/tests/e245_stress_marker_regression.rs`.

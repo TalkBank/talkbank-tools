@@ -296,3 +296,250 @@ fn find_ancestor_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use talkbank_parser::TreeSitterParser;
+
+    fn parse_chat(content: &str) -> talkbank_model::model::ChatFile {
+        let parser = TreeSitterParser::new().unwrap();
+        parser.parse_chat_file(content).unwrap()
+    }
+
+    fn parse_tree(input: &str) -> Tree {
+        let mut parser = tree_sitter::Parser::new();
+        let language = tree_sitter_talkbank::LANGUAGE;
+        parser.set_language(&language.into()).unwrap();
+        parser.parse(input, None).unwrap()
+    }
+
+    #[test]
+    fn header_completion_at_line_start() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n@End\n";
+        let chat_file = parse_chat(content);
+        let tree = parse_tree(content);
+        // Position cursor on @End line at character 1 (inside the '@')
+        let pos = Position {
+            line: 6,
+            character: 1,
+        };
+        let result = completion(&chat_file, &tree, content, pos);
+        assert!(result.is_some(), "Expected header completions after @");
+        if let Some(CompletionResponse::Array(items)) = result {
+            assert!(
+                items.len() > 10,
+                "Expected many header completions, got {}",
+                items.len()
+            );
+            assert!(
+                items.iter().any(|i| i.label == "@Languages:\t"),
+                "Expected @Languages in completions"
+            );
+            assert!(
+                items.iter().any(|i| i.label == "@Begin"),
+                "Expected @Begin in completions"
+            );
+            assert!(
+                items.iter().all(|i| i.kind == Some(CompletionItemKind::KEYWORD)),
+                "All header completions should be KEYWORD kind"
+            );
+        }
+    }
+
+    #[test]
+    fn no_completion_on_main_tier_word() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n@End\n";
+        let chat_file = parse_chat(content);
+        let tree = parse_tree(content);
+        // Position on "hello" (the word, not a trigger character)
+        let pos = Position {
+            line: 5,
+            character: 8,
+        };
+        let result = completion(&chat_file, &tree, content, pos);
+        assert!(
+            result.is_none(),
+            "Expected no completions on a plain word"
+        );
+    }
+
+    #[test]
+    fn speaker_code_completion_returns_declared_participants() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|||||Child|||\n@ID:\teng|corpus|MOT|||||Mother|||\n*CHI:\thello .\n@End\n";
+        let chat_file = parse_chat(content);
+        let tree = parse_tree(content);
+        // Position on the speaker code '*CHI:' — character 1 is inside the speaker
+        let pos = Position {
+            line: 6,
+            character: 1,
+        };
+        let result = completion(&chat_file, &tree, content, pos);
+        // The handler checks if cursor is in a SPEAKER node. If the tree-sitter
+        // tree has a SPEAKER node at that position, we get speaker completions.
+        if let Some(CompletionResponse::Array(items)) = &result {
+            // If we got completions, they should be speaker codes.
+            assert!(
+                items.iter().any(|i| i.label == "CHI"),
+                "Expected CHI in speaker completions"
+            );
+            assert!(
+                items.iter().any(|i| i.label == "MOT"),
+                "Expected MOT in speaker completions"
+            );
+            for item in items {
+                assert_eq!(
+                    item.kind,
+                    Some(CompletionItemKind::CLASS),
+                    "Speaker completions should be CLASS kind"
+                );
+            }
+        }
+        // If no SPEAKER node at offset, result is None — acceptable.
+    }
+
+    #[test]
+    fn bracket_annotation_completion_inside_bracket() {
+        // Use a document that parses without errors — the bracket is intentionally
+        // partial (no closing ']') so the line prefix contains '[' without ']'.
+        // We test the text-based trigger directly since parse_chat would reject
+        // the invalid bracket. The completion handler checks the line prefix
+        // before CST lookup, so this tests the right code path.
+        let content =
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n@End\n";
+        let chat_file = parse_chat(content);
+        let tree = parse_tree(content);
+
+        // Simulate what happens when the line prefix has '[' without ']'
+        // by testing the helper directly.
+        let annotations = complete_bracket_annotation();
+        assert!(
+            annotations.iter().any(|i| i.label == "[//]"),
+            "Expected [//] retracing in completions"
+        );
+        assert!(
+            annotations.iter().any(|i| i.label == "[*]"),
+            "Expected [*] error marker in completions"
+        );
+        assert!(
+            annotations
+                .iter()
+                .all(|i| i.kind == Some(CompletionItemKind::SNIPPET)),
+            "All bracket annotations should be SNIPPET kind"
+        );
+
+        // Verify the completion handler does NOT trigger bracket completion
+        // when there is no open bracket on the line.
+        let pos = Position {
+            line: 5,
+            character: 8,
+        };
+        let result = completion(&chat_file, &tree, content, pos);
+        // No open bracket on the "hello ." line at position 8.
+        assert!(
+            result.is_none(),
+            "Expected no bracket completions without open bracket"
+        );
+    }
+
+    #[test]
+    fn complete_header_returns_expected_count() {
+        let headers = complete_header();
+        // The implementation lists header types; verify we get a reasonable count.
+        assert!(
+            headers.len() >= 20,
+            "Expected at least 20 header completions, got {}",
+            headers.len()
+        );
+        // Verify each has a label and detail.
+        for item in &headers {
+            assert!(!item.label.is_empty(), "Header label should not be empty");
+            assert!(
+                item.detail.is_some(),
+                "Header {:?} should have a detail",
+                item.label
+            );
+        }
+    }
+
+    #[test]
+    fn complete_bracket_annotation_returns_expected_count() {
+        let annotations = complete_bracket_annotation();
+        assert_eq!(
+            annotations.len(),
+            17,
+            "Expected 17 bracket annotation completions"
+        );
+    }
+
+    #[test]
+    fn complete_postcode_returns_items() {
+        let postcodes = complete_postcode();
+        assert!(postcodes.is_some(), "Postcodes should never return None");
+        let items = postcodes.unwrap();
+        assert_eq!(items.len(), 8, "Expected 8 postcode completions");
+        assert!(
+            items.iter().all(|i| i.kind == Some(CompletionItemKind::OPERATOR)),
+            "All postcodes should be OPERATOR kind"
+        );
+    }
+
+    #[test]
+    fn complete_tier_type_returns_tier_names() {
+        let tiers = complete_tier_type();
+        assert!(tiers.is_some(), "Tier type completions should not be None");
+        let items = tiers.unwrap();
+        assert!(
+            items.iter().any(|i| i.label == "mor"),
+            "Expected mor in tier completions"
+        );
+        assert!(
+            items.iter().any(|i| i.label == "gra"),
+            "Expected gra in tier completions"
+        );
+        // All should have tab-suffixed insert text
+        for item in &items {
+            assert!(
+                item.insert_text
+                    .as_ref()
+                    .is_some_and(|t| t.ends_with(":\t")),
+                "Tier insert text should end with ':\\t', got {:?}",
+                item.insert_text
+            );
+        }
+    }
+
+    #[test]
+    fn complete_speaker_code_empty_when_no_participants() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@End\n";
+        let chat_file = parse_chat(content);
+        let result = complete_speaker_code(&chat_file);
+        assert!(
+            result.is_none(),
+            "Expected None when no participants declared"
+        );
+    }
+
+    #[test]
+    fn complete_speaker_code_extracts_from_id_headers() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother, FAT Father\n@ID:\teng|corpus|CHI|||||Child|||\n@ID:\teng|corpus|MOT|||||Mother|||\n@ID:\teng|corpus|FAT|||||Father|||\n*CHI:\thello .\n@End\n";
+        let chat_file = parse_chat(content);
+        let result = complete_speaker_code(&chat_file);
+        assert!(result.is_some(), "Expected speaker completions");
+        let items = result.unwrap();
+        // Participants header contributes 3, plus 3 @ID headers = potentially duplicates
+        let labels: Vec<&str> = items.iter().map(|i| i.label.as_str()).collect();
+        assert!(
+            labels.contains(&"CHI"),
+            "Expected CHI speaker code"
+        );
+        assert!(
+            labels.contains(&"MOT"),
+            "Expected MOT speaker code"
+        );
+        assert!(
+            labels.contains(&"FAT"),
+            "Expected FAT speaker code"
+        );
+    }
+}

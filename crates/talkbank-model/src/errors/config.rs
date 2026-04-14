@@ -42,6 +42,13 @@ pub struct ValidationConfig {
     severity_overrides: HashMap<ErrorCode, Option<Severity>>,
     /// If true, warnings without explicit per-code overrides are escalated to errors.
     upgrade_unmapped_warnings: bool,
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    ///
+    /// When true, self-completion (`+,`) and other-completion (`++`) linkers
+    /// are checked for correct pairing with preceding terminators (`+/.` and
+    /// `+...` respectively). Disabled by default because many existing corpora
+    /// do not follow these strict conventions.
+    enable_quotation_validation: bool,
 }
 
 impl ValidationConfig {
@@ -50,6 +57,7 @@ impl ValidationConfig {
         Self {
             severity_overrides: HashMap::new(),
             upgrade_unmapped_warnings: false,
+            enable_quotation_validation: false,
         }
     }
 
@@ -162,7 +170,24 @@ impl ValidationConfig {
         Self {
             severity_overrides: HashMap::new(),
             upgrade_unmapped_warnings: true,
+            enable_quotation_validation: false,
         }
+    }
+
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    ///
+    /// When enabled, self-completion (`+,`) and other-completion (`++`)
+    /// linkers are validated against their required preceding terminators.
+    /// This is off by default because many real corpora do not follow
+    /// strict sequential linker pairing conventions.
+    pub fn with_strict_linkers(mut self) -> Self {
+        self.enable_quotation_validation = true;
+        self
+    }
+
+    /// Returns whether strict cross-utterance linker validation is enabled.
+    pub fn strict_linkers_enabled(&self) -> bool {
+        self.enable_quotation_validation
     }
 
     /// Create a lenient configuration for legacy corpora.

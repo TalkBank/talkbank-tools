@@ -146,6 +146,31 @@ jobs:
       - name: Run CHAT manual anchor check
         run: make chat-anchors-check
 
+  spec-implementation-metric:
+    name: Spec Implementation Metric
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Count not_implemented specs
+        run: |
+          TOTAL=$(find spec/errors -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')
+          NOT_IMPL=$(grep -l 'Status.*not_implemented' spec/errors/*.md | wc -l | tr -d ' ')
+          IMPL=$((TOTAL - NOT_IMPL))
+          PCT=$((100 * NOT_IMPL / TOTAL))
+          {
+            echo "### Spec Implementation Status"
+            echo ""
+            echo "- **Implemented:** $IMPL"
+            echo "- **Not implemented:** $NOT_IMPL ($PCT%)"
+            echo "- **Total:** $TOTAL"
+            echo ""
+            echo "Not-implemented specs are tracked but their generated tests are marked \`#[ignore]\`. See \`spec/errors/*.md\` with \`Status: not_implemented\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Spec implementation: $IMPL / $TOTAL implemented ($NOT_IMPL not_implemented, $PCT%)"
+
   dependency-audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
@@ -354,6 +379,39 @@ jobs:
       - name: Smoke test — chatter --version (Windows)
         run: .\target\release\chatter.exe --version
         if: runner.os == 'Windows'
+
+  fuzz-smoke:
+    name: Fuzz Smoke Test
+    needs: rust-check-and-test
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+
+      - name: Fuzz parse_word (30s)
+        run: cd fuzz && cargo +nightly fuzz run fuzz_parse_word -- -max_total_time=30
+
+      - name: Fuzz parse_main_tier (30s)
+        run: cd fuzz && cargo +nightly fuzz run fuzz_parse_main_tier -- -max_total_time=30
+
+      - name: Fuzz parse_chat_file (30s)
+        run: cd fuzz && cargo +nightly fuzz run fuzz_parse_chat_file -- -max_total_time=30
+
+      - name: Fuzz validate (30s)
+        run: cd fuzz && cargo +nightly fuzz run fuzz_validate -- -max_total_time=30
 
   ci-report:
     name: CI Gate Summary

@@ -91,7 +91,7 @@ pub fn build_participants(headers: &[Header]) -> (IndexMap<SpeakerCode, Particip
                         SourceLocation::at_offset(0),
                         ErrorContext::new(speaker_str, 0..speaker_str.len(), speaker_str),
                         format!(
-                            "Participant '{}' listed in @Participants but has no @ID header",
+                            "Speaker '{}' declared in @Participants but has no matching @ID header",
                             speaker_str
                         ),
                     )
@@ -253,7 +253,7 @@ pub fn build_participants_from_lines(
                         SourceLocation::new(participants_span),
                         ErrorContext::new(speaker_str, 0..speaker_str.len(), speaker_str),
                         format!(
-                            "Participant '{}' listed in @Participants but has no @ID header",
+                            "Speaker '{}' declared in @Participants but has no matching @ID header",
                             speaker_str
                         ),
                     )

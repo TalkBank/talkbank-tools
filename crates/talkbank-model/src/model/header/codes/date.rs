@@ -233,7 +233,7 @@ impl Validate for ChatDate {
                     Severity::Error,
                     SourceLocation::at_offset(0),
                     ErrorContext::new(raw, 0..raw.len(), raw.as_str()),
-                    format!("Invalid @Date format '{}' (expected DD-MMM-YYYY)", raw),
+                    format!("Invalid @Date format '{}': expected DD-MMM-YYYY", raw),
                 )
                 .with_suggestion(
                     "Use format: 01-JAN-2024 (two-digit day, uppercase month, four-digit year)",

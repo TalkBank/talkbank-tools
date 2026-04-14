@@ -133,6 +133,7 @@ fn lint_single_file(
     let options = ParseValidateOptions {
         alignment: check_alignment,
         validate: true,
+        strict_linkers: false,
     };
 
     // Parse and validate (errors are collected internally)

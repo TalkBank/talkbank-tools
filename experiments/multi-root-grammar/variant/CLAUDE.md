@@ -1,5 +1,9 @@
 # Grammar — Tree-sitter Grammar for CHAT
 
+> **Status: Concluded.** This experiment explored multi-root grammar variants. Findings have been incorporated into the main grammar. This directory is preserved for reference but is not actively maintained.
+
+**Last modified:** 2026-04-13 11:14 EDT
+
 ## Overview
 Tree-sitter grammar definition for CHAT (`grammar.js`) plus generated parser and corpus tests.
 Grammar changes require regeneration and re-running tests.
@@ -19,7 +23,7 @@ Do not draw conclusions from parser output until regeneration has been done.
 
 1. NEVER edit `src/parser.c` directly; it is generated from `grammar.js`.
 2. NEVER hand-edit `test/corpus/`; it is generated from upstream specs.
-3. The 74-file reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
+3. The 88-file reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
 4. If verification fails and a fix is not immediate, revert the grammar change before proceeding.
 
 ### Stop Conditions

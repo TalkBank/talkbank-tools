@@ -8,7 +8,7 @@ stressed syllables) must occur in matched begin/end pairs within a single
 utterance.
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 - **Layer**: validation
 
 - **Error Code**: E356
@@ -18,15 +18,18 @@ utterance.
 
 ## Example 1
 
-**Trigger**: Underline begin marker without matching end marker
+**Source**: `error_corpus/validation_errors/E356_unmatched_underline_begin.cha`
+**Trigger**: Underline begin marker (`\x02\x01`) without matching end marker (`\x02\x02`)
+**Expected Error Codes**: E356
 
 ```chat
 @UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|test|CHI||female|||Target_Child|||
-*CHI:	I ↗re↗ally want it .
+@ID:	eng|corpus|CHI|||||Target_Child|||
+@Comment:	ERROR: Unmatched underline begin marker
+*CHI:	hello world .
 @End
 ```
 

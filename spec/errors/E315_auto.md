@@ -1,11 +1,11 @@
-# E315: Auto-generated from corpus
+# E315: Invalid control character
 
 ## Description
 
-Auto-generated from corpus
+Main tier or dependent tier contains an invalid control character (e.g., embedded NUL, SOH, or other non-printable ASCII).
 
 ## Metadata
-- **Status**: not_implemented
+- **Status**: implemented
 
 - **Error Code**: E315
 - **Category**: validation

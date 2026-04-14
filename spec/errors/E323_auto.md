@@ -12,6 +12,7 @@ typically fails to match the main tier pattern at all, producing an ERROR node
 
 ## Metadata
 - **Status**: not_implemented
+- **Status note**: Unreachable via tree-sitter parser. Without the colon, tree-sitter does not recognize a main tier node, producing E316 instead.
 
 - **Error Code**: E323
 - **Category**: validation

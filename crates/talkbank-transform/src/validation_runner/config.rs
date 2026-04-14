@@ -68,6 +68,9 @@ pub struct ValidationConfig {
 
     /// Which parser backend to use
     pub parser_kind: ParserKind,
+
+    /// Enable strict cross-utterance linker validation (E351-E355).
+    pub strict_linkers: bool,
 }
 
 impl Default for ValidationConfig {
@@ -80,6 +83,7 @@ impl Default for ValidationConfig {
             directory: DirectoryMode::Recursive,
             roundtrip: false,
             parser_kind: ParserKind::TreeSitter,
+            strict_linkers: false,
         }
     }
 }
