@@ -385,10 +385,7 @@ pub(crate) fn analyze_word_error(error_node: Node, source: &str) -> ParseError {
         Severity::Error,
         SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
         ErrorContext::new(error_text, 0..error_text.len(), error_text),
-        format!(
-            "Unparsable content on main tier: '{}'",
-            error_text
-        ),
+        format!("Unparsable content on main tier: '{}'", error_text),
     )
     .with_suggestion("Check CHAT format manual for valid syntax at this position")
 }

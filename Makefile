@@ -1,4 +1,4 @@
-.PHONY: help symbols-gen generated-check test-gen mine-candidates test test-affected test-grammar test-generated test-fragment-semantics test-legacy-fragment-parity test-parity build clean check check-affected verify parser-guard chat-anchors-check book book-serve coverage smoke check-specs ci-local ci-full install-hooks lint-affected
+.PHONY: help symbols-gen generated-check test-gen mine-candidates test test-affected test-grammar test-generated test-fragment-semantics test-legacy-fragment-parity test-parity build clean check check-affected verify parser-guard chat-anchors-check fuzz-check hooks-check book book-serve coverage smoke check-specs ci-local ci-full install-hooks lint-affected
 
 help:
 	@echo "TalkBank Core Library Tasks"
@@ -35,6 +35,21 @@ parser-guard:
 # Optional local mirror path: CHAT_HTML_PATH=/abs/path/to/CHAT.html make chat-anchors-check
 chat-anchors-check:
 	@scripts/check-chat-manual-anchors.sh
+
+# Cheap gate that mirrors the Fuzz Smoke Test CI job's first action
+# (cargo metadata on fuzz/). Catches workspace-isolation breakage
+# without compiling anything. No nightly toolchain needed.
+fuzz-check:
+	@echo "==> fuzz workspace isolation check"
+	@cd fuzz && cargo metadata --no-deps --format-version 1 >/dev/null
+
+# Warn if the pre-push hook isn't installed. Not a hard failure —
+# users may intentionally push without hooks in rare cases (e.g.,
+# re-pushing an already-verified commit after a remote hiccup).
+hooks-check:
+	@if [ ! -e .git/hooks/pre-push ]; then \
+	  echo "warning: .git/hooks/pre-push is not installed — run 'make install-hooks'" >&2; \
+	fi
 
 # Generate shared symbol sets used by grammar.
 symbols-gen:
@@ -151,6 +166,7 @@ lint-affected:
 
 # Canonical pre-merge verification gates
 verify:
+	@$(MAKE) hooks-check
 	@echo "==> [G0] Parser signature guardrail"
 	@$(MAKE) parser-guard
 	@echo "==> [G1] Rust workspace compile check"
@@ -175,6 +191,10 @@ verify:
 	cargo nextest run -p talkbank-parser-tests --test parser_suite
 	@echo "==> [G11] Reference corpus node coverage"
 	@$(MAKE) coverage
+	@echo "==> [G12] Generated artifacts match committed sources"
+	@$(MAKE) generated-check
+	@echo "==> [G13] Fuzz workspace isolation"
+	@$(MAKE) fuzz-check
 
 # Reference corpus grammar node type coverage
 coverage:

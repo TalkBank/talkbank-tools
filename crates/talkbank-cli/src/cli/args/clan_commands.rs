@@ -1059,15 +1059,15 @@ pub fn command_category(name: &str) -> Option<ClanCommandCategory> {
     use ClanCommandCategory::*;
     Some(match name {
         // -- Analysis commands --
-        "freq" | "mlu" | "mlt" | "wdlen" | "wdsize" | "maxwd" | "freqpos" | "timedur"
-        | "kwal" | "gemlist" | "combo" | "cooccur" | "dist" | "chip" | "phonfreq" | "modrep"
-        | "vocd" | "uniq" | "codes" | "trnfix" | "sugar" | "mortable" | "chains"
-        | "complexity" | "corelex" | "keymap" | "script" | "rely" | "flucalc" | "dss"
-        | "ipsyn" | "eval" | "kideval" | "eval-d" => Analysis,
+        "freq" | "mlu" | "mlt" | "wdlen" | "wdsize" | "maxwd" | "freqpos" | "timedur" | "kwal"
+        | "gemlist" | "combo" | "cooccur" | "dist" | "chip" | "phonfreq" | "modrep" | "vocd"
+        | "uniq" | "codes" | "trnfix" | "sugar" | "mortable" | "chains" | "complexity"
+        | "corelex" | "keymap" | "script" | "rely" | "flucalc" | "dss" | "ipsyn" | "eval"
+        | "kideval" | "eval-d" => Analysis,
         // -- Transform commands --
         "flo" | "lowcase" | "chstring" | "dates" | "delim" | "fixbullets" | "retrace"
-        | "repeat" | "combtier" | "compound" | "tierorder" | "lines" | "dataclean"
-        | "quotes" | "ort" | "postmortem" | "makemod" | "trim" | "roles" => Transform,
+        | "repeat" | "combtier" | "compound" | "tierorder" | "lines" | "dataclean" | "quotes"
+        | "ort" | "postmortem" | "makemod" | "trim" | "roles" => Transform,
         // -- Converter commands --
         "chat2text" | "srt2chat" | "chat2srt" | "chat2vtt" | "text2chat" | "lipp2chat"
         | "elan2chat" | "praat2chat" | "chat2praat" | "lena2chat" | "play2chat" | "lab2chat"
@@ -1132,11 +1132,7 @@ fn build_grouped_help(cmd: &Command) -> String {
         .collect();
 
     // Compute the longest subcommand name for alignment
-    let longest = subcmds
-        .keys()
-        .map(|name| name.len())
-        .max()
-        .unwrap_or(0);
+    let longest = subcmds.keys().map(|name| name.len()).max().unwrap_or(0);
 
     // Render each category
     for &category in CATEGORY_ORDER {
@@ -1153,10 +1149,7 @@ fn build_grouped_help(cmd: &Command) -> String {
         let _ = writeln!(out, "\n{heading}:");
         for sc in commands_in_category {
             let name = sc.get_name();
-            let about = sc
-                .get_about()
-                .map(|a| a.to_string())
-                .unwrap_or_default();
+            let about = sc.get_about().map(|a| a.to_string()).unwrap_or_default();
             let _ = writeln!(out, "  {name:<longest$}  {about}");
         }
     }

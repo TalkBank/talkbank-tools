@@ -133,8 +133,8 @@ fn main() {
     // via derive attributes, so we post-process the command tree.
     let cmd = cli::apply_clan_help_grouping(cli::Cli::command());
     let matches = cmd.get_matches_from(rewritten);
-    let cli = cli::Cli::from_arg_matches(&matches)
-        .expect("clap should have validated all arguments");
+    let cli =
+        cli::Cli::from_arg_matches(&matches).expect("clap should have validated all arguments");
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         cli::run(cli);

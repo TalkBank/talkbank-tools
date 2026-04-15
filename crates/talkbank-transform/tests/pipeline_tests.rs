@@ -33,7 +33,10 @@ fn parse_with_alignment_on_vs_off() -> Result<(), PipelineError> {
     // Without alignment: should succeed
     let options_no_align = ParseValidateOptions::default().with_validation();
     let result_no_align = parse_and_validate(VALID_CHAT, options_no_align);
-    assert!(result_no_align.is_ok(), "Validation without alignment should pass");
+    assert!(
+        result_no_align.is_ok(),
+        "Validation without alignment should pass"
+    );
 
     // With alignment: may or may not produce alignment errors, but should not panic
     let options_align = ParseValidateOptions::default().with_alignment();
@@ -118,8 +121,7 @@ fn streaming_parse_with_parser_reuse() -> Result<(), PipelineError> {
     assert_eq!(file1.utterances().count(), 1);
 
     let errors2 = ErrorCollector::new();
-    let file2 =
-        parse_and_validate_streaming_with_parser(&parser, MINIMAL_CHAT, options, &errors2)?;
+    let file2 = parse_and_validate_streaming_with_parser(&parser, MINIMAL_CHAT, options, &errors2)?;
     assert_eq!(file2.utterances().count(), 0);
 
     Ok(())
@@ -163,10 +165,7 @@ fn parse_file_empty() {
         std::fs::write(&file_path, "").ok();
         let options = ParseValidateOptions::default();
         let result = parse_file_and_validate(&file_path, options);
-        assert!(
-            result.is_err(),
-            "Empty file should return an error"
-        );
+        assert!(result.is_err(), "Empty file should return an error");
     }
 }
 

@@ -122,34 +122,36 @@ impl CommandFamilyService for ValidationCommandService {
                     return;
                 }
                 run_validate_command(
-                path,
-                ValidateCommandOptions {
-                    rules: ValidateCommandRules {
-                        alignment: AlignmentValidationMode::from_enabled(!skip_alignment),
-                        roundtrip: RoundtripValidationMode::from_enabled(roundtrip),
-                        parser_kind: match parser {
-                            crate::cli::ParserBackend::TreeSitter => {
-                                talkbank_transform::ParserKind::TreeSitter
-                            }
-                            crate::cli::ParserBackend::Re2c => talkbank_transform::ParserKind::Re2c,
+                    path,
+                    ValidateCommandOptions {
+                        rules: ValidateCommandRules {
+                            alignment: AlignmentValidationMode::from_enabled(!skip_alignment),
+                            roundtrip: RoundtripValidationMode::from_enabled(roundtrip),
+                            parser_kind: match parser {
+                                crate::cli::ParserBackend::TreeSitter => {
+                                    talkbank_transform::ParserKind::TreeSitter
+                                }
+                                crate::cli::ParserBackend::Re2c => {
+                                    talkbank_transform::ParserKind::Re2c
+                                }
+                            },
+                            strict_linkers,
                         },
-                        strict_linkers,
+                        execution: ValidateCommandExecution {
+                            cache_refresh: CacheRefreshMode::from_force(force),
+                            jobs,
+                            max_errors,
+                        },
+                        presentation: ValidateCommandPresentation {
+                            format,
+                            quiet,
+                            audit_output: audit,
+                            interface: ValidationInterface::from_tui(context.should_use_tui),
+                            theme: context.theme.clone(),
+                        },
+                        suppress,
                     },
-                    execution: ValidateCommandExecution {
-                        cache_refresh: CacheRefreshMode::from_force(force),
-                        jobs,
-                        max_errors,
-                    },
-                    presentation: ValidateCommandPresentation {
-                        format,
-                        quiet,
-                        audit_output: audit,
-                        interface: ValidationInterface::from_tui(context.should_use_tui),
-                        theme: context.theme.clone(),
-                    },
-                    suppress,
-                },
-            );
+                );
             }
             Commands::ShowAlignment {
                 input,
@@ -304,6 +306,9 @@ fn run_debug(command: crate::cli::DebugCommands) {
         }
         DebugCommands::LinkerAudit { path, anomalies } => {
             super::debug::run_linker_audit(&path, anomalies.as_deref());
+        }
+        DebugCommands::Find(args) => {
+            super::find::run_find(args);
         }
     }
 }

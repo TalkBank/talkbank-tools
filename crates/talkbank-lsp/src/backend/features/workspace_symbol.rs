@@ -80,11 +80,7 @@ mod tests {
 
         let upper = workspace_symbols_for_document(&uri, doc, "CHI");
         let lower = workspace_symbols_for_document(&uri, doc, "chi");
-        assert_eq!(
-            upper.len(),
-            lower.len(),
-            "Query should be case-insensitive"
-        );
+        assert_eq!(upper.len(), lower.len(), "Query should be case-insensitive");
     }
 
     #[test]

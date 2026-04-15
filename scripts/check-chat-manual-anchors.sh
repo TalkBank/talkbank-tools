@@ -18,7 +18,9 @@ if [[ -z "${CHAT_HTML_PATH}" || ! -f "$CHAT_HTML_PATH" ]]; then
     fi
     echo "Downloading CHAT manual from: $CHAT_HTML_URL" >&2
     CHAT_HTML_PATH="$tmpdir/CHAT.html"
-    curl -fsSL "$CHAT_HTML_URL" -o "$CHAT_HTML_PATH"
+    # --retry-all-errors covers transient DNS and connect failures on CI runners.
+    curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors --connect-timeout 15 \
+      "$CHAT_HTML_URL" -o "$CHAT_HTML_PATH"
   else
     cat >&2 <<EOF
 ERROR: CHAT manual HTML not found locally and curl is unavailable.

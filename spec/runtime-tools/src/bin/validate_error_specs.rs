@@ -76,8 +76,8 @@ fn main() {
 
 /// Validate all error specifications in a directory.
 fn validate_all_specs(args: &Args) -> Result<(), String> {
-    let specs = ErrorSpec::load_all(&args.spec_dir)
-        .map_err(|e| format!("Failed to load specs: {}", e))?;
+    let specs =
+        ErrorSpec::load_all(&args.spec_dir).map_err(|e| format!("Failed to load specs: {}", e))?;
 
     if specs.is_empty() {
         eprintln!("Warning: No specs found in {}", args.spec_dir.display());
@@ -86,8 +86,7 @@ fn validate_all_specs(args: &Args) -> Result<(), String> {
 
     eprintln!("Found {} spec files\n", specs.len());
 
-    let parser =
-        TreeSitterParser::new().map_err(|e| format!("Failed to create parser: {}", e))?;
+    let parser = TreeSitterParser::new().map_err(|e| format!("Failed to create parser: {}", e))?;
 
     let mut code_mismatches: Vec<String> = Vec::new();
     let mut passed = 0u32;
@@ -98,7 +97,10 @@ fn validate_all_specs(args: &Args) -> Result<(), String> {
         let code = match spec.errors.first() {
             Some(e) => e.code.as_str(),
             None => {
-                eprintln!("  WARN  {} has no error definitions, skipping", spec.source_file);
+                eprintln!(
+                    "  WARN  {} has no error definitions, skipping",
+                    spec.source_file
+                );
                 continue;
             }
         };
@@ -163,7 +165,10 @@ fn validate_all_specs(args: &Args) -> Result<(), String> {
 
     eprintln!(
         "Summary: {} passed, {} skipped, {} errors (of {} total)",
-        passed, skipped, code_mismatches.len(), total,
+        passed,
+        skipped,
+        code_mismatches.len(),
+        total,
     );
 
     if code_mismatches.is_empty() {

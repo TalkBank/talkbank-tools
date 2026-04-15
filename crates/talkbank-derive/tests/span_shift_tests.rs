@@ -43,7 +43,10 @@ struct WithSkipped {
 
 #[test]
 fn span_at_offset_gets_shifted() {
-    let mut loc = Located { span: Span::new(10, 20), value: "x".into() };
+    let mut loc = Located {
+        span: Span::new(10, 20),
+        value: "x".into(),
+    };
     loc.shift_spans_after(10, 5);
     assert_eq!(loc.span.start, 15);
     assert_eq!(loc.span.end, 25);
@@ -51,7 +54,10 @@ fn span_at_offset_gets_shifted() {
 
 #[test]
 fn span_before_offset_untouched() {
-    let mut loc = Located { span: Span::new(5, 10), value: "x".into() };
+    let mut loc = Located {
+        span: Span::new(5, 10),
+        value: "x".into(),
+    };
     loc.shift_spans_after(15, 5);
     assert_eq!(loc.span.start, 5);
     assert_eq!(loc.span.end, 10);
@@ -60,7 +66,10 @@ fn span_before_offset_untouched() {
 #[test]
 fn positive_delta_insertion() {
     // Insert 100 bytes at position 0 -- everything shifts.
-    let mut loc = Located { span: Span::new(50, 80), value: "x".into() };
+    let mut loc = Located {
+        span: Span::new(50, 80),
+        value: "x".into(),
+    };
     loc.shift_spans_after(0, 100);
     assert_eq!(loc.span.start, 150);
     assert_eq!(loc.span.end, 180);
@@ -69,7 +78,10 @@ fn positive_delta_insertion() {
 #[test]
 fn negative_delta_deletion() {
     // Delete 5 bytes at position 10 -- span at 20..30 shifts to 15..25.
-    let mut loc = Located { span: Span::new(20, 30), value: "x".into() };
+    let mut loc = Located {
+        span: Span::new(20, 30),
+        value: "x".into(),
+    };
     loc.shift_spans_after(10, -5);
     assert_eq!(loc.span.start, 15);
     assert_eq!(loc.span.end, 25);
@@ -77,7 +89,9 @@ fn negative_delta_deletion() {
 
 #[test]
 fn option_some_shifts() {
-    let mut m = MaybeLocated { span: Some(Span::new(10, 20)) };
+    let mut m = MaybeLocated {
+        span: Some(Span::new(10, 20)),
+    };
     m.shift_spans_after(5, 3);
     let span = m.span.expect("should still be Some");
     assert_eq!(span.start, 13);
@@ -95,9 +109,18 @@ fn option_none_noop() {
 fn vec_recursion_all_elements_shifted() {
     let mut c = Container {
         items: vec![
-            Located { span: Span::new(10, 20), value: "a".into() },
-            Located { span: Span::new(30, 40), value: "b".into() },
-            Located { span: Span::new(5, 8), value: "c".into() },
+            Located {
+                span: Span::new(10, 20),
+                value: "a".into(),
+            },
+            Located {
+                span: Span::new(30, 40),
+                value: "b".into(),
+            },
+            Located {
+                span: Span::new(5, 8),
+                value: "c".into(),
+            },
         ],
     };
     c.shift_spans_after(10, 7);

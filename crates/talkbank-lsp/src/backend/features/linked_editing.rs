@@ -148,10 +148,7 @@ mod tests {
                 ranges.ranges.len()
             );
             // word_pattern should be None (not set by this implementation).
-            assert!(
-                ranges.word_pattern.is_none(),
-                "word_pattern should be None"
-            );
+            assert!(ranges.word_pattern.is_none(), "word_pattern should be None");
         }
         // If None, the CST may not have an id_speaker node at that offset — acceptable.
     }

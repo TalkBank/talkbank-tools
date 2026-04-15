@@ -341,7 +341,9 @@ mod tests {
                 "Expected @Begin in completions"
             );
             assert!(
-                items.iter().all(|i| i.kind == Some(CompletionItemKind::KEYWORD)),
+                items
+                    .iter()
+                    .all(|i| i.kind == Some(CompletionItemKind::KEYWORD)),
                 "All header completions should be KEYWORD kind"
             );
         }
@@ -358,10 +360,7 @@ mod tests {
             character: 8,
         };
         let result = completion(&chat_file, &tree, content, pos);
-        assert!(
-            result.is_none(),
-            "Expected no completions on a plain word"
-        );
+        assert!(result.is_none(), "Expected no completions on a plain word");
     }
 
     #[test]
@@ -405,8 +404,7 @@ mod tests {
         // We test the text-based trigger directly since parse_chat would reject
         // the invalid bracket. The completion handler checks the line prefix
         // before CST lookup, so this tests the right code path.
-        let content =
-            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n@End\n";
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n@End\n";
         let chat_file = parse_chat(content);
         let tree = parse_tree(content);
 
@@ -479,7 +477,9 @@ mod tests {
         let items = postcodes.unwrap();
         assert_eq!(items.len(), 8, "Expected 8 postcode completions");
         assert!(
-            items.iter().all(|i| i.kind == Some(CompletionItemKind::OPERATOR)),
+            items
+                .iter()
+                .all(|i| i.kind == Some(CompletionItemKind::OPERATOR)),
             "All postcodes should be OPERATOR kind"
         );
     }
@@ -529,17 +529,8 @@ mod tests {
         let items = result.unwrap();
         // Participants header contributes 3, plus 3 @ID headers = potentially duplicates
         let labels: Vec<&str> = items.iter().map(|i| i.label.as_str()).collect();
-        assert!(
-            labels.contains(&"CHI"),
-            "Expected CHI speaker code"
-        );
-        assert!(
-            labels.contains(&"MOT"),
-            "Expected MOT speaker code"
-        );
-        assert!(
-            labels.contains(&"FAT"),
-            "Expected FAT speaker code"
-        );
+        assert!(labels.contains(&"CHI"), "Expected CHI speaker code");
+        assert!(labels.contains(&"MOT"), "Expected MOT speaker code");
+        assert!(labels.contains(&"FAT"), "Expected FAT speaker code");
     }
 }

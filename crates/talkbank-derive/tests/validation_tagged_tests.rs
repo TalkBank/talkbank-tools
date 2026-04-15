@@ -4,9 +4,9 @@
 // `crate::model::ValidationTag`, so we must bring `talkbank_model::model`
 // into the crate root.
 
+use talkbank_derive::ValidationTagged as DeriveValidationTagged;
 use talkbank_model::model;
 use talkbank_model::model::{ValidationTag, ValidationTagged};
-use talkbank_derive::ValidationTagged as DeriveValidationTagged;
 
 // ---------------------------------------------------------------------------
 // Test types
@@ -47,27 +47,45 @@ enum UnsupportedVariants {
 #[test]
 fn explicit_annotations() {
     assert_eq!(ExplicitTags::Good.validation_tag(), ValidationTag::Clean);
-    assert_eq!(ExplicitTags::Degraded.validation_tag(), ValidationTag::Warning);
+    assert_eq!(
+        ExplicitTags::Degraded.validation_tag(),
+        ValidationTag::Warning
+    );
     assert_eq!(ExplicitTags::Broken.validation_tag(), ValidationTag::Error);
 }
 
 #[test]
 fn error_suffix_convention() {
-    assert_eq!(ConventionBased::ParseError.validation_tag(), ValidationTag::Error);
+    assert_eq!(
+        ConventionBased::ParseError.validation_tag(),
+        ValidationTag::Error
+    );
 }
 
 #[test]
 fn warning_suffix_convention() {
-    assert_eq!(ConventionBased::DeferredWarning.validation_tag(), ValidationTag::Warning);
+    assert_eq!(
+        ConventionBased::DeferredWarning.validation_tag(),
+        ValidationTag::Warning
+    );
 }
 
 #[test]
 fn unsupported_convention_maps_to_warning() {
     // Both the exact name "Unsupported" and the suffix "*Unsupported" map to Warning.
-    assert_eq!(UnsupportedVariants::Unsupported.validation_tag(), ValidationTag::Warning);
-    assert_eq!(UnsupportedVariants::FormatUnsupported.validation_tag(), ValidationTag::Warning);
+    assert_eq!(
+        UnsupportedVariants::Unsupported.validation_tag(),
+        ValidationTag::Warning
+    );
+    assert_eq!(
+        UnsupportedVariants::FormatUnsupported.validation_tag(),
+        ValidationTag::Warning
+    );
     // Non-matching name defaults to Clean.
-    assert_eq!(UnsupportedVariants::Supported.validation_tag(), ValidationTag::Clean);
+    assert_eq!(
+        UnsupportedVariants::Supported.validation_tag(),
+        ValidationTag::Clean
+    );
 }
 
 #[test]

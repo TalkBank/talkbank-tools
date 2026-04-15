@@ -99,10 +99,7 @@ mod tests {
             character: 5,
         };
         let result = document_highlights(&chat_file, &tree, pos, content);
-        assert!(
-            result.is_none(),
-            "Expected no highlights on a header line"
-        );
+        assert!(result.is_none(), "Expected no highlights on a header line");
     }
 
     #[test]
@@ -173,7 +170,10 @@ mod tests {
         let span = Span { start: 10, end: 20 };
         assert!(span_contains(span, 10), "Start of span should be contained");
         assert!(span_contains(span, 20), "End of span should be contained");
-        assert!(span_contains(span, 15), "Middle of span should be contained");
+        assert!(
+            span_contains(span, 15),
+            "Middle of span should be contained"
+        );
         assert!(
             !span_contains(span, 9),
             "Before span start should not be contained"

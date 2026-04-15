@@ -59,7 +59,10 @@ pub(crate) fn check_headers(
                 Severity::Error,
                 SourceLocation::at_offset(span.start as usize),
                 ErrorContext::new(*name, 0..name.len(), *name),
-                format!("Duplicate @{} header: found {} occurrences, but only one is allowed", name, count),
+                format!(
+                    "Duplicate @{} header: found {} occurrences, but only one is allowed",
+                    name, count
+                ),
             )
             .with_suggestion(format!(
                 "Remove the extra @{} headers so only one remains",

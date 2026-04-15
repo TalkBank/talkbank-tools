@@ -16,8 +16,7 @@ fn arb_span() -> impl Strategy<Value = Span> {
 
 /// Strategy for generating a non-empty `Span` (start < end).
 fn arb_nonempty_span() -> impl Strategy<Value = Span> {
-    (0u32..10_000, 1u32..1_000)
-        .prop_map(|(start, len)| Span::new(start, start.saturating_add(len)))
+    (0u32..10_000, 1u32..1_000).prop_map(|(start, len)| Span::new(start, start.saturating_add(len)))
 }
 
 proptest! {

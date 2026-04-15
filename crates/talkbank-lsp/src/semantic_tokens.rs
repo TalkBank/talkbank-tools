@@ -416,11 +416,7 @@ mod tests {
                     token.delta_start
                 );
             }
-            assert!(
-                token.length > 0,
-                "Token {} has zero length",
-                i
-            );
+            assert!(token.length > 0, "Token {} has zero length", i);
         }
     }
 

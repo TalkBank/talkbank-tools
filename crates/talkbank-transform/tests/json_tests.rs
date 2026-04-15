@@ -70,8 +70,8 @@ fn to_json_unvalidated_skips_schema() -> Result<(), PipelineError> {
         .map_err(|e| PipelineError::JsonSerialization(e.to_string()))?;
     assert!(!json.is_empty(), "Unvalidated JSON should produce output");
     // Verify it is valid JSON
-    let parsed: serde_json::Value = serde_json::from_str(&json)
-        .map_err(|e| PipelineError::JsonSerialization(e.to_string()))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json).map_err(|e| PipelineError::JsonSerialization(e.to_string()))?;
     assert!(parsed.is_object());
     Ok(())
 }
@@ -83,7 +83,10 @@ fn validate_json_string_roundtrip() -> Result<(), PipelineError> {
     let json = chat_to_json(VALID_CHAT, options, false)?;
     // chat_to_json already validates, but we can also validate the string directly
     let result = validate_json_string(&json);
-    assert!(result.is_ok(), "Roundtrip JSON should pass schema validation");
+    assert!(
+        result.is_ok(),
+        "Roundtrip JSON should pass schema validation"
+    );
     Ok(())
 }
 
@@ -146,7 +149,10 @@ fn render_error_with_named_source_includes_filename() {
     let options = ParseValidateOptions::default().with_validation();
     match parse_and_validate(content, options) {
         Err(PipelineError::Parse(parse_errors)) => {
-            let source = miette::NamedSource::new("my_test_file.cha", std::sync::Arc::new(content.to_string()));
+            let source = miette::NamedSource::new(
+                "my_test_file.cha",
+                std::sync::Arc::new(content.to_string()),
+            );
             let rendered =
                 render_error_with_miette_with_named_source(&parse_errors.errors[0], &source);
             assert!(
@@ -155,7 +161,10 @@ fn render_error_with_named_source_includes_filename() {
             );
         }
         Err(PipelineError::Validation(errors)) => {
-            let source = miette::NamedSource::new("my_test_file.cha", std::sync::Arc::new(content.to_string()));
+            let source = miette::NamedSource::new(
+                "my_test_file.cha",
+                std::sync::Arc::new(content.to_string()),
+            );
             let rendered = render_error_with_miette_with_named_source(&errors[0], &source);
             assert!(
                 !rendered.is_empty(),

@@ -12,8 +12,7 @@ use talkbank_model::{Span, SpanShift};
 /// Avoids `(0, 0)` because `SpanShift` treats dummy spans as no-ops,
 /// which would trivially satisfy most properties.
 fn arb_nondummy_span() -> impl Strategy<Value = Span> {
-    (1u32..10_000, 1u32..1_000)
-        .prop_map(|(start, len)| Span::new(start, start.saturating_add(len)))
+    (1u32..10_000, 1u32..1_000).prop_map(|(start, len)| Span::new(start, start.saturating_add(len)))
 }
 
 proptest! {

@@ -48,7 +48,9 @@ pub(super) fn check_id_header(id_header: &IDHeader, span: Span, errors: &impl Er
             ErrorContext::new(id_header.role.as_str(), 0..0, "id_role"),
             "Empty role field in @ID header: the role (8th field) must not be blank",
         )
-        .with_suggestion("Set a valid role such as 'Target_Child', 'Mother', 'Investigator', or 'Participant'");
+        .with_suggestion(
+            "Set a valid role such as 'Target_Child', 'Mother', 'Investigator', or 'Participant'",
+        );
         err.location.span = span;
         errors.report(err);
     } else if !is_allowed_participant_role(id_header.role.as_str()) {

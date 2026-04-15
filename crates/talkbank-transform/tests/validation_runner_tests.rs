@@ -207,10 +207,7 @@ fn validate_directory_with_invalid_file() {
     }
     assert!(saw_finished, "Should see Finished event");
     // Errors event should fire for the invalid file
-    assert!(
-        saw_errors,
-        "Should see Errors event for invalid CHAT file"
-    );
+    assert!(saw_errors, "Should see Errors event for invalid CHAT file");
 }
 
 #[test]

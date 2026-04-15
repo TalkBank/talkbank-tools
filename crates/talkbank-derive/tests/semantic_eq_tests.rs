@@ -4,10 +4,10 @@
 // `talkbank_model::model` into the crate root so that `crate::model::*`
 // resolves correctly in the generated code.
 
+use talkbank_derive::SemanticEq as DeriveSemanticEq;
+use talkbank_model::Span;
 use talkbank_model::model;
 use talkbank_model::model::SemanticEq;
-use talkbank_model::Span;
-use talkbank_derive::SemanticEq as DeriveSemanticEq;
 
 // ---------------------------------------------------------------------------
 // Test types
@@ -75,31 +75,63 @@ enum Color {
 
 #[test]
 fn simple_struct_equal() {
-    let a = Word { text: "hello".into(), category: 1, span: Span::new(0, 5) };
-    let b = Word { text: "hello".into(), category: 1, span: Span::new(100, 200) };
+    let a = Word {
+        text: "hello".into(),
+        category: 1,
+        span: Span::new(0, 5),
+    };
+    let b = Word {
+        text: "hello".into(),
+        category: 1,
+        span: Span::new(100, 200),
+    };
     assert!(a.semantic_eq(&b));
 }
 
 #[test]
 fn simple_struct_not_equal_text() {
-    let a = Word { text: "hello".into(), category: 1, span: Span::new(0, 5) };
-    let b = Word { text: "world".into(), category: 1, span: Span::new(0, 5) };
+    let a = Word {
+        text: "hello".into(),
+        category: 1,
+        span: Span::new(0, 5),
+    };
+    let b = Word {
+        text: "world".into(),
+        category: 1,
+        span: Span::new(0, 5),
+    };
     assert!(!a.semantic_eq(&b));
 }
 
 #[test]
 fn skip_field_ignored() {
     // Same semantic fields, different skipped spans.
-    let a = Word { text: "x".into(), category: 42, span: Span::new(0, 1) };
-    let b = Word { text: "x".into(), category: 42, span: Span::new(999, 1000) };
+    let a = Word {
+        text: "x".into(),
+        category: 42,
+        span: Span::new(0, 1),
+    };
+    let b = Word {
+        text: "x".into(),
+        category: 42,
+        span: Span::new(999, 1000),
+    };
     assert!(a.semantic_eq(&b));
 }
 
 #[test]
 fn non_skip_field_checked() {
     // Same text but different category (non-skipped) should differ.
-    let a = Word { text: "x".into(), category: 1, span: Span::new(0, 1) };
-    let b = Word { text: "x".into(), category: 2, span: Span::new(0, 1) };
+    let a = Word {
+        text: "x".into(),
+        category: 1,
+        span: Span::new(0, 1),
+    };
+    let b = Word {
+        text: "x".into(),
+        category: 2,
+        span: Span::new(0, 1),
+    };
     assert!(!a.semantic_eq(&b));
 }
 
@@ -110,8 +142,14 @@ fn empty_struct_always_equal() {
 
 #[test]
 fn all_skipped_struct_always_equal() {
-    let a = AllSkipped { span: Span::new(0, 10), cache_key: 111 };
-    let b = AllSkipped { span: Span::new(50, 60), cache_key: 999 };
+    let a = AllSkipped {
+        span: Span::new(0, 10),
+        cache_key: 111,
+    };
+    let b = AllSkipped {
+        span: Span::new(50, 60),
+        cache_key: 999,
+    };
     assert!(a.semantic_eq(&b));
 }
 
@@ -136,12 +174,16 @@ fn enum_different_variant_not_equal() {
 #[test]
 fn nested_struct_equal() {
     let a = Outer {
-        inner: Inner { value: "abc".into() },
+        inner: Inner {
+            value: "abc".into(),
+        },
         label: "ok".into(),
         span: Span::new(0, 10),
     };
     let b = Outer {
-        inner: Inner { value: "abc".into() },
+        inner: Inner {
+            value: "abc".into(),
+        },
         label: "ok".into(),
         span: Span::new(99, 199),
     };
@@ -151,12 +193,16 @@ fn nested_struct_equal() {
 #[test]
 fn nested_struct_inner_differs() {
     let a = Outer {
-        inner: Inner { value: "abc".into() },
+        inner: Inner {
+            value: "abc".into(),
+        },
         label: "ok".into(),
         span: Span::new(0, 10),
     };
     let b = Outer {
-        inner: Inner { value: "xyz".into() },
+        inner: Inner {
+            value: "xyz".into(),
+        },
         label: "ok".into(),
         span: Span::new(0, 10),
     };

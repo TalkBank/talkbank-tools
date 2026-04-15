@@ -480,6 +480,21 @@ pub enum DebugCommands {
         #[arg(long, value_name = "PATH")]
         anomalies: Option<PathBuf>,
     },
+
+    /// Filter CHAT files by @Languages / body content across a corpus tree.
+    ///
+    /// Internal corpus-inspection tool. Walks the given paths, parses the
+    /// @Languages header of each .cha via the tree-sitter header fragment
+    /// parser, and counts occurrences of an optional body substring. Emits
+    /// the filtered list as paths / JSON Lines / CSV.
+    ///
+    /// Example: pick files with ≥20 @s tokens in bilingual transcripts,
+    /// three per language pair, sorted by density:
+    ///
+    ///   chatter debug find ~/0tb/data --min-languages 2 --has-token @s \
+    ///       --min-token-count 20 --max-per-pair 3 \
+    ///       --sort token-count-desc --format jsonl
+    Find(crate::commands::find::FindArgs),
 }
 
 /// Cache maintenance subcommands under `talkbank cache`.

@@ -99,7 +99,9 @@ fn test_validate_invalid_file_text_mode_uses_stderr_for_diagnostics() -> Result<
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains("✗ Errors found in"))
         .stderr(predicate::str::contains("invalid.cha"))
-        .stderr(predicate::str::contains("Missing @End header at end of file"));
+        .stderr(predicate::str::contains(
+            "Missing @End header at end of file",
+        ));
     Ok(())
 }
 
@@ -134,7 +136,9 @@ fn test_validate_invalid_file_json_mode_keeps_stderr_clean() -> Result<(), TestE
         .failure()
         .stdout(predicate::str::contains("\"status\": \"invalid\""))
         .stdout(predicate::str::contains("\"file\":"))
-        .stdout(predicate::str::contains("Missing @End header at end of file"));
+        .stdout(predicate::str::contains(
+            "Missing @End header at end of file",
+        ));
     Ok(())
 }
 
@@ -803,12 +807,7 @@ fn exit_code_zero_for_valid_file() -> Result<(), TestError> {
     fs::write(&file, VALID_CHAT)?;
 
     assert_cmd::cargo::cargo_bin_cmd!("chatter")
-        .args([
-            "validate",
-            file.to_str().unwrap(),
-            "--tui-mode",
-            "disable",
-        ])
+        .args(["validate", file.to_str().unwrap(), "--tui-mode", "disable"])
         .assert()
         .success(); // exit code 0
     Ok(())
@@ -822,12 +821,7 @@ fn exit_code_nonzero_for_invalid_file() -> Result<(), TestError> {
     fs::write(&file, INVALID_CHAT_MISSING_END)?;
 
     assert_cmd::cargo::cargo_bin_cmd!("chatter")
-        .args([
-            "validate",
-            file.to_str().unwrap(),
-            "--tui-mode",
-            "disable",
-        ])
+        .args(["validate", file.to_str().unwrap(), "--tui-mode", "disable"])
         .assert()
         .failure(); // exit code != 0
     Ok(())
@@ -908,7 +902,9 @@ fn cascading_error_hint_shown_for_structural_errors() -> Result<(), TestError> {
         .arg(&file_path)
         .assert()
         .failure()
-        .stderr(predicate::str::contains("additional checks may not have run"));
+        .stderr(predicate::str::contains(
+            "additional checks may not have run",
+        ));
     Ok(())
 }
 
@@ -985,6 +981,8 @@ fn clan_help_shows_grouped_commands() -> Result<(), TestError> {
         .stdout(predicate::str::contains("Transform Commands"))
         .stdout(predicate::str::contains("Format Converters"))
         .stdout(predicate::str::contains("Compatibility Aliases"))
-        .stdout(predicate::str::contains("Not Available (use CLAN directly)"));
+        .stdout(predicate::str::contains(
+            "Not Available (use CLAN directly)",
+        ));
     Ok(())
 }

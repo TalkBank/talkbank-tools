@@ -16,8 +16,8 @@ use std::thread;
 
 use talkbank_parser::TreeSitterParser;
 use talkbank_transform::{
-    CacheMode, CachePool, DirectoryMode, ParserKind, ValidationConfig,
-    ValidationEvent, validate_directory_streaming,
+    CacheMode, CachePool, DirectoryMode, ParserKind, ValidationConfig, ValidationEvent,
+    validate_directory_streaming,
 };
 
 /// Minimal valid CHAT file content for testing.
@@ -213,7 +213,9 @@ fn concurrent_cache_clear_during_write() {
     clearer.join().expect("clearer should not panic");
 
     // The cache should still be usable after concurrent clear + write.
-    let stats = cache.stats().expect("stats should work after concurrent ops");
+    let stats = cache
+        .stats()
+        .expect("stats should work after concurrent ops");
     // Stats.total_entries can be anything (depending on timing), but must
     // not be negative or cause an error.
     assert!(
@@ -450,8 +452,7 @@ fn pipeline_parallel_validate() {
     }
 
     let config = test_config(4);
-    let (events, _cancel) =
-        validate_directory_streaming::<CachePool>(dir.path(), &config, None);
+    let (events, _cancel) = validate_directory_streaming::<CachePool>(dir.path(), &config, None);
 
     let mut started = false;
     let mut file_complete_count = 0usize;
@@ -475,10 +476,7 @@ fn pipeline_parallel_validate() {
                     stats.total_files, file_count,
                     "Final stats should reflect all files"
                 );
-                assert!(
-                    !stats.cancelled,
-                    "Should not be marked as cancelled"
-                );
+                assert!(!stats.cancelled, "Should not be marked as cancelled");
             }
         }
     }
@@ -504,8 +502,7 @@ fn pipeline_cancel_midway() {
 
     // Use 1 job to make cancellation timing more predictable.
     let config = test_config(1);
-    let (events, cancel) =
-        validate_directory_streaming::<CachePool>(dir.path(), &config, None);
+    let (events, cancel) = validate_directory_streaming::<CachePool>(dir.path(), &config, None);
 
     let mut file_complete_count = 0usize;
     let mut finished_stats = None;
@@ -544,8 +541,7 @@ fn pipeline_cancel_midway() {
 fn pipeline_empty_directory() {
     let dir = tempfile::tempdir().expect("create temp dir");
     let config = test_config(4);
-    let (events, _cancel) =
-        validate_directory_streaming::<CachePool>(dir.path(), &config, None);
+    let (events, _cancel) = validate_directory_streaming::<CachePool>(dir.path(), &config, None);
 
     let mut started_total = None;
     let mut finished = false;
@@ -591,8 +587,7 @@ fn stress_100_files_parallel() {
     }
 
     let config = test_config(4);
-    let (events, _cancel) =
-        validate_directory_streaming::<CachePool>(dir.path(), &config, None);
+    let (events, _cancel) = validate_directory_streaming::<CachePool>(dir.path(), &config, None);
 
     let mut file_complete_count = 0usize;
     let mut finished = false;
@@ -608,10 +603,7 @@ fn stress_100_files_parallel() {
                     stats.total_files, file_count,
                     "Should process all 100 files"
                 );
-                assert!(
-                    !stats.cancelled,
-                    "Should not be cancelled"
-                );
+                assert!(!stats.cancelled, "Should not be cancelled");
             }
             _ => {}
         }

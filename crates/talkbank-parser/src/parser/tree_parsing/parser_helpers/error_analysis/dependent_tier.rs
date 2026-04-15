@@ -86,7 +86,9 @@ pub(crate) fn analyze_dependent_tier_error_with_context(
             }
         ),
     )
-    .with_suggestion("Check dependent tier format — each entry must follow the tier-specific syntax")
+    .with_suggestion(
+        "Check dependent tier format — each entry must follow the tier-specific syntax",
+    )
 }
 
 /// Backward-compatible wrapper without explicit tier context.

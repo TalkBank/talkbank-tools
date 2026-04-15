@@ -26,6 +26,9 @@ fn lone_stress_marker_emits_e245_without_panic() {
     assert!(
         has_e245,
         "Expected E245 for lone stress marker, got: {:#?}",
-        collected.iter().map(|e| (e.code.as_str(), &e.message)).collect::<Vec<_>>()
+        collected
+            .iter()
+            .map(|e| (e.code.as_str(), &e.message))
+            .collect::<Vec<_>>()
     );
 }

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-04-13 11:14 EDT
+**Last modified:** 2026-04-15 08:49 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -69,7 +69,7 @@ No special setup beyond a working Rust toolchain. `cargo run` handles incrementa
 make build          # Generate symbols + build Rust workspace
 make test           # Rust workspace tests + doctests + spec tools
 make check          # Fast compile check (both workspaces)
-make verify         # Canonical pre-merge gates (G0–G11)
+make verify         # Canonical pre-merge gates (G0–G13)
 make test-gen       # Regenerate tests from specs
 make smoke CRATE=x  # Fast: compile check + test one crate
 make check-specs    # Verify every error code has a spec file
@@ -338,9 +338,19 @@ For any change touching parser, data model, validation, alignment, serialization
 ### Pre-Push Gate: `make verify` is MANDATORY
 
 **`make verify` MUST pass before pushing any commit.** This is the single
-gate that catches all regressions. It runs 11 gates (G0-G11) covering:
+gate that catches all regressions. It runs 14 gates (G0–G13) covering:
 compile checks, spec tools, parser equivalence, golden roundtrips,
-fragment semantics, wor alignment, and node coverage.
+fragment semantics, wor alignment, node coverage, generated-artifact
+freshness (G12), and fuzz workspace isolation (G13).
+
+**Install the pre-push hook on every fresh clone:**
+```bash
+make install-hooks   # symlinks scripts/pre-push.sh → .git/hooks/pre-push
+```
+`make verify` begins with a `hooks-check` that warns if the hook isn't
+installed. The hook itself runs the fast subset (fmt, affected compile,
+parser guardrail, `generated-check`, `fuzz-check`) — enough to catch
+every content-level CI failure without running the full test suite.
 
 **Postmortem (2026-03-23):** Multiple commits were pushed without running
 `make verify`, resulting in 41+ pre-existing test failures that went
@@ -349,6 +359,16 @@ after the Chumsky elimination, and 112 error specs drifted from the
 grammar's actual behavior. All were eventually fixed, but at significant
 cost. This must not happen again.
 
+**Postmortem (2026-04-15):** Commit `8b483edef` added the `E316` error
+spec but did not regenerate `docs/errors/index.md`. CI's `Generated
+Artifacts Up To Date` job caught it; pre-push did not, because neither
+`scripts/pre-push.sh` nor `make verify` ran `generated-check` (only
+`make ci-full` did). A simultaneous pre-existing `Fuzz Smoke Test`
+failure — `fuzz/Cargo.toml` missing from `workspace.exclude` — had been
+red since the job was added on 2026-04-13, hidden by
+`continue-on-error: true`. Fixes: `generated-check` is now G12,
+`fuzz-check` is G13, and `scripts/pre-push.sh` runs both.
+
 **The rule:**
 ```bash
 make verify          # MUST pass before git push
@@ -356,6 +376,25 @@ make verify          # MUST pass before git push
 
 If `make verify` fails and the fix is not immediately clear, do NOT push.
 Investigate first. See also: Grammar Change Workflow section.
+
+**Ordering: `generated-check` is a post-commit check, not a pre-commit
+check.** The target runs `git diff --exit-code` against `HEAD` on the
+generated-artifact paths. If you regenerate (e.g. via `make test-gen`)
+and then run `generated-check` *before* committing, it fails — because
+the regenerated files in your working tree differ from the yet-unchanged
+HEAD. That's not a real failure; the check is working correctly. The
+right sequence when your working tree has a pending regen is:
+
+1. Run the non-git hygiene (`fmt`, `check`, `parser-guard`, `fuzz-check`)
+   and fix any real problems.
+2. Commit the staged work (squash if it's a cleanup commit).
+3. *Then* the pre-push hook's `generated-check` runs against HEAD and
+   passes, because HEAD now contains the regenerated output.
+
+This is exactly what happens on `git push`: the hook fires after the
+commit exists. Running `scripts/pre-push.sh` manually pre-commit will
+report a spurious `generated-check` failure that resolves itself as
+soon as you commit.
 
 ### Known Testing Gaps (not_implemented specs)
 

@@ -23,6 +23,7 @@ pub mod clan;
 pub mod clean;
 pub mod debug;
 mod dispatch;
+pub mod find;
 pub mod json;
 pub mod lint;
 pub mod list_checks;

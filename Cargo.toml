@@ -16,6 +16,7 @@ members = [
 ]
 exclude = [
     "spec/tools",  # Independent workspace
+    "fuzz",        # cargo-fuzz uses its own nightly toolchain with sanitizer flags
 ]
 
 [package]
@@ -90,12 +91,12 @@ dashmap = "6.1"
 # Utilities
 dirs = "6.0"
 divan = "0.1"
-indexmap = { version = "2.13", features = ["serde"] }
+indexmap = { version = "2.14", features = ["serde"] }
 indicatif = "0.18"
 
 # Testing
 insta = { version = "1.47", features = ["yaml"] }
-jsonschema = { version = "0.45", default-features = false, features = ["resolve-file"] }
+jsonschema = { version = "0.46", default-features = false, features = ["resolve-file"] }
 miette = { version = "7.6.0", features = ["derive"] }
 notify = "8.2"
 num_cpus = "1.17"
@@ -110,7 +111,7 @@ quick-xml = "0.39"
 quote = "1.0"
 rand = "0.10"
 ratatui = { version = "0.30", features = ["serde"] }
-rayon = "1.11"
+rayon = "1.12"
 regex = "1.12"
 reqwest = { version = "0.13", features = ["multipart", "json", "blocking"] }
 rstest = "0.26.1"
@@ -121,7 +122,7 @@ send2clan-sys = { path = "crates/send2clan-sys", version = "0.2.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 shellexpand = "3.1"
-similar = "3.0"
+similar = "3.1"
 smallvec = { version = "1.15", features = ["serde", "union", "const_generics"] }
 smol_str = { version = "0.3", features = ["serde"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
@@ -143,7 +144,7 @@ phf_codegen = "0.13"
 tempfile = "3.27"
 text-size = "1.1"
 thiserror = "^2.0.18"
-tokio = { version = "1.51", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 toml = "^1.1.2"
 tower-lsp = "0.20"
 

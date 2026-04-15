@@ -147,7 +147,9 @@ pub fn convert_word_node(node: Node, source: &str, errors: &impl ErrorSink) -> P
                 ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
                 "Unparsable content: word node produced empty text after parser recovery",
             )
-            .with_suggestion("Check for unclosed brackets or missing word content near this position"),
+            .with_suggestion(
+                "Check for unclosed brackets or missing word content near this position",
+            ),
         );
         return ParseOutcome::rejected();
     }

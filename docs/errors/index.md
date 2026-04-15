@@ -404,6 +404,14 @@ Main tier or dependent tier contains an invalid control character (e.g., embedde
 |------|------|----------|--------|
 | [E315](E315.md) | E315: Invalid control character | error | ✅ |
 
+## Dependent tier validation (E3x)
+
+A tier entry contains an angle-bracketed prefix inside the stemposition (e.g., , ). The CHATmanual's %mor grammar uses these separators inside the stem: (feature), (fusion), (prefix), (category), (clitic), (compound). Angle brackets are not valid stemcontent. The parser produces an ERROR node at the and thevalidator reports E316 on the surrounding region.
+
+| Code | Name | Severity | Status |
+|------|------|----------|--------|
+| [E316](E316.md) | bracketed annotation inside %mor stem is invalid | error | ✅ |
+
 ## Main tier validation (E3x)
 
 Unparsable content

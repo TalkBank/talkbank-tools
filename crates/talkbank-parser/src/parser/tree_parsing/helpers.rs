@@ -28,11 +28,12 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, context: &str) -> Par
                 Severity::Error,
                 SourceLocation::from_offsets(node.start_byte(), node.end_byte()),
                 ErrorContext::new(source, node.start_byte()..node.end_byte(), ""),
-                format!("Unparsable content in {}: node bytes are not valid UTF-8", context),
+                format!(
+                    "Unparsable content in {}: node bytes are not valid UTF-8",
+                    context
+                ),
             )
-            .with_suggestion(
-                "Ensure the file is saved as valid UTF-8 encoding",
-            );
+            .with_suggestion("Ensure the file is saved as valid UTF-8 encoding");
         }
     };
     let error_text_clean = error_text;
