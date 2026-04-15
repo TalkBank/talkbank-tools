@@ -60,3 +60,6 @@ lcov*.info
 
 # Stray symlinks
 /talkbank-tools
+
+# Serena MCP cache (per-repo language-server indexes)
+.serena/

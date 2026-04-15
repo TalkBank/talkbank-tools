@@ -1374,6 +1374,52 @@ fn test_e315_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 
 /// Tests expected behavior.
 #[test]
+fn test_e316_angle_bracket_in_mor_stem_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let result = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\tfin\n@Participants:\tCHI Target_Child\n@ID:\tfin|test|CHI|||||Target_Child|||\n*CHI:\tkato tos .\n%mor:\tintj|kato noun|<sos>tos .\n@End");
+
+    let errors = match result {
+        Ok(_) => return Err(talkbank_parser_tests::test_error::TestError::Failure("Expected parse error but parsing succeeded".to_string())),
+        Err(errors) => errors,
+    };
+
+    let expected_codes = vec!["E316"];
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e316_angle_bracket_in_mor_stem_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let result = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\tfin\n@Participants:\tCHI Target_Child\n@ID:\tfin|test|CHI|||||Target_Child|||\n*CHI:\ttos ei .\n%mor:\tsconj|<sos>tos~aux|ei-Fin-Neg-S3 .\n@End");
+
+    let errors = match result {
+        Ok(_) => return Err(talkbank_parser_tests::test_error::TestError::Failure("Expected parse error but parsing succeeded".to_string())),
+        Err(errors) => errors,
+    };
+
+    let expected_codes = vec!["E316"];
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
 fn test_e316_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let result = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|||||Child|||\n@ID:\teng|corpus|MOT|||||Mother|||\n*CHI:\thello . [+ bch] 2041689_2042652\n*CHI:\tworld . [+ bch] 2051689_2052652\n@End");
