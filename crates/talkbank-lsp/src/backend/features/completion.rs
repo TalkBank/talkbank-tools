@@ -300,19 +300,7 @@ fn find_ancestor_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(content: &str) -> talkbank_model::model::ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(content).unwrap()
-    }
-
-    fn parse_tree(input: &str) -> Tree {
-        let mut parser = tree_sitter::Parser::new();
-        let language = tree_sitter_talkbank::LANGUAGE;
-        parser.set_language(&language.into()).unwrap();
-        parser.parse(input, None).unwrap()
-    }
+    use crate::test_fixtures::{parse_chat, parse_tree};
 
     #[test]
     fn header_completion_at_line_start() {

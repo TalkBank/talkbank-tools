@@ -23,10 +23,10 @@ struct SpeakerInfo {
 pub(crate) fn handle_get_speakers(
     backend: &Backend,
     request: &DocumentUriRequest,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::backend::LspBackendError> {
     let (_, chat_file) = get_document_and_chat_file(backend, &request.uri)?;
     let speakers = extract_speakers(&chat_file);
-    serde_json::to_value(&speakers).map_err(|error| format!("Serialization error: {error}"))
+    serde_json::to_value(&speakers).map_err(Into::into)
 }
 
 /// Extract declared speakers from the `@Participants` header if present.

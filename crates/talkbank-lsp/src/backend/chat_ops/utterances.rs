@@ -24,11 +24,11 @@ struct UtteranceInfo {
 pub(crate) fn handle_get_utterances(
     backend: &Backend,
     request: &DocumentUriRequest,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::backend::LspBackendError> {
     let (text, chat_file) = get_document_and_chat_file(backend, &request.uri)?;
     let line_index = LineIndex::new(&text);
     let utterances = extract_utterances(&chat_file, &line_index);
-    serde_json::to_value(&utterances).map_err(|error| format!("Serialization error: {error}"))
+    serde_json::to_value(&utterances).map_err(Into::into)
 }
 
 /// Extract zero-based line, speaker, and `%cod` presence for each utterance.

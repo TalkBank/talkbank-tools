@@ -14,7 +14,7 @@ Clicking on a `%mor` item jumps to the aligned word on the main tier. For exampl
 
 The alignment is computed from the parsed model's positional correspondence between main tier words and morphological items, not from string position guessing.
 
-> **[SCREENSHOT: Go-to-definition from %mor tier to main tier]**
+> **(SCREENSHOT: Go-to-definition from %mor tier to main tier)**
 > *Capture this: Cmd+Click on a `%mor` item like `n|cookie`. The cursor should jump to the corresponding word `cookie` on the main tier line above.*
 
 ## %gra to Main Tier

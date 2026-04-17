@@ -23,12 +23,17 @@
 //! - Uses the same `PhoAlignment` type but different error codes:
 //!   E733 (too few) / E734 (too many)
 //!
-//! ## Main → %wor Alignment
-//! - Each alignable unit in main tier corresponds to exactly one %wor token
-//! - Uses Wor domain (includes retraced words — they were spoken)
-//! - Uses its own WorAlignment type (not PhoAlignment)
-//! - **Count mismatches emit NO validation errors** — `%wor` is a timing-annotation
-//!   tier; stale word counts after transcript edits are expected and not flagged
+//! ## Main ↔ %wor (timing sidecar, not an alignment)
+//! - `%wor` is **not** a structural alignment tier. It is a timing sidecar:
+//!   bullets attached to the subset of main-tier words that passed the
+//!   Wor-domain filter at `align` time.
+//! - Expressed as [`WorTimingSidecar`] (see `wor.rs`), not a `TierAlignmentResult`.
+//! - No positional indexing is defined when filtered counts differ — this
+//!   is the normal state of any transcript edited without re-running `align`.
+//! - Count mismatches are reported as [`WorTimingSidecar::Drifted`], never as
+//!   `ParseError`s. `%wor` has no validation contract against the main tier.
+//! - See KIB-016 in the VS Code extension backlog for the history of this
+//!   reclassification.
 //!
 //! ## Main → %sin Alignment
 //! - Each alignable unit in main tier corresponds to exactly one gesture/sign token
@@ -90,6 +95,13 @@
 mod format;
 mod gra;
 pub mod helpers;
+/// Typed index-space newtypes for `%mor`/`%gra` alignment.
+///
+/// See the module-level docs: these types distinguish the four integer
+/// "positions" that used to share `usize` and caused silent chunk↔item
+/// confusion bugs (notably in the LSP `%gra` hover / highlight handlers
+/// before 2026-04-16).
+pub mod indices;
 mod mor;
 mod pho;
 mod sin;
@@ -103,6 +115,10 @@ mod location_tests;
 // Re-export public API
 pub use gra::{GraAlignment, GraAlignmentPair, align_mor_to_gra};
 pub use helpers::{TierDomain, count_tier_positions_until};
+pub use indices::{
+    GraHeadRef, GraIndex, MainWordIndex, MorChunkIndex, MorItemIndex, PhoItemIndex,
+    SemanticWordIndex1, SemanticWordIndexError, SinItemIndex,
+};
 pub use mor::{MorAlignment, align_main_to_mor};
 pub use pho::{PhoAlignment, align_main_to_pho};
 pub use sin::{SinAlignment, align_main_to_sin};
@@ -110,4 +126,4 @@ pub use traits::{
     AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult, TierCountable, positional_align,
 };
 pub use types::AlignmentPair;
-pub use wor::{WorAlignment, align_main_to_wor};
+pub use wor::{WorTimingSidecar, resolve_wor_timing_sidecar};

@@ -6,18 +6,40 @@
 //! `@Languages`, `@Date`, etc.) and timing bullets.
 
 use crate::alignment::{find_alignment_hover_info, format_alignment_info};
+use crate::backend::state::ParseState;
 use tower_lsp::lsp_types::*;
 
+/// Markdown footer appended to alignment-consuming hover cards when the
+/// backend is serving a `ParseState::StaleBaseline` (KIB-013).
+///
+/// Vocabulary (`stale baseline`) deliberately mirrors the
+/// [`ParseState::StaleBaseline`] identifier so the same term flows from
+/// source code to `tracing::debug!` logs to the user-facing hover. The
+/// `---` separator + blockquote give the marker its own visual
+/// hierarchy in the rendered markdown without competing with primary
+/// content.
+const STALE_BASELINE_HOVER_FOOTER: &str =
+    "\n\n---\n\n> ⚠ **Stale baseline** — alignment reflects the last successful parse.";
+
 /// Build hover markdown for alignment-aware nodes at the requested position.
+///
+/// When `parse_state` is [`ParseState::StaleBaseline`], a short footer
+/// is appended to alignment-consuming hover cards so the user can tell
+/// at a glance that the alignment payload is from the last clean parse
+/// rather than from the current (un-reparseable) document text.
 pub fn hover(
     chat_file: &talkbank_model::model::ChatFile,
     tree: &tree_sitter::Tree,
     position: Position,
     document: &str,
+    parse_state: ParseState,
 ) -> Option<Hover> {
     // Try alignment hover first (main tier words, dependent tier items).
     if let Some(alignment_info) = find_alignment_hover_info(chat_file, tree, position, document) {
-        let hover_text = format_alignment_info(&alignment_info);
+        let mut hover_text = format_alignment_info(&alignment_info);
+        if parse_state == ParseState::StaleBaseline {
+            hover_text.push_str(STALE_BASELINE_HOVER_FOOTER);
+        }
         return Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
@@ -184,5 +206,45 @@ mod tests {
         let text = hover.unwrap();
         assert!(text.contains("1.000s to 2.500s"));
         assert!(text.contains("duration: 1.500s"));
+    }
+
+    /// Hovering an alignment-aware node under `StaleBaseline` appends the
+    /// markdown footer; under `Clean` it does not (KIB-013).
+    #[test]
+    fn alignment_hover_appends_stale_baseline_footer() {
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n%gra:\t1|0|ROOT 2|1|PUNCT\n@End\n";
+        let chat_file = crate::test_fixtures::parse_chat_with_alignments(content);
+        let tree = crate::test_fixtures::parse_tree(content);
+        // Cursor on the main-tier word `hello` (line 5, char 7).
+        let pos = Position {
+            line: 5,
+            character: 7,
+        };
+
+        let clean = hover(&chat_file, &tree, pos, content, ParseState::Clean)
+            .expect("hover must resolve the main-tier word");
+        let clean_text = match &clean.contents {
+            HoverContents::Markup(m) => &m.value,
+            _ => panic!("expected markup hover contents"),
+        };
+        assert!(
+            !clean_text.contains("Stale baseline"),
+            "Clean state must not append the stale footer"
+        );
+
+        let stale = hover(&chat_file, &tree, pos, content, ParseState::StaleBaseline)
+            .expect("hover must resolve under StaleBaseline too");
+        let stale_text = match &stale.contents {
+            HoverContents::Markup(m) => &m.value,
+            _ => panic!("expected markup hover contents"),
+        };
+        assert!(
+            stale_text.contains("Stale baseline"),
+            "StaleBaseline must append the footer; got:\n{stale_text}"
+        );
+        assert!(
+            stale_text.contains("---"),
+            "footer must be separated from primary content by a markdown rule"
+        );
     }
 }

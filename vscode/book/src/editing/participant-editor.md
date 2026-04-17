@@ -13,7 +13,7 @@ There are two ways to open the Participant Editor:
 
 A webview panel opens beside the editor showing all `@ID` lines in a tabular form.
 
-> **[SCREENSHOT: Participant editor panel with filled fields]**
+> **(SCREENSHOT: Participant editor panel with filled fields)**
 > *Capture this: open a .cha file that has at least two @ID headers (e.g., one for CHI and one for MOT). Open the participant editor via right-click. The panel should show a table with rows for each participant and columns for all 10 fields. Fill in some values (age, sex, role) so the table is not empty.*
 
 ## Fields

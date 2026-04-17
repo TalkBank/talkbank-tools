@@ -297,6 +297,21 @@ export interface AlignmentSidecarDocument {
     utterances: AlignmentSidecarUtterance[];
 }
 
+const DependencyGraphDotSchema = Schema.Struct({
+    kind: Schema.Literal('dot'),
+    source: Schema.String,
+});
+
+const DependencyGraphUnavailableSchema = Schema.Struct({
+    kind: Schema.Literal('unavailable'),
+    reason: Schema.String,
+});
+
+export const DependencyGraphResponseSchema = Schema.Union(
+    DependencyGraphDotSchema,
+    DependencyGraphUnavailableSchema,
+);
+
 const SpeakerInfoSchema = Schema.Struct({
     code: Schema.String,
     name: Schema.String,
@@ -417,6 +432,26 @@ export function toMutableAnalysisDatabaseFilter(
         ...filter,
         speaker_codes: filter.speaker_codes === undefined ? undefined : [...filter.speaker_codes],
     };
+}
+
+/**
+ * Discriminated response from `talkbank/showDependencyGraph`.
+ *
+ * `kind === 'dot'` carries Graphviz source ready to render.
+ * `kind === 'unavailable'` carries a user-facing reason ("No %mor tier found")
+ * and must NOT be passed to a Graphviz renderer.
+ */
+export type DependencyGraphResponse = Schema.Schema.Type<typeof DependencyGraphResponseSchema>;
+
+/**
+ * Decode the `talkbank/showDependencyGraph` response payload.
+ */
+export function decodeDependencyGraphResponse(payload: unknown): DependencyGraphResponse {
+    return decodeStructuredWithSchema(
+        'talkbank/showDependencyGraph',
+        payload,
+        DependencyGraphResponseSchema,
+    );
 }
 
 /**

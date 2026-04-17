@@ -179,7 +179,7 @@ On Windows/Linux, substitute `Ctrl` for `Cmd`.
 
 ## Beyond CLAN
 
-The extension goes well beyond replicating the macOS CLAN application. Features with no CLAN equivalent include: corpus-scale validation across entire directory trees, real-time diagnostics as you type, quick-fix code actions, bidirectional cross-tier alignment highlighting, alignment mismatch inlay hints, go-to-definition, find all references, rename across all occurrences, linked editing, code lens utterance counts, smart selection by syntactic units, workspace symbol search across files, clickable document links, speaker filtering, code folding, CSV export, configurable severity filtering, and cross-platform support (macOS, Windows, Linux). See the [full comparison](CLAN-FEATURES.md#improvements-over-the-clan-macos-application) for details.
+The extension goes well beyond replicating the macOS CLAN application. Features with no CLAN equivalent include: corpus-scale validation across entire directory trees, real-time diagnostics as you type, quick-fix code actions, bidirectional cross-tier alignment highlighting, alignment mismatch inlay hints, go-to-definition, find all references, rename across all occurrences, linked editing, code lens utterance counts, smart selection by syntactic units, workspace symbol search across files, clickable document links, speaker filtering, code folding, CSV export, configurable severity filtering, and cross-platform support (macOS, Windows, Linux). See the [CLAN Feature Parity chapter](book/src/developer/clan-parity.md) for the full comparison.
 
 ## Requirements
 
@@ -204,9 +204,12 @@ The extension searches for `talkbank-lsp` on your system PATH first, then falls 
 
 ## Documentation
 
-- [User Guide](GUIDE.md) — detailed walkthrough of every feature
-- [CLAN Feature Parity](CLAN-FEATURES.md) — comparison with the macOS CLAN application
-- [Developer Guide](DEVELOPER.md) — architecture, module map, and contributor reference
+All documentation lives in the **[TalkBank CHAT Editor book](book/src/introduction.md)** (mdBook). Entry points:
+
+- [Getting Started](book/src/getting-started/installation.md) — install a platform VSIX and open your first file
+- [Editing](book/src/editing/syntax-highlighting.md) / [Navigation](book/src/navigation/alignment.md) / [Media & Transcription](book/src/media/playback.md) — feature chapters
+- [Developer Guide](book/src/developer/architecture.md) — three-layer architecture, LSP internals, adding features
+- [CLAN Feature Parity](book/src/developer/clan-parity.md) — comparison with the macOS CLAN application
 
 ## Links
 

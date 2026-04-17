@@ -246,6 +246,8 @@ pub use dependent_tier::{
     IntTier,
     // MOR
     Mor,
+    MorChunk,
+    MorChunkKind,
     MorFeature,
     MorStem,
     MorTier,

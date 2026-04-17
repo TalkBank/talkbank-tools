@@ -5,8 +5,11 @@
 The `%pho` (actual phonology) tier has more alignable tokens than the main tier.
 Remove the extra `%pho` tokens so counts match.
 
-`%mod` count mismatches use E734. `%wor` is a timing-annotation tier and is
-never validated for count mismatches.
+`%mod` count mismatches use E734. `%wor` is not an alignment tier — it is a
+timing sidecar (`WorTimingSidecar`) modeled in
+[`talkbank-model::alignment`](../../crates/talkbank-model/src/alignment/wor.rs),
+so no E7xx error fires on a `%wor` count mismatch; drift is reported
+structurally via the `Drifted` variant, not via `ParseError`.
 
 ## Metadata
 
@@ -44,4 +47,4 @@ The parser should successfully parse these CHAT files (unless marked as parser l
 ## Notes
 
 - Auto-generated from error corpus
-- E715 is scoped to `%pho` only; `%mod` uses E734, `%wor` is never validated
+- E715 is scoped to `%pho` only; `%mod` uses E734. `%wor` is a timing sidecar, not an alignment — see `WorTimingSidecar`.

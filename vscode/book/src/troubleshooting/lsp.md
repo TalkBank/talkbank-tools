@@ -1,6 +1,6 @@
 # LSP Connection
 
-**Last updated:** 2026-04-13 20:34 EDT
+**Last updated:** 2026-04-16 13:37 EDT
 
 The TalkBank extension is powered by a Rust language server (`talkbank-lsp`) that communicates with VS Code over stdio. If the language server fails to start or crashes, most extension features will not work. This chapter covers how to diagnose and fix LSP connection issues.
 
@@ -20,19 +20,22 @@ This shows the LSP communication logs and any server stderr output. Look for:
 
 ## Binary Not Found
 
-**Symptom:** The Output panel shows an error about not finding the `talkbank-lsp` binary.
+**Symptom:** The Output panel shows an error about not finding the `talkbank-lsp` binary, or a notification appears with a link to the `talkbank.lsp.binaryPath` setting.
 
-The extension searches for the standalone language-server binary in three locations:
+The extension searches for the language-server binary in this order:
 
-1. **System PATH** -- runs `which talkbank-lsp` (or `where talkbank-lsp` on Windows)
-2. **`target/debug/talkbank-lsp`** -- relative to the extension directory (development builds)
-3. **`target/release/talkbank-lsp`** -- relative to the extension directory (release builds)
+1. **`talkbank.lsp.binaryPath` setting** -- if set and the file exists, used as an explicit override
+2. **Bundled binary** -- `<extension>/server/talkbank-lsp[.exe]`, shipped inside platform-specific VSIXes
+3. **System PATH** -- runs `which talkbank-lsp` (or `where talkbank-lsp` on Windows); used by developers who install via `cargo install`
+4. **Dev-tree builds** -- `<extension>/../target/debug/talkbank-lsp` or `.../target/release/talkbank-lsp`, for contributors running from a cloned workspace
+5. If none are found, an actionable error notification appears with a link to the setting
 
 **Fixes:**
 
-- Build the binary: `cargo build -p talkbank-lsp` (debug) or `cargo build --release -p talkbank-lsp` (release)
-- Or set `talkbank.lsp.binaryPath` in your settings to the absolute path of the `talkbank-lsp` binary
-- Verify the binary exists and is executable: `which talkbank-lsp` or `ls -la target/release/talkbank-lsp`
+- **Users:** install the VSIX that matches your platform (e.g. `talkbank-chat-darwin-arm64.vsix`). Each platform-specific VSIX bundles the correct prebuilt `talkbank-lsp`. See [Installation](../getting-started/installation.md).
+- **Developers who installed via Cargo:** `cargo install --path crates/talkbank-lsp` and confirm `which talkbank-lsp` resolves
+- **Contributors running from source:** `cargo build --release -p talkbank-lsp` so the dev-tree path exists
+- **Manual override:** set `talkbank.lsp.binaryPath` in your settings to the absolute path of an existing `talkbank-lsp` binary
 
 ## Enabling Trace Logging
 

@@ -16,11 +16,11 @@ struct FormatBulletOutput {
 /// Handle `talkbank/formatBulletLine`.
 pub(crate) fn handle_format_bullet_line(
     request: &FormatBulletLineRequest,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::backend::LspBackendError> {
     let output = FormatBulletOutput {
         bullet: format!("\u{2022}{}_{}\u{2022}", request.prev_ms, request.current_ms),
         new_line: format!("*{}:\t", request.speaker),
     };
 
-    serde_json::to_value(&output).map_err(|error| format!("Serialization error: {error}"))
+    serde_json::to_value(&output).map_err(Into::into)
 }

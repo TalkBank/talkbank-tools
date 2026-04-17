@@ -32,8 +32,9 @@ Before writing, read 2-3 existing docs in the same location to match conventions
 ls $WORKSPACE/<repo>/book/src/<section>/
 cat $WORKSPACE/<repo>/book/src/<section>/<existing>.md | head -40
 
-# VS Code docs
-cat $REPO_ROOT/vscode/GUIDE.md | head -40
+# VS Code docs (book)
+ls $REPO_ROOT/vscode/book/src/
+cat $REPO_ROOT/vscode/book/src/getting-started/installation.md | head -40
 ```
 
 ## Step 3: Follow Conventions
@@ -66,12 +67,19 @@ cat $WORKSPACE/<repo>/book/src/SUMMARY.md
 
 ### VS Code Extension Docs
 
-- `GUIDE.md` — user-facing, step-by-step instructions with keyboard shortcuts
-- `DEVELOPER.md` — architecture, module map, how to add features
-- `CLAN-FEATURES.md` — feature parity with CLAN app
-- `README.md` — marketplace description, feature highlights
+All user, developer, and integrator documentation for the VS Code
+extension is an mdBook at `vscode/book/`. Do **not** create parallel
+loose `.md` files alongside `README.md` in `vscode/`; every
+non-trivial addition belongs in a book chapter.
 
-Convention: tables for keyboard shortcuts, feature lists. Include "Last Updated: YYYY-MM-DD" at bottom.
+- `vscode/book/src/introduction.md` — entry point
+- `vscode/book/src/SUMMARY.md` — table of contents (add new pages here)
+- `vscode/book/src/getting-started/` — installation, first-file, quick reference
+- `vscode/book/src/editing/` · `navigation/` · `media/` · `analysis/` · `review/` · `coder/` · `workflows/` · `configuration/` · `troubleshooting/` — user-facing feature chapters
+- `vscode/book/src/developer/` — architecture, LSP protocol, custom commands, testing, releasing, CLAN parity
+- `vscode/README.md` — marketplace summary only; keep short and point at the book
+
+Convention: every page starts with `**Status:**` + `**Last updated:** YYYY-MM-DD HH:MM TZ` headers (run `date '+%Y-%m-%d %H:%M %Z'`).
 
 ### Error Code Docs
 

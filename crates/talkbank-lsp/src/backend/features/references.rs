@@ -104,12 +104,7 @@ fn collect_speaker_locations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_tree(input: &str) -> Tree {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_tree_incremental(input, None).unwrap()
-    }
+    use crate::test_fixtures::parse_tree_incremental as parse_tree;
 
     const PREAMBLE: &str =
         "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n";

@@ -17,7 +17,7 @@ with colored segments marking each speaker's bullet ranges.
 The waveform panel is a singleton --- pressing the shortcut again when the panel is
 already open brings it to focus rather than creating a duplicate.
 
-> **[SCREENSHOT: Waveform panel with colored bullet segments]**
+> **(SCREENSHOT: Waveform panel with colored bullet segments)**
 > *Capture this: open a multi-speaker .cha file with media, press Cmd+Shift+W, and
 > screenshot the waveform panel showing colored segment overlays for different
 > speakers. Ensure at least two speaker colors are visible.*

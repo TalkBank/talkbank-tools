@@ -17,7 +17,7 @@ audio.
 Each step moves the editor cursor to the corresponding utterance line. If media is
 available and auto-play is enabled, the segment's audio plays immediately.
 
-> **[VIDEO: 30s demo of walker stepping through utterances]**
+> **[VIDEO: 30s demo of walker stepping through utterances)**
 > *Capture this: open a .cha file with media and the waveform panel. Press Alt+Down
 > repeatedly, showing the cursor advancing through utterance lines while each
 > segment's audio plays and the waveform highlights the active segment.*

@@ -5,12 +5,16 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use super::helpers::{TierDomain, TierPosition, to_chat_display_string as to_string};
+use super::indices::{MainWordIndex, PhoItemIndex};
 use super::traits::{AlignableTier, TierAlignmentResult, positional_align};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, PhoTier};
 use crate::{ErrorCode, ParseError, Span};
 use schemars::JsonSchema;
 use talkbank_derive::SpanShift;
+
+/// Typed pair for main↔`%pho` (and main↔`%mod`) alignment.
+pub type PhoAlignmentPair = AlignmentPair<MainWordIndex, PhoItemIndex>;
 
 /// Result of aligning main-tier units to `%pho` tokens.
 ///
@@ -19,8 +23,8 @@ use talkbank_derive::SpanShift;
 /// placeholders were needed.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema, SpanShift)]
 pub struct PhoAlignment {
-    /// Positional mapping rows (`main_index`, `pho_index`).
-    pub pairs: Vec<AlignmentPair>,
+    /// Positional mapping rows ([`MainWordIndex`]↔[`PhoItemIndex`]).
+    pub pairs: Vec<PhoAlignmentPair>,
 
     /// Diagnostics produced while enforcing count/position invariants.
     pub errors: Vec<ParseError>,
@@ -40,7 +44,7 @@ impl PhoAlignment {
     /// Appends one positional alignment row.
     ///
     /// This consumes and returns `Self` so call sites can chain in tight loops.
-    pub fn with_pair(mut self, pair: AlignmentPair) -> Self {
+    pub fn with_pair(mut self, pair: PhoAlignmentPair) -> Self {
         self.pairs.push(pair);
         self
     }
@@ -69,9 +73,9 @@ impl Default for PhoAlignment {
 }
 
 impl TierAlignmentResult for PhoAlignment {
-    type Pair = AlignmentPair;
+    type Pair = PhoAlignmentPair;
 
-    fn pairs(&self) -> &[AlignmentPair] {
+    fn pairs(&self) -> &[PhoAlignmentPair] {
         &self.pairs
     }
 
@@ -79,7 +83,7 @@ impl TierAlignmentResult for PhoAlignment {
         &self.errors
     }
 
-    fn push_pair(&mut self, pair: AlignmentPair) {
+    fn push_pair(&mut self, pair: PhoAlignmentPair) {
         self.pairs.push(pair);
     }
 
@@ -89,6 +93,8 @@ impl TierAlignmentResult for PhoAlignment {
 }
 
 impl AlignableTier for PhoTier {
+    type Source = MainWordIndex;
+    type Target = PhoItemIndex;
     const DOMAIN: TierDomain = TierDomain::Pho;
 
     fn tier_name(&self) -> &str {

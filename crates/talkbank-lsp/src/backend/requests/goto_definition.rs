@@ -201,10 +201,23 @@ fn find_mor_aligned_definition(
 
     let offset = utils::position_to_offset(doc, position);
     let mor_idx = find_mor_item_index_at_offset(tree, offset)?;
-    let mor_idx = mor_idx.min(mor_tier.items.len().saturating_sub(1));
+
+    // Bounds-check explicitly rather than clamping. Clamping would
+    // silently convert a broken CST lookup into a jump to the last
+    // %mor item — see KIB-015. An out-of-range cursor means the
+    // cursor wasn't over a %mor item, so declining the jump is
+    // the right answer.
+    if mor_idx >= mor_tier.items.len() {
+        tracing::debug!(
+            mor_idx,
+            tier_len = mor_tier.items.len(),
+            "goto-definition: %mor item index out of range for tier; declining jump",
+        );
+        return None;
+    }
 
     let alignment_pair = mor_alignment.pairs.get(mor_idx)?;
-    let main_idx = alignment_pair.source_index?;
+    let main_idx = alignment_pair.source_index?.as_usize();
     find_main_tier_word_location(uri, doc, utterance, main_idx)
 }
 
@@ -232,9 +245,18 @@ fn find_gra_aligned_definition(
     let gra_idx = gra_idx.min(gra_tier.relations.len().saturating_sub(1));
 
     let gra_pair = gra_alignment.pairs.get(gra_idx)?;
-    let mor_idx = gra_pair.mor_chunk_index?;
-    let mor_pair = mor_alignment.pairs.get(mor_idx)?;
-    let main_idx = mor_pair.source_index?;
+    let mor_chunk_idx = gra_pair.mor_chunk_index?;
+
+    // %gra relations address the %mor *chunk* sequence, but the
+    // main↔%mor alignment is keyed by %mor *item* positions. Collapse
+    // post-clitic chunks to their host item before indexing — see
+    // `crates/talkbank-lsp/CLAUDE.md` for the three index spaces and the
+    // 2026-04-16 bug that motivated this projection.
+    let mor_tier = utterance.mor_tier()?;
+    let host_item_idx = mor_tier.item_index_of_chunk(mor_chunk_idx.as_usize())?;
+
+    let mor_pair = mor_alignment.pairs.get(host_item_idx)?;
+    let main_idx = mor_pair.source_index?.as_usize();
     find_main_tier_word_location(uri, doc, utterance, main_idx)
 }
 

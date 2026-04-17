@@ -16,6 +16,12 @@ import {
 } from '../runtimeContext';
 import type { ExtensionRuntimeServices } from '../runtimeServices';
 
+const LSP_BINARY_PATH_SETTING = 'talkbank.lsp.binaryPath';
+const OPEN_SETTINGS_ACTION = 'Open Settings';
+const LSP_BINARY_NOT_FOUND_MESSAGE =
+    'TalkBank LSP binary not found. Install the platform-specific VSIX, '
+    + `place talkbank-lsp on PATH, or set "${LSP_BINARY_PATH_SETTING}" to an absolute path.`;
+
 export interface LanguageServerWorkspace {
     createFileSystemWatcher(globPattern: string): vscode.FileSystemWatcher;
 }
@@ -90,17 +96,37 @@ export function createLanguageClientOptions(
 /**
  * Start and return the TalkBank language client.
  *
+ * Returns `undefined` when no `talkbank-lsp` binary can be located — in that
+ * case an actionable error message is shown to the user instead of spawning a
+ * process that would fail with a cryptic ENOENT. Callers must treat the
+ * absence of a client as "LSP features unavailable" and proceed accordingly.
+ *
  * @param context - Extension activation context.
- * @returns Started language client instance.
+ * @returns Started language client instance, or `undefined` when no LSP binary
+ *   was discovered.
  */
-export function activateLanguageServer(
+export async function activateLanguageServer(
     context: vscode.ExtensionContext,
     services: LanguageServerActivationServices,
-): LanguageClient {
+): Promise<LanguageClient | undefined> {
     const lspBinary = services.executableService.findTalkbankLspBinary(
         context,
         services.runtimeContext.getConfiguredLspBinaryPath(),
     );
+    if (!lspBinary) {
+        const choice = await vscode.window.showErrorMessage(
+            LSP_BINARY_NOT_FOUND_MESSAGE,
+            OPEN_SETTINGS_ACTION,
+        );
+        if (choice === OPEN_SETTINGS_ACTION) {
+            await vscode.commands.executeCommand(
+                'workbench.action.openSettings',
+                LSP_BINARY_PATH_SETTING,
+            );
+        }
+        return undefined;
+    }
+
     // The standalone `talkbank-lsp` binary takes no subcommand — it speaks LSP
     // over stdio as soon as it starts.
     const serverArgs: string[] = [];

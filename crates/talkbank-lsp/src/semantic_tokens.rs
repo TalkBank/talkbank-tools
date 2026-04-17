@@ -10,8 +10,17 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
+use crate::backend::LspBackendError;
 use crate::highlight::{HighlightConfig, TokenType};
 use tower_lsp::lsp_types::*;
+
+/// Lift a stringly error from the `tree-sitter-highlight` boundary into
+/// the typed [`LspBackendError::HighlightFailed`] variant. Kept as a
+/// single helper so the wrapping pattern is uniform across the two
+/// public entry points on [`SemanticTokensProvider`].
+fn lift_highlight_error(reason: String) -> LspBackendError {
+    LspBackendError::HighlightFailed { reason }
+}
 
 /// Semantic tokens provider
 pub struct SemanticTokensProvider {
@@ -23,9 +32,9 @@ impl SemanticTokensProvider {
     ///
     /// Builds the `HighlightConfig` so we can expose semantic tokens that match the manual’s documented
     /// token hierarchy via the `tree-sitter` capture sets.
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, LspBackendError> {
         Ok(Self {
-            config: HighlightConfig::new()?,
+            config: HighlightConfig::new().map_err(lift_highlight_error)?,
         })
     }
 
@@ -33,8 +42,11 @@ impl SemanticTokensProvider {
     ///
     /// Converts the offset spans returned by `HighlightConfig` into delta-encoded LSP semantic tokens so
     /// editors receive the full CHAT token stream described in the File Format/Headers/Main Tier sections.
-    pub fn semantic_tokens_full(&mut self, text: &str) -> Result<Vec<SemanticToken>, String> {
-        let tokens = self.config.highlight(text)?;
+    pub fn semantic_tokens_full(
+        &mut self,
+        text: &str,
+    ) -> Result<Vec<SemanticToken>, LspBackendError> {
+        let tokens = self.config.highlight(text).map_err(lift_highlight_error)?;
 
         // Convert to LSP SemanticToken format (delta-encoded)
         let mut lsp_tokens = Vec::new();
@@ -74,8 +86,8 @@ impl SemanticTokensProvider {
         text: &str,
         start_offset: usize,
         end_offset: usize,
-    ) -> Result<Vec<SemanticToken>, String> {
-        let tokens = self.config.highlight(text)?;
+    ) -> Result<Vec<SemanticToken>, LspBackendError> {
+        let tokens = self.config.highlight(text).map_err(lift_highlight_error)?;
 
         let mut lsp_tokens = Vec::new();
         let mut prev_line = 0;

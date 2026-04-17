@@ -14,7 +14,7 @@ use super::shared::get_document_and_chat_file;
 pub(crate) fn handle_filter_document(
     backend: &Backend,
     request: &FilterDocumentRequest,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::backend::LspBackendError> {
     let (text, chat_file) = get_document_and_chat_file(backend, &request.uri)?;
     let selected: HashSet<&str> = request
         .speakers

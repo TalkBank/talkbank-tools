@@ -52,7 +52,7 @@ When you press `F4`:
 4. **Repeat** until the recording is complete
 5. Open the Command Palette and search for **TalkBank: Stop Transcription Mode**
 
-> **[VIDEO: 60s demo of transcription workflow with F4 stamping]**
+> **[VIDEO: 60s demo of transcription workflow with F4 stamping)**
 > *Capture this: start transcription mode on a short audio file. Type 3-4 utterances,
 > pressing F4 after each one. Show the timing bullets being inserted and new speaker
 > lines being created. Include the waveform panel in the recording.*

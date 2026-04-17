@@ -17,7 +17,7 @@ bullet on or nearest to the current editor line --- for example, if the cursor i
 a `*CHI:` line containing `go home .`, playback covers the time range
 in that line's bullet.
 
-> **[SCREENSHOT: Media panel with speed slider and playback controls]**
+> **(SCREENSHOT: Media panel with speed slider and playback controls)**
 > *Capture this: open a .cha file with media, press Cmd+Shift+Enter, and screenshot
 > the media panel showing the speed slider, play/pause button, and time display.*
 
@@ -32,7 +32,7 @@ to keep the active line visible.
 Segments play sequentially in **document order** (top to bottom), not sorted by media
 time. When one segment finishes, playback seeks to the next segment's start time.
 
-> **[VIDEO: 30s demo of continuous playback]**
+> **[VIDEO: 30s demo of continuous playback)**
 > *Capture this: start continuous playback from the middle of a multi-speaker file.
 > Show the editor cursor advancing through utterance lines as each segment plays.*
 

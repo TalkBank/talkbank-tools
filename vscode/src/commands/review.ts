@@ -39,6 +39,14 @@ import { tryAsync } from '../effectRuntime';
 // ---------------------------------------------------------------------------
 // Status bar
 // ---------------------------------------------------------------------------
+//
+// Lifecycle: the status-bar item is created lazily on the first call to
+// `updateStatusBar` (i.e., when review mode starts) and fully disposed by
+// `disposeReviewStatusBar` on `stopReview` **and** on extension
+// deactivation. The original implementation called `.hide()` on stop,
+// which left the item allocated forever — a real leak that accumulated
+// one stray status-bar handle per extension reload or second review
+// session. See KIB-005.
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -56,10 +64,30 @@ function updateStatusBar(items: readonly { status: string }[]): void {
     statusBarItem.show();
 }
 
-function hideStatusBar(): void {
+/**
+ * Dispose the review status-bar item if it exists.
+ *
+ * Exported so {@link registerReviewStatusBarCleanup} can tie the item's
+ * lifetime to the extension context's subscription list — a user who
+ * reloads the extension mid-review gets a clean teardown instead of a
+ * dangling handle.
+ */
+export function disposeReviewStatusBar(): void {
     if (statusBarItem) {
-        statusBarItem.hide();
+        statusBarItem.dispose();
+        statusBarItem = undefined;
     }
+}
+
+/**
+ * Register a cleanup hook on the extension context so the review
+ * status-bar item is disposed on extension deactivation / reload.
+ *
+ * Call once from `extension.ts` activation; the returned object is
+ * suitable for `context.subscriptions.push`.
+ */
+export function registerReviewStatusBarCleanup(): vscode.Disposable {
+    return { dispose: disposeReviewStatusBar };
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +165,7 @@ export function stopReview(): Effect.Effect<void, unknown, ExtensionCommandRequi
             commands.executeCommand('setContext', 'talkbank.reviewActive', false),
         )));
 
-        hideStatusBar();
+        disposeReviewStatusBar();
     });
 }
 

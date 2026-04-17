@@ -4,9 +4,10 @@
 //! order in the graph layout, and coloured `dependency` edges represent `%gra`
 //! grammatical relations (SUBJ, OBJ, ROOT, etc.) between `%mor` chunks.
 
-use talkbank_model::alignment::GraAlignment;
+use talkbank_model::alignment::{GraAlignment, GraHeadRef, GraIndex};
 use talkbank_model::model::GraTier;
 
+use super::error::GraphEdgeError;
 use super::labels::NodeLabel;
 
 /// Add invisible left-to-right ordering edges between adjacent chunks.
@@ -27,42 +28,43 @@ pub(super) fn append_dependency_edges(
     node_labels: &[NodeLabel],
     gra_tier: &GraTier,
     gra_alignment: &GraAlignment,
-) -> Result<(), String> {
+) -> Result<(), GraphEdgeError> {
     for (rel_idx, rel) in gra_tier.relations.iter().enumerate() {
         let relation = &rel.relation;
-        let to_idx = rel.head;
 
         let from_node = match gra_alignment
             .pairs
             .iter()
-            .find(|p| p.gra_index == Some(rel_idx))
+            .find(|p| p.gra_index == Some(GraIndex::new(rel_idx)))
         {
             Some(pair) => match pair.mor_chunk_index {
                 Some(mor_chunk_idx) => {
-                    node_id_for_chunk(node_labels, mor_chunk_idx).ok_or_else(|| {
-                        format!("Alignment references invalid chunk index {}", mor_chunk_idx)
-                    })?
+                    let chunk_index = mor_chunk_idx.as_usize();
+                    node_id_for_chunk(node_labels, chunk_index)
+                        .ok_or(GraphEdgeError::InvalidChunkIndex { chunk_index })?
                 }
                 None => continue,
             },
             None => {
-                return Err(format!(
-                    "No alignment pair found for gra relation at index {}",
-                    rel_idx
-                ));
+                return Err(GraphEdgeError::MissingAlignmentPair { rel_index: rel_idx });
             }
         };
 
-        let to_node = if to_idx == 0 {
-            0
-        } else {
-            let target_chunk_idx = to_idx - 1;
-            node_id_for_chunk(node_labels, target_chunk_idx).ok_or_else(|| {
-                format!(
-                    "Invalid gra head index {}: no chunk at position {}",
-                    to_idx, target_chunk_idx
-                )
-            })?
+        // Head resolution goes through `head_ref()` so the ROOT sentinel
+        // (`head == 0` in CHAT) is handled explicitly as its own variant
+        // rather than via an inline magic-number comparison. DOT node id
+        // 0 is reserved for the virtual ROOT node the graph builder emits.
+        let to_node = match rel.head_ref() {
+            GraHeadRef::Root => 0,
+            GraHeadRef::Word(head_idx) => {
+                let chunk_index = head_idx.to_chunk_index().as_usize();
+                node_id_for_chunk(node_labels, chunk_index).ok_or(
+                    GraphEdgeError::InvalidHeadIndex {
+                        head: head_idx.as_usize(),
+                        chunk_index,
+                    },
+                )?
+            }
         };
 
         let color = relation_color(relation);

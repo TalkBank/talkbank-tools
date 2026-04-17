@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-04-15 08:49 EDT
+**Last modified:** 2026-04-16 16:19 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -753,5 +753,25 @@ See `crates/talkbank-re2c-parser/docs/parity-report.md` for detailed metrics.
 | `grammar/CLAUDE.md` | Tree-sitter grammar design, 4-step verification, strict+catch-all pattern |
 | `spec/CLAUDE.md` | Specification structure, templates, `make test-gen` workflow |
 | `spec/tools/CLAUDE.md` | Spec generator binaries, spec/runtime-tools sibling crate |
-| `vscode/CLAUDE.md` | VS Code extension: CLAN commands, LSP, DOT rendering |
+| `crates/talkbank-lsp/CLAUDE.md` | LSP crate: **alignment lives in `talkbank-model`, do not reimplement**; three `%mor`/`%gra` index spaces; RPC and feature handler rules |
+| `crates/talkbank-re2c-parser/CLAUDE.md` | Re2c parser crate (alternate parser / spec oracle) |
+| `vscode/CLAUDE.md` | VS Code extension: presentation-only layer, no domain logic on the TS side |
 | `desktop/CLAUDE.md` | Desktop app (Tauri v2, React) — **mandates TUI parity** |
+
+## Sub-Project mdBooks (in this repo)
+
+Two mdBooks live inside this repo. Both are listed in the cross-repo
+inventory at `../docs/inventory.md` §2 along with the rest of the
+workspace's books.
+
+| Path | Title | Audience |
+|------|-------|----------|
+| `book/` | TalkBank Tooling | CLI (`chatter`), CHAT format, grammar, parser, model, alignment algorithms, contributing |
+| `vscode/book/` | TalkBank CHAT Editor | VS Code extension — user guide, architecture, developer guide, integrator RPC reference |
+| `crates/talkbank-clan/book/` | CLAN Commands | CLAN users; per-command reference for the 33 implemented analyses |
+
+**Policy.** The book is the canonical user / developer documentation for
+each subsystem. Keep only one top-level `README.md` per repo (for the
+marketplace / GitHub landing page); everything else lives in the book.
+Do not add parallel `GUIDE.md` / `DEVELOPER.md` / similar — if the book
+doesn't yet cover a topic, add a book chapter.

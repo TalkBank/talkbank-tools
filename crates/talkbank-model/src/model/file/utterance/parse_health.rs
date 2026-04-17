@@ -166,7 +166,7 @@ impl ParseHealth {
     /// Returns whether main-tier to `%wor` alignment checks are safe to run.
     ///
     /// `%wor` alignment is skipped when parse recovery may have shifted tier slots.
-    pub fn can_align_main_to_wor(&self) -> bool {
+    pub fn can_resolve_wor_timing_sidecar(&self) -> bool {
         self.is_tier_clean(ParseHealthTier::Main) && self.is_tier_clean(ParseHealthTier::Wor)
     }
 
@@ -262,11 +262,11 @@ impl ParseHealthState {
     }
 
     /// Returns `true` when main-tier to `%wor` alignment checks are safe to run.
-    pub fn can_align_main_to_wor(self) -> bool {
+    pub fn can_resolve_wor_timing_sidecar(self) -> bool {
         match self {
             Self::Unknown => false,
             Self::Clean => true,
-            Self::Tainted(health) => health.can_align_main_to_wor(),
+            Self::Tainted(health) => health.can_resolve_wor_timing_sidecar(),
         }
     }
 

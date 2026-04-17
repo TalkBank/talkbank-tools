@@ -80,7 +80,7 @@ impl ParsedTextDocumentContext {
             return Ok(None);
         };
         let chat_file = get_chat_file(backend, &uri, &doc)
-            .map_err(tower_lsp::jsonrpc::Error::invalid_params)?;
+            .map_err(|err| tower_lsp::jsonrpc::Error::invalid_params(err.to_string()))?;
         Ok(Some(Self { doc, chat_file }))
     }
 }
@@ -104,7 +104,7 @@ impl FullTextDocumentContext {
             return Ok(None);
         };
         let chat_file = get_chat_file(backend, &uri, &doc)
-            .map_err(tower_lsp::jsonrpc::Error::invalid_params)?;
+            .map_err(|err| tower_lsp::jsonrpc::Error::invalid_params(err.to_string()))?;
         Ok(Some(Self {
             uri,
             doc,
@@ -208,11 +208,9 @@ struct InteractionFeatureService;
 impl InteractionFeatureService {
     fn handle_hover(&self, backend: &Backend, params: HoverParams) -> Result<Option<Hover>> {
         let position = params.text_document_position_params.position;
-        let Some(context) = FullTextDocumentContext::resolve(
-            backend,
-            params.text_document_position_params.text_document.uri,
-        )?
-        else {
+        let uri = params.text_document_position_params.text_document.uri;
+        let parse_state = backend.parse_state(&uri);
+        let Some(context) = FullTextDocumentContext::resolve(backend, uri)? else {
             return Ok(None);
         };
 
@@ -221,6 +219,7 @@ impl InteractionFeatureService {
             &context.tree,
             position,
             &context.doc,
+            parse_state,
         ))
     }
 

@@ -23,6 +23,7 @@ use talkbank_clan::service_types::{AnalysisOptions, AnalysisPlan, AnalysisReques
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::Url;
 
+use super::LspBackendError;
 use super::execute_commands::{AnalyzeRequest, DiscoverDatabasesRequest, ExecuteCommandRequest};
 
 /// Feature-oriented execute-command service for CLAN analysis requests.
@@ -45,7 +46,10 @@ impl AnalysisCommandService {
     }
 }
 
-fn command_response(result: Result<Value, String>, prefix: &str) -> LspResult<Option<Value>> {
+fn command_response(
+    result: Result<Value, LspBackendError>,
+    prefix: &str,
+) -> LspResult<Option<Value>> {
     match result {
         Ok(json) => Ok(Some(json)),
         Err(error) => Ok(Some(Value::String(format!("{prefix}: {error}")))),
@@ -55,47 +59,64 @@ fn command_response(result: Result<Value, String>, prefix: &str) -> LspResult<Op
 /// Handle a `talkbank/analyze` execute-command request.
 ///
 /// Returns JSON output from the analysis command.
-pub(crate) fn handle_analyze(request: &AnalyzeRequest) -> Result<Value, String> {
+pub(crate) fn handle_analyze(request: &AnalyzeRequest) -> Result<Value, LspBackendError> {
     let target_uri =
-        Url::parse(&request.target_uri).map_err(|error| format!("Invalid file URI: {error}"))?;
+        Url::parse(&request.target_uri).map_err(LspBackendError::invalid_uri_parse("file URI"))?;
     let file_path = target_uri
         .to_file_path()
-        .map_err(|_| "URI is not a file path".to_string())?;
+        .map_err(LspBackendError::uri_not_file_path("file URI"))?;
 
     let options = build_analysis_options(request)?;
     let plan = AnalysisRequestBuilder::new(request.command_name, options)
         .build()
-        .map_err(|error: talkbank_clan::service_types::AnalysisServiceError| error.to_string())?;
+        .map_err(
+            |error: talkbank_clan::service_types::AnalysisServiceError| {
+                LspBackendError::ExternalServiceFailed {
+                    service: "Analysis plan build",
+                    reason: error.to_string(),
+                }
+            },
+        )?;
     let service = AnalysisService::new();
 
     match plan {
         AnalysisPlan::Service(analysis_request) => {
             let discovered_files = DiscoveredChatFiles::from_path(&file_path);
             if discovered_files.is_empty() {
-                return Err("No .cha files found".to_string());
+                return Err(LspBackendError::ExternalServiceFailed {
+                    service: "Analysis",
+                    reason: "No .cha files found".to_string(),
+                });
             }
             let files = discovered_files.into_files();
 
             service
                 .execute_json(analysis_request, &files)
-                .map_err(|error| error.to_string())
+                .map_err(|error| LspBackendError::ExternalServiceFailed {
+                    service: "Analysis",
+                    reason: error.to_string(),
+                })
         }
         AnalysisPlan::Rely(rely_request) => service
             .execute_rely_json(rely_request, &file_path)
-            .map_err(|error| error.to_string()),
+            .map_err(|error| LspBackendError::ExternalServiceFailed {
+                service: "Analysis (rely)",
+                reason: error.to_string(),
+            }),
     }
 }
 
 /// Translate the LSP's typed execute-command payload into raw library options.
-fn build_analysis_options(request: &AnalyzeRequest) -> Result<AnalysisOptions, String> {
+fn build_analysis_options(request: &AnalyzeRequest) -> Result<AnalysisOptions, LspBackendError> {
     let options = &request.options;
     let second_file = options
         .second_file
         .as_deref()
         .map(|uri| {
-            let url = Url::parse(uri).map_err(|e| format!("Invalid second file URI: {e}"))?;
+            let url =
+                Url::parse(uri).map_err(LspBackendError::invalid_uri_parse("second file URI"))?;
             url.to_file_path()
-                .map_err(|_| "Second file URI is not a file path".to_string())
+                .map_err(LspBackendError::uri_not_file_path("second file URI"))
         })
         .transpose()?;
 
@@ -158,11 +179,15 @@ fn build_analysis_options(request: &AnalyzeRequest) -> Result<AnalysisOptions, S
 /// Returns JSON array of available databases.
 pub(crate) fn handle_discover_databases(
     request: &DiscoverDatabasesRequest,
-) -> Result<Value, String> {
-    let databases = database::discover_databases(&request.library_dir)
-        .map_err(|e| format!("Database discovery failed: {e}"))?;
+) -> Result<Value, LspBackendError> {
+    let databases = database::discover_databases(&request.library_dir).map_err(|e| {
+        LspBackendError::ExternalServiceFailed {
+            service: "Database discovery",
+            reason: e.to_string(),
+        }
+    })?;
 
-    serde_json::to_value(&databases).map_err(|e| format!("Failed to serialize database list: {e}"))
+    Ok(serde_json::to_value(&databases)?)
 }
 
 #[cfg(test)]
@@ -205,6 +230,14 @@ mod tests {
         };
 
         let error = build_analysis_options(&request).expect_err("non-file URI should fail");
-        assert!(error.contains("Second file URI is not a file path"));
+        assert!(
+            matches!(
+                &error,
+                LspBackendError::UriNotFilePath {
+                    label: "second file URI",
+                },
+            ),
+            "expected UriNotFilePath {{ label: 'second file URI' }}, got {error:?}",
+        );
     }
 }

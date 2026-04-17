@@ -19,7 +19,7 @@ The extension supports running any of the 33 CLAN analysis commands on an entire
 
 The LSP's `resolve_files()` function walks the directory tree to find all `.cha` files. Results display as styled tables with section headings, key-value statistics, and bar charts -- the same rendering used for single-file analysis.
 
-> **[SCREENSHOT: Analysis Panel showing aggregated results from a directory-level FREQ analysis]**
+> **(SCREENSHOT: Analysis Panel showing aggregated results from a directory-level FREQ analysis)**
 > *Capture this: Right-click a folder containing several .cha files, run FREQ analysis, show the results panel with aggregated frequency tables*
 
 ### CSV Export

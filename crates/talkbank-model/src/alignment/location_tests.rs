@@ -157,16 +157,15 @@ fn test_sin_alignment_error_too_many_has_proper_location() {
     assert_eq!(error.location.span.end, 15);
 }
 
-/// `%wor` count mismatches must never emit validation errors.
+/// `%wor` count mismatches are reported as `Drifted`, never as errors.
 ///
-/// `%wor` is a timing-annotation tier, not a structural mirror of the main tier.
-/// Stale word counts are common when a transcript is edited without re-aligning.
-/// The validator must never flag `%wor` count differences — the alignment pairs
-/// are still computed for the batchalign injection layer, but the errors list is
-/// always empty.
+/// `%wor` is a timing-annotation sidecar, not a structural mirror of the
+/// main tier. Stale counts (common after a transcript edit without
+/// re-aligning) map to [`WorTimingSidecar::Drifted`] — a data state that
+/// consumers interpret as "no positional recovery possible," not as a
+/// validation failure. See KIB-016.
 #[test]
-fn test_wor_alignment_never_emits_errors_on_count_mismatch() {
-    // Main tier has 2 words, wor tier has only 1 — mismatched, but errors must be empty.
+fn test_wor_sidecar_reports_drift_when_main_longer() {
     let main = MainTier::new(
         "CHI",
         vec![
@@ -180,21 +179,20 @@ fn test_wor_alignment_never_emits_errors_on_count_mismatch() {
     let wor = WorTier::from_words(vec![Word::new_unchecked("one", "one")])
         .with_span(Span::from_usize(21, 35));
 
-    let alignment = align_main_to_wor(&main, &wor);
+    let sidecar = resolve_wor_timing_sidecar(&main, &wor);
 
-    assert!(
-        alignment.errors.is_empty(),
-        "%wor alignment must never emit validation errors; \
-         stale word counts are expected after transcript edits. \
-         Got: {:?}",
-        alignment.errors
+    assert_eq!(
+        sidecar,
+        WorTimingSidecar::Drifted {
+            main_count: 2,
+            wor_count: 1,
+        }
     );
 }
 
-/// `%wor` overflow mismatches also produce no errors.
+/// `%wor` longer than main also maps to `Drifted` (symmetric).
 #[test]
-fn test_wor_alignment_never_emits_errors_on_too_many() {
-    // Wor tier has 3 words, main tier has only 1 — no errors expected.
+fn test_wor_sidecar_reports_drift_when_wor_longer() {
     let main = MainTier::new(
         "CHI",
         vec![UtteranceContent::Word(Box::new(Word::new_unchecked(
@@ -211,13 +209,14 @@ fn test_wor_alignment_never_emits_errors_on_too_many() {
     ])
     .with_span(Span::from_usize(16, 45));
 
-    let alignment = align_main_to_wor(&main, &wor);
+    let sidecar = resolve_wor_timing_sidecar(&main, &wor);
 
-    assert!(
-        alignment.errors.is_empty(),
-        "%wor alignment must never emit validation errors (too-many case). \
-         Got: {:?}",
-        alignment.errors
+    assert_eq!(
+        sidecar,
+        WorTimingSidecar::Drifted {
+            main_count: 1,
+            wor_count: 3,
+        }
     );
 }
 
@@ -273,16 +272,12 @@ fn test_wor_alignment_does_not_count_terminator() {
     .with_terminator(Some(Terminator::Period { span: Span::DUMMY })) // <-- Terminator present but no timing bullet
     .with_span(Span::from_usize(101, 200));
 
-    let alignment = align_main_to_wor(&main, &wor);
+    let sidecar = resolve_wor_timing_sidecar(&main, &wor);
 
-    // Should be error-free: 13 words on main tier match 13 words on %wor tier
-    // The terminator is structural and doesn't participate in word-level timing alignment
-    assert!(
-        alignment.is_error_free(),
-        "Expected no errors, but got: {:?}",
-        alignment.errors
-    );
-    assert_eq!(alignment.pairs.len(), 13); // 13 word-to-word pairs
+    // 13 words on main tier match 13 words on %wor tier. The terminator is
+    // structural and doesn't participate in word-level timing alignment, so
+    // the Wor-filtered main count and %wor word count both equal 13.
+    assert_eq!(sidecar, WorTimingSidecar::Positional { count: 13 });
 }
 
 /// Confirms `%wor` alignment accepts timed filler words copied from the main tier.
@@ -310,14 +305,13 @@ fn test_wor_alignment_allows_timed_fillers() {
     ])
     .with_span(Span::from_usize(25, 55)); // %wor: dt 0_120 there 120_260
 
-    let alignment = align_main_to_wor(&main, &wor);
+    let sidecar = resolve_wor_timing_sidecar(&main, &wor);
 
-    assert!(
-        alignment.is_error_free(),
-        "Expected timed filler to align in %wor, got: {:?}",
-        alignment.errors
+    assert_eq!(
+        sidecar,
+        WorTimingSidecar::Positional { count: 2 },
+        "timed filler should align positionally in %wor",
     );
-    assert_eq!(alignment.pairs.len(), 2);
 }
 
 /// Helper: build a simple Mor item from POS and lemma strings.

@@ -9,20 +9,31 @@ use super::helpers::{
     TierDomain, TierPosition, collect_tier_items, count_tier_positions,
     to_chat_display_string as to_string,
 };
+use super::indices::{MainWordIndex, MorItemIndex};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, MorTier, WriteChat};
 use crate::{ErrorCode, ErrorLabel, ParseError, Severity};
 use schemars::JsonSchema;
 use talkbank_derive::SpanShift;
 
+/// Typed pair for the main↔`%mor` alignment.
+///
+/// Target is a `%mor` **item** position ([`MorItemIndex`]), not a
+/// `%mor` **chunk** position — the compiler rejects mixing with
+/// [`MorChunkIndex`](crate::alignment::indices::MorChunkIndex), which
+/// lives in `%gra` space and is a structurally different sequence
+/// (items plus post-clitics plus terminator).
+pub type MorAlignmentPair = AlignmentPair<MainWordIndex, MorItemIndex>;
+
 /// Result of aligning main tier words to %mor tier morphological items.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema, SpanShift)]
 pub struct MorAlignment {
-    /// Alignment pairs (main_tier_index, mor_tier_index)
+    /// Alignment pairs
+    /// ([`MainWordIndex`]↔[`MorItemIndex`](crate::alignment::indices::MorItemIndex)).
     ///
     /// Indices are positions in the alignable content sequence.
     /// `None` in either position indicates a placeholder due to misalignment.
-    pub pairs: Vec<AlignmentPair>,
+    pub pairs: Vec<MorAlignmentPair>,
 
     /// Errors produced while checking `%mor` alignment invariants.
     ///
@@ -43,7 +54,7 @@ impl MorAlignment {
     }
 
     /// Append one index-pair mapping to the alignment result.
-    pub fn with_pair(mut self, pair: AlignmentPair) -> Self {
+    pub fn with_pair(mut self, pair: MorAlignmentPair) -> Self {
         self.pairs.push(pair);
         self
     }
@@ -70,9 +81,9 @@ impl Default for MorAlignment {
 }
 
 impl super::traits::TierAlignmentResult for MorAlignment {
-    type Pair = AlignmentPair;
+    type Pair = MorAlignmentPair;
 
-    fn pairs(&self) -> &[AlignmentPair] {
+    fn pairs(&self) -> &[MorAlignmentPair] {
         &self.pairs
     }
 
@@ -80,7 +91,7 @@ impl super::traits::TierAlignmentResult for MorAlignment {
         &self.errors
     }
 
-    fn push_pair(&mut self, pair: AlignmentPair) {
+    fn push_pair(&mut self, pair: MorAlignmentPair) {
         self.pairs.push(pair);
     }
 
@@ -148,7 +159,10 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
     // Create 1-1 pairs for the common range
     let min_len = expected_mor_count.min(mor_count);
     for i in 0..min_len {
-        alignment = alignment.with_pair(AlignmentPair::new(Some(i), Some(i)));
+        alignment = alignment.with_pair(AlignmentPair::new(
+            Some(MainWordIndex::new(i)),
+            Some(MorItemIndex::new(i)),
+        ));
     }
 
     // Handle length mismatch
@@ -180,7 +194,7 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
 
         // Add placeholders for extra main tier items
         for i in mor_count..expected_mor_count {
-            alignment = alignment.with_pair(AlignmentPair::new(Some(i), None));
+            alignment = alignment.with_pair(AlignmentPair::new(Some(MainWordIndex::new(i)), None));
         }
     } else if mor_count > expected_mor_count {
         let main_items = collect_tier_items(&main.content.content, TierDomain::Mor);
@@ -210,7 +224,7 @@ pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
 
         // Add placeholders for extra %mor items
         for i in expected_mor_count..mor_count {
-            alignment = alignment.with_pair(AlignmentPair::new(None, Some(i)));
+            alignment = alignment.with_pair(AlignmentPair::new(None, Some(MorItemIndex::new(i))));
         }
     }
 

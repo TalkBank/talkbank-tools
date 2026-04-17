@@ -75,7 +75,7 @@ comparison group:
 
 Leave these fields blank to compare against the full normative sample.
 
-> **[SCREENSHOT: KidEval panel showing language/activity dropdowns, availability grid with a cell selected, and the matching database card]**
+> **(SCREENSHOT: KidEval panel showing language/activity dropdowns, availability grid with a cell selected, and the matching database card)**
 > *Capture this: open the KidEval panel on an English narrative .cha file. The language should be auto-selected to "English (NA)", activity to "Narrative", and the grid should highlight the eng/narrative cell. Show the matching database card below.*
 
 ### Available KidEval databases
@@ -107,7 +107,7 @@ color-coded z-score indicators:
 - Yellow: between 1 and 2 standard deviations (borderline)
 - Red: more than 2 standard deviations from the mean (atypical)
 
-> **[SCREENSHOT: KidEval results showing stat cards with z-scores and comparison table]**
+> **(SCREENSHOT: KidEval results showing stat cards with z-scores and comparison table)**
 > *Capture this: KidEval results after clicking "Compare with Database" for an English narrative file, showing colored stat cards (green/red z-scores) and the detailed comparison table with Measure, Child, Norm Mean, Norm SD, z-score, N columns.*
 
 **Comparison table** showing side-by-side values:

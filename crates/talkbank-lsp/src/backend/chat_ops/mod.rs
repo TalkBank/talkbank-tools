@@ -62,9 +62,15 @@ impl ChatOpsCommandService {
     }
 }
 
-fn command_response(result: Result<Value, String>, prefix: &str) -> LspResult<Option<Value>> {
+fn command_response(
+    result: Result<Value, crate::backend::LspBackendError>,
+    prefix: &str,
+) -> LspResult<Option<Value>> {
     match result {
         Ok(json) => Ok(Some(json)),
+        // Stringify at the LSP wire boundary; the JSON-RPC response
+        // carries the `Display`-formatted message so the TS client
+        // sees the same user-facing text the untyped path produced.
         Err(error) => Ok(Some(Value::String(format!("{prefix}: {error}")))),
     }
 }

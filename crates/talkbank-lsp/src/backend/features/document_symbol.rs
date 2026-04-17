@@ -244,12 +244,7 @@ fn first_line_at_offset(document: &str, byte_offset: usize, max_chars: usize) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(input: &str) -> talkbank_model::model::ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(input).unwrap()
-    }
+    use crate::test_fixtures::parse_chat;
 
     #[test]
     fn returns_nested_symbol_tree() {

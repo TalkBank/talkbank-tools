@@ -1,8 +1,12 @@
 # CLAN Feature Parity
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:16 EDT
 
-This chapter summarizes the VS Code extension's feature parity with the legacy CLAN macOS application. The extension does not just replicate CLAN -- it surpasses it in many areas while faithfully implementing its core capabilities.
+This chapter summarizes the VS Code extension's feature parity with
+the legacy CLAN macOS application. The extension does not just
+replicate CLAN — it surpasses it in many areas while faithfully
+implementing its core capabilities.
 
 ## Summary
 
@@ -93,5 +97,7 @@ These CLAN features are handled natively by VS Code or are platform-specific and
 
 ## Related Chapters
 
-- [Architecture](architecture.md) -- how the extension implements these features
-- [LSP Protocol](lsp-protocol.md) -- the 23 LSP capabilities powering these features
+- [Architecture](architecture.md) — how the extension implements these features
+- [LSP Protocol](lsp-protocol.md) — the standard LSP capabilities powering these features
+- [Command Catalog](../reference/commands.md) — every VS Code command this extension contributes
+- [RPC Contracts](../reference/rpc-contracts.md) — the 12 custom `talkbank/*` endpoints

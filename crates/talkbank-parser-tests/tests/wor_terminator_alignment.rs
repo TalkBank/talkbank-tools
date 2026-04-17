@@ -9,8 +9,9 @@
 //! - Roundtrip serialization preserves separators
 
 use talkbank_model::alignment::{
-    align_main_to_wor,
+    WorTimingSidecar,
     helpers::{TierDomain, count_tier_positions},
+    resolve_wor_timing_sidecar,
 };
 use talkbank_model::model::dependent_tier::WorTier;
 use talkbank_model::model::dependent_tier::wor::WorItem;
@@ -62,20 +63,14 @@ fn test_wor_tier_terminator_not_counted_in_real_parse() -> Result<(), TestError>
     println!("Word count: {}", wor.word_count());
     println!("Terminator: {:?}", wor.terminator);
 
-    // Perform alignment
-    let alignment = align_main_to_wor(main, wor);
+    // Resolve the timing sidecar: 3 main-tier Wor words ↔ 3 %wor words.
+    let sidecar = resolve_wor_timing_sidecar(main, wor);
 
-    // Main tier has 3 words, wor tier has 3 words — should align cleanly
-    if !alignment.is_error_free() {
-        println!("\n=== Alignment Errors ===");
-        for error in &alignment.errors {
-            println!("{:?}", error);
-        }
-        return Err(TestError::Failure(format!(
-            "Expected no alignment errors, but got {} errors",
-            alignment.errors.len()
-        )));
-    }
+    assert_eq!(
+        sidecar,
+        WorTimingSidecar::Positional { count: 3 },
+        "terminator must not participate in the Wor filtered count"
+    );
 
     Ok(())
 }
@@ -328,14 +323,9 @@ fn test_wor_alignment_excludes_separators() -> Result<(), TestError> {
         "Wor tier should have 2 words (separator excluded)"
     );
 
-    // Alignment should succeed: 2 ↔ 2
-    let alignment = align_main_to_wor(main, wor);
-    assert!(
-        alignment.is_error_free(),
-        "Expected no alignment errors, but got: {:?}",
-        alignment.errors
-    );
-    assert_eq!(alignment.pairs.len(), 2, "Expected 2 aligned word pairs");
+    // Separator-excluded counts match: 2 ↔ 2, so the sidecar is Positional.
+    let sidecar = resolve_wor_timing_sidecar(main, wor);
+    assert_eq!(sidecar, WorTimingSidecar::Positional { count: 2 });
 
     Ok(())
 }

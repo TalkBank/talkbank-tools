@@ -1,6 +1,7 @@
 # Cross-Tier Alignment
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:24 EDT
 
 CHAT transcripts are layered: a main tier line carries the spoken words, while dependent tiers (`%mor`, `%gra`, `%pho`, `%sin`) carry aligned annotations. The extension surfaces these alignment relationships through hover tooltips, document highlighting, and smart selection, so you never have to count positions manually.
 
@@ -29,7 +30,7 @@ Main Tier Word: "cookie"
 Alignment computed by talkbank-model
 ```
 
-> **[SCREENSHOT: Hover popup on main tier word showing %mor, %gra, and %pho alignment]**
+> **(SCREENSHOT: Hover popup on main tier word showing %mor, %gra, and %pho alignment)**
 > *Capture this: hover the cursor over the word "cookie" on a `*CHI:` main tier line that has `%mor`, `%gra`, and `%pho` dependent tiers. The tooltip should show all three aligned items.*
 
 ### Hovering on a %mor Item
@@ -77,6 +78,21 @@ Hovering over `@` headers (`@Languages`, `@Participants`, `@ID`, `@Media`, etc.)
 
 Hovering over a timing bullet (`*NNN_NNN*`) shows the formatted start time, end time, and duration of the segment in human-readable form (e.g., `01:23.456 - 01:25.789 (2.333s)`). This makes it easy to inspect timing without mentally converting millisecond values.
 
+### Stale-baseline indicator
+
+When you edit a document so heavily that the parser cannot produce a
+fresh `ChatFile` (typically because of an in-progress syntax error),
+alignment-consuming hover cards continue working from the last
+successful parse rather than going blank. In that state the hover
+appends a footer:
+
+> ⚠ **Stale baseline** — alignment reflects the last successful parse.
+
+The vocabulary — "stale baseline" — mirrors the internal
+`ParseState::StaleBaseline` identifier so the same term appears in
+server logs and source code. Once your edit parses cleanly the
+footer disappears on the next hover.
+
 ## Document Highlighting: Visual Alignment
 
 Click on any word or tier item and all aligned elements across tiers are highlighted simultaneously. This provides an instant visual map of how a single word flows through the annotation layers.
@@ -90,8 +106,70 @@ For example, clicking on the word "cookie" on the main tier highlights:
 
 This works bidirectionally: clicking a `%gra` item highlights both its source word and head word on `%mor`, plus the corresponding main tier words.
 
-> **[SCREENSHOT: Cross-tier highlighting with a word selected on the main tier]**
+> **(SCREENSHOT: Cross-tier highlighting with a word selected on the main tier)**
 > *Capture this: click on a word like "cookie" on a main tier line that has `%mor`, `%gra`, and `%pho` tiers. All aligned items across tiers should show colored highlights.*
+
+## Clitics and the `%mor` Chunk Sequence
+
+English contractions (`it's`, `I'll`, `can't`), French elisions
+(`l'homme`), and similar multi-word tokens appear as a single orthographic
+word on the main tier but expand into multiple morphemes on the `%mor`
+tier. CHAT writes the expansion with a post-clitic marker `~`. Each side
+of the `~` gets its own `%gra` relation. Understanding how the extension
+resolves alignments through clitic groups explains why hover, highlights,
+and the dependency graph all "just work" on real transcripts.
+
+### Worked example
+
+Consider this line:
+
+```
+*CHI:   it's cookies .
+%mor:   pron|it~aux|be noun|cookie .
+%gra:   1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT
+```
+
+The `%mor` tier has **two items** — `pron|it~aux|be` and `noun|cookie` —
+but it has **three non-terminator chunks**: the `pron|it` main word, the
+`aux|be` post-clitic, and `noun|cookie`. Adding the terminator gives a
+total of four chunks. Every `%gra` relation aligns with exactly one
+chunk, not one item.
+
+| Chunk | Position | Kind | Host `%mor` item | Main-tier word |
+|-------|----------|------|------------------|----------------|
+| 0 | 1 (1-indexed in `%gra`) | Main | 0: `pron|it~aux|be` | `it's` |
+| 1 | 2 | Post-clitic | 0: `pron|it~aux|be` | `it's` *(same word)* |
+| 2 | 3 | Main | 1: `noun|cookie` | `cookies` |
+| 3 | 4 | Terminator | — | `.` |
+
+Key property: **the post-clitic chunk and its host's main chunk share the
+same main-tier word**. Clicking either the `SUBJ` relation (`1|2|SUBJ` →
+chunk 0) or the `ROOT` relation (`2|0|ROOT` → chunk 1) highlights the
+same word `it's` on the main tier. The extension collapses chunks to
+their host `%mor` item before projecting through the main↔`%mor`
+alignment, which is keyed by item position.
+
+### Why this matters
+
+`%gra` relation indices are 1-indexed positions in the `%mor` **chunk**
+sequence (main word, then each post-clitic, then the terminator), while
+the main↔`%mor` alignment is keyed by `%mor` **item** position. Every
+handler that projects a `%gra` relation onto the main tier collapses
+chunks to their host item via `MorTier::item_index_of_chunk`; without
+that step, any `%gra` click on a post-clitic silently lands on the
+next item after the clitic (usually the wrong word). The single
+primitive is used by:
+
+- The `%gra` relation hover (word stem, head stem, dependents list).
+- The `%gra` click → main-tier highlight handler.
+- The dependency-graph DOT builder (each chunk gets its own node; edges
+  connect chunk node IDs directly).
+- The `%gra` → main-tier **Go to Definition** jump.
+
+See the [Developer: Architecture](../developer/architecture.md#alignment-and-the-mor-chunk-sequence)
+chapter for the model-side primitive (`MorTier::chunks()`,
+`MorChunk<'a>`) and the three distinct index spaces that the Rust
+types now enforce at the compiler level.
 
 ## Smart Selection
 

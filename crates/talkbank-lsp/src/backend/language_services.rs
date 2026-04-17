@@ -12,6 +12,7 @@ use talkbank_parser::TreeSitterParser;
 
 use crate::semantic_tokens::SemanticTokensProvider;
 
+use super::LspBackendError;
 use super::state::BackendInitError;
 
 thread_local! {
@@ -52,17 +53,25 @@ impl LanguageServices {
     }
 
     /// Execute a closure with the current thread's semantic-tokens provider.
+    ///
+    /// The closure returns the typed `LspBackendError` so call sites can
+    /// `match` on variants. The init-failure branch surfaces through the
+    /// same error type via [`LspBackendError::HighlightFailed`] so callers
+    /// see a single error surface regardless of whether the failure came
+    /// from grammar init or token extraction.
     pub(crate) fn with_semantic_tokens_provider<T>(
         &self,
-        callback: impl FnOnce(&mut SemanticTokensProvider) -> Result<T, String>,
-    ) -> Result<T, String> {
+        callback: impl FnOnce(&mut SemanticTokensProvider) -> Result<T, LspBackendError>,
+    ) -> Result<T, LspBackendError> {
         SEMANTIC_TOKENS.with(|slot| {
             initialize_semantic_tokens(slot);
             let mut provider = slot.borrow_mut();
 
             match provider.as_mut().expect("semantic-tokens slot initialized") {
                 Ok(provider) => callback(provider),
-                Err(error) => Err(error.to_string()),
+                Err(init_error) => Err(LspBackendError::HighlightFailed {
+                    reason: init_error.to_string(),
+                }),
             }
         })
     }
@@ -82,7 +91,12 @@ fn initialize_semantic_tokens(
     slot: &RefCell<Option<Result<SemanticTokensProvider, BackendInitError>>>,
 ) {
     if slot.borrow().is_none() {
-        let provider = SemanticTokensProvider::new().map_err(BackendInitError::SemanticTokens);
+        // `SemanticTokensProvider::new` now returns the typed
+        // `LspBackendError`; stringify once at this boundary so the
+        // existing `BackendInitError::SemanticTokens(String)` variant
+        // keeps its wire shape.
+        let provider = SemanticTokensProvider::new()
+            .map_err(|err| BackendInitError::SemanticTokens(err.to_string()));
         *slot.borrow_mut() = Some(provider);
     }
 }

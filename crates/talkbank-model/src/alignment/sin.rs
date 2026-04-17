@@ -5,6 +5,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use super::helpers::{TierDomain, TierPosition, to_chat_display_string as to_string};
+use super::indices::{MainWordIndex, SinItemIndex};
 use super::traits::{AlignableTier, TierAlignmentResult, positional_align};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, SinTier};
@@ -12,11 +13,14 @@ use crate::{ErrorCode, ParseError, Span};
 use schemars::JsonSchema;
 use talkbank_derive::SpanShift;
 
+/// Typed pair for main↔`%sin` alignment.
+pub type SinAlignmentPair = AlignmentPair<MainWordIndex, SinItemIndex>;
+
 /// Result of aligning main tier words to %sin tier gesture/sign tokens.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema, SpanShift)]
 pub struct SinAlignment {
-    /// Alignment pairs (main_tier_index, sin_tier_index)
-    pub pairs: Vec<AlignmentPair>,
+    /// Alignment pairs ([`MainWordIndex`]↔[`SinItemIndex`])
+    pub pairs: Vec<SinAlignmentPair>,
 
     /// Errors produced while checking `%sin` count/position alignment.
     pub errors: Vec<ParseError>,
@@ -32,7 +36,7 @@ impl SinAlignment {
     }
 
     /// Append an alignment pair.
-    pub fn with_pair(mut self, pair: AlignmentPair) -> Self {
+    pub fn with_pair(mut self, pair: SinAlignmentPair) -> Self {
         self.pairs.push(pair);
         self
     }
@@ -57,9 +61,9 @@ impl Default for SinAlignment {
 }
 
 impl TierAlignmentResult for SinAlignment {
-    type Pair = AlignmentPair;
+    type Pair = SinAlignmentPair;
 
-    fn pairs(&self) -> &[AlignmentPair] {
+    fn pairs(&self) -> &[SinAlignmentPair] {
         &self.pairs
     }
 
@@ -67,7 +71,7 @@ impl TierAlignmentResult for SinAlignment {
         &self.errors
     }
 
-    fn push_pair(&mut self, pair: AlignmentPair) {
+    fn push_pair(&mut self, pair: SinAlignmentPair) {
         self.pairs.push(pair);
     }
 
@@ -77,6 +81,8 @@ impl TierAlignmentResult for SinAlignment {
 }
 
 impl AlignableTier for SinTier {
+    type Source = MainWordIndex;
+    type Target = SinItemIndex;
     const DOMAIN: TierDomain = TierDomain::Sin;
 
     fn tier_name(&self) -> &str {

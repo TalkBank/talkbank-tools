@@ -2,11 +2,11 @@
  * Command handler for dependency-graph generation.
  */
 
+import * as vscode from 'vscode';
 import { Effect } from 'effect';
 
 import { GraphPanel } from '../graphPanel';
 import {
-    EmptyCommandResponseError,
     ExtensionCommandRequirements,
     requireActiveEditor,
 } from '../effectCommandRuntime';
@@ -17,6 +17,11 @@ import {
 
 /**
  * Generate and show the dependency graph for the current cursor position.
+ *
+ * The LSP returns a discriminated response. A `dot` variant is rendered in a
+ * graph webview; an `unavailable` variant (e.g., "No %mor tier found") is
+ * surfaced as a plain information message so the Graphviz renderer never sees
+ * non-DOT text.
  */
 export function showDependencyGraph(): Effect.Effect<
     void,
@@ -30,18 +35,19 @@ export function showDependencyGraph(): Effect.Effect<
         const document = editor.document;
         const position = editor.selection.active;
 
-        const dotOutput = yield* commands.showDependencyGraph(
+        const response = yield* commands.showDependencyGraph(
             document.uri.toString(),
             position,
         );
-        if (!dotOutput) {
-            return yield* Effect.fail(new EmptyCommandResponseError({
-                command: 'talkbank/showDependencyGraph',
-            }));
-        }
 
         yield* Effect.sync(() => {
-            GraphPanel.createOrShow(context, dotOutput, document.fileName);
+            if (response.kind === 'dot') {
+                GraphPanel.createOrShow(context, response.source, document.fileName);
+            } else {
+                vscode.window.showInformationMessage(
+                    `Dependency graph unavailable: ${response.reason}`,
+                );
+            }
         });
     });
 }

@@ -110,15 +110,30 @@ pub(crate) fn build_alignment_sidecar(
                     .unwrap_or_default(),
                 gra: alignments
                     .and_then(|a| a.gra.as_ref())
-                    .map(|a| collect_gra_alignment_pairs(&a.pairs))
+                    .map(|a| collect_alignment_pairs(&a.pairs))
                     .unwrap_or_default(),
                 pho: alignments
                     .and_then(|a| a.pho.as_ref())
                     .map(|a| collect_alignment_pairs(&a.pairs))
                     .unwrap_or_default(),
+                // `%wor` is a timing sidecar, not a structural alignment
+                // (see KIB-016). When the tier is present and its filtered
+                // count matches the main tier's Wor-filtered count, the
+                // correspondence is trivially positional 0↔0, 1↔1, …, so
+                // we synthesize the per-index pairs for wire compatibility
+                // with the TS client. When drifted, we emit an empty list
+                // — no positional recovery is safe.
                 wor: alignments
-                    .and_then(|a| a.wor.as_ref())
-                    .map(|a| collect_alignment_pairs(&a.pairs))
+                    .and_then(|a| a.wor_timings.as_ref())
+                    .and_then(|s| s.positional_count())
+                    .map(|n| {
+                        (0..n)
+                            .map(|i| AlignmentPairView {
+                                source_index: Some(i),
+                                target_index: Some(i),
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default(),
                 mod_: alignments
                     .and_then(|a| a.mod_.as_ref())
@@ -160,26 +175,22 @@ fn count_main_units(utterance: &talkbank_model::model::Utterance) -> usize {
     count
 }
 
-fn collect_alignment_pairs(
-    pairs: &[talkbank_model::alignment::AlignmentPair],
-) -> Vec<AlignmentPairView> {
+/// Flatten any tier-alignment pair list to the sidecar JSON shape.
+///
+/// After the KIB-001 newtype migration, each tier's `AlignmentPair` carries
+/// its own source/target index newtypes (e.g. `MainWordIndex`/`MorItemIndex`
+/// for `MorAlignment`). The sidecar wire format is plain `usize`, so we take
+/// a trait-object view via `IndexPair` that unwraps to raw positions at this
+/// JSON boundary. See `talkbank-lsp/CLAUDE.md` for the three index spaces.
+fn collect_alignment_pairs<P>(pairs: &[P]) -> Vec<AlignmentPairView>
+where
+    P: talkbank_model::alignment::IndexPair,
+{
     pairs
         .iter()
         .map(|pair| AlignmentPairView {
-            source_index: pair.source_index,
-            target_index: pair.target_index,
-        })
-        .collect()
-}
-
-fn collect_gra_alignment_pairs(
-    pairs: &[talkbank_model::alignment::GraAlignmentPair],
-) -> Vec<AlignmentPairView> {
-    pairs
-        .iter()
-        .map(|pair| AlignmentPairView {
-            source_index: pair.mor_chunk_index,
-            target_index: pair.gra_index,
+            source_index: pair.source(),
+            target_index: pair.target(),
         })
         .collect()
 }
@@ -245,28 +256,13 @@ fn content_span(content: &UtteranceContent) -> Option<Span> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_model::model::Line;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat_with_alignments(input: &str) -> std::result::Result<ChatFile, String> {
-        let parser =
-            TreeSitterParser::new().map_err(|err| format!("Failed to create parser: {err}"))?;
-        let mut chat_file = parser
-            .parse_chat_file(input)
-            .map_err(|err| format!("Failed to parse chat file: {err}"))?;
-        for line in &mut chat_file.lines {
-            if let Line::Utterance(utterance) = line {
-                utterance.compute_alignments_default();
-            }
-        }
-        Ok(chat_file)
-    }
+    use crate::test_fixtures::{parse_chat, parse_chat_with_alignments};
 
     #[test]
-    fn test_build_alignment_sidecar_with_alignments() -> std::result::Result<(), String> {
+    fn test_build_alignment_sidecar_with_alignments() {
         let input = "@UTF8\n@Begin\n*CHI:\tmore cookie .\n%mor:\tqn|more n|cookie .\n%gra:\t1|2|DET 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n@End\n";
-        let chat_file = parse_chat_with_alignments(input)?;
-        let uri = Url::parse("file:///tmp/sample.cha").map_err(|err| err.to_string())?;
+        let chat_file = parse_chat_with_alignments(input);
+        let uri = Url::parse("file:///tmp/sample.cha").unwrap();
 
         let sidecar = build_alignment_sidecar(&uri, input, &chat_file);
         assert_eq!(sidecar.schema_version, 1);
@@ -278,24 +274,18 @@ mod tests {
         assert!(!utterance.main_units.is_empty());
         assert!(!utterance.alignments.mor.is_empty());
         assert!(!utterance.alignments.gra.is_empty());
-        Ok(())
     }
 
     #[test]
-    fn test_build_alignment_sidecar_without_alignments() -> std::result::Result<(), String> {
+    fn test_build_alignment_sidecar_without_alignments() {
         let input = "@UTF8\n@Begin\n*CHI:\tmore cookie .\n@End\n";
-        let parser =
-            TreeSitterParser::new().map_err(|err| format!("Failed to create parser: {err}"))?;
-        let chat_file = parser
-            .parse_chat_file(input)
-            .map_err(|err| format!("Failed to parse chat file: {err}"))?;
-        let uri = Url::parse("file:///tmp/no-align.cha").map_err(|err| err.to_string())?;
+        let chat_file = parse_chat(input);
+        let uri = Url::parse("file:///tmp/no-align.cha").unwrap();
 
         let sidecar = build_alignment_sidecar(&uri, input, &chat_file);
         assert_eq!(sidecar.utterances.len(), 1);
         assert!(!sidecar.utterances[0].main_units.is_empty());
         assert!(sidecar.utterances[0].alignments.mor.is_empty());
         assert!(sidecar.utterances[0].alignments.gra.is_empty());
-        Ok(())
     }
 }

@@ -33,7 +33,7 @@ struct ScopedFindMatch {
 pub(crate) fn handle_scoped_find(
     backend: &Backend,
     request: &ScopedFindRequest,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::backend::LspBackendError> {
     let (text, chat_file) = get_document_and_chat_file(backend, &request.uri)?;
     let matcher = build_matcher(&request.query, request.regex)?;
     let speaker_filter: HashSet<&str> = request
@@ -54,7 +54,7 @@ pub(crate) fn handle_scoped_find(
         &matcher,
     );
 
-    serde_json::to_value(&matches).map_err(|error| format!("Serialization error: {error}"))
+    serde_json::to_value(&matches).map_err(Into::into)
 }
 
 /// One matching strategy for scoped-find.
@@ -66,11 +66,13 @@ pub(super) enum Matcher {
 }
 
 /// Build a plain-text or regex matcher from user input.
-fn build_matcher(query: &str, is_regex: bool) -> Result<Matcher, String> {
+fn build_matcher(query: &str, is_regex: bool) -> Result<Matcher, crate::backend::LspBackendError> {
     if is_regex {
-        Regex::new(query)
-            .map(Matcher::Regex)
-            .map_err(|e| format!("Invalid regex: {e}"))
+        Regex::new(query).map(Matcher::Regex).map_err(|e| {
+            crate::backend::LspBackendError::InvalidRegex {
+                reason: e.to_string(),
+            }
+        })
     } else {
         Ok(Matcher::Plain(query.to_lowercase()))
     }
@@ -217,7 +219,10 @@ fn make_match(
 
 #[cfg(test)]
 /// Test helper that exposes matcher construction without the full handler path.
-pub(super) fn test_build_matcher(query: &str, is_regex: bool) -> Result<Matcher, String> {
+pub(super) fn test_build_matcher(
+    query: &str,
+    is_regex: bool,
+) -> Result<Matcher, crate::backend::LspBackendError> {
     build_matcher(query, is_regex)
 }
 

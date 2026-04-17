@@ -17,7 +17,7 @@ pub(super) async fn handle_document_symbol(
     };
     let chat_file = match get_chat_file(backend, &uri, &doc) {
         Ok(file) => file,
-        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error)),
+        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error.to_string())),
     };
     Ok(features::document_symbol(&chat_file, &doc))
 }
@@ -33,7 +33,7 @@ pub(super) async fn handle_folding_range(
     };
     let chat_file = match get_chat_file(backend, &uri, &doc) {
         Ok(file) => file,
-        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error)),
+        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error.to_string())),
     };
     Ok(Some(features::folding_range(&chat_file, &doc)))
 }
@@ -49,7 +49,7 @@ pub(super) async fn handle_code_lens(
     };
     let chat_file = match get_chat_file(backend, &uri, &doc) {
         Ok(file) => file,
-        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error)),
+        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error.to_string())),
     };
     Ok(features::code_lens::code_lens(&chat_file, &doc))
 }

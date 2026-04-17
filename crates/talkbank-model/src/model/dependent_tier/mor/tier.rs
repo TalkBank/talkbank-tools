@@ -7,6 +7,7 @@
 //! - [Morphological tier](https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier)
 
 use super::super::WriteChat;
+use super::chunk::MorChunk;
 use super::item::Mor;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -138,18 +139,81 @@ impl MorTier {
         self
     }
 
-    /// Count total number of chunks (including post-clitics and terminator)
+    /// Count total number of chunks (including post-clitics and terminator).
     ///
-    /// This is used for %gra alignment, where each chunk (including the terminator)
-    /// should have a corresponding %gra relation.
+    /// This is the canonical alignment unit for `%gra`: every chunk gets
+    /// exactly one `%gra` relation. Equivalent to `self.chunks().count()`
+    /// but implemented as a direct sum so the hot validation paths
+    /// don't build an iterator chain just to discard it.
     pub fn count_chunks(&self) -> usize {
         let item_chunks: usize = self.items.iter().map(|m| m.count_chunks()).sum();
-        // Add 1 for terminator if present (terminator counts as a chunk for alignment)
         if self.terminator.is_some() {
             item_chunks + 1
         } else {
             item_chunks
         }
+    }
+
+    /// Iterate the `%mor` chunk sequence: each item's main word, then each of
+    /// its post-clitics in serialized order, followed by the optional
+    /// terminator.
+    ///
+    /// This is the **canonical** accessor for addressing `%gra` relation
+    /// positions and for any downstream code that needs to project across
+    /// `%mor`/`%gra` chunk boundaries (LSP hover, dependency-graph labels,
+    /// CLI alignment rendering, diagnostic helpers). Every consumer crate
+    /// MUST route through this method — walking `items` by hand silently
+    /// drops post-clitics.
+    pub fn chunks(&self) -> impl Iterator<Item = MorChunk<'_>> {
+        let terminator = self.terminator.as_deref();
+        self.items
+            .iter()
+            .flat_map(|item| {
+                std::iter::once(MorChunk::Main(item)).chain(
+                    item.post_clitics
+                        .iter()
+                        .map(move |clitic| MorChunk::PostClitic(item, clitic)),
+                )
+            })
+            .chain(terminator.into_iter().map(MorChunk::Terminator))
+    }
+
+    /// Return the chunk at a 0-indexed position in the chunk sequence, or
+    /// `None` if the index is out of range.
+    ///
+    /// `%gra` relation indices (`relation.index`, `relation.head`) are
+    /// 1-indexed over this sequence, so a caller resolving a relation
+    /// typically passes `word_index - 1`. A head value of `0` in `%gra` is
+    /// reserved for ROOT and has no chunk — callers must handle that case
+    /// before indexing.
+    pub fn chunk_at(&self, chunk_index: usize) -> Option<MorChunk<'_>> {
+        self.chunks().nth(chunk_index)
+    }
+
+    /// Project a 0-indexed chunk position to the 0-indexed `%mor` item that
+    /// hosts it. Post-clitic chunks share the same host as their main word,
+    /// so `item_index_of_chunk(0)` and `item_index_of_chunk(1)` both return
+    /// `Some(0)` for a tier like `pron|it~aux|be noun|cookie`.
+    ///
+    /// Returns `None` for the terminator (not item-hosted) and for any
+    /// out-of-range index.
+    ///
+    /// This is the exact primitive needed to project a `%gra` relation —
+    /// whose alignment pair carries a chunk index — back through the
+    /// main↔`%mor` alignment, which is keyed by item index. Consumers that
+    /// attempt the projection without this method typically end up using
+    /// the chunk index as if it were an item index, a bug class that was
+    /// live in the LSP's gra-tier highlight handler until 2026-04-16.
+    pub fn item_index_of_chunk(&self, chunk_index: usize) -> Option<usize> {
+        let mut base = 0usize;
+        for (item_idx, item) in self.items.iter().enumerate() {
+            let span = item.count_chunks();
+            if chunk_index < base + span {
+                return Some(item_idx);
+            }
+            base += span;
+        }
+        None
     }
 
     /// Number of `%mor` items (excluding terminator/chunk expansion).

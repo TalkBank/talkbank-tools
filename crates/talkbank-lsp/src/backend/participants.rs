@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serde_json::Value;
-use talkbank_model::ParseErrors;
 use talkbank_model::model::{
     AgeValue, ChatFile, CorpusName, CustomIdField, EducationDescription, GroupName, Header,
     IDHeader, LanguageCode, Line, ParticipantRole, SesValue, Sex, SpeakerCode,
@@ -16,6 +15,7 @@ use talkbank_model::model::{
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::Url;
 
+use super::LspBackendError;
 use super::documents;
 use super::execute_commands::{DocumentUriRequest, ExecuteCommandRequest, IdLineFieldsRequest};
 use super::state::Backend;
@@ -43,7 +43,10 @@ impl ParticipantCommandService {
     }
 }
 
-fn command_response(result: Result<Value, String>, prefix: &str) -> LspResult<Option<Value>> {
+fn command_response(
+    result: Result<Value, LspBackendError>,
+    prefix: &str,
+) -> LspResult<Option<Value>> {
     match result {
         Ok(json) => Ok(Some(json)),
         Err(error) => Ok(Some(Value::String(format!("{prefix}: {error}")))),
@@ -90,21 +93,24 @@ struct ParticipantFields {
 pub(crate) fn handle_get_participants(
     backend: &Backend,
     request: &DocumentUriRequest,
-) -> Result<Value, String> {
+) -> Result<Value, LspBackendError> {
     let text = documents::get_document_text(backend, &request.uri)
-        .ok_or_else(|| "Document not found".to_string())?;
+        .ok_or(LspBackendError::DocumentNotFound)?;
 
     let chat_file = get_chat_file(backend, &request.uri, &text)?;
 
     let entries = extract_participant_entries(&chat_file, &text);
 
-    serde_json::to_value(&entries).map_err(|e| format!("Serialization error: {e}"))
+    // `SerializationFailed` converts from `serde_json::Error` via `#[from]`.
+    Ok(serde_json::to_value(&entries)?)
 }
 
 /// Handle `talkbank/formatIdLine` — construct a canonical `@ID` line from field values.
 ///
 /// Returns: JSON string containing the formatted `@ID` line.
-pub(crate) fn handle_format_id_line(request: &IdLineFieldsRequest) -> Result<Value, String> {
+pub(crate) fn handle_format_id_line(
+    request: &IdLineFieldsRequest,
+) -> Result<Value, LspBackendError> {
     let id_header = build_id_header(request);
     let formatted = id_header.to_string();
 
@@ -210,32 +216,16 @@ fn id_header_to_fields(id: &IDHeader) -> ParticipantFields {
     }
 }
 
-/// Get ChatFile from cache or parse.
-fn get_chat_file(backend: &Backend, uri: &Url, doc: &str) -> Result<Arc<ChatFile>, String> {
-    if let Some(cached) = backend.chat_files.get(uri) {
-        return Ok(Arc::clone(cached.value()));
-    }
-
-    match backend
-        .language_services
-        .with_parser(|parser| parser.parse_chat_file(doc))
-    {
-        Ok(Ok(chat_file)) => Ok(Arc::new(chat_file)),
-        Ok(Err(errors)) => Err(format_parse_failure(&errors)),
-        Err(error) => Err(error.to_string()),
-    }
-}
-
-fn format_parse_failure(errors: &ParseErrors) -> String {
-    let count = errors.errors.len();
-    match errors.errors.first() {
-        Some(first) => format!(
-            "Failed to parse document ({count} diagnostic{}); first: {}",
-            if count == 1 { "" } else { "s" },
-            first.message
-        ),
-        None => "Failed to parse document (parser returned no diagnostics)".to_string(),
-    }
+/// Thin alias for the shared [`chat_file_cache::load_chat_file`]
+/// entry point. Kept named `get_chat_file` because two call sites
+/// in this module use it; new code should reach the shared module
+/// directly.
+fn get_chat_file(
+    backend: &Backend,
+    uri: &Url,
+    doc: &str,
+) -> Result<Arc<ChatFile>, LspBackendError> {
+    crate::backend::chat_file_cache::load_chat_file(backend, uri, doc)
 }
 
 /// Simple byte-offset to line-number index.

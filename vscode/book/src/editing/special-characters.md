@@ -14,7 +14,7 @@ CHAT transcription uses many Unicode symbols that are not available on a standar
 4. The Unicode symbol is inserted at the cursor position, and compose mode deactivates.
 5. Press **Escape** at any time to cancel without inserting anything.
 
-> **[SCREENSHOT: Status bar showing compose mode active]**
+> **(SCREENSHOT: Status bar showing compose mode active)**
 > *Capture this: press Cmd+Shift+1 in a .cha file. The status bar at the bottom of the VS Code window should show a "CA Char..." indicator. Capture the status bar region.*
 
 This compose-key system is ported from the CLAN macOS application's `CharToSpChar()` function, so researchers familiar with CLAN's character input will find the same key mappings.

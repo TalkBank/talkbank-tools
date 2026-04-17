@@ -7,46 +7,44 @@
 
 use crate::backend::utils;
 use talkbank_model::Span;
-use talkbank_model::alignment::IndexPair;
-use talkbank_model::model::{GrammaticalRelation, Mor, MorTier};
+use talkbank_model::alignment::{GraHeadRef, IndexPair};
+use talkbank_model::model::{GrammaticalRelation, MorTier};
 use talkbank_parser::node_types::{GRA_RELATION, MOR_CONTENT, PHO_GROUP, SIN_GROUP};
 use tower_lsp::lsp_types::Position;
 use tree_sitter::{Node, Tree};
 
-/// Extract the primary lemma from a `%mor` item for display.
+/// Format a `%mor` chunk label for a 1-indexed semantic word position from `%gra`.
 ///
-/// Extracts the lemma from the main word.
-pub fn extract_mor_stem(mor: &Mor) -> Option<String> {
-    Some(mor.main.lemma.to_string())
-}
-
-/// Format a `%mor` word/chunk label using its primary lemma when available.
+/// `%gra` relation indices address the `%mor` **chunk** sequence (each item's
+/// main word, then its post-clitics, then the terminator), not the smaller
+/// `items` list. The actual chunk walk lives in `talkbank-model` as
+/// [`MorTier::chunk_at`] — this helper is a thin presentation adapter that
+/// converts the 1-indexed semantic position into the 0-indexed chunk index
+/// the model expects and falls back to a `"word N"` placeholder when the
+/// index is out of range (e.g. points at the terminator, which has no lemma,
+/// or past the end of the tier).
 pub fn format_mor_word_label(mor_tier: Option<&MorTier>, word_index: usize) -> String {
     mor_tier
-        .and_then(|mor| mor.items.get(word_index.saturating_sub(1)))
-        .and_then(extract_mor_stem)
+        .zip(word_index.checked_sub(1))
+        .and_then(|(mor, chunk_idx)| mor.chunk_at(chunk_idx))
+        .and_then(|chunk| chunk.lemma().map(str::to_owned))
         .unwrap_or_else(|| format!("word {word_index}"))
 }
 
 /// Format the `%gra` summary shown alongside aligned `%mor`/main-tier hover info.
 pub fn format_gra_alignment_text(mor_tier: &MorTier, relation: &GrammaticalRelation) -> String {
-    let head_word = if relation.head == 0 {
-        "ROOT".to_string()
-    } else {
-        format!(
-            "{} (word {})",
-            format_mor_word_label(Some(mor_tier), relation.head),
-            relation.head
-        )
+    let (head_word, head_role) = match relation.head_ref() {
+        GraHeadRef::Root => ("ROOT".to_string(), "root of sentence"),
+        GraHeadRef::Word(idx) => (
+            format!(
+                "{} (word {idx})",
+                format_mor_word_label(Some(mor_tier), idx.as_usize()),
+            ),
+            "dependent",
+        ),
     };
 
-    let head_role = if relation.head == 0 {
-        "root of sentence"
-    } else {
-        "dependent"
-    };
-
-    format!("{} → {} ({head_role})", relation.relation, head_word)
+    format!("{} → {head_word} ({head_role})", relation.relation)
 }
 
 /// Convert an LSP position into a document byte offset.
@@ -181,15 +179,17 @@ fn node_inside_span(node: Node, span: Span) -> bool {
 mod tests {
     use super::{
         find_source_index_for_target, find_target_index_for_source, find_text_item_index_at_offset,
+        format_mor_word_label,
     };
     use talkbank_model::Span;
     use talkbank_model::alignment::{AlignmentPair, GraAlignmentPair};
+    use talkbank_model::model::{Mor, MorTier, MorWord, PosCategory};
 
     #[test]
     fn source_lookup_matches_target_index_in_pair_not_row_position() {
         let pairs = vec![
-            GraAlignmentPair::new(None, Some(0)),
-            GraAlignmentPair::new(Some(0), Some(1)),
+            GraAlignmentPair::from_raw(None, Some(0)),
+            GraAlignmentPair::from_raw(Some(0), Some(1)),
         ];
 
         assert_eq!(find_source_index_for_target(&pairs, 1), Some(0));
@@ -220,5 +220,37 @@ mod tests {
             find_text_item_index_at_offset(span, &items, 13, document, |item| item.len()),
             Some(1)
         );
+    }
+
+    /// A `%gra` relation on a post-clitic must resolve to the clitic's lemma,
+    /// not to the next `%mor` item's lemma.
+    ///
+    /// Fixture models `*CHI: it's cookies .` / `%mor: pron|it~aux|be noun|cookie .`
+    /// which expands to four `%gra` chunks: `it` (item 0), `be` (post-clitic
+    /// of item 0), `cookie` (item 1), terminator. Semantic word indices used
+    /// by `%gra` relations are 1-indexed over that chunk sequence, so word 2
+    /// is the `be` clitic — not `cookie`.
+    ///
+    /// Before the fix, `format_mor_word_label` indexed `mor.items` directly
+    /// with `word_index - 1`, so word 2 returned `"cookie"` and word 3 fell
+    /// off the end into a `"word 3"` fallback. Root cause: semantic word
+    /// indices address mor *chunks*, not mor *items*.
+    #[test]
+    fn gra_word_label_with_post_clitic_resolves_to_clitic_lemma() {
+        let its = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
+            .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
+        let cookie = Mor::new(MorWord::new(PosCategory::new("noun"), "cookie"));
+        let mor = MorTier::new_mor(vec![its, cookie]).with_terminator(Some(".".into()));
+
+        // Semantic word 1 → chunk 0 → main of item 0 → "it". Already correct today.
+        assert_eq!(format_mor_word_label(Some(&mor), 1), "it");
+
+        // Semantic word 2 → chunk 1 → post-clitic of item 0 → "be".
+        // BUG: currently returns "cookie" because the function indexes mor.items[1].
+        assert_eq!(format_mor_word_label(Some(&mor), 2), "be");
+
+        // Semantic word 3 → chunk 2 → main of item 1 → "cookie".
+        // BUG: currently returns "word 3" because mor.items[2] is None.
+        assert_eq!(format_mor_word_label(Some(&mor), 3), "cookie");
     }
 }

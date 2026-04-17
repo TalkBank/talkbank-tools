@@ -432,16 +432,15 @@ fn compute_alignments_produces_wor_alignment_with_inline_bullets() -> Result<(),
         .as_ref()
         .ok_or_else(|| "Expected computed alignments".to_string())?;
 
-    // main <-> %wor alignment should be present and error-free
-    let wor_alignment = alignments
-        .wor
+    let wor_sidecar = alignments
+        .wor_timings
         .as_ref()
-        .ok_or_else(|| "Expected main↔%wor alignment".to_string())?;
-    assert!(
-        wor_alignment.is_error_free(),
-        "main↔%wor alignment should have no errors"
+        .ok_or_else(|| "Expected main↔%wor timing sidecar".to_string())?;
+    assert_eq!(
+        *wor_sidecar,
+        crate::alignment::WorTimingSidecar::Positional { count: 2 },
+        "main↔%wor timing sidecar should be positional with count 2",
     );
-    assert_eq!(wor_alignment.pairs.len(), 2, "Expected 2 alignment pairs");
 
     // Verify inline_bullet is preserved on the wor tier word
     let wor_words: Vec<&Word> = utterance
@@ -527,12 +526,14 @@ fn parse_health_taints_only_gra_alignment_when_gra_tier_is_tainted() -> Result<(
             .ok_or_else(|| "Expected main↔%pho alignment".to_string())?
             .is_error_free()
     );
+    // `%wor` is a sidecar — presence of `Positional` is the analogue of
+    // the old `is_error_free()` check on the other alignments.
     assert!(
         alignments
-            .wor
+            .wor_timings
             .as_ref()
-            .ok_or_else(|| "Expected main↔%wor alignment".to_string())?
-            .is_error_free()
+            .ok_or_else(|| "Expected main↔%wor timing sidecar".to_string())?
+            .is_positional()
     );
 
     let gra = alignments
@@ -585,15 +586,13 @@ fn parse_health_taints_main_dependent_alignments_but_keeps_mor_gra_alignment() -
         "Tier validation warning: skipped main↔%pho alignment because main tier had parse errors during recovery"
     ));
 
-    let wor = alignments
-        .wor
-        .as_ref()
-        .ok_or_else(|| "Expected main↔%wor alignment".to_string())?;
-    assert_eq!(wor.errors.len(), 1);
-    assert_eq!(wor.errors[0].code, ErrorCode::TierValidationError);
-    assert!(wor.errors[0].message.contains(
-        "Tier validation warning: skipped main↔%wor alignment because main tier had parse errors during recovery"
-    ));
+    // `%wor` is a timing sidecar, not a `TierAlignmentResult`. On parse-taint
+    // the slot stays `None` — taint context lives on `ParseHealth`, not in
+    // fabricated error-shaped alignments.
+    assert!(
+        alignments.wor_timings.is_none(),
+        "%wor timing sidecar must be absent when main tier parse is tainted"
+    );
 
     assert!(
         alignments

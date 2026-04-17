@@ -13,7 +13,7 @@ Press `Cmd+Shift+O` (macOS) / `Ctrl+Shift+O` (Windows/Linux) to open the documen
 
 This is the same data that populates the **Outline** view in the Explorer sidebar. Use it to jump directly to any header or speaker utterance.
 
-> **[SCREENSHOT: Document outline showing headers and speaker lines in the Outline sidebar view]**
+> **(SCREENSHOT: Document outline showing headers and speaker lines in the Outline sidebar view)**
 > *Capture this: open a `.cha` file with multiple speakers and several headers. Show the Outline view in the Explorer sidebar with the hierarchical symbol tree.*
 
 ## Workspace Symbols
@@ -32,7 +32,7 @@ Place your cursor on a speaker code -- either on a `*CHI:` main tier line or in 
 
 This is a standard LSP rename operation. It also works via right-click **Rename Symbol** or the Command Palette (**TalkBank: Rename Symbol**).
 
-> **[SCREENSHOT: Rename dialog on a speaker code showing the preview of all affected locations]**
+> **(SCREENSHOT: Rename dialog on a speaker code showing the preview of all affected locations)**
 > *Capture this: place cursor on `*CHI` and press F2. Type a new code like `TAR` and show the rename preview with all locations that will change.*
 
 ## Find All References (Shift+F12)

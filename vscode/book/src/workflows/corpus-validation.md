@@ -8,7 +8,7 @@ The Validation Explorer provides corpus-scale validation of `.cha` files directl
 
 The **CHAT Validation** panel appears automatically in the Explorer sidebar when the extension is active. It mirrors your workspace folder structure, filtered to show only `.cha` files and the directories that contain them.
 
-> **[SCREENSHOT: Validation Explorer panel in the Explorer sidebar showing a directory tree with mixed pass/fail results]**
+> **(SCREENSHOT: Validation Explorer panel in the Explorer sidebar showing a directory tree with mixed pass/fail results)**
 > *Capture this: Open a workspace with multiple .cha files, validate all, and show the tree with green checkmarks on passing files, red X badges with error counts on failing files, and expanded error items under a failing file*
 
 ## Validating Files

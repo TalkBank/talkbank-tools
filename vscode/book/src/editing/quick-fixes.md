@@ -14,7 +14,7 @@ When the language server detects certain errors, it can offer automatic correcti
 
 Some errors offer multiple fix options (for example, E301 offers three different terminators). Others apply a single unambiguous correction.
 
-> **[SCREENSHOT: Quick fix lightbulb showing options for E308 (undeclared speaker)]**
+> **(SCREENSHOT: Quick fix lightbulb showing options for E308 (undeclared speaker))**
 > *Capture this: open a .cha file with a speaker code on a main tier that is not listed in @Participants. Place cursor on the error squiggle, then press Cmd+. to show the lightbulb menu with the "Add 'INV' to @Participants" option.*
 
 ## Available Quick Fixes

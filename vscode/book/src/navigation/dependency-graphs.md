@@ -1,6 +1,7 @@
 # Dependency Graphs
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:25 EDT
 
 The extension can render the grammatical dependency structure of any utterance as an interactive, color-coded graph. This turns the compact `%gra` tier notation (`1|2|SUBJ 2|0|ROOT 3|2|OBJ`) into a visual diagram where you can see at a glance how words relate syntactically.
 
@@ -32,7 +33,7 @@ Words are displayed as labeled boxes, arranged left-to-right in utterance order 
 | Teal | QUANT (quantifier) |
 | Gray | All other relations |
 
-> **[SCREENSHOT: Dependency graph for a complex utterance with colored arcs]**
+> **(SCREENSHOT: Dependency graph for a complex utterance with colored arcs)**
 > *Capture this: open a dependency graph for an utterance like `*CHI: I want the big cookie .` that has SUBJ, OBJ, DET, and MOD relations. The graph should show multiple colored arcs.*
 
 ## Toolbar Controls
@@ -51,6 +52,30 @@ The toolbar at the top of the graph panel provides zoom and export controls:
 ## Singleton Panel
 
 The graph panel reuses a single tab. Invoking the command on a different utterance updates the existing panel rather than opening a new one. This keeps the editor layout clean when you are stepping through multiple utterances.
+
+## Stale-baseline indicator
+
+If you request a graph while the current document has parse errors
+that block a fresh reparse, the graph renders from the last
+successful parse rather than failing. In that state the DOT output
+gains a muted top-left label:
+
+```text
+stale baseline
+```
+
+rendered in Courier 10pt, color `#888888`. The label is subordinate
+to the graph content (placement + font choice keep it out of the
+visual center) and disappears the next time you request a graph
+after a successful parse.
+
+Per [KIB-013](../developer/known-issues-and-backlog.md#kib-013), this
+is one of two surfaces that expose `ParseState::StaleBaseline` to
+users — the other is alignment-consuming hover cards (see
+[Cross-Tier Alignment → Stale-baseline indicator](alignment.md#stale-baseline-indicator)).
+Go to Definition, highlights, and inlay hints stay silent in the
+same state because their single-position outputs are typically still
+correct, and a warning there would be noise.
 
 ## How It Works
 

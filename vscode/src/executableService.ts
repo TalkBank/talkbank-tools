@@ -3,6 +3,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type * as vscode from 'vscode';
 
+/**
+ * Return the on-disk filename of `binaryName` for the current platform — adds
+ * `.exe` on Windows. Used wherever a single platform-native binary is looked up
+ * (the dev-tree both-suffix search intentionally does not use this).
+ */
+function platformBinaryName(binaryName: string): string {
+    return process.platform === 'win32' ? `${binaryName}.exe` : binaryName;
+}
+
 export type ExecSyncFn = (command: string, options: any) => Buffer | string;
 export type SpawnFn = (
     command: string,
@@ -35,7 +44,7 @@ export interface ClanExecutableService {
 }
 
 export interface LspExecutableService {
-    findTalkbankLspBinary(context: vscode.ExtensionContext, configuredPath?: string): string;
+    findTalkbankLspBinary(context: vscode.ExtensionContext, configuredPath?: string): string | null;
 }
 
 /**
@@ -86,9 +95,14 @@ export class ExecutableService implements
         return output.toString().trim();
     }
 
-    findTalkbankLspBinary(context: vscode.ExtensionContext, configuredPath = ''): string {
+    findTalkbankLspBinary(context: vscode.ExtensionContext, configuredPath = ''): string | null {
         if (configuredPath && this.fsOps.existsSync(configuredPath)) {
             return configuredPath;
+        }
+
+        const bundled = this.findBundledBinary(context, 'talkbank-lsp');
+        if (bundled) {
+            return bundled;
         }
 
         const pathBinary = this.findOnPath('talkbank-lsp');
@@ -101,7 +115,7 @@ export class ExecutableService implements
             return localBuild;
         }
 
-        return this.defaultExtensionBinaryPath(context, 'talkbank-lsp');
+        return null;
     }
 
     async findSend2ClanBinary(startPath?: string | null): Promise<string | null> {
@@ -188,14 +202,20 @@ export class ExecutableService implements
         return null;
     }
 
-    private defaultExtensionBinaryPath(
+    /**
+     * Look for a platform-specific binary shipped inside the installed VSIX at
+     * `<extensionPath>/server/<binary>[.exe]`. Returns null when not present,
+     * which is the expected case for the generic (non-platform) VSIX or a
+     * dev-tree checkout that has not staged a binary.
+     */
+    private findBundledBinary(
         context: vscode.ExtensionContext,
         binaryName: string,
-    ): string {
-        const candidateName = process.platform === 'win32'
-            ? `${binaryName}.exe`
-            : binaryName;
-        return context.asAbsolutePath(path.join('..', 'target', 'debug', candidateName));
+    ): string | null {
+        const candidate = context.asAbsolutePath(
+            path.join('server', platformBinaryName(binaryName)),
+        );
+        return this.fsOps.existsSync(candidate) ? candidate : null;
     }
 
     private quoteExecutable(value: string): string {

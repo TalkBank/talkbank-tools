@@ -39,7 +39,7 @@
   "activationEvents": [
     "onLanguage:chat"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
@@ -679,9 +679,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run bundle -- --production",
     "copy-webview": "mkdir -p out/webview && cp src/webview/*.html src/webview/*.js out/webview/",
     "compile": "tsc -p ./ && npm run copy-webview",
+    "bundle": "node esbuild.config.mjs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -690,6 +691,12 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "package": "vsce package",
+    "package:prepare": "node scripts/prepare-server.mjs",
+    "package:darwin-arm64": "vsce package --target darwin-arm64 --out talkbank-chat-darwin-arm64.vsix",
+    "package:darwin-x64": "vsce package --target darwin-x64   --out talkbank-chat-darwin-x64.vsix",
+    "package:linux-x64": "vsce package --target linux-x64    --out talkbank-chat-linux-x64.vsix",
+    "package:linux-arm64": "vsce package --target linux-arm64  --out talkbank-chat-linux-arm64.vsix",
+    "package:win32-x64": "vsce package --target win32-x64    --out talkbank-chat-win32-x64.vsix",
     "publish": "vsce publish"
   },
   "devDependencies": {
@@ -700,7 +707,8 @@
     "@vitest/coverage-v8": "^4.1.0",
     "@vitest/ui": "^4.1.0",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.0",
+    "esbuild": "^0.27.7",
     "eslint": "^10.0.3",
     "fast-check": "^4.6.0",
     "typescript": "^5.9.3",

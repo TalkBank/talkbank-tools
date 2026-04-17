@@ -187,15 +187,11 @@ impl<S: ValidationState> ChatFile<S> {
 
             // Main → %wor alignment is intentionally NOT validated here.
             //
-            // `%wor` is a timing-annotation tier, not a structural alignment tier.
-            // Its word count equals the number of Wor-domain words from the main
-            // tier (real words + fragments + fillers, but NOT untranscribed tokens
-            // like `xxx`/`yyy`/`www`). Old corpus files aligned before 2026-04 may
-            // have a different word count because the old policy included `xxx`.
-            // Emitting E71x errors for these files would be false positives.
-            //
-            // The `align_main_to_wor` import is still used by the `%wor` injection
-            // layer in batchalign-chat-ops when verifying injected timings.
+            // `%wor` is a timing sidecar, not a structural alignment — see
+            // `WorTimingSidecar` and KIB-016. No validation runs here:
+            // drift is a data state, not a diagnostic. Timing recovery
+            // consumers (batchalign-chat-ops) read the sidecar directly via
+            // `resolve_wor_timing_sidecar` or `AlignmentSet.wor_timings`.
 
             // Main → %pho alignment
             if health.can_align_main_to_pho()

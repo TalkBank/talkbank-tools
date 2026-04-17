@@ -6,6 +6,7 @@ import { disposeSpecialChars } from './specialChars';
 import { activateLanguageServer } from './activation/lsp';
 import { registerBulletDecorations } from './activation/bullets';
 import { registerReviewDecorations } from './activation/reviewDecorations';
+import { registerReviewStatusBarCleanup } from './commands/review';
 import { activateValidationExplorer } from './activation/validation';
 import { registerExtensionCommands } from './activation/commands';
 import { createExtensionCommandRunner } from './effectCommandRuntime';
@@ -14,18 +15,23 @@ import { createExtensionRuntimeServices } from './runtimeServices';
 
 let activeClient: LanguageClient | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('TalkBank extension activated');
 
     const runtimeServices = createExtensionRuntimeServices(vscode.workspace);
-    const client = activateLanguageServer(context, {
+    const client = await activateLanguageServer(context, {
         ...runtimeServices,
         workspace: vscode.workspace,
     });
+    if (!client) {
+        // Every feature below depends on a live language client.
+        return;
+    }
     activeClient = client;
     const commandClient = new TalkbankExecuteCommandClient(client);
     context.subscriptions.push(...registerBulletDecorations(runtimeServices.runtimeContext));
     context.subscriptions.push(...registerReviewDecorations());
+    context.subscriptions.push(registerReviewStatusBarCleanup());
     context.subscriptions.push(
         ...activateValidationExplorer({
             ...runtimeServices,

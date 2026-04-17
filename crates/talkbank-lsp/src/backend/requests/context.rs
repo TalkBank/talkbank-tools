@@ -2,11 +2,12 @@
 
 use std::sync::Arc;
 
-use talkbank_model::ParseErrors;
 use talkbank_model::model::ChatFile;
 use tower_lsp::lsp_types::Url;
 use tree_sitter::Tree;
 
+use crate::backend::LspBackendError;
+use crate::backend::chat_file_cache;
 use crate::backend::documents;
 use crate::backend::state::Backend;
 
@@ -16,23 +17,16 @@ pub(super) fn document_text(backend: &Backend, uri: &Url) -> Option<String> {
 }
 
 /// Return a parsed `ChatFile`, reparsing the document on cache miss.
+///
+/// Thin re-export of [`chat_file_cache::load_chat_file`] that keeps
+/// the per-module name (`get_chat_file`) stable for existing callers
+/// while the actual implementation lives in one shared place.
 pub(super) fn get_chat_file(
     backend: &Backend,
     uri: &Url,
     doc: &str,
-) -> Result<Arc<ChatFile>, String> {
-    if let Some(cached) = backend.chat_files.get(uri) {
-        return Ok(Arc::clone(cached.value()));
-    }
-
-    match backend
-        .language_services
-        .with_parser(|parser| parser.parse_chat_file(doc))
-    {
-        Ok(Ok(chat_file)) => Ok(Arc::new(chat_file)),
-        Ok(Err(errors)) => Err(format_parse_failure(&errors)),
-        Err(error) => Err(error.to_string()),
-    }
+) -> Result<Arc<ChatFile>, LspBackendError> {
+    chat_file_cache::load_chat_file(backend, uri, doc)
 }
 
 /// Return a parse tree, reparsing and caching it on cache miss.
@@ -50,17 +44,5 @@ pub(super) fn get_parse_tree(backend: &Backend, uri: &Url, doc: &str) -> Option<
             Some(tree)
         }
         _ => None,
-    }
-}
-
-fn format_parse_failure(errors: &ParseErrors) -> String {
-    let count = errors.errors.len();
-    match errors.errors.first() {
-        Some(first) => format!(
-            "Failed to parse document ({count} diagnostic{}); first: {}",
-            if count == 1 { "" } else { "s" },
-            first.message
-        ),
-        None => "Failed to parse document (parser returned no diagnostics)".to_string(),
     }
 }

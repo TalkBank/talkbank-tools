@@ -5,6 +5,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier>
 
 use crate::ParseError;
+use crate::alignment::indices::{GraIndex, MorChunkIndex};
 use schemars::JsonSchema;
 use talkbank_derive::SpanShift;
 
@@ -67,24 +68,40 @@ impl Default for GraAlignment {
 }
 
 /// One positional mapping row between a `%mor` chunk and a `%gra` relation.
+///
+/// The field types are distinct newtypes so the compiler rejects attempts
+/// to use a chunk index as a relation index or vice versa — the confusion
+/// at the root of the LSP highlight/hover clitic bugs fixed on 2026-04-16.
+/// Serde and JSON schema wire formats remain plain integers thanks to
+/// `#[serde(transparent)]` on the newtypes.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema, SpanShift)]
 pub struct GraAlignmentPair {
     /// `%mor` chunk index (`None` means placeholder for extra `%gra` relation).
-    pub mor_chunk_index: Option<usize>,
+    pub mor_chunk_index: Option<MorChunkIndex>,
 
     /// `%gra` relation index (`None` means placeholder for extra `%mor` chunk).
-    pub gra_index: Option<usize>,
+    pub gra_index: Option<GraIndex>,
 }
 
 impl GraAlignmentPair {
-    /// Builds one alignment row from optional `%mor`/`%gra` indices.
+    /// Builds one alignment row from optional typed indices.
     ///
     /// Complete rows use two `Some` indices; mismatch rows use one `None`.
-    pub fn new(mor_chunk_index: Option<usize>, gra_index: Option<usize>) -> Self {
+    pub fn new(mor_chunk_index: Option<MorChunkIndex>, gra_index: Option<GraIndex>) -> Self {
         Self {
             mor_chunk_index,
             gra_index,
         }
+    }
+
+    /// Builds one alignment row from raw `usize` indices, wrapping each in
+    /// the appropriate newtype. Convenience for call sites that still
+    /// receive untyped positions from parser output.
+    pub fn from_raw(mor_chunk_index: Option<usize>, gra_index: Option<usize>) -> Self {
+        Self::new(
+            mor_chunk_index.map(MorChunkIndex::new),
+            gra_index.map(GraIndex::new),
+        )
     }
 
     /// Returns `true` when this row is a complete one-to-one match.
@@ -98,17 +115,21 @@ impl GraAlignmentPair {
     }
 }
 
+/// Generic trait impl exposes the underlying `usize` positions so code
+/// written against [`IndexPair`](crate::alignment::IndexPair) keeps working
+/// unchanged. New code should prefer the typed fields
+/// (`.mor_chunk_index`, `.gra_index`) for compiler-enforced safety.
 impl crate::alignment::traits::IndexPair for GraAlignmentPair {
     fn source(&self) -> Option<usize> {
-        self.mor_chunk_index
+        self.mor_chunk_index.map(MorChunkIndex::as_usize)
     }
 
     fn target(&self) -> Option<usize> {
-        self.gra_index
+        self.gra_index.map(GraIndex::as_usize)
     }
 
     fn from_indices(source: Option<usize>, target: Option<usize>) -> Self {
-        Self::new(source, target)
+        Self::from_raw(source, target)
     }
 }
 

@@ -1,10 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const showErrorMessageMock = vi.fn();
+const executeCommandMock = vi.fn();
+
 vi.mock('vscode', () => ({
     DiagnosticSeverity: {
         Error: 0,
         Warning: 1,
         Information: 2,
+    },
+    window: {
+        showErrorMessage: (...args: unknown[]) => showErrorMessageMock(...args),
+    },
+    commands: {
+        executeCommand: (...args: unknown[]) => executeCommandMock(...args),
     },
 }));
 
@@ -94,7 +103,7 @@ describe('LSP activation', () => {
         expect(nextInlayHints).not.toHaveBeenCalled();
     });
 
-    it('activates the language client through injected services', () => {
+    it('activates the language client through injected services', async () => {
         const createLanguageClient = vi.fn(() => ({
             start: vi.fn(),
         } as never));
@@ -111,7 +120,7 @@ describe('LSP activation', () => {
             asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`,
         } as never;
 
-        const client = activateLanguageServer(context, {
+        const client = await activateLanguageServer(context, {
             executableService,
             runtimeContext,
             workspace,
@@ -142,5 +151,45 @@ describe('LSP activation', () => {
             }),
         );
         expect((client as any).start).toHaveBeenCalled();
+    });
+
+    it('surfaces an actionable error and skips client.start when the binary is missing', async () => {
+        showErrorMessageMock.mockReset();
+        executeCommandMock.mockReset();
+        showErrorMessageMock.mockResolvedValueOnce('Open Settings');
+
+        const clientStart = vi.fn();
+        const createLanguageClient = vi.fn(() => ({
+            start: clientStart,
+        } as never));
+        const executableService = createExecutableService({
+            findTalkbankLspBinary: vi.fn(() => null),
+        });
+        const workspace = {
+            createFileSystemWatcher: vi.fn(() => 'watcher' as never),
+        };
+        const runtimeContext = createRuntimeContext();
+        const context = {
+            asAbsolutePath: (relativePath: string) => `/extension/${relativePath}`,
+        } as never;
+
+        const result = await activateLanguageServer(context, {
+            executableService,
+            runtimeContext,
+            workspace,
+            createLanguageClient,
+        });
+
+        expect(result).toBeUndefined();
+        expect(clientStart).not.toHaveBeenCalled();
+        expect(createLanguageClient).not.toHaveBeenCalled();
+        expect(showErrorMessageMock).toHaveBeenCalledTimes(1);
+        const [message, ...actions] = showErrorMessageMock.mock.calls[0];
+        expect(String(message)).toContain('talkbank-lsp');
+        expect(actions).toContain('Open Settings');
+        expect(executeCommandMock).toHaveBeenCalledWith(
+            'workbench.action.openSettings',
+            'talkbank.lsp.binaryPath',
+        );
     });
 });

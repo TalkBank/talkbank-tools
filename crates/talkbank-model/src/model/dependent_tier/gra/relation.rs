@@ -9,6 +9,7 @@
 
 use super::super::WriteChat;
 use super::relation_type::GrammaticalRelationType;
+use crate::alignment::indices::{GraHeadRef, SemanticWordIndex1, SemanticWordIndexError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use talkbank_derive::{SemanticEq, SpanShift};
@@ -142,6 +143,27 @@ impl GrammaticalRelation {
         self.head == self.index
             // OR labeled as ROOT/INCROOT (even if head != self)
             || matches!(self.relation.as_str(), "ROOT" | "INCROOT")
+    }
+
+    /// Classify the `head` field as either ROOT (authored as `0`) or a
+    /// reference to another word position.
+    ///
+    /// Prefer this accessor over raw `head == 0` comparisons: the enum
+    /// return forces callers to handle both cases explicitly, which
+    /// matches the "avoid boolean blindness" rule and makes hover /
+    /// graph-edge code self-documenting.
+    pub fn head_ref(&self) -> GraHeadRef {
+        GraHeadRef::from_raw(self.head)
+    }
+
+    /// Return the dependent's position as a [`SemanticWordIndex1`].
+    ///
+    /// Returns an error if `index == 0`, which is not a valid dependent
+    /// position (0 is reserved for the ROOT marker on `head`). Callers
+    /// should only hit the error path when the parser accepted a
+    /// malformed `%gra` triple such as `0|0|ROOT`.
+    pub fn index_as_semantic(&self) -> Result<SemanticWordIndex1, SemanticWordIndexError> {
+        SemanticWordIndex1::new(self.index)
     }
 }
 

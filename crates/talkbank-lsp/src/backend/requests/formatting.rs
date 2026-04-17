@@ -16,7 +16,7 @@ pub(super) async fn handle_formatting(
     };
     let chat_file = match get_chat_file(backend, &uri, &doc) {
         Ok(file) => file,
-        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error)),
+        Err(error) => return Err(tower_lsp::jsonrpc::Error::invalid_params(error.to_string())),
     };
 
     let formatted = chat_file.to_chat();
@@ -47,13 +47,7 @@ pub(super) async fn handle_formatting(
 mod tests {
     use tower_lsp::lsp_types::*;
 
-    use talkbank_model::model::ChatFile;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(content: &str) -> ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(content).unwrap()
-    }
+    use crate::test_fixtures::parse_chat;
 
     /// Simulate the formatting logic: parse, re-serialize, compare.
     /// Returns `None` when the document is already canonical, or

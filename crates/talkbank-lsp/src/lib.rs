@@ -24,6 +24,9 @@ pub mod graph;
 pub mod highlight;
 pub mod semantic_tokens;
 
+#[cfg(test)]
+mod test_fixtures;
+
 use backend::Backend;
 use tower_lsp::{LspService, Server};
 

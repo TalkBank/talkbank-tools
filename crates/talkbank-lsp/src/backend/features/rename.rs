@@ -138,12 +138,7 @@ fn node_to_range(node: Node, doc: &str) -> Range {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_tree(input: &str) -> Tree {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_tree_incremental(input, None).unwrap()
-    }
+    use crate::test_fixtures::parse_tree_incremental as parse_tree;
 
     /// Valid CHAT header preamble for tests.
     const PREAMBLE: &str =

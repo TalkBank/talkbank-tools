@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags:
-      - "v*"
+      - "v[0-9]*"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -255,6 +255,60 @@ jobs:
           files: lcov.info,lcov-doc.info
           flags: rust
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  vscode-vsix-smoke:
+    name: VS Code Extension VSIX Smoke
+    runs-on: ubuntu-latest
+
+    # The full 5-platform release matrix only runs on workflow_dispatch, so a
+    # broken prepare-server.mjs or .vscodeignore would otherwise surface only
+    # on release day. This job exercises the packaging chain on every PR
+    # using a stub binary and a single platform target.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - name: Install extension deps
+        working-directory: vscode
+        run: npm ci
+
+      - name: Compile extension
+        working-directory: vscode
+        run: npm run compile
+
+      - name: Stage a stub talkbank-lsp binary
+        working-directory: vscode
+        # The binary content never runs in this job — we only verify that
+        # prepare-server.mjs copies it to the path the discovery logic looks up.
+        run: |
+          mkdir -p /tmp/stub
+          printf '#!/bin/sh\nexit 0\n' > /tmp/stub/talkbank-lsp
+          chmod +x /tmp/stub/talkbank-lsp
+          node scripts/prepare-server.mjs --source /tmp/stub/talkbank-lsp
+
+      - name: Package VSIX
+        working-directory: vscode
+        run: npm run package:linux-x64
+
+      - name: Assert bundled binary is in the VSIX
+        working-directory: vscode
+        run: |
+          set -euo pipefail
+          EXPECTED='extension/server/talkbank-lsp'
+          if ! unzip -l talkbank-chat-linux-x64.vsix | grep -q "$EXPECTED"; then
+            echo "::error::VSIX is missing $EXPECTED — the packaging chain is broken"
+            unzip -l talkbank-chat-linux-x64.vsix
+            exit 1
+          fi
+          echo "Verified: $EXPECTED present in VSIX"
 
   metrics:
     name: Quality Metrics Snapshot

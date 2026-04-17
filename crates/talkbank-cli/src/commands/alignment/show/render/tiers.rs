@@ -10,6 +10,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 use talkbank_model::ParseError;
+use talkbank_model::alignment::IndexPair;
 use talkbank_model::{AlignmentSet, Utterance};
 
 use crate::commands::alignment::helpers::{
@@ -35,16 +36,16 @@ pub(super) fn render_main_to_mor(
             if i > 0 {
                 print!(", ");
             }
-            let main_text = main_text(utterance, pair.source_index);
-            let mor_text = mor_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let mor_text = mor_text(utterance, pair.target());
             print!("\"{}\" → \"{}\"", main_text, mor_text);
         }
         println!();
     } else {
         println!("Main → %mor alignment:");
         for pair in &main_to_mor.pairs {
-            let main_text = main_text(utterance, pair.source_index);
-            let mor_text = mor_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let mor_text = mor_text(utterance, pair.target());
             println!("  \"{}\" → \"{}\"", main_text, mor_text);
         }
     }
@@ -71,16 +72,16 @@ pub(super) fn render_mor_to_gra(
             if i > 0 {
                 print!(", ");
             }
-            let mor_text = mor_text(utterance, pair.mor_chunk_index);
-            let gra_text = gra_text(utterance, pair.gra_index);
+            let mor_text = mor_text(utterance, pair.source());
+            let gra_text = gra_text(utterance, pair.target());
             print!("\"{}\" → \"{}\"", mor_text, gra_text);
         }
         println!();
     } else {
         println!("%mor → %gra alignment:");
         for pair in &mor_to_gra.pairs {
-            let mor_text = mor_text(utterance, pair.mor_chunk_index);
-            let gra_text = gra_text(utterance, pair.gra_index);
+            let mor_text = mor_text(utterance, pair.source());
+            let gra_text = gra_text(utterance, pair.target());
             println!("  \"{}\" → \"{}\"", mor_text, gra_text);
         }
     }
@@ -107,16 +108,16 @@ pub(super) fn render_main_to_pho(
             if i > 0 {
                 print!(", ");
             }
-            let main_text = main_text(utterance, pair.source_index);
-            let pho_text = pho_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let pho_text = pho_text(utterance, pair.target());
             print!("\"{}\" → \"{}\"", main_text, pho_text);
         }
         println!();
     } else {
         println!("Main → %pho alignment:");
         for pair in &main_to_pho.pairs {
-            let main_text = main_text(utterance, pair.source_index);
-            let pho_text = pho_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let pho_text = pho_text(utterance, pair.target());
             println!("  \"{}\" → \"{}\"", main_text, pho_text);
         }
     }
@@ -143,16 +144,16 @@ pub(super) fn render_main_to_sin(
             if i > 0 {
                 print!(", ");
             }
-            let main_text = main_text(utterance, pair.source_index);
-            let sin_text = sin_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let sin_text = sin_text(utterance, pair.target());
             print!("\"{}\" → \"{}\"", main_text, sin_text);
         }
         println!();
     } else {
         println!("Main → %sin alignment:");
         for pair in &main_to_sin.pairs {
-            let main_text = main_text(utterance, pair.source_index);
-            let sin_text = sin_text(utterance, pair.target_index);
+            let main_text = main_text(utterance, pair.source());
+            let sin_text = sin_text(utterance, pair.target());
             println!("  \"{}\" → \"{}\"", main_text, sin_text);
         }
     }

@@ -5,6 +5,7 @@ use super::count_based::{
 use super::diagnostics::{
     first_non_dummy_span, skipped_alignment_warning, unknown_alignment_warning,
 };
+use crate::alignment::indices::{MainWordIndex, PhoItemIndex};
 use crate::model::{AlignmentSet, AlignmentUnits, ParseHealthState, ParseHealthTier};
 use crate::validation::ValidationContext;
 use crate::{ErrorCode, ParseError, Span, Utterance};
@@ -89,7 +90,6 @@ impl Utterance {
         } else {
             (None, Span::DUMMY)
         };
-        let wor_span = self.wor_tier().map_or(Span::DUMMY, |t| t.span);
         let pho_span = self.pho_tier().map_or(Span::DUMMY, |t| t.span);
         let mod_span = self.mod_tier().map_or(Span::DUMMY, |t| t.span);
         let sin_span = self.sin_tier().map_or(Span::DUMMY, |t| t.span);
@@ -175,24 +175,15 @@ impl Utterance {
         }
 
         if let Some(wor) = self.wor_tier().cloned() {
-            if health.can_align_main_to_wor() {
-                metadata.wor = Some(crate::alignment::align_main_to_wor(&self.main, &wor));
-            } else {
-                metadata.wor = Some(crate::alignment::WorAlignment::new().with_error(
-                    alignment_blocked_warning(
-                        health,
-                        "main↔%wor",
-                        TierSide {
-                            label: "main tier",
-                            span: self.main.span,
-                            tier: ParseHealthTier::Main,
-                        },
-                        TierSide {
-                            label: "%wor tier",
-                            span: wor_span,
-                            tier: ParseHealthTier::Wor,
-                        },
-                    ),
+            // `%wor` is a timing sidecar, not a `TierAlignmentResult`. On
+            // parse-taint (`!can_resolve_wor_timing_sidecar()`) we leave the slot as
+            // `None`; unlike the structural alignments above there is no
+            // error stream to populate, and the sidecar has nothing
+            // meaningful to report for tainted input. Callers that need
+            // per-tier taint context should consult `ParseHealth` directly.
+            if health.can_resolve_wor_timing_sidecar() {
+                metadata.wor_timings = Some(crate::alignment::resolve_wor_timing_sidecar(
+                    &self.main, &wor,
                 ));
             }
         }
@@ -361,8 +352,10 @@ impl Utterance {
                     .min(pho_count.unwrap_or(phoaln_wc))
                     .min(phoaln_wc);
                 for i in 0..effective_count {
-                    alignment =
-                        alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), Some(i)));
+                    alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+                        Some(MainWordIndex::new(i)),
+                        Some(PhoItemIndex::new(i)),
+                    ));
                 }
 
                 metadata.phoaln = Some(alignment);

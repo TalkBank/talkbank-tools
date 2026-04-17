@@ -46,7 +46,7 @@ Suggestions:
 
 When you type `@` at the start of a line, the extension offers all 28 standard CHAT headers with descriptions. Each suggestion auto-inserts the header name, colon, and tab separator:
 
-> **[SCREENSHOT: Completion menu showing @ header options]**
+> **(SCREENSHOT: Completion menu showing @ header options)**
 > *Capture this: in a .cha file, place cursor at the beginning of a blank line in the header section and type @. The completion menu should appear showing headers like @Languages, @Participants, @ID, @Media, @Date, @Location, etc.*
 
 Standard headers include `@Begin`, `@End`, `@UTF8`, `@Languages`, `@Participants`, `@ID`, `@Media`, `@Date`, `@Location`, `@Situation`, `@Activities`, `@Comment`, `@Bg`, `@Eg`, `@New Episode`, `@Birth of`, `@Birthplace of`, `@Education of`, `@Group of`, `@SES of`, `@Sex of`, `@Warning`, `@Transcriber`, `@Coder`, `@Options`, `@Font`, `@ColorWords`, and `@Window`.

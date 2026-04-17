@@ -1,6 +1,7 @@
 # Testing
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:14 EDT
 
 This chapter covers how to test both the Rust language server and the TypeScript VS Code extension.
 
@@ -20,48 +21,78 @@ cargo nextest run -p talkbank-lsp
 
 ### Test Locations
 
-Tests are distributed across the LSP crate:
+Tests live next to the code they cover, in `#[cfg(test)] mod tests`
+blocks. Notable places:
 
 | Location | What It Tests |
 |----------|--------------|
 | `alignment/tests.rs` | Cross-tier alignment computation and hover info |
-| `graph/tests.rs` | DOT graph generation from %gra data |
-| Inline `#[cfg(test)]` modules | Individual feature handlers |
+| `graph/tests.rs` | DOT graph generation from `%gra` data, including stale-baseline marker |
+| `backend/features/*/{mod,tests}.rs` | Per-feature handlers (hover, highlights, completion, rename, references, …) |
+| `test_fixtures.rs` | Shared `parse_chat` / `parse_chat_with_alignments` / `parse_tree` / `parse_tree_incremental` helpers |
 
-### Test Pattern
+### Shared fixtures
 
-Feature handlers are pure functions (`&Backend` + params -> result), making them straightforward to test:
+Tests build their CHAT + tree-sitter inputs through
+`crate::test_fixtures`. The module exposes four helpers and nothing
+else; new test modules **must not redefine their own `parse_chat` or
+`parse_tree`** — see
+[KIB-018](known-issues-and-backlog.md#kib-018) for why.
 
-1. Construct a `Backend` with known document content loaded into the `documents` cache
-2. Trigger a parse to populate `chat_files` and `parse_trees`
-3. Call the handler function directly
-4. Assert on the returned LSP type
+```rust
+use crate::test_fixtures::{parse_chat, parse_chat_with_alignments, parse_tree};
+```
+
+| Helper | Returns | Use when |
+|--------|---------|----------|
+| `parse_chat(content)` | `ChatFile` | Test needs a parsed model but no per-utterance alignments |
+| `parse_chat_with_alignments(content)` | `ChatFile` with `utterance.alignments = Some(_)` | Test exercises main↔`%mor`/`%gra`/`%pho`/`%sin` alignment or the `%wor` timing sidecar |
+| `parse_tree(content)` | `tree_sitter::Tree` | Test walks the CST (most feature tests) |
+| `parse_tree_incremental(content)` | `tree_sitter::Tree` via `TreeSitterParser::parse_tree_incremental` | Test exercises the incremental-parse code path (references / rename) |
+
+### Test pattern
+
+Feature handlers are pure functions (`&Backend` or `&Utterance` +
+params → result), making them straightforward to test:
 
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::{parse_chat_with_alignments, parse_tree};
 
     #[test]
-    fn test_hover_on_main_tier_word() -> Result<()> {
-        // 1. Set up backend with a known .cha document
-        let backend = Backend::new_for_test();
-        backend.load_document(uri, CHAT_CONTENT);
+    fn hover_on_main_tier_word_includes_mor_lemma() {
+        let content = "@UTF8\n@Begin\n...\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n";
+        let chat_file = parse_chat_with_alignments(content);
+        let tree = parse_tree(content);
+        let pos = Position { line: 3, character: 7 };
 
-        // 2. Call the handler
-        let result = handle_hover(
-            &backend,
-            HoverParams { /* position on a main tier word */ },
-        );
+        let hover = hover(&chat_file, &tree, pos, content, ParseState::Clean)
+            .expect("hover must resolve on the main-tier word");
+        let text = match &hover.contents {
+            HoverContents::Markup(m) => &m.value,
+            _ => panic!("expected markup"),
+        };
 
-        // 3. Assert
-        assert!(result.is_some());
-        let hover = result.unwrap();
-        assert!(hover.contents.value.contains("%mor"));
-        Ok(())
+        assert!(text.contains("%mor") || text.contains("Lemma"));
     }
 }
 ```
+
+### Mandatory regression gates
+
+Any change touching parser, model, validation, alignment, or
+serialization must pass the following before commit:
+
+```bash
+cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
+cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
+```
+
+Both must show `93 passed` and `98 passed` respectively (current
+numbers). See the workspace `CLAUDE.md` for the full pre-merge gate
+list.
 
 ## TypeScript Extension Tests
 
@@ -152,7 +183,7 @@ cd vscode && npm test && npm run lint
 For any change:
 
 ```bash
-make verify    # Full verification gates (G0-G10)
+make verify    # Full pre-merge verification gates (G0-G13)
 ```
 
 ## Related Chapters

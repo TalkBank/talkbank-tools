@@ -13,13 +13,17 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
 pub(crate) mod analysis;
+pub mod chat_file_cache;
 pub(crate) mod chat_ops;
 pub mod contracts;
 pub mod diagnostics;
+pub mod error;
+mod execute_command_args;
 pub(crate) mod execute_commands;
 pub mod features;
 pub mod incremental;
 pub(crate) mod language_services;
+pub(crate) mod line_offsets;
 pub(crate) mod participants;
 pub mod utils;
 pub mod validation_cache;
@@ -28,6 +32,9 @@ mod capabilities;
 mod documents;
 mod requests;
 mod state;
+
+pub use error::{LspBackendError, TierName};
+pub use state::ParseState;
 
 use serde_json::Value;
 use tower_lsp::LanguageServer;

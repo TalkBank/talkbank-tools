@@ -1,8 +1,20 @@
 # LSP Protocol
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:12 EDT
 
-This chapter documents all Language Server Protocol capabilities advertised by the TalkBank language server. All capabilities are declared in `backend/capabilities.rs` via `build_initialize_result()`.
+This chapter documents all Language Server Protocol capabilities
+advertised by `talkbank-lsp`. The capability set is declared in
+`crates/talkbank-lsp/src/backend/capabilities.rs` via
+`build_initialize_result()`. Per-feature handlers live under
+`backend/features/` (request-agnostic feature code) and
+`backend/requests/` (request-dispatcher shims that pull out the
+parts of `Backend` each handler needs).
+
+The twelve custom `talkbank/*` commands (also advertised through this
+mechanism) have their own per-endpoint reference at
+[RPC Contracts](../reference/rpc-contracts.md); this chapter stays
+focused on the standard LSP surface.
 
 ## Advertised Capabilities
 
@@ -20,12 +32,12 @@ The server advertises 23 standard LSP capabilities plus 12 custom commands.
 |-----------|---------|-------------|
 | Hover | `features/hover.rs` | Cross-tier alignment display for main, %mor, %gra, %pho, %sin tiers. Also covers headers and timing bullets. |
 | Completion | `features/completion.rs` | Speaker codes from @Participants, tier prefixes, postcode suffixes, header names, bracket annotations. Triggers on `*`, `%`, `+`, `@`, `[`. |
-| Definition | `features/` (via requests.rs) | Navigate from speaker code to @Participants declaration, from dependent tier to aligned main tier word. |
+| Definition | `requests/goto_definition.rs` | Navigate from speaker code to @Participants declaration, from dependent tier to aligned main tier word (chunks → host items via `MorTier::item_index_of_chunk`). |
 | References | `features/references.rs` | Find all occurrences of a speaker code across @Participants, @ID headers, and main tier lines. |
 | Document Highlight | `features/highlights/` | Bidirectional cross-tier alignment highlighting. Click a word on any tier to highlight aligned items on all other tiers. |
 | Document Symbol | `features/document_symbol.rs` | Two-level outline: transcript as Module, per-utterance String symbols labeled by speaker. Powers Cmd+Shift+O and the Outline view. |
 | Code Action | `features/code_action.rs` | Quick fixes for 21 error codes (E241, E242, E244, E258, E259, E301, E305, E306, E308, E312, E313, E322, E323, E362, E501-E504, E506, E507, E604). |
-| Formatting | via requests.rs | Re-serializes the document through the canonical CHAT serializer. |
+| Formatting | `requests/formatting.rs` | Re-serializes the document through the canonical CHAT serializer. |
 | On-Type Formatting | `features/on_type_formatting.rs` | Auto-inserts leading tab on continuation lines after tier prefix. Trigger character: `:`. |
 | Rename | `features/rename.rs` | Rename speaker code across @Participants, @ID headers, and all main tier lines. Supports prepare rename. |
 | Code Lens | `features/code_lens.rs` | Utterance counts per speaker above @Participants (e.g., "CHI: 42 utterances"). |
@@ -46,7 +58,31 @@ The server advertises 23 standard LSP capabilities plus 12 custom commands.
 
 ### Execute Command
 
-The server registers 12 custom commands via `workspace/executeCommand`. See [Custom Commands](custom-commands.md) for details.
+The server advertises 12 custom commands via `workspace/executeCommand`
+(the `talkbank/*` family). Per-endpoint reference:
+[RPC Contracts](../reference/rpc-contracts.md). Architecture and
+sequence-diagram: [Custom Commands](custom-commands.md).
+
+## Error contract
+
+Feature handlers inside `talkbank-lsp` return
+`Result<_, LspBackendError>` rather than stringly `Result<_, String>`.
+`LspBackendError` (`backend/error.rs`) is a `thiserror` enum with
+variants for tier/alignment state (`MissingTier { tier: TierName }`,
+`TierAlignmentMissing { tier: TierName }`,
+`AlignmentMetadataMissing`), document state (`DocumentNotFound`,
+`JsonSerializeFailed(#[from] serde_json::Error)`), parse state
+(`ParseFailure { count, first_message }`), executeCommand argument
+decoding (`ArgumentMissing`, `ArgumentInvalid`, `InvalidUriParse`,
+`UriNotFilePath`), regex (`InvalidRegex`), init failure
+(`LanguageServicesUnavailable(#[from] BackendInitError)`), external
+service failure (`ExternalServiceFailed`), and a wrapper for
+graph-specific failures (`Graph(#[from] GraphEdgeError)`).
+
+Handlers that return typed errors get collapsed to the `tower-lsp`
+string form only at the protocol boundary (`requests/*.rs`). This
+means every feature can match on its classification without
+parsing free-form text.
 
 ## Completion Trigger Characters
 

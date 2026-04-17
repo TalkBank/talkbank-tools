@@ -1,6 +1,7 @@
 # Summary
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:20 EDT
 
 [Introduction](introduction.md)
 
@@ -88,4 +89,24 @@
 - [Adding Features](developer/adding-features.md)
 - [Custom Commands](developer/custom-commands.md)
 - [Testing](developer/testing.md)
+- [Releasing](developer/releasing.md)
+- [Known Issues & Backlog](developer/known-issues-and-backlog.md)
 - [CLAN Feature Parity](developer/clan-parity.md)
+
+---
+
+# Reference
+
+- [Alignment Index Spaces](reference/alignment-indices.md)
+- [RPC Contracts](reference/rpc-contracts.md)
+- [Webview Message Contracts](reference/webview-contracts.md)
+- [Command Catalog](reference/commands.md)
+
+---
+
+# Design Decisions (ADRs)
+
+- [ADR-001: LSP over Embedded Parser](design/adr-001-lsp-over-embedded-parser.md)
+- [ADR-002: Effect-based Command Runtime](design/adr-002-effect-runtime.md)
+- [ADR-003: Webview Panels over TreeView](design/adr-003-webview-panels-over-treeview.md)
+- [ADR-004: Bundled LSP Binary](design/adr-004-bundled-lsp-binary.md)

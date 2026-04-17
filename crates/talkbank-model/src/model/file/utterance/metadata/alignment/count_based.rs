@@ -1,5 +1,6 @@
 use super::diagnostics::build_count_mismatch_error;
 use crate::Utterance;
+use crate::alignment::indices::{MainWordIndex, PhoItemIndex, SinItemIndex};
 use crate::{ErrorCode, ErrorContext, ParseError, Severity, Span};
 
 #[cfg(test)]
@@ -149,7 +150,10 @@ pub(super) fn build_phonology_alignment_from_counts(
 
     let min_len = main_count.min(item_count);
     for i in 0..min_len {
-        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), Some(i)));
+        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+            Some(MainWordIndex::new(i)),
+            Some(PhoItemIndex::new(i)),
+        ));
     }
 
     if main_count > item_count {
@@ -169,7 +173,10 @@ pub(super) fn build_phonology_alignment_from_counts(
         ));
         alignment = alignment.with_error(error);
         for i in item_count..main_count {
-            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), None));
+            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+                Some(MainWordIndex::new(i)),
+                None,
+            ));
         }
     } else if item_count > main_count {
         let error = ParseError::new(
@@ -188,7 +195,10 @@ pub(super) fn build_phonology_alignment_from_counts(
         ));
         alignment = alignment.with_error(error);
         for i in main_count..item_count {
-            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(None, Some(i)));
+            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+                None,
+                Some(PhoItemIndex::new(i)),
+            ));
         }
     }
 
@@ -209,7 +219,10 @@ pub(super) fn build_sin_alignment_from_counts(
 
     let min_len = main_count.min(item_count);
     for i in 0..min_len {
-        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), Some(i)));
+        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+            Some(MainWordIndex::new(i)),
+            Some(SinItemIndex::new(i)),
+        ));
     }
 
     if main_count > item_count {
@@ -226,7 +239,10 @@ pub(super) fn build_sin_alignment_from_counts(
         .with_suggestion("Add gesture/sign tokens to %sin tier to match main tier words");
         alignment = alignment.with_error(error);
         for i in item_count..main_count {
-            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), None));
+            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+                Some(MainWordIndex::new(i)),
+                None,
+            ));
         }
     } else if item_count > main_count {
         let error = ParseError::new(
@@ -242,7 +258,10 @@ pub(super) fn build_sin_alignment_from_counts(
         .with_suggestion("Remove extra gesture/sign tokens from %sin tier");
         alignment = alignment.with_error(error);
         for i in main_count..item_count {
-            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(None, Some(i)));
+            alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+                None,
+                Some(SinItemIndex::new(i)),
+            ));
         }
     }
 
@@ -262,7 +281,10 @@ pub(super) fn build_tier_to_tier_alignment(
 
     let min_len = source_count.min(target_count);
     for i in 0..min_len {
-        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(Some(i), Some(i)));
+        alignment = alignment.with_pair(crate::alignment::AlignmentPair::new(
+            Some(MainWordIndex::new(i)),
+            Some(PhoItemIndex::new(i)),
+        ));
     }
 
     if source_count != target_count {

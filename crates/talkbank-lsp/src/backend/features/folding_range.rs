@@ -126,12 +126,7 @@ fn utterance_block_end(utterance: &talkbank_model::model::Utterance) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(input: &str) -> talkbank_model::model::ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(input).unwrap()
-    }
+    use crate::test_fixtures::parse_chat;
 
     #[test]
     fn fold_utterance_with_dependent_tiers() {

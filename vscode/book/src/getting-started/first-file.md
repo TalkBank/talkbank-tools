@@ -52,7 +52,7 @@ As soon as the file opens, you should see:
 - **A structured outline** in the breadcrumb bar and Outline view
   (`Cmd+Shift+O`) showing every utterance by speaker
 
-> **[SCREENSHOT: CHAT file with syntax highlighting]**
+> **(SCREENSHOT: CHAT file with syntax highlighting)**
 > *Capture this: a `corpus/reference/` file open in the editor. The screenshot
 > should show colored headers, speaker codes, dependent tiers, dimmed timing
 > bullets, and the code lens utterance counts above `@Participants`.*
@@ -73,7 +73,7 @@ Validation runs continuously as you type. Make an intentional edit -- for
 example, delete the terminator (`.` or `?`) at the end of an utterance line --
 and watch a new diagnostic appear within a fraction of a second.
 
-> **[SCREENSHOT: Problems panel with diagnostics]**
+> **(SCREENSHOT: Problems panel with diagnostics)**
 > *Capture this: the Problems panel showing 2-3 diagnostics (mix of errors and
 > warnings), with one error also visible as a red underline in the editor.*
 
@@ -95,7 +95,7 @@ To play continuously from the cursor to the end of the file, press
 `Cmd+Shift+/` (**Play Media Continuously**). The editor cursor follows along,
 highlighting each utterance as it plays.
 
-> **[SCREENSHOT: Media playback panel]**
+> **(SCREENSHOT: Media playback panel)**
 > *Capture this: the editor with a CHAT file on the left and the media panel
 > open on the right, showing the audio player with playback controls and a
 > speed slider. The current utterance should be highlighted in the editor.*
@@ -119,7 +119,7 @@ annotates.
 Click any word on any tier and all its aligned counterparts across every other
 tier highlight simultaneously.
 
-> **[SCREENSHOT: Cross-tier hover popup]**
+> **(SCREENSHOT: Cross-tier hover popup)**
 > *Capture this: the cursor hovering over a word on a `*CHI:` line, with the
 > hover popup showing aligned %mor and %gra information. Optionally also show
 > the document highlight (colored background) on the corresponding %mor token.*
@@ -138,7 +138,7 @@ relations (SUBJ, OBJ, DET, MOD, ROOT, etc.) and colored by type.
 The graph renders locally using bundled Graphviz WASM -- no internet connection
 required. You can export the graph as SVG or PNG using the toolbar buttons.
 
-> **[SCREENSHOT: Dependency graph panel]**
+> **(SCREENSHOT: Dependency graph panel)**
 > *Capture this: the editor with a CHAT file on the left and the dependency
 > graph panel on the right, showing a tree with labeled arcs for a simple
 > utterance like "the dog ate the cookie".*
@@ -173,7 +173,7 @@ running. You can also run analysis on an entire directory by right-clicking a
 folder in the Explorer sidebar and selecting **Run CLAN Analysis on
 Directory...**
 
-> **[SCREENSHOT: CLAN analysis results panel]**
+> **(SCREENSHOT: CLAN analysis results panel)**
 > *Capture this: the analysis panel showing freq results -- a stat card with
 > total word count, a frequency table, and a bar chart of the top 10 words.*
 
@@ -194,7 +194,7 @@ A menu appears with available fixes. For example:
 The extension offers automatic fixes for 21 error codes covering the most
 common CHAT formatting issues.
 
-> **[SCREENSHOT: Quick fix menu]**
+> **(SCREENSHOT: Quick fix menu)**
 > *Capture this: the cursor on a diagnostic underline, with the quick fix
 > lightbulb menu showing one or two available corrections.*
 
@@ -212,7 +212,7 @@ wheel.
 
 During playback, the waveform auto-scrolls to keep the current segment visible.
 
-> **[SCREENSHOT: Waveform panel]**
+> **(SCREENSHOT: Waveform panel)**
 > *Capture this: the waveform panel showing an audio waveform with colored
 > utterance overlays. At least two or three utterance segments should be
 > visible with different colors.*

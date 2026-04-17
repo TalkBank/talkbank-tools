@@ -1,12 +1,48 @@
 # Transcription from Audio
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 16:55 EDT
 
 This chapter describes the end-to-end workflow for creating a new CHAT transcript from an audio recording using the extension's Transcription Mode.
 
 ## Overview
 
 Transcription Mode turns VS Code into a transcription workstation. Audio plays from a media panel while you type the transcript. At each utterance boundary, press `F4` to stamp a timing bullet that records the start and end time. The result is a properly timestamped CHAT file ready for annotation.
+
+## Pipeline
+
+Each `F4` keystroke triggers a fixed sequence across the three layers
+(editor, media panel webview, LSP):
+
+```mermaid
+flowchart LR
+    start(["Start Transcription Mode"])
+    play["Media panel plays audio<br/>(webview, Web Audio API)"]
+    type["User types an utterance<br/>on the current *SPK: line"]
+    f4{"F4 pressed?"}
+    req["Request playback position<br/>(postMessage 'requestTimestamp')"]
+    ts{{"Media panel replies with<br/>current currentTime"}}
+    fmt["LSP: talkbank/formatBulletLine<br/>→ 'mmmmm_nnnnn' bullet"]
+    insert["Insert bullet at end of line<br/>+ new '*SPK:\\t' line below"]
+    continue{"More audio?"}
+    stop(["Stop Transcription Mode"])
+
+    start --> play --> type --> f4
+    f4 -->|"no (keep typing)"| type
+    f4 -->|"yes"| req --> ts --> fmt --> insert --> continue
+    continue -->|"yes"| type
+    continue -->|"no"| stop
+
+    rewind["F8 rewind<br/>(configurable seconds)"]
+    loop["Shift+F5 toggle loop<br/>(replay current segment)"]
+    type -.->|"missed something"| rewind -.-> play
+    play -.->|"re-listen needed"| loop -.-> play
+```
+<!-- Verified against: vscode/src/commands/transcription.ts, vscode/src/mediaPanel.ts, crates/talkbank-lsp/src/backend/execute_commands.rs (FormatBulletLine variant) -->
+
+Dashed edges show the two sideways playback controls (`F8`, `Shift+F5`)
+that don't advance the editor cursor. The `F4` path is the only one
+that mutates the document.
 
 ## Prerequisites
 

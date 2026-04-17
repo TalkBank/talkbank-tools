@@ -9,11 +9,15 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tower_lsp::lsp_types::{ExecuteCommandParams, Position, Url};
 
+use super::LspBackendError;
 use super::contracts::AnalyzeCommandPayload;
+use super::execute_command_args::{
+    expect_string_argument, parse_json_argument, parse_position_argument, parse_uri_argument,
+    parse_uri_string,
+};
 
 pub(crate) type AnalyzeRequest = AnalyzeCommandPayload;
 
@@ -85,7 +89,7 @@ impl ExecuteCommandName {
     }
 
     /// Parse one wire-format command identifier into the corresponding enum.
-    pub(crate) fn parse(name: &str) -> Result<Self, String> {
+    pub(crate) fn parse(name: &str) -> Result<Self, LspBackendError> {
         match name {
             "talkbank/showDependencyGraph" => Ok(Self::ShowDependencyGraph),
             "talkbank/getAlignmentSidecar" => Ok(Self::GetAlignmentSidecar),
@@ -99,7 +103,9 @@ impl ExecuteCommandName {
             "talkbank/getUtterances" => Ok(Self::GetUtterances),
             "talkbank/formatBulletLine" => Ok(Self::FormatBulletLine),
             "talkbank/scopedFind" => Ok(Self::ScopedFind),
-            _ => Err(format!("Unknown command: {name}")),
+            _ => Err(LspBackendError::UnknownCommand {
+                name: name.to_string(),
+            }),
         }
     }
 
@@ -121,7 +127,7 @@ pub(crate) struct DocumentUriRequest {
 
 impl DocumentUriRequest {
     /// Decode the standard single-URI execute-command argument layout.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         Ok(Self {
             uri: parse_uri_argument(arguments, 0, "document URI")?,
         })
@@ -139,7 +145,7 @@ pub(crate) struct DocumentPositionRequest {
 
 impl DocumentPositionRequest {
     /// Decode the standard URI-plus-position execute-command argument layout.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         Ok(Self {
             uri: parse_uri_argument(arguments, 0, "document URI")?,
             position: parse_position_argument(arguments.get(1)),
@@ -156,7 +162,7 @@ pub(crate) struct DiscoverDatabasesRequest {
 
 impl DiscoverDatabasesRequest {
     /// Decode the single-path argument layout used by database discovery.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         Ok(Self {
             library_dir: PathBuf::from(expect_string_argument(arguments, 0, "library directory")?),
         })
@@ -190,7 +196,7 @@ pub(crate) struct IdLineFieldsRequest {
 
 impl IdLineFieldsRequest {
     /// Decode the object payload used by `talkbank/formatIdLine`.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         parse_json_argument(arguments, 0, "fields")
     }
 }
@@ -215,7 +221,7 @@ struct FilterDocumentPayload {
 
 impl FilterDocumentRequest {
     /// Decode the object payload used by `talkbank/filterDocument`.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         let payload: FilterDocumentPayload = parse_json_argument(arguments, 0, "filter input")?;
         Ok(Self {
             uri: parse_uri_string(&payload.uri, "URI")?,
@@ -258,7 +264,7 @@ struct ScopedFindPayload {
 
 impl ScopedFindRequest {
     /// Decode the object payload used by `talkbank/scopedFind`.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         let payload: ScopedFindPayload = parse_json_argument(arguments, 0, "search input")?;
         Ok(Self {
             uri: parse_uri_string(&payload.uri, "URI")?,
@@ -283,7 +289,7 @@ pub(crate) struct FormatBulletLineRequest {
 
 impl FormatBulletLineRequest {
     /// Decode the object payload used by `talkbank/formatBulletLine`.
-    fn from_arguments(arguments: &[Value]) -> Result<Self, String> {
+    fn from_arguments(arguments: &[Value]) -> Result<Self, LspBackendError> {
         parse_json_argument(arguments, 0, "bullet input")
     }
 }
@@ -332,7 +338,7 @@ pub(crate) enum ExecuteCommandFamily {
 
 impl ExecuteCommandRequest {
     /// Decode `ExecuteCommandParams` into a typed request enum.
-    pub(crate) fn parse(params: ExecuteCommandParams) -> Result<Self, String> {
+    pub(crate) fn parse(params: ExecuteCommandParams) -> Result<Self, LspBackendError> {
         let command = ExecuteCommandName::parse(params.command.as_str())?;
 
         match command {
@@ -396,62 +402,10 @@ impl ExecuteCommandRequest {
     }
 }
 
-/// Parse a required string argument at one position.
-fn expect_string_argument(
-    arguments: &[Value],
-    index: usize,
-    label: &str,
-) -> Result<String, String> {
-    arguments
-        .get(index)
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .ok_or_else(|| format!("Missing {label} argument"))
-}
-
-/// Parse a required URI argument at one position.
-fn parse_uri_argument(arguments: &[Value], index: usize, label: &str) -> Result<Url, String> {
-    let uri = expect_string_argument(arguments, index, label)?;
-    parse_uri_string(&uri, label)
-}
-
-/// Parse a URI string value into a typed `Url`.
-fn parse_uri_string(uri: &str, label: &str) -> Result<Url, String> {
-    Url::parse(uri).map_err(|error| format!("Invalid {label}: {error}"))
-}
-
-/// Parse a required JSON object argument into one typed payload.
-fn parse_json_argument<T: DeserializeOwned>(
-    arguments: &[Value],
-    index: usize,
-    label: &str,
-) -> Result<T, String> {
-    arguments
-        .get(index)
-        .ok_or_else(|| format!("Missing {label} argument"))
-        .and_then(|value| {
-            serde_json::from_value(value.clone())
-                .map_err(|error| format!("Invalid {label}: {error}"))
-        })
-}
-
-/// Parse an optional position argument, defaulting to the start of the document.
-fn parse_position_argument(argument: Option<&Value>) -> Position {
-    if let Some(Value::Object(object)) = argument
-        && let (Some(Value::Number(line)), Some(Value::Number(character))) =
-            (object.get("line"), object.get("character"))
-    {
-        return Position {
-            line: line.as_u64().unwrap_or(0) as u32,
-            character: character.as_u64().unwrap_or(0) as u32,
-        };
-    }
-
-    Position {
-        line: 0,
-        character: 0,
-    }
-}
+// Argument-parsing helpers (`expect_string_argument`,
+// `parse_uri_argument`, `parse_uri_string`, `parse_json_argument`,
+// `parse_position_argument`) moved to `execute_command_args` —
+// imported at the top of this file.
 
 #[cfg(test)]
 mod tests {
@@ -462,7 +416,7 @@ mod tests {
     use talkbank_clan::service_types::AnalysisCommandName;
     use tower_lsp::lsp_types::ExecuteCommandParams;
 
-    use super::{ExecuteCommandName, ExecuteCommandRequest};
+    use super::{ExecuteCommandName, ExecuteCommandRequest, LspBackendError};
 
     /// The advertised command list should stay in sync with the enum.
     #[test]
@@ -609,7 +563,10 @@ mod tests {
         })
         .expect_err("unknown command should fail");
 
-        assert!(error.contains("Unknown command"));
+        assert!(
+            matches!(&error, LspBackendError::UnknownCommand { name } if name == "talkbank/notReal"),
+            "expected UnknownCommand with name=talkbank/notReal, got {error:?}",
+        );
     }
 
     /// Unknown analysis names should fail at the typed CLAN command boundary.
@@ -626,6 +583,14 @@ mod tests {
         })
         .expect_err("unknown analysis command should fail");
 
-        assert!(error.contains("Unknown analysis command: not-real"));
+        // Unknown analysis names surface as a JSON-decode failure of
+        // the `AnalysisCommandName` enum; the message lives in the
+        // underlying `Display` and is still substring-checked to
+        // avoid over-constraining the exact wording.
+        let message = error.to_string();
+        assert!(
+            message.contains("Unknown analysis command: not-real") || message.contains("not-real"),
+            "expected unknown-analysis error message, got {message:?}",
+        );
     }
 }

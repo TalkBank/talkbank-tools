@@ -23,7 +23,24 @@ pub fn linked_editing_ranges(
     // Only activate on speaker nodes.
     let speaker_node =
         find_ancestor_kind(node, SPEAKER).or_else(|| find_ancestor_kind(node, ID_SPEAKER))?;
-    let speaker_name = speaker_node.utf8_text(doc.as_bytes()).ok()?.trim();
+    let speaker_name = match speaker_node.utf8_text(doc.as_bytes()) {
+        Ok(text) => text.trim(),
+        Err(err) => {
+            // UTF-8 decode failure on a CST node byte range typically
+            // means the tree got out of sync with the document text
+            // (e.g. incremental-parse regression). Log so operators
+            // can correlate with other incremental-parse symptoms
+            // instead of assuming linked editing is just broken.
+            // See KIB-015.
+            tracing::warn!(
+                start = speaker_node.start_byte(),
+                end = speaker_node.end_byte(),
+                error = %err,
+                "linked editing: UTF-8 decode failure on speaker node",
+            );
+            return None;
+        }
+    };
 
     if speaker_name.is_empty() {
         return None;
@@ -69,13 +86,7 @@ fn collect_speaker_ranges(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn parse_tree(input: &str) -> Tree {
-        let mut parser = tree_sitter::Parser::new();
-        let language = tree_sitter_talkbank::LANGUAGE;
-        parser.set_language(&language.into()).unwrap();
-        parser.parse(input, None).unwrap()
-    }
+    use crate::test_fixtures::parse_tree;
 
     #[test]
     fn test_linked_editing_finds_all_speaker_occurrences() {

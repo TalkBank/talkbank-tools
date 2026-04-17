@@ -1,6 +1,7 @@
 # Coding Workflow
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 16:45 EDT
 
 This chapter walks through the complete Coder Mode workflow in VS Code, from starting a coding session to finishing and reviewing the results.
 
@@ -23,7 +24,7 @@ Alternatively, right-click in the editor and select **TalkBank: Navigation** the
 
 Once started, the cursor jumps to the first utterance that does not already have a coded tier. A status indicator confirms that Coder Mode is active.
 
-> **[SCREENSHOT: Command Palette showing "Start Coder Mode" with the file picker for .cut files]**
+> **(SCREENSHOT: Command Palette showing "Start Coder Mode" with the file picker for .cut files)**
 > *Capture this: Open Command Palette, type "Start Coder", show the QuickPick file selector with .cut files listed*
 
 ## Inserting Codes
@@ -54,7 +55,7 @@ The selected code is inserted as a dependent tier immediately after the current 
 
 The picker placeholder shows progress information (e.g., "12 of 45 utterances coded") so you can track how much work remains.
 
-> **[SCREENSHOT: QuickPick code picker showing hierarchical codes with progress indicator]**
+> **(SCREENSHOT: QuickPick code picker showing hierarchical codes with progress indicator)**
 > *Capture this: During active Coder Mode, press Cmd+Shift+C to show the picker with indented codes and the "X of Y coded" placeholder text*
 
 ## Stepping Through Utterances
@@ -83,6 +84,64 @@ When you are finished coding (or want to pause):
 
 This deactivates the Coder Mode keyboard shortcuts and clears the session state. Your work is already saved -- codes were inserted into the document as you went, and normal VS Code auto-save or manual save (`Cmd+S`) persists them to disk.
 
+## State Machine
+
+Coder Mode is a stateful editing mode with five observable states. The
+`talkbank.coderActive` VS Code context is bound to whichever of these
+is non-idle; keyboard shortcuts `Cmd+Enter` and `Cmd+Shift+C` are gated
+on that flag.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+
+    Idle --> LoadingCutFile: Start Coder Mode<br/>(file picker opens)
+    LoadingCutFile --> Idle: user cancels file picker
+    LoadingCutFile --> ScanningUtterances: .cut parses successfully
+    LoadingCutFile --> Idle: .cut parse error<br/>(error notification)
+
+    ScanningUtterances --> AtUncoded: LSP talkbank/getUtterances<br/>returns ≥ 1 uncoded
+    ScanningUtterances --> Complete: every utterance already coded
+
+    AtUncoded --> PickingCode: Cmd+Shift+C
+    PickingCode --> AtUncoded: user cancels QuickPick
+    PickingCode --> Inserting: user selects a code
+    Inserting --> AtUncoded: code inserted,<br/>cursor stays on same utterance
+    AtUncoded --> AtUncoded: Cmd+Enter advances<br/>to next uncoded (if any)
+    AtUncoded --> Complete: no more uncoded utterances
+
+    AtUncoded --> Idle: Stop Coder Mode
+    Complete --> Idle: Stop Coder Mode<br/>(or auto after notification)
+    Complete --> [*]
+
+    note right of ScanningUtterances
+        "Uncoded" means the utterance has
+        no sibling %cod: tier. Detection
+        is delegated to the LSP.
+    end note
+    note right of Inserting
+        Insert edits the %cod: tier
+        directly via WorkspaceEdit.
+        No webview, no separate buffer.
+    end note
+```
+<!-- Verified against: vscode/src/commands/coder.ts, vscode/src/coderState.ts, crates/talkbank-lsp/src/backend/chat_ops/get_utterances.rs -->
+
+Key properties the diagram documents:
+
+- The transitions out of `LoadingCutFile` form a **three-way
+  branch** (cancel → Idle, parse error → Idle with notification,
+  parse success → `ScanningUtterances`). A successor reading only
+  the prose would miss the cancel branch.
+- `AtUncoded ↔ PickingCode ↔ Inserting` is a **loop that keeps
+  you on the same utterance** — the code insertion does not
+  auto-advance; advancement requires an explicit `Cmd+Enter`. This
+  decouples "coded?" from "moved on?" so mis-codes can be
+  corrected in place.
+- `Stop Coder Mode` is reachable from `AtUncoded` and `Complete`
+  but **not** from `LoadingCutFile` / `PickingCode` / `Inserting`
+  (those are modal dialogs VS Code owns).
+
 ## Typical Session
 
 A typical coding session looks like this:
@@ -97,7 +156,7 @@ A typical coding session looks like this:
 
 For transcripts with many utterances, you can code in multiple sessions. The extension tracks which utterances already have codes and skips them on the next session.
 
-> **[VIDEO: 60-second Coder Mode demo]**
+> **[VIDEO: 60-second Coder Mode demo)**
 > *Capture this: Screen recording showing the full workflow -- start coder mode, select .cut file, code 3-4 utterances using Cmd+Shift+C and Cmd+Enter, then stop coder mode. Show the QuickPick hierarchy and the coded tiers being inserted.*
 
 ## Tips
@@ -106,7 +165,7 @@ For transcripts with many utterances, you can code in multiple sessions. The ext
 
 - **Code in batches.** For large transcripts, code 50-100 utterances at a time to avoid fatigue-related errors.
 
-- **Review before committing.** After coding, use the [Scoped Find](../editing/scoped-find.md) feature to search within coded tiers specifically, reviewing all codes in context.
+- **Review before committing.** After coding, use the [Scoped Find](../navigation/scoped-find.md) feature to search within coded tiers specifically, reviewing all codes in context.
 
 - **Use consistent `.cut` files across coders.** When multiple people code the same corpus, ensure everyone uses the identical `.cut` file to maintain inter-rater reliability.
 

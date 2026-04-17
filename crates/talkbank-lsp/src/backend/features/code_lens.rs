@@ -69,12 +69,7 @@ fn find_participants_line(doc: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(input: &str) -> ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(input).unwrap()
-    }
+    use crate::test_fixtures::parse_chat;
 
     #[test]
     fn test_code_lens_shows_utterance_counts() {

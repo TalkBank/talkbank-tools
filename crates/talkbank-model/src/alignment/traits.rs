@@ -56,10 +56,14 @@ pub trait IndexPair: Clone {
 
 /// Accumulator for tier alignment results: pairs plus diagnostics.
 ///
-/// All five alignment result types ([`MorAlignment`](super::MorAlignment),
-/// [`PhoAlignment`](super::PhoAlignment), [`SinAlignment`](super::SinAlignment),
-/// [`WorAlignment`](super::WorAlignment), [`GraAlignment`](super::GraAlignment))
-/// implement this trait with identical structure.
+/// The four structural alignment result types
+/// ([`MorAlignment`](super::MorAlignment),
+/// [`PhoAlignment`](super::PhoAlignment),
+/// [`SinAlignment`](super::SinAlignment),
+/// [`GraAlignment`](super::GraAlignment)) implement this trait with
+/// identical structure. `%wor` is intentionally not a member of this
+/// family — see [`WorTimingSidecar`](super::WorTimingSidecar) and
+/// KIB-016.
 pub trait TierAlignmentResult: Default {
     /// The index pair type used by this alignment.
     type Pair: IndexPair;
@@ -126,6 +130,24 @@ pub enum MismatchFormat {
 /// let (pairs, errors) = positional_align(&main, &pho);
 /// ```
 pub trait AlignableTier {
+    /// Typed source (main-tier side) index carried by alignment pairs.
+    ///
+    /// Every tier-alignment domain binds the source to the same
+    /// main-tier position space, so this is almost always
+    /// [`MainWordIndex`](super::indices::MainWordIndex). It is kept as
+    /// an associated type (rather than fixed) so that a future
+    /// extension can introduce alternate source newtypes without
+    /// rewriting the trait.
+    type Source: Copy + From<usize> + Into<usize>;
+
+    /// Typed target (dependent-tier side) index carried by alignment
+    /// pairs — e.g. [`MorItemIndex`](super::indices::MorItemIndex),
+    /// [`PhoItemIndex`](super::indices::PhoItemIndex),
+    /// [`SinItemIndex`](super::indices::SinItemIndex). Binding the target
+    /// per-tier is what lets the compiler reject cross-tier index
+    /// confusion (e.g. a `MorItemIndex` reaching a `%pho` consumer).
+    type Target: Copy + From<usize> + Into<usize>;
+
     /// The alignment domain used for counting main-tier items.
     const DOMAIN: TierDomain;
 
@@ -179,17 +201,21 @@ pub trait AlignableTier {
 pub fn positional_align<T: AlignableTier>(
     main: &MainTier,
     tier: &T,
-) -> (Vec<AlignmentPair>, Vec<ParseError>) {
+) -> (Vec<AlignmentPair<T::Source, T::Target>>, Vec<ParseError>) {
     let alignable_count = count_tier_positions(&main.content.content, T::DOMAIN);
     let target_count = tier.target_count();
 
-    let mut pairs = Vec::with_capacity(alignable_count.max(target_count));
+    let mut pairs: Vec<AlignmentPair<T::Source, T::Target>> =
+        Vec::with_capacity(alignable_count.max(target_count));
     let mut errors = Vec::new();
 
     // 1:1 pairs for the common range
     let min_len = alignable_count.min(target_count);
     for i in 0..min_len {
-        pairs.push(AlignmentPair::new(Some(i), Some(i)));
+        pairs.push(AlignmentPair::new(
+            Some(T::Source::from(i)),
+            Some(T::Target::from(i)),
+        ));
     }
 
     // Mismatch handling
@@ -225,11 +251,11 @@ pub fn positional_align<T: AlignableTier>(
         // Placeholder rows for the excess
         if alignable_count > target_count {
             for i in target_count..alignable_count {
-                pairs.push(AlignmentPair::new(Some(i), None));
+                pairs.push(AlignmentPair::new(Some(T::Source::from(i)), None));
             }
         } else {
             for i in alignable_count..target_count {
-                pairs.push(AlignmentPair::new(None, Some(i)));
+                pairs.push(AlignmentPair::new(None, Some(T::Target::from(i))));
             }
         }
     }

@@ -126,7 +126,7 @@ describe('ExecutableService', () => {
         expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/release/talkbank-lsp');
     });
 
-    it('uses talkbank-lsp.exe for the final Windows fallback path', () => {
+    it('returns null on Windows when no binary can be discovered', () => {
         const execSync = createMockExecSync({
             shouldThrow: true,
             errorMessage: 'Command failed: which talkbank-lsp'
@@ -142,7 +142,7 @@ describe('ExecutableService', () => {
         Object.defineProperty(process, 'platform', { value: 'win32' });
 
         try {
-            expect(service.findTalkbankLspBinary(context)).toBe('/extension/../target/debug/talkbank-lsp.exe');
+            expect(service.findTalkbankLspBinary(context)).toBeNull();
         } finally {
             Object.defineProperty(process, 'platform', { value: originalPlatform });
         }

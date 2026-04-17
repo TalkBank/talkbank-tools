@@ -76,7 +76,7 @@ impl DocumentCommandService {
         };
         let chat_file = match get_chat_file(backend, &request.uri, &text) {
             Ok(file) => file,
-            Err(error) => return Ok(Some(Value::String(error))),
+            Err(error) => return Ok(Some(Value::String(error.to_string()))),
         };
 
         let sidecar = alignment_sidecar::build_alignment_sidecar(&request.uri, &text, &chat_file);
@@ -101,7 +101,7 @@ impl DocumentCommandService {
         };
         let chat_file = match get_chat_file(backend, &request.uri, &text) {
             Ok(file) => file,
-            Err(error) => return Ok(Some(Value::String(error))),
+            Err(error) => return Ok(Some(Value::String(error.to_string()))),
         };
         let utterance = match utils::find_utterance_at_position(&chat_file, request.position, &text)
         {
@@ -113,11 +113,15 @@ impl DocumentCommandService {
             }
         };
 
-        match crate::graph::generate_dot_graph(utterance) {
-            Ok(dot) => Ok(Some(Value::String(dot))),
-            Err(e) => Ok(Some(Value::String(format!(
-                "Graph generation error: {}",
-                e
+        let response = crate::graph::build_dependency_graph_response(
+            utterance,
+            backend.parse_state(&request.uri),
+        );
+        match serde_json::to_value(response) {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => Ok(Some(Value::String(format!(
+                "Failed to serialize dependency-graph response: {}",
+                err
             )))),
         }
     }
@@ -130,7 +134,7 @@ pub(super) async fn handle_execute_command(
 ) -> Result<Option<Value>> {
     let request = match ExecuteCommandRequest::parse(params) {
         Ok(request) => request,
-        Err(error) => return Ok(Some(Value::String(error))),
+        Err(error) => return Ok(Some(Value::String(error.to_string()))),
     };
 
     ExecuteCommandServices::new().dispatch(backend, request)

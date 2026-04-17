@@ -8,13 +8,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import type * as vscode from 'vscode';
-import { Data, Effect } from 'effect';
+import { Effect } from 'effect';
 import type { LanguageClient } from 'vscode-languageclient/node';
 import {
     AnalyzeCommandRequest,
     AnalysisOptions,
     AlignmentSidecarDocument,
     AvailableDatabase,
+    DependencyGraphResponse,
     FormattedBulletLine,
     IdLineFields,
     ParticipantEntry,
@@ -24,6 +25,7 @@ import {
     UtteranceInfo,
     buildAnalyzeCommandRequest,
     decodeAvailableDatabaseList,
+    decodeDependencyGraphResponse,
     decodeFormattedBulletLine,
     decodeParticipantEntryList,
     decodeScopedFindMatchList,
@@ -31,8 +33,24 @@ import {
     decodeUtteranceInfoList,
     parseAlignmentSidecarDocument,
 } from './executeCommandPayloads';
+import {
+    ExecuteCommandRequestError,
+    ExecuteCommandResponseError,
+    ExecuteCommandServerError,
+    ExecuteCommandStructuredError,
+} from './executeCommandErrors';
 import { StructuredPayloadDecodeError } from '../effectBoundary';
 import { tryAsync } from '../effectRuntime';
+
+// Re-export the error family so existing consumers that import from
+// this module continue to work unchanged. New code should prefer
+// `./executeCommandErrors`.
+export {
+    ExecuteCommandRequestError,
+    ExecuteCommandResponseError,
+    ExecuteCommandServerError,
+} from './executeCommandErrors';
+export type { ExecuteCommandStructuredError } from './executeCommandErrors';
 
 export type {
     AnalysisDatabaseFilter,
@@ -53,41 +71,6 @@ export type {
  * Execute-command identifiers used throughout the extension.
  */
 export type TalkbankExecuteCommandName = (typeof talkbankExecuteCommandList)[number];
-
-/**
- * Tagged error for one failed `workspace/executeCommand` transport request.
- */
-export class ExecuteCommandRequestError extends Data.TaggedError('ExecuteCommandRequestError')<{
-    readonly command: TalkbankExecuteCommandName;
-    readonly details: string;
-    readonly cause: unknown;
-}> {}
-
-/**
- * Tagged error for one structured command response that was not the expected shape.
- */
-export class ExecuteCommandResponseError extends Data.TaggedError('ExecuteCommandResponseError')<{
-    readonly command: TalkbankExecuteCommandName;
-    readonly details: string;
-    readonly payload: unknown;
-}> {}
-
-/**
- * Tagged error for one server-returned string error payload.
- */
-export class ExecuteCommandServerError extends Data.TaggedError('ExecuteCommandServerError')<{
-    readonly command: TalkbankExecuteCommandName;
-    readonly details: string;
-}> {}
-
-/**
- * Typed error family for structured execute-command responses.
- */
-export type ExecuteCommandStructuredError =
-    | ExecuteCommandRequestError
-    | ExecuteCommandResponseError
-    | ExecuteCommandServerError
-    | StructuredPayloadDecodeError;
 
 /**
  * Execute-command identifiers used for normative database discovery.
@@ -157,16 +140,20 @@ export class TalkbankExecuteCommandClient {
      *
      * @param uri - Document URI string.
      * @param position - Cursor position.
-     * @returns DOT graph source.
+     * @returns A discriminated response — either a `dot` variant carrying
+     *   Graphviz source, or an `unavailable` variant carrying a user-facing
+     *   reason (e.g., "No %mor tier found"). Callers MUST branch on `kind`
+     *   before passing anything to a DOT renderer.
      */
     showDependencyGraph(
         uri: string,
         position: vscode.Position,
-    ): Effect.Effect<string, ExecuteCommandRequestError | ExecuteCommandResponseError> {
-        return this.executeString(talkbankExecuteCommandNames.showDependencyGraph, [
-            uri,
-            { line: position.line, character: position.character },
-        ]);
+    ): Effect.Effect<DependencyGraphResponse, ExecuteCommandStructuredError> {
+        return this.executeStructured(
+            talkbankExecuteCommandNames.showDependencyGraph,
+            [uri, { line: position.line, character: position.character }],
+            decodeDependencyGraphResponse,
+        );
     }
 
     /**

@@ -68,6 +68,33 @@ pub struct Backend {
     pub last_diagnostics: Arc<DashMap<Url, Vec<tower_lsp::lsp_types::Diagnostic>>>,
 }
 
+/// The parse state of a document as observed by a feature handler.
+///
+/// The backend keeps the last-good parse tree / `ChatFile` alive even
+/// when a transient edit makes the document un-parseable — feature
+/// handlers like hover still render against the baseline so the user
+/// doesn't see features disappear mid-keystroke. This enum lets
+/// handlers classify the baseline age at the entry point:
+///
+/// - [`ParseState::Clean`] — baseline matches the current document text.
+///   Feature results are authoritative.
+/// - [`ParseState::StaleBaseline`] — last parse failed; the baseline
+///   `ChatFile` exists but reflects an older version of the document.
+///   Feature output is best-effort and may mismatch visible text.
+/// - [`ParseState::Absent`] — no baseline exists (document never
+///   successfully parsed). Feature output is not meaningful; callers
+///   should return empty responses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParseState {
+    /// Last parse succeeded; baseline is authoritative.
+    Clean,
+    /// Last parse failed; baseline is stale but still usable for
+    /// graceful degradation.
+    StaleBaseline,
+    /// No baseline exists.
+    Absent,
+}
+
 impl Backend {
     /// Create a backend with initialized language services and empty caches.
     pub fn new(client: Client) -> Self {
@@ -82,6 +109,33 @@ impl Backend {
             parse_clean: Arc::new(DashMap::new()),
             validation_cache: Arc::new(DashMap::new()),
             last_diagnostics: Arc::new(DashMap::new()),
+        }
+    }
+
+    /// Classify the parse state of a document for a feature handler.
+    ///
+    /// Reads [`Self::parse_clean`] and the [`Self::chat_files`] cache
+    /// together so callers can distinguish "authoritative", "stale but
+    /// usable", and "no baseline at all" without touching the two
+    /// maps themselves. This is the primitive that resolves KIB-013
+    /// (feature handlers had zero readers of `parse_clean` before
+    /// 2026-04-16).
+    pub fn parse_state(&self, uri: &Url) -> ParseState {
+        let has_baseline = self.chat_files.contains_key(uri);
+        match (
+            self.parse_clean.get(uri).map(|entry| *entry.value()),
+            has_baseline,
+        ) {
+            (Some(true), true) => ParseState::Clean,
+            // `parse_clean` flipped to false on a bad edit but the
+            // orchestrator intentionally keeps the last-good baseline
+            // alive (validation_orchestrator.rs comment at the
+            // `parse_clean.insert(uri.clone(), false)` call site).
+            (Some(false), true) => ParseState::StaleBaseline,
+            // No entry in either map, or parse_clean is true but the
+            // baseline was evicted (should be rare; conservative to
+            // treat as Absent).
+            _ => ParseState::Absent,
         }
     }
 }

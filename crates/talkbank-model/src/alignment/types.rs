@@ -15,20 +15,39 @@ use talkbank_derive::SpanShift;
 /// Most entries are complete `Some -> Some` matches. Placeholder entries with
 /// one `None` preserve mismatch shape (extra/missing units) so diagnostics can
 /// still report concrete positions for both tiers.
+///
+/// # Typed variants
+///
+/// `AlignmentPair` is generic over the source and target index types so a
+/// per-tier result type can declare the concrete index space without writing
+/// its own pair struct:
+///
+/// - `AlignmentPair<MainWordIndex, MorItemIndex>` — main↔`%mor`
+/// - `AlignmentPair<MainWordIndex, PhoItemIndex>` — main↔`%pho` / main↔`%mod`
+/// - `AlignmentPair<MainWordIndex, SinItemIndex>` — main↔`%sin`
+///
+/// `%gra` is a `%mor`↔`%gra` pairing and uses its own typed pair
+/// [`GraAlignmentPair`](super::GraAlignmentPair), not this one. `%wor` is
+/// not a structural alignment — see
+/// [`WorTimingSidecar`](super::WorTimingSidecar).
+///
+/// The type parameters default to `usize` so pre-existing code written
+/// against `AlignmentPair` (without generic arguments) continues to compile
+/// unchanged.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema, SpanShift)]
-pub struct AlignmentPair {
+pub struct AlignmentPair<S = usize, T = usize> {
     /// Index in the source tier (for example the main tier), or `None` for placeholder rows.
-    pub source_index: Option<usize>,
+    pub source_index: Option<S>,
     /// Index in the target tier (for example `%mor`/`%pho`/`%wor`), or `None` for placeholders.
-    pub target_index: Option<usize>,
+    pub target_index: Option<T>,
 }
 
-impl AlignmentPair {
+impl<S, T> AlignmentPair<S, T> {
     /// Builds one alignment row from optional source/target indices.
     ///
     /// Callers usually pass two `Some` values for normal matches, or one `None`
     /// when recording an insertion/deletion style mismatch.
-    pub fn new(source_index: Option<usize>, target_index: Option<usize>) -> Self {
+    pub fn new(source_index: Option<S>, target_index: Option<T>) -> Self {
         Self {
             source_index,
             target_index,
@@ -51,16 +70,26 @@ impl AlignmentPair {
     }
 }
 
-impl super::traits::IndexPair for AlignmentPair {
+/// The generic `IndexPair` trait uses raw `usize` source/target indices so
+/// code that predates KIB-001 (or consumers that deliberately want a
+/// tier-agnostic view, like the shared `find_source_index_for_target` helper)
+/// keeps working. The bound `Copy + From<usize> + Into<usize>` is satisfied
+/// by `usize` itself and by every domain index newtype in
+/// [`super::indices`].
+impl<S, T> super::traits::IndexPair for AlignmentPair<S, T>
+where
+    S: Copy + From<usize> + Into<usize>,
+    T: Copy + From<usize> + Into<usize>,
+{
     fn source(&self) -> Option<usize> {
-        self.source_index
+        self.source_index.map(Into::into)
     }
 
     fn target(&self) -> Option<usize> {
-        self.target_index
+        self.target_index.map(Into::into)
     }
 
     fn from_indices(source: Option<usize>, target: Option<usize>) -> Self {
-        Self::new(source, target)
+        Self::new(source.map(From::from), target.map(From::from))
     }
 }

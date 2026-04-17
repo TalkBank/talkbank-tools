@@ -10,6 +10,8 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
 /// Part-of-speech categories, stems, and features.
 pub mod analysis;
+/// Chunk sequence primitive (main / post-clitic / terminator) used for `%gra` alignment.
+pub mod chunk;
 /// Morphological item (`Mor`).
 pub mod item;
 /// Morphological tier (`MorTier`) container and validation.
@@ -21,6 +23,7 @@ pub mod word;
 mod tests;
 
 pub use analysis::{MorFeature, MorStem, PosCategory};
+pub use chunk::{MorChunk, MorChunkKind};
 pub use item::Mor;
 pub use tier::{MorTier, MorTierType};
 pub use word::MorWord;

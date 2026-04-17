@@ -1,6 +1,8 @@
+
 # Real-Time Validation
 
-**Last updated:** 2026-03-30 13:40 EDT
+**Status:** Current
+**Last updated:** 2026-04-16 22:27 EDT
 
 The extension validates your CHAT file continuously as you type. Errors
 appear as underlined squiggles with diagnostic messages in the Problems
@@ -29,7 +31,7 @@ Each diagnostic includes:
 - **Related information** — points to the conflicting location (e.g., the
   @Participants header when a speaker is undeclared)
 
-> **[SCREENSHOT: Editor showing validation errors with squiggles and Problems panel]**
+> **(SCREENSHOT: Editor showing validation errors with squiggles and Problems panel)**
 > *Capture this: Open a CHAT file with deliberate errors (missing @End, undeclared speaker). Show the red squiggles and the Problems panel at the bottom.*
 
 ## Inlay hints
@@ -66,7 +68,7 @@ The `talkbank.validation.severity` setting controls which diagnostics appear:
 flowchart TD
     Change["Document Change"] --> Debounce["250ms Debounce"]
     Debounce --> Parse["Parse\n(tree-sitter)"]
-    Parse --> Validate["Model Validation\n(198 error codes)"]
+    Parse --> Validate["Model Validation\n(~190 error codes)"]
     Validate --> Convert["Convert to\nLSP Diagnostics"]
     Convert --> Publish["Publish to\nProblems Panel"]
 ```

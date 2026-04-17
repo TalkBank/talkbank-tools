@@ -74,19 +74,7 @@ fn span_contains(span: Span, offset: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_parser::TreeSitterParser;
-
-    fn parse_chat(content: &str) -> talkbank_model::model::ChatFile {
-        let parser = TreeSitterParser::new().unwrap();
-        parser.parse_chat_file(content).unwrap()
-    }
-
-    fn parse_tree(input: &str) -> tree_sitter::Tree {
-        let mut parser = tree_sitter::Parser::new();
-        let language = tree_sitter_talkbank::LANGUAGE;
-        parser.set_language(&language.into()).unwrap();
-        parser.parse(input, None).unwrap()
-    }
+    use crate::test_fixtures::{parse_chat, parse_chat_with_alignments, parse_tree};
 
     #[test]
     fn no_highlights_on_header_line() {
@@ -181,6 +169,66 @@ mod tests {
         assert!(
             !span_contains(span, 21),
             "After span end should not be contained"
+        );
+    }
+
+    /// Clicking a `%gra` relation whose `%mor` alignment lands on a
+    /// post-clitic chunk must highlight the main-tier word that **hosts**
+    /// the clitic, not a later sibling word. For the line
+    ///
+    /// ```text
+    /// *CHI:   it's cookies .
+    /// %mor:   pron|it~aux|be n|cookie .
+    /// %gra:   1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT
+    /// ```
+    ///
+    /// the relation `2|0|ROOT` refers to chunk 1 (the `aux|be` post-clitic
+    /// of the `it's` item), so the correct main-tier TEXT highlight covers
+    /// `it's` — not `cookies`.
+    ///
+    /// This test was RED until the handler stopped treating the
+    /// `gra_pair.mor_chunk_index` as if it were an index into `mor_align.pairs`
+    /// (which keys by `%mor` *item* index). The principled fix routes the
+    /// chunk index through [`MorTier::item_index_of_chunk`] before looking
+    /// up the main-tier alignment, so post-clitics correctly collapse to
+    /// their host item.
+    #[test]
+    fn gra_click_on_clitic_chunk_highlights_host_word_on_main_tier() {
+        // Line 5 is `*CHI:\tit's cookies .`.
+        //   char  0..5  = "*CHI:\t"   (6 bytes, but "\t" counts as 1 UTF-16 unit)
+        //   char  6..10 = "it's"
+        //   char 11..18 = "cookies"
+        //   char 19     = "."
+        // Line 7 is `%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT`.
+        //   char  0..5  = "%gra:\t"
+        //   char  6..13 = "1|2|SUBJ"
+        //   char 14     = " "
+        //   char 15..22 = "2|0|ROOT"  ← cursor here
+        let content = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n*CHI:\tit's cookies .\n%mor:\tpron|it~aux|be n|cookie .\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n@End\n";
+        let chat_file = parse_chat_with_alignments(content);
+        let tree = parse_tree(content);
+
+        let cursor_on_2_0_root = Position {
+            line: 7,
+            character: 18, // inside "2|0|ROOT"
+        };
+        let highlights = document_highlights(&chat_file, &tree, cursor_on_2_0_root, content)
+            .expect("clicking a %gra relation with alignment should produce highlights");
+
+        let text_highlight = highlights
+            .iter()
+            .find(|h| h.kind == Some(DocumentHighlightKind::TEXT))
+            .expect("expected a main-tier TEXT highlight for the aligned word");
+
+        // The TEXT highlight must land on "it's" (starts at char 6 on line 5),
+        // not on "cookies" (starts at char 11 on line 5). Before the fix the
+        // handler treated chunk index 1 as %mor item index 1, so the TEXT
+        // highlight incorrectly resolved to "cookies".
+        assert_eq!(text_highlight.range.start.line, 5);
+        assert!(
+            text_highlight.range.start.character <= 6 && text_highlight.range.end.character <= 10,
+            "expected TEXT highlight on `it's` (cols 6..=10), got {:?}",
+            text_highlight.range,
         );
     }
 

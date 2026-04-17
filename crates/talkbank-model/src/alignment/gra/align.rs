@@ -4,7 +4,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier>
 
-use crate::model::{GraTier, MorTier};
+use crate::model::{GraTier, MorChunk, MorChunkKind, MorTier};
 use crate::{ErrorCode, ErrorLabel, ParseError, Severity};
 
 use super::super::format::format_positional_mismatch;
@@ -40,7 +40,7 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
     // Create 1-1 pairs for the common range
     let min_len = mor_chunk_count.min(gra_count);
     for i in 0..min_len {
-        alignment = alignment.with_pair(GraAlignmentPair::new(Some(i), Some(i)));
+        alignment = alignment.with_pair(GraAlignmentPair::from_raw(Some(i), Some(i)));
     }
 
     // Handle length mismatch.
@@ -70,7 +70,7 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
 
         // Add placeholders for extra %mor chunks
         for i in gra_count..mor_chunk_count {
-            alignment = alignment.with_pair(GraAlignmentPair::new(Some(i), None));
+            alignment = alignment.with_pair(GraAlignmentPair::from_raw(Some(i), None));
         }
     } else if gra_count > mor_chunk_count {
         // %gra tier has more relations - %mor tier too short
@@ -93,7 +93,7 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
 
         // Add placeholders for extra %gra relations
         for i in mor_chunk_count..gra_count {
-            alignment = alignment.with_pair(GraAlignmentPair::new(None, Some(i)));
+            alignment = alignment.with_pair(GraAlignmentPair::from_raw(None, Some(i)));
         }
     }
 
@@ -143,31 +143,43 @@ pub fn align_mor_to_gra(mor: &MorTier, gra: &GraTier) -> GraAlignment {
     alignment
 }
 
-/// Extract %mor chunks as individual TierPositions for diagnostic display.
+/// Extract %mor chunks as individual [`TierPosition`]s for diagnostic display.
 ///
-/// Expands each `Mor` item into its constituent chunks (main + post-clitics),
-/// plus the terminator if present. Each chunk becomes one item in the output.
+/// Delegates the chunk walk to [`MorTier::chunks`] so there is exactly one
+/// definition of "the %mor chunk sequence" in the workspace. The only
+/// responsibility here is rendering each chunk as a display string and
+/// attaching the `description` label that downstream diagnostic formatting
+/// expects for non-main chunks.
 fn extract_mor_chunk_items(mor: &MorTier) -> Vec<TierPosition> {
-    let mut items = Vec::new();
-    for mor_item in mor.items.iter() {
-        items.push(TierPosition {
-            text: to_string(&mor_item.main),
-            description: None,
-        });
-        for clitic in &mor_item.post_clitics {
-            items.push(TierPosition {
+    mor.chunks()
+        .map(|chunk| match chunk {
+            MorChunk::Main(item) => TierPosition {
+                text: to_string(&item.main),
+                description: None,
+            },
+            MorChunk::PostClitic(_, clitic) => TierPosition {
                 text: to_string(clitic),
-                description: Some("post-clitic".to_string()),
-            });
-        }
+                description: Some(describe_chunk(MorChunkKind::PostClitic).to_owned()),
+            },
+            MorChunk::Terminator(term) => TierPosition {
+                text: term.to_owned(),
+                description: Some(describe_chunk(MorChunkKind::Terminator).to_owned()),
+            },
+        })
+        .collect()
+}
+
+/// Human-readable label for a `%mor` chunk kind, used in mismatch diagnostics.
+///
+/// Kept as a free function rather than a method on [`MorChunkKind`] because
+/// the labels are specific to this diagnostic surface; other consumers
+/// (hover cards, CLI renderers) may choose different wording.
+fn describe_chunk(kind: MorChunkKind) -> &'static str {
+    match kind {
+        MorChunkKind::Main => "",
+        MorChunkKind::PostClitic => "post-clitic",
+        MorChunkKind::Terminator => "terminator",
     }
-    if let Some(term) = &mor.terminator {
-        items.push(TierPosition {
-            text: term.to_string(),
-            description: Some("terminator".to_string()),
-        });
-    }
-    items
 }
 
 /// Extract %gra relations as TierPositions for diagnostic display.

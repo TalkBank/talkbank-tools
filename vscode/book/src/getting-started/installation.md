@@ -1,25 +1,29 @@
 # Installation
 
-**Last updated:** 2026-04-13 20:34 EDT
+**Last updated:** 2026-04-16 13:37 EDT
 
-This chapter walks you through installing VS Code, the TalkBank CHAT extension,
-and the language server binary that powers it. By the end, you will have a
-working environment where opening any `.cha` file gives you syntax highlighting,
-real-time validation, and all the features described in this book.
+This chapter walks you through installing VS Code and the TalkBank CHAT
+extension. The language server (`talkbank-lsp`) ships inside each
+platform-specific VSIX, so there is no separate binary to install. By the end,
+you will have a working environment where opening any `.cha` file gives you
+syntax highlighting, real-time validation, and all the features described in
+this book.
 
 ---
 
 ## Prerequisites
 
-You need two things:
+You need:
 
 1. **Visual Studio Code Insiders** version 1.110 or later
-2. **The `talkbank-lsp` binary** (the language server that powers every feature)
+2. **A platform-specific `.vsix` package** — each release publishes five
+   VSIXes (darwin-arm64, darwin-x64, linux-x64, linux-arm64, win32-x64)
+   with a prebuilt `talkbank-lsp` bundled inside
 
-The extension itself is a `.vsix` package installed into VS Code. It
-communicates with `talkbank-lsp` over stdio using the Language Server Protocol.
-The `talkbank-lsp` binary ships in the same release archive as the `chatter`
-CLI — installing the release places both on your PATH.
+The extension is a `.vsix` package installed into VS Code. Each
+platform-specific VSIX bundles the matching `talkbank-lsp` binary at
+`<extension>/server/talkbank-lsp[.exe]`, so end users do not need a Rust
+toolchain or any PATH setup.
 
 ---
 
@@ -54,65 +58,43 @@ sudo snap install code-insiders --classic
 
 ---
 
-## Step 2: Install the `talkbank-lsp` Binary
+## Step 2: Install the Extension
 
-`talkbank-lsp` is the standalone Rust language server the extension spawns.
-It ships in the same release archive as `chatter` (the CLI) — installing a
-release gives you both binaries.
+### Option A: Platform-specific VSIX (recommended)
 
-### From a release build
+1. Open <https://github.com/TalkBank/talkbank-tools/releases/latest>
+2. Download the `.vsix` that matches your host:
+   - `talkbank-chat-darwin-arm64.vsix` (Apple Silicon Macs)
+   - `talkbank-chat-darwin-x64.vsix` (Intel Macs)
+   - `talkbank-chat-linux-x64.vsix`
+   - `talkbank-chat-linux-arm64.vsix`
+   - `talkbank-chat-win32-x64.vsix`
+3. Install it:
 
-If you have a pre-built release archive, place both binaries somewhere on
-your system PATH:
+   ```bash
+   code-insiders --install-extension talkbank-chat-<platform>.vsix
+   ```
 
-```bash
-# Example: copy to /usr/local/bin
-cp chatter talkbank-lsp /usr/local/bin/
-talkbank-lsp --version
-```
+   Or from inside VS Code: open the Command Palette (`Cmd+Shift+P`), type
+   **"Extensions: Install from VSIX..."**, and select the `.vsix` file.
 
-### Building from source
+Each platform VSIX bundles a matching `talkbank-lsp` binary. No Rust
+toolchain or PATH setup is required.
 
-From the `talkbank-tools` repository root:
+### Option B: Ansible deployment (fleet machines)
 
-```bash
-cargo build --release -p talkbank-lsp -p talkbank-cli
-```
-
-The binaries are at `target/release/talkbank-lsp` and `target/release/chatter`.
-You can either add `target/release/` to your PATH or copy the binaries to a
-standard location.
-
-### Fleet machines (Ansible)
-
-On TalkBank fleet machines, both `talkbank-lsp` and `chatter` are deployed
-via Ansible. The deploy playbook builds the binaries and copies them to each
-machine. You do not need to install them manually.
-
----
-
-## Step 3: Install the Extension
-
-### Option A: Ansible deployment (fleet machines)
-
-On fleet machines, the extension `.vsix` is deployed automatically alongside
-`talkbank-lsp` and `chatter`. No manual installation is needed.
-
-### Option B: Manual `.vsix` install
-
-If you have a `.vsix` package file:
-
-```bash
-code-insiders --install-extension talkbank-chat-0.1.0.vsix
-```
-
-Or from inside VS Code: open the Command Palette (`Cmd+Shift+P`), type
-**"Extensions: Install from VSIX..."**, and select the `.vsix` file.
+On TalkBank fleet machines, the platform-matching VSIX is installed via
+Ansible. You do not need to install it manually.
 
 ### Option C: Development mode (building from source)
 
+Contributors running from a cloned workspace can build `talkbank-lsp` and
+launch the extension directly:
+
 ```bash
 # From the talkbank-tools/ repository root:
+cargo build --release -p talkbank-lsp
+
 cd vscode
 npm install
 npm run compile
@@ -121,9 +103,14 @@ npm run compile
 code-insiders --extensionDevelopmentPath=.
 ```
 
+In this mode the extension picks up the dev-tree build at
+`../target/release/talkbank-lsp` (or `target/debug/` after `cargo build -p
+talkbank-lsp`). Producing a full set of platform VSIXes is covered in
+the [Releasing chapter](../developer/releasing.md).
+
 ---
 
-## Step 4: Verify the Installation
+## Step 3: Verify the Installation
 
 1. Open VS Code Insiders
 2. Open any `.cha` file (if you have the repository, try one from
@@ -135,7 +122,7 @@ code-insiders --extensionDevelopmentPath=.
      underlines and in the Problems panel (`Cmd+Shift+M`)
    - **"CHAT Validation" tree view** in the Explorer sidebar
 
-> **[SCREENSHOT: VS Code Insiders with a CHAT file open]**
+> **(SCREENSHOT: VS Code Insiders with a CHAT file open)**
 > *Capture this: a `.cha` file from `corpus/reference/` open in the editor,
 > showing syntax highlighting, the Problems panel with diagnostics, and the
 > CHAT Validation tree view in the Explorer sidebar.*
@@ -153,20 +140,24 @@ If you see plain, uncolored text, the extension did not activate. Check:
 
 When the extension starts, it searches for the `talkbank-lsp` binary in this order:
 
-1. **`talkbank.lsp.binaryPath` setting** -- if you have set an explicit path in
-   VS Code settings, that path is used directly
-2. **System PATH** -- searches for `talkbank-lsp` using the standard `which` lookup
-3. **`target/debug/talkbank-lsp`** -- relative to the extension directory (for
-   developers running from the source tree)
-4. **`target/release/talkbank-lsp`** -- relative to the extension directory
+1. **`talkbank.lsp.binaryPath` setting** -- if set and the file exists, that
+   path is used directly (explicit override)
+2. **Bundled binary** -- `<extension>/server/talkbank-lsp[.exe]`, shipped with
+   each platform-specific VSIX
+3. **System PATH** -- `which talkbank-lsp`, for developers who install via
+   `cargo install`
+4. **Dev-tree builds** -- `<extension>/../target/debug/talkbank-lsp` or
+   `.../target/release/talkbank-lsp`, for contributors running from a cloned
+   workspace
+5. If none of these find a binary, an error notification appears with a link
+   to the `talkbank.lsp.binaryPath` setting
 
 The binary is spawned with no arguments. It speaks the Language Server Protocol
 over stdio as soon as it starts.
 
-If none of these paths find a valid binary, you will see an error notification.
-Set the `talkbank.lsp.binaryPath` setting to the absolute path of your
-`talkbank-lsp` binary to resolve this. See [Settings Reference](../configuration/settings.md)
-for details.
+See [Settings Reference](../configuration/settings.md) for the
+`talkbank.lsp.binaryPath` setting, and [LSP Connection](../troubleshooting/lsp.md)
+for troubleshooting a missing binary.
 
 ---
 

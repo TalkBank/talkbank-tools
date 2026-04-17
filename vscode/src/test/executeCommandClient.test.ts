@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import { Effect } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     ExecuteCommandRequestError,
@@ -21,13 +21,34 @@ function createClient(sendRequest: (method: string, payload: unknown) => Promise
 }
 
 describe('execute command client', () => {
-    it('returns typed string results through Effect', async () => {
-        const client = createClient(async () => 'digraph G {}');
+    it('decodes a dot variant from the dependency-graph response', async () => {
+        const client = createClient(async () => ({ kind: 'dot', source: 'digraph G {}' }));
 
         await expect(Effect.runPromise(client.showDependencyGraph(
             'file:///tmp/sample.cha',
             { line: 4, character: 2 } as never,
-        ))).resolves.toBe('digraph G {}');
+        ))).resolves.toEqual({ kind: 'dot', source: 'digraph G {}' });
+    });
+
+    it('decodes an unavailable variant without ever passing text as DOT', async () => {
+        const client = createClient(async () => ({ kind: 'unavailable', reason: 'No %mor tier found' }));
+
+        await expect(Effect.runPromise(client.showDependencyGraph(
+            'file:///tmp/sample.cha',
+            { line: 4, character: 2 } as never,
+        ))).resolves.toEqual({ kind: 'unavailable', reason: 'No %mor tier found' });
+    });
+
+    it('rejects a bare string response that does not carry a kind discriminant', async () => {
+        // Guards against a regression to the old stringly-typed protocol where
+        // the Graphviz renderer could receive "No %mor tier found" as DOT.
+        const client = createClient(async () => 'digraph G {}');
+
+        const result = await Effect.runPromise(Effect.either(client.showDependencyGraph(
+            'file:///tmp/sample.cha',
+            { line: 4, character: 2 } as never,
+        )));
+        expect(result._tag).toBe('Left');
     });
 
     it('wraps transport failures in a tagged request error', async () => {

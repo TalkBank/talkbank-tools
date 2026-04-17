@@ -24,6 +24,8 @@ use tree_sitter::{Node, Range as TsRange, Tree};
 
 use talkbank_model::model::ChatFile;
 
+use super::line_offsets::{compute_line_offsets, find_line_for_offset};
+
 /// Cached document with incremental parsing support.
 ///
 /// Stores the parsed ChatFile, tree-sitter Tree, and line mappings
@@ -408,16 +410,6 @@ pub fn collect_utterance_line_indices(chat_file: &ChatFile) -> Vec<usize> {
 
 /// Compute byte offsets for each line start.
 #[allow(dead_code)]
-fn compute_line_offsets(text: &str) -> Vec<usize> {
-    let mut offsets = vec![0];
-    for (i, ch) in text.char_indices() {
-        if ch == '\n' {
-            offsets.push(i + 1);
-        }
-    }
-    offsets
-}
-
 /// Build a mapping from line numbers to utterance indices.
 #[allow(dead_code)]
 fn build_line_utterance_map(chat_file: &ChatFile, line_offsets: &[usize]) -> Vec<Option<usize>> {
@@ -453,15 +445,6 @@ fn build_line_utterance_map(chat_file: &ChatFile, line_offsets: &[usize]) -> Vec
     }
 
     map
-}
-
-/// Find the line number containing the given byte offset.
-#[allow(dead_code)]
-fn find_line_for_offset(line_offsets: &[usize], offset: usize) -> usize {
-    match line_offsets.binary_search(&offset) {
-        Ok(line) => line,
-        Err(line) => line.saturating_sub(1),
-    }
 }
 
 #[cfg(test)]
@@ -541,37 +524,8 @@ mod tests {
             .unwrap_or(old_text.len().min(new_text.len()))
     }
 
-    #[test]
-    fn test_compute_line_offsets() {
-        let text = "line1\nline2\nline3";
-        let offsets = compute_line_offsets(text);
-        assert_eq!(offsets, vec![0, 6, 12]);
-    }
-
-    #[test]
-    fn test_compute_line_offsets_empty() {
-        let text = "";
-        let offsets = compute_line_offsets(text);
-        assert_eq!(offsets, vec![0]);
-    }
-
-    #[test]
-    fn test_compute_line_offsets_trailing_newline() {
-        let text = "line1\nline2\n";
-        let offsets = compute_line_offsets(text);
-        assert_eq!(offsets, vec![0, 6, 12]);
-    }
-
-    #[test]
-    fn test_find_line_for_offset() {
-        let offsets = vec![0, 6, 12, 18];
-        assert_eq!(find_line_for_offset(&offsets, 0), 0);
-        assert_eq!(find_line_for_offset(&offsets, 3), 0);
-        assert_eq!(find_line_for_offset(&offsets, 6), 1);
-        assert_eq!(find_line_for_offset(&offsets, 10), 1);
-        assert_eq!(find_line_for_offset(&offsets, 12), 2);
-        assert_eq!(find_line_for_offset(&offsets, 17), 2);
-    }
+    // Tests for `compute_line_offsets` and `find_line_for_offset`
+    // now live next to the implementation in `backend/line_offsets.rs`.
 
     /// Minimal valid CHAT preamble for splice tests.
     const PREAMBLE: &str = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|test|CHI|||||Child|||\n";
