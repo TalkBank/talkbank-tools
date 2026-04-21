@@ -49,22 +49,61 @@ impl XmlEmitter {
 
     fn emit_side_tier(&mut self, tier: &DependentTier) -> Result<(), XmlWriteError> {
         let (tag_type, flavor, text): (&str, Option<&str>, String) = match tier {
+            // BulletContent tiers
             DependentTier::Act(t) => ("actions", None, bullet_content_plain_text(&t.content)?),
             DependentTier::Com(t) => ("comments", None, bullet_content_plain_text(&t.content)?),
             DependentTier::Exp(t) => ("explanation", None, bullet_content_plain_text(&t.content)?),
             DependentTier::Sit(t) => ("situation", None, bullet_content_plain_text(&t.content)?),
             DependentTier::Gpx(t) => ("gesture", None, bullet_content_plain_text(&t.content)?),
+            DependentTier::Add(t) => ("addressee", None, bullet_content_plain_text(&t.content)?),
+            DependentTier::Int(t) => ("intonation", None, bullet_content_plain_text(&t.content)?),
+            DependentTier::Spa(t) => ("speech act", None, bullet_content_plain_text(&t.content)?),
+            // Structured-content tiers that project onto text `<a>`
+            // since their XSD shape is plain text.
+            DependentTier::Cod(t) => ("coding", None, bullet_content_plain_text(&t.content)?),
+
+            // Simple string-content tiers (`TextTier`).
+            DependentTier::Alt(t) => ("alternative", None, t.content.as_str().to_owned()),
+            DependentTier::Coh(t) => ("cohesion", None, t.content.as_str().to_owned()),
+            DependentTier::Def(t) => ("SALT", None, t.content.as_str().to_owned()),
+            DependentTier::Eng(t) => ("english translation", None, t.content.as_str().to_owned()),
+            DependentTier::Err(t) => ("errcoding", None, t.content.as_str().to_owned()),
+            DependentTier::Fac(t) => ("facial", None, t.content.as_str().to_owned()),
+            DependentTier::Flo(t) => ("flow", None, t.content.as_str().to_owned()),
+            DependentTier::Gls(t) => ("target gloss", None, t.content.as_str().to_owned()),
+            DependentTier::Ort(t) => ("orthography", None, t.content.as_str().to_owned()),
+            DependentTier::Par(t) => ("paralinguistics", None, t.content.as_str().to_owned()),
+            DependentTier::Tim(t) => ("time stamp", None, t.as_str().to_owned()),
+
             // `%xLABEL` — the tier label carries the x-prefix (e.g.
             // `xpho` for `%xpho`). Java Chatter strips the prefix
             // and uses the remainder as the `flavor` attribute.
-            DependentTier::UserDefined(t) => {
+            DependentTier::UserDefined(t) | DependentTier::Unsupported(t) => {
                 let label = t.label.as_str();
                 let flavor = label.strip_prefix('x').unwrap_or(label);
                 ("extension", Some(flavor), t.content.as_str().to_owned())
             }
+            // `%sin` — structured sign-language annotation rendered
+            // as plain text via `WriteChat` for round-trip fidelity.
+            // See `collect_utterance_tiers` for the rationale.
+            DependentTier::Sin(sin) => {
+                use talkbank_model::model::WriteChat;
+                let mut buf = String::new();
+                sin.write_chat(&mut buf)
+                    .map_err(|e| XmlWriteError::MissingMetadata {
+                        what: format!("failed to serialize %sin for extension text: {e}"),
+                    })?;
+                ("gesture", None, buf)
+            }
             other => {
+                // Remaining variants (%mor, %gra, %wor, %pho, %mod,
+                // %sin, syllable tiers) have their own structured
+                // emitters and must never reach this text-only path.
                 return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: format!("side tier emission for {}", tier_kind(other)),
+                    feature: format!(
+                        "side tier emission for structured tier {}",
+                        tier_kind(other)
+                    ),
                 });
             }
         };

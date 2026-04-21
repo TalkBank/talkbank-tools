@@ -48,7 +48,17 @@ impl XmlEmitter {
         // but we keep Java's ordering to minimize diff noise during
         // development.
         if let Some(media) = file.media.as_deref() {
-            root.push_attribute(("Media", media.filename.as_str()));
+            // CHAT `@Media:` values can be bare filenames or
+            // double-quoted URLs (`"https://…"`). The XSD
+            // `mediaRefType` is `xs:anyURI`, which rejects the
+            // embedded quotes — strip them at the emission
+            // boundary so the attribute is schema-legal.
+            let raw = media.filename.as_str();
+            let stripped = raw
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .unwrap_or(raw);
+            root.push_attribute(("Media", stripped));
             root.push_attribute(("Mediatypes", media.media_type.as_str()));
         }
         root.push_attribute(("Version", SCHEMA_VERSION));
@@ -172,6 +182,8 @@ impl XmlEmitter {
     /// headers, warnings, etc.) report `FeatureNotImplemented`.
     fn emit_header_if_body(&mut self, header: &Header) -> Result<(), XmlWriteError> {
         match header {
+            // Scaffold + root-attribute + per-speaker metadata headers
+            // already consumed by `emit_document` / `emit_participants`.
             Header::Utf8
             | Header::Begin
             | Header::End
@@ -185,10 +197,18 @@ impl XmlEmitter {
             | Header::Media(_)
             | Header::Pid { .. } => Ok(()),
 
-            // @Date appears twice in XML: once as a root `Date="YYYY-MM-DD"`
-            // attribute (normalized ISO form) and once as a
-            // `<comment type="Date">DD-MMM-YYYY</comment>` preserving the
-            // original CHAT text. Matches Java Chatter.
+            // @Bg/@Eg/@G gems render as standalone XML elements at
+            // the same level as `<u>`, not as `<comment>` children.
+            // The `label` attribute is required in the XSD; when CHAT
+            // source omits it, emit an empty string to stay
+            // schema-valid.
+            Header::BeginGem { label } => self.emit_gem("begin-gem", gem_label(label)),
+            Header::EndGem { label } => self.emit_gem("end-gem", gem_label(label)),
+            Header::LazyGem { label } => self.emit_gem("lazy-gem", gem_label(label)),
+
+            // @Date appears twice: once as a root `Date="YYYY-MM-DD"`
+            // attribute and once as a `<comment type="Date">DD-MMM-
+            // YYYY</comment>` preserving the original CHAT text.
             Header::Date { date } => self.emit_typed_comment("Date", date.as_str()),
 
             Header::Comment { content } => {
@@ -205,11 +225,28 @@ impl XmlEmitter {
             Header::Transcription { transcription } => {
                 self.emit_typed_comment("Transcription", transcription.as_str())
             }
+            Header::Warning { text } => self.emit_typed_comment("Warning", text.as_str()),
+            Header::Bck { bck } => self.emit_typed_comment("Bck", bck.as_str()),
+            Header::Number { number } => self.emit_typed_comment("Number", number.as_str()),
+            Header::RecordingQuality { quality } => {
+                self.emit_typed_comment("Recording Quality", quality.as_str())
+            }
+            Header::TapeLocation { location } => {
+                self.emit_typed_comment("Tape Location", location.as_str())
+            }
+            Header::TimeDuration { duration } => {
+                self.emit_typed_comment("Time Duration", duration.as_str())
+            }
+            Header::TimeStart { start } => self.emit_typed_comment("Time Start", start.as_str()),
+            Header::RoomLayout { layout } => {
+                self.emit_typed_comment("Room Layout", layout.as_str())
+            }
+            Header::Page { page } => self.emit_typed_comment("Page", page.as_str()),
+            Header::T { text } => self.emit_typed_comment("T", text.as_str()),
 
             // `@Types: design, activity, group` → `<comment
             // type="Types">design, activity, group</comment>`. The three
-            // fields are always emitted, comma-space separated, matching
-            // Java Chatter's output on the reference corpus.
+            // fields are always emitted, comma-space separated.
             Header::Types(types) => {
                 let payload = format!(
                     "{}, {}, {}",
@@ -220,12 +257,47 @@ impl XmlEmitter {
                 self.emit_typed_comment("Types", &payload)
             }
 
-            other => Err(XmlWriteError::FeatureNotImplemented {
-                feature: format!("body-level header: {}", header_kind(other)),
-            }),
+            // Display-preference headers (font/window/color-words)
+            // and videos all route through a "Generic" comment since
+            // the XSD doesn't have typed elements for them.
+            Header::Font { font } => self.emit_typed_comment("Generic", font.as_str()),
+            Header::Window { geometry } => self.emit_typed_comment("Generic", geometry.as_str()),
+            Header::ColorWords { colors } => self.emit_typed_comment("Generic", colors.as_str()),
+            Header::Videos { videos } => self.emit_typed_comment("Generic", videos.as_str()),
+            // Marker headers with no payload. The XSD has dedicated
+            // `"New Episode"` and `"Blank"` `commentTypeType` values.
+            Header::NewEpisode => self.emit_typed_comment("New Episode", ""),
+            Header::Blank => self.emit_typed_comment("Blank", ""),
+
+            // Lenient-parse fallback. Preserve the original text in a
+            // generic comment so the utterance stays well-formed; the
+            // diagnostic `parse_reason` / `suggested_fix` fields are
+            // validator metadata, not content, and don't project to XML.
+            Header::Unknown { text, .. } => self.emit_typed_comment("Generic", text.as_str()),
         }
     }
 
+    /// Emit `<begin-gem>` / `<end-gem>` / `<lazy-gem>` with the
+    /// `label` attribute. Java Chatter emits them as standalone empty
+    /// elements alongside `<u>`, not inside `<comment>`.
+    fn emit_gem(&mut self, element: &'static str, label: &str) -> Result<(), XmlWriteError> {
+        let mut tag = BytesStart::new(element);
+        tag.push_attribute(("label", label));
+        self.writer.write_event(Event::Empty(tag))?;
+        Ok(())
+    }
+}
+
+/// Resolve an optional [`GemLabel`] to the `label="…"` attribute
+/// value for `<begin-gem>` / `<end-gem>` / `<lazy-gem>`. The XSD
+/// marks `label` as required, so when CHAT source omits it we emit
+/// an empty string — schema-legal and round-trippable.
+fn gem_label(label: &Option<talkbank_model::model::GemLabel>) -> &str {
+    label.as_ref().map(|l| l.as_str()).unwrap_or("")
+}
+
+// Re-open the `impl XmlEmitter` block for the remaining methods.
+impl XmlEmitter {
     /// Emit `<comment type="X">text</comment>`. Shared by `@Comment`
     /// and the typed metadata headers that project onto comments in
     /// the XML schema.
@@ -406,9 +478,78 @@ impl XmlEmitter {
                     mor_cursor += mor_used;
                     gra_chunk += gra_used;
                 }
-                other => {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: format!("utterance content variant: {}", content_kind(other)),
+                UtteranceContent::AnnotatedEvent(annotated) => {
+                    // `&=descriptor [!]` → `<e><happening>text</happening>
+                    // <k type="stressing"/></e>`. Annotations on an
+                    // event attach *inside* `<e>` rather than wrapping
+                    // it in `<g>`, per the XSD `<e>` choice sequence.
+                    self.emit_annotated_event(annotated)?;
+                }
+                UtteranceContent::Group(group) => {
+                    // Bare `<word word>` group (no scoped annotations).
+                    // Rendered as `<g>` with inner `<w>` children —
+                    // same shape as `AnnotatedGroup` minus the
+                    // annotation siblings.
+                    let (mor_used, gra_used) =
+                        self.emit_bare_group(group, &tiers, mor_cursor, gra_chunk)?;
+                    mor_cursor += mor_used;
+                    gra_chunk += gra_used;
+                }
+                UtteranceContent::Quotation(quotation) => {
+                    self.emit_quotation(quotation)?;
+                }
+                UtteranceContent::Freecode(freecode) => {
+                    self.emit_freecode(freecode)?;
+                }
+                UtteranceContent::LongFeatureBegin(lf) => {
+                    self.emit_long_feature("begin", lf.label.as_str())?;
+                }
+                UtteranceContent::LongFeatureEnd(lf) => {
+                    self.emit_long_feature("end", lf.label.as_str())?;
+                }
+                UtteranceContent::NonvocalBegin(nv) => {
+                    self.emit_nonvocal("begin", nv.label.as_str())?;
+                }
+                UtteranceContent::NonvocalEnd(nv) => {
+                    self.emit_nonvocal("end", nv.label.as_str())?;
+                }
+                UtteranceContent::NonvocalSimple(nv) => {
+                    self.emit_nonvocal("simple", nv.label.as_str())?;
+                }
+                UtteranceContent::UnderlineBegin(_) => {
+                    let mut tag = quick_xml::events::BytesStart::new("underline");
+                    tag.push_attribute(("type", "begin"));
+                    self.writer
+                        .write_event(quick_xml::events::Event::Empty(tag))?;
+                }
+                UtteranceContent::UnderlineEnd(_) => {
+                    let mut tag = quick_xml::events::BytesStart::new("underline");
+                    tag.push_attribute(("type", "end"));
+                    self.writer
+                        .write_event(quick_xml::events::Event::Empty(tag))?;
+                }
+                UtteranceContent::InternalBullet(bullet) => {
+                    // Standalone bullet inside main content (rare;
+                    // usually bullets attach to a word) — emit as
+                    // `<internal-media>` using the same seconds
+                    // formatting as `%wor` bullets.
+                    self.emit_internal_media(bullet)?;
+                }
+                UtteranceContent::OtherSpokenEvent(event) => {
+                    // `&*WHO=word` interposed-speaker marker. Per the
+                    // XSD, `<otherSpokenEvent>` nests inside `<e>`
+                    // alongside `<action>` and `<happening>`.
+                    self.emit_other_spoken_event(event)?;
+                }
+                UtteranceContent::PhoGroup(_) | UtteranceContent::SinGroup(_) => {
+                    // `<pg>` / `<sg>` are Phon-specific structured
+                    // payloads. Permanently out of scope (same
+                    // policy as `%pho` / `%mod` tiers) — surface as
+                    // `PhoneticTierUnsupported` at the utterance
+                    // level rather than an open-ended
+                    // `FeatureNotImplemented`.
+                    return Err(XmlWriteError::PhoneticTierUnsupported {
+                        utterance_index: self.next_utterance_id.saturating_sub(1) as usize,
                     });
                 }
             }
@@ -492,51 +633,6 @@ fn join_codes_with_space(codes: &[talkbank_model::model::LanguageCode]) -> Strin
         out.push_str(code.as_str());
     }
     out
-}
-
-/// Short display name for a [`Header`] variant, used in
-/// `FeatureNotImplemented` errors so the harness output tells the
-/// reader which CHAT feature is still pending.
-fn header_kind(header: &Header) -> &'static str {
-    match header {
-        Header::Utf8 => "@UTF8",
-        Header::Begin => "@Begin",
-        Header::End => "@End",
-        Header::Languages { .. } => "@Languages",
-        Header::Participants { .. } => "@Participants",
-        Header::ID(_) => "@ID",
-        Header::Date { .. } => "@Date",
-        Header::Comment { .. } => "@Comment",
-        Header::Pid { .. } => "@PID",
-        Header::Media(_) => "@Media",
-        Header::Situation { .. } => "@Situation",
-        Header::Types(_) => "@Types",
-        _ => "(other header)",
-    }
-}
-
-/// Short display name for a [`UtteranceContent`] variant, used only
-/// in `FeatureNotImplemented` diagnostics when the dispatch match in
-/// `emit_utterance` hits an unimplemented content variant.
-fn content_kind(c: &UtteranceContent) -> &'static str {
-    match c {
-        UtteranceContent::Word(_) => "Word",
-        UtteranceContent::AnnotatedWord(_) => "AnnotatedWord",
-        UtteranceContent::ReplacedWord(_) => "ReplacedWord",
-        UtteranceContent::Event(_) => "Event",
-        UtteranceContent::AnnotatedEvent(_) => "AnnotatedEvent",
-        UtteranceContent::Pause(_) => "Pause",
-        UtteranceContent::Group(_) => "Group",
-        UtteranceContent::AnnotatedGroup(_) => "AnnotatedGroup",
-        UtteranceContent::Retrace(_) => "Retrace",
-        UtteranceContent::PhoGroup(_) => "PhoGroup",
-        UtteranceContent::SinGroup(_) => "SinGroup",
-        UtteranceContent::Quotation(_) => "Quotation",
-        UtteranceContent::AnnotatedAction(_) => "AnnotatedAction",
-        UtteranceContent::Freecode(_) => "Freecode",
-        UtteranceContent::Separator(_) => "Separator",
-        _ => "(other content)",
-    }
 }
 
 /// Locate the `@Types` header (if any). Returns a borrowed
@@ -729,15 +825,33 @@ pub(super) fn bullet_content_plain_text(content: &BulletContent) -> Result<Strin
     for segment in content.segments.0.iter() {
         match segment {
             BulletContentSegment::Text(text) => out.push_str(&text.text),
-            BulletContentSegment::Bullet(_) => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: "media bullet inside comment".to_owned(),
-                });
+            BulletContentSegment::Bullet(bullet) => {
+                // `<comment>` is plain-text per XSD — the CHAT NAK
+                // delimiter (U+0015) is a control char that XML 1.0
+                // rejects outright. Emit the bullet payload as a
+                // space-separated inline form (`[start_end]`) so the
+                // information survives in a round-trip-friendly
+                // representation without breaking the schema.
+                if !out.is_empty() && !out.ends_with(' ') {
+                    out.push(' ');
+                }
+                out.push('[');
+                out.push_str(&bullet.start_ms.to_string());
+                out.push('_');
+                out.push_str(&bullet.end_ms.to_string());
+                out.push(']');
             }
-            BulletContentSegment::Picture(_) => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: "picture segment inside comment".to_owned(),
-                });
+            BulletContentSegment::Picture(picture) => {
+                // Same rationale as bullets — avoid the NAK
+                // delimiter and render the picture reference
+                // inline with `%pic:"filename"` minus the
+                // surrounding control bytes.
+                if !out.is_empty() && !out.ends_with(' ') {
+                    out.push(' ');
+                }
+                out.push_str("%pic:\"");
+                out.push_str(picture.filename.as_str());
+                out.push('"');
             }
             BulletContentSegment::Continuation => {
                 // Continuation = tab-indented wrapped line. In XML the

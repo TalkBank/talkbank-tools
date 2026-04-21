@@ -162,34 +162,53 @@ pub(super) fn collect_utterance_tiers(
             // happens in `super::deptier::emit_side_tiers` after the
             // main-tier block.
             DependentTier::Act(_)
+            | DependentTier::Add(_)
+            | DependentTier::Cod(_)
             | DependentTier::Com(_)
             | DependentTier::Exp(_)
-            | DependentTier::Sit(_)
             | DependentTier::Gpx(_)
-            | DependentTier::UserDefined(_) => {
+            | DependentTier::Int(_)
+            | DependentTier::Sit(_)
+            | DependentTier::Spa(_)
+            | DependentTier::Alt(_)
+            | DependentTier::Coh(_)
+            | DependentTier::Def(_)
+            | DependentTier::Eng(_)
+            | DependentTier::Err(_)
+            | DependentTier::Fac(_)
+            | DependentTier::Flo(_)
+            | DependentTier::Gls(_)
+            | DependentTier::Ort(_)
+            | DependentTier::Par(_)
+            | DependentTier::Tim(_)
+            | DependentTier::UserDefined(_)
+            | DependentTier::Unsupported(_) => {
                 out.side_tiers.push(tier);
                 continue;
             }
             DependentTier::Mor(m) => {
                 if out.mor.is_some() {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: "multiple %mor tiers on one utterance".to_owned(),
+                    return Err(XmlWriteError::MultipleStructuredTiers {
+                        utterance_index,
+                        tier: "%mor",
                     });
                 }
                 out.mor = Some(m);
             }
             DependentTier::Gra(g) => {
                 if out.gra.is_some() {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: "multiple %gra tiers on one utterance".to_owned(),
+                    return Err(XmlWriteError::MultipleStructuredTiers {
+                        utterance_index,
+                        tier: "%gra",
                     });
                 }
                 out.gra = Some(&g.relations.0);
             }
             DependentTier::Wor(w) => {
                 if out.wor.is_some() {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: "multiple %wor tiers on one utterance".to_owned(),
+                    return Err(XmlWriteError::MultipleStructuredTiers {
+                        utterance_index,
+                        tier: "%wor",
                     });
                 }
                 out.wor = Some(w);
@@ -204,10 +223,15 @@ pub(super) fn collect_utterance_tiers(
                 // `XmlWriteError::PhoneticTierUnsupported`.
                 return Err(XmlWriteError::PhoneticTierUnsupported { utterance_index });
             }
-            other => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: format!("dependent tier '{}'", tier_kind(other)),
-                });
+            DependentTier::Sin(_) => {
+                // `%sin` carries structured sign-language annotation
+                // that maps to the `<sg>` XSD element. Structured
+                // emission isn't wired today — route through the
+                // side-tier text path so the tier stays round-
+                // trippable through the `<a type="gesture">` shape
+                // (the closest semantic match in `annotationTypeType`).
+                out.side_tiers.push(tier);
+                continue;
             }
         }
     }

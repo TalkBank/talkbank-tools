@@ -49,6 +49,20 @@ pub enum XmlWriteError {
         feature: String,
     },
 
+    /// An utterance carries more than one structured dependent tier
+    /// of the same kind (e.g. two `%mor` lines). Rust's
+    /// `UtteranceTiers` holds a single slot per structured tier;
+    /// the XML emitter surfaces the collision as a hard error
+    /// because silent "keep first, drop rest" would lose data.
+    /// Valid CHAT keeps these tiers singular per utterance.
+    #[error("utterance {utterance_index} has multiple {tier} tiers; XML emission requires one")]
+    MultipleStructuredTiers {
+        /// 0-based index of the offending utterance.
+        utterance_index: usize,
+        /// Tier label (`"%mor"`, `"%gra"`, `"%wor"`).
+        tier: &'static str,
+    },
+
     /// Required metadata was absent from the model. Indicates a malformed
     /// `ChatFile` — e.g. a participant with no `@ID` — reaching the
     /// emitter. Upstream validation should normally have caught it.

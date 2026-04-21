@@ -34,7 +34,7 @@
 use quick_xml::events::{BytesEnd, BytesStart, Event};
 
 use talkbank_model::model::dependent_tier::wor::WorItem;
-use talkbank_model::model::{Bullet, Terminator, WorTier};
+use talkbank_model::model::{Bullet, WorTier};
 
 use super::error::XmlWriteError;
 use super::writer::{XmlEmitter, escape_text};
@@ -96,48 +96,44 @@ impl XmlEmitter {
                     // the missing-bullet case — matches the schema
                     // (internal-media is optional).
                 }
-                WorItem::Separator { .. } => {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: "%wor separator (`,` / `„` / `‡`) XML shape".to_owned(),
-                    });
+                WorItem::Separator { text, .. } => {
+                    // `%wor` inherits the same three tag-marker
+                    // glyphs as the main tier: `,` → `comma`,
+                    // `„` → `tag`, `‡` → `vocative`. Emit an empty
+                    // `<tagMarker>` — `%wor` separators never
+                    // carry mor.
+                    let ty = match text.as_str() {
+                        "," => "comma",
+                        "„" => "tag",
+                        "‡" => "vocative",
+                        other => {
+                            return Err(XmlWriteError::FeatureNotImplemented {
+                                feature: format!(
+                                    "%wor separator with unknown marker text: {other:?}"
+                                ),
+                            });
+                        }
+                    };
+                    let mut tag = BytesStart::new("tagMarker");
+                    tag.push_attribute(("type", ty));
+                    self.writer.write_event(Event::Empty(tag))?;
                 }
             }
         }
 
         // Java Chatter closes every `<wor>` block with a terminator
         // `<t type="…"/>` matching the utterance's main-tier
-        // terminator. Staged variants (trailing-off, interruption)
-        // follow the same staged-feature pattern as main-tier
-        // terminators — fail loud so the harness surfaces them.
+        // terminator. Uses the same `baseTerminatorType` enumeration
+        // as the main tier.
         if let Some(terminator) = &wor.terminator {
-            let ty = wor_terminator_type(terminator)?;
             let mut t = BytesStart::new("t");
-            t.push_attribute(("type", ty));
+            t.push_attribute(("type", super::word::terminator_type_attr(terminator)));
             self.writer.write_event(Event::Empty(t))?;
         }
 
         self.writer.write_event(Event::End(BytesEnd::new("wor")))?;
         Ok(())
     }
-}
-
-/// Map a `%wor` terminator to the `<t type="…"/>` attribute value
-/// inside `<wor>`. Identical to the main-tier mapping in
-/// `super::word::emit_terminator`, intentionally duplicated here to
-/// keep the `%wor` emission self-contained and because the staged
-/// feature set may diverge (some CA terminators are valid on
-/// `%wor` but not the main tier, or vice versa).
-fn wor_terminator_type(terminator: &Terminator) -> Result<&'static str, XmlWriteError> {
-    Ok(match terminator {
-        Terminator::Period { .. } => "p",
-        Terminator::Question { .. } => "q",
-        Terminator::Exclamation { .. } => "e",
-        _ => {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "non-standard terminator inside %wor".to_owned(),
-            });
-        }
-    })
 }
 
 /// Lossless millisecond → `"S.sss"` seconds formatter. `3042` →

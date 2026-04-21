@@ -16,9 +16,9 @@ use quick_xml::events::{BytesEnd, BytesStart, Event};
 
 use talkbank_model::model::{
     Action, Annotated, BracketedItem, CADelimiter, CADelimiterType, CAElement, CAElementType,
-    ContentAnnotation, Event as CEvent, GrammaticalRelation, Linker, Mor, OverlapPointKind, Pause,
-    PauseDuration, ReplacedWord, Retrace, RetraceKind, Separator, Terminator, Word, WordContent,
-    WordStressMarkerType,
+    ContentAnnotation, Event as CEvent, FormType, GrammaticalRelation, Linker, Mor,
+    OverlapPointKind, Pause, PauseDuration, ReplacedWord, Retrace, RetraceKind, Separator,
+    Terminator, Word, WordContent, WordStressMarkerType,
 };
 
 use super::error::XmlWriteError;
@@ -38,13 +38,22 @@ impl XmlEmitter {
         gra: Option<&[GrammaticalRelation]>,
         chunk_index_1based: usize,
     ) -> Result<(), XmlWriteError> {
-        if word.form_type.is_some() || word.lang.is_some() || word.part_of_speech.is_some() {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "word with form/language/POS marker".to_owned(),
-            });
+        let mut start = BytesStart::new("w");
+
+        // `formType`: special-form marker (`@a`/`@b`/`@c`/…). The
+        // `@z:label` user-defined variant goes to `user-special-form`
+        // instead per the XSD.
+        let user_special_form;
+        if let Some(form) = &word.form_type {
+            if let Some(attr_value) = form_type_attr(form) {
+                start.push_attribute(("formType", attr_value));
+            } else if let FormType::UserDefined(code) = form {
+                user_special_form = code.clone();
+                start.push_attribute(("user-special-form", user_special_form.as_str()));
+                let _ = user_special_form;
+            }
         }
 
-        let mut start = BytesStart::new("w");
         if let Some(cat) = &word.category {
             // `CAOmission` (`(parens)`) has no `type=` attribute — it
             // renders as a whole-word shortening (see
@@ -53,26 +62,97 @@ impl XmlEmitter {
                 start.push_attribute(("type", attr));
             }
         }
-        // `word.untranscribed()` is case-insensitive — it intentionally
-        // treats `XXX`/`YYY`/`WWW` the same as the lowercase forms to
-        // keep downstream Stanza/MOR pipelines from producing spurious
-        // entries on uppercase variants (see
-        // `word_type.rs::compute_untranscribed`). The CHAT schema,
-        // however, only attaches the `untranscribed` XML attribute to
-        // the strictly-lowercase placeholders — `XXX` in source text
-        // is plain content. Gate on the literal text here.
+        // `word.untranscribed()` is case-insensitive as a Stanza/MOR
+        // correctness fix; the XML schema's `untranscribed` attribute
+        // is case-sensitive and attaches only to the strictly
+        // lowercase placeholders — gate on literal text here.
         if let Some(status) = untranscribed_attribute_for_xml(word) {
             start.push_attribute(("untranscribed", status));
         }
 
         self.writer.write_event(Event::Start(start))?;
+
+        // `<langs>` child (if present) sits at the start of the
+        // word, before any other content per the XSD sequence.
+        if let Some(lang) = &word.lang {
+            self.emit_langs(lang)?;
+        }
+
         self.emit_word_contents(word)?;
+
+        // Main-tier `$pos` suffix projects onto `<pos><c>tag</c></pos>`
+        // as a word child per the XSD. Subcategory `<s>` children
+        // aren't represented on the main-tier `Word` (that's %mor's
+        // job) — we emit just `<c>`.
+        if let Some(pos_tag) = &word.part_of_speech {
+            self.writer
+                .write_event(Event::Start(BytesStart::new("pos")))?;
+            self.writer
+                .write_event(Event::Start(BytesStart::new("c")))?;
+            self.writer
+                .write_event(Event::Text(escape_text(pos_tag.as_str())))?;
+            self.writer.write_event(Event::End(BytesEnd::new("c")))?;
+            self.writer.write_event(Event::End(BytesEnd::new("pos")))?;
+        }
 
         if let Some(mor) = mor {
             self.emit_word_mor_subtree(mor, gra, chunk_index_1based)?;
         }
 
         self.writer.write_event(Event::End(BytesEnd::new("w")))?;
+        Ok(())
+    }
+
+    /// Emit `<langs>` child for an `@s:code` marker. The schema
+    /// requires a `<single>` / `<multiple>` / `<ambiguous>` child.
+    /// Bare `@s` (`Shortcut`) has no explicit language code and is
+    /// omitted — the reader recovers the toggle semantics from
+    /// context per the CHAT manual.
+    fn emit_langs(
+        &mut self,
+        lang: &talkbank_model::model::WordLanguageMarker,
+    ) -> Result<(), XmlWriteError> {
+        use talkbank_model::model::WordLanguageMarker;
+        match lang {
+            WordLanguageMarker::Shortcut => Ok(()),
+            WordLanguageMarker::Explicit(code) => {
+                self.writer
+                    .write_event(Event::Start(BytesStart::new("langs")))?;
+                self.writer
+                    .write_event(Event::Start(BytesStart::new("single")))?;
+                self.writer
+                    .write_event(Event::Text(escape_text(code.as_str())))?;
+                self.writer
+                    .write_event(Event::End(BytesEnd::new("single")))?;
+                self.writer
+                    .write_event(Event::End(BytesEnd::new("langs")))?;
+                Ok(())
+            }
+            WordLanguageMarker::Multiple(codes) => self.emit_langs_group("multiple", codes),
+            WordLanguageMarker::Ambiguous(codes) => self.emit_langs_group("ambiguous", codes),
+        }
+    }
+
+    fn emit_langs_group(
+        &mut self,
+        child: &'static str,
+        codes: &[talkbank_model::model::LanguageCode],
+    ) -> Result<(), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("langs")))?;
+        self.writer
+            .write_event(Event::Start(BytesStart::new(child)))?;
+        let mut joined = String::new();
+        for (i, code) in codes.iter().enumerate() {
+            if i > 0 {
+                joined.push(' ');
+            }
+            joined.push_str(code.as_str());
+        }
+        self.writer.write_event(Event::Text(escape_text(&joined)))?;
+        self.writer.write_event(Event::End(BytesEnd::new(child)))?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("langs")))?;
         Ok(())
     }
 
@@ -203,10 +283,15 @@ impl XmlEmitter {
                     tag.push_attribute(("label", ca_delimiter_label(delimiter)));
                     self.writer.write_event(Event::Empty(tag))?;
                 }
-                other => {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: format!("word content variant: {}", word_content_kind(other)),
-                    });
+                WordContent::UnderlineBegin(_) => {
+                    let mut tag = BytesStart::new("underline");
+                    tag.push_attribute(("type", "begin"));
+                    self.writer.write_event(Event::Empty(tag))?;
+                }
+                WordContent::UnderlineEnd(_) => {
+                    let mut tag = BytesStart::new("underline");
+                    tag.push_attribute(("type", "end"));
+                    self.writer.write_event(Event::Empty(tag))?;
                 }
             }
         }
@@ -247,28 +332,7 @@ impl XmlEmitter {
         // `<t type="…"/>`. Java Chatter uses the short letter code
         // for the three standard sentence terminators and a prose
         // phrase for CA-specific variants.
-        let ty = match terminator {
-            Terminator::Period { .. } => "p",
-            Terminator::Question { .. } => "q",
-            Terminator::Exclamation { .. } => "e",
-            Terminator::TrailingOff { .. } => "trail off",
-            Terminator::CaRisingToHigh { .. }
-            | Terminator::CaRisingToMid { .. }
-            | Terminator::CaLevel { .. }
-            | Terminator::CaFallingToMid { .. }
-            | Terminator::CaFallingToLow { .. } => "missing CA terminator",
-            Terminator::CaNoBreak { .. } | Terminator::CaNoBreakLinker { .. } => {
-                "no break TCU continuation"
-            }
-            Terminator::CaTechnicalBreak { .. } | Terminator::CaTechnicalBreakLinker { .. } => {
-                "technical break TCU continuation"
-            }
-            other => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: format!("terminator variant: {}", terminator_kind(other)),
-                });
-            }
-        };
+        let ty = terminator_type_attr(terminator);
         let mut start = BytesStart::new("t");
         start.push_attribute(("type", ty));
 
@@ -328,7 +392,15 @@ impl XmlEmitter {
             return Ok(());
         }
 
-        let tag_type = separator_tag_type(sep)?;
+        let tag_type = separator_tag_type(sep).ok_or_else(|| {
+            // Every `Separator` variant is covered by either the
+            // `<s>` or the `<tagMarker>` path — this arm is
+            // unreachable unless the `Separator` enum grows a new
+            // variant without updating either helper.
+            XmlWriteError::FeatureNotImplemented {
+                feature: format!("separator variant without XML mapping: {sep:?}"),
+            }
+        })?;
         let mut start = BytesStart::new("tagMarker");
         start.push_attribute(("type", tag_type));
 
@@ -346,35 +418,48 @@ impl XmlEmitter {
         Ok(())
     }
 
-    /// Emit `<pause symbolic-length="simple|long|very long"/>`.
-    /// Timed pauses are a separate TDD increment — they require a
-    /// `<pause length="X" unit="s"/>` shape and careful unit handling.
+    /// Emit `<pause symbolic-length="…" [length="…"]/>`. Symbolic
+    /// pauses use one of the three XSD enum values; timed pauses
+    /// add a numeric `length` attribute while keeping
+    /// `symbolic-length="simple"` since that attribute is required
+    /// by the schema even when the timing is explicit.
     pub(super) fn emit_pause(&mut self, pause: &Pause) -> Result<(), XmlWriteError> {
-        let length = match &pause.duration {
-            PauseDuration::Short => "simple",
-            PauseDuration::Medium => "long",
-            PauseDuration::Long => "very long",
-            PauseDuration::Timed(_) => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: "timed pause (numeric duration)".to_owned(),
-                });
+        let length_str;
+        let (symbolic, numeric) = match &pause.duration {
+            PauseDuration::Short => ("simple", None),
+            PauseDuration::Medium => ("long", None),
+            PauseDuration::Long => ("very long", None),
+            PauseDuration::Timed(timed) => {
+                use talkbank_model::model::PauseTimedDuration;
+                length_str = match timed {
+                    PauseTimedDuration::Parsed {
+                        seconds, millis, ..
+                    } => match millis {
+                        Some(ms) => format!("{seconds}.{ms:03}"),
+                        None => seconds.to_string(),
+                    },
+                    PauseTimedDuration::Unsupported(raw) => raw.as_str().to_owned(),
+                };
+                ("simple", Some(length_str.as_str()))
             }
         };
         let mut start = BytesStart::new("pause");
-        start.push_attribute(("symbolic-length", length));
+        start.push_attribute(("symbolic-length", symbolic));
+        if let Some(n) = numeric {
+            start.push_attribute(("length", n));
+        }
         self.writer.write_event(Event::Empty(start))?;
         Ok(())
     }
 
-    /// Emit `<g>…<k type="retracing"/></g>` for a retrace. The inner
-    /// content is walked with NO `%mor` alignment (retraced text is
-    /// excluded from `%mor` by CHAT convention).
+    /// Emit `<g>…<k type="retracing"/>[annotation…]</g>` for a
+    /// retrace. The inner content is walked with NO `%mor` alignment
+    /// (retraced text is excluded from `%mor` by CHAT convention).
+    /// Scoped annotations attached to the retrace (`[/] [= text]`,
+    /// `[/?] [!]`, …) are emitted as sibling children of `<k>` inside
+    /// the same `<g>` wrapper, using the same dispatch as
+    /// `emit_annotated_word`.
     pub(super) fn emit_retrace(&mut self, retrace: &Retrace) -> Result<(), XmlWriteError> {
-        if !retrace.annotations.is_empty() {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "retrace with attached annotations".to_owned(),
-            });
-        }
         self.writer
             .write_event(Event::Start(BytesStart::new("g")))?;
         for item in retrace.content.content.iter() {
@@ -384,6 +469,9 @@ impl XmlEmitter {
         let mut k = BytesStart::new("k");
         k.push_attribute(("type", kind));
         self.writer.write_event(Event::Empty(k))?;
+        for annotation in retrace.annotations.iter() {
+            self.emit_scoped_annotation(annotation)?;
+        }
         self.writer.write_event(Event::End(BytesEnd::new("g")))?;
         Ok(())
     }
@@ -405,8 +493,8 @@ impl XmlEmitter {
         // reports the missing feature precisely.
         let annotations = annotated.scoped_annotations.as_slice();
         if annotations.is_empty() {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "annotated word with zero scoped annotations".to_owned(),
+            return Err(XmlWriteError::MissingMetadata {
+                what: "annotated word reached emitter without scoped annotations".to_owned(),
             });
         }
 
@@ -423,52 +511,140 @@ impl XmlEmitter {
     }
 
     /// Emit the XML child element corresponding to a single
-    /// scoped-annotation. Called by `emit_annotated_word` and
-    /// (eventually) by replaced-word / retrace emitters that share
-    /// the same annotation surface. Mapping from CHAT to XML:
+    /// scoped-annotation. Mapping per `talkbank.xsd`:
     ///
     /// | CHAT | Rust variant | XML |
     /// |------|--------------|-----|
     /// | `[*]` (no code) | [`ContentAnnotation::Error`] | `<error/>` |
+    /// | `[*error_text]` | [`ContentAnnotation::Error`] with code | `<error>text</error>` |
     /// | `[= text]`      | [`ContentAnnotation::Explanation`] | `<ga type="explanation">text</ga>` |
-    /// | `[!]` | [`ContentAnnotation::Stressing`] | `<k type="stressing"/>` |
-    ///
-    /// All other scoped-annotation variants (`[!!]`, `[!*]`, `[?]`,
-    /// `[=! text]`, `[+ text]`, `[% text]`, alternatives, overlaps,
-    /// `[e]` exclude, …) fall through to `FeatureNotImplemented` —
-    /// each is a separate TDD increment.
+    /// | `[% text]`      | [`ContentAnnotation::PercentComment`] | `<ga type="comments">text</ga>` |
+    /// | `[=? text]`     | [`ContentAnnotation::Alternative`] | `<ga type="alternative">text</ga>` |
+    /// | `[=! text]`     | [`ContentAnnotation::Paralinguistic`] | `<ga type="paralinguistics">text</ga>` |
+    /// | `[+ text]`      | [`ContentAnnotation::Addition`] | `<a type="extension" flavor="addition">text</a>` |
+    /// | `[!]`           | [`ContentAnnotation::Stressing`] | `<k type="stressing"/>` |
+    /// | `[!!]`          | [`ContentAnnotation::ContrastiveStressing`] | `<k type="contrastive stressing"/>` |
+    /// | `[?]`           | [`ContentAnnotation::Uncertain`] / `BestGuess` | `<k type="best guess"/>` |
+    /// | `[e]`           | [`ContentAnnotation::Exclude`] | `<k type="mor exclude"/>` |
+    /// | `[# N]`         | [`ContentAnnotation::Duration`] | `<duration>N</duration>` |
+    /// | `[^c]` scoped | [`ContentAnnotation::CaContinuation`] | (no XML element; semantic-only) |
+    /// | `[<N]` / `[>N]` | overlap | `<overlap type="…" index="N"/>` |
     fn emit_scoped_annotation(
         &mut self,
         annotation: &ContentAnnotation,
     ) -> Result<(), XmlWriteError> {
         match annotation {
-            ContentAnnotation::Error(err) if err.code.is_none() => {
-                self.writer
-                    .write_event(Event::Empty(BytesStart::new("error")))?;
+            ContentAnnotation::Error(err) => {
+                if let Some(code) = &err.code {
+                    self.writer
+                        .write_event(Event::Start(BytesStart::new("error")))?;
+                    self.writer
+                        .write_event(Event::Text(escape_text(code.as_str())))?;
+                    self.writer
+                        .write_event(Event::End(BytesEnd::new("error")))?;
+                } else {
+                    self.writer
+                        .write_event(Event::Empty(BytesStart::new("error")))?;
+                }
                 Ok(())
             }
-            ContentAnnotation::Explanation(expl) => {
-                let mut tag = BytesStart::new("ga");
-                tag.push_attribute(("type", "explanation"));
+            ContentAnnotation::Explanation(expl) => self.emit_ga("explanation", expl.text.as_str()),
+            ContentAnnotation::PercentComment(cmt) => self.emit_ga("comments", cmt.text.as_str()),
+            ContentAnnotation::Alternative(alt) => self.emit_ga("alternative", alt.text.as_str()),
+            ContentAnnotation::Paralinguistic(para) => {
+                self.emit_ga("paralinguistics", para.text.as_str())
+            }
+            ContentAnnotation::Addition(add) => {
+                // `[+ text]` is a paralinguistic post-hoc addition. The
+                // schema routes it through `<a>` with the
+                // extension/addition flavor pair.
+                let mut tag = BytesStart::new("a");
+                tag.push_attribute(("type", "extension"));
+                tag.push_attribute(("flavor", "addition"));
                 self.writer.write_event(Event::Start(tag))?;
                 self.writer
-                    .write_event(Event::Text(escape_text(expl.text.as_str())))?;
-                self.writer.write_event(Event::End(BytesEnd::new("ga")))?;
+                    .write_event(Event::Text(escape_text(add.text.as_str())))?;
+                self.writer.write_event(Event::End(BytesEnd::new("a")))?;
                 Ok(())
             }
-            ContentAnnotation::Stressing => {
-                let mut tag = BytesStart::new("k");
-                tag.push_attribute(("type", "stressing"));
-                self.writer.write_event(Event::Empty(tag))?;
+            ContentAnnotation::Stressing => self.emit_k("stressing"),
+            ContentAnnotation::ContrastiveStressing => self.emit_k("contrastive stressing"),
+            ContentAnnotation::BestGuess | ContentAnnotation::Uncertain => {
+                self.emit_k("best guess")
+            }
+            ContentAnnotation::Exclude => self.emit_k("mor exclude"),
+            ContentAnnotation::Duration(dur) => {
+                // `<duration>` takes a numeric pause length per
+                // `pauseNumericLengthType`. The ScopedDuration's
+                // `time` field is the CHAT-side spelling of the
+                // value (e.g. `"2.5"`); passed through as-is.
+                self.writer
+                    .write_event(Event::Start(BytesStart::new("duration")))?;
+                self.writer
+                    .write_event(Event::Text(escape_text(dur.time.as_str())))?;
+                self.writer
+                    .write_event(Event::End(BytesEnd::new("duration")))?;
                 Ok(())
             }
-            other => Err(XmlWriteError::FeatureNotImplemented {
-                feature: format!(
-                    "scoped annotation variant: {}",
-                    scoped_annotation_kind(other)
-                ),
-            }),
+            ContentAnnotation::OverlapBegin(begin) => {
+                let mut tag = BytesStart::new("overlap");
+                tag.push_attribute(("type", "overlap precedes"));
+                if let Some(index) = &begin.index {
+                    let s = index.to_string();
+                    let mut t2 = tag;
+                    t2.push_attribute(("index", s.as_str()));
+                    self.writer.write_event(Event::Empty(t2))?;
+                } else {
+                    self.writer.write_event(Event::Empty(tag))?;
+                }
+                Ok(())
+            }
+            ContentAnnotation::OverlapEnd(end) => {
+                let mut tag = BytesStart::new("overlap");
+                tag.push_attribute(("type", "overlap follows"));
+                if let Some(index) = &end.index {
+                    let s = index.to_string();
+                    let mut t2 = tag;
+                    t2.push_attribute(("index", s.as_str()));
+                    self.writer.write_event(Event::Empty(t2))?;
+                } else {
+                    self.writer.write_event(Event::Empty(tag))?;
+                }
+                Ok(())
+            }
+            ContentAnnotation::CaContinuation => {
+                // `[^c]` is a semantic-only CA continuation marker:
+                // it affects parsing / roundtrip but projects to no
+                // XML element per the schema. No-op is the correct
+                // emission.
+                Ok(())
+            }
+            ContentAnnotation::Unknown(unknown) => {
+                // Lenient-parse fallback for unrecognised `[…]`
+                // annotations. Preserve marker + text as a generic
+                // `<ga type="comments">` so the payload survives
+                // round-trip; the validator has already flagged the
+                // shape.
+                let payload = format!("{}{}", unknown.marker, unknown.text);
+                self.emit_ga("comments", &payload)
+            }
         }
+    }
+
+    fn emit_k(&mut self, ty: &'static str) -> Result<(), XmlWriteError> {
+        let mut tag = BytesStart::new("k");
+        tag.push_attribute(("type", ty));
+        self.writer.write_event(Event::Empty(tag))?;
+        Ok(())
+    }
+
+    fn emit_ga(&mut self, ty: &'static str, text: &str) -> Result<(), XmlWriteError> {
+        let mut tag = BytesStart::new("ga");
+        tag.push_attribute(("type", ty));
+        self.writer.write_event(Event::Start(tag))?;
+        self.writer.write_event(Event::Text(escape_text(text)))?;
+        self.writer.write_event(Event::End(BytesEnd::new("ga")))?;
+        Ok(())
     }
 
     /// Emit `<w>original<replacement><w>r1</w><w>r2</w>…</replacement></w>`.
@@ -595,15 +771,17 @@ impl XmlEmitter {
         &mut self,
         annotated: &Annotated<Action>,
     ) -> Result<(), XmlWriteError> {
-        if !annotated.scoped_annotations.is_empty() {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "annotated action with scoped annotations".to_owned(),
-            });
-        }
+        // `<e><action/>[annotation…]</e>`. Scoped annotations
+        // attach inside `<e>` per the XSD sequence (same as
+        // `emit_annotated_event`). The bare `0 .` case has no
+        // annotations and renders as `<e><action/></e>`.
         self.writer
             .write_event(Event::Start(BytesStart::new("e")))?;
         self.writer
             .write_event(Event::Empty(BytesStart::new("action")))?;
+        for annotation in annotated.scoped_annotations.iter() {
+            self.emit_scoped_annotation(annotation)?;
+        }
         self.writer.write_event(Event::End(BytesEnd::new("e")))?;
         Ok(())
     }
@@ -615,13 +793,13 @@ impl XmlEmitter {
     /// fail loud so each missing mapping shows up in the harness.
     pub(super) fn emit_linker(&mut self, linker: &Linker) -> Result<(), XmlWriteError> {
         let ty = match linker {
-            Linker::NoBreakTcuContinuation => "no break TCU completion",
+            Linker::QuotationFollows => "quoted utterance next",
+            Linker::QuickUptakeOverlap => "quick uptake",
+            Linker::LazyOverlapPrecedes => "lazy overlap mark",
+            Linker::SelfCompletion => "self completion",
+            Linker::OtherCompletion => "other completion",
             Linker::TcuContinuation => "technical break TCU completion",
-            other => {
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: format!("linker variant: {other:?}"),
-                });
-            }
+            Linker::NoBreakTcuContinuation => "no break TCU completion",
         };
         let mut tag = BytesStart::new("linker");
         tag.push_attribute(("type", ty));
@@ -699,8 +877,8 @@ impl XmlEmitter {
     ) -> Result<(usize, usize), XmlWriteError> {
         let annotations = annotated.scoped_annotations.as_slice();
         if annotations.is_empty() {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "annotated group with zero scoped annotations".to_owned(),
+            return Err(XmlWriteError::MissingMetadata {
+                what: "annotated group reached emitter without scoped annotations".to_owned(),
             });
         }
 
@@ -723,11 +901,20 @@ impl XmlEmitter {
                         gra_chunk += 1 + post_count;
                     }
                 }
-                other => {
-                    return Err(XmlWriteError::FeatureNotImplemented {
-                        feature: format!("group content item: {other:?}"),
-                    });
+                BracketedItem::AnnotatedGroup(inner) => {
+                    // Nested `<…<inner words> [ann]…> [outer-ann]`
+                    // recurses with the running cursors so mor
+                    // alignment stays correct across the nesting.
+                    let (mor_used, gra_used) =
+                        self.emit_annotated_group(inner, tiers, mor_cursor, gra_chunk)?;
+                    mor_cursor += mor_used;
+                    gra_chunk += gra_used;
                 }
+                // Other bracketed items (separators, events,
+                // actions, quotations, overlaps, underlines) delegate
+                // to the generic per-item emitter. They don't consume
+                // mor/gra chunks, so cursors don't advance here.
+                other => self.emit_bracketed_word_only(other)?,
             }
         }
 
@@ -747,41 +934,287 @@ impl XmlEmitter {
         }
     }
 
-    /// Emit a single bracketed-content item that must be a bare word.
-    /// Retrace payloads in the current goldens are uniformly bare
-    /// words; richer content (nested retraces, separators inside a
-    /// retrace, etc.) is staged as a future increment.
+    /// Emit a single bracketed-content item inside a retrace or
+    /// group. Bare words are the common case; richer bracketed
+    /// content (events, pauses, annotated words, replacements,
+    /// separators) is emitted with a simple recursive dispatch.
+    /// Retrace content is emitted without `%mor` alignment — retraced
+    /// text is excluded from `%mor` by CHAT convention.
     fn emit_bracketed_word_only(&mut self, item: &BracketedItem) -> Result<(), XmlWriteError> {
         match item {
             BracketedItem::Word(word) => self.emit_word(word, None, None, 0),
-            other => Err(XmlWriteError::FeatureNotImplemented {
-                feature: format!("retrace content item: {other:?}"),
-            }),
+            BracketedItem::AnnotatedWord(annotated) => {
+                self.emit_annotated_word(annotated, None, None, 0)
+            }
+            BracketedItem::ReplacedWord(rw) => {
+                // Inside a retrace/group, mor alignment is disabled,
+                // so we can emit a simplified replaced-word shape
+                // without cursor threading. Matches the XSD's
+                // `<w>` + `<replacement>` structure.
+                let mut outer = BytesStart::new("w");
+                if let Some(cat) = &rw.word.category
+                    && let Some(attr) = word_category_attr(cat)
+                {
+                    outer.push_attribute(("type", attr));
+                }
+                self.writer.write_event(Event::Start(outer))?;
+                self.writer
+                    .write_event(Event::Text(escape_text(rw.word.cleaned_text())))?;
+                self.writer
+                    .write_event(Event::Start(BytesStart::new("replacement")))?;
+                for word in rw.replacement.words.0.iter() {
+                    self.emit_word(word, None, None, 0)?;
+                }
+                self.writer
+                    .write_event(Event::End(BytesEnd::new("replacement")))?;
+                self.writer.write_event(Event::End(BytesEnd::new("w")))?;
+                Ok(())
+            }
+            BracketedItem::Event(event) => self.emit_event(event),
+            BracketedItem::AnnotatedEvent(annotated) => self.emit_annotated_event(annotated),
+            BracketedItem::Pause(pause) => self.emit_pause(pause),
+            BracketedItem::Action(_) => {
+                self.writer
+                    .write_event(Event::Start(BytesStart::new("e")))?;
+                self.writer
+                    .write_event(Event::Empty(BytesStart::new("action")))?;
+                self.writer.write_event(Event::End(BytesEnd::new("e")))?;
+                Ok(())
+            }
+            BracketedItem::AnnotatedAction(annotated) => self.emit_annotated_action(annotated),
+            BracketedItem::Quotation(quotation) => self.emit_quotation(quotation),
+            BracketedItem::Freecode(freecode) => self.emit_freecode(freecode),
+            BracketedItem::LongFeatureBegin(lf) => {
+                self.emit_long_feature("begin", lf.label.as_str())
+            }
+            BracketedItem::LongFeatureEnd(lf) => self.emit_long_feature("end", lf.label.as_str()),
+            BracketedItem::NonvocalBegin(nv) => self.emit_nonvocal("begin", nv.label.as_str()),
+            BracketedItem::NonvocalEnd(nv) => self.emit_nonvocal("end", nv.label.as_str()),
+            BracketedItem::NonvocalSimple(nv) => self.emit_nonvocal("simple", nv.label.as_str()),
+            BracketedItem::Separator(sep) => self.emit_separator(sep, None, None, 0),
+            BracketedItem::OverlapPoint(point) => self.emit_overlap_point(point),
+            BracketedItem::InternalBullet(bullet) => self.emit_internal_media(bullet),
+            BracketedItem::UnderlineBegin(_) => {
+                let mut tag = BytesStart::new("underline");
+                tag.push_attribute(("type", "begin"));
+                self.writer.write_event(Event::Empty(tag))?;
+                Ok(())
+            }
+            BracketedItem::UnderlineEnd(_) => {
+                let mut tag = BytesStart::new("underline");
+                tag.push_attribute(("type", "end"));
+                self.writer.write_event(Event::Empty(tag))?;
+                Ok(())
+            }
+            BracketedItem::OtherSpokenEvent(event) => self.emit_other_spoken_event(event),
+            BracketedItem::Retrace(retrace) => {
+                // Nested retrace inside a group/retrace: emit
+                // without cursor threading (retrace content is
+                // excluded from `%mor`).
+                self.emit_retrace(retrace)
+            }
+            BracketedItem::AnnotatedGroup(_) => {
+                // Nested annotated group inside a plain bracketed
+                // context (retrace or raw group). Without tier
+                // context this emission can't track cursors, so
+                // fall back to a cursor-free path.
+                Err(XmlWriteError::FeatureNotImplemented {
+                    feature: "annotated group inside cursor-free bracketed content".to_owned(),
+                })
+            }
+            BracketedItem::PhoGroup(_) | BracketedItem::SinGroup(_) => {
+                // Phon-specific payloads share the permanent
+                // out-of-scope policy with `%pho` / `%mod`.
+                Err(XmlWriteError::PhoneticTierUnsupported {
+                    utterance_index: usize::MAX,
+                })
+            }
         }
+    }
+
+    /// Emit `<internal-media start="…" end="…" unit="s"/>` for a
+    /// standalone bullet encountered inside a retrace or group.
+    /// Shares the seconds formatting with the `%wor` emitter.
+    pub(super) fn emit_internal_media(
+        &mut self,
+        bullet: &talkbank_model::model::Bullet,
+    ) -> Result<(), XmlWriteError> {
+        let start = format_bullet_seconds(bullet.timing.start_ms);
+        let end = format_bullet_seconds(bullet.timing.end_ms);
+        let mut tag = BytesStart::new("internal-media");
+        tag.push_attribute(("start", start.as_str()));
+        tag.push_attribute(("end", end.as_str()));
+        tag.push_attribute(("unit", "s"));
+        self.writer.write_event(Event::Empty(tag))?;
+        Ok(())
+    }
+
+    /// Emit `<e><happening>text</happening>[annotation…]</e>` for an
+    /// annotated event like `&=laughs [!]`. Annotations attach
+    /// *inside* `<e>` per the XSD sequence.
+    pub(super) fn emit_annotated_event(
+        &mut self,
+        annotated: &Annotated<CEvent>,
+    ) -> Result<(), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("e")))?;
+        self.writer
+            .write_event(Event::Start(BytesStart::new("happening")))?;
+        self.writer.write_event(Event::Text(escape_text(
+            annotated.inner.event_type.as_str(),
+        )))?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("happening")))?;
+        for annotation in annotated.scoped_annotations.iter() {
+            self.emit_scoped_annotation(annotation)?;
+        }
+        self.writer.write_event(Event::End(BytesEnd::new("e")))?;
+        Ok(())
+    }
+
+    /// Emit `<g>` for a bare (unannotated) `Group`. Each inner Word
+    /// consumes one `%mor` chunk, returned as a cursor advance.
+    pub(super) fn emit_bare_group(
+        &mut self,
+        group: &talkbank_model::model::Group,
+        tiers: &UtteranceTiers<'_>,
+        starting_mor_cursor: usize,
+        starting_gra_chunk: usize,
+    ) -> Result<(usize, usize), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("g")))?;
+        let mut mor_cursor = starting_mor_cursor;
+        let mut gra_chunk = starting_gra_chunk;
+        for item in group.content.content.iter() {
+            if let BracketedItem::Word(word) = item {
+                let mor_for_word = tiers
+                    .mor
+                    .as_ref()
+                    .and_then(|mor| mor.items.0.get(mor_cursor));
+                self.emit_word(word, mor_for_word, tiers.gra, gra_chunk)?;
+                if tiers.mor.is_some() {
+                    let post_count = mor_for_word.map(|m| m.post_clitics.len()).unwrap_or(0);
+                    mor_cursor += 1;
+                    gra_chunk += 1 + post_count;
+                }
+            } else {
+                self.emit_bracketed_word_only(item)?;
+            }
+        }
+        self.writer.write_event(Event::End(BytesEnd::new("g")))?;
+        if tiers.mor.is_some() {
+            Ok((
+                mor_cursor - starting_mor_cursor,
+                gra_chunk - starting_gra_chunk,
+            ))
+        } else {
+            Ok((0, 0))
+        }
+    }
+
+    /// Emit `<quotation type="begin"/>…<quotation type="end"/>` for
+    /// a quotation span. The Rust model holds the whole quoted
+    /// content as one `Quotation`; the XSD represents it as two
+    /// standalone markers with content between them.
+    pub(super) fn emit_quotation(
+        &mut self,
+        quotation: &talkbank_model::model::Quotation,
+    ) -> Result<(), XmlWriteError> {
+        let mut begin = BytesStart::new("quotation");
+        begin.push_attribute(("type", "begin"));
+        self.writer.write_event(Event::Empty(begin))?;
+        for item in quotation.content.content.iter() {
+            self.emit_bracketed_word_only(item)?;
+        }
+        let mut end = BytesStart::new("quotation");
+        end.push_attribute(("type", "end"));
+        self.writer.write_event(Event::Empty(end))?;
+        Ok(())
+    }
+
+    /// Emit `<freecode>text</freecode>`.
+    pub(super) fn emit_freecode(
+        &mut self,
+        freecode: &talkbank_model::model::Freecode,
+    ) -> Result<(), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("freecode")))?;
+        self.writer
+            .write_event(Event::Text(escape_text(freecode.text.as_str())))?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("freecode")))?;
+        Ok(())
+    }
+
+    /// Emit `<long-feature type="begin|end">label</long-feature>`.
+    pub(super) fn emit_long_feature(
+        &mut self,
+        ty: &'static str,
+        label: &str,
+    ) -> Result<(), XmlWriteError> {
+        let mut tag = BytesStart::new("long-feature");
+        tag.push_attribute(("type", ty));
+        self.writer.write_event(Event::Start(tag))?;
+        self.writer.write_event(Event::Text(escape_text(label)))?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("long-feature")))?;
+        Ok(())
+    }
+
+    /// Emit `<e><otherSpokenEvent who=".." said=".."/></e>` for a
+    /// `&*SPEAKER:text` interposed-speaker event. The `<e>` wrapper
+    /// is required by the XSD (it holds the `<action>` / `<happening>`
+    /// / `<otherSpokenEvent>` choice).
+    pub(super) fn emit_other_spoken_event(
+        &mut self,
+        event: &talkbank_model::model::OtherSpokenEvent,
+    ) -> Result<(), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("e")))?;
+        let mut inner = BytesStart::new("otherSpokenEvent");
+        inner.push_attribute(("who", event.speaker.as_str()));
+        inner.push_attribute(("said", event.text.as_str()));
+        self.writer.write_event(Event::Empty(inner))?;
+        self.writer.write_event(Event::End(BytesEnd::new("e")))?;
+        Ok(())
+    }
+
+    /// Emit `<nonvocal type="begin|end|simple">label</nonvocal>`.
+    pub(super) fn emit_nonvocal(
+        &mut self,
+        ty: &'static str,
+        label: &str,
+    ) -> Result<(), XmlWriteError> {
+        let mut tag = BytesStart::new("nonvocal");
+        tag.push_attribute(("type", ty));
+        self.writer.write_event(Event::Start(tag))?;
+        self.writer.write_event(Event::Text(escape_text(label)))?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("nonvocal")))?;
+        Ok(())
     }
 }
 
-/// Map [`Separator`] variants to the `<tagMarker type="...">` token
-/// used by Java Chatter. CA intonation / uptake separators are
-/// caught earlier in `emit_separator` and rendered as `<s type="…"/>`
-/// so they never reach this helper.
-fn separator_tag_type(sep: &Separator) -> Result<&'static str, XmlWriteError> {
-    Ok(match sep {
+/// Shared ms → `"S.sss"` seconds formatter. Duplicate of the
+/// `wor.rs::format_seconds` helper; kept local so `word.rs` stays
+/// standalone.
+fn format_bullet_seconds(ms: u64) -> String {
+    let whole = ms / 1000;
+    let frac = ms % 1000;
+    format!("{whole}.{frac:03}")
+}
+
+/// Map the three [`Separator`] variants that render as `<tagMarker
+/// type="…"/>` per the XSD: `comma`, `tag`, `vocative`. These are
+/// the separators that participate in `%mor` alignment. All other
+/// separator variants render as `<s type="…"/>` via
+/// [`s_separator_label`].
+fn separator_tag_type(sep: &Separator) -> Option<&'static str> {
+    Some(match sep {
         Separator::Comma { .. } => "comma",
-        Separator::Semicolon { .. } => "semicolon",
-        Separator::Colon { .. } => "colon",
         Separator::Tag { .. } => "tag",
         Separator::Vocative { .. } => "vocative",
-        Separator::CaContinuation { .. } => {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "CA continuation separator ([^c])".to_owned(),
-            });
-        }
-        _ => {
-            return Err(XmlWriteError::FeatureNotImplemented {
-                feature: "separator variant (non-standard)".to_owned(),
-            });
-        }
+        _ => return None,
     })
 }
 
@@ -801,12 +1234,53 @@ fn ca_terminator_separator_label(terminator: &Terminator) -> Option<&'static str
     })
 }
 
-/// Recognise CA intonation / uptake / unmarked-ending separators that
-/// Java Chatter renders as an empty `<s type="…"/>` element rather
-/// than `<tagMarker>`. Returns `None` for structural separators
-/// (handled via `separator_tag_type`).
+/// Map every [`Terminator`] variant to its `<t type="…"/>` attribute
+/// value per `baseTerminatorType` in `talkbank.xsd`. The CA intonation
+/// contours (`⇗`/`↗`/`→`/`↘`/`⇘`) collapse to
+/// `"missing CA terminator"`; the `<s>` preamble they also carry is
+/// emitted separately via [`ca_terminator_separator_label`]. CA
+/// linker variants (`CaNoBreakLinker`, `CaTechnicalBreakLinker`)
+/// render identically to their non-linker counterparts — the linker
+/// role is expressed on the *next* utterance's `<linker>`, not on
+/// this `<t>`.
+pub(super) fn terminator_type_attr(terminator: &Terminator) -> &'static str {
+    match terminator {
+        Terminator::Period { .. } => "p",
+        Terminator::Question { .. } => "q",
+        Terminator::Exclamation { .. } => "e",
+        Terminator::TrailingOff { .. } => "trail off",
+        Terminator::TrailingOffQuestion { .. } => "trail off question",
+        Terminator::BrokenQuestion { .. } => "question exclamation",
+        Terminator::Interruption { .. } => "interruption",
+        Terminator::InterruptedQuestion { .. } => "interruption question",
+        Terminator::SelfInterruption { .. } => "self interruption",
+        Terminator::SelfInterruptedQuestion { .. } => "self interruption question",
+        Terminator::QuotedNewLine { .. } => "quotation next line",
+        Terminator::QuotedPeriodSimple { .. } => "quotation precedes",
+        Terminator::BreakForCoding { .. } => "broken for coding",
+        Terminator::CaNoBreak { .. } | Terminator::CaNoBreakLinker { .. } => {
+            "no break TCU continuation"
+        }
+        Terminator::CaTechnicalBreak { .. } | Terminator::CaTechnicalBreakLinker { .. } => {
+            "technical break TCU continuation"
+        }
+        Terminator::CaRisingToHigh { .. }
+        | Terminator::CaRisingToMid { .. }
+        | Terminator::CaLevel { .. }
+        | Terminator::CaFallingToMid { .. }
+        | Terminator::CaFallingToLow { .. } => "missing CA terminator",
+    }
+}
+
+/// Map the [`Separator`] variants that render as `<s type="…"/>`
+/// per `talkbank.xsd`. Covers semicolon/colon (structural),
+/// CA intonation contours, uptake, unmarked ending, and
+/// CaContinuation (`[^c]`, best-matched to `clause delimiter`).
 fn ca_intonation_separator_label(sep: &Separator) -> Option<&'static str> {
     Some(match sep {
+        Separator::Semicolon { .. } => "semicolon",
+        Separator::Colon { .. } => "colon",
+        Separator::CaContinuation { .. } => "clause delimiter",
         Separator::RisingToHigh { .. } => "rising to high",
         Separator::RisingToMid { .. } => "rising to mid",
         Separator::Level { .. } => "level",
@@ -835,16 +1309,59 @@ fn word_category_attr(cat: &talkbank_model::model::WordCategory) -> Option<&'sta
 }
 
 /// Map [`talkbank_model::model::content::word::UntranscribedStatus`]
-/// to the `<w untranscribed="...">` attribute value.
+/// to the `<w untranscribed="...">` attribute value. Enum values
+/// follow the XSD `<xs:enumeration>` on the `untranscribed`
+/// attribute of `<w>`:
+///
+/// | CHAT | UntranscribedStatus | XML value |
+/// |------|---------------------|-----------|
+/// | `xxx` | `Unintelligible` | `"unintelligible"` |
+/// | `yyy` | `Phonetic` | `"unintelligible-with-pho"` |
+/// | `www` | `Untranscribed` | `"untranscribed"` |
 fn untranscribed_attr(
     status: talkbank_model::model::content::word::UntranscribedStatus,
 ) -> &'static str {
     use talkbank_model::model::content::word::UntranscribedStatus;
     match status {
         UntranscribedStatus::Unintelligible => "unintelligible",
-        UntranscribedStatus::Phonetic => "untranscribed",
-        UntranscribedStatus::Untranscribed => "not-transcribable",
+        UntranscribedStatus::Phonetic => "unintelligible-with-pho",
+        UntranscribedStatus::Untranscribed => "untranscribed",
     }
+}
+
+/// Map a [`FormType`] to its `<w formType="…"/>` attribute value per
+/// `talkbank.xsd`. Returns `None` for `FormType::UserDefined` — that
+/// variant projects onto `user-special-form` instead and is handled
+/// by the caller. The mapping is the CHAT `@-marker` → schema label
+/// correspondence (e.g. `@b` → `"babbling"`, `@sas` → `"sign speech"`).
+fn form_type_attr(form: &FormType) -> Option<&'static str> {
+    Some(match form {
+        // `@a` has no XSD enum of its own — doc string in Rust calls
+        // it "approximate / phonologically consistent", matching the
+        // XSD `"phonology consistent"` semantics. Collapse to that.
+        FormType::A | FormType::P => "phonology consistent",
+        FormType::B => "babbling",
+        FormType::C => "child-invented",
+        FormType::D => "dialect",
+        FormType::F => "family-specific",
+        FormType::FP => "filled pause",
+        FormType::G => "generic",
+        FormType::I => "interjection",
+        FormType::K => "kana",
+        FormType::L => "letter",
+        FormType::LS => "letter plural",
+        FormType::N => "neologism",
+        FormType::O => "onomatopoeia",
+        FormType::Q => "quoted metareference",
+        FormType::SAS => "sign speech",
+        FormType::SI => "singing",
+        FormType::SL => "signed language",
+        FormType::T => "test",
+        FormType::U => "UNIBET",
+        FormType::WP => "word play",
+        FormType::X => "words to be excluded",
+        FormType::UserDefined(_) => return None,
+    })
 }
 
 /// CHAT-spec-strict check for the `untranscribed` XML attribute: only
@@ -861,15 +1378,18 @@ fn untranscribed_attribute_for_xml(word: &Word) -> Option<&'static str> {
     }
 }
 
-/// Map a [`RetraceKind`] to the `<k type="...">` token Java Chatter
-/// emits inside `<g>…</g>`.
+/// Map a [`RetraceKind`] to the `<k type="…"/>` attribute value per
+/// the `<k>` XSD enum. `Multiple` (`[////]`) has no distinct XSD
+/// slot — collapse it to `"retracing with correction"` since the
+/// semantics are "successive corrections of a retraced span."
+/// Likewise `Reformulation` (`[///]`) and `Uncertain` (`[/?]`) map
+/// to their XSD-named counterparts.
 fn retrace_kind_attr(kind: RetraceKind) -> &'static str {
     match kind {
         RetraceKind::Partial => "retracing",
-        RetraceKind::Full => "retracing with correction",
-        RetraceKind::Multiple => "retracing with multiple corrections",
-        RetraceKind::Reformulation => "reformulation",
-        RetraceKind::Uncertain => "uncertain retracing",
+        RetraceKind::Full | RetraceKind::Multiple => "retracing with correction",
+        RetraceKind::Reformulation => "retracing reformulation",
+        RetraceKind::Uncertain => "retracing unclear",
     }
 }
 
@@ -942,61 +1462,5 @@ fn ca_delimiter_label(delimiter: &CADelimiter) -> &'static str {
         CADelimiterType::SegmentRepetition => "repeated-segment",
         CADelimiterType::Creaky => "creaky",
         CADelimiterType::Precise => "precise",
-    }
-}
-
-/// Short display name for a [`WordContent`] variant, used in
-/// `FeatureNotImplemented` diagnostics so the harness surfaces each
-/// staged word-internal marker as a distinct increment.
-fn word_content_kind(c: &WordContent) -> &'static str {
-    match c {
-        WordContent::Text(_) => "Text",
-        WordContent::Shortening(_) => "Shortening",
-        WordContent::OverlapPoint(_) => "OverlapPoint",
-        WordContent::CAElement(_) => "CAElement",
-        WordContent::CADelimiter(_) => "CADelimiter",
-        WordContent::StressMarker(_) => "StressMarker",
-        WordContent::Lengthening(_) => "Lengthening",
-        WordContent::SyllablePause(_) => "SyllablePause",
-        WordContent::UnderlineBegin(_) => "UnderlineBegin",
-        WordContent::UnderlineEnd(_) => "UnderlineEnd",
-        WordContent::CompoundMarker(_) => "CompoundMarker",
-        WordContent::CliticBoundary(_) => "CliticBoundary",
-    }
-}
-
-fn scoped_annotation_kind(annotation: &ContentAnnotation) -> &'static str {
-    match annotation {
-        ContentAnnotation::Error(_) => "Error",
-        ContentAnnotation::Explanation(_) => "Explanation",
-        ContentAnnotation::Addition(_) => "Addition",
-        ContentAnnotation::OverlapBegin(_) => "OverlapBegin",
-        ContentAnnotation::OverlapEnd(_) => "OverlapEnd",
-        ContentAnnotation::CaContinuation => "CaContinuation",
-        ContentAnnotation::Stressing => "Stressing",
-        ContentAnnotation::ContrastiveStressing => "ContrastiveStressing",
-        ContentAnnotation::BestGuess => "BestGuess",
-        ContentAnnotation::Uncertain => "Uncertain",
-        ContentAnnotation::Paralinguistic(_) => "Paralinguistic",
-        ContentAnnotation::Alternative(_) => "Alternative",
-        ContentAnnotation::PercentComment(_) => "PercentComment",
-        ContentAnnotation::Duration(_) => "Duration",
-        ContentAnnotation::Exclude => "Exclude",
-        ContentAnnotation::Unknown(_) => "Unknown",
-    }
-}
-
-/// Short display name for a [`Terminator`] variant, used only in
-/// `FeatureNotImplemented` diagnostics.
-fn terminator_kind(t: &Terminator) -> &'static str {
-    match t {
-        Terminator::Period { .. } => "Period",
-        Terminator::Question { .. } => "Question",
-        Terminator::Exclamation { .. } => "Exclamation",
-        Terminator::TrailingOff { .. } => "TrailingOff",
-        Terminator::Interruption { .. } => "Interruption",
-        Terminator::SelfInterruption { .. } => "SelfInterruption",
-        Terminator::InterruptedQuestion { .. } => "InterruptedQuestion",
-        _ => "(other terminator)",
     }
 }
