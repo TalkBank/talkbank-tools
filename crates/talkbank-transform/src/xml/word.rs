@@ -104,10 +104,16 @@ impl XmlEmitter {
     }
 
     /// Emit `<langs>` child for an `@s:code` marker. The schema
-    /// requires a `<single>` / `<multiple>` / `<ambiguous>` child.
-    /// Bare `@s` (`Shortcut`) has no explicit language code and is
-    /// omitted — the reader recovers the toggle semantics from
-    /// context per the CHAT manual.
+    /// requires a `<single>` / `<multiple>` / `<ambiguous>` child
+    /// with at least one concrete language code, so bare `@s`
+    /// (`Shortcut`) — which toggles between primary/secondary
+    /// languages from the file's `@Languages` header without
+    /// naming one — projects to no `<langs>` element. This is a
+    /// known round-trip gap: re-reading the XML will lose the
+    /// `@s`-vs-no-marker distinction. A future enhancement could
+    /// resolve the toggle against `@Languages` context and emit
+    /// `<single>` with the resolved code, at the cost of losing
+    /// the "this was a shortcut" signal.
     fn emit_langs(
         &mut self,
         lang: &talkbank_model::model::WordLanguageMarker,
@@ -385,22 +391,23 @@ impl XmlEmitter {
         gra: Option<&[GrammaticalRelation]>,
         chunk_index_1based: usize,
     ) -> Result<(), XmlWriteError> {
-        if let Some(s_type) = ca_intonation_separator_label(sep) {
+        if let Some(s_type) = s_separator_label(sep) {
             let mut tag = BytesStart::new("s");
             tag.push_attribute(("type", s_type));
             self.writer.write_event(Event::Empty(tag))?;
             return Ok(());
         }
 
-        let tag_type = separator_tag_type(sep).ok_or_else(|| {
-            // Every `Separator` variant is covered by either the
-            // `<s>` or the `<tagMarker>` path — this arm is
-            // unreachable unless the `Separator` enum grows a new
-            // variant without updating either helper.
-            XmlWriteError::FeatureNotImplemented {
+        // Every `Separator` variant routes to either `<s>` (above)
+        // or `<tagMarker>` (here); this fallthrough only fires if a
+        // new variant lands in the model without updating both
+        // helpers. Fail loud rather than silently emit an invalid
+        // attribute — the XSD rejects anything that isn't
+        // `comma|tag|vocative`.
+        let tag_type =
+            separator_tag_type(sep).ok_or_else(|| XmlWriteError::FeatureNotImplemented {
                 feature: format!("separator variant without XML mapping: {sep:?}"),
-            }
-        })?;
+            })?;
         let mut start = BytesStart::new("tagMarker");
         start.push_attribute(("type", tag_type));
 
@@ -948,9 +955,18 @@ impl XmlEmitter {
             }
             BracketedItem::ReplacedWord(rw) => {
                 // Inside a retrace/group, mor alignment is disabled,
-                // so we can emit a simplified replaced-word shape
+                // so we emit a simplified replaced-word shape
                 // without cursor threading. Matches the XSD's
-                // `<w>` + `<replacement>` structure.
+                // `<w><replacement>…</replacement></w>` structure.
+                // Scoped annotations on the replacement wrap the
+                // whole shape in `<g>…<annotation/>…</g>`, matching
+                // the top-level `emit_replaced_word` path.
+                let wrap_in_g = !rw.scoped_annotations.is_empty();
+                if wrap_in_g {
+                    self.writer
+                        .write_event(Event::Start(BytesStart::new("g")))?;
+                }
+
                 let mut outer = BytesStart::new("w");
                 if let Some(cat) = &rw.word.category
                     && let Some(attr) = word_category_attr(cat)
@@ -968,6 +984,13 @@ impl XmlEmitter {
                 self.writer
                     .write_event(Event::End(BytesEnd::new("replacement")))?;
                 self.writer.write_event(Event::End(BytesEnd::new("w")))?;
+
+                if wrap_in_g {
+                    for annotation in rw.scoped_annotations.iter() {
+                        self.emit_scoped_annotation(annotation)?;
+                    }
+                    self.writer.write_event(Event::End(BytesEnd::new("g")))?;
+                }
                 Ok(())
             }
             BracketedItem::Event(event) => self.emit_event(event),
@@ -1013,14 +1036,19 @@ impl XmlEmitter {
                 // excluded from `%mor`).
                 self.emit_retrace(retrace)
             }
-            BracketedItem::AnnotatedGroup(_) => {
-                // Nested annotated group inside a plain bracketed
-                // context (retrace or raw group). Without tier
-                // context this emission can't track cursors, so
-                // fall back to a cursor-free path.
-                Err(XmlWriteError::FeatureNotImplemented {
-                    feature: "annotated group inside cursor-free bracketed content".to_owned(),
-                })
+            BracketedItem::AnnotatedGroup(inner) => {
+                // Retrace / bracketed context disables mor alignment,
+                // so synthesise empty tiers and emit the group using
+                // the normal path. Cursor advances are discarded —
+                // retraced content is excluded from `%mor` / `%gra`
+                // by CHAT convention.
+                let empty = UtteranceTiers {
+                    mor: None,
+                    gra: None,
+                    wor: None,
+                    side_tiers: Vec::new(),
+                };
+                self.emit_annotated_group(inner, &empty, 0, 0).map(|_| ())
             }
             BracketedItem::PhoGroup(_) | BracketedItem::SinGroup(_) => {
                 // Phon-specific payloads share the permanent
@@ -1276,7 +1304,7 @@ pub(super) fn terminator_type_attr(terminator: &Terminator) -> &'static str {
 /// per `talkbank.xsd`. Covers semicolon/colon (structural),
 /// CA intonation contours, uptake, unmarked ending, and
 /// CaContinuation (`[^c]`, best-matched to `clause delimiter`).
-fn ca_intonation_separator_label(sep: &Separator) -> Option<&'static str> {
+fn s_separator_label(sep: &Separator) -> Option<&'static str> {
     Some(match sep {
         Separator::Semicolon { .. } => "semicolon",
         Separator::Colon { .. } => "colon",
