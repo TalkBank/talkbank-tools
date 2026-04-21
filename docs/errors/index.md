@@ -1150,6 +1150,14 @@ A header appears out of canonical order. For example, or appears before . CHAT h
 
 ## header_validation (E5x)
 
+An header declares a linked media file (no / / status), but the transcript body contains noevidence that any utterance is actually linked to that media. Bythe CHAT manual's semantics, an unqualified declaration isa promise that the transcript is time-linked to the named file;this check catches transcripts that make that promise withoutkeeping it.
+
+| Code | Name | Severity | Status |
+|------|------|----------|--------|
+| [E544](E544.md) | E544:  claims linkage but transcript has no timing evidence | error | ⏳ |
+
+## header_validation (E5x)
+
 An header contains an SES (socioeconomic status) field value that is not one of the recognized values. The file parses successfully but the unsupported value is stored as and flagged during validation.
 
 | Code | Name | Severity | Status |

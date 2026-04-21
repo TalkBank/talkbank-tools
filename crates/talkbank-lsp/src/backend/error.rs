@@ -104,9 +104,9 @@ pub enum LspBackendError {
     /// document text. `count` gives the total diagnostics; when `count
     /// > 0`, `first_message` carries the first diagnostic for the
     /// summary. When `count == 0`, the parser returned no `ChatFile`
-    /// *and* no diagnostics — a distinct failure mode callers may want
-    /// to flag separately (it usually indicates a parser bug rather
-    /// than malformed input).
+    /// > *and* no diagnostics — a distinct failure mode callers may want
+    /// > to flag separately (it usually indicates a parser bug rather
+    /// > than malformed input).
     ///
     /// Handlers that want to show more than one diagnostic should
     /// consult the backend's validation cache instead — this variant

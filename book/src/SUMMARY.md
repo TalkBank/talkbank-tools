@@ -41,6 +41,7 @@
 - [Post-Bootstrap Parser Testing](architecture/post-bootstrap-parser-testing.md)
 - [Data Model](architecture/data-model.md)
 - [Transform Pipeline](architecture/transform-pipeline.md)
+- [XML Emitter](architecture/xml-emitter.md)
 - [Error System](architecture/error-system.md)
 - [Crate Reference](architecture/crate-reference.md)
 - [Repo Architecture](architecture/repo-architecture.md)

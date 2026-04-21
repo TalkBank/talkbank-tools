@@ -218,17 +218,15 @@ impl AnalysisCommand for GemlistCommand {
                         active_gems.remove(pos);
                     }
                 }
-                Line::Utterance(utterance) => {
-                    if !active_gems.is_empty() {
-                        let speaker = utterance.main.speaker.as_str().to_owned();
-                        let filename = file_context.filename.to_owned();
+                Line::Utterance(utterance) if !active_gems.is_empty() => {
+                    let speaker = utterance.main.speaker.as_str().to_owned();
+                    let filename = file_context.filename.to_owned();
 
-                        for gem_label in &active_gems {
-                            let info = state.by_label.entry(gem_label.clone()).or_default();
-                            info.utterance_count += 1;
-                            info.speakers.insert(speaker.clone());
-                            info.files.insert(filename.clone());
-                        }
+                    for gem_label in &active_gems {
+                        let info = state.by_label.entry(gem_label.clone()).or_default();
+                        info.utterance_count += 1;
+                        info.speakers.insert(speaker.clone());
+                        info.files.insert(filename.clone());
                     }
                 }
                 _ => {}

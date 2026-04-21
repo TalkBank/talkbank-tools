@@ -89,10 +89,10 @@ fn has_nested_quotation(items: &[BracketedItem]) -> bool {
             BracketedItem::Quotation(_) => return true,
 
             // Recursively check nested groups
-            BracketedItem::AnnotatedGroup(group) => {
-                if has_nested_quotation(&group.inner.content.content) {
-                    return true;
-                }
+            BracketedItem::AnnotatedGroup(group)
+                if has_nested_quotation(&group.inner.content.content) =>
+            {
+                return true;
             }
 
             // Other items don't contain quotations

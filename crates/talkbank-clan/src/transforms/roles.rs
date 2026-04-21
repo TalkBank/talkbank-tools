@@ -71,10 +71,8 @@ fn rename_in_header(header: &mut Header, old: &str, new: &str) {
                 }
             }
         }
-        Header::ID(id) => {
-            if id.speaker.as_str() == old {
-                id.speaker = new.into();
-            }
+        Header::ID(id) if id.speaker.as_str() == old => {
+            id.speaker = new.into();
         }
         _ => {}
     }

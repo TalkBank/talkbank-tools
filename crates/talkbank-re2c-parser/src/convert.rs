@@ -1129,11 +1129,9 @@ pub fn header_to_model(h: &ast::HeaderParsed<'_>) -> Header {
             for tok in &h.content {
                 match tok {
                     Token::ParticipantWord(s) => current_words.push(s),
-                    Token::Comma(_) => {
-                        if !current_words.is_empty() {
-                            entries.push(participant_words_to_entry(&current_words));
-                            current_words.clear();
-                        }
+                    Token::Comma(_) if !current_words.is_empty() => {
+                        entries.push(participant_words_to_entry(&current_words));
+                        current_words.clear();
                     }
                     _ => {}
                 }

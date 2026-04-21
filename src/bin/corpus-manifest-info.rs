@@ -85,7 +85,7 @@ fn show_summary(manifest: &CorpusManifest) {
     println!("{}", "-".repeat(70));
 
     let mut corpus_list: Vec<_> = manifest.corpora.values().collect();
-    corpus_list.sort_by(|a, b| b.file_count.cmp(&a.file_count));
+    corpus_list.sort_by_key(|corpus| std::cmp::Reverse(corpus.file_count));
 
     for corpus in corpus_list.iter().take(30) {
         let status = if corpus.not_tested > 0 {

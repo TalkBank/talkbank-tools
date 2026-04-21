@@ -22,7 +22,7 @@ pub mod word;
 #[cfg(test)]
 mod tests;
 
-pub use analysis::{MorFeature, MorStem, PosCategory};
+pub use analysis::{MorFeature, MorStem, PosCategory, clan_to_ud_upos};
 pub use chunk::{MorChunk, MorChunkKind};
 pub use item::Mor;
 pub use tier::{MorTier, MorTierType};

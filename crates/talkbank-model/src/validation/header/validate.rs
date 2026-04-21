@@ -90,15 +90,11 @@ pub(crate) fn check_header(
         Header::Transcription { transcription } => {
             check_unsupported_transcription(transcription, span, errors);
         }
-        Header::TimeDuration { duration } => {
-            if duration.has_validation_issue() {
-                check_time_duration_format(duration.as_str(), span, errors);
-            }
+        Header::TimeDuration { duration } if duration.has_validation_issue() => {
+            check_time_duration_format(duration.as_str(), span, errors);
         }
-        Header::TimeStart { start } => {
-            if start.has_validation_issue() {
-                check_time_start_format(start.as_str(), span, errors);
-            }
+        Header::TimeStart { start } if start.has_validation_issue() => {
+            check_time_start_format(start.as_str(), span, errors);
         }
         Header::Types(_) => {
             // No validation — @Types fields have no fixed vocabulary.

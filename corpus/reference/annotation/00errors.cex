@@ -1,0 +1,14 @@
+*** File "scope-markers.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "scope-markers.cha": line 10, column 25: lexer: skipping nonviable character '[' in state 52
+*** File "scope-markers.cha": line 10, column 26: parser: required (...)+ loop did not match anything at input '!'
+*** File "scope-markers.cha": line 10, column 27: lexer: skipping nonviable character '*' in state 52
+*** File "scope-markers.cha": line 10, column 28: lexer: skipping nonviable character ']' in state 52
+*** File "errors-and-replacements.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "long-features.cha": line 5, column 24: parser: semantic failure: months for age must be two digits
+*** File "long-features.cha": line 7, column 1: parser: semantic failure: not 'unlinked' or 'missing' or 'notrans', but there are not bullets in transcript
+*** File "groups-phonological.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "retrace.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "groups-regular.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "overlap-markers.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "groups-sign.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "groups-sign.cha": line 6, column 1: parser: semantic failure: not 'unlinked' or 'missing' or 'notrans', but there are not bullets in transcript

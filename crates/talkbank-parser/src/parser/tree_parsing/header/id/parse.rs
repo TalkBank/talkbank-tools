@@ -45,7 +45,7 @@ pub fn parse_id_header(node: Node, source: &str, errors: &impl ErrorSink) -> Hea
     };
 
     // Extract fields by position from id_contents
-    let child_count = id_contents.child_count() as usize;
+    let child_count = id_contents.child_count();
     let mut idx = 0usize;
 
     let language = parse_required_text_field(

@@ -408,8 +408,6 @@ pub fn collect_utterance_line_indices(chat_file: &ChatFile) -> Vec<usize> {
     indices
 }
 
-/// Compute byte offsets for each line start.
-#[allow(dead_code)]
 /// Build a mapping from line numbers to utterance indices.
 #[allow(dead_code)]
 fn build_line_utterance_map(chat_file: &ChatFile, line_offsets: &[usize]) -> Vec<Option<usize>> {

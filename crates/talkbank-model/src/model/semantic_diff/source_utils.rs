@@ -161,8 +161,7 @@ fn byte_offset_to_line_col(source: &str, offset: usize) -> Option<(usize, usize,
 /// displayed source line.
 fn build_caret(line: &str, col: usize) -> String {
     let mut caret = String::new();
-    let mut current = 1usize;
-    for ch in line.chars() {
+    for (current, ch) in (1usize..).zip(line.chars()) {
         if current >= col {
             break;
         }
@@ -171,7 +170,6 @@ fn build_caret(line: &str, col: usize) -> String {
         } else {
             caret.push(' ');
         }
-        current += 1;
     }
     caret.push('^');
     caret

@@ -13,6 +13,11 @@
 //! This file is standalone — it has no dependencies beyond `tree_sitter`.
 #![allow(
     clippy::cast_possible_truncation,
+    // Generated `if let Some(x) = …` chains: rewriting to
+    // `if let Some(x) = … && …` requires Rust 2024 `let_chains` and
+    // would need changes in the upstream `tree-sitter-grammar-utils`
+    // code generator, not this file.
+    clippy::collapsible_if,
     clippy::module_name_repetitions,
     clippy::needless_pass_by_value,
     clippy::similar_names,

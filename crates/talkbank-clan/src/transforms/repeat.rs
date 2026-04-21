@@ -92,20 +92,18 @@ fn is_revision_kind(kind: RetraceKind) -> bool {
 fn has_revision_markers(content: &[UtteranceContent]) -> bool {
     for item in content {
         match item {
-            UtteranceContent::Retrace(retrace) => {
-                if is_revision_kind(retrace.kind) {
-                    return true;
-                }
+            UtteranceContent::Retrace(retrace) if is_revision_kind(retrace.kind) => {
+                return true;
             }
-            UtteranceContent::Group(group) => {
-                if has_revision_markers_in_brackets(&group.content.content) {
-                    return true;
-                }
+            UtteranceContent::Group(group)
+                if has_revision_markers_in_brackets(&group.content.content) =>
+            {
+                return true;
             }
-            UtteranceContent::AnnotatedGroup(annotated) => {
-                if has_revision_markers_in_brackets(&annotated.inner.content.content) {
-                    return true;
-                }
+            UtteranceContent::AnnotatedGroup(annotated)
+                if has_revision_markers_in_brackets(&annotated.inner.content.content) =>
+            {
+                return true;
             }
             _ => {}
         }
@@ -117,15 +115,13 @@ fn has_revision_markers(content: &[UtteranceContent]) -> bool {
 fn has_revision_markers_in_brackets(items: &[BracketedItem]) -> bool {
     for item in items {
         match item {
-            BracketedItem::Retrace(retrace) => {
-                if is_revision_kind(retrace.kind) {
-                    return true;
-                }
+            BracketedItem::Retrace(retrace) if is_revision_kind(retrace.kind) => {
+                return true;
             }
-            BracketedItem::AnnotatedGroup(annotated) => {
-                if has_revision_markers_in_brackets(&annotated.inner.content.content) {
-                    return true;
-                }
+            BracketedItem::AnnotatedGroup(annotated)
+                if has_revision_markers_in_brackets(&annotated.inner.content.content) =>
+            {
+                return true;
             }
             _ => {}
         }

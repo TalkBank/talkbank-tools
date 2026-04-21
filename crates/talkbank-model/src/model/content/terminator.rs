@@ -275,6 +275,59 @@ pub enum Terminator {
 }
 
 impl Terminator {
+    /// Parse the canonical CHAT terminator string into its typed variant.
+    ///
+    /// Accepts exactly the strings that [`WriteChat::write_chat`] emits for
+    /// each variant (see the CHAT manual
+    /// <https://talkbank.org/0info/manuals/CHAT.html#Terminators> for the
+    /// full inventory). Returns `None` for any other input — including
+    /// content punctuation like `,` `;` `:` and any non-terminator text.
+    /// Spans are set to [`Span::DUMMY`] since the caller has no source
+    /// location for a terminator recovered from a free string.
+    ///
+    /// This is the round-trip partner of [`WriteChat::write_chat`]. Useful
+    /// for classifying untyped tokens (e.g., UD `PUNCT` words returned by
+    /// a morphotag pipeline) without stringly-typed pattern matching at the
+    /// call site.
+    pub fn try_from_chat_str(s: &str) -> Option<Self> {
+        let span = Span::DUMMY;
+        let t = match s {
+            "." => Self::Period { span },
+            "?" => Self::Question { span },
+            "!" => Self::Exclamation { span },
+            "+..." => Self::TrailingOff { span },
+            "+/." => Self::Interruption { span },
+            "+//." => Self::SelfInterruption { span },
+            "+/?" => Self::InterruptedQuestion { span },
+            "+!?" => Self::BrokenQuestion { span },
+            "+\"/." => Self::QuotedNewLine { span },
+            "+\"." => Self::QuotedPeriodSimple { span },
+            "+//?" => Self::SelfInterruptedQuestion { span },
+            "+..?" => Self::TrailingOffQuestion { span },
+            "+." => Self::BreakForCoding { span },
+            "\u{21D7}" => Self::CaRisingToHigh { span },
+            "\u{2197}" => Self::CaRisingToMid { span },
+            "\u{2192}" => Self::CaLevel { span },
+            "\u{2198}" => Self::CaFallingToMid { span },
+            "\u{21D8}" => Self::CaFallingToLow { span },
+            "\u{224B}" => Self::CaTechnicalBreak { span },
+            "+\u{224B}" => Self::CaTechnicalBreakLinker { span },
+            "\u{2248}" => Self::CaNoBreak { span },
+            "+\u{2248}" => Self::CaNoBreakLinker { span },
+            _ => return None,
+        };
+        Some(t)
+    }
+
+    /// Whether the given string is a recognized CHAT utterance terminator.
+    ///
+    /// Thin helper over [`Terminator::try_from_chat_str`] for the common
+    /// callsite pattern "does this string terminate an utterance?".
+    /// Returns `false` for content punctuation (`,`, `;`, `:`, etc.).
+    pub fn is_chat_terminator(s: &str) -> bool {
+        Self::try_from_chat_str(s).is_some()
+    }
+
     /// Returns source span metadata associated with this terminator.
     pub fn span(&self) -> Span {
         match self {
@@ -339,5 +392,96 @@ impl std::fmt::Display for Terminator {
     /// Formats the exact CHAT token for the current terminator variant.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.write_chat(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Round-trip every variant through `Display` + `try_from_chat_str`.
+    ///
+    /// Any addition to the `Terminator` enum that forgets to extend either
+    /// `WriteChat::write_chat` or `try_from_chat_str` will either fail to
+    /// compile (missing variant arm) or fail this test (mismatched pair).
+    #[test]
+    fn every_variant_round_trips_display_to_try_from_chat_str() {
+        let span = Span::DUMMY;
+        let all = [
+            Terminator::Period { span },
+            Terminator::Question { span },
+            Terminator::Exclamation { span },
+            Terminator::TrailingOff { span },
+            Terminator::Interruption { span },
+            Terminator::SelfInterruption { span },
+            Terminator::InterruptedQuestion { span },
+            Terminator::BrokenQuestion { span },
+            Terminator::QuotedNewLine { span },
+            Terminator::QuotedPeriodSimple { span },
+            Terminator::SelfInterruptedQuestion { span },
+            Terminator::TrailingOffQuestion { span },
+            Terminator::BreakForCoding { span },
+            Terminator::CaRisingToHigh { span },
+            Terminator::CaRisingToMid { span },
+            Terminator::CaLevel { span },
+            Terminator::CaFallingToMid { span },
+            Terminator::CaFallingToLow { span },
+            Terminator::CaTechnicalBreak { span },
+            Terminator::CaTechnicalBreakLinker { span },
+            Terminator::CaNoBreak { span },
+            Terminator::CaNoBreakLinker { span },
+        ];
+        for t in all {
+            let emitted = t.to_string();
+            let parsed = Terminator::try_from_chat_str(&emitted)
+                .unwrap_or_else(|| panic!("{emitted:?} did not parse back to a Terminator"));
+            // The parsed variant uses DUMMY span; compare only the kind via
+            // re-emission, which is what callers actually key off of.
+            assert_eq!(
+                parsed.to_string(),
+                emitted,
+                "round trip mismatch on {emitted:?}"
+            );
+        }
+    }
+
+    /// Content punctuation (comma, semicolon, colon) must NOT parse as a
+    /// terminator. Regression guard: without this discrimination, every
+    /// CHAT comma would be silently treated as a terminator by callers
+    /// that classify UD `PUNCT` tokens.
+    #[test]
+    fn content_punct_is_not_a_chat_terminator() {
+        for s in [
+            ",", ";", ":", "—", "\"", "'", "(", ")", "[", "]", "„", "‡", "&", "%",
+        ] {
+            assert!(
+                Terminator::try_from_chat_str(s).is_none(),
+                "content punct {s:?} must not parse as a terminator"
+            );
+            assert!(
+                !Terminator::is_chat_terminator(s),
+                "is_chat_terminator({s:?}) must be false"
+            );
+        }
+    }
+
+    /// Arbitrary text must never parse as a terminator.
+    #[test]
+    fn words_are_not_terminators() {
+        for s in ["hello", "the", "", " ", "...", "ab", "+not_a_term"] {
+            assert!(
+                !Terminator::is_chat_terminator(s),
+                "{s:?} must not be classified as a terminator"
+            );
+        }
+    }
+
+    /// Whitespace does not accidentally match.
+    #[test]
+    fn trailing_whitespace_not_accepted() {
+        // Callers must trim before calling; this ensures we don't accept
+        // `". "` (with trailing space) as a terminator silently.
+        assert!(Terminator::try_from_chat_str(". ").is_none());
+        assert!(Terminator::try_from_chat_str(" .").is_none());
     }
 }

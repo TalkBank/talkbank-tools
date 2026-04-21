@@ -162,16 +162,14 @@ fn collect_countable<'a>(
 ) {
     for item in content {
         match item {
-            UtteranceContent::Word(word) => {
-                if is_countable_word(word) {
+            UtteranceContent::Word(word)
+                if is_countable_word(word) => {
                     out.push(word);
                 }
-            }
-            UtteranceContent::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
+            UtteranceContent::AnnotatedWord(annotated)
+                if is_countable_word(&annotated.inner) => {
                     out.push(&annotated.inner);
                 }
-            }
             UtteranceContent::ReplacedWord(replaced) => {
                 if include_retracings {
                     // With retracings: count both original and replacement
@@ -204,13 +202,12 @@ fn collect_countable<'a>(
                     include_retracings,
                 );
             }
-            UtteranceContent::Retrace(retrace) => {
+            UtteranceContent::Retrace(retrace)
                 // Retrace targets are excluded by default. When include_retracings
                 // is set (CLAN's +r6 flag), count the retraced words too.
-                if include_retracings {
+                if include_retracings => {
                     collect_countable_bracketed(&retrace.content.content, out, include_retracings);
                 }
-            }
             UtteranceContent::PhoGroup(group) => {
                 collect_countable_bracketed(&group.content.content, out, include_retracings);
             }
@@ -233,15 +230,11 @@ fn collect_countable_bracketed<'a>(
 ) {
     for item in items {
         match item {
-            BracketedItem::Word(word) => {
-                if is_countable_word(word) {
-                    out.push(word);
-                }
+            BracketedItem::Word(word) if is_countable_word(word) => {
+                out.push(word);
             }
-            BracketedItem::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
-                    out.push(&annotated.inner);
-                }
+            BracketedItem::AnnotatedWord(annotated) if is_countable_word(&annotated.inner) => {
+                out.push(&annotated.inner);
             }
             BracketedItem::ReplacedWord(replaced) => {
                 if include_retracings {
@@ -270,10 +263,8 @@ fn collect_countable_bracketed<'a>(
                     include_retracings,
                 );
             }
-            BracketedItem::Retrace(retrace) => {
-                if include_retracings {
-                    collect_countable_bracketed(&retrace.content.content, out, include_retracings);
-                }
+            BracketedItem::Retrace(retrace) if include_retracings => {
+                collect_countable_bracketed(&retrace.content.content, out, include_retracings);
             }
             BracketedItem::PhoGroup(group) => {
                 collect_countable_bracketed(&group.content.content, out, include_retracings);
@@ -303,15 +294,11 @@ pub fn has_countable_words(content: &[talkbank_model::UtteranceContent]) -> bool
     use talkbank_model::UtteranceContent;
     for item in content {
         match item {
-            UtteranceContent::Word(word) => {
-                if is_countable_word(word) {
-                    return true;
-                }
+            UtteranceContent::Word(word) if is_countable_word(word) => {
+                return true;
             }
-            UtteranceContent::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
-                    return true;
-                }
+            UtteranceContent::AnnotatedWord(annotated) if is_countable_word(&annotated.inner) => {
+                return true;
             }
             UtteranceContent::ReplacedWord(replaced) => {
                 // Replacements represent corrected forms — they are countable
@@ -325,30 +312,30 @@ pub fn has_countable_words(content: &[talkbank_model::UtteranceContent]) -> bool
                     return true;
                 }
             }
-            UtteranceContent::Group(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            UtteranceContent::Group(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
-            UtteranceContent::AnnotatedGroup(annotated) => {
-                if has_countable_words_bracketed(&annotated.inner.content.content) {
-                    return true;
-                }
+            UtteranceContent::AnnotatedGroup(annotated)
+                if has_countable_words_bracketed(&annotated.inner.content.content) =>
+            {
+                return true;
             }
-            UtteranceContent::PhoGroup(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            UtteranceContent::PhoGroup(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
-            UtteranceContent::SinGroup(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            UtteranceContent::SinGroup(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
-            UtteranceContent::Quotation(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            UtteranceContent::Quotation(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
             // Non-word content (events, pauses, actions, etc.) doesn't count
             _ => {}
@@ -362,15 +349,11 @@ fn has_countable_words_bracketed(items: &[talkbank_model::BracketedItem]) -> boo
     use talkbank_model::BracketedItem;
     for item in items {
         match item {
-            BracketedItem::Word(word) => {
-                if is_countable_word(word) {
-                    return true;
-                }
+            BracketedItem::Word(word) if is_countable_word(word) => {
+                return true;
             }
-            BracketedItem::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
-                    return true;
-                }
+            BracketedItem::AnnotatedWord(annotated) if is_countable_word(&annotated.inner) => {
+                return true;
             }
             BracketedItem::ReplacedWord(replaced) => {
                 if !replaced.replacement.words.is_empty() {
@@ -383,25 +366,25 @@ fn has_countable_words_bracketed(items: &[talkbank_model::BracketedItem]) -> boo
                     return true;
                 }
             }
-            BracketedItem::AnnotatedGroup(annotated) => {
-                if has_countable_words_bracketed(&annotated.inner.content.content) {
-                    return true;
-                }
+            BracketedItem::AnnotatedGroup(annotated)
+                if has_countable_words_bracketed(&annotated.inner.content.content) =>
+            {
+                return true;
             }
-            BracketedItem::PhoGroup(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            BracketedItem::PhoGroup(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
-            BracketedItem::SinGroup(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            BracketedItem::SinGroup(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
-            BracketedItem::Quotation(group) => {
-                if has_countable_words_bracketed(&group.content.content) {
-                    return true;
-                }
+            BracketedItem::Quotation(group)
+                if has_countable_words_bracketed(&group.content.content) =>
+            {
+                return true;
             }
             _ => {}
         }

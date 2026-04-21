@@ -109,32 +109,26 @@ fn attach_error_suffix_to_previous_word(
     };
 
     match last {
-        UtteranceContent::Word(word) => {
-            if should_attach_error_fragment(word.raw_text(), error_text) {
-                let new_raw = format!("{}{}", word.raw_text(), error_text);
-                word.set_raw_text(new_raw);
-                true
-            } else {
-                false
-            }
+        UtteranceContent::Word(word)
+            if should_attach_error_fragment(word.raw_text(), error_text) =>
+        {
+            let new_raw = format!("{}{}", word.raw_text(), error_text);
+            word.set_raw_text(new_raw);
+            true
         }
-        UtteranceContent::AnnotatedWord(annotated) => {
-            if should_attach_error_fragment(annotated.inner.raw_text(), error_text) {
-                let new_raw = format!("{}{}", annotated.inner.raw_text(), error_text);
-                annotated.inner.set_raw_text(new_raw);
-                true
-            } else {
-                false
-            }
+        UtteranceContent::AnnotatedWord(annotated)
+            if should_attach_error_fragment(annotated.inner.raw_text(), error_text) =>
+        {
+            let new_raw = format!("{}{}", annotated.inner.raw_text(), error_text);
+            annotated.inner.set_raw_text(new_raw);
+            true
         }
-        UtteranceContent::ReplacedWord(replaced) => {
-            if should_attach_error_fragment(replaced.word.raw_text(), error_text) {
-                let new_raw = format!("{}{}", replaced.word.raw_text(), error_text);
-                replaced.word.set_raw_text(new_raw);
-                true
-            } else {
-                false
-            }
+        UtteranceContent::ReplacedWord(replaced)
+            if should_attach_error_fragment(replaced.word.raw_text(), error_text) =>
+        {
+            let new_raw = format!("{}{}", replaced.word.raw_text(), error_text);
+            replaced.word.set_raw_text(new_raw);
+            true
         }
         _ => false,
     }

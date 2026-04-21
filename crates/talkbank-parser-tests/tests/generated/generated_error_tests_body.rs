@@ -4285,6 +4285,102 @@ fn test_e543_header_out_of_order_utf8_begin_languages_0() -> Result<(), talkbank
     Ok(())
 }
 
+#[ignore = "Status: not_implemented (E544)"]
+/// Tests expected behavior.
+#[test]
+fn test_e544_media_linkage_without_timing_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;0||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E544"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+#[ignore = "Status: not_implemented (E544)"]
+/// Tests expected behavior.
+#[test]
+fn test_e544_media_linkage_without_timing_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, video\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E544"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+#[ignore = "Status: not_implemented (E544)"]
+/// Tests expected behavior.
+#[test]
+fn test_e544_media_linkage_without_timing_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, audio, unlinked\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["(none; file is valid)"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+#[ignore = "Status: not_implemented (E544)"]
+/// Tests expected behavior.
+#[test]
+fn test_e544_media_linkage_without_timing_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world . ·0_1200·\n*CHI:\tgoodbye . ·1200_1800·\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["(none; file is valid)"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
 
 /// Tests expected behavior.
 #[test]

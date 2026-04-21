@@ -27,4 +27,6 @@ walkdir = { workspace = true } #unified
 [dev-dependencies]
 insta = { workspace = true, features = ["json"] }
 proptest = { workspace = true }
+quick-xml = { workspace = true }
 rstest = { workspace = true }
+talkbank-transform = { workspace = true }

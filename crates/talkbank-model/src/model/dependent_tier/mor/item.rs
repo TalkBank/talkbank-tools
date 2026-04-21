@@ -7,6 +7,7 @@
 //! - [Morphological tier](https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier)
 
 use super::super::WriteChat;
+use super::analysis::PosCategory;
 use super::word::MorWord;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -83,6 +84,14 @@ impl Mor {
     pub fn with_post_clitics(mut self, clitics: impl Into<SmallVec<[MorWord; 2]>>) -> Self {
         self.post_clitics = clitics.into();
         self
+    }
+
+    /// Replace only the main word's POS category, preserving its lemma,
+    /// morphological features, and all post-clitics. Used by consumers that
+    /// need to override the POS decision (e.g., the `$POS`-hint post-pass)
+    /// without touching the rest of the analysis.
+    pub fn override_main_pos(&mut self, pos: impl Into<PosCategory>) {
+        self.main.pos = pos.into();
     }
 
     /// Count total chunks contributed by this item for `%gra` alignment.

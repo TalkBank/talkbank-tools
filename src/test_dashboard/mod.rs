@@ -93,7 +93,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 )
             })
             .collect();
-        list.sort_by(|a, b| b.2.cmp(&a.2));
+        list.sort_by_key(|entry| std::cmp::Reverse(entry.2));
         list
     };
 

@@ -41,6 +41,9 @@
 pub mod json;
 pub use json::*;
 
+// CHAT → TalkBank XML emission (Rust replacement for Java Chatter's XML output).
+pub mod xml;
+
 mod pipeline;
 pub use pipeline::{
     PipelineError, chat_to_json, chat_to_json_unvalidated, normalize_chat, parse_and_validate,

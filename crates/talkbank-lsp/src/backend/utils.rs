@@ -81,7 +81,7 @@ pub fn offset_to_position(text: &str, offset: u32) -> Position {
 
     // Bounds check: if offset is beyond text, return end position
     if offset >= text.len() {
-        let line_count = text.lines().count().saturating_sub(1).max(0);
+        let line_count = text.lines().count().saturating_sub(1);
         let last_line = text.lines().nth(line_count).unwrap_or_default();
         // DEFAULT: When the document has no lines, treat the last line as empty.
         return Position {

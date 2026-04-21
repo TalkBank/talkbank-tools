@@ -97,15 +97,11 @@ fn build_flo_text(
 fn collect_flo_texts(content: &[UtteranceContent], out: &mut Vec<String>) {
     for item in content {
         match item {
-            UtteranceContent::Word(word) => {
-                if is_countable_word(word) {
-                    out.push(word_display_text(word));
-                }
+            UtteranceContent::Word(word) if is_countable_word(word) => {
+                out.push(word_display_text(word));
             }
-            UtteranceContent::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
-                    out.push(word_display_text(&annotated.inner));
-                }
+            UtteranceContent::AnnotatedWord(annotated) if is_countable_word(&annotated.inner) => {
+                out.push(word_display_text(&annotated.inner));
             }
             UtteranceContent::ReplacedWord(replaced) => {
                 // Use the replacement (corrected form), not the original
@@ -133,15 +129,11 @@ fn collect_flo_texts(content: &[UtteranceContent], out: &mut Vec<String>) {
 fn collect_flo_bracketed_texts(items: &[BracketedItem], out: &mut Vec<String>) {
     for item in items {
         match item {
-            BracketedItem::Word(word) => {
-                if is_countable_word(word) {
-                    out.push(word_display_text(word));
-                }
+            BracketedItem::Word(word) if is_countable_word(word) => {
+                out.push(word_display_text(word));
             }
-            BracketedItem::AnnotatedWord(annotated) => {
-                if is_countable_word(&annotated.inner) {
-                    out.push(word_display_text(&annotated.inner));
-                }
+            BracketedItem::AnnotatedWord(annotated) if is_countable_word(&annotated.inner) => {
+                out.push(word_display_text(&annotated.inner));
             }
             BracketedItem::ReplacedWord(replaced) => {
                 for rep in replaced.replacement.words.iter() {

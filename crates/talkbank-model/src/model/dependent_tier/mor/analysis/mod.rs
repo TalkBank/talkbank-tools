@@ -9,6 +9,8 @@
 //! References:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier>
 
+pub mod clan_ud_mapping;
 mod newtypes;
 
+pub use clan_ud_mapping::clan_to_ud_upos;
 pub use newtypes::{MorFeature, MorStem, PosCategory};
