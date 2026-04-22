@@ -122,53 +122,39 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
 
     // Check if this is a header error by looking at the content
     if matches!(error_text.chars().next(), Some('@')) {
-        // Check for empty headers (missing content after colon)
-        // Check if text is just the header name with colon (with only whitespace after)
-        if error_text.len() >= 11 && &error_text[..11] == "@Languages:" {
-            let after_colon = &error_text[11..];
-            if after_colon
+        // Empty-header checks via `strip_prefix` so we never slice at
+        // a byte index that might fall inside a multi-byte UTF-8 char.
+        // (A previous `error_text[..N] == "@Name:"` pattern panicked on
+        // fuzz input like `@%…˻…` where byte index 7 sat inside `˻`.)
+        let empty_header_check: Option<(&str, ErrorCode, &'static str)> = None
+            .or_else(|| {
+                error_text
+                    .strip_prefix("@Languages:")
+                    .map(|rest| (rest, ErrorCode::EmptyLanguagesHeader, "@Languages"))
+            })
+            .or_else(|| {
+                error_text
+                    .strip_prefix("@Date:")
+                    .map(|rest| (rest, ErrorCode::EmptyDateHeader, "@Date"))
+            })
+            .or_else(|| {
+                error_text
+                    .strip_prefix("@Media:")
+                    .map(|rest| (rest, ErrorCode::EmptyMediaHeader, "@Media"))
+            });
+        if let Some((after_colon, code, name)) = empty_header_check
+            && after_colon
                 .bytes()
                 .all(|b| b == b'\t' || b == b' ' || b == b'\n' || b == b'\r')
-            {
-                errors.report(ParseError::new(
-                    ErrorCode::EmptyLanguagesHeader,
-                    Severity::Error,
-                    SourceLocation::from_offsets(start, end),
-                    ErrorContext::new(source, start..end, error_text),
-                    "@Languages header cannot be empty",
-                ));
-                return;
-            }
-        } else if error_text.len() >= 6 && &error_text[..6] == "@Date:" {
-            let after_colon = &error_text[6..];
-            if after_colon
-                .bytes()
-                .all(|b| b == b'\t' || b == b' ' || b == b'\n' || b == b'\r')
-            {
-                errors.report(ParseError::new(
-                    ErrorCode::EmptyDateHeader,
-                    Severity::Error,
-                    SourceLocation::from_offsets(start, end),
-                    ErrorContext::new(source, start..end, error_text),
-                    "@Date header cannot be empty",
-                ));
-                return;
-            }
-        } else if error_text.len() >= 7 && &error_text[..7] == "@Media:" {
-            let after_colon = &error_text[7..];
-            if after_colon
-                .bytes()
-                .all(|b| b == b'\t' || b == b' ' || b == b'\n' || b == b'\r')
-            {
-                errors.report(ParseError::new(
-                    ErrorCode::EmptyMediaHeader,
-                    Severity::Error,
-                    SourceLocation::from_offsets(start, end),
-                    ErrorContext::new(source, start..end, error_text),
-                    "@Media header cannot be empty",
-                ));
-                return;
-            }
+        {
+            errors.report(ParseError::new(
+                code,
+                Severity::Error,
+                SourceLocation::from_offsets(start, end),
+                ErrorContext::new(source, start..end, error_text),
+                format!("{name} header cannot be empty"),
+            ));
+            return;
         }
 
         // @Page header (not a standard CHAT header but used in some files)
