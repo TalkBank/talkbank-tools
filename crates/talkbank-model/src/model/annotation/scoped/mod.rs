@@ -37,7 +37,7 @@ mod types;
 mod write;
 
 pub use types::{
-    ContentAnnotation, OverlapMarkerIndex, ScopedAddition, ScopedAlternative, ScopedDuration,
-    ScopedError, ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd, ScopedParalinguistic,
+    ContentAnnotation, OverlapMarkerIndex, ScopedAddition, ScopedAlternative, ScopedError,
+    ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd, ScopedParalinguistic,
     ScopedPercentComment, ScopedUnknown,
 };

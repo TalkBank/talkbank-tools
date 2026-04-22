@@ -1,7 +1,7 @@
 # XML Emitter
 
 **Status:** Current
-**Last updated:** 2026-04-21 11:00 EDT
+**Last updated:** 2026-04-22 18:58 EDT
 
 ## Purpose
 
@@ -34,13 +34,16 @@ It is the Rust-side replacement for Java's CHAT → XML projection.
   `<pg>/<pw>/<ph>/<cmph>/<ss>` XML. Files carrying these tiers
   still parse, validate, and round-trip through CHAT unchanged —
   only the XML projection is declined.
-- **Parity oracle.** The 39 goldens in
-  `corpus/reference-xml/` (produced by Java Chatter against the
-  reference CHAT corpus) are the parity target. All 39 pass as of
-  the current build. See `docs/reference-xml-coverage-gaps.md`
-  for why 65 other reference `.cha` files have no paired golden —
-  none are Rust bugs; all are CHAT-format evolutions Java
-  Chatter's frozen grammar can't process.
+- **Parity oracle.** The goldens in `corpus/reference-xml/`
+  (produced by Java Chatter against the reference CHAT corpus)
+  are the parity target. As of 2026-04-22, **94/94 paired goldens
+  pass structurally** — full parity across every reference `.cha`
+  file Java Chatter can emit. Five reference fixtures have no
+  golden because Java can't emit them at all: two use UD POS tags
+  (`propn`) Java's tree walker doesn't recognize, and three
+  declare `@Media` with a linkage type that the fresh E544
+  validator now catches before emission has a chance to run.
+  Intentional divergences, not Rust gaps.
 
 ## Module layout
 
@@ -128,7 +131,7 @@ main tier in parallel with two cursors into the dependent tiers.
 flowchart TD
     start([emit_utterance])
     preHdr[emit pre-begin<br/>headers]
-    collect["collect_utterance_tiers<br/>→ UtteranceTiers {<br/>mor, gra, wor, side_tiers }"]
+    collect["collect_utterance_tiers<br/>→ UtteranceTiers {<br/>mor, gra, wor, sin, side_tiers }"]
     openU["&lt;u who=… uID=…&gt;"]
     linkers["emit_linker × N<br/>(utterance.main.content.linkers)"]
     walk{"walk<br/>utterance.main.content.content"}
@@ -163,35 +166,103 @@ flowchart TD
     closeU --> done
 ```
 
-### The two-cursor invariant
+### The TierCursors invariant
 
-Walking the main tier requires tracking **two independent cursors**
-into the `%mor` / `%gra` tiers. This separation is the single most
-important correctness invariant in the emitter; a merged cursor
-silently drifts on any utterance containing a clitic chain.
+Walking the main tier requires tracking **three independent cursors**
+into the `%mor` / `%gra` / `%sin` tiers. This separation is the
+single most important correctness invariant in the emitter; a
+merged cursor silently drifts on any utterance containing a clitic
+chain, an untranscribed placeholder, or a sign-language item.
+
+A `TierCursors` helper in `mor.rs` owns the three cursors and
+provides `mor_index() / gra_chunk() / sin_index()` accessors plus
+`consume_mor(post_clitics_len) / consume_sin() / advance_bulk(mor,
+gra)` advance methods. Every content-arm in `emit_utterance` runs
+a fixed template: look up partners at the current cursor positions,
+emit, call `consume_*`. The advance math has exactly one home.
 
 | Cursor | Indexes into | Advances by |
 |--------|--------------|-------------|
-| `mor_cursor` | `mor_tier.items` (one `Mor` per main-tier word) | **1** per alignable word |
-| `gra_chunk` | `gra.relations` (1-based `<gra index=…/>`) | **`1 + post_clitics.len()`** per `Mor` |
+| `mor` | `mor_tier.items` (one `Mor` per main-tier word) | **1** per alignable word |
+| `gra` | `gra.relations` (1-based `<gra index=…/>`) | **`1 + post_clitics.len()`** per `Mor` |
+| `sin` | `sin_tier.items` (one `SinItem` per sin-countable word) | **1** per sin-countable word |
 
 A `Mor` item like `pron|what-Int-S1~aux|be-Fin-Ind-Pres-S3` is **one**
 entry in `mor_tier.items` but contributes **two** `%gra` edges —
 one for the main `<mw>`, one for each `<mor-post><mw/></mor-post>`.
-So cursors advance at different rates.
+So mor and gra cursors advance at different rates.
 
-Cursor gating also honours the model's canonical
-`counts_for_tier(word, TierDomain::Mor)` predicate: nonwords
-(`&~`), fillers (`&-`), phonological fragments (`&+`), and
-untranscribed placeholders (`xxx`, `yyy`, `www`) appear on the
-main tier but have no `%mor` item. Neither cursor advances for
-those tokens, and their `<w>` is emitted without a nested
-`<mor>` subtree.
+`%sin` uses a **separate** counting predicate than `%mor`. The
+model's `counts_for_tier(word, TierDomain)` function encodes the
+differences:
+
+- `TierDomain::Mor` excludes nonwords (`&~`), fillers (`&-`),
+  phonological fragments (`&+`), and untranscribed placeholders
+  (`xxx`, `yyy`, `www`).
+- `TierDomain::Sin` includes everything that was phonologically
+  or gesturally produced — fragments and untranscribed *do*
+  participate. A gesture can accompany an unintelligible vocalisation.
+
+Because the predicates diverge, the `sin` cursor advances on its
+own schedule. For `*CHI: mommy xxx . %sin: g:point 0 .` the `xxx`
+word consumes a `%sin` item but not a `%mor` item.
 
 Four main-tier content variants delegate cursor arithmetic through
 their emitters: `emit_replaced_word` and `emit_annotated_group`
-return `(mor_used, gra_used)` tuples; `emit_word` and
-`emit_annotated_word` run inline.
+return `(mor_used, gra_used)` tuples consumed via
+`cursors.advance_bulk(mor_used, gra_used)`; `emit_word` and
+`emit_annotated_word` call `cursors.consume_mor(post_count)` inline.
+
+### Why cursor-based, not `AlignmentSet`-based?
+
+`talkbank-model`'s `AlignmentSet` (`Utterance.alignments`) holds
+pre-computed `MorAlignmentPair` / `SinAlignmentPair` / etc. — the
+same main-word-index ↔ target-tier-index mapping the emitter
+computes on-the-fly. Why not use it directly?
+
+The XML emitter accepts `ChatFile<S: ValidationState>` for any
+`S`. When called on a `ChatFile<NotValidated>`, `compute_alignments`
+has never run and `Utterance.alignments` is `None`. Rather than
+force callers to validate first, or risk panics on unvalidated
+input, the emitter recomputes what it needs via the cursor walk.
+
+The cursor walk is equivalent to the model's alignment output for
+every reference-corpus input; it only diverges on malformed files
+that the model's alignment would also flag. The cursors stay as
+local emitter state, and the alignment module stays a separate,
+optional layer.
+
+### `%sin` → `<sg><w><sw/></w></sg>` emission
+
+When a `%sin` tier is present and the current word counts for
+`TierDomain::Sin`, the emitter wraps the `<w>` element (and its
+nested `<mor>` subtree if any) in a `<sg>` (sign group) with a
+`<sw>` (sign word) sibling:
+
+```xml
+<sg><w>what<mor>...</mor></w><sw>0</sw></sg>
+```
+
+`SinItem::Token(text)` renders as `<sw>text</sw>`; `SinItem::SinGroup(…)`
+joins its gesture tokens with spaces. The emission is the entirety
+of `XmlEmitter::emit_sin_word`; everything else is just the
+`<sg>…</sg>` wrap in `emit_utterance`'s `Word` arm.
+
+### `@Media` linkage and timing evidence (E544)
+
+As of 2026-04-22, validation fires E544 before XML emission when
+an unqualified `@Media` header (status-less) claims linkage but
+the transcript carries no timing evidence (no main-tier bullets,
+no positional `%wor` sidecar). This is a validator-level rule
+(lives in `crates/talkbank-model/src/model/file/chat_file/validate.rs`
+`check_media_linkage_has_timing`), not an emitter rule — it runs
+during `ChatFile::validate` and blocks downstream emission on
+validation-gated entry points. See `spec/errors/E544_media_linkage_without_timing.md`.
+
+The emitter itself doesn't care about bullet presence; it was the
+former Java-Chatter emitter that imposed this check (as a parser-
+level semantic failure) and Rust now implements it in the
+validator, per the project lead's 2026-04-21 approval.
 
 ### Post-clitic emission
 
@@ -319,20 +390,32 @@ delete after the divergence is resolved.
 
 ## Related documents
 
-- `docs/reference-xml-coverage-gaps.md` — why 65 reference `.cha`
-  files have no paired XML golden.
+- `docs/reference-xml-coverage-gaps.md` — why some reference `.cha`
+  files have no paired XML golden. Note (2026-04-22): earlier
+  reports of "65 missing goldens" reflected a time when Java
+  Chatter and chatter shared a Chat.flex without the comma /
+  em-dash / CA-marker / SECONDS lexer fixes that landed this
+  session. The current gap is much smaller; the five permanent
+  exclusions are UD-POS files Java can't walk + `@Media`-without-
+  timing files E544 now blocks at validation.
 - `docs/rust-vs-java-chatter-regressions.md` — audit of the
   Rust-vs-Java parser-level differences that the emitter bridges.
 - `docs/talkbank-xml-consumers-2026-04.md` — downstream XML
   consumers and the Phon-pivot context.
+- `spec/errors/E544_media_linkage_without_timing.md` — the
+  `@Media` bullet-existence validator that runs before emission.
+- `docs/investigations/2026-04-22-rust-validator-strictness.md`
+  — reference-corpus CHECK audit and the `chatter becomes the
+  authority over time` policy decision.
 
 ## Staged features
 
 The emitter reports `XmlWriteError::FeatureNotImplemented` for
 CHAT constructs that have a known XML shape but haven't been
-wired in yet. Since all 39 reference-XML goldens pass, any new
-staged feature that lands will be triggered by a file added to
-the reference corpus that exercises it. When that happens:
+wired in yet. With all paired reference-XML goldens now passing
+(94/94 as of 2026-04-22), any new staged feature that lands will
+be triggered by a file added to the reference corpus that
+exercises it. When that happens:
 
 1. Run `cargo nextest run -p talkbank-parser-tests --test xml_golden`
    and read the failure message.

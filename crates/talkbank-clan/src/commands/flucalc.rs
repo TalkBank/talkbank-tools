@@ -381,7 +381,7 @@ fn count_retrace_kind(kind: RetraceKind, fluency: &mut SpeakerFluency) {
     match kind {
         RetraceKind::Partial => fluency.phrase_reps += 1,
         RetraceKind::Full => fluency.revisions += 1,
-        RetraceKind::Multiple | RetraceKind::Reformulation | RetraceKind::Uncertain => {}
+        RetraceKind::Multiple | RetraceKind::Reformulation => {}
     }
 }
 

@@ -902,7 +902,6 @@ export default grammar({
     retrace_partial: $ => token('[/]'),
     retrace_multiple: $ => token('[///]'),
     retrace_reformulation: $ => token('[/-]'),
-    retrace_uncertain: $ => token('[/?]'),
 
     exclude_marker: $ => token('[e]'),
 
@@ -1101,19 +1100,16 @@ export default grammar({
       $.indexed_overlap_follows,         // [>], [>N] - overlap follows
       $.scoped_stressing,                // [!] - stressing
       $.scoped_contrastive_stressing,    // [!!] - contrastive stressing
-      $.scoped_best_guess,               // [!*] - best guess
       $.scoped_uncertain,                // [?] - uncertain
       $.explanation_annotation,          // [= text] - explanation
       $.para_annotation,                 // [=! text] - paralinguistic
       $.alt_annotation,                  // [=? text] - alternative transcription
       $.percent_annotation,              // [% text] - percent annotation
-      $.duration_annotation,             // [# time] - duration
       $.error_marker_annotation,         // [*] or [* code] - error marker
       $.retrace_complete,                // [//] - complete retrace
       $.retrace_partial,                 // [/] - partial retrace
       $.retrace_multiple,                // [///] - multiple retrace
       $.retrace_reformulation,           // [/-] - reformulation
-      $.retrace_uncertain,               // [/?] - uncertain retrace
       $.exclude_marker,                  // [e] - exclude from analysis
     ),
 
@@ -1307,8 +1303,6 @@ export default grammar({
     scoped_stressing: $ => token('[!]'),
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#ContrastiveStressing_Scope
     scoped_contrastive_stressing: $ => token('[!!]'),
-    // Reference: https://talkbank.org/0info/manuals/CHAT.html#BestGuess_Scope
-    scoped_best_guess: $ => token('[!*]'),
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#UnclearRetracing_Scope
     scoped_uncertain: $ => token('[?]'),
 
@@ -1364,15 +1358,6 @@ export default grammar({
       token(prec(8, '[%')),
       $.space,
       field('text', $.annotation_content),
-      $.right_bracket,
-    ),
-
-    // Duration annotation: [# time]
-    // Permissive content; Rust parser validates format (e.g., [# 2.5], [# 3:2.4])
-    duration_annotation: $ => seq(
-      token(prec(8, '[#')),
-      $.space,
-      field('time', $.annotation_content),
       $.right_bracket,
     ),
 

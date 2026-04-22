@@ -14,13 +14,13 @@ use std::collections::HashMap;
 use talkbank_model::alignment::TierDomain;
 use talkbank_model::alignment::helpers::{counts_for_tier, is_tag_marker_separator};
 use talkbank_model::model::{
-    AgeValue, BulletContent, BulletContentSegment, ChatDate, ChatFile, ChatOptionFlag, Header,
-    Line, Month, Sex, SpeakerCode, UtteranceContent,
+    AgeValue, BulletContent, ChatDate, ChatFile, ChatOptionFlag, Header, Line, Month, Sex, SinItem,
+    SpeakerCode, UtteranceContent,
 };
 use talkbank_model::validation::ValidationState;
 
 use super::error::XmlWriteError;
-use super::mor::collect_utterance_tiers;
+use super::mor::{TierCursors, collect_utterance_tiers};
 use super::writer::{
     SCHEMA_LOCATION, SCHEMA_VERSION, TALKBANK_NS, XSI_NS, XmlEmitter, escape_text,
 };
@@ -59,7 +59,16 @@ impl XmlEmitter {
                 .and_then(|s| s.strip_suffix('"'))
                 .unwrap_or(raw);
             root.push_attribute(("Media", stripped));
-            root.push_attribute(("Mediatypes", media.media_type.as_str()));
+            // `Mediatypes` is a space-separated list per the XSD's
+            // `mediaTypesType` enumeration
+            // ({audio|video|unlinked|missing|notrans}), so emit the
+            // media type and any status in the same attribute rather
+            // than splitting them.
+            let mediatypes = match &media.status {
+                Some(status) => format!("{} {}", media.media_type.as_str(), status.as_str()),
+                None => media.media_type.as_str().to_owned(),
+            };
+            root.push_attribute(("Mediatypes", mediatypes.as_str()));
         }
         root.push_attribute(("Version", SCHEMA_VERSION));
         root.push_attribute(("Lang", join_language_codes(file).as_str()));
@@ -82,6 +91,21 @@ impl XmlEmitter {
             root.push_attribute(("DesignType", types.design.as_str()));
             root.push_attribute(("ActivityType", types.activity.as_str()));
             root.push_attribute(("GroupType", types.group.as_str()));
+        }
+        // Pre-Begin UI-state headers — `@Color words`, `@Font`,
+        // `@Window` — round-trip as root attributes. Documented in
+        // the CHAT manual even though their origin is CLAN editor
+        // state. Collected in a single pass so we don't scan
+        // `file.lines` three times.
+        let ui = find_root_ui_attrs(file);
+        if let Some(colors) = ui.colors {
+            root.push_attribute(("Colorwords", colors));
+        }
+        if let Some(font) = ui.font {
+            root.push_attribute(("Font", font));
+        }
+        if let Some(window) = ui.window {
+            root.push_attribute(("Window", window));
         }
         self.writer.write_event(Event::Start(root))?;
 
@@ -132,9 +156,17 @@ impl XmlEmitter {
             if let Some(name) = &participant.name {
                 start.push_attribute(("name", name.as_str()));
             }
-            // `ses` / `education` and SES's typed variants are staged
-            // for a later increment; reaching them here is intentional
-            // TDD work, not silently dropped.
+            // `SES` attribute (uppercase, per Java golden). `SesValue::as_str`
+            // serializes `SesOnly(UC)` as `"UC"` and `Combined { eth, ses }`
+            // as `"White,MC"`, matching Java Chatter's comma-joined form.
+            let ses_rendered;
+            if let Some(ses) = &participant.id.ses {
+                ses_rendered = ses.as_str();
+                start.push_attribute(("SES", ses_rendered.as_str()));
+            }
+            if let Some(education) = &participant.id.education {
+                start.push_attribute(("education", education.as_str()));
+            }
             if let Some(birth_date) = &participant.birth_date {
                 let iso = format_chat_date_iso(birth_date)?;
                 start.push_attribute(("birthday", iso.as_str()));
@@ -211,9 +243,7 @@ impl XmlEmitter {
             // YYYY</comment>` preserving the original CHAT text.
             Header::Date { date } => self.emit_typed_comment("Date", date.as_str()),
 
-            Header::Comment { content } => {
-                self.emit_typed_comment("Generic", &bullet_content_plain_text(content)?)
-            }
+            Header::Comment { content } => self.emit_bullet_content_comment("Generic", content),
             Header::Location { location } => self.emit_typed_comment("Location", location.as_str()),
             Header::Situation { text } => self.emit_typed_comment("Situation", text.as_str()),
             Header::Activities { activities } => {
@@ -257,13 +287,18 @@ impl XmlEmitter {
                 self.emit_typed_comment("Types", &payload)
             }
 
-            // Display-preference headers (font/window/color-words)
-            // and videos all route through a "Generic" comment since
-            // the XSD doesn't have typed elements for them.
-            Header::Font { font } => self.emit_typed_comment("Generic", font.as_str()),
-            Header::Window { geometry } => self.emit_typed_comment("Generic", geometry.as_str()),
-            Header::ColorWords { colors } => self.emit_typed_comment("Generic", colors.as_str()),
-            Header::Videos { videos } => self.emit_typed_comment("Generic", videos.as_str()),
+            // `@Font`, `@Window`, `@Color words` project onto the
+            // root `<CHAT>` element as attributes (see
+            // `find_root_font` / `find_root_window` /
+            // `find_root_color_words`) rather than as body-level
+            // comments. Suppress here to avoid emitting them twice.
+            Header::Font { .. } => Ok(()),
+            Header::Window { .. } => Ok(()),
+            Header::ColorWords { .. } => Ok(()),
+            // `@Videos:` has no corresponding XML element in the
+            // TalkBank XSD and Java Chatter silently drops it.
+            // Matching that: preserve the CHAT source, emit nothing.
+            Header::Videos { .. } => Ok(()),
             // Marker headers with no payload. The XSD has dedicated
             // `"New Episode"` and `"Blank"` `commentTypeType` values.
             Header::NewEpisode => self.emit_typed_comment("New Episode", ""),
@@ -305,9 +340,100 @@ impl XmlEmitter {
         let mut start = BytesStart::new("comment");
         start.push_attribute(("type", type_value));
         self.writer.write_event(Event::Start(start))?;
-        self.writer.write_event(Event::Text(escape_text(text)))?;
+        let normalized = collapse_whitespace(text);
+        self.writer
+            .write_event(Event::Text(escape_text(&normalized)))?;
         self.writer
             .write_event(Event::End(BytesEnd::new("comment")))?;
+        Ok(())
+    }
+
+    /// Emit a `<comment type=…>` element with mixed content: text
+    /// segments as `<Text>` children, timing bullets as sibling
+    /// `<media start=… end=… unit="s"/>` elements, and picture
+    /// references preserved as inline `%pic:"…"` text (there's no
+    /// structural XML element for those).
+    ///
+    /// Matches Java Chatter's `@Comment` emission shape — previously
+    /// our emitter flattened everything to `[start_end]` text inside
+    /// the comment, which lost the structural timing.
+    fn emit_bullet_content_comment(
+        &mut self,
+        type_value: &str,
+        content: &BulletContent,
+    ) -> Result<(), XmlWriteError> {
+        let mut start = BytesStart::new("comment");
+        start.push_attribute(("type", type_value));
+        self.writer.write_event(Event::Start(start))?;
+        self.emit_bullet_content_children(content)?;
+        self.writer
+            .write_event(Event::End(BytesEnd::new("comment")))?;
+        Ok(())
+    }
+
+    /// Walk a `BulletContent` and emit its segments as XML children of
+    /// the currently-open element: text segments as `Text` events,
+    /// timing bullets as `<media start=… end=… unit="s"/>` empty
+    /// elements, picture references as inline `%pic:"…"` text.
+    ///
+    /// Shared between `<comment>` (header `@Comment`) and `<a>`
+    /// (dependent-tier side tiers like `%cod`, `%act`, `%com`, etc.)
+    /// — both take BulletContent and both produce mixed content in
+    /// Java Chatter's XML output.
+    pub(super) fn emit_bullet_content_children(
+        &mut self,
+        content: &BulletContent,
+    ) -> Result<(), XmlWriteError> {
+        use talkbank_model::model::BulletContentSegment;
+
+        let mut text_buf = String::new();
+        for segment in content.segments.0.iter() {
+            match segment {
+                BulletContentSegment::Text(text) => {
+                    text_buf.push_str(&text.text);
+                }
+                BulletContentSegment::Bullet(bullet) => {
+                    if !text_buf.is_empty() {
+                        let normalized = collapse_whitespace(&text_buf);
+                        self.writer
+                            .write_event(Event::Text(escape_text(&normalized)))?;
+                        text_buf.clear();
+                    }
+                    let start_s = super::wor::format_seconds(bullet.start_ms);
+                    let end_s = super::wor::format_seconds(bullet.end_ms);
+                    let mut media = BytesStart::new("media");
+                    media.push_attribute(("start", start_s.as_str()));
+                    media.push_attribute(("end", end_s.as_str()));
+                    media.push_attribute(("unit", "s"));
+                    self.writer.write_event(Event::Empty(media))?;
+                }
+                BulletContentSegment::Picture(picture) => {
+                    // `%pic:"filename"` → `<mediaPic href="filename"/>`
+                    // per Java Chatter. Flush any buffered text so
+                    // the `<mediaPic>` lands in document order.
+                    if !text_buf.is_empty() {
+                        let normalized = collapse_whitespace(&text_buf);
+                        self.writer
+                            .write_event(Event::Text(escape_text(&normalized)))?;
+                        text_buf.clear();
+                    }
+                    let mut tag = BytesStart::new("mediaPic");
+                    tag.push_attribute(("href", picture.filename.as_str()));
+                    self.writer.write_event(Event::Empty(tag))?;
+                }
+                BulletContentSegment::Continuation => {
+                    // Tab-indented continuation — collapse_whitespace
+                    // will flatten this when we flush.
+                    text_buf.push(' ');
+                }
+            }
+        }
+
+        if !text_buf.is_empty() {
+            let normalized = collapse_whitespace(&text_buf);
+            self.writer
+                .write_event(Event::Text(escape_text(&normalized)))?;
+        }
         Ok(())
     }
 
@@ -339,6 +465,18 @@ impl XmlEmitter {
         let mut start = BytesStart::new("u");
         start.push_attribute(("who", utterance.main.speaker.as_str()));
         start.push_attribute(("uID", uid.as_str()));
+        // `[- LANG]` pre-code promotes the utterance's baseline
+        // language to a tier-scoped override; Java Chatter projects
+        // that onto `<u xml:lang="LANG">`. The grammar populates
+        // `main.content.language_code` directly when it parses the
+        // pre-code, so we read it here rather than going through
+        // the computed `utterance_language` state — the latter is
+        // only populated when the caller invokes
+        // `compute_language_metadata` (e.g. during the alignment
+        // pipeline), but XML emission runs on the bare parse too.
+        if let Some(code) = utterance.main.content.language_code.as_ref() {
+            start.push_attribute(("xml:lang", code.as_str()));
+        }
         self.writer.write_event(Event::Start(start))?;
 
         // Discourse linkers (`+<`, `++`, `+≈`, `+≋`, …) sit at the
@@ -348,21 +486,10 @@ impl XmlEmitter {
             self.emit_linker(linker)?;
         }
 
-        // Walk main-tier content in parallel with two cursors:
-        //
-        // - `mor_cursor` indexes into `mor_tier.items`. Each alignable
-        //   content item (Word, Separator) consumes one Mor item —
-        //   even when that item carries post-clitics (`~aux|be` is
-        //   still *one* Mor, with `post_clitics` populated).
-        // - `gra_chunk` is the 1-based `%gra` index for the next
-        //   main `<mw>`. It advances by `1 + post_clitics.len()`
-        //   per Mor because each post-clitic contributes its own
-        //   `%gra` edge (see `emit_word_mor_subtree`).
-        //
-        // Pause and Retrace do not consume either cursor, matching
-        // the CHAT manual's definition of mor alignability.
-        let mut mor_cursor: usize = 0;
-        let mut gra_chunk: usize = 1;
+        // Per-content-arm logic reads cursors and calls
+        // `cursors.consume_*` to advance. Advance rules live on
+        // `TierCursors` (see its rustdoc).
+        let mut cursors = TierCursors::new();
         for item in utterance.main.content.content.iter() {
             match item {
                 UtteranceContent::Word(word) => {
@@ -383,20 +510,48 @@ impl XmlEmitter {
                     // where it is. Using the model's canonical
                     // `counts_for_tier(TierDomain::Mor)` predicate
                     // keeps this check aligned with validation logic.
-                    let counts = counts_for_tier(word, TierDomain::Mor);
-                    let mor_for_word = if counts {
+                    let counts_mor = counts_for_tier(word, TierDomain::Mor);
+                    let mor_for_word = if counts_mor {
                         tiers
                             .mor
                             .as_ref()
-                            .and_then(|mor| mor.items.0.get(mor_cursor))
+                            .and_then(|mor| mor.items.0.get(cursors.mor_index()))
                     } else {
                         None
                     };
-                    self.emit_word(word, mor_for_word, tiers.gra, gra_chunk)?;
-                    if counts && tiers.mor.is_some() {
+
+                    // `%sin` attaches one sign-word per main-tier
+                    // word that counts for `TierDomain::Sin`, wrapping
+                    // the whole pair in `<sg><w>...</w><sw>sin</sw></sg>`
+                    // per Java Chatter's schema. `%sin` includes more
+                    // token kinds than `%mor` (fragments, untranscribed
+                    // all participate), so the gate is separate.
+                    let counts_sin = tiers.sin.is_some() && counts_for_tier(word, TierDomain::Sin);
+                    let sin_item = if counts_sin {
+                        tiers
+                            .sin
+                            .as_ref()
+                            .and_then(|sin| sin.items.0.get(cursors.sin_index()))
+                    } else {
+                        None
+                    };
+
+                    if sin_item.is_some() {
+                        self.writer
+                            .write_event(Event::Start(BytesStart::new("sg")))?;
+                    }
+                    self.emit_word(word, mor_for_word, tiers.gra, cursors.gra_chunk())?;
+                    if let Some(item) = sin_item {
+                        self.emit_sin_word(item)?;
+                        self.writer.write_event(Event::End(BytesEnd::new("sg")))?;
+                    }
+
+                    if counts_mor && tiers.mor.is_some() {
                         let post_count = mor_for_word.map(|m| m.post_clitics.len()).unwrap_or(0);
-                        mor_cursor += 1;
-                        gra_chunk += 1 + post_count;
+                        cursors.consume_mor(post_count);
+                    }
+                    if counts_sin {
+                        cursors.consume_sin();
                     }
                 }
                 UtteranceContent::Separator(sep) => {
@@ -411,15 +566,14 @@ impl XmlEmitter {
                         tiers
                             .mor
                             .as_ref()
-                            .and_then(|mor| mor.items.0.get(mor_cursor))
+                            .and_then(|mor| mor.items.0.get(cursors.mor_index()))
                     } else {
                         None
                     };
-                    self.emit_separator(sep, mor_for_sep, tiers.gra, gra_chunk)?;
+                    self.emit_separator(sep, mor_for_sep, tiers.gra, cursors.gra_chunk())?;
                     if counts_for_mor && tiers.mor.is_some() {
                         let post_count = mor_for_sep.map(|m| m.post_clitics.len()).unwrap_or(0);
-                        mor_cursor += 1;
-                        gra_chunk += 1 + post_count;
+                        cursors.consume_mor(post_count);
                     }
                 }
                 UtteranceContent::Pause(pause) => {
@@ -429,24 +583,25 @@ impl XmlEmitter {
                     self.emit_retrace(retrace)?;
                 }
                 UtteranceContent::AnnotatedWord(annotated) => {
-                    let mor_for_chunk = tiers.mor.and_then(|mor| mor.items.0.get(mor_cursor));
-                    self.emit_annotated_word(annotated, mor_for_chunk, tiers.gra, gra_chunk)?;
+                    let mor_for_chunk = tiers
+                        .mor
+                        .and_then(|mor| mor.items.0.get(cursors.mor_index()));
+                    self.emit_annotated_word(
+                        annotated,
+                        mor_for_chunk,
+                        tiers.gra,
+                        cursors.gra_chunk(),
+                    )?;
                     if tiers.mor.is_some() {
                         let post_count = mor_for_chunk.map(|m| m.post_clitics.len()).unwrap_or(0);
-                        mor_cursor += 1;
-                        gra_chunk += 1 + post_count;
+                        cursors.consume_mor(post_count);
                     }
                 }
                 UtteranceContent::ReplacedWord(rw) => {
-                    // Multi-word replacements (`dunno [: don't know]`)
-                    // consume N mor items; `emit_replaced_word`
-                    // reports the exact mor + gra counts so we can
-                    // advance both cursors without re-walking the
-                    // replacement words.
-                    let (mor_used, gra_used) =
-                        self.emit_replaced_word(rw, &tiers, mor_cursor, gra_chunk)?;
-                    mor_cursor += mor_used;
-                    gra_chunk += gra_used;
+                    // `emit_replaced_word` consumes N mor items +
+                    // their post-clitic `%gra` edges internally via
+                    // the shared `cursors`.
+                    self.emit_replaced_word(rw, &tiers, &mut cursors)?;
                 }
                 UtteranceContent::Event(event) => {
                     // Inline `&=descriptor` event in main-tier content
@@ -468,15 +623,10 @@ impl XmlEmitter {
                     self.emit_overlap_point(point)?;
                 }
                 UtteranceContent::AnnotatedGroup(annotated) => {
-                    // `<word1 word2> [annotation]` renders as
+                    // `<word1 word2> [annotation]` →
                     // `<g><w>word1</w><w>word2</w><annotation/></g>`.
-                    // Each word inside the group consumes its own
-                    // `%mor` item; `emit_annotated_group` returns
-                    // the mor / gra cursor advances.
-                    let (mor_used, gra_used) =
-                        self.emit_annotated_group(annotated, &tiers, mor_cursor, gra_chunk)?;
-                    mor_cursor += mor_used;
-                    gra_chunk += gra_used;
+                    // `emit_annotated_group` advances cursors inline.
+                    self.emit_annotated_group(annotated, &tiers, &mut cursors)?;
                 }
                 UtteranceContent::AnnotatedEvent(annotated) => {
                     // `&=descriptor [!]` → `<e><happening>text</happening>
@@ -486,14 +636,10 @@ impl XmlEmitter {
                     self.emit_annotated_event(annotated)?;
                 }
                 UtteranceContent::Group(group) => {
-                    // Bare `<word word>` group (no scoped annotations).
-                    // Rendered as `<g>` with inner `<w>` children —
-                    // same shape as `AnnotatedGroup` minus the
-                    // annotation siblings.
-                    let (mor_used, gra_used) =
-                        self.emit_bare_group(group, &tiers, mor_cursor, gra_chunk)?;
-                    mor_cursor += mor_used;
-                    gra_chunk += gra_used;
+                    // `<word word>` without scoped annotations — same
+                    // shape as `AnnotatedGroup` minus the sibling
+                    // annotations. Cursors advance inside.
+                    self.emit_bare_group(group, &tiers, &mut cursors)?;
                 }
                 UtteranceContent::Quotation(quotation) => {
                     self.emit_quotation(quotation)?;
@@ -560,7 +706,7 @@ impl XmlEmitter {
         // its `<mor>` subtree picks up the matching `<gra>`.
         match utterance.main.content.terminator.as_ref() {
             Some(terminator) => {
-                self.emit_terminator(terminator, &tiers, gra_chunk)?;
+                self.emit_terminator(terminator, &tiers, cursors.gra_chunk())?;
             }
             None => {
                 // CA transcripts commonly end an utterance with a
@@ -583,6 +729,20 @@ impl XmlEmitter {
             self.emit_utterance_media(bullet)?;
         }
 
+        // `[+ code]` postcodes — one `<postcode>` element per code
+        // in source order. Java Chatter emits these directly after
+        // `<t/>` / `<media/>` and before `<wor>` / dependent-tier
+        // annotations. The model stores them on
+        // `main.content.postcodes`, separate from inline content.
+        for postcode in utterance.main.content.postcodes.iter() {
+            self.writer
+                .write_event(Event::Start(BytesStart::new("postcode")))?;
+            self.writer
+                .write_event(Event::Text(escape_text(postcode.text.as_str())))?;
+            self.writer
+                .write_event(Event::End(BytesEnd::new("postcode")))?;
+        }
+
         // `<wor>` — the word-level timing sidecar. Emitted only when
         // the utterance carried a `%wor` tier.
         if let Some(wor) = tiers.wor {
@@ -597,6 +757,38 @@ impl XmlEmitter {
         }
 
         self.writer.write_event(Event::End(BytesEnd::new("u")))?;
+        Ok(())
+    }
+
+    /// Emit one `%sin` item as a `<sw>…</sw>` child of the surrounding
+    /// `<sg>` group. Tokens render as their raw text (including the
+    /// `0` "no-gesture" sentinel, which round-trips as `<sw>0</sw>` per
+    /// Java Chatter's golden output). `SinGroup(…)` — multi-gesture
+    /// items enclosed in `〔…〕` on CHAT — renders its joined gesture
+    /// text; richer structured emission for sin-groups would go here
+    /// later if the XSD requires it.
+    fn emit_sin_word(&mut self, item: &SinItem) -> Result<(), XmlWriteError> {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("sw")))?;
+        match item {
+            SinItem::Token(token) => {
+                self.writer
+                    .write_event(Event::Text(super::writer::escape_text(token.as_ref())))?;
+            }
+            SinItem::SinGroup(gestures) => {
+                // Flatten `〔g1 g2〕` as space-separated for `<sw>`.
+                let mut buf = String::new();
+                for (i, gesture) in gestures.0.iter().enumerate() {
+                    if i > 0 {
+                        buf.push(' ');
+                    }
+                    buf.push_str(gesture.as_ref());
+                }
+                self.writer
+                    .write_event(Event::Text(super::writer::escape_text(&buf)))?;
+            }
+        }
+        self.writer.write_event(Event::End(BytesEnd::new("sw")))?;
         Ok(())
     }
 }
@@ -635,6 +827,22 @@ fn join_codes_with_space(codes: &[talkbank_model::model::LanguageCode]) -> Strin
     out
 }
 
+/// Normalize runs of whitespace in header / comment text. CHAT source
+/// formatting — double spaces for visual alignment, tab-indented
+/// continuation lines — carries no semantic content once the header
+/// has been parsed; Java Chatter's XML emitter collapses those to
+/// single spaces (`xs:token`-style), and we match.
+fn collapse_whitespace(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for tok in input.split_whitespace() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(tok);
+    }
+    out
+}
+
 /// Locate the `@Types` header (if any). Returns a borrowed
 /// reference so `emit_document` can push the `DesignType` /
 /// `ActivityType` / `GroupType` attributes onto the `<CHAT>` root
@@ -663,6 +871,38 @@ fn find_root_pid<S: ValidationState>(file: &ChatFile<S>) -> Option<&str> {
         }
     }
     None
+}
+
+/// Pre-Begin UI-state header values destined for `<CHAT>` root
+/// attributes. Populated by a single pass over `file.lines` so the
+/// emitter doesn't re-scan the header block once per attribute.
+#[derive(Default)]
+struct RootUiAttrs<'a> {
+    colors: Option<&'a str>,
+    font: Option<&'a str>,
+    window: Option<&'a str>,
+}
+
+fn find_root_ui_attrs<S: ValidationState>(file: &ChatFile<S>) -> RootUiAttrs<'_> {
+    let mut out = RootUiAttrs::default();
+    for line in file.lines.iter() {
+        let Line::Header { header, .. } = line else {
+            continue;
+        };
+        match header.as_ref() {
+            Header::Window { geometry } if out.window.is_none() => {
+                out.window = Some(geometry.as_str());
+            }
+            Header::Font { font } if out.font.is_none() => {
+                out.font = Some(font.as_str());
+            }
+            Header::ColorWords { colors } if out.colors.is_none() => {
+                out.colors = Some(colors.as_str());
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 /// Find the `@Date` header (if any) and format it for the root
@@ -810,59 +1050,4 @@ fn sex_to_xml(sex: &Sex) -> Result<&'static str, XmlWriteError> {
             what: format!("unsupported @ID sex value: {raw}"),
         }),
     }
-}
-
-/// Walk a [`BulletContent`] and concatenate its plain-text segments.
-/// Bullet / picture / continuation segments are staged emission work
-/// and report `FeatureNotImplemented` until their handler lands.
-///
-/// Exposed `pub(super)` so [`super::deptier`] can reuse the same
-/// lowering for text-content dependent tiers — `%act`, `%com`,
-/// `%sit`, and friends share the `BulletContent` shape with
-/// `@Comment` headers.
-pub(super) fn bullet_content_plain_text(content: &BulletContent) -> Result<String, XmlWriteError> {
-    let mut out = String::new();
-    for segment in content.segments.0.iter() {
-        match segment {
-            BulletContentSegment::Text(text) => out.push_str(&text.text),
-            BulletContentSegment::Bullet(bullet) => {
-                // `<comment>` is plain-text per XSD — the CHAT NAK
-                // delimiter (U+0015) is a control char that XML 1.0
-                // rejects outright. Emit the bullet payload as a
-                // space-separated inline form (`[start_end]`) so the
-                // information survives in a round-trip-friendly
-                // representation without breaking the schema.
-                if !out.is_empty() && !out.ends_with(' ') {
-                    out.push(' ');
-                }
-                out.push('[');
-                out.push_str(&bullet.start_ms.to_string());
-                out.push('_');
-                out.push_str(&bullet.end_ms.to_string());
-                out.push(']');
-            }
-            BulletContentSegment::Picture(picture) => {
-                // Same rationale as bullets — avoid the NAK
-                // delimiter and render the picture reference
-                // inline with `%pic:"filename"` minus the
-                // surrounding control bytes.
-                if !out.is_empty() && !out.ends_with(' ') {
-                    out.push(' ');
-                }
-                out.push_str("%pic:\"");
-                out.push_str(picture.filename.as_str());
-                out.push('"');
-            }
-            BulletContentSegment::Continuation => {
-                // Continuation = tab-indented wrapped line. In XML the
-                // whole comment is a single logical string; the golden
-                // output replaces the wrap boundary with a single space
-                // rather than preserving the `\n\t` literally.
-                if !out.ends_with(' ') {
-                    out.push(' ');
-                }
-            }
-        }
-    }
-    Ok(out)
 }

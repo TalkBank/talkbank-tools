@@ -1,11 +1,17 @@
 //! Media bullet parsing for tree-sitter parser
 //!
 //! This module handles parsing of media bullets (timestamp markers).
-//! Media bullets mark time ranges in audio/video files: ·start_end· or ·start_end-·
+//! Media bullets mark time ranges in audio/video files: ·start_end·
 //!
 //! After grammar coarsening, `inline_bullet` and `media_url` are single token nodes
 //! (not multi-child sequences). The shared `parse_bullet_text()` helper extracts
 //! timestamps from the token text.
+//!
+//! The grammar rule for `bullet` does not permit any character other
+//! than the two timestamps and the `_` separator between them. A
+//! trailing `-` (legacy "skip" marker, deprecated 2026-03-31) is
+//! treated as a parse error rather than silently stripped — stripping
+//! hid real data corruption and defeated the grammar's purpose.
 //!
 //! # Related CHAT Manual Sections
 //!
@@ -21,12 +27,12 @@ const BULLET_CHAR: char = '\u{15}';
 
 /// Parse bullet text content from a token node.
 ///
-/// Input format: `\u{15}START_END\u{15}`
-/// Returns `(start_ms, end_ms)` on success.
+/// Input format: `\u{15}START_END\u{15}` — exactly digits on both
+/// sides of the underscore, nothing else. Returns `None` for any
+/// deviation (including a trailing `-` or any non-digit byte in
+/// either timestamp).
 pub(crate) fn parse_bullet_text(text: &str) -> Option<(u64, u64)> {
     let inner = text.strip_prefix(BULLET_CHAR)?.strip_suffix(BULLET_CHAR)?;
-    // Strip legacy skip dash if present (deprecated, 7 files in corpus)
-    let inner = inner.strip_suffix('-').unwrap_or(inner);
     let (start_str, end_str) = inner.split_once('_')?;
     let start_ms = start_str.parse::<u64>().ok()?;
     let end_ms = end_str.parse::<u64>().ok()?;
@@ -36,8 +42,17 @@ pub(crate) fn parse_bullet_text(text: &str) -> Option<(u64, u64)> {
 /// Extract `(start_ms, end_ms)` from a structured `bullet` CST node.
 ///
 /// The grammar's `bullet` rule has field names `start_time` and `end_time`.
-/// Returns `None` if either field is missing or unparseable.
+/// Returns `None` if either field is missing, unparseable, OR if the
+/// bullet node (or any descendant) carries a tree-sitter ERROR node
+/// — that latter case catches ill-formed bullets like the deprecated
+/// `·\d+_\d+-·` skip marker, where the grammar reports ERROR on the
+/// trailing `-` but the named fields still resolve. Without the
+/// has_error gate we'd silently accept data that violates the
+/// grammar.
 pub(crate) fn parse_bullet_node_timestamps(node: Node, source: &str) -> Option<(u64, u64)> {
+    if node.has_error() {
+        return None;
+    }
     let start_ms: u64 = node
         .child_by_field_name("start_time")
         .and_then(|n| n.utf8_text(source.as_bytes()).ok())
@@ -111,10 +126,11 @@ mod tests {
         assert_eq!(parse_bullet_text("\u{15}123_456\u{15}"), Some((123, 456)));
     }
 
-    /// Legacy skip dash is stripped silently (deprecated).
+    /// Legacy skip dash (deprecated 2026-03-31) is NOT accepted.
+    /// The grammar rejects it; `parse_bullet_text` must as well.
     #[test]
-    fn test_parse_bullet_text_legacy_skip_stripped() {
-        assert_eq!(parse_bullet_text("\u{15}123_456-\u{15}"), Some((123, 456)));
+    fn test_parse_bullet_text_legacy_skip_rejected() {
+        assert_eq!(parse_bullet_text("\u{15}123_456-\u{15}"), None);
     }
 
     /// Tests parse bullet text invalid.

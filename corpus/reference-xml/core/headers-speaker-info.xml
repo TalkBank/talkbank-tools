@@ -30,7 +30,7 @@
 
     />
     <participant
-      id="F_A&apos;-T"
+      id="F_A_T"
       role="Father"
       language="eng ara"
 
@@ -52,7 +52,7 @@
     <t type="q"></t>
 
   </u>
-  <u who="F_A&apos;-T" uID="u2">
+  <u who="F_A_T" uID="u2">
     <w>she</w>
     <w>wants</w>
     <w>her</w>

@@ -2470,13 +2470,6 @@
         "value": "[/-]"
       }
     },
-    "retrace_uncertain": {
-      "type": "TOKEN",
-      "content": {
-        "type": "STRING",
-        "value": "[/?]"
-      }
-    },
     "exclude_marker": {
       "type": "TOKEN",
       "content": {
@@ -2910,10 +2903,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "scoped_best_guess"
-        },
-        {
-          "type": "SYMBOL",
           "name": "scoped_uncertain"
         },
         {
@@ -2934,10 +2923,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "duration_annotation"
-        },
-        {
-          "type": "SYMBOL",
           "name": "error_marker_annotation"
         },
         {
@@ -2955,10 +2940,6 @@
         {
           "type": "SYMBOL",
           "name": "retrace_reformulation"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "retrace_uncertain"
         },
         {
           "type": "SYMBOL",
@@ -3399,13 +3380,6 @@
         "value": "[!!]"
       }
     },
-    "scoped_best_guess": {
-      "type": "TOKEN",
-      "content": {
-        "type": "STRING",
-        "value": "[!*]"
-      }
-    },
     "scoped_uncertain": {
       "type": "TOKEN",
       "content": {
@@ -3582,38 +3556,6 @@
         {
           "type": "FIELD",
           "name": "text",
-          "content": {
-            "type": "SYMBOL",
-            "name": "annotation_content"
-          }
-        },
-        {
-          "type": "SYMBOL",
-          "name": "right_bracket"
-        }
-      ]
-    },
-    "duration_annotation": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "TOKEN",
-          "content": {
-            "type": "PREC",
-            "value": 8,
-            "content": {
-              "type": "STRING",
-              "value": "[#"
-            }
-          }
-        },
-        {
-          "type": "SYMBOL",
-          "name": "space"
-        },
-        {
-          "type": "FIELD",
-          "name": "time",
           "content": {
             "type": "SYMBOL",
             "name": "annotation_content"

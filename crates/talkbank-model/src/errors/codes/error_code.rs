@@ -457,6 +457,13 @@ pub enum ErrorCode {
     /// Header out of canonical order (e.g., `@Options` before `@Participants`).
     #[code("E543")]
     HeaderOutOfOrder,
+    /// `@Media` header declares linkage (no `unlinked` / `missing` /
+    /// `notrans` status) but the transcript carries no timing evidence
+    /// (no bullets on any utterance, no `%wor` bullets, no `@Bg`/`@Eg`
+    /// time range). Reinstates the legacy Java-Chatter check Brian
+    /// approved 2026-04-21.
+    #[code("E544")]
+    MediaLinkageWithoutTiming,
     /// Invalid `@Birth of` date format — must match `DD-MMM-YYYY`
     /// per CLAN `depfile.cut`'s `@d<dd-lll-yyyy>` template.
     #[code("E545")]

@@ -6,7 +6,7 @@
 @ID:	fra|corpus|MOT|||||Mother|||
 @Comment:	Phonological groups on main tier using angle brackets
 @Comment:	Constructs: main_pho_group, pho_begin_group, pho_end_group
-*CHI:	non ‹0il y a› pas .
+*CHI:	non ‹il y a› pas .
 *MOT:	‹A› B C .
 %mod:	d e f
 %pho:	a b c

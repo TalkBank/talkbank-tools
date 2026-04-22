@@ -19,21 +19,17 @@ Java development ceased.
 
 ## Metadata
 
-- **Status**: not_implemented
-- **Status note**: **APPROVED BY BRIAN (2026-04-21) — not yet coded.**
-  Brian confirmed the rule should be reinstated and added a scope
-  clarification: "if there is no `@Media` header then it is assumed
-  that there are no bullets" (i.e. the check applies only when an
-  `@Media` header is present). The remaining implementation choices
-  in "Open questions" below are resolved with reasonable defaults —
-  see "Resolved design decisions" just below the metadata.
-  Before implementation, Brian MacWhinney must confirm (1) the rule
-  is still correct in modern CHAT, (2) which timing-evidence tiers
-  satisfy it, and (3) whether it should be error-level or
-  warning-level. Three files in `corpus/reference/` currently pass
-  validation but would be re-classified once this spec lands; they
-  are listed in the "Affected reference-corpus files" section below.
-- **Last updated**: 2026-04-21 07:15 EDT
+- **Status**: implemented
+- **Status note**: Implemented 2026-04-22 per the project lead's 2026-04-21
+  approval. Validator lives inline in
+  `crates/talkbank-model/src/model/file/chat_file/validate.rs`
+  (`check_media_linkage_has_timing`), called from `ChatFile::validate`
+  after the E362 bullet-monotonicity check so it can reuse the
+  already-collected main-tier bullets. Timing evidence: main-tier
+  bullets OR positional `%wor` sidecar. The three affected
+  reference-corpus fixtures were updated to add `, unlinked` status
+  in the same change.
+- **Last updated**: 2026-04-22 17:20 EDT
 
 - **Error Code**: E544
 - **Category**: header_validation
@@ -47,10 +43,10 @@ Java development ceased.
 - **Timing evidence**: any bullet anywhere in the file (main-tier
   trailing bullets, `%wor` inline bullets, `@Bg`/`@Eg` time ranges).
   Broader than Java's original "main-tier bullets only" to honor
-  modern CHAT timing surfaces; Brian did not specifically narrow
+  modern CHAT timing surfaces; the project lead did not specifically narrow
   this, so we adopt the inclusive reading.
 - **Severity**: error (blocking). Matches Java Chatter's severity
-  and Brian's phrasing ("put that back in").
+  and the project lead's phrasing ("put that back in").
 - **Option gating**: none. The check runs unconditionally. If
   sign-language or other convention-specific fixtures need an
   exception in practice, revisit with a narrower spec.
@@ -126,42 +122,24 @@ audio from video; any unqualified `@Media` header requires timing.
 @End
 ```
 
-## Example 3 (counter-example — must not fire)
+## Counter-examples (documentation only — do not fire E544)
 
-**Trigger**: `@Media` with `unlinked` status. Author is honest about
-having no linkage; E544 does not apply.
+Two cases where the check must not fire. These are recorded inline for
+clarity but are not separate `Example` sections because the spec
+generator would treat them as positive test cases.
 
-**Expected Error Codes**: (none; file is valid)
+1. **`@Media` with `unlinked` / `missing` / `notrans` status.** Author
+   is honest about no linkage; check does not apply.
+   ```
+   @Media:	session-01, audio, unlinked
+   ```
 
-```chat
-@UTF8
-@Begin
-@Languages:	eng
-@Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;00.||||Target_Child|||
-@Media:	session-01, audio, unlinked
-*CHI:	hello .
-@End
-```
-
-## Example 4 (counter-example — must not fire)
-
-**Trigger**: `@Media` without status, but at least one utterance
-carries a timing bullet. The promise of linkage is kept.
-
-**Expected Error Codes**: (none; file is valid)
-
-```chat
-@UTF8
-@Begin
-@Languages:	eng
-@Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;00.||||Target_Child|||
-@Media:	session-01, audio
-*CHI:	hello world . ·0_1200·
-*CHI:	goodbye . ·1200_1800·
-@End
-```
+2. **`@Media` without status, but at least one utterance carries a
+   timing bullet.** The linkage promise is kept.
+   ```
+   @Media:	session-01, audio
+   *CHI:	hello world . ·0_1200·
+   ```
 
 ## Expected Behavior
 
@@ -229,18 +207,18 @@ should run before landing the validator to quantify breadth.
 
 ## Review history
 
-- **2026-04-21 — Brian MacWhinney approved the rule.** Email
+- **2026-04-21 — The project lead approved the rule.** Email
   exchange: "I noticed that I didn't carry over a Java chatter
   validation to the new chatter. The Java chatter had a requirement
   that every transcript must have bullets unless the Media header
   said 'unlinked' or 'missing' or 'notrans'. Should I put this
-  validation back?" → Brian: "Yes, please put that back in.
+  validation back?" → Reply: "Yes, please put that back in.
   However, if there is no `@Media` header then it is assumed that
   there are no bullets." The clarification scopes the check to
   files that *have* an `@Media` header; see "Resolved design
   decisions" above. The three remaining design questions (timing-
   evidence scope, severity, option gating) were not specifically
-  raised with Brian and are resolved with the defaults listed in
+  raised with the project lead and are resolved with the defaults listed in
   that section.
 
 ## CHAT Rule

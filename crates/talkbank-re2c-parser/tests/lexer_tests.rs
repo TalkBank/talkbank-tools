@@ -194,15 +194,9 @@ fn lex_atomic_annotations() {
         ("*X:\tw [/-] w .\n", |t| {
             matches!(t, Token::RetraceReformulation(_))
         }),
-        ("*X:\tw [/?] w .\n", |t| {
-            matches!(t, Token::RetraceUncertain(_))
-        }),
         ("*X:\tw [!] .\n", |t| matches!(t, Token::ScopedStressing(_))),
         ("*X:\tw [!!] .\n", |t| {
             matches!(t, Token::ScopedContrastiveStressing(_))
-        }),
-        ("*X:\tw [!*] .\n", |t| {
-            matches!(t, Token::ScopedBestGuess(_))
         }),
         ("*X:\tw [?] .\n", |t| matches!(t, Token::ScopedUncertain(_))),
         ("*X:\tw [e] .\n", |t| matches!(t, Token::ExcludeMarker(_))),

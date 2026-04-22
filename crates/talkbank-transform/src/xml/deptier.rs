@@ -28,7 +28,6 @@ use talkbank_model::model::DependentTier;
 
 use super::error::XmlWriteError;
 use super::mor::tier_kind;
-use super::root::bullet_content_plain_text;
 use super::writer::{XmlEmitter, escape_text};
 
 impl XmlEmitter {
@@ -48,32 +47,41 @@ impl XmlEmitter {
     }
 
     fn emit_side_tier(&mut self, tier: &DependentTier) -> Result<(), XmlWriteError> {
-        let (tag_type, flavor, text): (&str, Option<&str>, String) = match tier {
-            // BulletContent tiers
-            DependentTier::Act(t) => ("actions", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Com(t) => ("comments", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Exp(t) => ("explanation", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Sit(t) => ("situation", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Gpx(t) => ("gesture", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Add(t) => ("addressee", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Int(t) => ("intonation", None, bullet_content_plain_text(&t.content)?),
-            DependentTier::Spa(t) => ("speech act", None, bullet_content_plain_text(&t.content)?),
-            // Structured-content tiers that project onto text `<a>`
-            // since their XSD shape is plain text.
-            DependentTier::Cod(t) => ("coding", None, bullet_content_plain_text(&t.content)?),
+        // Every text-content dep tier renders to `<a type=…>`. Two
+        // body shapes:
+        //   - BulletContent → mixed content (text + `<media/>` +
+        //     `<mediaPic/>` children) via `emit_bullet_content_children`
+        //   - a flat string → one text node
+        //
+        // Structured tiers (`%mor`, `%gra`, `%wor`, `%pho`, `%mod`,
+        // syllable tiers) have dedicated emitters and should never
+        // reach this path — reject with `FeatureNotImplemented`.
+        match tier {
+            DependentTier::Act(t) => self.emit_bullet_tier("actions", &t.content),
+            DependentTier::Com(t) => self.emit_bullet_tier("comments", &t.content),
+            DependentTier::Exp(t) => self.emit_bullet_tier("explanation", &t.content),
+            DependentTier::Sit(t) => self.emit_bullet_tier("situation", &t.content),
+            DependentTier::Gpx(t) => self.emit_bullet_tier("gesture", &t.content),
+            DependentTier::Add(t) => self.emit_bullet_tier("addressee", &t.content),
+            DependentTier::Int(t) => self.emit_bullet_tier("intonation", &t.content),
+            DependentTier::Spa(t) => self.emit_bullet_tier("speech act", &t.content),
+            DependentTier::Cod(t) => self.emit_bullet_tier("coding", &t.content),
 
-            // Simple string-content tiers (`TextTier`).
-            DependentTier::Alt(t) => ("alternative", None, t.content.as_str().to_owned()),
-            DependentTier::Coh(t) => ("cohesion", None, t.content.as_str().to_owned()),
-            DependentTier::Def(t) => ("SALT", None, t.content.as_str().to_owned()),
-            DependentTier::Eng(t) => ("english translation", None, t.content.as_str().to_owned()),
-            DependentTier::Err(t) => ("errcoding", None, t.content.as_str().to_owned()),
-            DependentTier::Fac(t) => ("facial", None, t.content.as_str().to_owned()),
-            DependentTier::Flo(t) => ("flow", None, t.content.as_str().to_owned()),
-            DependentTier::Gls(t) => ("target gloss", None, t.content.as_str().to_owned()),
-            DependentTier::Ort(t) => ("orthography", None, t.content.as_str().to_owned()),
-            DependentTier::Par(t) => ("paralinguistics", None, t.content.as_str().to_owned()),
-            DependentTier::Tim(t) => ("time stamp", None, t.as_str().to_owned()),
+            DependentTier::Alt(t) => self.emit_text_tier("alternative", None, t.content.as_str()),
+            DependentTier::Coh(t) => self.emit_text_tier("cohesion", None, t.content.as_str()),
+            DependentTier::Def(t) => self.emit_text_tier("SALT", None, t.content.as_str()),
+            DependentTier::Eng(t) => {
+                self.emit_text_tier("english translation", None, t.content.as_str())
+            }
+            DependentTier::Err(t) => self.emit_text_tier("errcoding", None, t.content.as_str()),
+            DependentTier::Fac(t) => self.emit_text_tier("facial", None, t.content.as_str()),
+            DependentTier::Flo(t) => self.emit_text_tier("flow", None, t.content.as_str()),
+            DependentTier::Gls(t) => self.emit_text_tier("target gloss", None, t.content.as_str()),
+            DependentTier::Ort(t) => self.emit_text_tier("orthography", None, t.content.as_str()),
+            DependentTier::Par(t) => {
+                self.emit_text_tier("paralinguistics", None, t.content.as_str())
+            }
+            DependentTier::Tim(t) => self.emit_text_tier("time stamp", None, t.as_str()),
 
             // `%xLABEL` — the tier label carries the x-prefix (e.g.
             // `xpho` for `%xpho`). Java Chatter strips the prefix
@@ -81,7 +89,7 @@ impl XmlEmitter {
             DependentTier::UserDefined(t) | DependentTier::Unsupported(t) => {
                 let label = t.label.as_str();
                 let flavor = label.strip_prefix('x').unwrap_or(label);
-                ("extension", Some(flavor), t.content.as_str().to_owned())
+                self.emit_text_tier("extension", Some(flavor), t.content.as_str())
             }
             // `%sin` — structured sign-language annotation rendered
             // as plain text via `WriteChat` for round-trip fidelity.
@@ -93,29 +101,53 @@ impl XmlEmitter {
                     .map_err(|e| XmlWriteError::MissingMetadata {
                         what: format!("failed to serialize %sin for extension text: {e}"),
                     })?;
-                ("gesture", None, buf)
+                self.emit_text_tier("gesture", None, &buf)
             }
-            other => {
-                // Remaining variants (%mor, %gra, %wor, %pho, %mod,
-                // %sin, syllable tiers) have their own structured
-                // emitters and must never reach this text-only path.
-                return Err(XmlWriteError::FeatureNotImplemented {
-                    feature: format!(
-                        "side tier emission for structured tier {}",
-                        tier_kind(other)
-                    ),
-                });
-            }
-        };
+            other => Err(XmlWriteError::FeatureNotImplemented {
+                feature: format!(
+                    "side tier emission for structured tier {}",
+                    tier_kind(other)
+                ),
+            }),
+        }
+    }
 
+    /// Emit `<a type=…[flavor=…]>TEXT</a>` for a tier whose payload
+    /// is a single flat string (no bullets, no pictures).
+    fn emit_text_tier(
+        &mut self,
+        tag_type: &str,
+        flavor: Option<&str>,
+        text: &str,
+    ) -> Result<(), XmlWriteError> {
+        self.open_a_tag(tag_type, flavor)?;
+        self.writer.write_event(Event::Text(escape_text(text)))?;
+        self.writer.write_event(Event::End(BytesEnd::new("a")))?;
+        Ok(())
+    }
+
+    /// Emit `<a type=…>`-wrapped mixed content from a `BulletContent`:
+    /// text interleaved with `<media>` and `<mediaPic>` children.
+    /// Header-level counterpart is `emit_bullet_content_comment` in
+    /// `xml::root`; both share `emit_bullet_content_children`.
+    fn emit_bullet_tier(
+        &mut self,
+        tag_type: &str,
+        content: &talkbank_model::model::BulletContent,
+    ) -> Result<(), XmlWriteError> {
+        self.open_a_tag(tag_type, None)?;
+        self.emit_bullet_content_children(content)?;
+        self.writer.write_event(Event::End(BytesEnd::new("a")))?;
+        Ok(())
+    }
+
+    fn open_a_tag(&mut self, tag_type: &str, flavor: Option<&str>) -> Result<(), XmlWriteError> {
         let mut tag = BytesStart::new("a");
         tag.push_attribute(("type", tag_type));
         if let Some(flavor) = flavor {
             tag.push_attribute(("flavor", flavor));
         }
         self.writer.write_event(Event::Start(tag))?;
-        self.writer.write_event(Event::Text(escape_text(&text)))?;
-        self.writer.write_event(Event::End(BytesEnd::new("a")))?;
         Ok(())
     }
 }

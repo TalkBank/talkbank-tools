@@ -627,14 +627,10 @@ impl<'a> Iterator for Lexer<'a> {
         <MAIN_CONTENT> "[///]" { emit!(RetraceMultiple); }
         // grammar.js: retrace_reformulation = token('[/-]')
         <MAIN_CONTENT> "[/-]" { emit!(RetraceReformulation); }
-        // grammar.js: retrace_uncertain = token('[/?]')
-        <MAIN_CONTENT> "[/?]" { emit!(RetraceUncertain); }
         // grammar.js: scoped_stressing = token('[!]')
         <MAIN_CONTENT> "[!]" { emit!(ScopedStressing); }
         // grammar.js: scoped_contrastive_stressing = token('[!!]')
         <MAIN_CONTENT> "[!!]" { emit!(ScopedContrastiveStressing); }
-        // grammar.js: scoped_best_guess = token('[!*]')
-        <MAIN_CONTENT> "[!*]" { emit!(ScopedBestGuess); }
         // grammar.js: scoped_uncertain = token('[?]')
         <MAIN_CONTENT> "[?]" { emit!(ScopedUncertain); }
         // grammar.js: exclude_marker = token('[e]')
@@ -660,7 +656,6 @@ impl<'a> Iterator for Lexer<'a> {
         <MAIN_CONTENT> "[=! " @t1 [^\x00\]\r\n]+ @t2 "]" { emit_t1t2!(ParaAnnotation); }
         <MAIN_CONTENT> "[=? " @t1 [^\x00\]\r\n]+ @t2 "]" { emit_t1t2!(AltAnnotation); }
         <MAIN_CONTENT> "[% " @t1 [^\x00\]\r\n]+ @t2 "]" { emit_t1t2!(PercentAnnotation); }
-        <MAIN_CONTENT> "[# " @t1 [^\x00\]\r\n]+ @t2 "]" { emit_t1t2!(DurationAnnotation); }
 
         <MAIN_CONTENT> "[+ " @t1 [^\x00\]\r\n]+ @t2 "]" { emit_t1t2!(Postcode); }
 

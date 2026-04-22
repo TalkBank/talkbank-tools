@@ -15,6 +15,6 @@
 %eng:	big elephant
 %err:	elefanto=elefante $LEX
 %fac:	smiling
-%flo:	fluent
+%flo:	fluent .
 %ort:	elefanto grande
 @End

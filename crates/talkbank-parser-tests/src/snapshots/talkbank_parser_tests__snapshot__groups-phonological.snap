@@ -119,7 +119,6 @@ expression: snapshot
               "content": {
                 "content": [
                   {
-                    "category": "omission",
                     "cleaned_text": "il",
                     "content": [
                       {
@@ -127,7 +126,7 @@ expression: snapshot
                         "type": "text"
                       }
                     ],
-                    "raw_text": "0il",
+                    "raw_text": "il",
                     "type": "word"
                   },
                   {

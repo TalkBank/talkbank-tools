@@ -44,6 +44,12 @@ corpus/reference/*.actual
 corpus/reference/*.diff
 spec/tmp/
 
+# Java Chatter per-directory error logs (regenerated on every run;
+# not source — retained as tests/check-error-corpus/brian-bad/00errors.cex
+# which is an intentional fixture, separately excluded)
+corpus/reference/**/00errors.cex
+corpus/reference-xml/**/00errors.cex
+
 # Mutation testing
 mutants.out/
 mutants.out.old/

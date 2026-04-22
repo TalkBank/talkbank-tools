@@ -167,7 +167,7 @@ expression: snapshot
           "type": "Fac"
         },
         {
-          "data": "fluent",
+          "data": "fluent .",
           "type": "Flo"
         },
         {

@@ -70,7 +70,7 @@ pub(crate) mod word;
 
 // Re-export public API
 pub use config::ValidationConfig;
-pub use context::{SharedValidationData, ValidationContext};
+pub use context::{SharedValidationData, ValidationContext, language_allows_numbers};
 pub use state::{NotValidated, Validated, ValidationState};
 pub use r#trait::Validate;
 

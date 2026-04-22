@@ -26,7 +26,7 @@ fn workspace_root() -> PathBuf {
     dir
 }
 
-/// Reference corpus path (98 files, must all be valid).
+/// Reference corpus path (97 files, must all be valid).
 fn reference_corpus() -> PathBuf {
     workspace_root().join("corpus/reference")
 }
@@ -122,8 +122,8 @@ fn reference_corpus_no_hard_errors() {
 
     assert!(summary.finished, "validation run did not finish");
     assert_eq!(
-        summary.total_files, 98,
-        "expected 98 reference corpus files"
+        summary.total_files, 97,
+        "expected 97 reference corpus files"
     );
 
     // Reference corpus may have warnings but must have zero hard errors
@@ -136,8 +136,8 @@ fn reference_corpus_no_hard_errors() {
     // All files should complete (valid or invalid-with-warnings-only)
     assert_eq!(
         summary.valid_files + summary.invalid_files,
-        98,
-        "all 98 files should complete: {} valid + {} invalid = {}",
+        97,
+        "all 97 files should complete: {} valid + {} invalid = {}",
         summary.valid_files,
         summary.invalid_files,
         summary.valid_files + summary.invalid_files,

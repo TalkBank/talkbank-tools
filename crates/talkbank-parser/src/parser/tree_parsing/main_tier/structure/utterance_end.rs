@@ -103,13 +103,44 @@ pub fn parse_utterance_end(node: Node, source: &str) -> UtteranceEndResult {
                 }
                 WHITESPACES | SPACE | NEWLINE => {}
                 BULLET => {
-                    if let Some((start_ms, end_ms)) =
-                        crate::parser::tree_parsing::media_bullet::parse_bullet_node_timestamps(
-                            child, source,
-                        )
-                    {
-                        let span = Span::new(child.start_byte() as u32, child.end_byte() as u32);
-                        bullet = Some(Bullet::new(start_ms, end_ms).with_span(span));
+                    match crate::parser::tree_parsing::media_bullet::parse_bullet_node_timestamps(
+                        child, source,
+                    ) {
+                        Some((start_ms, end_ms)) => {
+                            let span =
+                                Span::new(child.start_byte() as u32, child.end_byte() as u32);
+                            bullet = Some(Bullet::new(start_ms, end_ms).with_span(span));
+                        }
+                        None => {
+                            // `parse_bullet_node_timestamps` returns None
+                            // when the bullet subtree carries a tree-sitter
+                            // ERROR (e.g. the deprecated `·\d+_\d+-·`
+                            // skip marker that the grammar rejects) or
+                            // when a named timestamp field is missing /
+                            // unparseable. Silently dropping the bullet
+                            // was the old behavior; now we surface E360
+                            // so the file does not pass validation with
+                            // a malformed timestamp.
+                            let bullet_text =
+                                child.utf8_text(source.as_bytes()).unwrap_or("<unreadable>");
+                            errors.push(ParseError::new(
+                                ErrorCode::InvalidMediaBullet,
+                                Severity::Error,
+                                SourceLocation::from_offsets(
+                                    child.start_byte(),
+                                    child.end_byte(),
+                                ),
+                                ErrorContext::new(
+                                    source,
+                                    child.start_byte()..child.end_byte(),
+                                    bullet_text,
+                                ),
+                                format!(
+                                    "Invalid media bullet: grammar rejected '{}'. Legal form: ·START_END· with numeric timestamps only",
+                                    bullet_text
+                                ),
+                            ));
+                        }
                     }
                 }
                 _ => {

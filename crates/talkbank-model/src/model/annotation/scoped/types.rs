@@ -144,13 +144,6 @@ pub enum ContentAnnotation {
     /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
     ContrastiveStressing,
 
-    /// Scoped best guess (`[!*]`).
-    ///
-    /// Marks best guess transcription with some uncertainty.
-    ///
-    /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    BestGuess,
-
     /// Scoped uncertain (`[?]`).
     ///
     /// Marks uncertain or unclear transcription.
@@ -186,15 +179,6 @@ pub enum ContentAnnotation {
     ///
     /// See: [Comment Scope](https://talkbank.org/0info/manuals/CHAT.html#Comment_Scope)
     PercentComment(ScopedPercentComment),
-
-    /// Duration annotation (`[# time]`).
-    ///
-    /// Marks duration or timing information.
-    ///
-    /// **Example:** `pause [# 2.5]`
-    ///
-    /// See: [Duration Scope](https://talkbank.org/0info/manuals/CHAT.html#Duration_Scope)
-    Duration(ScopedDuration),
 
     /// Exclude marker (`[e]`).
     ///
@@ -382,19 +366,6 @@ pub struct ScopedAlternative {
 pub struct ScopedPercentComment {
     /// Comment text
     pub text: smol_str::SmolStr,
-}
-
-/// Duration annotation data for `[# time]`.
-///
-/// # Reference
-///
-/// - [Duration scope](https://talkbank.org/0info/manuals/CHAT.html#Duration_Scope)
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift,
-)]
-pub struct ScopedDuration {
-    /// Time value
-    pub time: smol_str::SmolStr,
 }
 
 /// Unknown annotation captured during lenient parsing.

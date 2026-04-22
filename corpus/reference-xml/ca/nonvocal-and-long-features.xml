@@ -118,21 +118,7 @@
     <t type="p"></t>
 
   </u>
-  <u who="SPK" uID="u11">
-    <w>CA</w>
-    <w>can</w>
-    <w>use</w>
-    <w>xx</w>
-    <tagMarker type="comma"></tagMarker>
-    <w>XX</w>
-    <tagMarker type="comma"></tagMarker>
-    <w>and</w>
-    <w>even</w>
-    <w>XXX</w>
-    <t type="p"></t>
-
-  </u>
-  <u who="LSN" uID="u12">
+  <u who="LSN" uID="u11">
     <w>CA</w>
     <w>uses</w>
     <w><shortening>parens</shortening></w>

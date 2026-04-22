@@ -64,10 +64,8 @@ pub fn token_to_parsed_annotation<'a>(tok: Token<'a>) -> ParsedAnnotation<'a> {
         Token::RetraceReformulation(_) => {
             ParsedAnnotation::Retrace(RetraceKindParsed::Reformulation)
         }
-        Token::RetraceUncertain(_) => ParsedAnnotation::Retrace(RetraceKindParsed::Uncertain),
         Token::ScopedStressing(_) => ParsedAnnotation::Stressing,
         Token::ScopedContrastiveStressing(_) => ParsedAnnotation::ContrastiveStressing,
-        Token::ScopedBestGuess(_) => ParsedAnnotation::BestGuess,
         Token::ScopedUncertain(_) => ParsedAnnotation::Uncertain,
         Token::ExcludeMarker(_) => ParsedAnnotation::Exclude,
         Token::ErrorMarkerAnnotation(s) => ParsedAnnotation::Error(s),
@@ -77,7 +75,6 @@ pub fn token_to_parsed_annotation<'a>(tok: Token<'a>) -> ParsedAnnotation<'a> {
         Token::ParaAnnotation(s) => ParsedAnnotation::Paralinguistic(s),
         Token::AltAnnotation(s) => ParsedAnnotation::Alternative(s),
         Token::PercentAnnotation(s) => ParsedAnnotation::PercentComment(s),
-        Token::DurationAnnotation(s) => ParsedAnnotation::Duration(s),
         Token::Replacement(s) => ParsedAnnotation::Replacement(s),
         Token::Langcode(s) => ParsedAnnotation::Langcode(s),
         Token::Postcode(s) => ParsedAnnotation::Postcode(s),
@@ -136,10 +133,8 @@ pub fn is_annotation(d: Option<TokenDiscriminants>) -> bool {
                 | TokenDiscriminants::RetracePartial
                 | TokenDiscriminants::RetraceMultiple
                 | TokenDiscriminants::RetraceReformulation
-                | TokenDiscriminants::RetraceUncertain
                 | TokenDiscriminants::ScopedStressing
                 | TokenDiscriminants::ScopedContrastiveStressing
-                | TokenDiscriminants::ScopedBestGuess
                 | TokenDiscriminants::ScopedUncertain
                 | TokenDiscriminants::ExcludeMarker
                 | TokenDiscriminants::ErrorMarkerAnnotation
@@ -149,7 +144,6 @@ pub fn is_annotation(d: Option<TokenDiscriminants>) -> bool {
                 | TokenDiscriminants::ParaAnnotation
                 | TokenDiscriminants::AltAnnotation
                 | TokenDiscriminants::PercentAnnotation
-                | TokenDiscriminants::DurationAnnotation
                 | TokenDiscriminants::Replacement
                 | TokenDiscriminants::Langcode
         )

@@ -139,14 +139,10 @@ pub enum Token<'a> {
     RetraceMultiple(&'a str),
     /// grammar.js: retrace_reformulation = token('[/-]')
     RetraceReformulation(&'a str),
-    /// grammar.js: retrace_uncertain = token('[/?]')
-    RetraceUncertain(&'a str),
     /// grammar.js: scoped_stressing = token('[!]')
     ScopedStressing(&'a str),
     /// grammar.js: scoped_contrastive_stressing = token('[!!]')
     ScopedContrastiveStressing(&'a str),
-    /// grammar.js: scoped_best_guess = token('[!*]')
-    ScopedBestGuess(&'a str),
     /// grammar.js: scoped_uncertain = token('[?]')
     ScopedUncertain(&'a str),
     /// grammar.js: exclude_marker = token('[e]')
@@ -172,8 +168,6 @@ pub enum Token<'a> {
     AltAnnotation(&'a str),
     /// [% text] — percent annotation
     PercentAnnotation(&'a str),
-    /// [# time] — duration
-    DurationAnnotation(&'a str),
     /// [+ code] — postcode
     Postcode(&'a str),
     /// [- lang] — language code
@@ -582,10 +576,8 @@ impl<'a> Token<'a> {
             | Token::RetracePartial(s)
             | Token::RetraceMultiple(s)
             | Token::RetraceReformulation(s)
-            | Token::RetraceUncertain(s)
             | Token::ScopedStressing(s)
             | Token::ScopedContrastiveStressing(s)
-            | Token::ScopedBestGuess(s)
             | Token::ScopedUncertain(s)
             | Token::ExcludeMarker(s)
             | Token::Freecode(s)
@@ -602,7 +594,6 @@ impl<'a> Token<'a> {
             | Token::ParaAnnotation(s)
             | Token::AltAnnotation(s)
             | Token::PercentAnnotation(s)
-            | Token::DurationAnnotation(s)
             | Token::Postcode(s)
             | Token::Langcode(s)
             | Token::Replacement(s)

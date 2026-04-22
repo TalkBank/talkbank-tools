@@ -33,9 +33,9 @@
 //! | `age_format` | `2;05.24` | [`parse_age_format_token`] |
 
 use talkbank_model::model::{
-    AgeValue, ContentAnnotation, LanguageCode, OverlapMarkerIndex, ScopedAlternative,
-    ScopedDuration, ScopedError, ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd,
-    ScopedParalinguistic, ScopedPercentComment,
+    AgeValue, ContentAnnotation, LanguageCode, OverlapMarkerIndex, ScopedAlternative, ScopedError,
+    ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd, ScopedParalinguistic,
+    ScopedPercentComment,
 };
 
 // ---------------------------------------------------------------------------
@@ -99,15 +99,6 @@ pub fn parse_alt_token(token_text: &str) -> Option<ContentAnnotation> {
 pub fn parse_percent_token(token_text: &str) -> Option<ContentAnnotation> {
     strip_annotation(token_text, "[% ")
         .map(|text| ContentAnnotation::PercentComment(ScopedPercentComment { text }))
-}
-
-/// Parse an atomic `duration_annotation` token `[# time]`.
-///
-/// Returns `None` if the format doesn't match.
-/// The time string is returned as-is; Rust validation checks the format.
-pub fn parse_duration_token(token_text: &str) -> Option<ContentAnnotation> {
-    strip_annotation(token_text, "[# ")
-        .map(|time| ContentAnnotation::Duration(ScopedDuration { time }))
 }
 
 // ---------------------------------------------------------------------------
@@ -250,13 +241,6 @@ mod tests {
     fn percent() {
         let ann = parse_percent_token("[% some comment]").unwrap();
         assert!(matches!(ann, ContentAnnotation::PercentComment(p) if p.text == "some comment"));
-    }
-
-    /// Tests duration.
-    #[test]
-    fn duration() {
-        let ann = parse_duration_token("[# 2.5]").unwrap();
-        assert!(matches!(ann, ContentAnnotation::Duration(d) if d.time == "2.5"));
     }
 
     /// Tests error marker no code.

@@ -10,6 +10,6 @@ expression: "&rust_output"
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Quoted speech with Unicode double-quote delimiters
 @Comment:	Constructs: quotation, double_quote, left_double_quote, right_double_quote
-*CHI:	“&~foo and more” .
+*CHI:	“hello and more” .
 *MOT:	she said “I want cookies” .
 @End

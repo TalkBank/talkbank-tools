@@ -1604,19 +1604,6 @@
           "type": "object"
         },
         {
-          "description": "Scoped best guess (`[!*]`).\n\nMarks best guess transcription with some uncertainty.\n\nSee: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)",
-          "properties": {
-            "type": {
-              "const": "bestguess",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
-        },
-        {
           "description": "Scoped uncertain (`[?]`).\n\nMarks uncertain or unclear transcription.\n\n**Example:** `doggie [?]` - uncertain transcription\n\nSee: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)",
           "properties": {
             "type": {
@@ -1679,26 +1666,6 @@
               "properties": {
                 "type": {
                   "const": "percentcomment",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type"
-              ],
-              "type": "object"
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/$defs/ScopedDuration"
-            },
-            {
-              "description": "Duration annotation (`[# time]`).\n\nMarks duration or timing information.\n\n**Example:** `pause [# 2.5]`\n\nSee: [Duration Scope](https://talkbank.org/0info/manuals/CHAT.html#Duration_Scope)",
-              "properties": {
-                "type": {
-                  "const": "duration",
                   "type": "string"
                 }
               },
@@ -2987,6 +2954,11 @@
         {
           "const": "E543",
           "description": "Header out of canonical order (e.g., `@Options` before `@Participants`).",
+          "type": "string"
+        },
+        {
+          "const": "E544",
+          "description": "`@Media` header declares linkage (no `unlinked` / `missing` /\n`notrans` status) but the transcript carries no timing evidence\n(no bullets on any utterance, no `%wor` bullets, no `@Bg`/`@Eg`\ntime range). Reinstates the legacy Java-Chatter check Brian\napproved 2026-04-21.",
           "type": "string"
         },
         {
@@ -5609,11 +5581,6 @@
           "const": "reformulation",
           "description": "`[/-]` — reformulation (speaker rephrases with different structure)",
           "type": "string"
-        },
-        {
-          "const": "uncertain",
-          "description": "`[/?]` — uncertain whether the repetition/correction is intentional",
-          "type": "string"
         }
       ]
     },
@@ -5644,19 +5611,6 @@
       },
       "required": [
         "text"
-      ],
-      "type": "object"
-    },
-    "ScopedDuration": {
-      "description": "Duration annotation data for `[# time]`.\n\n# Reference\n\n- [Duration scope](https://talkbank.org/0info/manuals/CHAT.html#Duration_Scope)",
-      "properties": {
-        "time": {
-          "description": "Time value",
-          "type": "string"
-        }
-      },
-      "required": [
-        "time"
       ],
       "type": "object"
     },

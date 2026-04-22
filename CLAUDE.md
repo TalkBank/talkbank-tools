@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-04-16 16:19 EDT
+**Last modified:** 2026-04-22 16:36 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -428,6 +428,33 @@ Never create ad hoc `.cha` test files. Use existing files from `corpus/reference
 
 ### Error Code Testing Policy
 All error code tests flow through `spec/errors/`. Every error code MUST have a spec in `spec/errors/E###_*.md`. Tests are GENERATED via `make test-gen` — never hand-written. After adding new error codes to `error_code.rs`, run `make check-specs` to verify all codes have spec files.
+
+### %mor Syntax: UD Only
+
+**This project supports Universal Dependencies (UD) syntax for `%mor` tiers;
+we deliberately do not support legacy CLAN mor syntax.** In particular:
+
+- **Fusional-suffix marker `&`** (as in `aux|be&PRES`, `verb|break&PAST`) is a
+  CLAN mor convention. It is **not** parsed. If it appears in input, the `&X`
+  portion ends up as part of the lemma string — that's a silent degradation,
+  not a feature.
+- All morphological features are hyphen-separated: `verb|break-Past`, not
+  `verb|break&PAST`.
+- Feature casing is sentence-case UD: `Past`, `Pres`, `Fin`, `Ind`, plus
+  canonical combined tags like `S3` for person+number. Not all-caps.
+- Reference corpus files must use UD syntax. Any `%mor` line with `&` is a
+  fixture bug, fix it — do not introduce CLAN-mor handling to accommodate it.
+
+**Rationale.** Actual TalkBank/CHILDES data in current use is UD-tagged.
+CLAN mor is legacy. Java Chatter still parses CLAN mor (with `<mk type="sfxf">`
+emission for `&` markers), but our xml_golden_parity target is UD behavior
+on real data, not syntax-space coverage of CLAN mor. Maintaining two %mor
+syntaxes would double surface area for no downstream benefit.
+
+**What Java does differently.** Java's ChatLexer/ChatParser accepts `&` as
+a fusional-suffix marker and emits `<mk type="sfxf">PRES</mk>`. Rust emits
+nothing (the `&PRES` is already absorbed into the lemma). This is an
+intentional divergence; do not "fix" Rust to match Java on `&` handling.
 
 ### Cache Policy
 The validation cache lives in the OS cache directory (`~/Library/Caches/talkbank-chat/` on macOS, `~/.cache/talkbank-chat/` on Linux, `%LocalAppData%\talkbank-chat\` on Windows). Use `--force` to refresh specific paths.

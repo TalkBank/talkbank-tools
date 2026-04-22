@@ -18,7 +18,7 @@
 use quick_xml::events::{BytesEnd, BytesStart, Event};
 
 use talkbank_model::model::WriteChat;
-use talkbank_model::model::{DependentTier, GrammaticalRelation, Mor, MorWord, WorTier};
+use talkbank_model::model::{DependentTier, GrammaticalRelation, Mor, MorWord, SinTier, WorTier};
 
 use super::error::XmlWriteError;
 use super::writer::{XmlEmitter, escape_text};
@@ -131,11 +131,89 @@ pub(super) struct UtteranceTiers<'u> {
     /// (`<wor>` follows the terminator and the utterance-level
     /// `<media>`).
     pub(super) wor: Option<&'u WorTier>,
+    /// `%sin` sign-language tier, aligned positionally to main-tier
+    /// words. When present, each main-tier word emits wrapped in
+    /// `<sg><w>...</w><sw>sin-value</sw></sg>` instead of a bare `<w>`
+    /// — matches Java Chatter's schema-driven shape (`<sg>` = sign
+    /// group, `<sw>` = sign word). Words that count for TierDomain::Sin
+    /// consume one sin item each.
+    pub(super) sin: Option<&'u SinTier>,
     /// Text-content "side tiers" (`%act`, `%com`, `%exp`, `%gpx`,
     /// `%sit`, `%xLABEL`). Each becomes an `<a type="…">text</a>`
     /// element emitted after `<wor>` inside `<u>`. See
     /// [`super::deptier`].
     pub(super) side_tiers: Vec<&'u DependentTier>,
+}
+
+/// Running cursor state for main-tier content emission.
+///
+/// Each main-tier item consults the cursor set to find its paired
+/// `%mor` / `%gra` / `%sin` partner and advances via the `consume_*`
+/// methods — the advance rules (mor items count, post-clitics add to
+/// gra, sin-counted words advance sin) live here, not at call sites.
+///
+/// Does NOT use `AlignmentSet::mor` / `AlignmentSet::sin` pre-computed
+/// alignments: XML emission runs on both validated and unvalidated
+/// `ChatFile<S>`, so `compute_alignments` may not have populated them.
+/// The cursor walk here is equivalent to the model's alignment walk
+/// for all well-formed inputs; it diverges only on malformed files
+/// that the model's alignment would also flag.
+pub(super) struct TierCursors {
+    mor: usize,
+    gra: usize,
+    sin: usize,
+}
+
+impl TierCursors {
+    pub fn new() -> Self {
+        // `%gra` is 1-indexed per CHAT's `gra->target` attribute
+        // convention; mor and sin items are 0-indexed.
+        Self {
+            mor: 0,
+            gra: 1,
+            sin: 0,
+        }
+    }
+
+    /// `%mor` index currently pointing at the next item to consume.
+    pub fn mor_index(&self) -> usize {
+        self.mor
+    }
+
+    /// 1-based `%gra` chunk index for the next main `<mw>` (each
+    /// `%mor` item with post-clitics contributes more than one chunk,
+    /// so mor_index and gra_index diverge).
+    pub fn gra_chunk(&self) -> usize {
+        self.gra
+    }
+
+    /// `%sin` index currently pointing at the next item to consume.
+    pub fn sin_index(&self) -> usize {
+        self.sin
+    }
+
+    /// Advance mor/gra cursors after emitting an item that consumed
+    /// one mor chunk with `post_clitics_len` post-clitic trailers.
+    /// Call when the item actually consumed a `%mor` item (the caller
+    /// already gated on `counts_for_tier(TierDomain::Mor)` or the
+    /// separator's tag-marker predicate).
+    pub fn consume_mor(&mut self, post_clitics_len: usize) {
+        self.mor += 1;
+        self.gra += 1 + post_clitics_len;
+    }
+
+    /// Advance sin cursor after emitting an item that consumed one
+    /// `%sin` item. Call only when `counts_for_tier(TierDomain::Sin)`
+    /// returned true for the word AND a `%sin` tier is present.
+    pub fn consume_sin(&mut self) {
+        self.sin += 1;
+    }
+}
+
+impl Default for TierCursors {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Split an utterance's dependent tiers into recognized `%mor` /
@@ -153,6 +231,7 @@ pub(super) fn collect_utterance_tiers(
         mor: None,
         gra: None,
         wor: None,
+        sin: None,
         side_tiers: Vec::new(),
     };
     for tier in utterance.dependent_tiers.iter() {
@@ -223,14 +302,11 @@ pub(super) fn collect_utterance_tiers(
                 // `XmlWriteError::PhoneticTierUnsupported`.
                 return Err(XmlWriteError::PhoneticTierUnsupported { utterance_index });
             }
-            DependentTier::Sin(_) => {
-                // `%sin` carries structured sign-language annotation
-                // that maps to the `<sg>` XSD element. Structured
-                // emission isn't wired today — route through the
-                // side-tier text path so the tier stays round-
-                // trippable through the `<a type="gesture">` shape
-                // (the closest semantic match in `annotationTypeType`).
-                out.side_tiers.push(tier);
+            DependentTier::Sin(sin) => {
+                // Structured `<sg><w>...</w><sw>value</sw></sg>` per
+                // main-tier word. Emission happens inline in
+                // `emit_utterance` via `tiers.sin`.
+                out.sin = Some(sin);
                 continue;
             }
         }

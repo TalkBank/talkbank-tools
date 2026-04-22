@@ -44,8 +44,22 @@ use xml_support::{XmlStructuralDiff, assert_xml_structurally_equal};
 fn xml_golden_parity(#[files("../../corpus/reference-xml/**/*.xml")] golden_path: PathBuf) {
     let cha_path = paired_chat_path(&golden_path);
 
+    // A golden in `corpus/reference-xml/` without a matching source in
+    // `corpus/reference/` is stale — Java was run before the source
+    // file was moved or deleted. Skip with a diagnostic rather than
+    // failing, so we don't block the harness on purely-stale goldens.
+    // Franklin regenerates `reference-xml/` from Java runs, so this
+    // self-heals once Java re-emits.
     let cha_source = match std::fs::read_to_string(&cha_path) {
         Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            println!(
+                "stale golden skip: {} (no matching source at {})",
+                golden_path.display(),
+                cha_path.display()
+            );
+            return;
+        }
         Err(e) => panic!(
             "failed to read paired CHAT source {}: {e}",
             cha_path.display()
@@ -73,8 +87,23 @@ fn xml_golden_parity(#[files("../../corpus/reference-xml/**/*.xml")] golden_path
     // Emit XML. While the port is in progress this will commonly error
     // with `FeatureNotImplemented`. We fail the test with that error
     // text visible so the harness doubles as a coverage dashboard.
+    //
+    // Phonetic-tier material (`%pho`, `%mod`, `%phosyl`, `%modsyl`,
+    // `%phoaln`, `<pg>`, `<sg>`) is intentionally skipped: the XML
+    // emitter refuses via `PhoneticTierUnsupported` because Phon is
+    // moving off XML interchange. Those files get `#[ignore]`-style
+    // pass-through here (println instead of panic) so the golden
+    // harness stays useful for the non-phonetic corpus. Revisit if we
+    // ever decide to support Phon XML emission.
     let emitted = match write_chat_xml(&chat_file) {
         Ok(xml) => xml,
+        Err(talkbank_transform::xml::XmlWriteError::PhoneticTierUnsupported { .. }) => {
+            println!(
+                "phonetic tier skip: {} (Phon XML emission permanently unsupported)",
+                cha_path.display()
+            );
+            return;
+        }
         Err(e) => panic!(
             "write_chat_xml refused to emit for {}: {e}",
             cha_path.display()

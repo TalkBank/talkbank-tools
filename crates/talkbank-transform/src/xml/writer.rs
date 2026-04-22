@@ -63,7 +63,7 @@ pub(super) const SCHEMA_VERSION: &str = "3.2.3";
 /// structurally incomplete input, or failures in the underlying
 /// `quick-xml` writer. No panics — per crate policy.
 pub fn write_chat_xml<S: ValidationState>(file: &ChatFile<S>) -> Result<String, XmlWriteError> {
-    let mut emitter = XmlEmitter::new();
+    let mut emitter = XmlEmitter::for_file(file);
     emitter.emit_document(file)?;
     emitter.finish()
 }
@@ -80,18 +80,26 @@ pub(super) struct XmlEmitter {
     /// 0-based counter for `uID="u0"`, `uID="u1"`, … across the
     /// document. Java Chatter assigns these in encounter order.
     pub(super) next_utterance_id: u32,
+    /// The "secondary" language (the second entry in `@Languages`),
+    /// used to resolve bare `@s` word shortcuts to a concrete
+    /// `<langs><single>code</single></langs>`. `None` when the file
+    /// declares fewer than two languages; a bare `@s` then emits
+    /// nothing (there's no toggle target).
+    pub(super) secondary_language: Option<talkbank_model::model::LanguageCode>,
 }
 
 impl XmlEmitter {
-    pub(super) fn new() -> Self {
-        // `indent(b' ', 2)` gives two-space pretty-printing — the
-        // structural comparator ignores whitespace, but human-readable
-        // output matches existing TalkBank convention and makes manual
-        // diffs easier during development.
-        let writer = Writer::new_with_indent(Vec::new(), b' ', 2);
+    /// Construct an emitter primed with per-document state derived
+    /// from `file` (currently just the secondary-language cache).
+    /// `indent(b' ', 2)` gives two-space pretty-printing — the
+    /// structural comparator ignores whitespace, but human-readable
+    /// output matches TalkBank convention and keeps manual diffs
+    /// easy during development.
+    pub(super) fn for_file<S: ValidationState>(file: &ChatFile<S>) -> Self {
         Self {
-            writer,
+            writer: Writer::new_with_indent(Vec::new(), b' ', 2),
             next_utterance_id: 0,
+            secondary_language: file.languages.0.get(1).cloned(),
         }
     }
 }

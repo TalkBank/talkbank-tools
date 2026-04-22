@@ -76,7 +76,7 @@ expression: snapshot
         "content": {
           "segments": [
             {
-              "text": "Separators: comma (,), semicolon (;), tag-question (‡), vocative (‡)",
+              "text": "Separators: comma (,), tag-question („), vocative (‡)",
               "type": "text"
             }
           ]
@@ -90,7 +90,7 @@ expression: snapshot
         "content": {
           "segments": [
             {
-              "text": "Constructs: separator, comma, semicolon, non_colon_separator,",
+              "text": "Constructs: separator, comma, non_colon_separator,",
               "type": "text"
             },
             {
@@ -165,93 +165,6 @@ expression: snapshot
           }
         },
         "speaker": "CHI"
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "dog",
-              "content": [
-                {
-                  "content": "dog",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "dog",
-              "type": "word"
-            },
-            {
-              "kind": "semicolon",
-              "type": "separator"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "cat",
-              "content": [
-                {
-                  "content": "cat",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "cat",
-              "type": "word"
-            },
-            {
-              "kind": "semicolon",
-              "type": "separator"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "bird",
-              "content": [
-                {
-                  "content": "bird",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "bird",
-              "type": "word"
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        },
-        "speaker": "MOT"
       }
     },
     {

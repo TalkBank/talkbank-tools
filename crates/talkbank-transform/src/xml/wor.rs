@@ -139,7 +139,7 @@ impl XmlEmitter {
 /// Lossless millisecond → `"S.sss"` seconds formatter. `3042` →
 /// `"3.042"`, `500` → `"0.500"`, `0` → `"0.000"`. Always three
 /// decimal places, matching Java Chatter.
-fn format_seconds(ms: u64) -> String {
+pub(super) fn format_seconds(ms: u64) -> String {
     let whole = ms / 1000;
     let frac = ms % 1000;
     format!("{whole}.{frac:03}")

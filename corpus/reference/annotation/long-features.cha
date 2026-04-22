@@ -5,7 +5,7 @@
 @Options:	CA
 @ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
-@Media:	long-features, audio
+@Media:	long-features, audio, unlinked
 @Comment:	Long feature spans and nonvocal begin/end markers
 @Comment:	Constructs: long_feature, long_feature_begin, long_feature_begin_marker,
 	long_feature_end, long_feature_end_marker, long_feature_label,

@@ -84,7 +84,6 @@ fn is_revision_kind(kind: RetraceKind) -> bool {
         RetraceKind::Full           // [//]
             | RetraceKind::Multiple  // [///]
             | RetraceKind::Reformulation // [/-]
-            | RetraceKind::Uncertain // [/?]
     )
 }
 

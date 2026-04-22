@@ -533,12 +533,6 @@ expression: snapshot
                   "lemma": "pluie",
                   "pos": "noun"
                 }
-              },
-              {
-                "main": {
-                  "lemma": "\\",
-                  "pos": "x"
-                }
               }
             ],
             "terminator": "!",
@@ -592,11 +586,6 @@ expression: snapshot
               {
                 "head": 3,
                 "index": 9,
-                "relation": "DISCOURSE"
-              },
-              {
-                "head": 3,
-                "index": 10,
                 "relation": "PUNCT"
               }
             ],
@@ -727,17 +716,6 @@ expression: snapshot
                 },
                 "kind": "word",
                 "raw_text": "pluie"
-              },
-              {
-                "cleaned_text": "\\",
-                "content": [
-                  {
-                    "content": "\\",
-                    "type": "text"
-                  }
-                ],
-                "kind": "word",
-                "raw_text": "\\"
               }
             ],
             "language_code": null,
@@ -842,17 +820,6 @@ expression: snapshot
                 }
               ],
               "raw_text": "pluie",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "\\",
-              "content": [
-                {
-                  "content": "\\",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "\\",
               "type": "word"
             }
           ],

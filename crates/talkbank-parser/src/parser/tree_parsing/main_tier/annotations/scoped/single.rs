@@ -12,11 +12,10 @@
 use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
 use crate::model::ContentAnnotation;
 use crate::node_types::{
-    ALT_ANNOTATION, BASE_ANNOTATION, DURATION_ANNOTATION, ERROR_MARKER_ANNOTATION, EXCLUDE_MARKER,
+    ALT_ANNOTATION, BASE_ANNOTATION, ERROR_MARKER_ANNOTATION, EXCLUDE_MARKER,
     EXPLANATION_ANNOTATION, INDEXED_OVERLAP_FOLLOWS, INDEXED_OVERLAP_PRECEDES, PARA_ANNOTATION,
     PERCENT_ANNOTATION, RETRACE_COMPLETE, RETRACE_MULTIPLE, RETRACE_PARTIAL, RETRACE_REFORMULATION,
-    RETRACE_UNCERTAIN, SCOPED_BEST_GUESS, SCOPED_CONTRASTIVE_STRESSING, SCOPED_STRESSING,
-    SCOPED_UNCERTAIN,
+    SCOPED_CONTRASTIVE_STRESSING, SCOPED_STRESSING, SCOPED_UNCERTAIN,
 };
 use crate::tokens;
 use talkbank_model::ParseOutcome;
@@ -28,7 +27,7 @@ use tree_sitter::Node;
 pub(crate) enum ParsedAnnotation {
     /// A non-retrace content annotation (`[*]`, `[= text]`, `[!]`, etc.)
     Content(ContentAnnotation),
-    /// A retrace marker (`[/]`, `[//]`, `[///]`, `[/-]`, `[/?]`)
+    /// A retrace marker (`[/]`, `[//]`, `[///]`, `[/-]`)
     Retrace(RetraceKind),
 }
 
@@ -95,12 +94,6 @@ pub(crate) fn parse_single_annotation(
             source,
             errors,
         ),
-        DURATION_ANNOTATION => delegate_content_or_error(
-            tokens::parse_duration_token(raw),
-            annotation_node,
-            source,
-            errors,
-        ),
         ERROR_MARKER_ANNOTATION => delegate_content_or_error(
             tokens::parse_error_marker_token(raw),
             annotation_node,
@@ -127,9 +120,6 @@ pub(crate) fn parse_single_annotation(
         SCOPED_CONTRASTIVE_STRESSING => ParseOutcome::parsed(ParsedAnnotation::Content(
             ContentAnnotation::ContrastiveStressing,
         )),
-        SCOPED_BEST_GUESS => {
-            ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::BestGuess))
-        }
         SCOPED_UNCERTAIN => {
             ParseOutcome::parsed(ParsedAnnotation::Content(ContentAnnotation::Uncertain))
         }
@@ -139,9 +129,6 @@ pub(crate) fn parse_single_annotation(
         RETRACE_MULTIPLE => ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Multiple)),
         RETRACE_REFORMULATION => {
             ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Reformulation))
-        }
-        RETRACE_UNCERTAIN => {
-            ParseOutcome::parsed(ParsedAnnotation::Retrace(RetraceKind::Uncertain))
         }
         // Exclude marker — already atomic token
         EXCLUDE_MARKER => {

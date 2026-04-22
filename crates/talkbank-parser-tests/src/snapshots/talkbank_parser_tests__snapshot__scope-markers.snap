@@ -76,14 +76,7 @@ expression: snapshot
         "content": {
           "segments": [
             {
-              "text": "Scope markers: [!*] best-guess, [!] stressing, [!!] contrastive,",
-              "type": "text"
-            },
-            {
-              "type": "continuation"
-            },
-            {
-              "text": "[?] uncertain, [# duration] duration",
+              "text": "Scope markers: [!] stressing, [!!] contrastive, [?] uncertain",
               "type": "text"
             }
           ]
@@ -97,14 +90,7 @@ expression: snapshot
         "content": {
           "segments": [
             {
-              "text": "Constructs: scoped_best_guess, scoped_stressing, scoped_contrastive_stressing,",
-              "type": "text"
-            },
-            {
-              "type": "continuation"
-            },
-            {
-              "text": "scoped_uncertain, duration_annotation",
+              "text": "Constructs: scoped_stressing, scoped_contrastive_stressing, scoped_uncertain",
               "type": "text"
             }
           ]
@@ -112,75 +98,6 @@ expression: snapshot
         "type": "comment"
       },
       "line_type": "header"
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "cleaned_text": "I",
-              "content": [
-                {
-                  "content": "I",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "I",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "want",
-              "content": [
-                {
-                  "content": "want",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "want",
-              "type": "word"
-            },
-            {
-              "cleaned_text": "the",
-              "content": [
-                {
-                  "content": "the",
-                  "type": "text"
-                }
-              ],
-              "raw_text": "the",
-              "type": "word"
-            },
-            {
-              "content": {
-                "content": [
-                  {
-                    "cleaned_text": "gogo",
-                    "content": [
-                      {
-                        "content": "gogo",
-                        "type": "text"
-                      }
-                    ],
-                    "raw_text": "gogo",
-                    "type": "word"
-                  }
-                ]
-              },
-              "scoped_annotations": [
-                {
-                  "type": "bestguess"
-                }
-              ],
-              "type": "annotated_group"
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        },
-        "speaker": "CHI"
-      }
     },
     {
       "line_type": "utterance",
@@ -344,65 +261,6 @@ expression: snapshot
           }
         },
         "speaker": "MOT"
-      }
-    },
-    {
-      "line_type": "utterance",
-      "main": {
-        "content": {
-          "content": [
-            {
-              "content": {
-                "content": [
-                  {
-                    "cleaned_text": "a",
-                    "content": [
-                      {
-                        "content": "a",
-                        "type": "text"
-                      }
-                    ],
-                    "raw_text": "a",
-                    "type": "word"
-                  },
-                  {
-                    "cleaned_text": "long",
-                    "content": [
-                      {
-                        "content": "long",
-                        "type": "text"
-                      }
-                    ],
-                    "raw_text": "long",
-                    "type": "word"
-                  },
-                  {
-                    "cleaned_text": "pause",
-                    "content": [
-                      {
-                        "content": "pause",
-                        "type": "text"
-                      }
-                    ],
-                    "raw_text": "pause",
-                    "type": "word"
-                  }
-                ]
-              },
-              "scoped_annotations": [
-                {
-                  "time": "3.",
-                  "type": "duration"
-                }
-              ],
-              "type": "annotated_group"
-            }
-          ],
-          "terminator": {
-            "type": "period"
-          }
-        },
-        "speaker": "CHI"
       }
     },
     {

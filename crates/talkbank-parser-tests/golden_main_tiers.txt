@@ -14,7 +14,6 @@
 *CHI:	0 foo 0 〔bar baz〕 .
 *CHI:	0she want her toy .
 *CHI:	<<happy and> [?]> [>] .
-*CHI:	<a long pause> [# 3.] .
 *CHI:	<ingroup [/]> [<] after .
 *CHI:	A B C D E .
 *CHI:	I (.) want (3.) a cookie (..) please (...) .
@@ -26,7 +25,6 @@
 *CHI:	I want cereal .
 *CHI:	I want ice+cream .
 *CHI:	I want some cookies .
-*CHI:	I want the <gogo> [!*] .
 *CHI:	I want the [///] give me that .
 *CHI:	I was going to the +...
 *CHI:	María .
@@ -204,7 +202,6 @@
 *MOT:	how are you ? 700_1200
 *MOT:	if we have <some time> [>1] we can get <tickets to> [>2] the opera .
 *MOT:	if we have <some time> [>] we can get tickets .
-*MOT:	is that [/?] a toy ?
 *MOT:	it rolled under the table .
 *MOT:	it was lowering concrete girders off a lorry ‡ wasn't it ?
 *MOT:	ja das ist die Eisenbahn (.) und da (.) bimmel limmel lim (1.) .

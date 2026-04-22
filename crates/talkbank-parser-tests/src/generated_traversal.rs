@@ -13,10 +13,6 @@
 //! This file is standalone — it has no dependencies beyond `tree_sitter`.
 #![allow(
     clippy::cast_possible_truncation,
-    // Generated `if let Some(x) = …` chains: rewriting to
-    // `if let Some(x) = … && …` requires Rust 2024 `let_chains` and
-    // would need changes in the upstream `tree-sitter-grammar-utils`
-    // code generator, not this file.
     clippy::collapsible_if,
     clippy::module_name_repetitions,
     clippy::needless_pass_by_value,
@@ -4814,16 +4810,6 @@ pub struct DefDependentTierChildren<'tree> {
     ///`newline` — required
     pub child_3: NodeSlot<'tree, NewlineNode<'tree>>,
 }
-///Extracted children for `duration_annotation` nodes.
-#[derive(Debug)]
-pub struct DurationAnnotationChildren<'tree> {
-    ///`space` — required
-    pub child_1: NodeSlot<'tree, SpaceNode<'tree>>,
-    ///`annotation_content` — required (field: `time`)
-    pub time: NodeSlot<'tree, AnnotationContentNode<'tree>>,
-    ///`right_bracket` — required
-    pub child_3: NodeSlot<'tree, RightBracketNode<'tree>>,
-}
 ///Extracted children for `eg_header` nodes.
 #[derive(Debug)]
 pub struct EgHeaderChildren<'tree> {
@@ -6008,12 +5994,6 @@ pub struct CommentHeaderPayload<'tree> {
 pub struct DateHeaderPayload<'tree> {
     ///`date_contents` — nested rule `date_contents`
     pub child_2: Option<DateContentsNode<'tree>>,
-}
-///Semantic payload for `duration_annotation` — 1 payload field(s), structural children stripped.
-#[derive(Debug)]
-pub struct DurationAnnotationPayload<'tree> {
-    ///`annotation_content` — free text
-    pub time: Option<AnnotationContentNode<'tree>>,
 }
 ///Semantic payload for `event` — 2 payload field(s), structural children stripped.
 #[derive(Debug)]
@@ -8334,64 +8314,6 @@ pub trait GrammarTraversal {
             child_0,
             child_1,
             child_2,
-            child_3,
-        }
-    }
-    ///Extract children from a `duration_annotation` node.
-    ///
-    ///Production (children in order):
-    ///- `(terminal)` [required]
-    ///- `space` [required]
-    ///- `annotation_content` (field: `time`) [required]
-    ///- `right_bracket` [required]
-    fn extract_duration_annotation<'tree>(
-        &mut self,
-        node: tree_sitter::Node<'tree>,
-    ) -> DurationAnnotationChildren<'tree> {
-        let child_count = node.child_count();
-        let mut idx: u32 = 0;
-        let skip_extras = |node: tree_sitter::Node, idx: &mut u32, count: usize| {
-            while (*idx as usize) < count {
-                if let Some(child) = node.child(*idx) {
-                    if matches!(child.kind(), "whitespaces") {
-                        *idx += 1;
-                        continue;
-                    }
-                }
-                break;
-            }
-        };
-        let mut child_1: NodeSlot<'tree, SpaceNode<'tree>> = NodeSlot::Absent;
-        let mut time: NodeSlot<'tree, AnnotationContentNode<'tree>> = NodeSlot::Absent;
-        let mut child_3: NodeSlot<'tree, RightBracketNode<'tree>> = NodeSlot::Absent;
-        skip_extras(node, &mut idx, child_count);
-        if (idx as usize) < child_count {
-            idx += 1;
-        }
-        skip_extras(node, &mut idx, child_count);
-        if (idx as usize) < child_count {
-            if let Some(child) = node.child(idx) {
-                child_1 = classify_child(child, "space", SpaceNode);
-                idx += 1;
-            }
-        }
-        skip_extras(node, &mut idx, child_count);
-        if (idx as usize) < child_count {
-            if let Some(child) = node.child(idx) {
-                time = classify_child(child, "annotation_content", AnnotationContentNode);
-                idx += 1;
-            }
-        }
-        skip_extras(node, &mut idx, child_count);
-        if (idx as usize) < child_count {
-            if let Some(child) = node.child(idx) {
-                child_3 = classify_child(child, "right_bracket", RightBracketNode);
-                idx += 1;
-            }
-        }
-        DurationAnnotationChildren {
-            child_1,
-            time,
             child_3,
         }
     }

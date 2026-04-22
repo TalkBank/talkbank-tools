@@ -55,7 +55,6 @@ impl ContentAnnotation {
             ContentAnnotation::CaContinuation => w.write_str("[^c]"),
             ContentAnnotation::Stressing => w.write_str("[!]"),
             ContentAnnotation::ContrastiveStressing => w.write_str("[!!]"),
-            ContentAnnotation::BestGuess => w.write_str("[!*]"),
             ContentAnnotation::Uncertain => w.write_str("[?]"),
             ContentAnnotation::Paralinguistic(paralinguistic) => {
                 w.write_str("[=! ")?;
@@ -70,11 +69,6 @@ impl ContentAnnotation {
             ContentAnnotation::PercentComment(comment) => {
                 w.write_str("[% ")?;
                 w.write_str(&comment.text)?;
-                w.write_char(']')
-            }
-            ContentAnnotation::Duration(duration) => {
-                w.write_str("[# ")?;
-                w.write_str(&duration.time)?;
                 w.write_char(']')
             }
             ContentAnnotation::Exclude => w.write_str("[e]"),

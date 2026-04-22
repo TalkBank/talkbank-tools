@@ -1,6 +1,0 @@
-*** File "unicode-ipa-content.cha": line 11, column 7: tree parser: mismatched tree node: propn expecting <UP>
-*** File "unicode-ipa-content.cha": line 11, column 13: tree parser: mismatched tree node: Mommy expecting <UP>
-*** File "ca-pauses-prosody.cha": line 19, column 16: parser: mismatched input '1' expecting WORD_SEGMENT
-*** File "ca-pauses-prosody.cha": line 19, column 15: parser: semantic failure: "102" is not a legal word in language "eng"
-*** File "ca-pauses-prosody.cha": line 19, column 21: lexer: skipping nonviable character '5' in state 52
-*** File "ca-pauses-prosody.cha": line 19, column 22: lexer: skipping nonviable character ')' in state 52

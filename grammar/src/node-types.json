@@ -8,10 +8,6 @@
         "named": true
       },
       {
-        "type": "duration_annotation",
-        "named": true
-      },
-      {
         "type": "error_marker_annotation",
         "named": true
       },
@@ -53,14 +49,6 @@
       },
       {
         "type": "retrace_reformulation",
-        "named": true
-      },
-      {
-        "type": "retrace_uncertain",
-        "named": true
-      },
-      {
-        "type": "scoped_best_guess",
         "named": true
       },
       {
@@ -1176,36 +1164,6 @@
         },
         {
           "type": "tier_sep",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "duration_annotation",
-    "named": true,
-    "fields": {
-      "time": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "annotation_content",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "right_bracket",
-          "named": true
-        },
-        {
-          "type": "space",
           "named": true
         }
       ]
@@ -4904,10 +4862,6 @@
     "named": false
   },
   {
-    "type": "[#",
-    "named": false
-  },
-  {
     "type": "[%",
     "named": false
   },
@@ -5468,10 +5422,6 @@
     "named": true
   },
   {
-    "type": "retrace_uncertain",
-    "named": true
-  },
-  {
     "type": "right_brace",
     "named": true
   },
@@ -5493,10 +5443,6 @@
   },
   {
     "type": "room_layout_prefix",
-    "named": true
-  },
-  {
-    "type": "scoped_best_guess",
     "named": true
   },
   {

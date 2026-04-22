@@ -75,6 +75,7 @@ expression: snapshot
       "header": {
         "filename": "headers-comments",
         "media_type": "video",
+        "status": "unlinked",
         "type": "media"
       },
       "line_type": "header"
@@ -339,7 +340,8 @@ expression: snapshot
   ],
   "media": {
     "filename": "headers-comments",
-    "media_type": "video"
+    "media_type": "video",
+    "status": "unlinked"
   },
   "options": [],
   "participants": {

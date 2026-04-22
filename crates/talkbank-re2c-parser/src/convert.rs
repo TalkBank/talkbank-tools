@@ -245,7 +245,6 @@ pub fn content_item_to_model(item: &ast::ContentItem<'_>) -> UtteranceContent {
                 crate::ast::RetraceKindParsed::Complete => RetraceKind::Full,
                 crate::ast::RetraceKindParsed::Multiple => RetraceKind::Multiple,
                 crate::ast::RetraceKindParsed::Reformulation => RetraceKind::Reformulation,
-                crate::ast::RetraceKindParsed::Uncertain => RetraceKind::Uncertain,
             };
             let content: Vec<BracketedItem> = r
                 .content
@@ -568,7 +567,6 @@ fn content_item_to_bracketed(item: &ast::ContentItem<'_>) -> Option<BracketedIte
                 crate::ast::RetraceKindParsed::Complete => RetraceKind::Full,
                 crate::ast::RetraceKindParsed::Multiple => RetraceKind::Multiple,
                 crate::ast::RetraceKindParsed::Reformulation => RetraceKind::Reformulation,
-                crate::ast::RetraceKindParsed::Uncertain => RetraceKind::Uncertain,
             };
             let inner: Vec<BracketedItem> = r
                 .content
@@ -632,7 +630,6 @@ fn parsed_annotation_to_scoped(ann: &ast::ParsedAnnotation<'_>) -> Option<Conten
         crate::ast::ParsedAnnotation::ContrastiveStressing => {
             Some(ContentAnnotation::ContrastiveStressing)
         }
-        crate::ast::ParsedAnnotation::BestGuess => Some(ContentAnnotation::BestGuess),
         crate::ast::ParsedAnnotation::Uncertain => Some(ContentAnnotation::Uncertain),
         crate::ast::ParsedAnnotation::Exclude => Some(ContentAnnotation::Exclude),
         crate::ast::ParsedAnnotation::Error(s) => {
@@ -679,11 +676,6 @@ fn parsed_annotation_to_scoped(ann: &ast::ParsedAnnotation<'_>) -> Option<Conten
         crate::ast::ParsedAnnotation::PercentComment(s) => {
             Some(ContentAnnotation::PercentComment(ScopedPercentComment {
                 text: (*s).into(),
-            }))
-        }
-        crate::ast::ParsedAnnotation::Duration(s) => {
-            Some(ContentAnnotation::Duration(ScopedDuration {
-                time: (*s).into(),
             }))
         }
         crate::ast::ParsedAnnotation::Replacement(_) => None, // Handled separately in word conversion

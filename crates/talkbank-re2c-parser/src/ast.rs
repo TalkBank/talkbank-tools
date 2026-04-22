@@ -119,14 +119,12 @@ pub struct WordWithAnnotations<'a> {
 /// A parsed scoped annotation. Tag-extracted content — no delimiters.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum ParsedAnnotation<'a> {
-    /// `[/]`, `[//]`, `[///]`, `[/-]`, `[/?]` — retrace markers
+    /// `[/]`, `[//]`, `[///]`, `[/-]` — retrace markers
     Retrace(RetraceKindParsed),
     /// `[!]` — stressing
     Stressing,
     /// `[!!]` — contrastive stressing
     ContrastiveStressing,
-    /// `[!*]` — best guess
-    BestGuess,
     /// `[?]` — uncertain
     Uncertain,
     /// `[e]` — exclude
@@ -145,8 +143,6 @@ pub enum ParsedAnnotation<'a> {
     Alternative(&'a str),
     /// `[% text]` — percent comment
     PercentComment(&'a str),
-    /// `[# time]` — duration
-    Duration(&'a str),
     /// `[: replacement words]` — replacement
     Replacement(&'a str),
     /// `[- lang]` — language code (on utterance, not word, but can appear in annotation position)
@@ -294,8 +290,6 @@ pub enum RetraceKindParsed {
     Multiple,
     /// `[/-]`
     Reformulation,
-    /// `[/?]`
-    Uncertain,
 }
 
 /// grammar.js: group_with_annotations

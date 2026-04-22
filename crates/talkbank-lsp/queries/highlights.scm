@@ -46,7 +46,6 @@
 (retrace_partial) @keyword.control
 (retrace_multiple) @keyword.control
 (retrace_reformulation) @keyword.control
-(retrace_uncertain) @keyword.control
 
 ; Freecodes ([^ text])
 (freecode) @constant
@@ -76,10 +75,9 @@
 
 ; ===== Annotations =====
 
-; Scoped annotations ([!], [!!], [!*], [?])
+; Scoped annotations ([!], [!!], [?])
 (scoped_stressing) @operator
 (scoped_contrastive_stressing) @operator
-(scoped_best_guess) @operator
 (scoped_uncertain) @operator
 
 ; Replacement text ([: word])

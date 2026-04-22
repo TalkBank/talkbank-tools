@@ -75,6 +75,7 @@ expression: snapshot
       "header": {
         "filename": "sin",
         "media_type": "video",
+        "status": "unlinked",
         "type": "media"
       },
       "line_type": "header"
@@ -257,7 +258,8 @@ expression: snapshot
   ],
   "media": {
     "filename": "sin",
-    "media_type": "video"
+    "media_type": "video",
+    "status": "unlinked"
   },
   "options": [],
   "participants": {

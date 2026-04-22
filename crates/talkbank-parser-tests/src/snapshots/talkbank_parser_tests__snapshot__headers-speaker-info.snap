@@ -46,7 +46,7 @@ expression: snapshot
           {
             "name": null,
             "role": "Father",
-            "speaker_code": "F_A'-T"
+            "speaker_code": "F_A_T"
           }
         ],
         "type": "participants"
@@ -91,7 +91,7 @@ expression: snapshot
           "ara"
         ],
         "role": "Father",
-        "speaker": "F_A'-T",
+        "speaker": "F_A_T",
         "type": "id"
       },
       "line_type": "header"
@@ -123,7 +123,7 @@ expression: snapshot
     {
       "header": {
         "language": "ara",
-        "participant": "F_A'-T",
+        "participant": "F_A_T",
         "type": "l1_of"
       },
       "line_type": "header"
@@ -287,7 +287,7 @@ expression: snapshot
             "type": "period"
           }
         },
-        "speaker": "F_A'-T"
+        "speaker": "F_A_T"
       }
     },
     {
@@ -317,9 +317,9 @@ expression: snapshot
       "name": null,
       "role": "Child"
     },
-    "F_A'-T": {
+    "F_A_T": {
       "birth_date": null,
-      "code": "F_A'-T",
+      "code": "F_A_T",
       "id": {
         "corpus": "corpus",
         "language": [
@@ -327,7 +327,7 @@ expression: snapshot
           "ara"
         ],
         "role": "Father",
-        "speaker": "F_A'-T"
+        "speaker": "F_A_T"
       },
       "name": null,
       "role": "Father"

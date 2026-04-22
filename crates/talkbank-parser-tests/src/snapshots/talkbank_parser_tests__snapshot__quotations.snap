@@ -108,15 +108,14 @@ expression: snapshot
               "content": {
                 "content": [
                   {
-                    "category": "nonword",
-                    "cleaned_text": "foo",
+                    "cleaned_text": "hello",
                     "content": [
                       {
-                        "content": "foo",
+                        "content": "hello",
                         "type": "text"
                       }
                     ],
-                    "raw_text": "&~foo",
+                    "raw_text": "hello",
                     "type": "word"
                   },
                   {

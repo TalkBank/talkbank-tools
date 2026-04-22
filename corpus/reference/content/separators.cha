@@ -4,11 +4,10 @@
 @Participants:	CHI Child, MOT Mother
 @ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
-@Comment:	Separators: comma (,), semicolon (;), tag-question (‡), vocative (‡)
-@Comment:	Constructs: separator, comma, semicolon, non_colon_separator,
+@Comment:	Separators: comma (,), tag-question („), vocative (‡)
+@Comment:	Constructs: separator, comma, non_colon_separator,
 	tag_marker (‡ „)
 *CHI:	well , I think so .
-*MOT:	the dog ; the cat ; the bird .
 *CHI:	it was lowering concrete girders off a lorry „ wasn't it ?
 *MOT:	it was lowering concrete girders off a lorry ‡ wasn't it ?
 @End

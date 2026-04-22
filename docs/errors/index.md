@@ -1154,7 +1154,7 @@ An header declares a linked media file (no / / status), but the transcript body 
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E544](E544.md) | E544:  claims linkage but transcript has no timing evidence | error | ⏳ |
+| [E544](E544.md) | E544:  claims linkage but transcript has no timing evidence | error | ✅ |
 
 ## header_validation (E5x)
 

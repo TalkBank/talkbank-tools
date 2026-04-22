@@ -121,8 +121,6 @@ pub enum RetraceKind {
     Multiple,
     /// `[/-]` — reformulation (speaker rephrases with different structure)
     Reformulation,
-    /// `[/?]` — uncertain whether the repetition/correction is intentional
-    Uncertain,
 }
 
 impl std::fmt::Display for RetraceKind {
@@ -132,7 +130,6 @@ impl std::fmt::Display for RetraceKind {
             Self::Full => write!(f, "[//]"),
             Self::Multiple => write!(f, "[///]"),
             Self::Reformulation => write!(f, "[/-]"),
-            Self::Uncertain => write!(f, "[/?]"),
         }
     }
 }

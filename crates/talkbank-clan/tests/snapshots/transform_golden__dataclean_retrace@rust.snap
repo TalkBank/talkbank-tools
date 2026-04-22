@@ -9,14 +9,13 @@ expression: "&rust_output"
 @ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Retrace annotations: partial [/], complete [//], multiple [///],
-	uncertain [/?] , reformulation [/-]
+	reformulation [/-]
 @Comment:	Constructs: retrace_partial, retrace_complete, retrace_multiple,
-	retrace_uncertain, retrace_reformulation
+	retrace_reformulation
 @Comment:	--- Single-word retraces (no angle brackets) ---
 *CHI:	I [/] I want that .
 *MOT:	the dog [//] the cat ran .
 *CHI:	I want the [///] give me that .
-*MOT:	is that [/?] a toy ?
 *CHI:	ana [//] an .
 *MOT:	the book [/-] the magazine is here .
 @Comment:	--- Single-word retraces WITH replacement [: ] ---

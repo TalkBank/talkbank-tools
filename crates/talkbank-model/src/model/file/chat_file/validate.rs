@@ -312,6 +312,11 @@ impl<S: ValidationState> ChatFile<S> {
             crate::validation::check_bullet_monotonicity(&bullets, errors);
         }
 
+        // E544: @Media declares linkage but transcript has no timing
+        // evidence. Rule and scope documented in `ErrorCode::
+        // MediaLinkageWithoutTiming` and the E544 spec.
+        check_media_linkage_has_timing(&headers_with_spans, self, &bullets, errors);
+
         // E701, E704: Validate temporal constraints on media bullets
         // - E701 (CLAN Error 83): Global timeline monotonicity
         // - E704 (CLAN Error 133): Per-speaker overlap with 500ms tolerance
@@ -498,6 +503,67 @@ fn file_uses_ca_mode(headers: &[&Header]) -> bool {
 /// The `bullets` option was removed from CHAT. This always returns `false`.
 fn file_uses_bullets_mode(_headers: &[&Header]) -> bool {
     false
+}
+
+/// E544: @Media declares linkage but transcript has no timing evidence.
+///
+/// Fires when an @Media header is present, its `status` field is `None`
+/// (i.e., not one of `unlinked` / `missing` / `notrans`), AND the file
+/// carries no timing evidence. Timing evidence is the union of:
+/// - main-tier bullets (already collected by the caller and passed as
+///   `main_bullets` — avoids a second walk)
+/// - any positional `%wor` timing sidecar on any utterance
+///
+/// The caller passes the already-collected main-tier bullets to avoid a
+/// duplicate walk; all other timing surfaces are discovered here.
+///
+/// Spec: `spec/errors/E544_media_linkage_without_timing.md`. Approved by
+/// Brian MacWhinney 2026-04-21.
+fn check_media_linkage_has_timing<S: ValidationState>(
+    headers: &[(&Header, crate::Span)],
+    file: &ChatFile<S>,
+    main_bullets: &[&crate::model::Bullet],
+    errors: &impl crate::ErrorSink,
+) {
+    use crate::{ErrorCode, ErrorContext, ParseError, Severity, SourceLocation};
+
+    // Find the first @Media header with no status. Multiple @Media headers
+    // would individually need checking, but in practice a file has at most
+    // one — and if any is unqualified, the check fires at that header's span.
+    let unqualified_media = headers.iter().find_map(|(header, span)| match header {
+        Header::Media(m) if m.status.is_none() => Some((m, *span)),
+        _ => None,
+    });
+    let Some((_media, span)) = unqualified_media else {
+        // No @Media, or @Media has a status — check does not apply.
+        return;
+    };
+
+    if !main_bullets.is_empty() {
+        // Main-tier bullets satisfy the timing requirement.
+        return;
+    }
+
+    // Check for any positional %wor timing sidecar as a broader timing
+    // surface. batchalign3 outputs typically have %wor bullets even when the
+    // main tier does not.
+    let has_wor_timing = file.utterances().any(|utt| {
+        utt.alignments
+            .as_ref()
+            .and_then(|a| a.wor_timings.as_ref())
+            .is_some_and(|w| w.is_positional())
+    });
+    if has_wor_timing {
+        return;
+    }
+
+    errors.report(ParseError::new(
+        ErrorCode::MediaLinkageWithoutTiming,
+        Severity::Error,
+        SourceLocation::at_offset(span.start as usize),
+        ErrorContext::new("", 0..0, "media_linkage"),
+        "@Media header declares linkage but transcript has no timing evidence (no main-tier bullets, no %wor timing); add `, unlinked` / `, missing` / `, notrans` status, or add timing bullets",
+    ));
 }
 
 /// E531: validate `@Media` filename against the caller-provided file basename.
