@@ -49,7 +49,7 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// @Begin
 /// @Languages: eng
 /// @Participants: CHI Child, MOT Mother
-/// @ID: eng|corpus|CHI|2;6.0|male|||Child|||
+/// @ID: eng|corpus|CHI|2;06.00|male|||Child|||
 /// *CHI: I want cookie .
 /// %mor: pro:sub|I v|want n|cookie .
 /// @Comment: Child reaching for cookie jar

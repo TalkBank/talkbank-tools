@@ -10,18 +10,27 @@
 
 use crate::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation, Span};
 
-/// Validate `@Date` in canonical `DD-MMM-YYYY` form.
+/// Validate a `DD-MMM-YYYY` date value against CLAN `depfile.cut`'s
+/// `@d<dd-lll-yyyy>` template. Used by both `@Date` (E518) and
+/// `@Birth of` (E545) — the two headers share the same date format
+/// rule per depfile, so the same component-level diagnostic logic
+/// applies; only the emitted error code differs.
 ///
 /// The checker reports granular diagnostics per component (day/month/year) so
 /// users get actionable fixes instead of a single generic format error.
-pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink) {
+pub(super) fn check_date_format(
+    date: &str,
+    span: Span,
+    errors: &impl ErrorSink,
+    error_code: ErrorCode,
+) {
     const VALID_MONTHS: &[&str] = &[
         "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
     ];
 
     let make_err = |context_label: &str, message: String| {
         let mut err = ParseError::new(
-            ErrorCode::InvalidDateFormat,
+            error_code,
             Severity::Error,
             SourceLocation::at_offset(span.start as usize),
             ErrorContext::new(date, 0..date.len(), context_label),
@@ -130,160 +139,111 @@ pub(super) fn check_date_format(date: &str, span: Span, errors: &impl ErrorSink)
 }
 
 // ── Time format validators (E540, E541) ───────────────────────────────
+//
+// The validator functions below are the emission surface; the shape
+// decisions live on the typed `TimeDurationValue` /
+// `TimeStartValue::violates_depfile_pattern()` methods. The
+// dispatcher in `validate.rs` gates these calls on either
+// `has_validation_issue()` (Unsupported variant — raw string failed
+// to structurally parse) or `violates_depfile_pattern()` (parsed,
+// but the raw string doesn't match one of CLAN depfile.cut's legal
+// shapes), so by the time we get here we know the value is invalid.
+// The function just renders the diagnostic.
 
-/// Check whether a string looks like `HH:MM:SS` or `MM:SS` (colons required, values numeric).
-fn is_hms(s: &str) -> bool {
-    let parts: Vec<&str> = s.split(':').collect();
-    (2..=3).contains(&parts.len())
-        && parts
-            .iter()
-            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
-}
-
-/// Check whether a string looks like `HH:MM:SS.mmm`, `HH:MM:SS`, `MM:SS.mmm`, or `MM:SS`.
-fn is_hms_optional_millis(s: &str) -> bool {
-    if let Some((hms, millis)) = s.split_once('.') {
-        is_hms(hms) && !millis.is_empty() && millis.chars().all(|c| c.is_ascii_digit())
-    } else {
-        is_hms(s)
-    }
-}
-
-/// E540: Validate `@Time Duration` format.
+/// E540: Emit an error for an invalid `@Time Duration` value.
 ///
-/// Expected formats:
-/// - `HH:MM:SS` (single duration)
-/// - `HH:MM:SS-HH:MM:SS` (range with hyphen)
-/// - `HH:MM:SS;HH:MM:SS` (range with semicolon)
-/// - Comma-separated combinations of the above
+/// The dispatcher has already determined that the raw string fails
+/// either the model-layer parse or the depfile-pattern check, so
+/// this function unconditionally reports E540 with a depfile-rooted
+/// remediation suggestion.
 pub(super) fn check_time_duration_format(duration: &str, span: Span, errors: &impl ErrorSink) {
     if duration.is_empty() {
         return;
     }
-
-    // Split by comma for multi-segment durations, then check each segment.
-    for segment in duration.split(',') {
-        let segment = segment.trim();
-        if segment.is_empty() {
-            continue;
-        }
-        // Each segment can be a range (hyphen or semicolon-separated) or a single time.
-        let valid = if let Some((left, right)) = segment.split_once('-') {
-            is_hms(left) && is_hms(right)
-        } else if let Some((left, right)) = segment.split_once(';') {
-            is_hms(left) && is_hms(right)
-        } else {
-            is_hms(segment)
-        };
-        if !valid {
-            let mut err = ParseError::new(
-                ErrorCode::InvalidTimeDuration,
-                Severity::Warning,
-                SourceLocation::at_offset(span.start as usize),
-                ErrorContext::new(duration, 0..duration.len(), "time_duration"),
-                format!("Invalid @Time Duration format: '{}'", duration),
-            )
-            .with_suggestion("Expected format: HH:MM:SS or HH:MM:SS-HH:MM:SS");
-            err.location.span = span;
-            errors.report(err);
-            return; // Report once for the whole value.
-        }
-    }
+    let mut err = ParseError::new(
+        ErrorCode::InvalidTimeDuration,
+        Severity::Error,
+        SourceLocation::at_offset(span.start as usize),
+        ErrorContext::new(duration, 0..duration.len(), "time_duration"),
+        format!(
+            "Invalid @Time Duration format: '{}'. Legal forms per CLAN depfile.cut: HH:MM-HH:MM, HH:MM:SS-HH:MM:SS, or HH:MM:SS",
+            duration
+        ),
+    )
+    .with_suggestion(
+        "Use one of: HH:MM:SS (single), HH:MM-HH:MM (range), HH:MM:SS-HH:MM:SS (range). No comma-joined segments, no semicolon separator.",
+    );
+    err.location.span = span;
+    errors.report(err);
 }
 
-/// E541: Validate `@Time Start` format.
+/// E541: Emit an error for an invalid `@Time Start` value.
 ///
-/// Expected formats:
-/// - `MM:SS` or `HH:MM:SS`
-/// - `MM:SS.mmm` or `HH:MM:SS.mmm` (with milliseconds)
+/// Mirrors `check_time_duration_format`: the dispatcher already
+/// decided this value is invalid, so this function just renders
+/// the E541 diagnostic with depfile-rooted guidance.
 pub(super) fn check_time_start_format(start: &str, span: Span, errors: &impl ErrorSink) {
     if start.is_empty() {
         return;
     }
-
-    if !is_hms_optional_millis(start) {
-        let mut err = ParseError::new(
-            ErrorCode::InvalidTimeStart,
-            Severity::Warning,
-            SourceLocation::at_offset(span.start as usize),
-            ErrorContext::new(start, 0..start.len(), "time_start"),
-            format!("Invalid @Time Start format: '{}'", start),
-        )
-        .with_suggestion("Expected format: MM:SS, HH:MM:SS, or HH:MM:SS.mmm");
-        err.location.span = span;
-        errors.report(err);
-    }
+    let mut err = ParseError::new(
+        ErrorCode::InvalidTimeStart,
+        Severity::Error,
+        SourceLocation::at_offset(span.start as usize),
+        ErrorContext::new(start, 0..start.len(), "time_start"),
+        format!(
+            "Invalid @Time Start format: '{}'. Legal forms per CLAN depfile.cut: HH:MM:SS or MM:SS",
+            start
+        ),
+    )
+    .with_suggestion("Use HH:MM:SS or MM:SS — no millisecond suffix, no range.");
+    err.location.span = span;
+    errors.report(err);
 }
 
 #[cfg(test)]
 mod time_format_tests {
+    // The old unit tests asserted that `check_time_*_format` accepted
+    // semicolon separators, millisecond suffixes, etc. Those shapes
+    // are no longer legal under depfile.cut conformance (E540/E541
+    // landed 2026-04-21); pattern decisions now live on the typed
+    // `TimeDurationValue::violates_depfile_pattern` /
+    // `TimeStartValue::violates_depfile_pattern` model methods,
+    // and end-to-end coverage flows through the spec-driven harness
+    // at `spec/errors/E540_invalid_time_duration.md` and
+    // `spec/errors/E541_invalid_time_start.md`.
     use super::*;
     use crate::ErrorCollector;
 
     #[test]
-    fn valid_time_duration_single() {
+    fn duration_validator_emits_once_for_non_empty_input() {
         let errors = ErrorCollector::new();
-        check_time_duration_format("01:23:45", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn valid_time_duration_range_hyphen() {
-        let errors = ErrorCollector::new();
-        check_time_duration_format("00:00:00-01:30:00", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn valid_time_duration_range_semicolon() {
-        let errors = ErrorCollector::new();
-        check_time_duration_format("00:00:00;01:30:00", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn invalid_time_duration() {
-        let errors = ErrorCollector::new();
-        check_time_duration_format("foobar", Span::DUMMY, &errors);
+        check_time_duration_format("anything", Span::DUMMY, &errors);
         let errs = errors.into_vec();
         assert_eq!(errs.len(), 1);
         assert_eq!(errs[0].code, ErrorCode::InvalidTimeDuration);
     }
 
     #[test]
-    fn valid_time_start_hms() {
+    fn duration_validator_skips_empty_input() {
         let errors = ErrorCollector::new();
-        check_time_start_format("01:23:45", Span::DUMMY, &errors);
+        check_time_duration_format("", Span::DUMMY, &errors);
         assert!(errors.into_vec().is_empty());
     }
 
     #[test]
-    fn valid_time_start_with_millis() {
+    fn start_validator_emits_once_for_non_empty_input() {
         let errors = ErrorCollector::new();
-        check_time_start_format("01:23:45.678", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn valid_time_start_mm_ss() {
-        let errors = ErrorCollector::new();
-        check_time_start_format("23:45", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn valid_time_start_mm_ss_with_millis() {
-        let errors = ErrorCollector::new();
-        check_time_start_format("23:45.678", Span::DUMMY, &errors);
-        assert!(errors.into_vec().is_empty());
-    }
-
-    #[test]
-    fn invalid_time_start() {
-        let errors = ErrorCollector::new();
-        check_time_start_format("not-a-time", Span::DUMMY, &errors);
+        check_time_start_format("anything", Span::DUMMY, &errors);
         let errs = errors.into_vec();
         assert_eq!(errs.len(), 1);
         assert_eq!(errs[0].code, ErrorCode::InvalidTimeStart);
+    }
+
+    #[test]
+    fn start_validator_skips_empty_input() {
+        let errors = ErrorCollector::new();
+        check_time_start_format("", Span::DUMMY, &errors);
+        assert!(errors.into_vec().is_empty());
     }
 }

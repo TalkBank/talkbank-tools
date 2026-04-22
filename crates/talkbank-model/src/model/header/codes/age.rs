@@ -98,36 +98,72 @@ impl AgeValue {
         }
     }
 
-    /// Returns true if months or days are single-digit without zero-padding.
+    /// Returns true when a structurally-parseable age does not match any
+    /// of the three date patterns that CLAN's authoritative `depfile.cut`
+    /// declares legal for `@ID` field 4:
     ///
-    /// CLAN CHECK error 153: "Age's month or day are missing initial zero."
+    /// ```text
+    /// @d<yy;>  @d<yy;mm.>  @d<yy;mm.dd>
+    /// ```
     ///
-    /// CLAN only checks this when the age contains a period (`.`), meaning
-    /// the days component is present. Without a period, single-digit months
-    /// like `2;6` are accepted. With a period, both month and day must be
-    /// two digits: `1;8.` → `1;08.`, `3;0.5` → `3;00.05`.
-    pub fn needs_zero_padding(&self) -> bool {
-        match self {
-            Self::Valid { raw, .. } => {
-                let Some((_years, rest)) = raw.split_once(';') else {
-                    return false;
-                };
-                // Only check when period is present (days component exists)
-                let Some((months_str, days_str)) = rest.split_once('.') else {
-                    return false;
-                };
-                // Month needs padding if single digit (0-9)
-                if months_str.len() == 1 && months_str.as_bytes()[0].is_ascii_digit() {
-                    return true;
-                }
-                // Day needs padding if non-empty single digit (0-9)
-                if days_str.len() == 1 && days_str.as_bytes()[0].is_ascii_digit() {
-                    return true;
-                }
-                false
-            }
-            Self::Unsupported(_) => false,
+    /// Concretely, the raw text must be exactly one of:
+    ///
+    /// - `YY;` — year, semicolon, nothing else
+    /// - `YY;MM.` — year, semicolon, two-digit month, trailing period
+    /// - `YY;MM.DD` — year, semicolon, two-digit month, period, two-digit day
+    ///
+    /// Anything else — one-digit month (`3;0`), two-digit month without
+    /// period (`2;06`), single-digit month with period (`3;0.15`),
+    /// single-digit day (`3;06.5`) — is rejected by CLAN CHECK as error 34
+    /// ("Illegal date representation"). This predicate exists to make
+    /// Rust chatter match that behavior.
+    ///
+    /// Note: `Unsupported` is already caught by `has_validation_issue()`
+    /// (the derive-macro-generated predicate on the `Valid` vs
+    /// `Unsupported` tag), so this method returns `false` for
+    /// `Unsupported` to avoid double-reporting. The two checks are
+    /// chained in `check_id_header`.
+    pub fn violates_depfile_pattern(&self) -> bool {
+        let Self::Valid { raw, .. } = self else {
+            return false;
+        };
+
+        let raw = raw.as_str();
+        let Some((years, rest)) = raw.split_once(';') else {
+            return true;
+        };
+        if years.is_empty() || !years.bytes().all(|b| b.is_ascii_digit()) {
+            return true;
         }
+
+        // Matches `yy;` — year plus semicolon, nothing after.
+        if rest.is_empty() {
+            return false;
+        }
+
+        // Anything non-empty after the semicolon must contain a period —
+        // depfile.cut has no template for `yy;mm` without trailing dot.
+        let Some((months, days)) = rest.split_once('.') else {
+            return true;
+        };
+
+        // `mm` must be exactly two digits.
+        if months.len() != 2 || !months.bytes().all(|b| b.is_ascii_digit()) {
+            return true;
+        }
+
+        // Matches `yy;mm.` — year, two-digit month, trailing period.
+        if days.is_empty() {
+            return false;
+        }
+
+        // `dd` (when present) must be exactly two digits.
+        if days.len() != 2 || !days.bytes().all(|b| b.is_ascii_digit()) {
+            return true;
+        }
+
+        // Matches `yy;mm.dd`.
+        false
     }
 
     /// Backward-compatible constructor matching the old `string_newtype` API.

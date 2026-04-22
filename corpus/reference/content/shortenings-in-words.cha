@@ -2,7 +2,7 @@
 @Begin
 @Languages:	fra, eng
 @Participants:	CHI Child, MOT Mother
-@ID:	fra|corpus|CHI|3;0||||Child|||
+@ID:	fra|corpus|CHI|3;00.||||Child|||
 @ID:	fra|corpus|MOT|||||Mother|||
 @Comment:	Words with shortenings (parenthesized content within words)
 @Comment:	Constructs: shortening inside word body, e.g., parc(e), parcequ(e)

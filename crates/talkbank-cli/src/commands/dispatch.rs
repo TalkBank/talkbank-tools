@@ -114,6 +114,7 @@ impl CommandFamilyService for ValidationCommandService {
                 strict_linkers,
                 audit,
                 suppress,
+                check_xphon,
             } => {
                 // Short-circuit: --list-checks prints the check list and
                 // exits successfully without touching any files.
@@ -150,6 +151,7 @@ impl CommandFamilyService for ValidationCommandService {
                             theme: context.theme.clone(),
                         },
                         suppress,
+                        check_xphon,
                     },
                 );
             }

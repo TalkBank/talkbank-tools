@@ -2,7 +2,7 @@
 @Begin
 @Languages:	nld
 @Participants:	CHI Child, MOT Mother
-@ID:	nld|corpus|CHI|2;0||||Child|||
+@ID:	nld|corpus|CHI|2;00.||||Child|||
 @ID:	nld|corpus|MOT|||||Mother|||
 @Comment:	Phon project phonological syllabification and alignment tiers
 @Comment:	Constructs: x_dependent_tier (Phon %xmodsyl, %xphosyl, %xphoaln)

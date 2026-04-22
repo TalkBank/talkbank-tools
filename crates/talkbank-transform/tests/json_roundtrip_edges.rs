@@ -142,7 +142,7 @@ fn roundtrip_unicode_ipa_and_cjk() {
 @Begin
 @Languages:\teng, zho
 @Participants:\tCHI Child, MOT Mother
-@ID:\teng|corpus|CHI|2;6||||Child|||
+@ID:\teng|corpus|CHI|2;06.||||Child|||
 @ID:\teng|corpus|MOT|||||Mother|||
 *CHI:\tMommy .
 %pho:\tˈmɑmiː
@@ -169,7 +169,7 @@ fn roundtrip_nested_annotations_on_word() {
 @Begin
 @Languages:\teng
 @Participants:\tCHI Child, MOT Mother
-@ID:\teng|corpus|CHI|3;0||||Child|||
+@ID:\teng|corpus|CHI|3;00.||||Child|||
 @ID:\teng|corpus|MOT|||||Mother|||
 *MOT:\tyou [!] did that .
 *CHI:\tthis is child [?] speaking [= quietly] .
@@ -193,7 +193,7 @@ fn roundtrip_mor_clitics() {
 @Begin
 @Languages:\teng
 @Participants:\tCHI Child
-@ID:\teng|corpus|CHI|4;0||||Child|||
+@ID:\teng|corpus|CHI|4;00.||||Child|||
 *CHI:\tit's a cookie .
 %mor:\tpron|it~aux|be&PRES det|a n|cookie .
 %gra:\t1|4|SUBJ 2|1|AUX 3|4|DET 4|0|ROOT 5|4|PUNCT
@@ -243,7 +243,7 @@ fn roundtrip_three_speakers_interleaved_overlaps() {
 @Languages:\teng
 @Participants:\tCHI Child, MOT Mother, FAT Father
 @Options:\tCA
-@ID:\teng|corpus|CHI|3;0||||Child|||
+@ID:\teng|corpus|CHI|3;00.||||Child|||
 @ID:\teng|corpus|MOT|||||Mother|||
 @ID:\teng|corpus|FAT|||||Father|||
 *CHI:\tI want ⌈ cookie ⌉ please .
@@ -270,7 +270,7 @@ fn roundtrip_special_terminators() {
 @Begin
 @Languages:\teng
 @Participants:\tCHI Child, MOT Mother
-@ID:\teng|corpus|CHI|3;0||||Child|||
+@ID:\teng|corpus|CHI|3;00.||||Child|||
 @ID:\teng|corpus|MOT|||||Mother|||
 *CHI:\tstatement .
 *MOT:\tquestion ?
@@ -301,7 +301,7 @@ fn roundtrip_comments_and_gems() {
 @Begin
 @Languages:\teng
 @Participants:\tCHI Child, MOT Mother
-@ID:\teng|corpus|CHI|3;0||||Child|||
+@ID:\teng|corpus|CHI|3;00.||||Child|||
 @ID:\teng|corpus|MOT|||||Mother|||
 @Comment:\tbefore the gem
 @Bg:\tmorning play

@@ -15,7 +15,7 @@ fn test_e523_orphan_id_header() -> Result<(), TestError> {
     // @Begin\n                                              (6-13, 7 bytes)
     // @Languages:\teng\n                                    (13-29, 16 bytes)
     // @Participants:\tCHI Ruth Target_Child\n              (29-68, 39 bytes)
-    // @ID:\teng|corpus|CHI|2;6.0||||Target_Child|||\n      (68-114, 46 bytes)
+    // @ID:\teng|corpus|CHI|2;06.00||||Target_Child|||\n      (68-114, 46 bytes)
     // @ID:\teng|corpus|MOT|||||Mother|||\n                 (114-149, 35 bytes)
     //                    ^^^ MOT at bytes 132-135 (orphan - not in @Participants)
     // ...

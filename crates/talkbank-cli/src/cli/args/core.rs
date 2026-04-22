@@ -203,15 +203,30 @@ pub enum Commands {
         /// reported and do not cause a non-zero exit code.
         ///
         /// Named groups:
-        ///   "xphon" — E726/E727/E728: %xphosyl/%xphoaln/%xmodsyl cross-tier alignment
+        ///   "xphon" — E725/E726/E727/E728: %xphosyl/%xphoaln/%xmodsyl
+        ///             cross-tier alignment. **Suppressed by default
+        ///             since 2026-04-21**; pass --check-xphon to
+        ///             include these checks.
         ///
         /// Can mix groups and codes: --suppress xphon,E316
         #[arg(
             long,
             value_delimiter = ',',
-            help = "Suppress error codes or groups (e.g., --suppress xphon or --suppress E726,E727)"
+            help = "Suppress error codes or groups (e.g., --suppress E726,E727)"
         )]
         suppress: Vec<String>,
+
+        /// Opt in to `%xphon*` cross-tier alignment checks
+        /// (E725/E726/E727/E728). These are skipped by default because
+        /// PhonTalk-produced CHAT routinely trips them on
+        /// data-quality issues outside our control; requiring
+        /// --suppress xphon on every invocation had become noise.
+        /// Pass this flag to re-enable them for a specific run.
+        #[arg(
+            long = "check-xphon",
+            help = "Run %xphon* cross-tier alignment checks (skipped by default)"
+        )]
+        check_xphon: bool,
     },
 
     /// Normalize CHAT file to canonical format

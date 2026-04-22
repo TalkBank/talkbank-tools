@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Morphology tier with quoted terminators (+"/. and +".)
 @Comment:	Constructs: quoted new line terminator in %mor tier

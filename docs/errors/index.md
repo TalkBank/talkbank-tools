@@ -940,13 +940,13 @@ Auto-generated from corpus
 |------|------|----------|--------|
 | [E516](E516.md) | generated from corpus | error | ✅ |
 
-## Header validation - Age format (E5x)
+## header_validation (E5x)
 
-Age should be in format years;months.days
+The header's fourth field () must conform to one of thethree legal CHAT date patterns defined by CLAN's authoritative:
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E517](E517.md) | E517: Age should be in format years;months.days | error | ✅ |
+| [E517](E517.md) | E517:  age field does not match a legal CHAT date pattern | error | ✅ |
 
 ## validation (E5x)
 
@@ -1118,19 +1118,19 @@ An header contains a value that is not one of the recognized transcription types
 
 ## header_validation (E5x)
 
-An header contains a value that does not match the expected time format. The file parses successfully but the invalid value is stored as and flagged during validation.
+An header must match one of the three time patternsthat CLAN's authoritative declares legal:
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E540](E540.md) | E540: Invalid @Time Duration Format | error | ✅ |
+| [E540](E540.md) | E540:  does not match a legal CLAN time pattern | error | ✅ |
 
 ## header_validation (E5x)
 
-An header contains a value that does not match the expected time format. The file parses successfully but the invalid value is stored as and flagged during validation.
+An header must match one of the two time patterns thatCLAN's authoritative declares legal:
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E541](E541.md) | E541: Invalid @Time Start Format | error | ✅ |
+| [E541](E541.md) | E541:  does not match a legal CLAN time pattern | error | ✅ |
 
 ## header_validation (E5x)
 
@@ -1155,6 +1155,14 @@ An header declares a linked media file (no / / status), but the transcript body 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
 | [E544](E544.md) | E544:  claims linkage but transcript has no timing evidence | error | ⏳ |
+
+## header_validation (E5x)
+
+An header must carry a date matching CLAN'sauthoritative date template:
+
+| Code | Name | Severity | Status |
+|------|------|----------|--------|
+| [E545](E545.md) | E545:  date does not match a legal CHAT date pattern | error | ✅ |
 
 ## header_validation (E5x)
 

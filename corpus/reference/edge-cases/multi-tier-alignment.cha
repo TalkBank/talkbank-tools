@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Utterance with many dependent tiers: %mor, %gra, %pho, %com, %act, %cod, %gpx, %add
 @Comment:	Constructs: multi-tier alignment across all tier types

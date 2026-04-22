@@ -21,7 +21,7 @@ A header appears out of canonical order. For example, `@Options` or `@ID` appear
 @Languages:	eng
 @Options:	CA
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|3;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|3;06.|male|||Target_Child|||
 *CHI:	hello world .
 @End
 ```

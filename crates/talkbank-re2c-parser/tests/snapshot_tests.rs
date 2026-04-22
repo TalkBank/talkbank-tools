@@ -45,7 +45,7 @@ fn lex_snapshot(input: &str, condition: usize) -> Vec<TokenView> {
 #[test]
 fn snapshot_id_full() {
     let tokens = lex_snapshot(
-        "@ID:\teng|corpus|CHI|3;0|female|typical||Child|||\n",
+        "@ID:\teng|corpus|CHI|3;00.|female|typical||Child|||\n",
         COND_INITIAL,
     );
     assert_yaml_snapshot!(tokens);
@@ -61,7 +61,7 @@ fn snapshot_id_minimal() {
 fn snapshot_id_content_isolated() {
     // Lex just the @ID body (after :\t) in isolation
     let tokens = lex_snapshot(
-        "eng|corpus|CHI|3;0|female|typical||Child|||\n",
+        "eng|corpus|CHI|3;00.|female|typical||Child|||\n",
         COND_ID_CONTENT,
     );
     assert_yaml_snapshot!(tokens);
@@ -221,7 +221,7 @@ fn snapshot_main_tier_ca() {
 #[test]
 fn snapshot_full_file_snippet() {
     let tokens = lex_snapshot(
-        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n",
+        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n",
         COND_INITIAL,
     );
     assert_yaml_snapshot!(tokens);

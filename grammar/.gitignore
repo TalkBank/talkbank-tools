@@ -47,3 +47,9 @@ zig-out/
 *.tgz
 *.zip
 *.jar
+# Old tree-sitter output paths. Live artifacts are at grammar/src/*; the
+# root copies were committed once at project inception and never rewritten
+# by `tree-sitter generate`. Root the patterns so they only match the
+# grammar/ root (not grammar/src/*, which stays tracked).
+/grammar.json
+/node-types.json

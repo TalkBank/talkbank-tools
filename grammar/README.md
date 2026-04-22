@@ -43,7 +43,7 @@ For a minimal valid CHAT file:
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0|female|typical||Child|||
+@ID:	eng|corpus|CHI|3;00.|female|typical||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 *CHI:	want more cookie .
 @End

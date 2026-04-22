@@ -114,7 +114,7 @@ mod tests {
         let file_path = dir.path().join("sample.cha");
         std::fs::write(
             &file_path,
-            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|demo|CHI|2;0.0|||Target_Child|||\n*CHI:\thello .\n@End\n",
+            "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|demo|CHI|2;00.00|||Target_Child|||\n*CHI:\thello .\n@End\n",
         )
         .expect("write test chat file");
 

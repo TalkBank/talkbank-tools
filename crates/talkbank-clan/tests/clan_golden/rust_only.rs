@@ -53,7 +53,7 @@ fn golden_rely_coding() {
 \
 @Participants:	CHI Child, MOT Mother
 \
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 \
 @ID:	eng|corpus|MOT|||||Mother|||
 \
@@ -80,7 +80,7 @@ fn golden_rely_coding() {
 \
 @Participants:	CHI Child, MOT Mother
 \
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 \
 @ID:	eng|corpus|MOT|||||Mother|||
 \
@@ -124,7 +124,7 @@ fn golden_script_basic() {
 \
 @Participants:	CHI Child, MOT Mother
 \
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 \
 @ID:	eng|corpus|MOT|||||Mother|||
 \

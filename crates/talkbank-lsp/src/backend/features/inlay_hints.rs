@@ -182,7 +182,7 @@ mod tests {
     /// (regression surfaced on `corpus/reference/tiers/mor-gra.cha`, utterance 1).
     #[test]
     fn no_hint_for_clitic_expansion_between_gra_and_mor() {
-        let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\tit's I want cookies .\n%mor:\tpron|it~aux|be-Fin-Ind-Pres-S3 pron|I-Prs-Nom-S1 verb|want-Fin-Ind-Pres noun|cookie-Plur .\n%gra:\t1|4|NSUBJ 2|1|AUX 3|4|NSUBJ 4|0|ROOT 5|4|OBJ 6|4|PUNCT\n@End\n";
+        let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\tit's I want cookies .\n%mor:\tpron|it~aux|be-Fin-Ind-Pres-S3 pron|I-Prs-Nom-S1 verb|want-Fin-Ind-Pres noun|cookie-Plur .\n%gra:\t1|4|NSUBJ 2|1|AUX 3|4|NSUBJ 4|0|ROOT 5|4|OBJ 6|4|PUNCT\n@End\n";
         let chat_file = parse_and_align(input);
         let hints = generate_alignment_hints(&chat_file, input, full_range());
         let gra_mor_hints: Vec<_> = hints

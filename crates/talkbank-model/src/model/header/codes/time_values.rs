@@ -115,6 +115,83 @@ impl TimeDurationValue {
     pub fn new(value: impl AsRef<str>) -> Self {
         Self::from_text(value.as_ref())
     }
+
+    /// Returns true when a structurally-parseable duration does not match
+    /// any of the three patterns that CLAN's authoritative `depfile.cut`
+    /// declares legal for `@Time Duration`:
+    ///
+    /// ```text
+    /// @t<hh:mm-hh:mm>  @t<hh:mm:ss-hh:mm:ss>  @t<hh:mm:ss>
+    /// ```
+    ///
+    /// Concretely, the raw text must be exactly one of:
+    ///
+    /// - `HH:MM:SS`
+    /// - `HH:MM-HH:MM`
+    /// - `HH:MM:SS-HH:MM:SS`
+    ///
+    /// Anything else — semicolon separator, comma-joined multi-segment
+    /// values, `MM:SS` two-component form — is rejected by CLAN CHECK,
+    /// and this predicate mirrors that. `Unsupported` is caught by
+    /// `has_validation_issue()` so this method returns `false` for it
+    /// to avoid double-reporting.
+    ///
+    /// Component widths are not fixed (`\d+`, not `\d{2}`) because
+    /// real corpora use both `1:30` and `01:30`; depfile.cut's slots
+    /// admit any digit count.
+    pub fn violates_depfile_pattern(&self) -> bool {
+        let Self::Parsed { raw, .. } = self else {
+            return false;
+        };
+        !matches_duration_depfile(raw.as_str())
+    }
+}
+
+/// Single-time form `HH:MM:SS` — the `@t<hh:mm:ss>` template.
+fn is_hms_strict(s: &str) -> bool {
+    let mut parts = s.split(':');
+    let Some(h) = parts.next() else { return false };
+    let Some(m) = parts.next() else { return false };
+    let Some(sec) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    all_ascii_digits(h) && all_ascii_digits(m) && all_ascii_digits(sec)
+}
+
+/// Two-component form `HH:MM` — used on one side of an
+/// `HH:MM-HH:MM` range.
+fn is_hm_strict(s: &str) -> bool {
+    let mut parts = s.split(':');
+    let Some(h) = parts.next() else { return false };
+    let Some(m) = parts.next() else { return false };
+    if parts.next().is_some() {
+        return false;
+    }
+    all_ascii_digits(h) && all_ascii_digits(m)
+}
+
+fn all_ascii_digits(s: &str) -> bool {
+    !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn matches_duration_depfile(raw: &str) -> bool {
+    // HH:MM:SS
+    if is_hms_strict(raw) {
+        return true;
+    }
+    // HH:MM-HH:MM or HH:MM:SS-HH:MM:SS — a single hyphen at top level
+    // with matching component shapes on both sides. Not semicolon,
+    // not comma.
+    if let Some((left, right)) = raw.split_once('-')
+        && !right.contains('-')
+    {
+        return (is_hm_strict(left) && is_hm_strict(right))
+            || (is_hms_strict(left) && is_hms_strict(right));
+    }
+    false
 }
 
 /// Parse comma-separated time segments from a duration string.
@@ -309,6 +386,42 @@ impl TimeStartValue {
     /// Backward-compatible constructor.
     pub fn new(value: impl AsRef<str>) -> Self {
         Self::from_text(value.as_ref())
+    }
+
+    /// Returns true when a structurally-parseable start time does not
+    /// match either of the two patterns that CLAN's authoritative
+    /// `depfile.cut` declares legal for `@Time Start`:
+    ///
+    /// ```text
+    /// @t<hh:mm:ss>  @t<mm:ss>
+    /// ```
+    ///
+    /// Concretely, the raw text must be exactly one of:
+    ///
+    /// - `HH:MM:SS`
+    /// - `MM:SS`
+    ///
+    /// Anything else — millisecond suffix, range form, bare seconds —
+    /// is rejected by CLAN CHECK. `Unsupported` is already caught by
+    /// `has_validation_issue()`, so this method returns `false` for
+    /// it to avoid double-reporting.
+    pub fn violates_depfile_pattern(&self) -> bool {
+        let Self::Parsed { raw, .. } = self else {
+            return false;
+        };
+        let raw = raw.as_str();
+        // HH:MM:SS or MM:SS — no dots, no hyphens, exactly 2 or 3
+        // colon-separated numeric components.
+        if raw.contains('.') || raw.contains('-') {
+            return true;
+        }
+        if is_hms_strict(raw) {
+            return false;
+        }
+        if is_hm_strict(raw) {
+            return false;
+        }
+        true
     }
 }
 

@@ -29,7 +29,7 @@ structurally via the `Drifted` variant, not via `ParseError`.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	want cookie .
 %pho:	aɪ wɑnt kʊki
 @Comment:	ERROR: Main tier has 2 words but %pho has 3 tokens (extra aɪ)

@@ -102,7 +102,7 @@ a timing bullet.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|3;0||||Target_Child|||
+@ID:	eng|corpus|CHI|3;00.||||Target_Child|||
 @Media:	session-01, audio
 *CHI:	hello world .
 @End
@@ -120,7 +120,7 @@ audio from video; any unqualified `@Media` header requires timing.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;0||||Target_Child|||
+@ID:	eng|corpus|CHI|2;00.||||Target_Child|||
 @Media:	session-01, video
 *CHI:	hello .
 @End
@@ -138,7 +138,7 @@ having no linkage; E544 does not apply.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;0||||Target_Child|||
+@ID:	eng|corpus|CHI|2;00.||||Target_Child|||
 @Media:	session-01, audio, unlinked
 *CHI:	hello .
 @End
@@ -156,7 +156,7 @@ carries a timing bullet. The promise of linkage is kept.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;0||||Target_Child|||
+@ID:	eng|corpus|CHI|2;00.||||Target_Child|||
 @Media:	session-01, audio
 *CHI:	hello world . ·0_1200·
 *CHI:	goodbye . ·1200_1800·

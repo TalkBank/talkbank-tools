@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|sample|CHI|2;0||||Child|||
+@ID:	eng|sample|CHI|2;00.||||Child|||
 @ID:	eng|sample|MOT|||||Mother|||
 @Media:	"https://media.talkbank.org/example/sample.mp3", audio, missing
 @Comment:	Media header with remote URL filename, audio type, and missing status

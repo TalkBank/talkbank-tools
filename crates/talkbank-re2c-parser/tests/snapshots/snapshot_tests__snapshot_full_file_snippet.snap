@@ -38,7 +38,7 @@ expression: tokens
   text: "\n"
 - kind: HeaderPrefix
   text: "@ID:\t"
-- kind: "IdFields { language: \"eng\", corpus: \"corpus\", speaker: \"CHI\", age: \"3;0\", sex: \"\", group: \"\", ses: \"\", role: \"Child\", education: \"\", custom: \"\" }"
+- kind: "IdFields { language: \"eng\", corpus: \"corpus\", speaker: \"CHI\", age: \"3;00.\", sex: \"\", group: \"\", ses: \"\", role: \"Child\", education: \"\", custom: \"\" }"
   text: eng
 - kind: Newline
   text: "\n"

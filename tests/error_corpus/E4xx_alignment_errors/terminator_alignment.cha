@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	ERROR CORPUS TEST FILE
 @Comment:	Expected error: E999 (Unknown error)
 @Comment:	Trigger: Main tier terminator should align with %mor terminator

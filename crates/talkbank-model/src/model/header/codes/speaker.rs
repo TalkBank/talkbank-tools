@@ -47,7 +47,7 @@ use talkbank_derive::{SemanticEq, SpanShift};
 ///
 /// ```text
 /// @Participants: CHI Target_Child, MOT Mother, FAT Father, INV Investigator
-/// @ID: eng|Corpus|CHI|2;6.15|male|||Target_Child|||
+/// @ID: eng|Corpus|CHI|2;06.15|male|||Target_Child|||
 /// @Birth of CHI: 15-JAN-2015
 /// *CHI: I want cookie.
 /// *MOT: here you go.

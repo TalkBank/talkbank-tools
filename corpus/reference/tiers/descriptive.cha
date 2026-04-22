@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Descriptive text tiers: %com, %act, %gpx, %sit, %exp
 @Comment:	Constructs: com_dependent_tier, act_dependent_tier, gpx_dependent_tier,

@@ -1,7 +1,7 @@
 @UTF8
 @Begin
 @Participants: CHI Target_Child, MOT Mother
-@ID: eng|Test|CHI|2;0|male|||Target_Child||
+@ID: eng|Test|CHI|2;00.|male|||Target_Child||
 *CHI: the cat sat .
 %mor: det|the n|cat v|sit .
 %gra: 1|2|DET 2|3|SUBJ 3|0|ROOT 4|3|PUNCT

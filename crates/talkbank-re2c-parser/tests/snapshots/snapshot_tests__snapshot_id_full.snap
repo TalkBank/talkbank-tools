@@ -4,7 +4,7 @@ expression: tokens
 ---
 - kind: HeaderPrefix
   text: "@ID:\t"
-- kind: "IdFields { language: \"eng\", corpus: \"corpus\", speaker: \"CHI\", age: \"3;0\", sex: \"female\", group: \"typical\", ses: \"\", role: \"Child\", education: \"\", custom: \"\" }"
+- kind: "IdFields { language: \"eng\", corpus: \"corpus\", speaker: \"CHI\", age: \"3;00.\", sex: \"female\", group: \"typical\", ses: \"\", role: \"Child\", education: \"\", custom: \"\" }"
   text: eng
 - kind: Newline
   text: "\n"

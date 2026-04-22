@@ -80,21 +80,25 @@ pub(super) fn check_id_header(id_header: &IDHeader, span: Span, errors: &impl Er
             );
             err.location.span = span;
             errors.report(err);
-        } else if age.needs_zero_padding() {
-            // CHECK 153: month or day missing initial zero
+        } else if age.violates_depfile_pattern() {
+            // Mirrors CLAN CHECK error 34 ("Illegal date representation"):
+            // depfile.cut admits exactly yy; / yy;mm. / yy;mm.dd, so every
+            // other shape — one-digit month, missing trailing period,
+            // single-digit day, etc. — is a hard error. Java Chatter
+            // matches by rejecting at parse time in the ANTLR grammar.
             let raw = age.as_str();
             let mut err = ParseError::new(
                 ErrorCode::InvalidAgeFormat,
-                Severity::Warning,
+                Severity::Error,
                 SourceLocation::at_offset(span.start as usize),
                 ErrorContext::new(raw, 0..raw.len(), "id_age"),
                 format!(
-                    "Age month or day missing initial zero: '{}'. Use two-digit months and days (e.g., 1;08.02)",
+                    "Illegal date representation: '{}'. Legal forms per CLAN depfile.cut: YY; or YY;MM. or YY;MM.DD (two-digit MM and DD)",
                     raw
                 ),
             )
             .with_suggestion(
-                "Run \"chstring +q +1\" to fix, or manually zero-pad: 1;8. → 1;08.",
+                "Run \"chstring +q +1\" to zero-pad, or edit manually: 3;0 → 3;00., 2;6 → 2;06.",
             );
             err.location.span = span;
             errors.report(err);
@@ -115,8 +119,20 @@ pub(super) fn check_date_header(date: &str, span: Span, errors: &impl ErrorSink)
         err.location.span = span;
         errors.report(err);
     } else {
-        metadata::check_date_format(date, span, errors);
+        metadata::check_date_format(date, span, errors, ErrorCode::InvalidDateFormat);
     }
+}
+
+/// Validates `@Birth of <CODE>` payload against the depfile date
+/// template. Same component-level rules as `@Date`, but emits E545
+/// so users can distinguish which header was wrong.
+pub(super) fn check_birth_date_header(date: &str, span: Span, errors: &impl ErrorSink) {
+    if date.is_empty() {
+        // Empty @Birth of is allowed (date-unknown), matching the
+        // `Option<ChatDate>`-style semantics of participant fields.
+        return;
+    }
+    metadata::check_date_format(date, span, errors, ErrorCode::InvalidBirthDateFormat);
 }
 
 /// Validates speaker-code constraints shared by participant fields.

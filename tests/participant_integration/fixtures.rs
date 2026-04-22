@@ -27,7 +27,7 @@ pub const MIXED_BIRTH_DATES: &str = r#"@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child, MOT Mother, FAT Father
-@ID:	eng|corpus|CHI|2;6.0|female|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.00|female|||Target_Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @ID:	eng|corpus|FAT|||||Father|||
 @Birth of CHI:	15-MAR-2020

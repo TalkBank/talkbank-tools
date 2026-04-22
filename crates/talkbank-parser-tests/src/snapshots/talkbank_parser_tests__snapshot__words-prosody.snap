@@ -48,7 +48,7 @@ expression: snapshot
     },
     {
       "header": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"
@@ -115,8 +115,8 @@ expression: snapshot
                   "content": {
                     "count": 2,
                     "span": {
-                      "end": 285,
-                      "start": 283
+                      "end": 287,
+                      "start": 285
                     }
                   },
                   "type": "lengthening"
@@ -146,8 +146,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 291,
-                      "start": 290
+                      "end": 293,
+                      "start": 292
                     }
                   },
                   "type": "lengthening"
@@ -170,8 +170,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 298,
-                      "start": 297
+                      "end": 300,
+                      "start": 299
                     }
                   },
                   "type": "lengthening"
@@ -218,8 +218,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 316,
-                      "start": 315
+                      "end": 318,
+                      "start": 317
                     }
                   },
                   "type": "lengthening"
@@ -360,7 +360,7 @@ expression: snapshot
       "birth_date": null,
       "code": "CHI",
       "id": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"

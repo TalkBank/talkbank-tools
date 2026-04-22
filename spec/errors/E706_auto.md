@@ -22,7 +22,7 @@ Mor count mismatch - too many mor items
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	want cookie .
 %mor:	pro|I v|want n|cookie .
 @Comment:	ERROR: Main tier has 2 words but %mor has 3 items (extra pro|I)
@@ -40,7 +40,7 @@ Mor count mismatch - too many mor items
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	Note: Retraces and scoped content don't align
 *CHI:	I want [/] need cookie .
 %mor:	pro|I v|want v|need n|cookie .
@@ -61,7 +61,7 @@ Mor count mismatch - too many mor items
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	Note: Events are non-alignable, like pauses
 *CHI:	I &=laugh want cookie .
 %mor:	pro|I v|laugh v|want n|cookie .
@@ -82,7 +82,7 @@ Mor count mismatch - too many mor items
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	Note: Pauses, events, actions don't align - only words
 *CHI:	I (.) want cookie .
 %mor:	pro|I v|pause v|want n|cookie .

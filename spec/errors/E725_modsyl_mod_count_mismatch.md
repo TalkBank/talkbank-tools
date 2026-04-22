@@ -21,7 +21,7 @@ The `%xmodsyl` tier word count does not match the `%mod` tier word count. Each w
 @Begin
 @Languages:	nld
 @Participants:	CHI Child, MOT Mother
-@ID:	nld|corpus|CHI|2;0||||Child|||
+@ID:	nld|corpus|CHI|2;00.||||Child|||
 @ID:	nld|corpus|MOT|||||Mother|||
 *MOT:	muts ja .
 %mod:	ˈmœts ˈja

@@ -18,7 +18,7 @@ An `@ID` header contains an SES (socioeconomic status) field value that is not o
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|3;6|female||badses|Target_Child|||
+@ID:	eng|corpus|CHI|3;06.|female||badses|Target_Child|||
 *CHI:	hello world .
 @End
 ```

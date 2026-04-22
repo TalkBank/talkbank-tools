@@ -13,7 +13,7 @@ fn ts() -> TreeSitterParser {
 #[test]
 #[ignore]
 fn study_simple_file() {
-    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\thello world .\n%mor:\tn|hello n|world .\n%gra:\t1|2|SUBJ 2|0|ROOT .\n@End\n";
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\thello world .\n%mor:\tn|hello n|world .\n%gra:\t1|2|SUBJ 2|0|ROOT .\n@End\n";
     let file = ts().parse_chat_file(input).unwrap();
     eprintln!("{}", serde_json::to_string_pretty(&file).unwrap());
 }

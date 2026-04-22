@@ -70,25 +70,85 @@
       "type": "object"
     },
     "AlignmentPair2": {
-      "description": "One positional mapping entry between a source tier and a target tier.\n\nMost entries are complete `Some -> Some` matches. Placeholder entries with\none `None` preserve mismatch shape (extra/missing units) so diagnostics can\nstill report concrete positions for both tiers.",
+      "description": "One positional mapping entry between a source tier and a target tier.\n\nMost entries are complete `Some -> Some` matches. Placeholder entries with\none `None` preserve mismatch shape (extra/missing units) so diagnostics can\nstill report concrete positions for both tiers.\n\n# Typed variants\n\n`AlignmentPair` is generic over the source and target index types so a\nper-tier result type can declare the concrete index space without writing\nits own pair struct:\n\n- `AlignmentPair<MainWordIndex, MorItemIndex>` — main↔`%mor`\n- `AlignmentPair<MainWordIndex, PhoItemIndex>` — main↔`%pho` / main↔`%mod`\n- `AlignmentPair<MainWordIndex, SinItemIndex>` — main↔`%sin`\n\n`%gra` is a `%mor`↔`%gra` pairing and uses its own typed pair\n[`GraAlignmentPair`](super::GraAlignmentPair), not this one. `%wor` is\nnot a structural alignment — see\n[`WorTimingSidecar`](super::WorTimingSidecar).\n\nThe type parameters default to `usize` so pre-existing code written\nagainst `AlignmentPair` (without generic arguments) continues to compile\nunchanged.",
       "properties": {
         "source_index": {
-          "description": "Index in the source tier (for example the main tier), or `None` for placeholder rows.",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MainWordIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the source tier (for example the main tier), or `None` for placeholder rows."
         },
         "target_index": {
-          "description": "Index in the target tier (for example `%mor`/`%pho`/`%wor`), or `None` for placeholders.",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MorItemIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the target tier (for example `%mor`/`%pho`/`%wor`), or `None` for placeholders."
+        }
+      },
+      "type": "object"
+    },
+    "AlignmentPair3": {
+      "description": "One positional mapping entry between a source tier and a target tier.\n\nMost entries are complete `Some -> Some` matches. Placeholder entries with\none `None` preserve mismatch shape (extra/missing units) so diagnostics can\nstill report concrete positions for both tiers.\n\n# Typed variants\n\n`AlignmentPair` is generic over the source and target index types so a\nper-tier result type can declare the concrete index space without writing\nits own pair struct:\n\n- `AlignmentPair<MainWordIndex, MorItemIndex>` — main↔`%mor`\n- `AlignmentPair<MainWordIndex, PhoItemIndex>` — main↔`%pho` / main↔`%mod`\n- `AlignmentPair<MainWordIndex, SinItemIndex>` — main↔`%sin`\n\n`%gra` is a `%mor`↔`%gra` pairing and uses its own typed pair\n[`GraAlignmentPair`](super::GraAlignmentPair), not this one. `%wor` is\nnot a structural alignment — see\n[`WorTimingSidecar`](super::WorTimingSidecar).\n\nThe type parameters default to `usize` so pre-existing code written\nagainst `AlignmentPair` (without generic arguments) continues to compile\nunchanged.",
+      "properties": {
+        "source_index": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MainWordIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the source tier (for example the main tier), or `None` for placeholder rows."
+        },
+        "target_index": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhoItemIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the target tier (for example `%mor`/`%pho`/`%wor`), or `None` for placeholders."
+        }
+      },
+      "type": "object"
+    },
+    "AlignmentPair4": {
+      "description": "One positional mapping entry between a source tier and a target tier.\n\nMost entries are complete `Some -> Some` matches. Placeholder entries with\none `None` preserve mismatch shape (extra/missing units) so diagnostics can\nstill report concrete positions for both tiers.\n\n# Typed variants\n\n`AlignmentPair` is generic over the source and target index types so a\nper-tier result type can declare the concrete index space without writing\nits own pair struct:\n\n- `AlignmentPair<MainWordIndex, MorItemIndex>` — main↔`%mor`\n- `AlignmentPair<MainWordIndex, PhoItemIndex>` — main↔`%pho` / main↔`%mod`\n- `AlignmentPair<MainWordIndex, SinItemIndex>` — main↔`%sin`\n\n`%gra` is a `%mor`↔`%gra` pairing and uses its own typed pair\n[`GraAlignmentPair`](super::GraAlignmentPair), not this one. `%wor` is\nnot a structural alignment — see\n[`WorTimingSidecar`](super::WorTimingSidecar).\n\nThe type parameters default to `usize` so pre-existing code written\nagainst `AlignmentPair` (without generic arguments) continues to compile\nunchanged.",
+      "properties": {
+        "source_index": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MainWordIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the source tier (for example the main tier), or `None` for placeholder rows."
+        },
+        "target_index": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SinItemIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Index in the target tier (for example `%mor`/`%pho`/`%wor`), or `None` for placeholders."
         }
       },
       "type": "object"
@@ -188,16 +248,16 @@
           "$ref": "#/$defs/AlignmentUnits",
           "description": "Alignable unit lists for each tier/domain."
         },
-        "wor": {
+        "wor_timings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorAlignment"
+              "$ref": "#/$defs/WorTimingSidecar"
             },
             {
               "type": "null"
             }
           ],
-          "description": "Main → %wor alignment (if %wor tier present)."
+          "description": "`%wor` timing sidecar (if `%wor` tier present).\n\n`%wor` is a timing-annotation record, not a structural alignment —\nsee [`WorTimingSidecar`](crate::alignment::WorTimingSidecar) for the\nfull rationale. The slot is `Some(Drifted { .. })` when a transcript\nhas been edited since `align` ran; that is the normal stale state,\nnot a validation error."
         }
       },
       "required": [
@@ -1023,7 +1083,7 @@
       "type": "array"
     },
     "Bullet": {
-      "description": "Media timing bullet attached to an utterance or header-level comment payload.\n\nStart/end offsets are stored in milliseconds.\n\n# CHAT Format\n\nBullets appear at the end of utterances using the `\\u{0015}` (NEGATIVE ACKNOWLEDGE)\ncharacter as a delimiter:\n\n```text\n\\u{0015}start_end\\u{0015}\n```\n\n# Examples\n\n```text\n*CHI: I want cookie . \\u{0015}0_1073\\u{0015}\n*MOT: here you go . \\u{0015}1073_2456\\u{0015}\n```\n\n# References\n\n- [Bullets](https://talkbank.org/0info/manuals/CHAT.html#Bullets)\n- [Media Linking](https://talkbank.org/0info/manuals/CHAT.html#MediaLinking)",
+      "description": "Media timing bullet attached to an utterance or header-level comment payload.\n\nStart/end offsets are stored in milliseconds. The `source` field records\nwhether the bullet is a provisional UTR hint or an authoritative annotation;\nit is not serialized and does not appear in CHAT output.\n\n# CHAT Format\n\nBullets appear at the end of utterances using the `\\u{0015}` (NEGATIVE ACKNOWLEDGE)\ncharacter as a delimiter:\n\n```text\n\\u{0015}start_end\\u{0015}\n```\n\n# Examples\n\n```text\n*CHI: I want cookie . \\u{0015}0_1073\\u{0015}\n*MOT: here you go . \\u{0015}1073_2456\\u{0015}\n```\n\n# References\n\n- [Bullets](https://talkbank.org/0info/manuals/CHAT.html#Bullets)\n- [Media Linking](https://talkbank.org/0info/manuals/CHAT.html#MediaLinking)",
       "properties": {
         "end_ms": {
           "description": "End time in milliseconds.",
@@ -2405,11 +2465,6 @@
           "type": "string"
         },
         {
-          "const": "E345",
-          "description": "Unmatched scoped annotation begin marker.",
-          "type": "string"
-        },
-        {
           "const": "E346",
           "description": "Unmatched scoped annotation end marker.",
           "type": "string"
@@ -2550,23 +2605,8 @@
           "type": "string"
         },
         {
-          "const": "E381",
-          "description": "Failed to parse `%pho` tier content.",
-          "type": "string"
-        },
-        {
           "const": "E382",
           "description": "Failed to parse `%mor` tier content.",
-          "type": "string"
-        },
-        {
-          "const": "E383",
-          "description": "Failed to parse `%gra` tier content.",
-          "type": "string"
-        },
-        {
-          "const": "E384",
-          "description": "Failed to parse `%sin` tier content.",
           "type": "string"
         },
         {
@@ -2950,6 +2990,11 @@
           "type": "string"
         },
         {
+          "const": "E545",
+          "description": "Invalid `@Birth of` date format — must match `DD-MMM-YYYY`\nper CLAN `depfile.cut`'s `@d<dd-lll-yyyy>` template.",
+          "type": "string"
+        },
+        {
           "const": "E546",
           "description": "Unsupported `@ID` SES value.",
           "type": "string"
@@ -3056,12 +3101,12 @@
         },
         {
           "const": "E714",
-          "description": "`%pho` tier has fewer words than main tier.",
+          "description": "`%pho`, `%mod`, or `%wor` tier has fewer alignable words than main tier.",
           "type": "string"
         },
         {
           "const": "E715",
-          "description": "`%pho` tier has more words than main tier.",
+          "description": "`%pho`, `%mod`, or `%wor` tier has more alignable words than main tier.",
           "type": "string"
         },
         {
@@ -3145,8 +3190,13 @@
           "type": "string"
         },
         {
-          "const": "W724",
-          "description": "`%gra` ROOT relation head does not point to self.",
+          "const": "E733",
+          "description": "`%mod` tier has fewer words than main tier.\n\nThe model-phonology tier (`%mod`) has fewer alignable tokens than the\nmain-tier words. Each main-tier word must have a corresponding `%mod`\ntoken. This code is separate from E714 (`%pho`) because the two tiers\nrepresent distinct phonological layers.",
+          "type": "string"
+        },
+        {
+          "const": "E734",
+          "description": "`%mod` tier has more words than main tier.\n\nThe model-phonology tier (`%mod`) has more alignable tokens than the\nmain-tier words. Remove the extra `%mod` tokens so counts match.\nThis code is separate from E715 (`%pho`) for the same reason as E733.",
           "type": "string"
         },
         {
@@ -3479,28 +3529,38 @@
       "type": "object"
     },
     "GraAlignmentPair": {
-      "description": "One positional mapping row between a `%mor` chunk and a `%gra` relation.",
+      "description": "One positional mapping row between a `%mor` chunk and a `%gra` relation.\n\nThe field types are distinct newtypes so the compiler rejects attempts\nto use a chunk index as a relation index or vice versa — the confusion\nat the root of the LSP highlight/hover clitic bugs fixed on 2026-04-16.\nSerde and JSON schema wire formats remain plain integers thanks to\n`#[serde(transparent)]` on the newtypes.",
       "properties": {
         "gra_index": {
-          "description": "`%gra` relation index (`None` means placeholder for extra `%mor` chunk).",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`%gra` relation index (`None` means placeholder for extra `%mor` chunk)."
         },
         "mor_chunk_index": {
-          "description": "`%mor` chunk index (`None` means placeholder for extra `%gra` relation).",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MorChunkIndex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`%mor` chunk index (`None` means placeholder for extra `%gra` relation)."
         }
       },
       "type": "object"
+    },
+    "GraIndex": {
+      "description": "Position of a relation in [`GraTier::relations`](crate::model::GraTier::relations).\n\nThis is the *array position*, not the 1-indexed semantic word\nposition written inside the relation's triple. Use\n[`SemanticWordIndex1`] when the value is the author-written position.\n\nZero-indexed position into the relation sequence of a `%gra` tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
     },
     "GraRelations": {
       "description": "Ordered list of `%gra` dependency relations.\n\n# Reference\n\n- [Grammatical relations tier](https://talkbank.org/0info/manuals/CHAT.html#GrammaticalRelations_Tier)",
@@ -4531,7 +4591,7 @@
       ]
     },
     "Line": {
-      "description": "One line-level unit in a CHAT transcript.\n\nA value is either:\n- `Header`: metadata beginning with `@`\n- `Utterance`: speaker turn (`*...`) with its dependent tiers\n\nThe enum is intentionally minimal: it captures file ordering and delegates\nline-type-specific behavior to `Header`/`Utterance`.\n\n# CHAT Format Examples\n\nA typical CHAT file interleaves headers and utterances:\n\n```text\n@UTF8\n@Begin\n@Languages: eng\n@Participants: CHI Child, MOT Mother\n@ID: eng|corpus|CHI|2;6.0|male|||Child|||\n*CHI: I want cookie .\n%mor: pro:sub|I v|want n|cookie .\n@Comment: Child reaching for cookie jar\n*MOT: you can have one .\n%mor: pro:per|you mod|can v|have det:num|one .\n@End\n```\n\nEach line is parsed as a `Line::Header` or `Line::Utterance`:\n\n```\nuse talkbank_model::model::{Line, Header, Utterance, MainTier, BulletContent};\n\nlet lines = vec![\n    Line::header(Header::Utf8),\n    Line::header(Header::Begin),\n    // Languages header\n    // Participants header\n    // Utterance: *CHI: I want cookie .\n    // Dependent tier: %mor\n    Line::header(Header::Comment { content: BulletContent::from_text(\"Between utterances\") }),\n    // Utterance: *MOT: you can have one .\n    // Dependent tier: %mor\n    Line::header(Header::End),\n];\n```\n\n# Ordering Guarantee\n\nComments and other headers can appear between utterances; preserving that\norder is required for semantic roundtrips. Without `Line`, this structure\nis lost:\n\n```text\n*CHI: hello .\n@Comment: First greeting\n*MOT: hi there .\n@Comment: Mother responds\n*CHI: bye .\n```\n\nThe `Line` enum preserves that `@Comment` appears after specific utterances.\n\n# References\n\n- [File Format](https://talkbank.org/0info/manuals/CHAT.html#File_Format)\n- [Main Line](https://talkbank.org/0info/manuals/CHAT.html#Main_Line)\n- [File Headers](https://talkbank.org/0info/manuals/CHAT.html#File_Headers)",
+      "description": "One line-level unit in a CHAT transcript.\n\nA value is either:\n- `Header`: metadata beginning with `@`\n- `Utterance`: speaker turn (`*...`) with its dependent tiers\n\nThe enum is intentionally minimal: it captures file ordering and delegates\nline-type-specific behavior to `Header`/`Utterance`.\n\n# CHAT Format Examples\n\nA typical CHAT file interleaves headers and utterances:\n\n```text\n@UTF8\n@Begin\n@Languages: eng\n@Participants: CHI Child, MOT Mother\n@ID: eng|corpus|CHI|2;06.00|male|||Child|||\n*CHI: I want cookie .\n%mor: pro:sub|I v|want n|cookie .\n@Comment: Child reaching for cookie jar\n*MOT: you can have one .\n%mor: pro:per|you mod|can v|have det:num|one .\n@End\n```\n\nEach line is parsed as a `Line::Header` or `Line::Utterance`:\n\n```\nuse talkbank_model::model::{Line, Header, Utterance, MainTier, BulletContent};\n\nlet lines = vec![\n    Line::header(Header::Utf8),\n    Line::header(Header::Begin),\n    // Languages header\n    // Participants header\n    // Utterance: *CHI: I want cookie .\n    // Dependent tier: %mor\n    Line::header(Header::Comment { content: BulletContent::from_text(\"Between utterances\") }),\n    // Utterance: *MOT: you can have one .\n    // Dependent tier: %mor\n    Line::header(Header::End),\n];\n```\n\n# Ordering Guarantee\n\nComments and other headers can appear between utterances; preserving that\norder is required for semantic roundtrips. Without `Line`, this structure\nis lost:\n\n```text\n*CHI: hello .\n@Comment: First greeting\n*MOT: hi there .\n@Comment: Mother responds\n*CHI: bye .\n```\n\nThe `Line` enum preserves that `@Comment` appears after specific utterances.\n\n# References\n\n- [File Format](https://talkbank.org/0info/manuals/CHAT.html#File_Format)\n- [Main Line](https://talkbank.org/0info/manuals/CHAT.html#Main_Line)\n- [File Headers](https://talkbank.org/0info/manuals/CHAT.html#File_Headers)",
       "oneOf": [
         {
           "description": "Header line (starts with `@`).",
@@ -4721,6 +4781,12 @@
       ],
       "type": "object"
     },
+    "MainWordIndex": {
+      "description": "Position of an alignable word on the main tier.\n\n\"Alignable\" excludes pauses, events, terminator punctuation, and\nsimilar non-word content — see the [`TierDomain`](super::TierDomain)\ngating used by counters. The main tier is the source side of the\nmain↔`%mor`/`%pho`/`%sin`/`%wor` alignments.\n\nZero-indexed position into the alignable-word sequence of the main tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
+    },
     "MediaFilename": {
       "description": "Media filename recorded in `@Media` (without extension).\n\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Media_Header>",
       "type": "string"
@@ -4813,7 +4879,7 @@
           "type": "array"
         },
         "pairs": {
-          "description": "Alignment pairs (main_tier_index, mor_tier_index)\n\nIndices are positions in the alignable content sequence.\n`None` in either position indicates a placeholder due to misalignment.",
+          "description": "Alignment pairs\n([`MainWordIndex`]↔[`MorItemIndex`](crate::alignment::indices::MorItemIndex)).\n\nIndices are positions in the alignable content sequence.\n`None` in either position indicates a placeholder due to misalignment.",
           "items": {
             "$ref": "#/$defs/AlignmentPair2"
           },
@@ -4826,8 +4892,20 @@
       ],
       "type": "object"
     },
+    "MorChunkIndex": {
+      "description": "Position of a chunk in the `%mor` chunk sequence (main + post-clitics\n+ terminator).\n\nThis is the alignment unit for `%gra`: each chunk gets one `%gra`\nrelation. Chunk 1 of `pron|it~aux|be` is the `aux|be` post-clitic,\nwhich *shares the main-tier host word* with chunk 0 — projecting a\nchunk to its host item goes through\n[`MorTier::item_index_of_chunk`](crate::model::MorTier::item_index_of_chunk).\n\nZero-indexed position into the chunk sequence of a `%mor` tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
+    },
     "MorFeature": {
       "type": "string"
+    },
+    "MorItemIndex": {
+      "description": "Position of a `%mor` item in [`MorTier::items`](crate::model::MorTier::items).\n\nOne `%mor` item corresponds to one alignable main-tier word. An\nitem's chunk count may exceed 1 when it carries post-clitics, but\nits main↔`%mor` alignment is still 1:1 on items — callers\nprojecting from `%gra` chunks to the main tier must first collapse\nchunks to items via\n[`MorTier::item_index_of_chunk`](crate::model::MorTier::item_index_of_chunk).\n\nZero-indexed position into the item sequence of a `%mor` tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
     },
     "MorItems": {
       "description": "Newtype wrapper around a list of morphological items for a %mor tier.\n\n# Reference\n\n- [Morphological tier](https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier)",
@@ -5282,9 +5360,9 @@
           "type": "array"
         },
         "pairs": {
-          "description": "Positional mapping rows (`main_index`, `pho_index`).",
+          "description": "Positional mapping rows ([`MainWordIndex`]↔[`PhoItemIndex`]).",
           "items": {
-            "$ref": "#/$defs/AlignmentPair2"
+            "$ref": "#/$defs/AlignmentPair3"
           },
           "type": "array"
         }
@@ -5327,6 +5405,12 @@
         }
       ],
       "description": "Phonological tier content item\n\nRepresents a single item in a %pho or %mod tier, which can be:\n- A simple phonological word (e.g., `həˈloʊ`)\n- A compound word (e.g., `foo+bar`)\n- A phonological group containing multiple words (e.g., `‹a b c›`)\n\n# Item Types\n\n**Word**: Single phonological transcription aligning with one main tier word\n```text\n*CHI: hello .\n%pho: həˈloʊ .\n```\n\n**Group**: Multiple phonological words grouped together using `‹...›` brackets.\nUsed when multiple phonological units correspond to a single orthographic word\nor when capturing detailed prosodic boundaries.\n```text\n*CHI: wanna .\n%pho: ‹wɑ nə› .\n```\n\n# Alignment\n\nEach PhoItem aligns with one alignable unit in the main tier:\n- Words (including annotated words) → PhoItem::Word or PhoItem::Group\n- Terminators → PhoItem::Word (typically \".\")\n- Retraces, events, pauses → NOT aligned (no corresponding PhoItem)\n\n# CHAT Format Examples\n\nSimple word:\n```text\nhəˈloʊ\n```\n\nPhonological group:\n```text\n‹wɑ nə›\n```\n\nMultiple items in tier:\n```text\n%pho: aɪ wɑnt ‹θri kʊ kiz› .\n```\n\n# References\n\n- [Phonology Tier](https://talkbank.org/0info/manuals/CHAT.html#Phonology)\n- [Model Phonology](https://talkbank.org/0info/manuals/CHAT.html#Model_Phonology)\n- [IPA Usage](https://talkbank.org/0info/manuals/CHAT.html#IPA)"
+    },
+    "PhoItemIndex": {
+      "description": "Position of an item in [`PhoTier::items`](crate::model::PhoTier::items).\n\n`%pho` / `%mod` both use this same item-index space: the target\nside of the main↔`%pho` alignment is 1:1 with main-tier words.\n\nZero-indexed position into the item sequence of a `%pho` or `%mod` tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
     },
     "PhoItems": {
       "description": "Ordered phonological items for one `%pho`/`%mod` tier line.\n\n# Reference\n\n- [Phonology tier](https://talkbank.org/0info/manuals/CHAT.html#Phonology)",
@@ -5886,9 +5970,9 @@
           "type": "array"
         },
         "pairs": {
-          "description": "Alignment pairs (main_tier_index, sin_tier_index)",
+          "description": "Alignment pairs ([`MainWordIndex`]↔[`SinItemIndex`])",
           "items": {
-            "$ref": "#/$defs/AlignmentPair2"
+            "$ref": "#/$defs/AlignmentPair4"
           },
           "type": "array"
         }
@@ -5957,6 +6041,12 @@
           "type": "object"
         }
       ]
+    },
+    "SinItemIndex": {
+      "description": "Position of a token in [`SinTier::items`](crate::model::SinTier::items).\n\n`%sin` aligns 1:1 with main-tier words (same structural rules as\n`%pho`); this newtype separates its indexing from the other tiers'\nso a future typed `AlignmentPair<MainWordIndex, SinItemIndex>`\nrejects cross-space confusion at compile time.\n\nZero-indexed position into the item sequence of a `%sin` tier.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
     },
     "SinItems": {
       "description": "Ordered `%sin` items aligned with main-tier tokens.\n\n# Reference\n\n- [Gestures](https://talkbank.org/0info/manuals/CHAT.html#Gestures)",
@@ -6075,7 +6165,7 @@
       "type": "object"
     },
     "SpeakerCode": {
-      "description": "Interned speaker identifier used by main-tier prefixes and participant headers.\n\nSpeaker codes identify participants in:\n- main tiers (`*CHI:`)\n- participant-related headers (`@Participants`, `@ID`, `@Birth of ...`)\n\n## Memory Optimization\n\nThis type uses `Arc<str>` with interning for memory efficiency:\n- All codes are interned through a global interner\n- Standard codes (CHI, MOT, FAT, etc.) are pre-populated on first use\n- Cloning is O(1) (atomic reference count increment)\n- Multiple occurrences of the same code share a single Arc\n\nThis reduces memory usage by 10-50MB for large corpora.\n\n# Common Usage\n\n**In main tiers:**\n- `*CHI:` - Utterance by child participant\n- `*MOT:` - Utterance by mother\n- `*FAT:` - Utterance by father\n\n**In headers:**\n- `@Participants:` - Lists all speaker codes with names and roles\n- `@ID:` - Detailed participant information\n- `@Birth of SPK:` - Participant-specific metadata\n- `@Language of SPK:` - Participant language\n\n# CHAT Format Examples\n\n```text\n@Participants: CHI Target_Child, MOT Mother, FAT Father, INV Investigator\n@ID: eng|Corpus|CHI|2;6.15|male|||Target_Child|||\n@Birth of CHI: 15-JAN-2015\n*CHI: I want cookie.\n*MOT: here you go.\n*FAT: what do you say?\n*CHI: thank you!\n```\n\n# Common Codes\n\n**Family members:**\n- `CHI` - Target child (primary participant)\n- `MOT` - Mother\n- `FAT` - Father\n- `BRO` - Brother\n- `SIS` - Sister\n- `GRA` - Grandmother\n- `GRF` - Grandfather\n\n**Research roles:**\n- `INV` - Investigator/Researcher\n- `EXP` - Experimenter\n- `OBS` - Observer\n- `CAM` - Cameraman\n\n**Other:**\n- `TEA` - Teacher\n- `DOC` - Doctor\n- `NUR` - Nurse\n- `UNK` - Unknown speaker\n- `ENV` - Environment (background noise, etc.)\n\n# Format Rules (validator)\n\n- max length: 7 characters\n- allowed chars: `A-Z`, `0-9`, `_`, `-`, `'`\n\n# References\n\n- [CHAT Manual: Speaker Codes](https://talkbank.org/0info/manuals/CHAT.html#Speaker_Codes)\n- [Main Tier Format](https://talkbank.org/0info/manuals/CHAT.html#Main_Line)\n- [Participants Header](https://talkbank.org/0info/manuals/CHAT.html#Participants_Header)",
+      "description": "Interned speaker identifier used by main-tier prefixes and participant headers.\n\nSpeaker codes identify participants in:\n- main tiers (`*CHI:`)\n- participant-related headers (`@Participants`, `@ID`, `@Birth of ...`)\n\n## Memory Optimization\n\nThis type uses `Arc<str>` with interning for memory efficiency:\n- All codes are interned through a global interner\n- Standard codes (CHI, MOT, FAT, etc.) are pre-populated on first use\n- Cloning is O(1) (atomic reference count increment)\n- Multiple occurrences of the same code share a single Arc\n\nThis reduces memory usage by 10-50MB for large corpora.\n\n# Common Usage\n\n**In main tiers:**\n- `*CHI:` - Utterance by child participant\n- `*MOT:` - Utterance by mother\n- `*FAT:` - Utterance by father\n\n**In headers:**\n- `@Participants:` - Lists all speaker codes with names and roles\n- `@ID:` - Detailed participant information\n- `@Birth of SPK:` - Participant-specific metadata\n- `@Language of SPK:` - Participant language\n\n# CHAT Format Examples\n\n```text\n@Participants: CHI Target_Child, MOT Mother, FAT Father, INV Investigator\n@ID: eng|Corpus|CHI|2;06.15|male|||Target_Child|||\n@Birth of CHI: 15-JAN-2015\n*CHI: I want cookie.\n*MOT: here you go.\n*FAT: what do you say?\n*CHI: thank you!\n```\n\n# Common Codes\n\n**Family members:**\n- `CHI` - Target child (primary participant)\n- `MOT` - Mother\n- `FAT` - Father\n- `BRO` - Brother\n- `SIS` - Sister\n- `GRA` - Grandmother\n- `GRF` - Grandfather\n\n**Research roles:**\n- `INV` - Investigator/Researcher\n- `EXP` - Experimenter\n- `OBS` - Observer\n- `CAM` - Cameraman\n\n**Other:**\n- `TEA` - Teacher\n- `DOC` - Doctor\n- `NUR` - Nurse\n- `UNK` - Unknown speaker\n- `ENV` - Environment (background noise, etc.)\n\n# Format Rules (validator)\n\n- max length: 7 characters\n- allowed chars: `A-Z`, `0-9`, `_`, `-`, `'`\n\n# References\n\n- [CHAT Manual: Speaker Codes](https://talkbank.org/0info/manuals/CHAT.html#Speaker_Codes)\n- [Main Tier Format](https://talkbank.org/0info/manuals/CHAT.html#Main_Line)\n- [Participants Header](https://talkbank.org/0info/manuals/CHAT.html#Participants_Header)",
       "type": "string"
     },
     "SylTier": {
@@ -7239,30 +7329,6 @@
       "description": "Window geometry captured in `@Window`.\n\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Window_Header>",
       "type": "string"
     },
-    "WorAlignment": {
-      "description": "Result of aligning main-tier units to `%wor` timing tokens.\n\nThe pair stream preserves positional intent, while `errors` explains count\nmismatches when placeholder rows are required.",
-      "properties": {
-        "errors": {
-          "description": "Diagnostics produced while checking `%wor` count/position invariants.",
-          "items": {
-            "$ref": "#/$defs/ParseError"
-          },
-          "type": "array"
-        },
-        "pairs": {
-          "description": "Positional mapping rows (`main_index`, `wor_index`).",
-          "items": {
-            "$ref": "#/$defs/AlignmentPair2"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "pairs",
-        "errors"
-      ],
-      "type": "object"
-    },
     "WorItem": {
       "description": "A single item in a %wor tier: either a timed word or an untimed\ntag-marker separator.\n\nTag-marker separators (comma `,`, tag `„`, vocative `‡`) appear in %wor\nbetween timed words. They correspond to `cm|cm`, `end|end`, and `beg|beg`\nin %mor. They are never timed and do not count toward alignment with the\nmain tier's word slots.\n\n# CRITICAL: Word Text is \"Eye Candy\" Only\n\n**The word text in %wor tier items is NEVER reparsed or used for processing.**\n\nThe word text exists solely for:\n- Human readability when viewing CHAT files\n- Error messages (alignment mismatch diagnostics)\n- CHAT format serialization compliance\n\n**The word text is NOT used for:**\n- Forced alignment (uses main tier words)\n- Morphosyntax processing (uses main tier words)\n- Any computational processing (timing comes from `inline_bullet`, not text)\n\nThis means we have complete freedom to put any \"reasonable eye candy\" in\nthe word text field, as long as it:\n- Looks sensible to humans reading the CHAT file\n- Serializes correctly (no CHAT-breaking characters)\n- Maintains word count alignment with main tier (structural requirement)\n\n**Current convention**: We copy `cleaned_text` from main tier words via\n`generate_wor_tier()`. This is a display choice, not a semantic requirement.\nWe could equally well use `raw_text`, placeholders (`_`), or indices (`w0`),\nand no processing would break.\n\n**What matters**: The `inline_bullet` field on each word, which contains\nthe actual timing data (start_ms, end_ms). This is parsed, stored, and\nused for all timing-related operations.\n\n# Reference\n\n- [Word tier](https://talkbank.org/0info/manuals/CHAT.html#Word_Tier)",
       "oneOf": [
@@ -7354,6 +7420,58 @@
         "items"
       ],
       "type": "object"
+    },
+    "WorTimingSidecar": {
+      "description": "Describes the correspondence between the main tier's Wor-filtered words\nand the entries in a `%wor` tier, at the moment of read.\n\nVariants express *what is safely recoverable*, not *whether validation\npasses*. `%wor` has no validation contract against the main tier; the\npresence of drift is a fact to report to callers, not an error.\n\n- [`Positional`](Self::Positional) — filtered counts matched, so the\n  i-th Wor-filtered main-tier word corresponds to the i-th entry in\n  `%wor.words()`. Callers may zip positionally; this is the only mode\n  in which timing recovery is defined.\n- [`Drifted`](Self::Drifted) — filtered counts differ (typically a main\n  tier edit after `align` without a re-run). No positional correspondence\n  is available; timing recovery must be skipped or the file must be\n  re-aligned. Carries the two counts so callers can log or display them.\n\n`None` at the containing [`Option<WorTimingSidecar>`] level on\n[`AlignmentSet`](crate::model::AlignmentSet) means the utterance has no\n`%wor` tier at all.",
+      "oneOf": [
+        {
+          "description": "Filtered main-tier and `%wor` word counts match. The i-th entry of\neach sequence corresponds to the other. `count` is the common length.",
+          "properties": {
+            "count": {
+              "description": "Shared length of the Wor-filtered main sequence and `%wor.words()`.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "positional",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "count"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Filtered counts differ. No positional correspondence is defined.",
+          "properties": {
+            "kind": {
+              "const": "drifted",
+              "type": "string"
+            },
+            "main_count": {
+              "description": "Number of Wor-filtered main-tier words.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "wor_count": {
+              "description": "Number of `%wor.words()` entries.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "main_count",
+            "wor_count"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "Word": {
       "description": "A word in a CHAT transcript with optional markers and internal structure.\n\nWords are the fundamental units of CHAT transcripts. They can be simple dictionary\nforms, compounds, cliticizations, or include special markers indicating dialectal\nvariations, child-invented forms, and other linguistic phenomena.",

@@ -22,7 +22,7 @@ const VALID_CHAT: &str = "@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	hello world .
 %mor:	n|hello n|world .
 @End
@@ -32,7 +32,7 @@ const SECOND_VALID_CHAT: &str = "@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;7|female|||Target_Child|||
+@ID:	eng|corpus|CHI|2;07.|female|||Target_Child|||
 *CHI:	bye cookie .
 %mor:	n|bye n|cookie .
 @End
@@ -42,7 +42,7 @@ const INVALID_CHAT_MISSING_END: &str = "@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	want cookie .
 %mor:	v|want n|cookie .
 ";
@@ -51,7 +51,7 @@ const MULTI_SPEAKER_UPPERCASE_CHAT: &str = "@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child, MOT Mother
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @ID:	eng|corpus|MOT||female|||Mother|||
 *CHI:	WANT COOKIE .
 %mor:	v|want n|cookie .

@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|2;0||||Child|||
+@ID:	eng|corpus|CHI|2;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Special word forms: omissions (0word), babbling (&word), neologisms,
 	family/child-specific words, at-markers (@s, @c, @f, @wp, @x, @q, @l, etc.)

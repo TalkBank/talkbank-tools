@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	ERROR CORPUS TEST FILE
 @Comment:	Expected error: E706 (Mor count mismatch - too many items)
 @Comment:	Trigger: Content in scoped annotations [//] [/] should be filtered

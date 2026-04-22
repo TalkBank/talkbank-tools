@@ -22,7 +22,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Ruth Target_Child
-@ID:	eng|corpus|CHI|2;6.0||||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.00||||Target_Child|||
 @Birth of MOT:	01-JAN-2000
 *CHI:	hello .
 @End

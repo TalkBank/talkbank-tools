@@ -549,7 +549,7 @@ fn snapshot_parsed_participants_samples() {
 
 #[test]
 fn snapshot_parsed_file() {
-    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n";
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n";
     let file = parser::parse_chat_file(input);
     assert_yaml_snapshot!(file);
 }
@@ -951,7 +951,7 @@ fn convert_gra_to_model() {
 #[test]
 #[cfg(feature = "trait_tests")]
 fn convert_id_to_model() {
-    let input = "eng|corpus|CHI|3;0|female|typical||Child|||\n";
+    let input = "eng|corpus|CHI|3;00.|female|typical||Child|||\n";
     let parsed = parser::parse_id_header(input).unwrap();
     let model: talkbank_model::model::IDHeader = (&parsed).into();
     assert_eq!(model.speaker.to_string(), "CHI");
@@ -1008,7 +1008,11 @@ fn trait_parse_id_header() {
     use talkbank_model::errors::ErrorCollector;
     let p = talkbank_re2c_parser::Re2cParser::new();
     let errors = ErrorCollector::new();
-    let result = p.parse_id_header("eng|corpus|CHI|3;0|female|typical||Child|||\n", 0, &errors);
+    let result = p.parse_id_header(
+        "eng|corpus|CHI|3;00.|female|typical||Child|||\n",
+        0,
+        &errors,
+    );
     assert!(result.is_parsed());
     let id = result.into_option().unwrap();
     assert_eq!(id.speaker.to_string(), "CHI");
@@ -1164,7 +1168,7 @@ fn trait_parse_chat_file() {
     use talkbank_model::errors::ErrorCollector;
     let p = talkbank_re2c_parser::Re2cParser::new();
     let errors = ErrorCollector::new();
-    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n";
+    let input = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n";
     let result = p.parse_chat_file(input, 0, &errors);
     assert!(result.is_parsed(), "parse_chat_file should succeed");
     let file = result.into_option().unwrap();

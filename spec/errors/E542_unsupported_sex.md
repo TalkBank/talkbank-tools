@@ -18,7 +18,7 @@ An `@ID` header contains a sex field value that is not one of the recognized val
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|3;6|badsex|||Target_Child|||
+@ID:	eng|corpus|CHI|3;06.|badsex|||Target_Child|||
 *CHI:	hello world .
 @End
 ```

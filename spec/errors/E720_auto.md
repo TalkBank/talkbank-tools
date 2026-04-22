@@ -21,7 +21,7 @@ for an utterance. `%gra` aligns 1-to-1 with `%mor` chunks (not items — a
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Comment:	Note: %gra aligns to %mor chunks, not items!
 *CHI:	I want cookie .
 %mor:	pro|I v|want n|cookie .

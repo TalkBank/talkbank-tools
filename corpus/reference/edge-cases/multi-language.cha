@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng, spa
 @Participants:	CHI Child, MOT Mother
-@ID:	eng, spa|corpus|CHI|3;6||||Child|||
+@ID:	eng, spa|corpus|CHI|3;06.||||Child|||
 @ID:	eng, spa|corpus|MOT|||||Mother|||
 @Comment:	Multi-language file with utterance-level [- lang] switching
 	and word-level @s markers

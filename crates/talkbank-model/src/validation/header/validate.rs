@@ -18,7 +18,9 @@ use crate::model::Header;
 use crate::validation::{Validate, ValidationContext};
 use crate::{ErrorSink, Span};
 
-use super::checkers::{check_comment_warning, check_date_header, check_id_header};
+use super::checkers::{
+    check_birth_date_header, check_comment_warning, check_date_header, check_id_header,
+};
 use super::metadata::{check_time_duration_format, check_time_start_format};
 use super::unknown::check_unknown_header;
 use crate::model::ValidationTagged;
@@ -58,6 +60,9 @@ pub(crate) fn check_header(
         Header::Date { date } => {
             check_date_header(date.as_str(), span, errors);
         }
+        Header::Birth { date, .. } => {
+            check_birth_date_header(date.as_str(), span, errors);
+        }
         Header::Comment { content } => {
             check_comment_warning(content, span, errors);
         }
@@ -90,10 +95,14 @@ pub(crate) fn check_header(
         Header::Transcription { transcription } => {
             check_unsupported_transcription(transcription, span, errors);
         }
-        Header::TimeDuration { duration } if duration.has_validation_issue() => {
+        Header::TimeDuration { duration }
+            if duration.has_validation_issue() || duration.violates_depfile_pattern() =>
+        {
             check_time_duration_format(duration.as_str(), span, errors);
         }
-        Header::TimeStart { start } if start.has_validation_issue() => {
+        Header::TimeStart { start }
+            if start.has_validation_issue() || start.violates_depfile_pattern() =>
+        {
             check_time_start_format(start.as_str(), span, errors);
         }
         Header::Types(_) => {
@@ -120,7 +129,7 @@ fn check_unsupported_options(
                 crate::ErrorContext::new(value, 0..value.len(), "option_name"),
                 format!("Unsupported @Options value: '{}'", value),
             )
-            .with_suggestion("Supported options: CA, dummy, NoAlign");
+            .with_suggestion("Supported options (per CLAN depfile.cut): CA, NoAlign");
             err.location.span = span;
             errors.report(err);
         }

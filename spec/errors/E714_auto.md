@@ -26,7 +26,7 @@ never validated for count mismatches.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I want cookie .
 %pho:	aɪ wɑnt
 @Comment:	ERROR: Main tier has 3 words but %pho only has 2 tokens (missing cookie)

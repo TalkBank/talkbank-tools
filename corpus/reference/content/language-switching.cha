@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng, zho
 @Participants:	CHI Child, MOT Mother
-@ID:	eng, zho|corpus|CHI|3;0||||Child|||
+@ID:	eng, zho|corpus|CHI|3;00.||||Child|||
 @ID:	eng, zho|corpus|MOT|||||Mother|||
 @Comment:	Language switching: [- lang] utterance-level, @s word-level,
 	multi-language codes with + and &

@@ -2,7 +2,7 @@
 @Begin
 @Languages:	por
 @Participants:	CHI Child, MOT Mother
-@ID:	por|corpus|CHI|2;0||||Child|||
+@ID:	por|corpus|CHI|2;00.||||Child|||
 @ID:	por|corpus|MOT|||||Mother|||
 @Comment:	Phonological tier with syllable boundary dots in pho words
 @Comment:	Constructs: pho_word with internal dots (syllable boundaries)

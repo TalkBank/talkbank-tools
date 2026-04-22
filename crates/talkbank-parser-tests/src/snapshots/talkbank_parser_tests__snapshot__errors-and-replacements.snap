@@ -48,7 +48,7 @@ expression: snapshot
     },
     {
       "header": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"
@@ -176,8 +176,8 @@ expression: snapshot
                       {
                         "content": {
                           "span": {
-                            "end": 421,
-                            "start": 420
+                            "end": 423,
+                            "start": 422
                           }
                         },
                         "type": "compound_marker"
@@ -208,8 +208,8 @@ expression: snapshot
                   {
                     "content": {
                       "span": {
-                        "end": 404,
-                        "start": 403
+                        "end": 406,
+                        "start": 405
                       }
                     },
                     "type": "compound_marker"
@@ -245,8 +245,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 445,
-                      "start": 444
+                      "end": 447,
+                      "start": 446
                     }
                   },
                   "type": "compound_marker"
@@ -476,8 +476,8 @@ expression: snapshot
                       {
                         "content": {
                           "span": {
-                            "end": 598,
-                            "start": 597
+                            "end": 600,
+                            "start": 599
                           }
                         },
                         "type": "compound_marker"
@@ -670,7 +670,7 @@ expression: snapshot
       "birth_date": null,
       "code": "CHI",
       "id": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"

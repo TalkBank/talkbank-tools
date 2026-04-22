@@ -1023,7 +1023,7 @@ fn lex_header_new_episode() {
 
 #[test]
 fn lex_id_header_full() {
-    let tokens = lex("@ID:\teng|corpus|CHI|3;0|female|typical||Child|||\n");
+    let tokens = lex("@ID:\teng|corpus|CHI|3;00.|female|typical||Child|||\n");
     assert!(
         matches!(tokens[0], Token::HeaderPrefix(s) if s.contains("ID")),
         "got {:?}",
@@ -1063,7 +1063,7 @@ fn lex_id_header_minimal() {
 #[test]
 fn lex_id_content_isolated() {
     let tokens = lex_with(
-        "eng|corpus|CHI|3;0|female|typical||Child|||\n",
+        "eng|corpus|CHI|3;00.|female|typical||Child|||\n",
         COND_ID_CONTENT,
     );
     match &tokens[0] {
@@ -1082,7 +1082,7 @@ fn lex_id_content_isolated() {
             assert_eq!(*language, "eng");
             assert_eq!(*corpus, "corpus");
             assert_eq!(*speaker, "CHI");
-            assert_eq!(*age, "3;0");
+            assert_eq!(*age, "3;00.");
             assert_eq!(*sex, "female");
             assert_eq!(*group, "typical");
             assert_eq!(*ses, "");

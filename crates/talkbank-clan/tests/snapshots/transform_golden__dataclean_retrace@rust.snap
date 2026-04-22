@@ -1,13 +1,12 @@
 ---
 source: crates/talkbank-clan/tests/transform_golden.rs
-assertion_line: 371
 expression: "&rust_output"
 ---
 @UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Retrace annotations: partial [/], complete [//], multiple [///],
 	uncertain [/?] , reformulation [/-]

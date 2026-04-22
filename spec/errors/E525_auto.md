@@ -22,7 +22,7 @@ Auto-generated from corpus
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Bg:test
 @Comment:	This is inside the first @Bg:test scope
 @Bg:test
@@ -43,7 +43,7 @@ Auto-generated from corpus
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 @Bg:activity
 @Comment:	We are inside a @Bg/@Eg scope
 @G:	playing with blocks

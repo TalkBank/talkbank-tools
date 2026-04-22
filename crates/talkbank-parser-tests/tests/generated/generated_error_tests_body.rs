@@ -2358,7 +2358,7 @@ fn test_e361_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e362_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Media:\tsample, audio\n*CHI:\thello there . \u{15}10000_12000\u{15}\n@Comment:\tFirst bullet: 10000-12000ms\n*CHI:\thow are you . \u{15}8000_9000\u{15}\n@Comment:\tERROR: Second bullet starts at 8000ms, which is BEFORE the first bullet\n@Comment:\tTimestamps must be monotonically increasing\n*CHI:\tI am fine . \u{15}15000_17000\u{15}\n@Comment:\tVALID: 15000 > 12000\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Media:\tsample, audio\n*CHI:\thello there . \u{15}10000_12000\u{15}\n@Comment:\tFirst bullet: 10000-12000ms\n*CHI:\thow are you . \u{15}8000_9000\u{15}\n@Comment:\tERROR: Second bullet starts at 8000ms, which is BEFORE the first bullet\n@Comment:\tTimestamps must be monotonically increasing\n*CHI:\tI am fine . \u{15}15000_17000\u{15}\n@Comment:\tVALID: 15000 > 12000\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2500,7 +2500,7 @@ fn test_e368_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e370_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI <wanna> [: want to] <the> [: a] cookie .\n%mor:\tpro|I v|want n|cookie .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI <wanna> [: want to] <the> [: a] cookie .\n%mor:\tpro|I v|want n|cookie .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2524,7 +2524,7 @@ fn test_e370_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e370_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI <want the> [: need the] cookie .\n%mor:\tpro|I v|need n|cookie .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI <want the> [: need the] cookie .\n%mor:\tpro|I v|need n|cookie .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2548,7 +2548,7 @@ fn test_e370_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::
 fn test_e370_auto_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI <want the big> [: need a large] cookie .\n%mor:\tpro|I v|need n|cookie .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI <want the big> [: need a large] cookie .\n%mor:\tpro|I v|need n|cookie .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2572,7 +2572,7 @@ fn test_e370_auto_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::
 fn test_e371_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\thello ‹hɛ (.) loʊ› there .\n@Comment:\tERROR: Pause (.) cannot be embedded inside phonological group ‹...›\n*CHI:\tgoodbye ‹gʊd baɪ› friend .\n@Comment:\tVALID: No pause inside ‹...›\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\thello ‹hɛ (.) loʊ› there .\n@Comment:\tERROR: Pause (.) cannot be embedded inside phonological group ‹...›\n*CHI:\tgoodbye ‹gʊd baɪ› friend .\n@Comment:\tVALID: No pause inside ‹...›\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2596,7 +2596,7 @@ fn test_e371_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e372_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@ID:\teng|corpus|MOT|30;0|female|||Mother|||\n*MOT:\tshe said “I told him “go away” yesterday” .\n@Comment:\tERROR: Nested quotations - \"go away\" is inside \"I told him...\"\n@Comment:\tJava detects this with state stack; Rust only counts balance\n*CHI:\tokay mommy .\n*MOT:\the said “hello” and “goodbye” .\n@Comment:\tVALID: Two separate quotations, not nested\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@ID:\teng|corpus|MOT|30;00.|female|||Mother|||\n*MOT:\tshe said “I told him “go away” yesterday” .\n@Comment:\tERROR: Nested quotations - \"go away\" is inside \"I told him...\"\n@Comment:\tJava detects this with state stack; Rust only counts balance\n*CHI:\tokay mommy .\n*MOT:\the said “hello” and “goodbye” .\n@Comment:\tVALID: Two separate quotations, not nested\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2903,7 +2903,7 @@ fn test_e391_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e401_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Duplicate %mor tier for the same utterance\n*CHI:\tyou have ball .\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n@Comment:\tERROR: Duplicate %gra tier for the same utterance\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Duplicate %mor tier for the same utterance\n*CHI:\tyou have ball .\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n@Comment:\tERROR: Duplicate %gra tier for the same utterance\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -2927,7 +2927,7 @@ fn test_e401_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e401_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Duplicate %mor tier should trigger E401\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Duplicate %mor tier should trigger E401\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3424,10 +3424,106 @@ fn test_e516_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 
 /// Tests expected behavior.
 #[test]
-fn test_e517_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+fn test_e517_invalid_age_format_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|2.6||||Child|||\n@Comment:\tShould be: \"2;6.0\" or \"2;6\" (years;months.days format)\n*CHI:\thello .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;0||||Target_Child|||\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E517"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e517_invalid_age_format_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06||||Target_Child|||\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E517"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e517_invalid_age_format_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;0.15||||Target_Child|||\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E517"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e517_invalid_age_format_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;06.5||||Target_Child|||\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E517"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e517_invalid_age_format_utf8_begin_languages_4() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2.6||||Target_Child|||\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3691,7 +3787,7 @@ fn test_e522_undefined_participant_utf8_begin_languages_0() -> Result<(), talkba
 fn test_e523_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Ruth Target_Child\n@ID:\teng|corpus|CHI|2;6.0||||Target_Child|||\n@ID:\teng|corpus|MOT|||||Mother|||\n*CHI:\thello .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Ruth Target_Child\n@ID:\teng|corpus|CHI|2;06.00||||Target_Child|||\n@ID:\teng|corpus|MOT|||||Mother|||\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3715,7 +3811,7 @@ fn test_e523_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e524_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Ruth Target_Child\n@ID:\teng|corpus|CHI|2;6.0||||Target_Child|||\n@Birth of MOT:\t01-JAN-2000\n*CHI:\thello .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Ruth Target_Child\n@ID:\teng|corpus|CHI|2;06.00||||Target_Child|||\n@Birth of MOT:\t01-JAN-2000\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3739,7 +3835,7 @@ fn test_e524_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e525_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Bg:test\n@Comment:\tThis is inside the first @Bg:test scope\n@Bg:test\n@Comment:\tERROR: This second @Bg:test should be invalid (nested @Bg with same label)\n@Eg:test\n@Eg:test\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Bg:test\n@Comment:\tThis is inside the first @Bg:test scope\n@Bg:test\n@Comment:\tERROR: This second @Bg:test should be invalid (nested @Bg with same label)\n@Eg:test\n@Eg:test\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3763,7 +3859,7 @@ fn test_e525_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e525_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Bg:activity\n@Comment:\tWe are inside a @Bg/@Eg scope\n@G:\tplaying with blocks\n@Comment:\tERROR: @G (lazy gem) should not be allowed inside @Bg/@Eg scope\n@Eg:activity\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Bg:activity\n@Comment:\tWe are inside a @Bg/@Eg scope\n@G:\tplaying with blocks\n@Comment:\tERROR: @G (lazy gem) should not be allowed inside @Bg/@Eg scope\n@Eg:activity\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3931,7 +4027,7 @@ fn test_e528_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e529_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Bg:test\n@Comment:\tThis is inside the first @Bg:test scope\n@Bg:test\n@Comment:\tERROR: This second @Bg:test should be invalid (nested @Bg with same label)\n@Eg:test\n@Eg:test\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Bg:test\n@Comment:\tThis is inside the first @Bg:test scope\n@Bg:test\n@Comment:\tERROR: This second @Bg:test should be invalid (nested @Bg with same label)\n@Eg:test\n@Eg:test\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -3955,7 +4051,7 @@ fn test_e529_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e530_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Bg:activity\n@Comment:\tWe are inside a @Bg/@Eg scope\n@G:\tplaying with blocks\n@Comment:\tERROR: @G (lazy gem) should not be allowed inside @Bg/@Eg scope\n@Eg:activity\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Bg:activity\n@Comment:\tWe are inside a @Bg/@Eg scope\n@G:\tplaying with blocks\n@Comment:\tERROR: @G (lazy gem) should not be allowed inside @Bg/@Eg scope\n@Eg:activity\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4003,7 +4099,7 @@ fn test_e531_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e532_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother, INV Investigator, BOB InvalidRole\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@ID:\teng|corpus|MOT|30;0|female|||Mother|||\n@ID:\teng|corpus|INV|25;0|female|||Investigator|||\n@ID:\teng|corpus|BOB|35;0|male|||InvalidRole|||\n@Comment:\tERROR: \"InvalidRole\" is not a valid participant role\n@Comment:\tValid roles include: Target_Child, Mother, Father, Investigator, etc.\n*CHI:\thello .\n*MOT:\thi sweetie .\n*BOB:\tI have an invalid role .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child, MOT Mother, INV Investigator, BOB InvalidRole\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@ID:\teng|corpus|MOT|30;00.|female|||Mother|||\n@ID:\teng|corpus|INV|25;00.|female|||Investigator|||\n@ID:\teng|corpus|BOB|35;00.|male|||InvalidRole|||\n@Comment:\tERROR: \"InvalidRole\" is not a valid participant role\n@Comment:\tValid roles include: Target_Child, Mother, Father, Investigator, etc.\n*CHI:\thello .\n*MOT:\thi sweetie .\n*BOB:\tI have an invalid role .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4195,7 +4291,79 @@ fn test_e539_unsupported_transcription_utf8_begin_languages_0() -> Result<(), ta
 fn test_e540_invalid_time_duration_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n@Time Duration:\tnot-a-time\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Duration:\t00:00:00;01:30:00\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E540"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e540_invalid_time_duration_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Duration:\t00:01:00, 00:02:00\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E540"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e540_invalid_time_duration_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Duration:\tnot-a-time\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E540"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e540_invalid_time_duration_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Duration:\t30:45\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4219,7 +4387,55 @@ fn test_e540_invalid_time_duration_utf8_begin_languages_0() -> Result<(), talkba
 fn test_e541_invalid_time_start_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n@Time Start:\tnot-a-time\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Start:\t01:23:45.678\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E541"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e541_invalid_time_start_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Start:\t23:45.678\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E541"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e541_invalid_time_start_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Time Start:\tnot-a-time\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4243,7 +4459,7 @@ fn test_e541_invalid_time_start_utf8_begin_languages_0() -> Result<(), talkbank_
 fn test_e542_unsupported_sex_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;6|badsex|||Target_Child|||\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;06.|badsex|||Target_Child|||\n*CHI:\thello world .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4267,7 +4483,7 @@ fn test_e542_unsupported_sex_utf8_begin_languages_0() -> Result<(), talkbank_par
 fn test_e543_header_out_of_order_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Options:\tCA\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;6|male|||Target_Child|||\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Options:\tCA\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;06.|male|||Target_Child|||\n*CHI:\thello world .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4291,7 +4507,7 @@ fn test_e543_header_out_of_order_utf8_begin_languages_0() -> Result<(), talkbank
 fn test_e544_media_linkage_without_timing_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;0||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;00.||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4315,7 +4531,7 @@ fn test_e544_media_linkage_without_timing_utf8_begin_languages_0() -> Result<(),
 fn test_e544_media_linkage_without_timing_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, video\n*CHI:\thello .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;00.||||Target_Child|||\n@Media:\tsession-01, video\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4339,7 +4555,7 @@ fn test_e544_media_linkage_without_timing_utf8_begin_languages_1() -> Result<(),
 fn test_e544_media_linkage_without_timing_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, audio, unlinked\n*CHI:\thello .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;00.||||Target_Child|||\n@Media:\tsession-01, audio, unlinked\n*CHI:\thello .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4363,7 +4579,7 @@ fn test_e544_media_linkage_without_timing_utf8_begin_languages_2() -> Result<(),
 fn test_e544_media_linkage_without_timing_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;0||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world . ·0_1200·\n*CHI:\tgoodbye . ·1200_1800·\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;00.||||Target_Child|||\n@Media:\tsession-01, audio\n*CHI:\thello world . ·0_1200·\n*CHI:\tgoodbye . ·1200_1800·\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4384,10 +4600,106 @@ fn test_e544_media_linkage_without_timing_utf8_begin_languages_3() -> Result<(),
 
 /// Tests expected behavior.
 #[test]
+fn test_e545_invalid_birth_date_format_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Birth of CHI:\t15-jan-2024\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E545"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e545_invalid_birth_date_format_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Birth of CHI:\t15-JAN-24\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E545"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e545_invalid_birth_date_format_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Birth of CHI:\t15-01-2024\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E545"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
+fn test_e545_invalid_birth_date_format_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let sink = talkbank_model::ErrorCollector::new();
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.||||Target_Child|||\n@Birth of CHI:\tlast Tuesday\n*CHI:\thello .\n@End", &sink);
+
+    // Run validation
+    chat_file.validate_with_alignment(&sink, None);
+
+    let errors = sink.into_vec();
+    let expected_codes = vec!["E545"];
+
+    for code in expected_codes {
+        let expected = talkbank_model::ErrorCode::new(code);
+        let has_expected = errors.iter().any(|err| err.code == expected);
+        assert!(has_expected, "Expected error code {}, but got: {:?}",
+            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
+    }
+
+    Ok(())
+}
+
+
+/// Tests expected behavior.
+#[test]
 fn test_e546_unsupported_ses_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;6|female||badses|Target_Child|||\n*CHI:\thello world .\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;06.|female||badses|Target_Child|||\n*CHI:\thello world .\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4650,7 +4962,7 @@ fn test_e704_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e705_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: Tag markers are alignable content\n*CHI:\tI want ± cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Tag marker ± should have a mor item\n@Comment:\tMain tier alignable: I, want, ±, cookie = 4 words\n@Comment:\tMor tier: Should have 4 items (missing item for ±)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: Tag markers are alignable content\n*CHI:\tI want ± cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Tag marker ± should have a mor item\n@Comment:\tMain tier alignable: I, want, ±, cookie = 4 words\n@Comment:\tMor tier: Should have 4 items (missing item for ±)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4674,7 +4986,7 @@ fn test_e705_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e705_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want .\n@Comment:\tERROR: Main tier has 3 words but %mor only has 2 items (missing n|cookie)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want .\n@Comment:\tERROR: Main tier has 3 words but %mor only has 2 items (missing n|cookie)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4698,7 +5010,7 @@ fn test_e705_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::
 fn test_e706_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\twant cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Main tier has 2 words but %mor has 3 items (extra pro|I)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\twant cookie .\n%mor:\tpro|I v|want n|cookie .\n@Comment:\tERROR: Main tier has 2 words but %mor has 3 items (extra pro|I)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4722,7 +5034,7 @@ fn test_e706_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e706_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: Retraces and scoped content don't align\n*CHI:\tI want [/] need cookie .\n%mor:\tpro|I v|want v|need n|cookie .\n@Comment:\tERROR: \"want\" is in a retrace [/] scope and shouldn't align\n@Comment:\tMain tier alignable: I, need, cookie = 3 words (want is excluded by [/])\n@Comment:\tMor tier: Should be pro|I v|need n|cookie (3 items + terminator)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: Retraces and scoped content don't align\n*CHI:\tI want [/] need cookie .\n%mor:\tpro|I v|want v|need n|cookie .\n@Comment:\tERROR: \"want\" is in a retrace [/] scope and shouldn't align\n@Comment:\tMain tier alignable: I, need, cookie = 3 words (want is excluded by [/])\n@Comment:\tMor tier: Should be pro|I v|need n|cookie (3 items + terminator)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4746,7 +5058,7 @@ fn test_e706_auto_utf8_begin_languages_1() -> Result<(), talkbank_parser_tests::
 fn test_e706_auto_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: Events are non-alignable, like pauses\n*CHI:\tI &=laugh want cookie .\n%mor:\tpro|I v|laugh v|want n|cookie .\n@Comment:\tERROR: Event &=laugh shouldn't have a mor item (v|laugh is wrong)\n@Comment:\tMain tier alignable: I, want, cookie = 3 words (events excluded)\n@Comment:\tMor tier: Should be pro|I v|want n|cookie (3 items + terminator)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: Events are non-alignable, like pauses\n*CHI:\tI &=laugh want cookie .\n%mor:\tpro|I v|laugh v|want n|cookie .\n@Comment:\tERROR: Event &=laugh shouldn't have a mor item (v|laugh is wrong)\n@Comment:\tMain tier alignable: I, want, cookie = 3 words (events excluded)\n@Comment:\tMor tier: Should be pro|I v|want n|cookie (3 items + terminator)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -4770,7 +5082,7 @@ fn test_e706_auto_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::
 fn test_e706_auto_utf8_begin_languages_3() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: Pauses, events, actions don't align - only words\n*CHI:\tI (.) want cookie .\n%mor:\tpro|I v|pause v|want n|cookie .\n@Comment:\tERROR: Pause (.) shouldn't have a mor item (v|pause is wrong)\n@Comment:\tMain tier alignable: I, want, cookie = 3 words (pauses excluded)\n@Comment:\tMor tier: Should be pro|I v|want n|cookie (3 items + terminator)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: Pauses, events, actions don't align - only words\n*CHI:\tI (.) want cookie .\n%mor:\tpro|I v|pause v|want n|cookie .\n@Comment:\tERROR: Pause (.) shouldn't have a mor item (v|pause is wrong)\n@Comment:\tMain tier alignable: I, want, cookie = 3 words (pauses excluded)\n@Comment:\tMor tier: Should be pro|I v|want n|cookie (3 items + terminator)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5009,7 +5321,7 @@ fn test_e713_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e714_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%pho:\taɪ wɑnt\n@Comment:\tERROR: Main tier has 3 words but %pho only has 2 tokens (missing cookie)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%pho:\taɪ wɑnt\n@Comment:\tERROR: Main tier has 3 words but %pho only has 2 tokens (missing cookie)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5033,7 +5345,7 @@ fn test_e714_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e715_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\twant cookie .\n%pho:\taɪ wɑnt kʊki\n@Comment:\tERROR: Main tier has 2 words but %pho has 3 tokens (extra aɪ)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\twant cookie .\n%pho:\taɪ wɑnt kʊki\n@Comment:\tERROR: Main tier has 2 words but %pho has 3 tokens (extra aɪ)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5129,7 +5441,7 @@ fn test_e716_utf8_begin_languages_2() -> Result<(), talkbank_parser_tests::test_
 fn test_e718_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%sin:\tPOINT REACH\n@Comment:\tERROR: Main tier has 3 words but %sin only has 2 tokens (missing gesture for cookie)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%sin:\tPOINT REACH\n@Comment:\tERROR: Main tier has 3 words but %sin only has 2 tokens (missing gesture for cookie)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5153,7 +5465,7 @@ fn test_e718_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e719_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\twant cookie .\n%sin:\tPOINT REACH GRAB\n@Comment:\tERROR: Main tier has 2 words but %sin has 3 tokens (extra GRAB)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\twant cookie .\n%sin:\tPOINT REACH GRAB\n@Comment:\tERROR: Main tier has 2 words but %sin has 3 tokens (extra GRAB)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5177,7 +5489,7 @@ fn test_e719_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e720_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: %gra aligns to %mor chunks, not items!\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|4|EXTRA 5|2|PUNCT\n@Comment:\tERROR: %mor has 4 chunks (3 words + terminator) but %gra has 5 relations\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: %gra aligns to %mor chunks, not items!\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie .\n%gra:\t1|2|SUBJ 2|0|ROOT 3|2|OBJ 4|4|EXTRA 5|2|PUNCT\n@Comment:\tERROR: %mor has 4 chunks (3 words + terminator) but %gra has 5 relations\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5345,7 +5657,7 @@ fn test_e724_gra_circular_dependency_utf8_begin_languages_2() -> Result<(), talk
 fn test_e725_modsyl_mod_count_mismatch_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;0||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%mod:\tˈmœts ˈja\n%xmodsyl:\tˈm:Oœ:Nt:Cs:R\n@Comment:\tERROR: %mod has 2 words but %xmodsyl has only 1\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;00.||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%mod:\tˈmœts ˈja\n%xmodsyl:\tˈm:Oœ:Nt:Cs:R\n@Comment:\tERROR: %mod has 2 words but %xmodsyl has only 1\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5369,7 +5681,7 @@ fn test_e725_modsyl_mod_count_mismatch_utf8_begin_languages_0() -> Result<(), ta
 fn test_e726_phosyl_pho_count_mismatch_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;0||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%pho:\tˈmʉst ˈjɛ\n%xphosyl:\tˈm:Oʉ:Ns:Ct:C\n@Comment:\tERROR: %pho has 2 words but %xphosyl has only 1\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;00.||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%pho:\tˈmʉst ˈjɛ\n%xphosyl:\tˈm:Oʉ:Ns:Ct:C\n@Comment:\tERROR: %pho has 2 words but %xphosyl has only 1\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5393,7 +5705,7 @@ fn test_e726_phosyl_pho_count_mismatch_utf8_begin_languages_0() -> Result<(), ta
 fn test_e727_phoaln_mod_count_mismatch_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;0||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%mod:\tˈmœts ˈja\n%xphoaln:\tm↔m,œ↔ʉ,t↔s,s↔t\n@Comment:\tERROR: %mod has 2 words but %xphoaln has only 1\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;00.||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%mod:\tˈmœts ˈja\n%xphoaln:\tm↔m,œ↔ʉ,t↔s,s↔t\n@Comment:\tERROR: %mod has 2 words but %xphoaln has only 1\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5417,7 +5729,7 @@ fn test_e727_phoaln_mod_count_mismatch_utf8_begin_languages_0() -> Result<(), ta
 fn test_e728_phoaln_pho_count_mismatch_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;0||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%pho:\tˈmʉst ˈjɛ\n%xphoaln:\tm↔m,œ↔ʉ,t↔s,s↔t\n@Comment:\tERROR: %pho has 2 words but %xphoaln has only 1\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\tnld\n@Participants:\tCHI Child, MOT Mother\n@ID:\tnld|corpus|CHI|2;00.||||Child|||\n@ID:\tnld|corpus|MOT|||||Mother|||\n*MOT:\tmuts ja .\n%pho:\tˈmʉst ˈjɛ\n%xphoaln:\tm↔m,œ↔ʉ,t↔s,s↔t\n@Comment:\tERROR: %pho has 2 words but %xphoaln has only 1\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5441,7 +5753,7 @@ fn test_e728_phoaln_pho_count_mismatch_utf8_begin_languages_0() -> Result<(), ta
 fn test_e733_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mod:\taɪ wɑnt\n@Comment:\tERROR: Main tier has 3 words but %mod only has 2 tokens (missing cookie)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\tI want cookie .\n%mod:\taɪ wɑnt\n@Comment:\tERROR: Main tier has 3 words but %mod only has 2 tokens (missing cookie)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5465,7 +5777,7 @@ fn test_e733_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e734_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n*CHI:\twant cookie .\n%mod:\taɪ wɑnt kʊki\n@Comment:\tERROR: Main tier has 2 words but %mod has 3 tokens (extra aɪ)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n*CHI:\twant cookie .\n%mod:\taɪ wɑnt kʊki\n@Comment:\tERROR: Main tier has 2 words but %mod has 3 tokens (extra aɪ)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);
@@ -5489,7 +5801,7 @@ fn test_e734_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
 fn test_e999_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;6|male|||Target_Child|||\n@Comment:\tNote: Terminators (. ! ?) align for %mor and %gra\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie\n@Comment:\tERROR: %mor missing terminator (should end with .)\n@Comment:\tMain tier: 3 words + terminator = 4 alignable\n@Comment:\tMor tier: Only 3 items (missing terminator)\n@End", &sink);
+    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|2;06.|male|||Target_Child|||\n@Comment:\tNote: Terminators (. ! ?) align for %mor and %gra\n*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie\n@Comment:\tERROR: %mor missing terminator (should end with .)\n@Comment:\tMain tier: 3 words + terminator = 4 alignable\n@Comment:\tMor tier: Only 3 items (missing terminator)\n@End", &sink);
 
     // Run validation
     chat_file.validate_with_alignment(&sink, None);

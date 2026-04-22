@@ -22,10 +22,10 @@ Invalid participant role
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child, MOT Mother, INV Investigator, BOB InvalidRole
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
-@ID:	eng|corpus|MOT|30;0|female|||Mother|||
-@ID:	eng|corpus|INV|25;0|female|||Investigator|||
-@ID:	eng|corpus|BOB|35;0|male|||InvalidRole|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
+@ID:	eng|corpus|MOT|30;00.|female|||Mother|||
+@ID:	eng|corpus|INV|25;00.|female|||Investigator|||
+@ID:	eng|corpus|BOB|35;00.|male|||InvalidRole|||
 @Comment:	ERROR: "InvalidRole" is not a valid participant role
 @Comment:	Valid roles include: Target_Child, Mother, Father, Investigator, etc.
 *CHI:	hello .

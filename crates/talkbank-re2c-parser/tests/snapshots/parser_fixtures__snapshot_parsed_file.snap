@@ -33,7 +33,7 @@ lines:
             language: eng
             corpus: corpus
             speaker: CHI
-            age: 3;0
+            age: 3;00.
             sex: ""
             group: ""
             ses: ""
@@ -75,4 +75,4 @@ lines:
       prefix:
         HeaderEnd: "@End"
       content: []
-source: "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;0||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n"
+source: "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child, MOT Mother\n@ID:\teng|corpus|CHI|3;00.||||Child|||\n*CHI:\thello .\n%mor:\tn|hello .\n@End\n"

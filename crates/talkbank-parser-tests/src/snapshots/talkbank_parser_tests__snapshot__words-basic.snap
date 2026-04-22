@@ -48,7 +48,7 @@ expression: snapshot
     },
     {
       "header": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"
@@ -143,8 +143,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 319,
-                      "start": 318
+                      "end": 321,
+                      "start": 320
                     }
                   },
                   "type": "compound_marker"
@@ -202,8 +202,8 @@ expression: snapshot
                 {
                   "content": {
                     "span": {
-                      "end": 349,
-                      "start": 348
+                      "end": 351,
+                      "start": 350
                     }
                   },
                   "type": "compound_marker"
@@ -362,7 +362,7 @@ expression: snapshot
       "birth_date": null,
       "code": "CHI",
       "id": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"

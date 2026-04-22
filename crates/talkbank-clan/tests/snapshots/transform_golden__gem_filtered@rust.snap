@@ -1,12 +1,12 @@
 ---
-source: tests/transform_golden.rs
+source: crates/talkbank-clan/tests/transform_golden.rs
 expression: "&rust_output"
 ---
 @UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|3;0||||Child|||
+@ID:	eng|corpus|CHI|3;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	Episode and inline headers: @New Episode, @G, @Bg, @Eg, @Bck, @Blank, @Number, @Page, @T
 @Comment:	Constructs: new_episode_header, g_header, bg_header, eg_header,

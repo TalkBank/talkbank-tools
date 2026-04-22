@@ -324,7 +324,7 @@ fn golden_combtier_coding() {
         &input_path,
         "@UTF8\n@Begin\n@Languages:\teng\n\
 @Participants:\tCHI Child, MOT Mother\n\
-@ID:\teng|corpus|CHI|3;0||||Child|||\n\
+@ID:\teng|corpus|CHI|3;00.||||Child|||\n\
 @ID:\teng|corpus|MOT|||||Mother|||\n\
 *CHI:\thello there .\n\
 %com:\tfirst comment\n\

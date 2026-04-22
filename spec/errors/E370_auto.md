@@ -27,7 +27,7 @@ replacements that do not align correctly with dependent tier items.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I <wanna> [: want to] <the> [: a] cookie .
 %mor:	pro|I v|want n|cookie .
 @End
@@ -47,7 +47,7 @@ validation check is not yet implemented.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I <want the> [: need the] cookie .
 %mor:	pro|I v|need n|cookie .
 @End
@@ -63,7 +63,7 @@ validation check is not yet implemented.
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I <want the big> [: need a large] cookie .
 %mor:	pro|I v|need n|cookie .
 @End

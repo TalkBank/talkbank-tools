@@ -15,7 +15,7 @@ const VALID_CHAT: &str = r#"@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	hello world .
 %mor:	n|hello n|world .
 @End
@@ -42,7 +42,7 @@ const CHAT_WITH_ALIGNMENT_ERROR: &str = r#"@UTF8
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I want cookie .
 %mor:	pro|I v|want .
 @Comment:	ERROR: Missing n|cookie in %mor

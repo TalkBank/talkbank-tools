@@ -79,7 +79,7 @@ fn warnings_only_file_cached_as_invalid() {
     let file_path = dir.path().join("warnings.cha");
     fs::write(
         &file_path,
-        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;6|female||badses|Target_Child|||\n*CHI:\thello world .\n@End\n",
+        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|3;06.|female||badses|Target_Child|||\n*CHI:\thello world .\n@End\n",
     )
     .expect("write test chat file with warning-producing SES value");
 

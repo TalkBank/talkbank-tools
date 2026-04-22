@@ -22,7 +22,7 @@ Duplicate dependent tiers
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I want cookie .
 %mor:	pro|I v|want n|cookie .
 %mor:	pro|I v|want n|cookie .
@@ -45,7 +45,7 @@ Duplicate dependent tiers
 @Begin
 @Languages:	eng
 @Participants:	CHI Target_Child
-@ID:	eng|corpus|CHI|2;6|male|||Target_Child|||
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
 *CHI:	I want cookie .
 %mor:	pro|I v|want n|cookie .
 %mor:	pro|I v|want n|cookie .

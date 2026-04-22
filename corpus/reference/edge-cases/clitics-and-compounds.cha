@@ -2,7 +2,7 @@
 @Begin
 @Languages:	eng
 @Participants:	CHI Child, MOT Mother
-@ID:	eng|corpus|CHI|4;0||||Child|||
+@ID:	eng|corpus|CHI|4;00.||||Child|||
 @ID:	eng|corpus|MOT|||||Mother|||
 @Comment:	%mor tier with clitics (tilde-separated: pos|stem~pos|stem),
 	compound words on main tier (A+B), features with ampersand

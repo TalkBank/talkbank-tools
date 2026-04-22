@@ -16,7 +16,7 @@ fn test_e524_birth_unknown_participant() -> Result<(), TestError> {
     // @Begin\n                                              (6-13, 7 bytes)
     // @Languages:\teng\n                                    (13-29, 16 bytes)
     // @Participants:\tCHI Ruth Target_Child\n              (29-68, 39 bytes)
-    // @ID:\teng|corpus|CHI|2;6.0||||Target_Child|||\n      (68-114, 46 bytes)
+    // @ID:\teng|corpus|CHI|2;06.00||||Target_Child|||\n      (68-114, 46 bytes)
     // @Birth of MOT:\t01-JAN-2000\n                        (114-143, 29 bytes)
     //           ^^^ MOT at bytes 124-127 (unknown participant - not in @Participants)
     // ...

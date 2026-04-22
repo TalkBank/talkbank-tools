@@ -48,7 +48,7 @@ expression: snapshot
     },
     {
       "header": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"
@@ -502,7 +502,7 @@ expression: snapshot
       "birth_date": null,
       "code": "CHI",
       "id": {
-        "age": "3;0",
+        "age": "3;00.",
         "corpus": "corpus",
         "language": [
           "eng"

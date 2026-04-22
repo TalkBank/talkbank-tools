@@ -79,9 +79,17 @@ pub struct ValidateCommandOptions {
     pub execution: ValidateCommandExecution,
     /// Output, audit, and TUI settings.
     pub presentation: ValidateCommandPresentation,
-    /// Error codes to suppress (e.g., ["E726", "E727", "E728"]).
-    /// Suppressed errors are not reported and do not affect the exit code.
+    /// Raw `--suppress` list as received from the CLI. Named groups
+    /// (like `xphon`) are still unexpanded at this point; final
+    /// resolution happens in `resolve_suppress`, which folds in the
+    /// default `xphon` suppression when `check_xphon` is false.
     pub suppress: Vec<String>,
+    /// Opt-in for `%xphon*` cross-tier alignment checks
+    /// (E725/E726/E727/E728). When false (the default), those codes
+    /// are added to the effective suppress list so the routine
+    /// validation surface stays clean on PhonTalk-exported data. See
+    /// `resolve_suppress` for the merge rules.
+    pub check_xphon: bool,
 }
 
 /// Expand named suppress groups into concrete error codes.
@@ -92,10 +100,13 @@ fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
     let mut codes = Vec::new();
     for item in raw {
         match item.to_lowercase().as_str() {
-            // TEMPORARY: %xmodsyl/%xphosyl/%xphoaln cross-tier alignment (PhonTalk-generated).
-            // E725: %modsyl vs %mod, E726: %phosyl vs %pho,
-            // E727: %phoaln vs %mod, E728: %phoaln vs %pho.
-            // Remove once Greg fixes the PhonTalk data quality issues.
+            // %xmodsyl / %xphosyl / %xphoaln cross-tier alignment
+            // (PhonTalk-generated). E725: %modsyl vs %mod, E726:
+            // %phosyl vs %pho, E727: %phoaln vs %mod, E728: %phoaln
+            // vs %pho. Suppressed by default — see
+            // `resolve_suppress` below — because PhonTalk output
+            // regularly ships with these divergences that we cannot
+            // fix upstream.
             "xphon" => codes.extend(["E725", "E726", "E727", "E728"].map(String::from)),
             _ => codes.push(item.to_uppercase()),
         }
@@ -103,9 +114,89 @@ fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
     codes
 }
 
+/// Combine the user's raw `--suppress` list with the default policy for
+/// the `xphon` validation group, then expand named groups into concrete
+/// error codes.
+///
+/// Policy (requested by Brian, 2026-04-21): the `xphon` group
+/// (E725–E728) is suppressed by default. Phon's CHAT-export tooling
+/// ships data that trips these cross-tier alignment checks; running
+/// them unconditionally creates unhelpful noise for every routine
+/// validation. Users who want those checks opt in with
+/// `--check-xphon`, which omits the automatic suppression.
+///
+/// Explicit user entries still win: if the user passes
+/// `--suppress E725` while also asking for `--check-xphon`, E725 is
+/// still suppressed (the user's instruction is more specific than the
+/// group opt-in). Likewise, a user who passes `--suppress xphon`
+/// keeps that exact suppression regardless of `--check-xphon`, since
+/// `apply_xphon_default` only adds the group when neither condition
+/// otherwise implies it.
+fn resolve_suppress(user_raw: Vec<String>, check_xphon: bool) -> Vec<String> {
+    let mut raw = user_raw;
+    if !check_xphon {
+        // Only add the default group if the user hasn't already
+        // mentioned it, so we don't bloat the list with redundant
+        // entries (cosmetic, but keeps diagnostic output clean).
+        let already_listed = raw.iter().any(|item| item.to_lowercase() == "xphon");
+        if !already_listed {
+            raw.push("xphon".to_string());
+        }
+    }
+    expand_suppress_groups(raw)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::expand_suppress_groups;
+    use super::{expand_suppress_groups, resolve_suppress};
+
+    #[test]
+    fn xphon_suppressed_by_default_when_check_xphon_false() {
+        let effective = resolve_suppress(vec![], false);
+        for code in ["E725", "E726", "E727", "E728"] {
+            assert!(
+                effective.contains(&code.to_string()),
+                "default suppress should include {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn xphon_active_when_check_xphon_true() {
+        let effective = resolve_suppress(vec![], true);
+        for code in ["E725", "E726", "E727", "E728"] {
+            assert!(
+                !effective.contains(&code.to_string()),
+                "opt-in mode must not suppress {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_user_suppress_still_applies_alongside_default() {
+        let effective = resolve_suppress(vec!["E316".to_string()], false);
+        assert!(effective.contains(&"E316".to_string()));
+        assert!(effective.contains(&"E725".to_string()));
+    }
+
+    #[test]
+    fn redundant_xphon_entry_not_doubled() {
+        let effective = resolve_suppress(vec!["xphon".to_string()], false);
+        // Expect each xphon code present exactly once.
+        for code in ["E725", "E726", "E727", "E728"] {
+            let count = effective.iter().filter(|c| *c == code).count();
+            assert_eq!(count, 1, "code {code} should appear exactly once");
+        }
+    }
+
+    #[test]
+    fn explicit_single_xphon_code_still_suppressed_even_with_check_xphon() {
+        // User asks to check xphon as a group, but also explicitly
+        // silences E725 on top. The explicit entry wins.
+        let effective = resolve_suppress(vec!["E725".to_string()], true);
+        assert!(effective.contains(&"E725".to_string()));
+        assert!(!effective.contains(&"E726".to_string()));
+    }
 
     #[test]
     fn xphon_expands_to_all_phon_cross_tier_codes() {
@@ -159,8 +250,9 @@ pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions
         execution,
         presentation,
         suppress: raw_suppress,
+        check_xphon,
     } = options;
-    let suppress = expand_suppress_groups(raw_suppress);
+    let suppress = resolve_suppress(raw_suppress, check_xphon);
     let ValidateCommandRules {
         alignment,
         roundtrip,

@@ -457,6 +457,10 @@ pub enum ErrorCode {
     /// Header out of canonical order (e.g., `@Options` before `@Participants`).
     #[code("E543")]
     HeaderOutOfOrder,
+    /// Invalid `@Birth of` date format — must match `DD-MMM-YYYY`
+    /// per CLAN `depfile.cut`'s `@d<dd-lll-yyyy>` template.
+    #[code("E545")]
+    InvalidBirthDateFormat,
     /// Unsupported `@ID` SES value.
     #[code("E546")]
     UnsupportedSesValue,

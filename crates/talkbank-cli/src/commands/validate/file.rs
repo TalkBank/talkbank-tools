@@ -14,7 +14,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use talkbank_model::{ErrorCollector, ParseValidateOptions, TeeErrorSink};
+use talkbank_model::{ErrorCollector, ErrorSink, ParseValidateOptions, TeeErrorSink};
 use talkbank_transform::parse_and_validate_streaming;
 
 use crate::cli::OutputFormat;
@@ -134,6 +134,18 @@ pub fn validate_file(
         }
     };
 
+    // Track whether the sink above streamed errors to stderr as it
+    // went. Only the no-suppress / text-mode branch does so; the
+    // JSON, TUI, and text+suppress branches all collected silently
+    // and therefore owe the user a printed rendering below. Before
+    // `resolve_suppress` defaulted `xphon` on, the suppress list was
+    // typically empty in interactive runs, so the streamed branch
+    // covered almost every case and this distinction wasn't visible
+    // in test fixtures. It became visible once xphon suppression
+    // fired by default (2026-04-21).
+    let errors_streamed_already =
+        matches!(format, OutputFormat::Text) && !interface.uses_tui() && suppress_set.is_empty();
+
     // Enhance errors with source context for proper miette display (TUI, JSON output, etc.)
     talkbank_model::enhance_errors_with_source(&mut errors, &content);
 
@@ -213,9 +225,18 @@ pub fn validate_file(
         None
     };
 
-    // If we are in text mode, we already streamed errors via TerminalErrorSink.
-    // If there are errors, we don't need to print them again via output_validation_result.
+    // Text mode normally streams errors live via `TerminalErrorSink`;
+    // when that happened, re-printing through
+    // `output_validation_result` would duplicate every diagnostic.
+    // The suppressed branch collected silently, however, so in that
+    // case we still owe the user a printed rendering.
     if matches!(format, OutputFormat::Text) && !errors.is_empty() {
+        if !errors_streamed_already {
+            let terminal_sink = TerminalErrorSink::new(path, &content);
+            for error in &errors {
+                terminal_sink.report(error.clone());
+            }
+        }
         if !quiet && crate::output::should_show_cascading_hint(&errors) {
             eprintln!("{}", crate::output::CASCADING_HINT);
         }
