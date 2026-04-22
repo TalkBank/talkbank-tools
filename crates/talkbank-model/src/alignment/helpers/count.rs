@@ -27,6 +27,88 @@ pub struct TierPosition {
     pub description: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Typed counts for cross-tier alignment
+//
+// These newtypes exist so a pipeline can't accidentally confuse "number of
+// Mor-alignable words on the main tier" with "number of %mor items on the
+// dependent tier". They agree on an Aligned utterance and disagree on a
+// MisalignmentBug — both are interesting facts the type system must let us
+// state without primitive obsession.
+//
+// The types are intentionally minimal: they expose only `get()` and basic
+// derives. Arithmetic, serialization, and display formatting happen at the
+// call site with explicit unwrapping, because any time you're doing math
+// on these you are likely crossing a semantic boundary that deserves a
+// comment.
+// ---------------------------------------------------------------------------
+
+/// Count of CHAT main-tier words alignable to the `%mor` dependent tier.
+///
+/// Produced by [`Utterance::mor_alignable_word_count`](crate::model::Utterance::mor_alignable_word_count)
+/// applying the rules in `alignment/helpers/rules.rs::counts_for_tier`.
+/// This is the **expected** size of the `%mor` tier on this utterance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MorAlignableWordCount(usize);
+
+impl MorAlignableWordCount {
+    /// Wrap a raw count.
+    pub fn new(value: usize) -> Self {
+        Self(value)
+    }
+
+    /// Inner count.
+    pub fn get(self) -> usize {
+        self.0
+    }
+
+    /// `true` iff this utterance has no Mor-alignable content — i.e.,
+    /// `%mor` should not be produced at all (NotApplicable).
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
+    }
+}
+
+impl std::fmt::Display for MorAlignableWordCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// Count of items on a `%mor` dependent tier.
+///
+/// Produced by `mor_tier.items.len()` when the tier is present. When
+/// paired with a [`MorAlignableWordCount`], the two either agree
+/// (Aligned) or disagree (MisalignmentBug); the types prevent you from
+/// swapping them in the comparison.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MorItemCount(usize);
+
+impl MorItemCount {
+    /// Wrap a raw count.
+    pub fn new(value: usize) -> Self {
+        Self(value)
+    }
+
+    /// Inner count.
+    pub fn get(self) -> usize {
+        self.0
+    }
+
+    /// `true` iff the tier is empty (or was absent, in which case we
+    /// represent the absence as `None` at the call site — do not
+    /// substitute `MorItemCount::new(0)` for a missing tier).
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
+    }
+}
+
+impl std::fmt::Display for MorItemCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 /// Extract alignable items with their display text for a given alignment domain.
 ///
 /// The returned sequence matches alignment traversal order and is used to build

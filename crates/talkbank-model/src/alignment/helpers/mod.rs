@@ -22,7 +22,8 @@ mod walk;
 mod tests;
 
 pub use count::{
-    TierPosition, collect_tier_items, count_tier_positions, count_tier_positions_until,
+    MorAlignableWordCount, MorItemCount, TierPosition, collect_tier_items, count_tier_positions,
+    count_tier_positions_until,
 };
 
 /// Render any [`WriteChat`](crate::model::WriteChat) value into owned text

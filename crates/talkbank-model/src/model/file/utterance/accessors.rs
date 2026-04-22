@@ -9,6 +9,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Line>
 
 use crate::LanguageMetadata;
+use crate::alignment::helpers::{MorAlignableWordCount, TierDomain, count_tier_positions};
 use crate::model::dependent_tier::{
     ActTier, CodTier, DependentTier, GraTier, MorTier, PhoTier, PhoalnTier, SinTier, SylTier,
 };
@@ -281,5 +282,76 @@ impl Utterance {
     /// Return computed per-word language metadata, if available.
     pub fn computed_language_metadata(&self) -> Option<&LanguageMetadata> {
         self.language_metadata.as_computed()
+    }
+
+    // ---------------------------------------------------------------------
+    // Alignable-word counts: the canonical N for each dependent-tier domain.
+    //
+    // These methods are the **single source of truth** for how many items
+    // a dependent tier is expected to contain, given the main tier as
+    // ground truth. They delegate to `count_tier_positions`, which applies
+    // the rules in `alignment/helpers/rules.rs` (fillers/nonwords/fragments
+    // excluded from %mor; tag-marker separators `,`/`„`/`‡` included in
+    // %mor; retrace groups skipped for %mor but kept for %pho/%sin/%wor;
+    // replaced-word replacements align in %mor, originals align in %pho/%sin/%wor).
+    //
+    // Every pipeline that validates "dependent tier count matches main tier
+    // content" — morphotag injection, utseg application, %wor/%mor/%gra
+    // cross-tier validators, LSP hover features — should call these
+    // methods. Duplicating the walk locally risks silent drift from the
+    // CHAT manual policy and from each other; see the 2026-04-17 comma-drop
+    // incident for what happens when two copies of the rule disagree.
+    // ---------------------------------------------------------------------
+
+    /// Return the number of items the `%mor` tier must contain to be
+    /// aligned 1-to-1 with this utterance's main-tier content.
+    ///
+    /// Counts: regular words + replacement words + tag-marker separators
+    /// (`,` as `cm|cm`, `„` as `end|end`, `‡` as `beg|beg`).
+    /// Excludes: fillers (`&-hmm`), nonwords (`&~ach`), phonological
+    /// fragments (`&+le`), untranscribed (`xxx`, `yyy`, `www`), omissions,
+    /// retrace content, utterance terminators, pauses, events, annotations.
+    ///
+    /// This is the authoritative definition of `N` used by
+    /// `batchalign3`'s morphotag invariant check. The typed
+    /// [`MorAlignableWordCount`] return prevents accidental confusion
+    /// with `MorItemCount` (which measures the `%mor` tier size, not
+    /// the main-tier alignable slot count).
+    pub fn mor_alignable_word_count(&self) -> MorAlignableWordCount {
+        MorAlignableWordCount::new(count_tier_positions(
+            &self.main.content.content,
+            TierDomain::Mor,
+        ))
+    }
+
+    /// Return the number of items the `%wor` tier must contain to be
+    /// aligned 1-to-1 with this utterance's main-tier content.
+    ///
+    /// Counts regular words and fillers (`&-`); excludes nonwords (`&~`),
+    /// phonological fragments (`&+`), untranscribed (`xxx`/`yyy`/`www`),
+    /// and timing metadata. Retrace content **is** counted here (the words
+    /// were phonologically produced).
+    pub fn wor_alignable_word_count(&self) -> usize {
+        count_tier_positions(&self.main.content.content, TierDomain::Wor)
+    }
+
+    /// Return the number of items the `%pho` tier must contain to be
+    /// aligned 1-to-1 with this utterance's main-tier content.
+    ///
+    /// Every phonologically-produced item counts: regular words, fillers,
+    /// fragments, nonwords, retrace content, untranscribed markers, pauses.
+    /// This is the most permissive domain because %pho records what was
+    /// spoken, including corrections and fragments.
+    pub fn pho_alignable_word_count(&self) -> usize {
+        count_tier_positions(&self.main.content.content, TierDomain::Pho)
+    }
+
+    /// Return the number of items the `%sin` tier must contain to be
+    /// aligned 1-to-1 with this utterance's main-tier content.
+    ///
+    /// Similar to %pho but for signed language; includes annotated actions
+    /// which carry sign-language gestures.
+    pub fn sin_alignable_word_count(&self) -> usize {
+        count_tier_positions(&self.main.content.content, TierDomain::Sin)
     }
 }
