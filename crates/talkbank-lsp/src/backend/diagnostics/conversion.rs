@@ -33,6 +33,12 @@ fn build_diagnostic(
     uri: Option<&Url>,
     chat_file: Option<&ChatFile>,
 ) -> Diagnostic {
+    // Every diagnostic is an Error (Severity::Warning is reserved in
+    // the enum for compatibility with miette's severity levels but is
+    // no longer emitted anywhere in the validation layer — see the
+    // 2026-04-22 depfile.cut conformance sweep). If a future caller
+    // downgrades a specific code to Warning via `ValidationConfig`, we
+    // surface it as an LSP warning; everything else is an error.
     let severity = match error.severity {
         talkbank_model::Severity::Error => DiagnosticSeverity::ERROR,
         talkbank_model::Severity::Warning => DiagnosticSeverity::WARNING,
@@ -118,6 +124,13 @@ mod tests {
 
     #[test]
     fn severity_mapping() {
+        // Pure mapping test: Error→ERROR, Warning→WARNING. No
+        // validator emits Warning in the current codebase (see the
+        // 2026-04-22 depfile.cut conformance sweep that flipped every
+        // soft-accept to a hard Error), but the enum variant is
+        // retained for future use and this test locks in the LSP
+        // mapping so that if/when a validator *does* emit Warning
+        // again, the LSP surfaces it correctly.
         let text = "*CHI:\thello .\n";
         let err = make_error(ErrorCode::MissingTerminator, Severity::Error, 0, 5);
         let warn = make_error(ErrorCode::EmptyUtterance, Severity::Warning, 0, 5);
@@ -140,7 +153,7 @@ mod tests {
 
     #[test]
     fn empty_utterance_gets_unnecessary_tag() {
-        let err = make_error(ErrorCode::EmptyUtterance, Severity::Warning, 0, 5);
+        let err = make_error(ErrorCode::EmptyUtterance, Severity::Error, 0, 5);
         let tags = diagnostic_tags(&err);
         assert!(tags.is_some());
         assert!(tags.unwrap().contains(&DiagnosticTag::UNNECESSARY));
@@ -157,7 +170,7 @@ mod tests {
     fn batch_converts_multiple_errors() {
         let text = "@UTF8\n@Begin\n*CHI:\thello .\n@End\n";
         let e1 = make_error(ErrorCode::MissingTerminator, Severity::Error, 12, 20);
-        let e2 = make_error(ErrorCode::EmptyUtterance, Severity::Warning, 12, 20);
+        let e2 = make_error(ErrorCode::EmptyUtterance, Severity::Error, 12, 20);
         let diags = to_diagnostics_batch(&[&e1, &e2], text);
         assert_eq!(diags.len(), 2);
         assert_eq!(diags[0].source, Some("talkbank".to_string()));

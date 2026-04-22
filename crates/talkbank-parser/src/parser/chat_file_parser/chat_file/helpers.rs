@@ -224,7 +224,7 @@ fn report_top_level_dependent_tier_error(
     errors.report(
         ParseError::new(
             code,
-            Severity::Warning,
+            Severity::Error,
             SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
             ErrorContext::new(input, error_node.start_byte()..error_node.end_byte(), text),
             message,
@@ -388,7 +388,7 @@ pub(super) fn parse_lines_with_old_tree(
                             .unwrap_or("<invalid UTF-8>");
                         errors.report(ParseError::new(
                             ErrorCode::UnexpectedLineType,
-                            Severity::Warning,
+                            Severity::Error,
                             SourceLocation::from_offsets(
                                 line_child.start_byte(),
                                 line_child.end_byte(),

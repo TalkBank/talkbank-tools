@@ -65,7 +65,7 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
         errors.report(
             ParseError::new(
                 code,
-                Severity::Warning,
+                Severity::Error,
                 SourceLocation::from_offsets(start, end),
                 ErrorContext::new(source, start..end, error_text),
                 message,
@@ -176,7 +176,7 @@ pub(crate) fn analyze_error_node(node: Node, source: &str, errors: &impl ErrorSi
             errors.report(
                 ParseError::new(
                     ErrorCode::UnknownHeader,
-                    Severity::Warning,
+                    Severity::Error,
                     SourceLocation::from_offsets(start, end),
                     ErrorContext::new(source, start..end, error_text),
                     "@Page header is not a standard CHAT header",

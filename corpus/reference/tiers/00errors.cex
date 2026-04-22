@@ -1,14 +1,3 @@
-*** File "sin.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
 *** File "sin.cha": line 6, column 1: parser: semantic failure: not 'unlinked' or 'missing' or 'notrans', but there are not bullets in transcript
-*** File "descriptive.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "user-defined.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "multi-tier-utterance.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "mor-quoted-terminator.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "pho-syllable-dots.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "pho.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "phon-syllabification.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "coding.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "mor-gra.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "wor.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "pho-groupings.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "other.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "pho.cha": line 12, column 7: tree parser: mismatched tree node: propn expecting <UP>
+*** File "pho.cha": line 12, column 13: tree parser: mismatched tree node: Mommy expecting <UP>

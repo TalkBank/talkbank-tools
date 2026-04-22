@@ -1,11 +1,9 @@
-*** File "multiline-continuation.cha": line 6, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-time-and-types.cha": line 4, column 25: parser: missing PERIOD at '|'
 *** File "headers-time-and-types.cha": line 9, column 1: parser: mismatched input '@Options:' expecting END
-*** File "basic-conversation.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-media.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
+*** File "headers-time-and-types.cha": line 9, column 15: lexer: skipping nonviable character 'N' in state 204
+*** File "headers-time-and-types.cha": line 9, column 16: lexer: skipping nonviable character 'o' in state 204
+*** File "headers-time-and-types.cha": line 9, column 17: lexer: skipping nonviable character 'A' in state 204
+*** File "headers-time-and-types.cha": line 9, column 18: lexer: skipping nonviable character 'l' in state 204
+*** File "headers-time-and-types.cha": line 9, column 19: lexer: skipping nonviable character 'i' in state 204
+*** File "headers-time-and-types.cha": line 9, column 20: lexer: skipping nonviable character 'g' in state 204
+*** File "headers-time-and-types.cha": line 9, column 21: lexer: skipping nonviable character 'n' in state 204
 *** File "headers-media-notrans.cha": line 8, column 37: lexer: skipping nonviable character '—' (Unicode \u2014) in state 126
-*** File "headers-recording.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-media-url.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-pre-begin.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-episodes.cha": line 4, column 24: parser: semantic failure: months for age must be two digits
-*** File "headers-comments.cha": line 4, column 24: parser: semantic failure: months for age must be two digits

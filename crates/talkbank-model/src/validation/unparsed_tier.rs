@@ -24,7 +24,7 @@ pub(crate) fn check_user_defined_tier_content(
     if content.chars().all(|ch| ch.is_whitespace()) {
         let mut err = ParseError::new(
             ErrorCode::EmptyUserDefinedTier,
-            Severity::Warning,
+            Severity::Error,
             SourceLocation::at_offset(span.start as usize),
             ErrorContext::new(content, 0..content.len(), content),
             format!("User-defined tier %x{} has no content", label),
@@ -61,7 +61,7 @@ fn check_tier_label(label: &str, span: Span, errors: &impl ErrorSink) {
     if KNOWN_TIERS.contains(&label) {
         let mut err = ParseError::new(
             ErrorCode::UnknownUserDefinedTier,
-            Severity::Warning,
+            Severity::Error,
             SourceLocation::at_offset(span.start as usize),
             ErrorContext::new(label, 0..label.len(), label),
             format!(
@@ -93,7 +93,7 @@ mod tests {
         let error_vec = errors.into_vec();
         assert_eq!(error_vec.len(), 1);
         assert_eq!(error_vec[0].code, ErrorCode::EmptyUserDefinedTier);
-        assert_eq!(error_vec[0].severity, Severity::Warning);
+        assert_eq!(error_vec[0].severity, Severity::Error);
     }
 
     #[test]
@@ -104,7 +104,7 @@ mod tests {
         let error_vec = errors.into_vec();
         assert_eq!(error_vec.len(), 1);
         assert_eq!(error_vec[0].code, ErrorCode::UnknownUserDefinedTier);
-        assert_eq!(error_vec[0].severity, Severity::Warning);
+        assert_eq!(error_vec[0].severity, Severity::Error);
     }
 
     #[test]

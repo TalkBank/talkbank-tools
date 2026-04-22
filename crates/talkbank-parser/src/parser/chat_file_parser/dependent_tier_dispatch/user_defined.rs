@@ -142,7 +142,7 @@ fn apply_x_tier(
                 Err(e) => {
                     errors.report(ParseError::new(
                         ErrorCode::InvalidDependentTier,
-                        Severity::Warning,
+                        Severity::Error,
                         SourceLocation::from_offsets(tier_node.start_byte(), tier_node.end_byte()),
                         ErrorContext::new(
                             input,
@@ -252,7 +252,7 @@ fn apply_unsupported_tier(
             // Empty unsupported tier — skip it
             errors.report(ParseError::new(
                 ErrorCode::TreeParsingError,
-                Severity::Warning,
+                Severity::Error,
                 SourceLocation::from_offsets(tier_node.start_byte(), tier_node.end_byte()),
                 ErrorContext::new(input, tier_node.start_byte()..tier_node.end_byte(), ""),
                 format!("Empty unsupported dependent tier %{}", label_text),

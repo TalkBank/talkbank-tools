@@ -146,7 +146,7 @@ pub fn parse_file_with_errors<'a>(
                 report_error(
                     errors,
                     talkbank_model::errors::codes::ErrorCode::UnparsableLine,
-                    talkbank_model::Severity::Warning,
+                    talkbank_model::Severity::Error,
                     &tokens[line_start..pos],
                     "orphan dependent tier (no preceding main tier)",
                 );
@@ -157,7 +157,7 @@ pub fn parse_file_with_errors<'a>(
                 let tok = &tokens[pos];
                 errors.report(ParseError::new(
                     talkbank_model::errors::codes::ErrorCode::UnexpectedSyntax,
-                    talkbank_model::Severity::Warning,
+                    talkbank_model::Severity::Error,
                     talkbank_model::SourceLocation::new(Span::DUMMY),
                     None,
                     format!("unhandled token in parse_chat_file: {:?}", tok.text()),
@@ -230,7 +230,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );
@@ -247,7 +247,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );
@@ -264,7 +264,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );
@@ -281,7 +281,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );
@@ -298,7 +298,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );
@@ -317,7 +317,7 @@ fn parse_dependent_tiers<'a>(
                     report_error(
                         errors,
                         talkbank_model::errors::codes::ErrorCode::UnparsableContent,
-                        talkbank_model::Severity::Warning,
+                        talkbank_model::Severity::Error,
                         tier_tokens,
                         &format!("failed to parse {prefix_text} tier content"),
                     );

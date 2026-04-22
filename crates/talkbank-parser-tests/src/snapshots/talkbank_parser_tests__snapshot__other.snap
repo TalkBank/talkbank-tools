@@ -142,7 +142,7 @@ expression: snapshot
           "type": "Par"
         },
         {
-          "data": "afternoon session",
+          "data": "14:00:00",
           "type": "Tim"
         }
       ],

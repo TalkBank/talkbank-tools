@@ -305,7 +305,7 @@ fn validate_cross_speaker_overlap(bullets: &[BulletInfo], errors: &impl ErrorSin
                 errors.report(
                     ParseError::new(
                         E729,
-                        Severity::Warning,
+                        Severity::Error,
                         SourceLocation::new(bullet_info.bullet.span),
                         ErrorContext::new(
                             bullet_text(bullet_info.bullet),

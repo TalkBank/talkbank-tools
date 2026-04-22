@@ -370,7 +370,7 @@ fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl
         errors.report(
             ParseError::new(
                 ErrorCode::UnbalancedOverlap,
-                Severity::Warning,
+                Severity::Error,
                 SourceLocation::new(utt.main.span),
                 ErrorContext::new(&orphan.speaker, utt.main.span, &orphan.speaker),
                 format!(
@@ -396,7 +396,7 @@ fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl
         errors.report(
             ParseError::new(
                 ErrorCode::UnbalancedOverlap,
-                Severity::Warning,
+                Severity::Error,
                 SourceLocation::new(utt.main.span),
                 ErrorContext::new(&orphan.speaker, utt.main.span, &orphan.speaker),
                 format!(

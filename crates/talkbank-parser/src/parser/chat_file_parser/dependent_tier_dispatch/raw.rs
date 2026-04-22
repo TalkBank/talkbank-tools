@@ -166,7 +166,7 @@ pub(super) fn apply_raw_tier(
                     Err(e) => {
                         errors.report(ParseError::new(
                             ErrorCode::InvalidDependentTier,
-                            Severity::Warning,
+                            Severity::Error,
                             SourceLocation::from_offsets(
                                 tier_node.start_byte(),
                                 tier_node.end_byte(),

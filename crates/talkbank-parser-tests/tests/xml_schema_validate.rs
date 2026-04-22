@@ -34,7 +34,7 @@ fn xsd_path() -> PathBuf {
         .parent()
         .and_then(Path::parent)
         .unwrap()
-        .join("corpus/reference-xml/talkbank.xsd")
+        .join("schema/xml/talkbank.xsd")
 }
 
 /// Parametrised schema-validation test: emit XML for every `.cha`
@@ -64,7 +64,7 @@ fn xml_schema_validates(#[files("../../corpus/reference/**/*.cha")] cha_path: Pa
     let xsd = xsd_path();
     if !xsd.exists() {
         panic!(
-            "talkbank.xsd missing at expected path {} — did the reference-xml/ \
+            "talkbank.xsd missing at expected path {} — did the schema/xml/ \
              layout change?",
             xsd.display()
         );

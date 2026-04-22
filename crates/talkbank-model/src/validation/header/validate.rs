@@ -124,7 +124,7 @@ fn check_unsupported_options(
         if let crate::model::ChatOptionFlag::Unsupported(value) = flag {
             let mut err = crate::ParseError::new(
                 crate::ErrorCode::UnsupportedOption,
-                crate::Severity::Warning,
+                crate::Severity::Error,
                 crate::SourceLocation::at_offset(span.start as usize),
                 crate::ErrorContext::new(value, 0..value.len(), "option_name"),
                 format!("Unsupported @Options value: '{}'", value),
@@ -145,7 +145,7 @@ fn check_unsupported_media(
     if let crate::model::MediaType::Unsupported(value) = &media_header.media_type {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedMediaType,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "media_type"),
             format!("Unsupported @Media type: '{}'", value),
@@ -158,7 +158,7 @@ fn check_unsupported_media(
     if let Some(crate::model::MediaStatus::Unsupported(value)) = &media_header.status {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedMediaStatus,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "media_status"),
             format!("Unsupported @Media status: '{}'", value),
@@ -174,7 +174,7 @@ fn check_unsupported_number(number: &crate::model::Number, span: Span, errors: &
     if let crate::model::Number::Unsupported(value) = number {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedNumber,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "number_option"),
             format!("Unsupported @Number value: '{}'", value),
@@ -194,7 +194,7 @@ fn check_unsupported_recording_quality(
     if let crate::model::RecordingQuality::Unsupported(value) = quality {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedRecordingQuality,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "recording_quality_option"),
             format!("Unsupported @Recording Quality value: '{}'", value),
@@ -214,7 +214,7 @@ fn check_unsupported_transcription(
     if let crate::model::Transcription::Unsupported(value) = transcription {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedTranscription,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "transcription_option"),
             format!("Unsupported @Transcription value: '{}'", value),
@@ -232,7 +232,7 @@ fn check_unsupported_ses(ses: &crate::model::SesValue, span: Span, errors: &impl
     if let crate::model::SesValue::Unsupported(value) = ses {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedSesValue,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "id_ses"),
             format!("Unsupported @ID SES value: '{}'", value),
@@ -250,7 +250,7 @@ fn check_unsupported_sex(sex: &crate::model::Sex, span: Span, errors: &impl Erro
     if let crate::model::Sex::Unsupported(value) = sex {
         let mut err = crate::ParseError::new(
             crate::ErrorCode::UnsupportedSex,
-            crate::Severity::Warning,
+            crate::Severity::Error,
             crate::SourceLocation::at_offset(span.start as usize),
             crate::ErrorContext::new(value, 0..value.len(), "id_sex"),
             format!("Unsupported @ID sex value: '{}'", value),

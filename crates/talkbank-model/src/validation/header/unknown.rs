@@ -9,8 +9,11 @@ use crate::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLoca
 
 /// Reports unknown or malformed header labels.
 ///
-/// Legacy `@OldHeader` is intentionally downgraded to warning severity so
-/// archival corpora can still validate with actionable but non-blocking output.
+/// A header label not recognised by the grammar is always an error —
+/// there are no "soft" header kinds in modern CHAT. Earlier code had
+/// a special case for a made-up `@OldHeader` label that demoted the
+/// diagnostic to Warning severity; that label was never part of the
+/// CHAT spec and the special case was removed on 2026-04-22.
 pub(super) fn check_unknown_header(
     text: &str,
     parse_reason: Option<&str>,
@@ -18,49 +21,22 @@ pub(super) fn check_unknown_header(
     span: Span,
     errors: &impl ErrorSink,
 ) {
-    let trimmed = text.trim_start();
-    let is_legacy_header = trimmed
-        .split_once(':')
-        .map(|(label, _)| label.eq_ignore_ascii_case("@OldHeader"))
-        .unwrap_or(false);
-    let code = if is_legacy_header {
-        ErrorCode::LegacyWarning
-    } else {
-        ErrorCode::UnknownHeader
-    };
-    let severity = if is_legacy_header {
-        Severity::Warning
-    } else {
-        Severity::Error
-    };
-
-    let mut message = if is_legacy_header {
-        format!("Legacy header encountered: {}", text)
-    } else {
-        format!("Unknown or malformed header: {}", text)
-    };
-
-    // Append parse reason if available
+    let mut message = format!("Unknown or malformed header: {}", text);
     if let Some(reason) = parse_reason {
         message.push_str(&format!(" ({})", reason));
     }
 
     let mut error = ParseError::new(
-        code,
-        severity,
+        ErrorCode::UnknownHeader,
+        Severity::Error,
         SourceLocation::at_offset(span.start as usize),
         ErrorContext::new(text, 0..text.len(), "unknown_header"),
         message,
     );
     error.location.span = span;
 
-    // Use suggested fix if available, otherwise use generic suggestion
     if let Some(fix) = suggested_fix {
         error = error.with_suggestion(fix);
-    } else if is_legacy_header {
-        error = error.with_suggestion(
-            "Keep for archival fidelity, or migrate this metadata into a standard CHAT header",
-        );
     } else {
         error = error.with_suggestion(
             "Check the CHAT manual for valid header types: https://talkbank.org/0info/manuals/CHAT.html#File_Headers",

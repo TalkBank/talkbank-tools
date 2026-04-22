@@ -230,7 +230,7 @@ pub fn validate_gra_structure(
         errors.report(
             ParseError::at_span(
                 ErrorCode::GraNoRoot,
-                Severity::Warning,
+                Severity::Error,
                 span,
                 "%gra tier has no ROOT relation",
             )
@@ -243,7 +243,7 @@ pub fn validate_gra_structure(
         errors.report(
             ParseError::at_span(
                 ErrorCode::GraMultipleRoots,
-                Severity::Warning,
+                Severity::Error,
                 span,
                 format!(
                     "%gra tier has {} ROOT relations, expected 1",
@@ -259,7 +259,7 @@ pub fn validate_gra_structure(
         errors.report(
             ParseError::at_span(
                 ErrorCode::GraCircularDependency,
-                Severity::Warning,
+                Severity::Error,
                 span,
                 "%gra tier has circular dependency",
             )
@@ -496,7 +496,7 @@ mod tests {
             errs.iter()
                 .any(|e| e.code == ErrorCode::GraCircularDependency)
         );
-        assert!(errs.iter().all(|e| e.severity == Severity::Warning));
+        assert!(errs.iter().all(|e| e.severity == Severity::Error));
     }
 
     /// Multiple roots are surfaced as warnings.
@@ -514,7 +514,7 @@ mod tests {
 
         // Should have warnings for multiple roots
         assert!(errs.iter().any(|e| e.code == ErrorCode::GraMultipleRoots));
-        assert!(errs.iter().all(|e| e.severity == Severity::Warning));
+        assert!(errs.iter().all(|e| e.severity == Severity::Error));
     }
 
     /// `head=0` is accepted as a valid root encoding.

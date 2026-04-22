@@ -1484,11 +1484,3 @@ A user-defined dependent tier () uses a label that matches a knownstandard tier 
 |------|------|----------|--------|
 | [W602](W602.md) | W602: Deprecated experimental tier name | error | ⏳ |
 
-## validation (W9x)
-
-Auto-generated from corpus
-
-| Code | Name | Severity | Status |
-|------|------|----------|--------|
-| [W999](W999.md) | generated from corpus | error | ✅ |
-

@@ -5891,27 +5891,3 @@ fn test_w602_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::
     Ok(())
 }
 
-
-/// Tests expected behavior.
-#[test]
-fn test_w999_auto_utf8_begin_languages_0() -> Result<(), talkbank_parser_tests::test_error::TestError> {
-    let parser = TreeSitterParser::new()?;
-    let sink = talkbank_model::ErrorCollector::new();
-    let mut chat_file = parser.parse_chat_file_streaming("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Child\n@ID:\teng|corpus|CHI|||||Child|||\n@OldHeader:\tsome value\n*CHI:\thello .\n@End", &sink);
-
-    // Run validation
-    chat_file.validate_with_alignment(&sink, None);
-
-    let errors = sink.into_vec();
-    let expected_codes = vec!["W999"];
-
-    for code in expected_codes {
-        let expected = talkbank_model::ErrorCode::new(code);
-        let has_expected = errors.iter().any(|err| err.code == expected);
-        assert!(has_expected, "Expected error code {}, but got: {:?}",
-            code, errors.iter().map(|err| err.code.as_str()).collect::<Vec<_>>());
-    }
-
-    Ok(())
-}
-

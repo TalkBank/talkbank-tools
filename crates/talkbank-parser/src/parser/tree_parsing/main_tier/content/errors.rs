@@ -32,7 +32,7 @@ pub(crate) fn analyze_word_error(error_node: Node, source: &str) -> ParseError {
     if error_text.starts_with('"') && !error_text[1..].contains('"') {
         return ParseError::new(
             ErrorCode::UnbalancedQuotation,
-            Severity::Warning,
+            Severity::Error,
             SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
             ErrorContext::new(error_text, 0..error_text.len(), error_text),
             "Unbalanced quotation in word content".to_string(),
@@ -46,7 +46,7 @@ pub(crate) fn analyze_word_error(error_node: Node, source: &str) -> ParseError {
     {
         return ParseError::new(
             ErrorCode::LengtheningNotAfterSpokenMaterial,
-            Severity::Warning,
+            Severity::Error,
             SourceLocation::from_offsets(error_node.start_byte(), error_node.end_byte()),
             ErrorContext::new(error_text, 0..error_text.len(), error_text),
             "Lengthening marker appears before spoken material".to_string(),
