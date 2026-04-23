@@ -19,8 +19,37 @@ if [[ -z "${CHAT_HTML_PATH}" || ! -f "$CHAT_HTML_PATH" ]]; then
     echo "Downloading CHAT manual from: $CHAT_HTML_URL" >&2
     CHAT_HTML_PATH="$tmpdir/CHAT.html"
     # --retry-all-errors covers transient DNS and connect failures on CI runners.
+    # `set -e` would abort on any curl non-zero; we want to distinguish
+    # network failure (skip gracefully) from HTTP 4xx / 5xx on the URL
+    # itself (real failure worth reporting).
+    set +e
     curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors --connect-timeout 15 \
       "$CHAT_HTML_URL" -o "$CHAT_HTML_PATH"
+    curl_status=$?
+    set -e
+    # Curl exit codes treated as "network unavailable, skip with warning":
+    # 6 = could not resolve host
+    # 7 = failed to connect to host
+    # 28 = operation timeout
+    # 35 = SSL connect error
+    # 56 = failure receiving network data
+    # These are chronic on CI runners when talkbank.org is unreachable
+    # from their IP range; the anchor check is an advisory cross-check,
+    # not a gate, so skipping here keeps CI unblocked without hiding
+    # real content errors (HTTP 4xx/5xx still fail loudly via exit 22).
+    if [[ $curl_status -ne 0 ]]; then
+      case $curl_status in
+        6|7|28|35|56)
+          echo "WARNING: CHAT manual unreachable from this host (curl exit $curl_status)." >&2
+          echo "Skipping anchor check — re-run locally once network access is available." >&2
+          exit 0
+          ;;
+        *)
+          echo "ERROR: curl failed with exit $curl_status downloading $CHAT_HTML_URL" >&2
+          exit $curl_status
+          ;;
+      esac
+    fi
   else
     cat >&2 <<EOF
 ERROR: CHAT manual HTML not found locally and curl is unavailable.
