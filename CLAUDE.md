@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-04-22 16:36 EDT
+**Last modified:** 2026-04-23 22:38 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -61,6 +61,17 @@ cargo build --release -p talkbank-cli
 ```
 
 No special setup beyond a working Rust toolchain. `cargo run` handles incremental compilation automatically.
+
+## Test-management patterns — cross-repo convention
+
+The seven patterns shipped in batchalign3 on 2026-04-23 (background
+runner, interactive fail-fast, memory-budget xdist clipping, SQLite
+test history, history-driven ordering, `affects:` change-aware
+selection, drift-sentinel probes as monitors) are documented in
+`<workspace>/docs/test-management-convention.md` (private workspace).
+If this repo grows any of those pain shapes — waiting on slow tests,
+flakiness, probe-vs-regression confusion — that doc is the normative
+reference rather than reinventing the solution.
 
 ## Build, Test, and Lint
 
