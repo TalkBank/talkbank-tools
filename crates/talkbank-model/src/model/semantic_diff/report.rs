@@ -268,7 +268,6 @@ Differences (first ",
                 SemanticDiffKind::VariantMismatch => {
                     "enum variant changed (e.g., Word → OverlapGroup)"
                 }
-                SemanticDiffKind::TypeMismatch => "type changed during roundtrip",
             };
             let _ = writeln!(output, "  Note: {}", note);
 

@@ -122,8 +122,6 @@ pub use indices::{
 pub use mor::{MorAlignment, align_main_to_mor};
 pub use pho::{PhoAlignment, align_main_to_pho};
 pub use sin::{SinAlignment, align_main_to_sin};
-pub use traits::{
-    AlignableTier, IndexPair, MismatchFormat, TierAlignmentResult, TierCountable, positional_align,
-};
+pub use traits::{AlignableTier, IndexPair, TierAlignmentResult, TierCountable, positional_align};
 pub use types::AlignmentPair;
 pub use wor::{WorTimingSidecar, resolve_wor_timing_sidecar};

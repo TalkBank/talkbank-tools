@@ -13,7 +13,6 @@
 //! - **Explanations**: `[= text]` - Clarify unclear or ambiguous utterances
 //! - **Retracing**: `[/]`, `[//]`, `[///]` - Mark repeated or self-corrected words
 //! - **Overlaps**: `[<]`, `[>]` - Mark simultaneous speech by multiple speakers
-//! - **Additions**: `[+ text]` - Add clarifying information
 //!
 //! # CHAT Manual Reference
 //!
@@ -37,7 +36,6 @@ mod types;
 mod write;
 
 pub use types::{
-    ContentAnnotation, OverlapMarkerIndex, ScopedAddition, ScopedAlternative, ScopedError,
-    ScopedExplanation, ScopedOverlapBegin, ScopedOverlapEnd, ScopedParalinguistic,
-    ScopedPercentComment, ScopedUnknown,
+    ContentAnnotation, OverlapMarkerIndex, ScopedAlternative, ScopedError, ScopedExplanation,
+    ScopedOverlapBegin, ScopedOverlapEnd, ScopedParalinguistic, ScopedPercentComment, ScopedUnknown,
 };

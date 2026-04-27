@@ -544,13 +544,10 @@ impl XmlEmitter {
     /// | `[% text]`      | [`ContentAnnotation::PercentComment`] | `<ga type="comments">text</ga>` |
     /// | `[=? text]`     | [`ContentAnnotation::Alternative`] | `<ga type="alternative">text</ga>` |
     /// | `[=! text]`     | [`ContentAnnotation::Paralinguistic`] | `<ga type="paralinguistics">text</ga>` |
-    /// | `[+ text]`      | [`ContentAnnotation::Addition`] | `<a type="extension" flavor="addition">text</a>` |
     /// | `[!]`           | [`ContentAnnotation::Stressing`] | `<k type="stressing"/>` |
     /// | `[!!]`          | [`ContentAnnotation::ContrastiveStressing`] | `<k type="contrastive stressing"/>` |
     /// | `[?]`           | [`ContentAnnotation::Uncertain`] / `BestGuess` | `<k type="best guess"/>` |
     /// | `[e]`           | [`ContentAnnotation::Exclude`] | `<k type="mor exclude"/>` |
-    /// | `[# N]`         | [`ContentAnnotation::Duration`] | `<duration>N</duration>` |
-    /// | `[^c]` scoped | [`ContentAnnotation::CaContinuation`] | (no XML element; semantic-only) |
     /// | `[<N]` / `[>N]` | overlap | `<overlap type="…" index="N"/>` |
     fn emit_scoped_annotation(
         &mut self,
@@ -576,19 +573,6 @@ impl XmlEmitter {
             ContentAnnotation::Alternative(alt) => self.emit_ga("alternative", alt.text.as_str()),
             ContentAnnotation::Paralinguistic(para) => {
                 self.emit_ga("paralinguistics", para.text.as_str())
-            }
-            ContentAnnotation::Addition(add) => {
-                // `[+ text]` is a paralinguistic post-hoc addition. The
-                // schema routes it through `<a>` with the
-                // extension/addition flavor pair.
-                let mut tag = BytesStart::new("a");
-                tag.push_attribute(("type", "extension"));
-                tag.push_attribute(("flavor", "addition"));
-                self.writer.write_event(Event::Start(tag))?;
-                self.writer
-                    .write_event(Event::Text(escape_text(add.text.as_str())))?;
-                self.writer.write_event(Event::End(BytesEnd::new("a")))?;
-                Ok(())
             }
             ContentAnnotation::Stressing => self.emit_k("stressing"),
             ContentAnnotation::ContrastiveStressing => self.emit_k("contrastive stressing"),
@@ -618,13 +602,6 @@ impl XmlEmitter {
                 } else {
                     self.writer.write_event(Event::Empty(tag))?;
                 }
-                Ok(())
-            }
-            ContentAnnotation::CaContinuation => {
-                // `[^c]` is a semantic-only CA continuation marker:
-                // it affects parsing / roundtrip but projects to no
-                // XML element per the schema. No-op is the correct
-                // emission.
                 Ok(())
             }
             ContentAnnotation::Unknown(unknown) => {

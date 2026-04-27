@@ -261,7 +261,6 @@ impl TreeRenderer {
             SemanticDiffKind::ExtraKey => "+",
             SemanticDiffKind::LengthMismatch => "≠",
             SemanticDiffKind::VariantMismatch => "↔",
-            SemanticDiffKind::TypeMismatch => "⚠",
         };
 
         // Render symbol and kind
@@ -521,7 +520,6 @@ mod tests {
             (ExtraKey, "+"),
             (LengthMismatch, "≠"),
             (VariantMismatch, "↔"),
-            (TypeMismatch, "⚠"),
         ];
 
         for (kind, symbol) in kinds {

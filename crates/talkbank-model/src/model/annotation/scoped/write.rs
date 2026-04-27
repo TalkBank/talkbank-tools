@@ -33,11 +33,6 @@ impl ContentAnnotation {
                 w.write_str(&explanation.text)?;
                 w.write_char(']')
             }
-            ContentAnnotation::Addition(addition) => {
-                w.write_str("[+ ")?;
-                w.write_str(&addition.text)?;
-                w.write_char(']')
-            }
             ContentAnnotation::OverlapBegin(overlap) => {
                 if let Some(idx) = overlap.index.as_ref() {
                     write!(w, "[<{}]", idx)
@@ -52,7 +47,6 @@ impl ContentAnnotation {
                     w.write_str("[>]")
                 }
             }
-            ContentAnnotation::CaContinuation => w.write_str("[^c]"),
             ContentAnnotation::Stressing => w.write_str("[!]"),
             ContentAnnotation::ContrastiveStressing => w.write_str("[!!]"),
             ContentAnnotation::Uncertain => w.write_str("[?]"),

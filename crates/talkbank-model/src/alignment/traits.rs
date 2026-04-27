@@ -14,7 +14,7 @@
 //! References:
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-use super::format::{format_alignment_mismatch, format_positional_mismatch};
+use super::format::format_positional_mismatch;
 use super::helpers::{TierDomain, TierPosition, collect_tier_items, count_tier_positions};
 use super::types::AlignmentPair;
 use crate::model::{MainTier, UtteranceContent};
@@ -89,24 +89,6 @@ pub trait TierAlignmentResult: Default {
 }
 
 // ---------------------------------------------------------------------------
-// MismatchFormat
-// ---------------------------------------------------------------------------
-
-/// Strategy for formatting alignment mismatch diagnostics.
-///
-/// [`Positional`](MismatchFormat::Positional) pairs items by index (appropriate
-/// when source and target are in different domains, e.g., words vs morphemes).
-/// [`Diff`](MismatchFormat::Diff) uses LCS to find matching items (appropriate
-/// when both sides are word sequences, e.g., main tier vs `%wor`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MismatchFormat {
-    /// Simple positional pairing — good for cross-domain tiers (%mor, %pho, %sin, %gra).
-    Positional,
-    /// LCS-based diff — good for same-domain tiers (%wor) where text matching is meaningful.
-    Diff,
-}
-
-// ---------------------------------------------------------------------------
 // AlignableTier
 // ---------------------------------------------------------------------------
 
@@ -174,14 +156,6 @@ pub trait AlignableTier {
 
     /// Suggestion text for the "too many target items" error.
     fn suggestion_too_many(&self) -> &str;
-
-    /// Which mismatch formatting strategy to use.
-    ///
-    /// Defaults to [`Positional`](MismatchFormat::Positional). Override to
-    /// [`Diff`](MismatchFormat::Diff) for same-domain tiers like `%wor`.
-    fn mismatch_format(&self) -> MismatchFormat {
-        MismatchFormat::Positional
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -229,17 +203,12 @@ pub fn positional_align<T: AlignableTier>(main: &MainTier, tier: &T) -> Position
         let main_items = collect_tier_items(&main.content.content, T::DOMAIN);
         let target_items = tier.extract_target_items();
 
-        let detailed_message = match tier.mismatch_format() {
-            MismatchFormat::Positional => format_positional_mismatch(
-                "Main tier",
-                tier.tier_name(),
-                &main_items,
-                &target_items,
-            ),
-            MismatchFormat::Diff => {
-                format_alignment_mismatch("Main tier", tier.tier_name(), &main_items, &target_items)
-            }
-        };
+        let detailed_message = format_positional_mismatch(
+            "Main tier",
+            tier.tier_name(),
+            &main_items,
+            &target_items,
+        );
 
         let (code, suggestion) = if alignable_count > target_count {
             (tier.error_code_too_few(), tier.suggestion_too_few())

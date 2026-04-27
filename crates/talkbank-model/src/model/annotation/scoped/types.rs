@@ -30,8 +30,6 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// - **Overlaps** (`[<]`, `[>]`): Marks simultaneous speech by different speakers.
 ///   `[<]` at overlap start, `[>]` at overlap end.
 ///
-/// - **Additions** (`[+ text]`): Adds clarifying information or researcher notes.
-///
 /// # CHAT Manual Reference
 ///
 /// - [Error Coding](https://talkbank.org/0info/manuals/CHAT.html#Error_Coding)
@@ -83,15 +81,6 @@ pub enum ContentAnnotation {
     /// See: [Explanation Scope](https://talkbank.org/0info/manuals/CHAT.html#Explanation_Scope)
     Explanation(ScopedExplanation),
 
-    /// Addition/extension (`[+ text]`).
-    ///
-    /// Adds clarifying information, context, or researcher notes.
-    ///
-    /// **Example:** `hello [+ waving hand]`
-    ///
-    /// See: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)
-    Addition(ScopedAddition),
-
     /// Overlap beginning marker (`[<]`).
     ///
     /// Marks the point where simultaneous speech begins. Used when two or more
@@ -114,17 +103,6 @@ pub enum ContentAnnotation {
     /// See: [Overlap Follows Scope](https://talkbank.org/0info/manuals/CHAT.html#OverlapFollows_Scope)
     #[serde(rename = "overlap_end")]
     OverlapEnd(ScopedOverlapEnd),
-
-    /// CA continuation marker (`[^c]`).
-    ///
-    /// Marks clause delimiter in Conversation Analysis, functions like a comma.
-    /// This is an atomic token with no arguments.
-    ///
-    /// **Example:** `I want [^c] to go there`
-    ///
-    /// See: [CA Continuation](https://talkbank.org/0info/manuals/CHAT.html#CA_Continuation)
-    #[serde(rename = "ca_continuation_marker")]
-    CaContinuation,
 
     /// Scoped stressing marker (`[!]`).
     ///
@@ -213,17 +191,6 @@ pub struct ScopedError {
 )]
 pub struct ScopedExplanation {
     /// Explanatory text
-    pub text: smol_str::SmolStr,
-}
-
-/// Addition data for `[+ text]` annotations.
-///
-/// Reference: <https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols>
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift,
-)]
-pub struct ScopedAddition {
-    /// Additional information
     pub text: smol_str::SmolStr,
 }
 

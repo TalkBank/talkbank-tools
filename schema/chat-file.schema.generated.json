@@ -1462,7 +1462,7 @@
       "type": "object"
     },
     "ContentAnnotation": {
-      "description": "Scoped annotation that modifies or provides information about speech content.\n\nScoped annotations in CHAT format are enclosed in square brackets and provide\ncontextual information about errors, clarifications, overlaps, and repetitions.\n\n# Annotation Types\n\n- **Error marking** (`[*]`, `[* code]`): Indicates speech errors, grammatical mistakes,\n  or phonological errors that need correction or special attention.\n\n- **Explanations** (`[= text]`): Clarifies unintelligible speech, unusual pronunciations,\n  or ambiguous utterances. Often used with `xxx` for unintelligible material.\n\n- **Retracing** (`[/]`, `[//]`, `[///]`): Marks self-corrections and repeated words.\n  Single `/` for partial repetition, double for full retracing, triple for multiple.\n\n- **Overlaps** (`[<]`, `[>]`): Marks simultaneous speech by different speakers.\n  `[<]` at overlap start, `[>]` at overlap end.\n\n- **Additions** (`[+ text]`): Adds clarifying information or researcher notes.\n\n# CHAT Manual Reference\n\n- [Error Coding](https://talkbank.org/0info/manuals/CHAT.html#Error_Coding)\n- [Explanation Scope](https://talkbank.org/0info/manuals/CHAT.html#Explanation_Scope)\n- [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)\n- [Overlap Precedes Scope](https://talkbank.org/0info/manuals/CHAT.html#OverlapPrecedes_Scope)\n- [Overlap Follows Scope](https://talkbank.org/0info/manuals/CHAT.html#OverlapFollows_Scope)\n\n# Examples\n\n```\nuse talkbank_model::model::{ContentAnnotation, ScopedError, ScopedExplanation};\n\n// Error marking\nlet error = ContentAnnotation::Error(ScopedError { code: Some(\"grammar\".into()) });\n\n// Explanation\nlet explanation = ContentAnnotation::Explanation(ScopedExplanation {\n    text: \"probably said ball\".into()\n});\n```",
+      "description": "Scoped annotation that modifies or provides information about speech content.\n\nScoped annotations in CHAT format are enclosed in square brackets and provide\ncontextual information about errors, clarifications, overlaps, and repetitions.\n\n# Annotation Types\n\n- **Error marking** (`[*]`, `[* code]`): Indicates speech errors, grammatical mistakes,\n  or phonological errors that need correction or special attention.\n\n- **Explanations** (`[= text]`): Clarifies unintelligible speech, unusual pronunciations,\n  or ambiguous utterances. Often used with `xxx` for unintelligible material.\n\n- **Retracing** (`[/]`, `[//]`, `[///]`): Marks self-corrections and repeated words.\n  Single `/` for partial repetition, double for full retracing, triple for multiple.\n\n- **Overlaps** (`[<]`, `[>]`): Marks simultaneous speech by different speakers.\n  `[<]` at overlap start, `[>]` at overlap end.\n\n# CHAT Manual Reference\n\n- [Error Coding](https://talkbank.org/0info/manuals/CHAT.html#Error_Coding)\n- [Explanation Scope](https://talkbank.org/0info/manuals/CHAT.html#Explanation_Scope)\n- [Retracing](https://talkbank.org/0info/manuals/CHAT.html#Retracing_and_Repetition)\n- [Overlap Precedes Scope](https://talkbank.org/0info/manuals/CHAT.html#OverlapPrecedes_Scope)\n- [Overlap Follows Scope](https://talkbank.org/0info/manuals/CHAT.html#OverlapFollows_Scope)\n\n# Examples\n\n```\nuse talkbank_model::model::{ContentAnnotation, ScopedError, ScopedExplanation};\n\n// Error marking\nlet error = ContentAnnotation::Error(ScopedError { code: Some(\"grammar\".into()) });\n\n// Explanation\nlet explanation = ContentAnnotation::Explanation(ScopedExplanation {\n    text: \"probably said ball\".into()\n});\n```",
       "oneOf": [
         {
           "allOf": [
@@ -1494,26 +1494,6 @@
               "properties": {
                 "type": {
                   "const": "explanation",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type"
-              ],
-              "type": "object"
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/$defs/ScopedAddition"
-            },
-            {
-              "description": "Addition/extension (`[+ text]`).\n\nAdds clarifying information, context, or researcher notes.\n\n**Example:** `hello [+ waving hand]`\n\nSee: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)",
-              "properties": {
-                "type": {
-                  "const": "addition",
                   "type": "string"
                 }
               },
@@ -1563,19 +1543,6 @@
               "type": "object"
             }
           ]
-        },
-        {
-          "description": "CA continuation marker (`[^c]`).\n\nMarks clause delimiter in Conversation Analysis, functions like a comma.\nThis is an atomic token with no arguments.\n\n**Example:** `I want [^c] to go there`\n\nSee: [CA Continuation](https://talkbank.org/0info/manuals/CHAT.html#CA_Continuation)",
-          "properties": {
-            "type": {
-              "const": "ca_continuation_marker",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
         },
         {
           "description": "Scoped stressing marker (`[!]`).\n\nMarks emphatic stress or emphasis on preceding word/phrase.\n\n**Example:** `that [!]` - emphatic stress\n\nSee: [Scoped Symbols](https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols)",
@@ -5587,19 +5554,6 @@
     "RoomLayoutDescription": {
       "description": "Room layout description from `@Room Layout`.\n\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Room_Layout_Header>",
       "type": "string"
-    },
-    "ScopedAddition": {
-      "description": "Addition data for `[+ text]` annotations.\n\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Scoped_Symbols>",
-      "properties": {
-        "text": {
-          "description": "Additional information",
-          "type": "string"
-        }
-      },
-      "required": [
-        "text"
-      ],
-      "type": "object"
     },
     "ScopedAlternative": {
       "description": "Alternative transcription data for `[=? text]`.\n\n# Reference\n\n- [Alternative transcription scope](https://talkbank.org/0info/manuals/CHAT.html#AlternativeTranscription_Scope)",

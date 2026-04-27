@@ -32,8 +32,6 @@ pub enum SemanticDiffKind {
     ExtraKey,
     /// Enum variants differ.
     VariantMismatch,
-    /// Structural types differ (e.g., struct vs. enum).
-    TypeMismatch,
 }
 
 impl SemanticDiffKind {
@@ -48,7 +46,6 @@ impl SemanticDiffKind {
             SemanticDiffKind::MissingKey => "missing_key",
             SemanticDiffKind::ExtraKey => "extra_key",
             SemanticDiffKind::VariantMismatch => "variant_mismatch",
-            SemanticDiffKind::TypeMismatch => "type_mismatch",
         }
     }
 }
