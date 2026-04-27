@@ -24,6 +24,7 @@
 extern crate self as talkbank_model;
 
 pub mod alignment;
+pub mod chars;
 pub mod errors;
 pub mod generated;
 pub mod model;

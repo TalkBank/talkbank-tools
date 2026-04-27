@@ -264,8 +264,8 @@ impl Quotation {
 impl WriteChat for Quotation {
     /// Serializes the payload inside curly quote delimiters.
     fn write_chat<W: std::fmt::Write>(&self, w: &mut W) -> std::fmt::Result {
-        w.write_char('\u{201C}')?; // U+201C LEFT DOUBLE QUOTATION MARK "
+        w.write_char(crate::chars::LEFT_DOUBLE_QUOTE)?;
         self.content.write_chat(w)?;
-        w.write_char('\u{201D}') // U+201D RIGHT DOUBLE QUOTATION MARK "
+        w.write_char(crate::chars::RIGHT_DOUBLE_QUOTE)
     }
 }

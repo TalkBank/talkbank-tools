@@ -77,9 +77,9 @@ pub fn render_bracketed_item(
             rendered.push('〕');
         }
         BracketedItem::Quotation(quot) => {
-            rendered.push('\u{201C}');
+            rendered.push(crate::chars::LEFT_DOUBLE_QUOTE);
             render_bracketed_content(&quot.content, rendered, retrace_spans);
-            rendered.push('\u{201D}');
+            rendered.push(crate::chars::RIGHT_DOUBLE_QUOTE);
         }
         BracketedItem::Separator(sep) => {
             sep.write_chat(rendered).ok();
