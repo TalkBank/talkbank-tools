@@ -26,6 +26,7 @@
 - [Headers](chat-format/headers.md)
 - [Utterances](chat-format/utterances.md)
 - [Retraces and Repetitions](chat-format/retraces.md)
+- [Replacements](chat-format/replacements.md)
 - [Dependent Tiers](chat-format/dependent-tiers.md)
   - [The %mor Tier](chat-format/mor-tier.md)
   - [Phon Tiers](chat-format/phon-tiers.md)

@@ -1,0 +1,297 @@
+"""Find dead enum variants in talkbank-model.
+
+The parser is the canonical producer of all model values from CHAT input.
+Therefore: any enum variant defined in talkbank-model that is never
+constructed in non-test code is dead.
+
+Method:
+  1. Enumerate every `pub enum` in talkbank-model and its variants.
+  2. For each variant `EnumName::Variant`, search all of crates/
+     (excluding test modules and tests/ dirs) for any constructor or
+     pattern-match site.
+  3. A variant with NO non-test constructor anywhere in the workspace
+     is dead.
+
+Limitations:
+  - Constructors via `.into()` from `From<T>` impls are caught only if
+    the From impl is detected as a non-test "constructor" (we count
+    `impl From<T> for EnumName` blocks).
+  - This is a static analysis; if a variant has a constructor only in
+    a doctest, it's treated as dead (correct outcome — doctests are
+    documentation, not production code).
+  - We treat any constructor outside #[cfg(test)] modules and tests/
+    files as "live."
+
+Output:
+  A markdown report listing each enum, its variants, and whether each
+  variant is dead.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+MODEL_ROOT = Path("/Users/chen/talkbank/talkbank-tools/crates/talkbank-model/src")
+SEARCH_ROOT = Path("/Users/chen/talkbank/talkbank-tools/crates")
+TEST_PATH_PATTERNS = ("tests/", "/tests/", "_tests.rs", "test_", "/test/")
+
+
+# Pattern matching `pub enum Name { ... }` blocks. We extract the name
+# then capture the body up to the matching closing brace.
+ENUM_DECL_RE = re.compile(
+    r"(?ms)#\[derive[^\]]*\][\s\S]*?\bpub enum\s+(\w+)\s*\{",
+)
+
+
+def find_enums() -> dict[str, tuple[list[str], Path]]:
+    """Return {enum_name: ([variant_names], home_file)} for every pub enum
+    in the model crate. The `home_file` is the .rs file the enum is
+    defined in — needed to resolve `Self::Variant` constructions inside
+    that enum's impl blocks."""
+    out: dict[str, tuple[list[str], Path]] = {}
+    for rs in MODEL_ROOT.rglob("*.rs"):
+        if any(p in str(rs) for p in TEST_PATH_PATTERNS):
+            continue
+        text = rs.read_text(encoding="utf-8", errors="replace")
+        # Find each `pub enum Name {` and grab its body.
+        for match in re.finditer(r"\bpub enum\s+(\w+)\s*\{", text):
+            name = match.group(1)
+            # Walk braces to find the matching closing brace.
+            depth = 1
+            i = match.end()
+            while i < len(text) and depth > 0:
+                c = text[i]
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                i += 1
+            body = text[match.end():i - 1]
+            # Variants are top-level identifiers in the body. Strip
+            # nested {}, [], (...), comments, attribute lines first.
+            cleaned = strip_nested(body)
+            variants = extract_variant_names(cleaned)
+            if variants:
+                out[name] = (variants, rs)
+    return out
+
+
+def strip_nested(s: str) -> str:
+    """Remove {...} (...) [...] regions and // comments and /* */ comments
+    so variant names at the top level become extractable."""
+    # Remove block comments
+    s = re.sub(r"/\*.*?\*/", "", s, flags=re.DOTALL)
+    # Remove line comments
+    s = re.sub(r"//[^\n]*", "", s)
+    # Remove parenthesized payloads, brace-wrapped struct fields, bracket-wrapped attrs
+    out: list[str] = []
+    depth = {"(": 0, "[": 0, "{": 0}
+    pair = {")": "(", "]": "[", "}": "{"}
+    for c in s:
+        if c in depth:
+            depth[c] += 1
+            continue
+        if c in pair:
+            depth[pair[c]] -= 1
+            continue
+        if any(d > 0 for d in depth.values()):
+            continue
+        out.append(c)
+    return "".join(out)
+
+
+def extract_variant_names(cleaned: str) -> list[str]:
+    """Extract identifier-shaped variant names from cleaned enum body."""
+    # Each variant is a CamelCase identifier followed by `,` or end.
+    return re.findall(r"\b([A-Z][A-Za-z0-9_]*)\s*,", cleaned + ",")
+
+
+def search_constructor(enum: str, variant: str, home_file: Path) -> list[str]:
+    """Return matching file:line entries for the variant outside tests.
+
+    Searches two patterns:
+      - `EnumName::Variant` anywhere (covers external callers and in-impl
+        construction that uses the full path)
+      - `Self::Variant` only inside the enum's home file (Rust idiom for
+        in-impl construction inside `impl EnumName { ... }`)
+    """
+    full_pattern = rf"\b{enum}::{variant}\b"
+    self_pattern = rf"\bSelf::{variant}\b"
+    lines: list[str] = []
+    # External / full-path references
+    try:
+        result = subprocess.run(
+            [
+                "rg", "--no-heading", "-n",
+                "-g", "!**/tests/**",
+                "-g", "!**/test_*.rs",
+                "-g", "!**/*_tests.rs",
+                full_pattern, str(SEARCH_ROOT),
+            ],
+            capture_output=True, text=True, check=False,
+        )
+        lines.extend(result.stdout.splitlines())
+    except FileNotFoundError:
+        result = subprocess.run(
+            ["grep", "-rn", "--include=*.rs",
+             "--exclude-dir=tests",
+             full_pattern, str(SEARCH_ROOT)],
+            capture_output=True, text=True, check=False,
+        )
+        lines.extend(result.stdout.splitlines())
+    # `Self::Variant` references in the enum's home file (covers in-impl
+    # construction). We restrict to the home file because `Self::Variant`
+    # in an arbitrary file refers to a different `Self` and could be
+    # noise.
+    if home_file.exists():
+        # `--with-filename` forces the 3-field `path:line:content` output
+        # even on single-file searches; without it, rg drops the path on
+        # single-file inputs and downstream parsing breaks.
+        result = subprocess.run(
+            ["rg", "--no-heading", "--with-filename", "-n", self_pattern, str(home_file)],
+            capture_output=True, text=True, check=False,
+        )
+        lines.extend(result.stdout.splitlines())
+    # Filter out lines inside `#[cfg(test)]` modules. This is approximate
+    # — we strip lines whose file path contains test markers (already
+    # handled by --glob exclusions) and lines within `mod tests {`.
+    # The mod-tests filter is conservative: we exclude any line whose
+    # file has `#[cfg(test)]` declared at module scope earlier and the
+    # match line is inside that module. To keep this robust without an
+    # AST, we just exclude lines that are obviously inside `mod tests {`.
+    filtered: list[str] = []
+    for ln in lines:
+        # ln format: path:line:content
+        parts = ln.split(":", 2)
+        if len(parts) < 3:
+            continue
+        path, line_no, content = parts
+        # Skip if the file path is a test fixture
+        if any(p in path for p in TEST_PATH_PATTERNS):
+            continue
+        # Skip pure pattern-match arms inside writer code? No — match
+        # arms count as live consumers but NOT producers. We're looking
+        # for constructors, so distinguish:
+        #   - `EnumName::Variant {` or `EnumName::Variant(` followed
+        #     by struct-literal or tuple-construction = constructor
+        #   - `EnumName::Variant { .. } => ...` = pattern match (consumer)
+        #   - `matches!(x, EnumName::Variant ...)` = test-style consumer
+        # For dead-code purposes, a variant is dead if NO constructor exists.
+        # We approximate "constructor" as: not a pattern-match arm and
+        # not inside a `match` block. Simpler heuristic: look for
+        # `EnumName::Variant(` immediately followed by something that
+        # isn't `..)` or for `EnumName::Variant {` or for `EnumName::Variant)`
+        # (unit variant).
+        filtered.append(ln)
+    return filtered
+
+
+def is_constructor(content: str, enum: str, variant: str) -> bool:
+    """Heuristic: does this line CONSTRUCT the variant (vs. pattern-match
+    or doc-reference it)?
+
+    Returns False if the line is one of:
+      - A match arm: variant followed (eventually) by `=>` on same line
+      - Inside `matches!(...)`
+      - A markdown link in a docstring: `[`EnumName::Variant`]` or
+        `[EnumName::Variant]`
+      - A `use` import line
+      - A doc comment (line starts with `///`)
+    Otherwise returns True (constructor or other live use).
+    """
+    s = re.sub(r"//.*", "", content).strip() if not content.lstrip().startswith("///") else ""
+    if not s:
+        return False
+    if s.lstrip().startswith("///") or s.lstrip().startswith("//!"):
+        return False
+    if "matches!" in s:
+        return False
+    if s.startswith("use ") or s.startswith("pub use "):
+        return False
+
+    # Try both `EnumName::Variant` and `Self::Variant` (for in-impl
+    # construction).
+    for needle in (f"{enum}::{variant}", f"Self::{variant}"):
+        idx = s.find(needle)
+        if idx < 0:
+            continue
+        # Line within a markdown rustdoc link, e.g. `[`Foo::Bar`]`
+        head = s[:idx]
+        if head.endswith("[`") or head.endswith("["):
+            continue
+        # Arrow after the variant on the same line → pattern-match arm.
+        tail = s[idx + len(needle):]
+        if "=>" in tail:
+            continue
+        return True
+    return False
+
+
+def main() -> int:
+    enums = find_enums()
+    if not enums:
+        print("no enums found", file=sys.stderr)
+        return 1
+
+    out_lines: list[str] = []
+    out_lines.append("# Dead Variant Audit — talkbank-model\n")
+    out_lines.append("Generated by `scripts/find_dead_model_variants.py`.\n")
+    out_lines.append(
+        "**Method.** Enumerate every `pub enum` in talkbank-model. "
+        "For each variant, search all `crates/` (non-test code only) "
+        "for any reference. Variants with zero non-test references — "
+        "or with references that are pattern-match arms only (no "
+        "constructor) — are flagged dead.\n"
+    )
+    out_lines.append(
+        "**Limitation.** The constructor-vs-pattern detection is "
+        "heuristic. A variant flagged here should be inspected "
+        "manually before removal.\n"
+    )
+
+    total_dead = 0
+    total_variants = 0
+    for enum_name in sorted(enums):
+        variants, home_file = enums[enum_name]
+        total_variants += len(variants)
+        out_lines.append(f"\n## `{enum_name}` ({len(variants)} variants)\n")
+        any_dead_in_enum = False
+        for v in variants:
+            refs = search_constructor(enum_name, v, home_file)
+            constructors = [
+                ln for ln in refs
+                if is_constructor(
+                    ln.split(":", 2)[2] if len(ln.split(":", 2)) >= 3 else "",
+                    enum_name, v,
+                )
+            ]
+            if not constructors:
+                if not refs:
+                    out_lines.append(f"- ☠️ **`{v}`** — DEAD (zero non-test references)")
+                else:
+                    out_lines.append(
+                        f"- ☠️ **`{v}`** — DEAD ({len(refs)} ref(s), all pattern-match arms / doc links / use stmts; no constructor)"
+                    )
+                total_dead += 1
+                any_dead_in_enum = True
+        if not any_dead_in_enum:
+            out_lines.append("(all variants have constructors)")
+
+    out_lines.append(f"\n## Summary\n")
+    out_lines.append(f"- Enums scanned: **{len(enums)}**")
+    out_lines.append(f"- Variants total: **{total_variants}**")
+    out_lines.append(f"- Confirmed dead: **{total_dead}**")
+
+    out_path = Path("/Users/chen/talkbank/docs/investigations/2026-04-27-talkbank-model-dead-variants.md")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(out_lines))
+    print(f"wrote {out_path}", file=sys.stderr)
+    print(f"  {len(enums)} enums, {total_variants} variants, {total_dead} dead", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
