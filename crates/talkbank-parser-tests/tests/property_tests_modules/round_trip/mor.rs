@@ -14,7 +14,12 @@ fn mor_tier_round_trip_simple() {
         ),
     ];
 
-    let tier = MorTier::new_mor(mor_items).with_terminator(Some(".".into()));
+    let tier = MorTier::new_mor(
+        mor_items,
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let output = tier.to_chat();
     assert_eq!(
         output, "%mor:\tpron|I verb|go-Past .",
@@ -34,7 +39,12 @@ fn mor_tier_round_trip_with_post_clitic() {
         .with_feature(MorFeature::new("S3"));
 
     let mor = Mor::new(main).with_post_clitic(post);
-    let tier = MorTier::new_mor(vec![mor]);
+    let tier = MorTier::new_mor(
+        vec![mor],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let output = tier.to_chat();
     assert_eq!(
         output, "%mor:\tpron|it~aux|be-Fin-Ind-Pres-S3",
@@ -50,7 +60,12 @@ fn mor_tier_round_trip_multiple_features() {
         .with_feature(MorFeature::new("Prs"))
         .with_feature(MorFeature::new("Nom"))
         .with_feature(MorFeature::new("S1"));
-    let tier = MorTier::new_mor(vec![Mor::new(word)]);
+    let tier = MorTier::new_mor(
+        vec![Mor::new(word)],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let output = tier.to_chat();
     assert_eq!(
         output, "%mor:\tpron|I-Prs-Nom-S1",

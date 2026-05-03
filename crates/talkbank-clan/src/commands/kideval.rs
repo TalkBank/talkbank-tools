@@ -140,6 +140,10 @@ impl KidevalResult {
                 .is_some_and(|c| !c.get(i).is_some_and(|v| v.is_empty()));
 
             let (columns, rows) = if has_comparison {
+                // Control-flow invariant: `has_comparison` is true
+                // only when `self.comparisons.as_ref().is_some_and(...)`
+                // holds, which proves `self.comparisons` is `Some`.
+                #[allow(clippy::unwrap_used)]
                 let comps = &self.comparisons.as_ref().unwrap()[i];
                 let cols = vec![
                     "Metric".to_owned(),
@@ -396,11 +400,11 @@ impl AnalysisCommand for KidevalCommand {
         // Process %mor tier using typed MorTier items
         let mut morpheme_count = 0u64;
         if let Some(mor_tier) = mor::extract_mor_tier(utterance) {
-            for item in mor_tier.items.iter() {
+            for item in mor_tier.items().iter() {
                 mor::classify_mor_item(item, &mut accum.pos);
                 morpheme_count += mor::count_morphemes_typed(item);
             }
-            accum.mor_items.push(mor_tier.items.to_vec());
+            accum.mor_items.push(mor_tier.items().to_vec());
         }
         accum.morphemes_per_utt.push(morpheme_count);
     }

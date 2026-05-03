@@ -82,7 +82,12 @@ fn test_mor_tier_count_chunks() {
     let post = MorWord::new(PosCategory::new("aux"), "be");
     let mor2 = Mor::new(main).with_post_clitic(post);
 
-    let tier = MorTier::new_mor(vec![mor1, mor2]);
+    let tier = MorTier::new_mor(
+        vec![mor1, mor2],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     assert_eq!(tier.count_chunks(), 3);
 }
@@ -99,7 +104,12 @@ fn chunks_expand_items_with_post_clitics_then_terminator() {
     let its = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
     let cookie = Mor::new(MorWord::new(PosCategory::new("noun"), "cookie"));
-    let tier = MorTier::new_mor(vec![its, cookie]).with_terminator(Some(".".into()));
+    let tier = MorTier::new_mor(
+        vec![its, cookie],
+        crate::model::content::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let chunks: Vec<_> = tier.chunks().collect();
     assert_eq!(chunks.len(), 4);
@@ -116,7 +126,10 @@ fn chunks_expand_items_with_post_clitics_then_terminator() {
 
     assert_eq!(chunks[3].kind(), MorChunkKind::Terminator);
     assert_eq!(chunks[3].lemma(), None);
-    assert_eq!(chunks[3].terminator_text(), Some("."));
+    assert_eq!(
+        chunks[3].terminator().map(|t| t.to_string()),
+        Some(".".to_string())
+    );
 }
 
 /// `chunk_at` indexes into the sequence `chunks()` produces, so the main and
@@ -127,7 +140,12 @@ fn chunk_at_resolves_host_item_for_clitic() {
     let its = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
     let cookie = Mor::new(MorWord::new(PosCategory::new("noun"), "cookie"));
-    let tier = MorTier::new_mor(vec![its, cookie]).with_terminator(Some(".".into()));
+    let tier = MorTier::new_mor(
+        vec![its, cookie],
+        crate::model::content::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let main = tier.chunk_at(0).expect("main chunk");
     let clitic = tier.chunk_at(1).expect("clitic chunk");
@@ -160,7 +178,12 @@ fn item_index_of_chunk_collapses_clitic_to_host_item() {
     let its = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
     let cookie = Mor::new(MorWord::new(PosCategory::new("noun"), "cookie"));
-    let tier = MorTier::new_mor(vec![its, cookie]).with_terminator(Some(".".into()));
+    let tier = MorTier::new_mor(
+        vec![its, cookie],
+        crate::model::content::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     assert_eq!(tier.item_index_of_chunk(0), Some(0)); // main of it's
     assert_eq!(tier.item_index_of_chunk(1), Some(0)); // post-clitic shares host 0

@@ -37,6 +37,9 @@ impl TransformCommand for RetraceCommand {
                 let content = utterance.main.content.to_content_string();
 
                 if let Some(content) = NonEmptyString::new(&content) {
+                    // "ret" is a compile-time-non-empty literal —
+                    // `NonEmptyString::new` cannot return `None`.
+                    #[allow(clippy::expect_used)]
                     let ret_tier = DependentTier::UserDefined(UserDefinedDependentTier {
                         label: NonEmptyString::new("ret").expect("label is non-empty"),
                         content,

@@ -1,3 +1,10 @@
+// Build scripts run at build time, not runtime. Panics here fail
+// `cargo build`, which is the intended behaviour for missing files
+// or invalid embedded data. Per-crate `deny` panic lints would
+// otherwise fire on standard `env::var().unwrap()` and
+// `fs::File::create().unwrap()` patterns.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 //! Build script for talkbank-model.
 //!
 //! Generates a compile-time perfect hash set of ISO 639-3 language codes from

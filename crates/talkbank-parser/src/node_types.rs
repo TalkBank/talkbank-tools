@@ -24,7 +24,7 @@
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>
 //! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>
 
-#![allow(dead_code)]
+#![allow(dead_code)] // Generated full grammar catalog; downstream crates use subsets.
 #![allow(clippy::doc_markdown)]
 
 // === Document Structure ===

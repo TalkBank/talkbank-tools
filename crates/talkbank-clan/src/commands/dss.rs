@@ -400,7 +400,7 @@ impl AnalysisCommand for DssCommand {
         let main_text = spoken_main_text(&utterance.main);
 
         if let Some(mor_tier) = mor::extract_mor_tier(utterance) {
-            let items: Vec<Mor> = mor_tier.items.to_vec();
+            let items: Vec<Mor> = mor_tier.items().to_vec();
             state
                 .utterances
                 .entry(speaker)

@@ -228,6 +228,7 @@ where
     F: FnOnce(&talkbank_parser::TreeSitterParser) -> R,
 {
     thread_local! {
+        #[allow(clippy::expect_used)]
         static PARSER: talkbank_parser::TreeSitterParser =
             talkbank_parser::TreeSitterParser::new()
                 .expect("tree-sitter-talkbank grammar must load");
@@ -332,6 +333,7 @@ impl TryFrom<&str> for ChatWordText {
             /// panic on first use; migrating to a `try_init`-based
             /// handle would be a follow-up and is documented in the
             /// plan's risk list.
+            #[allow(clippy::expect_used)]
             static PARSER: talkbank_parser::TreeSitterParser =
                 talkbank_parser::TreeSitterParser::new()
                     .expect("tree-sitter-talkbank grammar must load");

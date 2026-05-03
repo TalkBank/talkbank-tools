@@ -297,7 +297,7 @@ impl AnalysisCommand for FreqCommand {
             // Each MorWord (main + post-clitics) counts as a separate frequency
             // item, matching CLAN's space-separated token counting on %mor.
             if let Some(mor_tier) = utterance.mor_tier() {
-                for mor_item in mor_tier.items.iter() {
+                for mor_item in mor_tier.items().iter() {
                     let mut key = String::new();
                     let _ = mor_item.main.write_chat(&mut key);
                     let key = key.to_lowercase();

@@ -189,7 +189,7 @@ class TestLanguageSpecificFeatureParity:
     NOTE: The per-word mapping (lemma cleaning, POS-specific features, etc.)
     is tested exhaustively in the Rust test suite:
 
-        cargo nextest run -p batchalign-chat-ops -E 'test(nlp::mapping)'
+        cargo nextest run -p batchalign -E 'test(nlp::mapping)'
 
     46 tests cover: all POS types, all language-specific handlers, lemma
     cleaning, MWT assembly, GRA generation, and edge cases.

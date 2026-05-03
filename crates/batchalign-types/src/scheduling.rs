@@ -2,7 +2,7 @@
 //!
 //! These types belong to the control plane and should remain usable outside the
 //! server crate so future fleet/orchestration layers do not need to depend on
-//! `batchalign-app` just to name attempts or work units.
+//! `batchalign` just to name attempts or work units.
 
 string_id!(
     /// Stable identifier for a single attempt to execute a work unit.

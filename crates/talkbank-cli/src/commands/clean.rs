@@ -97,10 +97,13 @@ pub fn clean_file(input: &PathBuf, diff_only: bool, format: OutputFormat) {
 
     match format {
         OutputFormat::Json => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&entries).expect("JSON serialization failed")
-            );
+            // serde_json::to_string_pretty is infallible for types
+            // that derive `Serialize` cleanly (no custom serializers
+            // can fail). `entries` is `Vec<CleanEntry>` with derived
+            // Serialize.
+            #[allow(clippy::expect_used)]
+            let json = serde_json::to_string_pretty(&entries).expect("JSON serialization failed");
+            println!("{json}");
         }
         OutputFormat::Text => {
             for (i, entry) in entries.iter().enumerate() {

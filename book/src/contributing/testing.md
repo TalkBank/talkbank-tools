@@ -1,7 +1,7 @@
 # Testing
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:22 EDT
+**Last updated:** 2026-04-29 10:39 EDT
 
 ## Test Generation Pipeline
 
@@ -52,8 +52,8 @@ flowchart TD
     unit["Unit + Integration Tests\n(cargo nextest run)\n~2300 tests, ~5s"]
     specgen["Spec-Generated Tests\n(make test-generated)\nParser + validation layer"]
     grammar["Grammar Corpus\n(tree-sitter test)\n166 tree-sitter tests"]
-    ref["Reference Corpus\n(78 files, 100% required)"]
-    gates["Verification Gates\n(make verify)\nG0–G11 sequential pipeline"]
+    ref["Reference Corpus\n(97 files, 100% required)"]
+    gates["Verification Gates\n(make verify)\nG0–G14 sequential pipeline"]
 
     unit --> specgen --> grammar --> ref --> gates
 ```
@@ -116,13 +116,13 @@ tree-sitter test
 
 ## Reference Corpus
 
-The reference corpus at `corpus/reference/` contains 78 `.cha` files across 20 languages that represent the diversity of real-world CHAT data. The parser must handle every file at 100%.
+The reference corpus at `corpus/reference/` contains 97 `.cha` files across 20 languages that represent the diversity of real-world CHAT data. The parser must handle every file at 100%.
 
 This corpus is the ultimate arbiter of correctness for full-file parsing.
 
 ## Verification Gates
 
-`make verify` runs the pre-merge verification suite (G0–G11). All gates
+`make verify` runs the pre-merge verification suite (G0–G14). All gates
 run sequentially — the first failure stops the pipeline.
 
 ```mermaid
@@ -134,14 +134,17 @@ flowchart TD
     G2 -->|pass| G3["G3: Spec runtime tools compile\n(spec/runtime-tools)"]
     G3 -->|pass| G4["G4: CHAT manual anchor links\n(check-chat-manual-anchors.sh)"]
     G4 -->|pass| G5["G5: Generated parser corpus\nequivalence suite"]
-    G5 -->|pass| G6["G6: Fragment parsing\nsemantics"]
+    G5 -->|pass| G6["G6: Golden fragment validity\n(words + tiers)"]
     G6 -->|pass| G7["G7: Bare-timestamp\nregression gate"]
-    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(78 files)"]
+    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(97 files)"]
     G8 -->|pass| G9["G9: %wor tier parsing\nand alignment"]
     G9 -->|pass| G10["G10: Golden tier roundtrip\n(%mor, %gra, %pho, %wor)"]
     G10 -->|pass| G11["G11: Reference corpus\nnode coverage audit"]
-    G11 -->|pass| done(["All gates passed"])
-    G0 & G1 & G2 & G3 & G4 & G5 & G6 & G7 & G8 & G9 & G10 & G11 -->|fail| abort(["Pipeline stops"])
+    G11 -->|pass| G12["G12: Generated artifacts\nmatch committed sources"]
+    G12 -->|pass| G13["G13: Fuzz workspace\nisolation"]
+    G13 -->|pass| G14["G14: Imported Batchalign\nRust/PyO3 gate"]
+    G14 -->|pass| done(["All gates passed"])
+    G0 & G1 & G2 & G3 & G4 & G5 & G6 & G7 & G8 & G9 & G10 & G11 & G12 & G13 & G14 -->|fail| abort(["Pipeline stops"])
 ```
 
 | Gate | Check |
@@ -152,12 +155,15 @@ flowchart TD
 | G3 | Spec runtime tools compile check |
 | G4 | CHAT manual anchor links |
 | G5 | Generated parser corpus equivalence suite |
-| G6 | Fragment parsing semantics |
+| G6 | Golden fragment validity (words + tiers) |
 | G7 | Bare-timestamp regression gate |
-| G8 | Reference corpus semantic equivalence (78 files) |
+| G8 | Reference corpus semantic equivalence (97 files) |
 | G9 | %wor tier parsing and alignment |
 | G10 | Golden tier roundtrip (%mor, %gra, %pho, %wor) |
 | G11 | Reference corpus node coverage |
+| G12 | Generated artifacts match committed sources |
+| G13 | Fuzz workspace isolation |
+| G14 | Imported Batchalign Rust/PyO3 gate |
 
 ## Running Specific Tests
 

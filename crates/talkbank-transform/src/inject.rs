@@ -17,7 +17,7 @@
 
 use talkbank_model::WriteChat;
 use talkbank_model::alignment::helpers::{MorAlignableWordCount, MorItemCount};
-use talkbank_model::model::{DependentTier, GraTier, GrammaticalRelation, Mor, MorTier, Utterance};
+use talkbank_model::model::{DependentTier, GrammaticalRelation, Mor, MorTier, Utterance};
 
 use crate::extract::collect_utterance_content;
 
@@ -56,6 +56,11 @@ pub enum MisalignmentClass {
     TerminatorFilterBug,
     /// Code-switched dispatch disagreed with CHAT main-tier counts.
     LanguageDispatchIssue,
+    /// `%mor` chunk count and `%gra` relation count disagreed at injection
+    /// time. Upstream sentence-mapping likely failed to append a terminator
+    /// PUNCT relation (or appended one for an utterance that doesn't have a
+    /// terminator chunk). dona@s bug class.
+    MorGraCountMismatch,
     /// Diagnostic data is insufficient to classify more precisely.
     Unknown,
 }
@@ -68,6 +73,7 @@ impl MisalignmentClass {
             Self::MwtReassemblyBug => "mwt_reassembly_bug",
             Self::TerminatorFilterBug => "terminator_filter_bug",
             Self::LanguageDispatchIssue => "language_dispatch_issue",
+            Self::MorGraCountMismatch => "mor_gra_count_mismatch",
             Self::Unknown => "unknown",
         }
     }
@@ -87,13 +93,42 @@ impl MisalignmentClass {
 /// additional context (Stanza tokens, whether retokenization was used,
 /// whether the utterance was code-switched) may enrich the diagnostic
 /// before surfacing it.
+/// # Instrumentation contract
+///
+/// Every call to this function emits at least one `tracing` event so an
+/// operator running with `--verbose` (filter ≥ info) can reconstruct the
+/// inject path taken for any utterance. Events:
+///
+/// | Branch                                   | Level | Target message                        |
+/// |------------------------------------------|-------|---------------------------------------|
+/// | Entry (always)                           | info  | `inject_morphosyntax: enter`          |
+/// | mors empty (skip)                        | info  | `inject_morphosyntax: skip empty`     |
+/// | word/mor count mismatch (returns Err)    | warn  | `MOR count mismatch ...`              |
+/// | %mor-only (no %gra) install              | info  | `inject_morphosyntax: mor-only`       |
+/// | %mor/%gra count mismatch (returns Err)   | warn  | `%mor/%gra count mismatch ...`        |
+/// | aligned (success)                        | info  | `inject_morphosyntax: aligned`        |
+///
+/// At the daemon's default filter (`warn`), only the two error events fire.
+/// Run with `batchalign3 -v` (info) to see entry + per-branch outcomes, or
+/// `-vv` (debug) for the original `alignment check` debug counts.
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(utterance = %utterance.main.to_chat_string()),
+)]
 pub fn inject_morphosyntax(
     utterance: &mut Utterance,
     mors: Vec<Mor>,
-    terminator: Option<String>,
+    terminator: talkbank_model::Terminator,
     gra_relations: Vec<GrammaticalRelation>,
 ) -> Result<(), MisalignmentDiagnostic> {
+    tracing::info!(
+        mor_count = mors.len(),
+        gra_count = gra_relations.len(),
+        "inject_morphosyntax: enter",
+    );
     if mors.is_empty() {
+        tracing::info!("inject_morphosyntax: skip empty");
         return Ok(());
     }
 
@@ -152,16 +187,73 @@ pub fn inject_morphosyntax(
         });
     }
 
-    let mor_tier =
-        MorTier::new_mor(mors.clone()).with_terminator(terminator.clone().map(Into::into));
-
-    let gra_tier = GraTier::new_gra(gra_relations);
-    let gra_item_count = gra_tier.len();
-
-    replace_or_add_tier(&mut utterance.dependent_tiers, DependentTier::Mor(mor_tier));
-    if gra_item_count > 0 {
-        replace_or_add_tier(&mut utterance.dependent_tiers, DependentTier::Gra(gra_tier));
+    // No-gra case: install MorTier alone. Some pipeline paths legitimately
+    // produce a `%mor` without a paired `%gra` (e.g., utseg).
+    if gra_relations.is_empty() {
+        tracing::info!(mor_count = mors.len(), "inject_morphosyntax: mor-only");
+        let mor_tier = MorTier::new_mor(mors, terminator);
+        replace_or_add_tier(&mut utterance.dependent_tiers, DependentTier::Mor(mor_tier));
+        return Ok(());
     }
+
+    // Co-construct (MorTier, GraTier) via try_align_mor_gra so the chunk-
+    // relation alignment is enforced at construction time. The terminator's
+    // PUNCT relation is the last entry of gra_relations (per upstream
+    // AppendTrailingPunct policy in build_gra_and_validate); pop it for the
+    // typed terminator slot.
+    let mut item_relations = gra_relations;
+    let Some(terminator_relation) = item_relations.pop() else {
+        // Unreachable: checked non-empty above.
+        return Ok(());
+    };
+    let slot = talkbank_model::alignment::MorGraTerminatorSlot {
+        terminator,
+        relation: terminator_relation,
+    };
+
+    let (mor_tier, gra_tier) = match talkbank_model::alignment::try_align_mor_gra(
+        mors,
+        item_relations,
+        slot,
+        talkbank_model::Span::DUMMY,
+    ) {
+        Ok(pair) => pair,
+        Err(talkbank_model::alignment::MorGraConstructionError::CountMismatch {
+            mor_chunks,
+            gra_relations,
+        }) => {
+            // dona@s bug class: upstream produced misaligned counts.
+            // Surface as MisalignmentDiagnostic; the mor_chunks / gra_relations
+            // counts are stuffed into the existing typed fields semantically
+            // (they are usize counts, even if the field types were named for
+            // the word/mor case originally).
+            tracing::warn!(
+                mor_chunks,
+                gra_relations,
+                utterance = %utterance.main.to_chat_string(),
+                "%mor/%gra count mismatch — returning MisalignmentDiagnostic",
+            );
+            return Err(MisalignmentDiagnostic {
+                chat_words: Vec::new(),
+                stanza_tokens_after_mapping: Vec::new(),
+                expected: talkbank_model::alignment::helpers::MorAlignableWordCount::new(
+                    mor_chunks,
+                ),
+                actual: talkbank_model::alignment::helpers::MorItemCount::new(gra_relations),
+                suspected_class: MisalignmentClass::MorGraCountMismatch,
+            });
+        }
+    };
+
+    let mor_chunks = mor_tier.count_chunks();
+    let gra_relations_count = gra_tier.relations().len();
+    tracing::info!(
+        mor_chunks,
+        gra_relations = gra_relations_count,
+        "inject_morphosyntax: aligned",
+    );
+    replace_or_add_tier(&mut utterance.dependent_tiers, DependentTier::Mor(mor_tier));
+    replace_or_add_tier(&mut utterance.dependent_tiers, DependentTier::Gra(gra_tier));
 
     Ok(())
 }
@@ -258,7 +350,15 @@ mod tests {
         let output_before = chat.to_chat_string();
 
         let utt = get_utterance(&mut chat, 0);
-        inject_morphosyntax(utt, Vec::new(), None, Vec::new()).unwrap();
+        inject_morphosyntax(
+            utt,
+            Vec::new(),
+            talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
+            Vec::new(),
+        )
+        .unwrap();
 
         let output_after = chat.to_chat_string();
         assert_eq!(output_before, output_after);
@@ -281,7 +381,14 @@ mod tests {
         };
         let too_many_mors = vec![mor("intj", "hello"), mor("intj", "extra")];
 
-        let result = inject_morphosyntax(utt, too_many_mors, Some(".".to_string()), Vec::new());
+        let result = inject_morphosyntax(
+            utt,
+            too_many_mors,
+            talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
+            Vec::new(),
+        );
 
         assert!(
             result.is_err(),
@@ -306,6 +413,48 @@ mod tests {
             diag.chat_words,
             vec!["hello".to_string()],
             "chat_words must reflect what CHAT extraction actually found"
+        );
+    }
+
+    /// Mor/Gra count mismatch (mors_total_chunks + 1 != gra_relations.len())
+    /// must surface as an Err — silent emission of a misaligned pair was the
+    /// dona@s bug class.
+    ///
+    /// Setup: HELLO_CHAT's first utterance is `hello .` (1 alignable word).
+    /// Supply 1 Mor (matching word count, so the upstream check passes) and
+    /// gra_relations of length 1 — short by one (missing the terminator's
+    /// PUNCT entry that AppendTrailingPunct should have produced upstream).
+    /// MorTier with terminator counts 2 chunks; GraTier has 1 relation;
+    /// inject must reject.
+    #[test]
+    fn inject_morphosyntax_gra_count_mismatch_returns_err() {
+        use talkbank_model::model::dependent_tier::mor::{MorStem, MorWord, PosCategory};
+
+        let mut chat = parse_chat(HELLO_CHAT);
+        let utt = get_utterance(&mut chat, 0);
+
+        let mor = |pos: &str, lemma: &str| {
+            Mor::new(MorWord::new(PosCategory::new(pos), MorStem::new(lemma)))
+        };
+        let mors = vec![mor("intj", "hello")];
+        // Upstream produced gras for items only — forgot to append the
+        // terminator's PUNCT relation. Mor count_chunks() == 2 (1 item +
+        // sidecar terminator), gras.len() == 1. Inject must reject.
+        let item_only_gras = vec![GrammaticalRelation::new(1, 0, "ROOT")];
+
+        let result = inject_morphosyntax(
+            utt,
+            mors,
+            talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
+            item_only_gras,
+        );
+
+        assert!(
+            result.is_err(),
+            "expected Err on mor/gra count mismatch; got Ok (silent-misalignment regression \
+             — this is the dona@s bug class)"
         );
     }
 }

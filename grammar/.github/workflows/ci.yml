@@ -1,3 +1,6 @@
+# Legacy subtree workflow snapshot only. Active repo CI lives in the repository
+# root `.github/workflows/`; GitHub does not run this nested workflow as part of
+# the unified talkbank-tools repository.
 name: CI
 
 on:

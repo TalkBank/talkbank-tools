@@ -1,12 +1,19 @@
 # Contributing to talkbank-tools
 
+**Status:** Current
+**Last updated:** 2026-04-29 13:15 EDT
+
 Thank you for contributing.
 
-This repository contains the CHAT specification and core Rust library crates:
-- `spec/` is the specification source of truth.
-- `crates/` contains the core Rust library crates (parsing, model, validation, etc.).
+This repository is the unified home for:
 
-The grammar lives in `grammar/`.
+- the CHAT specification and grammar pipeline
+- the core Rust crates (`talkbank-*`)
+- the `chatter` CLI and `talkbank-lsp`
+- the VS Code extension
+- the imported Batchalign stack (`batchalign3`, Python package, `batchalign-*` crates, dashboard, PyO3 bridge)
+
+Start with the root [README.md](README.md) for the documentation map by surface.
 
 ### External Dependency Note
 
@@ -19,19 +26,43 @@ types), note this in your PR and a maintainer will regenerate it.
 Most contributions (spec changes, validation logic, CLAN commands, CLI features)
 do not require this step.
 
-The CLI and LSP live in `crates/talkbank-cli/` and `crates/talkbank-lsp/`.
+The main user-facing binaries live in:
+
+- `crates/talkbank-cli/` -> `chatter`
+- `crates/talkbank-lsp/` -> `talkbank-lsp`
+- `crates/batchalign/` -> `batchalign3`
 
 ## Development Setup
 1. Install Rust (stable).
-2. Install Node.js (for spec tooling).
+2. Install Node.js (for grammar/frontend tooling).
+3. Install `uv` for the Python/Batchalign surfaces.
 
 Core commands:
 ```bash
-make build
-make test
 make check
-make test-gen
+make test
+make verify
+make batchalign-check
+make batchalign-test-rust
+make batchalign-test-integration
+make batchalign-test-python
+make batchalign-typecheck-python
+make batchalign-ci-python
+make ci-local
+make ci-full
 make chat-anchors-check
+```
+
+For the full target list:
+
+```bash
+make help
+```
+
+For xtask helpers:
+
+```bash
+cargo run -q -p xtask -- help
 ```
 
 `make chat-anchors-check` validates all `CHAT.html#...` links in `crates/`, `schema/`, and `docs/` against the published CHAT manual at `https://talkbank.org/0info/manuals/CHAT.html` by default.
@@ -62,11 +93,33 @@ Run at minimum:
 make verify
 ```
 
-If you need additional confidence for broad changes, also run:
+If you changed imported Batchalign code or packaging/runtime surfaces, also run:
+
 ```bash
-cargo test --workspace
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
+make batchalign-check
+make batchalign-test-rust
+make batchalign-test-integration
+make batchalign-ci-python
+```
+
+If you changed the dashboard frontend, also run:
+
+```bash
+make batchalign-dashboard-api-check  # Verify API types are in sync
+make batchalign-dashboard-e2e        # Quick mock-server e2e tests
+```
+
+For a comprehensive confidence check before a dashboard PR, also run:
+
+```bash
+make batchalign-dashboard-build      # Verify build completes
+make batchalign-dashboard-e2e-real   # Integration tests with real server
+```
+
+If you need broader confidence for cross-cutting changes, also run:
+```bash
+make ci-local
+make ci-full
 ```
 
 ## Generated Files
@@ -84,6 +137,14 @@ Include:
 
 ## Documentation Expectations
 Update docs in the same PR when behavior, workflows, or contracts change.
+
+Key doc surfaces:
+
+- `book/` — the unified TalkBank Toolchain mdBook. All four product
+  surfaces (chatter, Batchalign3, VS Code extension, CLAN command
+  reference) live as sections under `book/src/`.
+- `vscode/README.md` for the VS Code extension entrypoint
+- crate READMEs for component-specific entrypoints
 
 ## Reporting Bugs
 Open an issue with:

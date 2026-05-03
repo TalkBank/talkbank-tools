@@ -1,7 +1,7 @@
 # batchalign3 Frontend — Dashboard + Desktop Processing UI
 
 **Status:** Current
-**Last updated:** 2026-04-12 06:57 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 ## Overview
 
@@ -19,15 +19,17 @@ In web mode (browser), `/` shows the dashboard.
 
 ## Tech Stack
 
+(Versions live in `package.json`.)
+
 | Category | Technology |
 |----------|-----------|
-| Framework | React 19 |
-| Language | TypeScript 5.9 |
-| Router | Wouter 3.9 (lightweight) |
-| State | Zustand 5.0 |
-| Data Fetching | TanStack React Query 5 |
-| Styling | Tailwind CSS 4 |
-| Build | Vite 7 |
+| Framework | React |
+| Language | TypeScript |
+| Router | Wouter (lightweight) |
+| State | Zustand |
+| Data Fetching | TanStack React Query |
+| Styling | Tailwind CSS |
+| Build | Vite |
 | API Types | openapi-typescript (auto-generated from Rust server) |
 | Desktop APIs | @tauri-apps/api, @tauri-apps/plugin-dialog, @tauri-apps/plugin-shell |
 
@@ -39,8 +41,75 @@ npm run build            # TypeScript check + Vite build
 npm run generate:schema  # Regenerate OpenAPI types from Rust server
 npm run check:api        # Validate API drift
 npm run e2e:install      # Install Playwright deps for frontend/e2e
-npm run test:e2e         # Run Playwright tests from the standard frontend entrypoint
+npm run e2e:setup        # Full e2e environment setup (install + browsers)
+npm run test:e2e         # Run e2e tests against mock server (no Batchalign binary needed)
+npm run test:e2e:headed  # Run e2e tests in headed mode (visible browser)
 ```
+
+## E2E Testing Entry Points
+
+The dashboard has a unified e2e testing strategy across local development and CI. All paths
+route through the same Playwright test files under `frontend/e2e/tests/`.
+
+### Test Modes
+
+| Mode | Entry Point | Use Case | Requirements |
+|------|---|---|---|
+| **Mock server** | `npm run test:e2e` (default) | Fast local iteration, no deps | None (mock server built-in) |
+| **Real server** | `make batchalign-dashboard-e2e-real` | Full integration, real Batchalign binary | Rust binary, Python installation |
+| **CI canonical** | `dashboard-e2e` job in `batchalign-python.yml` | Pre-merge gate | Same as real-server |
+| **Desktop app** | `npm run test:e2e` from `apps/dashboard-desktop/` | Tauri webview integration | Tauri + all deps |
+
+### Local Development
+
+**Quick smoke test (no build, no binary required):**
+```bash
+cd frontend
+npm ci && npm run test:e2e
+```
+
+**Full integration with real Batchalign (optional, slow):**
+```bash
+make batchalign-dashboard-e2e-real
+```
+
+**Headed mode (watch tests in browser):**
+```bash
+cd frontend
+npm run test:e2e:headed
+```
+
+### CI Workflow
+
+The `dashboard-e2e` job in `.github/workflows/batchalign-python.yml`:
+1. Builds the wheel from the Batchalign Rust/Python stack
+2. Sets `BATCHALIGN_REAL_SERVER_E2E=1` and `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1`
+3. Runs `bash scripts/run_react_dashboard_smoke.sh` which orchestrates:
+   - API type generation
+   - Frontend build
+   - E2E environment setup (Playwright browsers + dependencies)
+   - Playwright tests against a real `batchalign3` server instance
+
+This job only runs on main and manual workflow_dispatch (not on all PRs due to performance).
+
+### Orchestration Scripts
+
+**`scripts/run_react_dashboard_smoke.sh`** — canonical orchestration script:
+- Generates dashboard API types from Rust OpenAPI spec
+- Builds frontend bundle
+- Sets up Playwright environment
+- Runs tests in mock or real server mode (via `BATCHALIGN_REAL_SERVER_E2E` env var)
+- Used by both local developers and CI
+
+**`scripts/build_react_dashboard.sh`** — deployment script:
+- Generates API types
+- Builds frontend
+- Copies built artifacts to target directory (default: `~/.batchalign3/dashboard`)
+
+**`scripts/check_dashboard_api_drift.sh`** — validation gate:
+- Ensures `openapi.json` and `frontend/src/generated/api.ts` are in sync
+- Fails if generated artifacts are stale
+- Part of both Makefile and CI gates
 
 ## Comment Discipline
 
@@ -81,7 +150,7 @@ frontend/
 │   ├── components/
 │   │   ├── Layout.tsx     # Header (nav, stats, connection status) + main wrapper
 │   │   ├── process/       # End-user processing flow components
-│   │   │   ├── CommandPicker.tsx        # 2×3 command card grid
+│   │   │   ├── CommandPicker.tsx        # Command card grid
 │   │   │   ├── FolderPicker.tsx         # Native folder picker via Tauri dialog
 │   │   │   ├── OutputModeSelector.tsx   # Separate folder vs in-place toggle
 │   │   │   ├── ProcessForm.tsx          # Main form (command → configure → processing)
@@ -98,11 +167,11 @@ frontend/
 │   │   ├── FileTable.tsx, FilterTabs.tsx, PaginatedFileList.tsx  # File-level views
 │   │   ├── ErrorPanel.tsx, ErrorCodeGroup.tsx  # Error display
 │   │   ├── StatusBadge.tsx, ProgressBar.tsx, StatsRow.tsx  # Shared UI
-│   │   ├── PipelineStageBar.tsx       # 5-phase progress indicator (Read→Transcribe→Align→Analyze→Finalize)
+│   │   ├── PipelineStageBar.tsx       # Pipeline progress indicator (Read→Transcribe→Align→Analyze→Finalize)
 │   │   ├── WorkerProfilePanel.tsx     # Worker profile status (GPU/Stanza/IO) from health
 │   │   ├── MemoryPanel.tsx            # System RAM gauge with gate threshold
 │   │   ├── VitalsRow.tsx              # Operational counter badges (crashes, retries, etc.)
-│   │   └── visualizations/  # Algorithm trace visualizations (4 pages)
+│   │   └── visualizations/  # Algorithm trace visualizations
 │   │
 │   ├── hooks/
 │   │   ├── useFleetDashboardSync.ts  # Fleet bootstrap + WebSocket live sync
@@ -154,8 +223,8 @@ Detail pages follow the same split:
 2. **Server**: `useServerLifecycle` reads `useDesktopServer().serverStatus()`,
    subscribes to `desktop://server-status-changed`, and auto-starts via
    `useDesktopServer().startServer()`
-3. **Health**: `useServerHealth` polls `GET /health` every 5s
-4. **Command**: User picks from 6 command cards
+3. **Health**: `useServerHealth` polls `GET /health` on a fixed interval
+4. **Command**: User picks from the command card grid
 5. **Files**: `useDesktopFiles().pickFolder()` → native dialog →
    `useDesktopFiles().discoverFiles()` → file list
 6. **Submit**: `useSubmitJob` sends `POST /jobs` with `paths_mode: true`

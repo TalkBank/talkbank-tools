@@ -1,3 +1,5 @@
+// affects: frontend/src/**
+// affects: frontend/dist/**
 import { createServer } from "node:http";
 import { promises as fs } from "node:fs";
 import path from "node:path";

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-04-23 22:38 EDT
+**Last modified:** 2026-05-01 09:47 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -64,10 +64,10 @@ No special setup beyond a working Rust toolchain. `cargo run` handles incrementa
 
 ## Test-management patterns — cross-repo convention
 
-The seven patterns shipped in batchalign3 on 2026-04-23 (background
-runner, interactive fail-fast, memory-budget xdist clipping, SQLite
-test history, history-driven ordering, `affects:` change-aware
-selection, drift-sentinel probes as monitors) are documented in
+Test-management patterns (background runner, interactive fail-fast,
+memory-budget xdist clipping, SQLite test history, history-driven
+ordering, `affects:` change-aware selection, drift-sentinel probes
+as monitors) are documented in
 `<workspace>/docs/test-management-convention.md` (private workspace).
 If this repo grows any of those pain shapes — waiting on slow tests,
 flakiness, probe-vs-regression confusion — that doc is the normative
@@ -76,11 +76,11 @@ reference rather than reinventing the solution.
 ## Build, Test, and Lint
 
 ```bash
-# Monorepo-level (run `make help` for all 29 targets)
+# Monorepo-level (run `make help` for the full target list)
 make build          # Generate symbols + build Rust workspace
 make test           # Rust workspace tests + doctests + spec tools
 make check          # Fast compile check (both workspaces)
-make verify         # Canonical pre-merge gates (G0–G13)
+make verify         # Canonical pre-merge gates
 make test-gen       # Regenerate tests from specs
 make smoke CRATE=x  # Fast: compile check + test one crate
 make check-specs    # Verify every error code has a spec file
@@ -116,8 +116,8 @@ cd spec/tools && cargo check --all-targets
 cd vscode && npm run compile && npm test && npm run lint
 
 # Desktop app (Tauri v2)
-cd desktop && npm install && cargo tauri dev   # dev mode with hot reload
-cd desktop && cargo tauri build                # distributable app bundle
+cd apps/chatter-desktop && npm install && cargo tauri dev   # dev mode with hot reload
+cd apps/chatter-desktop && cargo tauri build                # distributable app bundle
 
 # CLAN golden tests (requires CLAN binaries)
 cargo nextest run -p talkbank-clan -E 'test(golden)'
@@ -143,12 +143,13 @@ spec/           Source of truth: CHAT specification
   tools/          Generators (separate Cargo workspace)
 
 crates/         All Rust crates (see below)
-corpus/         Reference corpus (88 files, must pass 100%)
-  reference/      Sacred 88-file set (20 languages, 100% coverage)
+corpus/         Reference corpus (must pass 100%)
+  reference/      Sacred reference set
 tests/          Integration tests and fixtures
 schema/         JSON Schema for ChatFile AST
 vscode/         VS Code extension (TypeScript)
-desktop/        Desktop validation app (Tauri v2, React + TypeScript)
+apps/chatter-desktop/   Desktop validation app (Tauri v2, React + TypeScript)
+apps/dashboard-desktop/ Tauri shell for the Batchalign React dashboard (experimental)
 fuzz/           Fuzz testing targets (separate Cargo workspace)
 ```
 
@@ -165,7 +166,7 @@ flowchart TD
     lsp["talkbank-lsp\nLanguage Server Protocol"]
     s2c["send2clan-sys\nFFI to CLAN app"]
     desktop["chatter-desktop\nDesktop validation app (Tauri)"]
-    re2c["talkbank-re2c-parser\nAlternate parser (equivalence oracle)"]
+    re2c["talkbank-parser-re2c\nAlternate parser (equivalence oracle)"]
     tests["talkbank-parser-tests\nEquivalence tests"]
 
     derive --> model
@@ -179,7 +180,9 @@ flowchart TD
     re2c --> tests
 ```
 
-Downstream consumer: `batchalign3` (path deps to this workspace's crates).
+The same repository now also contains the Batchalign runtime/application layer
+under `crates/batchalign-*`, `batchalign/`, `frontend/`, `crates/batchalign-pyo3/`, and related
+surfaces.
 
 ### Crate Summaries
 
@@ -193,14 +196,14 @@ Downstream consumer: `batchalign3` (path deps to this workspace's crates).
 | `talkbank-cli` | `cli/`, `commands/`, `ui/` | `chatter` binary: validate, normalize, to-json, clan dispatch |
 | `talkbank-lsp` | `backend/`, `alignment/`, `graph/` | LSP server with tree-sitter incremental parsing |
 | `send2clan-sys` | `ffi.rs`, `api/` | C FFI to CLAN app (macOS Apple Events, Windows WM_APP) |
-| `talkbank-re2c-parser` | `re2c/`, `lexer.rs`, `parser.rs` | Alternate parser using re2c lexer (equivalence oracle for tree-sitter parser) |
+| `talkbank-parser-re2c` | `re2c/`, `lexer.rs`, `parser.rs` | Alternate parser using re2c lexer (equivalence oracle for tree-sitter parser) |
 | `talkbank-parser-tests` | golden word lists, `generated/` | Parser equivalence, roundtrip, property tests |
 | `chatter-desktop` | `commands.rs`, `events.rs` | Native desktop validation app (Tauri v2, React) |
 | `xtask` | `main.rs` | Cargo xtask build helpers (symbol generation, etc.) |
 
 ### Two Cargo Workspaces (plus desktop)
 
-1. **Root workspace** (`Cargo.toml`) — all Rust crates under `crates/` + `desktop/src-tauri`
+1. **Root workspace** (`Cargo.toml`) — all Rust crates under `crates/` + `apps/chatter-desktop/src-tauri`
 2. **Spec workspace** (`spec/Cargo.toml`) — `spec/tools` for core generation and `spec/runtime-tools` for runtime-aware spec tooling
 
 Use the relevant manifest path for spec tooling:
@@ -246,7 +249,7 @@ Rules:
 
 ### Grammar Design: Strict + Catch-All Pattern
 
-For header fields with a closed set of valid values, the grammar uses the **strict + catch-all** pattern ("parse, don't validate"): known values as named nodes (syntax highlighting), generic catch-all for unknown values (flagged by Rust validator). 10 rules use this pattern (`option_name`, `media_type`, `id_sex`, `id_ses`, etc.). See `grammar/CLAUDE.md` for details.
+For header fields with a closed set of valid values, the grammar uses the **strict + catch-all** pattern ("parse, don't validate"): known values as named nodes (syntax highlighting), generic catch-all for unknown values (flagged by Rust validator). Used by `option_name`, `media_type`, `id_sex`, `id_ses`, and similar header rules. See `grammar/CLAUDE.md` for details.
 
 ## Spec Change Workflow
 
@@ -300,12 +303,6 @@ This applies especially to:
 - Zero-word and omission semantics
 - Any grammar change that alters the CST structure
 
-**Postmortem (2026-03-24):** A grammar fix for stacked CA markers
-(`°↑ho:v°`) changed how `word_body` parsed marker-initial words. Six
-overlap marker tests failed. Instead of asking the user, the wrong
-assumption was made that the tests needed updating. The tests were
-actually correct — they documented intentional semantics. Always ask.
-
 ### Grammar/Parser Bug Fixes Require Specs and Reference Corpus
 
 **Every grammar or parser bug fix MUST be TDD'd with specs and reference
@@ -334,7 +331,7 @@ Every `match` on `UtteranceContent` or `BracketedItem` must explicitly list all 
 When CHAT rules refer to "consecutive", "sequential", or "adjacent" items on the main tier, this ALWAYS means **document order via recursive traversal** — NOT adjacent indices in the flat `Vec<UtteranceContent>`. Items inside groups (`<...>`, `"..."`, etc.) are part of the sequence. Always use `walk_words` or equivalent in-order walker, never raw index adjacency.
 
 ### Reference Corpus (100% Required)
-`corpus/reference/` (88 files) is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
+`corpus/reference/` is the sacred reference corpus. Every file MUST be valid CHAT. All files must pass:
 ```bash
 make verify
 cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
@@ -344,15 +341,15 @@ cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
 For any change touching parser, data model, validation, alignment, serialization, or roundtrip logic:
 1. `cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'`
 2. `cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus`
-3. Both must show `93 passed, 0 failed` before any commit.
+3. Both must pass before any commit.
 
 ### Pre-Push Gate: `make verify` is MANDATORY
 
 **`make verify` MUST pass before pushing any commit.** This is the single
-gate that catches all regressions. It runs 14 gates (G0–G13) covering:
-compile checks, spec tools, parser equivalence, golden roundtrips,
-fragment semantics, wor alignment, node coverage, generated-artifact
-freshness (G12), and fuzz workspace isolation (G13).
+gate that catches all regressions. It runs the verification gates
+covering: compile checks, spec tools, parser equivalence, golden
+roundtrips, fragment semantics, wor alignment, node coverage,
+generated-artifact freshness, and fuzz workspace isolation.
 
 **Install the pre-push hook on every fresh clone:**
 ```bash
@@ -363,27 +360,15 @@ installed. The hook itself runs the fast subset (fmt, affected compile,
 parser guardrail, `generated-check`, `fuzz-check`) — enough to catch
 every content-level CI failure without running the full test suite.
 
-**Postmortem (2026-03-23):** Multiple commits were pushed without running
-`make verify`, resulting in 41+ pre-existing test failures that went
-undetected for days. The dual-parser test infrastructure silently broke
-after the Chumsky elimination, and 112 error specs drifted from the
-grammar's actual behavior. All were eventually fixed, but at significant
-cost. This must not happen again.
-
-**Postmortem (2026-04-15):** Commit `8b483edef` added the `E316` error
-spec but did not regenerate `docs/errors/index.md`. CI's `Generated
-Artifacts Up To Date` job caught it; pre-push did not, because neither
-`scripts/pre-push.sh` nor `make verify` ran `generated-check` (only
-`make ci-full` did). A simultaneous pre-existing `Fuzz Smoke Test`
-failure — `fuzz/Cargo.toml` missing from `workspace.exclude` — had been
-red since the job was added on 2026-04-13, hidden by
-`continue-on-error: true`. Fixes: `generated-check` is now G12,
-`fuzz-check` is G13, and `scripts/pre-push.sh` runs both.
+**The rule:** never push without running `make verify`.
 
 **The rule:**
 ```bash
 make verify          # MUST pass before git push
 ```
+
+The pre-push hook also runs `generated-check` and `fuzz-check` so
+generated-artifact drift is caught locally rather than only in CI.
 
 If `make verify` fails and the fix is not immediately clear, do NOT push.
 Investigate first. See also: Grammar Change Workflow section.
@@ -409,18 +394,19 @@ soon as you commit.
 
 ### Known Testing Gaps (not_implemented specs)
 
-69 of 190 error specs are marked `Status: not_implemented` — the parser/validator
-does not yet produce the expected error code for the given input. These are
-tracked in `spec/errors/` files with `- **Status**: not_implemented`.
+Some error specs are marked `Status: not_implemented` — the
+parser/validator does not yet produce the expected error code for the
+given input. These are tracked in `spec/errors/` files with
+`- **Status**: not_implemented`.
 
-To find all not-implemented specs:
+To list them:
 ```bash
-grep -rl "Status.*not_implemented" spec/errors/ | wc -l
+grep -rl "Status.*not_implemented" spec/errors/
 ```
 
-These generate `#[ignore]` tests via `make test-gen`. Each represents a
-validation check that needs implementing. They are NOT test failures — they
-are honest markers of unfinished work.
+These generate `#[ignore]` tests via `make test-gen`. Each represents
+a validation check that needs implementing. They are NOT test
+failures — they are honest markers of unfinished work.
 
 ### Parser Recovery and Data Integrity
 - Do not fabricate dummy model values during parser recovery.
@@ -600,7 +586,7 @@ addresses a documented failure mode that produces misleading diagrams.
 
 **Rule 1: Name every resource.**
 Every node must have a specific name AND its type/role.
-Not `"Server"` — use `"Rust Server\n(batchalign-app)"`.
+Not `"Server"` — use `"Rust Server\n(batchalign)"`.
 Not `"Cache"` — use `"moka hot cache\n(10k entries)"` or
 `"SQLite cold cache\n(cache.db)"`.
 A reader must be able to grep the codebase for the node label and find it.
@@ -661,9 +647,8 @@ will carry forward and build upon.
   talkbank-tools crates from batchalign3 crates in cross-repo diagrams)
 - **Colors/styles:** Do not use custom colors. Default Mermaid themes
   ensure consistent rendering across GitHub and mdBook
-- **Size limit:** Keep diagrams under 30 nodes. If larger, split into
-  focused diagrams. The batchalign3 align command flowchart (~35 nodes)
-  is at the practical upper limit
+- **Size limit:** Keep diagrams under about 30 nodes. If larger,
+  split into focused diagrams.
 - **Angle bracket escaping:** Raw angle brackets in Mermaid labels
   (`Arc<str>`, `Cow<str>`, `&str`) trigger mdBook "unclosed HTML tag"
   warnings. Escape as `&lt;str&gt;` inside labels. In rendered HTML
@@ -685,9 +670,9 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ### Content Walker (shared primitive)
 
-`talkbank-model` exports `walk_words()` / `walk_words_mut()` — closure-based walkers that centralize the recursive traversal of `UtteranceContent` (24 variants) and `BracketedItem` (22 variants). Callers provide only a leaf-handling closure receiving `WordItem` or `WordItemMut` (Word, ReplacedWord, or Separator).
+`talkbank-model` exports `walk_words()` / `walk_words_mut()` — closure-based walkers that centralize the recursive traversal of `UtteranceContent` and `BracketedItem` variants. Callers provide only a leaf-handling closure receiving `WordItem` or `WordItemMut` (Word, ReplacedWord, or Separator).
 
-Domain-aware gating is built in: `Some(Mor)` skips retrace groups, `Some(Pho|Sin)` skips PhoGroup/SinGroup, `None` recurses everything. Used by `talkbank-model` (%wor generation) and `batchalign-chat-ops` (word extraction, FA injection/postprocess).
+Domain-aware gating is built in: `Some(Mor)` skips retrace groups, `Some(Pho|Sin)` skips PhoGroup/SinGroup, `None` recurses everything. Used by `talkbank-model` (%wor generation) and `batchalign` (word extraction, FA injection/postprocess).
 
 ## CLAN-Specific Standards
 
@@ -729,7 +714,7 @@ Key flags: `--roundtrip`, `--force`, `--skip-alignment`, `--max-errors N`, `--jo
 
 ## Re2c Parser Parity Testing
 
-The `talkbank-re2c-parser` crate is an independent CHAT parser used as a
+The `talkbank-parser-re2c` crate is an independent CHAT parser used as a
 **specification oracle**. Its purpose is to find gaps in specs and reference
 corpus — every divergence between re2c and TreeSitter is a missing test.
 
@@ -737,14 +722,14 @@ corpus — every divergence between re2c and TreeSitter is a missing test.
 
 ### Workflow
 
-1. Run the full corpus comparison (99,744 files, ~20 min in release):
+1. Run the full corpus comparison (release mode; can take many minutes):
    ```bash
-   cargo test -p talkbank-re2c-parser --test full_corpus_parse_test --release -- --ignored --nocapture
+   cargo test -p talkbank-parser-re2c --test full_corpus_parse_test --release -- --ignored --nocapture
    ```
 
 2. Categorize divergences:
    ```bash
-   cargo test -p talkbank-re2c-parser --test categorize_divergences --release -- --ignored --nocapture
+   cargo test -p talkbank-parser-re2c --test categorize_divergences --release -- --ignored --nocapture
    ```
 
 3. For each divergence category:
@@ -774,7 +759,7 @@ LSP always uses TreeSitterParser (needs incremental parsing).
 
 ### Current Status
 
-See `crates/talkbank-re2c-parser/docs/parity-report.md` for detailed metrics.
+See `crates/talkbank-parser-re2c/docs/parity-report.md` for detailed metrics.
 
 ## Status and Limitations
 
@@ -792,24 +777,23 @@ See `crates/talkbank-re2c-parser/docs/parity-report.md` for detailed metrics.
 | `spec/CLAUDE.md` | Specification structure, templates, `make test-gen` workflow |
 | `spec/tools/CLAUDE.md` | Spec generator binaries, spec/runtime-tools sibling crate |
 | `crates/talkbank-lsp/CLAUDE.md` | LSP crate: **alignment lives in `talkbank-model`, do not reimplement**; three `%mor`/`%gra` index spaces; RPC and feature handler rules |
-| `crates/talkbank-re2c-parser/CLAUDE.md` | Re2c parser crate (alternate parser / spec oracle) |
+| `crates/talkbank-parser-re2c/CLAUDE.md` | Re2c parser crate (alternate parser / spec oracle) |
 | `vscode/CLAUDE.md` | VS Code extension: presentation-only layer, no domain logic on the TS side |
-| `desktop/CLAUDE.md` | Desktop app (Tauri v2, React) — **mandates TUI parity** |
+| `apps/chatter-desktop/CLAUDE.md` | Desktop app (Tauri v2, React) — **mandates TUI parity** |
 
-## Sub-Project mdBooks (in this repo)
+## The unified mdBook (in this repo)
 
-Two mdBooks live inside this repo. Both are listed in the cross-repo
-inventory at `../docs/inventory.md` §2 along with the rest of the
-workspace's books.
+The single book at `book/` is the canonical user / developer
+documentation for the whole toolchain — chatter, Batchalign, the
+VS Code extension, the CLAN reference, CHAT format, architecture,
+and contributing guides all live there.
 
-| Path | Title | Audience |
+| Path | Title | Sections |
 |------|-------|----------|
-| `book/` | TalkBank Tooling | CLI (`chatter`), CHAT format, grammar, parser, model, alignment algorithms, contributing |
-| `vscode/book/` | TalkBank CHAT Editor | VS Code extension — user guide, architecture, developer guide, integrator RPC reference |
-| `crates/talkbank-clan/book/` | CLAN Commands | CLAN users; per-command reference for the 33 implemented analyses |
+| `book/` | TalkBank Toolchain | `chatter/`, `batchalign/`, `vscode/`, `clan-reference/`, `chat-format/`, `architecture/`, `contributing/` |
 
-**Policy.** The book is the canonical user / developer documentation for
-each subsystem. Keep only one top-level `README.md` per repo (for the
-marketplace / GitHub landing page); everything else lives in the book.
-Do not add parallel `GUIDE.md` / `DEVELOPER.md` / similar — if the book
-doesn't yet cover a topic, add a book chapter.
+**Policy.** The book is the canonical user / developer documentation
+for the whole toolchain. Keep only one top-level `README.md` per repo
+(for the marketplace / GitHub landing page); everything else lives in
+the book. Do not add parallel `GUIDE.md` / `DEVELOPER.md` / similar —
+if the book doesn't yet cover a topic, add a book chapter.

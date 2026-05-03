@@ -20,16 +20,14 @@ Java development ceased.
 ## Metadata
 
 - **Status**: implemented
-- **Status note**: Implemented 2026-04-22 per the project lead's 2026-04-21
-  approval. Validator lives inline in
+- **Status note**: Validator lives inline in
   `crates/talkbank-model/src/model/file/chat_file/validate.rs`
   (`check_media_linkage_has_timing`), called from `ChatFile::validate`
   after the E362 bullet-monotonicity check so it can reuse the
   already-collected main-tier bullets. Timing evidence: main-tier
-  bullets OR positional `%wor` sidecar. The three affected
-  reference-corpus fixtures were updated to add `, unlinked` status
-  in the same change.
-- **Last updated**: 2026-04-22 17:20 EDT
+  bullets OR positional `%wor` sidecar. Affected reference-corpus
+  fixtures carry `, unlinked` status.
+- **Last updated**: 2026-05-01 09:47 EDT
 
 - **Error Code**: E544
 - **Category**: header_validation
@@ -207,8 +205,8 @@ should run before landing the validator to quantify breadth.
 
 ## Review history
 
-- **2026-04-21 — The project lead approved the rule.** Email
-  exchange: "I noticed that I didn't carry over a Java chatter
+- **The project lead approved the rule.** Email exchange:
+  "I noticed that I didn't carry over a Java chatter
   validation to the new chatter. The Java chatter had a requirement
   that every transcript must have bullets unless the Media header
   said 'unlinked' or 'missing' or 'notrans'. Should I put this

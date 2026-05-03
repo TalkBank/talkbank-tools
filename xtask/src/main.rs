@@ -66,15 +66,21 @@ fn main() {
     }
 }
 
+mod audit_docs;
 mod ci_hygiene;
 mod dead_variant_audit;
 mod docs_sync;
+mod panic_audit;
 mod rust_scan;
 mod wide_struct_audit;
 
 fn run_main() -> Result<()> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
+        Some("help") => {
+            print_help();
+            Ok(())
+        }
         Some("affected-rust") => {
             let Some(mode_raw) = args.next() else {
                 return Err(usage_error());
@@ -94,12 +100,53 @@ fn run_main() -> Result<()> {
             let rest: Vec<String> = args.collect();
             dead_variant_audit::run(repo_root(), rest)
         }
+        Some("panic-audit") => {
+            let rest: Vec<String> = args.collect();
+            panic_audit::run(repo_root(), rest)
+        }
+        Some("audit-docs") => {
+            let rest: Vec<String> = args.collect();
+            audit_docs::parse_and_run(rest)
+        }
         _ => Err(usage_error()),
     }
 }
 
 fn usage_error() -> DynError {
-    "usage: cargo run -q -p xtask -- {affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-docs-sync|lint-dead-variants ...}".into()
+    "usage: cargo run -q -p xtask -- {help|affected-rust {packages|check|clippy|test}|lint-wide-structs|lint-ci-hygiene|lint-docs-sync|lint-dead-variants ...|panic-audit [--json] [--crate <prefix>]|audit-docs scan [--db PATH] [--talkbank-tools PATH] [--meta PATH]}".into()
+}
+
+fn print_help() {
+    println!("talkbank-tools xtask commands");
+    println!();
+    println!("  help");
+    println!("      Show this command summary.");
+    println!("  affected-rust packages");
+    println!(
+        "      Print affected workspace packages and special targets from current git changes."
+    );
+    println!("  affected-rust check");
+    println!("      Run compile checks for the affected Rust surface.");
+    println!("  affected-rust clippy");
+    println!("      Run clippy for the affected Rust surface.");
+    println!("  affected-rust test");
+    println!("      Run tests for the affected Rust surface.");
+    println!("  lint-wide-structs");
+    println!("      Audit oversized structs against the repo's architecture rules.");
+    println!("  lint-ci-hygiene");
+    println!("      Verify merged Batchalign/CI retirement and version-consistency rules.");
+    println!("  lint-docs-sync");
+    println!("      Check docs that must stay synchronized with the command/runtime surface.");
+    println!("  lint-dead-variants [args...]");
+    println!("      Audit enum variants that appear unused; accepts module/path filters.");
+    println!("  panic-audit [--json] [--crate <prefix>]");
+    println!(
+        "      Catalogue every panic-producing call site (.unwrap, .expect, panic!, todo!, unimplemented!, unreachable!) for the Phase B audit."
+    );
+    println!("  audit-docs scan [--db PATH] [--talkbank-tools PATH] [--meta PATH]");
+    println!(
+        "      Walk markdown across talkbank-tools and the meta-repo; upsert per-section rows into the doc-to-code provenance audit catalog. See docs/release-doc-audit/audit-method.md."
+    );
 }
 
 fn run_affected_rust(mode: AffectedMode) -> Result<()> {

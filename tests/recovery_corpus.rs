@@ -159,13 +159,13 @@ fn all_tiers_partial_parser_recovery_details() {
 
     // %mor should have recovered 3 items (pron|I, det|the, noun|dog), skipping BADMOR
     if let Some(mor) = utt.mor_tier() {
-        assert_eq!(mor.items.len(), 3, "mor should have 3 recovered items");
+        assert_eq!(mor.items().len(), 3, "mor should have 3 recovered items");
     }
 
     // %gra should have recovered 4 relations, skipping NOTRELATION
     if let Some(gra) = utt.gra_tier() {
         assert_eq!(
-            gra.relations.len(),
+            gra.relations().len(),
             4,
             "gra should have 4 recovered relations"
         );

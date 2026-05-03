@@ -41,6 +41,12 @@ impl ChatOpsCommandService {
         backend: &Backend,
         request: ExecuteCommandRequest,
     ) -> LspResult<Option<Value>> {
+        // Routing invariant: `ExecuteCommandRoutingService::dispatch`
+        // partitions variants by `request.family()` and only forwards
+        // `ExecuteCommandFamily::ChatOps` variants here. Follow-up:
+        // typed sub-enum per family — see
+        // `docs/panic-audit/talkbank-lsp.md`.
+        #[allow(clippy::unreachable)]
         match request {
             ExecuteCommandRequest::GetSpeakers(request) => {
                 command_response(handle_get_speakers(backend, &request), "Speaker error")

@@ -429,7 +429,7 @@ impl AnalysisCommand for ComplexityCommand {
 
         let accum = state.by_speaker.entry(speaker).or_default();
 
-        for relation in gra_tier.relations.iter() {
+        for relation in gra_tier.relations().iter() {
             accum.count_relation(relation.relation.as_str());
         }
     }

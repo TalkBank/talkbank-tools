@@ -60,6 +60,10 @@ pub fn run_clan(command: ClanCommands) {
                     talkbank_clan::commands::posttrain::run_posttrain().unwrap_err()
                 );
             }
+            // Routing invariant: this branch only runs for clan
+            // commands routed by the dispatcher; non-clan variants
+            // are filtered upstream.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("unhandled clan command family"),
         }
         std::process::exit(1);

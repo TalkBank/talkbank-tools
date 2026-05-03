@@ -261,7 +261,7 @@ console.log('//! - <https://talkbank.org/0info/manuals/CHAT.html#File_Headers>')
 console.log('//! - <https://talkbank.org/0info/manuals/CHAT.html#Main_Tier>');
 console.log('//! - <https://talkbank.org/0info/manuals/CHAT.html#Dependent_Tiers>');
 console.log('');
-console.log('#![allow(dead_code)]');
+console.log('#![allow(dead_code)] // Generated full grammar catalog; downstream crates use subsets.');
 console.log('#![allow(clippy::doc_markdown)]');
 console.log('');
 

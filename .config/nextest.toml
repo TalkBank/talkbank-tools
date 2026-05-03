@@ -1,0 +1,72 @@
+# Nextest configuration.
+#
+# Why the python-workers test-group exists: tests that spawn Python worker
+# subprocesses (`WorkerHandle::spawn` → fork/exec a
+# `uv run python -m batchalign.worker`) contend for OS-level startup
+# resources — dyld, sysctl, .pyc cache writes, fs lookups along $PATH
+# and sys.path, libpython initialization.
+#
+# Two structural mitigations make this manageable without a `max-threads`
+# cap on the group:
+#
+# 1. Six fixture-bearing binaries (cli, commands, e2e, integration,
+#    command_family_smoke, stress) share one warmed `WorkerPool` per
+#    test-binary process via `tests/common/test_server_fixture.rs`. Only
+#    the first session's first dispatch fork-execs a Python worker; the
+#    rest reuse it. Migration shipped 2026-04-30.
+# 2. The other binaries (worker_integration, gpu_concurrent_dispatch,
+#    worker_routing_and_lifecycle, worker_failure_paths,
+#    worker_protocol_matrix, turmoil_net, shared_worker_fixture_smoke,
+#    shared_test_server_smoke) intentionally exercise the per-test
+#    spawn path; they share workers within a binary via
+#    `tests/common/test_worker_pool.rs` (test-org #6, 2026-04-30).
+#
+# The group remains so a future regression that adds raw spawns can be
+# capped quickly without re-architecting the suite.
+
+# Default profile: ml_golden is skipped (requires real Rev.AI keys, network
+# access, and model checkpoints). Run the ML suite explicitly via
+# `cargo nextest run -p batchalign --profile ml`.
+[profile.default]
+default-filter = 'not binary(ml_golden)'
+
+# ML profile: run only ml_golden — the consolidated single-binary test
+# target that owns all ML-dependent integration tests, sharing one warmed
+# worker backend per process to avoid OOMs from parallel model loads.
+# Requires REVAI_API_KEY and pre-cached Stanza/Whisper checkpoints.
+# Serialized (the doc design in `batchalign-book/src/developer/testing.md`
+# calls out 8–12 GB peak RAM; running these in parallel with anything OOMs).
+[profile.ml]
+default-filter = 'binary(ml_golden)'
+test-threads = 1
+
+[test-groups]
+# Effectively uncapped: the fixture sharing described above bounds the
+# fork/exec rate without explicit serialization. Setting to "num-cpus"
+# means "as many as cargo would otherwise schedule." If a future change
+# reintroduces wall-clock flakes from python-startup contention, lower
+# the cap (e.g. `max-threads = 4`) and document the cause here.
+python-workers = { max-threads = "num-cpus" }
+
+[[profile.default.overrides]]
+filter = '''
+    package(batchalign)
+    & (
+        binary(gpu_concurrent_dispatch)
+        | binary(worker_failure_paths)
+        | binary(worker_routing_and_lifecycle)
+        | binary(worker_integration)
+        | binary(worker_protocol_matrix)
+        | binary(integration)
+        | binary(stress)
+        | binary(command_family_smoke)
+        | binary(turmoil_net)
+        | binary(cli)
+        | binary(commands)
+        | binary(e2e)
+        | binary(daemon_e2e)
+        | binary(shared_worker_fixture_smoke)
+        | binary(shared_test_server_smoke)
+    )
+'''
+test-group = 'python-workers'

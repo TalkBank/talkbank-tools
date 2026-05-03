@@ -526,6 +526,24 @@ pub enum DebugCommands {
     ///       --min-token-count 20 --max-per-pair 3 \
     ///       --sort token-count-desc --format jsonl
     Find(crate::commands::find::FindArgs),
+
+    /// Sanitize a CHAT file for protected-corpus debugging — strip
+    /// contributor lexical content while preserving structure.
+    ///
+    /// Replaces all word content, free-text dependent tiers, and
+    /// free-text headers with placeholders / `[redacted]`, while
+    /// preserving timing bullets, %wor offsets, speaker codes, POS
+    /// tags, language markers, and structural counts. Intended for use
+    /// before loading a protected `.cha` into LLM-assisted debugging
+    /// tools. See `talkbank/docs/protected-corpus-debugging-workflow.md`.
+    Sanitize {
+        /// Path to a single .cha file to sanitize.
+        input: PathBuf,
+
+        /// Output path. If omitted, writes to stdout.
+        #[arg(short, long, value_name = "PATH")]
+        output: Option<PathBuf>,
+    },
 }
 
 /// Cache maintenance subcommands under `talkbank cache`.

@@ -1,50 +1,53 @@
 # Testing and Quality Gates
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-04-29 10:39 EDT
 
-> **Note:** This page was originally a gap analysis from 2026-02-18. Most gaps identified have since been fixed — CI now runs all G0–G10 gates. See [Testing](testing.md) for current gate definitions.
+This page summarizes the **current** relationship between the local pre-merge
+gate (`make verify`) and the root CI workflow (`.github/workflows/ci.yml`).
+See [Testing](testing.md) for the canonical local gate definitions.
 
-## Verified Current Baseline
-1. Local verification is strong and currently green:
-   - `make check` passes.
-   - `make verify` passes through G0-G9.
-2. Root CI exists and is functional in `.github/workflows/ci.yml`:
-   - `rust-check-and-test`
-   - `spec-tools`
-   - `grammar`
-   - `generated-artifacts`
-3. Drift protection exists and is active:
-   - `make generated-check` is run in CI.
-   - parser signature guardrail is enforced in CI.
+## Local pre-merge contract
 
-## Gap: Local vs CI Contract Mismatch
-CI still runs a narrower bar than local `make verify`.
+`make verify` is the maintainer-facing local contract. It runs gates G0–G14 in
+sequence. `hooks-check` runs first as a warning, but it is not a numbered gate.
 
-### Covered in CI
-1. Compile checks (`cargo check`, `spec/tools cargo check`)
-2. Core crate tests (`talkbank-model`, `talkbank-parser`, `talkbank-parser-tests --lib`)
-3. Grammar generation and grammar corpus tests
-4. Generated artifact regeneration check
-5. Formatting and clippy
+## Root CI contract
 
-### Not Covered in CI (But Covered by `make verify`)
-1. Generated parser corpus equivalence suite (`G4`)
-2. Word-level parser equivalence (`G5`)
-3. Bare timestamp regression (`G6`)
-4. File-level parser equivalence (`G7`)
-5. `%wor` terminator/alignment gate (`G8`)
-6. Golden tier roundtrip parser suite (`G9`)
-7. Reference corpus roundtrip gate (`roundtrip_corpus`)
+Root CI is broader than `make verify`, but it is **not** a byte-for-byte mirror
+of the local gate sequence. The workflow includes local-contract coverage where
+practical, plus CI-only jobs such as grammar generation, reference-corpus
+roundtrip, VS Code jobs, cross-platform CLI smoke, dependency audit, and the
+aggregate `ci-report`.
 
-## Improvement Plan
-1. Promote `make verify` into CI as a required job, or replicate G4-G9 explicitly in CI jobs.
-2. Add a required reference corpus roundtrip job (cache-friendly by default, forced mode on schedule/nightly).
-3. Fail `spec/tools` warnings for binaries that are intended to be maintained (or suppress intentionally with explicit rationale).
-4. Add machine-readable gate summary artifact per CI run to simplify regression triage.
+### Local gate coverage in CI
 
-## Acceptance Criteria For This Area
-1. CI gate set is a superset of local pre-merge policy, not a subset.
-2. Parser behavioral regressions (equivalence, `%wor`, golden tier) fail PRs before merge.
-3. Reference corpus roundtrip status is visible in CI and release decisions.
-4. `spec/tools` check is warning-clean or has documented intentional exceptions.
+| Local gate | Local command | CI coverage today |
+|---|---|---|
+| G0 | `make parser-guard` | `rust-check-and-test` |
+| G1 | `cargo check --workspace --all-targets` | `rust-check-and-test` |
+| G2 | `cd spec/tools && cargo check --all-targets` | `spec-tools` |
+| G3 | `cargo check --manifest-path spec/runtime-tools/Cargo.toml --all-targets` | **Not mirrored in root CI** |
+| G4 | `make chat-anchors-check` | `chat-manual-anchor-check` |
+| G5 | `cargo nextest run -p talkbank-parser-tests --test generated` | `rust-check-and-test` |
+| G6 | `make test-fragment-semantics` | `rust-check-and-test` |
+| G7 | `cargo nextest run --test bare_timestamp_regression` | `rust-check-and-test` |
+| G8 | `cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files` | `rust-check-and-test` |
+| G9 | `cargo nextest run -p talkbank-parser-tests --test wor_terminator_alignment` | `rust-check-and-test` |
+| G10 | `cargo nextest run -p talkbank-parser-tests --test parser_suite` | `rust-check-and-test` |
+| G11 | `make coverage` | **Not mirrored in root CI** |
+| G12 | `make generated-check` | `generated-artifacts` |
+| G13 | `make fuzz-check` | Covered more broadly by `fuzz-smoke`, not by the same command |
+| G14 | `make batchalign-ci-rust` | **Not mirrored in root CI** |
+
+### Additional CI-only checks
+
+These are required CI signals but are not part of `make verify`:
+
+- `grammar`
+- `reference-corpus-roundtrip`
+- `vscode` and `vscode-vsix-smoke`
+- `cross-platform-smoke`
+- `dependency-audit`
+- `semver-checks` (pull requests)
+- `ci-report`

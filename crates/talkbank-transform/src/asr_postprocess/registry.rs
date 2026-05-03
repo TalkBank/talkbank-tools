@@ -30,7 +30,7 @@ pub enum NumberExpander {
     RustTable,
     /// CJK numerals via [`num2chinese`](super::num2chinese::num2chinese).
     /// Script is part of the variant — Simplified for
-    /// `zho` / `cmn`, Traditional for `jpn` / `yue`.
+    /// `zho` / `cmn`, Traditional for `jpn` / `yue` (CANTONESE-SPECIFIC).
     Num2Chinese(ChineseScript),
     /// Language allows Arabic digits in CHAT per the validator
     /// allowlist (`talkbank-tools/.../digits.rs`). Pass-through
@@ -76,6 +76,7 @@ pub static NUMBER_EXPANDERS: LazyLock<HashMap<&'static str, NumberExpander>> =
             "jpn",
             NumberExpander::Num2Chinese(ChineseScript::Traditional),
         );
+        // CANTONESE-SPECIFIC: Cantonese uses Traditional Chinese numerals.
         m.insert(
             "yue",
             NumberExpander::Num2Chinese(ChineseScript::Traditional),
@@ -87,9 +88,9 @@ pub static NUMBER_EXPANDERS: LazyLock<HashMap<&'static str, NumberExpander>> =
         // through `NUM2LANG` if a table exists, but the variant
         // documents that even passthrough is acceptable.
         //
-        // Note: `zho`, `yue`, `tha` are listed in the allowlist but
+        // Note: `zho` and `yue` (CANTONESE-SPECIFIC) are listed in the allowlist but
         // already have a more-specific expander above; the more-
-        // specific entry wins.
+        // specific entry wins. Same for `tha`.
         m.insert("cym", NumberExpander::LangAllowsDigits); // Welsh
         m.insert("vie", NumberExpander::LangAllowsDigits); // Vietnamese (also has RustTable)
         m.insert("nan", NumberExpander::LangAllowsDigits); // Min Nan
@@ -120,14 +121,15 @@ mod tests {
     use super::*;
 
     /// CJK languages route to the Chinese-script expander, not the
-    /// generic NUM2LANG table.
+    /// generic NUM2LANG table. CANTONESE-SPECIFIC: Cantonese (yue) routes to
+    /// Traditional Chinese numerals (like Japanese), not Simplified.
     #[test]
     fn cjk_routes_to_num2chinese() {
         for (lang, expected) in [
             ("zho", ChineseScript::Simplified),
             ("cmn", ChineseScript::Simplified),
             ("jpn", ChineseScript::Traditional),
-            ("yue", ChineseScript::Traditional),
+            ("yue", ChineseScript::Traditional), // CANTONESE-SPECIFIC
         ] {
             match expander_for(lang) {
                 Some(NumberExpander::Num2Chinese(script)) => assert_eq!(script, expected),

@@ -240,7 +240,12 @@ mod tests {
         let its = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
             .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
         let cookie = Mor::new(MorWord::new(PosCategory::new("noun"), "cookie"));
-        let mor = MorTier::new_mor(vec![its, cookie]).with_terminator(Some(".".into()));
+        let mor = MorTier::new_mor(
+            vec![its, cookie],
+            talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
+        );
 
         // Semantic word 1 → chunk 0 → main of item 0 → "it". Already correct today.
         assert_eq!(format_mor_word_label(Some(&mor), 1), "it");

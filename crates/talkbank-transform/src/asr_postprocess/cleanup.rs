@@ -201,6 +201,11 @@ pub fn apply_disfluency_replacements(utterances: &mut [Utterance], lang: &str) {
 /// never re-typed to `Retrace`. A bare `&-um &-um` therefore produces no
 /// retrace mark — the repetition is filler behavior, not a false start.
 /// User-facing contract is in `book/src/reference/retrace-detection.md`.
+///
+/// CANTONESE-SPECIFIC ADJUSTMENT: For Cantonese (yue) and Standard Chinese (zho),
+/// the minimum n-gram length is 2 characters instead of 1. This is because
+/// single-character false starts are extremely common in Cantonese speech
+/// and would flood the output with false-positive retrace marks.
 pub fn apply_retrace_detection(utterances: &mut [Utterance], lang: &str) {
     let min_ngram = if lang == "yue" || lang == "zho" { 2 } else { 1 };
 
@@ -510,6 +515,9 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
             if !is_capitalizable_initial(text) {
                 continue;
             }
+            // is_capitalizable_initial returned true above, which
+            // requires a non-empty first character.
+            #[allow(clippy::unwrap_used)]
             let first = text.chars().next().unwrap();
             if first.is_uppercase() {
                 break; // already capitalized, idempotent
@@ -518,6 +526,8 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
                 break; // starts with non-letter content; don't rewrite
             }
             let mut chars = text.chars();
+            // Same is_capitalizable_initial guarantee.
+            #[allow(clippy::unwrap_used)]
             let head = chars.next().unwrap().to_uppercase().to_string();
             let tail: String = chars.collect();
             word.text = AsrNormalizedText::new(head + &tail);

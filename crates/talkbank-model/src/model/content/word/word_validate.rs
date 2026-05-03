@@ -50,6 +50,7 @@ impl crate::validation::Validate for WordContents {
 impl crate::validation::Validate for Word {
     /// Validates structural, language, and mode-specific invariants for one parsed word token.
     fn validate(&self, context: &ValidationContext, errors: &impl ErrorSink) {
+        use crate::validation::word::language::LanguageResolutionOutcome;
         use crate::validation::word::{language, resolve_word_language, structure};
 
         // E243: Check for illegal characters (whitespace, bullets, control chars)
@@ -103,11 +104,13 @@ impl crate::validation::Validate for Word {
 
         // Only validate digits if we have real language context
         if tier_language.is_some() {
-            let (validation_langs, lang_errors) =
-                resolve_word_language(self, tier_language, &context.shared.declared_languages);
-            errors.report_all(lang_errors);
+            let LanguageResolutionOutcome {
+                resolution,
+                diagnostics,
+            } = resolve_word_language(self, tier_language, &context.shared.declared_languages);
+            errors.report_all(diagnostics);
 
-            language::check_word_digits_multi(self, &validation_langs, errors);
+            language::check_word_digits_multi(self, &resolution, errors);
         }
 
         // CA omission handling

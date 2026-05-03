@@ -1,15 +1,13 @@
 //! Cantonese text normalization for ASR post-processing.
 //!
-//! Ported from Python `batchalign/inference/hk/_common.py`. Applies:
-//! 1. Simplified → HK Traditional Chinese conversion via `zhconv` (OpenCC + MediaWiki rulesets)
-//! 2. Domain-specific replacement table (31 entries) for Cantonese-specific character corrections
-//!
-//! The `zhconv` crate uses precompiled Aho-Corasick automata from OpenCC and MediaWiki
-//! rulesets, running at 100-200 MB/s — pure Rust, no C++ dependency.
+//! Ported from Python `batchalign/inference/languages/cantonese/_common.py`. Applies:
+//! 1. Simplified → HK Traditional Chinese conversion via embedded OpenCC rules
+//! 2. Domain-specific replacement table (31 entries) for Cantonese-specific
+//!    character corrections
 
 use std::sync::LazyLock;
 
-use zhconv::{Variant, zhconv as zh_convert};
+use ferrous_opencc::{OpenCC, config::BuiltinConfig};
 
 // ---------------------------------------------------------------------------
 // Replacement table
@@ -84,6 +82,12 @@ fn is_cjk_punct_or_space(c: char) -> bool {
 // Aho-Corasick replacement engine
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::expect_used)]
+static HK_OPENCC: LazyLock<OpenCC> = LazyLock::new(|| {
+    OpenCC::from_config(BuiltinConfig::S2hk)
+        .expect("embedded S2hk conversion tables should be available")
+});
+
 /// Pre-built Aho-Corasick automaton for the replacement table.
 ///
 /// Uses leftmost-longest matching to handle overlapping patterns correctly
@@ -112,7 +116,7 @@ fn apply_replacements(text: &str) -> String {
 ///
 /// This is the Rust equivalent of Python's `normalize_cantonese_text()`.
 pub fn normalize_cantonese(text: &str) -> String {
-    let converted = zh_convert(text, Variant::ZhHK);
+    let converted = HK_OPENCC.convert(text);
     apply_replacements(&converted)
 }
 
@@ -161,8 +165,8 @@ mod tests {
     }
 
     #[test]
-    fn test_zhconv_simplified_to_hk() {
-        // zhconv handles standard simplified→HK traditional conversion
+    fn test_opencc_simplified_to_hk() {
+        // Embedded OpenCC rules handle standard simplified→HK traditional conversion.
         assert_eq!(normalize_cantonese("联系"), "聯繫");
     }
 
@@ -201,8 +205,8 @@ mod tests {
     }
 
     #[test]
-    fn test_replacement_table_after_zhconv() {
-        // "松" after zhconv should still become "鬆" via replacement table
+    fn test_replacement_table_after_opencc() {
+        // "松" after S2HK conversion should still become "鬆" via replacement table.
         assert_eq!(normalize_cantonese("松"), "鬆");
     }
 }

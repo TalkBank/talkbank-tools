@@ -19,7 +19,7 @@ use std::sync::Arc;
 use talkbank_model::{ChatFile, ChatParser, ErrorSink, ParseOutcome};
 use talkbank_model::{ParseError, Severity};
 use talkbank_parser::TreeSitterParser;
-use talkbank_re2c_parser::Re2cParser;
+use talkbank_parser_re2c::Re2cParser;
 
 /// Dispatch enum wrapping both parser backends.
 ///

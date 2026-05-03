@@ -55,7 +55,11 @@ pub fn map_ud_sentence_expanded(
                 }
             }
             UdId::Single(_) => {
-                push_ud(ud, &mut mors, &mut provenance, ctx)?;
+                // Terminator-punct is supplied separately via `Terminator`;
+                // `AppendTrailingPunct` adds the matching PUNCT relation.
+                if !is_terminator_punct(ud) {
+                    push_ud(ud, &mut mors, &mut provenance, ctx)?;
+                }
                 i += 1;
             }
             UdId::Decimal(_) => {
@@ -64,7 +68,7 @@ pub fn map_ud_sentence_expanded(
         }
     }
 
-    build_gra_and_validate(&mors, &provenance, TerminatorPolicy::AlreadyInChunks)
+    build_gra_and_validate(&mors, &provenance, TerminatorPolicy::AppendTrailingPunct)
         .map(|gras| (mors, gras))
 }
 

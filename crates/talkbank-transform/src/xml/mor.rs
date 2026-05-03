@@ -281,7 +281,7 @@ pub(super) fn collect_utterance_tiers(
                         tier: "%gra",
                     });
                 }
-                out.gra = Some(&g.relations.0);
+                out.gra = Some(g.relations());
             }
             DependentTier::Wor(w) => {
                 if out.wor.is_some() {

@@ -7,11 +7,11 @@ the code paths it covers in its own header:
 Python::
 
     # affects: batchalign/inference/morphosyntax.py
-    # affects: crates/batchalign-chat-ops/src/nlp/**
+    # affects: crates/batchalign/src/nlp/**
 
 Rust::
 
-    // affects: crates/batchalign-chat-ops/src/retokenize/**
+    // affects: crates/batchalign/src/retokenize/**
 
 Patterns are gitignore-style (``**`` supported) and matched via
 ``pathspec``. A test file with no ``affects:`` lines is treated as

@@ -724,7 +724,12 @@ mod tests {
             .iter()
             .map(|(pos, lemma)| Mor::new(MorWord::new(PosCategory::new(*pos), *lemma)))
             .collect();
-        MorTier::new_mor(mors).with_terminator(Some(".".into()))
+        MorTier::new_mor(
+            mors,
+            crate::Terminator::Period {
+                span: crate::Span::DUMMY,
+            },
+        )
     }
 
     /// Builds a synthetic `%gra` tier with `count` relations.

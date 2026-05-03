@@ -1,13 +1,15 @@
 """Typed schema models for worker protocol V2.
 
-These models mirror `crates/batchalign-app/src/types/worker_v2.rs`. The live
-worker loop now uses them for forced alignment, ASR, and speaker requests. The
-shared fixture suite still matters because it keeps the remaining staged task
-families and the cross-language contract honest.
+These models mirror `crates/batchalign-types/src/worker_v2/` (re-exported via
+`crates/batchalign/src/types/worker_v2.rs`). The ``*_v2`` namespace is
+intentional: Rust and Python still ship the frozen V1 worker surface
+(``worker`` / ``_types.py``), while ``worker_v2`` is the live typed execute
+contract, the JSON Schema layer (``ipc-schema/worker_v2``), and the generated
+Python package namespace (``batchalign/generated/worker_v2``).
 
 - define the canonical V2 protocol shape in Python
 - validate canonical fixture files shared with Rust
-- prevent drift while the remaining task migrations are still staged
+- prevent drift while V1 and V2 coexist
 
 The design goal is to make Python a thin model host. Request and response
 models therefore describe model-ready inputs plus prepared-artifact references,

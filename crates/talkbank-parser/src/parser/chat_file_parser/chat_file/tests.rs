@@ -15,6 +15,25 @@ fn parse_chat_file_or_err(input: &str) -> Result<crate::model::ChatFile, String>
         .map_err(|err| format!("Failed to parse chat file: {err:?}"))
 }
 
+/// `@Languages: cat, spa` produces `ChatFile.languages = [cat, spa]`
+/// in declaration order.
+#[test]
+fn cat_spa_header_parses_to_two_declared_languages() -> Result<(), String> {
+    let input = "@UTF8\n\
+                 @Begin\n\
+                 @Languages:\tcat, spa\n\
+                 @Participants:\tPAR Participant\n\
+                 @ID:\tcat|test|PAR||male|||Participant|||\n\
+                 *PAR:\thello .\n\
+                 @End";
+    let chat_file = parse_chat_file_or_err(input)?;
+
+    let langs: Vec<&str> = chat_file.languages.0.iter().map(|c| c.as_str()).collect();
+
+    assert_eq!(langs, vec!["cat", "spa"]);
+    Ok(())
+}
+
 /// Tests shortening at word start.
 #[test]
 fn test_shortening_at_word_start() -> Result<(), String> {

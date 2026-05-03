@@ -1,7 +1,7 @@
 //! Per-stage snapshot of the ASR post-processing pipeline.
 //!
 //! Captures intermediate word/utterance lists at each pipeline stage
-//! so callers (notably `batchalign-app`'s trace store) can render
+//! so callers (notably `batchalign`'s trace store) can render
 //! per-stage diagnostics without having to re-run the pipeline.
 //!
 //! Threading is opt-in: every snapshot-aware function takes
@@ -10,7 +10,7 @@
 //! fields are populated only on `Some`).
 //!
 //! Stages captured here mirror the stages described in the
-//! `AsrPipelineTrace` shape exposed by `batchalign-app::types::traces`.
+//! `AsrPipelineTrace` shape exposed by `batchalign::types::traces`.
 //! Conversion from `AsrPipelineSnapshot` to `AsrPipelineTrace` is done
 //! by the caller; this crate stays free of trace-format coupling so the
 //! lib remains usable independently of the server's trace store.

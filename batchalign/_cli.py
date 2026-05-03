@@ -44,7 +44,7 @@ def _exec_binary(binary: Path) -> None:
 def _repo_root() -> Path | None:
     """Return the repo root when running from a checkout, else ``None``."""
     root = Path(__file__).resolve().parent.parent
-    if (root / "Cargo.toml").exists() and (root / "crates" / "batchalign-cli").exists():
+    if (root / "Cargo.toml").exists() and (root / "crates" / "batchalign").exists():
         return root
     return None
 
@@ -76,7 +76,7 @@ def main() -> None:
                     "run",
                     "-q",
                     "-p",
-                    "batchalign-cli",
+                    "batchalign",
                     "--bin",
                     "batchalign3",
                     "--",
@@ -86,5 +86,5 @@ def main() -> None:
 
     raise SystemExit(
         "batchalign3 CLI binary not found. Reinstall batchalign3 or, "
-        "in a source checkout, run `cargo build -p batchalign-cli`."
+        "in a source checkout, run `cargo build -p batchalign`."
     )

@@ -20,3 +20,6 @@ cc = { workspace = true }
 [lib]
 name = "send2clan"
 path = "src/lib.rs"
+
+[lints]
+workspace = true

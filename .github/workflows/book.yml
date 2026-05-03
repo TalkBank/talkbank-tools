@@ -1,0 +1,35 @@
+name: TalkBank Toolchain mdBook
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/book.yml'
+      - 'book/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/book.yml'
+      - 'book/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build TalkBank Toolchain mdBook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install mdBook
+        uses: taiki-e/install-action@mdbook
+      - name: Install mdbook-mermaid
+        run: cargo install mdbook-mermaid --locked
+      - name: Install mdbook-linkcheck2
+        run: cargo install mdbook-linkcheck2 --locked
+      - name: Build book
+        run: mdbook build book
+      - name: Upload book artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: talkbank-toolchain-book
+          path: book/build/

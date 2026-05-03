@@ -109,37 +109,27 @@ impl super::traits::TierAlignmentResult for MorAlignment {
 pub fn align_main_to_mor(main: &MainTier, mor: &MorTier) -> MorAlignment {
     let mut alignment = MorAlignment::new();
 
-    // Validate terminator matching: both must have terminator or both must not
-    let main_has_term = main.content.terminator.is_some();
-    let mor_has_term = mor.terminator.is_some();
-
-    if main_has_term != mor_has_term {
-        let error = build_alignment_error(
-            main,
-            mor,
-            "E707",
-            if main_has_term {
-                "Main tier has terminator but %mor tier does not".to_string()
-            } else {
-                "%mor tier has terminator but main tier does not".to_string()
-            },
-            "Either both tiers must have a terminator, or neither should have one",
-            mor.span,
-        );
-        alignment = alignment.with_error(error);
-    }
-
-    // Validate terminator value: when both have terminators, they must match
-    if let (Some(main_term), Some(mor_term)) = (&main.content.terminator, &mor.terminator) {
+    // %mor terminator is type-enforced to always be present (see
+    // `MorTier.terminator: Terminator` on the model). Main-tier
+    // terminator remains `Option<Terminator>` because CA-mode files
+    // legitimately omit it (~0.16% of corpus utterances). When main
+    // has no terminator, the morphotag pipeline synthesizes one for
+    // %mor (typically `.`). That synthesis is intentional and not
+    // flagged here as a presence-mismatch — the prior E707
+    // ("presence-mismatch") check no longer fires because the
+    // Validate terminator value: %mor terminator must match the main
+    // tier terminator exactly.
+    if let Some(main_term) = &main.content.terminator {
         let main_str = main_term.to_chat_string();
-        if main_str != *mor_term {
+        let mor_str = mor.terminator.to_chat_string();
+        if main_str != mor_str {
             let error = build_alignment_error(
                 main,
                 mor,
                 "E716",
                 format!(
                     "Main tier terminator \"{}\" does not match %mor terminator \"{}\"",
-                    main_str, mor_term,
+                    main_str, mor_str,
                 ),
                 "The %mor tier terminator must match the main tier terminator exactly",
                 mor.span,

@@ -137,7 +137,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": "+\".",
+            "terminator": {
+              "type": "quoted_period_simple"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"
@@ -243,7 +245,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": "+\"/.",
+            "terminator": {
+              "type": "quoted_new_line"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"

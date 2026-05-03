@@ -47,7 +47,7 @@ Preferred crates:
 - All CHAT parsing and serialization goes through the AST — never ad-hoc string manipulation
 - Treat 10 or more named struct fields as an audit trigger. Wide boundary or
   report records can be acceptable, but wide runtime state bags need explicit
-  review. See `architecture/wide-structs.md`.
+  review. See `architecture/chat-model/wide-structs.md`.
 
 ## Testing
 

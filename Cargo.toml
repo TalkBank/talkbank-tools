@@ -3,10 +3,7 @@ resolver = "2"
 members = [
     "xtask",
     "crates/batchalign-types",
-    "crates/batchalign-revai",
-    "crates/batchalign-chat-ops",
-    "crates/batchalign-app",
-    "crates/batchalign-cli",
+    "crates/batchalign",
     "crates/talkbank-model",
     "crates/talkbank-parser-tests",
     "crates/talkbank-derive",
@@ -16,12 +13,13 @@ members = [
     "crates/talkbank-cli",
     "crates/talkbank-lsp",
     "crates/send2clan-sys",
-    "crates/talkbank-re2c-parser",
-    "desktop/src-tauri",
+    "crates/talkbank-parser-re2c",
+    "apps/chatter-desktop/src-tauri",
+    "apps/dashboard-desktop/src-tauri",
+    "crates/batchalign-pyo3",
 ]
 exclude = [
     "spec/tools",  # Independent workspace
-    "pyo3",        # Standalone PyO3 crate imported from batchalign3
     "fuzz",        # cargo-fuzz uses its own nightly toolchain with sanitizer flags
 ]
 
@@ -33,6 +31,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+[lints]
+workspace = true
 
 [dependencies]
 clap = { workspace = true }
@@ -75,6 +76,27 @@ homepage = "https://talkbank.org/"
 keywords = ["talkbank", "chat-format", "linguistics", "nlp", "parsing"]
 categories = ["parser-implementations", "text-processing"]
 rust-version = "1.89.0"
+
+# Workspace-level lint policy.
+#
+# Panic-as-control-flow is the dominant footgun in long-lived Rust code
+# (LSP, server, async workers). The CLAUDE.md standard is "no panics in
+# long-lived logic, recoverable conditions go through Result with thiserror
+# domain types." These warn-level lints make every new panic site visible
+# without one-shot breaking the existing tree (see docs/panic-audit/baseline.md
+# for the frozen baseline; per-crate `[lints]` promote to `deny` as each
+# crate finishes its audit).
+#
+# Test code keeps panic discipline relaxed — assertion macros panic by
+# design, and `unwrap()` on a fixture that's known to parse is the standard
+# Rust testing idiom. Per-test-module `#[allow]` is preferred over blanket
+# exemptions; doctests remain unrestricted.
+[workspace.lints.clippy]
+unwrap_used   = "warn"
+expect_used   = "warn"
+panic         = "warn"
+todo          = "warn"
+unimplemented = "warn"
 
 [workspace.dependencies]
 aho-corasick = "1.1"
@@ -134,10 +156,11 @@ send2clan-sys = { path = "crates/send2clan-sys", version = "0.2.0" }
 serde_yaml = "0.9"
 
 # Core dependencies (shared across crates)
-batchalign-app = { path = "crates/batchalign-app" }
-batchalign-chat-ops = { path = "crates/batchalign-chat-ops" }
-batchalign-cli = { path = "crates/batchalign-cli" }
-batchalign-revai = { path = "crates/batchalign-revai" }
+# Batchalign build crates track the `batchalign3` product release line in their
+# own manifests rather than inheriting `workspace.package.version`, because the
+# TalkBank core Rust line (`0.2.x`) and the Batchalign preview product line
+# (`0.1.x`) are intentionally separate release trains.
+batchalign = { path = "crates/batchalign" }
 batchalign-types = { path = "crates/batchalign-types" }
 libc = "0.2"
 moka = { version = "0.12", features = ["future"] }
@@ -159,7 +182,7 @@ talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.2.0" }
 talkbank-model = { path = "crates/talkbank-model", version = "0.2.0" }
 talkbank-parser = { path = "crates/talkbank-parser", version = "0.2.0" }
 talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.2.0" }
-talkbank-re2c-parser = { path = "crates/talkbank-re2c-parser", version = "0.2.0" }
+talkbank-parser-re2c = { path = "crates/talkbank-parser-re2c", version = "0.2.0" }
 talkbank-transform = { path = "crates/talkbank-transform", version = "0.2.0" }
 
 phf = { version = "0.13", features = ["macros"] }
@@ -178,14 +201,16 @@ tower-lsp = "0.20"
 opentelemetry = { version = "0.31", features = ["trace"] }
 opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "http-proto", "reqwest-client"] }
-temporalio-client = "0.3"
-temporalio-common = "0.3"
-temporalio-macros = "0.3"
-temporalio-sdk = "0.3"
-temporalio-sdk-core = "0.3"
+temporalio-client = "0.4"
+temporalio-common = "0.4"
+temporalio-macros = "0.4"
+temporalio-sdk = "0.4"
+temporalio-sdk-core = "0.4"
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 whatlang = "0.18"
+zhconv = "0.4.1"
+rustc-hash = "2.1"
 sysinfo = "0.38"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
@@ -197,11 +222,14 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tree-sitter = "0.26"
 tree-sitter-highlight = "0.26"
 tree-sitter-talkbank = { path = "grammar", version = "0.2.0" }
-zhconv = "0.4.1"
+ferrous-opencc = "0.4.0"
 
 trybuild = "1.0"
 unicode-width = "0.2"
 walkdir = "^2.5"
+
+# Used by xtask audit-docs (sync sqlite, no system dep).
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [profile.dev]
 split-debuginfo = "unpacked"

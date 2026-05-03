@@ -1,3 +1,4 @@
+# affects: batchalign/device.py
 """Tests for batchalign.device — DevicePolicy and resolve_inference_device.
 
 Verifies the CPU/CUDA device resolution logic without loading any ML models.

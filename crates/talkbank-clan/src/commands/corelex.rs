@@ -1,3 +1,7 @@
+// `writeln!` to `String` is infallible. See
+// `talkbank-clan/src/converters/praat2chat.rs` for the convention.
+#![allow(clippy::unwrap_used)]
+
 //! CORELEX — Core vocabulary analysis.
 //!
 //! Identifies "core" vocabulary items that appear above a frequency

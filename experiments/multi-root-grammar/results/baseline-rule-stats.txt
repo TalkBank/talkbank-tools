@@ -1,4 +1,0 @@
-Rules: 367
-Conflicts: 5
-Extras: 0
-Supertypes: 6

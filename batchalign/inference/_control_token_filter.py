@@ -127,7 +127,7 @@ def strip_control_tokens_in_sentence(
     Empty list means the sentence was already clean. Callers should
     log the returned leaks so the workaround is visible in ops logs
     (same pattern as the typed UD invariants rewrites in
-    ``batchalign-chat-ops/src/nlp/invariants/``).
+    ``batchalign/src/nlp/invariants/``).
 
     Operates on the shape produced by ``stanza.Document.to_dict()``:
     a list of token dicts with keys including ``id``, ``text``,

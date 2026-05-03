@@ -196,6 +196,8 @@ fn pluralize_last_word(s: &str) -> String {
     if parts.is_empty() {
         return s.to_string();
     }
+    // is_empty guard above ensures pop() returns Some.
+    #[allow(clippy::unwrap_used)]
     let last = parts.pop().unwrap();
     let pluralized = if let Some(stem) = last.strip_suffix('y') {
         format!("{stem}ies")

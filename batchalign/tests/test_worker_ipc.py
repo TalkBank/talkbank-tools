@@ -1,7 +1,7 @@
 """Tests for the infer-era worker IPC contract between Rust and Python.
 
 Cross-language contract: this is the Python half. The Rust half lives in
-``crates/batchalign-app/tests/worker_protocol_v2_compat.rs``. Both sides
+``crates/batchalign/tests/worker_protocol_v2_compat.rs``. Both sides
 must independently verify that the wire format roundtrips correctly — a
 change to an IPC type must update both Rust and Python models.
 """

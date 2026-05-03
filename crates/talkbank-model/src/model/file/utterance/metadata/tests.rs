@@ -346,7 +346,12 @@ fn build_alignment_fixture_utterance() -> Utterance {
     );
 
     let mor_item = Mor::new(MorWord::new(PosCategory::new("noun"), "hello"));
-    let mor = MorTier::new_mor(vec![mor_item]);
+    let mor = MorTier::new_mor(
+        vec![mor_item],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let gra = GraTier::new_gra(vec![GrammaticalRelation::new(1, 0, "ROOT")]);
     let pho = PhoTier::new_pho(vec![PhoItem::Word(PhoWord::new("helo"))]);

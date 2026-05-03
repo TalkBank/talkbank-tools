@@ -35,8 +35,13 @@ pub(super) fn apply_parsed_tier(
             if tier_node.has_error() {
                 report_tier_parse_error(tier_node, input, "mor", errors);
             } else {
-                let tier = parse_mor_tier(tier_node, input, errors);
-                utterance.dependent_tiers.push(DependentTier::Mor(tier));
+                // Diagnostics for Rejected go through ErrorSink; the
+                // utterance simply gets no MorTier attached.
+                if let talkbank_model::ParseOutcome::Parsed(tier) =
+                    parse_mor_tier(tier_node, input, errors)
+                {
+                    utterance.dependent_tiers.push(DependentTier::Mor(tier));
+                }
             }
         }
         GRA_DEPENDENT_TIER => {

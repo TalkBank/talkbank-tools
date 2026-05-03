@@ -1,40 +1,53 @@
-.PHONY: help symbols-gen generated-check test-gen mine-candidates test test-affected test-grammar test-generated test-fragment-semantics test-legacy-fragment-parity test-parity batchalign-check batchalign-test-rust batchalign-test-integration batchalign-build-pyo3 batchalign-build-wheel batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-book-build batchalign-ci-rust build clean check check-affected verify parser-guard chat-anchors-check fuzz-check hooks-check book book-serve coverage smoke check-specs ci-local ci-full install-hooks lint-affected
+.PHONY: help symbols-gen generated-check test-gen mine-candidates test test-affected test-grammar test-generated test-fragment-semantics test-legacy-fragment-parity test-parity batchalign-check batchalign-test-rust batchalign-test-integration batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected verify parser-guard chat-anchors-check fuzz-check hooks-check book book-serve coverage smoke check-specs ci-local ci-full install-hooks lint-affected _batchalign-test-python _batchalign-typecheck-python
 
 help:
-	@echo "TalkBank Core Library Tasks"
+	@echo "talkbank-tools task index"
 	@echo ""
-	@echo "  make test-gen       Generate tests from specs"
-	@echo "  make symbols-gen    Generate shared symbol sets"
-	@echo "  make generated-check Regenerate and verify generated artifacts are in sync"
-	@echo "  make mine-candidates Mine valid CHAT candidates from ../data into spec/tmp/"
-	@echo "  make test           Run all tests"
-	@echo "  make test-affected  Run dependency-aware tests for changed code"
-	@echo "  make test-grammar   Run tree-sitter grammar corpus tests"
-	@echo "  make test-generated Run spec-generated parser/validation tests"
-	@echo "  make test-legacy-fragment-parity Run legacy word-fragment parity audit"
-	@echo "  make test-parity    Run full-file parser parity tests"
-	@echo "  make batchalign-check Fast compile check for imported Batchalign Rust crates"
-	@echo "  make batchalign-test-rust Run imported Batchalign Rust library suites"
-	@echo "  make batchalign-test-integration Run imported Batchalign focused integration gates"
-	@echo "  make batchalign-build-pyo3 Build the imported standalone PyO3 crate"
-	@echo "  make batchalign-build-wheel Build the imported Batchalign wheel"
-	@echo "  make batchalign-runtime-check Verify imported runtime constants"
-	@echo "  make batchalign-dashboard-api-check Verify dashboard API artifacts"
-	@echo "  make batchalign-dashboard-build Build the imported dashboard frontend"
-	@echo "  make batchalign-book-build Build the imported Batchalign book"
-	@echo "  make batchalign-ci-rust Run the imported Batchalign Rust/PyO3 CI command set"
-	@echo "  make build          Build all components"
-	@echo "  make check          Fast compile check"
-	@echo "  make check-affected Fast dependency-aware compile check"
-	@echo "  make verify         Canonical pre-merge verification gates"
-	@echo "  make coverage       Report grammar node type coverage for reference corpus"
-	@echo "  make parser-guard   Enforce parser ErrorSink/Option signature guardrail"
-	@echo "  make chat-anchors-check Verify CHAT manual anchors referenced in source/docs"
-	@echo "  make smoke CRATE=x  Fast check + test a single crate"
-	@echo "  make check-specs    Verify every error code has a spec file"
-	@echo "  make clean          Clean all build artifacts"
-	@echo "  make book           Build the documentation book"
-	@echo "  make book-serve     Serve the documentation book locally"
+	@echo "Core chat/parser/model workflow:"
+	@echo "  make check                 Fast compile check for core workspaces"
+	@echo "  make test                  Core Rust tests + doctests + spec tools"
+	@echo "  make verify                Canonical core pre-merge gate"
+	@echo "  make ci-local              Fast local CI approximation"
+	@echo "  make ci-full               Stricter local CI approximation"
+	@echo "  make smoke CRATE=x         Fast compile check + one crate test"
+	@echo ""
+	@echo "Batchalign workflow:"
+	@echo "  make batchalign-check              Imported Batchalign compile checks"
+	@echo "  make batchalign-test-rust          Imported Batchalign Rust library suites"
+	@echo "  make batchalign-test-integration   Imported Batchalign focused integration gates"
+	@echo "  make batchalign-build-pyo3         Imported standalone PyO3 crate"
+	@echo "  make batchalign-build-wheel        Imported Batchalign wheel"
+	@echo "  make batchalign-test-python        Imported Batchalign Python pytest gate"
+	@echo "  make batchalign-typecheck-python   Imported Batchalign Python typecheck gate"
+	@echo "  make batchalign-ci-python          Imported Batchalign Python wheel/test/type gate"
+	@echo "  make batchalign-dashboard-build       Imported dashboard frontend build"
+	@echo "  make batchalign-dashboard-api-check  Imported dashboard API drift gate"
+	@echo "  make batchalign-dashboard-e2e        Dashboard e2e tests (mock server)"
+	@echo "  make batchalign-dashboard-e2e-real   Dashboard e2e tests (real server)"
+	@echo "  make batchalign-runtime-check        Imported runtime constants check"
+	@echo "  make batchalign-ci-rust              Imported Batchalign Rust/PyO3 CI gate"
+	@echo ""
+	@echo "Spec, grammar, and generated artifacts:"
+	@echo "  make symbols-gen            Generate shared symbol sets"
+	@echo "  make test-gen               Regenerate spec-driven tests/docs"
+	@echo "  make generated-check        Verify generated artifacts are in sync"
+	@echo "  make test-grammar           Tree-sitter grammar corpus tests"
+	@echo "  make test-generated         Spec-generated parser/validation tests"
+	@echo "  make test-legacy-fragment-parity Legacy word-fragment parity audit"
+	@echo "  make test-parity            Full-file parser equivalence"
+	@echo "  make coverage               Reference corpus node-type coverage"
+	@echo "  make check-specs            Verify every error code has a spec file"
+	@echo "  make mine-candidates        Mine valid CHAT candidates from ../data"
+	@echo ""
+	@echo "Docs and developer helpers:"
+	@echo "  make chat-anchors-check     Verify CHAT manual anchors referenced in source/docs"
+	@echo "  make parser-guard           Enforce ErrorSink/Option parser guardrail"
+	@echo "  make install-hooks          Install the git pre-push hook"
+	@echo "  make book                   Build the unified TalkBank Toolchain book"
+	@echo "  make book-serve             Serve the unified book locally"
+	@echo "  cargo run -q -p xtask -- help"
+	@echo "                              List xtask audit/helper commands"
+	@echo "  make clean                  Clean build artifacts"
 	@echo ""
 
 # Guardrail: disallow introducing new ErrorSink + Option parser signatures.
@@ -139,6 +152,7 @@ test-generated:
 	cargo nextest run -p talkbank-parser-tests --test generated_tests
 
 test-fragment-semantics:
+	cargo nextest run -p talkbank-parser-tests --test golden_words_validation --test golden_tiers_validation
 
 test-legacy-fragment-parity:
 	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_words
@@ -149,43 +163,81 @@ test-parity:
 test-affected:
 	cargo run -q -p xtask -- affected-rust test
 
+BATCHALIGN_PYTEST_ARGS ?= batchalign --disable-pytest-warnings -k "not test_whisper_fa_pipeline"
+
 batchalign-check:
 	@echo "==> Checking imported Batchalign Rust crates..."
-	cargo check -p batchalign-types -p batchalign-revai -p batchalign-chat-ops -p batchalign-app -p batchalign-cli --all-targets
+	cargo check -p batchalign-types -p batchalign --all-targets
 
 batchalign-test-rust:
 	@echo "==> Testing imported batchalign-types..."
 	cargo test -p batchalign-types --lib -q
-	@echo "==> Testing imported batchalign-revai..."
-	cargo test -p batchalign-revai --lib -q
-	@echo "==> Testing imported batchalign-chat-ops..."
-	cargo test -p batchalign-chat-ops --lib -q
-	@echo "==> Testing imported batchalign-app..."
-	cargo test -p batchalign-app --lib -q
-	@echo "==> Testing imported batchalign-cli..."
-	cargo test -p batchalign-cli --lib -q
+	@echo "==> Testing imported batchalign..."
+	cargo test -p batchalign --lib -q
 
 batchalign-test-integration:
 	@echo "==> Running imported Batchalign CI hygiene..."
 	cargo run -q -p xtask -- lint-ci-hygiene
-	@echo "==> Testing imported batchalign-cli CI proxy..."
-	cargo test -p batchalign-cli --test ci_checks -q
-	@echo "==> Testing imported batchalign-app focused integration gates..."
-	cargo test -p batchalign-app --test json_compat --test workflow_helpers -q
+	@echo "==> Testing imported batchalign CI proxy..."
+	cargo test -p batchalign --test ci_checks -q
+	@echo "==> Testing imported batchalign focused integration gates..."
+	cargo test -p batchalign --test json_compat --test workflow_helpers -q
 
 batchalign-build-pyo3:
 	@echo "==> Building imported standalone PyO3 crate..."
-	cargo build --manifest-path pyo3/Cargo.toml -q
+	cargo build --manifest-path crates/batchalign-pyo3/Cargo.toml -q
 
 batchalign-build-wheel:
 	@echo "==> Building imported Batchalign wheel..."
-	@if [ ! -x batchalign/_bin/batchalign3 ] && [ ! -f batchalign/_bin/batchalign3.exe ]; then \
-	  echo "==> Staging bundled batchalign3 binary..."; \
-	  cargo build --release -p batchalign-cli; \
+	@# Always rebuild the native binary so the wheel never bundles a stale
+	@# one — cargo's incremental compilation makes the no-op case fast.
+	@# Skip only when a Windows .exe has been pre-staged for
+	@# cross-compilation (the cross-compile workflow places batchalign3.exe
+	@# into batchalign/_bin/ and packages that). The previous guard
+	@# (`! -x batchalign/_bin/batchalign3 && ! -f .exe`) silently bundled
+	@# stale native binaries whenever the file already existed; this caused
+	@# the 2026-04-29 deploy to ship the previous day's binary even though
+	@# fresh sources had been committed. See the cancel-cascade postmortem.
+	@if [ ! -f batchalign/_bin/batchalign3.exe ]; then \
+	  echo "==> Building native batchalign3 binary..."; \
+	  cargo build --release -p batchalign; \
 	  mkdir -p batchalign/_bin; \
 	  cp target/release/batchalign3 batchalign/_bin/batchalign3; \
 	fi
+	rm -rf dist
+	mkdir -p dist
 	uv build --wheel --out-dir dist/
+
+batchalign-python-prepare: batchalign-build-wheel
+	@echo "==> Syncing imported Batchalign dev dependencies..."
+	uv sync --group dev --no-install-project
+	@echo "==> Installing imported Batchalign wheel into the dev environment..."
+	uv pip install --reinstall --no-deps dist/*.whl
+
+_batchalign-test-python:
+	@echo "==> Running imported Batchalign Python tests..."
+	uv run --no-sync pytest $(BATCHALIGN_PYTEST_ARGS)
+
+batchalign-test-python: batchalign-python-prepare
+	@$(MAKE) _batchalign-test-python
+
+_batchalign-typecheck-python:
+	@echo "==> Verifying imported Batchalign retirement gates..."
+	test ! -e batchalign/cli/cli.py
+	test ! -e batchalign/serve/app.py
+	test ! -e batchalign/serve/job_store.py
+	@echo "==> Testing imported batchalign CI proxy..."
+	cargo test -p batchalign --test ci_checks -q
+	@$(MAKE) batchalign-runtime-check
+	@echo "==> Running imported Batchalign Python typecheck..."
+	uv run --no-sync mypy
+
+batchalign-typecheck-python: batchalign-python-prepare
+	@$(MAKE) _batchalign-typecheck-python
+
+batchalign-ci-python: batchalign-python-prepare
+	@$(MAKE) _batchalign-test-python
+	@$(MAKE) _batchalign-typecheck-python
 
 batchalign-runtime-check:
 	@echo "==> Verifying imported runtime constants..."
@@ -199,9 +251,15 @@ batchalign-dashboard-build:
 	@echo "==> Building imported dashboard frontend..."
 	cd frontend && npm ci && npm run build
 
-batchalign-book-build:
-	@echo "==> Building imported Batchalign book..."
-	mdbook build batchalign-book
+batchalign-dashboard-e2e:
+	@echo "==> Running dashboard e2e tests (mock server)..."
+	bash scripts/run_react_dashboard_smoke.sh
+
+batchalign-dashboard-e2e-real:
+	@echo "==> Running dashboard e2e tests (real server)..."
+	cd frontend && npm ci
+	cd frontend/e2e && npm ci && npm run install:browsers
+	BATCHALIGN_REAL_SERVER_E2E=1 bash scripts/run_react_dashboard_smoke.sh
 
 batchalign-ci-rust:
 	@$(MAKE) batchalign-check
@@ -249,7 +307,7 @@ verify:
 	@$(MAKE) chat-anchors-check
 	@echo "==> [G5] Generated parser corpus equivalence suite"
 	cargo nextest run -p talkbank-parser-tests --test generated
-	@echo "==> [G6] Fragment parsing semantics"
+	@echo "==> [G6] Golden fragment validity (words + tiers)"
 	@$(MAKE) test-fragment-semantics
 	@echo "==> [G7] Bare-timestamp regression gate"
 	cargo nextest run --test bare_timestamp_regression

@@ -1,3 +1,5 @@
+# affects: batchalign/worker/_execute_v2.py
+# affects: batchalign/inference/**
 """Tests for the shrinking legacy ``batch_infer`` dispatch boundary.
 
 The Python cutover now requires `opensmile`, `avqi`, and `speaker` to use the

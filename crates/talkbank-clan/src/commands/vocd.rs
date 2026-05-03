@@ -235,7 +235,7 @@ impl AnalysisCommand for VocdCommand {
         // Strip fusional features (&PRES, &INF, etc.) — CLAN echoes base lemmas only.
         if let Some(mor_tier) = utterance.mor_tier() {
             let lemmas: Vec<String> = mor_tier
-                .items
+                .items()
                 .iter()
                 .flat_map(|mor| {
                     let mut words = vec![strip_fusional(&mor.main.lemma)];

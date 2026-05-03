@@ -1,3 +1,16 @@
+// Test code is exempt from this crate's `deny`-level panic lints —
+// see `docs/panic-audit/talkbank-model.md`.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 //! Core TalkBank CHAT model plus validation/alignment APIs.
 //!
 //! `model` contains the strongly-typed AST/data structures, while `validation` and `alignment`

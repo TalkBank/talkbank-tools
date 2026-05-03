@@ -44,22 +44,25 @@ jobs:
           cargo test -p talkbank-clan
           cargo test -p talkbank-cli --test docs_sync
 
-      - name: G4 — Generated parser corpus equivalence suite
+      - name: G5 — Generated parser corpus equivalence suite
         run: cargo test -p talkbank-parser-tests --test generated -- --test-threads=1
 
-      - name: G5 — Word-level parser equivalence suite
+      - name: G6 — Golden fragment validity (words + tiers)
+        run: cargo test -p talkbank-parser-tests --test golden_words_validation --test golden_tiers_validation
+
+      - name: Additional — Legacy word-level parser equivalence suite
         run: cargo test -p talkbank-parser-tests --test parser_equivalence_words
 
-      - name: G6 — Bare-timestamp regression gate
+      - name: G7 — Bare-timestamp regression gate
         run: cargo test --test bare_timestamp_regression
 
-      - name: G7 — Reference corpus semantic equivalence (tree-sitter vs direct)
+      - name: G8 — Reference corpus semantic equivalence (tree-sitter vs direct)
         run: cargo test -p talkbank-parser-tests --test parser_equivalence_files
 
-      - name: G8 — %wor tier parsing and alignment
+      - name: G9 — %wor tier parsing and alignment
         run: cargo test -p talkbank-parser-tests --test wor_terminator_alignment
 
-      - name: G9 — Golden tier roundtrip (%mor, %gra, %pho, %wor)
+      - name: G10 — Golden tier roundtrip (%mor, %gra, %pho, %wor)
         run: cargo test -p talkbank-parser-tests --test parser_suite
 
       - name: "T018/T019 — CLI artifact smoke test"
@@ -70,7 +73,7 @@ jobs:
           ./target/release/chatter validate corpus/reference/ --quiet --force
 
   reference-corpus-roundtrip:
-    name: Reference Corpus Roundtrip (74 files, must be 100%)
+    name: Reference Corpus Roundtrip (97 files, must be 100%)
     runs-on: ubuntu-latest
 
     steps:
@@ -500,7 +503,7 @@ jobs:
             echo "| Gates | Job | Result |"
             echo "|-------|-----|--------|"
             echo "| G0 parser guardrail · G1 compile · fmt · clippy · G4–G9 parser/golden tests | Rust Check and Test | $(result_to_badge '${{ needs.rust-check-and-test.result }}') |"
-            echo "| Reference corpus roundtrip — 74 files, 100% required | Reference Corpus Roundtrip | $(result_to_badge '${{ needs.reference-corpus-roundtrip.result }}') |"
+            echo "| Reference corpus roundtrip — 97 files, 100% required | Reference Corpus Roundtrip | $(result_to_badge '${{ needs.reference-corpus-roundtrip.result }}') |"
             echo "| G2 spec tools compile · spec tool tests | Spec Tools | $(result_to_badge '${{ needs.spec-tools.result }}') |"
             echo "| G3 CHAT manual anchor links | CHAT Manual Anchor Links | $(result_to_badge '${{ needs.chat-manual-anchor-check.result }}') |"
             echo "| Generated artifacts match committed sources | Generated Artifacts | $(result_to_badge '${{ needs.generated-artifacts.result }}') |"

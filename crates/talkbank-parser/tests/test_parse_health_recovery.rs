@@ -121,9 +121,9 @@ fn malformed_gra_relation_does_not_fabricate_default_relation_values() {
         .gra_tier()
         .expect("Expected %gra tier to remain attached for downstream diagnostics");
     assert!(
-        gra.relations.is_empty(),
+        gra.relations().is_empty(),
         "Malformed relation must not be recovered as a fabricated default entry: {:?}",
-        gra.relations
+        gra.relations()
     );
 
     let ParseHealthState::Tainted(health) = utterance.parse_health else {

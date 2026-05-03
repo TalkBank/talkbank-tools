@@ -1,6 +1,0 @@
-[book]
-title = "Batchalign3 Release Readiness Review"
-authors = ["OpenAI Codex"]
-language = "en"
-multilingual = false
-src = "src"

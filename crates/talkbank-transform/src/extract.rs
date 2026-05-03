@@ -7,9 +7,7 @@ use talkbank_model::alignment::helpers::{
     TierDomain, WordItem, annotations_have_alignment_ignore, counts_for_tier,
     is_tag_marker_separator, should_align_replaced_word_in_pho_sin, walk_words,
 };
-use talkbank_model::model::{
-    ChatFile, Line, ReplacedWord, Separator, UtteranceContent, Word, WriteChat,
-};
+use talkbank_model::model::{ChatFile, Line, ReplacedWord, UtteranceContent, Word};
 use talkbank_model::{ChatCleanedText, ChatRawText, SpeakerCode, UtteranceIdx, WordIdx};
 
 /// A word extracted from the CHAT AST for NLP processing.
@@ -93,10 +91,9 @@ pub fn collect_utterance_content(
         }
         WordItem::Separator(sep) => {
             if domain == TierDomain::Mor && is_tag_marker_separator(sep) {
-                let sep_text = render_separator(sep);
                 out.push(ExtractedWord {
-                    text: ChatCleanedText::new(sep_text.clone()),
-                    raw_text: ChatRawText::new(sep_text.clone()),
+                    text: ChatCleanedText::from_separator(sep),
+                    raw_text: ChatRawText::from_separator(sep),
                     utterance_word_index: WordIdx(out.len()),
                     form_type: None,
                     lang: None,
@@ -121,8 +118,8 @@ fn collect_alignable_word(
     }
 
     out.push(ExtractedWord {
-        text: ChatCleanedText::new(word.cleaned_text().to_string()),
-        raw_text: ChatRawText::new(word.raw_text().to_string()),
+        text: ChatCleanedText::from_word(word),
+        raw_text: ChatRawText::from_word_raw(word),
         utterance_word_index: WordIdx(out.len()),
         form_type: word.form_type.clone(),
         lang: word.lang.clone(),
@@ -140,8 +137,8 @@ fn collect_replaced_word(entry: &ReplacedWord, domain: TierDomain, out: &mut Vec
                 for word in &entry.replacement.words {
                     if counts_for_tier(word, TierDomain::Mor) {
                         out.push(ExtractedWord {
-                            text: ChatCleanedText::new(word.cleaned_text().to_string()),
-                            raw_text: ChatRawText::new(word.raw_text().to_string()),
+                            text: ChatCleanedText::from_word(word),
+                            raw_text: ChatRawText::from_word_raw(word),
                             utterance_word_index: WordIdx(out.len()),
                             form_type: word.form_type.clone(),
                             lang: word.lang.clone(),
@@ -150,8 +147,8 @@ fn collect_replaced_word(entry: &ReplacedWord, domain: TierDomain, out: &mut Vec
                 }
             } else if counts_for_tier(&entry.word, TierDomain::Mor) {
                 out.push(ExtractedWord {
-                    text: ChatCleanedText::new(entry.word.cleaned_text().to_string()),
-                    raw_text: ChatRawText::new(entry.word.raw_text().to_string()),
+                    text: ChatCleanedText::from_word(&entry.word),
+                    raw_text: ChatRawText::from_word_raw(&entry.word),
                     utterance_word_index: WordIdx(out.len()),
                     form_type: entry.word.form_type.clone(),
                     lang: entry.word.lang.clone(),
@@ -164,8 +161,8 @@ fn collect_replaced_word(entry: &ReplacedWord, domain: TierDomain, out: &mut Vec
                 !entry.replacement.words.is_empty(),
             ) {
                 out.push(ExtractedWord {
-                    text: ChatCleanedText::new(entry.word.cleaned_text().to_string()),
-                    raw_text: ChatRawText::new(entry.word.raw_text().to_string()),
+                    text: ChatCleanedText::from_word(&entry.word),
+                    raw_text: ChatRawText::from_word_raw(&entry.word),
                     utterance_word_index: WordIdx(out.len()),
                     form_type: entry.word.form_type.clone(),
                     lang: entry.word.lang.clone(),
@@ -173,10 +170,6 @@ fn collect_replaced_word(entry: &ReplacedWord, domain: TierDomain, out: &mut Vec
             }
         }
     }
-}
-
-fn render_separator(sep: &Separator) -> String {
-    sep.to_chat_string()
 }
 
 #[cfg(test)]

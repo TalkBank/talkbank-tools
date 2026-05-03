@@ -16,6 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -24,6 +31,9 @@ jobs:
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
+
+      - name: Build dashboard assets
+        run: make batchalign-dashboard-build
 
       - name: Run imported Batchalign Rust CI gate
         run: make batchalign-ci-rust

@@ -260,10 +260,16 @@ mod tests {
             },
         ));
         utt.dependent_tiers
-            .push(DependentTier::Mor(MorTier::new_mor(vec![
-                Mor::new(MorWord::new(PosCategory::new("det"), "the")),
-                Mor::new(MorWord::new(PosCategory::new("n"), "dog")),
-            ])));
+            .push(DependentTier::Mor(MorTier::new_mor(
+                vec![
+                    Mor::new(MorWord::new(PosCategory::new("det"), "the")),
+                    Mor::new(MorWord::new(PosCategory::new("n"), "dog")),
+                ],
+                talkbank_model::Terminator::Period {
+                    span: talkbank_model::Span::DUMMY,
+                },
+            )));
+
         let mut file = ChatFile::new(vec![Line::Utterance(Box::new(utt))]);
 
         let cmd = PostmortemCommand {

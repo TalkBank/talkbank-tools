@@ -55,7 +55,7 @@ pub struct MorPosCount {
 pub fn extract_mor_tier(utterance: &Utterance) -> Option<&MorTier> {
     for dep in &utterance.dependent_tiers {
         if let DependentTier::Mor(tier) = dep {
-            if !tier.items.is_empty() {
+            if !tier.items().is_empty() {
                 return Some(tier);
             }
             return None;

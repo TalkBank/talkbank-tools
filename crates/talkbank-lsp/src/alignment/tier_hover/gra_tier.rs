@@ -33,7 +33,7 @@ pub fn find_gra_tier_hover_info(
     let gra_idx = find_gra_item_index_at_offset(tree, gra_tier.span, offset)?;
 
     // Get the gra relation
-    let gra_relation = gra_tier.relations.get(gra_idx)?;
+    let gra_relation = gra_tier.relations().get(gra_idx)?;
 
     // Get mor tier to resolve word stems
     let mor_tier = utterance.mor_tier();
@@ -53,7 +53,7 @@ pub fn find_gra_tier_hover_info(
 
     // Find all children (words that depend on this word)
     let children: Vec<String> = gra_tier
-        .relations
+        .relations()
         .iter()
         .filter(|r| r.head == gra_relation.index)
         .map(|r| {
@@ -90,14 +90,14 @@ pub fn find_gra_tier_hover_info(
     // main↔%mor alignment is keyed by `%mor` *item* index, and we want the
     // item that *hosts* this chunk (same item for a main chunk and all its
     // post-clitics). Collapse chunks to items via `item_index_of_chunk`
-    // before indexing `.items` or looking up the main alignment. See
+    // before indexing `.items()` or looking up the main alignment. See
     // KIB-017 and the parallel fix sites at `tier_handlers.rs` +
     // `goto_definition.rs`.
     if let Some(gra_alignment) = gra_alignment
         && let Some(chunk_idx) = find_source_index_for_target(&gra_alignment.pairs, gra_idx)
         && let Some(mor_tier) = utterance.mor_tier()
         && let Some(host_item_idx) = mor_tier.item_index_of_chunk(chunk_idx)
-        && let Some(mor_item) = mor_tier.items.get(host_item_idx)
+        && let Some(mor_item) = mor_tier.items().get(host_item_idx)
     {
         info.aligned_to_mor = Some(format_mor_item(mor_item));
 

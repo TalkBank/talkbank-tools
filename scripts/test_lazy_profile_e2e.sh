@@ -31,7 +31,7 @@ fi
 
 if [[ ! -x "$BINARY" ]]; then
     echo "ERROR: binary not found: $BINARY"
-    echo "Build first: cargo build -p batchalign-cli"
+    echo "Build first: cargo build -p batchalign"
     exit 1
 fi
 

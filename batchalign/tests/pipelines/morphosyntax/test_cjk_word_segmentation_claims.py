@@ -104,7 +104,7 @@ class TestClaim2_Tencent_WordSegmented:
         """
         from types import SimpleNamespace
 
-        from batchalign.inference.hk._tencent_api import TencentRecognizer
+        from batchalign.inference.languages.cantonese._tencent_api import TencentRecognizer
 
         rec = TencentRecognizer.__new__(TencentRecognizer)
         rec.lang_code = "yue"

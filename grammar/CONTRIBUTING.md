@@ -167,7 +167,7 @@ make symbols-gen    # from repo root
 
 ## Release process
 
-1. Update version in `package.json`, `Cargo.toml`, `tree-sitter.json`, `Makefile`, and `CHANGELOG.md`
+1. Update version in `package.json`, `Cargo.toml`, `tree-sitter.json`, and `Makefile`
 2. Ensure CI passes
 3. Create a git tag: `git tag v0.X.Y`
 4. Publish to npm: `npm publish`

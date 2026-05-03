@@ -59,14 +59,14 @@ pub(super) fn get_main_content_text(main: &MainTier, index: usize) -> Option<Str
 ///
 /// Shows `%mor` item tokens in the exact format the manual lists (e.g., `word+tag`), keeping the alignment view faithful to the specification.
 pub(super) fn get_mor_item_text(mor: &MorTier, index: usize) -> Option<String> {
-    mor.items.get(index).map(|item| item.to_chat_string())
+    mor.items().get(index).map(|item| item.to_chat_string())
 }
 
 /// Extract serialized text for one `%gra` relation.
 ///
 /// Grammatical relations appear as `head|dependent|REL` per the CHAT manual, and `to_chat_string` preserves that form.
 pub(super) fn get_gra_relation_text(gra: &GraTier, index: usize) -> Option<String> {
-    gra.relations.get(index).map(|rel| rel.to_chat_string())
+    gra.relations().get(index).map(|rel| rel.to_chat_string())
 }
 
 /// Extract serialized text for one `%pho` item.
@@ -102,7 +102,12 @@ mod tests {
     #[test]
     fn extraction_helpers_return_none_for_out_of_bounds() {
         let main = MainTier::new("CHI", vec![], None);
-        let mor = MorTier::new_mor(vec![]);
+        let mor = MorTier::new_mor(
+            vec![],
+            talkbank_model::Terminator::Period {
+                span: talkbank_model::Span::DUMMY,
+            },
+        );
         let gra = GraTier::new_gra(vec![]);
         let pho = PhoTier::new_pho(vec![]);
         let sin = SinTier::new(vec![]);

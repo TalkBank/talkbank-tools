@@ -1,5 +1,8 @@
 # Headers
 
+**Status:** Reference
+**Last updated:** 2026-05-01 05:19 EDT
+
 Headers are lines beginning with `@` that provide metadata about the transcript. They appear between `@Begin` and the first utterance (though some headers like `@Comment` can appear anywhere).
 
 ## Required Headers

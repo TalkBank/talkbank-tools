@@ -42,7 +42,7 @@ def test_morphotag_retokenize_with_retrace_succeeds() -> None:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign-cli", "--",
+                "cargo", "run", "-p", "batchalign", "--",
                 "--no-open-dashboard", "--override-media-cache",
                 "morphotag", "--retokenize",
                 str(input_path),

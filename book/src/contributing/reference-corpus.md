@@ -1,7 +1,7 @@
-# Reference Corpus Overhaul (2026-02-27)
+# Reference Corpus Overhaul
 
 **Status:** Reference
-**Last updated:** 2026-03-23 23:49 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 ## Motivation
 
@@ -218,5 +218,3 @@ corpus/reference/           374 files total
 4. **5 parser recovery specs not_implemented**: E319–E322, E376. Examples don't
    trigger the intended codes due to tree-sitter's error recovery routing.
 
----
-Last Updated: 2026-02-27

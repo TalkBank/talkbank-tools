@@ -147,6 +147,11 @@ fn replace_tier_content(tier: &mut DependentTier, new_content: &str) {
                 u.content = ne;
             }
         }
+        // Caller-contract invariant: `replace_tier_content` is only
+        // invoked for the tier kinds enumerated above; the caller
+        // (within this transform) filters tiers by kind before
+        // calling.
+        #[allow(clippy::unreachable)]
         _ => unreachable!("replace_tier_content called with unsupported tier kind"),
     }
 }

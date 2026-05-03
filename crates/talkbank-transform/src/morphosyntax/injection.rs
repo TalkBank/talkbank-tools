@@ -106,8 +106,14 @@ pub fn inject_results(
     tokenization_mode: TokenizationMode,
     mwt: &MwtDict,
 ) -> Result<InjectionResult, String> {
-    use talkbank_model::model::FormType;
+    use talkbank_model::model::GrammaticalRelationType;
     use talkbank_model::model::dependent_tier::mor::PosCategory;
+
+    use super::synthesis::synthesize_special_form_mor;
+
+    /// Deprel label written to `%gra` for non-analyzable special-form
+    /// positions. UD `dep` = "no specific role applies."
+    const DEP_RELATION_LABEL: &str = "DEP";
 
     let mut retokenization_traces: Vec<RetokenizationInfo> = Vec::new();
     let mut decisions: Vec<DecisionRecord> = Vec::new();
@@ -167,57 +173,48 @@ pub fn inject_results(
                 }
             };
 
-            // Apply special form markers
-            for (mor, (form_type, resolved_lang)) in mors.iter_mut().zip(item.special_forms.iter())
+            // Synthesize %mor and %gra for non-analyzable special-form
+            // positions; see `morphosyntax/synthesis/` for the policy
+            // table and the per-FormType scat assignments.
+            //
+            // The @s family (resolved_lang.is_some()) gets the L2|xxx
+            // placeholder; the L2 splice path overwrites it later.
+            //
+            // The four-way zip auto-truncates if lengths disagree;
+            // downstream `inject_morphosyntax` / `retokenize_utterance`
+            // emit a typed `MisalignmentBug` outcome in that case.
+            for (((mor, (form_type, resolved_lang)), word), gra) in mors
+                .iter_mut()
+                .zip(item.special_forms.iter())
+                .zip(words.iter())
+                .zip(gra_relations.iter_mut())
             {
                 if resolved_lang.is_some() {
                     mor.main.pos = PosCategory::new("L2");
                     mor.main.lemma =
                         talkbank_model::model::dependent_tier::mor::MorStem::new("xxx");
+                    mor.main.features.clear();
                     continue;
                 }
 
                 if let Some(ft) = form_type {
-                    let pos_tag = match ft {
-                        FormType::A => "a",
-                        FormType::B => "b",
-                        FormType::C => "c",
-                        FormType::D => "d",
-                        FormType::F => "f",
-                        FormType::FP => "fp",
-                        FormType::G => "g",
-                        FormType::I => "i",
-                        FormType::K => "k",
-                        FormType::L => "l",
-                        FormType::LS => "ls",
-                        FormType::N => "n",
-                        FormType::O => "o",
-                        FormType::P => "p",
-                        FormType::Q => "q",
-                        FormType::SAS => "sas",
-                        FormType::SI => "si",
-                        FormType::SL => "sl",
-                        FormType::T => "t",
-                        FormType::U => "u",
-                        FormType::WP => "wp",
-                        FormType::X => "x",
-                        FormType::UserDefined(name) => {
-                            tracing::warn!(form_type = %name, "user-defined form type not mapped to CHAT POS, skipping override");
-                            continue;
-                        }
-                    };
-
-                    mor.main.pos = PosCategory::new(pos_tag);
+                    *mor = synthesize_special_form_mor(ft, word.text.as_str());
+                    gra.relation = GrammaticalRelationType::new(DEP_RELATION_LABEL);
                 }
             }
 
             if tokenization_mode == TokenizationMode::StanzaRetokenize {
-                // Exclude Range parent tokens: including them alongside their
-                // components would overcount tokens and break MOR alignment.
+                // Range parents would double-count alongside their components;
+                // terminator-punct singles are supplied separately via the
+                // typed `Terminator` and already excluded from
+                // `mors`/`gra_relations` by `map_ud_sentence_expanded`.
                 let mut tokens: Vec<String> = ud_sentence
                     .words
                     .iter()
-                    .filter(|w| !matches!(&w.id, UdId::Range(_, _)))
+                    .filter(|w| {
+                        !matches!(&w.id, UdId::Range(_, _))
+                            && !crate::morphosyntax::is_terminator_punct(w)
+                    })
                     .map(|w| {
                         if w.text.contains(char::is_whitespace) {
                             w.text.chars().filter(|c| !c.is_whitespace()).collect()
@@ -299,7 +296,7 @@ pub fn inject_results(
                     &words,
                     &tokens,
                     mors,
-                    Some(item.terminator.as_str().to_string()),
+                    item.terminator.clone(),
                     gra_relations,
                 ) {
                     // File-level absorption: convert the typed diagnostic
@@ -328,7 +325,7 @@ pub fn inject_results(
             } else if let Err(diag) = crate::inject::inject_morphosyntax(
                 utt,
                 mors,
-                Some(item.terminator.as_str().to_string()),
+                item.terminator.clone(),
                 gra_relations,
             ) {
                 // Per-utterance injection failure: the 1-to-1 invariant

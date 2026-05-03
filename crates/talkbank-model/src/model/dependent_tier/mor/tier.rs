@@ -9,9 +9,11 @@
 use super::super::WriteChat;
 use super::chunk::MorChunk;
 use super::item::Mor;
+use crate::model::content::Terminator;
+use crate::model::dependent_tier::gra::{GraTier, GrammaticalRelation};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use talkbank_derive::{SemanticEq, SpanShift};
 
 /// Type of morphological analysis tier.
@@ -69,8 +71,9 @@ impl WriteChat for MorTierType {
 ///
 /// # Terminator
 ///
-/// The terminator is optional. The aligner validates that either both the main tier
-/// and %mor tier have a terminator, or neither does.
+/// Standard `%mor:` tiers end with a typed [`Terminator`] that matches the
+/// main tier. In CA-mode, or for specialized fragments, the terminator may be
+/// omitted if the main tier has no terminator.
 ///
 /// # References
 ///
@@ -81,10 +84,10 @@ pub struct MorTier {
     pub tier_type: MorTierType,
 
     /// Morphological items aligned with main tier content.
-    pub items: MorItems,
+    pub(crate) items: MorItems,
 
-    /// Optional terminator. Must match main tier's terminator presence.
-    pub terminator: Option<smol_str::SmolStr>,
+    /// Required terminator for this `%mor:` tier.
+    pub terminator: Terminator,
 
     /// Source span for error reporting (not serialized to JSON)
     #[serde(skip)]
@@ -92,35 +95,54 @@ pub struct MorTier {
     pub span: crate::Span,
 }
 
+/// Errors returned by coordinated Mor-Gra mutations.
+#[derive(Debug, thiserror::Error)]
+pub enum CoordinatedMutationError {
+    /// Mor and Gra tiers have mismatched chunk counts before or after mutation.
+    #[error("Mor and Gra tiers have mismatched chunk counts: mor={mor}, gra={gra}")]
+    CountMismatch {
+        /// Chunk count in the %mor tier.
+        mor: usize,
+        /// Number of relations in the %gra tier.
+        gra: usize,
+    },
+    /// Requested item index is out of bounds.
+    #[error("Item index {index} out of bounds (len={len})")]
+    ItemIndexOutOfBounds {
+        /// The requested 0-indexed item position.
+        index: usize,
+        /// Total number of items in the tier.
+        len: usize,
+    },
+}
+
 impl MorTier {
-    /// Construct a morphological tier with explicit type and items.
+    /// Construct a morphological tier with explicit type, items, and
+    /// terminator.
     ///
-    /// The constructor does not infer or validate alignment details. Those checks
-    /// run later in dedicated validation/alignment stages.
-    pub fn new(tier_type: MorTierType, items: Vec<Mor>) -> Self {
+    /// The constructor does not infer or validate alignment details. Those
+    /// checks run later in dedicated validation/alignment stages.
+    ///
+    /// `terminator` is required because every well-formed `%mor:` tier has
+    /// one. Parsers handling malformed input that lacks a terminator must
+    /// return a typed parse-outcome diagnostic rather than calling this
+    /// constructor with a placeholder.
+    pub fn new(tier_type: MorTierType, items: Vec<Mor>, terminator: Terminator) -> Self {
         Self {
             tier_type,
             items: items.into(),
-            terminator: None,
+            terminator,
             span: crate::Span::DUMMY,
         }
     }
 
-    /// Construct a standard `%mor` tier.
+    /// Construct a standard `%mor` tier with the given items and
+    /// terminator.
     ///
-    /// This is the common constructor used by parser outputs and tests when no
-    /// alternate tier kind is needed.
-    pub fn new_mor(items: Vec<Mor>) -> Self {
-        Self::new(MorTierType::Mor, items)
-    }
-
-    /// Attach optional tier terminator.
-    ///
-    /// The terminator participates in `%mor`/main-tier alignment and is counted
-    /// as a chunk when present.
-    pub fn with_terminator(mut self, terminator: Option<smol_str::SmolStr>) -> Self {
-        self.terminator = terminator;
-        self
+    /// This is the common constructor used by parser outputs and tests
+    /// when no alternate tier kind is needed.
+    pub fn new_mor(items: Vec<Mor>, terminator: Terminator) -> Self {
+        Self::new(MorTierType::Mor, items, terminator)
     }
 
     /// Returns `true` when tier type is `%mor`.
@@ -128,6 +150,120 @@ impl MorTier {
     /// This helper is mainly useful in generic code paths over tier enums.
     pub fn is_mor(&self) -> bool {
         self.tier_type == MorTierType::Mor
+    }
+
+    /// Borrows the list of morphological items.
+    pub fn items(&self) -> &[Mor] {
+        &self.items.0
+    }
+
+    /// Consumes the tier and returns the underlying morphological items.
+    pub fn into_items(self) -> Vec<Mor> {
+        self.items.0
+    }
+
+    /// Mutably borrows the list of morphological items.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that any mutations to the items do not change their
+    /// chunk counts (e.g., by adding or removing post-clitics), or that the
+    /// corresponding %gra tier is updated to match.
+    pub fn items_mut(&mut self) -> &mut [Mor] {
+        &mut self.items.0
+    }
+
+    /// Replace the item at `item_idx` and adjust the corresponding `%gra`
+    /// relations to maintain cardinality and index invariants.
+    ///
+    /// The `new_relations` list must match the chunk count of `new_mor`. This
+    /// method handles re-indexing and head-adjustment for all subsequent
+    /// relations in the `%gra` tier.
+    pub fn splice_coordinated(
+        &mut self,
+        gra: &mut GraTier,
+        item_idx: usize,
+        new_mor: Mor,
+        new_relations: Vec<GrammaticalRelation>,
+        root_anchor_override: Option<usize>,
+    ) -> Result<(), CoordinatedMutationError> {
+        if item_idx >= self.items.len() {
+            return Err(CoordinatedMutationError::ItemIndexOutOfBounds {
+                index: item_idx,
+                len: self.items.len(),
+            });
+        }
+
+        let old_chunks = self.items[item_idx].count_chunks();
+        let new_chunks = new_mor.count_chunks();
+
+        if new_relations.len() != new_chunks {
+            return Err(CoordinatedMutationError::CountMismatch {
+                mor: new_chunks,
+                gra: new_relations.len(),
+            });
+        }
+
+        // Calculate the chunk offset for the item being replaced.
+        let mut chunk_offset = 0usize;
+        for i in 0..item_idx {
+            chunk_offset += self.items[i].count_chunks();
+        }
+
+        let delta = (new_chunks as isize) - (old_chunks as isize);
+
+        // 1. Update the %mor item.
+        self.items.0[item_idx] = new_mor;
+
+        // 2. Prepare the new relations with correct indices.
+        let mut fixed_relations = new_relations;
+        for (i, rel) in fixed_relations.iter_mut().enumerate() {
+            rel.index = chunk_offset + i + 1;
+        }
+
+        // 3. Update the %gra relations list.
+        let old_head = gra.relations.0[chunk_offset].head;
+
+        gra.relations
+            .0
+            .splice(chunk_offset..chunk_offset + old_chunks, fixed_relations);
+
+        // 4. Adjust indices and heads for the rest of the tier.
+        if delta != 0 {
+            let affected_start = chunk_offset + new_chunks;
+            for i in affected_start..gra.relations.len() {
+                let rel = &mut gra.relations.0[i];
+                rel.index = (rel.index as isize + delta) as usize;
+            }
+        }
+
+        // 5. Head adjustment for the whole tier.
+        for (i, rel) in gra.relations.0.iter_mut().enumerate() {
+            if i >= chunk_offset && i < chunk_offset + new_chunks {
+                // This is one of the NEW relations.
+                if rel.head == 0 {
+                    // This was the root of the secondary block.
+                    // It now points to the provided override, or falls back to the original head of the atom.
+                    rel.head = root_anchor_override.unwrap_or(old_head);
+                } else {
+                    // Internal reference within the new block.
+                    // Assumes secondary indices were 1-indexed relative to the block.
+                    rel.head = chunk_offset + rel.head;
+                }
+            } else if rel.head > chunk_offset {
+                // Existing relation pointing past the splice point.
+                if rel.head <= chunk_offset + old_chunks {
+                    // Head was pointing into the replaced item.
+                    // Point to the first chunk of the new item.
+                    rel.head = chunk_offset + 1;
+                } else {
+                    // Head was pointing past the replaced item.
+                    rel.head = (rel.head as isize + delta) as usize;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Attach source span for diagnostics.
@@ -145,13 +281,10 @@ impl MorTier {
     /// exactly one `%gra` relation. Equivalent to `self.chunks().count()`
     /// but implemented as a direct sum so the hot validation paths
     /// don't build an iterator chain just to discard it.
+    ///
     pub fn count_chunks(&self) -> usize {
         let item_chunks: usize = self.items.iter().map(|m| m.count_chunks()).sum();
-        if self.terminator.is_some() {
-            item_chunks + 1
-        } else {
-            item_chunks
-        }
+        item_chunks + 1
     }
 
     /// Iterate the `%mor` chunk sequence: each item's main word, then each of
@@ -165,7 +298,6 @@ impl MorTier {
     /// MUST route through this method — walking `items` by hand silently
     /// drops post-clitics.
     pub fn chunks(&self) -> impl Iterator<Item = MorChunk<'_>> {
-        let terminator = self.terminator.as_deref();
         self.items
             .iter()
             .flat_map(|item| {
@@ -175,7 +307,7 @@ impl MorTier {
                         .map(move |clitic| MorChunk::PostClitic(item, clitic)),
                 )
             })
-            .chain(terminator.into_iter().map(MorChunk::Terminator))
+            .chain(std::iter::once(MorChunk::Terminator(&self.terminator)))
     }
 
     /// Return the chunk at a 0-indexed position in the chunk sequence, or
@@ -248,14 +380,10 @@ impl MorTier {
             item.write_chat(w)?;
         }
 
-        // Write terminator if present
-        if let Some(ref term) = self.terminator {
-            // Only add space if there are items before the terminator
-            if !self.items.is_empty() {
-                w.write_char(' ')?;
-            }
-            w.write_str(term)?;
+        if !self.items.is_empty() {
+            w.write_char(' ')?;
         }
+        self.terminator.write_chat(w)?;
 
         Ok(())
     }
@@ -282,14 +410,10 @@ impl MorTier {
             item.write_chat(w)?;
         }
 
-        // Write terminator if present
-        if let Some(ref term) = self.terminator {
-            // Only add space if there are items before the terminator
-            if !self.items.is_empty() {
-                w.write_char(' ')?;
-            }
-            w.write_str(term)?;
+        if !self.items.is_empty() {
+            w.write_char(' ')?;
         }
+        self.terminator.write_chat(w)?;
 
         Ok(())
     }
@@ -330,7 +454,7 @@ impl WriteChat for MorTier {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift)]
 #[serde(transparent)]
 #[schemars(transparent)]
-pub struct MorItems(pub Vec<Mor>);
+pub struct MorItems(pub(crate) Vec<Mor>);
 
 impl MorItems {
     /// Create a new list of morphological items.
@@ -356,13 +480,6 @@ impl Deref for MorItems {
     /// Borrows the underlying `%mor` item vector.
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for MorItems {
-    /// Mutably borrows the underlying `%mor` item vector.
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
@@ -478,7 +595,12 @@ mod tests {
     ///
     /// The terminator mirrors common corpus shape and keeps chunk accounting realistic.
     fn make_tier(items: Vec<Mor>) -> MorTier {
-        MorTier::new_mor(items).with_terminator(Some(".".into()))
+        MorTier::new_mor(
+            items,
+            crate::model::content::Terminator::Period {
+                span: crate::Span::DUMMY,
+            },
+        )
     }
 
     /// Well-formed `%mor` content emits no `E711` diagnostics.

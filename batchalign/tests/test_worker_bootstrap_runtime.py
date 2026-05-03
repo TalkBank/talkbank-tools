@@ -1,3 +1,5 @@
+# affects: batchalign/worker/_main.py
+# affects: batchalign/worker/_types.py
 """Tests for typed worker bootstrap runtime resolution."""
 
 from __future__ import annotations

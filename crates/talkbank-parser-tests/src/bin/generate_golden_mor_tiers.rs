@@ -33,7 +33,7 @@ use talkbank_parser::TreeSitterParser;
 fn mor_tier_content(tier: &MorTier) -> String {
     let mut content = String::new();
 
-    for (i, item) in tier.items.iter().enumerate() {
+    for (i, item) in tier.items().iter().enumerate() {
         if i > 0 {
             content.push(' ');
         }
@@ -42,13 +42,13 @@ fn mor_tier_content(tier: &MorTier) -> String {
         }
     }
 
-    // Write terminator if present
-    if let Some(ref term) = tier.terminator {
-        if !tier.items.is_empty() {
-            content.push(' ');
-        }
-        content.push_str(term);
+    if !tier.items().is_empty() {
+        content.push(' ');
     }
+    use talkbank_model::WriteChat;
+    let mut term_buf = String::new();
+    let _ = tier.terminator.write_chat(&mut term_buf);
+    content.push_str(&term_buf);
 
     content
 }

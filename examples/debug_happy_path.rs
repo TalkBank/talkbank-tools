@@ -64,8 +64,8 @@ Utterance {}:",
 
                         if let Some(mor) = utt.mor_tier() {
                             println!("  %mor tier:");
-                            println!("    Items: {}", mor.items.len());
-                            for (j, item) in mor.items.iter().enumerate() {
+                            println!("    Items: {}", mor.items().len());
+                            for (j, item) in mor.items().iter().enumerate() {
                                 println!("      {}: {:?}", j, item);
                             }
                         }

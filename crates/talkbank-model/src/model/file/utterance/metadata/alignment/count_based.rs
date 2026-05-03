@@ -110,16 +110,18 @@ mod tests {
     }
 }
 
+/// Build a `MorTier` from items, inheriting span and terminator from
+/// the utterance's existing `%mor:` tier. Returns `None` when no
+/// existing `%mor:` tier is present — there is no terminator or span
+/// to inherit, and the constructor cannot synthesize them.
 pub(super) fn build_mor_tier_from_items(
     utterance: &Utterance,
     items: &[crate::model::Mor],
-) -> crate::model::MorTier {
-    let mut tier = crate::model::MorTier::new_mor(items.to_vec());
-    if let Some(t) = utterance.mor_tier() {
-        tier.span = t.span;
-        tier.terminator = t.terminator.clone();
-    }
-    tier
+) -> Option<crate::model::MorTier> {
+    let existing = utterance.mor_tier()?;
+    let mut tier = crate::model::MorTier::new_mor(items.to_vec(), existing.terminator.clone());
+    tier.span = existing.span;
+    Some(tier)
 }
 
 /// Build a [`PhoAlignment`] from raw counts, emitting tier-specific error codes.

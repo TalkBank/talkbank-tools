@@ -1,7 +1,7 @@
 # Grammar Precedence Decisions
 
 **Status:** Current
-**Last updated:** 2026-03-24 07:45 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 This document records non-obvious grammar design decisions, particularly
 around tree-sitter precedence and disambiguation. These decisions were
@@ -224,7 +224,7 @@ becomes `standalone_word(zero, word_body)` or `nonword(zero)`.
 | `°↑ho:v°` | `ca_delimiter + ca_element + word_segment + lengthening + word_segment + ca_delimiter` | marker-initial path; `:` is lengthening inside word |
 | `*CHI:` | speaker `colon` | different grammar path entirely |
 
-### Lint Investigation (2026-03-24)
+### Lint Investigation
 
 The static grammar linter correctly reports that `lengthening` (prec 5,
 `:{1,}`) shadows `colon` (prec 0, `:`) at the DFA level. The corpus
@@ -243,7 +243,7 @@ The shadow cannot cause incorrect behavior because:
 
 The DFA shadow is real but harmless — the parser-level rules filter it.
 
-## Full Linter Investigation Summary (2026-03-24)
+## Full Linter Investigation Summary
 
 Static grammar lint (`tree-sitter-grammar-utils lint`) reported 34
 high-severity findings. Corpus analysis (`corpus-analyze`) on 99,907

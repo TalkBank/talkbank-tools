@@ -1,3 +1,5 @@
+# affects: batchalign/worker/_execute_v2.py
+# affects: batchalign/worker/_types_v2.py
 """Tests for the live worker-protocol V2 execution router."""
 
 from __future__ import annotations

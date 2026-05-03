@@ -7,6 +7,11 @@ the gitignore-style globs against the paths touched in a git diff,
 and prints the relevant test files — plus every test file with no
 declarations (the "runs always" set).
 
+Scans for:
+  * Python test files: ``test_*.py`` in batchalign/tests/
+  * Rust integration tests: ``*.rs`` in crates/*/tests/
+  * E2E tests: ``.mjs`` and ``.ts`` files in frontend/e2e/tests/
+
 Usage::
 
     # What would run for the uncommitted + last-commit changes?
@@ -15,7 +20,7 @@ Usage::
     # What would run for this branch vs main?
     python scripts/test-affected.py --base origin/main
 
-    # Limit scan to one directory:
+    # Limit Python scan to one directory:
     python scripts/test-affected.py --tests-root batchalign/tests/
 
 Output: absolute paths, one per line, suitable for ``$(...)``
@@ -105,14 +110,25 @@ def _find_test_files(tests_root: Path) -> list[Path]:
     """Collect every test file under ``tests_root``.
 
     Python: ``test_*.py`` files. Rust: ``*.rs`` files under a
-    ``tests/`` directory OR files tagged with ``#[cfg(test)]``
-    (the latter would require AST parsing; skip for now and rely
-    on test-binary collocated files).
+    ``tests/`` directory (integration tests, not unit tests).
+    Excludes unit tests (tests inside src/) per Rust convention.
     """
     py_tests = sorted(tests_root.rglob("test_*.py"))
-    # Restrict to Python for the initial roll-out. Rust test
-    # annotation is a follow-up (xtask integration).
-    return py_tests
+
+    # Rust integration tests: only *.rs files directly under crates/*/tests/
+    # directories, excluding unit tests in src/. Also check if we're scanning
+    # the repo root; if so, collect Rust tests from all crates.
+    rust_tests: list[Path] = []
+    repo_root = _REPO_ROOT
+    crates_dir = repo_root / "crates"
+    if crates_dir.exists():
+        # Pattern: crates/<name>/tests/*.rs (not src/*/tests/*.rs)
+        for test_file in sorted(crates_dir.rglob("tests/*.rs")):
+            # Skip if it's inside a src/ directory (unit tests)
+            if "/src/" not in str(test_file):
+                rust_tests.append(test_file)
+
+    return py_tests + rust_tests
 
 
 def main() -> int:
@@ -126,7 +142,8 @@ def main() -> int:
     parser.add_argument(
         "--tests-root",
         default=str(_REPO_ROOT / "batchalign" / "tests"),
-        help="Directory to scan for test files.",
+        help="Directory to scan for Python test files. "
+        "Rust integration tests and e2e tests are discovered from the repo root.",
     )
     parser.add_argument(
         "--print-diff",
@@ -146,7 +163,19 @@ def main() -> int:
         for p in changed:
             print(f"#   {p}", file=sys.stderr)
 
+    # Collect Python tests from tests_root, and also collect Rust integration
+    # tests and e2e tests from the repo root.
     test_files = _find_test_files(tests_root)
+
+    # Also discover e2e tests
+    e2e_dir = _REPO_ROOT / "frontend" / "e2e" / "tests"
+    if e2e_dir.exists():
+        e2e_tests = sorted(
+            f for f in list(e2e_dir.glob("*.mjs")) + list(e2e_dir.glob("*.ts"))
+            if f.is_file()
+        )
+        test_files.extend(e2e_tests)
+
     if not test_files:
         return 0
 

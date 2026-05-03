@@ -30,7 +30,7 @@ environment variable.
    what assertion mode the bug needs.
 
 4. In the public batchalign3 repo, add a new test function slot
-   to `crates/batchalign-app/tests/ml_golden/regression_fixtures.rs`:
+   to `crates/batchalign/tests/ml_golden/regression_fixtures.rs`:
 
    ```rust
    #[tokio::test]

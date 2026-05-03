@@ -95,34 +95,40 @@ impl Utterance {
         let sin_span = self.sin_tier().map_or(Span::DUMMY, |t| t.span);
 
         if let Some(items) = mor_items.as_ref() {
-            let mor = build_mor_tier_from_items(self, items);
-            if health.can_align_main_to_mor() {
-                metadata.mor = Some(crate::alignment::align_main_to_mor(&self.main, &mor));
-            } else {
-                metadata.mor = Some(crate::alignment::MorAlignment::new().with_error(
-                    alignment_blocked_warning(
-                        health,
-                        "main↔%mor",
-                        TierSide {
-                            label: "main tier",
-                            span: self.main.span,
-                            tier: ParseHealthTier::Main,
-                        },
-                        TierSide {
-                            label: "%mor tier",
-                            span: mor_span,
-                            tier: ParseHealthTier::Mor,
-                        },
-                    ),
-                ));
+            // build_mor_tier_from_items returns None when the utterance has
+            // no existing %mor: tier to inherit terminator/span from. In
+            // that case alignment metadata is also absent — there's nothing
+            // to align against the main tier.
+            if let Some(mor) = build_mor_tier_from_items(self, items) {
+                if health.can_align_main_to_mor() {
+                    metadata.mor = Some(crate::alignment::align_main_to_mor(&self.main, &mor));
+                } else {
+                    metadata.mor = Some(crate::alignment::MorAlignment::new().with_error(
+                        alignment_blocked_warning(
+                            health,
+                            "main↔%mor",
+                            TierSide {
+                                label: "main tier",
+                                span: self.main.span,
+                                tier: ParseHealthTier::Main,
+                            },
+                            TierSide {
+                                label: "%mor tier",
+                                span: mor_span,
+                                tier: ParseHealthTier::Mor,
+                            },
+                        ),
+                    ));
+                }
             }
         }
 
         if let (Some(items), Some(relations)) = (mor_items.as_ref(), gra_relations.as_ref()) {
             if health.can_align_mor_to_gra() {
-                let mor = build_mor_tier_from_items(self, items);
-                let gra = crate::model::GraTier::new_gra(relations.clone()).with_span(gra_span);
-                metadata.gra = Some(crate::alignment::align_mor_to_gra(&mor, &gra));
+                if let Some(mor) = build_mor_tier_from_items(self, items) {
+                    let gra = crate::model::GraTier::new_gra(relations.clone()).with_span(gra_span);
+                    metadata.gra = Some(crate::alignment::align_mor_to_gra(&mor, &gra));
+                }
             } else {
                 metadata.gra = Some(crate::alignment::GraAlignment::new().with_error(
                     alignment_blocked_warning(

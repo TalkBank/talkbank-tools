@@ -1,4 +1,12 @@
-name: Release
+# Canonical GitHub release line for the shared Rust workspace. This publishes the
+# public-stable `chatter` CLI plus the preview `talkbank-lsp` binary built from
+# the same workspace version. It intentionally does not cargo-publish the
+# library crates; those remain source-first preview surfaces until a dedicated
+# crates.io workflow and publish-ready helper-crate chain exist. Batchalign, VS
+# Code, and desktop surfaces ship via their own release workflows.
+name: TalkBank Core Release
+
+run-name: Core release ${{ inputs.tag || github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -16,13 +24,63 @@ env:
   # to the pushed ref (for future tag-triggered runs).
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
+concurrency:
+  group: talkbank-core-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag exists and matches workspace version
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          case "$RELEASE_TAG" in
+            v*) ;;
+            *)
+              echo "::error::Release tag must start with v (got $RELEASE_TAG)"
+              exit 1
+              ;;
+          esac
+
+          git rev-parse "refs/tags/$RELEASE_TAG" >/dev/null 2>&1 || {
+            echo "::error::Tag $RELEASE_TAG does not exist in the repository"
+            exit 1
+          }
+
+          python3 - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          release_tag = os.environ["RELEASE_TAG"]
+          with open("Cargo.toml", "rb") as f:
+              cargo = tomllib.load(f)
+          workspace_version = cargo["workspace"]["package"]["version"]
+          tag_version = release_tag.removeprefix("v")
+          if tag_version != workspace_version:
+              print(
+                  f"::error::Tag version ({tag_version}) does not match workspace version ({workspace_version})"
+              )
+              sys.exit(1)
+          print(f"Validated TalkBank core release tag {release_tag}")
+          PY
+
   build:
+    needs: preflight
     name: Build (${{ matrix.target }})
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -99,26 +157,10 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [preflight, build]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Validate tag version matches workspace version
-        run: |
-          TAG_VERSION="${RELEASE_TAG#v}"
-          CARGO_VERSION=$(cargo metadata --format-version=1 --no-deps \
-            | jq -r '.packages[] | select(.name == "talkbank-cli") | .version')
-          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
-            echo "::error::Tag version (${TAG_VERSION}) does not match workspace version (${CARGO_VERSION})"
-            exit 1
-          fi
-
       - name: Download all artifacts
         uses: actions/download-artifact@v6
         with:
@@ -129,5 +171,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: TalkBank Core ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           files: dist/*

@@ -1,6 +1,7 @@
 # Bullet Validation
 
-**Last updated:** 2026-03-29 23:08 EDT
+**Status:** Current
+**Last updated:** 2026-05-01 05:19 EDT
 
 Media bullets are timestamps embedded in CHAT utterances that link transcript
 text to audio/video. They appear as `•start_end•` at the end of a main tier

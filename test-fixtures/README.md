@@ -30,7 +30,7 @@ test-fixtures/
 ```
 
 These hold real-world bug reproductions for the command-local regression tests
-under `crates/batchalign-app/tests/ml_golden/<command>/regressions.rs`.
+under `crates/batchalign/tests/ml_golden/<command>/regressions.rs`.
 
 **Privacy boundary.** Real-user bug reports usually involve real
 corpus audio, CHAT transcripts, and reporter identity — material
@@ -159,7 +159,7 @@ Currently supported `kind` values:
 
 4. In the public batchalign3 repo, add (or reuse) one command-local test
    function slot in
-   `crates/batchalign-app/tests/ml_golden/<command>/regressions.rs`
+   `crates/batchalign/tests/ml_golden/<command>/regressions.rs`
    pointing at the new `<bug-name>` directory. Use an opaque
    function name like `align_regression_<n>` or
    `transcribe_regression_<n>` — the runner resolves the real
@@ -167,7 +167,7 @@ Currently supported `kind` values:
 
 5. Run:
    ```bash
-   cargo nextest run -p batchalign-app --profile ml \
+   cargo nextest run -p batchalign --profile ml \
         -E 'test(<command>::regressions::<command>_regression_<NNN>)'
    ```
 

@@ -118,7 +118,6 @@ pub fn offset_to_position(text: &str, offset: u32) -> Position {
 ///
 /// # Returns
 /// Byte offset in the document. If position is out of bounds, returns text.len()
-#[allow(dead_code)]
 pub fn position_to_offset(text: &str, position: Position) -> usize {
     let target_line = position.line as usize;
     let target_char = position.character as usize;

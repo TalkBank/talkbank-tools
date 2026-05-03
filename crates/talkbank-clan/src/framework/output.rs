@@ -1,3 +1,9 @@
+// `serde_json::to_string_pretty` / `to_value` is infallible on
+// types that derive `Serialize` cleanly (no custom serializer can
+// fail). All `CommandOutput` and `AnalysisResult` impls in this
+// crate use derived `Serialize`.
+#![allow(clippy::expect_used)]
+
 //! Output formatting for analysis results.
 //!
 //! Provides the [`CommandOutput`] trait and supporting types for rendering

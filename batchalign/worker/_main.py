@@ -225,8 +225,7 @@ def main() -> None:
     # ops use ALL CPU cores via OpenMP, so N threads × all cores = massive
     # contention. Sequential serving lets each request use all cores optimally.
     #
-    # MPS is excluded from all loaders since 2026-04-05 (AGXG14X kernel
-    # deadlock — see docs/postmortems/2026-04-05-mps-fa-gpu-deadlock.md).
+    # MPS is not a supported inference backend, so the non-CUDA path is CPU only.
     #
     # Stanza (morphotag/utseg) workers also use concurrent serving on
     # free-threaded Python 3.14t, because:

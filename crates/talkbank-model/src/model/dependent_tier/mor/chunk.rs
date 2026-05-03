@@ -56,8 +56,11 @@ pub enum MorChunk<'a> {
     /// A post-clitic expansion of the item in the first field; the specific
     /// post-clitic word is the second field.
     PostClitic(&'a Mor, &'a MorWord),
-    /// Tier terminator text (e.g. `"."`).
-    Terminator(&'a str),
+    /// Tier terminator (e.g. `Terminator::Period`). Typed, not stringly:
+    /// the chunk carries the full categorical distinction between
+    /// canonical (`.` `?` `!` `+...` etc.) and CA-mode (`→ ↗ ↘ ⇗ ⇘ ≋ ≈`)
+    /// terminators.
+    Terminator(&'a crate::model::content::Terminator),
 }
 
 impl<'a> MorChunk<'a> {
@@ -104,12 +107,12 @@ impl<'a> MorChunk<'a> {
         }
     }
 
-    /// The terminator text, or `None` for a word chunk.
+    /// The typed terminator, or `None` for a word chunk.
     ///
     /// Complements [`Self::lemma`] for the terminator case.
-    pub fn terminator_text(&self) -> Option<&'a str> {
+    pub fn terminator(&self) -> Option<&'a crate::model::content::Terminator> {
         match self {
-            MorChunk::Terminator(text) => Some(*text),
+            MorChunk::Terminator(t) => Some(*t),
             _ => None,
         }
     }

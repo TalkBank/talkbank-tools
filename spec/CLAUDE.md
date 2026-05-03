@@ -1,7 +1,7 @@
 # spec — CHAT Specification
 
 **Status:** Current
-**Last updated:** 2026-04-12 06:55 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 ## How This Works
 
@@ -20,15 +20,15 @@ spec/tools/templates/ ─┘
 If you hand-edit a file in `grammar/test/corpus/` or `tests/generated/`,
 it will be deleted next time someone runs `make test-gen`.
 
-## Spec Counts (current)
+## Spec Locations
 
-| Location | Files | Purpose |
-|----------|------:|---------|
-| `spec/constructs/` | 131 | Valid CHAT examples with expected CSTs |
-| `spec/errors/` | 190 | Invalid CHAT examples with expected error codes |
-| → `grammar/test/corpus/` | 180 | Generated tree-sitter tests |
-| → `tests/generated/` | 167 | Generated Rust parser/validation tests |
-| → `docs/errors/` | 182 | Generated error documentation pages |
+| Location | Purpose |
+|----------|---------|
+| `spec/constructs/` | Valid CHAT examples with expected CSTs |
+| `spec/errors/` | Invalid CHAT examples with expected error codes |
+| → `grammar/test/corpus/` | Generated tree-sitter tests |
+| → `tests/generated/` | Generated Rust parser/validation tests |
+| → `docs/errors/` | Generated error documentation pages |
 
 ## Adding a Test
 

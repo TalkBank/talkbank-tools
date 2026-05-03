@@ -97,7 +97,7 @@ Utterance {}:",
                         println!("  Main tier word count: {}", utt.main.content.content.len());
                         println!("  Has %mor: {}", utt.mor_tier().is_some());
                         if let Some(mor) = utt.mor_tier() {
-                            println!("  %mor item count: {}", mor.items.len());
+                            println!("  %mor item count: {}", mor.items().len());
                         }
                     }
                     Line::Header { header, .. } => {

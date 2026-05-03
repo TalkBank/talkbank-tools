@@ -13,6 +13,22 @@ fn simplest_word() {
     snapshot("word_parsing_tests__simplest_word", &result);
 }
 
+/// A CA prosody arrow immediately before `@s` must not corrupt the
+/// language-marker parse — `@s` here is `Shortcut`, not Explicit.
+/// `@s` is a language marker, not a form-type, so `form_type` stays None.
+#[test]
+fn dona_with_ca_arrow_at_s_parses_as_shortcut_language_marker() {
+    let result = parse_word("dona↑@s");
+
+    let word = match &result {
+        Ok(w) => w,
+        Err(errors) => panic!("expected parse success for 'dona↑@s', got errors: {errors:?}"),
+    };
+
+    assert_eq!(word.lang, Some(WordLanguageMarker::Shortcut));
+    assert_eq!(word.form_type, None);
+}
+
 /// Rejects empty input as an invalid word.
 #[test]
 fn error_empty_word() {

@@ -18,4 +18,4 @@ mod tests;
 #[cfg(test)]
 mod snapshot_tests;
 
-pub use language::resolve_word_language;
+pub use language::{LanguageResolutionOutcome, resolve_word_language};

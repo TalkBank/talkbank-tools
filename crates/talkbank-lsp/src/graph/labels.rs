@@ -46,6 +46,6 @@ fn label_for(chunk: &MorChunk<'_>) -> String {
     chunk
         .lemma()
         .map(str::to_owned)
-        .or_else(|| chunk.terminator_text().map(str::to_owned))
+        .or_else(|| chunk.terminator().map(|t| t.to_string()))
         .unwrap_or_default()
 }

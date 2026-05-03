@@ -1,4 +1,4 @@
-.PHONY: test clippy golden parity-check book clean
+.PHONY: test clippy golden parity-check clean
 
 test:
 	cargo nextest run -p talkbank-clan
@@ -15,9 +15,6 @@ parity-check:
 
 parity-check-summary:
 	./scripts/parity-check.sh --summary-only
-
-book:
-	mdbook build book/
 
 clean:
 	cargo clean -p talkbank-clan

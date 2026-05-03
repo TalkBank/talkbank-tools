@@ -9,7 +9,7 @@ mod macros;
 
 pub mod api {
     //! Backward-compatible re-export of domain types historically reached via
-    //! `batchalign_app::api`.
+    //! `batchalign::api`.
     pub use crate::domain::*;
 }
 

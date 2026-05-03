@@ -3,8 +3,13 @@
 **Status:** Current
 **Last updated:** 2026-03-24 01:32 EDT
 
-The parsing pipeline converts CHAT text into a typed `ChatFile` AST using
-a tree-sitter grammar. Tree-sitter is the sole parser.
+The parsing pipeline converts CHAT text into a typed `ChatFile` AST.
+The default and canonical parser is the tree-sitter parser
+(`talkbank-parser`). A second implementation, `talkbank-parser-re2c`,
+exists alongside it as a specification oracle and high-throughput
+batch parser; it produces the same `ChatFile` model and is opt-in via
+`chatter validate --parser re2c`. The LSP and all production paths
+use the tree-sitter parser.
 
 ## Tree-Sitter Parser
 

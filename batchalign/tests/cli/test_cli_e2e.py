@@ -1,3 +1,5 @@
+# affects: batchalign/worker/_main.py
+# affects: batchalign/worker/_types_v2.py
 """End-to-end tests for the Python worker subprocess.
 
 These tests spawn a real `python -m batchalign.worker --test-echo --task morphosyntax` process
@@ -129,10 +131,17 @@ def test_worker_capabilities() -> None:
         assert "morphotag" in commands, "morphotag should be in commands"
         assert "transcribe" in commands, "transcribe should be in commands"
         assert "test-echo" in commands, "test-echo should be in commands"
-        # Test-echo workers have no infer_tasks
-        assert resp.get("infer_tasks") == [], "test-echo should have empty infer_tasks"
-        assert resp.get("engine_versions") == {}, (
-            "test-echo should have empty engine_versions"
+        # Test-echo workers advertise all infer tasks so the server capability gate passes
+        infer_tasks = resp.get("infer_tasks", [])
+        assert len(infer_tasks) > 0, "test-echo should advertise all infer tasks"
+        assert set(infer_tasks) == {
+            "morphosyntax", "utseg", "coref", "translate", "fa", 
+            "speaker", "opensmile", "avqi", "asr"
+        }, f"Unexpected infer_tasks: {infer_tasks}"
+        # Test-echo engine versions should all be "test-echo"
+        engine_versions = resp.get("engine_versions", {})
+        assert all(v == "test-echo" for v in engine_versions.values()), (
+            "test-echo engine_versions should all be 'test-echo'"
         )
     finally:
         _shutdown(proc)

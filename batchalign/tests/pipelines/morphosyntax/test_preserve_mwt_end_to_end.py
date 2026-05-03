@@ -57,7 +57,7 @@ def morphotag_output() -> str:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign-cli", "--",
+                "cargo", "run", "-p", "batchalign", "--",
                 "--no-open-dashboard", "--override-media-cache",
                 "morphotag",
                 str(input_path),

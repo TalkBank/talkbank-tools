@@ -8,21 +8,16 @@ use talkbank_clan::database::{
     DatabaseFilter, Gender, compare_to_norms, discover_databases, parse_database,
 };
 
-/// Resolve CLAN library path: CLAN_SOURCE_DIR env → workspace sibling → ~/OSX-CLAN/
+mod common;
+
+/// Resolve CLAN library path: CLAN_SOURCE_DIR env → meta-repo sibling → ~/OSX-CLAN/
 fn clan_lib_path(subpath: &str) -> String {
     if let Ok(dir) = std::env::var("CLAN_SOURCE_DIR") {
         return format!("{dir}/{subpath}");
     }
-    // Try workspace sibling: talkbank-tools is at <workspace>/talkbank-tools/
-    let manifest = env!("CARGO_MANIFEST_DIR");
-    let workspace_path = Path::new(manifest)
-        .ancestors()
-        .nth(3) // crates/talkbank-clan/ → crates/ → talkbank-tools/ → workspace/
-        .map(|ws| ws.join("OSX-CLAN").join(subpath));
-    if let Some(ref p) = workspace_path {
-        if p.exists() {
-            return p.to_string_lossy().into_owned();
-        }
+    let sibling = common::meta_repo_root().join("OSX-CLAN").join(subpath);
+    if sibling.exists() {
+        return sibling.to_string_lossy().into_owned();
     }
     format!("{}/OSX-CLAN/{subpath}", env!("HOME"))
 }

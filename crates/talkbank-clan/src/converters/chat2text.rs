@@ -1,3 +1,7 @@
+// `writeln!` to `String` is infallible. See `praat2chat.rs` for
+// the convention.
+#![allow(clippy::unwrap_used)]
+
 //! CHAT to plain text conversion.
 //!
 //! Converts CHAT files to plain text by extracting the spoken content from

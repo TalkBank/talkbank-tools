@@ -9,6 +9,7 @@
 //! 6. Best-guess from constraint
 
 use talkbank_model::model::LanguageCode;
+use talkbank_model::model::dependent_tier::GrammaticalRelation;
 use talkbank_model::model::dependent_tier::mor::{Mor, PosCategory};
 
 use super::deprel::{
@@ -100,9 +101,17 @@ pub struct MergedL2Morphology {
     /// contractions like `it's` → `pron|it~aux|be`) and then POS-overridden
     /// by the merge algorithm.
     pub mor: Mor,
+    /// Corresponding GRA relations for the chunks in `mor`.
+    pub gras: Vec<GrammaticalRelation>,
     /// Corrected deprel when the primary model's deprel was unreliable.
     /// `None` means keep the primary deprel as-is.
     pub corrected_deprel: Option<UdDeprel>,
+    /// Optional primary head index to anchor secondary roots.
+    ///
+    /// If this word is the root of a secondary span, it will point to
+    /// this index instead of its own original primary head. This
+    /// prevents circular dependencies in multi-word L2 spans.
+    pub external_anchor: Option<usize>,
 }
 
 /// Resolve the merged POS from primary structural info and a secondary
@@ -226,9 +235,18 @@ fn is_closed_class(upos: UniversalPos) -> bool {
 pub fn merge_primary_secondary(
     primary: &PrimaryStructuralInfo,
     secondary_mor: Mor,
+    secondary_gras: Vec<GrammaticalRelation>,
     secondary_lang: &LanguageCode,
+    external_anchor: Option<usize>,
 ) -> MergedL2Morphology {
-    merge_primary_secondary_with_context(primary, secondary_mor, secondary_lang, None)
+    merge_primary_secondary_with_context(
+        primary,
+        secondary_mor,
+        secondary_gras,
+        secondary_lang,
+        external_anchor,
+        None,
+    )
 }
 
 /// Merge primary structural info with a secondary `Mor` item, with
@@ -246,7 +264,9 @@ pub fn merge_primary_secondary(
 pub fn merge_primary_secondary_with_context(
     primary: &PrimaryStructuralInfo,
     mut secondary_mor: Mor,
+    secondary_gras: Vec<GrammaticalRelation>,
     secondary_lang: &LanguageCode,
+    external_anchor: Option<usize>,
     secondary_context: Option<&SecondaryUdContext<'_>>,
 ) -> MergedL2Morphology {
     let _ = secondary_lang; // reserved for future language-specific overrides
@@ -262,12 +282,18 @@ pub fn merge_primary_secondary_with_context(
     // Phrasal-verb particles have a well-defined UD deprel that the
     // secondary sentence already reports — carry it through directly
     // so the CHAT %gra tier matches the verb-particle structure.
+    let mut gras = secondary_gras;
     if let Some(ctx) = secondary_context
         && ctx.is_phrasal_verb_particle()
     {
+        if let Some(rel) = gras.get_mut(0) {
+            rel.relation = "compound:prt".into();
+        }
         return MergedL2Morphology {
             mor: secondary_mor,
+            gras,
             corrected_deprel: Some(UdDeprel::new("compound:prt")),
+            external_anchor,
         };
     }
 
@@ -277,17 +303,25 @@ pub fn merge_primary_secondary_with_context(
         primary.deprel.base() == "flat" || !primary_constraint.contains(&resolved_pos);
 
     let corrected_deprel = if needs_correction {
-        infer_deprel_from_pos(
+        let det = infer_deprel_from_pos(
             resolved_pos,
             primary.head_upos,
             primary.has_case_dependent(),
-        )
+        );
+        if let Some(ref d) = det {
+            if let Some(rel) = gras.get_mut(0) {
+                rel.relation = d.to_chat_gra();
+            }
+        }
+        det
     } else {
         None
     };
 
     MergedL2Morphology {
         mor: secondary_mor,
+        gras,
         corrected_deprel,
+        external_anchor,
     }
 }

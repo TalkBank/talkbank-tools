@@ -297,7 +297,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": ".",
+            "terminator": {
+              "type": "period"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"
@@ -636,7 +638,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": ".",
+            "terminator": {
+              "type": "period"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"
@@ -811,7 +815,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": ".",
+            "terminator": {
+              "type": "period"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"
@@ -1233,7 +1239,9 @@ expression: snapshot
                 }
               }
             ],
-            "terminator": ".",
+            "terminator": {
+              "type": "period"
+            },
             "tier_type": "Mor"
           },
           "type": "Mor"

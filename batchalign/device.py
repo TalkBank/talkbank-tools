@@ -68,14 +68,8 @@ def resolve_inference_device(
 ) -> _torch.device:
     """Resolve the concrete PyTorch device for ML model loading.
 
-    The selection order is: CUDA > CPU. MPS is permanently excluded.
-
-    MPS (Apple Metal Performance Shaders) was excluded on 2026-04-05 after the
-    AGXG14X GPU driver produced kernel-level deadlocks (``lck_mtx_sleep`` in
-    ``IOGPUScheduler``) during long-running ML compute. These deadlocks create
-    unkillable zombie processes that require a machine reboot and have no
-    user-space mitigation. See ``book/src/developer/apple-mps-workarounds.md``
-    for the full incident record and ecosystem evidence.
+    The selection order is: CUDA > CPU. MPS is currently excluded, so model
+    loading resolves to either CUDA or CPU only.
 
     Parameters
     ----------

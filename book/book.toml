@@ -1,7 +1,7 @@
 [book]
-title = "TalkBank Tooling"
+title = "TalkBank Toolchain"
 authors = ["TalkBank Contributors"]
-description = "Documentation for the TalkBank CHAT specification, grammar, and Rust tooling"
+description = "Unified user, developer, and architecture documentation for the TalkBank toolchain: chatter, Batchalign3, the VS Code extension, and the CLAN command reimplementation."
 language = "en"
 src = "src"
 
@@ -15,7 +15,7 @@ command = "mdbook-mermaid"
 [output.linkcheck2]
 follow-web-links = false
 traverse-parent-directories = false
-warning-policy = "warn"
+warning-policy = "error"
 
 [output.html]
 git-repository-url = "https://github.com/TalkBank/talkbank-tools"

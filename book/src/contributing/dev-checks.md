@@ -1,7 +1,7 @@
 # Developer Verification Checks
 
 **Status:** Current
-**Last updated:** 2026-03-23 23:49 EDT
+**Last updated:** 2026-04-29 10:39 EDT
 
 This page defines the canonical local verification gates that must pass before opening or merging a PR.
 
@@ -12,16 +12,18 @@ Run:
 make verify
 ```
 
-This runs 11 gates (G0–G10). See [Testing > Verification Gates](testing.md#verification-gates) for the full table. Key gates include:
+This runs 15 gates (G0–G14). See [Testing > Verification Gates](testing.md#verification-gates) for the full table. Key gates include:
 
 - **G0** Parser signature guardrail
 - **G1** Rust workspace compile check
 - **G2** Spec tools compile check
-- **G4** Generated parser corpus equivalence suite
-- **G5** Word-level parser equivalence suite
-- **G7** Reference corpus semantic equivalence
-- **G9** Golden tier roundtrip (%mor, %gra, %pho, %wor)
-- **G10** Reference corpus node coverage
+- **G5** Generated parser corpus equivalence suite
+- **G6** Golden fragment validity (words + tiers)
+- **G8** Reference corpus semantic equivalence
+- **G10** Golden tier roundtrip (%mor, %gra, %pho, %wor)
+- **G12** Generated artifacts match committed sources
+- **G13** Fuzz workspace isolation
+- **G14** Imported Batchalign Rust/PyO3 gate
 
 ## When to Run
 - Always before creating a PR.

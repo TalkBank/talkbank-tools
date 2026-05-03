@@ -1,3 +1,4 @@
+# affects: crates/batchalign/src/**
 from __future__ import annotations
 
 import re
@@ -25,19 +26,26 @@ def _scan_paths(paths: list[Path], pattern: str) -> list[tuple[str, int, str]]:
 
 
 def test_chat_ops_dp_calls_are_allowlisted() -> None:
-    chat_ops_src = sorted((ROOT / "crates" / "batchalign-chat-ops" / "src").rglob("*.rs"))
-    align_hits = _scan_paths(chat_ops_src, r"\bdp_align::align\s*\(")
-    align_chars_hits = _scan_paths(chat_ops_src, r"\bdp_align::align_chars\s*\(")
+    dp_call_roots = [
+        ROOT / "crates" / "batchalign" / "src",
+        ROOT / "crates" / "talkbank-transform" / "src",
+    ]
+    dp_call_src = sorted(path for root in dp_call_roots for path in root.rglob("*.rs"))
+    align_hits = _scan_paths(dp_call_src, r"\bdp_align::align\s*\(")
+    align_chars_hits = _scan_paths(dp_call_src, r"\bdp_align::align_chars\s*\(")
     # Allowlisted dp_align::align call sites:
-    # - benchmark.rs: WER evaluation
-    # - compare.rs: transcript comparison (2 calls: window alignment + rotation)
-    # - fa/utr.rs: UTR global alignment (correctness-critical, not avoidable)
-    # - fa/utr/two_pass.rs: overlap-aware UTR timing recovery
+    # - talkbank-transform/benchmark.rs: WER evaluation
+    # - talkbank-transform/compare.rs: transcript comparison
+    #   (2 calls: window alignment + rotation)
+    # - batchalign/fa/utr.rs: UTR global alignment
+    #   (correctness-critical, not avoidable)
+    # - batchalign/fa/utr/two_pass.rs: overlap-aware UTR timing
+    #   recovery
     assert len(align_hits) == 5
     assert {rel for rel, _, _ in align_hits} == {
-        "crates/batchalign-chat-ops/src/benchmark.rs",
-        "crates/batchalign-chat-ops/src/compare.rs",
-        "crates/batchalign-chat-ops/src/fa/utr.rs",
-        "crates/batchalign-chat-ops/src/fa/utr/two_pass.rs",
+        "crates/batchalign/src/fa/utr.rs",
+        "crates/batchalign/src/fa/utr/two_pass.rs",
+        "crates/talkbank-transform/src/benchmark.rs",
+        "crates/talkbank-transform/src/compare/engine.rs",
     }
     assert not align_chars_hits

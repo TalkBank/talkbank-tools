@@ -4,7 +4,7 @@
 //! sidecar: a record of bullets attached to the subset of main-tier words
 //! that passed the Wor-domain filter at the moment `batchalign3 align` ran.
 //! See KIB-016 in
-//! `talkbank-tools/vscode/book/src/developer/known-issues-and-backlog.md`
+//! `talkbank-tools/book/src/vscode/developer/known-issues-and-backlog.md`
 //! for the full reclassification rationale.
 //!
 //! The older `WorAlignment` / `align_main_to_wor` /

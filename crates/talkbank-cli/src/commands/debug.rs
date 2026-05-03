@@ -29,6 +29,11 @@ pub fn run_overlap_audit(paths: &[PathBuf], database_path: Option<&Path>) {
         "file\tutterances\tgroups\tbottoms\torphan_tops\torphan_bottoms\ttimed\tconsistent\tquality"
     );
 
+    // The tree-sitter CHAT grammar is compiled into the binary and
+    // structurally validated by CI, so construction is infallible
+    // in practice (matches the pattern used in
+    // `crates/talkbank-cli/src/lib.rs` chat_parser()).
+    #[allow(clippy::expect_used)]
     let parser = talkbank_parser::TreeSitterParser::new().expect("grammar loads");
 
     for path in collect_cha_files(paths) {
@@ -160,6 +165,11 @@ pub fn run_linker_audit(paths: &[PathBuf], anomalies_path: Option<&Path>) {
         std::io::BufWriter::new(file)
     });
 
+    // The tree-sitter CHAT grammar is compiled into the binary and
+    // structurally validated by CI, so construction is infallible
+    // in practice (matches the pattern used in
+    // `crates/talkbank-cli/src/lib.rs` chat_parser()).
+    #[allow(clippy::expect_used)]
     let parser = talkbank_parser::TreeSitterParser::new().expect("grammar loads");
     let cha_files = collect_cha_files(paths);
     let total_files = cha_files.len();
@@ -796,6 +806,42 @@ fn collect_cha_files(paths: &[PathBuf]) -> Vec<PathBuf> {
     }
     files.sort();
     files
+}
+
+/// Sanitize a single CHAT file and write the result to `output_path` (or
+/// stdout when `None`).
+///
+/// Implements `chatter debug sanitize`. Runs the strict sanitization
+/// policy from `talkbank-transform::redact`. See
+/// `talkbank/docs/protected-corpus-debugging-workflow.md` for context.
+pub fn run_sanitize(input: &Path, output_path: Option<&Path>) {
+    let source = std::fs::read_to_string(input)
+        .unwrap_or_else(|e| die(&format!("cannot read {}: {e}", input.display())));
+    let parser = talkbank_parser::TreeSitterParser::new()
+        .unwrap_or_else(|e| die(&format!("parser initialization failed: {e:?}")));
+    let parsed = parser
+        .parse_chat_file(&source)
+        .unwrap_or_else(|e| die(&format!("parse failed for {}: {e:?}", input.display())));
+
+    let policy = talkbank_transform::redact::SanitizationPolicy::strict();
+    let sanitized = talkbank_transform::redact::sanitize(parsed, &policy)
+        .unwrap_or_else(|e| die(&format!("sanitize failed for {}: {e}", input.display())));
+    let chat_text = sanitized.to_chat_string();
+
+    match output_path {
+        Some(path) => std::fs::write(path, &chat_text)
+            .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display()))),
+        None => std::io::stdout()
+            .lock()
+            .write_all(chat_text.as_bytes())
+            .unwrap_or_else(|e| die(&format!("cannot write to stdout: {e}"))),
+    }
+}
+
+/// Print a user-facing error and exit non-zero.
+fn die(msg: &str) -> ! {
+    eprintln!("ERROR: {msg}");
+    std::process::exit(1);
 }
 
 fn collect_recursive(dir: &PathBuf, files: &mut Vec<PathBuf>) {

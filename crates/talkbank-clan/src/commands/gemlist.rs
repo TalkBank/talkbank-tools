@@ -1,3 +1,8 @@
+// `unreachable!()` arms used here are guarded by `matches!` checks
+// in the surrounding `match` patterns — the let-else cannot fail.
+// `writeln!` to String is infallible.
+#![allow(clippy::unwrap_used, clippy::unreachable)]
+
 //! GEMLIST — List Gem Segments.
 //!
 //! Lists all gem segments (`@Bg`/`@Eg` bracketed regions) found in CHAT files,

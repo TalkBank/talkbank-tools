@@ -10,7 +10,7 @@ use super::tier_type::GraTierType;
 use crate::Span;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use talkbank_derive::{SemanticEq, SpanShift};
 
 /// Grammatical relations tier (%gra).
@@ -69,7 +69,7 @@ pub struct GraTier {
     ///
     /// Each relation specifies word_index, head_index, and relation_type.
     /// Relations are in the same order as morphological chunks in the %mor tier.
-    pub relations: GraRelations,
+    pub(crate) relations: GraRelations,
 
     /// Source span for error reporting (not serialized to JSON)
     #[serde(skip)]
@@ -101,6 +101,26 @@ impl GraTier {
     /// Returns `true` if this tier serializes as `%gra`.
     pub fn is_gra(&self) -> bool {
         self.tier_type == GraTierType::Gra
+    }
+
+    /// Borrows the list of grammatical relations.
+    pub fn relations(&self) -> &[GrammaticalRelation] {
+        &self.relations.0
+    }
+
+    /// Consumes the tier and returns the underlying grammatical relations.
+    pub fn into_relations(self) -> Vec<GrammaticalRelation> {
+        self.relations.0
+    }
+
+    /// Mutably borrows the list of grammatical relations.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that mutations do not break index sequentiality
+    /// or other structural invariants.
+    pub fn relations_mut(&mut self) -> &mut [GrammaticalRelation] {
+        &mut self.relations.0
     }
 
     /// Number of dependency edges in this tier.
@@ -370,7 +390,7 @@ impl WriteChat for GraTier {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, SemanticEq, SpanShift)]
 #[serde(transparent)]
 #[schemars(transparent)]
-pub struct GraRelations(pub Vec<GrammaticalRelation>);
+pub struct GraRelations(pub(crate) Vec<GrammaticalRelation>);
 
 impl GraRelations {
     /// Wraps relations while preserving transcript order.
@@ -390,13 +410,6 @@ impl Deref for GraRelations {
     /// Borrows the underlying relation vector.
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for GraRelations {
-    /// Mutably borrows the underlying relation vector.
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

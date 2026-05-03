@@ -48,7 +48,7 @@ pub fn find_main_tier_hover_info(
 
         if let Some(mor_idx) = mor_idx
             && let Some(mor_tier) = utterance.mor_tier()
-            && let Some(mor_item) = mor_tier.items.get(mor_idx)
+            && let Some(mor_item) = mor_tier.items().get(mor_idx)
         {
             info.aligned_to_mor = Some(format_mor_item(mor_item));
         }
@@ -58,7 +58,7 @@ pub fn find_main_tier_hover_info(
             && let Some(gra_alignment) = &alignments.gra
             && let Some(gra_idx) = find_target_index_for_source(&gra_alignment.pairs, mor_idx)
             && let Some(gra_tier) = utterance.gra_tier()
-            && let Some(gra_relation) = gra_tier.relations.get(gra_idx)
+            && let Some(gra_relation) = gra_tier.relations().get(gra_idx)
         {
             info.aligned_to_gra = Some(format_gra_alignment_text(mor_tier, gra_relation));
         }

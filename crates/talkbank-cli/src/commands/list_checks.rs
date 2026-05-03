@@ -7,11 +7,8 @@
 //!
 //! The list of Planned (not_implemented) codes is hard-coded in
 //! [`PLANNED_CODES`] below. It was derived from
-//! `grep -l "Status.*not_implemented" spec/errors/*.md` at the time of
-//! writing. When a spec changes from `not_implemented` to `implemented`,
-//! update the table. A future improvement would be to generate this list
-//! at build time from the spec files themselves (see TODO in
-//! [`planned_codes`]).
+//! `grep -l "Status.*not_implemented" spec/errors/*.md` and must be kept
+//! in sync when a spec changes from `not_implemented` to `implemented`.
 
 use talkbank_model::ErrorCode;
 
@@ -57,10 +54,10 @@ pub fn check_status(code: ErrorCode) -> CheckStatus {
 
 /// Every error code the binary knows about, in declaration order.
 ///
-/// TODO: generate this at build time from the spec directory so the CLI
-/// output is always in sync with `spec/errors/`. For now it relies on the
-/// `ErrorCode::all()` method emitted by the `#[error_code_enum]` macro,
-/// which guarantees one entry per enum variant.
+/// This intentionally relies on `ErrorCode::iter()` from the
+/// `#[error_code_enum]` macro, which guarantees one entry per enum
+/// variant. `PLANNED_CODES` remains the small manual overlay for specs
+/// that are documented but not yet enforced.
 pub fn all_error_codes() -> Vec<ErrorCode> {
     ErrorCode::iter().copied().collect()
 }

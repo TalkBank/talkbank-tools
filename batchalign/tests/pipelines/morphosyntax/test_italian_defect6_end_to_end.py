@@ -1,6 +1,6 @@
 """End-to-end CLI test: BA3 morphotag produces corrected %mor for
 the six Italian Defect 6 / 7 mis-split cases handled by the
-reconciler in ``crates/batchalign-chat-ops/src/nlp/lang_it.rs``.
+reconciler in ``crates/batchalign/src/nlp/lang_it.rs``.
 
 Rust-side unit tests (``nlp::mapping::tests::test_italian_defect6_*``)
 exercise the reconciler on synthetic `UdSentence` fixtures — they
@@ -12,7 +12,7 @@ serialization) must also produce the corrected forms.
 
 The test is ``@pytest.mark.golden`` because it loads real Stanza
 models. It is ``@pytest.mark.integration`` because it invokes the
-``cargo run -p batchalign-cli`` binary path. Both markers mirror
+``cargo run -p batchalign`` binary path. Both markers mirror
 the sibling ``test_preserve_mwt_end_to_end.py`` pattern.
 
 Why this pairing matters
@@ -85,7 +85,7 @@ def morphotag_output() -> str:
 
         result = subprocess.run(
             [
-                "cargo", "run", "-p", "batchalign-cli", "--",
+                "cargo", "run", "-p", "batchalign", "--",
                 "--no-open-dashboard", "--override-media-cache",
                 "morphotag",
                 str(input_path),
@@ -248,6 +248,6 @@ def test_no_junk_pattern_anywhere(morphotag_output: str) -> None:
             assert pattern not in line, (
                 f"Junk pattern {pattern!r} found in %mor:\n  {line}\n"
                 f"The Italian Defect 6 reconciler did not fire on at least "
-                f"one case. Check crates/batchalign-chat-ops/src/nlp/lang_it.rs "
+                f"one case. Check crates/batchalign/src/nlp/lang_it.rs "
                 f"and the plumbing in nlp/mapping/mod.rs::map_ud_sentence."
             )

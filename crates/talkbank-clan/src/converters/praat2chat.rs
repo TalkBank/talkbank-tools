@@ -1,3 +1,12 @@
+// `writeln!` to `String` / `&mut Vec<u8>` is infallible — the
+// `fmt::Write` / `io::Write` impls for those types never return
+// `Err`. `unwrap` is the conventional pattern across this crate's
+// text emitters; flagging each call individually would require
+// ~150 annotations across the converter files. The crate's
+// `deny`-level panic lints still apply; this file-level `unwrap`
+// allow is the documented per-emitter exception.
+#![allow(clippy::unwrap_used)]
+
 //! Praat TextGrid bidirectional conversion (TextGrid <--> CHAT).
 //!
 //! Converts between Praat TextGrid files and CHAT format. TextGrid files

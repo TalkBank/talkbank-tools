@@ -195,7 +195,7 @@ fn find_mor_aligned_definition(
     let mor_tier = utterance.mor_tier()?;
     let mor_alignment = utterance.alignments.as_ref()?.mor.as_ref()?;
 
-    if mor_tier.items.is_empty() {
+    if mor_tier.items().is_empty() {
         return None;
     }
 
@@ -207,10 +207,10 @@ fn find_mor_aligned_definition(
     // %mor item — see KIB-015. An out-of-range cursor means the
     // cursor wasn't over a %mor item, so declining the jump is
     // the right answer.
-    if mor_idx >= mor_tier.items.len() {
+    if mor_idx >= mor_tier.items().len() {
         tracing::debug!(
             mor_idx,
-            tier_len = mor_tier.items.len(),
+            tier_len = mor_tier.items().len(),
             "goto-definition: %mor item index out of range for tier; declining jump",
         );
         return None;
@@ -236,13 +236,13 @@ fn find_gra_aligned_definition(
     let gra_alignment = utterance.alignments.as_ref()?.gra.as_ref()?;
     let mor_alignment = utterance.alignments.as_ref()?.mor.as_ref()?;
 
-    if gra_tier.relations.is_empty() {
+    if gra_tier.relations().is_empty() {
         return None;
     }
 
     let offset = utils::position_to_offset(doc, position);
     let gra_idx = find_gra_relation_index_at_offset(tree, offset)?;
-    let gra_idx = gra_idx.min(gra_tier.relations.len().saturating_sub(1));
+    let gra_idx = gra_idx.min(gra_tier.relations().len().saturating_sub(1));
 
     let gra_pair = gra_alignment.pairs.get(gra_idx)?;
     let mor_chunk_idx = gra_pair.mor_chunk_index?;

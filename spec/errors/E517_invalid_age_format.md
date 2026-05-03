@@ -31,16 +31,15 @@ Authoritative source: `clan-info/lib/depfile.cut:16`.
 ## Metadata
 
 - **Status**: implemented
-- **Status note**: Regression fix landed 2026-04-21. The predecessor
-  auto-generated spec `E517_auto.md` covered only the "missing
-  semicolon" case (`2.6`); this spec adds the full depfile.cut
-  test matrix. Implementation lives in
+- **Status note**: The predecessor auto-generated spec `E517_auto.md`
+  covered only the "missing semicolon" case (`2.6`); this spec adds
+  the full depfile.cut test matrix. Implementation lives in
   `crates/talkbank-model/src/model/header/codes/age.rs` as
   `AgeValue::violates_depfile_pattern()`, invoked from
   `check_id_header`. Reference-corpus files carrying `3;0`,
   `2;06`, etc. now trip E517 and need their `@ID` age fields
   corrected to `3;00.`, `2;06.`, etc.
-- **Last updated**: 2026-04-21 22:45 EDT
+- **Last updated**: 2026-05-01 09:47 EDT
 - **Error Code**: E517
 - **Category**: header_validation
 - **Level**: header
@@ -187,8 +186,8 @@ exact error pattern in bulk corpus data.
 - CLAN CHECK emits error 34 ("Illegal date representation"); Java
   Chatter rejects in its ANTLR grammar with "months for age must be
   two digits" semantic failure.
-- Regression discovered 2026-04-21 while auditing Java Chatter's
-  rejection of ~50 reference-corpus files.
+- Regression discovered while auditing Java Chatter's rejection of
+  reference-corpus files.
 - Implementation: `crates/talkbank-model/src/model/header/codes/age.rs`
   — the `needs_zero_padding()` predicate's early-return on
   no-period is the root cause. It should be replaced with a direct

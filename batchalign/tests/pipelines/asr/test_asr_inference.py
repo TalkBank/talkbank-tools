@@ -1,3 +1,4 @@
+# affects: batchalign/inference/asr/**
 """Tests for ASR inference boundary models and Whisper helpers.
 
 Exercises the Pydantic models and the two remaining local Whisper helpers.

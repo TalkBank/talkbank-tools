@@ -1,7 +1,7 @@
 # XML Emitter
 
 **Status:** Current
-**Last updated:** 2026-04-22 18:58 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 ## Purpose
 
@@ -29,21 +29,21 @@ It is the Rust-side replacement for Java's CHAT → XML projection.
     directly, not XML.
 - **Phonetic tiers are permanently unsupported.** `%pho`, `%mod`,
   `%phosyl`, `%modsyl`, `%phoaln` report
-  [`XmlWriteError::PhoneticTierUnsupported`]. Phon has pivoted to
+  `XmlWriteError::PhoneticTierUnsupported`. Phon has pivoted to
   CHAT-only interchange; no downstream consumer reads the rich
   `<pg>/<pw>/<ph>/<cmph>/<ss>` XML. Files carrying these tiers
   still parse, validate, and round-trip through CHAT unchanged —
   only the XML projection is declined.
 - **Parity oracle.** The goldens in `corpus/reference-xml/`
   (produced by Java Chatter against the reference CHAT corpus)
-  are the parity target. As of 2026-04-22, **94/94 paired goldens
-  pass structurally** — full parity across every reference `.cha`
-  file Java Chatter can emit. Five reference fixtures have no
-  golden because Java can't emit them at all: two use UD POS tags
-  (`propn`) Java's tree walker doesn't recognize, and three
-  declare `@Media` with a linkage type that the fresh E544
-  validator now catches before emission has a chance to run.
-  Intentional divergences, not Rust gaps.
+  are the parity target. All paired goldens pass structurally —
+  full parity across every reference `.cha` file Java Chatter can
+  emit. A small number of reference fixtures have no golden
+  because Java can't emit them at all: some use UD POS tags
+  (`propn`) Java's tree walker doesn't recognize, and others
+  declare `@Media` with a linkage type that the E544 validator
+  catches before emission has a chance to run. Intentional
+  divergences, not Rust gaps.
 
 ## Module layout
 
@@ -250,19 +250,18 @@ of `XmlEmitter::emit_sin_word`; everything else is just the
 
 ### `@Media` linkage and timing evidence (E544)
 
-As of 2026-04-22, validation fires E544 before XML emission when
-an unqualified `@Media` header (status-less) claims linkage but
-the transcript carries no timing evidence (no main-tier bullets,
-no positional `%wor` sidecar). This is a validator-level rule
-(lives in `crates/talkbank-model/src/model/file/chat_file/validate.rs`
+Validation fires E544 before XML emission when an unqualified
+`@Media` header (status-less) claims linkage but the transcript
+carries no timing evidence (no main-tier bullets, no positional
+`%wor` sidecar). This is a validator-level rule (lives in
+`crates/talkbank-model/src/model/file/chat_file/validate.rs`
 `check_media_linkage_has_timing`), not an emitter rule — it runs
 during `ChatFile::validate` and blocks downstream emission on
 validation-gated entry points. See `spec/errors/E544_media_linkage_without_timing.md`.
 
-The emitter itself doesn't care about bullet presence; it was the
-former Java-Chatter emitter that imposed this check (as a parser-
-level semantic failure) and Rust now implements it in the
-validator, per the project lead's 2026-04-21 approval.
+The emitter itself doesn't care about bullet presence; the former
+Java-Chatter emitter imposed this check as a parser-level semantic
+failure, and Rust implements it in the validator instead.
 
 ### Post-clitic emission
 
@@ -391,31 +390,24 @@ delete after the divergence is resolved.
 ## Related documents
 
 - `docs/reference-xml-coverage-gaps.md` — why some reference `.cha`
-  files have no paired XML golden. Note (2026-04-22): earlier
-  reports of "65 missing goldens" reflected a time when Java
-  Chatter and chatter shared a Chat.flex without the comma /
-  em-dash / CA-marker / SECONDS lexer fixes that landed this
-  session. The current gap is much smaller; the five permanent
-  exclusions are UD-POS files Java can't walk + `@Media`-without-
-  timing files E544 now blocks at validation.
+  files have no paired XML golden. The permanent exclusions are
+  UD-POS files Java can't walk + `@Media`-without-timing files E544
+  blocks at validation.
 - `docs/rust-vs-java-chatter-regressions.md` — audit of the
   Rust-vs-Java parser-level differences that the emitter bridges.
 - `docs/talkbank-xml-consumers-2026-04.md` — downstream XML
   consumers and the Phon-pivot context.
 - `spec/errors/E544_media_linkage_without_timing.md` — the
   `@Media` bullet-existence validator that runs before emission.
-- `docs/investigations/2026-04-22-rust-validator-strictness.md`
-  — reference-corpus CHECK audit and the `chatter becomes the
-  authority over time` policy decision.
 
 ## Staged features
 
 The emitter reports `XmlWriteError::FeatureNotImplemented` for
 CHAT constructs that have a known XML shape but haven't been
-wired in yet. With all paired reference-XML goldens now passing
-(94/94 as of 2026-04-22), any new staged feature that lands will
-be triggered by a file added to the reference corpus that
-exercises it. When that happens:
+wired in yet. With all paired reference-XML goldens passing,
+any new staged feature that lands will be triggered by a file
+added to the reference corpus that exercises it. When that
+happens:
 
 1. Run `cargo nextest run -p talkbank-parser-tests --test xml_golden`
    and read the failure message.

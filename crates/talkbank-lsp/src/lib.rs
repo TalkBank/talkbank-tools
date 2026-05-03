@@ -1,4 +1,22 @@
 #![warn(missing_docs)]
+// Test code is exempt from this crate's `deny`-level panic lints.
+// The non-test surface was audited 2026-04-29 (see
+// `docs/panic-audit/talkbank-lsp.md`); test code keeps panic
+// discipline relaxed because assertion macros panic by design and
+// fixture `unwrap()` is the standard Rust testing idiom. Without
+// this `cfg_attr(test, ...)` allow, the crate's `deny` lints would
+// fire on test code that has no production analogue.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 //! TalkBank LSP — Language Server Protocol implementation for CHAT format.
 //!
 //! This crate provides the core logic behind the standalone `talkbank-lsp`

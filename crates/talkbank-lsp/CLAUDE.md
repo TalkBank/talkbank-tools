@@ -1,7 +1,7 @@
 # `talkbank-lsp` — Language Server
 
 **Status:** Current
-**Last updated:** 2026-04-16 15:27 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 Guidance for Claude Code when working inside `crates/talkbank-lsp/`. Read the
 workspace-level `talkbank-tools/CLAUDE.md` first — this file layers **LSP-specific
@@ -22,7 +22,7 @@ and by any other LSP client. The crate is a **thin protocol adapter** over
 - Hover / alignment presentation (`alignment/tier_hover/`, `alignment/formatters/`)
 - `%gra` dependency-graph DOT rendering (`graph/`)
 - Semantic-token generation (`semantic_tokens.rs`)
-- 12 custom `talkbank/*` RPC endpoints for the VS Code extension
+- Custom `talkbank/*` RPC endpoints for the VS Code extension
   (`backend/features/execute_commands.rs`, `backend/analysis.rs`,
   `backend/participants.rs`, `backend/chat_ops/`)
 
@@ -36,13 +36,6 @@ Every cross-tier alignment computation — main ↔ `%mor`, `%mor` ↔ `%gra`,
 main ↔ `%pho`, main ↔ `%sin`, main ↔ `%wor` — is implemented **once**, in
 `talkbank-model`'s `src/alignment/` tree. This crate consumes that output;
 it never recomputes it.
-
-The bug that motivated this rule (2026-04-16): a `%gra` hover helper
-re-walked mor items by hand to resolve a semantic word index to a lemma.
-The walk skipped post-clitics (it indexed `mor.items` directly with
-`word_index - 1` instead of routing through the chunk sequence), so any
-hover on a clitic showed the wrong stem. The canonical chunk walk already
-lived in the model; the LSP just wasn't using it.
 
 **Concrete guidance when touching any `alignment/`, `tier_hover/`,
 `highlights/`, or `graph/` code in this crate:**
@@ -102,10 +95,8 @@ Rules of thumb:
 - If you need to go from a chunk index to a `%mor` *item* (e.g. to reach
   through the main↔mor alignment), use `chunk.host_item()` — do not do
   index arithmetic.
-- A newtype refactor (planned 2026-04) will make these three spaces
-  distinct Rust types (`MorItemIndex`, `MorChunkIndex`,
-  `SemanticWordIndex1`) so the compiler rejects the confusion. Until it
-  lands, be deliberate.
+- Until typed indices catch the confusion at compile time, be
+  deliberate when handling these three spaces.
 
 ## Other LSP-specific rules
 
@@ -150,7 +141,7 @@ crates/talkbank-lsp/
 │   │   ├── analysis.rs         # `talkbank/analyze` RPC (→ talkbank-clan)
 │   │   ├── participants.rs     # `talkbank/getParticipants`, formatIdLine
 │   │   ├── chat_ops/           # filterDocument, getSpeakers, scopedFind, getUtterances
-│   │   └── features/           # 21 LSP features + custom execute_commands
+│   │   └── features/           # LSP feature handlers + custom execute_commands
 │   ├── alignment/
 │   │   ├── tier_hover/         # per-tier hover resolvers
 │   │   ├── formatters/         # display formatters (mor, content, …)
@@ -186,9 +177,10 @@ cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus
 
 ## Related documentation
 
-- Public user + developer book: `talkbank-tools/vscode/book/` (planned; see
-  `~/.claude/plans/the-documentation-for-the-peaceful-quill.md`).
-- Main book, alignment chapter:
+- Public user + developer docs for the VS Code extension:
+  `talkbank-tools/book/src/vscode/` (the VS Code section of the
+  unified TalkBank Toolchain mdBook, post-P11).
+- Unified book, chatter architecture chapter:
   `talkbank-tools/book/src/architecture/alignment.md`.
 - VS Code extension guidance: `talkbank-tools/vscode/CLAUDE.md`.
-- Custom RPC contract reference (planned): `vscode/book/src/reference/rpc-contracts.md`.
+- Custom RPC contract reference (planned): `book/src/vscode/reference/rpc-contracts.md`.

@@ -103,6 +103,7 @@ pub mod helpers;
 /// before 2026-04-16).
 pub mod indices;
 mod mor;
+mod mor_gra_construction;
 mod pho;
 mod sin;
 pub mod traits;
@@ -120,6 +121,7 @@ pub use indices::{
     SemanticWordIndex1, SemanticWordIndexError, SinItemIndex,
 };
 pub use mor::{MorAlignment, align_main_to_mor};
+pub use mor_gra_construction::{MorGraConstructionError, MorGraTerminatorSlot, try_align_mor_gra};
 pub use pho::{PhoAlignment, align_main_to_pho};
 pub use sin::{SinAlignment, align_main_to_sin};
 pub use traits::{AlignableTier, IndexPair, TierAlignmentResult, TierCountable, positional_align};

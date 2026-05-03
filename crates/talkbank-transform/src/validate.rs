@@ -216,7 +216,7 @@ fn validate_morphotag_output(file: &ChatFile, errors: &mut Vec<ValidationError>)
             // Count %mor items
             for tier in &utt.dependent_tiers {
                 if let talkbank_model::model::DependentTier::Mor(mor_tier) = tier {
-                    let mor_count = mor_tier.items.0.len();
+                    let mor_count = mor_tier.items().len();
                     if word_count != mor_count {
                         let speaker = utt.main.speaker.as_str();
                         errors.push(ValidationError {

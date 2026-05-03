@@ -10,7 +10,7 @@ use talkbank_parser_tests::test_error::TestError;
 
 pub const SAMPLE_WORD_COUNT: usize = 3;
 pub const MOR_TIER_INPUT: &str = "pro|I v|want n|cookie-PL .";
-pub const UTTERANCE_INPUT: &str = "*CHI:\tI want .\n%mor:\tpro|I v|want n|cookie-PL";
+pub const UTTERANCE_INPUT: &str = "*CHI:\tI want cookie .\n%mor:\tpro|I v|want n|cookie-PL .";
 
 /// Type alias — was an enum wrapping both TreeSitter and Direct parsers.
 /// Now just TreeSitterParser since the direct parser was removed.

@@ -297,6 +297,9 @@ impl AnalysisCommand for MltCommand {
             let sd = if num_utts <= 1 {
                 f64::NAN
             } else {
+                // num_utts > 1 implies `utt_words.is_some()` because
+                // `num_utts = utt_words.map_or(0, |v| v.len())`.
+                #[allow(clippy::unwrap_used)]
                 let utt_words = utt_words.unwrap();
                 let mean = words_per_utterance;
                 let sum_sq: f64 = utt_words

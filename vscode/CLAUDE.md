@@ -1,7 +1,7 @@
 # VS Code Extension — TalkBank CHAT Editor
 
 **Status:** Current
-**Last updated:** 2026-04-16 16:19 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 All user, developer, and integrator documentation lives in **`book/`**
 (mdBook, hosted alongside the other TalkBank books — see
@@ -54,13 +54,9 @@ integration.
   ASTs) outside the LSP. Per-session VS Code state (panel positions,
   review ratings, coder progress) is fine; CHAT semantics is not.
 
-The bug that motivated adding this rule (2026-04-16): a `%gra` hover in
-`talkbank-lsp` re-walked mor items by hand instead of using the canonical
-chunk sequence in `talkbank-model`, silently showing the wrong stem on
-post-clitics. The extension itself was clean, but the principle applies
-doubly here — the TypeScript side is one more layer away from the
-grammar and model source of truth, so the cost of reconstructing domain
-semantics is higher still.
+The TypeScript side is one more layer away from the grammar and model
+source of truth than the LSP itself. The cost of reconstructing domain
+semantics here is higher still — always route through the LSP.
 
 ## Three-layer architecture
 
@@ -75,7 +71,7 @@ semantics is higher still.
 ┌───────────────────┴──────────────────────────────┐
 │  talkbank-lsp (Rust binary)                      │
 │  protocol routing · document state · caches      │  ← crates/talkbank-lsp/
-│  21 LSP features + 12 custom RPC endpoints       │
+│  LSP features + custom talkbank/* RPC endpoints  │
 │  hover/highlight/graph rendering (presentation)  │
 └───────────────────┬──────────────────────────────┘
                     │ crate-internal calls
@@ -91,7 +87,7 @@ semantics is higher still.
 ```
 vscode/
 ├── src/
-│   ├── extension.ts           # Entry point: LSP client, 20+ command registrations
+│   ├── extension.ts           # Entry point: LSP client, command registrations
 │   ├── analysisPanel.ts       # Webview: CLAN analysis JSON → styled tables
 │   ├── graphPanel.ts          # Webview: Graphviz DOT → SVG
 │   ├── mediaPanel.ts          # Webview: audio/video playback with segment tracking
@@ -125,7 +121,7 @@ cd vscode && npm run lint      # eslint
 | Rewind | F8 | Rewind 2 seconds |
 | Loop Segment | F5 | Toggle loop |
 | Walker | Alt+Down/Up | Step through utterances with playback |
-| CLAN Analysis | Context menu | 33 commands → analysis panel |
+| CLAN Analysis | Context menu | CLAN commands → analysis panel |
 | Transcription | Command palette | F4 to stamp timing bullets |
 | Speaker Filter | Context menu | Virtual document by speaker |
 | Waveform | Cmd+Shift+W | Web Audio waveform visualization |
@@ -139,18 +135,20 @@ cd vscode && npm run lint      # eslint
 All panels use singleton pattern (`createOrShow`). Communication via PostMessage JSON
 protocol (rewind, setLoop, seekTo, segmentChanged).
 
-## Analysis Commands (33 total)
+## Analysis Commands
 
-All 33 CLAN commands are wired: freq, mlu, mlt, wdlen, wdsize, maxwd, freqpos, timedur,
+All CLAN commands are wired: freq, mlu, mlt, wdlen, wdsize, maxwd, freqpos, timedur,
 gemlist, cooccur, dist, chip, phonfreq, modrep, vocd, codes, complexity, corelex, chains,
-dss, eval, flucalc, ipsyn, kideval, sugar, trnfix, uniq + 6 requiring user input (kwal,
-combo, keymap, mortable, script, rely).
+dss, eval, flucalc, ipsyn, kideval, sugar, trnfix, uniq, plus those requiring user input
+(kwal, combo, keymap, mortable, script, rely).
 
 ## Dependencies
 
-- `vscode-languageclient@9.0.1` — LSP client
-- `@hpcc-js/wasm@2.29.0` — Graphviz WASM
-- TypeScript 5.9, ESLint, Vitest
+(Versions live in `package.json`.)
+
+- `vscode-languageclient` — LSP client
+- `@hpcc-js/wasm` — Graphviz WASM
+- TypeScript, ESLint, Vitest
 
 ## Detailed Documentation
 

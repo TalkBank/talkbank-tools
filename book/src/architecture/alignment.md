@@ -1,144 +1,72 @@
-# Alignment Architecture in talkbank-tools
+# Alignment
 
 **Status:** Current
-**Last updated:** 2026-04-09 08:40 EDT
+**Last updated:** 2026-05-01 15:57 EDT
 
-This document describes all alignment data structures, algorithms, and
-design decisions in the `talkbank-tools` crate workspace.
+Alignment in the toolchain operates at three distinct layers. They use
+different data structures because they solve different problems: Layer 1
+is structural (counting AST nodes), Layer 2 is positional (token /
+character indices), Layer 3 is edit-distance (Hirschberg DP).
 
-`batchalign3` is the main downstream consumer for these APIs. Its `morphotag`,
-`align`, `compare`, `benchmark`, and forced-alignment flows all depend on the
-alignment contracts described here, so the model-layer alignment surfaces are
-the stable boundary to preserve.
+| Layer | Where | Purpose |
+|---|---|---|
+| **Tier alignment** | `talkbank-model::alignment` | 1:1 mapping between main tier and dependent tiers (`%mor`, `%pho`, `%wor`, `%sin`, `%gra`) |
+| **NLP alignment** | `talkbank-transform`, `batchalign` | Mapping NLP model output (Stanza tokens, FA timings) back to CHAT AST words |
+| **Sequence alignment** | `talkbank-transform::dp_align` | Edit-distance alignment for WER and transcript comparison |
 
-## Overview
+## Layer 1 — Tier Alignment
 
-Tier alignment in CHAT validates that dependent tiers (%mor, %pho, %wor, %sin,
-%gra) have the correct number and arrangement of items relative to the main
-tier. The alignment module in `talkbank-model` provides:
+Validates that dependent tiers have the correct number and arrangement
+of items relative to the main tier. Lives in
+`crates/talkbank-model/src/alignment/`.
 
-1. **Domain-aware counting** — how many alignable items does a main tier have
-   for each dependent tier type?
-2. **Positional mapping** — which main-tier position corresponds to which
-   dependent-tier position?
-3. **Mismatch diagnostics** — human-readable error reports when counts disagree.
-4. **Content traversal** — a shared walker primitive that centralizes the 24+22
-   variant recursion.
-5. **Trait abstractions** — `IndexPair`, `TierAlignmentResult`, `AlignableTier`,
-   and `TierCountable` formalize the shared contracts; `positional_align()`
-   eliminates duplication across %pho/%sin/%wor alignment.
-
-## Module Map
-
-```
-crates/talkbank-model/src/alignment/
-  mod.rs              Public API: re-exports all alignment functions and types
-  traits.rs           Trait abstractions (IndexPair, TierAlignmentResult,
-                        AlignableTier, TierCountable) + positional_align()
-  types.rs            AlignmentPair — the universal index-pair primitive
-  mor.rs              align_main_to_mor() — Main tier → %mor items
-  pho.rs              align_main_to_pho() — Main tier → %pho tokens (via AlignableTier)
-  sin.rs              align_main_to_sin() — Main tier → %sin tokens (via AlignableTier)
-  wor.rs              align_main_to_wor() — Main tier → %wor tokens (via AlignableTier)
-  gra/                align_mor_to_gra() — %mor chunks → %gra relations
-    align.rs          Core alignment logic (uses to_chat_display_string for diagnostics)
-    types.rs          GraAlignmentPair, GraAlignment (implements IndexPair, TierAlignmentResult)
-    tests.rs          Unit tests
-  phon.rs             Phon tier-to-tier alignment (%modsyl↔%mod, %phosyl↔%pho, %phoaln↔both)
-  format.rs           Diagnostic formatting for alignment mismatches
-  helpers/
-    mod.rs            to_chat_display_string() — shared WriteChat→String helper
-    domain.rs         TierDomain enum (Mor/Pho/Sin/Wor)
-    rules.rs          Predicate functions (counts_for_tier, should_skip_group, etc.)
-    count.rs          Counting and extraction over content trees
-    walk/             Content walker (walk_words / walk_words_mut)
-      mod.rs          Walker implementation, WordItem/WordItemMut enums
-      tests.rs        Walker unit tests
-    overlap.rs        Overlap marker iteration (walk_overlap_points, extract_overlap_info)
-    overlap_groups.rs Cross-utterance overlap groups (analyze_file_overlaps, 1:N matching)
-    tests.rs          Helper unit tests
-  location_tests.rs   Alignment location tests
-```
-
-## Shared Helpers
-
-### `to_chat_display_string()` (`helpers/mod.rs`)
-
-Renders any `WriteChat` value into owned text for diagnostic messages.
-Used by all 5 alignment modules (mor, pho, sin, wor, gra) to avoid
-duplicating the `write_chat` → `String` pattern. Best-effort: write
-failures are silently ignored because diagnostic formatting must never
-panic the alignment path.
-
-### Downstream Expectations
-
-Batchalign3 should treat these helpers as the stable alignment surface:
-
-- `%mor` and `%gra` alignment for morphotag/compare-style workflows
-- `%wor` alignment and timing mapping for forced alignment workflows
-- `%pho`, `%mod`, `%modsyl`, `%phosyl`, and `%phoaln` tier-to-tier alignment
-  for phonological and derived-tier consumers
-- shared count/walk helpers for any workflow that needs to reason about
-  dependent tier cardinality before alignment
-
-That means a downstream workflow should not reimplement word counting or
-positional mapping over raw CHAT text when the model layer already provides a
-typed helper.
-
-## Core Types
-
-### TierDomain (`helpers/domain.rs`)
+### TierDomain
 
 ```rust
 enum TierDomain { Mor, Pho, Sin, Wor }
 ```
 
-Each dependent tier applies different alignment eligibility rules over the same
-main-tier content. The domain enum makes these policy branches explicit.
-
-**Domain-specific behaviors:**
+The same utterance produces different counts per domain:
 
 | Rule | Mor | Pho | Sin | Wor |
-|------|-----|-----|-----|-----|
-| Skip retrace groups ([details](../chat-format/retraces.md#alignment-behavior)) | Yes | No | No | No |
+|---|---|---|---|---|
+| Skip retrace groups | Yes | No | No | No |
 | Count pauses | No | Yes | No | No |
-| PhoGroup handling | Recurse | Atomic (1) | Skip (0) | Recurse |
-| SinGroup handling | Recurse | Skip (0) | Atomic (1) | Recurse |
-| Include fragments (`&+`) | No | Yes | Yes | **No** |
-| Include nonwords (`&~`) | No | Yes | Yes | **No** |
+| PhoGroup | Recurse | Atomic (1) | Skip (0) | Recurse |
+| SinGroup | Recurse | Skip (0) | Atomic (1) | Recurse |
+| Include fragments (`&+`) | No | Yes | Yes | No |
+| Include nonwords (`&~`) | No | Yes | Yes | No |
 | Include fillers (`&-`) | No | Yes | Yes | Yes |
-| Include untranscribed | No | Yes | Yes | **No** |
+| Include untranscribed | No | Yes | Yes | No |
 | Include tag-marker separators | Yes | No | No | No |
-| ReplacedWord aligns to | Replacement | Original | Original | Original |
+| `ReplacedWord` aligns to | Replacement | Original | Original | Original |
 
-### Retrace Filtering
+For the underlying word filter (`counts_for_tier`,
+`should_skip_group`), the content walker, and the ChatFile model itself,
+see [CHAT Data Model](chat-model/chat-model.md). The walker plus the
+domain table together govern every tier-alignment count.
+
+### Retrace handling — alignment-critical
 
 Retraces are the most alignment-critical content type. A `Retrace` node
-wraps content the speaker said then corrected. The alignment rule:
+wraps content the speaker said then corrected.
 
-- **%mor (Mor domain):** Skip entirely. Returns count `0`. The retrace was
-  a false start; only the correction carries morphological analysis.
-- **%pho, %sin:** Recurse into the retrace content. The words were physically
-  produced and have phonological/gestural data.
-- **%wor:** Recurse into the retrace content. Retrace ancestry does **not**
-  change membership; `%wor` counts the same spoken word tokens inside and
-  outside retrace.
+- **Mor:** skip entirely (count `0`). The retrace was a false start;
+  only the correction carries morphological analysis.
+- **Pho, Sin:** recurse — words were physically produced and have
+  phonological / gestural data.
+- **Wor:** recurse — retrace ancestry does not change `%wor` membership.
 
-This is implemented in `count_alignable_item()` and `walk_words()`. Both
-check `domain == TierDomain::Mor` on the `UtteranceContent::Retrace`
-variant and skip or recurse accordingly.
-
-**Critical invariant:** The parser must emit `UtteranceContent::Retrace`
+**Critical invariant:** the parser must emit `UtteranceContent::Retrace`
 for *all* retrace patterns, including single-word retraces with
 replacements (`word [: repl] [* err] [//]`). If a retrace is
-accidentally emitted as a bare `ReplacedWord`, it will be counted for
-%mor alignment, causing false E705 errors. This invariant is enforced by
-`tests/retrace_replaced_word_regression.rs`.
+accidentally emitted as a bare `ReplacedWord`, it counts for `%mor`
+alignment, causing false E705 errors. Enforced by
+`tests/retrace_replaced_word_regression.rs`. Full data model + parsing
+pipeline + CHAT examples in
+[Retraces and Repetitions](../chat-format/retraces.md).
 
-For the full retrace data model, parsing pipeline, and CHAT examples,
-see [Retraces and Repetitions](../chat-format/retraces.md).
-
-### AlignmentPair (`types.rs`)
+### AlignmentPair
 
 ```rust
 struct AlignmentPair {
@@ -147,467 +75,277 @@ struct AlignmentPair {
 }
 ```
 
-The universal positional mapping entry. `Some`/`Some` = concrete 1:1 match.
-One `None` = placeholder preserving mismatch shape for diagnostics.
+Universal index-pair primitive. `Some`/`Some` = matched. One `None` =
+insertion / deletion placeholder for mismatch diagnostics.
+`is_complete()` — both indices `Some`. `is_placeholder()` — unmatched.
 
-Methods:
-- `is_complete()` — true when both indices are `Some` (eligible for downstream joins)
-- `is_placeholder()` — true for unmatched positions (mismatch rows)
+### Per-domain results
 
-### Per-Domain Results
+| Type | Function | Source → Target |
+|---|---|---|
+| `MorAlignment` | `align_main_to_mor()` | Main → `%mor` items |
+| `PhoAlignment` | `align_main_to_pho()` | Main → `%pho` tokens |
+| `SinAlignment` | `align_main_to_sin()` | Main → `%sin` tokens |
+| `WorAlignment` | `align_main_to_wor()` | Main → `%wor` tokens |
+| `GraAlignment` | `align_mor_to_gra()` | `%mor` chunks → `%gra` relations |
 
-Each alignment function returns a domain-specific result struct containing
-`Vec<AlignmentPair>` and error details:
+`%gra` aligns to `%mor` *chunks*, not items. Clitics create additional
+chunks (`pro|it~v|be&PRES` = 2 chunks: pre-clitic + main).
 
-| Type | Source | Target |
-|------|--------|--------|
-| `MorAlignment` | Main tier words | %mor items |
-| `PhoAlignment` | Main tier words | %pho tokens |
-| `SinAlignment` | Main tier words | %sin tokens |
-| `WorAlignment` | Main tier words | %wor tokens |
-| `GraAlignment` | %mor chunks | %gra relations |
-| `PhoAlignment` | %modsyl words | %mod words (tier-to-tier) |
-| `PhoAlignment` | %phosyl words | %pho words (tier-to-tier) |
-| `PhoAlignment` | %phoaln words | %mod + %pho words (tier-to-tier) |
+### Trait abstractions
 
-**%gra note:** %gra aligns to %mor *chunks*, not *items*. Clitics create
-additional chunks (e.g., `pro|it~v|be&PRES` = 2 chunks: pre-clitic + main).
+| Trait | Purpose | Implementors |
+|---|---|---|
+| `IndexPair` | `source()`/`target()` on any pair type | `AlignmentPair`, `GraAlignmentPair` |
+| `TierAlignmentResult` | `pairs()`/`errors()`/`push_*()` accumulator | All 5 alignment result types |
+| `AlignableTier` | What a tier provides for generic alignment | `PhoTier`, `SinTier`, `WorTier` |
+| `TierCountable` | `count_tier_positions()` / `collect_tier_items()` methods | `[UtteranceContent]` |
 
-## Counting Algorithm (`helpers/count.rs`)
+The generic `positional_align()` function uses `AlignableTier` to
+eliminate duplication: `align_main_to_{pho,sin,wor}()` are thin
+wrappers around it. `%mor` doesn't use it (additional terminator
+validation logic). `%gra` doesn't use it (source is `MorTier`, not
+`MainTier`). `WorTier` overrides `mismatch_format()` to `Diff` (LCS) since
+both sides are word sequences; the others use `Positional`.
 
-Two entry points:
-- `count_tier_positions(content, domain)` — total count for preflight checks
-- `count_tier_positions_until(content, max_index, domain)` — partial count for LSP hover
-- `collect_tier_items(content, domain)` — items with text for diagnostics
+### `%wor` is not validated
 
-The counting algorithm traverses `UtteranceContent` (24 variants) and
-`BracketedItem` (22 variants) with exhaustive `match` — no catch-all arms.
-Each variant is classified per domain:
+`%wor` is a timing-annotation tier. There is no downstream positional
+indexing into `%wor`, and `validate_alignments()` does **not** check
+`%wor` word count against the main tier. Old corpus files may have
+`xxx`, fragments, or nonwords in `%wor` (pre-2026-04 behavior) without
+producing false errors.
 
-**Word filtering** (`rules.rs`):
-- `counts_for_tier(word, domain)` — default domain gate
-- `counts_for_tier_in_context(word, domain, in_retrace)` — call-site-compatible
-  gate; `%wor` no longer changes membership based on retrace ancestry
-- Mor: excludes fragments (`&-`, `&~`, `&+`), untranscribed (`xxx`/`yyy`/`www`), omissions
-- Wor: includes regular words and fillers (`&-`). **Excludes** fragments (`&+`),
-  nonwords (`&~`), untranscribed placeholders (`xxx`/`yyy`/`www`), timing tokens
-  (`123_456`), and omissions. This matches batchalign2's policy: `&-` was
-  `TokenType.FP` (included), while `&+` and `&~` were `TokenType.ANNOT` (excluded).
-- Pho/Sin: include everything (all produced speech/gesture)
+### Phon tier-to-tier alignment
 
-**No %wor count validation**: `%wor` is a timing-annotation tier. Its word count
-reflects the Wor-domain population for a given utterance. There is no downstream
-positional indexing into `%wor`, and `validate_alignments()` does NOT check the
-`%wor` word count against the main tier. Old corpus files may have `xxx`, fragments,
-or nonwords in `%wor` (pre-2026-04 behavior) without producing false errors.
+A second class of alignment that operates **between dependent tiers**:
 
-**Retrace filtering**: `Retrace` is a first-class `UtteranceContent` / `BracketedItem`
-variant (not an annotation on `AnnotatedGroup`). The walker skips `Retrace` content
-for Mor domain; other domains recurse into it.
-
-```mermaid
-flowchart TD
-    A["Leaf word"] --> B{"Domain == Wor?"}
-    B -->|No| OTHER["Apply ordinary domain rule"]
-    B -->|Yes| C{"Timestamp token / omission / empty?"}
-    C -->|Yes| OUT["Exclude"]
-    C -->|No| IN["Count"]
-
-    style IN fill:#afa,stroke:#333
-    style OUT fill:#faa,stroke:#333
-```
-
-**Exclude filtering** (`rules.rs`):
-- `should_skip_group(annotations, domain)` — `AnnotatedGroup`/`AnnotatedWord` with
-  `[e]` exclude marker skip for Mor
-
-**Separator counting**:
-- Only tag markers (`,` `„` `‡`) count, and only in Mor domain
-- These map to %mor items: `cm|cm`, `end|end`, `beg|beg`
-
-## Content Walker (`helpers/walk/`)
-
-Centralizes the recursive traversal of content trees. Callers provide only
-leaf-handling logic via closures.
-
-### Immutable API
-
-```rust
-fn walk_words(
-    content: &[UtteranceContent],
-    domain: Option<TierDomain>,
-    callback: impl FnMut(WordItem<'_>),
-)
-```
-
-### Mutable API
-
-```rust
-fn walk_words_mut(
-    content: &mut [UtteranceContent],
-    domain: Option<TierDomain>,
-    callback: impl FnMut(WordItemMut<'_>),
-)
-```
-
-### Leaf Types
-
-```rust
-enum WordItem<'a> {
-    Word(&'a Word),
-    ReplacedWord(&'a ReplacedWord),
-    Separator(&'a Separator),
-}
-```
-
-Groups are descended transparently, and `AnnotatedWord`/`Event`/`Action` are
-unwrapped automatically. `WordItem::Word` carries only the `&Word` reference.
-
-### Domain Gating
-
-| Domain | Retrace | PhoGroup | SinGroup |
-|--------|---------|----------|----------|
-| `Some(Mor)` | **Skip** | Recurse | Recurse |
-| `Some(Pho)` | Recurse | **Skip** (atomic) | Recurse |
-| `Some(Sin)` | Recurse | Recurse | **Skip** (atomic) |
-| `Some(Wor)` | Recurse | Recurse | Recurse |
-| `None` | Recurse | Recurse | Recurse |
-
-### Not Suitable For
-
-- `strip_timing_from_content()` — needs container mutation via `retain()`
-- `count.rs` — Pho/Sin treat PhoGroup/SinGroup as counted atomic units (1),
-  while the walker skips them entirely
-- `%wor` generation / overlap counting — retrace-aware `%wor` rules need leaf
-  ancestry (`in_retrace`), but `walk_words()` intentionally exposes only the
-  flattened leaf items
-
-### Downstream Users
-
-| Call site | Domain | Purpose |
-|-----------|--------|---------|
-| `talkbank-model` `main_tier.rs` | None | CA omission context detection |
-| `batchalign-chat-ops` `extract.rs` | Mor/Wor | NLP word extraction |
-| `batchalign-chat-ops` `fa/extraction.rs` | Wor | FA word extraction |
-| `batchalign-chat-ops` `fa/injection.rs` | Wor | Timing injection |
-| `batchalign-chat-ops` `fa/postprocess.rs` | Wor | Timing cleanup |
-
-## Trait Abstractions (`traits.rs`)
-
-Four traits formalize the shared contracts across all alignment code.
-
-### `IndexPair`
-
-```rust
-pub trait IndexPair: Clone {
-    fn source(&self) -> Option<usize>;
-    fn target(&self) -> Option<usize>;
-    fn from_indices(source: Option<usize>, target: Option<usize>) -> Self;
-    fn is_complete(&self) -> bool { ... }
-    fn is_placeholder(&self) -> bool { ... }
-}
-```
-
-Implemented by `AlignmentPair` (main↔dependent) and `GraAlignmentPair`
-(%mor↔%gra). Enables generic code that operates on any pair type regardless
-of field naming conventions.
-
-### `TierAlignmentResult`
-
-```rust
-pub trait TierAlignmentResult: Default {
-    type Pair: IndexPair;
-    fn pairs(&self) -> &[Self::Pair];
-    fn errors(&self) -> &[ParseError];
-    fn push_pair(&mut self, pair: Self::Pair);
-    fn push_error(&mut self, error: ParseError);
-    fn is_error_free(&self) -> bool { ... }
-}
-```
-
-Implemented by all five result types (`MorAlignment`, `PhoAlignment`,
-`SinAlignment`, `WorAlignment`, `GraAlignment`). Documents the shared
-accumulator contract and enables generic validation/inspection code.
-
-### `AlignableTier`
-
-```rust
-pub trait AlignableTier {
-    const DOMAIN: TierDomain;
-    fn tier_name(&self) -> &str;
-    fn target_count(&self) -> usize;
-    fn extract_target_items(&self) -> Vec<TierPosition>;
-    fn span(&self) -> Span;
-    fn error_code_too_few(&self) -> ErrorCode;
-    fn error_code_too_many(&self) -> ErrorCode;
-    fn suggestion_too_few(&self) -> &str;
-    fn suggestion_too_many(&self) -> &str;
-    fn mismatch_format(&self) -> MismatchFormat { Positional }
-}
-```
-
-Implemented by `PhoTier`, `SinTier`, `WorTier`. Provides everything the
-generic `positional_align()` function needs to align any dependent tier
-against a main tier. Adding a new tier type requires only a trait impl —
-no new alignment function.
-
-`WorTier` overrides `mismatch_format()` to `Diff` (LCS-based) since both
-sides are word sequences; the other tiers use `Positional` pairing since
-their target items are in different domains (phonological tokens, gestures).
-
-### `TierCountable`
-
-```rust
-pub trait TierCountable {
-    fn count_tier_positions(&self, domain: TierDomain) -> usize;
-    fn collect_tier_items(&self, domain: TierDomain) -> Vec<TierPosition>;
-}
-```
-
-Implemented for `[UtteranceContent]`. Provides method syntax for the free
-functions in `helpers/count.rs`:
-
-```rust
-// Before: free function
-let count = count_tier_positions(&main.content.content, TierDomain::Mor);
-
-// After: trait method (TierCountable in scope)
-let count = main.content.content.count_tier_positions(TierDomain::Mor);
-```
-
-### Generic `positional_align()`
-
-```rust
-pub fn positional_align<T: AlignableTier>(
-    main: &MainTier,
-    tier: &T,
-) -> (Vec<AlignmentPair>, Vec<ParseError>)
-```
-
-Single implementation of the 1:1 positional alignment algorithm shared by
-`%pho`, `%sin`, and `%wor`. The public `align_main_to_*` functions are thin
-wrappers that call this and construct their domain-specific result type.
-
-`%mor` does not use this function because it has additional terminator
-validation logic. `%gra` does not use it because its source is `MorTier`
-(chunks), not `MainTier`.
-
-## Parse-Health Gating
-
-Alignment diagnostics honor `ParseHealth` metadata on utterances. If a
-dependent tier's domain is parse-tainted (the parser encountered malformed
-input it could only partially recover from), alignment mismatch errors for
-that domain pair are suppressed. This prevents false-positive diagnostics
-from cascading parser failures.
-
-Rules:
-- Main-tier taint blocks all main→dependent alignments
-- Dependent-tier taint blocks only that tier's alignment
-- Unrelated dependent-dependent checks (e.g., %mor→%gra) proceed normally
-  if their specific tiers are clean
-
-## Design Principles
-
-1. **Exhaustive matching.** Every `match` on `UtteranceContent` or
-   `BracketedItem` explicitly lists all variants. Adding a new variant to
-   the model without updating alignment code is a compile error (non-exhaustive
-   match), not a silent bug.
-
-2. **Domain as first-class parameter.** `TierDomain` flows through every
-   counting/extraction/walking function, making policy branches explicit and
-   testable rather than scattered across ad-hoc conditionals.
-
-3. **Separation of counting and alignment.** Counting (`count.rs`) and
-   positional mapping (`mor.rs`, `pho.rs`, etc.) are separate passes.
-   Counting is a fast preflight; alignment builds the full `AlignmentPair`
-   mapping only when needed.
-
-4. **Walker as shared primitive.** `walk_words()` removed ~330 lines of
-   duplicated traversal boilerplate across 7 files. New traversal needs
-   should use the walker rather than re-implementing recursion.
-
-5. **No string hacking.** All alignment operates on typed AST structures.
-   Words are `Word` structs with `cleaned_text()` and `category` fields.
-   Tiers are typed (`MorTier`, `PhoTier`, etc.). Serialized text is never
-   split or regex-matched for alignment purposes.
-
-## Phon Tier-to-Tier Alignment
-
-The [Phon](https://www.phon.ca/phon-manual/getting_started.html) extension tiers
-introduce a second class of alignment that operates **between dependent tiers**
-rather than between the main tier and a dependent tier:
-
-| Source tier | Target tier | Error code |
-|-------------|-------------|------------|
+| Source | Target | Code |
+|---|---|---|
 | `%modsyl` | `%mod` | E725 |
 | `%phosyl` | `%pho` | E726 |
 | `%phoaln` | `%mod` | E727 |
 | `%phoaln` | `%pho` | E728 |
 
-These are **derived-view alignments**: `%modsyl` is a syllabified reannotation
-of `%mod`, `%phosyl` of `%pho`, and `%phoaln` aligns both. Because they are
-derived views of the same phonological data, word counts must always match
-between source and target.
-
-### Implementation
-
-Phon tier alignment is computed in `alignment.rs` (`compute_alignments()`)
-after the main-tier alignments. The helper `build_tier_to_tier_alignment()`
-constructs index pairs and emits a `build_count_mismatch_error()` diagnostic
-when counts disagree.
-
-`%phoaln` is special: it checks word count against **both** `%mod` and `%pho`,
+Derived-view alignments: `%modsyl` is a syllabified reannotation of
+`%mod`, `%phosyl` of `%pho`, `%phoaln` aligns both. Word counts must
+match between source and target. Computed in `compute_alignments()`
+after the main-tier alignments. `build_tier_to_tier_alignment()`
+constructs index pairs and emits `build_count_mismatch_error()` when
+counts disagree. `%phoaln` checks against both `%mod` and `%pho`,
 potentially emitting E727 and E728 simultaneously.
 
-### Parse-Health Gating
+**Known data issue:** Phon XML source data has orthography↔IPA word
+count discrepancies in ~4% of files (518 / 12,340). Expected in child
+phonology data. The PhonTalk converter handles this inconsistently —
+`%mod`/`%pho` are truncated to match orthography via `OneToOne`, but
+`%xmodsyl`/`%xphosyl`/`%xphoaln` are written from raw `IPATranscript`,
+exposing the full IPA word count. Result: E725–E728 mismatches.
 
-Three new `ParseHealth` fields gate these checks:
+### Parse-health gating
 
-| Gate method | Required clean tiers |
-|-------------|---------------------|
-| `can_align_modsyl_to_mod()` | `modsyl_clean` ∧ `mod_clean` |
-| `can_align_phosyl_to_pho()` | `phosyl_clean` ∧ `pho_clean` |
-| `can_align_phoaln()` | `phoaln_clean` ∧ `mod_clean` ∧ `pho_clean` |
+Alignment diagnostics honor `ParseHealth` metadata. If a dependent
+tier's domain is parse-tainted, mismatch errors for that domain pair
+are suppressed. Main-tier taint blocks all main→dependent alignments.
+Dependent-tier taint blocks only that tier. Phon tier-to-tier checks
+have their own gates (`can_align_modsyl_to_mod`,
+`can_align_phosyl_to_pho`, `can_align_phoaln`).
 
-### LSP Hover
+## Layer 2 — NLP Alignment
 
-Hover on `%modsyl` shows the aligned `%mod` word, on `%phosyl` the aligned
-`%pho` word, and on `%phoaln` both the aligned `%mod` and `%pho` words plus
-segment-level alignment details. The hover resolvers use text-offset-based
-word index finding since Phon tiers use `text_with_bullets` grammar nodes.
+Maps external model outputs (Stanza tokens, FA word timings) back to
+CHAT AST positions. All algorithms here are deterministic — no DP at
+runtime.
 
-### Known Data Issues
+### Word extraction
 
-The Phon XML source data contains orthography↔IPA word count discrepancies
-in approximately 4% of files (518 of 12,340 files, 6,312 records). This is
-expected in child phonology data where children produce extra syllables or
-partial words relative to the target. The
-[PhonTalk](https://github.com/phon-ca/phontalk) XML→CHAT converter handles
-this inconsistently: `%mod`/`%pho` are truncated to match orthography word
-count via `OneToOne` alignment, but `%xmodsyl`/`%xphosyl`/`%xphoaln` are
-written from the raw `IPATranscript`, exposing the full IPA word count. This
-produces the tier-to-tier mismatches that E725–E728 flag.
+`extract_words()` (in `crates/talkbank-transform/src/extract.rs`) uses
+the content walker to pull words from the AST in domain-specific order.
+Returns `Vec<ExtractedWord>` with `text`, `word_index`, `is_separator`,
+`special_form`. Tag-marker separators (`,` `„` `‡`) are included as NLP
+words in Mor domain because they have `%mor` items (`cm|cm`,
+`end|end`, `beg|beg`).
+
+### Retokenize mapping
+
+`crates/talkbank-transform/src/retokenize/` maps original CHAT words to
+Stanza token indices after Stanza may have split or merged words.
+
+```rust
+struct WordTokenMapping {
+    inner: Vec<SmallVec<[usize; 4]>>,  // word_idx → [token_idx...]
+}
+```
+
+Dense `Vec` indexed by word position (O(1) lookup, no hashing).
+`SmallVec<[usize; 4]>` keeps 1–2 token mappings inline. Two-stage
+algorithm: deterministic span-join first, length-aware monotonic
+fallback when text diverges.
+
+### Tokenizer realignment
+
+`crates/talkbank-transform/src/tokenizer_realign.rs` maps Stanza's
+re-tokenized output back to original CHAT words using character-position
+arrays. O(n) algorithm: concatenate both sides, build per-char owner
+arrays, walk in parallel, apply language-specific MWT patches (French,
+Italian, Portuguese, Dutch). Output: `PatchedToken::Plain(String)` for
+clean 1-to-1, `PatchedToken::Hint(String, bool)` for MWT expansions.
+
+### FA response alignment
+
+`crates/batchalign/src/chat_ops/fa/alignment.rs` maps forced-alignment
+timing responses back to extracted words.
+
+- **Indexed path:** 1:1 by position, no remapping.
+- **Token-level path:** deterministic token→word stitching when FA
+  returns sub-word tokens; unmatched words remain untimed (no DP).
+
+### FA injection
+
+`crates/batchalign/src/chat_ops/fa/injection.rs` walks utterance content
+with `walk_words_mut()` in Wor domain, applying timing bullets to each
+word in traversal order.
+
+### FA postprocess
+
+`crates/batchalign/src/chat_ops/fa/postprocess.rs`:
+
+- `enforce_monotonicity()` — strips timing from regression violations
+  (E362).
+- `strip_e704_same_speaker_overlaps()` — removes conflicting
+  same-speaker timing.
+- Proportional boundary estimation for untimed utterances. See the
+  [Proportional FA Estimation](alignment/proportional-fa-estimation.md) page for
+  the algorithm.
+
+## Layer 3 — Sequence Alignment
+
+Hirschberg divide-and-conquer edit-distance alignment.
+`crates/talkbank-transform/src/dp_align/`. Linear space O(mn), with a
+`SMALL_CUTOFF = 2048` threshold for the full-table fast path.
+
+| Operation | Cost |
+|---|---|
+| Match | 0 |
+| Substitution | 2 |
+| Insertion / Deletion | 1 |
+
+Optimizations:
+
+- **Prefix/suffix stripping** before the DP core, in O(n). For the
+  primary use case (WER / transcript comparison, 80–95% accuracy),
+  reduces effective problem size 10–100×.
+- **Generic `Alignable` trait** — both `String` (word-level) and `char`
+  variants share one implementation; monomorphization eliminates
+  duplication with zero overhead.
+- **Flat table for small problems** — `align_small()` uses a flat `Vec`
+  instead of `Vec<Vec<...>>`, reducing allocation count.
+- **Scratch buffer reuse** — `row_costs()` reuses two `Vec<usize>`
+  buffers across DP rows via `std::mem::swap`.
+
+```rust
+enum AlignResult {
+    Match { key, payload_idx, reference_idx },
+    ExtraPayload { key, payload_idx },
+    ExtraReference { key, reference_idx },
+}
+
+enum MatchMode { Exact, CaseInsensitive }
+```
+
+### Call sites
+
+| Caller | Purpose |
+|---|---|
+| `crates/batchalign/src/benchmark.rs` | WER computation (hypothesis vs reference) |
+| `crates/batchalign/src/compare.rs` | Transcript comparison, `%xsrep` / `%xsmor` annotation |
+| `batchalign_core.dp_align` | PyO3 bridge for Python callers |
+
+### DP policy
+
+Runtime DP is restricted to intrinsic uses (WER, CTC, DTW) and
+architecturally unavoidable cases. A policy test
+(`test_dp_allowlist.py`) fails CI if new runtime DP callsites appear
+outside the allowlist. Full inventory and necessity assessment in the
+[Dynamic Programming](parser-and-grammar/dynamic-programming.md) page.
 
 ## Overlap Marker Iteration
 
-CA overlap markers (⌈⌉⌊⌋) appear at three content levels — top-level
-`UtteranceContent`, inside groups as `BracketedItem`, and inside words as
-`WordContent`. The alignment module provides two APIs for traversing them,
-in `alignment/helpers/overlap.rs`:
+CA overlap markers (⌈⌉⌊⌋) appear at three content levels —
+`UtteranceContent` (top-level), `BracketedItem` (inside groups), and
+`WordContent` (intra-word, `butt⌈er⌉`). Two APIs in
+`talkbank-model/src/alignment/helpers/overlap.rs`:
 
-### `walk_overlap_points` — Low-Level Iterator
+### `walk_overlap_points` — low-level
 
-Visits every `OverlapPoint` in document order with its word-position context.
-Analogous to `walk_words` but for overlap markers instead of words:
+Visits every `OverlapPoint` in document order with word-position
+context. Analogous to `walk_words` but for overlap markers:
 
 ```rust
-use talkbank_model::alignment::helpers::{
-    walk_overlap_points, OverlapPointVisit,
-};
-
 walk_overlap_points(&utterance.main.content.content.0, &mut |visit| {
     // visit.point: &OverlapPoint (kind + optional index)
     // visit.word_position: usize (alignable words seen so far)
 });
 ```
 
-### `extract_overlap_info` — Region-Based Analysis
+### `extract_overlap_info` — region-based
 
-Collects all markers, then pairs them by (kind, index) into `OverlapRegion`
-structs. Each region represents a matched begin-end pair (⌈...⌉ or ⌊...⌋):
+Pairs markers by (kind, index) into `OverlapRegion` structs. Each
+region represents a matched ⌈...⌉ or ⌊...⌋ pair. Index-aware:
+`⌈2...⌉2` forms a separate region from `⌈...⌉`. Mismatched indices
+leave markers unpaired. Onset-only ⌈ (without ⌉) is a legitimate CA
+convention — region has `end_at_word = None`,
+`is_well_paired() = false`, but `top_onset_fraction()` still works.
 
-```rust
-use talkbank_model::alignment::helpers::{
-    extract_overlap_info, OverlapRegion, OverlapRegionKind,
-};
+### Cross-utterance — `analyze_file_overlaps`
 
-let info = extract_overlap_info(&utterance.main.content.content.0);
+For whole-file analysis, in `overlap_groups.rs`. 1:N matching: one
+top region from speaker A can match multiple bottom regions from
+speakers B, C, etc. Used by E347, the FA pipeline (CA marker-aware UTR
+pass-2 search windows), and `chatter debug overlap-audit`.
 
-for region in &info.regions {
-    // region.kind: Top (⌈⌉) or Bottom (⌊⌋)
-    // region.index: Option<OverlapIndex> for disambiguation (2-9)
-    // region.begin_at_word / end_at_word: word positions
-    // region.is_well_paired(): both markers present and ordered
-}
+### Overlap validation
 
-// Proportional onset: fraction of utterance before first ⌈
-if let Some(fraction) = info.top_onset_fraction() { /* 0.0-1.0 */ }
-```
-
-**Index-aware pairing:** `⌈2...⌉2` forms a separate region from `⌈...⌉`.
-Mismatched indices leave markers unpaired.
-
-**Unpaired markers:** Onset-only ⌈ (without ⌉) is a legitimate CA convention.
-The region has `end_at_word = None` and `is_well_paired()` returns false,
-but `top_onset_fraction()` still works.
-
-### Cross-Utterance Overlap Groups: `analyze_file_overlaps`
-
-For whole-file analysis, `overlap_groups.rs` provides cross-utterance matching:
-
-```rust
-use talkbank_model::alignment::helpers::{
-    analyze_file_overlaps, FileOverlapAnalysis, OverlapGroup,
-};
-
-let analysis = analyze_file_overlaps(&chat_file.lines);
-
-for group in &analysis.groups {
-    // group.top: OverlapAnchor (speaker, utterance index, region, bullet)
-    // group.bottoms: Vec<OverlapAnchor> — 1:N matching
-    println!(
-        "Speaker {} top, {} respondents",
-        group.top.speaker,
-        group.bottoms.len(),
-    );
-}
-// analysis.orphaned_tops: tops with no matching bottom
-// analysis.orphaned_bottoms: bottoms with no matching top
-```
-
-**1:N matching:** One top region from speaker A can match multiple bottom
-regions from speakers B, C, etc. Each bottom is matched to the nearest
-preceding top from a different speaker with the same index.
-
-### Overlap Validation
-
-The validator uses `extract_overlap_info` and `analyze_file_overlaps` for
-four checks:
-
-| Code | Level | What it checks |
-|------|-------|---------------|
-| E348 | Utterance | Unpaired markers within a single utterance (warning) |
+| Code | Level | Check |
+|---|---|---|
 | E347 | Cross-utterance | Orphaned tops/bottoms with 1:N matching (warning) |
-| E373 | Utterance | Invalid overlap index values (must be 2-9) |
-| E704 | Cross-utterance | Same speaker encoding both top and bottom overlap (error) |
+| E348 | Utterance | Unpaired markers within a single utterance (warning) |
+| E373 | Utterance | Invalid overlap index values (must be 2–9) |
+| E704 | Cross-utterance | Same speaker encoding both top and bottom (error) |
 
-### Debug Tool
+`chatter debug overlap-audit <path>` reports per-file statistics
+(groups, bottoms, orphans, temporal consistency) in TSV format. Use
+`--database <path.jsonl>` for a persistent JSON-lines database.
 
-`chatter debug overlap-audit <path>` runs `analyze_file_overlaps` on all
-files and reports per-file statistics (groups, bottoms, orphans, temporal
-consistency, pairing quality) in TSV format.
+## Design Principles
 
-Use `--database <path.jsonl>` to write a persistent JSON lines database
-for downstream analysis:
-```bash
-chatter debug overlap-audit data/ca-data/ --database overlap-db.jsonl
-```
-Each line is a JSON object with file path, counts, and quality classification.
+1. **No string hacking.** All alignment operates on typed AST
+   structures (`Word`, `MorTier`, `AlignmentPair`), never on serialized
+   CHAT text.
+2. **Domain-aware from the start.** `TierDomain` gates traversal at the
+   walker level. Downstream code never re-implements retrace / group
+   skipping logic.
+3. **Deterministic over approximate.** Runtime alignment (FA injection,
+   retokenize, tokenizer realign) uses deterministic algorithms. DP is
+   reserved for intrinsically approximate problems (WER, CTC FA).
+4. **Dense indexed structures.** `WordTokenMapping` uses
+   `Vec<SmallVec>` instead of `HashMap`. `AlignmentPair` uses
+   `Option<usize>` rather than cloned data.
+5. **Exhaustive matching.** Every `match` on `UtteranceContent` (24
+   variants) or `BracketedItem` (22 variants) lists all variants
+   explicitly. New variants are a compile error, not a silent bug.
+6. **Walker as shared primitive.** `walk_words()` removed ~330 lines of
+   duplicated traversal boilerplate across 7 call sites.
 
 ## Downstream Consumers
 
-The alignment module is used by:
-
-| Consumer | Crate/Repo | Usage |
-|----------|------------|-------|
-| Validation | `talkbank-model` | Cross-tier checks (E714/E715, E725-E728), overlap checks (E347/E348/E373/E704) |
+| Consumer | Crate | Usage |
+|---|---|---|
+| Validation | `talkbank-model` | Cross-tier checks (E714/E715, E725–E728), overlap (E347/E348/E373/E704) |
 | LSP hover | `talkbank-lsp` | Show aligned tier items for word under cursor |
-| Word extraction | `batchalign3` | Pull NLP-ready words from utterances |
-| FA injection | `batchalign3` | Insert timing bullets into AST |
-| Overlap windowing | `batchalign3` | CA marker-aware UTR pass-2 search windows |
-| Overlap audit | `talkbank-cli` | `chatter debug overlap-audit` — per-file overlap statistics |
-| %wor generation | `talkbank-model` | Build %wor tier from main tier |
-| CLAN commands | `talkbank-clan` | DSS, EVAL, KIDEVAL use typed %mor access |
-
----
-Last Updated: 2026-03-18
+| Word extraction | `talkbank-transform` / `batchalign` | NLP-ready words from utterances |
+| FA injection | `batchalign` | Insert timing bullets into AST |
+| Overlap windowing | `batchalign` | CA marker-aware UTR pass-2 search windows |
+| Overlap audit | `talkbank-cli` | `chatter debug overlap-audit` |
+| `%wor` generation | `talkbank-model` | Build `%wor` tier from main tier |
+| CLAN commands | `talkbank-clan` | DSS, EVAL, KIDEVAL via typed `%mor` access |

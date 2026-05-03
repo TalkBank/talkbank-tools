@@ -58,15 +58,37 @@ pub fn brace_delta(line: &str) -> isize {
     })
 }
 
-/// True for paths that look like test fixtures: any path component
-/// matches `tests`, `test_*.rs`, or `*_tests.rs`. Both audits exclude
-/// these — production code should construct production variants.
+/// True for paths that look like test/dev-tool code: tests
+/// directories (`tests/`, inline `tests.rs`, `test_*.rs`,
+/// `*_tests.rs`), bench harnesses (`benches/`), and runnable
+/// examples (`examples/`). Both audits exclude these — production
+/// code should construct production variants; dev tooling is
+/// exempt from the no-panic rule by convention (examples and benches
+/// can `unwrap` on fixture data; tests use assertion macros).
+///
+/// The bare filename `tests.rs` is the canonical 2018+ form for
+/// declaring an inline `mod tests;` test module from `mod.rs` —
+/// without it, the panic-audit misclassifies every
+/// `<crate>/src/.../tests.rs` as production code.
 pub fn is_test_path(relative_path: &str) -> bool {
     relative_path.contains("/tests/")
         || relative_path.starts_with("tests/")
+        || relative_path.contains("/benches/")
+        || relative_path.starts_with("benches/")
+        || relative_path.contains("/examples/")
+        || relative_path.starts_with("examples/")
         || relative_path
             .rsplit('/')
             .next()
-            .map(|file| file.starts_with("test_") || file.ends_with("_tests.rs"))
+            .map(|file| {
+                file.starts_with("test_")
+                    || file.ends_with("_tests.rs")
+                    || file == "tests.rs"
+                    // build.rs runs at build time, not runtime —
+                    // panics here fail `cargo build`, which is the
+                    // intended behaviour. Exempt from the
+                    // no-panic-in-runtime-code rule.
+                    || file == "build.rs"
+            })
             .unwrap_or(false)
 }

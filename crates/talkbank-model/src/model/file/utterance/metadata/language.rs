@@ -27,11 +27,11 @@ fn add_word_language_info(
 ) {
     use crate::validation::resolve_word_language;
 
-    let (resolved_lang, _errors) = resolve_word_language(word, tier_language, declared_languages);
+    let outcome = resolve_word_language(word, tier_language, declared_languages);
     metadata.add_word(WordLanguageInfo::new(
         *alignable_index,
-        resolution_to_metadata_languages(&resolved_lang),
-        resolve_word_language_source(word.lang.as_ref(), &resolved_lang, utterance_language),
+        resolution_to_metadata_languages(&outcome.resolution),
+        resolve_word_language_source(word.lang.as_ref(), &outcome.resolution, utterance_language),
     ));
 
     *alignable_index += 1;

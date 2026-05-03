@@ -349,11 +349,9 @@ impl XmlEmitter {
         // inside `<t>`, making it a non-empty element. Without %mor,
         // `<t>` stays empty (structural comparator folds `<t/>` vs
         // `<t></t>`).
-        let has_mor_terminator = tiers
-            .mor
-            .as_ref()
-            .and_then(|m| m.terminator.as_ref())
-            .is_some();
+        // MorTier always has a terminator, so presence-check
+        // reduces to "is there a %mor tier at all."
+        let has_mor_terminator = tiers.mor.is_some();
         if has_mor_terminator {
             self.writer.write_event(Event::Start(start))?;
             let mut mor = BytesStart::new("mor");
@@ -703,7 +701,7 @@ impl XmlEmitter {
             let mor_for_word = tiers
                 .mor
                 .as_ref()
-                .and_then(|mor| mor.items.0.get(cursors.mor_index()));
+                .and_then(|mor| mor.items().get(cursors.mor_index()));
             self.emit_word(
                 replacement_word,
                 mor_for_word,
@@ -913,7 +911,7 @@ impl XmlEmitter {
             tiers
                 .mor
                 .as_ref()
-                .and_then(|mor| mor.items.0.get(cursors.mor_index()))
+                .and_then(|mor| mor.items().get(cursors.mor_index()))
         } else {
             None
         };

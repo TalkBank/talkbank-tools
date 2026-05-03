@@ -25,7 +25,7 @@ fn check_version_sync(root: &Path) -> std::result::Result<(), String> {
         .as_str()
         .ok_or("pyproject.toml missing [project].version")?;
 
-    let cargo_path = root.join("crates/batchalign-cli/Cargo.toml");
+    let cargo_path = root.join("crates/batchalign/Cargo.toml");
     let cargo_str = std::fs::read_to_string(&cargo_path)
         .map_err(|e| format!("Cannot read {}: {e}", cargo_path.display()))?;
     let cargo: toml::Value =
@@ -36,7 +36,7 @@ fn check_version_sync(root: &Path) -> std::result::Result<(), String> {
 
     if py_version != cargo_version {
         return Err(format!(
-            "Version mismatch: pyproject.toml={py_version} != batchalign-cli/Cargo.toml={cargo_version}"
+            "Version mismatch: pyproject.toml={py_version} != batchalign/Cargo.toml={cargo_version}"
         ));
     }
     Ok(())
@@ -174,7 +174,7 @@ fn allowlist() -> HashMap<&'static str, Vec<&'static str>> {
         ),
         // Rust source comment documenting legacy behavior.
         (
-            "crates/batchalign-app/src/revai/preflight.rs",
+            "crates/batchalign/src/revai/preflight.rs",
             vec!["batchalign-next"],
         ),
     ])
@@ -459,7 +459,7 @@ fn check_cargo_metadata_completeness(root: &Path) -> std::result::Result<(), Str
 
 /// Verify the CLI binary crate declares its own version (not just workspace = true).
 fn check_cli_binary_version(root: &Path) -> std::result::Result<(), String> {
-    let cli_cargo = root.join("crates/batchalign-cli/Cargo.toml");
+    let cli_cargo = root.join("crates/batchalign/Cargo.toml");
     let cli_str = std::fs::read_to_string(&cli_cargo)
         .map_err(|e| format!("Cannot read {}: {e}", cli_cargo.display()))?;
     let cli_toml: toml::Value =
@@ -476,6 +476,129 @@ fn check_cli_binary_version(root: &Path) -> std::result::Result<(), String> {
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Release operations hardening
+// ---------------------------------------------------------------------------
+
+fn read_required_file(root: &Path, rel: &str) -> std::result::Result<String, String> {
+    let path = root.join(rel);
+    std::fs::read_to_string(&path).map_err(|e| format!("Cannot read {}: {e}", path.display()))
+}
+
+fn check_batchalign_release_health_smoke_text(text: &str) -> std::result::Result<(), String> {
+    let mut missing = Vec::new();
+
+    for needle in [
+        "batchalign3 serve start",
+        "batchalign3 serve status",
+        "/health",
+    ] {
+        if !text.contains(needle) {
+            missing.push(needle);
+        }
+    }
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Batchalign release workflow must smoke-test the packaged server /health path; missing: {}",
+            missing.join(", ")
+        ))
+    }
+}
+
+fn check_vscode_release_policy_text(text: &str) -> std::result::Result<(), String> {
+    for banned in [
+        "vsce publish",
+        "npx vsce publish",
+        "ovsx publish",
+        "npx ovsx publish",
+    ] {
+        if text.contains(banned) {
+            return Err(format!(
+                "VS Code release automation is GitHub Releases VSIX-only for the first public release; found forbidden publish command `{banned}`"
+            ));
+        }
+    }
+
+    if !text.contains("softprops/action-gh-release") {
+        return Err(
+            "VS Code release workflow must create a GitHub Release for VSIX distribution".into(),
+        );
+    }
+
+    Ok(())
+}
+
+fn check_vscode_release_text(path: &str, text: &str) -> std::result::Result<(), String> {
+    for banned in [
+        "publishes them to the Marketplace",
+        "Marketplace serves the right VSIX per platform automatically",
+        "Marketplace treats those as pre-release channels",
+        "publishes to the Marketplace first",
+    ] {
+        if text.contains(banned) {
+            return Err(format!(
+                "{path} contradicts the first-release VS Code distribution policy (GitHub Releases VSIX-only): found `{banned}`"
+            ));
+        }
+    }
+
+    if !text.contains("GitHub Release") && !text.contains("GitHub Releases") {
+        return Err(format!(
+            "{path} must describe GitHub Releases as the current VS Code distribution channel"
+        ));
+    }
+
+    Ok(())
+}
+
+fn check_release_operations(root: &Path) -> std::result::Result<(), String> {
+    let mut failures = Vec::new();
+
+    let batchalign_workflow = read_required_file(root, ".github/workflows/batchalign-release.yml")?;
+    if let Err(msg) = check_batchalign_release_health_smoke_text(&batchalign_workflow) {
+        failures.push(format!(".github/workflows/batchalign-release.yml: {msg}"));
+    }
+
+    let vscode_workflow = read_required_file(root, ".github/workflows/vscode-release.yml")?;
+    if let Err(msg) = check_vscode_release_policy_text(&vscode_workflow) {
+        failures.push(format!(".github/workflows/vscode-release.yml: {msg}"));
+    }
+
+    for rel in [
+        "book/src/vscode/developer/releasing.md",
+        "book/src/vscode/design/adr-004-bundled-lsp-binary.md",
+    ] {
+        match read_required_file(root, rel) {
+            Ok(text) => {
+                if let Err(msg) = check_vscode_release_text(rel, &text) {
+                    failures.push(msg);
+                }
+            }
+            Err(msg) => failures.push(msg),
+        }
+    }
+
+    let signing_doc = root.join("docs/code-signing-and-distribution.md");
+    if !signing_doc.exists() {
+        failures.push(
+            "docs/code-signing-and-distribution.md must exist to define first-release signing/notarization policy"
+                .into(),
+        );
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Release operations check failed:\n- {}",
+            failures.join("\n- ")
+        ))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -521,10 +644,63 @@ pub fn run(root: &Path) -> Result<()> {
         println!("ci-hygiene: CLI binary version OK");
     }
 
+    if let Err(msg) = check_release_operations(root) {
+        all_failures.push(msg);
+    } else {
+        println!("ci-hygiene: release operations OK");
+    }
+
     if all_failures.is_empty() {
         println!("ci-hygiene: all checks passed");
         Ok(())
     } else {
         Err(all_failures.join("\n\n").into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        check_batchalign_release_health_smoke_text, check_vscode_release_policy_text,
+        check_vscode_release_text,
+    };
+
+    #[test]
+    fn batchalign_release_requires_health_smoke() {
+        let workflow = r#"
+jobs:
+  wheel-smoke:
+    steps:
+      - name: Verify batchalign3 --help
+        run: batchalign3 --help
+"#;
+
+        let err = check_batchalign_release_health_smoke_text(workflow).unwrap_err();
+        assert!(err.contains("/health"), "{err}");
+    }
+
+    #[test]
+    fn vscode_release_rejects_marketplace_publish_steps() {
+        let workflow = r#"
+jobs:
+  release:
+    steps:
+      - run: npx vsce publish
+"#;
+
+        let err = check_vscode_release_policy_text(workflow).unwrap_err();
+        assert!(err.contains("GitHub Releases VSIX-only"), "{err}");
+    }
+
+    #[test]
+    fn vscode_release_docs_reject_marketplace_first_language() {
+        let doc = r#"
+The extension publishes to the Marketplace first.
+"#;
+
+        let err =
+            check_vscode_release_text("book/src/vscode/design/adr-004-bundled-lsp-binary.md", doc)
+                .unwrap_err();
+        assert!(err.contains("GitHub Releases VSIX-only"), "{err}");
     }
 }

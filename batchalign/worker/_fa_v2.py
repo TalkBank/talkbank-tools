@@ -4,6 +4,10 @@ Rust now owns the prepared-artifact reads, request validation, backend dispatch,
 and typed V2 response shaping for the worker FA boundary. Python stays only at
 the model-host callback edge.
 
+**See also:** `../../INTERFACE_MAP.md` section "3. Forced Alignment V2" for:
+- Rust FFI function: `crates/batchalign-pyo3/src/worker_fa_exec.rs::execute_forced_alignment_request_v2()`
+- Full Rust/Python responsibility split and input/output contracts.
+
 Concurrency note
 ----------------
 The GPU worker serves V2 requests via ``_serve_stdio_concurrent(max_threads=4)``,

@@ -29,7 +29,7 @@ pub(super) fn append_dependency_edges(
     gra_tier: &GraTier,
     gra_alignment: &GraAlignment,
 ) -> Result<(), GraphEdgeError> {
-    for (rel_idx, rel) in gra_tier.relations.iter().enumerate() {
+    for (rel_idx, rel) in gra_tier.relations().iter().enumerate() {
         let relation = &rel.relation;
 
         let from_node = match gra_alignment

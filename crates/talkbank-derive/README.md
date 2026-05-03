@@ -1,5 +1,8 @@
 # talkbank-derive
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 Derive macros for talkbank-model.
 
 ## Overview
@@ -35,7 +38,3 @@ struct MyNode {
 ## License
 
 BSD-3-Clause. See [LICENSE](../../LICENSE) for details.
-
----
-
-Implementation developed with [Claude](https://claude.ai) (Anthropic).

@@ -1,10 +1,13 @@
-"""Cross-language fixture checks for the proposed worker protocol V2.
+# affects: batchalign/worker/_types_v2.py
+# affects: crates/batchalign/src/ipc_schema.rs
+"""Cross-language fixture checks for the live worker protocol V2 namespace.
 
 These tests load the canonical fixture files shared with Rust, validate them
-through the live/staged Pydantic models in ``batchalign.worker._types_v2``,
+through the live Pydantic models in ``batchalign.worker._types_v2``,
 and assert that serialization stays byte-for-byte compatible at the JSON value
-level. Some V2 task families are already live in production while others are
-still staged; this suite is the cross-language drift guardrail for both.
+level. The ``worker_v2`` name remains deliberate while the frozen V1 worker
+surface still exists; this suite is the cross-language drift guardrail for that
+shared namespace.
 """
 
 from __future__ import annotations
@@ -86,7 +89,7 @@ def _load_manifest() -> list[dict[str, str]]:
     ids=lambda entry: entry["file"],
 )
 def test_worker_protocol_v2_fixtures_roundtrip_in_python(entry: dict[str, str]) -> None:
-    """Each shared fixture should roundtrip through the staged Python schema."""
+    """Each shared fixture should roundtrip through the live Python V2 schema."""
 
     schema = entry["schema"]
     model_type = _SCHEMA_MODELS[schema]

@@ -26,15 +26,159 @@
 //! cargo nextest run -p talkbank-parser-tests --test xml_golden
 //! ```
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use rstest::rstest;
 use talkbank_model::ParseValidateOptions;
 use talkbank_transform::parse_and_validate;
 use talkbank_transform::xml::write_chat_xml;
+use walkdir::WalkDir;
 
 mod xml_support;
 use xml_support::{XmlStructuralDiff, assert_xml_structurally_equal};
+
+const EXPECTED_MISSING_XML_GOLDENS: &[&str] = &[
+    "core/headers-comments",
+    "edge-cases/unicode-ipa-content",
+    "tiers/pho",
+];
+
+const EXPECTED_PHONETIC_TIER_UNSUPPORTED: &[&str] = &[
+    "annotation/groups-phonological.cha",
+    "annotation/groups-sign.cha",
+    "edge-cases/multi-tier-alignment.cha",
+    "edge-cases/unicode-ipa-content.cha",
+    "tiers/pho-groupings.cha",
+    "tiers/pho-syllable-dots.cha",
+    "tiers/pho.cha",
+    "tiers/phon-syllabification.cha",
+];
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("talkbank-parser-tests should live under <repo>/crates/")
+        .to_path_buf()
+}
+
+fn reference_root() -> PathBuf {
+    repo_root().join("corpus/reference")
+}
+
+fn reference_xml_root() -> PathBuf {
+    repo_root().join("corpus/reference-xml")
+}
+
+fn rel_path(base: &Path, path: &Path) -> String {
+    path.strip_prefix(base)
+        .expect("path should live under expected base")
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn rel_stem(base: &Path, path: &Path) -> String {
+    let mut rel = PathBuf::from(rel_path(base, path));
+    rel.set_extension("");
+    rel.to_string_lossy().replace('\\', "/")
+}
+
+fn allowlist(entries: &[&str]) -> BTreeSet<String> {
+    entries.iter().map(|entry| (*entry).to_string()).collect()
+}
+
+fn reference_cha_paths() -> Vec<PathBuf> {
+    let root = reference_root();
+    WalkDir::new(&root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .map(|entry| entry.into_path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("cha"))
+        .collect()
+}
+
+fn reference_cha_stems() -> BTreeSet<String> {
+    let root = reference_root();
+    reference_cha_paths()
+        .into_iter()
+        .map(|path| rel_stem(&root, &path))
+        .collect()
+}
+
+fn reference_xml_stems() -> BTreeSet<String> {
+    let root = reference_xml_root();
+    WalkDir::new(&root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .map(|entry| entry.into_path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("xml"))
+        .map(|path| rel_stem(&root, &path))
+        .collect()
+}
+
+#[test]
+fn xml_golden_inventory_is_explicit() {
+    let cha = reference_cha_stems();
+    let xml = reference_xml_stems();
+
+    let missing: BTreeSet<_> = cha.difference(&xml).cloned().collect();
+    let stale: BTreeSet<_> = xml.difference(&cha).cloned().collect();
+
+    assert!(
+        stale.is_empty(),
+        "stale XML goldens present without matching CHAT source: {stale:#?}\n\
+         Remove the stale golden or restore the paired reference file."
+    );
+    assert_eq!(
+        missing,
+        allowlist(EXPECTED_MISSING_XML_GOLDENS),
+        "reference files without XML goldens changed.\n\
+         Update EXPECTED_MISSING_XML_GOLDENS in xml_golden.rs only after \
+         deliberately adjudicating the coverage change."
+    );
+}
+
+#[test]
+fn xml_emission_skip_policy_is_explicit() {
+    let reference_root = reference_root();
+    let mut actual_unsupported = BTreeSet::new();
+
+    for cha_path in reference_cha_paths() {
+        let rel = rel_path(&reference_root, &cha_path);
+        let cha_source = std::fs::read_to_string(&cha_path)
+            .unwrap_or_else(|err| panic!("failed to read {}: {err}", cha_path.display()));
+        let chat_file = parse_and_validate(
+            &cha_source,
+            ParseValidateOptions::default().with_validation(),
+        )
+        .unwrap_or_else(|err| {
+            panic!(
+                "parse_and_validate failed for {} while auditing XML skip policy: {err}",
+                cha_path.display()
+            )
+        });
+
+        match write_chat_xml(&chat_file) {
+            Ok(_) => {}
+            Err(talkbank_transform::xml::XmlWriteError::PhoneticTierUnsupported { .. }) => {
+                actual_unsupported.insert(rel);
+            }
+            Err(err) => panic!(
+                "unexpected XML emission error for {} while auditing skip policy: {err}",
+                cha_path.display()
+            ),
+        }
+    }
+
+    assert_eq!(
+        actual_unsupported,
+        allowlist(EXPECTED_PHONETIC_TIER_UNSUPPORTED),
+        "files skipped by XML emission changed.\n\
+         Update EXPECTED_PHONETIC_TIER_UNSUPPORTED in xml_golden.rs only after \
+         deliberately approving the policy change."
+    );
+}
 
 /// Parameterised golden test, one invocation per `*.xml` in `corpus/reference-xml/`.
 ///
@@ -43,23 +187,16 @@ use xml_support::{XmlStructuralDiff, assert_xml_structurally_equal};
 #[rstest]
 fn xml_golden_parity(#[files("../../corpus/reference-xml/**/*.xml")] golden_path: PathBuf) {
     let cha_path = paired_chat_path(&golden_path);
+    let reference_root = reference_root();
 
-    // A golden in `corpus/reference-xml/` without a matching source in
-    // `corpus/reference/` is stale — Java was run before the source
-    // file was moved or deleted. Skip with a diagnostic rather than
-    // failing, so we don't block the harness on purely-stale goldens.
-    // Franklin regenerates `reference-xml/` from Java runs, so this
-    // self-heals once Java re-emits.
     let cha_source = match std::fs::read_to_string(&cha_path) {
         Ok(s) => s,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            println!(
-                "stale golden skip: {} (no matching source at {})",
-                golden_path.display(),
-                cha_path.display()
-            );
-            return;
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => panic!(
+            "stale golden: {} has no matching source at {}\n\
+             xml_golden_inventory_is_explicit should be updated or the stale golden removed.",
+            golden_path.display(),
+            cha_path.display()
+        ),
         Err(e) => panic!(
             "failed to read paired CHAT source {}: {e}",
             cha_path.display()
@@ -89,15 +226,18 @@ fn xml_golden_parity(#[files("../../corpus/reference-xml/**/*.xml")] golden_path
     // text visible so the harness doubles as a coverage dashboard.
     //
     // Phonetic-tier material (`%pho`, `%mod`, `%phosyl`, `%modsyl`,
-    // `%phoaln`, `<pg>`, `<sg>`) is intentionally skipped: the XML
-    // emitter refuses via `PhoneticTierUnsupported` because Phon is
-    // moving off XML interchange. Those files get `#[ignore]`-style
-    // pass-through here (println instead of panic) so the golden
-    // harness stays useful for the non-phonetic corpus. Revisit if we
-    // ever decide to support Phon XML emission.
+    // `%phoaln`, `<pg>`, `<sg>`) is intentionally skipped for a
+    // reviewed allowlist only. `xml_emission_skip_policy_is_explicit`
+    // audits that allowlist so a new unsupported class cannot silently
+    // shrink XML coverage.
     let emitted = match write_chat_xml(&chat_file) {
         Ok(xml) => xml,
         Err(talkbank_transform::xml::XmlWriteError::PhoneticTierUnsupported { .. }) => {
+            let rel = rel_path(&reference_root, &cha_path);
+            assert!(
+                allowlist(EXPECTED_PHONETIC_TIER_UNSUPPORTED).contains(&rel),
+                "unexpected phonetic-tier XML skip for {rel}; update policy audit first"
+            );
             println!(
                 "phonetic tier skip: {} (Phon XML emission permanently unsupported)",
                 cha_path.display()

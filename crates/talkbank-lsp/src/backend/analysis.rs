@@ -32,6 +32,15 @@ pub(crate) struct AnalysisCommandService;
 impl AnalysisCommandService {
     /// Dispatch one analysis-family execute-command request.
     pub(crate) fn dispatch(&self, request: ExecuteCommandRequest) -> LspResult<Option<Value>> {
+        // Routing invariant: `ExecuteCommandRoutingService::dispatch`
+        // (in `requests/execute_command.rs`) calls `request.family()`
+        // and routes to the analysis service only for variants whose
+        // family is `ExecuteCommandFamily::Analysis`. The wildcard arm
+        // is therefore unreachable by construction. Follow-up:
+        // partition `ExecuteCommandRequest` into typed sub-enums per
+        // family so the compiler proves exhaustiveness — see
+        // `docs/panic-audit/talkbank-lsp.md`.
+        #[allow(clippy::unreachable)]
         match request {
             ExecuteCommandRequest::Analyze(request) => {
                 command_response(handle_analyze(&request), "Analysis error")

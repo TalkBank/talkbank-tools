@@ -28,7 +28,7 @@ class CorefBatchItem(BaseModel):
 class ChainRef(BaseModel):
     """A single coreference chain reference on a word.
 
-    Matches Rust ``ChainRef`` in ``batchalign-chat-ops/src/coref.rs``.
+    Matches Rust ``ChainRef`` in ``batchalign/src/coref.rs``.
     """
 
     chain_id: int

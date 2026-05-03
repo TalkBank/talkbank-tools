@@ -10,6 +10,10 @@ existing stdio worker process. Its job is intentionally small:
 The production worker loop should not assemble FA hosts or branch on loaded
 model state inline. Keeping that wiring here makes the dispatch from
 ``BatchInferRequest`` payloads to typed V2 execute requests explicit and testable.
+
+**See also:** `../../INTERFACE_MAP.md` for the unified Python/Rust interface
+reference, including Rust FFI function signatures, shared schema definitions,
+and full Python caller locations.
 """
 
 from __future__ import annotations

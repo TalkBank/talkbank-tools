@@ -209,7 +209,7 @@ temporal_activity_timeout_s: 300
 YAML
 
     BATCHALIGN_STATE_DIR="${STATE_DIR}" \
-    RUST_LOG=info,batchalign_app::runtime_supervisor=debug \
+    RUST_LOG=info,batchalign::runtime_supervisor=debug \
     "${BINARY}" serve start \
         --test-echo \
         --foreground \
@@ -741,7 +741,7 @@ main() {
 
     # Preflight
     if [ ! -x "${BINARY}" ]; then
-        echo "ERROR: Binary not found at ${BINARY}. Run 'cargo build -p batchalign-cli' first."
+        echo "ERROR: Binary not found at ${BINARY}. Run 'cargo build -p batchalign' first."
         exit 2
     fi
     if ! command -v temporal &> /dev/null; then

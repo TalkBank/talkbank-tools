@@ -187,6 +187,14 @@ impl CommandFamilyService for ValidationCommandService {
                 dry_run,
                 skip_alignment,
             } => lint_files(&path, fix, dry_run, true, !skip_alignment),
+            // Routing invariant: `CommandRoutingService::dispatch` (in
+            // this file) partitions `Commands` variants by family
+            // before forwarding to each `CommandFamilyService`, so
+            // only the validation-family variants reach this match.
+            // Same pattern as the LSP `ExecuteCommandRoutingService`
+            // — see `docs/panic-audit/talkbank-lsp.md` for the
+            // typed-sub-enum follow-up sketch.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("validation service received unsupported command"),
         }
     }
@@ -269,6 +277,8 @@ impl CommandFamilyService for UtilityCommandService {
                 utterance.as_deref(),
             ),
             Commands::Schema { url } => run_schema(url),
+            // Same routing invariant as the validation service above.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("utility service received unsupported command"),
         }
     }
@@ -280,6 +290,8 @@ impl CommandFamilyService for CacheCommandService {
     fn dispatch(&self, command: Commands, _context: &CommandContext) {
         match command {
             Commands::Cache { command } => run_cache_command(command),
+            // Same routing invariant as the validation service above.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("cache service received unsupported command"),
         }
     }
@@ -291,6 +303,8 @@ impl CommandFamilyService for ClanCommandService {
     fn dispatch(&self, command: Commands, _context: &CommandContext) {
         match command {
             Commands::Clan { command } => run_clan(command),
+            // Same routing invariant as the validation service above.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("clan service received unsupported command"),
         }
     }
@@ -302,6 +316,8 @@ impl CommandFamilyService for DebugCommandService {
     fn dispatch(&self, command: Commands, _context: &CommandContext) {
         match command {
             Commands::Debug { command } => run_debug(command),
+            // Same routing invariant as the validation service above.
+            #[allow(clippy::unreachable)]
             _ => unreachable!("debug service received unsupported command"),
         }
     }
@@ -322,6 +338,9 @@ fn run_debug(command: crate::cli::DebugCommands) {
         }
         DebugCommands::Find(args) => {
             super::find::run_find(args);
+        }
+        DebugCommands::Sanitize { input, output } => {
+            super::debug::run_sanitize(&input, output.as_deref());
         }
     }
 }

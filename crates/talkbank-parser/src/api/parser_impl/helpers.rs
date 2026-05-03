@@ -209,7 +209,7 @@ mod tests {
         let mor: MorTier = result
             .into_option()
             .ok_or_else(|| "Expected MOR tier to parse".to_string())?;
-        assert!(!mor.items.is_empty());
+        assert!(!mor.items().is_empty());
         Ok(())
     }
 }

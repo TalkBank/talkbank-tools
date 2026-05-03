@@ -14,7 +14,12 @@ use crate::backend::{LspBackendError, ParseState, TierName};
 #[test]
 fn test_missing_alignment_metadata() {
     let main_tier = talkbank_model::model::MainTier::new("CHI", vec![], None);
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![]);
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![]);
 
     let utterance = talkbank_model::model::Utterance::new(main_tier)
@@ -32,7 +37,12 @@ fn test_missing_alignment_metadata() {
 #[test]
 fn test_missing_gra_alignment() {
     let main_tier = talkbank_model::model::MainTier::new("CHI", vec![], None);
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![]);
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![]);
 
     let mut utterance = talkbank_model::model::Utterance::new(main_tier)
@@ -64,7 +74,12 @@ fn stale_baseline_emits_muted_label_attrs() -> Result<(), String> {
     let main_tier = talkbank_model::model::MainTier::new("CHI", vec![], None);
     let word = talkbank_model::model::MorWord::new("n", "cat");
     let mor = talkbank_model::model::Mor::new(word);
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![mor]);
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![mor],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![
         talkbank_model::model::GrammaticalRelation::new(1, 0, "ROOT"),
     ]);
@@ -111,7 +126,12 @@ fn test_dot_format_structure_with_alignment() -> Result<(), String> {
 
     let word = talkbank_model::model::MorWord::new("n", "cat");
     let mor = talkbank_model::model::Mor::new(word);
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![mor]);
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![mor],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
 
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![
         talkbank_model::model::GrammaticalRelation::new(1, 0, "ROOT"),
@@ -178,7 +198,12 @@ fn response_is_dot_when_aligned() {
     let main_tier = talkbank_model::model::MainTier::new("CHI", vec![], None);
     let word = talkbank_model::model::MorWord::new("n", "cat");
     let mor = talkbank_model::model::Mor::new(word);
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![mor]);
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![mor],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![
         talkbank_model::model::GrammaticalRelation::new(1, 0, "ROOT"),
     ]);
@@ -250,8 +275,12 @@ fn dependency_edges_with_post_clitic_connect_correct_chunks() -> Result<(), Stri
         .with_post_clitic(talkbank_model::model::MorWord::new("aux", "be"));
     let cookie =
         talkbank_model::model::Mor::new(talkbank_model::model::MorWord::new("n", "cookie"));
-    let mor_tier = talkbank_model::model::MorTier::new_mor(vec![its, cookie])
-        .with_terminator(Some(".".into()));
+    let mor_tier = talkbank_model::model::MorTier::new_mor(
+        vec![its, cookie],
+        talkbank_model::Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    );
 
     let gra_tier = talkbank_model::model::GraTier::new_gra(vec![
         talkbank_model::model::GrammaticalRelation::new(1, 2, "SUBJ"),

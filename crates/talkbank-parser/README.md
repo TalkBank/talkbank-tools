@@ -1,5 +1,8 @@
 # talkbank-parser
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 Parsing implementations for CHAT format using tree-sitter.
 
 ## Overview
@@ -39,7 +42,3 @@ let outcome = parser.parse_word_fragment("hello", 0, &errors);
 ## License
 
 BSD-3-Clause. See [LICENSE](../../LICENSE) for details.
-
----
-
-Implementation developed with [Claude](https://claude.ai) (Anthropic).

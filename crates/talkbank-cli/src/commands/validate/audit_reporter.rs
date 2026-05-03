@@ -162,6 +162,11 @@ impl AuditReporter {
 
     /// Return a cloneable reporting handle for worker threads.
     pub fn reporter(&self) -> AuditReporterHandle {
+        // Caller-contract invariant: `reporter()` must be called
+        // before `finish()` consumes the AuditReporterTask. The
+        // `self.reporter` Option is `Some(...)` from `try_new` until
+        // `shutdown_and_join()` takes it.
+        #[allow(clippy::expect_used)]
         self.reporter
             .as_ref()
             .expect("audit reporter requested after shutdown")

@@ -13,10 +13,8 @@ manipulation goes through principled AST operations -- never ad-hoc
 string or regex hacking.
 """
 
-# PYTORCH_ENABLE_MPS_FALLBACK removed 2026-04-06: MPS is excluded from all
-# model loaders since 2026-04-05 (AGXG14X kernel deadlock — see
-# docs/postmortems/2026-04-05-mps-fa-gpu-deadlock.md). The fallback env var
-# was a safety net for unsupported MPS operations; it is no longer needed.
+# batchalign supports CUDA and CPU inference backends. PyTorch's MPS fallback
+# path is intentionally not enabled because the runtime does not select MPS.
 
 import logging
 

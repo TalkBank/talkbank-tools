@@ -28,6 +28,11 @@ pub fn run_validation_runtime(
         presentation,
         suppress,
     } = options;
+    // Routing invariant: `cli/dispatch.rs` extracts the audit
+    // presentation variant before forwarding to the runtime
+    // entrypoint, so reaching this `else` branch is impossible by
+    // construction.
+    #[allow(clippy::unreachable)]
     let ValidationPresentation::Streaming(output) = presentation else {
         unreachable!("audit presentation is handled before the runtime entrypoint");
     };

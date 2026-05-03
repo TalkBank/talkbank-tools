@@ -21,12 +21,14 @@ COMMON_OPTS=(
 )
 
 echo "Step 1: Generating JSON Schema from Rust types..."
-cargo run -q -p batchalign-cli -- ipc-schema --output ipc-schema/
+cargo run -q -p batchalign -- ipc-schema --output ipc-schema/
 
 echo "Step 2: Generating Python Pydantic models from JSON Schema..."
 mkdir -p batchalign/generated/worker_v2 batchalign/generated/batch_items
 
-# Worker V2 types (directory → directory, one .py per schema)
+# Worker V2 types (directory → directory, one .py per schema).
+# The worker_v2 directory name is intentional while the frozen V1 worker
+# contract still exists elsewhere in the tree.
 $CODEGEN \
     --input ipc-schema/worker_v2/ \
     --output batchalign/generated/worker_v2/ \

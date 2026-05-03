@@ -1,4 +1,9 @@
-name: VS Code Extension Release
+# Preview GitHub release line for the VS Code extension. This packages VSIX
+# artifacts with bundled `talkbank-lsp` binaries, but it does not publish to
+# the Marketplace and should not be confused with the stable `chatter` release.
+name: VS Code Extension Release (Preview)
+
+run-name: VS Code preview v${{ inputs.version }}
 
 on:
   workflow_dispatch:
@@ -6,6 +11,10 @@ on:
       version:
         description: "Extension version to release (must match package.json)"
         required: true
+
+concurrency:
+  group: vscode-preview-release-${{ inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -129,7 +138,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: vscode-v${{ inputs.version }}
-          name: VS Code Extension v${{ inputs.version }}
+          name: VS Code Extension Preview v${{ inputs.version }}
+          prerelease: true
           generate_release_notes: true
           files: artifacts/*.vsix
           fail_on_unmatched_files: true

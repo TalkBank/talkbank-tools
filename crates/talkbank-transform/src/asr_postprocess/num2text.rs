@@ -65,9 +65,8 @@ const CURRENCY_SUFFIXES: &[(&str, &str)] = &[("€", "euros"), ("₹", "rupees")
 ///
 /// Tracked by ISO 639-3 code. Languages not listed here fall back to the
 /// English word; a future extension can delete that fallback once the
-/// remaining coverage gaps are audited. See
-/// `docs/superpowers/specs/2026-04-22-step-4-asr-normalization-rules.md`
-/// decision N1.
+/// remaining coverage gaps are audited. (Decision N1 from the
+/// 2026-04-22 ASR-normalization design, operator-local.)
 const PERCENT_WORD_BY_LANG: &[(&str, &str)] = &[
     ("eng", "percent"),
     ("fra", "pour_cent"),

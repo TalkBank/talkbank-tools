@@ -2,12 +2,12 @@
 
 ## Description
 
-The media bullet contains a deprecated skip flag (dash before closing NAK delimiter). The skip flag was deprecated as of 2026-03-31 (confirmed by Brian MacWhinney). Only 10 occurrences exist in 7 files across the entire 99,742-file corpus.
+The media bullet contains a deprecated skip flag (dash before closing NAK delimiter). The skip flag is deprecated. Only a small number of occurrences exist across the corpus.
 
 ## Metadata
 
 - **Status**: not_implemented
-- **Last updated**: 2026-04-04 08:15 EDT
+- **Last updated**: 2026-05-01 09:47 EDT
 - **Status note**: Unreachable via tree-sitter parser. The grammar's strict NAK-delimited media-bullet rule rejects the deprecated `start_end-` skip variant (dash before closing NAK) before Rust validation runs, producing E316 instead of E360. The Rust check (`InvalidMediaBullet`) only fires for bullets that parsed as `media_bullet` nodes but fail the structural check; the skip-dash form never parses as a media bullet.
 - **Error Code**: E360
 - **Category**: Main tier validation
@@ -40,4 +40,4 @@ Media bullets use NAK delimiters: `\u0015start_end\u0015`. The legacy skip varia
 
 ## Notes
 
-The 7 affected files in the corpus are all in Brian's CHILDES recordings (Eng-NA/MacWhinney) plus one CA file (SCoSE/mary.cha) and one aphasia file (Menn/GW.cha). These files should have the dash removed from their bullet markers.
+The affected files in the corpus are mostly in CHILDES recordings (Eng-NA/MacWhinney), plus a CA file (SCoSE/mary.cha) and an aphasia file (Menn/GW.cha). These files should have the dash removed from their bullet markers.

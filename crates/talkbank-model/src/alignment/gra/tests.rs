@@ -10,11 +10,16 @@ use crate::model::{GraTier, GrammaticalRelation, Mor, MorTier, MorWord, PosCateg
 #[test]
 fn test_gra_alignment_perfect_match() {
     // Create %mor tier with 3 items (no clitics)
-    let mor = MorTier::new_mor(vec![
-        Mor::new(MorWord::new(PosCategory::new("pron"), "I")),
-        Mor::new(MorWord::new(PosCategory::new("verb"), "go")),
-        Mor::new(MorWord::new(PosCategory::new("noun"), "home")),
-    ]);
+    let mor = MorTier::new_mor(
+        vec![
+            Mor::new(MorWord::new(PosCategory::new("pron"), "I")),
+            Mor::new(MorWord::new(PosCategory::new("verb"), "go")),
+            Mor::new(MorWord::new(PosCategory::new("noun"), "home")),
+        ],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     // Create %gra tier with 3 relations
     let gra = GraTier::new_gra(vec![
@@ -36,7 +41,12 @@ fn test_gra_alignment_with_post_clitic() {
     // Create %mor tier with 1 item that has a post-clitic (2 chunks total)
     let mor_item = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
-    let mor = MorTier::new_mor(vec![mor_item]);
+    let mor = MorTier::new_mor(
+        vec![mor_item],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     // Create %gra tier with 2 relations (one for main, one for clitic)
     let gra = GraTier::new_gra(vec![
@@ -55,11 +65,16 @@ fn test_gra_alignment_with_post_clitic() {
 #[test]
 fn test_gra_alignment_mor_longer() {
     // %mor has 3 chunks, %gra has only 1
-    let mor = MorTier::new_mor(vec![
-        Mor::new(MorWord::new(PosCategory::new("verb"), "a")),
-        Mor::new(MorWord::new(PosCategory::new("verb"), "b")),
-        Mor::new(MorWord::new(PosCategory::new("verb"), "c")),
-    ]);
+    let mor = MorTier::new_mor(
+        vec![
+            Mor::new(MorWord::new(PosCategory::new("verb"), "a")),
+            Mor::new(MorWord::new(PosCategory::new("verb"), "b")),
+            Mor::new(MorWord::new(PosCategory::new("verb"), "c")),
+        ],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let gra = GraTier::new_gra(vec![GrammaticalRelation::new(1, 0, "ROOT")]);
 
@@ -82,7 +97,12 @@ fn test_gra_alignment_mor_longer() {
 #[test]
 fn test_gra_alignment_gra_longer() {
     // %mor has 1 chunk, %gra has 3 relations
-    let mor = MorTier::new_mor(vec![Mor::new(MorWord::new(PosCategory::new("verb"), "go"))]);
+    let mor = MorTier::new_mor(
+        vec![Mor::new(MorWord::new(PosCategory::new("verb"), "go"))],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 0, "ROOT"),
@@ -108,7 +128,12 @@ fn test_gra_alignment_gra_longer() {
 /// Treats empty tiers as a clean zero-pair alignment.
 #[test]
 fn test_gra_alignment_empty() {
-    let mor = MorTier::new_mor(vec![]);
+    let mor = MorTier::new_mor(
+        vec![],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
     let gra = GraTier::new_gra(vec![]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
@@ -124,12 +149,16 @@ fn test_gra_mismatch_shows_column_diagnostic() {
     // But %gra only has 3 relations
     let mor_ill = Mor::new(MorWord::new(PosCategory::new("pron"), "I"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "will"));
-    let mor = MorTier::new_mor(vec![
-        mor_ill,
-        Mor::new(MorWord::new(PosCategory::new("verb"), "give")),
-        Mor::new(MorWord::new(PosCategory::new("pron"), "you")),
-    ])
-    .with_terminator(Some(".".into()));
+    let mor = MorTier::new_mor(
+        vec![
+            mor_ill,
+            Mor::new(MorWord::new(PosCategory::new("verb"), "give")),
+            Mor::new(MorWord::new(PosCategory::new("pron"), "you")),
+        ],
+        crate::model::content::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     // Only 3 %gra relations (but 4 mor chunks + terminator = 5 total)
     let gra = GraTier::new_gra(vec![
@@ -165,7 +194,12 @@ fn test_gra_mismatch_shows_column_diagnostic() {
 /// Includes a column-style mismatch diagnostic for `%gra`-longer cases.
 #[test]
 fn test_gra_mismatch_gra_longer_shows_diagnostic() {
-    let mor = MorTier::new_mor(vec![Mor::new(MorWord::new(PosCategory::new("verb"), "go"))]);
+    let mor = MorTier::new_mor(
+        vec![Mor::new(MorWord::new(PosCategory::new("verb"), "go"))],
+        crate::Terminator::Period {
+            span: crate::Span::DUMMY,
+        },
+    );
 
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 0, "ROOT"),

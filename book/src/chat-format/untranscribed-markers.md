@@ -67,9 +67,9 @@ against the whole field.
 
 ## What ASR pipelines should do instead
 
-The batchalign3 `transcript_from_asr_utterances` gate (see
-`batchalign-chat-ops/src/build_chat.rs`) demonstrates the right
-pattern after the 2026-04-27 redesign:
+The batchalign3 `transcript_from_asr_utterances` gate (in
+`crates/talkbank-transform/src/build_chat/`) demonstrates the right
+pattern:
 
 1. The pipeline silently fixes only orthographically inarguable
    problems (Stage 2c boundary-quote strip).

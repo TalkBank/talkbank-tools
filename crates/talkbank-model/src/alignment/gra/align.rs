@@ -162,7 +162,7 @@ fn extract_mor_chunk_items(mor: &MorTier) -> Vec<TierPosition> {
                 description: Some(describe_chunk(MorChunkKind::PostClitic).to_owned()),
             },
             MorChunk::Terminator(term) => TierPosition {
-                text: term.to_owned(),
+                text: term.to_string(),
                 description: Some(describe_chunk(MorChunkKind::Terminator).to_owned()),
             },
         })

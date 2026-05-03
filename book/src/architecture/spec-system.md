@@ -5,11 +5,14 @@
 
 Specifications in `spec/` are the authoritative source of truth for the CHAT format. They drive grammar artifact generation, validation/error docs, and targeted test generation.
 
-**Historical note:** This system was originally shaped during the dual-parser
-era (tree-sitter + Chumsky). The Chumsky direct parser was removed in March
-2026; tree-sitter is now the sole parser. Fragment specs remain valuable, but
-synthetic tree-sitter wrapper behavior is audit-only legacy unless a page or
-test explicitly says otherwise.
+**Historical note:** This system was originally shaped during a
+dual-parser era. The chumsky-based direct parser was removed in
+March 2026. Today the canonical parser is tree-sitter
+(`talkbank-parser`); a second implementation,
+`talkbank-parser-re2c`, exists as a specification oracle and
+high-throughput batch parser. Fragment specs remain valuable, but
+synthetic tree-sitter wrapper behavior is audit-only legacy unless a
+page or test explicitly says otherwise.
 
 ## Spec Types
 

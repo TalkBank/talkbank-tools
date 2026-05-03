@@ -305,11 +305,21 @@ pub fn chat_to_json_directory(
                     failed.load(Ordering::Relaxed),
                 );
             }
+            // Worker-lifetime invariant: workers are spawned in the
+            // for-loop above and joined in the for-loop below;
+            // `tx.send` only fails when every Receiver has dropped,
+            // which can only happen after all workers exit. Workers
+            // exit when the channel closes (drop(tx) below), so this
+            // send is during the active phase.
+            #[allow(clippy::expect_used)]
             tx.send(cha_path).expect("worker alive");
         }
         drop(tx);
 
         for w in workers {
+            // Thread::join only returns Err on a worker panic, which
+            // is itself a panic-level bug — propagating it is correct.
+            #[allow(clippy::expect_used)]
             w.join().expect("worker panicked");
         }
     }

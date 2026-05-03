@@ -1,5 +1,8 @@
 # talkbank-transform
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 Transformation pipelines for [CHAT format](https://talkbank.org/0info/manuals/CHAT.html) (CHAT to JSON, normalization, validation).
 
 ## Overview
@@ -37,7 +40,3 @@ assert_eq!(chat_file.utterances().count(), 1);
 ## License
 
 BSD-3-Clause. See [LICENSE](../../LICENSE) for details.
-
----
-
-Implementation developed with [Claude](https://claude.ai) (Anthropic).

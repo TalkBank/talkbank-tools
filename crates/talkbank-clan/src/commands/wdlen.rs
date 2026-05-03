@@ -379,7 +379,7 @@ impl AnalysisCommand for WdlenCommand {
         // Section 6: per-utterance = POS(main only) + stems + Brown's suffixes.
         if let Some(mor_tier) = utterance.mor_tier() {
             let mut utt_morphemes: u64 = 0;
-            for mor_item in mor_tier.items.iter() {
+            for mor_item in mor_tier.items().iter() {
                 // Section 5: entire Mor item (main + clitics) = one word entry.
                 let mut word_morphs = word_morpheme_count(&mor_item.main);
                 for clitic in &mor_item.post_clitics {

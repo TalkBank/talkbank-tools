@@ -327,7 +327,7 @@ impl AnalysisCommand for MluCommand {
 /// in this case, rather than falling back to word counting).
 fn count_morphemes_in_utterance(utterance: &Utterance) -> Option<u64> {
     let mor_tier = utterance.mor_tier()?;
-    let total: u64 = mor_tier.items.iter().map(count_morphemes_in_mor).sum();
+    let total: u64 = mor_tier.items().iter().map(count_morphemes_in_mor).sum();
     Some(total)
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-talkbank",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TalkBank CHAT transcription format",
   "type": "module",
   "engines": {

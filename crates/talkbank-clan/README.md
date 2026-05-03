@@ -1,5 +1,8 @@
 # talkbank-clan
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 Rust reimplementation of [CLAN](https://talkbank.org/0info/manuals/CLAN.html)
 (Computerized Language Analysis) commands for
 [CHAT transcripts](https://talkbank.org/0info/manuals/CHAT.html).
@@ -166,7 +169,3 @@ Both styles work interchangeably — CLAN flags are automatically rewritten:
 ## License
 
 BSD-3-Clause. See [LICENSE](LICENSE) for details.
-
----
-
-Implementation developed with [Claude](https://claude.ai) (Anthropic).

@@ -33,7 +33,7 @@ use talkbank_parser::TreeSitterParser;
 fn gra_tier_content(tier: &GraTier) -> String {
     let mut content = String::new();
 
-    for (i, rel) in tier.relations.iter().enumerate() {
+    for (i, rel) in tier.relations().iter().enumerate() {
         if i > 0 {
             content.push(' ');
         }

@@ -30,6 +30,11 @@ impl ParticipantCommandService {
         backend: &Backend,
         request: ExecuteCommandRequest,
     ) -> LspResult<Option<Value>> {
+        // Routing invariant: only `ExecuteCommandFamily::Participants`
+        // variants reach here via `request.family()` partitioning.
+        // Follow-up: typed sub-enum per family — see
+        // `docs/panic-audit/talkbank-lsp.md`.
+        #[allow(clippy::unreachable)]
         match request {
             ExecuteCommandRequest::GetParticipants(request) => command_response(
                 handle_get_participants(backend, &request),

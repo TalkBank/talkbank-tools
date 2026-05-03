@@ -23,3 +23,6 @@ trybuild = { workspace = true }
 talkbank-model = { workspace = true }
 serde = { workspace = true }
 schemars = { workspace = true }
+
+[lints]
+workspace = true

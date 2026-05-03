@@ -20,8 +20,10 @@ pub struct L2Span {
     pub word_indices: Vec<usize>,
     /// Resolved target language for secondary dispatch.
     pub target_lang: LanguageCode,
-    /// Word texts extracted for the secondary batch.
-    pub words: Vec<String>,
+    /// Word texts extracted for the secondary batch. Each is a
+    /// provenance-sealed `ChatCleanedText` derived from the upstream
+    /// typed AST.
+    pub words: Vec<talkbank_model::ChatCleanedText>,
 }
 
 /// A contiguous span of @s words ready for secondary dispatch, with
@@ -30,8 +32,10 @@ pub struct L2Span {
 pub struct DispatchSpan {
     /// Global indices into the `L2DeferredPosition` array.
     pub global_indices: Vec<usize>,
-    /// Word texts for this span (sent as one sentence to Stanza).
-    pub words: Vec<String>,
+    /// Word texts for this span (sent as one sentence to Stanza). Each
+    /// is a provenance-sealed `ChatCleanedText` derived from the
+    /// upstream typed AST.
+    pub words: Vec<talkbank_model::ChatCleanedText>,
     /// Target language for dispatch.
     pub target_lang: LanguageCode,
 }
@@ -54,7 +58,7 @@ pub fn group_l2_spans(
         Option<talkbank_model::model::FormType>,
         Option<LanguageResolution>,
     )],
-    word_texts: &[String],
+    word_texts: &[talkbank_model::ChatCleanedText],
 ) -> Vec<L2Span> {
     let mut spans: Vec<L2Span> = Vec::new();
 
@@ -102,15 +106,24 @@ pub fn group_l2_spans(
 /// pre-extracted from the ChatFile.
 pub fn group_deferred_into_dispatch_spans(
     deferred: &[L2DeferredPosition],
-    word_cache: &HashMap<(usize, usize), String>,
+    word_cache: &HashMap<(usize, usize), talkbank_model::ChatCleanedText>,
 ) -> Vec<DispatchSpan> {
     let mut spans: Vec<DispatchSpan> = Vec::new();
 
     for (global_idx, def) in deferred.iter().enumerate() {
-        let word_text = word_cache
-            .get(&(def.line_idx, def.word_idx))
-            .cloned()
-            .unwrap_or_default();
+        // Cache-miss handling. The cache is populated from the same
+        // ChatFile/AST that produced the deferred-position array, so
+        // a miss should not occur in practice; if it does, skip the
+        // deferred position rather than substitute empty text (which
+        // would silently change Stanza's input).
+        let Some(word_text) = word_cache.get(&(def.line_idx, def.word_idx)).cloned() else {
+            tracing::warn!(
+                line_idx = def.line_idx,
+                word_idx = def.word_idx,
+                "L2 dispatch span: word_cache miss; skipping deferred position"
+            );
+            continue;
+        };
 
         let extends = spans.last().is_some_and(|last: &DispatchSpan| {
             last.target_lang == def.target_lang && !last.global_indices.is_empty() && {

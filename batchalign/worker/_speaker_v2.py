@@ -1,4 +1,9 @@
-"""Live worker-protocol V2 speaker diarization executor."""
+"""Live worker-protocol V2 speaker diarization executor.
+
+**See also:** `../../INTERFACE_MAP.md` section "6. Media Analysis V2: Speaker Diarization" for:
+- Rust FFI function: `crates/batchalign-pyo3/src/worker_media_exec.rs::execute_speaker_request_v2()`
+- Full Rust/Python responsibility split and input/output contracts.
+"""
 
 from __future__ import annotations
 

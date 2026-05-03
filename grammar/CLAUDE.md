@@ -1,6 +1,6 @@
 # Grammar — Tree-sitter Grammar for CHAT
 
-**Last modified:** 2026-04-13 11:14 EDT
+**Last modified:** 2026-05-01 09:47 EDT
 
 ## Overview
 Tree-sitter grammar definition for CHAT (`grammar.js`) plus generated parser and corpus tests.
@@ -21,7 +21,7 @@ Do not draw conclusions from parser output until regeneration has been done.
 
 1. NEVER edit `src/parser.c` directly; it is generated from `grammar.js`.
 2. NEVER hand-edit `test/corpus/`; it is generated from upstream specs.
-3. The 88-file reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
+3. The reference corpus in `corpus/reference/` must remain at 100% parser equivalence.
 4. If verification fails and a fix is not immediate, revert the grammar change before proceeding.
 
 ### Stop Conditions
@@ -33,15 +33,21 @@ Do not draw conclusions from parser output until regeneration has been done.
 
 ## Prerequisites
 
-**Node.js 24** is required (current LTS). Node 25+ breaks `tree-sitter` native module compilation (V8 headers require C++20 which the binding doesn't support yet). An `.nvmrc` file is provided:
+**Node.js** at the version pinned in `.nvmrc`. Newer Node releases
+periodically break `tree-sitter` native module compilation (V8 header
+toolchain requirements outpace the binding). An `.nvmrc` file is
+provided:
 
 ```bash
-nvm use          # Reads .nvmrc, uses Node 22
+nvm use          # Reads .nvmrc
 ```
 
-**Python ≤3.13** for node-gyp. Python 3.14 introduces syntax changes that break gyp scripts. If your system `python3` is 3.14+, set `NODE_GYP_FORCE_PYTHON` to point at 3.12 or 3.13 in your shell profile.
+**Python** for `node-gyp`. Newer Python releases may introduce syntax
+changes that break gyp scripts. If your system `python3` is too new,
+set `NODE_GYP_FORCE_PYTHON` to point at a supported Python in your
+shell profile.
 
-CI pins Node 24 via `actions/setup-node`.
+CI pins the Node version via `actions/setup-node`.
 
 ## Key Commands
 ```bash
@@ -114,7 +120,7 @@ generic_option_name: $ => /[^\s,\r\n\t]+/,
 
 **How it works:** Tree-sitter's disambiguation gives string literals priority over regexes at the same length, so known values win. Unknown values fall through to the generic catch-all. The Rust parser extracts the wrapper node's text and delegates to `from_text()` which classifies or returns `Unsupported`. The validator then flags unsupported values with a specific error code.
 
-**Rules applying this pattern** (10 total):
+**Rules applying this pattern:**
 - `option_name` → `generic_option_name` (E534)
 - `media_type` → `generic_media_type`
 - `media_status` → `generic_media_status`
@@ -158,7 +164,7 @@ generic_option_name: $ => /[^\s,\r\n\t]+/,
 in `word_body`. Character exclusions come from the symbol registry
 (`src/generated_symbol_sets.js`) — never hand-write exclusion regexes.
 
-TDD gate: `test/corpus/word/word_segment_purity.txt` (8 tests).
+TDD gate: `test/corpus/word/word_segment_purity.txt`.
 If you add a new structural marker, add it to the symbol registry AND
 add a purity test.
 
@@ -176,7 +182,7 @@ After grammar changes pass local verification, these downstream repositories may
 |------------|-----|---------|
 | `talkbank-parser` | uses this parser directly | `cargo check -p talkbank-parser` |
 | `talkbank-lsp` | LSP parser consumer | `cargo check -p talkbank-lsp` |
-| `batchalign3` | parser bridge integration | `cargo test --manifest-path pyo3/Cargo.toml` |
+| `batchalign3` | parser bridge integration | `cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml` |
 
 ## Emergency Revert Procedure
 
@@ -193,6 +199,3 @@ Always regenerate after revert so generated artifacts match current `grammar.js`
 ## See Also
 - https://github.com/TalkBank/talkbank-tools/blob/main/CLAUDE.md
 - https://github.com/TalkBank/talkbank-tools/tree/main/spec
-
----
-Last Updated: 2026-04-12 06:55 EDT

@@ -1,26 +1,28 @@
 # Parser, Model, and API Contracts
 
 **Status:** Current
-**Last updated:** 2026-03-24 01:32 EDT
+**Last updated:** 2026-05-01 05:35 EDT
 
-## Current Strength
-`talkbank-parser` provides `TreeSitterParser` as the sole API handle for all parsing — full-file and fragment methods live directly on the struct. Callers create one instance and pass `&TreeSitterParser` everywhere.
+## Single-handle parser API
+`talkbank-parser` provides `TreeSitterParser` as the canonical API
+handle for all parsing — full-file and fragment methods live directly
+on the struct. Callers create one instance and pass
+`&TreeSitterParser` everywhere. The alternate `talkbank-parser-re2c`
+is opt-in (specification oracle and high-throughput batch parsing)
+and produces the same `ChatFile` model.
 
-## Current Gaps
-1. Result and error behavior can vary by callsite.
-2. Integrator contract guarantees are not centralized in a strict compatibility policy document.
+## Contract for Batchalign
 
-## Batchalign3-Facing Contract
-
-`batchalign3` relies on these guarantees from `talkbank-tools`:
+The Batchalign runtime (the `batchalign` crate) consumes these
+guarantees from the talkbank-* core crates:
 
 - parsing produces a typed `ChatFile` or an explicit parse-status signal
 - parse-health taint is visible to alignment consumers
 - alignment helpers operate on semantic model types, not raw text hacks
 - recovery never fabricates valid-looking placeholder semantics for malformed input
 
-That means the parser/model boundary must stay honest enough for downstream
-workflows like `align`, `compare`, `benchmark`, and morphotagging to make
+The parser/model boundary stays honest enough for downstream
+workflows — `align`, `compare`, `benchmark`, morphotagging — to make
 their own validity decisions.
 
 ## Canonical Contract Model

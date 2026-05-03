@@ -1,7 +1,7 @@
 # Validation Feature Flags — Future Design
 
 **Status:** Draft
-**Last updated:** 2026-03-29 20:15 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 ## Current State
 
@@ -101,7 +101,7 @@ parser, or require depfile.cut integration which is a separate project.
 
 | CHECK | Behavior | Status |
 |-------|----------|--------|
-| 84 | Cross-speaker overlap | **DONE** (E729, 2026-03-29) |
+| 84 | Cross-speaker overlap | **DONE** (E729) |
 | 85 | Gap between tiers | E730 defined, not implemented |
 | 110 | Missing bullet (+c mode) | E732 defined, not implemented |
 | 133 | Speaker self-overlap (timing) | **DONE** (E704 + E731) |

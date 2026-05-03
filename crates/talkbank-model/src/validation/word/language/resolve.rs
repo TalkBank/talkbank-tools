@@ -88,29 +88,64 @@ impl LanguageResolution {
     }
 }
 
+/// Outcome of word-language resolution.
+///
+/// Replaces the pre-2026-05-01 `(LanguageResolution, Vec<ParseError>)`
+/// tuple seam with a named struct. The two fields express orthogonal
+/// facts: what the resolver concluded, and which surface-syntax issues
+/// surfaced during resolution. They are *not* a value/error pair —
+/// every legal CHAT input still produces a resolution (possibly
+/// `Unresolved`) plus zero or more diagnostics.
+///
+/// # Rule 6d compliance
+///
+/// When resolution genuinely cannot succeed (tertiary `@s` shortcut,
+/// missing secondary language, no language context), the field
+/// `resolution` is [`LanguageResolution::Unresolved`] — never a
+/// fabricated fallback to the tier language. Callers that need a
+/// concrete language for downstream validation must inspect the
+/// variant and decide explicitly (skip the check, use a configured
+/// default with provenance, etc.) rather than receiving a sentinel.
+#[derive(Debug, Clone)]
+pub struct LanguageResolutionOutcome {
+    /// The resolver's verdict for this word.
+    pub resolution: LanguageResolution,
+    /// Surface-syntax diagnostics produced during resolution.
+    /// May be non-empty even when `resolution` is a concrete language
+    /// (e.g., `@s` in tertiary context emits a warning but resolves
+    /// honestly to `Unresolved`).
+    pub diagnostics: Vec<ParseError>,
+}
+
 /// Resolve the effective language set for one word token.
 ///
-/// Returns a `LanguageResolution` indicating which language(s) apply, along with any
-/// errors encountered during resolution (e.g., for @s shortcut in tertiary languages).
+/// Returns a [`LanguageResolutionOutcome`] carrying the resolved
+/// language (or `Unresolved`) and any surface-syntax diagnostics.
 ///
 /// # Semantics
 /// - **Explicit language**: Returns that language as Single
 /// - **Shortcut @s**: Resolves to the "other" language in a dual-language context
 /// - **Multiple languages @s:eng+fra**: Returns all listed languages as Multiple
 /// - **Ambiguous languages @s:eng&spa**: Returns all listed languages as Ambiguous
-/// - **No marker**: Returns tier language or error if no language context available
+/// - **No marker**: Returns tier language or `Unresolved` if no language context available
+///
+/// # Rule 6d
+///
+/// When `@s` cannot resolve (tertiary tier, missing secondary, no
+/// context), the result is `LanguageResolution::Unresolved` together
+/// with a populated `diagnostics` vec — not a fabricated `Single(tier)`.
 pub fn resolve_word_language(
     word: &Word,
     tier_language: Option<&LanguageCode>,
     declared_languages: &[LanguageCode],
-) -> (LanguageResolution, Vec<ParseError>) {
-    let mut errors = Vec::new();
+) -> LanguageResolutionOutcome {
+    let mut diagnostics = Vec::new();
 
-    let resolved_lang = match word.lang.as_ref() {
+    let resolution = match word.lang.as_ref() {
         Some(WordLanguageMarker::Shortcut) => {
             if let Some(current_lang) = tier_language {
                 if is_tertiary_language(current_lang, declared_languages) {
-                    errors.push(
+                    diagnostics.push(
                         ParseError::new(
                             ErrorCode::TertiaryLanguageNeedsExplicitCode,
                             Severity::Error,
@@ -122,13 +157,12 @@ pub fn resolve_word_language(
                             ),
                         )
                     );
-                    // Return tier language as fallback to allow validation to continue
-                    LanguageResolution::Single(current_lang.clone())
+                    LanguageResolution::Unresolved
                 } else {
                     match get_other_language(current_lang, declared_languages) {
                         Some(other_lang) => LanguageResolution::Single(other_lang),
                         None => {
-                            errors.push(
+                            diagnostics.push(
                                 ParseError::new(
                                     ErrorCode::MissingLanguageContext,
                                     Severity::Error,
@@ -138,20 +172,18 @@ pub fn resolve_word_language(
                                 )
                                 .with_suggestion("Either add a second language to @Languages header or use explicit language code (e.g., @s:spa)")
                             );
-                            // Return tier language as fallback
-                            LanguageResolution::Single(current_lang.clone())
+                            LanguageResolution::Unresolved
                         }
                     }
                 }
             } else {
-                errors.push(ParseError::new(
+                diagnostics.push(ParseError::new(
                     ErrorCode::MissingLanguageContext,
                     Severity::Error,
                     SourceLocation::new(word.span),
                     None,
                     "Cannot use @s shortcut: no language context available",
                 ));
-                // No language context: keep resolution explicit and avoid fabricated defaults.
                 LanguageResolution::Unresolved
             }
         }
@@ -181,5 +213,8 @@ pub fn resolve_word_language(
         }
     };
 
-    (resolved_lang, errors)
+    LanguageResolutionOutcome {
+        resolution,
+        diagnostics,
+    }
 }

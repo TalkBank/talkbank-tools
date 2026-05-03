@@ -125,6 +125,9 @@ fn parse_srt(content: &str) -> Result<Vec<SrtEntry>, TransformError> {
             if line.trim().is_empty() {
                 break;
             }
+            // Peek-then-next: `peek()` returned `Some` immediately
+            // above, so `next()` cannot return `None`.
+            #[allow(clippy::unwrap_used)]
             text_lines.push(lines_iter.next().unwrap().trim().to_owned());
         }
 

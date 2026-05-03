@@ -473,7 +473,7 @@ impl AnalysisCommand for IpsynCommand {
         let speaker = utterance.main.speaker.to_string();
 
         if let Some(mor_tier) = mor::extract_mor_tier(utterance) {
-            let items: Vec<Mor> = mor_tier.items.to_vec();
+            let items: Vec<Mor> = mor_tier.items().to_vec();
             state.utterances.entry(speaker).or_default().push(items);
         }
     }

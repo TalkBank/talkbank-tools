@@ -16,4 +16,4 @@ mod resolve;
 mod tests;
 
 pub(crate) use digits::check_word_digits_multi;
-pub use resolve::{LanguageResolution, resolve_word_language};
+pub use resolve::{LanguageResolution, LanguageResolutionOutcome, resolve_word_language};

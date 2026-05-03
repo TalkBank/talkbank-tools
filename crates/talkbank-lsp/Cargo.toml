@@ -34,3 +34,23 @@ path = "src/bin/talkbank-lsp.rs"
 
 [dev-dependencies]
 insta = { workspace = true }
+
+# This crate finished its panic-site audit on 2026-04-29 (see
+# `docs/panic-audit/talkbank-lsp.md`). The 6 non-test panic shapes are
+# all classified as infallible-by-construction with explicit
+# `#[allow]` annotations carrying rationales; new sites are now
+# blocked from landing without a deliberate opt-in.
+#
+# Cargo does not allow combining `[lints] workspace = true` with
+# crate-level overrides, so this table inlines the workspace lints
+# (kept in sync with root `Cargo.toml`'s `[workspace.lints.clippy]`)
+# and then promotes the panic-shape lints to `deny` for this crate
+# specifically. Other crates still inherit the workspace `warn`
+# floor.
+[lints.clippy]
+unwrap_used   = "deny"
+expect_used   = "deny"
+panic         = "deny"
+unreachable   = "deny"
+todo          = "deny"
+unimplemented = "deny"

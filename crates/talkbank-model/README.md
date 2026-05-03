@@ -1,5 +1,8 @@
 # talkbank-model
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 TalkBank data model and validation for [CHAT format](https://talkbank.org/0info/manuals/CHAT.html).
 
 ## Overview
@@ -43,7 +46,3 @@ assert!(file.utterances().is_empty());
 ## License
 
 BSD-3-Clause. See [LICENSE](../../LICENSE) for details.
-
----
-
-Implementation developed with [Claude](https://claude.ai) (Anthropic).

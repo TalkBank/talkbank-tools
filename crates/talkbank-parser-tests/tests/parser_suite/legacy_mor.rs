@@ -61,9 +61,9 @@ fn legacy_mor_pos_subcategory_noun_prop() -> Result<(), TestError> {
         };
 
         // Must have exactly 1 item
-        assert_eq!(tier.items.len(), 1, "[{}] expected 1 item", "tree-sitter");
+        assert_eq!(tier.items().len(), 1, "[{}] expected 1 item", "tree-sitter");
 
-        let word = &tier.items[0].main;
+        let word = &tier.items()[0].main;
         // POS must be "n:prop", not just "n"
         assert_eq!(
             word.pos.as_str(),
@@ -106,8 +106,8 @@ fn legacy_mor_pos_subcategory_verb_aux_with_fusional() -> Result<(), TestError> 
             }
         };
 
-        assert_eq!(tier.items.len(), 1);
-        let word = &tier.items[0].main;
+        assert_eq!(tier.items().len(), 1);
+        let word = &tier.items()[0].main;
 
         // POS must preserve subcategory
         assert_eq!(
@@ -157,9 +157,9 @@ fn legacy_mor_pos_subcategory_det_art() -> Result<(), TestError> {
             }
         };
 
-        assert_eq!(tier.items.len(), 1);
-        assert_eq!(tier.items[0].main.pos.as_str(), "det:art");
-        assert_eq!(tier.items[0].main.lemma.as_str(), "the");
+        assert_eq!(tier.items().len(), 1);
+        assert_eq!(tier.items()[0].main.pos.as_str(), "det:art");
+        assert_eq!(tier.items()[0].main.lemma.as_str(), "the");
     }
     Ok(())
 }
@@ -191,9 +191,9 @@ fn legacy_mor_pos_subcategory_pro_sub() -> Result<(), TestError> {
             }
         };
 
-        assert_eq!(tier.items.len(), 3);
-        assert_eq!(tier.items[0].main.pos.as_str(), "pro:sub");
-        assert_eq!(tier.items[0].main.lemma.as_str(), "I");
+        assert_eq!(tier.items().len(), 3);
+        assert_eq!(tier.items()[0].main.pos.as_str(), "pro:sub");
+        assert_eq!(tier.items()[0].main.lemma.as_str(), "I");
     }
     Ok(())
 }
@@ -225,9 +225,9 @@ fn legacy_mor_pos_nested_subcategory() -> Result<(), TestError> {
             }
         };
 
-        assert_eq!(tier.items.len(), 1);
-        assert_eq!(tier.items[0].main.pos.as_str(), "pro:poss:det");
-        assert_eq!(tier.items[0].main.lemma.as_str(), "your");
+        assert_eq!(tier.items().len(), 1);
+        assert_eq!(tier.items()[0].main.pos.as_str(), "pro:poss:det");
+        assert_eq!(tier.items()[0].main.lemma.as_str(), "your");
     }
     Ok(())
 }
@@ -265,8 +265,8 @@ fn legacy_mor_fusional_inflection() -> Result<(), TestError> {
             }
         };
 
-        assert_eq!(tier.items.len(), 1);
-        let word = &tier.items[0].main;
+        assert_eq!(tier.items().len(), 1);
+        let word = &tier.items()[0].main;
 
         // Lemma must be "make", not "make&PROG"
         assert_eq!(

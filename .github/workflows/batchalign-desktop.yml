@@ -1,11 +1,20 @@
-name: Batchalign Desktop Bundles
+# Experimental artifact-only workflow for dashboard desktop shells. This helps
+# internal validation of signed/unsigned bundles, but it is not a public release
+# line and does not create a GitHub Release.
+name: Batchalign Desktop Bundles (Experimental)
+
+run-name: Experimental desktop bundles
 
 on:
   workflow_dispatch: {}
 
+concurrency:
+  group: batchalign-desktop-experimental-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   bundle:
-    name: Desktop Bundle (${{ matrix.os }})
+    name: Experimental Desktop Bundle (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -73,6 +82,6 @@ jobs:
       - name: Upload desktop bundle artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: dashboard-desktop-${{ matrix.os }}
+          name: dashboard-desktop-experimental-${{ matrix.os }}
           path: apps/dashboard-desktop/src-tauri/target/release/bundle/
           if-no-files-found: error

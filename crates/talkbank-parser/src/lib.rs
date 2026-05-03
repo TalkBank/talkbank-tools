@@ -1,4 +1,17 @@
 #![warn(missing_docs)]
+// Test code is exempt from this crate's `deny`-level panic lints —
+// see `docs/panic-audit/talkbank-parser.md`.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 //! Tree-sitter parser for TalkBank CHAT.
 //!
 //! Create a [`TreeSitterParser`] once, then reuse it for all parsing in that

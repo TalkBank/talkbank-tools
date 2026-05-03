@@ -87,7 +87,6 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-          rm -rf batchalign_core/
       - name: Run tests
         run: uv run --no-sync pytest batchalign --disable-pytest-warnings -k 'not test_whisper_fa_pipeline'
 
@@ -138,7 +137,6 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-          rm -rf batchalign_core/
       - name: Verify retirement gates
         run: |
           test ! -e batchalign/cli/cli.py
@@ -209,6 +207,8 @@ jobs:
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: Swatinem/rust-cache@v2
+      - name: Generate lockfile
+        run: cargo generate-lockfile
       - name: RustSec audit
         uses: rustsec/audit-check@v2
         with:
@@ -247,7 +247,6 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-          rm -rf batchalign_core/
       - name: Rust imported crate check
         run: make batchalign-check
       - name: Server startup smoke test
@@ -302,7 +301,6 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-          rm -rf batchalign_core/
       - name: Python coverage
         run: uv run --no-sync pytest --cov=batchalign --cov-report=lcov:lcov-python.info batchalign --disable-pytest-warnings -k 'not test_whisper_fa_pipeline'
       - name: Rust PyO3 coverage
@@ -363,7 +361,6 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-          rm -rf batchalign_core/
       - uses: actions/setup-node@v6
         with:
           node-version: "20"

@@ -306,7 +306,7 @@ impl TreeSitterParser {
         else {
             return ParseOutcome::rejected();
         };
-        let Some(mor) = tier.items.0.into_iter().next() else {
+        let Some(mor) = tier.into_items().into_iter().next() else {
             return ParseOutcome::rejected();
         };
         ParseOutcome::parsed(mor.main)
@@ -342,7 +342,7 @@ impl TreeSitterParser {
         else {
             return ParseOutcome::rejected();
         };
-        tier.relations.0.into_iter().next().into()
+        tier.into_relations().into_iter().next().into()
     }
 
     // =========================================================================

@@ -1,7 +1,7 @@
 # Batchalign3
 
 **Status:** Current
-**Last updated:** 2026-04-28 16:59 EDT
+**Last updated:** 2026-04-29 10:24 EDT
 
 [![CI](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml)
 [![PyPI](https://img.shields.io/pypi/v/batchalign3)](https://pypi.org/project/batchalign3/)
@@ -21,21 +21,21 @@ Windows, and Linux.
 
 ## Get Started
 
-### Easiest: Download and double-click
+`batchalign3` is a **public preview** product line on the `0.1.x` release
+line. The canonical public install path today is:
 
-No terminal required. Download the installer for your platform, double-click
-it, and follow the on-screen prompts:
+```bash
+uv tool install batchalign3
+```
 
-- **macOS:** [Download install-batchalign3.command](https://github.com/TalkBank/talkbank-tools/raw/main/installers/macos/install-batchalign3.command)
-  — if macOS blocks it, right-click > **Open** > **Open** in the dialog
-- **Windows:** [Download install-batchalign3.bat](https://github.com/TalkBank/talkbank-tools/raw/main/installers/windows/install-batchalign3.bat)
-  — if SmartScreen blocks it, click **More info** > **Run anyway**
+This installs the preview wheel from PyPI. The repo-hosted helper scripts in
+[`installers/`](../installers/README.md) run this same `uv` flow for users who
+want a download-and-double-click wrapper, but they are not a separate signed
+installer or release channel.
 
-See [`installers/README.md`](installers/README.md) for details.
+### Install with `uv`
 
-### From the terminal
-
-Install the `uv` package manager, then install Batchalign:
+Install the `uv` package manager if needed, then install Batchalign:
 
 **macOS / Linux:**
 
@@ -49,14 +49,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 irm https://astral.sh/uv/install.ps1 | iex
 ```
 
-Close and reopen your terminal, then:
-
-```bash
-uv tool install batchalign3
-```
-
-All built-in engines, including Cantonese/HK providers, ship in the base
-package:
+Close and reopen your terminal, then run:
 
 ```bash
 uv tool install batchalign3
@@ -70,8 +63,8 @@ uv tool install batchalign3
 - **FFmpeg:** only needed for MP4 media files
 - **Platforms:** macOS (ARM + Intel), Windows (x86), Linux (x86 + ARM)
 
-See [Installation guide](book/src/user-guide/installation.md) for offline
-install, worker Python resolution, and development setup.
+See [Installation guide](../book/src/batchalign/user-guide/installation.md) for helper-script
+details, offline install, worker Python resolution, and development setup.
 
 ### First run
 
@@ -93,7 +86,7 @@ The first time you run a processing command (e.g. `morphotag`), ML models will
 be downloaded automatically — this is a one-time cost of ~2 GB and may take a
 few minutes depending on your connection.
 
-See [Quick start](book/src/user-guide/quick-start.md) for a full first-run
+See [Quick start](../book/src/batchalign/user-guide/quick-start.md) for a full first-run
 walkthrough.
 
 ### Updating
@@ -104,8 +97,8 @@ Upgrade to the latest version:
 uv tool upgrade batchalign3
 ```
 
-If you installed via the one-click installer, re-running the same installer
-script will upgrade an existing installation.
+If you installed via one of the repo-hosted helper scripts, re-running the same
+script upgrades the same `uv`-managed installation.
 
 The CLI will print a notice when a newer version is available on PyPI.
 
@@ -141,7 +134,7 @@ The `-o` flag is optional — two positional arguments are treated as
 batchalign3 morphotag ~/corpus/ ~/output/    # same as -o ~/output/
 ```
 
-See [CLI reference](book/src/user-guide/cli-reference.md) for the full
+See [CLI reference](../book/src/batchalign/user-guide/cli-reference.md) for the full
 command list and all flags.
 
 ### In-place processing
@@ -193,25 +186,25 @@ batchalign3 serve start --port 9000      # default port is 8000
 batchalign3 --server http://myserver:9000 morphotag ~/corpus/ -o ~/output/
 ```
 
-See [Server mode](book/src/user-guide/server-mode.md) for setup details and
+See [Server mode](../book/src/batchalign/user-guide/server-mode.md) for setup details and
 the remote/local tradeoffs.
 
 ## Learn more
 
 ### For users
 
-- [Installation guide](book/src/user-guide/installation.md) — system requirements, offline install, updating
-- [Quick start](book/src/user-guide/quick-start.md) — first run walkthrough
-- [CLI reference](book/src/user-guide/cli-reference.md) — all commands and flags
-- [Server mode](book/src/user-guide/server-mode.md) — remote dispatch, daemon management
-- [Performance tips](book/src/user-guide/performance.md) — large corpus processing
-- [Migrating from Batchalign2](book/src/migration/index.md) — upgrade path
+- [Installation guide](../book/src/batchalign/user-guide/installation.md) — system requirements, offline install, updating
+- [Quick start](../book/src/batchalign/user-guide/quick-start.md) — first run walkthrough
+- [CLI reference](../book/src/batchalign/user-guide/cli-reference.md) — all commands and flags
+- [Server mode](../book/src/batchalign/user-guide/server-mode.md) — remote dispatch, daemon management
+- [Performance tips](../book/src/batchalign/user-guide/performance.md) — large corpus processing
+- [Migrating from Batchalign2](../book/src/batchalign/migration/index.md) — upgrade path
 - [TalkBank CHAT manual](https://talkbank.org/0info/manuals/CHAT.html) — CHAT format reference
 
 ### For developers
 
-- [Python API](book/src/user-guide/python-api.md) — CLI-first usage, removed legacy APIs
-- [Building & Development](book/src/developer/building.md) — Rust toolchain, dev rebuilds, test matrix
+- [Python API](../book/src/batchalign/user-guide/python-api.md) — CLI-first usage, removed legacy APIs
+- [Building & Development](../book/src/batchalign/developer/building.md) — Rust toolchain, dev rebuilds, test matrix
 
 ## Development
 

@@ -1,6 +1,7 @@
 # Parser Backends
 
-**Last updated:** 2026-04-01 13:48 EDT
+**Status:** Current
+**Last updated:** 2026-05-01 05:19 EDT
 
 TalkBank has two CHAT parser implementations. Both implement the `ChatParser`
 trait and produce identical `ChatFile` model types.
@@ -18,7 +19,7 @@ Used by the LSP, the default CLI, and all production validation.
 
 ## Re2cParser
 
-- **Crate:** `talkbank-re2c-parser`
+- **Crate:** `talkbank-parser-re2c`
 - **Technology:** [re2c](https://re2c.org/) DFA lexer + [chumsky](https://docs.rs/chumsky/1.0.0-alpha.8) parser combinators
 - **Grammar:** Translated from `grammar.js` rules → re2c conditions + chumsky combinators
 - **Strengths:** 4-8x faster, `Send + Sync`, zero constructor cost, specification oracle
@@ -69,7 +70,7 @@ parsers report actionable diagnostics for all 140 testable error specs.
 | Large file (complex) | 7,734 µs | 970 µs | 8.0x |
 | Batch (35 files) | 21.7 ms | 3.0 ms | 7.2x |
 
-Run benchmarks: `cargo bench -p talkbank-re2c-parser --bench parse_comparison`
+Run benchmarks: `cargo bench -p talkbank-parser-re2c --bench parse_comparison`
 
 ## When to Use Which
 
@@ -93,5 +94,5 @@ post-hoc promotion logic:
 
 ## Detailed Parity Report
 
-See [`crates/talkbank-re2c-parser/docs/parity-report.md`](https://github.com/TalkBank/talkbank-tools/blob/main/crates/talkbank-re2c-parser/docs/parity-report.md)
+See [`crates/talkbank-parser-re2c/docs/parity-report.md`](https://github.com/TalkBank/talkbank-tools/blob/main/crates/talkbank-parser-re2c/docs/parity-report.md)
 for the full gap analysis, divergence categories, and remaining work items.

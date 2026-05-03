@@ -211,7 +211,7 @@ fn is_verb_pos(pos: &str) -> bool {
 /// adds one clause to the count.
 fn count_clauses_from_gra(tier: &talkbank_model::GraTier) -> u64 {
     let mut clauses = 0u64;
-    for relation in &tier.relations.0 {
+    for relation in tier.relations() {
         let relation = relation.relation.to_string().to_uppercase();
         match relation.as_str() {
             "CSUBJ" | "CPRED" | "CPOBJ" | "COBJ" | "CJCT" | "XJCT" | "CMOD" | "XMOD" | "COMP" => {
@@ -260,7 +260,7 @@ impl AnalysisCommand for SugarCommand {
         }
 
         if let Some(tier) = mor_tier {
-            for item in &tier.items.0 {
+            for item in tier.items() {
                 word_count += 1;
                 morph_count += mor_item_morpheme_count(item);
                 if mor_item_has_verb(item, is_verb_pos) {

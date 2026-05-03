@@ -1,4 +1,17 @@
 #![warn(missing_docs)]
+// Test code is exempt from this crate's `deny`-level panic lints —
+// see `docs/panic-audit/talkbank-cli.md`.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 //! `chatter` -- command-line interface for CHAT format validation, conversion,
 //! and analysis.
 //!
@@ -133,6 +146,10 @@ fn main() {
     // via derive attributes, so we post-process the command tree.
     let cmd = cli::apply_clan_help_grouping(cli::Cli::command());
     let matches = cmd.get_matches_from(rewritten);
+    // clap-validation invariant: `cmd.get_matches_from(...)` above
+    // exits the process on any validation failure, so reaching
+    // `from_arg_matches` guarantees the matches are well-formed.
+    #[allow(clippy::expect_used)]
     let cli =
         cli::Cli::from_arg_matches(&matches).expect("clap should have validated all arguments");
 

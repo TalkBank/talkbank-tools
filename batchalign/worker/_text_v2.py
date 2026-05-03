@@ -8,6 +8,10 @@ This module keeps the Python side of text-task V2 intentionally narrow:
 
 Rust still owns cross-file batching, cache policy, preprocessing, postprocessing,
 and CHAT semantics. Python remains a thin model-host boundary.
+
+**See also:** `../../INTERFACE_MAP.md` section "7. Text Task Result Normalization" for:
+- Rust FFI function: `crates/batchalign-pyo3/src/worker_text_results.rs`
+- Full Rust/Python responsibility split and input/output contracts.
 """
 
 from __future__ import annotations

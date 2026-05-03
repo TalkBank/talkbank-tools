@@ -354,7 +354,7 @@ impl AnalysisCommand for EvalCommand {
         // Process %mor tier using typed MorTier items
         let mut morpheme_count = 0u64;
         if let Some(mor_tier) = mor::extract_mor_tier(utterance) {
-            for item in mor_tier.items.iter() {
+            for item in mor_tier.items().iter() {
                 mor::classify_mor_item(item, &mut accum.pos);
                 morpheme_count += mor::count_morphemes_typed(item);
             }

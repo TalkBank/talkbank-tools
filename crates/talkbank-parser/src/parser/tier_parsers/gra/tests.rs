@@ -28,7 +28,7 @@ fn test_gra_tier_construction() {
         GrammaticalRelation::new(3, 2, "OBJ"),
     ];
     let tier = GraTier::new(GraTierType::Gra, relations);
-    assert_eq!(tier.relations.len(), 3);
+    assert_eq!(tier.relations().len(), 3);
     assert!(tier.is_gra());
 
     let output = tier.to_chat_string();

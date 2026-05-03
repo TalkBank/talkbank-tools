@@ -32,7 +32,7 @@ pub fn find_mor_tier_hover_info(
     let mor_idx = find_mor_item_index_at_offset(tree, mor_tier.span, offset)?;
 
     // Get the mor item
-    let mor_item = mor_tier.items.get(mor_idx)?;
+    let mor_item = mor_tier.items().get(mor_idx)?;
 
     // Build hover info
     let mut info = AlignmentHoverInfo::new("Morphology Element", format_mor_item(mor_item));
@@ -51,7 +51,7 @@ pub fn find_mor_tier_hover_info(
         && let Some(gra_alignment) = alignments.gra.as_ref()
         && let Some(gra_idx) = find_target_index_for_source(&gra_alignment.pairs, mor_idx)
         && let Some(gra_tier) = utterance.gra_tier()
-        && let Some(gra_relation) = gra_tier.relations.get(gra_idx)
+        && let Some(gra_relation) = gra_tier.relations().get(gra_idx)
     {
         info.aligned_to_gra = Some(format_gra_alignment_text(mor_tier, gra_relation));
     }

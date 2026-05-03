@@ -1,3 +1,5 @@
+# affects: batchalign/inference/fa/**
+# affects: crates/batchalign-fa/**
 """Tests for the thin Python forced-alignment inference boundary."""
 
 from __future__ import annotations

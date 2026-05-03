@@ -515,7 +515,7 @@ impl XmlEmitter {
                         tiers
                             .mor
                             .as_ref()
-                            .and_then(|mor| mor.items.0.get(cursors.mor_index()))
+                            .and_then(|mor| mor.items().get(cursors.mor_index()))
                     } else {
                         None
                     };
@@ -566,7 +566,7 @@ impl XmlEmitter {
                         tiers
                             .mor
                             .as_ref()
-                            .and_then(|mor| mor.items.0.get(cursors.mor_index()))
+                            .and_then(|mor| mor.items().get(cursors.mor_index()))
                     } else {
                         None
                     };
@@ -585,7 +585,7 @@ impl XmlEmitter {
                 UtteranceContent::AnnotatedWord(annotated) => {
                     let mor_for_chunk = tiers
                         .mor
-                        .and_then(|mor| mor.items.0.get(cursors.mor_index()));
+                        .and_then(|mor| mor.items().get(cursors.mor_index()));
                     self.emit_annotated_word(
                         annotated,
                         mor_for_chunk,

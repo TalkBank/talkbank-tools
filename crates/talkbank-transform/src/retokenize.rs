@@ -37,7 +37,6 @@ pub struct WordTokenMapping {
     inner: Vec<SmallVec<[usize; 4]>>,
 }
 
-#[allow(dead_code)]
 impl WordTokenMapping {
     /// Number of original words this mapping covers.
     pub fn word_count(&self) -> usize {
@@ -199,13 +198,16 @@ pub fn retokenize_utterance(
     original_words: &[ExtractedWord],
     stanza_tokens: &[String],
     mors: Vec<Mor>,
-    terminator: Option<String>,
+    terminator: talkbank_model::Terminator,
     gra_relations: Vec<GrammaticalRelation>,
 ) -> Result<(), MisalignmentDiagnostic> {
     if original_words.is_empty() || stanza_tokens.is_empty() {
         return Ok(());
     }
-    let expected_terminator = terminator.as_deref();
+    // Render typed terminator to its CHAT surface form for retokenization
+    // diagnostics that compare against the source bytes.
+    let terminator_surface = terminator.to_string();
+    let expected_terminator = Some(terminator_surface.as_str());
 
     let mapping = build_word_token_mapping(original_words, stanza_tokens);
 
@@ -252,12 +254,16 @@ mod tests {
     use super::*;
 
     fn extracted_words(words: &[&str]) -> Vec<ExtractedWord> {
+        // Test fixture path via the explicit `test_unchecked` escape
+        // hatch on each text type (gated behind the `test-utils`
+        // feature in this crate's [dev-dependencies]). Production
+        // builds cannot reach these constructors.
         words
             .iter()
             .enumerate()
             .map(|(idx, word)| ExtractedWord {
-                text: ChatCleanedText::new((*word).to_string()),
-                raw_text: ChatRawText::new((*word).to_string()),
+                text: ChatCleanedText::test_unchecked(*word),
+                raw_text: ChatRawText::test_unchecked(*word),
                 utterance_word_index: WordIdx(idx),
                 form_type: None,
                 lang: None,

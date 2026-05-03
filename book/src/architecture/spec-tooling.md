@@ -1,7 +1,7 @@
 # Spec Tooling and Generation Pipeline
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-01 05:30 EDT
 
 ## Objective
 Make `spec/` the reliable language-contract source while keeping generation
@@ -16,13 +16,12 @@ The goal is to separate:
 Anything that still looks like bootstrap-era synthetic fragment orchestration
 is now audit-only unless a doc says it remains operational.
 
-## Current Risk Snapshot
-- `spec/tools` currently fails compile in baseline (`CA_ANNOTATION` vs `ALT_ANNOTATION` drift).
-- This demonstrates a missing hard contract between node type generation and tool consumption.
-- `spec/tools` still carries bootstrap-era Rust parser/model dependencies that
-  create circular or awkward workflow coupling.
-- contributor workflows still over-assume that `make test-gen` is the right
-  reaction to every parser-related change.
+## Open structural concerns
+
+- `spec/tools` still carries bootstrap-era Rust parser/model
+  dependencies that create circular or awkward workflow coupling.
+- Contributor workflows still over-assume that `make test-gen` is
+  the right reaction to every parser-related change.
 
 ## Current Generation Pipeline
 

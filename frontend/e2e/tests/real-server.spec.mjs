@@ -1,3 +1,6 @@
+// affects: frontend/src/**
+// affects: frontend/dist/**
+// affects: crates/batchalign/src/**
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import { createServer } from "node:net";

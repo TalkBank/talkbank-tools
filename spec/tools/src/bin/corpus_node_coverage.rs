@@ -26,10 +26,17 @@ const REFERENCE_CORPUS_EXCLUDED_CONCRETE_TYPES: &[&str] = &[
     "generic_media_status",
     "generic_media_type",
     "generic_number",
+    "generic_option_name",
     "generic_recording_quality",
     "generic_transcription",
     "strict_date",
     "strict_time",
+    // Parser-recovery concession: `;` is a `non_colon_separator` choice in
+    // the main tier grammar so malformed input parses gracefully, but
+    // semicolons in well-formed CHAT only appear inside `age_format`
+    // tokens (`2;06.`), not as standalone separators. The validator
+    // would flag a freestanding `;` on a main tier as a syntax error.
+    "semicolon",
     // Structured word grammar nodes — need reference files with stress markers, POS tags
     "pos_tag",
     "stress_marker",

@@ -15,12 +15,20 @@ pub mod tier;
 pub mod word;
 
 use talkbank_model::ErrorSink;
+use talkbank_model::ParseOutcome;
 use talkbank_model::model::{MorTier, MorTierType};
 use tree_sitter::Node;
 
 pub use tier::parse_mor_tier_inner;
 
 /// Converts one `%mor` tier from a CST node.
-pub fn parse_mor_tier(node: Node, source: &str, errors: &impl ErrorSink) -> MorTier {
+///
+/// Returns [`ParseOutcome::Rejected`] when the tier has any
+/// unrecoverable parse failure: a malformed item, an unrecognized
+/// terminator, or no terminator at all. Diagnostics are streamed via
+/// the supplied [`ErrorSink`]; the caller decides per-utterance
+/// whether to mark the morphology as `BlockedByMorParseFailure` (rule
+/// 6e) or skip it.
+pub fn parse_mor_tier(node: Node, source: &str, errors: &impl ErrorSink) -> ParseOutcome<MorTier> {
     parse_mor_tier_inner(node, source, MorTierType::Mor, errors)
 }

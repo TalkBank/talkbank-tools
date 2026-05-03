@@ -638,7 +638,7 @@ Media bullet (timestamp marker) contains malformed content — e.g., non-numeric
 
 ## Main tier validation (E3x)
 
-The media bullet contains a deprecated skip flag (dash before closing NAK delimiter). The skip flag was deprecated as of 2026-03-31 (confirmed by Brian MacWhinney). Only 10 occurrences exist in 7 files across the entire 99,742-file corpus.
+The media bullet contains a deprecated skip flag (dash before closing NAK delimiter). The skip flag is deprecated. Only a small number of occurrences exist across the corpus.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|

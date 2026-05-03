@@ -40,25 +40,25 @@ def test_parse_python_single_pattern(tmp_path: Path) -> None:
 def test_parse_rust_single_pattern(tmp_path: Path) -> None:
     f = tmp_path / "a.rs"
     f.write_text(
-        "// affects: crates/batchalign-chat-ops/src/retokenize/**\n"
+        "// affects: crates/batchalign/src/retokenize/**\n"
         "fn test_x() {}\n"
     )
     decl = parse_affects(f)
-    assert decl.patterns == ("crates/batchalign-chat-ops/src/retokenize/**",)
+    assert decl.patterns == ("crates/batchalign/src/retokenize/**",)
 
 
 def test_parse_multiple_patterns(tmp_path: Path) -> None:
     f = tmp_path / "test_x.py"
     f.write_text(
         "# affects: batchalign/inference/morphosyntax.py\n"
-        "# affects: crates/batchalign-chat-ops/src/nlp/**\n"
+        "# affects: crates/batchalign/src/nlp/**\n"
         "# affects: batchalign/tests/_test_history.py\n"
         "def test_a(): pass\n"
     )
     decl = parse_affects(f)
     assert decl.patterns == (
         "batchalign/inference/morphosyntax.py",
-        "crates/batchalign-chat-ops/src/nlp/**",
+        "crates/batchalign/src/nlp/**",
         "batchalign/tests/_test_history.py",
     )
 
@@ -112,15 +112,15 @@ def test_match_exact_path() -> None:
 
 
 def test_match_double_star_glob() -> None:
-    decl = AffectsDeclaration(Path("t.py"), ("crates/batchalign-chat-ops/src/retokenize/**",))
+    decl = AffectsDeclaration(Path("t.py"), ("crates/batchalign/src/retokenize/**",))
     assert diff_matches_declaration(
-        ["crates/batchalign-chat-ops/src/retokenize/mod.rs"], decl
+        ["crates/batchalign/src/retokenize/mod.rs"], decl
     ) is True
     assert diff_matches_declaration(
-        ["crates/batchalign-chat-ops/src/retokenize/deep/nested/file.rs"], decl
+        ["crates/batchalign/src/retokenize/deep/nested/file.rs"], decl
     ) is True
     assert diff_matches_declaration(
-        ["crates/batchalign-chat-ops/src/nlp/lang_it.rs"], decl
+        ["crates/batchalign/src/nlp/lang_it.rs"], decl
     ) is False
 
 

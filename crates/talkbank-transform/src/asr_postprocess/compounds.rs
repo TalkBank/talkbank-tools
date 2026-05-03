@@ -1,8 +1,9 @@
 //! Compound word merging for ASR post-processing.
 //!
 //! Merges adjacent ASR tokens that form known English compound words
-//! (e.g. "air" + "plane" → "airplane"). The compound list (3,660 pairs)
-//! is loaded from `data/compounds.json` at compile time.
+//! (e.g. "air" + "plane" → "airplane"). The compound list is loaded from
+//! `data/compounds.json` at compile time (3,660 raw entries, 3,584 unique
+//! pairs after `HashSet` dedup).
 
 use std::collections::HashSet;
 use std::sync::LazyLock;

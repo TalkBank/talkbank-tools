@@ -136,7 +136,12 @@ mod tests {
 
     fn sample_file() -> ChatFile {
         let utt = Utterance::new(main_tier())
-            .add_dependent_tier(DependentTier::Mor(MorTier::new_mor(vec![])))
+            .add_dependent_tier(DependentTier::Mor(MorTier::new_mor(
+                vec![],
+                talkbank_model::Terminator::Period {
+                    span: talkbank_model::Span::DUMMY,
+                },
+            )))
             .add_dependent_tier(DependentTier::Cod(CodTier::from_text("$A")))
             .add_dependent_tier(DependentTier::Com(ComTier {
                 content: BulletContent::from_text("note"),

@@ -986,3 +986,59 @@ fn clan_help_shows_grouped_commands() -> Result<(), TestError> {
         ));
     Ok(())
 }
+
+// ============================================================================
+// Debug Sanitize Tests (`chatter debug sanitize`)
+// ============================================================================
+
+/// Source words must not appear in sanitize output written to stdout.
+#[test]
+fn test_sanitize_stdout_strips_words() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input = dir.path().join("input.cha");
+    fs::write(&input, VALID_CHAT)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("debug")
+        .arg("sanitize")
+        .arg(&input)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hello").not())
+        .stdout(predicate::str::contains("world").not())
+        .stdout(predicate::str::contains("*CHI:"))
+        .stdout(predicate::str::contains("w1"))
+        .stdout(predicate::str::contains("w2"));
+    Ok(())
+}
+
+/// `--output` writes the sanitized result to a file.
+#[test]
+fn test_sanitize_output_file() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let input = dir.path().join("input.cha");
+    let output = dir.path().join("sanitized.cha");
+    fs::write(&input, VALID_CHAT)?;
+
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("debug")
+        .arg("sanitize")
+        .arg(&input)
+        .arg("--output")
+        .arg(&output)
+        .assert()
+        .success();
+
+    let body = fs::read_to_string(&output)?;
+    assert!(
+        !body.contains("hello"),
+        "source word leaked into file:\n{body}"
+    );
+    assert!(
+        !body.contains("world"),
+        "source word leaked into file:\n{body}"
+    );
+    assert!(body.contains("*CHI:"), "speaker code missing:\n{body}");
+    assert!(body.contains("w1"), "placeholder w1 missing:\n{body}");
+    Ok(())
+}

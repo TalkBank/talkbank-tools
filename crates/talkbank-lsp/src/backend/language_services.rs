@@ -45,6 +45,13 @@ impl LanguageServices {
             initialize_parser(slot);
             let parser = slot.borrow();
 
+            // `initialize_parser` writes `Some(...)` on first call;
+            // subsequent calls observe `Some(...)` from the same slot.
+            // The expect here is therefore infallible by construction —
+            // dropping it would require a `OnceCell` or `LazyLock`
+            // refactor of the thread-local slot, tracked as a
+            // follow-up in `docs/panic-audit/talkbank-lsp.md`.
+            #[allow(clippy::expect_used)]
             match parser.as_ref().expect("parser slot initialized") {
                 Ok(parser) => Ok(callback(parser)),
                 Err(error) => Err(error.clone()),
@@ -67,6 +74,10 @@ impl LanguageServices {
             initialize_semantic_tokens(slot);
             let mut provider = slot.borrow_mut();
 
+            // Same invariant as `with_parser` above: the slot is
+            // populated unconditionally by `initialize_semantic_tokens`
+            // before this read. Tracked under `OnceCell` migration.
+            #[allow(clippy::expect_used)]
             match provider.as_mut().expect("semantic-tokens slot initialized") {
                 Ok(provider) => callback(provider),
                 Err(init_error) => Err(LspBackendError::HighlightFailed {

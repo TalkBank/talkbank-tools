@@ -1,4 +1,9 @@
-"""Live worker-protocol V2 AVQI executor."""
+"""Live worker-protocol V2 AVQI executor.
+
+**See also:** `../../INTERFACE_MAP.md` section "5. Media Analysis V2: AVQI" for:
+- Rust FFI function: `crates/batchalign-pyo3/src/worker_media_exec.rs::execute_avqi_request_v2()`
+- Full Rust/Python responsibility split and input/output contracts.
+"""
 
 from __future__ import annotations
 

@@ -336,9 +336,12 @@ fn test_mor_alignment_error_too_few_has_proper_location() {
     )
     .with_span(Span::from_usize(0, 20)); // *CHI: one two .
 
-    let mor = MorTier::new(MorTierType::Mor, vec![simple_mor("num", "one")])
-        .with_span(Span::from_usize(21, 35)) // %mor: num|one
-        .with_terminator(Some(".".into()));
+    let mor = MorTier::new(
+        MorTierType::Mor,
+        vec![simple_mor("num", "one")],
+        Terminator::Period { span: Span::DUMMY },
+    )
+    .with_span(Span::from_usize(21, 35)); // %mor: num|one
 
     let alignment = align_main_to_mor(&main, &mor);
 
@@ -379,9 +382,9 @@ fn test_mor_alignment_error_too_many_has_proper_location() {
     let mor = MorTier::new(
         MorTierType::Mor,
         vec![simple_mor("num", "one"), simple_mor("num", "two")],
+        Terminator::Period { span: Span::DUMMY },
     )
-    .with_span(Span::from_usize(16, 40)) // %mor: num|one num|two
-    .with_terminator(Some(".".into()));
+    .with_span(Span::from_usize(16, 40)); // %mor: num|one num|two
 
     let alignment = align_main_to_mor(&main, &mor);
 
@@ -422,9 +425,9 @@ fn test_mor_alignment_errors_have_no_bogus_context() {
     let mor = MorTier::new(
         MorTierType::Mor,
         vec![simple_mor("num", "one"), simple_mor("num", "two")],
+        Terminator::Period { span: Span::DUMMY },
     )
-    .with_span(Span::from_usize(16, 40))
-    .with_terminator(Some(".".into()));
+    .with_span(Span::from_usize(16, 40));
 
     let alignment = align_main_to_mor(&main, &mor);
 

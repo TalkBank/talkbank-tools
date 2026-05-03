@@ -1,4 +1,17 @@
 #![warn(missing_docs)]
+// Test code is exempt from this crate's `deny`-level panic lints —
+// see `docs/panic-audit/talkbank-clan.md`.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 //! Reimplementation of CLAN analysis commands in Rust.
 //!
 //! CLAN (Computerized Language Analysis) is a toolkit by Brian MacWhinney containing

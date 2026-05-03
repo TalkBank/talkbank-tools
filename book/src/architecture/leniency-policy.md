@@ -1,5 +1,8 @@
 # Parser Leniency Policy
 
+**Status:** Current
+**Last updated:** 2026-05-01 05:19 EDT
+
 This document is the single source of truth for how the tree-sitter grammar,
 Rust validation layer, and CLI tooling divide responsibility for enforcing the
 CHAT specification. It consolidates decisions scattered across `grammar.js`

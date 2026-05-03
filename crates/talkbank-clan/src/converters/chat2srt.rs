@@ -1,3 +1,7 @@
+// `writeln!` to `String` is infallible. See the same comment in
+// `praat2chat.rs` for the convention.
+#![allow(clippy::unwrap_used)]
+
 //! CHAT to SRT/WebVTT subtitle conversion.
 //!
 //! Converts CHAT files to SRT (SubRip) or WebVTT subtitle format, using

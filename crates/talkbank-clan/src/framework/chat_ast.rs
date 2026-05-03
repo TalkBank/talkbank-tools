@@ -85,22 +85,21 @@ pub fn dependent_tier_content_text(tier: &DependentTier) -> String {
     }
 }
 
-/// Serialize `%mor` items as token strings, preserving per-item boundaries.
+/// Serialize `%mor` items as token strings, preserving per-item
+/// boundaries. The output always includes one trailing terminator
+/// element.
 pub fn mor_item_texts(tier: &MorTier) -> Vec<String> {
-    let mut out = Vec::with_capacity(tier.items.len() + usize::from(tier.terminator.is_some()));
-    for item in &tier.items.0 {
+    let mut out = Vec::with_capacity(tier.items().len() + 1);
+    for item in tier.items() {
         out.push(WriteChat::to_chat_string(item));
     }
-    if let Some(term) = &tier.terminator {
-        out.push(term.to_string());
-    }
+    out.push(tier.terminator.to_string());
     out
 }
 
 /// Serialize `%gra` relations as token strings, preserving relation boundaries.
 pub fn gra_relation_texts(tier: &GraTier) -> Vec<String> {
-    tier.relations
-        .0
+    tier.relations()
         .iter()
         .map(WriteChat::to_chat_string)
         .collect()
@@ -118,7 +117,7 @@ pub fn mor_item_morpheme_count(item: &talkbank_model::dependent_tier::mor::Mor) 
 
 /// Return the main POS tag string for each `%mor` item.
 pub fn mor_item_pos_tags(tier: &MorTier) -> Vec<String> {
-    tier.items
+    tier.items()
         .iter()
         .map(|item| item.main.pos.to_string())
         .collect()

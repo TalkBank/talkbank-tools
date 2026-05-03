@@ -1,7 +1,20 @@
 # Symbols
 
-**Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Status:** Reference — partially inaccurate, see warning on the CA section
+**Last updated:** 2026-05-01 15:43 EDT
+
+> **WARNING:** The "CA (Conversation Analysis) Delimiters" section below
+> erases a parser-level distinction. The symbol registry
+> (`spec/symbols/symbol_registry.json`) splits these characters into
+> three grammatical categories with different parser treatment:
+> `ca_delimiter_symbols`, `ca_element_symbols`, and
+> `word_segment_forbidden_*`. `↑` and `↓` *attach to a word*
+> (`book↑` is one token); `→`, `↗`, `↘` are *separators* that the
+> parser splits as their own nodes. Lumping them together as "CA
+> delimiters" with one semantic is misleading. Until this page is
+> rewritten to mirror the registry, trust the registry. See
+> `<workspace>/docs/architecture-review-2026-05-01.md` §6 stale-doc
+> entry for this page.
 
 CHAT uses a rich set of symbols for transcription conventions. This page documents the symbol categories and the symbol registry that drives both the grammar and the Rust crates.
 

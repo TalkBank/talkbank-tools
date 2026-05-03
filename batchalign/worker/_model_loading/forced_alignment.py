@@ -11,7 +11,7 @@ def load_fa_engine(bootstrap: WorkerBootstrapRuntime) -> None:
     engine_overrides = bootstrap.engine_overrides or None
     fa_engine = engine_overrides["fa"] if engine_overrides and "fa" in engine_overrides else "whisper"
     if fa_engine == "wav2vec_canto":
-        from batchalign.inference.hk._cantonese_fa import load_cantonese_fa
+        from batchalign.inference.languages.cantonese._cantonese_fa import load_cantonese_fa
 
         load_cantonese_fa(
             lang,

@@ -1,4 +1,9 @@
-"""Live worker-protocol V2 openSMILE executor."""
+"""Live worker-protocol V2 openSMILE executor.
+
+**See also:** `../../INTERFACE_MAP.md` section "4. Media Analysis V2: OpenSMILE" for:
+- Rust FFI function: `crates/batchalign-pyo3/src/worker_media_exec.rs::execute_opensmile_request_v2()`
+- Full Rust/Python responsibility split and input/output contracts.
+"""
 
 from __future__ import annotations
 

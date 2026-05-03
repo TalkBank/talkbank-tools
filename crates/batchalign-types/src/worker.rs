@@ -1,9 +1,43 @@
-//! Worker IPC types — the shared contract between Rust control-plane and
-//! Python worker processes.
+//! Worker IPC types — FROZEN legacy V1 protocol.
 //!
-//! Workers communicate over JSON messages. These types define the
-//! request/response payloads exchanged for infer, batch-infer, health,
-//! and capabilities operations.
+//! ⚠️ **This module is frozen and no longer the active protocol.**
+//!
+//! - **Status:** Legacy compatibility surface (JSON-lines over stdio).
+//! - **Active alternative:** [`crate::worker_v2`] (typed MessagePack envelopes).
+//! - **Deprecation:** V1 support will be removed after all production tasks are migrated
+//!   to [`crate::worker_v2`]. Currently used only by `dispatch_batch_infer()` for
+//!   backward-compatibility paths that do not route through the task orchestration layer.
+//!
+//! ## What Changed in V2
+//!
+//! The original worker protocol in this module defined the request/response payloads
+//! exchanged for `infer`, `batch-infer`, `health`, and `capabilities` operations over
+//! JSON-lines.
+//!
+//! V2 replaces this with:
+//! - **Typed envelopes** (`ExecuteRequestV2`, `ExecuteResponseV2`, `ProgressEventV2`).
+//! - **Explicit artifact references** (no large binary payloads embedded in JSON).
+//! - **Task-discriminated union** (task kind is encoded in the envelope, enabling
+//!   type-safe deserialization on both sides).
+//! - **Backward-incompatible wire format** (different serialization, no V1→V2 bridge).
+//!
+//! ## Frozen Contract
+//!
+//! To preserve backward compatibility with any remaining direct consumers:
+//! - Do NOT add new fields to existing structs in this module.
+//! - Do NOT change the order of existing fields.
+//! - Do NOT rename types or enum variants.
+//! - If a new feature is needed, define it in [`crate::worker_v2`] instead.
+//!
+//! Any changes that would break the JSON serialization format are banned for this module.
+//!
+//! ## Migration Path
+//!
+//! 1. Identify remaining callers of `dispatch_batch_infer()`.
+//! 2. Route them through `dispatch_execute_v2()` with V2 request types.
+//! 3. Remove this module and all V1 paths once migration is complete.
+//!
+//! See also: [`crate::worker_v2`] for the source-of-truth protocol definition.
 
 use std::collections::BTreeMap;
 

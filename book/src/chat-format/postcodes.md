@@ -1,7 +1,7 @@
 # Postcodes (`[+ ...]`)
 
 **Status:** Reference
-**Last updated:** 2026-04-27 19:01 EDT
+**Last updated:** 2026-05-01 09:47 EDT
 
 A **postcode** is a tagged annotation token that attaches to an
 *utterance as a whole* and appears after the terminator. The
@@ -37,7 +37,7 @@ Three structural facts to internalize:
 ## Common Postcodes — Empirical Survey
 
 The postcode vocabulary is **open-ended**: the CHAT format imposes no
-closed set, and a 2026-04-27 audit of every `[+ ...]` token across a
+closed set, and an audit of every `[+ ...]` token across a
 JSON-mirrored snapshot of the TalkBank corpora (~99k files, 23+
 data-repo families) found **488 distinct values** in active use.
 
@@ -92,7 +92,7 @@ know what it means, the format does not.
 
 ### Caveats
 
-- Numbers are from a 2026-04-27 audit and will drift as corpora are
+- Numbers are from a snapshot audit and will drift as corpora are
   added or revised. Treat the broad shape (open vocabulary, ~4 truly
   cross-corpus codes, ~10 multi-corpus protocol codes, ~hundreds of
   single-corpus or long-tail codes) as the load-bearing finding, not

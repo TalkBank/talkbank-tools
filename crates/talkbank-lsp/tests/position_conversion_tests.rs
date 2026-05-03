@@ -1,5 +1,15 @@
 //! Integration tests for byte-offset and LSP position conversion helpers.
 
+// Integration test targets compile as separate crates; the
+// `cfg_attr(test, ...)` allow at lib.rs's crate root does not apply
+// here. Test code uses `unwrap`/`expect` by convention.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable
+)]
+
 mod position_conversion;
 
 mod ascii {

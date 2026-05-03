@@ -6,30 +6,47 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-/// Find the workspace root by walking up from `CARGO_MANIFEST_DIR`
-/// to find a `Cargo.toml` containing `[workspace]`.
+/// Workspace root, located by walking up from `CARGO_MANIFEST_DIR` to the
+/// nearest ancestor whose `Cargo.toml` declares `[workspace]`.
 ///
-/// This is robust across crate moves within the workspace.
+/// We check the `[workspace]` table explicitly rather than just
+/// `Cargo.lock` because stale orphan lockfiles inside sub-crates DO
+/// happen — `crates/talkbank-clan/Cargo.lock` and
+/// `apps/dashboard-desktop/src-tauri/Cargo.lock` were both observed as
+/// orphans on 2026-04-30, and a `Cargo.lock`-only walk-up will silently
+/// return the wrong path. Reading the Cargo.toml content is slightly
+/// slower (one stat + one small read per ancestor) but rejects orphans
+/// by construction.
+/// Mirrored in `talkbank-parser-re2c/tests/fixture_utils.rs::workspace_root`.
 pub fn workspace_root() -> PathBuf {
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut dir = manifest_dir;
-    loop {
-        let cargo_toml = dir.join("Cargo.toml");
-        if cargo_toml.exists() {
-            if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
-                if content.contains("[workspace]") {
-                    return dir.to_path_buf();
-                }
-            }
-        }
-        match dir.parent() {
-            Some(parent) => dir = parent,
-            None => panic!(
-                "Could not find workspace root from {}",
-                manifest_dir.display()
-            ),
+    let start = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for ancestor in start.ancestors() {
+        let toml = ancestor.join("Cargo.toml");
+        if let Ok(content) = std::fs::read_to_string(&toml)
+            && content.contains("[workspace]")
+        {
+            return ancestor.to_path_buf();
         }
     }
+    panic!(
+        "workspace_root(): no Cargo.toml with [workspace] found above {} \
+         — was the crate relocated outside its workspace?",
+        start.display()
+    );
+}
+
+/// Meta-repository root (parent of [`workspace_root`]) — where the
+/// out-of-workspace `OSX-CLAN/` lives.
+pub fn meta_repo_root() -> PathBuf {
+    let ws = workspace_root();
+    ws.parent()
+        .unwrap_or_else(|| {
+            panic!(
+                "meta_repo_root(): workspace_root {} has no parent",
+                ws.display()
+            )
+        })
+        .to_path_buf()
 }
 
 /// Return the CLAN binary directory from `CLAN_BIN_DIR`, if configured.

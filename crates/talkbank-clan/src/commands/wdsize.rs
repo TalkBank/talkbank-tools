@@ -219,7 +219,7 @@ impl AnalysisCommand for WdsizeCommand {
             }
         } else if let Some(mor_tier) = utterance.mor_tier() {
             // Count %mor lemma character lengths (default behavior)
-            for mor_item in mor_tier.items.iter() {
+            for mor_item in mor_tier.items().iter() {
                 let char_len = mor_item.main.lemma.as_str().chars().count();
                 accum.record(char_len);
 

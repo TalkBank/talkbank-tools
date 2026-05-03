@@ -53,6 +53,11 @@ struct DocumentCommandService;
 impl DocumentCommandService {
     /// Dispatch one document-command request.
     fn dispatch(&self, backend: &Backend, request: ExecuteCommandRequest) -> Result<Option<Value>> {
+        // Routing invariant: only `ExecuteCommandFamily::Documents`
+        // variants reach here via the family() partitioning above.
+        // Follow-up: typed sub-enum per family — see
+        // `docs/panic-audit/talkbank-lsp.md`.
+        #[allow(clippy::unreachable)]
         match request {
             ExecuteCommandRequest::ShowDependencyGraph(request) => {
                 self.handle_dependency_graph_command(backend, &request)

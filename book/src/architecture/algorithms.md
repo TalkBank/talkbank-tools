@@ -57,7 +57,7 @@ pub fn for_each_leaf<'a>(
 - `None` — recurses everything unconditionally
 
 Both immutable (`for_each_leaf`) and mutable (`for_each_leaf_mut`) versions exist.
-Used by talkbank-model (%wor generation) and batchalign-chat-ops (word extraction,
+Used by talkbank-model (%wor generation) and batchalign (word extraction,
 FA injection, postprocessing).
 
 ## Parsing Strategies
@@ -100,7 +100,7 @@ annotations).
 
 ### Hirschberg (Linear-Space Edit Distance)
 
-**Location:** `batchalign-chat-ops/src/dp_align.rs`
+**Location:** `batchalign/src/dp_align.rs`
 
 | Property | Value |
 |----------|-------|
@@ -134,32 +134,10 @@ position (O(n)). Traits: `AlignableTier`, `TierAlignmentResult`, `AlignableConte
 
 ## Caching
 
-**Location:** `talkbank-transform/src/unified_cache/`
-
-```mermaid
-flowchart TD
-    req["Validation request\n(path + options)"]
-    key["Cache key\n(path + check_alignment flag)"]
-    db["SQLite WAL\n~/.cache/talkbank-chat/\ntalkbank-cache.db"]
-    hit["Cache hit\n→ return stored result"]
-    miss["Cache miss\n→ parse + validate + store"]
-
-    req --> key --> db
-    db -->|found + version match| hit
-    db -->|not found or stale| miss
-    miss --> db
-```
-
-| Config | Value | Why |
-|--------|-------|-----|
-| Backend | SQLite via `sqlx` | Concurrent reads (WAL), atomic writes, zero-config |
-| Pool size | 16 connections | Matches validation worker count |
-| mmap | 256 MB | Fast random access for 95k+ entries |
-| Invalidation | Version field + 30-day TTL | Schema changes auto-invalidate; stale entries pruned |
-| Bridge | Embedded single-threaded tokio runtime | Sync workers call `rt.block_on()` for async SQLite |
-
-**Schema:** `file_cache` table with `file_path` (PK) + `check_alignment` +
-`parser_kind` + `result` + `cached_at` + `version`.
+The CHAT-core validation cache is documented separately in
+[Validation Cache](parser-and-grammar/validation-cache.md). The
+Batchalign audio-task cache (FA / UTR ASR / media conversion) is in
+[Audio-Task Cache](runtime/audio-task-cache.md).
 
 ## CLAN Analysis Algorithms
 
@@ -199,7 +177,7 @@ loops.
 
 ### WER Word Conforming
 
-**Location:** `batchalign-chat-ops/src/wer_conform.rs`
+**Location:** `batchalign/src/wer_conform.rs`
 
 Priority-ordered 10-step rule chain for word normalization before WER comparison:
 
@@ -222,7 +200,7 @@ Priority-ordered 10-step rule chain for word normalization before WER comparison
 
 ## Pipeline Dependency Resolution (batchalign)
 
-**Location:** `batchalign-app/src/pipeline/plan.rs`
+**Location:** `batchalign/src/pipeline/plan.rs`
 
 DAG-based greedy execution of 16 pipeline stages. Each stage declares
 dependencies; enabled stages execute when all deps complete. Cycle/deadlock

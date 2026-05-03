@@ -3,8 +3,9 @@
 This module is consumed by the Python worker and pipeline code and avoids
 heavy imports at module import time.  It provides:
 
-- **Version info**: ``VERSION_NUMBER``, ``RELEASE_DATE``, ``RELEASE_NOTES``
-  read from ``batchalign/version`` at import time.
+- **Runtime release metadata**: ``VERSION_NUMBER``, ``RELEASE_DATE``,
+  ``RELEASE_NOTES`` read from ``batchalign/version`` at import time. This data
+  is user-visible runtime metadata, not the canonical package-version source.
 - **Command/task mapping**: ``Cmd2Task``, ``KNOWN_ENGINE_KEYS``,
   ``COMMAND_BASE_MB``.
 - **Free-threaded detection**: ``FREE_THREADED`` flag and ``is_free_threaded()``
@@ -35,12 +36,14 @@ with open(_TOML_PATH, "rb") as _tf:
     _TOML = tomllib.load(_tf)
 
 # ---------------------------------------------------------------------------
-# Version info (read once from batchalign/version at import time)
+# Runtime release metadata (read once from batchalign/version at import time)
 # ---------------------------------------------------------------------------
 
 _version_path = Path(__file__).parent / "version"
-with open(_version_path, "r") as _vf:
-    VERSION_NUMBER, RELEASE_DATE, RELEASE_NOTES = _vf.readlines()[:3]
+with open(_version_path, "r", encoding="utf-8") as _vf:
+    VERSION_NUMBER, RELEASE_DATE, RELEASE_NOTES = [
+        line.strip() for line in _vf.readlines()[:3]
+    ]
 
 
 # ---------------------------------------------------------------------------

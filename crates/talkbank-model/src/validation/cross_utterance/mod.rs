@@ -366,6 +366,9 @@ fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl
             continue;
         }
         let utt = &utterances[orphan.utterance_index];
+        // Control-flow invariant: `is_none()` short-circuits the
+        // continue above; reaching this line guarantees `Some(...)`.
+        #[allow(clippy::unwrap_used)]
         let index_label = format!(" (index {})", orphan.region.index.unwrap().0);
         errors.report(
             ParseError::new(
@@ -392,6 +395,8 @@ fn check_cross_utterance_overlap_balance(utterances: &[Utterance], errors: &impl
             continue;
         }
         let utt = &utterances[orphan.utterance_index];
+        // Same control-flow invariant as the orphaned_tops loop above.
+        #[allow(clippy::unwrap_used)]
         let index_label = format!(" (index {})", orphan.region.index.unwrap().0);
         errors.report(
             ParseError::new(

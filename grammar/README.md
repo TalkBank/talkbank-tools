@@ -1,5 +1,8 @@
 # tree-sitter-talkbank
 
+**Status:** Current
+**Last updated:** 2026-04-29 07:53 EDT
+
 [![CI](https://github.com/TalkBank/tree-sitter-talkbank/actions/workflows/ci.yml/badge.svg)](https://github.com/TalkBank/tree-sitter-talkbank/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/tree-sitter-talkbank)](https://www.npmjs.com/package/tree-sitter-talkbank)
 [![crates.io](https://img.shields.io/crates/v/tree-sitter-talkbank)](https://crates.io/crates/tree-sitter-talkbank)
@@ -145,7 +148,3 @@ Contributors working on the grammar itself only need `tree-sitter generate` and 
 ## License
 
 BSD-3-Clause. See [LICENSE](LICENSE).
-
-## Acknowledgments
-
-This project was developed with assistance from LLM tools, primarily Claude.

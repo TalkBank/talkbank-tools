@@ -49,6 +49,13 @@ pub fn is_no_align(chat_file: &ChatFile) -> bool {
     chat_file.options.iter().any(|f| f.skips_alignment())
 }
 
+/// Check whether a parsed CHAT file has `@Options: CA`.
+///
+/// Files with `CA` should skip morphotagging by default.
+pub fn is_ca(chat_file: &ChatFile) -> bool {
+    chat_file.options.iter().any(|f| f.enables_ca_mode())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

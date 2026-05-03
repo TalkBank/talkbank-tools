@@ -1,5 +1,8 @@
 # spec/tools - Core Generators Crate
 
+**Status:** Current
+**Last updated:** 2026-05-01 09:47 EDT
+
 ## Overview
 Rust generators that turn CHAT specs into tests and documentation artifacts.
 This crate lives in the separate `spec/Cargo.toml` workspace alongside
@@ -75,6 +78,3 @@ cargo test
 ## See Also
 - [spec/CLAUDE.md](../CLAUDE.md) — specification structure and workflows
 - [spec/errors/README.md](../errors/README.md) — error spec format reference
-
----
-Last Updated: 2026-04-12 06:55 EDT

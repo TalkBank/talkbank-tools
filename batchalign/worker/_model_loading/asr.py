@@ -33,17 +33,17 @@ def load_asr_engine(bootstrap: WorkerBootstrapRuntime) -> None:
             L.error("Rev.AI key not configured")
         _state.asr_engine = AsrEngine.REV
     elif asr_engine == "tencent":
-        from batchalign.inference.hk._tencent_asr import load_tencent_asr
+        from batchalign.inference.languages.cantonese._tencent_asr import load_tencent_asr
 
         load_tencent_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.TENCENT
     elif asr_engine == "aliyun":
-        from batchalign.inference.hk._aliyun_asr import load_aliyun_asr
+        from batchalign.inference.languages.cantonese._aliyun_asr import load_aliyun_asr
 
         load_aliyun_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.ALIYUN
     elif asr_engine == "funaudio":
-        from batchalign.inference.hk._funaudio_asr import load_funaudio_asr
+        from batchalign.inference.languages.cantonese._funaudio_asr import load_funaudio_asr
 
         load_funaudio_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.FUNAUDIO
