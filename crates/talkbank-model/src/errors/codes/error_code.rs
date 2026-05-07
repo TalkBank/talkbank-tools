@@ -317,6 +317,12 @@ pub enum ErrorCode {
     /// Word content is empty.
     #[code("E253")]
     EmptyWordContent,
+    /// Explicit word language marker uses a language absent from `@Languages`.
+    #[code("E254")]
+    UndeclaredExplicitWordLanguage,
+    /// Whole-utterance language switch should use `[- LANG]` instead of tagging every word with `@s`.
+    #[code("E255")]
+    WholeUtteranceLanguageSwitchShouldUsePrecode,
     /// Consecutive commas (`,,`) — should use single comma or `‚` (CLAN CHECK 107)
     #[code("E258")]
     ConsecutiveCommas,
@@ -460,8 +466,7 @@ pub enum ErrorCode {
     /// `@Media` header declares linkage (no `unlinked` / `missing` /
     /// `notrans` status) but the transcript carries no timing evidence
     /// (no bullets on any utterance, no `%wor` bullets, no `@Bg`/`@Eg`
-    /// time range). Reinstates the legacy Java-Chatter check Brian
-    /// approved 2026-04-21.
+    /// time range). Reinstates the legacy Java-Chatter check.
     #[code("E544")]
     MediaLinkageWithoutTiming,
     /// Invalid `@Birth of` date format — must match `DD-MMM-YYYY`

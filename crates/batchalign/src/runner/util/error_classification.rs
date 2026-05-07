@@ -36,6 +36,14 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
         WorkerError::Protocol(_) => FailureCategory::WorkerProtocol,
         WorkerError::Io(_) => FailureCategory::WorkerCrash,
         WorkerError::WorkerResponse(_) => FailureCategory::ProviderTransient,
+        // Bootstrap-class worker errors are deterministic across retries:
+        // a missing model file, a failed catalog download, or an
+        // unsupported language will produce the same failure on every
+        // attempt. The orchestrator must NOT retry these — historically,
+        // 3-attempt retries of a deterministic Stanza catalog miss
+        // produced multi-GB log explosions because each attempt dumped a
+        // full Python traceback before the worker exited.
+        WorkerError::Bootstrap(_) => FailureCategory::WorkerBootstrap,
         WorkerError::SpawnFailed(_)
         | WorkerError::ReadyParseFailed(_)
         | WorkerError::NoWorker { .. } => FailureCategory::System,
@@ -114,6 +122,15 @@ pub(crate) fn user_facing_error(
             "{command_label} failed for {filename}: communication error with the \
              processing engine. Try restarting the job."
         ),
+        FailureCategory::WorkerBootstrap => {
+            // Bootstrap-class errors are user-actionable: network failure,
+            // disk full, missing auth token, etc. Surface the worker's typed
+            // message verbatim — that's exactly the actionable hint the user
+            // needs. Do NOT prepend "an internal error" framing; the worker
+            // already produced the user-facing wording.
+            let detail = truncate_tail(raw_error, 1000);
+            format!("{command_label} failed for {filename}: {detail}")
+        }
         FailureCategory::ProviderTransient => format!(
             "{command_label} failed for {filename}: the external service returned a \
              temporary error. Try restarting the job."

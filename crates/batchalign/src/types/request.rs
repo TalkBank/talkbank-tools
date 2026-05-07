@@ -106,6 +106,13 @@ impl JobSubmission {
             )));
         }
 
+        // Validate the (command, lang) pairing is a legal one. Morphotag,
+        // translate, and coref MUST submit `LanguageSpec::PerFile`; every
+        // other processing command MUST NOT. This boundary check keeps
+        // pipeline code from ever observing an invalid combination, and
+        // makes the dashboard / job record show honest values.
+        self.validate_lang_command_pairing()?;
+
         // Validate language support for engines the command will use.
         self.validate_language_support()?;
 
@@ -140,10 +147,54 @@ impl JobSubmission {
     /// Called at job submission time to fail fast with a clear diagnostic
     /// rather than letting errors surface deep in the pipeline (Rev.AI HTTP
     /// 400, Whisper wrong-language transcription, Stanza model-not-found).
+    /// Reject (command, lang) combinations that would be lies.
+    ///
+    /// `LanguageSpec::PerFile` is the unique correct shape for morphotag,
+    /// translate, and coref — they have no `--lang` CLI flag and read
+    /// language per-file from each CHAT file's `@Languages:` header. Any
+    /// other shape on those commands means a placeholder is sneaking
+    /// through (the 2026-05-03 morphotag incident).
+    ///
+    /// Conversely, every other processing command (transcribe,
+    /// transcribe_s, benchmark, align, compare, utseg, opensmile, avqi)
+    /// takes a concrete `--lang` (or `--lang auto` for ASR-detect). Those
+    /// must never carry `PerFile`; if they do, something downstream of
+    /// the CLI built a malformed `JobSubmission`.
+    fn validate_lang_command_pairing(&self) -> Result<(), ValidationError> {
+        use crate::api::ReleasedCommand;
+        use crate::types::domain::LanguageSpec;
+
+        let is_per_file_command = matches!(
+            self.command,
+            ReleasedCommand::Morphotag | ReleasedCommand::Translate | ReleasedCommand::Coref,
+        );
+
+        match (&self.lang, is_per_file_command) {
+            (LanguageSpec::PerFile, true) => Ok(()),
+            (LanguageSpec::PerFile, false) => Err(ValidationError(format!(
+                "command '{}' does not accept LanguageSpec::PerFile; pass --lang or --lang auto",
+                self.command
+            ))),
+            (LanguageSpec::Auto | LanguageSpec::Resolved(_), true) => {
+                Err(ValidationError(format!(
+                    "command '{}' has no --lang; submission must use LanguageSpec::PerFile (per-file \
+                 resolution from @Languages: header). Job-level lang sentinels are banned for \
+                 this command — see the 2026-05-03 morphotag incident.",
+                    self.command
+                )))
+            }
+            (LanguageSpec::Auto | LanguageSpec::Resolved(_), false) => Ok(()),
+        }
+    }
+
     fn validate_language_support(&self) -> Result<(), ValidationError> {
-        // Auto-detect: can't validate engine support until ASR runs.
+        // Auto-detect and per-file resolution both defer language to a later
+        // stage, so submission-time engine-support checks can't run here. For
+        // PerFile commands (morphotag/translate/coref) the per-file
+        // `@Languages:` header is the authority; they don't use Rev.AI or
+        // engine-tied processing this validator covers.
         let lang = match &self.lang {
-            LanguageSpec::Auto => return Ok(()),
+            LanguageSpec::Auto | LanguageSpec::PerFile => return Ok(()),
             LanguageSpec::Resolved(code) => code,
         };
 
@@ -331,8 +382,11 @@ pub fn validate_language_with_registry(
     submission: &JobSubmission,
     registry: Option<&crate::stanza_registry::StanzaRegistry>,
 ) -> Result<(), ValidationError> {
+    // Auto: can't validate until ASR resolves the language.
+    // PerFile: morphotag/translate/coref resolve per-file from @Languages:;
+    // the registry validation happens per-file in stage_parse.
     let lang = match &submission.lang {
-        LanguageSpec::Auto => return Ok(()),
+        LanguageSpec::Auto | LanguageSpec::PerFile => return Ok(()),
         LanguageSpec::Resolved(code) => code,
     };
 
@@ -373,11 +427,16 @@ mod tests {
         AlignOptions, CommonOptions, MorphotagOptions, TranscribeOptions, UtsegOptions,
     };
 
-    /// Build a minimal `JobSubmission` for testing language validation.
-    fn morphotag_submission(lang: &str) -> JobSubmission {
+    /// Build a minimal morphotag `JobSubmission` for testing validation.
+    ///
+    /// Morphotag has no `--lang` flag — every legal submission carries
+    /// `LanguageSpec::PerFile`. The `lang_spec` parameter exists only so
+    /// regression tests can construct *invalid* submissions (e.g. with
+    /// `Resolved(eng)`) and assert that `validate()` rejects them.
+    fn morphotag_submission_with_lang(lang_spec: LanguageSpec) -> JobSubmission {
         JobSubmission {
             command: ReleasedCommand::Morphotag,
-            lang: LanguageSpec::Resolved(LanguageCode3::try_new(lang).expect("test lang")),
+            lang: lang_spec,
             num_speakers: NumSpeakers(1),
             files: vec![],
             media_files: vec![],
@@ -396,6 +455,11 @@ mod tests {
             debug_traces: false,
             before_paths: vec![],
         }
+    }
+
+    /// Convenience for the common case: a legal morphotag submission.
+    fn morphotag_submission() -> JobSubmission {
+        morphotag_submission_with_lang(LanguageSpec::PerFile)
     }
 
     fn utseg_submission(lang: &str) -> JobSubmission {
@@ -568,18 +632,54 @@ mod tests {
     }
 
     #[test]
-    fn morphotag_with_supported_language_passes() {
-        let submission = morphotag_submission("eng");
-        assert!(submission.validate().is_ok());
+    fn morphotag_per_file_passes_validation() {
+        // The only legal morphotag submission shape: PerFile lang.
+        let submission = morphotag_submission();
+        submission
+            .validate()
+            .expect("morphotag with LanguageSpec::PerFile must pass validation");
+    }
+
+    /// 2026-05-03 incident regression test. A morphotag job-level
+    /// `Resolved(eng)` was the historical placeholder; submission-time
+    /// validation must reject it so it never appears in job records or
+    /// leaks into worker pre-warming.
+    #[test]
+    fn morphotag_resolved_lang_is_rejected() {
+        let submission = morphotag_submission_with_lang(LanguageSpec::Resolved(
+            LanguageCode3::try_new("eng").unwrap(),
+        ));
+        let err = submission
+            .validate()
+            .expect_err("morphotag with Resolved(eng) must be rejected");
+        assert!(
+            err.to_string().contains("LanguageSpec::PerFile"),
+            "rejection message must point at PerFile remedy: {err}"
+        );
     }
 
     #[test]
-    fn morphotag_with_unsupported_language_fails() {
-        let submission = morphotag_submission("xyz");
-        let err = submission.validate().unwrap_err();
+    fn morphotag_auto_lang_is_rejected() {
+        let submission = morphotag_submission_with_lang(LanguageSpec::Auto);
+        let err = submission
+            .validate()
+            .expect_err("morphotag with Auto must be rejected (Auto is an ASR-engine signal)");
+        assert!(err.to_string().contains("LanguageSpec::PerFile"));
+    }
+
+    /// Mirror coverage: utseg DOES take an explicit `--lang`, so it must
+    /// continue to reject `PerFile` (the per-file variant is reserved for
+    /// morphotag, translate, coref).
+    #[test]
+    fn utseg_per_file_lang_is_rejected() {
+        let mut submission = utseg_submission("eng");
+        submission.lang = LanguageSpec::PerFile;
+        let err = submission
+            .validate()
+            .expect_err("utseg with PerFile must be rejected");
         assert!(
-            err.to_string().contains("not supported by Stanza"),
-            "expected Stanza error, got: {err}"
+            err.to_string()
+                .contains("does not accept LanguageSpec::PerFile")
         );
     }
 
@@ -591,17 +691,6 @@ mod tests {
             err.to_string().contains("not supported by Stanza"),
             "expected Stanza error, got: {err}"
         );
-    }
-
-    #[test]
-    fn morphotag_with_all_supported_languages_passes() {
-        for code in crate::chat_ops::morphosyntax_ops::supported_iso3_codes() {
-            let submission = morphotag_submission(code);
-            assert!(
-                submission.validate().is_ok(),
-                "expected language '{code}' to pass Stanza validation"
-            );
-        }
     }
 
     #[test]

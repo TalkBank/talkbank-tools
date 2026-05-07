@@ -16,6 +16,7 @@ import threading
 
 from batchalign.inference._domain_types import LanguageCode, LanguageCode2
 from batchalign.worker._stanza_capabilities import (
+    _ISO3_OVERRIDES,
     StanzaCapabilityTable,
     get_cached_capability_table,
 )
@@ -63,32 +64,58 @@ def iso3_to_alpha2(iso3: LanguageCode) -> LanguageCode2:
     """Convert ISO-639-3 language code to ISO-639-1 for Stanza.
 
     Batchalign uses ISO-639-3 broadly, but Stanza is configured with mostly
-    ISO-639-1-style identifiers plus a few special cases. This function is the
-    canonical bridge so the rest of the worker code does not embed ad hoc
-    language-code fallbacks or guess at unsupported codes.
+    ISO-639-1-style identifiers plus a few special cases. This function is
+    the canonical bridge so the rest of the worker code does not embed ad
+    hoc language-code fallbacks or guess at unsupported codes.
+
+    Resolution order:
+
+    1. **Special-case overrides** — for codes where ISO 639-3 disagrees with
+       Stanza's own catalog labelling (e.g. ``yue``/``cmn`` both routing to
+       Stanza ``zh``, ``nor``→``nb`` for Norwegian Bokmål as the default).
+       These cases are *not* recoverable via pycountry because pycountry
+       only encodes ISO-639's standard 1-to-1 mapping, which would point
+       at codes Stanza does not ship.
+    2. **pycountry** — for every other code with a standard ISO 639-1
+       counterpart (``mar``→``mr``, ``swa``→``sw``, ...). This must be the
+       fallback rather than a duplicate hardcoded dict, otherwise the
+       hardcoded list inevitably drifts out of sync — Stanza adds a
+       language, the capability table picks it up via pycountry, but
+       ``iso3_to_alpha2`` returns the iso3 verbatim and ``stanza.Pipeline``
+       crashes with "Language X is currently unsupported".
+       (2026-05-06: Marathi ``mar`` failed exactly this way on
+       ``childes-other-data/Biling/Gelman/Bystander/25.cha``.)
+    3. **Pass-through with warning** — for genuinely unmapped codes
+       (length-2 codes assumed to already be alpha-2; everything else
+       hits the warning path).
     """
-    mapping: dict[str, str] = {
-        "eng": "en", "spa": "es", "fra": "fr", "deu": "de",
-        "ita": "it", "por": "pt", "nld": "nl", "zho": "zh",
-        "jpn": "ja", "kor": "ko", "ara": "ar", "heb": "he",
-        "tur": "tr", "fin": "fi", "dan": "da", "swe": "sv",
-        "nor": "nb", "pol": "pl", "ces": "cs", "ron": "ro",
-        "hun": "hu", "bul": "bg", "hrv": "hr", "slk": "sk",
-        "slv": "sl", "ukr": "uk", "ell": "el", "fas": "fa",
-        "hin": "hi", "urd": "ur", "ben": "bn", "tam": "ta",
-        "tel": "te", "kan": "kn", "mal": "ml", "tha": "th",
-        "vie": "vi", "ind": "id", "msa": "ms", "tgl": "tl",
-        "kat": "ka", "hye": "hy", "cat": "ca", "glg": "gl",
-        "eus": "eu", "cym": "cy", "gle": "ga", "gla": "gd",
-        "mlt": "mt", "est": "et", "lav": "lv", "lit": "lt",
-        "isl": "is", "yue": "zh",
-        "cmn": "zh",
-        "rus": "ru", "afr": "af", "lat": "la", "ltz": "lb",
-    }
-    if iso3 in mapping:
-        return mapping[iso3]
+    # 1. Stanza-specific overrides — single source of truth shared with
+    #    the capability-table builder. A second independent override dict
+    #    here is the drift hazard that caused the 2026-05-06 ``mar``
+    #    failure; do not reintroduce one.
+    if iso3 in _ISO3_OVERRIDES:
+        return _ISO3_OVERRIDES[iso3]
+
+    # 2. pycountry for the standard ISO 639-3 ↔ ISO 639-1 cases.
+    #    The capability table already uses pycountry; this keeps the two
+    #    code paths honest about which languages they each understand.
+    try:
+        import pycountry
+
+        lang = pycountry.languages.get(alpha_3=iso3)
+        if lang is not None:
+            alpha2 = getattr(lang, "alpha_2", None)
+            if alpha2:
+                return alpha2
+    except ImportError:
+        # Fall through to the warning path.
+        pass
+
+    # 3. Already alpha-2? Pass through silently — common when callers feed a
+    #    Stanza-style code straight in.
     if len(iso3) == 2:
         return iso3
+
     L.warning(
         "Unknown ISO-639-3 code %r - passing through unchanged for Stanza",
         iso3,
@@ -124,18 +151,25 @@ def load_stanza_models(lang: LanguageCode) -> None:
     # the linguistic root cause buried in stderr.
     table = get_cached_capability_table()
     if table is None:
+        # Post-2026-05-06: ``get_cached_capability_table()`` returns ``None``
+        # ONLY when the Stanza Python package is missing from the worker
+        # venv. The historical "resources.json missing" path now bootstraps
+        # the catalog automatically and either returns a populated table or
+        # raises ``StanzaCatalogDownloadError``. So if we reach here, it's a
+        # genuine deploy-config error: BA3 was installed without Stanza.
         raise UnsupportedLanguageError(
-            f"Cannot load Stanza for {lang!r}: capability table is "
-            "unavailable (Stanza not installed or resources.json "
-            "could not be read). The worker must not load any pipeline."
+            f"Cannot load Stanza for {lang!r}: the Stanza Python package "
+            "is not installed in the worker environment. Reinstall "
+            "batchalign3 with the morphosyntax extras enabled, or contact "
+            "an operator to fix the deploy."
         )
-    if lang not in table.languages:
+    if not table.supports_morphosyntax(lang):
         sample = sorted(table.languages.keys())[:8]
         raise UnsupportedLanguageError(
-            f"Stanza has no processor packages for language {lang!r}. "
-            f"It may appear in Stanza's resources.json as a stub "
-            f"(charlm-only) entry, but no usable Pipeline can be built. "
-            f"Supported languages include: {sample} (and "
+            f"Stanza lacks the core morphosyntax processors for language {lang!r}. "
+            f"It may appear in Stanza's resources.json as a stub or partial "
+            f"entry, but no usable morphotag Pipeline can be built. "
+            f"Languages with full morphosyntax support include: {sample} (and "
             f"{len(table.languages) - len(sample)} more)."
         )
 
@@ -151,6 +185,11 @@ def load_stanza_models(lang: LanguageCode) -> None:
 
     ctx = TokenizerContext()
     lock = threading.Lock()
+
+    # If the language pack for ``alpha2`` is not yet on disk, ``stanza.Pipeline``
+    # will block while downloading several hundred MB of model files. Surface
+    # that wait via the progress channel so every UI shows it to the user.
+    _emit_stanza_lang_download_event_if_missing(lang, alpha2)
 
     # The Stanza pipeline shape varies by language because tokenization and MWT
     # support are not uniform across the supported languages.
@@ -235,6 +274,11 @@ def load_stanza_retokenize_model(lang: LanguageCode) -> None:
     processors = "tokenize,pos,lemma,depparse"
     ctx = TokenizerContext()
 
+    # The Mandarin retokenize pipeline uses the neural tokenizer (a separate
+    # ~200 MB model from the ``tokenize_pretokenized`` variant). Surface the
+    # wait if it's about to download.
+    _emit_stanza_lang_download_event_if_missing(lang, alpha2)
+
     nlp = stanza.Pipeline(
         lang=alpha2,
         processors=processors,
@@ -317,3 +361,59 @@ def load_utseg_builder(lang: LanguageCode) -> None:
         _state.utseg_version = stanza.__version__
     except (ImportError, AttributeError):
         _state.utseg_version = "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Language-pack download notification helper.
+# ---------------------------------------------------------------------------
+
+
+def _emit_stanza_lang_download_event_if_missing(
+    lang: LanguageCode, alpha2: LanguageCode2
+) -> None:
+    """Emit a user-visible event if Stanza needs to download ``alpha2``.
+
+    Probes the configured Stanza model directory for the presence of any
+    files under ``<model_dir>/<alpha2>/``. Absence implies ``stanza.Pipeline``
+    will block on a multi-hundred-MB download. The notification surfaces
+    that wait through the same progress channel UIs already render for
+    model loading.
+
+    Best-effort: if the probe fails for any reason, we emit anyway. False-
+    positive notifications are a much smaller UX cost than silent waits.
+    """
+    import os
+
+    from batchalign.worker._progress import emit_download_event
+
+    is_present = False
+    try:
+        import stanza.resources.common as src
+
+        lang_dir = os.path.join(src.DEFAULT_MODEL_DIR, alpha2)
+        # Stanza scatters language packs across subdirectories named after
+        # processor packages (e.g. ``en/tokenize/combined.pt``); presence of
+        # *any* file under the language directory means at least some pack
+        # has been seeded and the download is partial-or-done. The Pipeline
+        # call may still pull a few small files; that's fine — the user has
+        # already been informed via past events.
+        if os.path.isdir(lang_dir):
+            for _root, _dirs, files in os.walk(lang_dir):
+                if files:
+                    is_present = True
+                    break
+    except Exception as probe_exc:  # noqa: BLE001 — best effort
+        L.debug("Stanza lang-pack probe failed for %s: %s", alpha2, probe_exc)
+
+    if is_present:
+        return
+
+    emit_download_event(
+        stage=f"downloading_stanza_lang_{alpha2}",
+        user_message=(
+            f"Downloading Stanza language pack for {lang} ({alpha2}) "
+            "(one-time, ~250–500 MB; future runs will use the local cache)…"
+        ),
+    )
+
+

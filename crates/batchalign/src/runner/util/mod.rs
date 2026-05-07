@@ -237,6 +237,32 @@ mod tests {
         assert!(!is_retryable_worker_failure(FailureCategory::Validation));
     }
 
+    /// Regression: bootstrap-class errors must NOT be retried.
+    ///
+    /// Historical context: a Stanza-catalog-missing failure during worker
+    /// bootstrap was classified as a transient `WorkerCrash` and retried
+    /// 3× with a full Python traceback per attempt. On a long-running
+    /// daemon this produced multi-GB log explosions from a deterministic
+    /// config error. The fix: the Python worker surfaces typed bootstrap
+    /// failures via the `{"op":"error", "kind":"bootstrap"}` wire shape;
+    /// the Rust side classifies these as terminal so the orchestrator
+    /// stops retrying.
+    #[test]
+    fn bootstrap_errors_are_non_retryable() {
+        let category = classify_worker_error(&WorkerError::Bootstrap(
+            "Failed to download Stanza resource catalog from \
+             https://raw.githubusercontent.com/stanfordnlp/stanza-resources/main: \
+             connection refused"
+                .into(),
+        ));
+        assert!(
+            !is_retryable_worker_failure(category),
+            "Bootstrap-class errors must be terminal at the worker layer; \
+             retrying a deterministic config error 3× is the bug shape this \
+             test is pinning. Got category: {category:?}"
+        );
+    }
+
     #[test]
     fn process_exited_display_includes_stderr_when_present() {
         let error = WorkerError::ProcessExited {

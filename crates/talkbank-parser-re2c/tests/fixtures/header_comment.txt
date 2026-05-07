@@ -1,34 +1,34 @@
-# header_comment — 200 samples extracted from ~/talkbank/data/*-data
+# header_comment — 200 samples extracted from the wild CHAT corpus
 # Each entry is separated by a blank line.
 # Lines may include tab-continuations (multi-physical-line entries).
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/FRH/e20130403_173734_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/FRH/e20130403_173734_008066"
 
 @Comment:	LENA V3.3.3-141 r10662
 
 @Comment:	start of recording 1
 
-@Comment:	old mediafile name "/Users/macw/Desktop/Lyon/FRH/e20131025_085228_008015"
+@Comment:	old mediafile name "/Users/operator/Desktop/Lyon/FRH/e20131025_085228_008015"
 
 @Comment:	start of recording 2
 
-@Comment:	old mediafile name "/Users/macw/Desktop/Lyon/FRH/e20131025_085044_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/Lyon/FRH/e20131025_085044_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/FRH/e20130329_170857_008343"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/FRH/e20130329_170857_008343"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/FRH/e20130329_134849_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/FRH/e20130329_134849_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/HED/e20120703_134402_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/HED/e20120703_134402_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/HED/e20120706_100058_008015"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/HED/e20120706_100058_008015"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/HED/e20120628_200523_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/HED/e20120628_200523_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/SAV/e20130826_015914_008015"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/SAV/e20130826_015914_008015"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/SAV/e20130825_190818_008344"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/SAV/e20130825_190818_008344"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/SAV/e20130817_183307_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/SAV/e20130817_183307_008066"
 
 @Comment:	old mediafile name "CUM1"
 
@@ -36,11 +36,11 @@
 
 @Comment:	old mediafile name "CUM2"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/VAA/e20120918_153122_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/VAA/e20120918_153122_008066"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/VAA/e20121106_140637_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/VAA/e20121106_140637_008066"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/VAA/e20120918_153305_008344"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/VAA/e20120918_153305_008344"
 
 @Comment:	old mediafile name "e20130612_122213_008015"
 
@@ -50,25 +50,25 @@
 
 @Comment:	start of recording 3
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/MON/e20120910_154104_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/MON/e20120910_154104_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/MON/e20120910_153817_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/MON/e20120910_153817_008066"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/MON/e20120731_110527_008343"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/MON/e20120731_110527_008343"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/GOG/e20130611_164617_008109"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/GOG/e20130611_164617_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/GOG/e20130708_121751_008015"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/GOG/e20130708_121751_008015"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/GOG/e20130708_155549_008066"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/GOG/e20130708_155549_008066"
 
 @Comment:	old mediafile name "e20130604_135320_008109"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/ZOS/e20130625_131141_008344"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/ZOS/e20130625_131141_008344"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/ZOS/e20130604_135718_008343"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/ZOS/e20130604_135718_008343"
 
-@Comment:	old mediafile name "/Users/macw/Desktop/its/PEF/e20130322_154609_008015"
+@Comment:	old mediafile name "/Users/operator/Desktop/its/PEF/e20130322_154609_008015"
 
 @Comment:	Please use the slider at the left to control media playback.
 

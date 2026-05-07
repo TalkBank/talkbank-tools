@@ -76,10 +76,8 @@ pub fn convert_main_tier_node(
         .with_linkers(body.linkers)
         .with_postcodes(end.postcodes);
 
-    // Post-hoc promotions via the shared TierContent methods.
-    // Order: extract bullet first, then CA terminator (arrow is last after bullet pop).
+    // Extract a terminal bullet that the greedy contents rule left in content.
     main_tier.content.extract_terminal_bullet();
-    main_tier.content.resolve_ca_terminator();
 
     if let Some(span) = content_span {
         main_tier = main_tier.with_content_span(span);

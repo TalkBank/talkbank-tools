@@ -527,8 +527,8 @@ The library is no longer a runtime dependency, but
 4. Run `cargo test -p batchalign --lib`; the
    `ordinal_year_eng` cross-validation tests catch divergence.
 
-**When changing the CHAT digit-allowlist** (rare, requires Brian
-sign-off):
+**When changing the CHAT digit-allowlist** (rare, requires CHAT-spec
+maintainer sign-off):
 
 1. Update `talkbank-tools/.../digits.rs::DIGIT_ALLOWED_LANGS`.
 2. Update the matrix's last row ("Lang allows digits") to reflect

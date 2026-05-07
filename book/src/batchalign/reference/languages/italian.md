@@ -727,10 +727,11 @@ catch overzealous entries.
   single `Mor`.
 - **End-to-end golden** in
   `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py`
-  — runs `batchalign3 morphotag --lang ita` on a CHAT fixture
-  containing all six allowlist words in context; asserts no
-  junk `verb|STEM~pron|CLITIC` pattern appears in the output
-  `%mor` tier. This closes the loop: real Stanza output flowing
+  — runs `batchalign3 morphotag` on a CHAT fixture whose
+  `@Languages:` header declares `ita`; the fixture contains all
+  six allowlist words in context. Asserts no junk
+  `verb|STEM~pron|CLITIC` pattern appears in the output `%mor`
+  tier. (Morphotag has no `--lang` flag; language is per-file.) This closes the loop: real Stanza output flowing
   through the full production pipeline.
 
 The specific contracts:

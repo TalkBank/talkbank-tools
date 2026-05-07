@@ -1,7 +1,7 @@
 //! Utterance terminator tokens.
 //!
-//! Terminators encode sentence-final punctuation, interruption/completion state,
-//! and CA intonation boundaries.
+//! Terminators encode sentence-final punctuation and interruption/completion
+//! state.
 //!
 //! # CHAT Format References
 //!
@@ -30,14 +30,6 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// - `+/?` - Interrupted question
 /// - `+//?` - Self-interrupted question
 /// - `+/??` - Broken off question
-///
-/// # CA (Conversation Analysis) Intonation
-///
-/// - `⇗` - Rising to high
-/// - `↗` - Rising to mid
-/// - `→` - Level/continuing
-/// - `↘` - Falling to mid
-/// - `⇘` - Falling to low
 ///
 /// # CHAT Format Examples
 ///
@@ -181,7 +173,10 @@ pub enum Terminator {
         span: Span,
     },
 
-    // ===== CA (Conversation Analysis) Intonation Terminators =====
+    // ===== Legacy CA variants kept for backward-compatibility =====
+    //
+    // New parsing/classification code intentionally treats these surface forms
+    // as separators or linkers instead of utterance terminators.
     /// ⇗ (U+21D7) - Rising to high intonation (Conversation Analysis)
     /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#RisingToHigh>
     #[serde(rename = "ca_rising_to_high")]
@@ -280,8 +275,9 @@ impl Terminator {
     /// Accepts exactly the strings that [`WriteChat::write_chat`] emits for
     /// each variant (see the CHAT manual
     /// <https://talkbank.org/0info/manuals/CHAT.html#Terminators> for the
-    /// full inventory). Returns `None` for any other input — including
-    /// content punctuation like `,` `;` `:` and any non-terminator text.
+    /// supported inventory. Returns `None` for any other input — including
+    /// content punctuation like `,` `;` `:`, CA separators/linkers, and any
+    /// non-terminator text.
     /// Spans are set to [`Span::DUMMY`] since the caller has no source
     /// location for a terminator recovered from a free string.
     ///
@@ -305,15 +301,6 @@ impl Terminator {
             "+//?" => Self::SelfInterruptedQuestion { span },
             "+..?" => Self::TrailingOffQuestion { span },
             "+." => Self::BreakForCoding { span },
-            "\u{21D7}" => Self::CaRisingToHigh { span },
-            "\u{2197}" => Self::CaRisingToMid { span },
-            "\u{2192}" => Self::CaLevel { span },
-            "\u{2198}" => Self::CaFallingToMid { span },
-            "\u{21D8}" => Self::CaFallingToLow { span },
-            "\u{224B}" => Self::CaTechnicalBreak { span },
-            "+\u{224B}" => Self::CaTechnicalBreakLinker { span },
-            "\u{2248}" => Self::CaNoBreak { span },
-            "+\u{2248}" => Self::CaNoBreakLinker { span },
             _ => return None,
         };
         Some(t)
@@ -399,13 +386,12 @@ impl std::fmt::Display for Terminator {
 mod tests {
     use super::*;
 
-    /// Round-trip every variant through `Display` + `try_from_chat_str`.
+    /// Round-trip every supported variant through `Display` + `try_from_chat_str`.
     ///
-    /// Any addition to the `Terminator` enum that forgets to extend either
-    /// `WriteChat::write_chat` or `try_from_chat_str` will either fail to
-    /// compile (missing variant arm) or fail this test (mismatched pair).
+    /// Legacy CA-only variants are intentionally excluded here because the
+    /// parser/classifier no longer treats their surface forms as terminators.
     #[test]
-    fn every_variant_round_trips_display_to_try_from_chat_str() {
+    fn supported_variants_round_trip_display_to_try_from_chat_str() {
         let span = Span::DUMMY;
         let all = [
             Terminator::Period { span },
@@ -421,15 +407,6 @@ mod tests {
             Terminator::SelfInterruptedQuestion { span },
             Terminator::TrailingOffQuestion { span },
             Terminator::BreakForCoding { span },
-            Terminator::CaRisingToHigh { span },
-            Terminator::CaRisingToMid { span },
-            Terminator::CaLevel { span },
-            Terminator::CaFallingToMid { span },
-            Terminator::CaFallingToLow { span },
-            Terminator::CaTechnicalBreak { span },
-            Terminator::CaTechnicalBreakLinker { span },
-            Terminator::CaNoBreak { span },
-            Terminator::CaNoBreakLinker { span },
         ];
         for t in all {
             let emitted = t.to_string();
@@ -483,5 +460,21 @@ mod tests {
         // `". "` (with trailing space) as a terminator silently.
         assert!(Terminator::try_from_chat_str(". ").is_none());
         assert!(Terminator::try_from_chat_str(" .").is_none());
+    }
+
+    /// CA arrows, CA TCU separators, and CA TCU linker forms are not CHAT
+    /// terminators; they are modeled elsewhere.
+    #[test]
+    fn ca_symbols_are_not_chat_terminators() {
+        for s in ["⇗", "↗", "→", "↘", "⇘", "≈", "≋", "+≈", "+≋"] {
+            assert!(
+                Terminator::try_from_chat_str(s).is_none(),
+                "{s:?} must not parse as a terminator"
+            );
+            assert!(
+                !Terminator::is_chat_terminator(s),
+                "{s:?} must not be classified as a terminator"
+            );
+        }
     }
 }

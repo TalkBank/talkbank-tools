@@ -38,10 +38,14 @@ use crate::text_batch::{
 
 /// Check whether a parsed CHAT file declares English as one of its languages.
 ///
-/// Uses the per-file `@Languages` header (via `declared_languages()`), falling
-/// back to the job-level `lang` when the file lacks an `@Languages` header.
-fn file_has_english(chat_file: &crate::chat_ops::ChatFile, fallback_lang: &LanguageCode3) -> bool {
-    let fallback = LanguageCode::new(fallback_lang.as_ref());
+/// Uses the per-file `@Languages` header (via `declared_languages()`); files
+/// with no `@Languages` header fall back to `eng` (BA2 parity — coref is an
+/// English-only command, so the fallback is fixed). The `--lang` flag was
+/// removed for BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py:276`
+/// has no `--lang` for coref); see the 2026-05-03 incident for why a
+/// job-level lang sentinel is unsafe.
+fn file_has_english(chat_file: &crate::chat_ops::ChatFile) -> bool {
+    let fallback = LanguageCode::new(LanguageCode3::eng().as_ref());
     let langs = declared_languages(chat_file, &fallback);
     langs.iter().any(|l| l.as_str() == "eng")
 }
@@ -140,7 +144,7 @@ async fn run_coref_impl(
     }
 
     // 2. English-only gate (per-file @Languages, not job-level lang)
-    if !file_has_english(&chat_file, lang) {
+    if !file_has_english(&chat_file) {
         return Ok(to_chat_string(&chat_file));
     }
 
@@ -191,8 +195,14 @@ async fn run_coref_impl(
         warn!(errors = ?msgs, "coref post-validation warnings (non-fatal)");
     }
 
-    // 8. Inject provenance + serialize
-    let provenance = crate::provenance::coref_provenance(lang.as_ref(), "stanza");
+    // 8. Inject provenance + serialize. Coref is English-only, so the
+    // provenance lang is hardcoded `eng` regardless of any value the
+    // gateway/dispatch handed in. The `lang: &LanguageCode3` parameter on
+    // this function is retained for shared-trait symmetry with the other
+    // text commands but is otherwise unused — see the 2026-05-03 incident
+    // for why a job-level lang must not flow into provenance.
+    let _ = lang; // intentionally ignored
+    let provenance = crate::provenance::coref_provenance(LanguageCode3::eng().as_ref(), "stanza");
     crate::provenance::inject_provenance(&mut chat_file, &provenance);
     Ok(to_chat_string(&chat_file))
 }
@@ -222,9 +232,15 @@ pub(crate) async fn process_coref_batch(
 
 async fn run_coref_batch_impl(
     files: &[TextBatchFileInput],
-    lang: &LanguageCode3,
+    _lang: &LanguageCode3,
     pool: &WorkerPool,
 ) -> TextBatchFileResults {
+    // `_lang` is intentionally unused. Coref is English-only (BA2 parity),
+    // so per-file English-ness is read from each file's `@Languages:` header
+    // (`file_has_english`) and the inference language is hardcoded to
+    // `LanguageCode3::eng()`. The parameter remains in the signature for
+    // shared-trait symmetry with utseg/translate. See the 2026-05-03
+    // morphotag incident for why a job-level lang must not flow through.
     let parser = crate::chat_parser();
     let mut results: TextBatchFileResults = Vec::with_capacity(files.len());
 
@@ -275,7 +291,7 @@ async fn run_coref_batch_impl(
         }
 
         // Per-file English-only gate — non-English files pass through unchanged
-        if !file_has_english(parsed_file, lang) {
+        if !file_has_english(parsed_file) {
             continue;
         }
 
@@ -460,7 +476,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../test-fixtures/eng_hello_world.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file, &LanguageCode3::eng()));
+        assert!(file_has_english(&chat_file));
     }
 
     #[test]
@@ -468,40 +484,18 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../test-fixtures/spa_chi_hola_mundo.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(!file_has_english(&chat_file, &LanguageCode3::spa()));
+        assert!(!file_has_english(&chat_file));
     }
 
     #[test]
-    fn test_file_has_english_spa_file_with_eng_job_lang() {
+    fn test_file_has_english_no_languages_header_uses_eng_fallback() {
+        // BA2 parity: coref's English-only fallback for missing @Languages is
+        // hardcoded `eng` (--lang was removed from the CLI). A file without
+        // an @Languages header is treated as English.
         let parser = TreeSitterParser::new().unwrap();
-        // File declares @Languages: spa, but job-level lang is "eng".
-        // The per-file check should see "spa" and return false.
-        let chat = include_str!("../../../test-fixtures/spa_chi_hola_mundo.cha");
-        let (chat_file, _) = parse_lenient(&parser, chat);
-        // Even with fallback_lang="eng", the file declares spa — not English
-        assert!(!file_has_english(&chat_file, &LanguageCode3::eng()));
-    }
-
-    #[test]
-    fn test_file_has_english_eng_file_with_spa_job_lang() {
-        let parser = TreeSitterParser::new().unwrap();
-        // File declares @Languages: eng, but job-level lang is "spa".
-        // The per-file check should see "eng" and return true.
-        let chat = include_str!("../../../test-fixtures/eng_hello_world.cha");
-        let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file, &LanguageCode3::spa()));
-    }
-
-    #[test]
-    fn test_file_has_english_no_languages_header_uses_fallback() {
-        let parser = TreeSitterParser::new().unwrap();
-        // File without @Languages header — falls back to job-level lang
         let chat = include_str!("../../../test-fixtures/eng_hello_world_no_languages.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        // Fallback is "eng" — should be English
-        assert!(file_has_english(&chat_file, &LanguageCode3::eng()));
-        // Fallback is "spa" — should NOT be English
-        assert!(!file_has_english(&chat_file, &LanguageCode3::spa()));
+        assert!(file_has_english(&chat_file));
     }
 
     #[test]
@@ -510,6 +504,6 @@ mod tests {
         // File declares both eng and spa — should be considered English
         let chat = include_str!("../../../test-fixtures/eng_spa_bilingual_hello_world.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file, &LanguageCode3::eng()));
+        assert!(file_has_english(&chat_file));
     }
 }

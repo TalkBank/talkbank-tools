@@ -31,8 +31,11 @@ tagging. The segmentation method depends on the language:
 
 ### Cantonese Example
 
+Morphotag has no `--lang` flag — language comes from each file's
+`@Languages: yue` header.
+
 ```bash
-batchalign3 morphotag --retokenize corpus/ -o output/ --lang yue
+batchalign3 morphotag --retokenize corpus/ -o output/
 ```
 
 Before (per-character):
@@ -49,8 +52,11 @@ After retokenize (word-level):
 
 ### Mandarin Example
 
+Morphotag has no `--lang` flag — language comes from each file's
+`@Languages: cmn` (or `zho`) header.
+
 ```bash
-batchalign3 morphotag --retokenize corpus/ -o output/ --lang cmn
+batchalign3 morphotag --retokenize corpus/ -o output/
 ```
 
 ## Default Behavior

@@ -1,7 +1,7 @@
 # Utterance Segmentation
 
 **Status:** Current
-**Last updated:** 2026-03-24 15:37 EDT
+**Last updated:** 2026-05-05 08:21 EDT
 
 Utterance segmentation splits continuous ASR output into individual utterances
 for CHAT transcription. This is a critical step — CHAT requires one utterance
@@ -26,7 +26,8 @@ batchalign3 has three utterance segmentation mechanisms:
 
 1. **Pre-CHAT utterance models** — BA2-style token-classification models that
    predict utterance boundaries from typed ASR word lists before CHAT exists.
-   Available for 3 languages.
+   Available for 3 language families / 4 supported codes (`eng`, `cmn`, `zho`,
+   `yue`).
 2. **Punctuation-based fallback** — Rust-side retokenization over typed ASR
    words. Used for unsupported languages and as cleanup after model-backed
    segmentation.
@@ -52,7 +53,7 @@ flowchart TD
     langid -->|yes| efflang
     langid -->|no| efflang
     efflang --> check
-    check -->|eng/cmn/yue| bert
+    check -->|eng/cmn/zho/yue| bert
     check -->|all others| punct
     bert --> punct
     punct --> utts
@@ -72,6 +73,10 @@ These models predict utterance-boundary actions as a token classification task.
 In BA3, Python model inference stays token-based and returns typed
 word-assignment groups to Rust; Rust then applies those assignments to the
 prepared ASR chunks without round-tripping through ad hoc sentence strings.
+
+Both standalone `utseg` and `transcribe`'s pre-CHAT segmentation path resolve
+through the same utterance-model resolver, so `cmn` and `zho` both select
+`talkbank/CHATUtterance-zh_CN`.
 
 For Rev.AI `--lang auto`, model selection happens after the effective language
 is resolved for post-processing. That means an auto-submitted Rev transcript can
@@ -135,15 +140,15 @@ split into chunks of 300. BA3 also applies a long-pause fallback split before
 retokenization so clearly separated runs are not forced into one giant
 utterance when provider punctuation is missing.
 
-## Stanza Utterance Segmentation (morphotag pipeline)
+## Stanza Utterance Segmentation (CHAT-text path)
 
 Separately from ASR post-processing, the `utseg` NLP task can also use
 **Stanza's constituency parser** to predict utterance boundaries during
-morphosyntax or standalone `utseg` processing. On the live worker boundary,
-Rust freezes a prepared-text batch and dispatches `execute_v2(task="utseg")`.
-For model-backed languages, Python may return direct typed assignments; for the
-Stanza path it returns raw constituency trees and Rust computes assignments
-locally.
+standalone `utseg` processing on already-built CHAT text. On the live worker
+boundary, Rust freezes a prepared-text batch and dispatches
+`execute_v2(task="utseg")`. For model-backed languages, Python may return
+direct typed assignments; for the Stanza path it returns raw constituency trees
+and Rust computes assignments locally.
 
 **Not all languages have constituency parsing.** Stanza has constituency
 models for ~11 languages (en, de, es, it, pt, da, id, ja, tr, vi, zh-hans).
@@ -153,9 +158,10 @@ segmentation. This is handled automatically by the Stanza capability table
 (`batchalign/worker/_stanza_capabilities.py`), which reads Stanza's
 `resources.json` to discover per-language processor availability.
 
-This is a different mechanism from the pre-CHAT utterance models above — it operates on
-already-segmented text and can refine boundaries using syntactic structure.
-It runs as part of the `morphotag` command, not the `transcribe` command.
+This is a different mechanism from the pre-CHAT utterance models above — it
+operates on already-built CHAT text and can refine boundaries using syntactic
+structure. The user-facing surface for this path is the standalone `utseg`
+command; `transcribe` uses the pre-CHAT utterance models when available.
 
 ## Why Only 3 Languages Have Models
 

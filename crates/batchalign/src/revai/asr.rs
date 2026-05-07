@@ -85,21 +85,28 @@ pub(crate) async fn infer_revai_asr(
         )
         .map_err(|error| ServerError::Validation(error.to_string()))?;
 
-        // Use the resolved language from Language ID, or fall back.
-        let resolved_lang = match &effective_lang {
+        // Resolve the language. No silent fallback to English — if Language
+        // ID didn't return anything usable and the user didn't supply
+        // `--lang`, the file's `@Languages:` would be a lie. Surface the
+        // failure instead so the operator re-runs with `--lang <iso3>`.
+        let resolved_lang: LanguageCode3 = match &effective_lang {
             LanguageSpec::Resolved(code) => code.clone(),
-            LanguageSpec::Auto => {
-                // Language ID failed or was skipped — try job.language field,
-                // then fall back to "eng".
-                result
-                    .detected_language
-                    .as_deref()
-                    .filter(|d| !d.is_empty() && *d != "auto")
-                    .and_then(revai_code_to_iso639_3)
-                    // Documented default: Rev.AI auto-detect may return an unrecognized
-                    // language code. Fall back to eng for CHAT header construction.
-                    .unwrap_or_else(LanguageCode3::eng)
-            }
+            // Auto: user asked Rev.AI to detect. PerFile: transcribe path
+            // shouldn't see this — submission validation rejects it. Either
+            // way the only honest source here is Rev.AI's `detected_language`.
+            LanguageSpec::Auto | LanguageSpec::PerFile => result
+                .detected_language
+                .as_deref()
+                .filter(|d| !d.is_empty() && *d != "auto")
+                .and_then(revai_code_to_iso639_3)
+                .ok_or_else(|| {
+                    ServerError::Validation(
+                        "Rev.AI did not return a usable detected language for `--lang auto`. \
+                         Re-run with an explicit `--lang <iso3>` so the @Languages header is \
+                         honest."
+                            .into(),
+                    )
+                })?,
         };
 
         Ok(transcript_to_asr_response(

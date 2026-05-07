@@ -114,10 +114,6 @@ pub fn is_terminator(d: Option<TokenDiscriminants>) -> bool {
                 | TokenDiscriminants::SelfInterruptedQuestion
                 | TokenDiscriminants::TrailingOffQuestion
                 | TokenDiscriminants::BreakForCoding
-                | TokenDiscriminants::CaNoBreak
-                | TokenDiscriminants::CaTechnicalBreak
-                | TokenDiscriminants::CaNoBreakLinker
-                | TokenDiscriminants::CaTechnicalBreakLinker
         )
     )
 }
@@ -174,6 +170,8 @@ pub fn is_separator(d: Option<TokenDiscriminants>) -> bool {
                 | TokenDiscriminants::VocativeMarker
                 | TokenDiscriminants::UnmarkedEnding
                 | TokenDiscriminants::UptakeSymbol
+                | TokenDiscriminants::CaNoBreak
+                | TokenDiscriminants::CaTechnicalBreak
                 | TokenDiscriminants::RisingToHigh
                 | TokenDiscriminants::RisingToMid
                 | TokenDiscriminants::LevelPitch

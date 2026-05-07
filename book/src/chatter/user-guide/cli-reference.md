@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 03:45 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -295,6 +295,29 @@ subcommands include:
 - `sanitize` — strip contributor lexical content while preserving
   structure, for protected-corpus debugging. See the
   [Sanitize](sanitize.md) user-guide page for the full workflow.
+- `fix-s` — normalize whole-utterance same-language `@s` runs into a
+  `[- lang]` precode, clear the per-word `@s` markers (including those
+  on fillers and nonwords), and append any missing explicit `@s:LANG`
+  codes to `@Languages`. Trigger conditions and safety rules:
+
+  - Every word-bearing item in the utterance — including fillers
+    (`&~`, `&-`, `&+`), nonwords, and retraced material — must carry an
+    explicit language marker AND every marker must resolve to the same
+    target language. If a single filler such as `&~dang3` lacks a
+    marker, the utterance is left untouched (the predicate cannot prove
+    it is monolingual).
+  - **Bare `@s` shortcuts on fillers must be cleared** when the rewrite
+    fires. A bare `@s` resolves relative to the surrounding tier
+    language, so adding a `[- LANG]` precode without clearing the
+    shortcut would *flip* the filler's language to the precode target.
+    `fix-s` clears the shortcut to keep the original meaning intact.
+  - The pre-validation rule that catches the unrewritten pattern is
+    E255 (whole-utterance same-language `@s` run); `fix-s` is the
+    canonical repair. The companion warn-only E254 reports `@s:LANG`
+    codes missing from `@Languages`; `fix-s` appends them.
+  - True no-op on already-correct files: a file is rewritten only when
+    a `[- lang]` conversion or `@Languages` repair can be proved
+    necessary.
 
 ## Exit Codes
 

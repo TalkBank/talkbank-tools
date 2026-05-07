@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-05-01 09:47 EDT
+**Last modified:** 2026-05-06 13:34 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -33,6 +33,17 @@ These rules matter because contributors often read code before they read docs.
    must update its `Last modified` field with date and time. **Always run
    `date '+%Y-%m-%d %H:%M %Z'` to get the actual system time** — do not
    guess, hardcode, or use the conversation date.
+10. **Do not write new logic against historical CHAT options.** In the current
+   grammar/model, the structured `@Options` names are `CA` and `NoAlign`;
+   do not add code or tests that depend on a removed `dummy` option.
+11. **Time transparency.** Operations that take more than ~1 second must
+   surface to all UI channels (console, TUI, desktop app, web dashboard)
+   via the `progress_v2` event channel
+   (`batchalign/worker/_protocol.py:write_progress_event`,
+   `batchalign/worker/_progress.py` helpers). Silent waits are UX bugs.
+   Applies to model downloads, model loads, external API calls, and any
+   blocking wait. Full rationale and contributor checklist in
+   [`book/src/batchalign/architecture/time-transparency.md`](book/src/batchalign/architecture/time-transparency.md).
 
 ## Overview
 
@@ -411,6 +422,11 @@ failures — they are honest markers of unfinished work.
 ### Parser Recovery and Data Integrity
 - Do not fabricate dummy model values during parser recovery.
 - On malformed input, report diagnostics and mark parse-taint (`ParseHealth`).
+- Lenient recovery must not fail fast on malformed existing `%mor` / `%gra`
+  tiers. If the source contains a `%mor` or `%gra` line, the recovered AST
+  must preserve that tier slot in place even when the tier contents are
+  malformed, so downstream repair/regeneration can mutate in place without
+  reordering against later dependent tiers such as `%wor`.
 - Alignment/validation must honor parse-taint and skip mismatched-domain checks.
 - Prefer cheap byte-oriented prefix dispatch before heavier parser machinery.
 - Prefer shared diagnostic constructors over ad hoc `ParseError::new(...)`.

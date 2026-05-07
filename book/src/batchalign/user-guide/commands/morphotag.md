@@ -1,24 +1,40 @@
 # morphotag
 
 **Status:** Current
-**Last updated:** 2026-05-03 08:50 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 Add morphosyntactic analysis (`%mor` POS/lemma tiers and `%gra` dependency
 tiers) to existing CHAT transcripts. Text-only — no audio involved.
 
 ---
 
+## Language is per-file, not job-level
+
+Morphotag has **no `--lang` flag**. Every input file's processing language
+is read from that file's own `@Languages:` header at the start of the
+per-file pipeline (`pipeline/morphosyntax.rs::resolve_per_file_lang`).
+A single morphotag invocation can therefore process a heterogeneous
+corpus — English files routed to Stanza English, Spanish files to Stanza
+Spanish, Cantonese files to Stanza Chinese with the PyCantonese POS
+overlay, etc. — all from one command. The job's wire-level language
+spec is `LanguageSpec::PerFile`, surfaced on the dashboard and JSON API
+as `"per-file"`. No English placeholder is ever stored.
+
+If a file's `@Languages:` header is missing, malformed, or names a
+language that Stanza does not support, morphotag does **not** silently
+fall back to English. The file is reported in the job's status with a
+typed error and returned unchanged.
+
+---
+
 ## Quick start
 
 ```bash
-# Tag one file in place
+# Tag one file in place — language is read from the file's @Languages header
 batchalign3 morphotag file.cha
 
 # Tag a corpus directory
 batchalign3 morphotag corpus/ -o tagged/
-
-# Tag with language override (file has wrong or missing @Languages header)
-batchalign3 morphotag file.cha --lang spa
 
 # Retokenize main lines to match UD tokenization (expands contractions)
 batchalign3 morphotag corpus/ -o out/ --retokenize
@@ -26,6 +42,10 @@ batchalign3 morphotag corpus/ -o out/ --retokenize
 # Use remote server
 batchalign3 --server http://your-server:8001 morphotag corpus/ -o out/
 ```
+
+To "override" the language, edit the file's `@Languages:` line. There is
+no CLI shortcut — and there cannot be, because a single command may span
+many languages.
 
 ---
 
@@ -101,9 +121,13 @@ into smaller chunks and run those chunks sequentially.
 
 ### Morphotag options
 
+There is **no `--lang` flag**. Each file's processing language is read
+from its own `@Languages:` header. Passing `--lang` to morphotag is a
+clap parse error — the CLI surface deliberately rejects it. See the
+"Language is per-file, not job-level" section above for the rationale.
+
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--lang CODE` | from `@Languages` | 3-letter ISO language code. Overrides the file's `@Languages` header when set |
 | `--retokenize` / `--keeptokens` | `--keeptokens` | Retokenize main lines to UD tokenization (may split/merge words), or preserve existing tokenization |
 | `--skipmultilang` / `--multilang` | `--multilang` | Skip utterances in non-primary languages, or process all |
 | `--lexicon FILE` | — | Comma-separated manual lexicon override file (read on client, injected as typed options) |
@@ -140,10 +164,20 @@ decision.
 
 ## Language routing
 
-When `--lang` is omitted, the language is read from the CHAT file's
-`@Languages` header (first declared language). Individual utterances with
-a `[- lang]` precode are routed to the appropriate language-specific Stanza
-model regardless of the file-level language.
+The language for each file is read from its `@Languages:` header (first
+declared language). Individual utterances tagged with a `[- lang]` precode
+are routed to the appropriate language-specific Stanza model regardless of
+the file-level language. There is no CLI override — see the "Language is
+per-file, not job-level" section at the top of this page.
+
+For Cantonese, files declared with primary `@Languages: yue` route to
+Stanza's Chinese (`zh`) pipeline with a PyCantonese POS overlay applied
+after Stanza finishes (Stanza zh scores ~50% on Cantonese vocabulary;
+PyCantonese ~94% — only `upos` is replaced; lemma and dependency parse
+from Stanza are preserved). Mandarin files (`zho` / `cmn`) use Stanza zh
+without the PyCantonese overlay. See
+[Cantonese language details](../../reference/languages/cantonese.md) and
+[Mandarin](../../reference/languages/mandarin.md).
 
 See [Language Routing](../../../architecture/language-and-multilingual/language-routing.md#per-utterance-routing-into-stanza).
 
@@ -170,7 +204,11 @@ models and annotated with real POS tags, lemmas, and dependency
 relations — including proper handling of contractions
 (`it's@s:eng` → `pron|it~aux|be`) and phrasal verbs
 (`wake@s up@s` → `verb|wake part|up` with `COMPOUND-PRT` GRA deprel).
-This is the default behavior.
+This is the default behavior. Mandarin-marked words (`@s:cmn` /
+`@s:zho`) route through the Chinese `zh` morphosyntax path, and
+Cantonese-marked words (`@s:yue`) use the same secondary-dispatch
+surface as other supported Stanza languages. Unresolved or unsupported
+targets still fall back to `L2|xxx`.
 
 To opt out and emit legacy `L2|xxx` placeholders (e.g. for
 reproducibility of older analyses), pass `--no-l2-morphotag`:
@@ -185,6 +223,33 @@ secondary-language Stanza model on most pairs, with 100% dispatch on
 the majority of evaluated language pairs. The remaining cases fall
 back to `L2|xxx`.
 
+### Unsupported non-primary languages
+
+`morphotag` only requires the **primary** `@Languages` code to be
+Stanza-supported. Files whose primary is not Stanza-supported are
+skipped with a typed diagnostic and never enter the pipeline.
+
+When the primary IS supported, **non-primary content in any language
+that Stanza does not support is processed cleanly with an `L2|xxx`
+fallback**:
+
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the entire utterance
+  is grouped under `UNSUPPORTEDLANG`, the worker partition routes that
+  group to the fallback bucket (no Stanza dispatch), and every word in
+  the utterance receives `L2|xxx` in `%mor` with no `%gra` relation
+  emitted for those positions.
+- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+  path for that span is short-circuited the same way; the host primary
+  analysis is preserved and the `@s` token's slot stays as `L2|xxx`.
+
+Both fallbacks are *graceful*: the worker never crashes on an
+unsupported secondary, and other utterances in the same file (or other
+spans in the same utterance) that target supported languages continue
+to receive real morphology. The mechanism is a partition step in
+`infer_batch` (`partition_groups_by_stanza_support`) that splits each
+batch's language groups into "dispatchable" and "fallback" before
+calling Stanza.
+
 **Example.** German-English code-switching:
 
 ```
@@ -196,6 +261,40 @@ back to `L2|xxx`.
 See also:
 - [L2 Morphotag: Per-Word Code-Switching Analysis](../../reference/l2-morphotag.md)
   — full design, merge algorithm, phrasal-verb diagram
+
+## Validation and repair for `@s` input
+
+- Whole-utterance same-language runs written as `word@s word@s ...` are
+  rejected by pre-validation (E255). The canonical CHAT form is
+  `[- lang]`, and `chatter debug fix-s` rewrites the qualifying
+  whole-utterance pattern in place.
+- Explicit `@s:LANG` words still dispatch to `LANG` even if `LANG` is
+  missing from `@Languages`, but validation emits warn-only E254 so the
+  header drift is visible. `chatter debug fix-s` appends those missing
+  explicit languages to `@Languages`.
+- `chatter debug fix-s` is a true no-op on already-correct files: it
+  only rewrites a file when it can prove a `[- lang]` conversion or
+  `@Languages` repair is needed.
+
+### When `fix-s` will and will not rewrite
+
+The rewrite predicate is conservative on purpose: an incorrect
+`[- LANG]` insertion silently changes the language scope of an entire
+utterance, including fillers and nonwords. The predicate only fires
+when **every** word-bearing item in the utterance — words, fillers
+(`&~`, `&-`, `&+`), nonwords, AND retraced material — carries an
+explicit language attribution that resolves to the **same** target
+language. A single unmarked token (e.g. a filler `&~dang3` with no
+`@s:` marker) blocks the rewrite, even if every other word would
+qualify.
+
+When the rewrite fires, `fix-s` clears bare `@s` shortcuts from
+fillers and nonwords as well as from regular words. This is critical:
+a bare `@s` resolves relative to the surrounding tier language, so
+adding a `[- LANG]` precode without clearing the shortcut would *flip*
+the filler's resolved language to the precode target. (A previous
+version of the tool skipped fillers and corrupted a corpus this way;
+the fix-s predicate now walks all word-bearing items.)
 
 ---
 

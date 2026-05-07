@@ -145,12 +145,17 @@ exhaustive list):
 
 ## CLI usage
 
+Morphotag has no `--lang` flag. Each file's processing language is read
+from its own `@Languages:` header. The examples below assume the input
+file's header declares the appropriate language (e.g. `@Languages: hin`
+for Hindi).
+
 ```bash
 # Default behavior — hints respected automatically.
-batchalign3 morphotag input.cha --output out/ --lang hin
+batchalign3 morphotag input.cha --output out/
 
 # Opt out for a single job:
-batchalign3 morphotag --no-pos-hints input.cha --output out/ --lang hin
+batchalign3 morphotag --no-pos-hints input.cha --output out/
 
 # `--no-pos-hints` is orthogonal to --retokenize, --skipmultilang,
 # --no-l2-morphotag, etc.

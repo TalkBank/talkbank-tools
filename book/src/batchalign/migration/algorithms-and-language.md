@@ -1,7 +1,7 @@
 # Algorithms, Language, and Alignment Migration
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 Comparison anchors:
 
@@ -499,6 +499,47 @@ wrong results. Users can recover from "language not supported — try
 `--asr-engine whisper`" but cannot recover from a transcript that looks
 English but should have been Welsh.
 
+### Per-file `@Languages:` resolution (morphotag, translate, coref)
+
+For text-NLP commands that operate on existing CHAT files —
+`morphotag`, `translate`, `coref` — the processing language is
+**read per-file from each file's own `@Languages:` header**. None of
+these commands accept a `--lang` flag at the CLI; the wire-level
+`LanguageSpec` is `PerFile`, distinct from `Auto`.
+
+| Scenario | BA2 | BA3 (current) |
+|---|---|---|
+| Missing `@Languages:` header | Silent `["eng"]` default applied to non-English files | Hard error: file is recorded as failed in the job's `file_statuses` with a typed message asking the operator to fix the header and re-run. No silent eng fallback. |
+| Malformed `@Languages:` (non-ISO code) | First entry passed through to Stanza, which then crashed deep in inference | Hard error at parse with the offending value quoted in the diagnostic. |
+| Bilingual file (`@Languages: spa, eng`) | Primary language used | Primary language used (unchanged). Secondary languages routed per-utterance via `[- xxx]` precodes; `@s` words routed to L2 dispatch by default. |
+| Job-level `--lang` flag | Sentinel that silently overrode per-file headers — the 2026-05-03 morphotag incident: every Czech/Spanish/Polish/French file in a heterogeneous corpus was tagged with English Stanza and stamped with `lang=eng` provenance | Removed. The CLI surface rejects `--lang` for these commands. The job record carries `lang=per-file` and the dashboard displays it as such. |
+
+**BA2 source for the silent `["eng"]` default:**
+
+```python
+# pipelines/morphosyntax/ud.py:1104
+lang = doc.langs[0] if doc.langs else "eng"
+
+# pipelines/utterance/ud_utterance.py:253
+primary_lang = doc.langs[0] if doc.langs else "eng"
+```
+
+The pattern was repeated at ten-plus sites across BA2 — every text-NLP
+pipeline carried its own `if doc.langs else "eng"` clause. BA3 inherited
+it as parity scaffolding (`CommandProfile.lang = "eng"` for the three
+no-`--lang` commands) until 2026-05-06, when the placeholder was killed
+in favor of `LanguageSpec::PerFile` and `resolve_per_file_lang` was made
+fallible.
+
+**Why BA2 used a silent default at all** is unclear from the source. BA2
+predates the project's broader push toward strict CHAT validation; the eng
+default is consistent with a "produce some output rather than fail"
+stance that was reasonable when the corpus was overwhelmingly English
+CHILDES data. With heterogeneous data — Cantonese, Polish, Czech,
+Spanish, Hong Kong bilingual — the default is unsafe: it falsifies the
+output's `@Languages:` provenance and tags the wrong morphology onto
+the wrong text. BA3 deliberately diverges.
+
 ### UTR strategy selection (current: GlobalUtr always; two-pass gated)
 
 The UTR (Utterance Timing Recovery) overlap strategy options are
@@ -567,7 +608,7 @@ stateless single-language inference endpoints.
 | Per-utterance Stanza routing | **No** (always primary lang) | **Yes** (Rust groups by language) |
 | Cross-language parallelism | No | **Yes** (concurrent language groups, semaphore-bounded) |
 | Intra-language parallelism | No | **Yes** (chunked across multiple workers) |
-| `@s:lang` per-word routing | No | **Yes** (L2 dispatch, default-on; opt out via `--skipmultilang`) |
+| `@s:lang` per-word routing | No | **Yes** (L2 dispatch, default-on; opt out via `--no-l2-morphotag`) |
 
 BA2 parsed the `[- lang]` precode into `override_lang` but **never used it
 for routing** — it always called `nlp(line_cut)` with the single primary
@@ -583,8 +624,10 @@ identifies `@s`-marked words, groups them into per-utterance
 secondary-language Stanza model, and merges the secondary lexical
 output back with the primary-language structural info before
 splicing the merged `Mor` items in place of the primary pass's
-`L2|xxx` placeholders. Default-on; the `--skipmultilang` flag opts
-out and falls back to placeholder-only output.
+`L2|xxx` placeholders. Default-on; the `--no-l2-morphotag` flag opts
+out and falls back to placeholder-only output. `--skipmultilang`
+remains the utterance-level `[- lang]` skip control, not the per-word
+L2 switch.
 
 BA3's two-level parallelism caps total active Stanza workers at
 `max_total_workers` (computed from RAM, default ~28 on a fleet

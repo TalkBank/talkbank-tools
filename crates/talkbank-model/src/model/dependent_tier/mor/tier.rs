@@ -9,6 +9,7 @@
 use super::super::WriteChat;
 use super::chunk::MorChunk;
 use super::item::Mor;
+use crate::alignment::indices::{GraHeadRef, MorItemIndex, SemanticWordIndex1};
 use crate::model::content::Terminator;
 use crate::model::dependent_tier::gra::{GraTier, GrammaticalRelation};
 use schemars::JsonSchema;
@@ -114,6 +115,50 @@ pub enum CoordinatedMutationError {
         /// Total number of items in the tier.
         len: usize,
     },
+    /// A new relation's head value is outside the new block but the
+    /// caller's contract said it should be in span-relative-1-indexed
+    /// space (i.e. within `1..=new_chunks`). Indicates a bug in the
+    /// caller's head computation, not a misalignment of the host file.
+    #[error(
+        "New gra relation has head={head} but the new block has only \
+         {new_chunks} chunks (heads must be in 1..={new_chunks} or 0)"
+    )]
+    HeadOutOfNewBlock {
+        /// The offending head value.
+        head: usize,
+        /// Total chunk count of the new block.
+        new_chunks: usize,
+    },
+    /// The host `%gra` tier is shorter than the chunk range the caller
+    /// asked us to splice over. The caller passed a stale `item_range`
+    /// or the host file has a pre-existing alignment defect that the
+    /// caller should have detected first.
+    #[error(
+        "Host %gra tier has {gra_len} relations but splice needs {needed} \
+         (chunk_offset={chunk_offset}, old_chunks={old_chunks})"
+    )]
+    GraTierTooShort {
+        /// Number of relations currently in the host tier.
+        gra_len: usize,
+        /// Minimum needed: `chunk_offset + old_chunks`.
+        needed: usize,
+        /// Where the splice would start.
+        chunk_offset: usize,
+        /// How many chunks the splice would consume.
+        old_chunks: usize,
+    },
+    /// A helper needed the `%gra` relation at a semantic chunk position but the
+    /// host tier ended earlier.
+    #[error(
+        "Host %gra tier has {gra_len} relations but item start needs semantic index {semantic_index}"
+    )]
+    GraRelationMissing {
+        /// The 1-indexed semantic chunk position that should have a matching
+        /// `%gra` relation.
+        semantic_index: SemanticWordIndex1,
+        /// Number of relations currently in the host tier.
+        gra_len: usize,
+    },
 }
 
 impl MorTier {
@@ -171,6 +216,168 @@ impl MorTier {
     /// corresponding %gra tier is updated to match.
     pub fn items_mut(&mut self) -> &mut [Mor] {
         &mut self.items.0
+    }
+
+    /// Replace a CONTIGUOUS RANGE of items and adjust the corresponding
+    /// `%gra` relations atomically.
+    ///
+    /// This is the multi-item analog of [`Self::splice_coordinated`].
+    /// The two methods share the same head-rewrite contract — heads in
+    /// `1..=new_chunks` are within-block and remapped to
+    /// `chunk_offset + head`; head 0 is the root anchor — but the range
+    /// version interprets `new_chunks` as the SUM of chunks across all
+    /// items in `new_mors`. This is what makes it correct for L2 spans
+    /// covering multiple host words: the secondary Stanza sentence
+    /// produces gras with cross-word heads (e.g. `la → fecha`), and the
+    /// per-item splice path misclassifies those as within-MWT and
+    /// remaps them with the wrong `chunk_offset`. See
+    /// `docs/postmortems/2026-05-03-l2-splice-cardinality-investigation.md`
+    /// §6c for the full failure trace.
+    ///
+    /// The `new_relations` list must have length equal to
+    /// `sum(new_mors[i].count_chunks())`. Heads inside `new_relations`
+    /// must be either `0` (span-internal root marker) or in
+    /// `1..=sum(new_mors[i].count_chunks())` (span-relative within-block
+    /// reference). Heads outside that range yield
+    /// [`CoordinatedMutationError::HeadOutOfNewBlock`] — that contract
+    /// holds the caller responsible for resolving any TRULY external
+    /// references to host-absolute indices BEFORE calling this method,
+    /// so the model layer never has to guess.
+    ///
+    /// Existing relations OUTSIDE the new block are reindexed and
+    /// head-shifted by `delta = new_chunks - old_chunks`.
+    ///
+    /// Refuses (returns [`CoordinatedMutationError::GraTierTooShort`])
+    /// when the host gra tier does not contain at least
+    /// `chunk_offset + old_chunks` relations. We do NOT clamp silently —
+    /// the postmortem (§6a, §6c) explicitly rejects soft-clamping, since
+    /// it hides exactly the cardinality regressions this method exists
+    /// to fix.
+    pub fn splice_range_coordinated(
+        &mut self,
+        gra: &mut GraTier,
+        item_range: std::ops::Range<usize>,
+        new_mors: Vec<Mor>,
+        new_relations: Vec<GrammaticalRelation>,
+        root_anchor_override: Option<usize>,
+    ) -> Result<(), CoordinatedMutationError> {
+        if item_range.end > self.items.len() {
+            return Err(CoordinatedMutationError::ItemIndexOutOfBounds {
+                index: item_range.end,
+                len: self.items.len(),
+            });
+        }
+
+        // Old chunk count for the entire range.
+        let old_chunks: usize = self.items.0[item_range.clone()]
+            .iter()
+            .map(|m| m.count_chunks())
+            .sum();
+        // New chunk count is the sum across all new mors.
+        let new_chunks: usize = new_mors.iter().map(|m| m.count_chunks()).sum();
+
+        if new_relations.len() != new_chunks {
+            return Err(CoordinatedMutationError::CountMismatch {
+                mor: new_chunks,
+                gra: new_relations.len(),
+            });
+        }
+
+        // Chunk offset of the first chunk in the range, host-1-indexed
+        // would be chunk_offset + 1; here we keep 0-indexed for slice math.
+        let chunk_offset: usize = self.items.0[..item_range.start]
+            .iter()
+            .map(|m| m.count_chunks())
+            .sum();
+
+        // Refuse to clamp: the host tier MUST cover the chunks we are
+        // about to overwrite. Anything else is an upstream bug.
+        let needed = chunk_offset + old_chunks;
+        if needed > gra.relations.len() {
+            return Err(CoordinatedMutationError::GraTierTooShort {
+                gra_len: gra.relations.len(),
+                needed,
+                chunk_offset,
+                old_chunks,
+            });
+        }
+
+        // Validate every new relation's head BEFORE mutating anything,
+        // so on error we leave both tiers unchanged.
+        for rel in &new_relations {
+            if rel.head != 0 && rel.head > new_chunks {
+                return Err(CoordinatedMutationError::HeadOutOfNewBlock {
+                    head: rel.head,
+                    new_chunks,
+                });
+            }
+        }
+
+        let delta = (new_chunks as isize) - (old_chunks as isize);
+
+        // 1. Update %mor items: replace the entire range with new_mors.
+        self.items.0.splice(item_range, new_mors);
+
+        // 2. Reindex the new relations to host-1-indexed.
+        let mut fixed_relations = new_relations;
+        for (i, rel) in fixed_relations.iter_mut().enumerate() {
+            rel.index = chunk_offset + i + 1;
+        }
+
+        // 3. Capture the old head at the splice start before splicing it
+        //    away — used as the default root anchor if no override is
+        //    provided. (Same convention as splice_coordinated.)
+        let old_head_at_start = gra.relations.0[chunk_offset].head;
+
+        // 4. Splice the gra range.
+        gra.relations
+            .0
+            .splice(chunk_offset..chunk_offset + old_chunks, fixed_relations);
+
+        // 5. Reindex relations AFTER the new block so their `index`
+        //    fields match their new tier position.
+        if delta != 0 {
+            for i in (chunk_offset + new_chunks)..gra.relations.len() {
+                let rel = &mut gra.relations.0[i];
+                rel.index = (rel.index as isize + delta) as usize;
+            }
+        }
+
+        // 6. Adjust heads:
+        //    - For new relations (positions [chunk_offset, chunk_offset+new_chunks)):
+        //      head=0 → root_anchor_override or old_head_at_start
+        //      head ∈ [1, new_chunks] → chunk_offset + head (within span)
+        //    - For existing relations elsewhere:
+        //      head pointing into the replaced range → collapse to chunk_offset + 1
+        //      head pointing past the replaced range → shift by delta
+        for (i, rel) in gra.relations.0.iter_mut().enumerate() {
+            if i >= chunk_offset && i < chunk_offset + new_chunks {
+                if rel.head == 0 {
+                    rel.head = root_anchor_override.unwrap_or(old_head_at_start);
+                } else {
+                    // Already validated head ≤ new_chunks above, so this
+                    // is always a within-block reference.
+                    rel.head = chunk_offset + rel.head;
+                }
+                if rel.head == 0 {
+                    rel.relation = "ROOT".into();
+                }
+            } else if rel.head > chunk_offset {
+                if rel.head <= chunk_offset + old_chunks {
+                    // Head was pointing into the range we replaced; the
+                    // safest collapse target is the first chunk of the
+                    // new block (matches splice_coordinated convention).
+                    rel.head = chunk_offset + 1;
+                } else {
+                    // Head was pointing past the replaced range; shift
+                    // by delta to keep pointing at the same conceptual
+                    // chunk after the splice.
+                    rel.head = (rel.head as isize + delta) as usize;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Replace the item at `item_idx` and adjust the corresponding `%gra`
@@ -249,6 +456,9 @@ impl MorTier {
                     // Internal reference within the new block.
                     // Assumes secondary indices were 1-indexed relative to the block.
                     rel.head = chunk_offset + rel.head;
+                }
+                if rel.head == 0 {
+                    rel.relation = "ROOT".into();
                 }
             } else if rel.head > chunk_offset {
                 // Existing relation pointing past the splice point.
@@ -346,6 +556,56 @@ impl MorTier {
             base += span;
         }
         None
+    }
+
+    /// Return the 1-indexed semantic `%gra` position of the first chunk owned by
+    /// a `%mor` item.
+    ///
+    /// This is the typed bridge from the main↔`%mor` item alignment domain to
+    /// the author-written `%gra` `index`/`head` space. For a post-cliticized
+    /// item like `pron|it~aux|be`, the item start is semantic index `1`, while
+    /// the item's governing syntactic head may still live on a later chunk.
+    pub fn semantic_index_of_item_start(
+        &self,
+        item_idx: MorItemIndex,
+    ) -> Option<SemanticWordIndex1> {
+        let item_idx = item_idx.as_usize();
+        (item_idx < self.items.len())
+            .then(|| {
+                self.items[..item_idx]
+                    .iter()
+                    .map(|item| item.count_chunks())
+                    .sum::<usize>()
+                    + 1
+            })
+            .and_then(|index| SemanticWordIndex1::new(index).ok())
+    }
+
+    /// Return the current `%gra` head for the first chunk of a `%mor` item.
+    ///
+    /// This is the shared "host governing chunk" seam for any code that needs
+    /// to project a `%mor` item into the `%gra` dependency graph without
+    /// confusing item indices with chunk indices. The returned [`GraHeadRef`]
+    /// stays in the typed `%gra` head space and leaves the ROOT-vs-word branch
+    /// explicit for the caller.
+    pub fn governing_head_for_item(
+        &self,
+        gra: &GraTier,
+        item_idx: MorItemIndex,
+    ) -> Result<GraHeadRef, CoordinatedMutationError> {
+        let semantic_index = self.semantic_index_of_item_start(item_idx).ok_or(
+            CoordinatedMutationError::ItemIndexOutOfBounds {
+                index: item_idx.as_usize(),
+                len: self.items.len(),
+            },
+        )?;
+        let relation = gra.relation_at_semantic_index(semantic_index).ok_or(
+            CoordinatedMutationError::GraRelationMissing {
+                semantic_index,
+                gra_len: gra.len(),
+            },
+        )?;
+        Ok(relation.head_ref())
     }
 
     /// Number of `%mor` items (excluding terminator/chunk expansion).
@@ -575,6 +835,7 @@ mod tests {
     use super::super::item::Mor;
     use super::super::word::MorWord;
     use super::*;
+    use crate::alignment::{GraHeadRef, MorItemIndex, SemanticWordIndex1};
     use crate::{ErrorCode, ErrorCollector};
 
     /// Builds a `%mor` word fixture with given POS and lemma.
@@ -658,5 +919,98 @@ mod tests {
         assert_eq!(errs.len(), 1);
         assert_eq!(errs[0].code, ErrorCode::MorEmptyContent);
         assert!(errs[0].message.contains("empty feature"));
+    }
+
+    #[test]
+    fn semantic_index_of_item_start_counts_prior_chunks() {
+        let tier = make_tier(vec![
+            make_mor(make_word("pron", "it")).with_post_clitic(make_word("aux", "be")),
+            make_mor(make_word("noun", "cookie")),
+        ]);
+
+        assert_eq!(
+            tier.semantic_index_of_item_start(MorItemIndex::new(0)),
+            Some(SemanticWordIndex1::new(1).unwrap())
+        );
+        assert_eq!(
+            tier.semantic_index_of_item_start(MorItemIndex::new(1)),
+            Some(SemanticWordIndex1::new(3).unwrap())
+        );
+    }
+
+    #[test]
+    fn governing_head_for_item_uses_gra_chunk_space() {
+        let tier = make_tier(vec![
+            make_mor(make_word("pron", "it")).with_post_clitic(make_word("aux", "be")),
+            make_mor(make_word("noun", "foreign")),
+        ]);
+        let gra = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 2, "EXPL"),
+            GrammaticalRelation::new(2, 0, "ROOT"),
+            GrammaticalRelation::new(3, 2, "DEP"),
+            GrammaticalRelation::new(4, 2, "PUNCT"),
+        ]);
+
+        assert_eq!(
+            tier.governing_head_for_item(&gra, MorItemIndex::new(1))
+                .unwrap(),
+            GraHeadRef::Word(SemanticWordIndex1::new(2).unwrap())
+        );
+    }
+
+    #[test]
+    fn splice_coordinated_normalizes_resulting_head_zero_relation_to_root() {
+        let mut tier = make_tier(vec![make_mor(make_word("noun", "dog"))]);
+        let mut gra = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 0, "ROOT"),
+            GrammaticalRelation::new(2, 1, "PUNCT"),
+        ]);
+
+        tier.splice_coordinated(
+            &mut gra,
+            0,
+            make_mor(make_word("noun", "woof")),
+            vec![GrammaticalRelation::new(1, 0, "NMOD")],
+            None,
+        )
+        .expect("splice_coordinated");
+
+        let actual: Vec<String> = gra.relations().iter().map(ToString::to_string).collect();
+        assert_eq!(
+            actual,
+            vec!["1|0|ROOT".to_string(), "2|1|PUNCT".to_string()]
+        );
+    }
+
+    #[test]
+    fn splice_range_coordinated_normalizes_resulting_head_zero_relation_to_root() {
+        let mut tier = make_tier(vec![
+            make_mor(make_word("noun", "old")),
+            make_mor(make_word("noun", "tail")),
+        ]);
+        let mut gra = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 0, "ROOT"),
+            GrammaticalRelation::new(2, 1, "NMOD"),
+            GrammaticalRelation::new(3, 1, "PUNCT"),
+        ]);
+
+        tier.splice_range_coordinated(
+            &mut gra,
+            0..1,
+            vec![make_mor(make_word("noun", "new"))],
+            vec![GrammaticalRelation::new(1, 0, "NMOD")],
+            None,
+        )
+        .expect("splice_range_coordinated");
+
+        let actual: Vec<String> = gra.relations().iter().map(ToString::to_string).collect();
+        assert_eq!(
+            actual,
+            vec![
+                "1|0|ROOT".to_string(),
+                "2|1|NMOD".to_string(),
+                "3|1|PUNCT".to_string(),
+            ]
+        );
     }
 }

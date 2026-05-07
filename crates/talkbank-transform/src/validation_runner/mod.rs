@@ -32,7 +32,7 @@ mod worker;
 // Re-export public API
 pub use cache::{CacheOutcome, ValidationCache};
 pub use config::{CacheMode, DirectoryMode, ParserKind, ValidationConfig};
-pub use runner::validate_directory_streaming;
+pub use runner::{validate_directory_streaming, validate_files_streaming};
 pub use types::{
     ErrorEvent, FileCompleteEvent, FileStatus, RoundtripEvent, ValidationEvent, ValidationStats,
     ValidationStatsSnapshot,

@@ -40,12 +40,19 @@ where
         return Ok(());
     }
 
-    let lang = job
-        .dispatch
-        .lang
-        .as_resolved()
-        .cloned()
-        .unwrap_or_else(LanguageCode3::eng);
+    // No silent eng fallback. If the job's lang is Auto/PerFile, the
+    // simple batched text dispatch isn't the right path — return a
+    // typed error so the caller routes through the per-file dispatch
+    // (`execution/translate.rs`, `execution/morphotag/`,
+    // `execution/coref.rs`) which resolves language per-file from each
+    // CHAT file's `@Languages:` header.
+    let lang = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
+        crate::error::ServerError::Validation(format!(
+            "simple batched text dispatch requires a resolved `--lang <iso3>`; got \
+             '{}'. PerFile / Auto must use the per-file execution kernel.",
+            job.dispatch.lang
+        ))
+    })?;
     let results = batch_fn(inputs.file_texts, lang).await;
     write_text_results(
         job,

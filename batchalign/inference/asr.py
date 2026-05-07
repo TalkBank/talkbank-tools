@@ -137,8 +137,25 @@ def load_whisper_asr(
     from batchalign.inference.audio import bind_whisper_token_timestamp_extractor
 
     from batchalign.device import resolve_inference_device
+    from batchalign.worker._progress import (
+        HF_ARTIFACTS_WHISPER,
+        emit_hf_download_if_missing,
+    )
 
     device = resolve_inference_device(device_policy)
+
+    # Surface a download notification if the user is about to wait for a
+    # multi-GB Whisper download. ``base`` and ``model`` may be the same
+    # repo; we probe both because either path could trigger a download
+    # depending on which file was previously cached. Probe the full
+    # Whisper artifact set (config + generation_config + tokenizer +
+    # tokenizer_config + preprocessor_config) so a partial-cache state
+    # doesn't bypass the notification.
+    emit_hf_download_if_missing(base, kind="ASR", artifacts=HF_ARTIFACTS_WHISPER)
+    if model != base:
+        emit_hf_download_if_missing(
+            model, kind="ASR", artifacts=HF_ARTIFACTS_WHISPER
+        )
 
     config = GenerationConfig.from_pretrained(base)
     config.no_repeat_ngram_size = 4

@@ -119,6 +119,10 @@ def load_whisper_fa(
     from batchalign.inference.audio import bind_whisper_token_timestamp_extractor
     from batchalign.inference.types import WhisperFAHandle
     from batchalign.device import resolve_inference_device
+    from batchalign.worker._progress import (
+        HF_ARTIFACTS_WHISPER,
+        emit_hf_download_if_missing,
+    )
 
     device = resolve_inference_device(device_policy)
 
@@ -126,6 +130,14 @@ def load_whisper_fa(
         torch_dtype = torch.float16
     else:
         torch_dtype = torch.float32
+
+    # Multi-GB Whisper FA model download — make the wait visible. Probe
+    # the full Whisper artifact set so a partial-cache state (e.g.,
+    # tokenizer.json evicted while weights remain) still triggers a
+    # download notification.
+    emit_hf_download_if_missing(
+        model, kind="forced alignment", artifacts=HF_ARTIFACTS_WHISPER
+    )
 
     whisper_model = WhisperForConditionalGeneration.from_pretrained(
         model, attn_implementation="eager", torch_dtype=torch_dtype
@@ -203,8 +215,24 @@ def load_wave2vec_fa(
     from batchalign.inference.types import Wave2VecFAHandle
     from batchalign.device import resolve_inference_device
 
+    from batchalign.worker._progress import emit_download_event
+
     bundle = torchaudio.pipelines.MMS_FA
     device = resolve_inference_device(device_policy)
+
+    # ``MMS_FA.get_model()`` downloads to torchaudio's hub cache on first use
+    # (~1.2 GB). torchaudio prints its own progress to stderr; surface a
+    # parallel event on the BA3 protocol channel so every UI sees the wait.
+    # Best-effort cache check: torchaudio doesn't expose a clean API for
+    # this, so we always emit. False positives (cached, but we still notify)
+    # are a much smaller UX cost than silent multi-minute waits.
+    emit_download_event(
+        stage="downloading_torchaudio_mms_fa",
+        user_message=(
+            "Downloading Wave2Vec MMS_FA bundle for forced alignment "
+            "(one-time, ~1.2 GB; future runs will use the local cache)…"
+        ),
+    )
     model = bundle.get_model()
     model = model.to(device)
     return Wave2VecFAHandle(model=model, sample_rate=target_sample_rate)

@@ -17,8 +17,40 @@ use crate::worker::error::WorkerError;
 
 use super::protocol::WorkerRequest;
 
+/// True when a JSON line is a worker-emitted progress event that may
+/// arrive before the ready signal during bootstrap (model download,
+/// model load, etc.). Worker IPC tags these lines with
+/// `"op": "progress_v2"`. We do a cheap untyped peek rather than full
+/// deserialization because the response-side types do not include a
+/// `"ready"` field, and a typed parse would either accept the line as a
+/// silent no-op or fail in a confusing way.
+fn is_pre_ready_progress_event(json_line: &str) -> bool {
+    let value: serde_json::Value = match serde_json::from_str(json_line) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    value.get("op").and_then(|v| v.as_str()) == Some("progress_v2")
+}
+
 impl WorkerHandle {
     /// Read and parse the JSON ready signal from the worker's stdout.
+    ///
+    /// Workers may emit `progress_v2` lines before they have finished
+    /// bootstrapping (e.g. `_emit_stanza_lang_download_event_if_missing`
+    /// fires from inside `stanza.Pipeline()` while the language pack
+    /// downloads on first use, which happens BEFORE the worker writes its
+    /// ready signal). Treat any pre-ready JSON line whose `"op"` field is
+    /// `"progress_v2"` as a tolerable bootstrap-time progress event,
+    /// preserve it on the preamble for diagnostics, and keep reading for
+    /// the actual ready signal. Any other JSON shape that is not a valid
+    /// `ReadySignal` is still a hard error.
+    ///
+    /// This matters because the 22 morphotag failures observed on
+    /// 2026-05-06 (`provider_terminal` errors with line content
+    /// `{"op": "progress_v2", ..., "stage": "downloading_stanza_lang_zh"}`)
+    /// were the parent killing a worker that had emitted a perfectly valid
+    /// download-progress event one line ahead of its ready signal — a
+    /// protocol-ordering race, not a real worker failure.
     pub(super) async fn read_ready_line<R: tokio::io::AsyncBufRead + Unpin>(
         reader: &mut R,
     ) -> Result<ReadySignal, WorkerError> {
@@ -49,6 +81,23 @@ impl WorkerHandle {
                 if preamble.len() > MAX_READY_STDOUT_PREAMBLE_LINES {
                     let mut detail = format!(
                         "worker emitted more than {MAX_READY_STDOUT_PREAMBLE_LINES} non-JSON line(s) before ready signal"
+                    );
+                    detail.push_str("; pre-ready stdout: ");
+                    detail.push_str(&preamble.join(" | "));
+                    return Err(WorkerError::ReadyParseFailed(detail));
+                }
+                continue;
+            }
+
+            // Pre-ready progress events: a JSON object tagged
+            // `"op": "progress_v2"` is the worker telling us about a
+            // bootstrap-time wait (model download, model load, etc.).
+            // Forward to the preamble for diagnostics and keep reading.
+            if is_pre_ready_progress_event(trimmed) {
+                preamble.push(trimmed.to_owned());
+                if preamble.len() > MAX_READY_STDOUT_PREAMBLE_LINES {
+                    let mut detail = format!(
+                        "worker emitted more than {MAX_READY_STDOUT_PREAMBLE_LINES} pre-ready event(s) without sending ready signal"
                     );
                     detail.push_str("; pre-ready stdout: ");
                     detail.push_str(&preamble.join(" | "));
@@ -324,5 +373,75 @@ impl Drop for WorkerHandle {
             }
             let _ = self.child.start_kill();
         }
+    }
+}
+
+#[cfg(test)]
+mod ready_signal_tests {
+    use super::*;
+    use tokio::io::BufReader;
+
+    fn buf(s: &str) -> BufReader<&[u8]> {
+        BufReader::new(s.as_bytes())
+    }
+
+    /// Happy path: ready signal is the first line.
+    #[tokio::test]
+    async fn read_ready_line_accepts_ready_first() {
+        let stdout = "{\"ready\": true, \"pid\": 4242, \"transport\": \"stdio\"}\n";
+        let mut r = buf(stdout);
+        let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
+        assert!(signal.ready);
+        assert_eq!(signal.pid, 4242);
+    }
+
+    /// 2026-05-06 morphotag protocol-ordering bug: a `progress_v2` event
+    /// emitted by the worker during model load (e.g.
+    /// `_emit_stanza_lang_download_event_if_missing`) lands on stdout
+    /// BEFORE the ready signal. The parent must tolerate it — not
+    /// reject the worker — and consume the actual ready signal from a
+    /// later line.
+    #[tokio::test]
+    async fn read_ready_line_skips_pre_ready_progress_event() {
+        let stdout = concat!(
+            "{\"op\": \"progress_v2\", \"event\": {\"request_id\": \"\", \"completed\": 0, \"total\": 0, \"stage\": \"downloading_stanza_lang_zh\"}}\n",
+            "{\"ready\": true, \"pid\": 9001, \"transport\": \"stdio\"}\n",
+        );
+        let mut r = buf(stdout);
+        let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
+        assert!(
+            signal.ready,
+            "ready signal must be parsed after a pre-ready progress event"
+        );
+        assert_eq!(signal.pid, 9001);
+    }
+
+    /// Multiple progress events may stack up before the ready signal
+    /// (e.g. catalog download + language pack download + model load).
+    #[tokio::test]
+    async fn read_ready_line_skips_multiple_pre_ready_progress_events() {
+        let stdout = concat!(
+            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_catalog\"}}\n",
+            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_catalog_complete\"}}\n",
+            "{\"op\": \"progress_v2\", \"event\": {\"stage\": \"downloading_stanza_lang_zh\"}}\n",
+            "{\"ready\": true, \"pid\": 7, \"transport\": \"stdio\"}\n",
+        );
+        let mut r = buf(stdout);
+        let signal = WorkerHandle::read_ready_line(&mut r).await.unwrap();
+        assert!(signal.ready);
+        assert_eq!(signal.pid, 7);
+    }
+
+    /// Non-progress JSON that is not a valid ReadySignal is still a hard
+    /// error — we don't let arbitrary garbage through.
+    #[tokio::test]
+    async fn read_ready_line_rejects_unknown_json_shape() {
+        let stdout = "{\"hello\": \"world\"}\n{\"ready\": true, \"pid\": 1, \"transport\": null}\n";
+        let mut r = buf(stdout);
+        let result = WorkerHandle::read_ready_line(&mut r).await;
+        assert!(
+            matches!(result, Err(WorkerError::ReadyParseFailed(_))),
+            "unknown JSON shape ahead of ready must error"
+        );
     }
 }

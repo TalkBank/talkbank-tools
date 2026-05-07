@@ -95,6 +95,13 @@ impl<'a> TranscribePipelineContext<'a> {
                  ASR must resolve the language before NLP stages run"
                     .into(),
             )),
+            LanguageSpec::PerFile => Err(ServerError::Validation(
+                "lang_for_nlp() called with PerFile language — transcribe \
+                 takes an explicit `--lang` and never carries a per-file \
+                 language spec; this state should have been rejected at \
+                 submission validation"
+                    .into(),
+            )),
         }
     }
 }
@@ -124,7 +131,14 @@ pub(crate) async fn run_transcribe_pipeline(
                 crate::chat_ops::morphosyntax_ops::is_stanza_supported(&chat_lang)
             }
         }
+        // Auto stays optimistic; the worker's UnsupportedLanguageError catches
+        // resolved-to-unsupported cases at runtime.
         crate::types::domain::LanguageSpec::Auto => true,
+        // PerFile is not a transcribe state — submission validation should
+        // have rejected it. Be optimistic here so a regression in validation
+        // doesn't silently disable Stanza-backed transcribe stages; the
+        // resolved-language path will trip its own typed error if reached.
+        crate::types::domain::LanguageSpec::PerFile => true,
     };
     let with_utseg = opts.with_utseg && stanza_supported;
     let with_morphosyntax = opts.with_morphosyntax && stanza_supported;
@@ -329,7 +343,7 @@ fn stage_asr_postprocess<'a, 'ctx>(
             "ASR response received, starting post-processing"
         );
 
-        let resolved_lang = resolved_asr_language(ctx.opts, response);
+        let resolved_lang = resolved_asr_language(ctx.opts, response)?;
         ctx.resolved_lang = Some(resolved_lang.clone());
         let utterances =
             process_asr_with_prechat_segmentation(ctx, &asr_output, &resolved_lang).await?;
@@ -359,11 +373,29 @@ fn stage_asr_postprocess<'a, 'ctx>(
     })
 }
 
-fn resolved_asr_language(opts: &TranscribeOptions, response: &AsrResponse) -> LanguageCode3 {
+/// Decide the post-ASR language used for CHAT headers and NLP dispatch.
+///
+/// Errors when the language cannot be honestly resolved:
+///   - `Auto` with an ASR response that does not carry a usable language code.
+///   - `PerFile` reaching transcribe at all (transcribe carries a real
+///     `--lang`; submission validation must reject `PerFile` before this
+///     code runs).
+///
+/// No silent fallback to English. CHAT files must declare a real
+/// `@Languages:` value, and downstream NLP needs the real code; pretending
+/// the language is English when it is not is exactly the kind of provenance
+/// corruption the 2026-05-03 morphotag incident punished.
+fn resolved_asr_language(
+    opts: &TranscribeOptions,
+    response: &AsrResponse,
+) -> Result<LanguageCode3, ServerError> {
     match &opts.lang {
         LanguageSpec::Auto => {
             let detected = response.lang.clone();
             if &*detected == "auto" || detected.is_empty() {
+                // ASR did not return a usable language. Try off-line detection
+                // on the transcript text. If that also fails, error out — do
+                // NOT silently stamp the file as English.
                 let all_text: String = response
                     .tokens
                     .iter()
@@ -374,18 +406,41 @@ fn resolved_asr_language(opts: &TranscribeOptions, response: &AsrResponse) -> La
                     talkbank_transform::asr_postprocess::lang_detect::detect_primary_language(&[
                         &all_text,
                     ])
-                    .unwrap_or_else(|| "eng".to_string());
-                LanguageCode3::try_new(&detected_iso3).unwrap_or_else(|_| LanguageCode3::eng())
+                    .ok_or_else(|| {
+                        ServerError::Validation(
+                            "ASR returned no language and offline detection on the transcript \
+                             text failed; cannot stamp `@Languages:` honestly. Re-run with an \
+                             explicit `--lang <iso3>` instead of `--lang auto`."
+                                .into(),
+                        )
+                    })?;
+                LanguageCode3::try_new(&detected_iso3).map_err(|err| {
+                    ServerError::Validation(format!(
+                        "offline language detection produced invalid ISO 639-3 code \
+                         '{detected_iso3}': {err}",
+                    ))
+                })
             } else {
-                detected
+                Ok(detected)
             }
         }
-        LanguageSpec::Resolved(code) => code.clone(),
+        LanguageSpec::Resolved(code) => Ok(code.clone()),
+        // Transcribe never legitimately carries `PerFile`. Submission
+        // validation rejects `PerFile` for transcribe before this code runs;
+        // if we ever land here it is a bug in submission validation, not a
+        // user error. Surface a typed Validation error so the failure is
+        // observable instead of pretending the language is English.
+        LanguageSpec::PerFile => Err(ServerError::Validation(
+            "transcribe pipeline received LanguageSpec::PerFile, which is reserved for \
+             morphotag/translate/coref. This is a submission-validation bug — please \
+             file a bug report."
+                .into(),
+        )),
     }
 }
 
 fn uses_prechat_utterance_model(lang: &LanguageCode3) -> bool {
-    matches!(lang.as_ref(), "eng" | "zho" | "yue")
+    matches!(lang.as_ref(), "eng" | "cmn" | "zho" | "yue")
 }
 
 fn build_prechat_utseg_items(chunks: &[PreparedMonologueChunk]) -> Vec<UtsegBatchItem> {
@@ -611,7 +666,7 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
         // response carries the engine's detected language code (e.g. "spa").
         // Store the resolved language so post-ASR stages (utseg, morphotag)
         // use the real language, not Auto.
-        let resolved_lang = resolved_asr_language(ctx.opts, response);
+        let resolved_lang = resolved_asr_language(ctx.opts, response)?;
         ctx.resolved_lang = Some(resolved_lang.clone());
 
         if response.tokens.is_empty() {
@@ -844,6 +899,15 @@ mod tests {
             progress_stage_for_stage(StageId::Serialize),
             FileStage::Finalizing
         );
+    }
+
+    #[test]
+    fn prechat_utterance_models_cover_documented_supported_codes() {
+        assert!(uses_prechat_utterance_model(&LanguageCode3::eng()));
+        let cmn = LanguageCode3::try_new("cmn").expect("cmn should be a valid ISO-639-3 code");
+        assert!(uses_prechat_utterance_model(&cmn));
+        assert!(uses_prechat_utterance_model(&LanguageCode3::zho()));
+        assert!(uses_prechat_utterance_model(&LanguageCode3::yue()));
     }
 
     fn test_transcribe_options(speaker_backend: Option<SpeakerBackendV2>) -> TranscribeOptions {

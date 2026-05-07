@@ -165,7 +165,10 @@ fn validate_with_header(path: &Path, check_alignment: bool, clear_screen: bool) 
     println!("📝 Validating: {}", path.display());
     println!("{}", "─".repeat(60));
 
-    commands::validate_file(
+    // Watch mode shows results to the user inline; the per-file outcome
+    // does not influence anything outside the loop, so it is intentionally
+    // discarded.
+    let _ = commands::validate_file(
         &path.to_path_buf(),
         OutputFormat::Text,
         AlignmentValidationMode::from_enabled(check_alignment),

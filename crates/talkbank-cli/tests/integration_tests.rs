@@ -65,7 +65,9 @@ fn test_validate_valid_file() -> Result<(), TestError> {
         .arg(&file_path)
         .assert()
         .success()
-        .stdout(predicate::str::contains("valid.cha"));
+        .stdout(predicate::str::contains("Total files: 1"))
+        .stdout(predicate::str::contains("Valid: 1"))
+        .stdout(predicate::str::contains("Invalid: 0"));
     Ok(())
 }
 
@@ -84,6 +86,34 @@ fn test_validate_invalid_file_missing_end() -> Result<(), TestError> {
     Ok(())
 }
 
+/// Multi-file `validate` must process EVERY file passed on the command
+/// line, even when an earlier file in the list is invalid. The early-exit
+/// regression (fixed 2026-05-03) caused `chatter validate bad.cha good.cha`
+/// to terminate after `bad.cha` and never visit `good.cha`.
+#[test]
+fn test_validate_multi_file_processes_every_argument() -> Result<(), TestError> {
+    let dir = tempdir()?;
+    let bad = dir.path().join("aa_invalid.cha");
+    let good = dir.path().join("zz_valid.cha");
+    fs::write(&bad, INVALID_CHAT_MISSING_END)?;
+    fs::write(&good, VALID_CHAT)?;
+
+    // Process exits non-zero (the bad file is invalid) and the summary
+    // accounts for both files — proving the run did not bail out after the
+    // first failure.
+    assert_cmd::cargo::cargo_bin_cmd!("chatter")
+        .arg("validate")
+        .arg(&bad)
+        .arg(&good)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("aa_invalid.cha"))
+        .stdout(predicate::str::contains("Total files: 2"))
+        .stdout(predicate::str::contains("Valid: 1"))
+        .stdout(predicate::str::contains("Invalid: 1"));
+    Ok(())
+}
+
 /// Tests text-mode validation keeps human diagnostics on stderr.
 #[test]
 fn test_validate_invalid_file_text_mode_uses_stderr_for_diagnostics() -> Result<(), TestError> {
@@ -96,7 +126,8 @@ fn test_validate_invalid_file_text_mode_uses_stderr_for_diagnostics() -> Result<
         .arg(&file_path)
         .assert()
         .failure()
-        .stdout(predicate::str::is_empty())
+        .stdout(predicate::str::contains("Total files: 1"))
+        .stdout(predicate::str::contains("Invalid: 1"))
         .stderr(predicate::str::contains("✗ Errors found in"))
         .stderr(predicate::str::contains("invalid.cha"))
         .stderr(predicate::str::contains(
@@ -134,11 +165,13 @@ fn test_validate_invalid_file_json_mode_keeps_stderr_clean() -> Result<(), TestE
         .arg(&file_path)
         .assert()
         .failure()
-        .stdout(predicate::str::contains("\"status\": \"invalid\""))
-        .stdout(predicate::str::contains("\"file\":"))
+        .stdout(predicate::str::contains("\"status\":\"invalid\""))
+        .stdout(predicate::str::contains("\"type\":\"summary\""))
+        .stdout(predicate::str::contains("\"file\":\""))
         .stdout(predicate::str::contains(
             "Missing @End header at end of file",
-        ));
+        ))
+        .stderr(predicate::str::is_empty());
     Ok(())
 }
 

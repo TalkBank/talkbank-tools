@@ -51,8 +51,8 @@ pub fn workspace_root() -> &'static Path {
 /// Used by the two corpus-divergence tests (`quick_divergence_check.rs`,
 /// `lexer_tests.rs`) that read CHAT files from `data/aphasia-data/`,
 /// `data/biling-data/`, etc. — a tree that lives one level above
-/// `talkbank-tools/` in Franklin's private workspace and is also the
-/// canonical layout for the fleet (`~/0tb/data/...`).
+/// `talkbank-tools/` in the unified operator workspace and is also the
+/// canonical layout for deployments (`~/0tb/data/...`).
 pub fn meta_repo_root() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
     ROOT.get_or_init(|| {

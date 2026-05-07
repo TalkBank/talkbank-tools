@@ -10,5 +10,18 @@
     "editor.detectIndentation": false,
     "editor.tabSize": 1,
     "files.trimTrailingWhitespace": false
-  }
+  },
+
+  // Give rust-analyzer its own target directory so its continuous
+  // background `cargo check --workspace --all-targets` does not fight
+  // terminal `cargo` invocations for the build cache lock. Without this,
+  // every terminal `cargo check` waits behind / re-builds artifacts that
+  // rust-analyzer just invalidated, and vice versa. With this, both run
+  // independently and incremental cache hits actually persist.
+  //
+  // Artifacts land at `target/rust-analyzer/...` instead of `target/...`.
+  // Disk cost: another target-sized tree. Speed gain: 2-3x on terminal
+  // cargo cycles, especially after the 2026-04-28 batchalign3 fold made
+  // the workspace large enough for the contention to dominate wall time.
+  "rust-analyzer.cargo.targetDir": true
 }

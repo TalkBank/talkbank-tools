@@ -6,10 +6,11 @@
 use super::align_mor_to_gra;
 use crate::model::{GraTier, GrammaticalRelation, Mor, MorTier, MorWord, PosCategory};
 
-/// Aligns equal-size `%mor` and `%gra` tiers without errors.
+/// Aligns equal-size `%mor` and `%gra` tiers without errors, including the
+/// trailing terminator / `PUNCT` relation.
 #[test]
 fn test_gra_alignment_perfect_match() {
-    // Create %mor tier with 3 items (no clitics)
+    // Create %mor tier with 3 lexical chunks + terminator
     let mor = MorTier::new_mor(
         vec![
             Mor::new(MorWord::new(PosCategory::new("pron"), "I")),
@@ -21,24 +22,27 @@ fn test_gra_alignment_perfect_match() {
         },
     );
 
-    // Create %gra tier with 3 relations
+    // Create %gra tier with 4 relations: 3 lexical + trailing PUNCT
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 2, "SUBJ"),
         GrammaticalRelation::new(2, 0, "ROOT"),
         GrammaticalRelation::new(3, 2, "OBL"),
+        GrammaticalRelation::new(4, 2, "PUNCT"),
     ]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
 
-    assert_eq!(alignment.pairs.len(), 3);
+    assert_eq!(alignment.pairs.len(), 4);
     assert!(alignment.is_error_free());
-    assert_eq!(mor.count_chunks(), 3);
+    assert_eq!(mor.count_chunks(), 4);
 }
 
-/// Handles post-clitic `%mor` chunks when `%gra` supplies matching relations.
+/// Handles post-clitic `%mor` chunks when `%gra` supplies matching relations,
+/// including the terminator / `PUNCT` slot.
 #[test]
 fn test_gra_alignment_with_post_clitic() {
-    // Create %mor tier with 1 item that has a post-clitic (2 chunks total)
+    // Create %mor tier with 1 item that has a post-clitic
+    // (3 chunks total including terminator)
     let mor_item = Mor::new(MorWord::new(PosCategory::new("pron"), "it"))
         .with_post_clitic(MorWord::new(PosCategory::new("aux"), "be"));
     let mor = MorTier::new_mor(
@@ -48,23 +52,24 @@ fn test_gra_alignment_with_post_clitic() {
         },
     );
 
-    // Create %gra tier with 2 relations (one for main, one for clitic)
+    // Create %gra tier with 3 relations (main, clitic, trailing PUNCT)
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 2, "EXPL"),
         GrammaticalRelation::new(2, 0, "ROOT"),
+        GrammaticalRelation::new(3, 2, "PUNCT"),
     ]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
 
-    assert_eq!(mor.count_chunks(), 2); // main + 1 post-clitic
-    assert_eq!(alignment.pairs.len(), 2);
+    assert_eq!(mor.count_chunks(), 3); // main + 1 post-clitic + terminator
+    assert_eq!(alignment.pairs.len(), 3);
     assert!(alignment.is_error_free());
 }
 
 /// Emits placeholder `%gra` entries when `%mor` has extra chunks.
 #[test]
 fn test_gra_alignment_mor_longer() {
-    // %mor has 3 chunks, %gra has only 1
+    // %mor has 4 chunks (3 lexical + terminator), %gra has only 1
     let mor = MorTier::new_mor(
         vec![
             Mor::new(MorWord::new(PosCategory::new("verb"), "a")),
@@ -80,23 +85,24 @@ fn test_gra_alignment_mor_longer() {
 
     let alignment = align_mor_to_gra(&mor, &gra);
 
-    assert_eq!(alignment.pairs.len(), 3); // 1 valid + 2 placeholders
+    assert_eq!(alignment.pairs.len(), 4); // 1 valid + 3 placeholders
     assert!(!alignment.is_error_free());
     assert_eq!(alignment.errors.len(), 1);
     // E720 (MorGraCountMismatch) reflects that the tier cardinalities disagree.
     // E712/E713 are reserved for per-relation index validation.
     assert_eq!(alignment.errors[0].code.as_str(), "E720");
 
-    // First pair valid, next two are placeholders
+    // First pair valid, next three are placeholders
     assert!(alignment.pairs[0].is_complete());
     assert!(alignment.pairs[1].is_placeholder());
     assert!(alignment.pairs[2].is_placeholder());
+    assert!(alignment.pairs[3].is_placeholder());
 }
 
 /// Emits placeholder `%mor` entries when `%gra` has extra relations.
 #[test]
 fn test_gra_alignment_gra_longer() {
-    // %mor has 1 chunk, %gra has 3 relations
+    // %mor has 2 chunks (verb + terminator), %gra has 3 relations
     let mor = MorTier::new_mor(
         vec![Mor::new(MorWord::new(PosCategory::new("verb"), "go"))],
         crate::Terminator::Period {
@@ -106,26 +112,27 @@ fn test_gra_alignment_gra_longer() {
 
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 0, "ROOT"),
-        GrammaticalRelation::new(2, 1, "OBJ"),
-        GrammaticalRelation::new(3, 1, "SUBJ"),
+        GrammaticalRelation::new(2, 1, "PUNCT"),
+        GrammaticalRelation::new(3, 1, "OBJ"),
     ]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
 
-    assert_eq!(alignment.pairs.len(), 3); // 1 valid + 2 placeholders
+    assert_eq!(alignment.pairs.len(), 3); // 2 valid + 1 placeholder
     assert!(!alignment.is_error_free());
     assert_eq!(alignment.errors.len(), 1);
     // E720 (MorGraCountMismatch) reflects that the tier cardinalities disagree.
     // E712/E713 are reserved for per-relation index validation.
     assert_eq!(alignment.errors[0].code.as_str(), "E720");
 
-    // First pair valid, next two are placeholders
+    // First two pairs valid, final pair is a placeholder
     assert!(alignment.pairs[0].is_complete());
-    assert!(alignment.pairs[1].is_placeholder());
+    assert!(alignment.pairs[1].is_complete());
     assert!(alignment.pairs[2].is_placeholder());
 }
 
-/// Treats empty tiers as a clean zero-pair alignment.
+/// Treats a terminator-only `%mor` tier as a clean one-pair alignment when
+/// `%gra` supplies the matching trailing `PUNCT` relation.
 #[test]
 fn test_gra_alignment_empty() {
     let mor = MorTier::new_mor(
@@ -134,11 +141,11 @@ fn test_gra_alignment_empty() {
             span: crate::Span::DUMMY,
         },
     );
-    let gra = GraTier::new_gra(vec![]);
+    let gra = GraTier::new_gra(vec![GrammaticalRelation::new(1, 0, "PUNCT")]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
 
-    assert_eq!(alignment.pairs.len(), 0);
+    assert_eq!(alignment.pairs.len(), 1);
     assert!(alignment.is_error_free());
 }
 
@@ -203,7 +210,8 @@ fn test_gra_mismatch_gra_longer_shows_diagnostic() {
 
     let gra = GraTier::new_gra(vec![
         GrammaticalRelation::new(1, 0, "ROOT"),
-        GrammaticalRelation::new(2, 1, "OBJ"),
+        GrammaticalRelation::new(2, 1, "PUNCT"),
+        GrammaticalRelation::new(3, 1, "OBJ"),
     ]);
 
     let alignment = align_mor_to_gra(&mor, &gra);
@@ -211,6 +219,6 @@ fn test_gra_mismatch_gra_longer_shows_diagnostic() {
 
     let msg = &alignment.errors[0].message;
     assert!(msg.contains("verb|go"), "should show mor chunk: {msg}");
-    assert!(msg.contains("2|1|OBJ"), "should show extra gra: {msg}");
+    assert!(msg.contains("3|1|OBJ"), "should show extra gra: {msg}");
     assert!(msg.contains("⊕"), "should mark extra gra entries: {msg}");
 }

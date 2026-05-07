@@ -934,7 +934,7 @@ fn cancel_running_job() -> turmoil::Result {
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
         // Cancel with explicit provenance — source=tui simulates the
-        // common case (Brian pressing 'c' then 'y' in his terminal).
+        // common case (an operator pressing 'c' then 'y' in their terminal).
         let provenance = serde_json::json!({
             "source": "tui",
             "host": "turmoil-client",

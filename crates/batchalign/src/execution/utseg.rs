@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use tracing::warn;
 
-use crate::api::LanguageCode3;
 use crate::planning;
 use crate::runner::DispatchHostContext;
 use crate::runner::util::{FileRunTracker, FileStage};
@@ -57,12 +56,17 @@ pub(crate) async fn dispatch_utseg_job(
             .await;
     }
 
-    let lang = job
-        .dispatch
-        .lang
-        .as_resolved()
-        .cloned()
-        .unwrap_or_else(LanguageCode3::eng);
+    // No silent eng fallback. Utseg requires a concrete ISO language —
+    // submission validation accepts `Resolved(_)`; if anything else slipped
+    // through, surface a typed error rather than tag every output with
+    // English.
+    let lang = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
+        crate::error::ServerError::Validation(format!(
+            "utseg requires `--lang <iso3>`; got '{}'. Re-submit with an \
+             explicit language (e.g. `--lang eng`).",
+            job.dispatch.lang,
+        ))
+    })?;
 
     // Bounded-parallelism per-file dispatch. Same shape as
     // `fa_pipeline.rs`: Semaphore caps the number of concurrent file

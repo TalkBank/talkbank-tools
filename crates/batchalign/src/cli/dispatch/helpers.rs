@@ -500,8 +500,8 @@ pub(super) fn inject_lexicon(
 ///
 /// Pre-fix bug (2026-04-26): on a 100-file cancel with 6 done, 1
 /// errored, 93 queued, the TUI footer reported "99 succeeded" because
-/// the only signal was the error count. Brian's email about that run
-/// quoted the wrong number as evidence.
+/// the only signal was the error count. An operator report on that
+/// run quoted the wrong number as evidence of success.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct TerminalCounts {
     pub succeeded: u64,

@@ -405,13 +405,11 @@ pub(crate) fn default_temporal_activity_timeout_s() -> u64 {
 /// Values below this are clamped up to the default with a warning, on the
 /// principle that a single-activity Temporal workflow shorter than the
 /// natural duration of a real align/transcribe batch is structurally
-/// guaranteed to cancel-cascade — see the 2026-04-28 postmortem at
-/// `docs/postmortems/2026-04-28-temporal-activity-timeout-cancel-cascade.md`.
-/// 6 hours is well below any real overnight job (Davida's typical
-/// workload is 12+ hours) and well above the cascade window observed in
-/// production (1 hour). The clamp is defense-in-depth against a future
-/// deploy bug, hand-edit, or operator override that drops the value back
-/// to a too-short number.
+/// guaranteed to cancel-cascade. 6 hours is well below any real overnight
+/// job (typical operator workloads run 12+ hours) and well above the
+/// cascade window observed in production (1 hour). The clamp is
+/// defense-in-depth against a future deploy bug, hand-edit, or operator
+/// override that drops the value back to a too-short number.
 pub(crate) const MIN_TEMPORAL_ACTIVITY_TIMEOUT_S: u64 = 6 * 60 * 60;
 
 pub(crate) fn default_warmup_commands() -> Vec<String> {

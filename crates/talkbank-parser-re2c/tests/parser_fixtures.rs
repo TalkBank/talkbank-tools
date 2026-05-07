@@ -8,7 +8,9 @@ mod fixture_utils;
 
 use fixture_utils::{load_and_verify_lex, load_fixture};
 use insta::assert_yaml_snapshot;
+use talkbank_model::{Separator, UtteranceContent};
 use talkbank_parser_re2c::ast::*;
+use talkbank_parser_re2c::convert::main_tier_to_model;
 use talkbank_parser_re2c::parser;
 use talkbank_parser_re2c::token::Token;
 
@@ -217,6 +219,39 @@ fn lex_fixture_header_situation() {
 #[test]
 fn lex_fixture_header_activities() {
     load_and_verify_lex("header_activities");
+}
+
+#[test]
+fn trailing_ca_no_break_stays_separator_in_model_conversion() {
+    let ast = parser::parse_main_tier("*CHI:\tno break ≈\n").expect("expected main tier AST");
+    let main_tier = main_tier_to_model(&ast);
+
+    assert!(
+        main_tier.content.terminator.is_none(),
+        "trailing CA no-break must not become a terminator"
+    );
+    assert!(matches!(
+        main_tier.content.content.last(),
+        Some(UtteranceContent::Separator(Separator::CaNoBreak { .. }))
+    ));
+}
+
+#[test]
+fn trailing_ca_technical_break_stays_separator_in_model_conversion() {
+    let ast =
+        parser::parse_main_tier("*CHI:\ttechnical break ≋\n").expect("expected main tier AST");
+    let main_tier = main_tier_to_model(&ast);
+
+    assert!(
+        main_tier.content.terminator.is_none(),
+        "trailing CA technical-break must not become a terminator"
+    );
+    assert!(matches!(
+        main_tier.content.content.last(),
+        Some(UtteranceContent::Separator(
+            Separator::CaTechnicalBreak { .. }
+        ))
+    ));
 }
 
 #[test]

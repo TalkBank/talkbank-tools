@@ -30,12 +30,15 @@ fn metadata(target: BenchTarget) -> (ReleasedCommand, &'static str, u32, &'stati
             1,
             &["wav", "mp3", "mp4"],
         ),
-        BenchTarget::Morphotag => (ReleasedCommand::Morphotag, "eng", 1, &["cha"]),
-        BenchTarget::Translate => (ReleasedCommand::Translate, "eng", 1, &["cha"]),
+        // PerFile commands carry the `"per-file"` wire string, matching
+        // `command_profile()` for these same commands. Bench harness uses
+        // the same profile so dispatch types stay identical.
+        BenchTarget::Morphotag => (ReleasedCommand::Morphotag, "per-file", 1, &["cha"]),
+        BenchTarget::Translate => (ReleasedCommand::Translate, "per-file", 1, &["cha"]),
+        BenchTarget::Coref => (ReleasedCommand::Coref, "per-file", 1, &["cha"]),
         BenchTarget::Utseg => (ReleasedCommand::Utseg, "eng", 1, &["cha"]),
         BenchTarget::Benchmark => (ReleasedCommand::Benchmark, "eng", 1, &["wav", "mp3", "mp4"]),
         BenchTarget::Opensmile => (ReleasedCommand::Opensmile, "eng", 1, &["wav", "mp3", "mp4"]),
-        BenchTarget::Coref => (ReleasedCommand::Coref, "eng", 1, &["cha"]),
         BenchTarget::Compare => (ReleasedCommand::Compare, "eng", 1, &["cha"]),
     }
 }

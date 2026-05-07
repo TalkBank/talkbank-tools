@@ -5,6 +5,8 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Output;
+use std::thread::sleep;
+use std::time::Duration;
 
 use serde_json::Value;
 use talkbank_parser_tests::test_error::TestError;
@@ -57,6 +59,46 @@ const MULTI_SPEAKER_UPPERCASE_CHAT: &str = "@UTF8
 %mor:	v|want n|cookie .
 *MOT:	WANT COOKIE TOO .
 %mor:	v|want n|cookie adv|too .
+@End
+";
+
+const WHOLE_UTTERANCE_SHORTCUT_CHAT: &str = "@UTF8
+@Begin
+@Languages:	eng, spa
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
+*CHI:	hola@s amiga@s .
+%mor:	n|hola n|amiga .
+@End
+";
+
+const WHOLE_UTTERANCE_PRECODE_CHAT: &str = "@UTF8
+@Begin
+@Languages:	eng, spa
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
+*CHI:	[- spa] hola amiga .
+%mor:	n|hola n|amiga .
+@End
+";
+
+const MISSING_EXPLICIT_LANGUAGE_HEADER_CHAT: &str = "@UTF8
+@Begin
+@Languages:	eng
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
+*CHI:	hola@s:spa friend .
+%mor:	n|hola n|friend .
+@End
+";
+
+const APPENDED_EXPLICIT_LANGUAGE_HEADER_CHAT: &str = "@UTF8
+@Begin
+@Languages:	eng, spa
+@Participants:	CHI Target_Child
+@ID:	eng|corpus|CHI|2;06.|male|||Target_Child|||
+*CHI:	hola@s:spa friend .
+%mor:	n|hola n|friend .
 @End
 ";
 
@@ -138,6 +180,64 @@ fn cache_stats_json(harness: &CliHarness) -> Result<Value, TestError> {
 }
 
 #[test]
+fn debug_fix_s_rewrites_whole_utterance_switch_in_place() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+    let file_path = write_fixture(dir.path(), "needs-fix.cha", WHOLE_UTTERANCE_SHORTCUT_CHAT)?;
+
+    let output = run_path_command(&harness, &["debug", "fix-s"], &file_path, &[])?;
+    assert_success(&output, "debug fix-s rewrite");
+
+    let rewritten = fs::read_to_string(&file_path)?;
+    assert_eq!(rewritten, WHOLE_UTTERANCE_PRECODE_CHAT);
+    Ok(())
+}
+
+#[test]
+fn debug_fix_s_leaves_already_correct_file_unmodified() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+    let file_path = write_fixture(
+        dir.path(),
+        "already-fixed.cha",
+        WHOLE_UTTERANCE_PRECODE_CHAT,
+    )?;
+
+    sleep(Duration::from_secs(1));
+    let before_modified = fs::metadata(&file_path)?.modified()?;
+
+    let output = run_path_command(&harness, &["debug", "fix-s"], &file_path, &[])?;
+    assert_success(&output, "debug fix-s no-op");
+
+    let after_modified = fs::metadata(&file_path)?.modified()?;
+    let content = fs::read_to_string(&file_path)?;
+    assert_eq!(content, WHOLE_UTTERANCE_PRECODE_CHAT);
+    assert_eq!(
+        before_modified, after_modified,
+        "fix-s should not rewrite files that need no changes"
+    );
+    Ok(())
+}
+
+#[test]
+fn debug_fix_s_appends_missing_explicit_language_to_languages_header() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+    let file_path = write_fixture(
+        dir.path(),
+        "missing-language.cha",
+        MISSING_EXPLICIT_LANGUAGE_HEADER_CHAT,
+    )?;
+
+    let output = run_path_command(&harness, &["debug", "fix-s"], &file_path, &[])?;
+    assert_success(&output, "debug fix-s append language header");
+
+    let rewritten = fs::read_to_string(&file_path)?;
+    assert_eq!(rewritten, APPENDED_EXPLICIT_LANGUAGE_HEADER_CHAT);
+    Ok(())
+}
+
+#[test]
 fn validate_matrix_single_file_json_reports_cached_state() -> Result<(), TestError> {
     assert_manifest_contracts(
         SurfaceFamily::Validation,
@@ -154,17 +254,35 @@ fn validate_matrix_single_file_json_reports_cached_state() -> Result<(), TestErr
 
     let first = harness.run_validate(&file_path, &["--format", "json"])?;
     assert_success(&first, "first validate --format json");
-    let first_json = parse_json(&first)?;
-    assert_eq!(first_json["status"].as_str(), Some("valid"));
-    assert_eq!(first_json["error_count"].as_u64(), Some(0));
-    assert_eq!(first_json["file"].as_str(), file_path.to_str());
-    assert!(first_json.get("cached").is_none());
+    let first_events = parse_json_lines(&first)?;
+    let first_file = first_events
+        .iter()
+        .find(|event| event["type"].as_str() == Some("file"))
+        .ok_or_else(|| {
+            TestError::Failure("missing file event in first validation run".to_string())
+        })?;
+    let first_summary = summary_event(&first_events);
+    assert_eq!(first_file["status"].as_str(), Some("valid"));
+    assert_eq!(first_file["file"].as_str(), file_path.to_str());
+    assert_eq!(first_file["cache_hit"].as_bool(), Some(false));
+    assert_eq!(first_summary["cache_hits"].as_u64(), Some(0));
+    assert_eq!(first_summary["cache_misses"].as_u64(), Some(1));
 
     let second = harness.run_validate(&file_path, &["--format", "json"])?;
     assert_success(&second, "second validate --format json");
-    let second_json = parse_json(&second)?;
-    assert_eq!(second_json["status"].as_str(), Some("valid"));
-    assert_eq!(second_json["cached"].as_bool(), Some(true));
+    let second_events = parse_json_lines(&second)?;
+    let second_file = second_events
+        .iter()
+        .find(|event| event["type"].as_str() == Some("file"))
+        .ok_or_else(|| {
+            TestError::Failure("missing file event in second validation run".to_string())
+        })?;
+    let second_summary = summary_event(&second_events);
+    assert_eq!(second_file["status"].as_str(), Some("valid"));
+    assert_eq!(second_file["file"].as_str(), file_path.to_str());
+    assert_eq!(second_file["cache_hit"].as_bool(), Some(true));
+    assert_eq!(second_summary["cache_hits"].as_u64(), Some(1));
+    assert_eq!(second_summary["cache_misses"].as_u64(), Some(0));
 
     Ok(())
 }

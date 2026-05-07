@@ -294,9 +294,9 @@ fn test_validate_single_file_cached_output() -> Result<(), TestError> {
         ));
     }
     let stdout = String::from_utf8_lossy(&second.stdout);
-    if !stdout.contains("cached") {
+    if !stdout.contains("Cache hits: 1") {
         return Err(TestError::Failure(
-            "Expected cached output on second validation run".to_string(),
+            "Expected second validation run to report one cache hit".to_string(),
         ));
     }
     Ok(())

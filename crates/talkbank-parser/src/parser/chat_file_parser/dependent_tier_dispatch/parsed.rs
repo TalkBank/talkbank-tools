@@ -20,6 +20,8 @@ use crate::parser::tier_parsers::text::{
     parse_spa_tier,
 };
 use crate::parser::tier_parsers::wor::parse_wor_tier;
+use talkbank_model::model::Terminator;
+use talkbank_model::model::dependent_tier::{GraTier, MorTier};
 use tree_sitter::Node;
 
 /// Parse and attach tiers handled by typed tier parsers (`%mor`, `%gra`, `%pho`, etc.).
@@ -34,19 +36,32 @@ pub(super) fn apply_parsed_tier(
         MOR_DEPENDENT_TIER => {
             if tier_node.has_error() {
                 report_tier_parse_error(tier_node, input, "mor", errors);
+                utterance
+                    .dependent_tiers
+                    .push(DependentTier::Mor(empty_mor_placeholder()));
             } else {
                 // Diagnostics for Rejected go through ErrorSink; the
-                // utterance simply gets no MorTier attached.
-                if let talkbank_model::ParseOutcome::Parsed(tier) =
-                    parse_mor_tier(tier_node, input, errors)
-                {
-                    utterance.dependent_tiers.push(DependentTier::Mor(tier));
+                // recovered utterance still keeps the %mor slot in place so
+                // downstream regeneration can mutate it in place without
+                // reordering against later tiers such as %wor.
+                match parse_mor_tier(tier_node, input, errors) {
+                    talkbank_model::ParseOutcome::Parsed(tier) => {
+                        utterance.dependent_tiers.push(DependentTier::Mor(tier));
+                    }
+                    talkbank_model::ParseOutcome::Rejected => {
+                        utterance
+                            .dependent_tiers
+                            .push(DependentTier::Mor(empty_mor_placeholder()));
+                    }
                 }
             }
         }
         GRA_DEPENDENT_TIER => {
             if tier_node.has_error() {
                 report_tier_parse_error(tier_node, input, "gra", errors);
+                utterance
+                    .dependent_tiers
+                    .push(DependentTier::Gra(empty_gra_placeholder()));
             } else {
                 let tier = parse_gra_tier(tier_node, input, errors);
                 utterance.dependent_tiers.push(DependentTier::Gra(tier));
@@ -147,4 +162,17 @@ fn report_tier_parse_error(tier_node: Node, input: &str, tier_name: &str, errors
             ));
         }
     }
+}
+
+fn empty_mor_placeholder() -> MorTier {
+    MorTier::new_mor(
+        Vec::new(),
+        Terminator::Period {
+            span: talkbank_model::Span::DUMMY,
+        },
+    )
+}
+
+fn empty_gra_placeholder() -> GraTier {
+    GraTier::new_gra(Vec::new())
 }

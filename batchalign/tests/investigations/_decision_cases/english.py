@@ -4,7 +4,7 @@ Adjudication status (2026-04-23)
 ---------------------------------
 The v2 golden run (see
 ``docs/investigations/2026-04-23-stanza-decision-probe-findings.md``)
-produced clean observations. Franklin answered Q-A (ship transcribe
+produced clean observations. Adjudicator answered Q-A (ship transcribe
 rules on 'no observed Stanza regression') with YES. The adjudication
 policy applied here:
 
@@ -89,9 +89,9 @@ def _one_to_one(
 # Rationale suffix recording the adjudication decision. Attached to
 # every locked case so the per-case rationale carries its own
 # provenance (you can read one case file and see why it's locked).
-_LOCK_Q_A = " [locked 2026-04-23, Franklin Q-A=ship-on-neutrality]"
+_LOCK_Q_A = " [locked 2026-04-23, Adjudicator Q-A=ship-on-neutrality]"
 _LOCK_CONTROL = (
-    " [locked 2026-04-23, Franklin Q-A: control must fire POST_STRICTLY_WORSE]"
+    " [locked 2026-04-23, Adjudicator Q-A: control must fire POST_STRICTLY_WORSE]"
 )
 _LOCK_Q_B = (
     " [locked 2026-04-23, Q-B adjudication: Stanza POS > Claude gold; "

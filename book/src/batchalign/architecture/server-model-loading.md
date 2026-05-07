@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-04-17 18:34 EDT
+**Last updated:** 2026-05-05 08:21 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -65,8 +65,8 @@ The server auto-chains forced alignment + UTR + disfluency + retrace.
 Current CLI default engine is Rev.AI. Alternate ASR engines are selected with
 `--asr-engine whisper`, `--asr-engine whisperx`, or
 `--asr-engine whisper-oai`. The server auto-chains disfluency + retrace.
-For languages with a `resolve("utterance", lang)` match and no BERT model,
-also auto-adds `utseg`.
+For languages with a dedicated utterance model (`eng`, `cmn`, `zho`, `yue`),
+transcribe also runs pre-CHAT utterance segmentation before CHAT assembly.
 
 | Module / Engine | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
@@ -79,7 +79,8 @@ also auto-adds `utseg`.
 
 **BertUtteranceModel languages:** Only loaded when `resolve("utterance", lang)`
 returns a model name. Currently: `eng` (`talkbank/CHATUtterance-en`),
-`zho` (`talkbank/CHATUtterance-zh_CN`), `yue` (Cantonese-specific model).
+`cmn` / `zho` (`talkbank/CHATUtterance-zh_CN`), `yue` (Cantonese-specific
+model).
 
 **Result caching:** ASR results are NOT cached (each run re-transcribes).
 
@@ -121,7 +122,7 @@ every file.
 
 | Module | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
-| `inference/utseg.py` | Stanza pipeline (tokenize, pos, lemma, constituency) | stanza / HF Hub | 300-500 MB per language | First batch (lazy factory) | Yes |
+| `inference/utseg.py` | `BertUtteranceModel` for `eng` / `cmn` / `zho` / `yue`; otherwise Stanza pipeline (tokenize, pos, lemma, constituency) | HF Hub / stanza | ~400 MB for BERT model or 300-500 MB per Stanza language | First batch (lazy factory) | Yes |
 
 **Result caching:** SQLite utterance cache. Key = `BLAKE3(text + lang)`.
 

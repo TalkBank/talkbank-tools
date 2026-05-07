@@ -16,7 +16,10 @@ use super::deprel::{
     UdDeprel, deprel_to_pos_constraint, infer_deprel_from_pos, refine_with_dependents,
 };
 use super::extract::PrimaryStructuralInfo;
-use crate::morphosyntax::{UdId, UdSentence, UdWord, UniversalPos};
+use super::plan::{L2Attachment, L2SpanPlan};
+use crate::morphosyntax::{
+    MappingContext, MappingError, UdId, UdSentence, UdWord, UniversalPos, map_ud_sentence,
+};
 
 /// Sentence-level context from the secondary model for a single `@s`
 /// word being merged.
@@ -106,12 +109,12 @@ pub struct MergedL2Morphology {
     /// Corrected deprel when the primary model's deprel was unreliable.
     /// `None` means keep the primary deprel as-is.
     pub corrected_deprel: Option<UdDeprel>,
-    /// Optional primary head index to anchor secondary roots.
+    /// Host-attachment intent for any secondary ROOT in this merged item.
     ///
-    /// If this word is the root of a secondary span, it will point to
-    /// this index instead of its own original primary head. This
-    /// prevents circular dependencies in multi-word L2 spans.
-    pub external_anchor: Option<usize>,
+    /// The numeric host chunk anchor is resolved later from the current
+    /// placeholder `%gra` relation during splice; this avoids carrying
+    /// ambiguous raw indices across word-domain/chunk-domain seams.
+    pub attachment: L2Attachment,
 }
 
 /// Resolve the merged POS from primary structural info and a secondary
@@ -237,16 +240,157 @@ pub fn merge_primary_secondary(
     secondary_mor: Mor,
     secondary_gras: Vec<GrammaticalRelation>,
     secondary_lang: &LanguageCode,
-    external_anchor: Option<usize>,
+    attachment: L2Attachment,
 ) -> MergedL2Morphology {
     merge_primary_secondary_with_context(
         primary,
         secondary_mor,
         secondary_gras,
         secondary_lang,
-        external_anchor,
+        attachment,
         None,
     )
+}
+
+fn merge_primary_secondary_with_attachment(
+    primary: &PrimaryStructuralInfo,
+    mut secondary_mor: Mor,
+    secondary_gras: Vec<GrammaticalRelation>,
+    secondary_lang: &LanguageCode,
+    attachment: &L2Attachment,
+    secondary_context: Option<&SecondaryUdContext<'_>>,
+) -> MergedL2Morphology {
+    let _ = secondary_lang; // reserved for future language-specific overrides
+
+    let secondary_upos = UniversalPos::from_pos_name(secondary_mor.main.pos.as_str());
+    let resolved_pos = resolve_merged_pos_with_context(primary, secondary_upos, secondary_context);
+    secondary_mor.main.pos = PosCategory::new(resolved_pos.to_chat_pos_name());
+
+    let mut gras = secondary_gras;
+    if let Some(ctx) = secondary_context
+        && ctx.is_phrasal_verb_particle()
+    {
+        let chat_deprel = UdDeprel::new("compound:prt").to_chat_gra();
+        if let Some(rel) = gras.get_mut(0) {
+            rel.relation = chat_deprel;
+        }
+        return MergedL2Morphology {
+            mor: secondary_mor,
+            gras,
+            corrected_deprel: Some(UdDeprel::new("compound:prt")),
+            attachment: attachment.with_host_deprel(UdDeprel::new("compound:prt")),
+        };
+    }
+
+    let primary_constraint = deprel_to_pos_constraint(&primary.deprel);
+    let needs_correction =
+        primary.deprel.base() == "flat" || !primary_constraint.contains(&resolved_pos);
+
+    let corrected_deprel = if needs_correction {
+        let det = infer_deprel_from_pos(
+            resolved_pos,
+            primary.head_upos,
+            primary.has_case_dependent(),
+        );
+        if let Some(ref d) = det {
+            if let Some(rel) = gras.get_mut(0) {
+                rel.relation = d.to_chat_gra().into();
+            }
+        }
+        det
+    } else {
+        None
+    };
+
+    let attachment = if attachment.is_external_root() {
+        attachment.with_host_deprel(
+            corrected_deprel
+                .clone()
+                .or_else(|| attachment.external_root_deprel().cloned())
+                .unwrap_or_else(|| primary.deprel.clone()),
+        )
+    } else {
+        L2Attachment::InternalRoot
+    };
+
+    MergedL2Morphology {
+        mor: secondary_mor,
+        gras,
+        corrected_deprel,
+        attachment,
+    }
+}
+
+/// Merge one planned secondary-dispatch span back into per-word L2 morphology.
+///
+/// This is the transform-layer assembly seam: callers hand over the planned
+/// span and the secondary UD sentence, and receive per-position merged
+/// morphology ready for final lowering.
+pub fn merge_planned_secondary_span(
+    span: &L2SpanPlan,
+    deferred: &[super::extract::L2DeferredPosition],
+    sentence: &UdSentence,
+) -> Result<Vec<(usize, MergedL2Morphology)>, MappingError> {
+    let mapping_ctx = MappingContext {
+        lang: span.target_lang.clone(),
+    };
+    let (mors, gra_relations) = map_ud_sentence(sentence, &mapping_ctx)?;
+
+    let total_chunks: usize = mors.iter().map(Mor::count_chunks).sum();
+    if total_chunks > gra_relations.len() {
+        return Err(MappingError::ChunkCountMismatch {
+            mor_chunks: total_chunks,
+            gra_count: gra_relations.len(),
+        });
+    }
+
+    if mors.len() < span.deferred_indices.len() {
+        tracing::warn!(
+            planned_words = span.deferred_indices.len(),
+            mapped_words = mors.len(),
+            lang = %span.target_lang,
+            "L2 planned merge: secondary mapping returned fewer mors than planned words"
+        );
+    }
+
+    let pass_context = sentence.words.len() == mors.len();
+    let mut merged = Vec::new();
+    let mut chunk_offset = 0usize;
+
+    for (word_position, global_idx) in span.deferred_indices.iter().copied().enumerate() {
+        let Some(primary) = deferred.get(global_idx).map(|item| &item.primary) else {
+            tracing::warn!(
+                global_idx,
+                "L2 planned merge: deferred index out of range; skipping position"
+            );
+            continue;
+        };
+        let Some(mor) = mors.get(word_position).cloned() else {
+            break;
+        };
+
+        let chunk_count = mor.count_chunks();
+        let item_gras = gra_relations[chunk_offset..chunk_offset + chunk_count].to_vec();
+        chunk_offset += chunk_count;
+        let secondary_context = pass_context.then_some(SecondaryUdContext {
+            sentence,
+            word_position,
+        });
+
+        merged.push((
+            global_idx,
+            merge_primary_secondary_with_attachment(
+                primary,
+                mor,
+                item_gras,
+                &span.target_lang,
+                &span.attachment,
+                secondary_context.as_ref(),
+            ),
+        ));
+    }
+
+    Ok(merged)
 }
 
 /// Merge primary structural info with a secondary `Mor` item, with
@@ -263,65 +407,144 @@ pub fn merge_primary_secondary(
 /// structure.
 pub fn merge_primary_secondary_with_context(
     primary: &PrimaryStructuralInfo,
-    mut secondary_mor: Mor,
+    secondary_mor: Mor,
     secondary_gras: Vec<GrammaticalRelation>,
     secondary_lang: &LanguageCode,
-    external_anchor: Option<usize>,
+    attachment: L2Attachment,
     secondary_context: Option<&SecondaryUdContext<'_>>,
 ) -> MergedL2Morphology {
-    let _ = secondary_lang; // reserved for future language-specific overrides
+    merge_primary_secondary_with_attachment(
+        primary,
+        secondary_mor,
+        secondary_gras,
+        secondary_lang,
+        &attachment,
+        secondary_context,
+    )
+}
 
-    // Extract the secondary model's UPOS from the Mor's POS category name.
-    let secondary_upos = UniversalPos::from_pos_name(secondary_mor.main.pos.as_str());
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::morphosyntax::l2::{L2SpanPlan, PrimaryStructuralInfo};
 
-    let resolved_pos = resolve_merged_pos_with_context(primary, secondary_upos, secondary_context);
-
-    // Override POS in the Mor with the structurally-resolved POS.
-    secondary_mor.main.pos = PosCategory::new(resolved_pos.to_chat_pos_name());
-
-    // Phrasal-verb particles have a well-defined UD deprel that the
-    // secondary sentence already reports — carry it through directly
-    // so the CHAT %gra tier matches the verb-particle structure.
-    let mut gras = secondary_gras;
-    if let Some(ctx) = secondary_context
-        && ctx.is_phrasal_verb_particle()
-    {
-        if let Some(rel) = gras.get_mut(0) {
-            rel.relation = "compound:prt".into();
+    fn make_primary(deprel: &str, head: usize) -> PrimaryStructuralInfo {
+        PrimaryStructuralInfo {
+            deprel: UdDeprel::new(deprel),
+            upos: Some(UniversalPos::Noun),
+            head,
+            dependent_deprels: Vec::new(),
+            head_upos: Some(UniversalPos::Verb),
         }
-        return MergedL2Morphology {
-            mor: secondary_mor,
-            gras,
-            corrected_deprel: Some(UdDeprel::new("compound:prt")),
-            external_anchor,
-        };
     }
 
-    // Determine if GRA deprel needs correction.
-    let primary_constraint = deprel_to_pos_constraint(&primary.deprel);
-    let needs_correction =
-        primary.deprel.base() == "flat" || !primary_constraint.contains(&resolved_pos);
-
-    let corrected_deprel = if needs_correction {
-        let det = infer_deprel_from_pos(
-            resolved_pos,
-            primary.head_upos,
-            primary.has_case_dependent(),
-        );
-        if let Some(ref d) = det {
-            if let Some(rel) = gras.get_mut(0) {
-                rel.relation = d.to_chat_gra();
-            }
+    fn make_word(
+        id: usize,
+        text: &str,
+        lemma: &str,
+        upos: UniversalPos,
+        head: usize,
+        deprel: &str,
+    ) -> UdWord {
+        UdWord {
+            id: UdId::Single(id),
+            text: text.to_string(),
+            lemma: lemma.to_string(),
+            upos: crate::morphosyntax::UdPunctable::Value(upos),
+            xpos: None,
+            feats: None,
+            head,
+            deprel: deprel.to_string(),
+            deps: None,
+            misc: None,
         }
-        det
-    } else {
-        None
-    };
+    }
 
-    MergedL2Morphology {
-        mor: secondary_mor,
-        gras,
-        corrected_deprel,
-        external_anchor,
+    #[test]
+    fn phrasal_verb_particle_uses_chat_gra_label() {
+        let primary = make_primary("advmod", 1);
+        let secondary_mor = Mor::new(talkbank_model::model::dependent_tier::mor::MorWord::new(
+            PosCategory::new("adp"),
+            "up",
+        ));
+        let secondary_gras = vec![GrammaticalRelation::new(1, 0, "ROOT")];
+        let sentence = UdSentence {
+            words: vec![
+                make_word(1, "wake", "wake", UniversalPos::Verb, 0, "root"),
+                make_word(2, "up", "up", UniversalPos::Adp, 1, "compound:prt"),
+            ],
+        };
+        let ctx = SecondaryUdContext {
+            sentence: &sentence,
+            word_position: 1,
+        };
+
+        let merged = merge_primary_secondary_with_context(
+            &primary,
+            secondary_mor,
+            secondary_gras,
+            &LanguageCode::new("eng"),
+            L2Attachment::ExternalRoot {
+                host_deprel: UdDeprel::new("advmod"),
+                root_anchor: crate::morphosyntax::l2::plan::L2RootAnchor::HostGovernor {
+                    source_deferred_index: 0,
+                },
+            },
+            Some(&ctx),
+        );
+
+        assert_eq!(
+            merged.gras.first().map(|rel| rel.relation.as_str()),
+            Some("COMPOUND-PRT"),
+            "L2 phrasal-particle path must emit CHAT-normalized %gra labels"
+        );
+        assert_eq!(merged.corrected_deprel, Some(UdDeprel::new("compound:prt")));
+    }
+
+    #[test]
+    fn merge_planned_secondary_span_carries_attachment_to_root_rewrite() {
+        let span = L2SpanPlan {
+            deferred_indices: vec![0],
+            line_idx: 3,
+            target_lang: LanguageCode::new("spa"),
+            words: vec![talkbank_model::ChatCleanedText::test_unchecked(
+                "extranjero",
+            )],
+            attachment: L2Attachment::ExternalRoot {
+                host_deprel: UdDeprel::new("obj"),
+                root_anchor: crate::morphosyntax::l2::plan::L2RootAnchor::HostGovernor {
+                    source_deferred_index: 0,
+                },
+            },
+        };
+        let deferred = vec![super::super::extract::L2DeferredPosition {
+            line_idx: 3,
+            word_idx: 1,
+            target_lang: LanguageCode::new("spa"),
+            primary: make_primary("obj", 1),
+        }];
+        let sentence = UdSentence {
+            words: vec![make_word(
+                1,
+                "extranjero",
+                "extranjero",
+                UniversalPos::Noun,
+                0,
+                "root",
+            )],
+        };
+
+        let merged = merge_planned_secondary_span(&span, &deferred, &sentence).unwrap();
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].0, 0);
+        assert_eq!(
+            merged[0]
+                .1
+                .attachment
+                .external_root_deprel()
+                .map(UdDeprel::as_str),
+            Some("obj")
+        );
+        assert_eq!(merged[0].1.attachment.source_deferred_index(), Some(0));
     }
 }

@@ -1,7 +1,7 @@
 # Developer Architecture Migration (batchalign2 -> batchalign3)
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 Comparison anchors for this page:
 
@@ -253,6 +253,9 @@ in concrete ways:
 - `%gra` construction validates root/head/chunk invariants before writeback,
 - special-form handling is explicit (`@c`, `@s`, `xbxxx`) instead of being
   recovered indirectly from placeholder strings,
+- whole-utterance same-language all-`@s` is now a validation concern (E255),
+  while explicit undeclared `@s:LANG` is warn-only (E254) and still routes to
+  the named language,
 - retokenization rebuilds AST content directly rather than patching flattened
   string output,
 - UTR and FA use explicit IDs/indices where available before any fallback.
@@ -436,8 +439,9 @@ nlp = BatchalignPipeline.new("morphosyntax", lang="eng")
 result = nlp("input.cha")
 
 # BA3 — CLI is the only entry point
+# Note: morphotag has no `--lang`; per-file `@Languages:` headers drive routing.
 import subprocess
-subprocess.run(["batchalign3", "morphotag", "input/", "output/", "--lang", "eng"])
+subprocess.run(["batchalign3", "morphotag", "input/", "-o", "output/"])
 ```
 
 **Reading CHAT files:** Use standard file I/O. BA3 does not provide a Python

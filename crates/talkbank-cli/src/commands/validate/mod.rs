@@ -26,10 +26,10 @@ use talkbank_transform::validation_runner::ParserKind;
 use super::validate_parallel::{
     AlignmentValidationMode, CacheRefreshMode, RoundtripValidationMode, StreamingValidationOutput,
     ValidateDirectoryOptions, ValidationExecution, ValidationInterface, ValidationPresentation,
-    ValidationRules, ValidationTraversalMode, validate_directory_parallel,
+    ValidationRules, ValidationTraversalMode, validate_paths_parallel,
 };
 
-pub use file::validate_file;
+pub use file::{FileValidationOutcome, validate_file};
 
 /// Typed options for the top-level `chatter validate` command.
 #[derive(Clone, Debug)]
@@ -118,7 +118,7 @@ fn expand_suppress_groups(raw: Vec<String>) -> Vec<String> {
 /// the `xphon` validation group, then expand named groups into concrete
 /// error codes.
 ///
-/// Policy (requested by Brian, 2026-04-21): the `xphon` group
+/// Policy: the `xphon` group
 /// (E725–E728) is suppressed by default. Phon's CHAT-export tooling
 /// ships data that trips these cross-tier alignment checks; running
 /// them unconditionally creates unhelpful noise for every routine
@@ -272,75 +272,105 @@ pub fn run_validate_command(paths: Vec<PathBuf>, options: ValidateCommandOptions
         theme,
     } = presentation;
 
-    // Classify paths into files and directories
+    // ARCHITECTURAL NOTE (2026-05-03): every CLI input — single file,
+    // multiple files, single directory, multiple directories, or any
+    // mix — funnels through ONE pipeline (`validate_paths_parallel` →
+    // `validate_files_streaming`). This replaces a previous fork where
+    // multi-file inputs went through a per-file `validate_file` loop
+    // (no progress bar, noisy "✓ valid" lines for each file, separate
+    // per-file TUI) while directory inputs went through the parallel
+    // streaming pipeline. The fork was flagged as wrong UX: multi-file
+    // input behaved differently from directory input despite both
+    // resolving to the same logical set of files, leaving duplicate
+    // code paths reinventing the streaming pipeline.
+    //
+    // The unified shape means CLI args drive ONLY which .cha files are
+    // collected; everything downstream (renderer, progress, TUI,
+    // suppression, summary, exit code) is identical regardless of
+    // input shape.
+
+    // Walk every input path into a flat .cha file list. Files contribute
+    // themselves directly; directories contribute their recursive .cha
+    // descendants.
     let mut files: Vec<PathBuf> = Vec::new();
-    let mut dirs: Vec<PathBuf> = Vec::new();
     for p in &paths {
         if p.is_file() {
             files.push(p.clone());
         } else if p.is_dir() {
-            dirs.push(p.clone());
+            collect_cha_files_recursive(p, &mut files);
         } else {
             eprintln!("Error: {:?} is not a file or directory", p);
             std::process::exit(1);
         }
     }
 
-    let mut had_errors = false;
-
-    // Validate individual files
-    for file_path in &files {
-        validate_file(
-            file_path,
-            format,
-            alignment,
-            cache_refresh,
-            quiet,
-            interface,
-            theme.clone(),
-            &suppress,
-            strict_linkers,
-        );
-    }
-
-    // Validate directories (use parallel pipeline for each)
-    for dir_path in &dirs {
-        let stats = validate_directory_parallel(
-            dir_path,
-            ValidateDirectoryOptions {
-                rules: ValidationRules {
-                    alignment,
-                    roundtrip,
-                    parser_kind,
-                    strict_linkers,
-                },
-                traversal: ValidationTraversalMode::Recursive,
-                execution: ValidationExecution {
-                    cache_refresh,
-                    jobs,
-                    max_errors,
-                },
-                presentation: match &audit_output {
-                    Some(output_path) => ValidationPresentation::Audit {
-                        output_path: output_path.clone(),
-                    },
-                    None => ValidationPresentation::Streaming(StreamingValidationOutput {
-                        format,
-                        quiet,
-                        interface,
-                        theme: theme.clone(),
-                    }),
-                },
-                suppress: suppress.clone(),
-            },
-        );
-
-        if stats.invalid_files > 0 || stats.parse_errors > 0 {
-            had_errors = true;
-        }
-    }
-
-    if had_errors {
+    if files.is_empty() {
+        eprintln!("Error: no .cha files found in {:?}", paths);
         std::process::exit(1);
+    }
+
+    // Sort for deterministic processing order (matches directory walk
+    // behavior, which sorts collected files before dispatch).
+    files.sort();
+
+    // Cosmetic summary label: use the first input path verbatim. For
+    // a single-directory invocation this preserves the old behavior of
+    // printing the directory name in the summary; for a multi-file or
+    // mixed-input invocation it's just the first arg the user typed.
+    let summary_label = paths.first().cloned().unwrap_or_else(|| PathBuf::from("."));
+
+    let stats = validate_paths_parallel(
+        files,
+        summary_label,
+        ValidateDirectoryOptions {
+            rules: ValidationRules {
+                alignment,
+                roundtrip,
+                parser_kind,
+                strict_linkers,
+            },
+            traversal: ValidationTraversalMode::Recursive,
+            execution: ValidationExecution {
+                cache_refresh,
+                jobs,
+                max_errors,
+            },
+            presentation: match audit_output {
+                Some(output_path) => ValidationPresentation::Audit { output_path },
+                None => ValidationPresentation::Streaming(StreamingValidationOutput {
+                    format,
+                    quiet,
+                    interface,
+                    theme,
+                }),
+            },
+            suppress,
+        },
+    );
+
+    if stats.invalid_files > 0 || stats.parse_errors > 0 {
+        std::process::exit(1);
+    }
+}
+
+/// Walk `dir` and append every `.cha` file (recursively) to `files`.
+/// Mirrors the directory-walk behavior of
+/// `validation_runner::collect_cha_files` but lives on the CLI side
+/// because the CLI is the layer that mixes file-and-directory args.
+fn collect_cha_files_recursive(dir: &std::path::Path, files: &mut Vec<PathBuf>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("Warning: failed to read {:?}: {}", dir, e);
+            return;
+        }
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_cha_files_recursive(&path, files);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("cha") {
+            files.push(path);
+        }
     }
 }

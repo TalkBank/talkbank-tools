@@ -1,7 +1,7 @@
 # Cantonese Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-01 15:57 EDT
+**Last updated:** 2026-05-06 16:30 EDT
 
 User reference for Cantonese (`yue`) processing in batchalign3 — ASR engine
 options, credentials, retokenize usage, and what to expect from each
@@ -18,7 +18,7 @@ normalization pipeline, segmenter selection, source-file map), see
 | Number expansion | Traditional Chinese characters (五, 四十二, 一萬) |
 | Character tokenization | Per-character splitting for timestamp alignment |
 | Word segmentation | PyCantonese `segment()` via `--retokenize` |
-| Utterance segmentation | PolyU BERT model (`PolyU-AngelChanLab/Cantonese-Utterance-Segmentation`); falls back to punctuation |
+| Utterance segmentation | PolyU BERT model (`PolyU-AngelChanLab/Cantonese-Utterance-Segmentation`) in standalone `utseg` and transcribe pre-CHAT segmentation; falls back to punctuation |
 | Morphosyntax (POS) | PyCantonese override (~95% on core vocab) layered on Stanza Chinese (`zh`) |
 | Morphosyntax (depparse) | Stanza Chinese (`zh`) — Mandarin-trained, but better than nothing |
 | Forced alignment | Jyutping romanization (PyCantonese) → Wave2Vec MMS |
@@ -116,11 +116,14 @@ each character becomes a separate word on the main tier. This makes word
 counts, MLU, and POS tagging unreliable.
 
 ```bash
-batchalign3 morphotag --retokenize corpus/ -o output/ --lang yue
+# Morphotag has no --lang flag — the per-file @Languages: header drives
+# routing. For Cantonese files (yue), retokenize is the right default.
+batchalign3 morphotag --retokenize corpus/ -o output/
 ```
 
 This uses PyCantonese's `segment()` to group per-character tokens into
-words before Stanza POS tagging.
+words before Stanza POS tagging. Cantonese files are detected from each
+file's `@Languages: yue` header — there is no morphotag `--lang` flag.
 
 **Before** (per-character):
 
@@ -166,8 +169,16 @@ table.
 
 Uses the PolyU BERT model
 `PolyU-AngelChanLab/Cantonese-Utterance-Segmentation`. Falls back to
-punctuation-based splitting if the model is unavailable. See
+punctuation-based splitting if the model is unavailable. The same model is used
+for `transcribe`'s pre-CHAT segmentation when `--lang yue`. See
 [Utterance Segmentation](../utterance-segmentation.md).
+
+## Mixed-language morphotag (`@s`)
+
+In bilingual files, Cantonese-marked words (`@s:yue` or bare `@s` resolved to
+`yue`) go through the same default-on secondary-language L2 morphotag path as
+other supported languages. Successful secondary dispatch produces real
+`%mor`/`%gra`; unresolved or unsupported cases still fall back to `L2|xxx`.
 
 ## Known limitations
 

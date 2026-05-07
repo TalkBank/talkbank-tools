@@ -102,18 +102,27 @@ pub fn inject_results(
     chat_file: &mut talkbank_model::model::ChatFile,
     batch_items: Vec<BatchItemWithPosition>,
     responses: Vec<UdResponse>,
-    lang: &LanguageCode,
+    _lang: &LanguageCode,
     tokenization_mode: TokenizationMode,
     mwt: &MwtDict,
 ) -> Result<InjectionResult, String> {
     use talkbank_model::model::GrammaticalRelationType;
-    use talkbank_model::model::dependent_tier::mor::PosCategory;
 
     use super::synthesis::synthesize_special_form_mor;
 
     /// Deprel label written to `%gra` for non-analyzable special-form
-    /// positions. UD `dep` = "no specific role applies."
+    /// positions whose Stanza-side head is non-zero (i.e. the form-marker
+    /// token is a dependent of some other chunk). UD `dep` = "no specific
+    /// role applies." The head=0 case must keep `ROOT` instead — see the
+    /// joint invariant `(head == 0) ⟺ (deprel == "ROOT")` enforced by
+    /// the validator (E722/E723).
     const DEP_RELATION_LABEL: &str = "DEP";
+    /// Deprel label written when the form-marker token is the syntactic
+    /// root of the utterance (Stanza returned `head=0`). Required by the
+    /// joint root invariant; the prior unconditional overwrite to DEP
+    /// produced 3,378 wild E722 occurrences across the corpus on
+    /// 2026-05-06.
+    const ROOT_RELATION_LABEL: &str = "ROOT";
 
     let mut retokenization_traces: Vec<RetokenizationInfo> = Vec::new();
     let mut decisions: Vec<DecisionRecord> = Vec::new();
@@ -129,7 +138,9 @@ pub fn inject_results(
                 }
             };
 
-            let ctx = MappingContext { lang: lang.clone() };
+            let ctx = MappingContext {
+                lang: item.lang.clone(),
+            };
 
             // Apply grammatical-invariant rewrites to correct known
             // Stanza defects (e.g., English copula 's + progressive
@@ -190,16 +201,24 @@ pub fn inject_results(
                 .zip(gra_relations.iter_mut())
             {
                 if resolved_lang.is_some() {
-                    mor.main.pos = PosCategory::new("L2");
-                    mor.main.lemma =
-                        talkbank_model::model::dependent_tier::mor::MorStem::new("xxx");
-                    mor.main.features.clear();
+                    mor.main.reset_to_l2_placeholder();
                     continue;
                 }
 
                 if let Some(ft) = form_type {
                     *mor = synthesize_special_form_mor(ft, word.text.as_str());
-                    gra.relation = GrammaticalRelationType::new(DEP_RELATION_LABEL);
+                    // Preserve the joint invariant `(head == 0) ⟺ (deprel
+                    // == "ROOT")`: when the form-marker token is the
+                    // utterance root (Stanza returned head=0), the deprel
+                    // must remain ROOT so the validator's E722 check
+                    // passes. For non-root positions the BA2-equivalent
+                    // convention is the generic UD `dep`.
+                    let label = if gra.head == 0 {
+                        ROOT_RELATION_LABEL
+                    } else {
+                        DEP_RELATION_LABEL
+                    };
+                    gra.relation = GrammaticalRelationType::new(label);
                 }
             }
 

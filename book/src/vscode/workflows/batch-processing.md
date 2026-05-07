@@ -68,8 +68,8 @@ A common workflow for processing a corpus involves multiple stages:
 # 1. Automatic transcription and alignment
 batchalign3 transcribe audio_corpus/ -o transcribed/ --lang eng
 
-# 2. Add morphological annotation
-batchalign3 morphotag transcribed/ -o annotated/ --lang eng
+# 2. Add morphological annotation (no --lang — language read per-file from @Languages)
+batchalign3 morphotag transcribed/ -o annotated/
 
 # 3. Validate the results
 chatter validate annotated/ --force

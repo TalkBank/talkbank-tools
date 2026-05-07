@@ -10,6 +10,7 @@ use talkbank_model::model::LanguageCode;
 use talkbank_model::validation::LanguageResolution;
 
 use super::extract::L2DeferredPosition;
+use super::plan::plan_dispatch_spans;
 
 /// A contiguous span of @s words sharing the same target language.
 ///
@@ -108,44 +109,13 @@ pub fn group_deferred_into_dispatch_spans(
     deferred: &[L2DeferredPosition],
     word_cache: &HashMap<(usize, usize), talkbank_model::ChatCleanedText>,
 ) -> Vec<DispatchSpan> {
-    let mut spans: Vec<DispatchSpan> = Vec::new();
-
-    for (global_idx, def) in deferred.iter().enumerate() {
-        // Cache-miss handling. The cache is populated from the same
-        // ChatFile/AST that produced the deferred-position array, so
-        // a miss should not occur in practice; if it does, skip the
-        // deferred position rather than substitute empty text (which
-        // would silently change Stanza's input).
-        let Some(word_text) = word_cache.get(&(def.line_idx, def.word_idx)).cloned() else {
-            tracing::warn!(
-                line_idx = def.line_idx,
-                word_idx = def.word_idx,
-                "L2 dispatch span: word_cache miss; skipping deferred position"
-            );
-            continue;
-        };
-
-        let extends = spans.last().is_some_and(|last: &DispatchSpan| {
-            last.target_lang == def.target_lang && !last.global_indices.is_empty() && {
-                let prev_global = *last.global_indices.last().unwrap_or(&0);
-                let prev_def = &deferred[prev_global];
-                prev_def.line_idx == def.line_idx && prev_def.word_idx + 1 == def.word_idx
-            }
-        });
-
-        if extends {
-            if let Some(last) = spans.last_mut() {
-                last.global_indices.push(global_idx);
-                last.words.push(word_text);
-            }
-        } else {
-            spans.push(DispatchSpan {
-                global_indices: vec![global_idx],
-                words: vec![word_text],
-                target_lang: def.target_lang.clone(),
-            });
-        }
-    }
-
-    spans
+    plan_dispatch_spans(deferred, word_cache)
+        .spans
+        .into_iter()
+        .map(|span| DispatchSpan {
+            global_indices: span.deferred_indices,
+            words: span.words,
+            target_lang: span.target_lang,
+        })
+        .collect()
 }

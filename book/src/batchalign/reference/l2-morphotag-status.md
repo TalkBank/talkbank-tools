@@ -1,7 +1,7 @@
 # L2 Morphotag: Current Status
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:15 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 > **L2 dispatch is now on by default.** Aggregate
 > evaluation across 19 language pairs (17 at 100% dispatch; `cym,eng`
@@ -26,19 +26,19 @@ rate (zero L2|xxx remaining when flag is on).
 ```
 morphosyntax/l2/
 ├── deprel.rs   — UdDeprel newtype, deprel→POS constraint mapping
-├── merge.rs    — POS resolution (6-level priority), Mor-based merge
+├── plan.rs     — contiguous span planning + host attachment planning
+├── merge.rs    — POS resolution (6-level priority), planned Mor-based merge
 ├── extract.rs  — primary structural info extraction from UD responses
 ├── spans.rs    — contiguous span grouping for secondary dispatch
 ├── splice.rs   — splice merged Mor into ChatFile
-└── tests.rs    — 703 unit tests
+└── tests.rs    — unit-test coverage for merge/splice/dispatch behavior
 ```
 
 **Dispatch** (`batch.rs:dispatch_secondary_l2`):
-- Pre-extract word texts from ChatFile
-- Group into per-utterance contiguous spans by target language
+- Plan per-utterance contiguous spans and host attachments in `plan.rs`
 - Dispatch to secondary Stanza workers via `infer_batch`
 - Map responses via `map_ud_sentence` (handles MWT Range tokens)
-- Merge with primary structural info via `merge_primary_secondary`
+- Merge with primary structural info via `merge_planned_secondary_span`
 - Splice into ChatFile via `splice_l2_into_chat`
 
 All 3 code paths wired: batch, single-file pipeline, incremental.
@@ -60,15 +60,24 @@ All 3 code paths wired: batch, single-file pipeline, incremental.
 
 ### Tests
 
-- 703 unit tests in `batchalign`
-- 3 ML golden tests: eng-spa, deu-eng, flag-off
-- Zero warnings across all crates
+- focused Rust unit tests for planning, merge, splice, and phrasal-verb behavior
+- ML golden tests for eng-spa, deu-eng, contractions, and flag-off regression
 
 ### Documentation
 
 - `l2-morphotag.md` — design, architecture, Mermaid diagrams
 - `l2-morphotag-literature.md` — 11-citation literature survey
 - `l2-eval-runs/` — aggregate ungating evidence (per-pair and per-word CSVs from the evaluation suite)
+
+### Input policy and repair tooling
+
+- E255 now rejects whole-utterance same-language all-`@s` patterns at
+  validation time; transcripts should use `[- lang]`.
+- E254 is warn-only when explicit `@s:LANG` names a language absent from
+  `@Languages`; dispatch still uses the explicit target language.
+- `chatter debug fix-s` now repairs both transcript-side issues: it rewrites the
+  qualifying whole-utterance `@s` pattern, appends missing explicit languages
+  to `@Languages`, and leaves already-correct files untouched.
 
 ## What's Not Done
 

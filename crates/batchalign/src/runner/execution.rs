@@ -274,7 +274,18 @@ async fn run_hosted_job(
     // For Profile mode (large/fleet), pre-scaling is an optimization that
     // amortizes cold start across concurrent files.
     let bootstrap_mode = pool.bootstrap_mode();
-    if *num_workers > 1 && bootstrap_mode != crate::worker::WorkerBootstrapMode::LazyProfile {
+    // PerFile commands (morphotag, translate, coref) have no job-level
+    // language — files inside one job may span many `@Languages:` headers.
+    // Pre-scaling against a placeholder lang would either spawn an English
+    // worker that nobody asks for (the 2026-05-03 incident) or spawn an
+    // `Auto` worker that the per-file dispatch path would never key onto.
+    // The pipeline spawns workers per-language lazily as it walks files;
+    // skip pre-scale entirely for these commands.
+    let is_per_file = job.dispatch.lang.is_per_file();
+    if *num_workers > 1
+        && bootstrap_mode != crate::worker::WorkerBootstrapMode::LazyProfile
+        && !is_per_file
+    {
         let job_engine_overrides = job.dispatch.options.dispatch_engine_overrides_json();
         let pre_scale_lang = job.dispatch.lang.to_worker_language();
         pool.pre_scale_with_overrides(

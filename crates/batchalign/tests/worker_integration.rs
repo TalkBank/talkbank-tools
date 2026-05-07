@@ -44,7 +44,7 @@ macro_rules! require_python {
         // per-process file so we don't race against other test binaries.
         common::test_server_fixture::isolate_host_memory_ledger();
         // Memory guard: skip test entirely if insufficient RAM to safely spawn workers.
-        // This prevents kernel OOM panics that have crashed Franklin's machine repeatedly.
+        // This prevents kernel OOM panics that have crashed contributor machines repeatedly.
         let available_mb = batchalign::worker::memory_guard::available_memory_mb();
         if available_mb < 4096 {
             eprintln!(

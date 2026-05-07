@@ -3,7 +3,7 @@
 //! These tests document expected behavior and regressions.
 
 use super::{parse_main_tier, parse_utterance, with_snapshot_settings};
-use crate::model::DependentTier;
+use crate::model::{DependentTier, Separator, UtteranceContent};
 
 // ✅ SUCCESS CASE - Simplest valid utterance
 /// Parses the minimal valid main tier (`*SPK:\tword .`) and snapshots the structured result.
@@ -194,4 +194,54 @@ fn error_e305_missing_terminator_treesitter() {
             result
         );
     });
+}
+
+/// Regression: trailing CA arrows stay in main-tier content as separators.
+#[test]
+fn trailing_ca_arrow_stays_separator() {
+    let result = parse_main_tier("*CHI:\tlevel pitch →");
+    let main_tier = result.expect("expected CA arrow main tier to parse");
+
+    assert!(
+        main_tier.content.terminator.is_none(),
+        "trailing CA arrow must not be promoted to terminator"
+    );
+    assert!(matches!(
+        main_tier.content.content.last(),
+        Some(UtteranceContent::Separator(Separator::Level { .. }))
+    ));
+}
+
+/// Regression: trailing CA no-break markers stay in main-tier content as separators.
+#[test]
+fn trailing_ca_no_break_stays_separator() {
+    let result = parse_main_tier("*CHI:\tno break ≈");
+    let main_tier = result.expect("expected CA no-break main tier to parse");
+
+    assert!(
+        main_tier.content.terminator.is_none(),
+        "trailing CA no-break must not be promoted to terminator"
+    );
+    assert!(matches!(
+        main_tier.content.content.last(),
+        Some(UtteranceContent::Separator(Separator::CaNoBreak { .. }))
+    ));
+}
+
+/// Regression: trailing CA technical-break markers stay in main-tier content as separators.
+#[test]
+fn trailing_ca_technical_break_stays_separator() {
+    let result = parse_main_tier("*CHI:\ttechnical break ≋");
+    let main_tier = result.expect("expected CA technical-break main tier to parse");
+
+    assert!(
+        main_tier.content.terminator.is_none(),
+        "trailing CA technical-break must not be promoted to terminator"
+    );
+    assert!(matches!(
+        main_tier.content.content.last(),
+        Some(UtteranceContent::Separator(
+            Separator::CaTechnicalBreak { .. }
+        ))
+    ));
 }

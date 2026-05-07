@@ -7,7 +7,7 @@ use crate::chat_ops::morphosyntax_ops::{
 };
 use crate::chat_ops::nlp::UdResponse;
 use crate::chat_ops::{ChatFile, LanguageCode};
-use talkbank_transform::parse::{is_ca, is_dummy, parse_lenient};
+use talkbank_transform::parse::{is_ca, is_no_align, parse_lenient};
 use talkbank_transform::serialize::to_chat_string;
 use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::warn;
@@ -24,7 +24,19 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     pub services: PipelineServices<'a>,
     /// Original chat text.
     pub chat_text: &'a str,
-    /// Job language.
+    /// Job-level language received from dispatch / `MorphosyntaxParams.lang`.
+    ///
+    /// **Not used for inference, payload collection, or provenance** in the
+    /// morphotag pipeline — those use `resolved_lang`, populated per-file from
+    /// the parsed `@Languages:` header. Retained on the context only because
+    /// the shared `MorphosyntaxParams` struct (used by translate/coref/
+    /// transcribe-embedded-morphosyntax) carries it. See the 2026-05-03
+    /// regression in the file's module-doc for why this field is no longer
+    /// authoritative for morphotag.
+    #[allow(
+        dead_code,
+        reason = "retained for symmetry with shared MorphosyntaxParams struct; see field doc"
+    )]
     pub lang: &'a LanguageCode3,
     /// Injection tokenization mode.
     pub tokenization_mode: TokenizationMode,
@@ -38,12 +50,21 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     pub chat_file: Option<ChatFile>,
     /// Structured parse errors from lenient parse; drives the L0 pre-validation gate.
     pub parse_errors: Vec<crate::chat_ops::ParseError>,
-    /// Whether the file is a dummy transcript (`@Options: dummy`).
-    pub is_dummy: bool,
     /// Whether the file is a Conversation Analysis transcript (`@Options: CA`).
     /// Mirrors `is_no_align` in the align pipeline: CA files are pass-through
     /// for morphosyntax — no clear, no infer, no inject, no provenance.
     pub is_ca: bool,
+    /// Whether the file opted out of alignment-style processing via
+    /// `@Options: NoAlign`.
+    pub is_no_align: bool,
+    /// Non-fatal reason this file should bypass morphotag inference and be
+    /// returned unchanged.
+    pub skip_reason: Option<String>,
+    /// Per-file primary language resolved from the parsed `@Languages:` header
+    /// (or the BA2-parity `eng` fallback when the header is absent). Set by
+    /// `stage_parse`; consumed by every downstream stage that previously read
+    /// `ctx.lang`. `None` before `stage_parse` runs.
+    pub resolved_lang: Option<LanguageCode3>,
     /// Collected worker payloads.
     pub batch_items: Vec<BatchItemWithPosition>,
     /// Inferred worker responses.
@@ -72,19 +93,33 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
             l2_morphotag,
             chat_file: None,
             parse_errors: Vec::new(),
-            is_dummy: false,
             is_ca: false,
+            is_no_align: false,
+            skip_reason: None,
+            resolved_lang: None,
             batch_items: Vec::new(),
             ud_responses: Vec::new(),
             final_chat_text: None,
         }
     }
 
+    /// Returns the per-file resolved language, or a `Validation` error if
+    /// `stage_parse` has not yet populated it. All inference, payload
+    /// collection, injection, and provenance code paths must read the lang
+    /// through this accessor — never `ctx.lang` (see field doc).
+    fn require_resolved_lang(&self) -> Result<&LanguageCode3, ServerError> {
+        self.resolved_lang.as_ref().ok_or_else(|| {
+            ServerError::Validation(
+                "morphotag: per-file resolved_lang missing (stage_parse must run first)".into(),
+            )
+        })
+    }
+
     /// True when the file should bypass all morphosyntax inference stages
     /// (parse + serialize round-trip only). Set by `stage_parse` based on
-    /// `@Options: dummy` or `@Options: CA`.
+    /// `@Options: CA`, `@Options: NoAlign`, or an unsupported primary language.
     fn should_skip_inference(&self) -> bool {
-        self.is_dummy || self.is_ca
+        self.is_ca || self.is_no_align || self.skip_reason.is_some()
     }
 }
 
@@ -166,40 +201,48 @@ fn always_enabled(_: &MorphosyntaxPipelineContext<'_>) -> bool {
     true
 }
 
-/// Refuse to morphotag a file whose primary `@Languages:` is not in
-/// the Stanza-supported set.
+/// Resolve the per-file morphotag language from the parsed `@Languages:`
+/// header.
 ///
-/// **BA2 parity.** BA2 fed each file's `doc.langs` (parsed from
-/// `@Languages:` at `formats/chat/parser.py:228-229` of the BA2 archive)
-/// directly to `stanza.Pipeline`, which raised on missing models. The
-/// 2026-05-03 morphotag rerun on ming silently rewrote 736+ Stanza-
-/// unsupported-language files (Serbian, etc.) with empty `%mor` and a
-/// falsified `lang=eng` provenance comment because BA3's job-level
-/// `MorphosyntaxParams.lang` (`--lang` falling through to
-/// `default_lang: eng`) overrode the file's actual language. This check
-/// restores the BA2 hard-error behaviour.
+/// Returns a typed error when the header is absent or the declared
+/// language is not a parseable ISO 639-3 code. **No silent fallback to
+/// English** — falling back would either tag a non-English file as English
+/// (the 2026-05-03 incident) or stamp a falsified `@Languages:` value into
+/// the output. The caller (`stage_parse`) records the error against the
+/// file's job-status entry; the file is returned unchanged.
 ///
-/// Returning `Err` from here triggers `TextBatchFileResult::err`, which
-/// `execution::text_io::write_text_results` does NOT write to disk — the
-/// file stays untouched on the user's filesystem (no provenance stamp,
-/// no empty `%mor`).
-///
-/// Empty `@Languages` is intentionally NOT errored here: BA2's
-/// behaviour for missing-header files is to default to `["eng"]` and
-/// proceed. That fallback path stays unchanged for now.
-pub(crate) fn check_primary_language_supported(chat_file: &ChatFile) -> Result<(), ServerError> {
+/// Earlier BA2 code defaulted missing headers to `["eng"]`. That parity
+/// shortcut was a known correctness hazard — see the 2026-05-03 incident.
+/// We deliberately diverge.
+pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode3, ServerError> {
+    let raw = chat_file.languages.0.first().ok_or_else(|| {
+        ServerError::Validation(
+            "morphotag: file has no `@Languages:` header. Add the header (e.g. \
+             `@Languages: eng`) and re-run; per-file language is required for \
+             honest %mor/%gra provenance."
+                .to_string(),
+        )
+    })?;
+    LanguageCode3::try_from(raw.as_str()).map_err(|err| {
+        ServerError::Validation(format!(
+            "morphotag: file's `@Languages:` declares '{raw}', which is not a \
+             parseable ISO 639-3 code: {err}. Fix the header and re-run."
+        ))
+    })
+}
+
+pub(crate) fn unsupported_primary_language_reason(chat_file: &ChatFile) -> Option<String> {
     if let Some(primary) = chat_file.languages.0.first() {
         if !crate::chat_ops::morphosyntax_ops::is_stanza_supported(primary) {
-            return Err(ServerError::Validation(format!(
-                "morphotag: file's primary @Languages '{}' is not supported by Stanza. \
-                 Supported ISO-639-3 codes: {}. \
-                 (BA2 parity: this is a hard error, not a silent rewrite.)",
+            return Some(format!(
+                "morphotag: skipping file because primary @Languages '{}' is not supported by Stanza. \
+                 The file is returned unchanged. Supported ISO-639-3 codes: {}.",
                 primary,
                 talkbank_transform::morphosyntax::supported_iso3_codes().join(", ")
-            )));
+            ));
         }
     }
-    Ok(())
+    None
 }
 
 fn stage_parse<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> StageFuture<'a> {
@@ -213,11 +256,30 @@ fn stage_parse<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
             );
         }
         ctx.parse_errors = parse_errors;
-        ctx.is_dummy = is_dummy(&chat_file);
         ctx.is_ca = is_ca(&chat_file);
+        ctx.is_no_align = is_no_align(&chat_file);
 
-        if !ctx.is_dummy && !ctx.is_ca {
-            check_primary_language_supported(&chat_file)?;
+        if !ctx.is_ca && !ctx.is_no_align {
+            ctx.skip_reason = unsupported_primary_language_reason(&chat_file);
+            if let Some(reason) = &ctx.skip_reason {
+                warn!(reason = %reason, "Morphotag pass-through");
+            }
+        }
+
+        // Resolve the per-file language from the parsed `@Languages:` header.
+        // After this line, `ctx.lang` (the job-level dispatch lang) MUST NOT
+        // be read by any morphotag stage — use `ctx.require_resolved_lang()`
+        // instead. See `resolve_per_file_lang` for the 2026-05-03 incident.
+        //
+        // `resolve_per_file_lang` errors when the header is missing or
+        // declares a non-parseable code. For files already flagged as
+        // `is_ca` / `is_no_align` / unsupported-by-Stanza, downstream stages
+        // bypass inference (`should_skip_inference()`); we tolerate a
+        // missing header on those files because the pipeline is going to
+        // pass them through unchanged anyway. Anything else is a real
+        // missing-language error and must surface to the operator.
+        if !ctx.should_skip_inference() {
+            ctx.resolved_lang = Some(resolve_per_file_lang(&chat_file)?);
         }
 
         ctx.chat_file = Some(chat_file);
@@ -268,7 +330,7 @@ fn stage_collect_payloads<'a, 'ctx>(
         if ctx.should_skip_inference() {
             return Ok(());
         }
-        let primary_lang = LanguageCode::new(ctx.lang.as_ref());
+        let primary_lang = LanguageCode::new(ctx.require_resolved_lang()?.as_ref());
         let chat_file = ctx.chat_file.as_ref().ok_or_else(|| {
             ServerError::Validation("Parsed chat missing before payload collection".into())
         })?;
@@ -285,7 +347,7 @@ fn stage_infer<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
         if ctx.batch_items.is_empty() {
             return Ok(());
         }
-        let lang_code = ctx.lang.clone();
+        let lang_code = ctx.require_resolved_lang()?.clone();
         let retokenize = ctx.tokenization_mode == TokenizationMode::StanzaRetokenize;
         ctx.ud_responses = infer_batch(
             ctx.services.pool,
@@ -316,10 +378,11 @@ fn stage_apply_results<'a, 'ctx>(
             Vec::new()
         };
 
+        let resolved_lang = ctx.require_resolved_lang()?.clone();
         let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
             ServerError::Validation("Parsed chat missing before result injection".into())
         })?;
-        let lang_code = LanguageCode::new(ctx.lang.as_ref());
+        let lang_code = LanguageCode::new(resolved_lang.as_ref());
         let parser = crate::chat_parser();
         let _injection_result = inject_results(
             &parser,
@@ -370,25 +433,36 @@ fn stage_postvalidate<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) 
 
 fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> StageFuture<'a> {
     Box::pin(async move {
-        let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
-            ServerError::Validation("Parsed chat missing before morphotag serialize".into())
-        })?;
-
-        // CA pass-through: serialize the parsed file as-is, no provenance,
-        // no placeholder sweep. Mirrors the NoAlign branch in `fa/mod.rs`
-        // (`if is_no_align(&chat_file) { return ... to_chat_string ... }`).
-        // Dummy files still get provenance (existing behavior, intentional).
-        if ctx.is_ca {
+        // CA / NoAlign / unsupported-language pass-through: serialize the
+        // parsed file as-is, no provenance, no placeholder sweep. Mirrors the
+        // NoAlign branch in `fa/mod.rs` (`if is_no_align(&chat_file) { return
+        // ... to_chat_string ... }`).
+        if ctx.is_ca || ctx.is_no_align || ctx.skip_reason.is_some() {
+            let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
+                ServerError::Validation("Parsed chat missing before morphotag serialize".into())
+            })?;
             ctx.final_chat_text = Some(to_chat_string(chat_file));
             return Ok(());
         }
 
-        // Inject processing provenance comment.
+        // Pull immutable values from ctx BEFORE taking the mutable chat_file
+        // borrow, so we don't fight Rust over overlapping borrows. The lang
+        // here is the per-file resolved value — NOT the job-level dispatch
+        // lang — so a Czech file gets `lang=ces`, not `lang=eng`. See
+        // `resolve_per_file_lang` doc.
+        let resolved_lang = ctx.require_resolved_lang()?.clone();
+        let engine_version = ctx.services.engine_version.clone();
+        let retokenize = ctx.tokenization_mode
+            == crate::chat_ops::morphosyntax_ops::TokenizationMode::StanzaRetokenize;
+
+        let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
+            ServerError::Validation("Parsed chat missing before morphotag serialize".into())
+        })?;
+
         let provenance = crate::provenance::morphotag_provenance(
-            ctx.lang.as_ref(),
-            ctx.services.engine_version.as_ref(),
-            ctx.tokenization_mode
-                == crate::chat_ops::morphosyntax_ops::TokenizationMode::StanzaRetokenize,
+            resolved_lang.as_ref(),
+            engine_version.as_ref(),
+            retokenize,
             false, // incremental is handled separately
         );
         crate::provenance::inject_provenance(chat_file, &provenance);
@@ -406,13 +480,17 @@ fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> 
 
 #[cfg(test)]
 mod tests {
-    //! Tests for the per-file Stanza-supported language gate. The full
-    //! pipeline is exercised by integration tests against a worker pool;
-    //! these only cover the predicate logic that decides whether a parsed
-    //! CHAT file may proceed to morphotag inference.
-    use super::check_primary_language_supported;
-    use crate::error::ServerError;
+    //! Tests for per-file morphotag pass-through decisions. The full pipeline
+    //! is exercised by integration tests against a worker pool; these unit
+    //! tests cover the local predicate and pass-through serialization logic.
+    use super::{run_morphosyntax_pipeline, unsupported_primary_language_reason};
+    use crate::api::EngineVersion;
+    use crate::cache::UtteranceCache;
+    use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
+    use crate::pipeline::PipelineServices;
+    use crate::worker::pool::{PoolConfig, WorkerPool};
     use talkbank_transform::parse::parse_lenient;
+    use talkbank_transform::serialize::to_chat_string;
 
     fn parse(text: &str) -> talkbank_model::model::ChatFile {
         let parser = crate::chat_parser();
@@ -421,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_primary_language_hard_errors() {
+    fn unsupported_primary_language_gets_skip_reason() {
         let chat = "@UTF8\n\
                     @PID:\t11312/c-test\n\
                     @Begin\n\
@@ -431,23 +509,16 @@ mod tests {
                     *CHI:\tnešto .\n\
                     @End\n";
         let chat_file = parse(chat);
-        let result = check_primary_language_supported(&chat_file);
-        match result {
-            Err(ServerError::Validation(msg)) => {
-                assert!(
-                    msg.contains("srp"),
-                    "error must name the unsupported lang: {msg}"
-                );
-                assert!(
-                    msg.contains("not supported by Stanza"),
-                    "error must say why: {msg}"
-                );
-            }
-            Ok(()) => {
-                panic!("expected hard error for srp, got Ok — unsupported-language gate is broken")
-            }
-            Err(other) => panic!("expected Validation error, got {other:?}"),
-        }
+        let msg = unsupported_primary_language_reason(&chat_file)
+            .expect("unsupported primary language should produce a skip reason");
+        assert!(
+            msg.contains("srp"),
+            "skip reason must name the unsupported lang: {msg}"
+        );
+        assert!(
+            msg.contains("returned unchanged"),
+            "skip reason must describe pass-through semantics: {msg}"
+        );
     }
 
     #[test]
@@ -462,7 +533,7 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            check_primary_language_supported(&chat_file).is_ok(),
+            unsupported_primary_language_reason(&chat_file).is_none(),
             "eng must pass the Stanza-supported gate",
         );
     }
@@ -481,8 +552,77 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            check_primary_language_supported(&chat_file).is_ok(),
+            unsupported_primary_language_reason(&chat_file).is_none(),
             "missing @Languages must NOT hard-error (BA2 parity: defaults to eng)",
+        );
+    }
+
+    #[test]
+    fn resolve_per_file_lang_uses_primary_languages_header() {
+        // Regression test for the 2026-05-03 morning incident: the morphotag
+        // pipeline took its lang from the job-level CommandProfile sentinel
+        // ("eng") instead of the file's @Languages header, so every Czech /
+        // Spanish / Polish / etc. file got tagged with English Stanza and a
+        // falsified `lang=eng` provenance comment.
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Languages:\tces\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\tces|test|CHI||female|||Target_Child|||\n\
+                    *CHI:\tahoj .\n\
+                    @End\n";
+        let chat_file = parse(chat);
+        let resolved =
+            super::resolve_per_file_lang(&chat_file).expect("Czech header must resolve cleanly");
+        assert_eq!(
+            resolved.as_ref(),
+            "ces",
+            "Czech file must resolve to ces, not the job-level sentinel",
+        );
+    }
+
+    #[test]
+    fn resolve_per_file_lang_errors_when_languages_absent() {
+        // No silent eng fallback — a CHAT file with no `@Languages:` header
+        // is a real provenance failure. Surface a typed error so the
+        // operator fixes the header and re-runs.
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\teng|test|CHI||female|||Target_Child|||\n\
+                    *CHI:\thello .\n\
+                    @End\n";
+        let chat_file = parse(chat);
+        let err = super::resolve_per_file_lang(&chat_file)
+            .expect_err("missing @Languages must error, not silently default to eng");
+        assert!(
+            err.to_string().contains("`@Languages:`"),
+            "error must point at the missing header: {err}"
+        );
+    }
+
+    #[test]
+    fn resolve_per_file_lang_uses_primary_only_when_bilingual() {
+        // Bilingual file: primary lang wins. Secondary is consumed by the
+        // multilingual policy / per-utterance routing, not by the pipeline's
+        // top-level lang choice for inference + provenance.
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Languages:\tspa, eng\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\tspa|test|CHI||female|||Target_Child|||\n\
+                    *CHI:\thola .\n\
+                    @End\n";
+        let chat_file = parse(chat);
+        let resolved = super::resolve_per_file_lang(&chat_file)
+            .expect("primary lang must resolve cleanly for bilingual file");
+        assert_eq!(
+            resolved.as_ref(),
+            "spa",
+            "primary lang wins; secondary is for per-utterance routing only",
         );
     }
 
@@ -501,8 +641,88 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            check_primary_language_supported(&chat_file).is_ok(),
+            unsupported_primary_language_reason(&chat_file).is_none(),
             "primary=eng with secondary=srp must pass (gate is on primary only)",
+        );
+    }
+
+    #[tokio::test]
+    async fn unsupported_primary_language_round_trips_without_provenance() {
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Languages:\tsrp\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\tsrp|test|CHI||female|||Target_Child|||\n\
+                    *CHI:\tnešto .\n\
+                    @End\n";
+        let expected = to_chat_string(&parse(chat));
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-morphotag");
+        let services = PipelineServices::new(&pool, &cache, &engine_version);
+
+        let output = run_morphosyntax_pipeline(
+            chat,
+            &crate::api::LanguageCode3::eng(),
+            services,
+            TokenizationMode::StanzaRetokenize,
+            MultilingualPolicy::from_skip_flag(false),
+            &MwtDict::default(),
+            true,
+        )
+        .await
+        .expect("unsupported primary language should pass through");
+
+        assert_eq!(
+            output, expected,
+            "unsupported primary language must round-trip unchanged"
+        );
+        assert!(
+            !output.contains("[ba3 morphotag |"),
+            "unsupported primary language must not inject morphotag provenance"
+        );
+    }
+
+    #[tokio::test]
+    async fn noalign_round_trips_without_provenance() {
+        let chat = "@UTF8\n\
+                    @PID:\t11312/c-test\n\
+                    @Begin\n\
+                    @Languages:\teng\n\
+                    @Participants:\tCHI Target_Child\n\
+                    @ID:\teng|test|CHI||female|||Target_Child|||\n\
+                    @Options:\tNoAlign\n\
+                    *CHI:\thello .\n\
+                    @End\n";
+        let expected = to_chat_string(&parse(chat));
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
+            .await
+            .expect("cache");
+        let pool = WorkerPool::new(PoolConfig::default());
+        let engine_version = EngineVersion::from("test-morphotag");
+        let services = PipelineServices::new(&pool, &cache, &engine_version);
+
+        let output = run_morphosyntax_pipeline(
+            chat,
+            &crate::api::LanguageCode3::eng(),
+            services,
+            TokenizationMode::StanzaRetokenize,
+            MultilingualPolicy::from_skip_flag(false),
+            &MwtDict::default(),
+            true,
+        )
+        .await
+        .expect("NoAlign file should pass through");
+
+        assert_eq!(output, expected, "NoAlign must round-trip unchanged");
+        assert!(
+            !output.contains("[ba3 morphotag |"),
+            "NoAlign must not inject morphotag provenance"
         );
     }
 }

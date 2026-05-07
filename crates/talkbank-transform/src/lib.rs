@@ -63,6 +63,7 @@ pub mod dependent_tiers;
 pub mod diff;
 pub mod dp_align;
 pub mod extract;
+pub mod fix_s;
 pub mod inject;
 pub mod merge_abbrev;
 pub mod morphosyntax;

@@ -1,7 +1,7 @@
 # Batchalign2 CLI Reference (Baseline)
 
 **Status:** Reference
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 This document captures the CLI surface of Batchalign2 across **two baselines**:
 
@@ -107,8 +107,16 @@ Morphosyntactic analysis (POS, lemma, dependency parse).
 | `--lexicon` | path | `None` | Manual lexicon override | Wired |
 | `--override-media-cache` / `--use-cache` | bool | `False` | Bypass analysis cache **(Feb 9 only)** | Wired |
 | `--merge-abbrev` / `--no-merge-abbrev` | bool | `False` | Merge abbreviations **(Feb 9 only)** | Wired |
+| `--no-l2-morphotag` | flag | off | Opt out of BA3's default-on per-word `@s` secondary dispatch and keep legacy `L2\|xxx` placeholders | BA3-only |
 
 **Pipeline task:** `"morphosyntax"`.
+
+**Migration note:** `--skipmultilang` and `--no-l2-morphotag` are not
+equivalent. `--skipmultilang` is the utterance-level `[- lang]` skip control;
+`--no-l2-morphotag` is the BA3-only opt-out for per-word `@s` routing. BA3
+also validates whole-utterance same-language all-`@s` patterns as E255 and
+warns on explicit `@s:LANG` missing from `@Languages` as E254; `chatter debug
+fix-s` repairs both transcript-side issues.
 
 ### `translate`
 

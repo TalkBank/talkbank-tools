@@ -1,7 +1,7 @@
 # transcribe — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 10:00 EDT
+**Last updated:** 2026-05-05 08:21 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -18,7 +18,7 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 | Pipeline orchestration | `crates/batchalign/src/pipeline/transcribe.rs` — `run_transcribe_pipeline()` | 7-stage sequencer: ASR → post-process → (opt) diarization → build CHAT → (opt) utseg → (opt) morphotag → serialize |
 | Per-file dispatch | `crates/batchalign/src/runner/dispatch/transcribe_pipeline.rs` | Concurrent file orchestration bounded by semaphore |
 | ASR post-processing | `crates/talkbank-transform/src/asr_postprocess/mod.rs` | 8 stages: compound merge, MWT split, number expand, Cantonese norm, long-turn split, retokenization, disfluency, retrace detection |
-| Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421–457` — `process_asr_with_prechat_segmentation()` | Runs for eng/zho/yue only: BERT utseg applied to prepared chunks BEFORE build_chat |
+| Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421–457` — `process_asr_with_prechat_segmentation()` | Runs for eng/cmn/zho/yue: BERT utseg applied to prepared chunks BEFORE build_chat |
 | CHAT assembly | `crates/talkbank-transform/src/build_chat/mod.rs:41` — `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
 | Speaker reassignment | `crates/batchalign/src/chat_ops/speaker.rs:32` — `reassign_speakers()` | Rewrites speaker codes + headers from diarization segments (runs post-build_chat) |
 | ASR worker IPC | `batchalign/inference/asr.py` | Whisper/Rev.AI ASR, returns raw tokens |
@@ -71,7 +71,7 @@ All ASR post-processing runs in Rust (`crates/talkbank-transform/src/asr_postpro
 
 ## Pre-CHAT utterance segmentation (lang-specific)
 
-For **eng, zho, yue only**, a BERT-based utterance segmentation model runs **after ASR post-processing** but **before CHAT assembly**:
+For **eng, cmn, zho, yue**, a BERT-based utterance segmentation model runs **after ASR post-processing** but **before CHAT assembly**:
 
 - Implemented in `crates/batchalign/src/pipeline/transcribe.rs:421–457` — `process_asr_with_prechat_segmentation()`
 - Called only when `uses_prechat_utterance_model(resolved_lang)` is true (lines 387–389)

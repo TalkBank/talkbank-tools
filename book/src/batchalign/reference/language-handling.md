@@ -1,7 +1,7 @@
 # Language Handling in CHAT: Complete Data Model
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 ---
 
@@ -330,33 +330,66 @@ for lang_code, items in by_lang.items():
 
 **Status**: Fully working since 2026-02-15.
 
-### Per-Word Language Routing ❌ NOT IMPLEMENTED (L2|xxx placeholder)
+### Per-Word Language Routing ✅ IMPLEMENTED WITH FALLBACK
 
-**Current behavior** (Rust post-processing):
-```rust
-for (mor, (form_type, resolved_lang)) in mors.iter_mut().zip(special_forms.iter()) {
-    // If word has ANY language marker, replace with L2|xxx
-    if resolved_lang.is_some() {
-        word.part_of_speech = PartOfSpeech::new("L2");
-        word.stem = MorStem::new("xxx");
-        continue;  // Skip Stanza result
-    }
-    // ...
-}
-```
+**Current behavior**:
 
-**Why L2|xxx?**
-- English Stanza model doesn't know Spanish/French morphology
-- Wrong to include English model's hallucinated morphology for foreign words
-- `L2|xxx` is a safe placeholder that signals "foreign word"
+1. The primary morphosyntax pass still emits `L2|xxx` as the safe intermediate
+   placeholder for language-marked words.
+2. `talkbank-transform` then extracts deferred `@s` positions, plans
+   contiguous spans plus host-side attachment, and asks `batchalign` only for
+   the secondary Stanza worker dispatch.
+3. Successful secondary results are merged back into `%mor`/`%gra`; only
+   unresolved, ambiguous, unsupported, or explicitly opted-out cases remain
+   `L2|xxx`.
 
-**What's missing**:
-- Python doesn't route `biberon@s:spa` to Spanish Stanza model
-- Instead, it's processed by English model, then replaced with `L2|xxx`
+**Why keep `L2|xxx` as an intermediate / fallback?**
+- the primary model still cannot be trusted for foreign-word morphology
+- `L2|xxx` is the honest fallback when no single trustworthy secondary route exists
+- splice/lowering needs a safe placeholder before secondary dispatch completes
 
-Current limit:
-- per-word language routing is not the current public runtime boundary
-- foreign/code-switched words are handled conservatively instead
+**What's still limited**:
+- `@s:eng+spa` / `@s:eng&spa` do not dispatch because there is no single target
+- unsupported secondary languages remain `L2|xxx` (see "Unsupported
+  non-primary languages" below for the handling contract)
+
+**Unsupported non-primary languages**:
+
+`morphotag` only requires the **primary** `@Languages` code to be
+Stanza-supported; files whose primary is unsupported are skipped with a
+typed diagnostic before the pipeline runs. When the primary IS
+supported, unsupported non-primary content is processed cleanly with an
+`L2|xxx` fallback rather than crashing the worker:
+
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the utterance is
+  grouped under `UNSUPPORTEDLANG`, the worker partitions that group out
+  of the dispatch list (`partition_groups_by_stanza_support`), and
+  every word receives `L2|xxx`.
+- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+  span is short-circuited the same way; the host primary analysis is
+  preserved and the marker's slot stays `L2|xxx`.
+
+Other utterances and spans in the same file that target supported
+languages continue to receive real morphology.
+
+**Validation / repair policy around that behavior**:
+- explicit `@s:LANG` still resolves and dispatches even when `LANG` is absent
+  from `@Languages`, but validation emits warn-only E254 so the header drift is
+  visible
+- whole-utterance same-language all-`@s` runs now raise E255 and must be
+  normalized to `[- lang]` rather than treated as acceptable shorthand
+- `chatter debug fix-s` is the repair path for both cases: it rewrites
+  the qualifying whole-utterance pattern, clears bare `@s` shortcuts on
+  fillers and nonwords as well as on regular words (so that the new
+  `[- LANG]` precode does not flip filler resolution), and appends
+  missing explicit languages to `@Languages`. The predicate only fires
+  when every word-bearing item — including fillers, nonwords, and
+  retraced material — carries an explicit language attribution
+  resolving to the same target.
+
+Current boundary:
+- per-word routing for resolvable `@s` words is implemented
+- conservative fallback remains for the unresolved / unsupported cases
 
 ---
 
@@ -416,6 +449,8 @@ If `@Languages` is missing:
 | Error | Trigger | Example |
 |-------|---------|---------|
 | **E244** | @s shortcut in tertiary language tier | `[- fra] word@s` when fra is 3rd+ language |
+| **E254** | Explicit `@s:LANG` language missing from `@Languages` | `@Languages: eng` with `hola@s:spa` |
+| **E255** | Whole-utterance same-language all-`@s` pattern where `[- lang]` should be used | `hola@s como@s estas@s .` |
 | **E361** | Invalid language code | `word@s:xyz` (xyz not in ISO 639-3) |
 | **Unresolved** | No language context available | Word with @s but no @Languages header |
 
@@ -458,7 +493,7 @@ Errors are collected during resolution and reported via the validation system.
 | Feature | Scope | Status | Implementation |
 |---------|-------|--------|----------------|
 | **Per-utterance routing** | `[- lang]` | ✅ Implemented | Rust batches by tier language, Python routes to Stanza |
-| **Per-word routing** | `@s:lang` | ❌ Not implemented | Rust sends semantic resolution, Python ignores, replaces with L2\|xxx |
+| **Per-word routing** | `@s:lang` | ✅ Implemented with fallback | Transform-layer L2 planning + secondary dispatch; unresolved/unsupported cases remain L2\|xxx |
 
 ---
 
@@ -490,15 +525,12 @@ Errors are collected during resolution and reported via the validation system.
 
 ## 10. Future Work (Low Priority)
 
-**Per-word language routing** (see `docs/per-word-language-switching-ideal-approach.md`):
-1. Python checks `resolved_lang` in `special_forms`
-2. Extracts code-switched words, sends to target language Stanza
-3. Merges morphology back into primary language utterance
-4. Requires careful dependency graph merging
+The remaining low-priority work is no longer "per-word routing exists or not";
+it is policy/refinement work on top of the implemented L2 dispatch path:
 
-**Complexity**: High - needs dual-pass analysis and cross-model merging.
-
-**Current approach**: `L2|xxx` is safe, simple, and correct (doesn't mislead with wrong morphology).
+1. warning/reporting surfaces for unresolved `@s:eng+spa` / `@s:eng&spa`
+2. policy-sensitive normalization around all-`@s` utterances and headers
+3. broader secondary-language quality work for weak or unsupported models
 
 ---
 

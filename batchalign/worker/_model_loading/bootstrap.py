@@ -221,14 +221,37 @@ def _load_single_task(task: str, bootstrap: WorkerBootstrapRuntime) -> None:
     engine_overrides = bootstrap.engine_overrides or None
 
     if task in (InferTask.MORPHOSYNTAX.value, InferTask.COREF.value):
-        load_stanza_models(bootstrap.lang)
+        # The IPC wire format is `--lang STRING`, so Python sees a plain
+        # string. The Rust side may pass the typed `WorkerLanguage::Auto`
+        # sentinel (serialized as "auto") for capability-probe spawns —
+        # those workers must not eagerly load Stanza for an ISO-code that
+        # doesn't exist in Stanza's catalog. Skip the model load and let
+        # the per-file dispatch path load language-specific Stanza pipelines
+        # later via `ensure_task`. Pre-existing pre-PerFile behavior treated
+        # any string as a real ISO code; that crashed on "auto" with
+        # UnsupportedLanguageError before the worker emitted a ready signal.
+        if bootstrap.lang in ("auto", "per-file"):
+            L.info(
+                "Skipping eager Stanza load for non-ISO lang '%s'; "
+                "language-specific pipelines will be loaded per-file",
+                bootstrap.lang,
+            )
+        else:
+            load_stanza_models(bootstrap.lang)
         _state.register_batch_infer_handler(
             InferTask.MORPHOSYNTAX,
             build_morphosyntax_batch_infer_handler(),
         )
     elif task in ("utterance", InferTask.UTSEG.value):
-        load_utseg_builder(bootstrap.lang)
-        load_utterance_model(bootstrap.lang)
+        if bootstrap.lang in ("auto", "per-file"):
+            L.info(
+                "Skipping eager utseg-model load for non-ISO lang '%s'; "
+                "models will be loaded on first request",
+                bootstrap.lang,
+            )
+        else:
+            load_utseg_builder(bootstrap.lang)
+            load_utterance_model(bootstrap.lang)
         _state.register_batch_infer_handler(
             InferTask.UTSEG,
             build_utseg_batch_infer_handler(),

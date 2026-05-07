@@ -44,29 +44,38 @@ pub(crate) async fn dispatch_batched_infer(
     let correlation_id = &*job.identity.correlation_id;
     let file_list = &job.pending_files;
     let command = job.dispatch.command;
-    // Job-level language for batch dispatch labeling and worker-pool keying.
-    // Per-file resolution happens inside `collect_payloads` (which derives
-    // from each file's `@Languages` header), so this value does not drive
-    // per-utterance @s resolution after the 2026-05-02 Layer-2 fix in
-    // `crates/talkbank-transform/src/morphosyntax/payload.rs`.
-    //
-    // Rule 6d caveat: when `WorkerLanguage::Unspecified`, we still fabricate
-    // `LanguageCode3::eng()` here because the worker pool needs SOMETHING to
-    // key on. The fabrication is logged loudly so any downstream misrouting
-    // surfaces in operator logs instead of silently. Real per-file
-    // resolution does not depend on this value.
-    let fallback_lang = LanguageCode3::eng();
-    let lang: &LanguageCode3 = job.dispatch.lang.as_resolved().unwrap_or_else(|| {
-        tracing::warn!(
-            job_id = %job_id,
-            command = ?command,
-            "batched-infer dispatch: no resolved job-level language; \
-             using `eng` as worker-pool/label fallback. Per-file \
-             resolution still derives from file headers via \
-             collect_payloads.",
-        );
-        &fallback_lang
-    });
+    // Job-level language for batch dispatch labeling and worker-pool
+    // keying. Per-file resolution still happens inside the orchestrator
+    // (which derives from each file's `@Languages` header). For
+    // `PerFile`/`Auto` jobs there is no honest job-level language to use
+    // as a worker-pool label; rather than fabricating `eng` and risking
+    // a misrouted worker reuse, refuse to dispatch and surface a typed
+    // error. Morphotag/translate/coref are handled by the recipe-driven
+    // execution kernel (`execution/translate.rs`,
+    // `execution/morphotag/`, `execution/coref.rs`); the legacy
+    // batched-infer path here only fires for utseg, which always has a
+    // resolved `--lang`.
+    let lang: LanguageCode3 = match job.dispatch.lang.as_resolved() {
+        Some(code) => code.clone(),
+        None => {
+            let err_msg = format!(
+                "batched-infer dispatch refused: no resolved job-level language \
+                 for command '{}' (lang spec: '{}'). Use the recipe execution \
+                 kernel for per-file commands; this legacy path requires a \
+                 concrete `--lang`.",
+                command, job.dispatch.lang
+            );
+            tracing::warn!(
+                job_id = %job_id,
+                correlation_id = %correlation_id,
+                "{}",
+                err_msg,
+            );
+            host.sink().fail_job(job_id, &err_msg, unix_now()).await;
+            return;
+        }
+    };
+    let lang: &LanguageCode3 = &lang;
     debug_assert_eq!(kernel_plan.file_parallelism_hint, 1);
 
     let started_at = unix_now();

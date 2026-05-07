@@ -353,7 +353,10 @@ fn build_alignment_fixture_utterance() -> Utterance {
         },
     );
 
-    let gra = GraTier::new_gra(vec![GrammaticalRelation::new(1, 0, "ROOT")]);
+    let gra = GraTier::new_gra(vec![
+        GrammaticalRelation::new(1, 0, "ROOT"),
+        GrammaticalRelation::new(2, 1, "PUNCT"),
+    ]);
     let pho = PhoTier::new_pho(vec![PhoItem::Word(PhoWord::new("helo"))]);
     let wor = WorTier::from_words(vec![Word::simple("hello")]);
 

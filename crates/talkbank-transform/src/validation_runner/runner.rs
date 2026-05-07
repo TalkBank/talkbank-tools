@@ -60,7 +60,47 @@ where
     (event_rx, cancel_tx)
 }
 
-/// Internal runner implementation used by the public streaming entrypoint.
+/// Validate a pre-collected list of .cha files using the same streaming
+/// pipeline as [`validate_directory_streaming`].
+///
+/// This exists so the `chatter validate` CLI can route a list of file
+/// paths (e.g. `chatter validate a.cha b.cha c.cha`) through the same
+/// renderer/progress/TUI surface as a directory walk, instead of
+/// reinventing per-file output. The CLI is responsible for resolving
+/// arguments to a flat file list (walking any directories first); this
+/// entry point trusts the list verbatim — no filtering, no extension
+/// check.
+///
+/// Cancellation, event semantics, and worker behavior are identical
+/// to the directory variant.
+pub fn validate_files_streaming<C>(
+    files: Vec<std::path::PathBuf>,
+    config: &ValidationConfig,
+    cache: Option<Arc<C>>,
+) -> (Receiver<ValidationEvent>, Sender<()>)
+where
+    C: ValidationCache + Send + Sync + 'static,
+{
+    let (event_tx, event_rx) = unbounded::<ValidationEvent>();
+    let (cancel_tx, cancel_rx) = bounded::<()>(1);
+
+    let cfg = config.clone();
+
+    thread::spawn(move || {
+        // Send discovering event immediately so the renderer transitions
+        // out of "starting up" the same way it would for a directory walk.
+        let _ = event_tx.send(ValidationEvent::Discovering);
+        run_validation_on_files(files, cfg, cache, event_tx, cancel_rx);
+    });
+
+    (event_rx, cancel_tx)
+}
+
+/// Internal runner implementation used by the directory streaming
+/// entrypoint. Discovers `.cha` files under `directory` and forwards
+/// the collected list to [`run_validation_on_files`]. Kept thin so the
+/// directory-walk and explicit-file-list paths share all worker /
+/// event-stream / stats logic.
 pub(super) fn run_validation<C>(
     directory: std::path::PathBuf,
     config: ValidationConfig,
@@ -70,7 +110,6 @@ pub(super) fn run_validation<C>(
 ) where
     C: ValidationCache + Send + Sync + 'static,
 {
-    // Collect all .cha files recursively
     let mut files = Vec::new();
     collect_cha_files(
         &directory,
@@ -78,7 +117,24 @@ pub(super) fn run_validation<C>(
         &mut files,
     );
     files.sort();
+    run_validation_on_files(files, config, cache, event_tx, cancel_rx);
+}
 
+/// Worker-pool body shared by the directory and explicit-file-list
+/// streaming entrypoints. Takes a pre-collected list of files,
+/// dispatches to N worker threads, streams the standard
+/// `ValidationEvent` sequence (Started → Errors / FileComplete /
+/// RoundtripComplete → Finished) on `event_tx`, and respects
+/// `cancel_rx`.
+pub(super) fn run_validation_on_files<C>(
+    files: Vec<std::path::PathBuf>,
+    config: ValidationConfig,
+    cache: Option<Arc<C>>,
+    event_tx: Sender<ValidationEvent>,
+    cancel_rx: Receiver<()>,
+) where
+    C: ValidationCache + Send + Sync + 'static,
+{
     let total_files = files.len();
 
     // Send start event

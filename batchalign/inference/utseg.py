@@ -115,14 +115,36 @@ def batch_infer_utseg(
     import stanza
     from stanza import DownloadMethod
 
+    from batchalign.worker._progress import emit_download_event
+
     nlp: StanzaNLP
     if len(lang_alpha2) > 1:
+        # Multilingual pipeline pulls one language pack per ``lang_alpha2`` plus
+        # the language-id model. First-run cost is a sum across packs; emit a
+        # single event so the user sees the wait, even if intermediate library
+        # progress prints reach only stderr.
+        emit_download_event(
+            stage="downloading_stanza_utseg_multilingual",
+            user_message=(
+                "Downloading Stanza utterance-segmentation pipeline for "
+                f"{', '.join(lang_alpha2)} (one-time, one language pack per "
+                "language; future runs will use the local cache)…"
+            ),
+        )
         nlp = stanza.MultilingualPipeline(
             lang_configs=configs,
             lang_id_config={"langid_lang_subset": lang_alpha2},
             download_method=DownloadMethod.REUSE_RESOURCES,
         )
     elif lang_alpha2:
+        emit_download_event(
+            stage=f"downloading_stanza_utseg_{lang_alpha2[0]}",
+            user_message=(
+                f"Downloading Stanza utterance-segmentation pipeline for "
+                f"{lang_alpha2[0]} (one-time, ~250–500 MB; future runs will "
+                "use the local cache)…"
+            ),
+        )
         nlp = stanza.Pipeline(
             lang=lang_alpha2[0],
             **configs[lang_alpha2[0]],

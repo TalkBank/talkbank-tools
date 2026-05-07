@@ -20,10 +20,29 @@ use talkbank_transform::parse_and_validate_streaming;
 use crate::cli::OutputFormat;
 use crate::commands::{AlignmentValidationMode, CacheRefreshMode, ValidationInterface};
 use crate::output::TerminalErrorSink;
-use crate::ui::{FileErrors, Theme, TuiAction, run_validation_tui};
+use crate::ui::Theme;
 
 use super::cache::{get_cached_validation, initialize_validation_cache, set_cached_validation};
 use super::output::output_validation_result;
+
+/// Outcome of validating one file via [`validate_file`].
+///
+/// Per the project no-boolean-blindness rule, this is an enum rather
+/// than `bool` — `validate_file(...) == Valid` reads correctly
+/// without the caller having to remember which polarity `true` means.
+///
+/// Used today only by `chatter watch`, which discards the outcome
+/// (the per-file watch UI handles its own state). Multi-file CLI
+/// invocations route through `validate_paths_parallel` instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileValidationOutcome {
+    /// File parsed and validated cleanly (or was a cache hit).
+    Valid,
+    /// File produced one or more validation errors. Errors were
+    /// already streamed to the terminal or printed in JSON form
+    /// inline; nothing further is deferred to the caller.
+    Invalid,
+}
 
 /// Validate a single CHAT file with optional alignment and caching behavior.
 ///
@@ -32,6 +51,13 @@ use super::output::output_validation_result;
 /// `--force` is provided, reads the CHAT content, and builds `ParseValidateOptions` that align
 /// with the Main Tier and Dependent Tier rules described in the CHAT manual. Errors are streamed
 /// through the appropriate sinks (JSON, TUI, or terminal).
+///
+/// Returns [`FileValidationOutcome::Valid`] / [`FileValidationOutcome::Invalid`] so callers
+/// processing multiple files can keep going instead of having this function `process::exit`
+/// after the first invalid file. Inability-to-validate conditions (unreadable file, internal
+/// parser error, TUI subsystem failure) still call `process::exit(1)` since the per-file run
+/// genuinely cannot continue; the TUI `ForceQuit` action still calls `process::exit(130)`
+/// because the user explicitly asked the whole command to stop.
 pub fn validate_file(
     path: &PathBuf,
     format: OutputFormat,
@@ -39,10 +65,14 @@ pub fn validate_file(
     cache_refresh: CacheRefreshMode,
     quiet: bool,
     interface: ValidationInterface,
-    theme: Theme,
+    _theme: Theme,
     suppress: &[String],
     strict_linkers: bool,
-) {
+) -> FileValidationOutcome {
+    // `theme` is no longer used inside `validate_file` because the TUI
+    // launch moved to the multi-file driver in `run_validate_command`
+    // (so all files end up in one consolidated TUI). Kept in the
+    // signature so the public API and the watch-mode caller don't break.
     let check_alignment = alignment.enabled();
 
     let cache = initialize_validation_cache(path, cache_refresh);
@@ -52,8 +82,10 @@ pub fn validate_file(
     // On Some(false) or None: revalidate.
     if get_cached_validation(cache.as_ref(), path, check_alignment) == Some(true) {
         // Cached success: output and return without revalidating.
+        // (TUI mode included: a cached-valid file has no errors to
+        // contribute to the consolidated TUI.)
         output_validation_result(path, &[], None, format, true, quiet);
-        return;
+        return FileValidationOutcome::Valid;
     }
 
     // Not in cache or cache disabled - validate file
@@ -157,68 +189,27 @@ pub fn validate_file(
     // Cache the results (pass/fail only)
     set_cached_validation(cache.as_ref(), path, check_alignment, errors.is_empty());
 
-    // TUI mode: Launch interactive error browser with rerun support (uses `termion` UI state).
+    // TUI mode in this single-file path is unused by the modern CLI
+    // (multi-file invocations route through `validate_paths_parallel`,
+    // which uses the streaming TUI). `chatter watch` is the only
+    // remaining caller and it always passes `ValidationInterface::Plain`.
+    // Keep a defensive branch that prints a plain-text summary so
+    // any future TUI=true single-file caller still produces useful
+    // output without launching a TUI from this code path.
     if interface.uses_tui() {
-        loop {
-            if !errors.is_empty() {
-                let file_errors = FileErrors {
-                    path: path.clone(),
-                    errors: errors.clone(),
-                    source: content.clone().into(),
-                };
-
-                match run_validation_tui(vec![file_errors], theme.clone()) {
-                    Ok(TuiAction::Quit) => {
-                        if !errors.is_empty() {
-                            std::process::exit(1);
-                        }
-                        return;
-                    }
-                    Ok(TuiAction::ForceQuit) => {
-                        std::process::exit(130);
-                    }
-                    Ok(TuiAction::Rerun) => {
-                        // Re-run validation to get fresh results
-                        println!("Re-running validation...");
-
-                        // Re-read file
-                        let content = match fs::read_to_string(path) {
-                            Ok(c) => c,
-                            Err(e) => {
-                                eprintln!("Error reading file {:?}: {}", path, e);
-                                std::process::exit(1);
-                            }
-                        };
-
-                        // Re-validate
-                        let error_sink = ErrorCollector::new();
-                        match parse_and_validate_streaming(&content, options.clone(), &error_sink) {
-                            Ok(_) => {
-                                errors = error_sink.into_vec();
-                                // Enhance errors with source context
-                                talkbank_model::enhance_errors_with_source(&mut errors, &content);
-                            }
-                            Err(e) => {
-                                eprintln!("Error: {}", e);
-                                std::process::exit(1);
-                            }
-                        }
-
-                        // Continue loop to show updated TUI
-                    }
-                    Err(e) => {
-                        eprintln!("TUI error: {}", e);
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                println!("✓ No errors found in {}", path.display());
-                return;
-            }
+        if errors.is_empty() {
+            println!("✓ No errors found in {}", path.display());
+            return FileValidationOutcome::Valid;
         }
+        eprintln!(
+            "✗ Errors found in {} ({} error(s))",
+            path.display(),
+            errors.len()
+        );
+        return FileValidationOutcome::Invalid;
     }
 
-    // Regular output mode
+    // Non-TUI output paths.
     let source_for_print = if matches!(format, OutputFormat::Text) {
         Some(content.as_str())
     } else {
@@ -240,11 +231,13 @@ pub fn validate_file(
         if !quiet && crate::output::should_show_cascading_hint(&errors) {
             eprintln!("{}", crate::output::CASCADING_HINT);
         }
-        std::process::exit(1);
+        return FileValidationOutcome::Invalid;
     }
 
     output_validation_result(path, &errors, source_for_print, format, false, quiet);
-    if !errors.is_empty() {
-        std::process::exit(1);
+    if errors.is_empty() {
+        FileValidationOutcome::Valid
+    } else {
+        FileValidationOutcome::Invalid
     }
 }

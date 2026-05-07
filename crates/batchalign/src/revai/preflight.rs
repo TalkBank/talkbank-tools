@@ -287,7 +287,13 @@ async fn submit_with(plan: &RevAiPreflightPlan, submitter: RevAiSubmitFn) -> Rev
     let concurrency = plan.max_concurrent.max(1);
     let semaphore = Arc::new(Semaphore::new(concurrency));
     let language = match &plan.lang {
-        crate::api::LanguageSpec::Auto => RevAiLanguageHint("auto".to_string()),
+        // Auto and PerFile both reach Rev.AI as "auto" — `PerFile` should
+        // not happen on the transcribe path (CLI surface does not produce
+        // it), but if a regression introduces it we ask Rev.AI to detect
+        // rather than panic.
+        crate::api::LanguageSpec::Auto | crate::api::LanguageSpec::PerFile => {
+            RevAiLanguageHint("auto".to_string())
+        }
         crate::api::LanguageSpec::Resolved(code) => RevAiLanguageHint::from(code),
     };
     let speakers_count = speakers_count_hint(language.as_str(), plan.num_speakers);

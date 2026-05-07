@@ -59,6 +59,24 @@ def _registry_ownership_from_env() -> tuple[str, str, int | None]:
     return ("server_owned", server_instance_id, server_pid)
 
 
+# Bootstrap-vs-request stdout discipline.
+#
+# The Rust supervisor reads exactly one JSON line from worker stdout during
+# the handshake — the ready signal `{"ready": true, "pid": N, "transport": ...}`.
+# Anything else on the first line fails the handshake with
+# "invalid ready JSON: missing field `ready`". So during the
+# pre-ready window (model loading, catalog bootstrap, language-pack
+# downloads at worker startup), no other JSON line may reach stdout.
+#
+# This flag separates the two phases. Pre-ready callers of
+# ``write_progress_event`` (from ``_progress.emit_download_event`` etc.)
+# get redirected to stderr as plain log lines so the user/operator can
+# still see what's happening without corrupting the protocol stream.
+# ``_print_ready`` flips the flag the moment the ready line is on the
+# wire, after which all later progress events behave normally.
+_handshake_complete = False
+
+
 def _write_json(payload: dict[str, WorkerJSONValue]) -> None:
     """Emit a single JSON message line to stdout."""
     sys.stdout.write(json.dumps(payload) + "\n")
@@ -76,8 +94,16 @@ def write_progress_event(
     The Rust worker handle reads these intermediate JSON lines before the
     final response.  Progress events use the ``progress_v2`` op tag so
     the handle can distinguish them from the final ``execute_v2`` response.
+
+    During the pre-ready handshake window (worker startup, model loading,
+    catalog bootstrap), this function logs to stderr instead of writing
+    to stdout — the supervisor's first stdout line MUST be the
+    ``{"ready": true, ...}`` envelope. Pre-ready callers exist because
+    download notifications can fire during model bootstrap (catalog
+    download, language-pack download, etc.); their visibility moves to
+    daemon logs until the request loop is up and running.
     """
-    _write_json({
+    payload = {
         "op": "progress_v2",
         "event": {
             "request_id": request_id,
@@ -85,21 +111,96 @@ def write_progress_event(
             "total": total,
             "stage": stage,
         },
-    })
+    }
+    if not _handshake_complete:
+        sys.stderr.write(
+            f"[progress_v2 pre-ready] {json.dumps(payload['event'])}\n"
+        )
+        sys.stderr.flush()
+        return
+    _write_json(payload)
 
 
-def _write_error(message: str) -> None:
-    """Emit protocol-level error response for malformed requests/ops."""
-    _write_json({"op": "error", "error": message})
+def _write_error(message: str, kind: str = "runtime") -> None:
+    """Emit a protocol-level error response.
+
+    Two kinds:
+
+    - ``"runtime"`` (default) — per-request failure that may succeed on
+      retry (transient resource state, malformed input, external-API
+      hiccup). The orchestrator's retry policy may attempt up to 3×.
+    - ``"bootstrap"`` — deterministic model-load / catalog-download /
+      package-import failure that will recur identically across retries.
+      The Rust side classifies these as terminal at the worker layer.
+
+    The ``kind`` field is read by the Rust ``WorkerResponse::Error``
+    deserializer (see
+    ``crates/batchalign/src/worker/handle/protocol.rs::WorkerErrorKind``).
+    Legacy workers without this field default to ``"runtime"`` on the Rust
+    side, so existing call sites that omit ``kind`` keep their previous
+    semantics.
+    """
+    _write_json({"op": "error", "error": message, "kind": kind})
+
+
+def _classify_dispatch_exception(exc: BaseException) -> str:
+    """Return ``"bootstrap"`` for typed bootstrap-class exceptions, else ``"runtime"``.
+
+    The set of bootstrap-class exception types is small and stable —
+    every typed error raised by a model-load / catalog-download path
+    inherits from one of the named classes here. New bootstrap-class
+    error types added to the worker must extend this match.
+
+    Side-effect-free: takes the exception, returns the wire-kind string.
+    Imports the type modules lazily so a missing optional dep can't crash
+    the classifier itself.
+    """
+    bootstrap_types: list[type[BaseException]] = []
+    try:
+        from batchalign.worker._stanza_capabilities import (
+            StanzaCatalogDownloadError,
+        )
+
+        bootstrap_types.append(StanzaCatalogDownloadError)
+    except ImportError:
+        pass
+    try:
+        from batchalign.worker._stanza_loading import UnsupportedLanguageError
+
+        bootstrap_types.append(UnsupportedLanguageError)
+    except ImportError:
+        pass
+
+    return "bootstrap" if isinstance(exc, tuple(bootstrap_types)) else "runtime"
 
 
 def _print_ready() -> None:
-    """Print a JSON ready line to stdout so the Rust parent can discover us."""
+    """Print a JSON ready line to stdout so the Rust parent can discover us.
+
+    Flips the ``_handshake_complete`` flag so subsequent ``progress_v2``
+    emissions go through the normal stdout path. Pre-ready emissions get
+    redirected to stderr — see ``write_progress_event`` for the rationale.
+    """
+    global _handshake_complete
     _write_json({"ready": True, "pid": os.getpid(), "transport": "stdio"})
+    _handshake_complete = True
 
 
 def _serve_stdio() -> None:
-    """Run the sequential stdio request loop until shutdown or EOF."""
+    """Run the sequential stdio request loop until shutdown or EOF.
+
+    Per-request exceptions are caught and converted to structured error
+    responses on the wire (see ``_write_error``). The worker stays alive;
+    the orchestrator decides retry policy from the wire ``kind`` field.
+
+    Pre-2026-05-06 behavior: an uncaught exception in a handler killed the
+    Python process (exit code 1). The Rust orchestrator saw
+    ``ProcessExited`` → ``WorkerCrash`` → retryable, and retried 3× with a
+    full traceback to ``server.log`` per attempt. For deterministic
+    bootstrap failures (e.g., a missing Stanza catalog), this could
+    generate hundreds of GB of log spam in a single day on a long-running
+    daemon — the orchestrator never broke out of the retry loop.
+    """
     for raw_line in sys.stdin:
         line = raw_line.strip()
         if not line:
@@ -111,7 +212,31 @@ def _serve_stdio() -> None:
             _write_error(f"invalid JSON request: {exc}")
             continue
 
-        dispatch = dispatch_protocol_message(message)
+        try:
+            dispatch = dispatch_protocol_message(message)
+        except BaseException as exc:  # noqa: BLE001 — we WANT broad catch here
+            kind = _classify_dispatch_exception(exc)
+            # Log full traceback once for diagnostics; emit a single
+            # structured error line back to the orchestrator. Do NOT let
+            # the exception kill the worker.
+            import traceback
+
+            sys.stderr.write(
+                f"--- worker dispatch exception ({kind}) ---\n"
+                + traceback.format_exc()
+            )
+            sys.stderr.flush()
+            _write_error(str(exc) or exc.__class__.__name__, kind=kind)
+            # Bootstrap-class failures may have left the worker in a
+            # partially-initialized state; safest to exit so the pool
+            # tears the worker down. The Rust side classifies the typed
+            # error as non-retryable, so this exit does NOT produce a
+            # retry storm — unlike the pre-fix path that retried every
+            # worker exit-1 as a transient crash.
+            if kind == "bootstrap":
+                break
+            continue
+
         _write_json(dispatch.payload)
         if dispatch.should_shutdown:
             break
@@ -131,7 +256,31 @@ def _serve_stdio_concurrent(max_threads: int = 4) -> None:
     shutdown_event = threading.Event()
 
     def _handle_and_respond(message: object) -> None:
-        dispatch = dispatch_protocol_message(message)
+        # Short-circuit if a prior task in the pool already signalled
+        # shutdown (bootstrap error, explicit shutdown op, or a write
+        # failure). Without this gate, every in-flight task that the
+        # main thread already submitted before bootstrap fires would
+        # still run dispatch and emit additional error envelopes —
+        # noisy and racy.
+        if shutdown_event.is_set():
+            return
+        try:
+            dispatch = dispatch_protocol_message(message)
+        except BaseException as exc:  # noqa: BLE001 — see _serve_stdio above
+            kind = _classify_dispatch_exception(exc)
+            import traceback
+
+            sys.stderr.write(
+                f"--- worker dispatch exception ({kind}) ---\n"
+                + traceback.format_exc()
+            )
+            sys.stderr.flush()
+            with _stdout_lock:
+                _write_error(str(exc) or exc.__class__.__name__, kind=kind)
+            if kind == "bootstrap":
+                shutdown_event.set()
+            return
+
         with _stdout_lock:
             _write_json(dispatch.payload)
         if dispatch.should_shutdown:
@@ -166,7 +315,15 @@ def _print_ready_tcp(host: str, port: TcpPort) -> None:
 
     Unlike stdio mode where ready goes to stdout (consumed by the Rust parent),
     TCP mode prints to stderr since stdout is not connected to any parent pipe.
+
+    Flips the ``_handshake_complete`` flag so any subsequent stdio progress
+    events (post-ready, per-connection) go through the normal stdout path.
+    For TCP mode this is a no-op in practice since per-connection responses
+    use the connection's wfile rather than process stdout, but we keep the
+    flag consistent so the bootstrap-vs-request distinction holds across
+    transports.
     """
+    global _handshake_complete
     ready = json.dumps({
         "ready": True,
         "pid": os.getpid(),
@@ -176,6 +333,7 @@ def _print_ready_tcp(host: str, port: TcpPort) -> None:
     })
     sys.stderr.write(ready + "\n")
     sys.stderr.flush()
+    _handshake_complete = True
 
 
 def _handle_tcp_connection_sequential(
@@ -196,12 +354,54 @@ def _handle_tcp_connection_sequential(
             try:
                 message = json.loads(line)
             except json.JSONDecodeError as exc:
-                error_payload = json.dumps({"op": "error", "error": f"invalid JSON request: {exc}"})
+                error_payload = json.dumps(
+                    {
+                        "op": "error",
+                        "error": f"invalid JSON request: {exc}",
+                        "kind": "runtime",
+                    }
+                )
                 wfile.write(error_payload + "\n")
                 wfile.flush()
                 continue
 
-            dispatch = dispatch_protocol_message(message)
+            try:
+                dispatch = dispatch_protocol_message(message)
+            except BaseException as exc:  # noqa: BLE001 — see _serve_stdio
+                # Mirrors the stdio handler's contract: catch every dispatch
+                # exception, classify against typed bootstrap error types,
+                # emit a structured ``{"op":"error", "kind":...}`` envelope.
+                # Without this, a bootstrap-class failure on a TCP-mode
+                # worker would propagate up, kill the connection handler,
+                # and the orchestrator would see a closed socket rather
+                # than a typed error — bypassing the entire
+                # bootstrap-vs-runtime classification machinery.
+                kind = _classify_dispatch_exception(exc)
+                import sys
+                import traceback
+
+                sys.stderr.write(
+                    f"--- worker dispatch exception ({kind}) ---\n"
+                    + traceback.format_exc()
+                )
+                sys.stderr.flush()
+                error_payload = json.dumps(
+                    {
+                        "op": "error",
+                        "error": str(exc) or exc.__class__.__name__,
+                        "kind": kind,
+                    }
+                )
+                wfile.write(error_payload + "\n")
+                wfile.flush()
+                if kind == "bootstrap":
+                    # Worker is in a partially-initialized state; tear the
+                    # connection down so the pool spawns a replacement.
+                    # The orchestrator's terminal classification of
+                    # bootstrap errors prevents this from cascading.
+                    return
+                continue
+
             wfile.write(json.dumps(dispatch.payload) + "\n")
             wfile.flush()
             if dispatch.should_shutdown:
@@ -228,7 +428,43 @@ def _handle_tcp_connection_concurrent(
     shutdown_event = threading.Event()
 
     def _handle_and_respond(message: object) -> None:
-        dispatch = dispatch_protocol_message(message)
+        # Short-circuit if a prior pooled task already signalled shutdown
+        # (bootstrap error, broken pipe). See ``_serve_stdio_concurrent``
+        # for the same gate's rationale.
+        if shutdown_event.is_set():
+            return
+        try:
+            dispatch = dispatch_protocol_message(message)
+        except BaseException as exc:  # noqa: BLE001 — see _serve_stdio
+            # Same exception-shielding contract as the sequential TCP
+            # handler. Classification + structured emit + bootstrap-on-
+            # shutdown_event.
+            kind = _classify_dispatch_exception(exc)
+            import sys
+            import traceback
+
+            sys.stderr.write(
+                f"--- worker dispatch exception ({kind}) ---\n"
+                + traceback.format_exc()
+            )
+            sys.stderr.flush()
+            with write_lock:
+                error_payload = json.dumps(
+                    {
+                        "op": "error",
+                        "error": str(exc) or exc.__class__.__name__,
+                        "kind": kind,
+                    }
+                )
+                try:
+                    wfile.write(error_payload + "\n")
+                    wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    shutdown_event.set()
+            if kind == "bootstrap":
+                shutdown_event.set()
+            return
+
         with write_lock:
             try:
                 wfile.write(json.dumps(dispatch.payload) + "\n")
@@ -251,7 +487,11 @@ def _handle_tcp_connection_concurrent(
             except json.JSONDecodeError as exc:
                 with write_lock:
                     error_payload = json.dumps(
-                        {"op": "error", "error": f"invalid JSON request: {exc}"}
+                        {
+                            "op": "error",
+                            "error": f"invalid JSON request: {exc}",
+                            "kind": "runtime",
+                        }
                     )
                     wfile.write(error_payload + "\n")
                     wfile.flush()

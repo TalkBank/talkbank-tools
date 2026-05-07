@@ -193,8 +193,8 @@ pub fn run_tui_loop(
 
         // Check if finished — show summary and either auto-dismiss
         // (clean run) or wait for explicit Enter (cancelled run, so
-        // the user can't miss the receipt the way Brian missed the
-        // 2026-04-26 cancellation).
+        // the user can't miss the receipt the way the 2026-04-26
+        // cancellation was missed).
         if runtime.state.is_finished() {
             terminal.draw(|f| {
                 ui::draw(f, &runtime.state);

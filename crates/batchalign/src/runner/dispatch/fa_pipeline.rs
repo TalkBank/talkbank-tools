@@ -98,10 +98,13 @@ struct FaFileContext<'a> {
     utr_overlap_strategy: crate::options::UtrOverlapStrategy,
     /// Rev.AI preflight job ids keyed by original provider audio path.
     rev_job_ids: &'a HashMap<PathBuf, RevAiJobId>,
-    /// Fallback language from job submission. The per-file language from
-    /// @Languages takes priority — this is only used when @Languages is
-    /// absent.
-    lang_fallback: &'a LanguageCode3,
+    /// Fallback language from job submission, only present when the user
+    /// passed an explicit `--lang <iso3>`. The per-file language from
+    /// `@Languages:` takes priority — this is consulted only when the
+    /// file's header is absent. If `None` (the user passed `--lang auto`)
+    /// AND the file has no `@Languages:`, the per-file resolver surfaces
+    /// a typed error rather than silently inventing English.
+    lang_fallback: Option<&'a LanguageCode3>,
     /// Debug artifact writer for offline replay.
     dumper: DebugDumper,
     /// Custom media directory from `--media-dir`.
@@ -369,9 +372,11 @@ pub(crate) async fn dispatch_fa_infer(
     let job_id = &job.identity.job_id;
     // The job-level lang field is NOT authoritative for align — each file
     // declares its own language via @Languages. The per-file language is
-    // extracted inside process_one_fa_file after parsing.
-    // job.dispatch.lang is kept only as a fallback if @Languages is empty.
-    let job_lang_fallback = job.dispatch.lang.resolve_or(&LanguageCode3::eng());
+    // extracted inside process_one_fa_file after parsing. We propagate
+    // the *resolved* job lang as a fallback for files that genuinely
+    // lack a header; if the job's lang is Auto, the per-file resolver
+    // surfaces a typed error rather than silently inventing English.
+    let job_lang_fallback: Option<LanguageCode3> = job.dispatch.lang.as_resolved().cloned();
     let sink = host.sink().clone();
     let fa_params = plan.options.fa_params;
     let should_merge_abbrev = plan.options.merge_abbrev.should_merge();
@@ -443,7 +448,7 @@ pub(crate) async fn dispatch_fa_infer(
                     utr_engine: utr_engine.as_ref(),
                     utr_overlap_strategy,
                     rev_job_ids: rev_job_ids.as_ref(),
-                    lang_fallback: &job_lang_fallback,
+                    lang_fallback: job_lang_fallback.as_ref(),
                     dumper,
                     media_dir: media_dir_ref,
                 };
@@ -743,13 +748,46 @@ async fn process_one_fa_file(
         talkbank_transform::parse::parse_lenient(&fa_parser, &chat_text);
 
     // Read the primary language from @Languages, falling back to the
-    // job-level lang only if the file has no @Languages header.
-    let file_lang = chat_file
-        .languages
-        .0
-        .first()
-        .map(|lc| LanguageCode3::try_new(lc.0.as_ref()).unwrap_or_else(|_| lang_fallback.clone()))
-        .unwrap_or_else(|| lang_fallback.clone());
+    // job-level lang only if the file has no `@Languages:` header. If
+    // the file's header is absent AND the job has no resolved lang
+    // (`--lang auto`), surface a typed error rather than silently
+    // tagging this file as English.
+    let file_lang: LanguageCode3 = match chat_file.languages.0.first() {
+        Some(lc) => match LanguageCode3::try_new(lc.0.as_ref()) {
+            Ok(code) => code,
+            Err(_) => match lang_fallback {
+                Some(fallback) => fallback.clone(),
+                None => {
+                    let msg = format!(
+                        "align: file '{}' declares `@Languages: {}` which is not a parseable \
+                         ISO 639-3 code, and the job was submitted with `--lang auto` so \
+                         there is no fallback. Fix the file's @Languages or pass \
+                         `--lang <iso3>`.",
+                        filename, lc.0
+                    );
+                    lifecycle
+                        .fail(&msg, FailureCategory::Validation, unix_now())
+                        .await;
+                    return FileTaskOutcome::TerminalStateRecorded;
+                }
+            },
+        },
+        None => match lang_fallback {
+            Some(fallback) => fallback.clone(),
+            None => {
+                let msg = format!(
+                    "align: file '{}' has no `@Languages:` header and the job was \
+                     submitted with `--lang auto`. Add the header or pass \
+                     `--lang <iso3>` so we can stamp `@Languages:` honestly.",
+                    filename
+                );
+                lifecycle
+                    .fail(&msg, FailureCategory::Validation, unix_now())
+                    .await;
+                return FileTaskOutcome::TerminalStateRecorded;
+            }
+        },
+    };
 
     // UTR pre-pass: if untimed utterances exist and a UTR engine is configured,
     // run ASR to recover utterance-level timing before FA grouping.
@@ -808,12 +846,12 @@ async fn process_one_fa_file(
         }
     };
 
-    let provenance_lang = job
-        .dispatch
-        .lang
-        .as_resolved()
-        .map(|l| l.as_ref().to_string())
-        .unwrap_or_else(|| "eng".to_string());
+    // Provenance comments embed the language for auditability. Use the
+    // per-file language we just resolved above (`file_lang`), not the
+    // job-level placeholder. This matches what gets stamped into
+    // `@Languages:` and avoids the silent eng substitution that the
+    // 2026-05-03 incident punished.
+    let provenance_lang = file_lang.as_ref().to_string();
     let mut task = AlignAudioTask {
         host,
         job_id: job_id.clone(),

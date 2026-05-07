@@ -1476,7 +1476,7 @@ fn lex_never_panics_on_arbitrary_input() {
 #[test]
 fn lex_corpus_main_tiers_no_panic() {
     let base =
-        std::path::Path::new(&std::env::var("HOME").unwrap_or_else(|_| "/Users/chen".to_string()))
+        std::path::Path::new(&std::env::var("HOME").unwrap_or_else(|_| String::from("/tmp")))
             .join("talkbank/talkbank-tools/corpus/reference");
 
     if !base.exists() {

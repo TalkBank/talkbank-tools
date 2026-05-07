@@ -8,6 +8,7 @@ use super::super::WriteChat;
 use super::relation::GrammaticalRelation;
 use super::tier_type::GraTierType;
 use crate::Span;
+use crate::alignment::indices::SemanticWordIndex1;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -106,6 +107,18 @@ impl GraTier {
     /// Borrows the list of grammatical relations.
     pub fn relations(&self) -> &[GrammaticalRelation] {
         &self.relations.0
+    }
+
+    /// Return the relation at a 1-indexed `%gra` semantic position.
+    ///
+    /// This is the typed accessor for callers that already work in the
+    /// author-written `%gra` index/head space and want to avoid ad hoc
+    /// `index - 1` conversions.
+    pub fn relation_at_semantic_index(
+        &self,
+        index: SemanticWordIndex1,
+    ) -> Option<&GrammaticalRelation> {
+        self.relations.get(index.to_chunk_index().as_usize())
     }
 
     /// Consumes the tier and returns the underlying grammatical relations.
@@ -229,10 +242,12 @@ pub fn validate_gra_structure(
     // We report these as WARNINGS (not errors) to allow processing to continue
     // while giving users visibility into data quality issues.
 
-    // Find all roots (head=0 or head=self)
+    // Find all valid ROOT relations. A self-headed relation only counts as a
+    // ROOT when it is explicitly labeled ROOT; other self-headed relations are
+    // structural defects, not additional roots.
     let mut roots = Vec::new();
     for rel in relations {
-        if rel.head == 0 || rel.head == rel.index {
+        if is_valid_root_relation(rel) {
             roots.push(rel.index);
         }
     }
@@ -244,19 +259,6 @@ pub fn validate_gra_structure(
         .filter(|&&idx| idx != max_index)
         .copied()
         .collect();
-
-    // W722: No ROOT relation
-    if non_terminator_roots.is_empty() {
-        errors.report(
-            ParseError::at_span(
-                ErrorCode::GraNoRoot,
-                Severity::Error,
-                span,
-                "%gra tier has no ROOT relation",
-            )
-            .with_suggestion("Re-run morphotag to regenerate valid %gra"),
-        );
-    }
 
     // W723: Multiple ROOT relations
     if non_terminator_roots.len() > 1 {
@@ -275,13 +277,29 @@ pub fn validate_gra_structure(
     }
 
     // Check 3: Circular dependencies (E724) - Fast O(N) check
-    if has_any_cycle(relations) {
+    let has_cycle = has_any_cycle(relations);
+    if has_cycle {
         errors.report(
             ParseError::at_span(
                 ErrorCode::GraCircularDependency,
                 Severity::Error,
                 span,
                 "%gra tier has circular dependency",
+            )
+            .with_suggestion("Re-run morphotag to regenerate valid %gra"),
+        );
+    }
+
+    // W722: No ROOT relation. Suppress this when the graph already has a cycle:
+    // in that case the missing root is just a consequence of the cycle and
+    // reporting both diagnostics produces a misleading cascade.
+    if non_terminator_roots.is_empty() && !has_cycle {
+        errors.report(
+            ParseError::at_span(
+                ErrorCode::GraNoRoot,
+                Severity::Error,
+                span,
+                "%gra tier has no ROOT relation",
             )
             .with_suggestion("Re-run morphotag to regenerate valid %gra"),
         );
@@ -339,8 +357,9 @@ fn has_any_cycle(relations: &[GrammaticalRelation]) -> bool {
 
             // Find the relation for current node
             if let Some(rel) = relations.iter().find(|r| r.index == current) {
-                // If this is a root (head=0 or head=self), path ends here
-                if rel.head == 0 || rel.head == current {
+                // Valid roots end a chain. A self-headed non-ROOT relation is a
+                // cycle, not a root.
+                if rel.head == 0 || is_valid_root_relation(rel) {
                     // Mark all nodes in path as safe
                     for &node in &path {
                         memo.insert(node, State::NoCycle);
@@ -361,6 +380,10 @@ fn has_any_cycle(relations: &[GrammaticalRelation]) -> bool {
     }
 
     false
+}
+
+fn is_valid_root_relation(rel: &GrammaticalRelation) -> bool {
+    rel.relation.as_str().eq_ignore_ascii_case("ROOT") && (rel.head == 0 || rel.head == rel.index)
 }
 
 impl WriteChat for GraTier {
@@ -393,11 +416,6 @@ impl WriteChat for GraTier {
 pub struct GraRelations(pub(crate) Vec<GrammaticalRelation>);
 
 impl GraRelations {
-    /// Wraps relations while preserving transcript order.
-    pub fn new(relations: Vec<GrammaticalRelation>) -> Self {
-        Self(relations)
-    }
-
     /// Returns `true` when this relation list is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -543,6 +561,55 @@ mod tests {
         tier.validate_structure(&errors);
         let errs = errors.into_vec();
         assert_eq!(errs.len(), 0); // No errors - head=0 is valid
+    }
+
+    /// A self-headed non-ROOT relation is a cycle, not a second ROOT.
+    #[test]
+    fn test_validate_structure_self_headed_non_root_reports_cycle_not_multiple_roots() {
+        let tier = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 0, "ROOT"),
+            GrammaticalRelation::new(2, 1, "DEP"),
+            GrammaticalRelation::new(3, 3, "NMOD"),
+            GrammaticalRelation::new(4, 1, "PUNCT"),
+        ]);
+        let errors = ErrorCollector::new();
+        tier.validate_structure(&errors);
+        let errs = errors.into_vec();
+
+        assert!(
+            errs.iter()
+                .any(|e| e.code == ErrorCode::GraCircularDependency),
+            "self-headed non-ROOT relations must be treated as circular dependencies"
+        );
+        assert!(
+            !errs.iter().any(|e| e.code == ErrorCode::GraMultipleRoots),
+            "self-headed non-ROOT relations must not be counted as extra ROOTs"
+        );
+    }
+
+    /// A rootless 2-cycle should report the cycle itself, not cascade into an
+    /// additional "no ROOT" diagnostic.
+    #[test]
+    fn test_validate_structure_rootless_two_cycle_reports_cycle_not_no_root() {
+        let tier = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 2, "DEP"),
+            GrammaticalRelation::new(2, 1, "PARATAXIS"),
+            GrammaticalRelation::new(3, 1, "PUNCT"),
+        ]);
+        let errors = ErrorCollector::new();
+        tier.validate_structure(&errors);
+        let errs = errors.into_vec();
+
+        assert!(
+            errs.iter()
+                .any(|e| e.code == ErrorCode::GraCircularDependency),
+            "rootless 2-cycles must report E724"
+        );
+        assert!(
+            !errs.iter().any(|e| e.code == ErrorCode::GraNoRoot),
+            "rootless 2-cycles must not additionally report E722 when the lack \
+             of a root is just a consequence of the cycle"
+        );
     }
 
     /// Empty tiers are accepted by structure validation.

@@ -7,6 +7,7 @@ from batchalign.inference._domain_types import LanguageCode
 _RESOLVER: dict[str, dict[LanguageCode, str]] = {
     "utterance": {
         "eng": "talkbank/CHATUtterance-en",
+        "cmn": "talkbank/CHATUtterance-zh_CN",
         "zho": "talkbank/CHATUtterance-zh_CN",
         "yue": "PolyU-AngelChanLab/Cantonese-Utterance-Segmentation",
     },

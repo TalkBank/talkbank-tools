@@ -10,7 +10,6 @@ mod renderer;
 mod runtime;
 mod shared;
 
-use std::path::Path;
 use std::path::PathBuf;
 
 use crate::cli::OutputFormat;
@@ -189,19 +188,37 @@ pub struct ValidateDirectoryOptions {
     pub suppress: Vec<String>,
 }
 
-/// Validate all CHAT files in a directory with parallel processing and streaming output.
-pub fn validate_directory_parallel(
-    path: &Path,
+/// Validate an explicit list of CHAT files using the parallel
+/// streaming pipeline (worker pool, progress events, renderer, TUI).
+///
+/// **The single CLI entry point for `chatter validate` work.** Both
+/// `chatter validate dir/` and `chatter validate a.cha b.cha c.cha`
+/// resolve their input arguments to a flat .cha file list and call
+/// here. The unified path replaces a previous fork where multi-file
+/// invocations took a separate per-file code path with noisier output
+/// and no progress bar.
+///
+/// `summary_label` is cosmetic — used as the `directory` field in
+/// JSON summaries and the header in text output. Use the first input
+/// arg, or a representative parent directory.
+pub fn validate_paths_parallel(
+    files: Vec<PathBuf>,
+    summary_label: PathBuf,
     options: ValidateDirectoryOptions,
 ) -> ValidationStatsSnapshot {
     if let ValidationPresentation::Audit { output_path } = &options.presentation {
+        // Audit mode is currently directory-oriented; its file walk
+        // logic is in `audit::run_audit_mode` which expects a path,
+        // not a file list. Route via the summary label so audit
+        // continues to work for the directory case (its only real
+        // caller). Multi-file audit is out of scope for this fix.
         return audit::run_audit_mode(
-            path,
+            &summary_label,
             output_path,
             options.rules.alignment.enabled(),
             options.execution.cache_refresh,
         );
     }
 
-    runtime::run_validation_runtime(path, options)
+    runtime::run_validation_runtime(files, summary_label, options)
 }

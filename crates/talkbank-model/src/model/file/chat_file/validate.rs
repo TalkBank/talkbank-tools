@@ -517,8 +517,7 @@ fn file_uses_bullets_mode(_headers: &[&Header]) -> bool {
 /// The caller passes the already-collected main-tier bullets to avoid a
 /// duplicate walk; all other timing surfaces are discovered here.
 ///
-/// Spec: `spec/errors/E544_media_linkage_without_timing.md`. Approved by
-/// Brian MacWhinney 2026-04-21.
+/// Spec: `spec/errors/E544_media_linkage_without_timing.md`.
 fn check_media_linkage_has_timing<S: ValidationState>(
     headers: &[(&Header, crate::Span)],
     file: &ChatFile<S>,
@@ -814,6 +813,43 @@ mod tests {
         assert!(
             !errors.is_empty(),
             "Expected alignment errors for main/mor mismatch"
+        );
+    }
+
+    /// An out-of-bounds `%gra` head should surface as E713 without cascading into
+    /// additional root/cycle diagnostics from structural validation.
+    #[test]
+    fn validate_with_alignment_out_of_bounds_head_does_not_cascade_structure_errors() {
+        let main = simple_main_tier(&["I", "go"]);
+        let mor = simple_mor_tier(&[("pro", "I"), ("v", "go")]);
+        let gra = GraTier::new_gra(vec![
+            GrammaticalRelation::new(1, 5, "DEP"),
+            GrammaticalRelation::new(2, 1, "OBJ"),
+            GrammaticalRelation::new(3, 2, "PUNCT"),
+        ]);
+        let utt = Utterance::new(main).with_mor(mor).with_gra(gra);
+        let mut chat = chat_with_utterance(utt);
+
+        let errs = crate::validate_chat_file_with_options(
+            &mut chat,
+            &crate::ParseValidateOptions::default().with_alignment(),
+        )
+        .expect_err("out-of-bounds gra head must fail validation");
+
+        assert!(
+            errs.iter()
+                .any(|e| e.code == crate::ErrorCode::GraInvalidHeadIndex),
+            "out-of-bounds head must report E713"
+        );
+        assert!(
+            !errs.iter().any(|e| e.code == crate::ErrorCode::GraNoRoot),
+            "E713 must not cascade into E722"
+        );
+        assert!(
+            !errs
+                .iter()
+                .any(|e| e.code == crate::ErrorCode::GraCircularDependency),
+            "E713 must not cascade into E724"
         );
     }
 }

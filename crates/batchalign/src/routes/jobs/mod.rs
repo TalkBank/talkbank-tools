@@ -151,6 +151,16 @@ pub(crate) async fn submit_job(
         )));
     }
 
+    // Reject malformed (command, lang) pairings BEFORE materializing the
+    // job. Morphotag, translate, and coref must arrive with
+    // `LanguageSpec::PerFile`; every other processing command must arrive
+    // with `Auto` or `Resolved(_)`. This is the single chokepoint that
+    // keeps job records honest and stops the 2026-05-03 lang-placeholder
+    // leak from ever recurring at the wire boundary.
+    submission
+        .validate()
+        .map_err(|e| ServerError::Validation(e.to_string()))?;
+
     // Authoritative language validation using the Stanza capability
     // registry (when populated from a worker's resources.json report).
     // This supersedes the hardcoded fallback table in submission.validate().

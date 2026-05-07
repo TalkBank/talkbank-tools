@@ -12,6 +12,13 @@ use talkbank_derive::{SemanticEq, SpanShift};
 use super::super::super::WriteChat;
 use super::super::analysis::{MorFeature, MorStem, PosCategory};
 
+/// POS string for the `L2|xxx` placeholder. BA2-equivalent fallback
+/// when secondary-language morphology is unavailable.
+const L2_PLACEHOLDER_POS: &str = "L2";
+/// Lemma string for the `L2|xxx` placeholder. Pairs with
+/// [`L2_PLACEHOLDER_POS`].
+const L2_PLACEHOLDER_LEMMA: &str = "xxx";
+
 /// Single morphological word in UD format.
 ///
 /// A `MorWord` represents the complete morphological analysis of a single word,
@@ -94,6 +101,26 @@ impl MorWord {
     pub fn with_features(mut self, features: impl Into<SmallVec<[MorFeature; 4]>>) -> Self {
         self.features = features.into();
         self
+    }
+
+    /// Build the canonical `L2|xxx` placeholder used when secondary
+    /// language morphology cannot be analyzed (or is rejected by the
+    /// L2 splice's invariant guard) — BA2-equivalent fallback shape.
+    pub fn l2_placeholder() -> Self {
+        Self::new(
+            PosCategory::new(L2_PLACEHOLDER_POS),
+            MorStem::new(L2_PLACEHOLDER_LEMMA),
+        )
+    }
+
+    /// Reset this word to the `L2|xxx` placeholder in place. Used by
+    /// the synthesis path and the L2 splice rollback path to demote a
+    /// word to BA2-equivalent fallback morphology without reallocating
+    /// the surrounding structure.
+    pub fn reset_to_l2_placeholder(&mut self) {
+        self.pos = PosCategory::new(L2_PLACEHOLDER_POS);
+        self.lemma = MorStem::new(L2_PLACEHOLDER_LEMMA);
+        self.features.clear();
     }
 
     /// Serializes one `%mor` word as `POS|lemma[-Feature]*`.

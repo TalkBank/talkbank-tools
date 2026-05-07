@@ -18,7 +18,8 @@ All processing is done through the `batchalign3` command-line tool:
 
 ```bash
 batchalign3 transcribe input/ -o output/ --lang eng
-batchalign3 morphotag input/ -o output/ --lang eng
+# morphotag has no --lang — per-file @Languages: header drives routing
+batchalign3 morphotag input/ -o output/
 batchalign3 align input/ -o output/ --lang eng
 ```
 

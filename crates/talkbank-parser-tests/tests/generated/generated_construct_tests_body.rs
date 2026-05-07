@@ -138,6 +138,33 @@ fn test_types_simple() -> Result<(), talkbank_parser_tests::test_error::TestErro
 
 #[test]
 /// Tests expected behavior.
+fn test_ca_arrow_end_separator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*SPK:\tlevel pitch →\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_ca_no_break_separator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*SPK:\tno break continuation ⇘ ≈\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
+fn test_ca_technical_break_separator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
+    let parser = TreeSitterParser::new()?;
+    let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*SPK:\ttechnical break continuation ⇗ ≋\n@End")?;
+
+    Ok(())
+}
+
+#[test]
+/// Tests expected behavior.
 fn test_colon_separator() -> Result<(), talkbank_parser_tests::test_error::TestError> {
     let parser = TreeSitterParser::new()?;
     let _parsed = parser.parse_chat_file("@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello : world .\n@End")?;

@@ -1,5 +1,6 @@
 ---
 source: crates/talkbank-parser-tests/src/snapshot.rs
+assertion_line: 98
 expression: snapshot
 ---
 {
@@ -158,11 +159,12 @@ expression: snapshot
               ],
               "raw_text": "high",
               "type": "word"
+            },
+            {
+              "kind": "rising_to_high",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_rising_to_high"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -204,11 +206,12 @@ expression: snapshot
               ],
               "raw_text": "mid",
               "type": "word"
+            },
+            {
+              "kind": "rising_to_mid",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_rising_to_mid"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -239,11 +242,12 @@ expression: snapshot
               ],
               "raw_text": "pitch",
               "type": "word"
+            },
+            {
+              "kind": "level",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_level"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -285,11 +289,12 @@ expression: snapshot
               ],
               "raw_text": "mid",
               "type": "word"
+            },
+            {
+              "kind": "falling_to_mid",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_falling_to_mid"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -331,11 +336,12 @@ expression: snapshot
               ],
               "raw_text": "low",
               "type": "word"
+            },
+            {
+              "kind": "falling_to_low",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_falling_to_low"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -381,11 +387,12 @@ expression: snapshot
             {
               "kind": "falling_to_low",
               "type": "separator"
+            },
+            {
+              "kind": "ca_no_break",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_no_break"
-          }
+          ]
         },
         "speaker": "SPK"
       }
@@ -471,11 +478,12 @@ expression: snapshot
             {
               "kind": "rising_to_high",
               "type": "separator"
+            },
+            {
+              "kind": "ca_technical_break",
+              "type": "separator"
             }
-          ],
-          "terminator": {
-            "type": "ca_technical_break"
-          }
+          ]
         },
         "speaker": "SPK"
       }

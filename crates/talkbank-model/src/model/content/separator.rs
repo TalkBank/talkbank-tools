@@ -46,6 +46,8 @@ use talkbank_derive::{SemanticEq, SpanShift};
 /// *CHI: I think [^c]                 # CA continuation (ongoing turn)
 /// *MOT: so∞                          # Unmarked ending (no clear terminal intonation)
 /// *CHI: yeah≡                        # Uptake/latching (no gap between turns)
+/// *MOT: keep going ≈                 # No-break TCU separator
+/// *CHI: mic issue ≋                  # Technical-break TCU separator
 /// ```
 ///
 /// # References
@@ -148,6 +150,28 @@ pub enum Separator {
         span: Span,
     },
 
+    /// ≈ (U+2248) - No-break TCU separator - Conversation Analysis
+    /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#TCU_NoBreak>
+    #[serde(rename = "ca_no_break")]
+    CaNoBreak {
+        #[serde(skip)]
+        #[schemars(skip)]
+        #[semantic_eq(skip)]
+        /// Source span for error reporting.
+        span: Span,
+    },
+
+    /// ≋ (U+224B) - Technical-break TCU separator - Conversation Analysis
+    /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#TCU_Technical_Break>
+    #[serde(rename = "ca_technical_break")]
+    CaTechnicalBreak {
+        #[serde(skip)]
+        #[schemars(skip)]
+        #[semantic_eq(skip)]
+        /// Source span for error reporting.
+        span: Span,
+    },
+
     /// ⇗ (U+21D7) - Rising to high intonation - Conversation Analysis
     /// Reference: <https://talkbank.org/0info/manuals/CHAT.html#RisingToHigh>
     #[serde(rename = "rising_to_high")]
@@ -216,6 +240,8 @@ impl Separator {
             | Separator::CaContinuation { span }
             | Separator::UnmarkedEnding { span }
             | Separator::Uptake { span }
+            | Separator::CaNoBreak { span }
+            | Separator::CaTechnicalBreak { span }
             | Separator::RisingToHigh { span }
             | Separator::RisingToMid { span }
             | Separator::Level { span }
@@ -227,45 +253,6 @@ impl Separator {
     /// Returns `true` when this separator is a comma token.
     pub fn is_comma(&self) -> bool {
         matches!(self, Separator::Comma { .. })
-    }
-
-    /// Returns `true` when this separator is a CA intonation arrow.
-    ///
-    /// CA intonation arrows can function as utterance terminators when they
-    /// appear at the end of a main tier line. The tree-sitter grammar's greedy
-    /// `contents` rule always parses them as separators, so the Rust parser
-    /// promotes the trailing arrow to a terminator in a post-hoc fixup.
-    pub fn is_ca_intonation_arrow(&self) -> bool {
-        matches!(
-            self,
-            Separator::RisingToHigh { .. }
-                | Separator::RisingToMid { .. }
-                | Separator::Level { .. }
-                | Separator::FallingToMid { .. }
-                | Separator::FallingToLow { .. }
-        )
-    }
-
-    /// Convert a CA intonation arrow separator to the corresponding terminator.
-    ///
-    /// Returns `None` if this separator is not a CA intonation arrow.
-    pub fn to_ca_terminator(&self) -> Option<super::Terminator> {
-        match self {
-            Separator::RisingToHigh { span } => {
-                Some(super::Terminator::CaRisingToHigh { span: *span })
-            }
-            Separator::RisingToMid { span } => {
-                Some(super::Terminator::CaRisingToMid { span: *span })
-            }
-            Separator::Level { span } => Some(super::Terminator::CaLevel { span: *span }),
-            Separator::FallingToMid { span } => {
-                Some(super::Terminator::CaFallingToMid { span: *span })
-            }
-            Separator::FallingToLow { span } => {
-                Some(super::Terminator::CaFallingToLow { span: *span })
-            }
-            _ => None,
-        }
     }
 }
 
@@ -281,6 +268,8 @@ impl WriteChat for Separator {
             Separator::CaContinuation { .. } => w.write_str("[^c]"),
             Separator::UnmarkedEnding { .. } => w.write_str("\u{221E}"),
             Separator::Uptake { .. } => w.write_str("\u{2261}"),
+            Separator::CaNoBreak { .. } => w.write_str("\u{2248}"),
+            Separator::CaTechnicalBreak { .. } => w.write_str("\u{224B}"),
             Separator::RisingToHigh { .. } => w.write_str("\u{21D7}"),
             Separator::RisingToMid { .. } => w.write_str("\u{2197}"),
             Separator::Level { .. } => w.write_str("\u{2192}"),

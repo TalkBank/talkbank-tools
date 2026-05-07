@@ -489,8 +489,13 @@ fn merge_upgrades_flat_deprel() {
         head_upos: Some(UniversalPos::Adj),
     };
     let mor = make_mor("adv", "mucho");
-    let result =
-        merge_primary_secondary(&primary, mor, Vec::new(), &LanguageCode::new("spa"), None);
+    let result = merge_primary_secondary(
+        &primary,
+        mor,
+        Vec::new(),
+        &LanguageCode::new("spa"),
+        L2Attachment::InternalRoot,
+    );
     assert_eq!(result.mor.main.pos.as_str(), "adv");
     assert_eq!(result.corrected_deprel, Some(UdDeprel::new("advmod")));
 }
@@ -499,8 +504,13 @@ fn merge_upgrades_flat_deprel() {
 fn merge_does_not_upgrade_non_flat() {
     let primary = make_primary("advmod", UniversalPos::Adv, UniversalPos::Adj);
     let mor = make_mor("adv", "mucho");
-    let result =
-        merge_primary_secondary(&primary, mor, Vec::new(), &LanguageCode::new("spa"), None);
+    let result = merge_primary_secondary(
+        &primary,
+        mor,
+        Vec::new(),
+        &LanguageCode::new("spa"),
+        L2Attachment::InternalRoot,
+    );
     assert_eq!(result.corrected_deprel, None);
 }
 
@@ -514,8 +524,13 @@ fn merge_flat_to_obj_noun_head_verb() {
         head_upos: Some(UniversalPos::Verb),
     };
     let mor = make_mor("noun", "tienda");
-    let result =
-        merge_primary_secondary(&primary, mor, Vec::new(), &LanguageCode::new("spa"), None);
+    let result = merge_primary_secondary(
+        &primary,
+        mor,
+        Vec::new(),
+        &LanguageCode::new("spa"),
+        L2Attachment::InternalRoot,
+    );
     assert_eq!(result.mor.main.pos.as_str(), "noun");
     assert_eq!(result.corrected_deprel, Some(UdDeprel::new("obj")));
     assert_eq!(result.mor.main.lemma.as_str(), "tienda");
@@ -531,8 +546,13 @@ fn merge_flat_to_obl_noun_head_verb_with_case() {
         head_upos: Some(UniversalPos::Verb),
     };
     let mor = make_mor("noun", "tienda");
-    let result =
-        merge_primary_secondary(&primary, mor, Vec::new(), &LanguageCode::new("spa"), None);
+    let result = merge_primary_secondary(
+        &primary,
+        mor,
+        Vec::new(),
+        &LanguageCode::new("spa"),
+        L2Attachment::InternalRoot,
+    );
     assert_eq!(result.corrected_deprel, Some(UdDeprel::new("obl")));
 }
 
@@ -817,7 +837,7 @@ fn phrasal_verb_particle_merge_sets_compound_prt_deprel() {
         mor,
         Vec::new(),
         &LanguageCode::new("eng"),
-        None,
+        L2Attachment::InternalRoot,
         Some(&ctx),
     );
     assert_eq!(result.mor.main.pos.as_str(), "part");

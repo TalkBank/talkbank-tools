@@ -370,7 +370,7 @@ mod tests {
         assert!(out.contains("nojob"));
     }
 
-    /// Brian-2026-04-26 scenario: TUI cancel with full provenance.
+    /// 2026-04-26 scenario: TUI cancel with full provenance.
     /// The output must surface enough that a user can verify "yes
     /// I did press c-y from my laptop at that time" without
     /// querying the DB.

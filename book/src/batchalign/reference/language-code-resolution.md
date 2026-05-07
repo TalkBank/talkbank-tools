@@ -1,7 +1,7 @@
 # Language Code Resolution
 
 **Status:** Current
-**Last updated:** 2026-03-19
+**Last updated:** 2026-05-06 21:30 EDT
 
 This page documents how batchalign3 maps language codes to models, Stanza
 pipelines, and processing behavior.
@@ -40,38 +40,60 @@ only at external boundaries.
 
 ## ISO 639-3 → ISO 639-1 (Stanza)
 
-Stanza uses 2-letter ISO 639-1 codes. The mapping lives in
-`batchalign/worker/_stanza_loading.py`:
+Stanza uses ISO 639-1 alpha-2 codes (with a few non-standard variants
+like `zh-hans`/`zh-hant`/`nb`). Batchalign uses ISO 639-3 internally,
+so the worker has to map one to the other before handing a `lang`
+argument to `stanza.Pipeline`. The conversion lives in
+`batchalign/worker/_stanza_loading.py::iso3_to_alpha2()` and resolves
+in three layers:
 
-```python
-{
-    "eng": "en", "spa": "es", "fra": "fr", "deu": "de",
-    "ita": "it", "por": "pt", "nld": "nl", "zho": "zh",
-    "jpn": "ja", "kor": "ko", "ara": "ar", "heb": "he",
-    "hin": "hi", "tur": "tr", "fin": "fi", "hun": "hu",
-    "pol": "pl", "ces": "cs", "ron": "ro", "bul": "bg",
-    "hrv": "hr", "srp": "sr", "slk": "sk", "slv": "sl",
-    "ukr": "uk", "lit": "lt", "lav": "lv", "est": "et",
-    "cat": "ca", "eus": "eu", "glg": "gl", "ell": "el",
-    "ind": "id", "msa": "ms", "vie": "vi", "tha": "th",
-    "dan": "da", "nor": "nb", "swe": "sv", "afr": "af",
-    "isl": "is",
-    "yue": "zh",  # Cantonese → Chinese (Stanza has no yue-specific model)
-    "cmn": "zh",  # Mandarin → Chinese
-}
-```
+1. **Stanza-specific overrides** — `_ISO3_OVERRIDES` in
+   `_stanza_capabilities.py`. The single source of truth for codes
+   where the standard ISO-1 mapping does **not** correspond to a
+   Stanza catalog key. `iso3_to_alpha2()` imports this dict (it does
+   not redefine its own copy — see "Drift hazard" below).
 
-### Special Mappings
+   | ISO-639-3 | Stanza key | Why not the standard alpha-2 |
+   |-----------|------------|------------------------------|
+   | `yue`     | `zh-hans`  | Cantonese routes through Stanza's Chinese model; `zh-hans` is the catalog key. |
+   | `cmn`     | `zh-hans`  | Mandarin. Same target. |
+   | `zho`     | `zh-hans`  | Chinese (generic). |
+   | `nor`     | `nb`       | Norwegian. pycountry says `no`; Stanza ships `nb` (Bokmål) only. |
+   | `msa`     | `ms`       | Malay. pinned for stability. |
 
-| 3-letter | 2-letter | Notes |
-|----------|----------|-------|
-| `yue` | `zh` | Cantonese shares Stanza's Chinese model. No yue-specific Stanza model exists. |
-| `cmn` | `zh` | Mandarin. Same Stanza model as yue. |
-| `heb` | `he` | Hebrew. Stanza's Hebrew model supports HebBinyan/HebExistential features. |
+2. **`pycountry`** — for every other code with a standard ISO-639-3 ↔
+   ISO-639-1 counterpart (`mar` → `mr`, `swa` → `sw`, `eng` → `en`,
+   etc.). This must be the fallback rather than a duplicate hardcoded
+   dict — see "Drift hazard."
 
-The mapping is exhaustive for supported languages. If an unknown code reaches
-the worker, `iso3_to_alpha2()` falls back to the first two characters and logs
-a warning before handing that value to Stanza.
+3. **Pass-through with warning** — for codes that have no standard
+   alpha-2 (genuinely missing from pycountry). Length-2 codes are
+   assumed to already be alpha-2 and pass through silently; everything
+   else logs a warning before being handed to Stanza.
+
+### Drift hazard
+
+A previous version of this function had its own hardcoded mapping
+dict instead of using `pycountry`. That dict was missing many codes
+(notably Marathi `mar` → `mr`). The capability table built via
+pycountry correctly recognized `mar` as supported, but `iso3_to_alpha2`
+returned `"mar"` verbatim — and `stanza.Pipeline(lang="mar", ...)`
+crashed with "Language mar is currently unsupported" because Stanza's
+catalog is keyed by alpha-2.
+
+This was a **two-table-drift bug**: two independent pieces of code
+had to agree on the iso3 → alpha-2 mapping but didn't. The fix is
+structural, not data-driven: there is now one override dict
+(`_ISO3_OVERRIDES`), and `iso3_to_alpha2` imports it rather than
+maintaining a parallel copy. Adding a new Stanza-specific override
+means editing one dict in one place.
+
+**Do not reintroduce a second override dict here.** If a new
+Stanza-specific iso3 case comes up (e.g. a future Stanza release
+labels Catalan differently), add it to `_ISO3_OVERRIDES` only.
+
+For full architecture and incident history see
+[Stanza Capability Registry](../architecture/stanza-capability-registry.md).
 
 ## Model Resolution (ASR)
 

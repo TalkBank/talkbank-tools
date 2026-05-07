@@ -123,6 +123,18 @@ class BertUtteranceModel:
         # that constructs a model without one. yue-specific particle
         # pre-chunking only fires when `lang == "yue"`.
         self.lang: LanguageCode | None = lang
+
+        from batchalign.worker._progress import (
+            HF_ARTIFACTS_BERT_TOKEN_CLASSIFICATION,
+            emit_hf_download_if_missing,
+        )
+
+        emit_hf_download_if_missing(
+            model_name,
+            kind="utterance boundary detection",
+            artifacts=HF_ARTIFACTS_BERT_TOKEN_CLASSIFICATION,
+        )
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = BertForTokenClassification.from_pretrained(model_name).to(DEVICE)
         self.model.eval()

@@ -262,7 +262,9 @@ export default grammar({
     // Utterance-ending punctuation marks. Each terminator has specific meaning.
     // Standard: . ? !
     // Extended: +... (trailing off), +/. (interrupted), +//. (self-interrupted), etc.
-    // CA: ≈ (no break), ≋ (technical break) - used with or without + prefix
+    // CA: utterance terminators are the standard CHAT terminators only.
+    // CA arrows and TCU markers stay in content as separators, while +≈/+≋
+    // remain linkers.
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#Utterance_Terminator
     // ============================================================================
     terminator: $ => choice(
@@ -279,19 +281,6 @@ export default grammar({
       $.self_interrupted_question, // SUTSIQ = "+//?"
       $.trailing_off_question,  // SUTTOQ = "+..?"
       $.break_for_coding,       // SUBFC = "+."
-      $.ca_no_break,
-      $.ca_no_break_linker,
-      $.ca_technical_break,
-      $.ca_technical_break_linker,
-      // CA intonation contours — also appear mid-content as separators.
-      // Tree-sitter's LR context resolves the ambiguity: when at utterance end
-      // (followed by bullet/newline), these match as terminators; when mid-content
-      // (followed by more words), they match as separators.
-      $.rising_to_high,
-      $.rising_to_mid,
-      $.level_pitch,
-      $.falling_to_mid,
-      $.falling_to_low,
     ),
 
     // Basic terminators
@@ -327,14 +316,14 @@ export default grammar({
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#TranscriptionBreak_Terminator
     break_for_coding: $ => token(prec(10, '+.')),            // +. Break for coding
 
-    // CA continuation markers can serve as terminators
-    // Split into separate rules to preserve +/no-+ distinction in roundtrip
-    // Reference: https://talkbank.org/0info/manuals/CHAT.html#NoBreakTCUContinuation_Terminator
-    ca_no_break: $ => token(prec(10, '≈')),          // ≈ U+2248 - No break TCU (terminator only)
+    // CA TCU markers stay on the separator/linker path.
+    // Split into separate rules to preserve +/no-+ distinction in roundtrip.
+    // Reference: https://talkbank.org/0info/manuals/CHAT.html#TCU_NoBreak
+    ca_no_break: $ => token(prec(10, '≈')),          // ≈ U+2248 - No-break TCU separator
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#NoBreakTCUCompletion_Linker
     ca_no_break_linker: $ => token(prec(10, '+≈')),  // +≈ - No break TCU (as linker)
-    // Reference: https://talkbank.org/0info/manuals/CHAT.html#TechnicalBreakTCUContinuation_Terminator
-    ca_technical_break: $ => token(prec(10, '\u224B')), // ≋ U+224B - Technical break TCU (terminator only)
+    // Reference: https://talkbank.org/0info/manuals/CHAT.html#TCU_Technical_Break
+    ca_technical_break: $ => token(prec(10, '\u224B')), // ≋ U+224B - Technical break TCU separator
     // Reference: https://talkbank.org/0info/manuals/CHAT.html#TechnicalBreakTCUCompletion_Linker
     ca_technical_break_linker: $ => token(prec(10, '+≋')),  // +≋ - Technical break TCU (as linker)
 
@@ -790,6 +779,8 @@ export default grammar({
       $.ca_continuation_marker,
       $.unmarked_ending,
       $.uptake_symbol,
+      $.ca_no_break,
+      $.ca_technical_break,
       $.rising_to_high,
       $.rising_to_mid,
       $.level_pitch,

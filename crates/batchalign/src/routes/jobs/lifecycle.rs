@@ -104,7 +104,7 @@ pub(crate) async fn cancel_job(
 /// 2026-04-25 Malayalam run had two cancels exactly an hour apart).
 /// `accepted=false` rows record cancels that arrived against already-
 /// terminal jobs and so didn't change state — still useful forensically
-/// for diagnosing "why did Brian press cancel three times" patterns.
+/// for diagnosing "why did the operator press cancel three times" patterns.
 #[utoipa::path(
     get,
     path = "/jobs/{job_id}/cancellations",

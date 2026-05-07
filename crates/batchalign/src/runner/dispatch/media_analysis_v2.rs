@@ -27,7 +27,7 @@ use crate::worker::opensmile_request_v2::{
 };
 use crate::worker::pool::WorkerPool;
 
-use crate::api::{ContentType, LanguageCode3, NumWorkers};
+use crate::api::{ContentType, NumWorkers};
 
 use super::MediaAnalysisDispatchPlan;
 use super::asr_media::resolve_paths_mode_or_staging_input;
@@ -292,11 +292,21 @@ async fn dispatch_opensmile_attempt(
         )
     })?;
 
-    let response = pool
-        .dispatch_execute_v2(
-            &job.dispatch.lang.resolve_or(&LanguageCode3::eng()),
-            &request,
+    // Media-analysis (opensmile, avqi) is not language-aware, but
+    // `dispatch_execute_v2` still needs a concrete worker-pool key. We
+    // refuse to invent one: if the job carries `Auto` / `PerFile`,
+    // surface a typed error so the user passes `--lang <iso3>`.
+    let pool_key = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
+        DispatchFailure::Terminal(
+            format!(
+                "media analysis requires `--lang <iso3>`; got '{}'.",
+                job.dispatch.lang
+            ),
+            FailureCategory::Validation,
         )
+    })?;
+    let response = pool
+        .dispatch_execute_v2(&pool_key, &request)
         .await
         .map_err(|error| {
             DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))
@@ -389,11 +399,21 @@ async fn dispatch_avqi_attempt(
         )
     })?;
 
-    let response = pool
-        .dispatch_execute_v2(
-            &job.dispatch.lang.resolve_or(&LanguageCode3::eng()),
-            &request,
+    // Media-analysis (opensmile, avqi) is not language-aware, but
+    // `dispatch_execute_v2` still needs a concrete worker-pool key. We
+    // refuse to invent one: if the job carries `Auto` / `PerFile`,
+    // surface a typed error so the user passes `--lang <iso3>`.
+    let pool_key = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
+        DispatchFailure::Terminal(
+            format!(
+                "media analysis requires `--lang <iso3>`; got '{}'.",
+                job.dispatch.lang
+            ),
+            FailureCategory::Validation,
         )
+    })?;
+    let response = pool
+        .dispatch_execute_v2(&pool_key, &request)
         .await
         .map_err(|error| {
             DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))

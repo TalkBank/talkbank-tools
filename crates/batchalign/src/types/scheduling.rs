@@ -102,6 +102,15 @@ pub enum FailureCategory {
     WorkerTimeout,
     /// Worker IPC or protocol framing failed.
     WorkerProtocol,
+    /// Worker reported a deterministic bootstrap-class failure (model load,
+    /// catalog download, missing language pack, package import) that will
+    /// recur identically across retries. Non-retryable; the user-facing
+    /// message is the verbatim error from the worker (network unreachable,
+    /// disk full, authentication required, etc. — all actionable). The
+    /// historical reason this category exists: deterministic bootstrap
+    /// failures classified as transient crashes produced multi-GB log
+    /// explosions when retried 3× with a full traceback per attempt.
+    WorkerBootstrap,
     /// Provider/backend returned a failure that may succeed on retry.
     ProviderTransient,
     /// Provider/backend returned a failure that should not be retried.
@@ -123,6 +132,7 @@ impl std::fmt::Display for FailureCategory {
             Self::WorkerCrash => write!(f, "worker_crash"),
             Self::WorkerTimeout => write!(f, "worker_timeout"),
             Self::WorkerProtocol => write!(f, "worker_protocol"),
+            Self::WorkerBootstrap => write!(f, "worker_bootstrap"),
             Self::ProviderTransient => write!(f, "provider_transient"),
             Self::ProviderTerminal => write!(f, "provider_terminal"),
             Self::MemoryPressure => write!(f, "memory_pressure"),
@@ -143,6 +153,7 @@ impl std::str::FromStr for FailureCategory {
             "worker_crash" => Ok(Self::WorkerCrash),
             "worker_timeout" => Ok(Self::WorkerTimeout),
             "worker_protocol" => Ok(Self::WorkerProtocol),
+            "worker_bootstrap" => Ok(Self::WorkerBootstrap),
             "provider_transient" => Ok(Self::ProviderTransient),
             "provider_terminal" => Ok(Self::ProviderTerminal),
             "memory_pressure" => Ok(Self::MemoryPressure),

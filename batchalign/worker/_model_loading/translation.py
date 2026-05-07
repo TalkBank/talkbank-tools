@@ -39,6 +39,17 @@ def load_translation_engine(engine_overrides: dict[str, str] | None = None) -> N
         try:
             from transformers import AutoProcessor, SeamlessM4TModel
 
+            from batchalign.worker._progress import (
+                HF_ARTIFACTS_SEAMLESS,
+                emit_hf_download_if_missing,
+            )
+
+            emit_hf_download_if_missing(
+                "facebook/hf-seamless-m4t-medium",
+                kind="translation",
+                artifacts=HF_ARTIFACTS_SEAMLESS,
+            )
+
             processor = AutoProcessor.from_pretrained(  # type: ignore[no-untyped-call]
                 "facebook/hf-seamless-m4t-medium"
             )

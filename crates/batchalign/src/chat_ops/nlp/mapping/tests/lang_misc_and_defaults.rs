@@ -194,35 +194,12 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
         misc: None,
     };
 
-    // Every variant that `talkbank_model::Terminator` recognizes must be
-    // classified as a terminator by our filter. We enumerate every CHAT
-    // terminator token string explicitly to lock the contract — if the
-    // model adds a new variant, this list won't include it and a
-    // companion test in talkbank-model (`every_variant_round_trips_…`)
-    // will flag the omission.
+    // Every CHAT utterance terminator string accepted by
+    // `Terminator::try_from_chat_str` must be classified as a
+    // terminator by our filter. The list mirrors the match arms of
+    // `try_from_chat_str` (`talkbank-model::model::content::terminator`).
     for t in [
-        ".",
-        "!",
-        "?",
-        "+...",
-        "+/.",
-        "+//.",
-        "+/?",
-        "+!?",
-        "+\"/.",
-        "+\".",
-        "+//?",
-        "+..?",
-        "+.",
-        "\u{21D7}",
-        "\u{2197}",
-        "\u{2192}",
-        "\u{2198}",
-        "\u{21D8}",
-        "\u{224B}",
-        "+\u{224B}",
-        "\u{2248}",
-        "+\u{2248}",
+        ".", "!", "?", "+...", "+/.", "+//.", "+/?", "+!?", "+\"/.", "+\".", "+//?", "+..?", "+.",
     ] {
         assert!(
             super::is_terminator_punct(&make(t, t)),
@@ -232,11 +209,37 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
 
     // Content punctuation MUST NOT be classified as a terminator —
     // these flow through to `map_ud_word_to_mor` to produce Mor items
-    // (`cm|cm`, `end|end`, `beg|beg`, etc.).
-    for t in [",", ";", ":", "—", "(", ")", "\"", "„", "‡"] {
+    // (`cm|cm`, `end|end`, `beg|beg`, etc.). The CA-prosody arrows
+    // (`⇗ ↗ → ↘ ⇘ ≋ ≈`) belong here too: per CHECK they are
+    // SEPARATORS, not terminators (BUG-009, 2026-05-01).
+    // `Terminator::CaRisingToHigh` and friends remain as model variants
+    // pending the full reclassification pass, but `try_from_chat_str`
+    // does NOT construct them, so `is_terminator_punct` returns false
+    // for the codepoints — which is the correct behavior.
+    for t in [
+        ",",
+        ";",
+        ":",
+        "—",
+        "(",
+        ")",
+        "\"",
+        "„",
+        "‡",
+        "\u{21D7}", // ⇗
+        "\u{2197}", // ↗
+        "\u{2192}", // →
+        "\u{2198}", // ↘
+        "\u{21D8}", // ⇘
+        "\u{224B}", // ≋
+        "+\u{224B}",
+        "\u{2248}", // ≈
+        "+\u{2248}",
+    ] {
         assert!(
             !super::is_terminator_punct(&make(t, t)),
-            "content punct {t:?} must NOT be treated as a terminator"
+            "content punct {t:?} must NOT be treated as a terminator \
+             (CA-prosody arrows: separators per CHECK, BUG-009)"
         );
     }
 

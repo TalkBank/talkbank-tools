@@ -48,14 +48,33 @@ enum WorkerRequest<'a> {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum WorkerResponse {
-    Infer { response: InferResponse },
-    BatchInfer { response: BatchInferResponse },
-    ExecuteV2 { response: ExecuteResponseV2 },
-    ProgressV2 { event: ProgressEventV2 },
-    Health { response: WorkerHealthResponse },
-    Capabilities { response: WorkerCapabilities },
+    Infer {
+        response: InferResponse,
+    },
+    BatchInfer {
+        response: BatchInferResponse,
+    },
+    ExecuteV2 {
+        response: ExecuteResponseV2,
+    },
+    ProgressV2 {
+        event: ProgressEventV2,
+    },
+    Health {
+        response: WorkerHealthResponse,
+    },
+    Capabilities {
+        response: WorkerCapabilities,
+    },
     Shutdown,
-    Error { error: String },
+    Error {
+        error: String,
+        /// Bootstrap-vs-runtime discriminator; see [`WorkerErrorKind`] for
+        /// the definitive doc. Default ``Runtime`` keeps existing retry
+        /// semantics for legacy workers that don't emit the field.
+        #[serde(default)]
+        kind: crate::worker::handle::WorkerErrorKind,
+    },
 }
 
 /// Metadata about a discovered TCP worker (from registry).
@@ -234,7 +253,7 @@ impl TcpWorkerHandle {
                 }
                 Ok(response)
             }
-            WorkerResponse::Error { error } => Err(WorkerError::HealthCheckFailed(error)),
+            WorkerResponse::Error { error, kind: _ } => Err(WorkerError::HealthCheckFailed(error)),
             other => Err(WorkerError::HealthCheckFailed(format!(
                 "unexpected TCP response for health: {other:?}"
             ))),
@@ -256,7 +275,7 @@ impl TcpWorkerHandle {
 
         match response {
             WorkerResponse::Infer { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected TCP response for infer: {other:?}"
             ))),
@@ -285,7 +304,7 @@ impl TcpWorkerHandle {
 
         match response {
             WorkerResponse::BatchInfer { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected TCP response for batch_infer: {other:?}"
             ))),
@@ -335,8 +354,8 @@ impl TcpWorkerHandle {
                     continue;
                 }
                 WorkerResponse::ExecuteV2 { response } => return Ok(response),
-                WorkerResponse::Error { error } => {
-                    return Err(WorkerError::WorkerResponse(error));
+                WorkerResponse::Error { error, kind } => {
+                    return Err(kind.into_worker_error(error));
                 }
                 other => {
                     return Err(WorkerError::Protocol(format!(
@@ -359,7 +378,7 @@ impl TcpWorkerHandle {
 
         match response {
             WorkerResponse::Capabilities { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected TCP response for capabilities: {other:?}"
             ))),

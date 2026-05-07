@@ -207,15 +207,18 @@ pub(crate) async fn materialize_submission_job(
 mod tests {
     use super::{SubmissionContext, materialize_submission_job};
     use crate::api::{
-        DisplayPath, FilePayload, JobSubmission, LanguageCode3, LanguageSpec, NumSpeakers,
-        ReleasedCommand,
+        DisplayPath, FilePayload, JobSubmission, LanguageSpec, NumSpeakers, ReleasedCommand,
     };
     use crate::options::{CommandOptions, CommonOptions, MorphotagOptions};
 
     fn morphotag_submission(paths_mode: bool) -> JobSubmission {
+        // Morphotag has no job-level `--lang`; per-file resolution from
+        // each file's `@Languages:` header is mandatory. Job-level lang
+        // sentinels are rejected by `materialize_submission_job` (see the
+        // 2026-05-03 morphotag incident note in `validate_submission`).
         JobSubmission {
             command: ReleasedCommand::Morphotag,
-            lang: LanguageSpec::Resolved(LanguageCode3::eng()),
+            lang: LanguageSpec::PerFile,
             num_speakers: NumSpeakers(1),
             files: Vec::new(),
             media_files: Vec::new(),

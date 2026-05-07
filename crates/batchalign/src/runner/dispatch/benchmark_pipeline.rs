@@ -273,13 +273,26 @@ async fn process_one_benchmark_file(
         let progress_tx =
             spawn_progress_forwarder(sink.clone(), job_id.clone(), filename.to_string());
 
+        // No silent eng fallback for benchmark either. If the job carries
+        // `Auto` (uncommon for benchmark) and ASR has not yet resolved a
+        // language, surface a typed error.
+        let bench_lang = match job.dispatch.lang.as_resolved() {
+            Some(code) => code.clone(),
+            None => {
+                let msg = format!(
+                    "benchmark requires a resolved `--lang <iso3>`; got '{}'.",
+                    job.dispatch.lang
+                );
+                lifecycle
+                    .fail(&msg, FailureCategory::Validation, unix_now())
+                    .await;
+                continue;
+            }
+        };
         match process_benchmark(BenchmarkRequest {
             audio_path: &audio_path,
             gold_text: crate::api::ChatText::from(gold_text.as_str()),
-            lang: &job
-                .dispatch
-                .lang
-                .resolve_or(&crate::api::LanguageCode3::eng()),
+            lang: &bench_lang,
             services,
             transcribe_options: opts,
             mwt,

@@ -4,8 +4,16 @@ These tests use a deterministic resources fixture instead of depending on a
 user-level Stanza cache on the CI runner.
 """
 
+from __future__ import annotations
+
+from unittest import mock
+
+import pytest
+
 from batchalign.worker._stanza_capabilities import (
+    StanzaCatalogDownloadError,
     build_stanza_capability_table_from_resources,
+    get_cached_capability_table,
 )
 
 
@@ -116,3 +124,117 @@ def test_unsupported_language_not_in_table():
     table = build_fixture_table()
     assert "que" not in table.languages
     assert "jam" not in table.languages
+
+
+# ---------------------------------------------------------------------------
+# Bootstrap-on-missing tests (the on-demand download contract).
+#
+# The contract: a fresh install with no Stanza cache must still produce a
+# usable capability table. We test the get_cached_capability_table() wrapper
+# under three states:
+#
+#   1. resources.json missing → download succeeds → table populated.
+#   2. resources.json missing → download fails    → typed
+#      StanzaCatalogDownloadError raised, NOT silent return None.
+#   3. Stanza package itself not installed         → return None (unchanged).
+#
+# These exist because BA3 used to silently return None on any
+# ResourcesFileNotFoundError, which masked the fact that no language
+# pack had ever been seeded — and the worker exit-1 that resulted was
+# classified as a transient crash, retried 3×, and dumped a full Python
+# traceback per attempt to the daemon log.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_capability_cache():
+    """Reset the lru_cache on get_cached_capability_table between tests."""
+    get_cached_capability_table.cache_clear()
+    yield
+    get_cached_capability_table.cache_clear()
+
+
+def test_bootstrap_downloads_catalog_when_missing():
+    """resources.json absent on first call → download + return populated table.
+
+    Pre-fix: returns None silently (the bug). Post-fix: triggers
+    download_resources_json, retries, returns a populated table.
+    """
+    from stanza.resources.common import ResourcesFileNotFoundError
+
+    # First call to load_resources_json raises (catalog missing); after the
+    # fake download_resources_json runs, the second call returns our fixture.
+    fake_load = mock.Mock(
+        side_effect=[
+            ResourcesFileNotFoundError("/fake/path/resources.json"),
+            _FIXTURE_RESOURCES,
+        ]
+    )
+    fake_download = mock.Mock(return_value=None)
+
+    with (
+        mock.patch(
+            "stanza.resources.common.load_resources_json", fake_load
+        ),
+        mock.patch(
+            "stanza.resources.common.download_resources_json", fake_download
+        ),
+    ):
+        table = get_cached_capability_table()
+
+    assert table is not None, (
+        "Bootstrap must download the catalog and return a populated table, "
+        "not silently return None"
+    )
+    assert "eng" in table.languages
+    fake_download.assert_called_once()
+    assert fake_load.call_count == 2  # one miss, one success after download
+
+
+def test_bootstrap_raises_typed_error_on_download_failure():
+    """resources.json missing + download fails → typed error, not silent None.
+
+    A real network failure must be visible. The orchestrator can later
+    classify this as non-retryable; the user can read it as an actionable
+    error. Silent return-None is the bug.
+    """
+    from stanza.resources.common import ResourcesFileNotFoundError
+
+    fake_load = mock.Mock(
+        side_effect=ResourcesFileNotFoundError("/fake/path/resources.json")
+    )
+    fake_download = mock.Mock(
+        side_effect=ConnectionError("network unreachable")
+    )
+
+    with (
+        mock.patch(
+            "stanza.resources.common.load_resources_json", fake_load
+        ),
+        mock.patch(
+            "stanza.resources.common.download_resources_json", fake_download
+        ),
+    ):
+        with pytest.raises(StanzaCatalogDownloadError) as excinfo:
+            get_cached_capability_table()
+
+    assert "network unreachable" in str(excinfo.value) or isinstance(
+        excinfo.value.__cause__, ConnectionError
+    )
+
+
+def test_stanza_not_installed_returns_none():
+    """ImportError on stanza import → return None (unchanged behavior).
+
+    This is the one legitimate silent-None path: BA3 deployed without
+    stanza in the venv. Distinct from "catalog missing".
+    """
+    # Force ImportError when build_stanza_capability_table imports stanza.
+    fake_load = mock.Mock(side_effect=ImportError("No module named 'stanza'"))
+    with mock.patch(
+        "batchalign.worker._stanza_capabilities.build_stanza_capability_table",
+        fake_load,
+    ):
+        result = get_cached_capability_table()
+
+    assert result is None

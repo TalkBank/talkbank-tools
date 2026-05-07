@@ -573,7 +573,7 @@ async fn cancel_twice_records_two_audit_rows() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id.clone();
 
-    // First cancel — Brian-pressed-cancel pattern.
+    // First cancel — operator-pressed-cancel pattern.
     let body1 = serde_json::json!({
         "source": "tui",
         "host": "test-laptop",

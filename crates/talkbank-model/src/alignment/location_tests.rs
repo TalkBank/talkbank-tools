@@ -282,7 +282,7 @@ fn test_wor_alignment_does_not_count_terminator() {
 
 /// Confirms `%wor` alignment accepts timed filler words copied from the main tier.
 ///
-/// Brian's OCSC report boils down to this shape: the main tier has a filler
+/// An OCSC field report boils down to this shape: the main tier has a filler
 /// like `&-dt`, and `%wor` carries one timed token for that spoken material.
 /// That should align cleanly.
 #[test]

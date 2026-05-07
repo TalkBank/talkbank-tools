@@ -17,6 +17,7 @@ Getting started:
   chatter validate corpus/             Validate an entire corpus
   chatter clan freq myfile.cha         Run frequency analysis
   chatter to-json myfile.cha           Convert to JSON
+  chatter to-xml myfile.cha            Export TalkBank XML
 
 Exit codes:
   0    All files valid / command succeeded
@@ -332,6 +333,24 @@ pub enum Commands {
         output: Option<PathBuf>,
     },
 
+    /// Export CHAT file to TalkBank XML
+    #[command(long_about = "Export one CHAT transcript to TalkBank XML.\n\n\
+        This uses the Rust XML writer in talkbank-transform and validates the \
+        input transcript before emitting XML.\n\n\
+        XML ingest is not implemented, so there is no `from-xml` command.")]
+    ToXml {
+        /// Input CHAT file path
+        input: PathBuf,
+
+        /// Output XML file path (if not specified, prints to stdout)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Disable tier alignment validation during export
+        #[arg(long = "skip-alignment")]
+        skip_alignment: bool,
+    },
+
     /// Verify that an utseg run preserved the gated invariants
     /// (file count, main-tier bullets, `@Media` linkage). %wor drops
     /// on split utterances are reported informationally.
@@ -481,6 +500,17 @@ pub enum Commands {
 /// Debug subcommands under `chatter debug`.
 #[derive(Subcommand)]
 pub enum DebugCommands {
+    /// Rewrite whole-utterance runs of `@s` into utterance precodes (`[- LANG]`).
+    ///
+    /// Walks `.cha` files under the given paths, detects the same E255
+    /// whole-utterance language-switch pattern that `chatter validate` rejects,
+    /// and rewrites qualifying utterances in place. Files that need no changes
+    /// are left untouched.
+    FixS {
+        /// Path to CHAT file(s) or directory trees to rewrite in place.
+        path: Vec<PathBuf>,
+    },
+
     /// Analyze CA overlap markers (⌈⌉⌊⌋): pairing, temporal consistency, orphans
     OverlapAudit {
         /// Path to CHAT file(s) or directory
@@ -570,4 +600,76 @@ pub enum CacheCommands {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use clap::{CommandFactory, Parser};
+
+    use super::{Cli, Commands, DebugCommands};
+
+    fn run_with_large_stack(test: impl FnOnce() + Send + 'static) {
+        let join_result = std::thread::Builder::new()
+            .name("core-args-test".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(test)
+            .expect("spawn core args test thread")
+            .join();
+        match join_result {
+            Ok(()) => {}
+            Err(payload) => std::panic::resume_unwind(payload),
+        }
+    }
+
+    #[test]
+    fn to_xml_parses_output_flag() {
+        run_with_large_stack(|| {
+            let parsed =
+                Cli::parse_from(["chatter", "to-xml", "sample.cha", "--output", "sample.xml"]);
+
+            let Commands::ToXml {
+                input,
+                output,
+                skip_alignment,
+            } = parsed.command
+            else {
+                panic!("expected to-xml command");
+            };
+
+            assert_eq!(input, PathBuf::from("sample.cha"));
+            assert_eq!(output, Some(PathBuf::from("sample.xml")));
+            assert!(!skip_alignment);
+        });
+    }
+
+    #[test]
+    fn help_shows_to_xml_and_not_from_xml() {
+        run_with_large_stack(|| {
+            let mut command = Cli::command();
+            let mut help = Vec::new();
+            command.write_long_help(&mut help).expect("render help");
+            let rendered = String::from_utf8(help).expect("utf8 help");
+
+            assert!(rendered.contains("to-xml"));
+            assert!(!rendered.contains("from-xml"));
+        });
+    }
+
+    #[test]
+    fn debug_fix_s_parses_path_arguments() {
+        run_with_large_stack(|| {
+            let parsed = Cli::parse_from(["chatter", "debug", "fix-s", "sample.cha"]);
+
+            let Commands::Debug {
+                command: DebugCommands::FixS { path },
+            } = parsed.command
+            else {
+                panic!("expected debug fix-s command");
+            };
+
+            assert_eq!(path, vec![PathBuf::from("sample.cha")]);
+        });
+    }
 }

@@ -115,16 +115,44 @@ pub enum WorkerError {
     Protocol(String),
 
     /// The worker understood the request but returned an application-level
-    /// error (the `{"op":"error","error":"..."}` response).
+    /// error (the `{"op":"error","error":"..."}` response) for a
+    /// **runtime / per-request** failure.
     ///
-    /// Examples: unsupported language, missing model files, Stanza pipeline
-    /// failure. The error string comes directly from the Python side.
+    /// Examples: a transient model-inference failure on a malformed input,
+    /// an external-API hiccup, a worker-side validation that depends on
+    /// per-request payload. The error string comes directly from the
+    /// Python side.
     ///
-    /// **Depends on the error** -- a missing model is terminal until
-    /// installed; a transient Stanza failure may succeed on retry with a
-    /// different input.
+    /// **Retryable** -- a fresh worker may succeed on retry, especially
+    /// when the underlying cause is per-request (different inputs, transient
+    /// resource state).
+    ///
+    /// For deterministic bootstrap failures (missing model files, catalog
+    /// download failures, unsupported language), the worker emits the
+    /// `{"op":"error", "kind":"bootstrap"}` wire shape, which decodes into
+    /// the [`Bootstrap`] variant instead — those are non-retryable.
+    ///
+    /// [`Bootstrap`]: WorkerError::Bootstrap
     #[error("worker returned error: {0}")]
     WorkerResponse(String),
+
+    /// The worker reported a **bootstrap-class** failure: model loading,
+    /// catalog download, package import, or any deterministic failure that
+    /// would recur identically across worker restarts.
+    ///
+    /// Wire shape: `{"op":"error", "error":"<msg>", "kind":"bootstrap"}`.
+    /// Emitted by the Python worker's request-loop exception handler when
+    /// the underlying error is one of the typed bootstrap errors
+    /// (`StanzaCatalogDownloadError`, `UnsupportedLanguageError`, missing
+    /// HuggingFace model with offline mode on, etc.).
+    ///
+    /// **Terminal** -- retrying a deterministic bootstrap failure 3× with
+    /// a full traceback per attempt is the bug shape this variant exists
+    /// to prevent. The orchestrator classifies this as non-retryable and
+    /// surfaces the typed message verbatim to the user (network error,
+    /// disk full, authentication failure, etc. — all actionable).
+    #[error("worker bootstrap error: {0}")]
+    Bootstrap(String),
 
     /// Low-level I/O failure on the stdin/stdout pipes to the worker process.
     ///

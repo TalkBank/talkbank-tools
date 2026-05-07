@@ -57,6 +57,14 @@ mod tests {
         let json = r#"{"command": "morphotag", "options": {"command": "morphotag"}}"#;
         let sub: JobSubmission = serde_json::from_str(json).unwrap();
         assert_eq!(sub.command, "morphotag");
+        // Default value for `lang` on a morphotag deserialization. The
+        // wire-level fixture above does not specify `lang`, so we get the
+        // serde default: a `LanguageSpec` constructed from the empty
+        // string falls back to `Resolved(eng)` via parse_from_db's invalid
+        // path. This roundtrip test only exercises the serde shape — it
+        // does NOT exercise submission validation, which would (correctly)
+        // reject this combination at the route boundary because morphotag
+        // requires `LanguageSpec::PerFile`.
         assert_eq!(sub.lang, LanguageSpec::Resolved(LanguageCode3::eng()));
         assert_eq!(sub.num_speakers, 1);
         assert!(sub.files.is_empty());
@@ -125,7 +133,10 @@ mod tests {
 
         let mut sub = JobSubmission {
             command: ReleasedCommand::Morphotag,
-            lang: LanguageSpec::Resolved(LanguageCode3::eng()),
+            // Morphotag takes no `--lang` and resolves per-file; this is the
+            // only legal lang shape for a morphotag submission. The paired
+            // `validate_lang_command_pairing()` check rejects anything else.
+            lang: LanguageSpec::PerFile,
             num_speakers: NumSpeakers(1),
             files: vec![],
             media_files: vec![],
@@ -317,7 +328,11 @@ mod tests {
 
                 ..Default::default()
             }),
-            lang: LanguageSpec::Resolved(LanguageCode3::eng()),
+            // Morphotag JobInfo always carries `LanguageSpec::PerFile` —
+            // the dashboard and JSON API surface this as `"per-file"`.
+            // Previously a job-level `eng` placeholder leaked here; that
+            // is the bug this test now guards against.
+            lang: LanguageSpec::PerFile,
             source_dir: "/data/corpus".into(),
             total_files: 10,
             completed_files: 3,

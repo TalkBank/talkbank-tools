@@ -133,7 +133,7 @@ impl<'a> Iterator for Lexer<'a> {
         // for compound events like &=clears:throat.
         // Translated from grammar.js EVENT_SEGMENT_FORBIDDEN.
         // Event description chars: characters allowed after &= in event markers.
-        // TODO: Brian to adjudicate whether & should be allowed (for &=&=squeals).
+        // TODO: pending CHAT-spec adjudication on whether & should be allowed (for &=&=squeals).
         // Currently & is excluded, matching the original re2c lexer. TreeSitter's
         // grammar allows & in event_segment but this may be an oversight.
         // grammar.js's `EVENT_SEGMENT_FORBIDDEN` permits `^`, `{`, `}`, and `$`

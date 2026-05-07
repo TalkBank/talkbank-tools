@@ -16,6 +16,18 @@ class TestResolveUtterance:
     def test_utterance_eng_returns_chatutterance_en(self) -> None:
         assert resolve("utterance", "eng") == "talkbank/CHATUtterance-en"
 
+    def test_utterance_zho_returns_chatutterance_zh_cn(self) -> None:
+        assert resolve("utterance", "zho") == "talkbank/CHATUtterance-zh_CN"
+
+    def test_utterance_yue_returns_cantonese_model(self) -> None:
+        assert (
+            resolve("utterance", "yue")
+            == "PolyU-AngelChanLab/Cantonese-Utterance-Segmentation"
+        )
+
+    def test_utterance_cmn_returns_chatutterance_zh_cn(self) -> None:
+        assert resolve("utterance", "cmn") == "talkbank/CHATUtterance-zh_CN"
+
     def test_utterance_unknown_lang_returns_none(self) -> None:
         assert resolve("utterance", "xyz") is None
 

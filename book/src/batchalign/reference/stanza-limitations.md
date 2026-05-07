@@ -1069,9 +1069,11 @@ regression test in `morphosyntax/tests.rs`.
   `crates/talkbank-transform/src/morphosyntax/lang_it.rs`.
 - **End-to-end golden** in
   `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py::test_dammela_mid_sentence_becomes_verb`
-  — runs `batchalign3 morphotag --lang ita` on `per favore
-  dammela` and asserts the output `%mor` carries `dare`, not
-  `adj|dammelo`.
+  — runs `batchalign3 morphotag` on a CHAT fixture whose
+  `@Languages:` header declares `ita`, content `per favore
+  dammela`, and asserts the output `%mor` carries `dare`, not
+  `adj|dammelo`. (Morphotag has no `--lang` flag; language
+  comes from each file's `@Languages:` header.)
 
 ### Re-evaluation criteria
 

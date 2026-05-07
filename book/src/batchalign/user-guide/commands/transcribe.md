@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-05-02 02:30 EDT
+**Last updated:** 2026-05-05 08:21 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -114,6 +114,19 @@ flowchart TD
     merge --> output[Serialize → .cha output]
     output --> done([Output .cha file])
 ```
+
+---
+
+## Utterance boundary detection
+
+`transcribe` always does utterance splitting before CHAT output is written.
+There are two paths:
+
+- `eng`, `cmn`, `zho`, `yue` — dedicated pre-CHAT utterance models
+- all other languages — punctuation-based splitting in Rust
+
+Standalone `utseg` is the follow-up command for re-segmenting already-built
+CHAT transcripts.
 
 ---
 

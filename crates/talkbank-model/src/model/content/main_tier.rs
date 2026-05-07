@@ -39,7 +39,7 @@ use super::{
     Bullet, LanguageCode, Linker, Postcode, SpeakerCode, Terminator, TierContent, UtteranceContent,
     WriteChat,
 };
-use crate::alignment::helpers::{WordItem, walk_words};
+use crate::alignment::helpers::{TierDomain, WordItem, walk_words};
 use crate::model::content::word::Word;
 use crate::model::dependent_tier::{WorItem, WorTier};
 use crate::model::{BracketedContent, BracketedItem, ReplacedWord};
@@ -145,6 +145,21 @@ impl MainTier {
     pub fn with_language_code(mut self, language_code: impl Into<LanguageCode>) -> Self {
         self.content = self.content.with_language_code(language_code.into());
         self
+    }
+
+    /// Return the utterance-level language that would replace whole-tier
+    /// per-word `@s` markers, if any.
+    ///
+    /// This is the detection seam behind E255 and fix-up tooling such as
+    /// `chatter debug fix-s`: if every `%mor`-bearing lexical item resolves to
+    /// the same non-default language override, the utterance should be written
+    /// as `[- LANG] ...` instead of tagging each word individually.
+    pub fn whole_utterance_language_switch_target(
+        &self,
+        default_language: Option<&LanguageCode>,
+        declared_languages: &[LanguageCode],
+    ) -> Option<LanguageCode> {
+        whole_utterance_language_switch_target(self, default_language, declared_languages)
     }
 
     /// Replaces postcode list.
@@ -409,6 +424,171 @@ fn collect_wor_bracketed_item(item: &BracketedItem, in_retrace: bool, out: &mut 
     }
 }
 
+fn whole_utterance_language_switch_target(
+    main_tier: &MainTier,
+    default_language: Option<&LanguageCode>,
+    declared_languages: &[LanguageCode],
+) -> Option<LanguageCode> {
+    let tier_language = main_tier
+        .content
+        .language_code
+        .as_ref()
+        .or(default_language);
+
+    // Collect ALL word-bearing items (including fillers `&~`, `&-`,
+    // `&+` and other nonword tokens), not just MOR-bearing ones. The
+    // `[- LANG]` precode declares whole-utterance language scope, so
+    // the predicate must verify every word the speaker actually
+    // uttered — fillers and nonwords included — resolves to the same
+    // language. Restricting to MOR-domain (the prior bug) skipped
+    // tonal Cantonese fillers like `&~dang3` and silently classified
+    // utterances as monolingual, producing E220 violations after the
+    // rewrite (see `~/talkbank/docs/fix-s-overrewrite-assessment-2026-05-06.md`).
+    let mut words = Vec::new();
+    collect_main_tier_words_for_language_check(&main_tier.content.content, &mut words);
+    if words.is_empty() {
+        return None;
+    }
+
+    let mut target_lang: Option<LanguageCode> = None;
+    for word in words {
+        if word.lang.is_none() {
+            return None;
+        }
+
+        let outcome =
+            crate::validation::resolve_word_language(word, tier_language, declared_languages);
+        let resolved = match outcome.resolution {
+            crate::validation::LanguageResolution::Single(code) => code,
+            _ => return None,
+        };
+
+        if let Some(existing) = &target_lang {
+            if existing != &resolved {
+                return None;
+            }
+        } else {
+            target_lang = Some(resolved);
+        }
+    }
+
+    target_lang
+}
+
+/// Collect every word-bearing item from main-tier content for the
+/// `[- LANG]` predicate. Includes fillers (`&~`, `&-`, `&+`),
+/// nonwords, AND retrace content — every word the speaker uttered
+/// counts toward the whole-utterance language scope, including
+/// false-start material the speaker then corrected. The predicate's
+/// per-word `lang.is_none() → return None` guard then refuses to
+/// auto-promote to `[- LANG]` whenever ANY uttered word lacks an
+/// explicit language attribution.
+fn collect_main_tier_words_for_language_check<'a>(
+    content: &'a [UtteranceContent],
+    out: &mut Vec<&'a Word>,
+) {
+    for item in content {
+        collect_main_tier_word_item(item, out);
+    }
+}
+
+fn collect_main_tier_word_item<'a>(item: &'a UtteranceContent, out: &mut Vec<&'a Word>) {
+    match item {
+        UtteranceContent::Word(word) => out.push(word),
+        UtteranceContent::AnnotatedWord(annotated) => out.push(&annotated.inner),
+        UtteranceContent::ReplacedWord(replaced) => {
+            out.push(&replaced.word);
+            for word in &replaced.replacement.words {
+                out.push(word);
+            }
+        }
+        UtteranceContent::Group(group) => {
+            collect_main_tier_bracketed_items(&group.content, out);
+        }
+        UtteranceContent::AnnotatedGroup(annotated) => {
+            collect_main_tier_bracketed_items(&annotated.inner.content, out);
+        }
+        UtteranceContent::PhoGroup(pho) => {
+            collect_main_tier_bracketed_items(&pho.content, out);
+        }
+        UtteranceContent::SinGroup(sin) => {
+            collect_main_tier_bracketed_items(&sin.content, out);
+        }
+        UtteranceContent::Quotation(quotation) => {
+            collect_main_tier_bracketed_items(&quotation.content, out);
+        }
+        UtteranceContent::Retrace(retrace) => {
+            collect_main_tier_bracketed_items(&retrace.content, out);
+        }
+        // Non-word items: skip (they don't carry word-level @s markers).
+        UtteranceContent::Separator(_)
+        | UtteranceContent::Event(_)
+        | UtteranceContent::AnnotatedEvent(_)
+        | UtteranceContent::Pause(_)
+        | UtteranceContent::AnnotatedAction(_)
+        | UtteranceContent::Freecode(_)
+        | UtteranceContent::OverlapPoint(_)
+        | UtteranceContent::InternalBullet(_)
+        | UtteranceContent::LongFeatureBegin(_)
+        | UtteranceContent::LongFeatureEnd(_)
+        | UtteranceContent::UnderlineBegin(_)
+        | UtteranceContent::UnderlineEnd(_)
+        | UtteranceContent::NonvocalBegin(_)
+        | UtteranceContent::NonvocalEnd(_)
+        | UtteranceContent::NonvocalSimple(_)
+        | UtteranceContent::OtherSpokenEvent(_) => {}
+    }
+}
+
+fn collect_main_tier_bracketed_items<'a>(content: &'a BracketedContent, out: &mut Vec<&'a Word>) {
+    use crate::model::content::BracketedItem;
+    for entry in &content.content {
+        match entry {
+            BracketedItem::Word(word) => out.push(word),
+            BracketedItem::AnnotatedWord(annotated) => out.push(&annotated.inner),
+            BracketedItem::ReplacedWord(replaced) => {
+                out.push(&replaced.word);
+                for word in &replaced.replacement.words {
+                    out.push(word);
+                }
+            }
+            BracketedItem::AnnotatedGroup(annotated) => {
+                collect_main_tier_bracketed_items(&annotated.inner.content, out);
+            }
+            BracketedItem::PhoGroup(pho) => {
+                collect_main_tier_bracketed_items(&pho.content, out);
+            }
+            BracketedItem::SinGroup(sin) => {
+                collect_main_tier_bracketed_items(&sin.content, out);
+            }
+            BracketedItem::Quotation(quotation) => {
+                collect_main_tier_bracketed_items(&quotation.content, out);
+            }
+            BracketedItem::Retrace(retrace) => {
+                collect_main_tier_bracketed_items(&retrace.content, out);
+            }
+            // Non-word items: skip.
+            BracketedItem::Event(_)
+            | BracketedItem::AnnotatedEvent(_)
+            | BracketedItem::Pause(_)
+            | BracketedItem::Action(_)
+            | BracketedItem::AnnotatedAction(_)
+            | BracketedItem::OverlapPoint(_)
+            | BracketedItem::Separator(_)
+            | BracketedItem::InternalBullet(_)
+            | BracketedItem::Freecode(_)
+            | BracketedItem::LongFeatureBegin(_)
+            | BracketedItem::LongFeatureEnd(_)
+            | BracketedItem::UnderlineBegin(_)
+            | BracketedItem::UnderlineEnd(_)
+            | BracketedItem::NonvocalBegin(_)
+            | BracketedItem::NonvocalEnd(_)
+            | BracketedItem::NonvocalSimple(_)
+            | BracketedItem::OtherSpokenEvent(_) => {}
+        }
+    }
+}
+
 fn collect_wor_replaced_word(entry: &ReplacedWord, in_retrace: bool, out: &mut Vec<WorItem>) {
     use crate::alignment::helpers::counts_for_tier_in_context;
 
@@ -625,6 +805,30 @@ impl crate::validation::Validate for MainTier {
         // E372: Validate no nested quotations
         check_no_nested_quotations(self, errors);
 
+        if let Some(target_lang) = self.whole_utterance_language_switch_target(
+            word_context.shared.default_language.as_ref(),
+            &word_context.shared.declared_languages,
+        ) {
+            let span = tier_content.content_span.unwrap_or(self.span);
+            errors.report(
+                ParseError::new(
+                    ErrorCode::WholeUtteranceLanguageSwitchShouldUsePrecode,
+                    Severity::Error,
+                    SourceLocation::new(span),
+                    None,
+                    format!(
+                        "Whole-utterance language switch to '{}' should use utterance precode [- {}] instead of tagging every lexical word with @s",
+                        target_lang.as_str(),
+                        target_lang.as_str()
+                    ),
+                )
+                .with_suggestion(format!(
+                    "Rewrite the utterance as '[- {}] ...' and remove the per-word @s markers",
+                    target_lang.as_str()
+                )),
+            );
+        }
+
         // Style-level whitespace checks are intentionally disabled in core
         // validation to avoid false positives on valid reference CHAT corpora.
     }
@@ -632,11 +836,15 @@ impl crate::validation::Validate for MainTier {
 
 #[cfg(test)]
 mod tests {
+    use crate::ErrorCollector;
     use crate::Span;
     use crate::model::{
         BracketedContent, BracketedItem, Bullet, Group, MainTier, ReplacedWord, Replacement,
-        Terminator, UtteranceContent, Word, WordCategory, WordContent, WordShortening,
+        Terminator, UtteranceContent, Word, WordCategory, WordContent, WordLanguageMarker,
+        WordShortening,
     };
+    use crate::validation::ValidationContext;
+    use crate::{ErrorCode, Validate};
 
     /// Generates wor tier produces flat words with timing.
     #[test]
@@ -744,6 +952,282 @@ mod tests {
         assert_eq!(
             main.find_context_dependent_ca_omission_span(),
             Some(shortening_span)
+        );
+    }
+
+    #[test]
+    fn validate_flags_all_at_s_single_language_utterance() {
+        let mut hola = Word::simple("hola");
+        hola.lang = Some(WordLanguageMarker::Shortcut);
+        let mut amiga = Word::simple("amiga");
+        amiga.lang = Some(WordLanguageMarker::Shortcut);
+
+        let main = MainTier::new(
+            "PAR",
+            vec![
+                UtteranceContent::Word(Box::new(hola)),
+                UtteranceContent::Word(Box::new(amiga)),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let context = ValidationContext::new()
+            .with_default_language(crate::model::LanguageCode::new("eng"))
+            .with_declared_languages(vec![
+                crate::model::LanguageCode::new("eng"),
+                crate::model::LanguageCode::new("spa"),
+            ]);
+        let errors = ErrorCollector::new();
+        main.validate(&context, &errors);
+        let error_vec = errors.into_vec();
+        assert!(
+            error_vec
+                .iter()
+                .any(|err| err.code == ErrorCode::WholeUtteranceLanguageSwitchShouldUsePrecode),
+            "all-@s utterance should be rejected as a whole-utterance language switch"
+        );
+    }
+
+    #[test]
+    fn validate_allows_mixed_tagged_and_untagged_utterance() {
+        let mut hola = Word::simple("hola");
+        hola.lang = Some(WordLanguageMarker::Shortcut);
+        let friend = Word::simple("friend");
+
+        let main = MainTier::new(
+            "PAR",
+            vec![
+                UtteranceContent::Word(Box::new(hola)),
+                UtteranceContent::Word(Box::new(friend)),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let context = ValidationContext::new()
+            .with_default_language(crate::model::LanguageCode::new("eng"))
+            .with_declared_languages(vec![
+                crate::model::LanguageCode::new("eng"),
+                crate::model::LanguageCode::new("spa"),
+            ]);
+        let errors = ErrorCollector::new();
+        main.validate(&context, &errors);
+        let error_vec = errors.into_vec();
+        assert!(
+            !error_vec
+                .iter()
+                .any(|err| err.code == ErrorCode::WholeUtteranceLanguageSwitchShouldUsePrecode),
+            "utterances with untagged lexical words should stay on the normal word-level path"
+        );
+    }
+
+    // ========================================================================
+    // Regression tests for `whole_utterance_language_switch_target` —
+    // the predicate behind `chatter debug fix-s` and validator E255.
+    //
+    // Bug history (2026-05-06): the predicate originally collected words
+    // via the MOR-domain walker, which silently skipped fillers (`&~`,
+    // `&-`, `&+`) and other nonwords. For utterances like
+    // `*CHI: ballet@s , &~dang3 &~dang1 &~dang1 .`, the predicate saw
+    // only `[ballet@s]` and concluded "monolingual eng," rewriting the
+    // utterance to `[- eng] ballet , &~dang3 &~dang1 &~dang1 .` and
+    // producing E220 ("digits not allowed in eng word") on the Cantonese
+    // tone fillers downstream. The fix is to walk ALL word-bearing
+    // items including fillers; the per-word `lang.is_none() → return
+    // None` guard then catches every filler that lacks an explicit
+    // `@s:LANG` marker.
+    //
+    // See `~/talkbank/docs/fix-s-overrewrite-assessment-2026-05-06.md`
+    // for the full corpus-wide damage assessment.
+    // ========================================================================
+
+    /// GREEN baseline — clean all-`@s` utterance is correctly detected
+    /// as a monolingual whole-utterance language switch. The `@s`
+    /// shortcut resolves to "the OTHER declared language" relative to
+    /// the tier-default language; here, default=`yue` makes `@s`
+    /// resolve to `eng`.
+    #[test]
+    fn whole_utterance_target_returns_some_for_uniform_at_s_only_words() {
+        use crate::model::LanguageCode;
+        let main = MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::simple("ballet").with_language_shortcut())),
+                UtteranceContent::Word(Box::new(Word::simple("hello").with_language_shortcut())),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let default = LanguageCode::new("yue");
+        let declared = vec![LanguageCode::new("yue"), LanguageCode::new("eng")];
+        let target = main.whole_utterance_language_switch_target(Some(&default), &declared);
+        assert_eq!(
+            target.as_ref().map(|c| c.as_str()),
+            Some("eng"),
+            "all-@s utterance with default=yue, declared=yue,eng must resolve to eng"
+        );
+    }
+
+    /// RED → GREEN regression — the AliciaCan shape: one `@s` lexical
+    /// word + several Cantonese tone-bearing nonword fillers (`&~dang3`,
+    /// etc.). The fillers carry no explicit `@s:LANG` marker, so the
+    /// predicate must return `None` (cannot confirm whole-utterance
+    /// monolingual scope).
+    ///
+    /// Source: `Biling/YipMatthews/Can/AliciaCan/011016.cha:2611`
+    /// — the smoking-gun case for the 2026-05-06 fix-s over-rewrite
+    /// damage (440 files, 679 utterances).
+    #[test]
+    fn whole_utterance_target_returns_none_when_nonword_filler_lacks_lang_marker() {
+        use crate::model::LanguageCode;
+        let mut nonword = Word::new_unchecked("&~dang3", "dang3");
+        nonword = nonword.with_category(WordCategory::Nonword);
+        let main = MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::simple("ballet").with_language_shortcut())),
+                UtteranceContent::Word(Box::new(nonword)),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let declared = vec![LanguageCode::new("yue"), LanguageCode::new("eng")];
+        let target = main.whole_utterance_language_switch_target(None, &declared);
+        assert_eq!(
+            target, None,
+            "a nonword filler without an @s:LANG marker must force whole-utterance \
+             predicate to return None — otherwise fix-s rewrites the utterance to \
+             [- LANG] and produces E220 on Cantonese tone fillers (AliciaCan bug)"
+        );
+    }
+
+    /// Same invariant for `&-um`-style filler — the BA2-equivalent
+    /// English filler — when paired with an `@s` lexical word in a
+    /// non-English context. Without an explicit `@s:LANG` marker, the
+    /// filler has language-null status and the predicate must refuse
+    /// to declare whole-utterance scope.
+    #[test]
+    fn whole_utterance_target_returns_none_when_filler_lacks_lang_marker() {
+        use crate::model::LanguageCode;
+        let mut filler = Word::new_unchecked("&-um", "um");
+        filler = filler.with_category(WordCategory::Filler);
+        let main = MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::simple("dile").with_language_shortcut())),
+                UtteranceContent::Word(Box::new(filler)),
+                UtteranceContent::Word(Box::new(Word::simple("a").with_language_shortcut())),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let declared = vec![LanguageCode::new("eng"), LanguageCode::new("spa")];
+        let target = main.whole_utterance_language_switch_target(None, &declared);
+        assert_eq!(
+            target, None,
+            "an unmarked filler in an otherwise @s-tagged utterance must force the \
+             predicate to return None — otherwise fix-s wrongly declares whole-utterance \
+             scope despite the filler's unknown language status"
+        );
+    }
+
+    /// Same invariant for `&+`-style phonological fragment.
+    #[test]
+    fn whole_utterance_target_returns_none_when_phonological_fragment_lacks_lang_marker() {
+        use crate::model::LanguageCode;
+        let mut frag = Word::new_unchecked("&+fr", "fr");
+        frag = frag.with_category(WordCategory::PhonologicalFragment);
+        let main = MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::simple("hola").with_language_shortcut())),
+                UtteranceContent::Word(Box::new(frag)),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let declared = vec![LanguageCode::new("eng"), LanguageCode::new("spa")];
+        let target = main.whole_utterance_language_switch_target(None, &declared);
+        assert_eq!(
+            target, None,
+            "a phonological-fragment word without an @s:LANG marker must force the \
+             predicate to return None"
+        );
+    }
+
+    /// RED → GREEN regression — utterance with an unmarked filler
+    /// INSIDE a retrace block. Mirrors wild patterns from
+    /// `~/talkbank/still-have-error-7.log` like
+    /// `*MAR: eh@s la@s &~s [///] el@s viernes@s ...` and
+    /// `*WYN: people@s [//] (.) some@s ... &~sə [//] strange@s .`.
+    ///
+    /// Per CHAT semantics, retracted content is still uttered — even
+    /// though the speaker self-corrected, the false-start words were
+    /// spoken. Whole-utterance language scope therefore covers the
+    /// retrace too. If a retracted filler/nonword has no `@s:LANG`
+    /// marker, the predicate must return None (we cannot confirm
+    /// monolingual scope).
+    #[test]
+    fn whole_utterance_target_returns_none_when_retraced_filler_lacks_lang_marker() {
+        use crate::model::LanguageCode;
+        use crate::model::content::Retrace;
+        use crate::model::content::retrace::RetraceKind;
+
+        // Inside the retrace: bare nonword `&~s` with no lang marker.
+        let mut nonword = Word::new_unchecked("&~s", "s");
+        nonword = nonword.with_category(WordCategory::Nonword);
+        let retrace_content = BracketedContent::new(vec![BracketedItem::Word(Box::new(nonword))]);
+        let retrace = Retrace::new(retrace_content, RetraceKind::Multiple);
+
+        // Post-retrace: clean @s shortcut words.
+        let main = MainTier::new(
+            "MAR",
+            vec![
+                UtteranceContent::Retrace(Box::new(retrace)),
+                UtteranceContent::Word(Box::new(Word::simple("el").with_language_shortcut())),
+                UtteranceContent::Word(Box::new(Word::simple("viernes").with_language_shortcut())),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let default = LanguageCode::new("eng");
+        let declared = vec![LanguageCode::new("eng"), LanguageCode::new("spa")];
+        let target = main.whole_utterance_language_switch_target(Some(&default), &declared);
+        assert_eq!(
+            target, None,
+            "an unmarked nonword filler INSIDE a retrace must still force \
+             the predicate to return None — retracted-but-uttered content \
+             counts toward whole-utterance language scope"
+        );
+    }
+
+    /// GREEN guard — if a filler IS explicitly tagged with the same
+    /// `@s:LANG` as the lexical content, the predicate accepts the
+    /// rewrite. Locks in that the fix doesn't over-reject — fillers
+    /// that legitimately match the target language must still allow
+    /// the precode promotion.
+    #[test]
+    fn whole_utterance_target_accepts_rewrite_when_filler_has_matching_explicit_lang() {
+        use crate::model::LanguageCode;
+        let lang = LanguageCode::new("eng");
+        let mut filler = Word::new_unchecked("&-um", "um");
+        filler = filler
+            .with_category(WordCategory::Filler)
+            .with_lang(lang.clone());
+        let main = MainTier::new(
+            "CHI",
+            vec![
+                UtteranceContent::Word(Box::new(Word::simple("hello").with_lang(lang.clone()))),
+                UtteranceContent::Word(Box::new(filler)),
+            ],
+            Terminator::Period { span: Span::DUMMY },
+        );
+
+        let declared = vec![LanguageCode::new("yue"), lang.clone()];
+        let target = main.whole_utterance_language_switch_target(None, &declared);
+        assert_eq!(
+            target.as_ref().map(|c| c.as_str()),
+            Some("eng"),
+            "filler with explicit matching @s:LANG must not block the rewrite"
         );
     }
 }

@@ -1,11 +1,11 @@
 # utseg
 
 **Status:** Current
-**Last updated:** 2026-05-02 02:30 EDT
+**Last updated:** 2026-05-05 06:53 EDT
 
 Re-segment utterance boundaries in an existing CHAT transcript. Text-only
 — no audio involved. The model selected per language is either a trained
-BERT per-word boundary classifier (eng / zho / yue) or, for other
+BERT per-word boundary classifier (eng / cmn,zho / yue) or, for other
 languages, Stanza constituency parsing where it is available.
 
 `transcribe` already runs this same step at the end of every run
@@ -107,7 +107,7 @@ Per-language model selection is driven by `_RESOLVER["utterance"]` in
 | `--lang` | Model loaded | Source |
 |----------|--------------|--------|
 | `eng` | `talkbank/CHATUtterance-en` (BERT per-word classifier) | TalkBank fine-tune |
-| `zho` (Mandarin) | `talkbank/CHATUtterance-zh_CN` (BERT) | TalkBank fine-tune |
+| `cmn` / `zho` (Mandarin) | `talkbank/CHATUtterance-zh_CN` (BERT) | TalkBank fine-tune |
 | `yue` (Cantonese) | `PolyU-AngelChanLab/Cantonese-Utterance-Segmentation` (BERT) | PolyU AngelChanLab |
 | any other language | Stanza constituency parser, where available | Stanza |
 

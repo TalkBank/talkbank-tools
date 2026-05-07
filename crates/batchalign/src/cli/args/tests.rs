@@ -1,7 +1,7 @@
 use super::*;
 use crate::api::ReleasedCommand;
 use crate::options::{AsrEngineName, CommandOptions, FaEngineName, UtrEngine as AppUtrEngine};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use rstest::rstest;
 use std::path::{Path, PathBuf};
 
@@ -31,6 +31,16 @@ fn assert_parse_error_contains(args: &[&str], fragments: &[&str]) {
             fragment
         );
     }
+}
+
+fn render_subcommand_help(name: &str) -> String {
+    let mut cmd = Cli::command();
+    let sub = cmd
+        .find_subcommand_mut(name)
+        .unwrap_or_else(|| panic!("missing subcommand {name}"));
+    let mut buf = Vec::new();
+    sub.write_long_help(&mut buf).expect("write help");
+    String::from_utf8(buf).expect("utf8 help")
 }
 
 fn merge_abbrev_value(options: &CommandOptions) -> Option<bool> {
@@ -64,6 +74,42 @@ fn wor_value(options: &CommandOptions) -> Option<bool> {
 fn parse_morphotag() {
     let cli = Cli::parse_from(["batchalign3", "morphotag", "corpus/"]);
     assert!(matches!(cli.command, Commands::Morphotag(_)));
+}
+
+#[test]
+fn morphotag_defaults_l2_on() {
+    let options = typed_options_for(&["batchalign3", "morphotag", "corpus/"]);
+    match options {
+        CommandOptions::Morphotag(opts) => {
+            assert!(
+                !opts.no_l2_morphotag,
+                "default morphotag invocation should keep L2 dispatch on"
+            );
+        }
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
+fn morphotag_no_l2_flag_opts_out() {
+    let options = typed_options_for(&["batchalign3", "morphotag", "corpus/", "--no-l2-morphotag"]);
+    match options {
+        CommandOptions::Morphotag(opts) => {
+            assert!(
+                opts.no_l2_morphotag,
+                "--no-l2-morphotag should disable L2 dispatch"
+            );
+        }
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
+fn morphotag_rejects_removed_positive_l2_flag() {
+    assert_parse_error_contains(
+        &["batchalign3", "morphotag", "corpus/", "--l2-morphotag"],
+        &["unexpected argument '--l2-morphotag'"],
+    );
 }
 
 #[test]
@@ -185,23 +231,69 @@ fn parse_coref_in_place() {
 }
 
 #[test]
-fn parse_compare_with_before_and_output() {
+fn parse_align_with_before_and_output() {
     let cli = Cli::parse_from([
         "batchalign3",
-        "compare",
+        "align",
         "corpus/",
         "--before",
         "baseline/",
         "-o",
         "out/",
     ]);
-    if let Commands::Compare(a) = &cli.command {
+    if let Commands::Align(a) = &cli.command {
         assert_eq!(a.common.paths, vec![PathBuf::from("corpus/")]);
-        assert_eq!(a.common.before.as_deref(), Some(Path::new("baseline/")));
+        assert_eq!(
+            a.incremental.before.as_deref(),
+            Some(Path::new("baseline/"))
+        );
         assert_eq!(a.common.output.as_deref(), Some(Path::new("out/")));
     } else {
-        panic!("expected Compare");
+        panic!("expected Align");
     }
+}
+
+#[test]
+fn parse_morphotag_with_before() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "morphotag",
+        "corpus/",
+        "--before",
+        "baseline/",
+    ]);
+    if let Commands::Morphotag(a) = &cli.command {
+        assert_eq!(
+            a.incremental.before.as_deref(),
+            Some(Path::new("baseline/"))
+        );
+    } else {
+        panic!("expected Morphotag");
+    }
+}
+
+#[rstest]
+#[case(&["batchalign3", "transcribe", "audio/", "--before", "old/"])]
+#[case(&["batchalign3", "translate", "corpus/", "--before", "old/"])]
+#[case(&["batchalign3", "coref", "corpus/", "--before", "old/"])]
+#[case(&["batchalign3", "compare", "corpus/", "--before", "old/"])]
+#[case(&["batchalign3", "utseg", "corpus/", "--before", "old/"])]
+#[case(&["batchalign3", "benchmark", "audio/", "--before", "old/"])]
+fn unsupported_commands_reject_before_flag(#[case] args: &[&str]) {
+    assert_parse_error_contains(args, &["unexpected argument '--before'"]);
+}
+
+#[test]
+fn help_shows_before_only_on_supported_commands() {
+    let align_help = render_subcommand_help("align");
+    let morphotag_help = render_subcommand_help("morphotag");
+    let transcribe_help = render_subcommand_help("transcribe");
+    let translate_help = render_subcommand_help("translate");
+
+    assert!(align_help.contains("--before <PATH>"));
+    assert!(morphotag_help.contains("--before <PATH>"));
+    assert!(!transcribe_help.contains("--before <PATH>"));
+    assert!(!translate_help.contains("--before <PATH>"));
 }
 
 #[test]
@@ -1351,9 +1443,14 @@ fn build_options_override_media_cache_global() {
 #[case(&["batchalign3", "align", "corpus/"], ReleasedCommand::Align, "eng", 1, &["cha"])]
 #[case(&["batchalign3", "transcribe", "audio/"], ReleasedCommand::Transcribe, "eng", 2, &["mp3", "mp4", "wav"])]
 #[case(&["batchalign3", "transcribe", "--diarize", "audio/"], ReleasedCommand::TranscribeS, "eng", 2, &["mp3", "mp4", "wav"])]
-#[case(&["batchalign3", "translate", "corpus/"], ReleasedCommand::Translate, "eng", 1, &["cha"])]
-#[case(&["batchalign3", "morphotag", "corpus/"], ReleasedCommand::Morphotag, "eng", 1, &["cha"])]
-#[case(&["batchalign3", "coref", "corpus/"], ReleasedCommand::Coref, "eng", 1, &["cha"])]
+// per-file commands: translate/morphotag/coref. The `lang` field on
+// CommandProfile carries the wire string `"per-file"`, which parses to
+// `LanguageSpec::PerFile` at submission. No English placeholder ever
+// appears for these commands in job records, dashboards, or worker
+// pre-warming.
+#[case(&["batchalign3", "translate", "corpus/"], ReleasedCommand::Translate, "per-file", 1, &["cha"])]
+#[case(&["batchalign3", "morphotag", "corpus/"], ReleasedCommand::Morphotag, "per-file", 1, &["cha"])]
+#[case(&["batchalign3", "coref", "corpus/"], ReleasedCommand::Coref, "per-file", 1, &["cha"])]
 #[case(&["batchalign3", "compare", "corpus/"], ReleasedCommand::Compare, "eng", 2, &["cha"])]
 #[case(&["batchalign3", "compare", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Compare, "spa", 3, &["cha"])]
 #[case(&["batchalign3", "utseg", "--lang", "spa", "-n", "3", "corpus/"], ReleasedCommand::Utseg, "spa", 3, &["cha"])]
@@ -1387,6 +1484,36 @@ fn command_profile_matches_expected(
 // -----------------------------------------------------------------------
 // common_opts (parametrized)
 // -----------------------------------------------------------------------
+
+/// BA2 parity: `coref` does NOT accept `--lang`. The command is English-only
+/// and per-file routing comes from the file's `@Languages:` header. This
+/// regression test catches any reintroduction of `--lang` on coref. See the
+/// 2026-05-03 incident (morphotag had the same shape; sentinel `--lang`
+/// silently rewrote non-English files).
+#[test]
+fn coref_rejects_lang_flag_for_ba2_parity() {
+    let result = Cli::try_parse_from(["batchalign3", "coref", "corpus/", "--lang", "eng"]);
+    assert!(
+        result.is_err(),
+        "coref must NOT accept --lang (BA2 parity); CLI parse should fail"
+    );
+}
+
+/// BA2 parity: `translate` does NOT accept `--lang`. Source language for each
+/// file comes from that file's `@Languages:` header (BA2's
+/// `pipelines/translate/seamless.py:40` reads `doc.langs[0]` per file); the
+/// translation TARGET is hardcoded to English (BA2 `seamless.py:41`,
+/// `tgt_lang="eng"`). Re-introducing `--lang` here would recreate the
+/// 2026-05-03 morphotag failure mode where a job-level sentinel silently
+/// overrode per-file routing.
+#[test]
+fn translate_rejects_lang_flag_for_ba2_parity() {
+    let result = Cli::try_parse_from(["batchalign3", "translate", "corpus/", "--lang", "spa"]);
+    assert!(
+        result.is_err(),
+        "translate must NOT accept --lang (BA2 parity); CLI parse should fail"
+    );
+}
 
 #[rstest]
 #[case(&["batchalign3", "align", "x/"])]

@@ -9,9 +9,9 @@ use crate::error::{
 };
 use crate::model::Separator;
 use crate::node_types::{
-    CA_CONTINUATION_MARKER, COLON, COMMA, FALLING_TO_LOW, FALLING_TO_MID, LEVEL_PITCH,
-    NON_COLON_SEPARATOR, RISING_TO_HIGH, RISING_TO_MID, SEMICOLON, TAG_MARKER, UNMARKED_ENDING,
-    UPTAKE_SYMBOL, VOCATIVE_MARKER, WHITESPACES,
+    CA_CONTINUATION_MARKER, CA_NO_BREAK, CA_TECHNICAL_BREAK, COLON, COMMA, FALLING_TO_LOW,
+    FALLING_TO_MID, LEVEL_PITCH, NON_COLON_SEPARATOR, RISING_TO_HIGH, RISING_TO_MID, SEMICOLON,
+    TAG_MARKER, UNMARKED_ENDING, UPTAKE_SYMBOL, VOCATIVE_MARKER, WHITESPACES,
 };
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
@@ -28,6 +28,7 @@ use tree_sitter::Node;
 /// non_colon_separator: $ => choice(
 ///   $.comma, $.semicolon, $.tag_marker, $.vocative_marker,
 ///   $.ca_continuation_marker, $.unmarked_ending, $.uptake_symbol,
+///   $.ca_no_break, $.ca_technical_break,
 ///   $.rising_to_high, $.rising_to_mid, $.level_pitch,
 ///   $.falling_to_mid, $.falling_to_low,
 /// ),
@@ -78,6 +79,12 @@ fn parse_non_colon_separator_node(
             span: Span::new(actual_sep.start_byte() as u32, actual_sep.end_byte() as u32),
         }),
         UPTAKE_SYMBOL => ParseOutcome::parsed(Separator::Uptake {
+            span: Span::new(actual_sep.start_byte() as u32, actual_sep.end_byte() as u32),
+        }),
+        CA_NO_BREAK => ParseOutcome::parsed(Separator::CaNoBreak {
+            span: Span::new(actual_sep.start_byte() as u32, actual_sep.end_byte() as u32),
+        }),
+        CA_TECHNICAL_BREAK => ParseOutcome::parsed(Separator::CaTechnicalBreak {
             span: Span::new(actual_sep.start_byte() as u32, actual_sep.end_byte() as u32),
         }),
         RISING_TO_HIGH => ParseOutcome::parsed(Separator::RisingToHigh {
@@ -220,6 +227,14 @@ pub(crate) fn parse_separator_like(
         crate::node_types::UPTAKE_SYMBOL => ParseOutcome::parsed(Separator::Uptake {
             span: Span::new(node.start_byte() as u32, node.end_byte() as u32),
         }),
+        crate::node_types::CA_NO_BREAK => ParseOutcome::parsed(Separator::CaNoBreak {
+            span: Span::new(node.start_byte() as u32, node.end_byte() as u32),
+        }),
+        crate::node_types::CA_TECHNICAL_BREAK => {
+            ParseOutcome::parsed(Separator::CaTechnicalBreak {
+                span: Span::new(node.start_byte() as u32, node.end_byte() as u32),
+            })
+        }
         crate::node_types::RISING_TO_HIGH => ParseOutcome::parsed(Separator::RisingToHigh {
             span: Span::new(node.start_byte() as u32, node.end_byte() as u32),
         }),

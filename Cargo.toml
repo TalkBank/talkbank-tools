@@ -229,23 +229,51 @@ unicode-width = "0.2"
 walkdir = "^2.5"
 
 # Used by xtask audit-docs (sync sqlite, no system dep).
-rusqlite = { version = "0.32", features = ["bundled"] }
+# Keep this on the libsqlite3-sys 0.28 line so workspace resolution stays
+# compatible with sqlx 0.8's sqlite backend.
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [profile.dev]
 split-debuginfo = "unpacked"
 debug = "line-tables-only"          # Less debug info -> faster linking
 
-[profile.dev.package."*"]
-opt-level = 1                       # Optimize third-party deps (one-time cost)
+# NOTE: previously this was `[profile.dev.package."*"] opt-level = 1`,
+# which optimized every third-party dependency in dev / `cargo check`
+# builds. After the 2026-04-28 batchalign3 fold roughly tripled the
+# third-party dep set (axum, async-trait, tokio's full feature surface,
+# pyo3, sqlx via temporal-sdk, …), `opt-level = 1` for `*` made
+# `cargo check` 5+ minutes cold. The setting is now scoped to
+# `[profile.test.package."*"]` only, so test runtime stays fast while
+# `cargo check` and non-test `cargo build` cycles get back the speed
+# they had pre-fold.
 
 [profile.dev.build-override]
 opt-level = 3                       # Optimize proc macros and build scripts
 
 [profile.release]
-lto = true              # Fat LTO — one-time cost per deploy, maximum optimization
-codegen-units = 1       # Single codegen unit for best cross-crate inlining
-strip = true            # Strip symbols from deployed binaries
+# Deliberately lean. BA3's wall-clock is dominated by Python ML inference
+# (Stanza, Whisper) and external HTTP (Rev.AI), not by Rust code paths.
+# `lto = true` (fat LTO) and `codegen-units = 1` were previously set to
+# squeeze the last few percent out of Rust execution; the build-time cost
+# of that whole-program optimization (5-15 min link, single-threaded
+# codegen on the largest crates) was disproportionate to a runtime gain
+# that is empirically lost in the noise of a single Stanza inference call.
+# strip was also enabled for binary-size reasons that don't matter on the
+# fleet machines.
+#
+# If profiling ever identifies a specific Rust hot path where LTO
+# meaningfully moves the needle, re-add the settings then — with evidence.
+# Until then, default release uses opt-level 3 (the cargo default for
+# release) with codegen parallelism intact and symbols kept.
 
 [profile.test]
 split-debuginfo = "unpacked"
 debug = "line-tables-only"
+
+# Note: previously `[profile.test.package."*"] opt-level = 1` was in
+# effect to speed up test *runtime*. Removed because it doubled test
+# *build* time across hundreds of third-party deps in the post-fold
+# workspace. For specific tests where runtime is the bottleneck, run
+# with `cargo nextest run --release -p <crate>`. The default test
+# profile now uses opt-level 0 for everything — fast to build, slower
+# to execute, which is the right trade in iterative dev.

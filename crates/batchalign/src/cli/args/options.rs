@@ -250,12 +250,10 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             retokenize: a.retokenize && !a.keeptokens,
             skipmultilang: a.skipmultilang && !a.multilang,
             merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
-            // L2 splice flipped to opt-in 2026-05-03. The CLI flag is now
-            // `--l2-morphotag` (positive). The domain field
-            // `MorphotagOptions.no_l2_morphotag` keeps its name so we don't
-            // ripple a rename through the typed wire/JSON surface; we just
-            // negate the new positive flag here.
-            no_l2_morphotag: !a.l2_morphotag,
+            // Keep the domain / JSON field name so the wire format remains
+            // stable while the public CLI stays default-on with an explicit
+            // opt-out flag.
+            no_l2_morphotag: a.no_l2_morphotag,
             no_pos_hints: a.no_pos_hints,
         })),
         Commands::Coref(a) => Some(CommandOptions::Coref(CorefOptions {
@@ -316,6 +314,15 @@ pub fn common_opts(cmd: &Commands) -> Option<&CommonOpts> {
         Commands::Utseg(a) => Some(&a.common),
         Commands::Benchmark(a) => Some(&a.common),
         Commands::Compare(a) => Some(&a.common),
+        _ => None,
+    }
+}
+
+/// Extract `--before` from commands that support incremental processing.
+pub fn extract_before(cmd: &Commands) -> Option<&std::path::Path> {
+    match cmd {
+        Commands::Align(a) => a.incremental.before.as_deref(),
+        Commands::Morphotag(a) => a.incremental.before.as_deref(),
         _ => None,
     }
 }

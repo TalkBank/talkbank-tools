@@ -7,9 +7,10 @@
 use crate::error::{ErrorCode, ErrorContext, ErrorSink, ParseError, Severity, SourceLocation};
 use crate::model::UtteranceContent;
 use crate::node_types::{
-    CA_CONTINUATION_MARKER, COLON, COMMA, CONTENT_ITEM, FALLING_TO_LOW, FALLING_TO_MID,
-    LEVEL_PITCH, NON_COLON_SEPARATOR, OVERLAP_POINT, RISING_TO_HIGH, RISING_TO_MID, SEMICOLON,
-    SEPARATOR, TAG_MARKER, UNMARKED_ENDING, UPTAKE_SYMBOL, VOCATIVE_MARKER, WHITESPACES,
+    CA_CONTINUATION_MARKER, CA_NO_BREAK, CA_TECHNICAL_BREAK, COLON, COMMA, CONTENT_ITEM,
+    FALLING_TO_LOW, FALLING_TO_MID, LEVEL_PITCH, NON_COLON_SEPARATOR, OVERLAP_POINT,
+    RISING_TO_HIGH, RISING_TO_MID, SEMICOLON, SEPARATOR, TAG_MARKER, UNMARKED_ENDING,
+    UPTAKE_SYMBOL, VOCATIVE_MARKER, WHITESPACES,
 };
 use talkbank_model::ParseOutcome;
 use tree_sitter::Node;
@@ -65,6 +66,8 @@ pub fn parse_main_tier_contents(
             | CA_CONTINUATION_MARKER
             | UNMARKED_ENDING
             | UPTAKE_SYMBOL
+            | CA_NO_BREAK
+            | CA_TECHNICAL_BREAK
             | RISING_TO_HIGH
             | RISING_TO_MID
             | LEVEL_PITCH
@@ -199,6 +202,8 @@ fn parse_content_item(
         | CA_CONTINUATION_MARKER
         | UNMARKED_ENDING
         | UPTAKE_SYMBOL
+        | CA_NO_BREAK
+        | CA_TECHNICAL_BREAK
         | RISING_TO_HIGH
         | RISING_TO_MID
         | LEVEL_PITCH

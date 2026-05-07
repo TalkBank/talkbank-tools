@@ -23,8 +23,8 @@ use crate::api::{FileProgressStage, FileStatusEntry, FileStatusKind, MemoryMb};
 /// Persistent record of a cancel attempt, surfaced in the TUI as
 /// the end-of-run banner when a job ends with status `Cancelled`.
 /// Replaces the misleading "Done — N failed" suffix that the user
-/// saw after the 2026-04-26 incident — Brian read it as natural
-/// completion instead of a cancel he initiated.
+/// saw after the 2026-04-26 incident — the operator read it as
+/// natural completion instead of a cancel they had initiated.
 ///
 /// Source of truth is the `cancellations` audit table, projected
 /// into `JobInfo.last_cancelled_*` columns so the TUI can render

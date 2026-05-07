@@ -99,10 +99,26 @@ impl Validate for Utterance {
             );
         }
 
-        // E721-E723: structural validation of `%gra` relations.
-        for tier in &self.dependent_tiers {
-            if let DependentTier::Gra(marker) = tier {
-                marker.validate_structure(errors);
+        let gra_alignment_blocks_structure = self.alignment_diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.code,
+                crate::ErrorCode::MorGraCountMismatch
+                    | crate::ErrorCode::GraInvalidWordIndex
+                    | crate::ErrorCode::GraInvalidHeadIndex
+            )
+        });
+
+        // E721-E724: structural validation of `%gra` relations.
+        //
+        // If `%mor↔%gra` alignment has already established that the tier is
+        // cardinality-broken or contains out-of-bounds indices, suppress the
+        // downstream graph-structure checks. Otherwise we emit misleading
+        // cascades like E713 + E722 for the same malformed relation set.
+        if !gra_alignment_blocks_structure {
+            for tier in &self.dependent_tiers {
+                if let DependentTier::Gra(marker) = tier {
+                    marker.validate_structure(errors);
+                }
             }
         }
 

@@ -188,8 +188,25 @@ pub fn resolve_word_language(
             }
         }
         Some(WordLanguageMarker::Explicit(code)) => {
-            // @s:LANGCODE does NOT require the language to be declared in
-            // @Languages. Any language can be introduced at any time.
+            if !declared_languages.is_empty() && !declared_languages.iter().any(|decl| decl == code)
+            {
+                diagnostics.push(
+                    ParseError::new(
+                        ErrorCode::UndeclaredExplicitWordLanguage,
+                        Severity::Warning,
+                        SourceLocation::new(word.span),
+                        None,
+                        format!(
+                            "Explicit word language '{}' is not listed in @Languages",
+                            code.as_str()
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "Add '{}' to @Languages or confirm the word-level override is intentional",
+                        code.as_str()
+                    )),
+                );
+            }
             LanguageResolution::Single(code.clone())
         }
         Some(WordLanguageMarker::Multiple(codes)) => {

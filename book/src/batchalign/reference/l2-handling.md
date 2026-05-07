@@ -1,7 +1,7 @@
 # L2 and Language Switching
 
 **Status:** Current behavior reference
-**Last updated:** 2026-04-15 20:32 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 ## Current behavior
 
@@ -61,18 +61,57 @@ boundaries.
 
 ### Word-level
 
-Word-level language markers identify foreign/code-switched words, but do not
-currently trigger full per-word language-specific morphosyntax routing.
+Word-level language markers identify foreign/code-switched words and, during
+`morphotag`, do trigger per-word secondary-language routing when the target
+language resolves cleanly and a supported Stanza path exists.
 
-## Current limit
+## Current limits
 
-The parsed word-level language information is not currently used to route each
-marked word through a separate language-specific NLP pipeline.
+The remaining conservative fallbacks are:
 
-So the current public boundary is:
+- `--no-l2-morphotag` opts back into legacy `L2|xxx`
+- unresolved / ambiguous markers such as `@s:eng+spa` or `@s:eng&spa` do not
+  dispatch to one secondary model
+- unsupported target languages still preserve the code-switch signal via
+  `L2|xxx` rather than inventing morphology
 
-- preserve that the word is foreign/code-switched
-- avoid claiming full morphology for it
+## Unsupported non-primary languages
+
+`morphotag` only requires the **primary** `@Languages` code to be
+Stanza-supported; files whose primary is unsupported are skipped with
+a typed diagnostic before the pipeline runs. When the primary IS
+supported, non-primary content targeting an unsupported language is
+processed cleanly with an `L2|xxx` fallback:
+
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the utterance is
+  grouped under `UNSUPPORTEDLANG`, the worker partitions that group
+  out of Stanza dispatch (`partition_groups_by_stanza_support`), and
+  every word receives `L2|xxx`.
+- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+  span is short-circuited the same way; the host primary analysis is
+  preserved and the marker's slot stays `L2|xxx`.
+
+The worker never crashes on an unsupported secondary, and other
+utterances or spans in the same file targeting supported languages
+continue to receive real morphology.
+
+## Validation and normalization policy
+
+- Whole-utterance same-language all-`@s` patterns are rejected by validation
+  (E255). The accepted transcript form is utterance-level `[- lang]`, not
+  `word@s word@s ...` for an entire utterance.
+- Explicit `@s:LANG` still dispatches to `LANG` even when `LANG` is missing from
+  `@Languages`, but validation emits warn-only E254 so the header mismatch is
+  visible.
+- Batchalign does not silently rewrite either case during morphotag. Use
+  `chatter debug fix-s` to normalize whole-utterance `@s` runs and append
+  missing explicit languages to `@Languages` without touching already-correct
+  files. The fix-s predicate verifies that **every** word-bearing item
+  on the main tier — words, fillers (`&~`/`&-`/`&+`), nonwords, AND
+  retraced material — carries an explicit language attribution
+  resolving to the same target, and clears bare `@s` shortcuts on
+  fillers and nonwords as part of the rewrite (otherwise the new
+  `[- LANG]` precode would flip their resolved language).
 
 ## Related references
 

@@ -466,6 +466,8 @@ fn separator_token_to_model(tok: &Token<'_>) -> Separator {
         Token::VocativeMarker(_) => Separator::Vocative { span: s },
         Token::UnmarkedEnding(_) => Separator::UnmarkedEnding { span: s },
         Token::UptakeSymbol(_) => Separator::Uptake { span: s },
+        Token::CaNoBreak(_) => Separator::CaNoBreak { span: s },
+        Token::CaTechnicalBreak(_) => Separator::CaTechnicalBreak { span: s },
         Token::RisingToHigh(_) => Separator::RisingToHigh { span: s },
         Token::RisingToMid(_) => Separator::RisingToMid { span: s },
         Token::LevelPitch(_) => Separator::Level { span: s },
@@ -704,13 +706,6 @@ fn parsed_annotation_to_scoped(ann: &ast::ParsedAnnotation<'_>) -> Option<Conten
 // Terminator conversion
 // ═══════════════════════════════════════════════════════════════
 
-/// Promote a trailing CA intonation arrow separator to a terminator.
-///
-/// CA intonation arrows (⇗ ↗ → ↘ ⇘) serve dual roles: mid-content
-/// separators AND utterance-final terminators. The chumsky parser
-/// always consumes them as separators (like TreeSitter's greedy rule).
-/// When no explicit terminator was found, the trailing arrow should be
-/// promoted. This matches TreeSitter's `resolve_ca_terminator`.
 /// Convert a terminator token to model Terminator.
 pub fn token_to_terminator(tok: &Token<'_>) -> Terminator {
     let s = Span::DUMMY;
@@ -728,8 +723,6 @@ pub fn token_to_terminator(tok: &Token<'_>) -> Terminator {
         Token::SelfInterruptedQuestion(_) => Terminator::SelfInterruptedQuestion { span: s },
         Token::TrailingOffQuestion(_) => Terminator::TrailingOffQuestion { span: s },
         Token::BreakForCoding(_) => Terminator::BreakForCoding { span: s },
-        Token::CaNoBreak(_) => Terminator::CaNoBreak { span: s },
-        Token::CaTechnicalBreak(_) => Terminator::CaTechnicalBreak { span: s },
         _ => Terminator::Period { span: s },
     }
 }
@@ -752,13 +745,10 @@ pub fn main_tier_to_model(mt: &ast::MainTier<'_>) -> MainTier {
         .as_ref()
         .map(|t| token_to_terminator(t));
 
-    // Post-hoc promotions: resolve trailing content items that should be
     let mut main_tier = MainTier::new(speaker, content_items, terminator);
 
-    // Post-hoc promotions via the shared TierContent method.
-    // Order: extract bullet first, then CA terminator (arrow is last after bullet pop).
+    // Extract a terminal bullet that the greedy contents parser left in content.
     main_tier.content.extract_terminal_bullet();
-    main_tier.content.resolve_ca_terminator();
 
     // Grammar-routed bullet from tier_body.media_bullet takes priority
     // over the extracted one (it's correctly classified by the chumsky parser).

@@ -228,11 +228,10 @@ fn test_resolve_word_language_tertiary() {
 
 /// Explicit language codes are allowed even if absent from `@Languages`.
 ///
-/// This preserves CHAT behavior where `@s:code` can introduce new language codes.
+/// The resolver stays permissive, but it should warn so transcribers notice the
+/// missing header declaration.
 #[test]
 fn test_resolve_word_language_undeclared_explicit_code() {
-    // @s:LANGCODE does NOT require the code to be in @Languages.
-    // Any language can be introduced at any time.
     let mut word = Word::new_unchecked("ciao@s:ita", "ciao");
     word.lang = Some(WordLanguageMarker::explicit("ita"));
 
@@ -244,7 +243,8 @@ fn test_resolve_word_language_undeclared_explicit_code() {
         diagnostics: errors,
     } = resolve_word_language(&word, tier_language, &declared_languages);
     assert_eq!(lang, LanguageResolution::Single(lc("ita")));
-    assert_eq!(errors.len(), 0);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].severity, crate::Severity::Warning);
 }
 
 /// Explicit language codes declared in `@Languages` resolve cleanly.

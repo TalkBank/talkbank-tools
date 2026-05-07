@@ -347,5 +347,11 @@ def _get_pyannote_pipeline():
                 "'import pyannote.audio' works in the worker Python runtime."
             ) from exc
 
+        from batchalign.worker._progress import emit_hf_download_if_missing
+
+        emit_hf_download_if_missing(
+            "talkbank/dia-fork", kind="speaker diarization"
+        )
+
         _PYANNOTE_PIPELINE = PyannotePipeline.from_pretrained("talkbank/dia-fork")
     return _PYANNOTE_PIPELINE

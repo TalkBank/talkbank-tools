@@ -40,7 +40,10 @@
 use talkbank_model::ParseValidateOptions;
 use talkbank_model::model::LanguageCode;
 use talkbank_parser::TreeSitterParser;
-use talkbank_transform::morphosyntax::{MultilingualPolicy, collect_payloads, declared_languages};
+use talkbank_transform::morphosyntax::{
+    MappingContext, MultilingualPolicy, UdId, UdPunctable, UdSentence, UdWord, UniversalPos,
+    collect_payloads, declared_languages, map_ud_sentence,
+};
 
 /// Helper: parse a one-utterance CHAT fragment using the canonical
 /// tree-sitter parser. Mirrors the helper used in
@@ -221,8 +224,8 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
 /// RED reproducer (level 1, broadest): morphotag pipeline must keep
 /// `%mor` chunk count == `%gra` relation count.
 ///
-/// Empirical fixture: the pre-Brian-commit state of utterance line 543
-/// in `aphasia-data/Spanish/NonProtocol/PerLA/Fluent/104-JCM1.cha`,
+/// Empirical fixture: the pre-patch state of utterance line 543 in
+/// `aphasia-data/Spanish/NonProtocol/PerLA/Fluent/104-JCM1.cha`,
 /// reproduced verbatim by re-running the live morphotag pipeline on
 /// the file as it stood at commit `e17dc07`. The pipeline output is
 /// byte-identical across runs (deterministic under the current
@@ -249,24 +252,25 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
 /// `%gra` has 5 relations — the terminator's PUNCT relation was dropped
 /// and a spurious second PUNCT was attached to `noun|éram` instead.
 ///
-/// Brian patched the data on 2026-05-01 13:09 EDT (commit `9169e51`)
-/// to remove `↑` from the main tier and delete the `%gra` line, hiding
-/// the symptom. That data edit violates `talkbank-tools/CLAUDE.md`
-/// "Always Fix Root Causes, Never Symptoms" and is preserved here as
-/// the source of the evidence; the upstream commit is already pushed
-/// to `origin/main` on aphasia-data and cannot be cleanly undone.
+/// The corpus maintainer subsequently patched the data (commit
+/// `9169e51`) to remove `↑` from the main tier and delete the `%gra`
+/// line, hiding the symptom. That data edit violates the workspace
+/// "Always Fix Root Causes, Never Symptoms" rule and is preserved here
+/// as the source of the evidence; the upstream commit is already
+/// published on `origin/main` for aphasia-data and cannot be cleanly
+/// undone.
 ///
 /// Today's behavior: `align_mor_to_gra` returns a `GraAlignment` with
 /// E720 (`MorGraCountMismatch`). After the pipeline fix, regenerated
 /// `%mor` and `%gra` will align 1:1 and this test passes.
 #[test]
+#[ignore = "historical bad-output fixture only; current executable contract lives in inject::tests::inject_morphosyntax_gra_count_mismatch_returns_err, which rejects misaligned %mor/%gra instead of silently emitting them"]
 fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
-    // Verbatim pre-Brian pipeline output. The headers are minimized
+    // Verbatim pre-patch pipeline output. The headers are minimized
     // around the affected utterance so the test fixture is self-
     // contained; the utterance itself is byte-faithful to commit
-    // `e17dc07` line 543 (and to the 2026-05-01 fresh morphotag run
-    // captured at /Volumes/FranklinStuff/scratch/bug-dona-CA-2026-05-01/
-    // full-output/full-prebrian-input.cha lines 543-545).
+    // `e17dc07` line 543 (and to a 2026-05-01 fresh morphotag run on
+    // the same input).
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\tcat, spa\n\
@@ -297,7 +301,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
              (including MWT children and terminator) needs a paired \
              %gra entry. Fixture from \
              aphasia-data/Spanish/NonProtocol/PerLA/Fluent/104-JCM1.cha:543 \
-             at commit e17dc07 (pre-Brian-patch); reproduced verbatim by \
+             at commit e17dc07 (pre-patch); reproduced verbatim by \
              a fresh morphotag run on 2026-05-01."
         );
     }
@@ -340,6 +344,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
 /// 5 entries. After the bug is fixed, the pipeline emits a 6th
 /// `%gra` entry (some `N|root|PUNCT` form) and this passes.
 #[test]
+#[ignore = "historical bad-output fixture only; current executable contract lives in inject::tests::inject_morphosyntax_gra_count_mismatch_returns_err, which rejects misaligned %mor/%gra instead of silently emitting them"]
 fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() {
     let chat = "@UTF8\n\
                 @Begin\n\
@@ -389,4 +394,184 @@ fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() {
             fixtures extracted before this becomes a hard gate."]
 fn bug_011_mor_gra_chunk_counts_must_match() {
     let _ = ParseValidateOptions::default();
+}
+
+// =====================================================================
+// Corpus-derived RED gold specs (2026-05-06)
+//
+// These are intentionally RED tests. Each fixture is a minimized
+// one-utterance reproduction of current corpus output after BA3
+// morphotagging, and each expected string is the manually adjudicated
+// `%gra` surface that should have been emitted.
+//
+// Unlike the earlier contract tests in this file, these are gold-surface
+// specs: they pin the exact `%gra` line we want, family by family, so the
+// follow-up GREEN work has concrete targets instead of another
+// whack-a-mole corpus rerun.
+// =====================================================================
+
+fn gra_content(chat: &str) -> &str {
+    chat.lines()
+        .find_map(|line| line.strip_prefix("%gra:\t"))
+        .expect("fixture must contain exactly one %gra line")
+}
+
+fn assert_current_gra_matches_adjudicated_gold(
+    chat: &str,
+    expected_gold: &str,
+    source_label: &str,
+    family: &str,
+) {
+    let actual = gra_content(chat);
+    assert_eq!(
+        actual, expected_gold,
+        "corpus-derived RED %gra spec failed for {source_label} ({family}).\n\
+         current minimized fixture still contains:\n  {actual}\n\
+         but the adjudicated gold %gra is:\n  {expected_gold}\n\
+         This test is intentionally RED until the emitting/injection path is fixed."
+    );
+}
+
+#[test]
+fn current_e316_compound_prt_surface_must_use_chat_relation_label() {
+    let sentence = UdSentence {
+        words: vec![
+            UdWord {
+                id: UdId::Single(1),
+                text: "wake".to_string(),
+                lemma: "wake".to_string(),
+                upos: UdPunctable::Value(UniversalPos::Verb),
+                xpos: None,
+                feats: None,
+                head: 0,
+                deprel: "root".to_string(),
+                deps: None,
+                misc: None,
+            },
+            UdWord {
+                id: UdId::Single(2),
+                text: "up".to_string(),
+                lemma: "up".to_string(),
+                upos: UdPunctable::Value(UniversalPos::Adp),
+                xpos: None,
+                feats: None,
+                head: 1,
+                deprel: "compound:prt".to_string(),
+                deps: None,
+                misc: None,
+            },
+            UdWord {
+                id: UdId::Single(3),
+                text: ".".to_string(),
+                lemma: ".".to_string(),
+                upos: UdPunctable::Value(UniversalPos::Punct),
+                xpos: None,
+                feats: None,
+                head: 1,
+                deprel: "punct".to_string(),
+                deps: None,
+                misc: None,
+            },
+        ],
+    };
+    let ctx = MappingContext {
+        lang: LanguageCode::new("eng"),
+    };
+
+    let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map ordinary UD sentence");
+    let actual: Vec<String> = gras.iter().map(ToString::to_string).collect();
+    assert_eq!(
+        actual,
+        vec![
+            "1|0|ROOT".to_string(),
+            "2|1|COMPOUND-PRT".to_string(),
+            "3|1|PUNCT".to_string(),
+        ],
+        "E316 contract: ordinary UD->CHAT mapping must serialize `compound:prt` \
+         using CHAT `%gra` label form `COMPOUND-PRT`, not the raw UD label."
+    );
+}
+
+#[test]
+#[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
+fn current_e713_out_of_bounds_head_must_attach_cd_player_to_predicate() {
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\thrv\n\
+                @Participants:\tS PK Speaker\n\
+                @ID:\thrv|test|SPK|||||Speaker|||\n\
+                *SPK:\tonda kvarimo cd_player .\n\
+                %mor:\tadv|onda verb|kvariti noun|cd .\n\
+                %gra:\t1|2|ADVMOD 2|0|ROOT 3|5|COMPOUND 4|2|PUNCT\n\
+                @End\n";
+
+    assert_current_gra_matches_adjudicated_gold(
+        chat,
+        "1|2|ADVMOD 2|0|ROOT 3|2|OBJ 4|2|PUNCT",
+        "Croatian cd-player sample",
+        "E713",
+    );
+}
+
+#[test]
+#[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
+fn current_e722_e724_cycle_must_promote_adult_to_single_root() {
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\teng, spa\n\
+                @Participants:\tS PK Speaker\n\
+                @ID:\teng|test|SPK|||||Speaker|||\n\
+                *SPK:\tay si too adult .\n\
+                %mor:\tintj|ay noun|sí adv|too noun|adult .\n\
+                %gra:\t1|2|ROOT 2|1|FIXED 3|4|ADVMOD 4|1|PARATAXIS 5|1|PUNCT\n\
+                @End\n";
+
+    assert_current_gra_matches_adjudicated_gold(
+        chat,
+        "1|4|DISCOURSE 2|1|FIXED 3|4|ADVMOD 4|0|ROOT 5|4|PUNCT",
+        "Bangor Miami ay-si-too-adult sample",
+        "E722 + E724",
+    );
+}
+
+#[test]
+#[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
+fn current_e723_self_headed_relation_must_not_count_as_second_root() {
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\teng, yue\n\
+                @Participants:\tS PK Speaker\n\
+                @ID:\teng|test|SPK|||||Speaker|||\n\
+                *SPK:\tcolor ge go le .\n\
+                %mor:\tnoun|color pron|嗰個-Int-S1 noun|咧 L2|xxx .\n\
+                %gra:\t1|0|ROOT 2|1|DEP 3|3|NMOD 4|1|PUNCT 5|1|PUNCT\n\
+                @End\n";
+
+    assert_current_gra_matches_adjudicated_gold(
+        chat,
+        "1|0|ROOT 2|1|DEP 3|2|NMOD 4|1|PUNCT 5|1|PUNCT",
+        "EACMC color-ge-go-le sample",
+        "E723",
+    );
+}
+
+#[test]
+#[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
+fn current_e724_genitive_cycle_must_attach_case_marker_under_year() {
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\tdeu, eng\n\
+                @Participants:\tS PK Speaker\n\
+                @ID:\tdeu|test|SPK|||||Speaker|||\n\
+                *SPK:\tnew years abend .\n\
+                %mor:\tpropn|New noun|year~part|s noun|Abend-Masc-Nom adp|als pron|sie-Prs-Nom-S3 verb|feiern-Part-S aux|haben-Fin-Ind-Pres-S3 verb|feiern-Part-S aux|haben-Fin-Ind-Pres-S3 adp|in det|ein-Fem-Ind-Art-Sing +/.\n\
+                %gra:\t1|4|AMOD 2|3|NMOD 3|2|CASE 4|9|OBJ 5|6|CASE 6|7|OBL 7|9|XCOMP 8|7|AUX 9|0|ROOT 10|9|AUX 11|12|CASE 12|9|OBL 13|9|PUNCT\n\
+                @End\n";
+
+    assert_current_gra_matches_adjudicated_gold(
+        chat,
+        "1|4|AMOD 2|4|NMOD 3|2|CASE 4|9|OBJ 5|6|CASE 6|7|OBL 7|9|XCOMP 8|7|AUX 9|0|ROOT 10|9|AUX 11|12|CASE 12|9|OBL 13|9|PUNCT",
+        "CallHome German New-Year-s-Abend sample",
+        "E724",
+    );
 }

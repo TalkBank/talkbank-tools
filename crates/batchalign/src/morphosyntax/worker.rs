@@ -1,5 +1,6 @@
 //! Worker dispatch for morphosyntax inference.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::api::LanguageCode3;
@@ -14,6 +15,46 @@ use crate::worker::text_result_v2::parse_morphosyntax_result_v2;
 use talkbank_transform::morphosyntax::{diagnose_parse_failure, parse_raw_stanza_output};
 use tracing::{info, warn};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LanguageBatchGroup {
+    lang: LanguageCode3,
+    indices: Vec<usize>,
+}
+
+fn language_groups_for_items(
+    items: &[BatchItemWithPosition],
+    fallback_lang: &LanguageCode3,
+) -> Result<Vec<LanguageBatchGroup>, ServerError> {
+    let mut groups: Vec<LanguageBatchGroup> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
+
+    for (idx, (_, _, item, _)) in items.iter().enumerate() {
+        let effective_lang = if item.lang.as_ref().is_empty() {
+            fallback_lang.clone()
+        } else {
+            LanguageCode3::try_new(item.lang.as_ref()).map_err(|error| {
+                ServerError::Validation(format!(
+                    "morphotag batch item has invalid language '{}': {error}",
+                    item.lang.as_ref()
+                ))
+            })?
+        };
+
+        let key = effective_lang.as_ref().to_string();
+        if let Some(group_idx) = positions.get(&key).copied() {
+            groups[group_idx].indices.push(idx);
+        } else {
+            positions.insert(key, groups.len());
+            groups.push(LanguageBatchGroup {
+                lang: effective_lang,
+                indices: vec![idx],
+            });
+        }
+    }
+
+    Ok(groups)
+}
+
 /// Send batch items to workers for NLP inference via batched `execute_v2`.
 ///
 /// When the batch is large enough and the pool allows multiple workers per
@@ -21,6 +62,126 @@ use tracing::{info, warn};
 /// to separate workers.  This is transparent to callers — the returned
 /// `Vec<UdResponse>` is always parallel to the input `items` slice.
 pub(crate) async fn infer_batch(
+    pool: &WorkerPool,
+    items: &[BatchItemWithPosition],
+    lang: &LanguageCode3,
+    mwt: &MwtDict,
+    retokenize: bool,
+    progress_tx: Option<&tokio::sync::mpsc::Sender<crate::types::worker_v2::ProgressEventV2>>,
+) -> Result<Vec<UdResponse>, ServerError> {
+    if items.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let groups = language_groups_for_items(items, lang)?;
+    let (dispatchable, fallback) =
+        partition_groups_by_stanza_support(groups, pool.stanza_registry());
+
+    let needs_grouping = dispatchable.len() > 1
+        || dispatchable.first().map(|g| &g.lang) != Some(lang)
+        || !fallback.is_empty();
+
+    if !needs_grouping {
+        // Single homogeneous supported group matching the caller's
+        // fallback lang — the simple fast path.
+        return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress_tx).await;
+    }
+
+    info!(
+        items = items.len(),
+        dispatched_groups = dispatchable.len(),
+        unsupported_groups = fallback.len(),
+        "Dispatching mixed-language morphosyntax batch by per-item language; \
+         items in unsupported languages get empty responses (BA2-equivalent L2|xxx fallback)"
+    );
+
+    let mut merged: Vec<Option<UdResponse>> = vec![None; items.len()];
+
+    // Fill items in unsupported-language groups with empty UdResponses.
+    // Downstream `inject_results` skips items whose response has no
+    // sentences, leaving the existing `L2|xxx` placeholder in `%mor` —
+    // matching the pre-BA3 fallback semantics for code-switches into
+    // languages Stanza cannot analyze.
+    for (group_lang, indices) in fallback {
+        info!(
+            lang = %group_lang,
+            items = indices.len(),
+            "Stanza does not support this language; emitting L2|xxx fallback for these items"
+        );
+        for idx in indices {
+            merged[idx] = Some(UdResponse {
+                sentences: Vec::new(),
+            });
+        }
+    }
+
+    for group in dispatchable {
+        let group_items: Vec<BatchItemWithPosition> = group
+            .indices
+            .iter()
+            .map(|&idx| items[idx].clone())
+            .collect();
+        let responses = infer_batch_homogeneous(
+            pool,
+            &group_items,
+            &group.lang,
+            mwt,
+            retokenize,
+            progress_tx,
+        )
+        .await?;
+        for (original_idx, response) in group.indices.into_iter().zip(responses.into_iter()) {
+            merged[original_idx] = Some(response);
+        }
+    }
+
+    merged
+        .into_iter()
+        .map(|response| {
+            response.ok_or_else(|| {
+                ServerError::Validation(
+                    "morphotag mixed-language dispatch returned incomplete results".into(),
+                )
+            })
+        })
+        .collect()
+}
+
+/// Split language groups into ones that should be dispatched to a
+/// Stanza worker and ones that should fall back to `L2|xxx` because
+/// Stanza lacks core morphosyntax processors for the language.
+///
+/// Returns `(dispatchable, fallback)` where:
+///   - `dispatchable` is groups whose lang the registry supports;
+///     these get sent to workers as before.
+///   - `fallback` is `(lang, indices)` pairs for unsupported groups;
+///     callers fill the corresponding response slots with empty
+///     `UdResponse { sentences: vec![] }` so downstream injection
+///     skips them and leaves the `L2|xxx` placeholder intact.
+///
+/// This lets a transcript declare unsupported secondary languages
+/// (e.g. `@Languages: cym, eng, nep`) without crashing the worker
+/// during bootstrap. Only utterances that actually code-switch into
+/// the unsupported language fall back to `L2|xxx`; the rest are
+/// dispatched normally.
+fn partition_groups_by_stanza_support(
+    groups: Vec<LanguageBatchGroup>,
+    registry: Option<&crate::stanza_registry::StanzaRegistry>,
+) -> (Vec<LanguageBatchGroup>, Vec<(LanguageCode3, Vec<usize>)>) {
+    let mut dispatchable = Vec::new();
+    let mut fallback = Vec::new();
+    for group in groups {
+        let supported = registry.is_some_and(|r| r.supports_morphosyntax(group.lang.as_ref()));
+        if supported {
+            dispatchable.push(group);
+        } else {
+            fallback.push((group.lang, group.indices));
+        }
+    }
+    (dispatchable, fallback)
+}
+
+async fn infer_batch_homogeneous(
     pool: &WorkerPool,
     items: &[BatchItemWithPosition],
     lang: &LanguageCode3,
@@ -258,6 +419,23 @@ fn compute_chunk_count(item_count: usize, max_workers: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chat_ops::morphosyntax_ops::MorphosyntaxBatchItem;
+    use talkbank_model::Span;
+    use talkbank_model::Terminator;
+
+    fn batch_item(lang: &str) -> BatchItemWithPosition {
+        (
+            0,
+            0,
+            MorphosyntaxBatchItem {
+                words: Vec::new(),
+                terminator: Terminator::Period { span: Span::DUMMY },
+                special_forms: Vec::new(),
+                lang: talkbank_model::model::LanguageCode::new(lang),
+            },
+            Vec::new(),
+        )
+    }
 
     #[test]
     fn compute_chunk_count_below_minimum_returns_one() {
@@ -297,5 +475,92 @@ mod tests {
     fn compute_chunk_count_zero_workers_returns_one() {
         // Defensive: max_workers=0 should not panic
         assert_eq!(compute_chunk_count(100, 0), 1);
+    }
+
+    #[test]
+    fn language_groups_for_items_uses_per_item_language_and_preserves_indices() {
+        let items = vec![batch_item("eng"), batch_item("spa"), batch_item("eng")];
+        let groups = language_groups_for_items(&items, &LanguageCode3::eng()).unwrap();
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].lang, LanguageCode3::eng());
+        assert_eq!(groups[0].indices, vec![0, 2]);
+        assert_eq!(groups[1].lang.as_ref(), "spa");
+        assert_eq!(groups[1].indices, vec![1]);
+    }
+
+    /// Regression test for the worker-bootstrap crash on unsupported
+    /// secondary languages (e.g. `@Languages: cym, eng, nep` —
+    /// pre-fix, the morphotag pipeline tried to spawn a Stanza nep
+    /// worker for `[- nep]`-precoded utterances and crashed during
+    /// bootstrap with `UnsupportedLanguageError`, leaving the file's
+    /// processing as "failed to parse ready signal").
+    ///
+    /// The new partition function splits groups by Stanza support so
+    /// unsupported-language items can be filled with empty
+    /// `UdResponse`s downstream — semantically equivalent to BA2's
+    /// `L2|xxx` fallback for code-switches into unanalyzable
+    /// languages.
+    fn registry_supporting(langs: &[&str]) -> crate::stanza_registry::StanzaRegistry {
+        use crate::types::worker::StanzaLanguageProcessors;
+        use std::collections::BTreeMap;
+        let mut caps = BTreeMap::new();
+        for &iso3 in langs {
+            caps.insert(
+                iso3.to_string(),
+                StanzaLanguageProcessors {
+                    alpha2: iso3.chars().take(2).collect(),
+                    processors: ["tokenize", "pos", "lemma", "depparse"]
+                        .into_iter()
+                        .map(String::from)
+                        .collect(),
+                },
+            );
+        }
+        crate::stanza_registry::StanzaRegistry::from_capabilities(&caps)
+    }
+
+    #[test]
+    fn partition_groups_by_stanza_support_routes_unsupported_to_fallback() {
+        let groups = vec![
+            LanguageBatchGroup {
+                lang: LanguageCode3::eng(),
+                indices: vec![0, 2],
+            },
+            LanguageBatchGroup {
+                lang: LanguageCode3::try_new("nep").unwrap(),
+                indices: vec![1],
+            },
+            LanguageBatchGroup {
+                lang: LanguageCode3::try_new("cym").unwrap(),
+                indices: vec![3, 4],
+            },
+        ];
+        let registry = registry_supporting(&["eng", "cym"]);
+        let (dispatchable, fallback) = partition_groups_by_stanza_support(groups, Some(&registry));
+        assert_eq!(
+            dispatchable
+                .iter()
+                .map(|g| g.lang.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["eng", "cym"]
+        );
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0].0.as_ref(), "nep");
+        assert_eq!(fallback[0].1, vec![1]);
+    }
+
+    #[test]
+    fn partition_groups_by_stanza_support_with_no_registry_routes_all_to_fallback() {
+        // No stanza registry → no support data → safe default is
+        // "treat everything as unsupported," producing L2|xxx for
+        // all items rather than crashing the worker.
+        let groups = vec![LanguageBatchGroup {
+            lang: LanguageCode3::eng(),
+            indices: vec![0],
+        }];
+        let (dispatchable, fallback) = partition_groups_by_stanza_support(groups, None);
+        assert!(dispatchable.is_empty());
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0].0, LanguageCode3::eng());
     }
 }

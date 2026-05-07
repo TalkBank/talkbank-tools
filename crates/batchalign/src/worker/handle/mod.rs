@@ -15,6 +15,11 @@ pub mod spawn;
 
 pub use config::{WorkerConfig, WorkerRuntimeConfig};
 pub use spawn::spawn_tcp_daemon;
+// Re-exported for use across the crate (notably ``worker::tcp_handle``)
+// without making the whole ``protocol`` submodule public. ``WorkerErrorKind``
+// is the shared on-the-wire discriminator for ``{"op":"error", ...}``
+// responses; see the type's own doc.
+pub(crate) use protocol::WorkerErrorKind;
 
 use std::time::Duration;
 

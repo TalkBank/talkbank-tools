@@ -674,7 +674,7 @@ async fn stanza_sequential_dispatch_reuses_worker() {
 /// caller's per-request timeout must govern the *work-time* of its own
 /// request — never the queue-wait while earlier requests are being served.
 ///
-/// Reproduces Brian's hung Malayalam corpus job (`04a11009-1d0`, 2026-04-25)
+/// Reproduces an operator's hung Malayalam corpus job (`04a11009-1d0`, 2026-04-25)
 /// at unit-test scale. With `gpu_thread_pool_size = 1` the Python worker's
 /// `ThreadPoolExecutor` strictly serializes execute_v2; with
 /// `test_delay_ms = 200` each response takes ~200 ms; with N=8 callers the

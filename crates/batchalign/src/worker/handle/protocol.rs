@@ -99,7 +99,49 @@ pub(super) enum WorkerResponse {
     Shutdown,
     Error {
         error: String,
+        /// Distinguishes deterministic bootstrap-class failures from
+        /// per-request runtime failures. Optional: legacy workers that don't
+        /// emit the field default to [`WorkerErrorKind::Runtime`], preserving
+        /// existing retry behavior. Bootstrap-kind errors classify as
+        /// terminal; see [`WorkerErrorKind`] for details.
+        #[serde(default)]
+        kind: WorkerErrorKind,
     },
+}
+
+/// Discriminator for worker error responses on the wire.
+///
+/// Workers emit ``"runtime"`` for per-request failures (the default —
+/// retryable) and ``"bootstrap"`` for deterministic model-load /
+/// catalog-download / package-import failures (terminal — retrying with
+/// the same configuration produces the same failure).
+///
+/// Surfaced from the JSON wire as the optional ``kind`` field on
+/// ``{"op": "error", ...}`` responses. The default of ``Runtime`` is
+/// load-bearing for backward compatibility with workers that don't yet
+/// emit the field; do not change the default without coordinating a
+/// matching Python-side rollout.
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum WorkerErrorKind {
+    /// Per-request failure: retry MAY succeed (different inputs, transient
+    /// resource state). The default for backward compatibility.
+    #[default]
+    Runtime,
+    /// Deterministic bootstrap failure: model loading, catalog download,
+    /// import error, missing-model-with-offline-mode, etc. Retrying the
+    /// same worker with the same configuration produces the same failure.
+    Bootstrap,
+}
+
+impl WorkerErrorKind {
+    /// Convert the wire kind into a typed [`WorkerError`].
+    pub(crate) fn into_worker_error(self, message: String) -> WorkerError {
+        match self {
+            WorkerErrorKind::Runtime => WorkerError::WorkerResponse(message),
+            WorkerErrorKind::Bootstrap => WorkerError::Bootstrap(message),
+        }
+    }
 }
 
 /// Dump a failed worker IPC request to the always-on debug directory.

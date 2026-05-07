@@ -7,7 +7,7 @@
 
 use clap::{Args, Subcommand, ValueEnum};
 
-use super::CommonOpts;
+use super::{CommonOpts, IncrementalOpts};
 
 // ---------------------------------------------------------------------------
 // Engine choice enums
@@ -137,6 +137,10 @@ pub struct AlignArgs {
     /// Shared file I/O options.
     #[command(flatten)]
     pub common: CommonOpts,
+
+    /// Incremental-processing options.
+    #[command(flatten)]
+    pub incremental: IncrementalOpts,
 
     /// UTR engine: rev (default) or whisper.
     #[arg(long, value_enum, default_value_t)]
@@ -320,17 +324,20 @@ pub struct TranscribeArgs {
 }
 
 /// Arguments for the `translate` command.
+///
+/// **No `--lang` flag.** BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py`
+/// `translate` command takes no `--lang`). Source language is read per-file
+/// from the CHAT file's `@Languages:` header (BA2
+/// `pipelines/translate/seamless.py:40` uses `doc.langs[0]`); the
+/// translation target is hardcoded to English (BA2 `seamless.py:41`
+/// `tgt_lang="eng"`). The 2026-05-03 morphotag incident showed that a
+/// job-level lang sentinel silently overrides per-file routing — do not
+/// re-introduce `--lang` here without re-reading that postmortem.
 #[derive(Args, Debug, Clone)]
 pub struct TranslateArgs {
     /// Shared file I/O options.
     #[command(flatten)]
     pub common: CommonOpts,
-
-    /// Language override (3-letter ISO code). When set, overrides the
-    /// `@Languages` header in the CHAT file. Useful for testing or
-    /// files with missing/wrong headers.
-    #[arg(long)]
-    pub lang: Option<String>,
 
     /// Merge abbreviations in output.
     #[arg(long, conflicts_with = "no_merge_abbrev")]
@@ -355,6 +362,10 @@ pub struct MorphotagArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
+    /// Incremental-processing options.
+    #[command(flatten)]
+    pub incremental: IncrementalOpts,
+
     /// Retokenize the main line to fit UD tokenizations.
     ///
     /// WARNING: This modifies the main tier text to match Stanza's UD
@@ -376,20 +387,14 @@ pub struct MorphotagArgs {
     #[arg(long, conflicts_with = "skipmultilang")]
     pub multilang: bool,
 
-    /// Opt INTO experimental L2 dispatch for `@s` (code-switched) words.
+    /// Opt out of L2 dispatch for `@s` (code-switched) words.
     ///
-    /// Default OFF as of 2026-05-03 after a corpus-wide audit found 235
-    /// invalid CHAT files in pushed data repos with mor/gra cardinality
-    /// mismatches caused by an earlier buggy L2 splice (see
-    /// `docs/postmortems/2026-05-03-l2-splice-cardinality-investigation.md`).
-    /// With L2 off, `@s` words receive `L2|xxx` placeholders — the BA2
-    /// behaviour, which is correct and ships safely.
-    ///
-    /// Pass `--l2-morphotag` to opt in once the L2 splice path has been
-    /// thoroughly verified (cf. the same postmortem for the verification
-    /// plan).
+    /// By default morphotag routes `@s` words to the secondary-language
+    /// Stanza path and splices the resulting morphology back into `%mor`.
+    /// Pass `--no-l2-morphotag` to keep the legacy `L2|xxx` placeholders
+    /// instead.
     #[arg(long, default_value_t = false)]
-    pub l2_morphotag: bool,
+    pub no_l2_morphotag: bool,
 
     /// Opt out of transcriber-supplied `$POS` hint respect. By
     /// default batchalign3 walks every main-tier word carrying a
@@ -415,16 +420,19 @@ pub struct MorphotagArgs {
 }
 
 /// Arguments for the `coref` command.
+/// Arguments for the `coref` command.
+///
+/// **No `--lang` flag.** BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py`
+/// `coref` command takes no `--lang`). Coref is English-only — non-English
+/// files pass through unchanged based on the per-file `@Languages:` header
+/// (see `coref.rs::file_has_english`). Re-introducing `--lang` here would
+/// recreate the 2026-05-03 morphotag failure mode where a job-level sentinel
+/// silently overrode per-file language routing.
 #[derive(Args, Debug, Clone)]
 pub struct CorefArgs {
     /// Shared file I/O options.
     #[command(flatten)]
     pub common: CommonOpts,
-
-    /// Language override (3-letter ISO code). When set, overrides the
-    /// `@Languages` header in the CHAT file.
-    #[arg(long)]
-    pub lang: Option<String>,
 
     /// Merge abbreviations in output.
     #[arg(long, conflicts_with = "no_merge_abbrev")]

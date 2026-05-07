@@ -1,26 +1,101 @@
+use crate::planning;
 use crate::runner::DispatchHostContext;
-use crate::runner::util::FileStage;
-use crate::store::RunnerJobSnapshot;
+use crate::runner::util::{FileRunTracker, FileStage};
+use crate::scheduling::WorkUnitKind;
+use crate::store::{RunnerJobSnapshot, unix_now};
+use crate::text_batch::TextBatchFileResults;
 
-use super::simple_batched_text::dispatch_simple_batched_text_job;
+use super::text_io::{load_text_inputs, write_text_results};
 use super::worker_gateway::WorkerGateway;
 
+/// Dispatch a translate job: per-file source-language routing.
+///
+/// **BA2 parity (2026-05-03 fix).** BA2's translate reads each file's
+/// `doc.langs[0]` as the source language for inference
+/// (`~/batchalign2-master/batchalign/pipelines/translate/seamless.py:40`).
+/// Earlier BA3 used `dispatch_simple_batched_text_job` which pulled one
+/// job-level lang and pooled all files into a single inference call —
+/// the same shape that caused the 2026-05-03 morphotag incident
+/// (English Stanza silently applied to non-English files).
+///
+/// This dispatch parses each file's `@Languages:` header and resolves the
+/// per-file source language via `resolve_per_file_lang`. Files whose
+/// header is missing or malformed are recorded as failures and skipped —
+/// no silent English fallback. Cross-file pooling is intentionally given
+/// up in exchange for per-file lang correctness, per-file failure
+/// isolation, and per-file durability — the same trade-off
+/// `execution::utseg::dispatch_utseg_job` made (see its module doc for
+/// the rationale).
 pub(crate) async fn dispatch_translate_job(
     job: &RunnerJobSnapshot,
     host: &DispatchHostContext,
     gateway: &dyn WorkerGateway,
     should_merge_abbrev: bool,
 ) -> Result<(), crate::error::ServerError> {
-    dispatch_simple_batched_text_job(
+    let plan = planning::build_job_plan(job).map_err(|error| {
+        crate::error::ServerError::Validation(format!("Translate planning failed: {error}"))
+    })?;
+    let sink = host.sink().clone();
+    let started_at = unix_now();
+
+    for file in &job.pending_files {
+        FileRunTracker::new(sink.as_ref(), &job.identity.job_id, file.filename.as_ref())
+            .begin_first_attempt(WorkUnitKind::BatchInfer, started_at, FileStage::Translating)
+            .await;
+    }
+
+    let inputs = load_text_inputs(job, host, false).await;
+    if inputs.file_texts.is_empty() {
+        return Ok(());
+    }
+
+    let mut all_results: TextBatchFileResults = Vec::with_capacity(inputs.file_texts.len());
+    let parser = crate::chat_parser();
+    for file_input in inputs.file_texts {
+        if job.cancel_token.is_cancelled() {
+            break;
+        }
+
+        // Resolve source language from the file's own @Languages header.
+        // No silent English fallback — a file with no parseable language
+        // becomes a typed Err in this file's batch results, surfaced to
+        // the operator via the job's file_statuses.
+        let (chat_file, _parse_errors) =
+            talkbank_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
+        match crate::pipeline::morphosyntax::resolve_per_file_lang(&chat_file) {
+            Ok(src_lang) => {
+                // Single-file batch at the gateway boundary. This loses
+                // cross-file pooling on purpose: per-file lang correctness
+                // > batching speedup.
+                let mut results = gateway
+                    .translate_batch(std::slice::from_ref(&file_input), &src_lang)
+                    .await;
+                all_results.append(&mut results);
+            }
+            Err(err) => {
+                tracing::warn!(
+                    file = %file_input.filename,
+                    error = %err,
+                    "Translate skipping file: per-file language resolution failed",
+                );
+                all_results.push(crate::text_batch::TextBatchFileResult::err(
+                    file_input.filename.clone(),
+                    err.to_string(),
+                ));
+            }
+        }
+    }
+
+    write_text_results(
         job,
         host,
+        &plan,
+        all_results,
         should_merge_abbrev,
-        FileStage::Translating,
         "Translate",
-        "Translate",
-        |files, lang| async move { gateway.translate_batch(&files, &lang).await },
     )
-    .await
+    .await;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -119,7 +194,13 @@ mod tests {
     }
 
     fn translate_snapshot(staging_dir: &std::path::Path) -> RunnerJobSnapshot {
-        let text = "@UTF8\n@Begin\n*PAR:\thello world .\n@End\n";
+        // Translate dispatch resolves the source language *per file* from
+        // each file's `@Languages:` header (BA2 parity, see module doc).
+        // A missing header is a typed failure, not a silent fallback —
+        // so the test fixture must declare a language explicitly.
+        // CHAT requires `@Languages` and `@Participants` to appear after
+        // `@Begin` for the parser to extract them into the typed model.
+        let text = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Subject\n@ID:\teng|test|PAR|||||Subject|||\n*PAR:\thello world .\n@End\n";
         let input_dir = staging_dir.join("input");
         std::fs::create_dir_all(&input_dir).unwrap();
         std::fs::write(input_dir.join("a.cha"), text).unwrap();
@@ -131,7 +212,10 @@ mod tests {
             },
             dispatch: crate::store::RunnerDispatchConfig {
                 command: ReleasedCommand::Translate,
-                lang: LanguageSpec::Resolved(LanguageCode3::eng()),
+                // Translate is a per-file-language command (BA2 parity, see
+                // module doc) — submission validation rejects any other
+                // `LanguageSpec` for this command.
+                lang: LanguageSpec::PerFile,
                 num_speakers: NumSpeakers(1),
                 options: CommandOptions::Translate(TranslateOptions {
                     common: CommonOptions::default(),
@@ -180,7 +264,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn translate_batches_all_files_in_one_gateway_call() {
+    async fn translate_dispatches_one_gateway_call_per_file() {
+        // BA2 parity (2026-05-03): translate dispatches one gateway call per
+        // input file, each tagged with that file's per-file source language
+        // resolved from the file's `@Languages:` header. Cross-file pooling
+        // was removed because it forced a single job-level lang across files
+        // — the same shape that caused the morphotag incident. See
+        // `dispatch_translate_job` doc for the full rationale.
         let temp = tempfile::tempdir().unwrap();
         let host = host();
         let gateway = FakeTranslateGateway::default();
@@ -191,8 +281,15 @@ mod tests {
             .expect("translate dispatch");
 
         let state = gateway.state.lock().unwrap();
-        assert_eq!(state.batch_calls, 1);
-        assert_eq!(state.batch_sizes, vec![2]);
+        assert_eq!(
+            state.batch_calls, 2,
+            "one gateway call per file (BA2 parity); pooled batching is gone"
+        );
+        assert_eq!(
+            state.batch_sizes,
+            vec![1, 1],
+            "each per-file call carries exactly one file"
+        );
     }
 
     #[tokio::test]

@@ -83,19 +83,39 @@ mod tests {
         );
     }
 
+    /// `Auto` jobs reach the ASR worker with no resolved fallback. The
+    /// downstream parser must surface a typed error if the worker
+    /// returns no language either — no silent eng fallback.
     #[test]
-    fn asr_auto_uses_auto_worker_language_with_resolved_fallback() {
-        let (worker_lang, fallback_lang) = asr_worker_languages(&LanguageSpec::Auto);
+    fn asr_auto_uses_auto_worker_language_with_no_fallback() {
+        let (worker_lang, fallback_lang) =
+            asr_worker_languages(&LanguageSpec::Auto).expect("Auto is a legal transcribe spec");
         assert_eq!(worker_lang, WorkerLanguage::Auto);
-        assert_eq!(fallback_lang, LanguageCode3::eng());
+        assert!(
+            fallback_lang.is_none(),
+            "Auto must have no concrete fallback — Stanza header must be \
+             driven by the ASR response, not silently substituted with eng",
+        );
     }
 
     #[test]
     fn asr_resolved_language_preserves_worker_and_fallback_values() {
         let lang = LanguageSpec::Resolved(LanguageCode3::fra());
-        let (worker_lang, fallback_lang) = asr_worker_languages(&lang);
+        let (worker_lang, fallback_lang) =
+            asr_worker_languages(&lang).expect("Resolved is a legal transcribe spec");
         assert_eq!(worker_lang, WorkerLanguage::from(LanguageCode3::fra()));
-        assert_eq!(fallback_lang, LanguageCode3::fra());
+        assert_eq!(fallback_lang, Some(LanguageCode3::fra()));
+    }
+
+    /// `PerFile` is reserved for morphotag/translate/coref; transcribe
+    /// must reject it at the ASR-language helper level so a malformed
+    /// submission can't silently degrade.
+    #[test]
+    fn asr_per_file_is_rejected() {
+        let err = asr_worker_languages(&LanguageSpec::PerFile)
+            .expect_err("transcribe must reject PerFile");
+        let msg = err.to_string();
+        assert!(msg.contains("PerFile"), "{msg}");
     }
 
     fn sample_transcribe_options(backend: AsrBackend) -> TranscribeOptions {

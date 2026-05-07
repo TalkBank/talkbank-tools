@@ -340,6 +340,11 @@ impl<'de> serde::Deserialize<'de> for LanguageCode3 {
 ///
 /// - `Resolved(code)` for a concrete ISO 639-3 language
 /// - `Auto` for ASR auto-detection
+/// - `PerFile` for text-NLP commands (morphotag/translate/coref) that
+///   resolve language per-file from each CHAT file's `@Languages:`
+///   header. Distinct from `Auto`: the Python worker must NOT try to
+///   load language-specific models for a `PerFile` worker — language
+///   pipelines are loaded lazily as files dispatch.
 /// - `Unspecified` when the worker task does not consume a language hint
 #[derive(Debug, Clone, PartialEq, Eq, Hash, utoipa::ToSchema)]
 pub enum WorkerLanguage {
@@ -347,13 +352,17 @@ pub enum WorkerLanguage {
     Resolved(LanguageCode3),
     /// ASR auto-detection sentinel.
     Auto,
+    /// Per-file language resolution (no job-level language).
+    PerFile,
     /// No worker language hint should be provided.
     Unspecified,
 }
 
 /// Error returned when a worker-runtime language string is invalid.
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("invalid worker language \"{0}\": expected 3 ASCII letters, \"auto\", or an empty string")]
+#[error(
+    "invalid worker language \"{0}\": expected 3 ASCII letters, \"auto\", \"per-file\", or an empty string"
+)]
 pub struct InvalidWorkerLanguage(pub String);
 
 impl WorkerLanguage {
@@ -364,6 +373,8 @@ impl WorkerLanguage {
             Ok(Self::Unspecified)
         } else if s.eq_ignore_ascii_case("auto") {
             Ok(Self::Auto)
+        } else if s.eq_ignore_ascii_case("per-file") {
+            Ok(Self::PerFile)
         } else {
             LanguageCode3::try_new(s)
                 .map(Self::Resolved)
@@ -376,6 +387,7 @@ impl WorkerLanguage {
         match self {
             Self::Resolved(code) => code.as_ref(),
             Self::Auto => "auto",
+            Self::PerFile => "per-file",
             Self::Unspecified => "",
         }
     }
@@ -384,13 +396,19 @@ impl WorkerLanguage {
     pub fn as_resolved(&self) -> Option<&LanguageCode3> {
         match self {
             Self::Resolved(code) => Some(code),
-            Self::Auto | Self::Unspecified => None,
+            Self::Auto | Self::PerFile | Self::Unspecified => None,
         }
     }
 
     /// Return `true` when the worker should auto-detect the language.
     pub fn is_auto(&self) -> bool {
         matches!(self, Self::Auto)
+    }
+
+    /// Return `true` when the worker has no job-level language and
+    /// should resolve per-file.
+    pub fn is_per_file(&self) -> bool {
+        matches!(self, Self::PerFile)
     }
 
     /// Return `true` when the worker should receive no language hint.
@@ -478,28 +496,49 @@ impl schemars::JsonSchema for WorkerLanguage {
 /// `Auto` means the ASR engine should detect the language. This variant must
 /// be resolved to a concrete [`LanguageCode3`] before any CHAT construction
 /// or NLP dispatch that requires a known language.
+///
+/// `PerFile` means the command has no job-level language at all: each input
+/// file's processing language is read from its `@Languages:` header at the
+/// start of the per-file pipeline. This is distinct from `Auto`: `Auto` is an
+/// ASR-engine signal asking the model to detect the spoken language;
+/// `PerFile` is a routing signal for text-NLP commands (morphotag, translate,
+/// coref) whose language source is the CHAT file itself, not the job
+/// submission. The 2026-05-03 morphotag incident happened because these
+/// commands were forced to carry a placeholder `Resolved(eng)` value that
+/// then leaked into the job record, the dashboard, and the Stanza
+/// pre-warming key. `PerFile` makes the absence of a job-level language a
+/// first-class state in the type system.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, ToSchema)]
 pub enum LanguageSpec {
     /// Let the ASR engine auto-detect the language.
     Auto,
     /// A concrete ISO 639-3 language code.
     Resolved(LanguageCode3),
+    /// No job-level language; resolve per-file from each CHAT file's
+    /// `@Languages:` header. Used by morphotag, translate, and coref —
+    /// none of which take a `--lang` CLI flag.
+    PerFile,
 }
 
 impl LanguageSpec {
-    /// Return the resolved language code, or `None` if `Auto`.
+    /// Return the resolved language code, or `None` if `Auto` or `PerFile`.
+    ///
+    /// Both `Auto` and `PerFile` represent "no job-level resolved language"
+    /// from the inference-dispatch perspective, but they reach that state
+    /// for different reasons. Callers that need to distinguish them must
+    /// match on the variant directly.
     pub fn as_resolved(&self) -> Option<&LanguageCode3> {
         match self {
-            Self::Auto => None,
+            Self::Auto | Self::PerFile => None,
             Self::Resolved(code) => Some(code),
         }
     }
 
     /// Return the resolved language code, falling back to `fallback` if
-    /// `Auto`.
+    /// `Auto` or `PerFile`.
     pub fn resolve_or(&self, fallback: &LanguageCode3) -> LanguageCode3 {
         match self {
-            Self::Auto => fallback.clone(),
+            Self::Auto | Self::PerFile => fallback.clone(),
             Self::Resolved(code) => code.clone(),
         }
     }
@@ -509,16 +548,33 @@ impl LanguageSpec {
         matches!(self, Self::Auto)
     }
 
-    /// Convert this submission/runtime language into the worker-runtime language domain.
+    /// Return `true` if this is `PerFile`.
+    pub fn is_per_file(&self) -> bool {
+        matches!(self, Self::PerFile)
+    }
+
+    /// Convert this submission/runtime language into the worker-runtime
+    /// language domain.
+    ///
+    /// Each `LanguageSpec` variant maps to its `WorkerLanguage`
+    /// counterpart. `PerFile` does **not** collapse into `Auto`: those are
+    /// semantically different states (Auto = "ASR detect a single
+    /// language for this whole job"; PerFile = "no job-level language at
+    /// all, dispatch per-file") and the wire format must distinguish
+    /// them. Otherwise the Python worker — which parses `--lang` as a
+    /// plain string — would receive `"auto"` for both cases and try to
+    /// load Stanza models for the literal string `"auto"`, crashing
+    /// before ready.
     pub fn to_worker_language(&self) -> WorkerLanguage {
         match self {
             Self::Auto => WorkerLanguage::Auto,
             Self::Resolved(code) => WorkerLanguage::Resolved(code.clone()),
+            Self::PerFile => WorkerLanguage::PerFile,
         }
     }
 
-    /// Parse from a DB string column. `"auto"` → `Auto`, anything else
-    /// → `Resolved`.
+    /// Parse from a DB string column. `"auto"` → `Auto`, `"per-file"`
+    /// → `PerFile`, anything else → `Resolved`.
     ///
     /// Returns `(spec, true)` if the value was valid, `(spec, false)` if
     /// the stored value was invalid and fell back to `eng`. Callers should
@@ -526,6 +582,8 @@ impl LanguageSpec {
     pub fn parse_from_db(s: &str) -> (Self, bool) {
         if s.eq_ignore_ascii_case("auto") {
             (Self::Auto, true)
+        } else if s.eq_ignore_ascii_case("per-file") {
+            (Self::PerFile, true)
         } else {
             match LanguageCode3::try_new(s) {
                 Ok(code) => (Self::Resolved(code), true),
@@ -540,6 +598,7 @@ impl std::fmt::Display for LanguageSpec {
         match self {
             Self::Auto => write!(f, "auto"),
             Self::Resolved(code) => write!(f, "{code}"),
+            Self::PerFile => write!(f, "per-file"),
         }
     }
 }
@@ -555,6 +614,8 @@ impl TryFrom<&str> for LanguageSpec {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.eq_ignore_ascii_case("auto") {
             Ok(Self::Auto)
+        } else if s.eq_ignore_ascii_case("per-file") {
+            Ok(Self::PerFile)
         } else {
             LanguageCode3::try_new(s).map(Self::Resolved)
         }
@@ -569,6 +630,7 @@ impl Serialize for LanguageSpec {
         match self {
             Self::Auto => serializer.serialize_str("auto"),
             Self::Resolved(code) => serializer.serialize_str(&code.0),
+            Self::PerFile => serializer.serialize_str("per-file"),
         }
     }
 }
@@ -581,6 +643,8 @@ impl<'de> Deserialize<'de> for LanguageSpec {
         let s = String::deserialize(deserializer)?;
         if s.eq_ignore_ascii_case("auto") {
             Ok(Self::Auto)
+        } else if s.eq_ignore_ascii_case("per-file") {
+            Ok(Self::PerFile)
         } else {
             LanguageCode3::try_new(&s)
                 .map(Self::Resolved)
@@ -921,7 +985,7 @@ numeric_id!(
     ///
     /// Unix PIDs fit in u32 on every platform we support. Persisted in
     /// `cancellations.pid` for forensics across multi-machine setups
-    /// (helps distinguish a Brian-laptop cancel from a fleet-internal one).
+    /// (helps distinguish an operator-laptop cancel from a fleet-internal one).
     pub CallerPid(u32) [Eq]
 );
 
@@ -1161,6 +1225,73 @@ mod tests {
             LanguageSpec::Resolved(LanguageCode3::eng()).to_worker_language(),
             WorkerLanguage::Resolved(LanguageCode3::eng())
         );
+        assert_eq!(
+            LanguageSpec::PerFile.to_worker_language(),
+            WorkerLanguage::PerFile,
+            "PerFile must NOT collapse into Auto — those are semantically \
+             distinct states and the wire format must distinguish them",
+        );
+    }
+
+    // ---- LanguageSpec::PerFile ----
+    //
+    // `PerFile` exists for commands whose processing language is not a
+    // job-level concept but is resolved per-file from each CHAT file's
+    // `@Languages:` header (morphotag, translate, coref). It is NOT the same
+    // as `Auto` (which is an ASR-engine signal: "let the model detect the
+    // spoken language"). The two must serialize differently so the wire
+    // format and the dashboard distinguish "no job-level lang" from "ASR
+    // auto-detect".
+
+    #[test]
+    fn language_spec_per_file_displays_as_per_file() {
+        assert_eq!(LanguageSpec::PerFile.to_string(), "per-file");
+    }
+
+    #[test]
+    fn language_spec_per_file_serializes_as_per_file_string() {
+        let json = serde_json::to_string(&LanguageSpec::PerFile).unwrap();
+        assert_eq!(json, "\"per-file\"");
+    }
+
+    #[test]
+    fn language_spec_per_file_round_trips_json() {
+        let spec = LanguageSpec::PerFile;
+        let json = serde_json::to_string(&spec).unwrap();
+        let back: LanguageSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, spec);
+    }
+
+    #[test]
+    fn language_spec_parse_from_db_per_file() {
+        let (spec, valid) = LanguageSpec::parse_from_db("per-file");
+        assert_eq!(spec, LanguageSpec::PerFile);
+        assert!(valid);
+    }
+
+    #[test]
+    fn language_spec_per_file_try_from_str() {
+        assert_eq!(
+            LanguageSpec::try_from("per-file").unwrap(),
+            LanguageSpec::PerFile
+        );
+    }
+
+    #[test]
+    fn language_spec_per_file_distinct_from_auto() {
+        // ASR auto-detect ≠ per-file lang resolution. Code that branches on
+        // these states must not collapse them into `Option<LanguageCode3>`.
+        assert_ne!(LanguageSpec::PerFile, LanguageSpec::Auto);
+    }
+
+    #[test]
+    fn language_spec_per_file_as_resolved_is_none() {
+        assert_eq!(LanguageSpec::PerFile.as_resolved(), None);
+    }
+
+    #[test]
+    fn language_spec_per_file_is_not_auto() {
+        assert!(!LanguageSpec::PerFile.is_auto());
     }
 
     // ---- DisplayPath ----

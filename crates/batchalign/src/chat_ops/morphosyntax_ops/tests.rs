@@ -675,6 +675,188 @@ fn collect_payloads_identifies_contiguous_at_s_span() {
     assert_eq!(spans[0].words, vec!["los", "niños"]);
 }
 
+/// Thin L2 acceptance: exercise the real order above the seam-local
+/// tests without invoking the worker/runtime layer:
+///
+/// 1. collect primary payloads
+/// 2. extract deferred @s positions from the primary UD response
+/// 3. inject primary results (which writes `L2|xxx` placeholders)
+/// 4. plan the secondary dispatch span from the mutated `ChatFile`
+/// 5. merge a synthetic secondary UD sentence for that span
+/// 6. splice the merged secondary morphology back into the host file
+#[test]
+fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
+    use talkbank_model::ParseValidateOptions;
+    use talkbank_model::model::Line;
+    use talkbank_transform::morphosyntax::l2::{
+        extract_l2_deferred_positions, merge_planned_secondary_span, plan_secondary_dispatch,
+        splice_l2_into_chat,
+    };
+    use talkbank_transform::morphosyntax::{UdId, UdPunctable, UdSentence, UdWord, UniversalPos};
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
+    let (mut chat_file, _) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(
+        batch_items.len(),
+        1,
+        "fixture should produce one utterance payload"
+    );
+
+    let primary_ud_response = ud_response_from_words(
+        r#"[
+            {"id":1,"text":"we","lemma":"we","upos":"PRON","head":2,"deprel":"nsubj"},
+            {"id":2,"text":"talked","lemma":"talk","upos":"VERB","head":0,"deprel":"root"},
+            {"id":3,"text":"about","lemma":"about","upos":"ADP","head":5,"deprel":"case"},
+            {"id":4,"text":"los","lemma":"the","upos":"DET","head":5,"deprel":"det"},
+            {"id":5,"text":"niños","lemma":"child","upos":"NOUN","head":2,"deprel":"obl"},
+            {"id":6,"text":".","lemma":".","upos":"PUNCT","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let deferred =
+        extract_l2_deferred_positions(&batch_items, std::slice::from_ref(&primary_ud_response));
+    assert_eq!(
+        deferred.len(),
+        2,
+        "contiguous Spanish span should defer two positions"
+    );
+    assert_eq!(deferred[0].word_idx, 3);
+    assert_eq!(deferred[1].word_idx, 4);
+    assert_eq!(deferred[0].target_lang.as_str(), "spa");
+    assert_eq!(deferred[1].target_lang.as_str(), "spa");
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    let injection = inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![primary_ud_response],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("primary injection should succeed");
+    assert!(
+        injection.decisions.is_empty(),
+        "primary L2-placeholder injection should not degrade the fixture: {:?}",
+        injection.decisions
+    );
+
+    let utterance = chat_file
+        .lines
+        .iter()
+        .find_map(|line| match line {
+            Line::Utterance(utt) => Some(utt),
+            _ => None,
+        })
+        .expect("fixture should contain an utterance");
+    let mor_before = utterance.mor_tier().expect("%mor after primary injection");
+    assert_eq!(mor_before.items()[3].main.pos.to_string(), "L2");
+    assert_eq!(mor_before.items()[3].main.lemma.to_string(), "xxx");
+    assert_eq!(mor_before.items()[4].main.pos.to_string(), "L2");
+    assert_eq!(mor_before.items()[4].main.lemma.to_string(), "xxx");
+
+    let dispatch_plan = plan_secondary_dispatch(&chat_file, &deferred);
+    assert_eq!(
+        dispatch_plan.spans.len(),
+        1,
+        "contiguous span should plan as one secondary sentence"
+    );
+    let span = &dispatch_plan.spans[0];
+    assert_eq!(
+        span.words.iter().map(|w| w.as_str()).collect::<Vec<_>>(),
+        vec!["los", "niños"]
+    );
+    assert!(
+        span.attachment.is_external_root(),
+        "the noun in the secondary span must reattach to the host predicate"
+    );
+    assert_eq!(
+        span.attachment.external_root_deprel().map(|d| d.as_str()),
+        Some("obl")
+    );
+
+    let secondary_sentence = UdSentence {
+        words: vec![
+            UdWord {
+                id: UdId::Single(1),
+                text: "los".to_string(),
+                lemma: "el".to_string(),
+                upos: UdPunctable::Value(UniversalPos::Det),
+                xpos: None,
+                feats: None,
+                head: 2,
+                deprel: "det".to_string(),
+                deps: None,
+                misc: None,
+            },
+            UdWord {
+                id: UdId::Single(2),
+                text: "niños".to_string(),
+                lemma: "niño".to_string(),
+                upos: UdPunctable::Value(UniversalPos::Noun),
+                xpos: None,
+                feats: None,
+                head: 0,
+                deprel: "root".to_string(),
+                deps: None,
+                misc: None,
+            },
+        ],
+    };
+    let merged_pairs = merge_planned_secondary_span(span, &deferred, &secondary_sentence)
+        .expect("secondary merge");
+    assert_eq!(
+        merged_pairs.len(),
+        2,
+        "secondary span should merge back into two positions"
+    );
+
+    let mut merged_results = vec![None; deferred.len()];
+    for (global_idx, merged) in merged_pairs {
+        merged_results[global_idx] = Some(merged);
+    }
+
+    let outcome = splice_l2_into_chat(&mut chat_file, &deferred, &merged_results);
+    assert_eq!(outcome.spliced, 2);
+    assert_eq!(outcome.fallback, 0);
+    assert_eq!(outcome.gra_upgraded, 0);
+
+    let utterance = chat_file
+        .lines
+        .iter()
+        .find_map(|line| match line {
+            Line::Utterance(utt) => Some(utt),
+            _ => None,
+        })
+        .expect("fixture should contain an utterance");
+    let mor_after = utterance.mor_tier().expect("%mor after L2 splice");
+    assert_eq!(mor_after.items()[3].main.pos.to_string(), "det");
+    assert_eq!(mor_after.items()[3].main.lemma.to_string(), "el");
+    assert_eq!(mor_after.items()[4].main.pos.to_string(), "noun");
+    assert_eq!(mor_after.items()[4].main.lemma.to_string(), "niño");
+
+    let gra_after = utterance.gra_tier().expect("%gra after L2 splice");
+    assert_eq!(gra_after.relations()[3].to_string(), "4|5|DET");
+    assert_eq!(gra_after.relations()[4].to_string(), "5|2|OBL");
+
+    let opts = ParseValidateOptions::default().with_alignment();
+    talkbank_model::validate_chat_file_with_options(&mut chat_file, &opts)
+        .expect("L2 acceptance fixture should validate after splice");
+}
+
 // -----------------------------------------------------------------------
 // Regression: retokenize with MWT Range tokens
 //
@@ -1568,5 +1750,990 @@ fn mid_utterance_comma_end_to_end_injects_cm_mor() {
     assert!(
         serialized.contains("cm|cm"),
         "serialized CHAT should contain cm|cm; got:\n{serialized}"
+    );
+}
+
+// ============================================================================
+// Family A — synthesis-layer DEP overwrite kills ROOT deprel (RED tests).
+//
+// Pure-unit pinning for the Family A partition; see the L2
+// architectural-reassessment notes (§5).
+//
+// The bug is at injection.rs:204:
+//
+//     gra.relation = GrammaticalRelationType::new(DEP_RELATION_LABEL);
+//
+// The overwrite ignores `gra.head`. When the form-marker token is the
+// utterance's syntactic root, Stanza correctly emitted (head=0,
+// deprel=root); the synthesis loop forces deprel="DEP" while leaving
+// head=0, breaking the CHECK invariant that head=0 must pair with
+// deprel="ROOT".
+//
+// These tests construct synthetic UdResponses mirroring what Stanza
+// returns for the wild-bad utterances and assert the post-injection
+// %gra has head=0/deprel=ROOT, not head=0/deprel=DEP.
+//
+// EXPECTED: every test in this section FAILS on the current build.
+// Do not modify the asserts to make them pass — modify the bug.
+// ============================================================================
+
+/// Helper: pull the GraTier relations from the first utterance.
+fn first_utt_gra_relations(
+    chat_file: &talkbank_model::model::ChatFile,
+) -> Vec<talkbank_model::model::GrammaticalRelation> {
+    let utt = chat_file
+        .lines
+        .iter()
+        .find_map(|l| match l {
+            talkbank_model::model::Line::Utterance(u) => Some(u),
+            _ => None,
+        })
+        .expect("fixture must have an utterance");
+    let gra = utt
+        .dependent_tiers
+        .iter()
+        .find_map(|t| match t {
+            talkbank_model::model::DependentTier::Gra(g) => Some(g),
+            _ => None,
+        })
+        .expect("utterance must have a %gra tier after injection");
+    gra.relations().to_vec()
+}
+
+/// Format a GraTier's relations as the CHAT %gra body, e.g.
+/// `1|0|ROOT 2|1|PUNCT`. Used for diagnostic-friendly assert messages.
+fn fmt_gra(rels: &[talkbank_model::model::GrammaticalRelation]) -> String {
+    rels.iter()
+        .map(|r| format!("{}|{}|{}", r.index, r.head, r.relation.as_str()))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Family A, Test A1 — single-word onomatopoeia utterance.
+///
+/// Source pattern (from `still-have-error-2.log`):
+///     *CHI:  vau@o .
+///     %mor:  on|vau .
+///     %gra:  1|0|DEP 2|1|PUNCT          ← BUG
+///
+/// Stanza is fed the placeholder substitution `xbxxx` (per
+/// `payload.rs::stanza_placeholder()`). For a single-word utterance
+/// Stanza returns (head=0, deprel="root") for the placeholder.
+///
+/// The synthesis loop in `injection.rs:202-205` then runs and
+/// overwrites the gra relation to "DEP" without checking gra.head.
+/// Result: 1|0|DEP — fires E722 (no ROOT relation) downstream.
+///
+/// EXPECTED on current build: FAILS — relation is "DEP" not "ROOT".
+#[test]
+fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = include_str!("../../../../../test-fixtures/eng_at_o_single_word_red.cha");
+    let (mut chat_file, _diags) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1, "fixture has one utterance");
+
+    // Stanza response for ["xbxxx", "."]: word 1 is the placeholder
+    // root, word 2 is the period attached to the root.
+    let ud_response = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":0,"deprel":"root"},
+          {"id":2,"text":".","lemma":".","upos":"PUNCT","xpos":".","head":1,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    let injection = inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![ud_response],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("inject_results must succeed for the single-@o case");
+    assert!(
+        injection
+            .decisions
+            .iter()
+            .all(|d| d.strategy.strategy_name() != "injection_failed"),
+        "injection should not fail on single-@o utterance: {:?}",
+        injection.decisions
+    );
+
+    let rels = first_utt_gra_relations(&chat_file);
+    let body = fmt_gra(&rels);
+
+    // The form-marker word is at chunk 1; it is the syntactic root.
+    let chunk_1 = rels
+        .iter()
+        .find(|r| r.index == 1)
+        .expect("must have a chunk-1 relation");
+    assert_eq!(
+        chunk_1.head, 0,
+        "chunk 1 must remain head=0; got %gra: {body}"
+    );
+    assert_eq!(
+        chunk_1.relation.as_str(),
+        "ROOT",
+        "Family A bug — single-@o root token's deprel was overwritten to \
+         '{}' instead of preserving ROOT (Stanza returned head=0, deprel=root); \
+         got %gra: {body}",
+        chunk_1.relation.as_str()
+    );
+
+    // Symmetric structural invariant: every head=0 relation must carry
+    // deprel=ROOT. Anything else is a CHECK violation.
+    for r in &rels {
+        if r.head == 0 {
+            assert_eq!(
+                r.relation.as_str(),
+                "ROOT",
+                "head=0 must pair with deprel=ROOT; got %gra: {body}"
+            );
+        }
+    }
+}
+
+/// Family A, Test A2 — multi-word utterance where every word is a
+/// form-marker (`@si`). The wild-bad case is the Croatian
+/// `osam@si devet@si devet@si i@si jedan@si su@si deset@si .` whose
+/// %gra is currently `1|0|DEP 2|1|DEP 3|1|DEP 4|1|DEP 5|1|DEP 6|1|DEP
+/// 7|6|DEP 8|1|PUNCT`. The synthesis-DEP overwrite fires on EVERY
+/// chunk because every content word has `form_type = Some(Si)`,
+/// including the head=0 root.
+///
+/// EXPECTED on current build: FAILS — chunk 1 has head=0 but
+/// deprel=DEP instead of deprel=ROOT.
+#[test]
+fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = include_str!("../../../../../test-fixtures/eng_at_si_all_signed_red.cha");
+    let (mut chat_file, _diags) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1);
+
+    // Stanza response for ["xbxxx", "xbxxx", "xbxxx", "xbxxx", "."]:
+    // word 1 is the placeholder root, words 2..=4 attach to word 1
+    // with arbitrary UD relations (Stanza can assign anything when
+    // every token is the same surface placeholder), word 5 is punct.
+    let ud_response = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":0,"deprel":"root"},
+          {"id":2,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":1,"deprel":"flat"},
+          {"id":3,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":1,"deprel":"flat"},
+          {"id":4,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":1,"deprel":"flat"},
+          {"id":5,"text":".","lemma":".","upos":"PUNCT","xpos":".","head":1,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![ud_response],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("inject_results must succeed for the all-@si case");
+
+    let rels = first_utt_gra_relations(&chat_file);
+    let body = fmt_gra(&rels);
+
+    // The number of head=0 relations must be exactly 1 (E722/E723 guard).
+    let head_zero: Vec<_> = rels.iter().filter(|r| r.head == 0).collect();
+    assert_eq!(
+        head_zero.len(),
+        1,
+        "must have exactly one head=0 relation; got %gra: {body}"
+    );
+    assert_eq!(
+        head_zero[0].relation.as_str(),
+        "ROOT",
+        "Family A bug — multi-@si root token's deprel was overwritten to \
+         '{}' instead of preserving ROOT; got %gra: {body}",
+        head_zero[0].relation.as_str()
+    );
+}
+
+/// Family A, Test A4 — host-language modifier + `@o` as syntactic root.
+///
+/// Source pattern (from `still-have-error-2.log`):
+///     *IRI:  the chingchangchongchong@o .
+///     %mor:  det|the-Def-Art on|chingchangchongchong .
+///     %gra:  1|2|DET 2|0|DEP 3|2|PUNCT          ← BUG
+///
+/// `the` is a determiner whose head is the form-marker token at
+/// chunk 2; the form-marker token is the utterance's syntactic root
+/// (Stanza returns head=0, deprel=root for it). The synthesis path
+/// fires only on the form-marker chunk and overwrites its deprel to
+/// DEP, leaving the modifier's gra intact.
+///
+/// EXPECTED on current build: FAILS — chunk 2 has head=0 but
+/// deprel=DEP instead of deprel=ROOT.
+#[test]
+fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = include_str!("../../../../../test-fixtures/eng_at_o_root_with_modifier_red.cha");
+    let (mut chat_file, _diags) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1);
+
+    // Stanza for ["the", "xbxxx", "."]: the=det/head=2, xbxxx=root/head=0,
+    // .=punct/head=2.
+    let ud_response = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"the","lemma":"the","upos":"DET","xpos":"DT","feats":"Definite=Def|PronType=Art","head":2,"deprel":"det"},
+          {"id":2,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":0,"deprel":"root"},
+          {"id":3,"text":".","lemma":".","upos":"PUNCT","xpos":".","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![ud_response],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("inject_results must succeed for det + @o-root case");
+
+    let rels = first_utt_gra_relations(&chat_file);
+    let body = fmt_gra(&rels);
+
+    // Chunk 1 (the) must keep its DET relation pointing at chunk 2.
+    let chunk_1 = rels.iter().find(|r| r.index == 1).expect("chunk 1");
+    assert_eq!(
+        chunk_1.head, 2,
+        "host modifier head preserved; got %gra: {body}"
+    );
+    assert_eq!(
+        chunk_1.relation.as_str(),
+        "DET",
+        "host modifier deprel preserved (synthesis must not touch \
+         non-form-marker chunks); got %gra: {body}"
+    );
+
+    // Chunk 2 (xbxxx-from-@o) must remain head=0 with deprel=ROOT.
+    let chunk_2 = rels.iter().find(|r| r.index == 2).expect("chunk 2");
+    assert_eq!(
+        chunk_2.head, 0,
+        "form-marker chunk must remain head=0; got %gra: {body}"
+    );
+    assert_eq!(
+        chunk_2.relation.as_str(),
+        "ROOT",
+        "Family A bug — det+@o-root case: form-marker root token's \
+         deprel was overwritten to '{}' instead of preserving ROOT; \
+         got %gra: {body}",
+        chunk_2.relation.as_str()
+    );
+}
+
+/// Family A, Test A5 — symmetric guard: form-marker token whose head is
+/// NOT zero (i.e., not the utterance root) should not have its deprel
+/// rewritten to "ROOT" by an over-eager fix. The current synthesis-DEP
+/// overwrite is acceptable behavior for non-root form-marker tokens
+/// (BA2-equivalent intent: "no specific role applies"). The fix must
+/// touch only the head=0 branch — this test pins that scope so a future
+/// "always preserve Stanza deprel" patch can't silently regress.
+///
+/// Source: `*CHI: I like vau@o .` (English primary). Stanza analyzes
+/// "I"=nsubj, "like"=root, "xbxxx"=obj/dep, "."=punct. Post-injection:
+/// chunk 3 (the @o token) should have head=2 (preserved from Stanza)
+/// and deprel="DEP" (current synthesis convention) — NOT "ROOT".
+///
+/// EXPECTED on current build: PASSES (locks current behavior). After
+/// the fix lands for A1/A2/A4, this must still pass.
+#[test]
+fn family_a_at_o_with_nonzero_head_does_not_become_root() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    // Inline fixture — keeping it inline so the assertion's premise
+    // (form-marker is *not* the syntactic root) is visible alongside the
+    // test.
+    let chat = "@UTF8\n\
+                @Begin\n\
+                @Languages:\teng\n\
+                @Participants:\tCHI Target_Child\n\
+                @ID:\teng|test|CHI||female|||Target_Child|||\n\
+                *CHI:\tI like vau@o .\n\
+                @End\n";
+    let (mut chat_file, _diags) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1);
+
+    // Stanza for ["I", "like", "xbxxx", "."]: I=nsubj/head=2,
+    // like=root/head=0, xbxxx=obj/head=2, .=punct/head=2.
+    let ud_response = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"I","lemma":"I","upos":"PRON","xpos":"PRP","feats":"Person=1|PronType=Prs","head":2,"deprel":"nsubj"},
+          {"id":2,"text":"like","lemma":"like","upos":"VERB","xpos":"VBP","feats":"Mood=Ind|Tense=Pres|VerbForm=Fin","head":0,"deprel":"root"},
+          {"id":3,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","xpos":"NN","head":2,"deprel":"obj"},
+          {"id":4,"text":".","lemma":".","upos":"PUNCT","xpos":".","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![ud_response],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("inject_results must succeed for non-root @o case");
+
+    let rels = first_utt_gra_relations(&chat_file);
+    let body = fmt_gra(&rels);
+
+    // Chunk 3 is the @o-marker. Head must be preserved as 2 (not the
+    // utterance root). Deprel must be "DEP" (or whatever the synthesis
+    // convention is for non-root form markers) — and explicitly NOT
+    // "ROOT".
+    let chunk_3 = rels.iter().find(|r| r.index == 3).expect("chunk 3");
+    assert_eq!(
+        chunk_3.head, 2,
+        "form-marker chunk's non-zero head must be preserved; got %gra: {body}"
+    );
+    assert_ne!(
+        chunk_3.relation.as_str(),
+        "ROOT",
+        "form-marker chunk with head!=0 must NOT be re-labelled ROOT \
+         by an over-correcting fix; got %gra: {body}"
+    );
+
+    // Joint invariant: at most one head=0 relation, and it must NOT be
+    // the form-marker chunk (chunk 3 here).
+    let head_zero: Vec<_> = rels.iter().filter(|r| r.head == 0).collect();
+    assert_eq!(
+        head_zero.len(),
+        1,
+        "exactly one head=0 relation expected; got %gra: {body}"
+    );
+    assert_ne!(
+        head_zero[0].index, 3,
+        "form-marker chunk must not become the root when Stanza said \
+         it wasn't; got %gra: {body}"
+    );
+}
+
+// ===========================================================================
+// Utterance preservation regression — fusser22 corruption (2026-05-06)
+//
+// Background. The 2026-05-06 morphotag re-run corrupted
+// `biling-data/Bangor/Siarad/fusser22.cha`: one utterance
+// (`*EVA: [- eng] &-um and spo(rt) xxx +//. 1373503_1375802`) was
+// silently DELETED from the output, and a different utterance
+// (`*EVA: [- eng] what's the word for it ? 1376707_1377578`) was
+// DUPLICATED in its place. Total `*SPK:` count was preserved (so
+// per-speaker counts and net-line-count diffs all looked normal),
+// which is exactly why the corruption escaped the per-commit and
+// per-file scans. The bug was not reproducible on the deployed
+// binary after the fact — the precise trigger is currently unknown
+// and may be a concurrency or in-flight-state artifact.
+//
+// Goal of these tests. Pin the invariant the corruption violates so
+// any future regression of this shape is caught even when the bug
+// itself is not reproducible from a single fixture. The invariant is
+// stronger than line counts: every distinct (speaker, main-tier
+// content, optional timestamp) tuple from the input must appear
+// EXACTLY ONCE in the output. Replacement-by-duplicate is detected
+// because the lost utterance fails the "appears at least once" half;
+// duplication is detected because the gained one fails the "appears
+// at most once" half.
+//
+// Why these tests live at the inject_results layer. The whole-file
+// pipeline depends on a live worker pool; pinning the invariant on
+// `inject_results` (the in-memory transformation that replaces
+// `L2|xxx` placeholders with synthesized morphology) keeps the test
+// hermetic while still exercising the code path that is closest to
+// where the corruption was observed.
+
+/// Collect a per-utterance identity string (`MainTier::Display`) for
+/// every utterance in `chat_file`. Two utterances are "the same" iff
+/// they round-trip to the same CHAT line — good-enough for a
+/// regression assertion.
+fn collect_utterance_identities<S: talkbank_model::validation::ValidationState>(
+    chat_file: &talkbank_model::ChatFile<S>,
+) -> Vec<String> {
+    use talkbank_model::model::Line;
+    chat_file
+        .lines
+        .iter()
+        .filter_map(|line| match line {
+            Line::Utterance(utt) => Some(utt.main.to_string()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn assert_utterances_preserved_one_to_one(label: &str, before: &[String], after: &[String]) {
+    // BTreeMap (not HashMap) so failure messages list lost/duplicated/
+    // introduced utterances in deterministic order — important when the
+    // assertion fires in CI and the diff is the entire signal.
+    use std::collections::BTreeMap;
+    fn count_in(xs: &[String]) -> BTreeMap<&String, usize> {
+        let mut h: BTreeMap<&String, usize> = BTreeMap::new();
+        for x in xs {
+            *h.entry(x).or_default() += 1;
+        }
+        h
+    }
+    let before_counts = count_in(before);
+    let after_counts = count_in(after);
+
+    let mut lost: Vec<&String> = Vec::new();
+    let mut duplicated: Vec<(&String, usize, usize)> = Vec::new();
+    let mut introduced: Vec<&String> = Vec::new();
+
+    for (id, &n_in) in &before_counts {
+        let n_out = after_counts.get(id).copied().unwrap_or(0);
+        if n_out == 0 {
+            lost.push(id);
+        } else if n_out != n_in {
+            duplicated.push((id, n_in, n_out));
+        }
+    }
+    for (id, _) in &after_counts {
+        if !before_counts.contains_key(id) {
+            introduced.push(id);
+        }
+    }
+
+    assert!(
+        lost.is_empty(),
+        "[{label}] morphotag DROPPED utterance(s) from the output: {lost:#?}"
+    );
+    assert!(
+        duplicated.is_empty(),
+        "[{label}] morphotag changed the multiplicity of utterance(s) \
+         (corruption shape: same utterance now appears more or fewer \
+         times than the input). before/after counts: {duplicated:#?}"
+    );
+    assert!(
+        introduced.is_empty(),
+        "[{label}] morphotag INVENTED utterance(s) not present in the \
+         input: {introduced:#?}"
+    );
+    assert_eq!(
+        before.len(),
+        after.len(),
+        "[{label}] total utterance count must match (after dedup-aware \
+         identity check)"
+    );
+}
+
+/// Protective regression test for the fusser22 corruption shape.
+///
+/// `inject_results` rewrites `%mor` and `%gra` in place; it has no
+/// business adding, removing, or substituting `*SPK:` main-tier
+/// utterances. This test pins that invariant by feeding a synthetic
+/// `UdResponse` for a small reproducer and asserting the output's
+/// utterance multiset is identical to the input's.
+///
+/// The fixture mirrors the structure that surrounded the wild
+/// corruption: three consecutive same-speaker `[- eng]`-precoded
+/// utterances, one with a leading `&-um` filler + `xxx` + a `+//.`
+/// terminator (the "lost" utterance shape), one with a leading
+/// `&~er` filler (a fix-s-eligible shape), and one with neither
+/// filler nor `xxx` (the "duplicated" utterance shape).
+#[test]
+fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
+    use crate::chat_ops::morphosyntax_ops::inject_results;
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = "\
+@UTF8
+@Begin
+@Languages:\tcym, eng
+@Participants:\tEVA Adult, WYN Adult
+@ID:\tcym|Siarad|EVA|40;|female|||Adult|||
+@ID:\tcym|Siarad|WYN|49;|male|||Adult|||
+*EVA:\t[- eng] &-um and spo(rt) xxx +//.
+*EVA:\t[- eng] &~er what's the word ?
+*EVA:\t[- eng] what's the word for it ?
+@End
+";
+
+    let (mut chat_file, _diags) = parse_lenient(&parser, chat);
+    let primary_lang = talkbank_model::model::LanguageCode::new("cym");
+
+    let before = collect_utterance_identities(&chat_file);
+    assert_eq!(
+        before.len(),
+        3,
+        "fixture must contain exactly 3 utterances; got {before:#?}"
+    );
+
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+
+    // One synthetic UdResponse per batch item with a single placeholder
+    // root word — the morphology content is irrelevant; what matters
+    // here is that injection does not perturb the main tier.
+    let ud_responses: Vec<_> = batch_items
+        .iter()
+        .map(|_| {
+            ud_response_from_words(
+                r#"[
+                  {"id":1,"text":"x","lemma":"x","upos":"NOUN","xpos":"NN","head":0,"deprel":"root"}
+                ]"#,
+            )
+        })
+        .collect();
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    let _ = inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        ud_responses,
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("inject_results must succeed on the fusser22-shape fixture");
+
+    let after = collect_utterance_identities(&chat_file);
+    assert_utterances_preserved_one_to_one(
+        "fusser22-shape: 3 same-speaker [- eng] precoded utterances",
+        &before,
+        &after,
+    );
+}
+
+// ===========================================================================
+// L2-fallback construct matrix
+//
+// These tests pin "construct → safe `L2|xxx` fallback" for each path
+// where the morphotag pipeline today emits `L2|xxx` instead of real
+// secondary morphology. The intent is a transition path via tests:
+// every assertion below currently expects `L2|xxx`; when we eventually
+// implement real morphology for one of these constructs, the fix is to
+// rewrite that single test's assertion (from "must remain L2|xxx" to
+// "must produce <the real expected analysis>"). Until that day, these
+// tests guarantee the fallback never silently regresses to a worse
+// state — a crash, an invalid `%gra`, an empty/missing `%mor`, or a
+// hallucinated wrong analysis.
+//
+// Each test follows the same shape:
+//   1. Build a minimal CHAT fixture with one offending construct.
+//   2. Drive the morphotag in-memory pipeline (collect_payloads +
+//      inject_results), feeding a synthetic primary UD response that
+//      tells the pipeline "the secondary positions are placeholders
+//      pending dispatch." For the fallback paths, we deliberately do
+//      NOT run `dispatch_secondary_l2` afterwards — that simulates the
+//      production fallback (unsupported lang, ambiguous resolution,
+//      `--no-l2-morphotag`, dispatch failure).
+//   3. Assert the offending position(s) carry `%mor = "L2|xxx"`.
+//   4. Assert `validate_chat_file_with_options` passes — no E722,
+//      E724, or other downstream failures from the fallback shape.
+//
+// Note on what's covered here vs. elsewhere:
+//   - The partition-side fallback (`partition_groups_by_stanza_support`)
+//     has its own unit tests in `morphosyntax/worker.rs`; this matrix
+//     covers the user-observable end of the pipeline.
+//   - The Family C splice rollback (`validate_or_rollback_splice`)
+//     has its own unit tests in `morphosyntax/l2/splice.rs`; the
+//     construct-level coverage of "splice rolled back to L2|xxx → file
+//     validates" lives in the splice tests rather than here.
+
+/// Walk the first utterance's `%mor` items and return the (POS, lemma)
+/// pair at each position. Compact helper for fallback-position
+/// assertions across the matrix.
+fn first_utt_mor_pairs(chat_file: &talkbank_model::ChatFile) -> Vec<(String, String)> {
+    use talkbank_model::model::Line;
+    let utt = chat_file
+        .lines
+        .iter()
+        .find_map(|l| match l {
+            Line::Utterance(u) => Some(u),
+            _ => None,
+        })
+        .expect("test fixture must contain at least one utterance");
+    let mor = utt
+        .mor_tier()
+        .expect("utterance must have %mor after injection");
+    mor.items()
+        .iter()
+        .map(|item| (item.main.pos.to_string(), item.main.lemma.to_string()))
+        .collect()
+}
+
+fn assert_position_is_l2_xxx(label: &str, pairs: &[(String, String)], pos: usize) {
+    assert!(
+        pos < pairs.len(),
+        "[{label}] position {pos} out of bounds for %mor with {} items",
+        pairs.len()
+    );
+    let (mor_pos, mor_lemma) = &pairs[pos];
+    assert_eq!(
+        (mor_pos.as_str(), mor_lemma.as_str()),
+        ("L2", "xxx"),
+        "[{label}] position {pos} expected L2|xxx (fallback), \
+         got {mor_pos}|{mor_lemma}. \
+         If this assertion is failing because the pipeline now produces \
+         REAL morphology for this construct: that is the transition path; \
+         rewrite the assertion to the real expected analysis."
+    );
+}
+
+fn validate_or_panic(chat_file: &mut talkbank_model::ChatFile, label: &str) {
+    let opts = talkbank_model::ParseValidateOptions::default().with_alignment();
+    talkbank_model::validate_chat_file_with_options(chat_file, &opts)
+        .unwrap_or_else(|err| panic!("[{label}] fallback output must validate clean; got {err:?}"));
+}
+
+// ---------------------------------------------------------------------
+// Row 1: `@s:UNSUPPORTEDLANG` — explicit per-word marker for a Stanza
+// language that has no morphosyntax processors.
+//
+// Production trigger: `partition_groups_by_stanza_support` filters the
+// L2 group to fallback; downstream injection leaves L2|xxx. The user
+// observes a single foreign word slot as L2|xxx and the rest of the
+// utterance as real English morphology.
+//
+// TRANSITION PATH: when we add a heuristic or external lookup for
+// unsupported-language words (e.g. routing `@s:que` through a custom
+// Quechua model), rewrite this test's assertion to the real expected
+// analysis at position 3 (`rimaykullayki`).
+// ---------------------------------------------------------------------
+#[test]
+fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    let chat = include_str!("../../../../../test-fixtures/eng_at_s_unsupported.cha");
+    let (mut chat_file, _) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1, "fixture has one utterance");
+
+    // Primary UD response — one entry per surface word; the @s:que
+    // word ("rimaykullayki", position index 3) is the L2 placeholder
+    // and gets the synthetic `xbxxx` token Stanza was given.
+    let primary_ud = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"she","lemma":"she","upos":"PRON","head":2,"deprel":"nsubj"},
+          {"id":2,"text":"said","lemma":"say","upos":"VERB","head":0,"deprel":"root"},
+          {"id":3,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","head":2,"deprel":"obj"},
+          {"id":4,"text":"to","lemma":"to","upos":"ADP","head":5,"deprel":"case"},
+          {"id":5,"text":"me","lemma":"me","upos":"PRON","head":2,"deprel":"obl"},
+          {"id":6,"text":".","lemma":".","upos":"PUNCT","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![primary_ud],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("primary injection must succeed");
+
+    // Deliberately skip dispatch_secondary_l2 — production behaviour
+    // for an unsupported-secondary lang is exactly this: no Stanza
+    // dispatch, no splice, the L2|xxx placeholder remains.
+    let pairs = first_utt_mor_pairs(&chat_file);
+    assert_position_is_l2_xxx("@s:que (unsupported secondary)", &pairs, 2);
+    validate_or_panic(&mut chat_file, "@s:que (unsupported secondary)");
+}
+
+// ---------------------------------------------------------------------
+// Row 2: `@s:LANG+LANG2` — Multiple-language marker (the foreign word
+// is valid in BOTH listed languages). The L2 plan rejects this for
+// dispatch because there is no single trustworthy target.
+//
+// TRANSITION PATH: when we route Multiple-language words through a
+// disambiguation step (e.g. picking the more-likely of the two via
+// surrounding tier language), rewrite the assertion at position 3
+// (`cafe`) to the chosen analysis.
+// ---------------------------------------------------------------------
+#[test]
+fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    // Inline minimal CHAT — `cafe@s:eng+fra` is "valid in BOTH eng
+    // and fra"; the Multiple resolution can't dispatch one secondary.
+    let chat = "\
+@UTF8
+@Begin
+@Languages:\teng, fra
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+*PAR:\tI want cafe@s:eng+fra .
+@End
+";
+    let (mut chat_file, _) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1, "fixture has one utterance");
+
+    let primary_ud = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"I","lemma":"I","upos":"PRON","head":2,"deprel":"nsubj"},
+          {"id":2,"text":"want","lemma":"want","upos":"VERB","head":0,"deprel":"root"},
+          {"id":3,"text":"xbxxx","lemma":"xbxxx","upos":"NOUN","head":2,"deprel":"obj"},
+          {"id":4,"text":".","lemma":".","upos":"PUNCT","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![primary_ud],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("primary injection must succeed");
+
+    let pairs = first_utt_mor_pairs(&chat_file);
+    assert_position_is_l2_xxx("@s:eng+fra (Multiple)", &pairs, 2);
+    validate_or_panic(&mut chat_file, "@s:eng+fra (Multiple)");
+}
+
+// ---------------------------------------------------------------------
+// Row 3: `@s:LANG&LANG2` — Ambiguous-language marker (the foreign word
+// could plausibly belong to either listed language). Symmetric to
+// Multiple from the dispatcher's perspective: no single target.
+//
+// TRANSITION PATH: same as Multiple. If we add ambiguity resolution
+// for one of the languages the test pins, rewrite the position-3
+// assertion to the disambiguated analysis.
+// ---------------------------------------------------------------------
+#[test]
+fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    // `no@s:eng&spa` — the word "no" is ambiguously English or Spanish.
+    let chat = "\
+@UTF8
+@Begin
+@Languages:\teng, spa
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+*PAR:\tno@s:eng&spa quiero .
+@End
+";
+    let (mut chat_file, _) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1, "fixture has one utterance");
+
+    let primary_ud = ud_response_from_words(
+        r#"[
+          {"id":1,"text":"xbxxx","lemma":"xbxxx","upos":"INTJ","head":2,"deprel":"discourse"},
+          {"id":2,"text":"quiero","lemma":"quiero","upos":"VERB","head":0,"deprel":"root"},
+          {"id":3,"text":".","lemma":".","upos":"PUNCT","head":2,"deprel":"punct"}
+        ]"#,
+    );
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![primary_ud],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect("primary injection must succeed");
+
+    let pairs = first_utt_mor_pairs(&chat_file);
+    assert_position_is_l2_xxx("@s:eng&spa (Ambiguous)", &pairs, 0);
+    validate_or_panic(&mut chat_file, "@s:eng&spa (Ambiguous)");
+}
+
+// ---------------------------------------------------------------------
+// Row 4: `[- UNSUPPORTEDLANG]` — whole-utterance language switch into
+// a Stanza-unsupported language. The morphotag worker's
+// `partition_groups_by_stanza_support` keeps that group out of
+// dispatch entirely, so every word in the utterance falls back to
+// L2|xxx.
+//
+// This test exercises the partition fallback shape end-to-end at the
+// inject_results layer: we feed a primary UD response containing
+// nothing but `xbxxx` placeholders (mirroring the empty UdResponse
+// the partition fills in for the unsupported group), and assert that
+// every word position resolves to L2|xxx.
+//
+// TRANSITION PATH: when we add a non-Stanza analyzer for one of the
+// currently-unsupported languages (e.g. Marathi via a separate model
+// runtime), rewrite this test's per-position assertions to the real
+// expected analysis for that language.
+// ---------------------------------------------------------------------
+#[test]
+fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
+    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+
+    let parser = TreeSitterParser::new().unwrap();
+    // `[- nep]` whole-utterance language switch into Nepali.
+    let chat = "\
+@UTF8
+@Begin
+@Languages:\teng, nep
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+*PAR:\t[- nep] hello world .
+@End
+";
+    let (mut chat_file, _) = parse_lenient(&parser, chat);
+
+    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let langs = declared_languages(&chat_file, &primary_lang);
+    let batch_items = collect_payloads(
+        &chat_file,
+        &primary_lang,
+        &langs,
+        MultilingualPolicy::ProcessAll,
+    )
+    .batch_items;
+    assert_eq!(batch_items.len(), 1, "fixture has one utterance");
+
+    // Empty `UdResponse { sentences: vec![] }` — production
+    // `partition_groups_by_stanza_support` fills this in for every
+    // unsupported-language group, and downstream `inject_results`
+    // skips items whose response has no sentences, leaving the
+    // pre-injection state intact (no %mor written).
+    let primary_ud = crate::chat_ops::nlp::UdResponse { sentences: vec![] };
+
+    let empty_mwt = std::collections::BTreeMap::new();
+    inject_results(
+        &parser,
+        &mut chat_file,
+        batch_items,
+        vec![primary_ud],
+        &primary_lang,
+        TokenizationMode::Preserve,
+        &empty_mwt,
+    )
+    .expect(
+        "primary injection must succeed (empty-sentences response \
+             is the production partition-fallback shape)",
+    );
+
+    // The post-fallback state for a `[- UNSUPPORTEDLANG]` utterance
+    // is: no `%mor` tier emitted for this utterance at all (the
+    // partition skipped it; injection had no analysis to write).
+    // Validation must still pass — a missing `%mor` for an utterance
+    // is not by itself a CHAT validity error.
+    use talkbank_model::model::Line;
+    let utt = chat_file
+        .lines
+        .iter()
+        .find_map(|l| match l {
+            Line::Utterance(u) => Some(u),
+            _ => None,
+        })
+        .expect("fixture must have an utterance");
+    assert!(
+        utt.mor_tier().is_none(),
+        "[- nep] (unsupported precode): expected NO %mor for the \
+         skipped utterance under the partition fallback (production \
+         shape: every word is L2|xxx-equivalent because the worker \
+         never produced an analysis). Got: {:?}. \
+         TRANSITION PATH: when we add a non-Stanza analyzer for the \
+         currently-unsupported precode language, this test should \
+         start asserting that %mor is present and contains the real \
+         analysis.",
+        utt.mor_tier()
+    );
+
+    validate_or_panic(
+        &mut chat_file,
+        "[- nep] whole-utterance (unsupported precode)",
     );
 }

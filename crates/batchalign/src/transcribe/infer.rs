@@ -49,15 +49,32 @@ pub(crate) struct SpeakerInferParams<'a> {
     pub backend: SpeakerBackendV2,
 }
 
-pub(super) fn asr_worker_languages(lang: &LanguageSpec) -> (WorkerLanguage, LanguageCode3) {
-    (
-        lang.to_worker_language(),
-        // Documented default: Auto language → eng for CHAT header construction.
-        // The real detected language will replace this if ASR auto-detection succeeds.
-        lang.as_resolved()
-            .cloned()
-            .unwrap_or_else(LanguageCode3::eng),
-    )
+/// Compute the worker-runtime language and an "expected response
+/// language" hint used by `parse_asr_response_v2` when the ASR response
+/// does not carry a usable detected language of its own.
+///
+/// For `Resolved(code)` jobs, both values are derived from `code` — the
+/// CHAT header will reflect what the user explicitly asked for. For
+/// `Auto` jobs there is no concrete hint, and the parse helper must
+/// drive the language from the response itself; we return `None` so
+/// the caller can surface a typed error if the response is also empty.
+/// `PerFile` is not legal at this point (transcribe-class commands are
+/// rejected by submission validation if they carry it).
+pub(super) fn asr_worker_languages(
+    lang: &LanguageSpec,
+) -> Result<(WorkerLanguage, Option<LanguageCode3>), ServerError> {
+    match lang {
+        LanguageSpec::Resolved(code) => {
+            Ok((WorkerLanguage::Resolved(code.clone()), Some(code.clone())))
+        }
+        LanguageSpec::Auto => Ok((WorkerLanguage::Auto, None)),
+        LanguageSpec::PerFile => Err(ServerError::Validation(
+            "transcribe pipeline received LanguageSpec::PerFile, which is reserved for \
+             morphotag/translate/coref. Submission validation should have rejected \
+             this — please file a bug report."
+                .into(),
+        )),
+    }
 }
 
 /// Call the Python worker for ASR inference on a single audio file.
@@ -65,7 +82,7 @@ pub(crate) async fn infer_asr(
     pool: &WorkerPool,
     params: &AsrInferParams<'_>,
 ) -> Result<AsrResponse, ServerError> {
-    let (worker_lang, fallback_lang) = asr_worker_languages(params.lang);
+    let (worker_lang, fallback_lang) = asr_worker_languages(params.lang)?;
 
     match params.backend {
         AsrBackend::RustRevAi => {
@@ -80,7 +97,14 @@ pub(crate) async fn infer_asr(
             .await
         }
         AsrBackend::Worker(worker_mode) => {
-            infer_asr_via_worker_v2(pool, params, worker_mode, &worker_lang, &fallback_lang).await
+            infer_asr_via_worker_v2(
+                pool,
+                params,
+                worker_mode,
+                &worker_lang,
+                fallback_lang.as_ref(),
+            )
+            .await
         }
     }
 }
@@ -93,7 +117,7 @@ async fn infer_asr_via_worker_v2(
     params: &AsrInferParams<'_>,
     worker_mode: AsrWorkerMode,
     worker_lang: &WorkerLanguage,
-    fallback_lang: &LanguageCode3,
+    fallback_lang: Option<&LanguageCode3>,
 ) -> Result<AsrResponse, ServerError> {
     let artifacts = PreparedArtifactRuntimeV2::new("asr_v2").map_err(|error| {
         ServerError::Validation(format!("failed to create ASR V2 artifact runtime: {error}"))
@@ -167,13 +191,18 @@ pub(crate) async fn infer_speaker(
         ))
     })?;
 
-    // Documented default: Auto language → eng for worker dispatch.
-    // Workers need a concrete language for model selection.
-    let pool_lang = params
-        .lang
-        .as_resolved()
-        .cloned()
-        .unwrap_or_else(LanguageCode3::eng);
+    // Speaker diarization runs after ASR has resolved the language —
+    // `params.lang` should always be `Resolved(_)` by the time we reach
+    // here. No silent eng fallback: surface a typed validation error if
+    // the invariant is broken.
+    let pool_lang = params.lang.as_resolved().cloned().ok_or_else(|| {
+        ServerError::Validation(format!(
+            "speaker diarization received unresolved language `{}`. ASR must \
+             resolve the language before speaker dispatch runs; this is a \
+             pipeline-ordering bug.",
+            params.lang,
+        ))
+    })?;
     let response = pool
         .dispatch_execute_v2(&pool_lang, &request)
         .await

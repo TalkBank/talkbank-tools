@@ -406,31 +406,7 @@
         "named": true
       },
       {
-        "type": "ca_no_break",
-        "named": true
-      },
-      {
-        "type": "ca_no_break_linker",
-        "named": true
-      },
-      {
-        "type": "ca_technical_break",
-        "named": true
-      },
-      {
-        "type": "ca_technical_break_linker",
-        "named": true
-      },
-      {
         "type": "exclamation",
-        "named": true
-      },
-      {
-        "type": "falling_to_low",
-        "named": true
-      },
-      {
-        "type": "falling_to_mid",
         "named": true
       },
       {
@@ -439,10 +415,6 @@
       },
       {
         "type": "interruption",
-        "named": true
-      },
-      {
-        "type": "level_pitch",
         "named": true
       },
       {
@@ -459,14 +431,6 @@
       },
       {
         "type": "quoted_period_simple",
-        "named": true
-      },
-      {
-        "type": "rising_to_high",
-        "named": true
-      },
-      {
-        "type": "rising_to_mid",
         "named": true
       },
       {
@@ -2711,6 +2675,14 @@
       "types": [
         {
           "type": "ca_continuation_marker",
+          "named": true
+        },
+        {
+          "type": "ca_no_break",
+          "named": true
+        },
+        {
+          "type": "ca_technical_break",
           "named": true
         },
         {

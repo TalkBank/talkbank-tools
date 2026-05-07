@@ -2704,6 +2704,16 @@
           "type": "string"
         },
         {
+          "const": "E254",
+          "description": "Explicit word language marker uses a language absent from `@Languages`.",
+          "type": "string"
+        },
+        {
+          "const": "E255",
+          "description": "Whole-utterance language switch should use `[- LANG]` instead of tagging every word with `@s`.",
+          "type": "string"
+        },
+        {
           "const": "E258",
           "description": "Consecutive commas (`,,`) — should use single comma or `‚` (CLAN CHECK 107)",
           "type": "string"
@@ -2925,7 +2935,7 @@
         },
         {
           "const": "E544",
-          "description": "`@Media` header declares linkage (no `unlinked` / `missing` /\n`notrans` status) but the transcript carries no timing evidence\n(no bullets on any utterance, no `%wor` bullets, no `@Bg`/`@Eg`\ntime range). Reinstates the legacy Java-Chatter check Brian\napproved 2026-04-21.",
+          "description": "`@Media` header declares linkage (no `unlinked` / `missing` /\n`notrans` status) but the transcript carries no timing evidence\n(no bullets on any utterance, no `%wor` bullets, no `@Bg`/`@Eg`\ntime range). Reinstates the legacy Java-Chatter check.",
           "type": "string"
         },
         {
@@ -4858,18 +4868,15 @@
       "type": "string"
     },
     "MorTier": {
-      "description": "Morphological analysis tier (%mor).\n\nProvides word-by-word UD-style morphological annotation aligned with the main tier.\nEach word receives a morphological code specifying part of speech, lemma,\nand grammatical features.\n\n# CHAT Format Example\n\n```text\n*CHI: I want cookies .\n%mor: pron|I-Prs-Nom-S1 verb|want-Fin-Ind-Pres-S1 noun|cookie-Plur .\n```\n\n# Morphological Format\n\nEach mor item has the UD structure: `POS|lemma[-Feature]*`\n- **POS**: UD-style part-of-speech tag (e.g., `noun`, `verb`, `pron`)\n- **Lemma**: Base form (e.g., `I`, `want`, `cookie`)\n- **Features**: UD feature values (e.g., `-Plur`, `-Fin-Ind-Pres-S3`)\n\n# Alignment\n\nMor tiers align 1-to-1 with alignable main tier content (words, not pauses/events).\nSee `crate::alignment::mor` for alignment algorithm.\n\n# Terminator\n\nThe terminator is optional. The aligner validates that either both the main tier\nand %mor tier have a terminator, or neither does.\n\n# References\n\n- [Morphological Tier](https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier)",
+      "description": "Morphological analysis tier (%mor).\n\nProvides word-by-word UD-style morphological annotation aligned with the main tier.\nEach word receives a morphological code specifying part of speech, lemma,\nand grammatical features.\n\n# CHAT Format Example\n\n```text\n*CHI: I want cookies .\n%mor: pron|I-Prs-Nom-S1 verb|want-Fin-Ind-Pres-S1 noun|cookie-Plur .\n```\n\n# Morphological Format\n\nEach mor item has the UD structure: `POS|lemma[-Feature]*`\n- **POS**: UD-style part-of-speech tag (e.g., `noun`, `verb`, `pron`)\n- **Lemma**: Base form (e.g., `I`, `want`, `cookie`)\n- **Features**: UD feature values (e.g., `-Plur`, `-Fin-Ind-Pres-S3`)\n\n# Alignment\n\nMor tiers align 1-to-1 with alignable main tier content (words, not pauses/events).\nSee `crate::alignment::mor` for alignment algorithm.\n\n# Terminator\n\nStandard `%mor:` tiers end with a typed [`Terminator`] that matches the\nmain tier. In CA-mode, or for specialized fragments, the terminator may be\nomitted if the main tier has no terminator.\n\n# References\n\n- [Morphological Tier](https://talkbank.org/0info/manuals/CHAT.html#Morphological_Tier)",
       "properties": {
         "items": {
           "$ref": "#/$defs/MorItems",
           "description": "Morphological items aligned with main tier content."
         },
         "terminator": {
-          "description": "Optional terminator. Must match main tier's terminator presence.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "$ref": "#/$defs/Terminator",
+          "description": "Required terminator for this `%mor:` tier."
         },
         "tier_type": {
           "$ref": "#/$defs/MorTierType",
@@ -4878,7 +4885,8 @@
       },
       "required": [
         "tier_type",
-        "items"
+        "items",
+        "terminator"
       ],
       "type": "object"
     },
@@ -5673,7 +5681,7 @@
       "type": "object"
     },
     "Separator": {
-      "description": "Separator token variants.\n\nThis enum intentionally keeps CA-specific markers adjacent to standard\npunctuation separators so parser and renderer logic can share one token type.\n\n# CHAT Format Examples\n\n**Pauses and Breaks:**\n```text\n*CHI: I want, um, cookies .        # Comma - short pause within TCU\n*MOT: I think; maybe not .         # Semicolon - longer pause\n*CHI: that's co:ol .               # Colon - elongation/emphasis\n```\n\n**CA Intonation Markers:**\n```text\n*CHI: really ⇗                     # Rising to high intonation\n*MOT: maybe ↗                      # Rising to mid intonation\n*CHI: I know →                     # Level/continuing intonation\n*MOT: okay ↘                       # Falling to mid intonation\n*CHI: done ⇘                       # Falling to low intonation\n```\n\n**Special CA Markers:**\n```text\n*CHI: you know„                    # TAG marker (question tag)\n*MOT: John‡ come here .            # VOCATIVE marker (addressing)\n*CHI: I think [^c]                 # CA continuation (ongoing turn)\n*MOT: so∞                          # Unmarked ending (no clear terminal intonation)\n*CHI: yeah≡                        # Uptake/latching (no gap between turns)\n```\n\n# References\n\n- [Separators](https://talkbank.org/0info/manuals/CHAT.html#Separators)\n- [CA Intonation](https://talkbank.org/0info/manuals/CHAT.html#CA_Intonation)\n- [Comma](https://talkbank.org/0info/manuals/CHAT.html#Comma)\n- [Colon](https://talkbank.org/0info/manuals/CHAT.html#Colon)\n- [Satellite Marker](https://talkbank.org/0info/manuals/CHAT.html#Satellite_Marker)",
+      "description": "Separator token variants.\n\nThis enum intentionally keeps CA-specific markers adjacent to standard\npunctuation separators so parser and renderer logic can share one token type.\n\n# CHAT Format Examples\n\n**Pauses and Breaks:**\n```text\n*CHI: I want, um, cookies .        # Comma - short pause within TCU\n*MOT: I think; maybe not .         # Semicolon - longer pause\n*CHI: that's co:ol .               # Colon - elongation/emphasis\n```\n\n**CA Intonation Markers:**\n```text\n*CHI: really ⇗                     # Rising to high intonation\n*MOT: maybe ↗                      # Rising to mid intonation\n*CHI: I know →                     # Level/continuing intonation\n*MOT: okay ↘                       # Falling to mid intonation\n*CHI: done ⇘                       # Falling to low intonation\n```\n\n**Special CA Markers:**\n```text\n*CHI: you know„                    # TAG marker (question tag)\n*MOT: John‡ come here .            # VOCATIVE marker (addressing)\n*CHI: I think [^c]                 # CA continuation (ongoing turn)\n*MOT: so∞                          # Unmarked ending (no clear terminal intonation)\n*CHI: yeah≡                        # Uptake/latching (no gap between turns)\n*MOT: keep going ≈                 # No-break TCU separator\n*CHI: mic issue ≋                  # Technical-break TCU separator\n```\n\n# References\n\n- [Separators](https://talkbank.org/0info/manuals/CHAT.html#Separators)\n- [CA Intonation](https://talkbank.org/0info/manuals/CHAT.html#CA_Intonation)\n- [Comma](https://talkbank.org/0info/manuals/CHAT.html#Comma)\n- [Colon](https://talkbank.org/0info/manuals/CHAT.html#Colon)\n- [Satellite Marker](https://talkbank.org/0info/manuals/CHAT.html#Satellite_Marker)",
       "oneOf": [
         {
           "description": "Comma separator (,) - short pause within TCU\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Comma>",
@@ -5771,6 +5779,32 @@
           "properties": {
             "kind": {
               "const": "uptake",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "≈ (U+2248) - No-break TCU separator - Conversation Analysis\nReference: <https://talkbank.org/0info/manuals/CHAT.html#TCU_NoBreak>",
+          "properties": {
+            "kind": {
+              "const": "ca_no_break",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "≋ (U+224B) - Technical-break TCU separator - Conversation Analysis\nReference: <https://talkbank.org/0info/manuals/CHAT.html#TCU_Technical_Break>",
+          "properties": {
+            "kind": {
+              "const": "ca_technical_break",
               "type": "string"
             }
           },
@@ -6121,7 +6155,7 @@
       "type": "string"
     },
     "Terminator": {
-      "description": "End-of-utterance token variant.\n\n# Standard Terminators\n\n- `.` - Period (declarative)\n- `?` - Question mark (interrogative)\n- `!` - Exclamation (imperative/exclamatory)\n\n# Interruption Terminators\n\n- `+...` - Trailing off (incomplete thought)\n- `+/.` - Interruption by another speaker\n- `+//.` - Self-interruption\n- `+/?` - Interrupted question\n- `+//?` - Self-interrupted question\n- `+/??` - Broken off question\n\n# CA (Conversation Analysis) Intonation\n\n- `⇗` - Rising to high\n- `↗` - Rising to mid\n- `→` - Level/continuing\n- `↘` - Falling to mid\n- `⇘` - Falling to low\n\n# CHAT Format Examples\n\n```text\n*CHI: I want that .         Standard declarative\n*MOT: what do you want ?    Question\n*CHI: look at this !        Exclamation\n*CHI: I was going to +...   Trailing off\n*MOT: did you +/. yes I did Interrupted by CHI\n*CHI: um the +//. the dog   Self-interruption\n```\n\n# References\n\n- [Terminators](https://talkbank.org/0info/manuals/CHAT.html#Terminators)\n- [Interruption Terminator](https://talkbank.org/0info/manuals/CHAT.html#Interruption_Terminator)\n- [CA Intonation](https://talkbank.org/0info/manuals/CHAT.html#CA_Intonation)",
+      "description": "End-of-utterance token variant.\n\n# Standard Terminators\n\n- `.` - Period (declarative)\n- `?` - Question mark (interrogative)\n- `!` - Exclamation (imperative/exclamatory)\n\n# Interruption Terminators\n\n- `+...` - Trailing off (incomplete thought)\n- `+/.` - Interruption by another speaker\n- `+//.` - Self-interruption\n- `+/?` - Interrupted question\n- `+//?` - Self-interrupted question\n- `+/??` - Broken off question\n\n# CHAT Format Examples\n\n```text\n*CHI: I want that .         Standard declarative\n*MOT: what do you want ?    Question\n*CHI: look at this !        Exclamation\n*CHI: I was going to +...   Trailing off\n*MOT: did you +/. yes I did Interrupted by CHI\n*CHI: um the +//. the dog   Self-interruption\n```\n\n# References\n\n- [Terminators](https://talkbank.org/0info/manuals/CHAT.html#Terminators)\n- [Interruption Terminator](https://talkbank.org/0info/manuals/CHAT.html#Interruption_Terminator)\n- [CA Intonation](https://talkbank.org/0info/manuals/CHAT.html#CA_Intonation)",
       "oneOf": [
         {
           "description": "Period `.` - declarative statement\nReference: <https://talkbank.org/0info/manuals/CHAT.html#Period_Terminator>",

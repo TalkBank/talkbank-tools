@@ -6,6 +6,19 @@ Rust with one authoritative data structure built from the installed
 Stanza version.
 
 The table is built once (lazily) and cached for the process lifetime.
+
+On a fresh install where Stanza's resource catalog has never been seeded,
+``resources.json`` does not yet exist. In that case the builder bootstraps
+the catalog by calling Stanza's own ``download_resources_json()`` (a small,
+fast download — the catalog itself, no language packs) and retries.
+Language packs are then downloaded lazily by ``stanza.Pipeline()`` on first
+use of each language. The end user never has to seed anything by hand.
+
+A real network/disk failure during catalog bootstrap surfaces as the typed
+``StanzaCatalogDownloadError`` rather than a silent ``None`` — the original
+silent-None path masked the bug whose downstream effect was a worker
+exit-1 retry storm with multi-GB log spam from a deterministic catalog
+miss.
 """
 
 from __future__ import annotations
@@ -14,7 +27,23 @@ import functools
 import logging
 from dataclasses import dataclass, field
 
+from batchalign.worker._progress import emit_download_event
+
 L = logging.getLogger(__name__)
+
+
+class StanzaCatalogDownloadError(RuntimeError):
+    """Stanza resource catalog could not be downloaded.
+
+    Raised when batchalign3 attempted to bootstrap Stanza's
+    ``resources.json`` on first use, but the download failed (network
+    unreachable, upstream returned non-200, disk full, permission denied,
+    etc.).
+
+    Distinct from "language not supported" (a domain-level rejection)
+    and from "Stanza package not installed" (a deploy-config error). This
+    error is recoverable by retrying when network is available.
+    """
 
 # ISO-639-3 → Stanza alpha-2 overrides for codes that pycountry
 # doesn't map correctly or that Stanza uses non-standard identifiers for.
@@ -53,6 +82,13 @@ class StanzaCapabilityTable:
     languages: dict[str, StanzaLanguageCapability] = field(default_factory=dict)
     iso3_to_alpha2: dict[str, str] = field(default_factory=dict)
     stanza_version: str = ""
+
+    def supports_morphosyntax(self, iso3: str) -> bool:
+        """Whether ``iso3`` has the core Stanza processors morphotag needs."""
+        cap = self.languages.get(iso3)
+        if cap is None:
+            return False
+        return all((cap.has_tokenize, cap.has_pos, cap.has_lemma, cap.has_depparse))
 
 
 def build_stanza_capability_table_from_resources(
@@ -159,13 +195,101 @@ def build_stanza_capability_table() -> StanzaCapabilityTable:
 def get_cached_capability_table() -> StanzaCapabilityTable | None:
     """Return the cached capability table, building it on first call.
 
-    Returns ``None`` if Stanza is not installed.
+    Behavior on a fresh install (no ``resources.json`` yet): bootstrap the
+    catalog via ``stanza.resources.common.download_resources_json()`` and
+    retry. The user is informed of the download via the ``progress_v2``
+    event channel — silent waits are a UX bug.
+
+    Returns:
+        - Populated ``StanzaCapabilityTable`` on success (cache hit, fresh
+          download, or both).
+        - ``None`` only when the Stanza Python package itself is not
+          installed in the worker venv (a deploy/config error, not a
+          recoverable miss).
+
+    Raises:
+        StanzaCatalogDownloadError: when the catalog must be downloaded
+            but the download fails (network, disk, etc.). The orchestrator
+            should classify this as non-retryable at the bootstrap layer:
+            retrying 3× immediately won't fix a network outage.
     """
     try:
         return build_stanza_capability_table()
     except ImportError:
+        # Distinct, legitimate silent-None path: Stanza package not in venv.
+        # This is a deploy-config error, not a recoverable miss.
         L.warning("Stanza not installed — capability table unavailable")
         return None
-    except Exception as e:
-        L.warning("Failed to build Stanza capability table: %s", e)
-        return None
+    except Exception as exc:
+        # Recoverable miss: the catalog file ``resources.json`` does not yet
+        # exist locally. Stanza itself raises ``ResourcesFileNotFoundError``
+        # (a subclass of ``FileNotFoundError``); we bootstrap and retry.
+        # Any other exception type is a genuine error and re-raised.
+        if not _is_resources_missing(exc):
+            L.error(
+                "Stanza capability table build failed with unexpected error: %s",
+                exc,
+            )
+            raise
+
+        return _bootstrap_and_retry(exc)
+
+
+def _is_resources_missing(exc: BaseException) -> bool:
+    """Return True iff ``exc`` is Stanza's ResourcesFileNotFoundError.
+
+    Imported lazily because the import chain itself depends on Stanza
+    being present, which is the very condition the caller is checking.
+    """
+    try:
+        from stanza.resources.common import ResourcesFileNotFoundError
+    except ImportError:
+        return False
+    return isinstance(exc, ResourcesFileNotFoundError)
+
+
+def _bootstrap_and_retry(original: BaseException) -> StanzaCapabilityTable:
+    """Download Stanza's resource catalog, then rebuild the capability table.
+
+    Pairs of ``progress_v2`` events frame the download so every UI surface
+    (CLI, TUI, desktop app, web dashboard) shows the user that the wait is
+    a one-time bootstrap, not a hang.
+    """
+    import stanza.resources.common as src
+
+    L.info(
+        "Stanza resource catalog missing (%s); bootstrapping from %s",
+        original,
+        src.DEFAULT_RESOURCES_URL,
+    )
+    emit_download_event(
+        stage="downloading_stanza_catalog",
+        user_message=(
+            "Downloading Stanza resource catalog (one-time, ~1 MB; "
+            "future runs will be instant)…"
+        ),
+    )
+    try:
+        src.download_resources_json()
+    except Exception as download_exc:
+        emit_download_event(
+            stage="downloading_stanza_catalog_failed",
+            user_message=(
+                "Stanza resource catalog download failed: "
+                f"{download_exc}"
+            ),
+        )
+        raise StanzaCatalogDownloadError(
+            f"Failed to download Stanza resource catalog from "
+            f"{src.DEFAULT_RESOURCES_URL}: {download_exc}"
+        ) from download_exc
+
+    emit_download_event(
+        stage="downloading_stanza_catalog_complete",
+        user_message="Stanza resource catalog ready.",
+    )
+
+    # Catalog is now on disk; the second build attempt should succeed. If
+    # this still fails, surface the error — it means the downloaded catalog
+    # is corrupt or unreadable, which is a real bug worth investigating.
+    return build_stanza_capability_table()

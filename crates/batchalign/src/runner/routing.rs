@@ -62,7 +62,15 @@ pub(super) async fn dispatch_job_with_execution_context(
     let test_echo_mode = execution.test_echo_mode;
     let job_engine_overrides = job.dispatch.options.common().engine_overrides_json();
 
-    // Choose between infer path or per-file dispatch.
+    // Capability discovery is language-agnostic — the worker reports its
+    // resources.json which lists every supported language regardless of
+    // which lang the worker boots with. The job-level `LanguageSpec`
+    // (`Resolved(_)`, `Auto`, `PerFile`) is mapped to its `WorkerLanguage`
+    // counterpart and forwarded as-is. The Python bootstrap recognises
+    // `auto` and `per-file` as non-ISO sentinels and skips eager Stanza
+    // model load for those — see
+    // `batchalign/worker/_model_loading/bootstrap.py::_load_single_task`.
+    // No English fallback here; the typed sum carries through.
     let capability_snapshot = match resolve_runtime_capability_snapshot(
         pool,
         startup_infer_tasks,

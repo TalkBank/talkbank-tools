@@ -1,6 +1,6 @@
 //! Standard streamed validation runtime with text, JSON, and TUI frontends.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -13,12 +13,21 @@ use crate::commands::validate_parallel::{
 use crate::ui::{TuiAction, run_validation_tui_streaming};
 use talkbank_transform::validation_runner::{
     CacheMode, DirectoryMode, ValidationConfig, ValidationEvent, ValidationStatsSnapshot,
-    validate_directory_streaming,
+    validate_files_streaming,
 };
 
-/// Run the standard validation flow for one directory or file target.
+/// Run the standard validation flow on a pre-collected list of CHAT
+/// files. Both `chatter validate dir/` and
+/// `chatter validate a.cha b.cha c.cha` resolve to this single path
+/// after the CLI has walked input args into a flat file list — the
+/// fix for the prior divergence between per-file and per-directory
+/// code paths.
+///
+/// `summary_label` is cosmetic for the summary line; the actual
+/// validation operates entirely on `files`.
 pub fn run_validation_runtime(
-    path: &Path,
+    files: Vec<PathBuf>,
+    summary_label: PathBuf,
     options: ValidateDirectoryOptions,
 ) -> ValidationStatsSnapshot {
     let ValidateDirectoryOptions {
@@ -52,13 +61,20 @@ pub fn run_validation_runtime(
         strict_linkers: rules.strict_linkers,
     };
 
-    let cache = initialize_validation_cache(path, execution.cache_refresh);
+    let cache = initialize_validation_cache(&summary_label, execution.cache_refresh);
 
     if output.interface.uses_tui() {
-        return run_tui_loop(path, &config, cache, output.theme, &suppress_set);
+        return run_tui_loop(
+            files,
+            &summary_label,
+            &config,
+            cache,
+            output.theme,
+            &suppress_set,
+        );
     }
 
-    let (events_rx, cancel_tx) = validate_directory_streaming(path, &config, cache);
+    let (events_rx, cancel_tx) = validate_files_streaming(files, &config, cache.clone());
     let (filtered_rx, files_fully_suppressed) = filter_suppressed_events(events_rx, &suppress_set);
     install_ctrlc_handler(&cancel_tx);
 
@@ -108,7 +124,7 @@ pub fn run_validation_runtime(
     }
 
     renderer.handle_finished(&stats, files_completed, execution.max_errors, error_count);
-    renderer.print_summary(path, &stats, rules.roundtrip.enabled());
+    renderer.print_summary(&summary_label, &stats, rules.roundtrip.enabled());
 
     if suppressed > 0 {
         eprintln!(
@@ -120,15 +136,20 @@ pub fn run_validation_runtime(
 }
 
 /// Drive the interactive TUI, supporting reruns until the user exits.
+///
+/// Re-streaming on Rerun re-uses the same file list so the rerun
+/// honors the same input the user originally asked for.
 fn run_tui_loop(
-    path: &Path,
+    files: Vec<PathBuf>,
+    summary_label: &Path,
     config: &ValidationConfig,
     cache: Option<Arc<talkbank_transform::CachePool>>,
     theme: crate::ui::Theme,
     suppress_set: &std::collections::HashSet<String>,
 ) -> ValidationStatsSnapshot {
+    let _ = summary_label; // reserved for future "rerunning <label>..." messaging
     loop {
-        let (events_rx, cancel_tx) = validate_directory_streaming(path, config, cache.clone());
+        let (events_rx, cancel_tx) = validate_files_streaming(files.clone(), config, cache.clone());
         let (filtered_rx, _suppressed) = filter_suppressed_events(events_rx, suppress_set);
         match run_validation_tui_streaming(filtered_rx, cancel_tx, theme.clone()) {
             Ok(TuiAction::Quit) => return empty_stats(false),

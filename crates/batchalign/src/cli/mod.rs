@@ -393,7 +393,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
             let subdir = args::extract_subdir(cmd);
             let lexicon = args::extract_lexicon(cmd);
 
-            let before = common.as_ref().and_then(|c| c.before.as_deref());
+            let before = args::extract_before(cmd);
 
             dispatch::dispatch(dispatch::DispatchRequest {
                 command: profile.command,

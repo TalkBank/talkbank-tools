@@ -31,6 +31,8 @@
 //! | `normalize`        | Re-serialize a CHAT file in canonical formatting            |
 //! | `to-json`          | Convert CHAT to JSON (conforming to the CHAT JSON Schema)  |
 //! | `from-json`        | Convert JSON back to CHAT                                  |
+//! | `to-xml`           | Export one CHAT file to TalkBank XML                       |
+//! | `validate-utseg`   | Check utseg corpus output against gated invariants         |
 //! | `show-alignment`   | Visualize main-tier / dependent-tier alignment              |
 //! | `watch`            | Re-validate on every file save (uses `notify` file watcher)|
 //! | `lint`             | Detect and optionally auto-fix common issues               |
@@ -38,7 +40,7 @@
 //! | `new-file`         | Scaffold a minimal valid CHAT file                          |
 //! | `cache`            | Manage the on-disk validation cache (stats, clear)          |
 //! | `schema`           | Print the CHAT JSON Schema or its canonical URL             |
-//! | `lsp`              | Run the TalkBank language server over stdio                 |
+//! | `debug <cmd>`      | Developer/debugging tools and corpus inspection            |
 //! | `clan <cmd>`       | CLAN analysis/transform commands (freq, mlu, mlt, ...)     |
 //!
 //! # Dispatch architecture
@@ -97,15 +99,18 @@
 //! │   ├── validate/    ← single-file and directory validation
 //! │   ├── validate_parallel.rs ← parallel directory validation with progress
 //! │   ├── json.rs      ← to-json / from-json conversion
+//! │   ├── xml.rs       ← to-xml export
 //! │   ├── normalize.rs ← canonical re-serialization
 //! │   ├── watch.rs     ← file-watcher continuous validation
 //! │   ├── lint.rs      ← auto-fixable issue detection
 //! │   ├── clean.rs     ← cleaned-text debugging output
+//! │   ├── debug.rs     ← debug-family commands
+//! │   ├── find/        ← `chatter debug find`
 //! │   ├── new_file.rs  ← CHAT file scaffolding
 //! │   ├── schema.rs    ← JSON Schema output
-//! │   ├── lsp.rs       ← published `chatter lsp` entrypoint
 //! │   ├── cache/       ← cache stats and clear subcommands
 //! │   ├── alignment/   ← alignment visualization (show-alignment)
+//! │   ├── validate_utseg.rs ← utseg invariant gate
 //! │   └── clan.rs      ← CLAN command dispatch (delegates to talkbank-clan)
 //! ├── output.rs        ← formatting and rendering helpers
 //! ├── progress.rs      ← progress bar utilities

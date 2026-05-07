@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use crate::api::{LanguageCode3, NumWorkers};
+use crate::api::NumWorkers;
 use crate::planning;
 use crate::runner::DispatchHostContext;
 use crate::runner::util::{FileRunTracker, FileStage};
@@ -56,7 +56,10 @@ pub(crate) async fn dispatch_morphotag_job(
         return Ok(());
     }
 
-    let lang = resolved_lang(job);
+    // No job-level lang for morphotag — language is resolved per-file
+    // from each CHAT file's `@Languages:` header inside the spawned task.
+    // The previous job-level `resolved_lang(job)` lookup silently fell
+    // back to English on PerFile (the 2026-05-03 incident shape).
     let file_parallelism = num_workers.0.max(1);
     let file_sem = Arc::new(tokio::sync::Semaphore::new(file_parallelism));
     let mut joinset: tokio::task::JoinSet<()> = tokio::task::JoinSet::new();
@@ -75,7 +78,6 @@ pub(crate) async fn dispatch_morphotag_job(
         };
 
         let gateway_for_task = Arc::clone(&gateway);
-        let lang_for_task = lang.clone();
         let options_for_task = options.clone();
         let host_for_task = host.clone();
         let job_for_task = job.clone();
@@ -111,11 +113,43 @@ pub(crate) async fn dispatch_morphotag_job(
                 .begin_first_attempt(WorkUnitKind::BatchInfer, unix_now(), FileStage::Analyzing)
                 .await;
 
+            // Resolve language per-file from the CHAT file's own
+            // `@Languages:` header. No job-level lang, no eng fallback —
+            // a missing or malformed header surfaces as a typed file-level
+            // error in the job's status.
+            let parser = crate::chat_parser();
+            let (parsed_chat, _parse_errors) =
+                talkbank_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
+            let file_lang = match crate::pipeline::morphosyntax::resolve_per_file_lang(&parsed_chat)
+            {
+                Ok(code) => code,
+                Err(err) => {
+                    let file_result =
+                        TextBatchFileResult::err(file_input.filename.clone(), err.to_string());
+                    write_morphotag_results(
+                        &job_for_task,
+                        &host_for_task,
+                        &plan_for_task,
+                        vec![file_result],
+                        options_for_task.should_merge_abbrev,
+                    )
+                    .await;
+                    lifecycle
+                        .fail(
+                            &err.to_string(),
+                            crate::scheduling::FailureCategory::Validation,
+                            unix_now(),
+                        )
+                        .await;
+                    return;
+                }
+            };
+
             let result = gateway_for_task
                 .morphotag_single(
                     &file_input.chat_text,
                     before_text.as_deref(),
-                    &lang_for_task,
+                    &file_lang,
                     options_for_task.clone(),
                 )
                 .await;
@@ -147,12 +181,4 @@ pub(crate) async fn dispatch_morphotag_job(
     }
 
     Ok(())
-}
-
-fn resolved_lang(job: &RunnerJobSnapshot) -> LanguageCode3 {
-    job.dispatch
-        .lang
-        .as_resolved()
-        .cloned()
-        .unwrap_or_else(LanguageCode3::eng)
 }

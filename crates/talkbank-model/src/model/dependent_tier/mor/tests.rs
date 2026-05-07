@@ -71,10 +71,10 @@ fn test_mor_word_features() {
     assert_eq!(word.features[0].value(), "Fin");
 }
 
-/// Counts total `%mor` chunks across items and clitics.
+/// Counts total `%mor` chunks across items, clitics, and the trailing terminator.
 #[test]
 fn test_mor_tier_count_chunks() {
-    // word1: 1 chunk, word2 with post-clitic: 2 chunks = 3 total
+    // word1: 1 chunk, word2 with post-clitic: 2 chunks, terminator: 1 chunk = 4 total
     let word1 = MorWord::new(PosCategory::new("verb"), "go");
     let mor1 = Mor::new(word1);
 
@@ -89,7 +89,7 @@ fn test_mor_tier_count_chunks() {
         },
     );
 
-    assert_eq!(tier.count_chunks(), 3);
+    assert_eq!(tier.count_chunks(), 4);
 }
 
 /// Enumerate the chunk sequence of `pron|it~aux|be noun|cookie .`: the iterator

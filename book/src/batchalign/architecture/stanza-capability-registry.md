@@ -1,7 +1,7 @@
 # Stanza Capability Registry
 
 **Status:** Current
-**Last modified:** 2026-05-02 08:55 EDT
+**Last modified:** 2026-05-06 21:30 EDT
 
 The Stanza capability registry replaces 7 scattered hardcoded language tables
 with a single runtime-authoritative data structure built from Stanza's own
@@ -9,25 +9,77 @@ with a single runtime-authoritative data structure built from Stanza's own
 parsing?" and "what is the alpha-2 code for Norwegian?" without any hardcoded
 assumptions about Stanza's feature matrix.
 
-## Problem: Hardcoded Language Tables
+## Why This Exists: One Authority for "Can Stanza Do X For Lang Y?"
 
-Before the registry, processor availability was scattered across 7 independent
-tables in both Python and Rust:
+There are several places in the pipeline that need to ask the
+language-capability question, in two separate dimensions:
 
-| Former table | Location | What it hardcoded |
-|--------------|----------|-------------------|
-| `MWT_LANGS` | Python inference | Languages with multi-word token expansion |
-| `SUPPORTED_STANZA_CODES` | `stanza_languages.rs` | ISO-639-3 codes Stanza could process |
-| `iso3_to_alpha2` | Python worker | Code mapping for Stanza model loading |
-| `CONSTITUENCY_LANGS` | Python utseg | Languages with constituency parsing |
-| ~~`STANZA_SUPPORTED_ISO3`~~ (removed) | `request.rs` | Was a duplicate of `SUPPORTED_STANZA_CODES`; submission validation now delegates to the chat-ops list |
-| Inline checks in `_stanza_loading.py` | Python worker | Ad hoc feature gating |
-| Inline checks in `batch.rs` | Rust morphosyntax | Language filtering |
+- **What ISO-639-3 codes does Stanza support, and with which processors?**
+  (e.g. does `mar` have `tokenize`/`pos`/`lemma`/`depparse`? does `nld`
+  have `mwt`? does `eng` have `constituency`?)
+- **For a given ISO-639-3 code, what alpha-2 catalog key does Stanza
+  use?** (e.g. `mar` → `mr`, `yue` → `zh-hans`, `nor` → `nb`).
 
-Every Stanza upgrade risked these tables drifting out of sync. The Dutch
-`utseg` crash (requesting constituency for a language that lacked it) was a
-direct consequence: `CONSTITUENCY_LANGS` included Dutch but Stanza's model
-did not have constituency support.
+Both questions must always have the same answer at every site that
+asks them. **Two answers diverging is the recurring failure mode this
+registry exists to prevent.** Every drift incident has the same shape:
+one component (Rust validator, Python preflight, capability exporter)
+says "yes, lang X is supported"; another component (Stanza's actual
+`Pipeline()` constructor, the model loader, an alpha-2 lookup) says
+"no, lang X has no models." A worker dies during bootstrap, the user
+sees a generic IPC error, and the linguistic root cause is buried in
+stderr.
+
+### Drift incident history
+
+The bug pattern keeps recurring. Each entry below is a real incident
+where the registry's invariant — *"every lookup of language capability
+goes through the same authority"* — was violated.
+
+| Date | What drifted | Symptom | Root cause |
+|------|--------------|---------|------------|
+| 2026-04-15 | `MWT_LANGS` (Python) said Swedish (`sv`) had MWT, but Stanza's catalog had dropped the Swedish MWT model. | Every Swedish worker spawn raised `UnsupportedProcessorError`; an overnight 500-file morphotag run lost an entire language batch. | Hand-edited mirror of Stanza's catalog drifted on upgrade. |
+| 2026-05-06 | `iso3_to_alpha2()` (Python) had a hardcoded ISO-3 → ISO-1 mapping that did **not** include Marathi (`mar` → `mr`); the capability table built via pycountry **did** include it. The bootstrap preflight said "yes, supports Marathi", then `iso3_to_alpha2` returned `"mar"` verbatim. | Worker for `[- mar]` whole-utterance utterance crashed with `ValueError: Language mar is currently unsupported` because Stanza catalog keys are alpha-2; `mar` is not a key. The worker never emitted its ready signal; the file failed with a generic worker-bootstrap error. | A second hardcoded language dict that needed to agree with the registry but didn't. |
+| (older) Dutch utseg crash | `CONSTITUENCY_LANGS` (Python utseg) included Dutch, but Stanza shipped no Dutch constituency model. | Every Dutch utseg request crashed Stanza. | Hand-edited mirror of Stanza's catalog drifted. |
+
+The pattern across all three: a hand-edited list of "which langs have
+processor X" or "which iso3 maps to which alpha-2" got out of sync
+with Stanza's installed catalog or with another component's view of
+the same question.
+
+### Former hardcoded tables
+
+Pre-registry, processor availability and code mapping were scattered
+across independent tables in Python and Rust. The registry is the
+single replacement for all of them.
+
+| Former table | Location | What it hardcoded | Now |
+|--------------|----------|-------------------|-----|
+| `MWT_LANGS` | Python inference | Languages with multi-word token expansion | Replaced by `StanzaRegistry::has_mwt()`. |
+| `SUPPORTED_STANZA_CODES` | `stanza_languages.rs` | ISO-639-3 codes Stanza could process | Hardcoded fallback only; live registry overrides. |
+| `iso3_to_alpha2` (hardcoded dict) | Python worker | ISO-639-3 → ISO-639-1 code mapping for Stanza model loading | Reduced to a small `_ISO3_OVERRIDES` (Stanza-specific deviations only) shared with the capability table builder. Standard 1-to-1 cases now go through `pycountry`. |
+| `CONSTITUENCY_LANGS` | Python utseg | Languages with constituency parsing | Replaced by `StanzaRegistry::has_constituency()`. |
+| ~~`STANZA_SUPPORTED_ISO3`~~ (removed) | `request.rs` | Was a duplicate of `SUPPORTED_STANZA_CODES` | Removed; submission validation delegates to the chat-ops list. |
+| Inline checks in `_stanza_loading.py` | Python worker | Ad hoc feature gating | Replaced by `StanzaRegistry` queries via the capability table. |
+| Inline checks in `batch.rs` | Rust morphosyntax | Language filtering | Replaced by registry queries. |
+
+### The principle (re-derive when in doubt)
+
+1. **Stanza's installed catalog (`resources.json`) is the only source
+   of truth** for which languages have which processors.
+2. **`pycountry` is the only source of truth** for the standard
+   ISO-639-3 ↔ ISO-639-1 mapping.
+3. **`_ISO3_OVERRIDES`** in `_stanza_capabilities.py` is the only
+   place to record Stanza-specific deviations from the standard
+   mapping (`yue/cmn/zho → zh-hans`, `nor → nb`, etc.).
+4. **Every iso3↔alpha2 conversion** in the worker imports
+   `_ISO3_OVERRIDES` from that one site rather than redefining it.
+   `iso3_to_alpha2` does this; do not reintroduce a second override
+   dict.
+5. **Every "is lang X supported" check** at submission, dispatch, or
+   load time goes through the live `StanzaRegistry` (with the chat-ops
+   `SUPPORTED_STANZA_CODES` list as a conservative fallback only when
+   the registry has not yet been populated by the first worker).
 
 ## Architecture: Data Flow
 

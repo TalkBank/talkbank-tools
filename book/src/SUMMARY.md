@@ -94,6 +94,8 @@
 - [Overlap Encoding (`&*` and `+<`)](batchalign/architecture/overlap-encoding.md)
 - [Algorithm Visualizations](batchalign/architecture/algorithm-visualizations.md)
 - [Processing Provenance](batchalign/architecture/provenance.md)
+- [Time Transparency UX Principle](batchalign/architecture/time-transparency.md)
+- [Worker Failure Classification](batchalign/architecture/worker-failure-classification.md)
 
 # Batchalign3 — Technical Reference
 

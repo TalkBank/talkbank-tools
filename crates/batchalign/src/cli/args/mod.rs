@@ -59,7 +59,11 @@ pub struct CommonOpts {
     /// Treat all paths as inputs and modify in-place.
     #[arg(long)]
     pub in_place: bool,
+}
 
+/// Incremental-processing options supported only on selected commands.
+#[derive(Args, Debug, Clone)]
+pub struct IncrementalOpts {
     /// Reference "before" file or directory for incremental processing.
     ///
     /// When provided, the diff engine compares each input file against
@@ -186,28 +190,55 @@ impl CommonOpts {
                     extensions: &["mp3", "mp4", "wav"],
                 }
             }
-            Commands::Translate(a) => CommandProfile {
+            Commands::Translate(_a) => CommandProfile {
                 command: ReleasedCommand::Translate,
-                lang: a.lang.as_deref().unwrap_or("eng"),
+                // Translate has no `--lang`. Source language for each file is
+                // read from the file's `@Languages:` header by
+                // `dispatch_translate_job`. The translation target is fixed
+                // (English) and not surfaced through this field.
+                //
+                // The wire-level `"per-file"` value parses to
+                // `LanguageSpec::PerFile`, which is a first-class state
+                // distinct from `Auto` and `Resolved(_)`. Job records,
+                // dashboards, and worker pre-warming all see and respect it,
+                // so no English placeholder is ever stored or displayed for
+                // a translate job.
+                lang: "per-file",
                 num_speakers: 1,
                 extensions: &["cha"],
             },
             Commands::Morphotag(_a) => CommandProfile {
                 command: ReleasedCommand::Morphotag,
-                // BA2 parity: morphotag has no `--lang`. The actual processing
-                // language for each file comes from that file's `@Languages:`
-                // header, read in `pipeline/morphosyntax.rs::stage_parse`.
-                // The `CommandProfile.lang` field is used only for command-level
-                // dispatch metadata (Stanza-supported pre-validation, log
-                // labels) and a sentinel "eng" is the safe placeholder — files
-                // whose primary language differs are correctly routed per-file.
-                lang: "eng",
+                // Morphotag has no `--lang`. Per-file inference and provenance
+                // come from each file's `@Languages:` header, resolved in
+                // `pipeline/morphosyntax.rs::stage_parse` via
+                // `resolve_per_file_lang` and read through
+                // `MorphosyntaxPipelineContext::require_resolved_lang`.
+                //
+                // The wire-level `"per-file"` value parses to
+                // `LanguageSpec::PerFile`. This replaces the prior
+                // English-placeholder hack that survived the 2026-05-03
+                // incident only because pipeline code stopped reading it —
+                // the placeholder still leaked into job records and worker
+                // pre-warming, where it lied about what was actually being
+                // processed. `PerFile` makes the absence of a job-level
+                // language a first-class type-system state.
+                lang: "per-file",
                 num_speakers: 1,
                 extensions: &["cha"],
             },
-            Commands::Coref(a) => CommandProfile {
+            Commands::Coref(_a) => CommandProfile {
                 command: ReleasedCommand::Coref,
-                lang: a.lang.as_deref().unwrap_or("eng"),
+                // Coref is English-only and takes no `--lang`. The coref
+                // pipeline reads English-ness from each file's `@Languages:`
+                // header (see `coref.rs::file_has_english`) and hardcodes
+                // the inference language to `LanguageCode3::eng()` for the
+                // files that pass that gate.
+                //
+                // The wire-level `"per-file"` value parses to
+                // `LanguageSpec::PerFile`. The job record will not carry an
+                // English placeholder.
+                lang: "per-file",
                 num_speakers: 1,
                 extensions: &["cha"],
             },

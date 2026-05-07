@@ -1,7 +1,7 @@
 # L2 Morphotag: Per-Word Code-Switching Analysis
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:15 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 > **L2 dispatch is now on by default.** After
 > evaluation across 19 language pairs and 17,352 `@s` words yielded
@@ -26,8 +26,9 @@ Here `film` and `studies` are English words in a German utterance, marked
 with bare `@s` (shortcut for the secondary language declared in
 `@Languages`).
 
-Currently, batchalign3 blanks all `@s` words to `L2|xxx` in the `%mor`
-tier — discarding morphological information entirely:
+Historically, batchalign3 blanked all `@s` words to `L2|xxx` in the `%mor`
+tier — discarding morphological information entirely. This document starts
+from that original failure mode because it motivated the current design:
 
 ```chat
 %mor: ... adp|auf L2|xxx L2|xxx .
@@ -209,7 +210,7 @@ the deprel constraint from the primary model is decisive.
 
 ## Architecture
 
-### Current Data Flow (L2|xxx blanking)
+### Historical Baseline (L2|xxx blanking)
 
 The pipeline already parses, resolves, and carries per-word language
 information through every stage. It is discarded only at injection time.
@@ -238,11 +239,11 @@ flowchart TD
     A["Primary model processes\nfull utterance"] --> B["For @s words: extract\ndeprel, head, UPOS,\ndependents"]
     B --> C["Infer POS constraint\nfrom deprel\n(deprel_to_pos_constraint)"]
     A --> D["Defer L2 blanking\n(keep primary UD output)"]
-    D --> E["Group contiguous @s spans\nby target language\n(crates/talkbank-transform/morphosyntax/l2/spans.rs)"]
+    D --> E["Plan contiguous @s spans\nplus host attachment\n(crates/talkbank-transform/morphosyntax/l2/plan.rs)"]
     E --> F{"Stanza model\navailable?"}
     F -->|"yes"| G["Dispatch spans to\nsecondary Stanza workers"]
     F -->|"no"| H["Fall back to L2|xxx"]
-    G --> I["Merge:\nPOS ← deprel constraint ∩ secondary\nlemma ← secondary\nfeatures ← secondary"]
+    G --> I["merge_planned_secondary_span()\nPOS ← deprel constraint ∩ secondary\nlemma ← secondary\nfeatures ← secondary"]
     G -->|"dispatch fails"| H
     I --> J["Upgrade GRA:\nif primary deprel = FLAT\nand POS is known,\nreplace with correct deprel"]
 
@@ -250,6 +251,10 @@ flowchart TD
     style H fill:#ff8,stroke:#aa0
     style C fill:#88f,stroke:#00a
 ```
+
+The current implementation places deterministic span planning and host
+attachment in `talkbank-transform`; `batchalign` is only the worker-dispatch
+adapter for those planned spans.
 
 ### Merge Algorithm
 
@@ -401,9 +406,37 @@ primary model serves as validation rather than correction in these cases.
 | Variant | Policy | Rationale |
 |---------|--------|-----------|
 | `Single(lang)` | Dispatch to `lang` | Unambiguous target |
-| `Multiple(langs)` | Dispatch to `langs[0]` | First listed language is primary; rare (229 files) |
-| `Ambiguous(langs)` | Dispatch to `langs[0]` | Best guess; rare (290 files) |
+| `Multiple(langs)` | Fall back to `L2|xxx` | No single trustworthy target |
+| `Ambiguous(langs)` | Fall back to `L2|xxx` | No single trustworthy target |
 | `Unresolved` | Fall back to `L2|xxx` | No language to dispatch to |
+
+### Validation and normalization policy
+
+Per-word L2 dispatch and transcript repair are intentionally separate concerns:
+
+- explicit `@s:LANG` still dispatches to `LANG` when possible, even if `LANG` is
+  missing from `@Languages`, but validation emits warn-only E254 so the header
+  drift is visible
+- whole-utterance same-language all-`@s` runs are rejected as E255; the
+  canonical CHAT representation is utterance-level `[- lang]`
+- `chatter debug fix-s` is the normalization tool: it rewrites
+  qualifying whole-utterance `@s` runs, clears the matching per-word
+  shortcuts on fillers and nonwords as well as on regular words (a
+  bare `@s` resolves relative to the surrounding tier language, so the
+  new `[- LANG]` precode would otherwise flip filler resolution),
+  appends missing explicit languages to `@Languages`, and skips
+  already-correct files
+
+### Unsupported non-primary language handling
+
+`morphotag` requires only the **primary** `@Languages` code to be
+Stanza-supported. Non-primary content targeting an unsupported language
+— whether via `[- UNSUPPORTEDLANG]` precode or `@s:UNSUPPORTEDLANG`
+per-word marker — is partitioned out of Stanza dispatch by
+`partition_groups_by_stanza_support` in
+`crates/batchalign/src/morphosyntax/worker.rs` and emitted as `L2|xxx`
+rather than crashing the worker. Supported-language utterances and
+spans in the same file continue to receive real morphology.
 
 ### GRA Upgrade: From FLAT to Correct Deprel
 
@@ -485,9 +518,14 @@ L2 dispatch is the default. The `--experimental-l2-morphotag` flag
 has been removed and replaced with `--no-l2-morphotag` (opt-out).
 
 ```bash
-batchalign3 morphotag input/ -o output/ --lang eng                    # L2 on (default)
-batchalign3 morphotag input/ -o output/ --lang eng --no-l2-morphotag  # L2 off (legacy)
+batchalign3 morphotag input/ -o output/                    # L2 on (default)
+batchalign3 morphotag input/ -o output/ --no-l2-morphotag  # L2 off (legacy)
 ```
+
+Morphotag has no `--lang` flag — every file's primary language is read
+from its own `@Languages:` header. The L2 dispatch path applies to
+secondary-language tagged words (`@s`, `@s:fra`, etc.) inside any file
+regardless of the primary.
 
 Why keep an opt-out? Two legitimate users: researchers reproducing
 older analyses exactly, and data producers who prefer the honest

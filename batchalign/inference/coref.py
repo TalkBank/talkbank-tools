@@ -87,6 +87,19 @@ def batch_infer_coref(req: BatchInferRequest) -> BatchInferResponse:
 
         try:
             if pipeline is None:
+                # Coref pipeline downloads its own model files (RoBERTa-large
+                # plus the ontonotes coref package) on first use; surface the
+                # wait through the progress channel.
+                from batchalign.worker._progress import emit_download_event
+
+                emit_download_event(
+                    stage="downloading_stanza_coref_eng",
+                    user_message=(
+                        "Downloading Stanza English coreference model "
+                        "(one-time, ~1.5 GB; future runs will use the local "
+                        "cache)…"
+                    ),
+                )
                 pipeline = stanza.Pipeline(
                     lang="en",
                     processors="tokenize, coref",

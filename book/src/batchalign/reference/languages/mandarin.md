@@ -1,7 +1,7 @@
 # Mandarin Language Support
 
 **Status:** Current
-**Last updated:** 2026-03-23 12:15 EDT
+**Last updated:** 2026-05-06 16:30 EDT
 
 Mandarin (`cmn`/`zho`) shares the Stanza `zh` model and Chinese number
 expansion system with Cantonese, but has distinct word segmentation behavior
@@ -14,8 +14,9 @@ and no alternative ASR engines.
 | ASR | Whisper (default), no Mandarin-specific alternatives |
 | Text normalization | None (Cantonese normalization is `yue`-only) |
 | Number expansion | Chinese number system (`num2chinese` with simplified script for `zho`, traditional for `cmn`) |
+| Utterance segmentation | `talkbank/CHATUtterance-zh_CN` for `cmn` / `zho` in standalone `utseg` and transcribe pre-CHAT segmentation |
 | Word segmentation | Stanza neural tokenizer via `--retokenize` |
-| Morphosyntax | Stanza Chinese (`zh-hans`) model, MWT excluded |
+| Morphosyntax | Stanza Chinese (`zh`) model; `@s` Mandarin words in mixed-language files use the same Chinese morphosyntax path |
 | Forced alignment | Wave2Vec MMS (standard) |
 
 ## Language Codes
@@ -35,7 +36,9 @@ tokens without word boundaries — the same problem that affects Cantonese.
 ### The `--retokenize` Solution
 
 ```bash
-batchalign3 morphotag --retokenize corpus/ -o output/ --lang cmn
+# Morphotag has no --lang flag — Mandarin files are detected from each
+# file's @Languages: cmn (or zho) header.
+batchalign3 morphotag --retokenize corpus/ -o output/
 ```
 
 This uses Stanza's neural Chinese tokenizer (`tokenize_pretokenized=False`)
@@ -78,6 +81,23 @@ ambiguous compounds where individual characters have independent meanings
 **For word count and MLU analysis, this is substantially better than
 per-character tokenization but should not be treated as ground truth.**
 
+## Utterance Segmentation
+
+Both `cmn` and `zho` resolve to the same Mandarin utterance-segmentation model:
+
+| Code | Model |
+|------|-------|
+| `cmn` | `talkbank/CHATUtterance-zh_CN` |
+| `zho` | `talkbank/CHATUtterance-zh_CN` |
+
+This model is used in two places:
+
+1. `transcribe` pre-CHAT segmentation for `eng` / `cmn` / `zho` / `yue`
+2. standalone `utseg` when the utterance-model path is selected
+
+This is separate from `--retokenize`, which is the morphotag word-segmentation
+path for already-built CHAT text.
+
 ## Number Expansion
 
 Mandarin uses the Chinese number expansion system:
@@ -89,8 +109,11 @@ Mandarin uses the Chinese number expansion system:
 
 ## Morphosyntax
 
-Mandarin uses Stanza's `zh-hans` model (for utterance segmentation) or `zh`
-(for morphosyntax). MWT is excluded — Chinese has no contractions.
+Mandarin morphotag uses Stanza's Chinese `zh` path. MWT is excluded — Chinese
+has no contractions. In mixed-language files, `@s:cmn`, `@s:zho`, and bare
+`@s` resolved to Mandarin all route through the same secondary-language L2
+morphotag path rather than staying `L2|xxx`, unless the target is unresolved or
+the user passes `--no-l2-morphotag`.
 
 Default mode: `tokenize_pretokenized=True` (Stanza annotates existing word
 boundaries without re-tokenizing).

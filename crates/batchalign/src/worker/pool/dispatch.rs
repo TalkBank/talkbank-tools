@@ -125,11 +125,19 @@ impl WorkerPool {
             }
 
             // All workers busy and at capacity. Wait asynchronously for
-            // a permit. This parks the task; no spinning.
-            let permit = group
-                .available
-                .acquire()
+            // a permit, but bound the wait with the same checkout deadline
+            // used for the zero-worker saturation path. A stale `total > 0`
+            // count or a wedged checked-out worker must fail explicitly
+            // instead of hanging the caller forever.
+            let permit = tokio::time::timeout_at(wait_deadline, group.available.acquire())
                 .await
+                .map_err(|_| {
+                    saturation_timeout_err(
+                        target,
+                        lang,
+                        self.config.checkout_wait_timeout().as_secs(),
+                    )
+                })?
                 .map_err(|_| WorkerError::SpawnFailed("worker pool semaphore closed".into()))?;
             permit.forget();
 
@@ -421,3 +429,48 @@ impl WorkerPool {
 // over Semaphore + VecDeque alone only exercises the tiny state
 // machine, not the real dispatch code path. That broader coverage
 // lives in the test-echo integration tests alongside `WorkerPool`.
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::Ordering;
+    use std::time::Duration;
+
+    use crate::api::LanguageCode3;
+    use crate::worker::{InferTask, WorkerTarget};
+
+    use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn checkout_times_out_when_group_claims_live_worker_but_no_permit_returns() {
+        let pool = WorkerPool::new(super::super::PoolConfig {
+            max_workers_per_key: 1,
+            max_total_workers: 1,
+            checkout_wait_timeout_s: 1,
+            ..Default::default()
+        });
+        let target = WorkerTarget::infer_task(InferTask::Morphosyntax);
+        let lang = WorkerLanguage::from(LanguageCode3::eng());
+        let group = pool.get_or_create_group(&target, &lang, "");
+
+        // Simulate the wedged state seen in the live morphotag job:
+        // the pool believes one worker exists for this key, but no idle
+        // handle or semaphore permit can ever be returned.
+        group.total.store(1, Ordering::Relaxed);
+
+        let result =
+            tokio::time::timeout(Duration::from_secs(2), pool.checkout(&target, &lang, ""))
+                .await
+                .expect("checkout should resolve via its own timeout, not hang forever");
+
+        match result {
+            Err(WorkerError::SpawnFailed(message)) => {
+                assert!(
+                    message.contains("no worker available"),
+                    "expected saturation timeout error, got: {message}"
+                );
+            }
+            Ok(_) => panic!("expected timeout-style spawn error, got successful checkout"),
+            Err(other) => panic!("expected timeout-style spawn error, got {other}"),
+        }
+    }
+}

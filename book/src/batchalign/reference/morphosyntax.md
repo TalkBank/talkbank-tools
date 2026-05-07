@@ -1,7 +1,7 @@
 # Morphosyntax Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:23 EDT
+**Last updated:** 2026-05-06 20:33 EDT
 
 ## 1. Overview
 
@@ -25,7 +25,7 @@ flowchart TD
     inject_p["inject_morphosyntax()\nadd %mor/%gra tiers"]
     inject_r["retokenize_utterance()\nrewrite main tier + inject"]
     l2{"L2 @s words\ndeferred?"}
-    l2disp["dispatch_secondary_l2()\nroute to secondary Stanza"]
+    l2disp["dispatch_secondary_l2()\nplan + dispatch secondary Stanza"]
     splice["splice_l2_into_chat()\nreplace L2|xxx"]
     out["Serialize → CHAT"]
 
@@ -72,8 +72,8 @@ Rust: `crates/batchalign/src/morphosyntax/batch.rs` — `run_morphosyntax_batch_
   │
   ├── inject_results()  — AST injection + validation
   │
-  ├── dispatch_secondary_l2() (if `@s` words + --l2-morphotag)
-  │     → extract, merge, splice L2 morphology
+   ├── dispatch_secondary_l2() (if `@s` words and not `--no-l2-morphotag`)
+   │     → transform-layer plan, secondary dispatch, merge, splice
   │
   ├── apply_pos_hints() (if --respect-pos-hints, default on)
   │     → transcriber `$POS` annotations override POS categories
@@ -97,7 +97,7 @@ and PyO3 bridge both depend on this crate for morphosyntax orchestration.
 | `pipeline/parse.rs` | CHAT parsing entry point |
 | `extract.rs` | Word extraction from AST for morphosyntax input |
 | `inject.rs` | Primary + retokenize injection. Chooses `map_ud_sentence` (Preserve) vs `map_ud_sentence_expanded` (Retokenize) |
-| `morphosyntax/l2/` | L2 code-switching: extract, merge, splice @s words via secondary Stanza models (6 files, 703 tests) |
+| `morphosyntax/l2/` | L2 code-switching: planning, extract, merge, splice @s words via secondary Stanza models |
 | `morphosyntax/sentence_mapping.rs` | `map_ud_sentence()`, `map_ud_sentence_expanded()`, shared `build_gra_and_validate()` |
 | `morphosyntax/mapping_helpers.rs` | `assemble_mors()` (clitic merge), `is_clitic()`, `map_relation()` |
 | `morphosyntax/stanza_raw.rs` | Parse raw Stanza JSON output, supply defaults for Range token annotation fields |
@@ -597,11 +597,12 @@ sequenceDiagram
     R->>P1: morphotag all utterances<br/>(primary language)
     P1-->>R: UdResponse with L2|xxx<br/>for @s positions
     R->>L2: extract_l2_deferred_positions()
-    L2-->>R: list of (@s word, target lang)
-    R->>R: group_deferred_into_dispatch_spans()
+    L2-->>R: deferred positions + target lang
+    R->>L2: plan_secondary_dispatch()
+    L2-->>R: contiguous spans + host attachments
     R->>P2: infer_batch(retokenize=true)<br/>contiguous @s spans
     P2-->>R: UdResponse with<br/>Range tokens for contractions
-    R->>L2: merge_primary_secondary()<br/>structural + lexical merge
+    R->>L2: merge_planned_secondary_span()<br/>planned structural + lexical merge
     L2-->>R: merged Mor items
     R->>R: splice_l2_into_chat()<br/>replace L2|xxx with real MOR
 ```
@@ -613,26 +614,68 @@ sequenceDiagram
 2. **Extract deferred positions** identifies which words have `L2|xxx` and
    their target languages (from `@s:spa`, `@s:eng`, or bare `@s` resolved
    via `@Languages`).
-3. **Group into spans** creates contiguous per-utterance spans of same-language
-   @s words (e.g., `los@s:spa niños@s:spa` → one span of 2 words).
-4. **Secondary dispatch** sends each span to a Stanza worker for the target
+3. **Plan dispatch spans** creates contiguous per-utterance spans of same-language
+   @s words and computes the host attachment for each span root
+   (e.g., `los@s:spa niños@s:spa` → one span of 2 words with an explicit
+   external-anchor plan).
+4. **Secondary dispatch** sends each planned span to a Stanza worker for the target
    language with `retokenize=true`. MWT contractions (`it's`, `don't`) are
    expanded via Range tokens — `map_ud_sentence()` merges them into clitics.
 5. **Merge** combines secondary lexical output (lemma, features) with primary
-   structural info (deprel, head) using a 6-level POS resolution priority.
+   structural info (deprel, head) plus the planned host attachment using a
+   6-level POS resolution priority.
 6. **Splice** replaces `L2|xxx` with the merged MOR items and corrects GRA
    relations where the resolved POS contradicts the primary deprel.
+
+### Validation and repair policy
+
+- Whole-utterance same-language all-`@s` patterns are rejected during
+  pre-validation (E255). The accepted CHAT form is utterance-level `[- lang]`.
+- Explicit `@s:LANG` still routes to `LANG` even if `LANG` is absent from
+  `@Languages`, but validation emits warn-only E254 to surface the header drift.
+- `chatter debug fix-s` is the intended normalization tool for both cases: it
+  rewrites the qualifying whole-utterance `@s` pattern, appends missing
+  explicit languages to `@Languages`, and skips files that already need no
+  change.
+
+The fix-s rewrite predicate verifies that **every** word-bearing item
+on the main tier (words, fillers `&~`/`&-`/`&+`, nonwords, retraced
+material) resolves to the same target language. Fillers and nonwords
+participate in the predicate AND have their `@s` shortcuts cleared
+when the rewrite fires — otherwise a bare `@s` would flip its resolved
+language under the new `[- LANG]` precode. See
+[`chatter` CLI reference: `fix-s`](../../chatter/user-guide/cli-reference.md#debug)
+for the full safety contract.
+
+### Unsupported non-primary languages
+
+`morphotag` skips files whose **primary** `@Languages` code is not
+Stanza-supported with a typed diagnostic (no pipeline entry). When the
+primary IS supported, non-primary content targeting an unsupported
+language degrades gracefully:
+
+- `[- UNSUPPORTEDLANG]` precodes — `infer_batch` partitions language
+  groups via `partition_groups_by_stanza_support`; unsupported groups
+  bypass Stanza dispatch and the words receive `L2|xxx` in `%mor`.
+- `@s:UNSUPPORTEDLANG` per-word markers — the secondary dispatch path
+  for that span is short-circuited the same way; the host primary
+  analysis is preserved and the `@s` token's slot stays as `L2|xxx`.
+
+The worker never crashes on an unsupported secondary, and other
+utterances or spans in the same file targeting supported languages
+continue to receive real morphology.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
+| `morphosyntax/l2/plan.rs` | Contiguous span planning and host-attachment planning |
 | `morphosyntax/l2/extract.rs` | Extract primary structural info from UD responses |
 | `morphosyntax/l2/spans.rs` | Group @s positions into contiguous dispatch spans |
-| `morphosyntax/l2/merge.rs` | POS resolution priority, structural merge |
+| `morphosyntax/l2/merge.rs` | POS resolution priority, planned structural merge |
 | `morphosyntax/l2/splice.rs` | Replace L2\|xxx in ChatFile with merged MOR |
 | `morphosyntax/l2/deprel.rs` | UdDeprel newtype, deprel→POS constraint mapping |
-| `morphosyntax/batch.rs` | `dispatch_secondary_l2()` — orchestrates L2 dispatch |
+| `morphosyntax/batch.rs` | `dispatch_secondary_l2()` — thin worker adapter over the transform-layer L2 seam |
 
 ### MWT Contraction Handling
 
@@ -691,6 +734,8 @@ When `retokenize=true`, `retokenize.rs` restores original text via `resolve_toke
 When `skipmultilang=true`, utterances with `[- lang]` override where the language differs
 from the file's primary language are skipped.  Language codes: file language is ISO 639-3
 (`"eng"`, `"fra"`); callback adapter converts to ISO 639-1 (`"en"`, `"fr"`) for Stanza.
+This flag is only about utterance-level `[- lang]` routing. Per-word `@s`
+secondary dispatch is controlled separately by `--no-l2-morphotag`.
 
 ### `BracketedItems` is a Newtype
 

@@ -157,27 +157,6 @@ impl TierContent {
         }
     }
 
-    /// Promote a trailing CA intonation arrow separator to a terminator.
-    ///
-    /// CA intonation arrows (⇗ ↗ → ↘ ⇘) serve dual roles: mid-content
-    /// separators AND utterance-final terminators. The grammar's greedy
-    /// `contents` rule always consumes them as separators. When no explicit
-    /// terminator was found, the trailing arrow should be promoted.
-    ///
-    /// Call AFTER `extract_terminal_bullet` so the arrow is the last item.
-    pub fn resolve_ca_terminator(&mut self) {
-        use super::utterance_content::UtteranceContent;
-        if self.terminator.is_some() {
-            return;
-        }
-        if let Some(UtteranceContent::Separator(sep)) = self.content.last()
-            && sep.is_ca_intonation_arrow()
-            && let Some(UtteranceContent::Separator(sep)) = self.content.pop()
-        {
-            self.terminator = sep.to_ca_terminator();
-        }
-    }
-
     /// Sets source span for content region.
     pub fn with_content_span(mut self, span: Span) -> Self {
         self.content_span = Some(span);

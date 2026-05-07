@@ -28,18 +28,20 @@ copy the file first or filter your inputs.
 ## Quick start
 
 ```bash
-# Translate a single file in place
+# Translate a single file in place — source language is read from @Languages
 batchalign3 translate file.cha
 
 # Translate a corpus directory
 batchalign3 translate corpus/ -o translated/
 
-# Override the source language (file has wrong or missing @Languages header)
-batchalign3 translate corpus/ -o out/ --lang spa
-
 # Use the remote server
 batchalign3 --server http://your-server:8001 translate corpus/ -o out/
 ```
+
+`translate` has **no `--lang` flag**. Source language for each file is
+read from that file's own `@Languages:` header. Translation target is
+fixed to English. To "override" the source language, edit the file's
+`@Languages:` line.
 
 ---
 

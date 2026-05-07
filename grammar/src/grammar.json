@@ -297,42 +297,6 @@
         {
           "type": "SYMBOL",
           "name": "break_for_coding"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "ca_no_break"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "ca_no_break_linker"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "ca_technical_break"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "ca_technical_break_linker"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "rising_to_high"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "rising_to_mid"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "level_pitch"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "falling_to_mid"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "falling_to_low"
         }
       ]
     },
@@ -2127,6 +2091,14 @@
         {
           "type": "SYMBOL",
           "name": "uptake_symbol"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "ca_no_break"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "ca_technical_break"
         },
         {
           "type": "SYMBOL",

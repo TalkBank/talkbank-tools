@@ -11,6 +11,7 @@ use talkbank_model::model::{LanguageCode, SpeakerCode, Utterance};
 use talkbank_parser::TreeSitterParser;
 
 use crate::inject::{MisalignmentClass, MisalignmentDiagnostic};
+use crate::parse::parse_lenient;
 
 fn parse_chat(text: &str) -> ChatFile {
     let parser = TreeSitterParser::new().expect("parser init");
@@ -357,8 +358,6 @@ fn sanitize_mor_text_passthroughs_clean_text() {
 fn ca_arrow_terminator_must_normalize_to_period_in_morphotag_payload() {
     use crate::morphosyntax::payload::{collect_payloads, declared_languages};
     use crate::morphosyntax::types::MultilingualPolicy;
-    use crate::parse::parse_lenient;
-
     let parser = TreeSitterParser::new().unwrap();
     let chat = "@UTF8\n\
                 @Begin\n\

@@ -14,10 +14,6 @@ pub fn is_terminator(kind: &str) -> bool {
         "terminator" |  // Keep for backwards compatibility
         "break_for_coding" |
         "broken_question" |
-        "ca_no_break" |
-        "ca_no_break_linker" |
-        "ca_technical_break" |
-        "ca_technical_break_linker" |
         "exclamation" |
         "interrupted_question" |
         "interruption" |

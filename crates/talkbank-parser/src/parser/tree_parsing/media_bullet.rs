@@ -9,9 +9,10 @@
 //!
 //! The grammar rule for `bullet` does not permit any character other
 //! than the two timestamps and the `_` separator between them. A
-//! trailing `-` (legacy "skip" marker, deprecated 2026-03-31) is
-//! treated as a parse error rather than silently stripped — stripping
-//! hid real data corruption and defeated the grammar's purpose.
+//! trailing `-` (legacy "skip" marker, removed from the grammar
+//! 2026-03-31) is treated as a parse error rather than silently
+//! stripped — stripping hid real data corruption and defeated the
+//! grammar's purpose.
 //!
 //! # Related CHAT Manual Sections
 //!
@@ -44,7 +45,7 @@ pub(crate) fn parse_bullet_text(text: &str) -> Option<(u64, u64)> {
 /// The grammar's `bullet` rule has field names `start_time` and `end_time`.
 /// Returns `None` if either field is missing, unparseable, OR if the
 /// bullet node (or any descendant) carries a tree-sitter ERROR node
-/// — that latter case catches ill-formed bullets like the deprecated
+/// — that latter case catches ill-formed bullets like the removed
 /// `·\d+_\d+-·` skip marker, where the grammar reports ERROR on the
 /// trailing `-` but the named fields still resolve. Without the
 /// has_error gate we'd silently accept data that violates the

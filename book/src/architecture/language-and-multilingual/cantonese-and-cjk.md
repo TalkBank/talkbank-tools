@@ -1,13 +1,19 @@
 # Cantonese and CJK — Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-01 15:57 EDT
+**Last updated:** 2026-05-05 08:21 EDT
 
 Architecture and rationale for batchalign's CJK-language pipelines: ASR
 engine dispatch, Rust-side text normalization, and word segmentation
 (`--retokenize`). User-facing reference (engine table, credentials, usage
 examples) lives in
 [`batchalign/reference/languages/cantonese.md`](../../batchalign/reference/languages/cantonese.md).
+
+This page also covers the CJK utterance-segmentation split:
+
+- `yue` uses the PolyU Cantonese utterance model
+- `cmn` / `zho` use `talkbank/CHATUtterance-zh_CN`
+- all three are separate from the word-segmentation / `--retokenize` path
 
 ## Engine Dispatch — Enum, Not Plugins
 
@@ -184,7 +190,7 @@ sequenceDiagram
     participant PC as PyCantonese
     participant Stanza as Stanza NLP
 
-    CLI->>Server: morphotag --retokenize --lang yue
+    CLI->>Server: morphotag --retokenize<br/>(file's @Languages: yue drives per-file lang)
     Server->>Server: parse CHAT, extract per-char words<br/>["故", "事", "係", "好"]
     Server->>Worker: MorphosyntaxRequestV2 { retokenize: true, lang: "yue" }
     Worker->>PC: pycantonese.segment("故事係好")

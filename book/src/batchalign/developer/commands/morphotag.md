@@ -1,7 +1,7 @@
 # morphotag — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 12:20 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 Implementation guide for the `morphotag` command. For user-facing
 documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.md).
@@ -12,12 +12,12 @@ documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `MorphotagArgs` | lang, retokenize, skipmultilang, lexicon, l2-morphotag |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `MorphotagArgs` | lang, retokenize, skipmultilang, lexicon, no-l2-morphotag, pos-hints |
 | Options builder | `crates/batchalign/src/cli/args/options.rs:248–255` (inline dispatch) | Maps `MorphotagArgs` → `CommandOptions::Morphotag(MorphotagOptions)` |
 | Command definition | `crates/batchalign/src/commands/morphotag.rs` | `CommandDefinition` impl, pre-validation gate |
 | Morphosyntax orchestration | `crates/batchalign/src/morphosyntax/` | Cross-file batching, cache lookup, worker dispatch, result injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Pools all files into a single ML call |
-| Injection | `crates/batchalign/src/morphosyntax/` | `inject_results()` — writes `%mor`/`%gra` from typed UD annotations |
+| Injection | `crates/talkbank-transform/src/morphosyntax/injection.rs` | `inject_results()` — writes `%mor`/`%gra` from typed UD annotations |
 | Retokenization | `crates/batchalign/src/retokenize/` | Character-level DP for Stanza word splits/merges |
 | Payload collection & injection | `crates/talkbank-transform/src/morphosyntax/` — `collect_payloads()`, `clear_morphosyntax()`, `inject_results()`, `remove_empty_morphosyntax_placeholders()` | Cross-crate: domain logic lives in talkbank-transform model layer |
 | Worker IPC | `batchalign/inference/morphosyntax.py` — `batch_infer_morphosyntax()` | Loads Stanza, returns raw `to_dict()` UD annotations |
@@ -319,7 +319,7 @@ sequenceDiagram
     Splice-->>Orch: SpliceOutcome<br/>(spliced / fallback / gra_upgraded)
 ```
 
-**Module layout** (`crates/batchalign/src/morphosyntax/l2/`):
+**Module layout** (`crates/talkbank-transform/src/morphosyntax/l2/`):
 
 | Module | Responsibility |
 |--------|----------------|
@@ -328,6 +328,7 @@ sequenceDiagram
 | `merge.rs` | POS resolution priority chain including Priority 0 (`compound:prt` phrasal-verb recognition) and Priority 1-6 (constraint-based). |
 | `deprel.rs` | `UdDeprel` newtype, deprel→POS constraint mapping, deprel inference from resolved POS. |
 | `splice.rs` | Replaces `L2\|xxx` with the merged MOR + corrected GRA in the CHAT AST. |
+| `crates/batchalign/src/morphosyntax/batch.rs` | Thin adapter that submits the planned secondary spans to workers and hands the results back to the transform-layer seam. |
 
 **Dispatch wiring:** `crates/batchalign/src/morphosyntax/batch.rs::dispatch_secondary_l2`.
 The caller invariant is that `map_ud_sentence` produces one `Mor`
@@ -339,6 +340,20 @@ Priority 0 can check `compound:prt` relations; otherwise it passes
 
 See [L2 Morphotag: Per-Word Code-Switching Analysis](../../reference/l2-morphotag.md)
 for the design rationale and merge algorithm details.
+
+---
+
+## Validation and normalization policy for `@s`
+
+- E255 is now the hard-stop policy for whole-utterance same-language all-`@s`
+  patterns. Morphotag does not auto-normalize those utterances; the transcript
+  must use `[- lang]`.
+- E254 is warn-only for explicit `@s:LANG` markers whose `LANG` is absent from
+  `@Languages`. Dispatch still uses the explicit target language; the warning is
+  about header drift, not routing failure.
+- `chatter debug fix-s` is the companion repair tool. It rewrites qualifying
+  whole-utterance `@s` runs to `[- lang]`, appends missing explicit languages to
+  `@Languages`, and skips files that are already correct.
 
 ---
 

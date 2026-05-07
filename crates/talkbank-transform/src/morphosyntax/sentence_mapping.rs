@@ -224,26 +224,28 @@ pub fn build_gra_and_validate(
             let main_ci = ci;
             for (offset, chunk_prov) in prov_list.iter().enumerate() {
                 let chunk_ci = main_ci + offset;
-                let head_ci =
-                    match &chunk_prov.head {
-                        ChunkHead::Root => {
-                            root_chunk_idx = chunk_ci;
-                            0
-                        }
-                        ChunkHead::FromUd(ud_head_id) => *ud_to_chunk_idx
-                            .get(ud_head_id)
-                            .ok_or_else(|| MappingError::InvalidHeadReference {
+                let (head_ci, relation) = match &chunk_prov.head {
+                    ChunkHead::Root => {
+                        root_chunk_idx = chunk_ci;
+                        (0, "ROOT".into())
+                    }
+                    ChunkHead::FromUd(ud_head_id) => (
+                        *ud_to_chunk_idx.get(ud_head_id).ok_or_else(|| {
+                            MappingError::InvalidHeadReference {
                                 details: format!(
                                     "chunk {} (deprel={}) has UD head {} not mapped to any chunk",
                                     chunk_ci, chunk_prov.deprel, ud_head_id
                                 ),
-                            })?,
-                        ChunkHead::OwningMorMain => main_ci,
-                    };
+                            }
+                        })?,
+                        chunk_prov.deprel.clone(),
+                    ),
+                    ChunkHead::OwningMorMain => (main_ci, chunk_prov.deprel.clone()),
+                };
                 gras.push(GrammaticalRelation {
                     index: chunk_ci,
                     head: head_ci,
-                    relation: chunk_prov.deprel.clone(),
+                    relation,
                 });
             }
             ci += prov_list.len();
@@ -308,4 +310,100 @@ fn map_ud_word_with_provenance(
     let mor = map_ud_word_to_mor(ud, ctx)?;
     let provenance = smallvec![provenance_for_ud_word(ud)?];
     Ok((mor, provenance))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use talkbank_model::model::LanguageCode;
+
+    fn ud_word(
+        id: usize,
+        text: &str,
+        lemma: &str,
+        upos: UniversalPos,
+        head: usize,
+        deprel: &str,
+    ) -> UdWord {
+        UdWord {
+            id: UdId::Single(id),
+            text: text.to_string(),
+            lemma: lemma.to_string(),
+            upos: UdPunctable::Value(upos),
+            xpos: None,
+            feats: None,
+            head,
+            deprel: deprel.to_string(),
+            deps: None,
+            misc: None,
+        }
+    }
+
+    #[test]
+    fn map_ud_sentence_normalizes_compound_prt_to_chat_gra() {
+        let sentence = UdSentence {
+            words: vec![
+                ud_word(1, "wake", "wake", UniversalPos::Verb, 0, "root"),
+                ud_word(2, "up", "up", UniversalPos::Adp, 1, "compound:prt"),
+                ud_word(3, ".", ".", UniversalPos::Punct, 1, "punct"),
+            ],
+        };
+        let ctx = MappingContext {
+            lang: LanguageCode::new("eng"),
+        };
+
+        let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");
+
+        let actual: Vec<String> = gras.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            actual,
+            vec![
+                "1|0|ROOT".to_string(),
+                "2|1|COMPOUND-PRT".to_string(),
+                "3|1|PUNCT".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn map_ud_sentence_rewrites_head_zero_dep_to_root() {
+        let sentence = UdSentence {
+            words: vec![
+                ud_word(1, "uh", "uh", UniversalPos::Intj, 0, "dep"),
+                ud_word(2, ".", ".", UniversalPos::Punct, 1, "punct"),
+            ],
+        };
+        let ctx = MappingContext {
+            lang: LanguageCode::new("eng"),
+        };
+
+        let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");
+
+        let actual: Vec<String> = gras.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            actual,
+            vec!["1|0|ROOT".to_string(), "2|1|PUNCT".to_string()]
+        );
+    }
+
+    #[test]
+    fn map_ud_sentence_rewrites_head_zero_discourse_to_root() {
+        let sentence = UdSentence {
+            words: vec![
+                ud_word(1, "well", "well", UniversalPos::Intj, 0, "discourse"),
+                ud_word(2, ".", ".", UniversalPos::Punct, 1, "punct"),
+            ],
+        };
+        let ctx = MappingContext {
+            lang: LanguageCode::new("eng"),
+        };
+
+        let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");
+
+        let actual: Vec<String> = gras.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            actual,
+            vec!["1|0|ROOT".to_string(), "2|1|PUNCT".to_string()]
+        );
+    }
 }

@@ -16,9 +16,14 @@ use tracing::warn;
 
 /// Parse one live V2 ASR execute response into the established Rust ASR
 /// domain.
+///
+/// `fallback_lang` is consulted only when the worker's response carries
+/// an empty language string. Pass `Some(code)` for `Resolved(code)` jobs;
+/// pass `None` for `Auto` jobs — in which case an empty worker response
+/// becomes a typed error rather than a silent eng substitution.
 pub fn parse_asr_response_v2(
     response: &ExecuteResponseV2,
-    fallback_lang: &LanguageCode3,
+    fallback_lang: Option<&LanguageCode3>,
 ) -> Result<AsrResponse, String> {
     match &response.outcome {
         ExecuteOutcomeV2::Success => {}
@@ -35,7 +40,7 @@ pub fn parse_asr_response_v2(
 
     match result {
         TaskResultV2::WhisperChunkResult(result) => Ok(AsrResponse {
-            lang: resolve_worker_lang(&result.lang, fallback_lang),
+            lang: resolve_worker_lang(&result.lang, fallback_lang)?,
             tokens: result
                 .chunks
                 .iter()
@@ -57,7 +62,7 @@ pub fn parse_asr_response_v2(
             source_monologues: None,
         }),
         TaskResultV2::MonologueAsrResult(result) => Ok(AsrResponse {
-            lang: resolve_worker_lang(&result.lang, fallback_lang),
+            lang: resolve_worker_lang(&result.lang, fallback_lang)?,
             tokens: result
                 .monologues
                 .iter()
@@ -171,14 +176,26 @@ pub fn parse_asr_response_v2(
 }
 
 /// Resolve a worker-provided language against the control-plane fallback.
+///
+/// When the worker's response carries an empty language string, fall
+/// back to `fallback_lang` if the caller supplied one. If the caller
+/// supplied `None` (an `Auto` job with no resolved language yet) and
+/// the worker also returned nothing, surface a typed error so the
+/// caller writes nothing to the output's `@Languages:` rather than
+/// silently stamping English.
 fn resolve_worker_lang(
     worker_lang: &LanguageCode3,
-    fallback_lang: &LanguageCode3,
-) -> LanguageCode3 {
+    fallback_lang: Option<&LanguageCode3>,
+) -> Result<LanguageCode3, String> {
     if worker_lang.trim().is_empty() {
-        fallback_lang.clone()
+        fallback_lang.cloned().ok_or_else(|| {
+            "ASR worker returned an empty language and the job has no resolved \
+             fallback (`--lang auto` with no Rev.AI/Whisper-detected language). \
+             Re-run with an explicit `--lang <iso3>` instead of `--lang auto`."
+                .to_string()
+        })
     } else {
-        worker_lang.clone()
+        Ok(worker_lang.clone())
     }
 }
 
@@ -216,7 +233,7 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let parsed = parse_asr_response_v2(&response, &LanguageCode3::eng())
+        let parsed = parse_asr_response_v2(&response, Some(&LanguageCode3::eng()))
             .expect("V2 ASR response should parse");
 
         assert_eq!(parsed.lang, "eng");
@@ -262,7 +279,7 @@ mod tests {
             elapsed_s: DurationSeconds(0.01),
         };
 
-        let parsed = parse_asr_response_v2(&response, &LanguageCode3::eng())
+        let parsed = parse_asr_response_v2(&response, Some(&LanguageCode3::eng()))
             .expect("V2 monologue response should parse");
 
         assert_eq!(parsed.lang, "yue");

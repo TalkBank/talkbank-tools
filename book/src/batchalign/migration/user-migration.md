@@ -1,7 +1,7 @@
 # User Workflow Migration (batchalign2 -> batchalign3)
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-05-05 13:54 EDT
 
 This page describes durable differences between:
 
@@ -52,7 +52,7 @@ that were not yet first-class there:
 | `align` | `align` | same top-level purpose; newer runtime contracts and deterministic remap behavior |
 | `transcribe` | `transcribe` | same top-level purpose; expanded engine/runtime routing |
 | `translate` | `translate` | same |
-| `morphotag` | `morphotag` | same command name, stronger token/validation contracts, multilingual parallel dispatch |
+| `morphotag` | `morphotag` | same command name, stronger token/validation contracts, multilingual parallel dispatch, and default-on per-word L2 dispatch |
 | `coref` | `coref` | same purpose; public in BA3, still English-only, and still local-oriented |
 | `utseg` | `utseg` | same |
 | `benchmark` | `benchmark` | same high-level goal |
@@ -357,6 +357,24 @@ For users, the practical current-state rule is:
 | `avqi` | mostly lazy-load/runtime cleanup | still pure AVQI computation, but now behind typed prepared-audio V2 contracts and explicit paired-audio inputs |
 
 ## 4) Multilingual and language-specific changes users will notice
+
+### Code-switching and `@s` policy
+
+Relative to BA2, current BA3 changes both the analysis path and the transcript
+contract for `@s`:
+
+- per-word `@s` / `@s:LANG` routing is now default-on for morphotag; use
+  `--no-l2-morphotag` if you need the older `L2|xxx` placeholder behavior for
+  reproducibility
+- explicit `@s:LANG` still routes to `LANG` even when `LANG` is missing from
+  `@Languages`, but validation emits warn-only E254 so the header mismatch is
+  visible
+- whole-utterance same-language all-`@s` runs are no longer accepted as an
+  utterance-language shorthand; BA3 validates them as E255 and expects `[- lang]`
+  instead
+- `chatter debug fix-s` is the companion repair tool for migrated corpora: it
+  rewrites qualifying whole-utterance `@s` runs, appends missing explicit
+  languages to `@Languages`, and skips already-correct files
 
 ### Stanza multi-word token (MWT) outputs
 

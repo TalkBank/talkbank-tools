@@ -110,7 +110,12 @@ impl WorkerHandle {
 
         let resp = match response {
             WorkerResponse::Health { response } => response,
-            WorkerResponse::Error { error } => return Err(WorkerError::HealthCheckFailed(error)),
+            WorkerResponse::Error { error, kind: _ } => {
+                // Health-check responses don't have a "bootstrap vs runtime"
+                // distinction at the application layer — any error here means
+                // the worker isn't healthy.
+                return Err(WorkerError::HealthCheckFailed(error));
+            }
             other => {
                 return Err(WorkerError::HealthCheckFailed(format!(
                     "unexpected response for health: {other:?}"
@@ -177,9 +182,21 @@ impl WorkerHandle {
                 self.loaded_tasks.insert(task.to_owned());
                 Ok(())
             }
-            WorkerResponse::Error { error } => Err(WorkerError::Protocol(format!(
-                "ensure_task failed: {error}"
-            ))),
+            WorkerResponse::Error { error, kind } => {
+                // ``ensure_task`` is the on-demand model-loading IPC; any error
+                // here is by definition a bootstrap-class failure regardless
+                // of the wire ``kind`` field. Default to ``Bootstrap`` if the
+                // worker emits ``Runtime`` (legacy or generic) so the
+                // orchestrator does not retry deterministic load failures.
+                match kind {
+                    crate::worker::handle::WorkerErrorKind::Bootstrap => Err(
+                        WorkerError::Bootstrap(format!("ensure_task failed: {error}")),
+                    ),
+                    crate::worker::handle::WorkerErrorKind::Runtime => Err(WorkerError::Bootstrap(
+                        format!("ensure_task failed: {error}"),
+                    )),
+                }
+            }
             other => Err(WorkerError::Protocol(format!(
                 "unexpected response for ensure_task: {other:?}"
             ))),
@@ -203,7 +220,7 @@ impl WorkerHandle {
 
         match response {
             WorkerResponse::Infer { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected response for infer: {other:?}"
             ))),
@@ -236,7 +253,7 @@ impl WorkerHandle {
 
         match response {
             WorkerResponse::BatchInfer { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected response for batch_infer: {other:?}"
             ))),
@@ -317,8 +334,8 @@ impl WorkerHandle {
                     continue;
                 }
                 WorkerResponse::ExecuteV2 { response } => return Ok(response),
-                WorkerResponse::Error { error } => {
-                    let err = WorkerError::WorkerResponse(error);
+                WorkerResponse::Error { error, kind } => {
+                    let err = kind.into_worker_error(error);
                     dump_failed_ipc_request(
                         self.pid,
                         &self.config.bootstrap_label(),
@@ -359,7 +376,7 @@ impl WorkerHandle {
 
         match response {
             WorkerResponse::Capabilities { response } => Ok(response),
-            WorkerResponse::Error { error } => Err(WorkerError::WorkerResponse(error)),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
             other => Err(WorkerError::Protocol(format!(
                 "unexpected response for capabilities: {other:?}"
             ))),
