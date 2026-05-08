@@ -1,7 +1,7 @@
 # Memory Safety: Preventing Kernel OOM Crashes
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-08 18:35 EDT
 
 ## The Problem
 
@@ -36,6 +36,38 @@ flowchart TD
 
 ## Defense Layers
 
+### Layer 0: Live admission gates at the worker-pool spawn seam
+
+`worker/pool/{cpu_gate,memory_gate}.rs` are the cheapest, earliest
+admission predicates. They run inside `try_claim_spawn_slot` before
+any permit acquisition or lease reservation, so a saturated host
+doesn't burn through the global-permit semaphore on doomed spawns.
+
+| Gate | Predicate | Source |
+|---|---|---|
+| CPU loadavg | `getloadavg(3).one < available_parallelism()` | `cpu_gate.rs` |
+| Memory floor + projection | `available_mb − new_worker_estimate_mb > MIN_FREE_MEMORY_MB` | `memory_gate.rs` |
+
+`MIN_FREE_MEMORY_MB` is hardcoded at 2048 MB — a single absolute
+OS-protection floor with no env var, no config field, no operator
+override. The `new_worker_estimate_mb` is the average RSS of
+same-profile idle peers (Mode B, `rss_observer.rs`) when peers exist;
+otherwise the per-tier `startup_reservation_mb` (Mode A fallback).
+
+The eviction-side counterpart: `worker/pool/idle_eviction.rs` runs as
+a pre-pass in `run_health_check` and evicts idle workers
+largest-RSS first when `available_mb` falls at or below
+`EVICTION_PRESSURE_THRESHOLD_MB = 4096` MB (= 2× the admission
+floor). There is no `idle_timeout_s` knob — eviction is purely
+pressure-driven.
+
+The host's available-memory reading is shared across all five
+sysinfo-touching paths (admission gate, eviction pre-pass, in-spawn
+guard, host-facts probes, info logs) via the TTL-cached
+`host_memory::system_memory_snapshot` — at most one
+`/proc/meminfo` (Linux) / `host_statistics64` (macOS) read per
+second across the whole pool.
+
 ### Layer 1: Host-wide coordinator (prevents cross-process overcommit)
 
 A machine-local JSON ledger guarded by an exclusive file lock coordinates memory
@@ -54,8 +86,12 @@ The coordinator tracks three lease types:
 
 The reserve/headroom policy comes from `ServerConfig.memory_gate_mb`, which now
 means "keep at least this much RAM free after reservations" rather than a
-standalone job gate. The default is **tier-dependent**: 2000 MB (Small, ≤16 GB),
-4000 MB (Medium, 17–63 GB), 6000 MB (Large, 64–127 GB), 8000 MB (Fleet, ≥128 GB).
+standalone job gate. The default is the hardcoded
+`worker::pool::memory_gate::MIN_FREE_MEMORY_MB = 2048`. The previous
+tier-derived per-host default (Small=2 GB, Medium=4 GB, Large/Fleet=8 GB)
+was retired on 2026-05-08; OS-protection headroom is one absolute number
+on every host, and workload-sized headroom comes from the Layer 0
+per-process RSS observation, not from `memory_gate_mb`.
 
 ### Layer 2: Spawn semaphore (prevents in-process TOCTOU race)
 
@@ -196,7 +232,7 @@ make test-ml         # ML model tests — net only (256 GB)
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| `memory_gate_mb` | tier-dependent (2000–8000) | Host reserve/headroom preserved after reservations (Small: 2000, Medium: 4000, Large: 6000, Fleet: 8000) |
+| `memory_gate_mb` | 2048 MB | Host reserve/headroom preserved after reservations. Same constant the worker-pool admission gate enforces; operator override accepted but rarely needed. |
 | `max_concurrent_worker_startups` | `1` | Host-wide limit for simultaneous worker/model startups |
 | `gpu_thread_pool_size` | `4` | In-process GPU request concurrency, now forwarded into Python |
 
@@ -250,7 +286,11 @@ cargo nextest run -p batchalign
 
 | File | What |
 |------|------|
-| `crates/batchalign/src/host_memory.rs` | Host-wide ledger, startup leases, job execution leases, ML test lock |
+| `crates/batchalign/src/worker/pool/cpu_gate.rs` | Layer 0 admission: `getloadavg(3)` vs `available_parallelism()` |
+| `crates/batchalign/src/worker/pool/memory_gate.rs` | Layer 0 admission: `available − reservation > MIN_FREE_MEMORY_MB`; `MIN_FREE_MEMORY_MB = 2048` is the single floor constant |
+| `crates/batchalign/src/worker/pool/rss_observer.rs` | Per-process RSS sampling for the Mode B admission estimate |
+| `crates/batchalign/src/worker/pool/idle_eviction.rs` | Pressure-driven idle-worker eviction (largest-RSS first when `available <= 4096 MB`) |
+| `crates/batchalign/src/host_memory.rs` | Host-wide ledger, startup leases, job execution leases, ML test lock; TTL-cached `system_memory_snapshot` shared by every memory poll |
 | `crates/batchalign/src/worker/memory_guard.rs` | Local spawn semaphore plus host-memory startup reservation |
 | `crates/batchalign/src/worker/handle.rs` | `WorkerHandle::spawn()` and `spawn_tcp_daemon()` call `acquire_spawn_permit()` |
 | `crates/batchalign/src/runner/mod.rs` | Coordinator-backed job execution planning and requeue |

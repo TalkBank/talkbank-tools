@@ -328,6 +328,54 @@ fn apply_safe_root_rewrites(
     }
 }
 
+/// Detect and repair the post-splice `secondary_multi_root` shape:
+/// the L2 plan picked `UtteranceRoot` (so `splice_coordinated` kept
+/// `head=0/ROOT` for the L2 position) but the host's pre-splice gra
+/// already had a different `head=0/ROOT`, leaving two roots in the
+/// post-splice gra. The host's structure is canonical; demote the
+/// L2 contribution to attach to the host's root with a generic
+/// `dep` relation.
+///
+/// Operates on the WHOLE gra. `l2_chunk_offset` and `l2_chunk_count`
+/// identify the L2 span's chunk range; any `head=0/ROOT` inside that
+/// range is the L2 contribution. Any `head=0/ROOT` outside is the
+/// host's pre-existing root.
+///
+/// This catches the 43-rollbacks-per-750-file `secondary_multi_root`
+/// variant that the merge-stage `repair_secondary_gras` couldn't
+/// address (it only sees the span, not the surrounding host gra).
+fn demote_duplicate_l2_root(
+    gra: &mut talkbank_model::model::GraTier,
+    l2_chunk_offset: usize,
+    l2_chunk_count: usize,
+) {
+    let l2_range = l2_chunk_offset..(l2_chunk_offset + l2_chunk_count);
+    let root_indices: Vec<usize> = gra
+        .relations()
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.head == 0 && r.relation.eq_ignore_ascii_case("ROOT"))
+        .map(|(i, _)| i)
+        .collect();
+    if root_indices.len() <= 1 {
+        return;
+    }
+    let host_root_position = root_indices
+        .iter()
+        .find(|&&i| !l2_range.contains(&i))
+        .map(|&i| gra.relations()[i].index);
+    let Some(host_root_position) = host_root_position else {
+        // All roots are inside the L2 span; constructive-merge's
+        // `repair_secondary_gras` is responsible for that case.
+        return;
+    };
+    for &i in root_indices.iter().filter(|&&i| l2_range.contains(&i)) {
+        let rel = &mut gra.relations_mut()[i];
+        rel.head = host_root_position;
+        rel.relation = "DEP".into();
+    }
+}
+
 /// Overwrite `L2|xxx` MOR items with merged morphology.
 ///
 /// Each `MergedL2Morphology` contains a fully-mapped `Mor` item (produced
@@ -539,6 +587,7 @@ pub fn splice_l2_into_chat(
             ) {
                 Ok(()) => {
                     apply_safe_root_rewrites(gra, chunk_offset, &root_rewrites);
+                    demote_duplicate_l2_root(gra, chunk_offset, local_chunk_offset);
 
                     let word_indices: Vec<usize> =
                         span_indices.clone().map(|k| deferred[k].word_idx).collect();
@@ -684,6 +733,7 @@ fn splice_one_position(
                 let root_rewrites =
                     root_rewrites_for_attachment(&repaired_gras, &merged.attachment, 0);
                 apply_safe_root_rewrites(gra, chunk_offset, &root_rewrites);
+                demote_duplicate_l2_root(gra, chunk_offset, merged.mor.count_chunks());
 
                 let word_indices = [def.word_idx];
                 match validate_or_rollback_splice(
@@ -2448,6 +2498,100 @@ mod cardinality_tests {
     /// cycle-detection pass silently regresses to letting the cyclic
     /// gras through to splice, where it fails the post-splice
     /// validator".
+    /// Test 5 (multi_root via UtteranceRoot mismatch): the L2 plan
+    /// picked `UtteranceRoot` for an L2 word (because the primary
+    /// host parse said primary.head=0 for that position at extract
+    /// time), but the host's final gra has the root at a DIFFERENT
+    /// position. Pre-fix: splice keeps `head=0/ROOT` at the L2
+    /// position and the host's existing root, producing two
+    /// head=0/ROOT entries → `secondary_multi_root` rollback to
+    /// L2|xxx. Post-fix: post-splice repair detects the duplicate
+    /// root and demotes the L2 contribution to attach to the host
+    /// root with a generic DEP relation.
+    ///
+    /// Background: this is the 43-rollbacks-per-750-files variant
+    /// the constructive merge didn't address. See the postmortem at
+    /// `docs/postmortems/2026-05-07-noalign-morphotag-skip.md`.
+    #[test]
+    fn merge_demotes_duplicate_root_when_host_already_has_one() {
+        let chat_text = "@UTF8\n\
+                         @Begin\n\
+                         @Languages:\teng, fra\n\
+                         @Participants:\tPAR Participant\n\
+                         @ID:\teng|test|PAR|||||Participant|||\n\
+                         *PAR:\tshe said yellow@s .\n\
+                         %mor:\tpron|she verb|say-Past L2|xxx .\n\
+                         %gra:\t1|2|NSUBJ 2|0|ROOT 3|2|OBJ 4|2|PUNCT\n\
+                         @End\n";
+        let parser = TreeSitterParser::new().unwrap();
+        let (mut chat_file, _) = parse_lenient(&parser, chat_text);
+        let line_idx = chat_file
+            .lines
+            .iter()
+            .position(|l| matches!(l, talkbank_model::model::Line::Utterance(_)))
+            .unwrap();
+
+        // L2 word at word_idx=2 ("yellow"). Plan thinks utterance
+        // root (UtteranceRoot attachment), but host's final gra has
+        // the verb at position 2 as root.
+        let deferred = vec![deferred_position(line_idx, 2, "fra", "root", 0)];
+        let merged = vec![Some(MergedL2Morphology {
+            mor: Mor::new(MorWord::new(
+                PosCategory::new("noun"),
+                MorStem::new("yellow"),
+            )),
+            gras: vec![GrammaticalRelation::new(1, 0, "ROOT")],
+            corrected_deprel: None,
+            attachment: utterance_root_attachment(0),
+        })];
+
+        let outcome = splice_l2_into_chat(&mut chat_file, &deferred, &merged);
+        assert_eq!(
+            outcome.spliced, 1,
+            "L2 with UtteranceRoot conflicting with host root must \
+             splice (with demotion) rather than rolling back. \
+             fallback={}, spliced={}",
+            outcome.fallback, outcome.spliced
+        );
+        assert_eq!(outcome.fallback, 0);
+        assert_post_splice_gra_valid(
+            &mut chat_file,
+            "Test 5 — UtteranceRoot vs host root conflict",
+        );
+
+        // Verify post-splice has exactly ONE head=0/ROOT.
+        let utt = match &chat_file.lines[line_idx] {
+            talkbank_model::model::Line::Utterance(u) => u,
+            _ => unreachable!(),
+        };
+        let gra = utt
+            .dependent_tiers
+            .iter()
+            .find_map(|t| match t {
+                talkbank_model::model::DependentTier::Gra(g) => Some(g),
+                _ => None,
+            })
+            .expect("post-splice gra present");
+        let roots: Vec<_> = gra
+            .relations()
+            .iter()
+            .filter(|r| r.head == 0 && r.relation.eq_ignore_ascii_case("ROOT"))
+            .collect();
+        assert_eq!(
+            roots.len(),
+            1,
+            "exactly one head=0/ROOT must remain (host's original); \
+             got {} ({:?})",
+            roots.len(),
+            gra.relations()
+        );
+        // The host's root at position 2 should be the surviving one;
+        // the L2 word at position 3 (its chunk after the verb) should
+        // be demoted to attach to it.
+        let host_root = roots[0];
+        assert_eq!(host_root.index, 2, "host root preserved at position 2");
+    }
+
     #[test]
     fn merge_falls_back_only_on_genuine_secondary_cycle() {
         let (mut chat_file, line_idx) = build_l2_fixture("eng, fra", "x y", 2);

@@ -90,8 +90,15 @@ impl WorkerPool {
                 );
             }
 
-            // Decrement total for drained workers
+            // Decrement total for drained workers and refund the
+            // matching number of global-cap permits. (Checked-out
+            // workers are not refunded here — their permits will
+            // refund via CheckedOutWorker's drop/take paths once the
+            // dispatch path returns. If shutdown races those returns,
+            // the worst-case is a transient permit underflow that
+            // resolves naturally.)
             group.total.fetch_sub(idle_count, Ordering::Relaxed);
+            super::permit::SpawnPermitGuard::release_n(&group.spawn_permits, idle_count);
 
             for mut handle in workers {
                 if let Err(e) = handle.shutdown_in_place().await {

@@ -119,11 +119,15 @@ pub(crate) async fn write_text_results(
                     } else {
                         output_chat.as_ref().to_string()
                     };
-                    if let Err(error) = crate::recipe_runner::runtime::write_text_output_artifact(
+                    let target = crate::recipe_runner::runtime::ChatOutputTarget::new(
                         &job.filesystem,
                         file_index,
                         &artifact.display_path,
+                    );
+                    if let Err(error) = crate::recipe_runner::runtime::write_chat_output_artifact_with_provenance_gate(
+                        &target,
                         &output_text,
+                        job.dispatch.command,
                     )
                     .await
                     {

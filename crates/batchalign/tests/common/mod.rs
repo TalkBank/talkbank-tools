@@ -14,6 +14,7 @@ mod direct_job_client;
 pub mod drift_assertions;
 pub mod drift_staging;
 mod paths_mode;
+pub mod pool_dispatch;
 pub mod regression_manifest;
 mod server_job_client;
 pub mod test_server_fixture;
@@ -45,6 +46,7 @@ use batchalign::api::{
     JobSubmission, LanguageSpec, MemoryMb, NumSpeakers, ReleasedCommand, WorkerLanguage,
 };
 use batchalign::config::{RuntimeLayout, ServerConfig};
+use batchalign::host_facts::PerProfile;
 use batchalign::host_memory::MachineMlTestLock;
 use batchalign::options::CommandOptions;
 use batchalign::worker::InferTask;
@@ -1282,7 +1284,6 @@ fn live_fixture_server_config() -> ServerConfig {
 /// Worker-pool config tuned for live-model fixture reuse.
 ///
 /// Key memory safety settings:
-/// - `idle_timeout_s: 30` — reap workers from completed task types quickly
 ///   to prevent memory accumulation when tests cycle through ASR→FA→Speaker→OpenSMILE.
 ///   On a 64GB machine, keeping all task workers resident simultaneously can OOM.
 /// - `max_workers_per_key: 1` — one worker per (task, lang) pair. Tests are
@@ -1292,11 +1293,10 @@ fn live_fixture_pool_config(python_path: &str) -> PoolConfig {
         python_path: python_path.into(),
         test_echo: false,
         health_check_interval_s: 3_600,
-        idle_timeout_s: 120,
         ready_timeout_s: 120,
         // Allow 2 workers per key so sequential tests don't block waiting
         // for a prior test's checked-out worker to be returned to the pool.
-        max_workers_per_key: 2,
+        max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

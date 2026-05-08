@@ -3,7 +3,9 @@
 //! without any ML inference. Used by worker integration tests.
 
 use crate::api::ContentType;
-use crate::recipe_runner::runtime::{result_display_path_for_command, write_text_output_artifact};
+use crate::recipe_runner::runtime::{
+    ChatOutputTarget, result_display_path_for_command, write_text_output_artifact,
+};
 use crate::scheduling::{FailureCategory, WorkUnitKind};
 use crate::store::{RunnerJobSnapshot, unix_now};
 
@@ -61,14 +63,8 @@ pub(super) async fn dispatch_test_echo_files(
             "@UTF8\n@Begin\n@End\n".to_string()
         };
 
-        if let Err(error) = write_text_output_artifact(
-            &job.filesystem,
-            file.file_index,
-            &result_display_path,
-            &output_text,
-        )
-        .await
-        {
+        let target = ChatOutputTarget::new(&job.filesystem, file.file_index, &result_display_path);
+        if let Err(error) = write_text_output_artifact(&target, &output_text).await {
             let err_msg = format!("Failed to write test-echo output: {error}");
             lifecycle
                 .fail(&err_msg, FailureCategory::Validation, unix_now())

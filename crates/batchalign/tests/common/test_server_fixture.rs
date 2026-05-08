@@ -38,6 +38,7 @@ use batchalign::{
 use tokio::sync::oneshot;
 
 use super::resolve_python;
+use batchalign::host_facts::PerProfile;
 
 /// Opaque per-acquire session identifier. Used by the fixture thread to
 /// look up the matching [`ActiveSession`] when releasing.
@@ -454,9 +455,8 @@ fn test_echo_pool_config(python_path: &str) -> PoolConfig {
         python_path: python_path.into(),
         test_echo: true,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

@@ -92,6 +92,10 @@ impl WorkerPool {
         };
 
         victim_group.total.fetch_sub(1, Ordering::Relaxed);
+        // The victim worker is gone; refund its global-cap permit so
+        // the requester (or any other admission) can acquire it on
+        // the next try_claim_spawn_slot loop iteration.
+        victim_group.spawn_permits.add_permits(1);
         info!(
             victim = ?victim_key,
             requesting = ?skip_key,

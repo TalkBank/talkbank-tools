@@ -13,7 +13,9 @@ use crate::compare::{
 use crate::planning::{self, JobPlan};
 use crate::recipe_runner::materialize::MaterializedArtifactRole;
 use crate::recipe_runner::recipe::RecipeStageId;
-use crate::recipe_runner::runtime::{output_write_path, write_text_output_artifact};
+use crate::recipe_runner::runtime::{
+    ChatOutputTarget, output_write_path, write_text_output_artifact,
+};
 use crate::recipe_runner::work_unit::{CompareWorkUnit, PlannedWorkUnit};
 use crate::runner::DispatchHostContext;
 use crate::runner::util::{FileRunTracker, FileStage, classify_server_error};
@@ -350,13 +352,13 @@ impl StageExecutor for CompareStageExecutor {
                             } else {
                                 outputs.chat_output.clone()
                             };
-                            if let Err(error) = write_text_output_artifact(
+                            let target = ChatOutputTarget::new(
                                 &ctx.job.filesystem,
                                 state.file_index,
                                 &artifact.display_path,
-                                &chat_output,
-                            )
-                            .await
+                            );
+                            if let Err(error) =
+                                write_text_output_artifact(&target, &chat_output).await
                             {
                                 warn!(
                                     error = %error,

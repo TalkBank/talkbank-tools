@@ -9,6 +9,7 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use fs2::FileExt;
@@ -852,13 +853,43 @@ fn process_is_alive(pid: u32) -> bool {
     system.process(pid).is_some()
 }
 
-fn system_memory_snapshot() -> SystemMemorySnapshot {
+/// TTL the cached `SystemMemorySnapshot` is good for. Admission gates
+/// and the eviction pre-pass both poll memory; with a 1 s TTL the
+/// kernel-side `/proc/meminfo` (Linux) / `host_statistics64` (macOS)
+/// is read at most once per second across all callers, regardless
+/// of how many spawn admissions or health-check ticks land in
+/// between.
+const SNAPSHOT_TTL: Duration = Duration::from_millis(1000);
+
+/// Process-global TTL-cached memory snapshot. Internal to this
+/// module; callers go through [`detect_total_memory_mb`] /
+/// [`detect_available_memory_mb`].
+static SNAPSHOT_CACHE: LazyLock<Mutex<(SystemMemorySnapshot, Instant)>> = LazyLock::new(|| {
+    let snap = refresh_system_memory_snapshot();
+    Mutex::new((snap, Instant::now()))
+});
+
+fn refresh_system_memory_snapshot() -> SystemMemorySnapshot {
     let mut system = System::new();
     system.refresh_memory();
     SystemMemorySnapshot {
         total_mb: MemoryMb(system.total_memory() / (1024 * 1024)),
         available_mb: MemoryMb(system.available_memory() / (1024 * 1024)),
     }
+}
+
+fn system_memory_snapshot() -> SystemMemorySnapshot {
+    // Recover from a poisoned mutex — the snapshot has no invariant
+    // that a panicking holder could leave broken; it's just a
+    // stale-cache pair.
+    let mut state = SNAPSHOT_CACHE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if state.1.elapsed() >= SNAPSHOT_TTL {
+        state.0 = refresh_system_memory_snapshot();
+        state.1 = Instant::now();
+    }
+    state.0
 }
 
 /// Total physical RAM on this host, in MB.

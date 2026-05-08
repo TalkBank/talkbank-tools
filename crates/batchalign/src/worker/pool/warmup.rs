@@ -56,12 +56,14 @@ impl WorkerPool {
         let gpu_tcp_ref = self.gpu_tcp_workers.clone();
         let groups_ref = self.groups.clone();
         let worker_returned_ref = self.worker_returned.clone();
+        let spawn_permits_ref = self.spawn_permits.clone();
         let mut set = tokio::task::JoinSet::new();
         for item in items {
             let config = self.config.clone();
             let gpu_tcp_ref = gpu_tcp_ref.clone();
             let groups_ref = groups_ref.clone();
             let worker_returned_ref = worker_returned_ref.clone();
+            let spawn_permits_ref = spawn_permits_ref.clone();
             set.spawn(async move {
                 let target_label = item.target.label();
                 let wc = WorkerConfig {
@@ -148,18 +150,44 @@ impl WorkerPool {
                                 item.lang.clone(),
                                 item.engine_overrides.clone(),
                             );
+                            let profile = item.target.profile_kind();
                             let mut groups = lock_recovered(&groups_ref);
                             let group = groups
                                 .entry(key)
                                 .or_insert_with(|| {
-                                    Arc::new(WorkerGroup::new(worker_returned_ref.clone()))
+                                    Arc::new(WorkerGroup::new(
+                                        worker_returned_ref.clone(),
+                                        spawn_permits_ref.clone(),
+                                        profile,
+                                    ))
                                 })
                                 .clone();
                             drop(groups);
 
+                            // Acquire a global-cap permit before
+                            // counting the warmed-up worker. If the
+                            // pool is already full, log + skip; the
+                            // daemon process is left running but not
+                            // registered (a future discovery sweep
+                            // can pick it up when capacity opens).
+                            let Some(permit_guard) =
+                                super::permit::SpawnPermitGuard::try_acquire_or_skip(
+                                    &group.spawn_permits,
+                                    || {
+                                        warn!(
+                                            target = %target_label,
+                                            lang = %item.lang,
+                                            "Skipping warmup integration: global cap reached"
+                                        );
+                                    },
+                                )
+                            else {
+                                return;
+                            };
                             lock_recovered(&group.tcp_workers).push_back(handle);
                             group.tcp_available.add_permits(1);
                             group.total.fetch_add(1, Ordering::Relaxed);
+                            permit_guard.forget();
                             info!(
                                 target = %target_label,
                                 lang = %item.lang,
@@ -276,13 +304,13 @@ impl WorkerPool {
         engine_overrides: &str,
     ) {
         let lang = lang.into();
-        let target = target.min(self.config.max_workers_per_key);
         let Some(worker_target) =
             WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode)
         else {
             warn!(command = %command, lang = %lang, "Skipping pre-scale for unknown command target");
             return;
         };
+        let target = target.min(self.max_workers_per_key_for(worker_target.profile_kind()));
 
         // TCP worker shortcut: if a TCP worker already exists for this
         // profile/lang, skip spawning — the worker is already running.

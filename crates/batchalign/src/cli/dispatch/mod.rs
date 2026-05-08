@@ -499,7 +499,6 @@ async fn dispatch_direct_mode(
 fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool) -> PoolConfig {
     let tier = cfg.resolved_memory_tier();
     let host_policy = HostExecutionPolicy::from_server_config(cfg);
-    let idle_timeout_s = cfg.resolved_worker_idle_timeout_s();
     // Same boundary conversion as `serve_cmd::start`: CLI
     // `--force-cpu` becomes `Some(true)`; absent leaves the YAML
     // value (default `None`) intact for the recommendation to fill.
@@ -518,7 +517,6 @@ fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool) -> PoolConfig {
     };
     PoolConfig {
         python_path: resolve_python_executable(),
-        idle_timeout_s,
         health_check_interval_s: if cfg.worker_health_interval_s > 0 {
             cfg.worker_health_interval_s
         } else {
@@ -527,10 +525,10 @@ fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool) -> PoolConfig {
         verbose: 0,
         engine_overrides: String::new(),
         runtime: worker_runtime,
-        max_workers_per_key: cfg
-            .max_workers_per_key
-            .map(|n| n as usize)
-            .unwrap_or_else(|| PoolConfig::default().max_workers_per_key),
+        max_workers_per_key: match cfg.max_workers_per_key {
+            Some(n) => crate::host_facts::PerProfile::uniform(n as usize),
+            None => effective.max_workers_per_key_by_profile.map(|n| n as usize),
+        },
         ready_timeout_s: if cfg.worker_ready_timeout_s > 0 {
             cfg.worker_ready_timeout_s
         } else {
@@ -595,23 +593,18 @@ async fn probe_local_server(url: &str) -> Option<String> {
     Some(label)
 }
 
-/// Idle timeout for sequential mode: keep the single worker alive for
-/// the entire run (24 hours) rather than killing it between files.
-const SEQUENTIAL_IDLE_TIMEOUT_S: u64 = 86400;
-
 /// Apply `--sequential` overrides to a server config: disable memory gate,
-/// cap workers to 1 per key, and extend idle timeout so the single worker
-/// survives across all files in the run.
+/// cap workers to 1 per key. Eviction is now pressure-driven; the
+/// single worker stays loaded until host memory pressure forces an
+/// eviction (which never fires under sequential synthetic-test loads
+/// on a developer machine).
 pub(crate) fn apply_sequential_config(cfg: &mut ServerConfig) {
     use crate::api::MemoryMb;
     // `Some(MemoryMb(1))` effectively disables the gate — the
     // coordinator requires only 1 MB free, which is always true.
-    // `None` would fall through to the tier-derived headroom and
-    // so would not disable.
     cfg.memory_gate_mb = Some(MemoryMb(1));
     cfg.max_workers_per_key = Some(1);
     cfg.max_concurrent_worker_startups = 1;
-    cfg.worker_idle_timeout_s = SEQUENTIAL_IDLE_TIMEOUT_S;
 }
 
 #[cfg(test)]
@@ -688,15 +681,6 @@ mod tests {
         apply_sequential_config(&mut cfg);
         assert_eq!(cfg.max_workers_per_key, Some(1));
         assert_eq!(cfg.max_concurrent_worker_startups, 1);
-    }
-
-    /// `--sequential` extends worker idle timeout so the single worker
-    /// survives across all files in the run.
-    #[test]
-    fn sequential_config_extends_idle_timeout() {
-        let mut cfg = ServerConfig::default();
-        apply_sequential_config(&mut cfg);
-        assert_eq!(cfg.worker_idle_timeout_s, SEQUENTIAL_IDLE_TIMEOUT_S);
     }
 
     /// `--sequential` + `--server` is rejected.

@@ -45,6 +45,10 @@ impl CheckedOutWorker {
         self.group
             .total
             .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        // The worker is gone; refund the global-cap admission slot
+        // so a fresh worker (this key or another) can take its
+        // place.
+        self.group.spawn_permits.add_permits(1);
         Some(handle)
     }
 }
@@ -96,12 +100,15 @@ impl Drop for CheckedOutWorker {
         // If handle was `None` (taken via `take()`), total was already
         // decremented -- nothing to do.
 
-        // Wake every task parked on `WorkerPool::worker_returned`
-        // (saturated checkouts for other keys). They all retry and at
-        // most one successfully evicts this worker or a sibling; the
-        // rest re-park. `notify_one` is insufficient because the woken
-        // waiter's key might not be evictable for this return, leaving
-        // other waiters starved.
-        self.group.worker_returned.notify_waiters();
+        // Wake ONE task parked on `WorkerPool::worker_returned` —
+        // typically a cross-key spawn attempt waiting for an eviction
+        // opportunity. FIFO-fair: each worker return wakes exactly
+        // one waiter, eliminating the thundering-herd re-probe storm
+        // documented in BUG-028. If the woken waiter's key turns out
+        // to be uneviable for this particular return, it re-parks on
+        // the same Notify and the next return wakes the next-in-line
+        // waiter. Bounded retry is enforced by the dispatch slow
+        // path's `wait_deadline`.
+        self.group.worker_returned.notify_one();
     }
 }

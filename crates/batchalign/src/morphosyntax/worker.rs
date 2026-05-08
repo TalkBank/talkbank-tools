@@ -200,7 +200,10 @@ async fn infer_batch_homogeneous(
     let tagger = ProgressTagger::install(progress_tx, lang);
     let inner_tx = tagger.sender();
 
-    let num_chunks = compute_chunk_count(items.len(), pool.max_workers_per_key());
+    let num_chunks = compute_chunk_count(
+        items.len(),
+        pool.max_workers_per_key_for(crate::worker::WorkerProfile::Stanza),
+    );
 
     let result = if num_chunks <= 1 {
         infer_batch_single(pool, items, lang, mwt, retokenize, inner_tx).await

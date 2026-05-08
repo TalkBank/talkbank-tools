@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use batchalign::api::{LanguageCode3, WorkerLanguage};
+use batchalign::host_facts::PerProfile;
 use batchalign::worker::handle::{WorkerConfig, WorkerHandle};
 use batchalign::worker::pool::{PoolConfig, WorkerPool};
 use batchalign::worker::{BatchInferRequest, InferTask, WorkerProfile};
@@ -61,10 +62,9 @@ fn test_pool(python: String) -> WorkerPool {
     WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -146,10 +146,9 @@ async fn engine_overrides_create_distinct_worker_groups() {
     let pool_with_overrides = WorkerPool::new(PoolConfig {
         python_path: python.clone(),
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: r#"{"asr":"tencent"}"#.into(),
         runtime: Default::default(),

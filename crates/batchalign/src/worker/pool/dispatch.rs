@@ -101,12 +101,27 @@ impl WorkerPool {
                     if group.total.load(std::sync::atomic::Ordering::Relaxed) == 0 {
                         let key: WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
 
+                        // Register on `worker_returned` BEFORE the
+                        // eviction probe. `Notified::enable()` puts
+                        // this task on the wait list without polling
+                        // the future, so any `notify_one()` that
+                        // fires during the probe is delivered here
+                        // instead of being absorbed by the Notify's
+                        // single-slot buffer (a burst of N>1 returns
+                        // would otherwise lose N−1 wakeups, forcing
+                        // late-comers to wait the full deadline).
+                        // checkout.rs uses `notify_one()` (not
+                        // `notify_waiters()`) so each return wakes
+                        // exactly one waiter — the BUG-028 herd fix.
+                        let notified = self.worker_returned.notified();
+                        tokio::pin!(notified);
+                        notified.as_mut().enable();
+
                         if let EvictionOutcome::Evicted = self.try_evict_idle_from_other_group(&key)
                         {
                             continue;
                         }
 
-                        let notified = self.worker_returned.notified();
                         if tokio::time::timeout_at(wait_deadline, notified)
                             .await
                             .is_err()
@@ -443,7 +458,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn checkout_times_out_when_group_claims_live_worker_but_no_permit_returns() {
         let pool = WorkerPool::new(super::super::PoolConfig {
-            max_workers_per_key: 1,
+            max_workers_per_key: crate::host_facts::PerProfile::uniform(1),
             max_total_workers: 1,
             checkout_wait_timeout_s: 1,
             ..Default::default()
@@ -472,5 +487,68 @@ mod tests {
             Ok(_) => panic!("expected timeout-style spawn error, got successful checkout"),
             Err(other) => panic!("expected timeout-style spawn error, got {other}"),
         }
+    }
+
+    /// Admission control reads the per-profile cap from
+    /// `PoolConfig::max_workers_per_key` based on the requesting
+    /// group's `WorkerProfile`. Different profiles can have different
+    /// caps; one profile saturating must not affect another.
+    #[tokio::test(flavor = "current_thread")]
+    async fn try_claim_spawn_slot_uses_per_profile_cap() {
+        let pool = WorkerPool::new(super::super::PoolConfig {
+            max_workers_per_key: crate::host_facts::PerProfile {
+                gpu: 2,
+                stanza: 4,
+                io: 1,
+            },
+            max_total_workers: 64, // not the binding constraint here
+            ..Default::default()
+        });
+        let lang = WorkerLanguage::from(LanguageCode3::eng());
+
+        // Stanza profile: cap 4. Filling group.total to 3 still admits;
+        // 4 rejects.
+        let stanza_target = WorkerTarget::infer_task(InferTask::Morphosyntax);
+        assert_eq!(
+            stanza_target.profile_kind(),
+            crate::worker::WorkerProfile::Stanza
+        );
+        let stanza_group = pool.get_or_create_group(&stanza_target, &lang, "");
+        stanza_group.total.store(3, Ordering::Relaxed);
+        assert!(
+            pool.try_claim_spawn_slot(&stanza_group).is_ok(),
+            "stanza cap=4 must admit when current=3"
+        );
+        // The successful claim incremented total to 4; the next probe
+        // must reject.
+        assert!(
+            pool.try_claim_spawn_slot(&stanza_group).is_err(),
+            "stanza cap=4 must reject when current=4"
+        );
+
+        // GPU profile: cap 2 (lower). Independent group; not affected
+        // by stanza saturation.
+        let gpu_target = WorkerTarget::infer_task(InferTask::Asr);
+        assert_eq!(gpu_target.profile_kind(), crate::worker::WorkerProfile::Gpu);
+        let gpu_group = pool.get_or_create_group(&gpu_target, &lang, "");
+        gpu_group.total.store(1, Ordering::Relaxed);
+        assert!(
+            pool.try_claim_spawn_slot(&gpu_group).is_ok(),
+            "gpu cap=2 must admit when current=1 (independent of stanza saturation)"
+        );
+        assert!(
+            pool.try_claim_spawn_slot(&gpu_group).is_err(),
+            "gpu cap=2 must reject when current=2"
+        );
+
+        // IO profile: cap 1 (smallest). At cap, rejects.
+        let io_target = WorkerTarget::infer_task(InferTask::Translate);
+        assert_eq!(io_target.profile_kind(), crate::worker::WorkerProfile::Io);
+        let io_group = pool.get_or_create_group(&io_target, &lang, "");
+        io_group.total.store(1, Ordering::Relaxed);
+        assert!(
+            pool.try_claim_spawn_slot(&io_group).is_err(),
+            "io cap=1 must reject when current=1"
+        );
     }
 }

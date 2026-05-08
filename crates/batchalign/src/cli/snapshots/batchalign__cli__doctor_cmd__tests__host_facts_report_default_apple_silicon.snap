@@ -1,6 +1,5 @@
 ---
-source: crates/batchalign-cli/src/doctor_cmd.rs
-assertion_line: 1035
+source: crates/batchalign/src/cli/doctor_cmd.rs
 expression: report
 ---
 {
@@ -26,10 +25,48 @@ expression: report
     "force_cpu": true,
     "max_total_workers": 10,
     "max_concurrent_jobs": 4,
-    "memory_gate_mb": 8000,
+    "memory_gate_mb": 2048,
     "max_workers_per_key_gpu": 4,
     "max_workers_per_key_stanza": 5,
-    "max_workers_per_key_io": 1
+    "max_workers_per_key_io": 1,
+    "audit": {
+      "gpu_thread_pool_size": {
+        "effective": 1,
+        "recommended": 1,
+        "override": null,
+        "redundant": false
+      },
+      "force_cpu": {
+        "effective": true,
+        "recommended": true,
+        "override": null,
+        "redundant": false
+      },
+      "max_total_workers": {
+        "effective": 10,
+        "recommended": 10,
+        "override": null,
+        "redundant": false
+      },
+      "max_concurrent_jobs": {
+        "effective": 4,
+        "recommended": 4,
+        "override": null,
+        "redundant": false
+      },
+      "memory_gate_mb": {
+        "effective": 8000,
+        "recommended": 8000,
+        "override": null,
+        "redundant": false
+      },
+      "max_workers_per_key": {
+        "effective": 4,
+        "recommended": 4,
+        "override": null,
+        "redundant": false
+      }
+    }
   },
   "validation": {
     "warnings": [],

@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use batchalign::api::{LanguageCode3, ReleasedCommand, WorkerLanguage};
+use batchalign::host_facts::PerProfile;
 use batchalign::worker::error::WorkerError;
 use batchalign::worker::handle::{WorkerConfig, WorkerHandle};
 use batchalign::worker::pool::{PoolConfig, WorkerPool};
@@ -67,10 +68,9 @@ fn test_pool(python: String) -> WorkerPool {
     WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600, // disable periodic health checks
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -261,18 +261,18 @@ async fn worker_ready_timeout_fires() {
     }
 }
 
-/// Pool dispatch with a very short idle timeout should still work for
-/// immediate requests — the timeout only fires after the worker sits idle.
+/// Pool dispatch with a fast health-check interval should still work for
+/// immediate requests — the health check loop only evicts under memory
+/// pressure (no longer fires on idle timer).
 #[tokio::test]
-async fn short_idle_timeout_does_not_break_dispatch() {
+async fn fast_health_check_interval_does_not_break_dispatch() {
     let python = require_python!();
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 1, // fast health checks
-        idle_timeout_s: 2,          // very short idle timeout
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -342,9 +342,8 @@ async fn multi_file_job_produces_per_file_results() {
         python_path: python,
         test_echo: true,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

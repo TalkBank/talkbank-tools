@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::api::ReleasedCommand;
 use crate::chat_ops::{ChatFile, Header, Line, Span};
 use talkbank_transform::parse::parse_lenient;
 use talkbank_transform::serialize::to_chat_string;
@@ -255,6 +256,83 @@ pub fn coref_provenance(lang: &str, engine_version: &str) -> ProvenanceComment {
 }
 
 // ---------------------------------------------------------------------------
+// No-op write detection — recognize when a candidate output text would
+// only differ from the on-disk text inside a single command's
+// `[ba3 <cmd> | ...]` provenance comment, so the runner can skip
+// pointless disk writes (and the spurious git-status churn they cause).
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when `old_text` and `new_text` differ ONLY inside the
+/// `@Comment:\t[ba3 <command> | ...]` provenance line for `command`.
+///
+/// Use case: a pipeline produces `new_text` after re-running a command
+/// against an unchanged input; the only thing that's actually new is the
+/// regenerated provenance comment's timestamp (and possibly engine
+/// version). Writing `new_text` would update the file in place, advance
+/// its mtime, and produce a one-line `git status` diff with zero semantic
+/// content. This predicate lets the write site detect that situation and
+/// skip the write entirely.
+///
+/// Returns `false` for byte-equal inputs (there is no diff to suppress)
+/// and for any difference that extends beyond the named command's
+/// provenance line — including a difference in another command's
+/// provenance, in `%mor` / `%gra` / `%wor` content, or anywhere else.
+///
+/// Comparison is line-based and streamed: both inputs are walked in
+/// lockstep, lines starting with `[ba3 <command> |` (after the
+/// `@Comment:` prefix) are skipped on either side, and the function
+/// returns `false` at the first mismatch. No intermediate string is
+/// materialized.
+pub(crate) fn is_provenance_only_difference(
+    old_text: &str,
+    new_text: &str,
+    command: ReleasedCommand,
+) -> bool {
+    // A non-difference is not a provenance-only difference. The caller's
+    // contract is "should I suppress this write?", and writing identical
+    // bytes is already a no-op the OS will short-circuit; we don't need
+    // to claim ownership of that case.
+    if old_text == new_text {
+        return false;
+    }
+    let prefix = format!("[ba3 {} |", command.as_str());
+    let mut old_lines = old_text.split_inclusive('\n');
+    let mut new_lines = new_text.split_inclusive('\n');
+    loop {
+        let old = next_non_provenance_line(&mut old_lines, &prefix);
+        let new = next_non_provenance_line(&mut new_lines, &prefix);
+        if old != new {
+            return false;
+        }
+        if old.is_none() {
+            // Both streams ended on identical non-provenance content.
+            return true;
+        }
+    }
+}
+
+/// Advance `lines` past any `@Comment:\t[ba3 <prefix>` lines and return
+/// the next non-skipped chunk. Returns `None` once the iterator is
+/// exhausted. Each chunk includes its own line terminator (from
+/// `split_inclusive`), so terminator differences propagate naturally —
+/// we are not normalizing newlines.
+fn next_non_provenance_line<'a>(
+    lines: &mut std::str::SplitInclusive<'a, char>,
+    prefix: &str,
+) -> Option<&'a str> {
+    for chunk in lines.by_ref() {
+        let trimmed = chunk.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("@Comment:") {
+            if rest.trim_start().starts_with(prefix) {
+                continue;
+            }
+        }
+        return Some(chunk);
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // Extraction — parse provenance comments from CHAT text
 // ---------------------------------------------------------------------------
 
@@ -436,5 +514,155 @@ mod tests {
         let formatted = comment.format();
         assert!(!formatted.contains("retokenize"));
         assert!(formatted.contains("incremental=true"));
+    }
+
+    // ---- is_provenance_only_difference tests ----
+    //
+    // The decision predicate that lets the runner skip a disk write when
+    // re-running a provenance-injecting command would only change the
+    // [ba3 <cmd> | ...] @Comment line (timestamp, version, etc.) without
+    // changing any other content. Each test pins one shape of difference
+    // we care about.
+
+    use crate::api::ReleasedCommand;
+
+    /// Re-running morphotag against an unchanged corpus produces a
+    /// candidate text that differs from the on-disk text only in the
+    /// timestamp slot of the [ba3 morphotag | ...] line. The predicate
+    /// must recognize this as a "do not write" condition.
+    #[test]
+    fn provenance_only_diff_detects_timestamp_only_change() {
+        let old_text = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+@End
+";
+        let new_text = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+@End
+";
+        assert!(is_provenance_only_difference(
+            old_text,
+            new_text,
+            ReleasedCommand::Morphotag,
+        ));
+    }
+
+    /// The bug we hit on 2026-05-08: workers fell back to writing
+    /// `engine=stanza-stanza` instead of `engine=stanza-1.11.1`. Even
+    /// after that's fixed, the predicate must not flag this as a
+    /// non-writeable diff if the engine slot changes — because the
+    /// new candidate's correct engine name IS information worth writing.
+    /// On the other hand, if both old and new have the SAME (correct)
+    /// engine slot and only the timestamp moved, that's the "skip" case.
+    /// This test pins the shape of the latter.
+    #[test]
+    fn provenance_only_diff_detects_same_engine_only_timestamp_change() {
+        let old_text = "@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]\n*PAR:\thello .\n";
+        let new_text = "@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]\n*PAR:\thello .\n";
+        assert!(is_provenance_only_difference(
+            old_text,
+            new_text,
+            ReleasedCommand::Morphotag,
+        ));
+    }
+
+    /// Real %mor content change must NOT be classified as
+    /// provenance-only. The predicate's whole purpose is to preserve
+    /// real updates while suppressing pointless ones.
+    #[test]
+    fn provenance_only_diff_returns_false_for_mor_change() {
+        let old_text = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+";
+        let new_text = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hi .
+";
+        assert!(!is_provenance_only_difference(
+            old_text,
+            new_text,
+            ReleasedCommand::Morphotag,
+        ));
+    }
+
+    /// Identical input should never be flagged — there is literally no
+    /// difference to suppress. The predicate is a "diff-only-in-X"
+    /// detector, not a "skip the write because everything matches"
+    /// shortcut (the caller can byte-compare for that).
+    #[test]
+    fn provenance_only_diff_returns_false_for_identical_text() {
+        let text = "@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]\n*PAR:\thello .\n";
+        assert!(!is_provenance_only_difference(
+            text,
+            text,
+            ReleasedCommand::Morphotag,
+        ));
+    }
+
+    /// When checking whether morphotag would write pointlessly, only the
+    /// morphotag provenance line is allowed to differ. A diff in the
+    /// align provenance line is a real change from morphotag's
+    /// perspective and must not be hidden — otherwise re-running
+    /// morphotag could clobber an unrelated align update on disk.
+    #[test]
+    fn provenance_only_diff_returns_false_when_other_commands_provenance_differs() {
+        let old_text = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]
+@Comment:\t[ba3 align | fa=whisper-fa-large-v2 ; lang=eng | 2026-03-29T19:15:00-04:00]
+*PAR:\thello .
+";
+        let new_text = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+@Comment:\t[ba3 align | fa=whisper-fa-large-v2 ; lang=eng | 2026-05-08T03:00:00-04:00]
+*PAR:\thello .
+";
+        assert!(!is_provenance_only_difference(
+            old_text,
+            new_text,
+            ReleasedCommand::Morphotag,
+        ));
+    }
+
+    /// First-run case: file had no morphotag provenance before, and
+    /// running morphotag now adds both the [ba3 morphotag] header AND
+    /// fresh %mor tiers. The %mor addition is a real content change;
+    /// the predicate must return false even though one side has no
+    /// morphotag provenance to strip.
+    #[test]
+    fn provenance_only_diff_returns_false_on_first_run_with_real_content_added() {
+        let old_text = "\
+@UTF8
+*PAR:\thello .
+@End
+";
+        let new_text = "\
+@UTF8
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+@End
+";
+        assert!(!is_provenance_only_difference(
+            old_text,
+            new_text,
+            ReleasedCommand::Morphotag,
+        ));
     }
 }

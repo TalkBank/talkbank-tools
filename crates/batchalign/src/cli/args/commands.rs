@@ -803,11 +803,6 @@ pub struct ServeStartArgs {
     #[arg(long)]
     pub warmup: Option<String>,
 
-    /// Seconds of inactivity before idle workers are shut down.
-    /// Overrides the value from server.yaml. Default: 600 (10 minutes).
-    #[arg(long)]
-    pub worker_idle_timeout_s: Option<u64>,
-
     /// Maximum concurrent files per job. Overrides the `max_workers_per_job`
     /// value from `server.yaml`. 0 = auto-tune.
     #[arg(long)]

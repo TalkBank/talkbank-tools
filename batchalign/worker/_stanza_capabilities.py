@@ -191,6 +191,26 @@ def build_stanza_capability_table() -> StanzaCapabilityTable:
     )
 
 
+def resolve_stanza_version(loaded_version: str = "") -> str:
+    """Return the installed Stanza version: the model-loaded value when
+    populated, otherwise the package's ``__version__``, otherwise
+    ``"unknown"``. The literal engine name ``"stanza"`` is never an
+    acceptable return value — returning it produces malformed
+    ``engine=stanza-stanza`` provenance comments downstream.
+
+    Pass ``_state.stanza_version`` (or any caller-side cached version
+    string) as ``loaded_version``; the function uses that when truthy
+    and falls back to the package import otherwise.
+    """
+    if loaded_version:
+        return loaded_version
+    try:
+        import stanza
+        return getattr(stanza, "__version__", "unknown")
+    except (ImportError, ModuleNotFoundError):
+        return "unknown"
+
+
 @functools.lru_cache(maxsize=1)
 def get_cached_capability_table() -> StanzaCapabilityTable | None:
     """Return the cached capability table, building it on first call.

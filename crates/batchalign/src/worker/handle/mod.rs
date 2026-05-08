@@ -75,9 +75,7 @@ impl WorkerHandle {
         // memory before any model is loaded, then collectively exceed physical RAM.
         // See docs/memory-safety.md for the full crash history and design rationale.
         let startup_reservation = config.startup_reservation_mb();
-        let spawn_permit = crate::worker::memory_guard::acquire_spawn_permit(&config)
-            .await
-            .map_err(|e| WorkerError::SpawnFailed(format!("memory guard: {e}")))?;
+        let spawn_permit = crate::worker::memory_guard::acquire_spawn_permit(&config).await?;
 
         let mut cmd: tokio::process::Command = spawn::build_worker_command(&config).into();
 

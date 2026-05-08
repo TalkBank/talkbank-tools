@@ -44,6 +44,7 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
         // produced multi-GB log explosions because each attempt dumped a
         // full Python traceback before the worker exited.
         WorkerError::Bootstrap(_) => FailureCategory::WorkerBootstrap,
+        WorkerError::MemoryGuard(_) => FailureCategory::MemoryPressure,
         WorkerError::SpawnFailed(_)
         | WorkerError::ReadyParseFailed(_)
         | WorkerError::NoWorker { .. } => FailureCategory::System,

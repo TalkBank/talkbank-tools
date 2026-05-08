@@ -1,7 +1,7 @@
 # Host Facts Pipeline
 
 **Status:** Current
-**Last updated:** 2026-04-25 21:54 EDT
+**Last updated:** 2026-05-08 18:40 EDT
 
 The host-facts pipeline is the four-layer architecture that resolves
 operator overrides against detected host capabilities and warns when
@@ -54,17 +54,23 @@ hardware.
 
 Pure per-knob functions that derive a recommendation from `&HostFacts`.
 Each lives in `host_facts/recommendations.rs` with table-driven unit
-tests that pin the formula. Today's seven knobs:
+tests that pin the formula. The current per-knob recommenders:
 
 | Function | Formula |
 |---|---|
 | `recommend_gpu_thread_pool_size` | 4 on functional GPU, 1 otherwise |
 | `recommend_force_cpu` | `!gpu.is_functional_for_batchalign()` |
 | `recommend_max_total_workers` | `clamp(ram_total_mb / 6 GB, 2, 32)`; fallback 4 when ram = 0 |
-| `recommend_max_concurrent_jobs` | tier-and-CPU bounded |
+| `recommend_max_concurrent_jobs` | tier-and-CPU bounded (CPU clamped to `[1, 8]` against tier `max_suggested_workers`) |
 | `recommend_max_workers_per_job` | per-command formula honoring `gpu_thread_pool_size` cap |
 | `recommend_max_workers_per_key` | per-profile RAM-derived (gpu = ram/16GB clamped to `[1,8]`, stanza = ram/12GB clamped to `[1,8]`, io = 1) |
-| `recommend_memory_gate_mb` | tier headroom |
+
+`recommend_memory_gate_mb` was retired on 2026-05-08 alongside the
+`EMPIRICAL_MAX_CONCURRENT_JOBS_CAP = 4` clamp on
+`recommend_max_concurrent_jobs`. Live admission/eviction primitives
+in `worker/pool/{cpu_gate,memory_gate,rss_observer,idle_eviction}.rs`
+replaced their roles — see [Memory Safety](memory-safety.md) for the
+admission/eviction gate chain.
 
 The `RecommendedKnobs` struct bundles the host-level scalar values;
 `max_workers_per_job` and `max_workers_per_key` use richer per-key

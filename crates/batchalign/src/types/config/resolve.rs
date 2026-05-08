@@ -72,26 +72,18 @@ impl ServerConfig {
     ///
     /// `Some(n)` is an explicit operator override (used today by
     /// `--sequential` mode to set `MemoryMb(1)`); `None` falls
-    /// through to `resolved_memory_tier().headroom_mb`, which itself
-    /// honors any `memory_tier` override.
+    /// through to the hardcoded
+    /// [`crate::worker::pool::memory_gate::MIN_FREE_MEMORY_MB`]
+    /// floor, the same number the worker-pool admission gate
+    /// enforces. The previous tier-derived fallback
+    /// (`resolved_memory_tier().headroom_mb`, 2/4/8 GB by host RAM)
+    /// has been retired — it tried to encode workload sizing into a
+    /// floor that should only express OS-protection headroom.
     pub fn resolved_memory_gate_mb(&self) -> crate::api::MemoryMb {
         match self.memory_gate_mb {
             Some(value) => value,
-            None => self.resolved_memory_tier().headroom_mb,
+            None => crate::api::MemoryMb(crate::worker::pool::memory_gate::MIN_FREE_MEMORY_MB),
         }
-    }
-
-    /// Resolve worker idle timeout, honoring a memory-tier override when the
-    /// stored field still matches the machine-detected default.
-    pub fn resolved_worker_idle_timeout_s(&self) -> u64 {
-        let detected_default = crate::types::runtime::MemoryTier::detect().idle_timeout_s;
-        if self.worker_idle_timeout_s == 0 {
-            return self.resolved_memory_tier().idle_timeout_s;
-        }
-        if self.memory_tier.is_some() && self.worker_idle_timeout_s == detected_default {
-            return self.resolved_memory_tier().idle_timeout_s;
-        }
-        self.worker_idle_timeout_s
     }
 
     /// Resolve warmup commands before server-side capability filtering.

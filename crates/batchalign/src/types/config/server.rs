@@ -170,9 +170,6 @@ pub struct ServerConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub memory_gate_mb: Option<MemoryMb>,
-    /// Seconds of inactivity before a worker is shut down. 0 = use pool default (600).
-    #[serde(default = "default_worker_idle_timeout_s")]
-    pub worker_idle_timeout_s: u64,
     /// Seconds between worker health checks. 0 = use pool default (30).
     #[serde(default = "default_worker_health_interval_s")]
     pub worker_health_interval_s: u64,
@@ -423,10 +420,6 @@ pub(crate) fn default_job_ttl_days() -> i32 {
     7
 }
 
-pub(crate) fn default_worker_idle_timeout_s() -> u64 {
-    crate::types::runtime::MemoryTier::detect().idle_timeout_s
-}
-
 pub(crate) fn default_worker_health_interval_s() -> u64 {
     30
 }
@@ -486,7 +479,6 @@ impl Default for ServerConfig {
             temporal_heartbeat_s: default_temporal_heartbeat_s(),
             temporal_activity_timeout_s: default_temporal_activity_timeout_s(),
             memory_gate_mb: None,
-            worker_idle_timeout_s: default_worker_idle_timeout_s(),
             worker_health_interval_s: default_worker_health_interval_s(),
             max_concurrent_worker_startups: default_max_concurrent_worker_startups(),
             max_workers_per_key: None,

@@ -49,7 +49,6 @@ pub use os::{CpuArch, OperatingSystem};
 pub use recommendations::{
     PerProfile, RecommendedKnobs, recommend, recommend_force_cpu, recommend_gpu_thread_pool_size,
     recommend_max_concurrent_jobs, recommend_max_total_workers, recommend_max_workers_per_key,
-    recommend_memory_gate_mb,
 };
 pub use validation::{ConfigError, ConfigValidation, ConfigWarning, validate};
 pub use warnings::DetectionWarning;

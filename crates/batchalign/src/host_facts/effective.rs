@@ -187,7 +187,9 @@ impl EffectiveConfig {
                 .max_concurrent_jobs
                 .unwrap_or(r.max_concurrent_jobs),
             max_workers_per_key_by_profile,
-            memory_gate_mb: overrides.memory_gate_mb.unwrap_or(r.memory_gate_mb),
+            memory_gate_mb: overrides.memory_gate_mb.unwrap_or(MemoryMb(
+                crate::worker::pool::memory_gate::MIN_FREE_MEMORY_MB,
+            )),
             max_workers_per_job_override: overrides.max_workers_per_job,
             host_facts: facts.clone(),
         }
@@ -252,7 +254,10 @@ mod tests {
             effective.max_workers_per_key_by_profile,
             r.max_workers_per_key_by_profile
         );
-        assert_eq!(effective.memory_gate_mb, r.memory_gate_mb);
+        assert_eq!(
+            effective.memory_gate_mb,
+            MemoryMb(crate::worker::pool::memory_gate::MIN_FREE_MEMORY_MB)
+        );
     }
 
     #[test]

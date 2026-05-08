@@ -133,22 +133,23 @@ impl SpawnPermit {
 
 /// Query current available memory in MB.
 ///
-/// On macOS, `sysinfo::available_memory()` undercounts (only free+purgeable,
-/// not inactive). We add inactive pages for a more accurate reading.
+/// Delegates to [`crate::host_memory::detect_available_memory_mb`],
+/// which is process-globally TTL-cached so admission gates,
+/// eviction pre-pass, and the in-spawn guard agree on one reading
+/// per second instead of each constructing a fresh
+/// `sysinfo::System`. Returned as raw `u64` so existing callers
+/// don't need to thread `MemoryMb` through.
+///
+/// On macOS, sysinfo's `available_memory` is conservative (excludes
+/// inactive pages the kernel can reclaim) — see the host_memory
+/// docs.
 pub fn available_memory_mb() -> u64 {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    // sysinfo on macOS undercounts — this is a known issue documented in MEMORY.md.
-    // The kernel can reclaim inactive+purgeable pages, so the real headroom is larger.
-    // But we use the conservative number to be safe.
-    sys.available_memory() / (1024 * 1024)
+    crate::host_memory::detect_available_memory_mb().0
 }
 
 /// Query total physical memory in MB.
 pub fn total_memory_mb() -> u64 {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    sys.total_memory() / (1024 * 1024)
+    crate::host_memory::detect_total_memory_mb().0
 }
 
 /// Acquire a spawn permit, checking memory before allowing the spawn.

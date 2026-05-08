@@ -36,6 +36,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use batchalign::api::{LanguageCode3, ReleasedCommand, WorkerLanguage};
+use batchalign::host_facts::PerProfile;
 use batchalign::types::worker_v2::{
     AsrBackendV2, AsrInputV2, AsrRequestV2, ExecuteRequestV2, ExecuteResponseV2, InferenceTaskV2,
     PreparedAudioInputV2, TaskRequestV2, WorkerArtifactIdV2, WorkerRequestIdV2,
@@ -85,10 +86,9 @@ fn test_pool(python: String) -> WorkerPool {
     WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600, // disable during test
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -542,10 +542,9 @@ async fn gpu_request_with_short_timeout_fails_cleanly() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -705,10 +704,9 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {
@@ -819,11 +817,10 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     let pool = std::sync::Arc::new(WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
         test_delay_ms: 8000,
-        max_workers_per_key: 1,
+        max_workers_per_key: PerProfile::uniform(1),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {

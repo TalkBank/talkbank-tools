@@ -165,6 +165,21 @@ pub enum WorkerError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// The worker could not start because the host-memory guard
+    /// refused the per-spawn reservation (insufficient available RAM,
+    /// or the host-coordinator's lease acquisition failed).
+    ///
+    /// Distinguishes RAM-pressure rejections from generic spawn
+    /// failures so observability surfaces (`PoolMetrics`, doctor)
+    /// can count host-memory pressure independently. The pool's
+    /// `lifecycle::try_spawn_into_group` increments
+    /// `memory_gate_rejections_total` on this variant.
+    ///
+    /// **Retryable** -- once host RAM is freed (other workers exit,
+    /// idle timeouts fire), a fresh spawn can succeed.
+    #[error("memory guard refused worker spawn: {0}")]
+    MemoryGuard(#[from] crate::worker::memory_guard::MemoryGuardError),
+
     /// No worker could be found or spawned for the requested
     /// `(command, lang)` pair.
     ///

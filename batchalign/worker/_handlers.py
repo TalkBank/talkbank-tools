@@ -19,6 +19,7 @@ from batchalign.worker._types import (
 
 L = logging.getLogger("batchalign.worker")
 
+
 def _health() -> HealthResponse:
     """Health check with worker metadata."""
     is_ready = _state.ready or _state.test_echo
@@ -59,14 +60,24 @@ def _capabilities() -> CapabilitiesResponse:
     infer_tasks: list[InferTask] = []
     engine_versions: dict[InferTask, str] = {}
 
+    from batchalign.worker._stanza_capabilities import resolve_stanza_version
+
     # Infer task probes: map each InferTask to the imports required to prove
     # the system *can* run it.  The probe worker only loads morphotag models,
     # so we must NOT gate on loaded model state — otherwise FA, translate,
     # utseg, ASR, etc. are silently excluded from server capabilities.
+    #
+    # The default-version slot is left empty for stanza-backed tasks
+    # (MORPHOSYNTAX / UTSEG / COREF) on purpose: those tasks always
+    # resolve their version through `resolve_stanza_version()` below,
+    # so the default is unused. Putting the literal engine name
+    # ("stanza") here as a fallback would re-introduce the
+    # `engine=stanza-stanza` corruption if the resolver were ever
+    # bypassed by a future refactor.
     _INFER_TASK_PROBES: dict[InferTask, tuple[tuple[str, ...], str]] = {
-        InferTask.MORPHOSYNTAX: (("stanza",), "stanza"),
-        InferTask.UTSEG:        (("stanza",), "stanza"),
-        InferTask.COREF:        (("stanza",), "stanza"),
+        InferTask.MORPHOSYNTAX: (("stanza",), ""),
+        InferTask.UTSEG:        (("stanza",), ""),
+        InferTask.COREF:        (("stanza",), ""),
         InferTask.TRANSLATE:    (("googletrans",), "googletrans-v1"),
         InferTask.FA:           (("torch", "torchaudio"), "whisper"),
         InferTask.OPENSMILE:    (("opensmile",), "opensmile"),
@@ -86,11 +97,13 @@ def _capabilities() -> CapabilitiesResponse:
         importable = all(_module_importable(dep) for dep in deps)
         if importable:
             infer_tasks.append(task)
-            # Use loaded model info when available, otherwise the default
             if task == InferTask.MORPHOSYNTAX or task == InferTask.COREF:
-                engine_versions[task] = _state.stanza_version or default_version
+                engine_versions[task] = resolve_stanza_version(_state.stanza_version)
             elif task == InferTask.UTSEG:
-                engine_versions[task] = _state.utseg_version or default_version
+                engine_versions[task] = (
+                    _state.utseg_version
+                    or resolve_stanza_version(_state.stanza_version)
+                )
             elif task == InferTask.FA:
                 engine_versions[task] = _state.fa_model_name or _state.fa_engine.value
             elif task == InferTask.ASR:

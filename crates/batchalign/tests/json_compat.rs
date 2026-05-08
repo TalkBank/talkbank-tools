@@ -343,7 +343,6 @@ fn snapshot_server_config_full() {
         warmup_commands: vec!["morphotag".into(), "align".into()],
         auto_daemon: true,
         memory_gate_mb: Some(MemoryMb(2048)),
-        worker_idle_timeout_s: 300,
         worker_health_interval_s: 15,
         temporal_task_queue: batchalign::api::TemporalTaskQueue::from(
             "batchalign3-testhost".to_string(),

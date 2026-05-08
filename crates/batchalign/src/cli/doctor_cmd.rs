@@ -10,7 +10,10 @@ use crate::cli::error::CliError;
 use crate::cli::python::resolve_python_executable;
 
 use crate::config::{self, RuntimeLayout};
-use crate::host_facts::{self, EffectiveConfig, HostFacts, HostFactsSource, RealHostFactsSource};
+use crate::host_facts::{
+    self, EffectiveConfig, HostFacts, HostFactsSource, RealHostFactsSource, RecommendedKnobs,
+    recommend,
+};
 
 use std::io::{BufRead, Write};
 use std::ops::Not;
@@ -63,10 +66,15 @@ struct HostFactsReport {
     validation: ValidationReport,
 }
 
-/// JSON-friendly projection of [`EffectiveConfig`] showing only the
-/// resolved knob values (the inner `host_facts` snapshot is already
-/// available under `detected` and the `max_workers_per_job_override`
-/// is internal to the resolver).
+/// JSON-friendly summary of the resolved config knobs. The flat
+/// scalar fields (`gpu_thread_pool_size`, `force_cpu`, …) project
+/// [`EffectiveConfig`]'s resolved values; the `audit` sibling adds
+/// per-knob `recommendation` + `operator_override` + `redundant`
+/// detail so operators can identify `server.yaml` overrides that are
+/// no-ops relative to the host-facts recommendation
+/// (`redundant: true` entries are deletion candidates). Constructing
+/// the audit requires the original [`ServerConfig`] and [`HostFacts`]
+/// in addition to the resolved [`EffectiveConfig`].
 #[derive(Debug, serde::Serialize)]
 struct EffectiveConfigSummary {
     gpu_thread_pool_size: u32,
@@ -77,10 +85,23 @@ struct EffectiveConfigSummary {
     max_workers_per_key_gpu: u32,
     max_workers_per_key_stanza: u32,
     max_workers_per_key_io: u32,
+    /// Per-knob recommendation/override/redundancy detail. Used by
+    /// operators auditing whether each `server.yaml` override is
+    /// still load-bearing relative to the live host-facts
+    /// recommendation.
+    audit: ConfigAudit,
 }
 
 impl EffectiveConfigSummary {
-    fn from_effective(e: &EffectiveConfig) -> Self {
+    /// Build the summary from the resolved [`EffectiveConfig`] plus
+    /// the original [`ServerConfig`] and [`HostFacts`] needed to
+    /// reconstruct the per-knob audit (recommended / override /
+    /// redundant flags).
+    fn from_effective(
+        e: &EffectiveConfig,
+        cfg: &crate::config::ServerConfig,
+        facts: &HostFacts,
+    ) -> Self {
         Self {
             gpu_thread_pool_size: e.gpu_thread_pool_size,
             force_cpu: e.force_cpu,
@@ -90,7 +111,119 @@ impl EffectiveConfigSummary {
             max_workers_per_key_gpu: e.max_workers_per_key_by_profile.gpu,
             max_workers_per_key_stanza: e.max_workers_per_key_by_profile.stanza,
             max_workers_per_key_io: e.max_workers_per_key_by_profile.io,
+            audit: ConfigAudit::build(cfg, facts),
         }
+    }
+}
+
+/// Per-knob trio of (effective, recommended, operator_override) plus
+/// a `redundant` flag set when the override is present and equal to
+/// the recommendation. The flag is the operator's deletion signal:
+/// `redundant: true` means the override can be removed from
+/// `server.yaml` (or `fleet-inventory.yml`) without changing
+/// behavior.
+#[derive(Debug, serde::Serialize)]
+struct KnobAudit<T: Clone + PartialEq + serde::Serialize> {
+    effective: T,
+    recommended: T,
+    /// `None` when the operator did not override this knob.
+    #[serde(rename = "override")]
+    operator_override: Option<T>,
+    /// True iff `operator_override == Some(recommended)` — i.e. the
+    /// override is exactly what the recommender would produce, so
+    /// removing it is a no-op.
+    redundant: bool,
+}
+
+impl<T: Clone + PartialEq + serde::Serialize> KnobAudit<T> {
+    fn new(recommended: T, operator_override: Option<T>) -> Self {
+        let effective = operator_override
+            .clone()
+            .unwrap_or_else(|| recommended.clone());
+        let redundant = matches!(&operator_override, Some(v) if *v == recommended);
+        Self {
+            effective,
+            recommended,
+            operator_override,
+            redundant,
+        }
+    }
+}
+
+/// Per-knob audit bundle. Field names mirror the flat
+/// `EffectiveConfigSummary` knobs so a JSON consumer can navigate
+/// directly from `effective.<knob>` to `effective.audit.<knob>` for
+/// the override-vs-recommendation detail.
+#[derive(Debug, serde::Serialize)]
+struct ConfigAudit {
+    gpu_thread_pool_size: KnobAudit<u32>,
+    force_cpu: KnobAudit<bool>,
+    max_total_workers: KnobAudit<u32>,
+    max_concurrent_jobs: KnobAudit<u32>,
+    memory_gate_mb: KnobAudit<u64>,
+    /// `max_workers_per_key` is the one knob where `ServerConfig`
+    /// carries a single uniform value but the recommender produces a
+    /// per-profile (gpu/stanza/io) shape. The audit reports the
+    /// uniform-override case using the gpu profile's recommended
+    /// value as the canonical comparison point; if the operator's
+    /// uniform override does not equal *all three* recommended
+    /// profile values simultaneously, `redundant` is false.
+    max_workers_per_key: KnobAudit<u32>,
+}
+
+impl ConfigAudit {
+    fn build(cfg: &crate::config::ServerConfig, facts: &HostFacts) -> Self {
+        let r: RecommendedKnobs = recommend(facts);
+        // `max_workers_per_key` is the uniform-override-vs-per-profile
+        // exception: the operator's single value is redundant only
+        // when all three profile recommendations coincide AND match it.
+        let mwpk_override = cfg.max_workers_per_key;
+        let mwpk_rec = &r.max_workers_per_key_by_profile;
+        let mwpk_uniform_redundant = mwpk_override
+            .is_some_and(|n| n == mwpk_rec.gpu && n == mwpk_rec.stanza && n == mwpk_rec.io);
+        let mwpk_audit = KnobAudit {
+            effective: mwpk_override.unwrap_or(mwpk_rec.gpu),
+            recommended: mwpk_rec.gpu,
+            operator_override: mwpk_override,
+            redundant: mwpk_uniform_redundant,
+        };
+        Self {
+            gpu_thread_pool_size: KnobAudit::new(r.gpu_thread_pool_size, cfg.gpu_thread_pool_size),
+            force_cpu: KnobAudit::new(r.force_cpu, cfg.force_cpu),
+            max_total_workers: KnobAudit::new(r.max_total_workers, cfg.max_total_workers),
+            max_concurrent_jobs: KnobAudit::new(r.max_concurrent_jobs, cfg.max_concurrent_jobs),
+            memory_gate_mb: KnobAudit::new(
+                cfg.resolved_memory_tier().headroom_mb.0,
+                cfg.memory_gate_mb.map(|m| m.0),
+            ),
+            max_workers_per_key: mwpk_audit,
+        }
+    }
+
+    /// Names of knobs whose operator override is redundant — i.e.
+    /// equals the recommendation and could be deleted from
+    /// `server.yaml` without behavior change.
+    fn redundant_knob_names(&self) -> Vec<&'static str> {
+        let mut out = Vec::new();
+        if self.gpu_thread_pool_size.redundant {
+            out.push("gpu_thread_pool_size");
+        }
+        if self.force_cpu.redundant {
+            out.push("force_cpu");
+        }
+        if self.max_total_workers.redundant {
+            out.push("max_total_workers");
+        }
+        if self.max_concurrent_jobs.redundant {
+            out.push("max_concurrent_jobs");
+        }
+        if self.memory_gate_mb.redundant {
+            out.push("memory_gate_mb");
+        }
+        if self.max_workers_per_key.redundant {
+            out.push("max_workers_per_key");
+        }
+        out
     }
 }
 
@@ -641,9 +774,10 @@ fn build_host_facts_report_from(
     let overrides = host_facts::ConfigOverrides::from(config);
     let effective = EffectiveConfig::resolve(&overrides, &detected);
     let validation = host_facts::validate(config, &detected);
+    let summary = EffectiveConfigSummary::from_effective(&effective, config, &detected);
     HostFactsReport {
         detected,
-        effective: EffectiveConfigSummary::from_effective(&effective),
+        effective: summary,
         validation: ValidationReport::from_validation(&validation),
     }
 }
@@ -689,6 +823,21 @@ fn print_host_facts_human(report: &HostFactsReport) {
         "  max_workers_per_key: gpu={} stanza={} io={}",
         e.max_workers_per_key_gpu, e.max_workers_per_key_stanza, e.max_workers_per_key_io,
     );
+
+    let redundant = e.audit.redundant_knob_names();
+    if redundant.is_empty() {
+        eprintln!(
+            "\nOverride audit:       no redundant overrides (every operator override differs from the host-facts recommendation)"
+        );
+    } else {
+        eprintln!(
+            "\nOverride audit:       {} redundant override(s) (override == recommendation; safe to delete from server.yaml):",
+            redundant.len()
+        );
+        for name in &redundant {
+            eprintln!("  - {name}");
+        }
+    }
 
     let v = &report.validation;
     if v.warnings.is_empty() && v.errors.is_empty() {
@@ -929,9 +1078,10 @@ mod tests {
     #[test]
     fn effective_config_summary_includes_every_resolved_knob() {
         let facts = apple_silicon_64gb();
+        let cfg = ServerConfig::default();
         let overrides = ConfigOverrides::default();
         let effective = EffectiveConfig::resolve(&overrides, &facts);
-        let summary = EffectiveConfigSummary::from_effective(&effective);
+        let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);
         // gpu_thread_pool_size: Apple Silicon recommends 1
         assert_eq!(summary.gpu_thread_pool_size, 1);
         // force_cpu: Apple Silicon recommends true
@@ -942,6 +1092,76 @@ mod tests {
         assert!(summary.max_workers_per_key_gpu >= 1);
         assert!(summary.max_workers_per_key_stanza >= 1);
         assert!(summary.max_workers_per_key_io >= 1);
+    }
+
+    #[test]
+    fn audit_with_no_overrides_has_empty_redundancy_list() {
+        let facts = apple_silicon_64gb();
+        let cfg = ServerConfig::default();
+        let overrides = ConfigOverrides::default();
+        let effective = EffectiveConfig::resolve(&overrides, &facts);
+        let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);
+        assert!(summary.audit.redundant_knob_names().is_empty());
+        assert!(
+            summary
+                .audit
+                .gpu_thread_pool_size
+                .operator_override
+                .is_none()
+        );
+        assert!(!summary.audit.gpu_thread_pool_size.redundant);
+        assert!(summary.audit.max_total_workers.operator_override.is_none());
+        assert!(!summary.audit.max_total_workers.redundant);
+    }
+
+    #[test]
+    fn audit_flags_redundant_override_matching_recommendation() {
+        use crate::host_facts::recommend_max_total_workers;
+        let facts = apple_silicon_64gb();
+        let recommended_total = recommend_max_total_workers(&facts);
+        let mut cfg = ServerConfig::default();
+        cfg.max_total_workers = Some(recommended_total);
+        let overrides = ConfigOverrides::from(&cfg);
+        let effective = EffectiveConfig::resolve(&overrides, &facts);
+        let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);
+        assert!(summary.audit.max_total_workers.redundant);
+        assert_eq!(
+            summary.audit.max_total_workers.operator_override,
+            Some(recommended_total)
+        );
+        assert!(
+            summary
+                .audit
+                .redundant_knob_names()
+                .contains(&"max_total_workers")
+        );
+    }
+
+    #[test]
+    fn audit_does_not_flag_overrides_that_differ_from_recommendation() {
+        use crate::host_facts::recommend_max_total_workers;
+        let facts = apple_silicon_64gb();
+        let recommended_total = recommend_max_total_workers(&facts);
+        let custom = recommended_total
+            .checked_add(1)
+            .expect("recommended max never saturates u32");
+        let mut cfg = ServerConfig::default();
+        cfg.max_total_workers = Some(custom);
+        let overrides = ConfigOverrides::from(&cfg);
+        let effective = EffectiveConfig::resolve(&overrides, &facts);
+        let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);
+        assert!(!summary.audit.max_total_workers.redundant);
+        assert_eq!(
+            summary.audit.max_total_workers.recommended,
+            recommended_total
+        );
+        assert_eq!(summary.audit.max_total_workers.effective, custom);
+        assert!(
+            !summary
+                .audit
+                .redundant_knob_names()
+                .contains(&"max_total_workers")
+        );
     }
 
     /// On an unconfigured host (default `ServerConfig`), the
@@ -1158,9 +1378,10 @@ mod tests {
         let overrides = ConfigOverrides::from(&cfg);
         let effective = EffectiveConfig::resolve(&overrides, &facts);
         let validation = host_facts::validate(&cfg, &facts);
+        let facts_for_summary = facts.clone();
         let report = HostFactsReport {
             detected: facts,
-            effective: EffectiveConfigSummary::from_effective(&effective),
+            effective: EffectiveConfigSummary::from_effective(&effective, &cfg, &facts_for_summary),
             validation: ValidationReport::from_validation(&validation),
         };
         let json = serde_json::to_value(&report).expect("serialize");

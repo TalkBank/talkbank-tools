@@ -70,8 +70,11 @@ def _registry_ownership_from_env() -> tuple[str, str, int | None]:
 #
 # This flag separates the two phases. Pre-ready callers of
 # ``write_progress_event`` (from ``_progress.emit_download_event`` etc.)
-# get redirected to stderr as plain log lines so the user/operator can
-# still see what's happening without corrupting the protocol stream.
+# emit their JSON line to stdout as ``{"op": "progress_v2", ...}``;
+# the Rust supervisor's ``read_ready_line`` accepts these as preamble
+# events before the ``{"ready": true, ...}`` envelope and logs each
+# one as ``tracing::info!``, so bootstrap-time timings reach the
+# daemon log live (otherwise stderr is buffered until process exit).
 # ``_print_ready`` flips the flag the moment the ready line is on the
 # wire, after which all later progress events behave normally.
 _handshake_complete = False
@@ -92,16 +95,15 @@ def write_progress_event(
     """Emit a progress event line during a long-running V2 task.
 
     The Rust worker handle reads these intermediate JSON lines before the
-    final response.  Progress events use the ``progress_v2`` op tag so
+    final response. Progress events use the ``progress_v2`` op tag so
     the handle can distinguish them from the final ``execute_v2`` response.
 
     During the pre-ready handshake window (worker startup, model loading,
-    catalog bootstrap), this function logs to stderr instead of writing
-    to stdout — the supervisor's first stdout line MUST be the
-    ``{"ready": true, ...}`` envelope. Pre-ready callers exist because
-    download notifications can fire during model bootstrap (catalog
-    download, language-pack download, etc.); their visibility moves to
-    daemon logs until the request loop is up and running.
+    catalog bootstrap), the JSON line still goes to stdout. The Rust
+    supervisor's ``read_ready_line`` accepts ``progress_v2`` lines as
+    preamble events before the ``{"ready": true, ...}`` envelope and
+    emits each as ``tracing::info!``. Stderr is buffered until process
+    exit, so bootstrap-time visibility requires the stdout path.
     """
     payload = {
         "op": "progress_v2",
@@ -113,10 +115,8 @@ def write_progress_event(
         },
     }
     if not _handshake_complete:
-        sys.stderr.write(
-            f"[progress_v2 pre-ready] {json.dumps(payload['event'])}\n"
-        )
-        sys.stderr.flush()
+        sys.stdout.write(json.dumps(payload) + "\n")
+        sys.stdout.flush()
         return
     _write_json(payload)
 

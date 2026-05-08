@@ -12,8 +12,8 @@ use crate::benchmark::{BenchmarkRequest, process_benchmark};
 use crate::cache::UtteranceCache;
 use crate::pipeline::PipelineServices;
 use crate::recipe_runner::runtime::{
-    output_write_path, plan_work_units_for_job, primary_output_artifact, sidecar_output_artifacts,
-    write_text_output_artifact,
+    ChatOutputTarget, output_write_path, plan_work_units_for_job, primary_output_artifact,
+    sidecar_output_artifacts, write_text_output_artifact,
 };
 use crate::recipe_runner::work_unit::{BenchmarkWorkUnit, PlannedWorkUnit};
 use crate::runner::DispatchHostContext;
@@ -326,13 +326,13 @@ async fn process_one_benchmark_file(
                 .find(|artifact| artifact.display_path.as_ref().ends_with(".compare.csv"))
                 .expect("benchmark command must emit a compare.csv sidecar");
 
-                if let Err(err) = write_text_output_artifact(
+                let target = ChatOutputTarget::new(
                     &job.filesystem,
                     file_index,
                     &primary_output.display_path,
-                    &outputs.annotated_main_chat,
-                )
-                .await
+                );
+                if let Err(err) =
+                    write_text_output_artifact(&target, &outputs.annotated_main_chat).await
                 {
                     warn!(error = %err, "Failed to write benchmark CHAT output");
                 }

@@ -156,27 +156,174 @@ async fn write_text_file(path: &Path, content: &str) -> std::io::Result<()> {
     tokio::fs::write(path, content).await
 }
 
+/// One CHAT-output destination for a single file in a job: enough
+/// state to derive both the primary on-disk write path and the staged
+/// copy. Bundling the (filesystem, file_index, display_path) triple
+/// gives all the writers a single typed seam — and lets future
+/// per-target preconditions (e.g., paths_mode-aware skip logic) attach
+/// in one place rather than at every callsite.
+pub(crate) struct ChatOutputTarget<'a> {
+    pub filesystem: &'a RunnerFilesystemConfig,
+    pub file_index: usize,
+    pub display_path: &'a DisplayPath,
+}
+
+impl<'a> ChatOutputTarget<'a> {
+    pub fn new(
+        filesystem: &'a RunnerFilesystemConfig,
+        file_index: usize,
+        display_path: &'a DisplayPath,
+    ) -> Self {
+        Self {
+            filesystem,
+            file_index,
+            display_path,
+        }
+    }
+
+    fn primary_path(&self) -> PathBuf {
+        output_write_path(self.filesystem, self.file_index, self.display_path)
+    }
+
+    fn staged_path(&self) -> PathBuf {
+        staged_output_path(self.filesystem, self.display_path)
+    }
+}
+
 /// Write a text result to the command's primary target and to staged output.
 ///
 /// Paths-mode jobs still write to the execution host's requested output path,
 /// but they also preserve a staged copy so the submitting CLI can download and
 /// write the same result back to its own local filesystem.
 pub(crate) async fn write_text_output_artifact(
-    filesystem: &RunnerFilesystemConfig,
-    file_index: usize,
-    result_display_path: &DisplayPath,
+    target: &ChatOutputTarget<'_>,
     content: &str,
 ) -> std::io::Result<()> {
-    let write_path = output_write_path(filesystem, file_index, result_display_path);
+    let write_path = target.primary_path();
     write_text_file(&write_path, content).await?;
 
-    let staged_path = staged_output_path(filesystem, result_display_path);
+    let staged_path = target.staged_path();
     if staged_path != write_path {
         write_text_file(&staged_path, content).await?;
     }
 
     Ok(())
 }
+
+/// Write a CHAT result to the command's primary target and staged output,
+/// suppressing the write at any path where the only difference vs the
+/// existing on-disk text is inside the `[ba3 <command> | ...]` provenance
+/// comment for `command`.
+///
+/// Use this for any pipeline that injects a `ProvenanceComment` for a
+/// known [`ReleasedCommand`] before serializing CHAT. The gate eliminates
+/// the "re-running the same command produced a 1-line timestamp/version
+/// diff per file" failure mode that produces large, semantically empty
+/// commits in corpus repos.
+///
+/// Behavior per write target:
+///
+/// - Target file does not exist → write (first run).
+/// - Existing bytes are byte-equal to `content` → skip (already correct).
+/// - Existing bytes differ from `content` only inside the `[ba3 <command>]`
+///   provenance line → skip (the only would-be change is the timestamp /
+///   engine slot, which we deliberately do not propagate).
+/// - Existing bytes differ in any other content (`%mor`, `%gra`, `%wor`,
+///   another command's provenance, anything else) → write.
+///
+/// The primary write_path and the staged output path are evaluated
+/// independently. In the common paths_mode layout the staged copy lives
+/// in `staging_dir/output/...` and is fresh per job, so it almost always
+/// triggers a write; the primary path is the one the gate effectively
+/// guards. We still apply the same logic to both for symmetry — there
+/// is no scenario where it is correct to update one and not the other.
+pub(crate) async fn write_chat_output_artifact_with_provenance_gate(
+    target: &ChatOutputTarget<'_>,
+    content: &str,
+    command: ReleasedCommand,
+) -> std::io::Result<()> {
+    let write_path = target.primary_path();
+    write_chat_if_meaningful_diff(&write_path, content, command).await?;
+
+    let staged_path = target.staged_path();
+    if staged_path != write_path {
+        write_chat_if_meaningful_diff(&staged_path, content, command).await?;
+    }
+
+    Ok(())
+}
+
+/// Read the existing file at `path` (if any), compare it to `candidate`
+/// for the specific `command`'s provenance gate, and write only if a
+/// real (non-provenance-only) difference exists.
+///
+/// The read is best-effort: any read error other than NotFound is
+/// surfaced. NotFound is treated as "first run" and triggers a write.
+///
+/// Cheap pre-check: the gate only fires when the existing-vs-candidate
+/// difference is bounded to a single provenance line. If the candidate's
+/// length differs from the existing file's length by more than a
+/// provenance line could plausibly contribute, the gate cannot fire and
+/// we skip the read entirely. The bound is generous (one full
+/// provenance line is well under 200 bytes; doubling that absorbs
+/// engine-string / language-tag drift) — we want false positives that
+/// fall through to the existing read+compare path, not false negatives
+/// that wrongly suppress a write.
+async fn write_chat_if_meaningful_diff(
+    path: &Path,
+    candidate: &str,
+    command: ReleasedCommand,
+) -> std::io::Result<()> {
+    match tokio::fs::metadata(path).await {
+        Ok(meta) => {
+            let existing_len = meta.len();
+            let candidate_len = candidate.len() as u64;
+            let diff = existing_len.abs_diff(candidate_len);
+            if diff > PROVENANCE_LINE_DIFF_BUDGET_BYTES {
+                // The two files differ by more than a provenance line
+                // could contribute; the gate cannot possibly fire and
+                // there is no point reading the existing file just to
+                // compare. Write through.
+                return write_text_file(path, candidate).await;
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // First run — file does not exist yet. Write through.
+            return write_text_file(path, candidate).await;
+        }
+        Err(error) => return Err(error),
+    }
+
+    match tokio::fs::read_to_string(path).await {
+        Ok(existing) => {
+            if existing == candidate {
+                // Bytes already match. Skip — avoid mtime churn.
+                return Ok(());
+            }
+            if crate::provenance::is_provenance_only_difference(&existing, candidate, command) {
+                // The only would-be change is inside the command's
+                // provenance line. Per the no-spurious-update policy,
+                // do not write.
+                return Ok(());
+            }
+            write_text_file(path, candidate).await
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // Race: file existed at metadata time but is gone now.
+            // Treat as first-run and write through.
+            write_text_file(path, candidate).await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// Bound on how much the candidate output's byte length may differ from
+/// the on-disk byte length while still being eligible for the
+/// provenance-only-diff gate. A typical
+/// `[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]`
+/// line is ~95 bytes; we double that to absorb engine-string and
+/// timezone-offset drift comfortably.
+const PROVENANCE_LINE_DIFF_BUDGET_BYTES: u64 = 200;
 
 #[cfg(test)]
 mod tests {
@@ -372,14 +519,11 @@ mod tests {
             ),
         };
 
-        write_text_output_artifact(
-            &filesystem,
-            0,
-            &DisplayPath::from("nested/sample.cha"),
-            "@Begin\n@End\n",
-        )
-        .await
-        .expect("write output");
+        let display = DisplayPath::from("nested/sample.cha");
+        let target = ChatOutputTarget::new(&filesystem, 0, &display);
+        write_text_output_artifact(&target, "@Begin\n@End\n")
+            .await
+            .expect("write output");
 
         assert_eq!(
             std::fs::read_to_string(&host_out).expect("host output"),
@@ -395,5 +539,193 @@ mod tests {
             .expect("staged output"),
             "@Begin\n@End\n"
         );
+    }
+
+    /// Re-running morphotag over an unchanged corpus must not modify the
+    /// on-disk file just to update the provenance comment's timestamp.
+    /// Pre-condition: a CHAT file exists at the primary output path with
+    /// an old `[ba3 morphotag | ...]` provenance line. We then call the
+    /// gated writer with new text that differs only in that line's
+    /// timestamp. Post-condition: the file's bytes are unchanged.
+    #[tokio::test]
+    async fn write_chat_output_artifact_with_provenance_gate_skips_when_only_provenance_differs() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let host_out = root.path().join("host/output/sample.cha");
+        std::fs::create_dir_all(host_out.parent().unwrap()).unwrap();
+
+        let original = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+@End
+";
+        std::fs::write(&host_out, original).unwrap();
+
+        let staging_dir = root.path().join("jobs/job-1");
+        let filesystem = RunnerFilesystemConfig {
+            paths_mode: true,
+            source_paths: vec![batchalign_types::paths::ClientPath::new(
+                root.path()
+                    .join("input/sample.cha")
+                    .to_string_lossy()
+                    .to_string(),
+            )],
+            output_paths: vec![batchalign_types::paths::ClientPath::new(
+                host_out.to_string_lossy().to_string(),
+            )],
+            before_paths: Vec::new(),
+            staging_dir: batchalign_types::paths::ServerPath::from(staging_dir.clone()),
+            media_mapping: Default::default(),
+            media_subdir: Default::default(),
+            source_dir: batchalign_types::paths::ClientPath::new(
+                root.path().join("input").to_string_lossy().to_string(),
+            ),
+        };
+
+        // Same content as `original` except for the provenance line's
+        // timestamp. This is the canonical pointless-rerun shape we want
+        // to suppress.
+        let candidate = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+@End
+";
+
+        let display = DisplayPath::from("nested/sample.cha");
+        let target = ChatOutputTarget::new(&filesystem, 0, &display);
+        write_chat_output_artifact_with_provenance_gate(
+            &target,
+            candidate,
+            ReleasedCommand::Morphotag,
+        )
+        .await
+        .expect("gated write");
+
+        let after = std::fs::read_to_string(&host_out).expect("read after");
+        assert_eq!(
+            after, original,
+            "primary output bytes must be unchanged when only the provenance differs"
+        );
+    }
+
+    /// Real `%mor` content change must still write through. The gate is
+    /// strictly a noise-suppressor; any real difference must fall back
+    /// to the existing write semantics.
+    #[tokio::test]
+    async fn write_chat_output_artifact_with_provenance_gate_writes_when_real_content_differs() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let host_out = root.path().join("host/output/sample.cha");
+        std::fs::create_dir_all(host_out.parent().unwrap()).unwrap();
+
+        let original = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-03-29T18:30:00-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+";
+        std::fs::write(&host_out, original).unwrap();
+
+        let staging_dir = root.path().join("jobs/job-1");
+        let filesystem = RunnerFilesystemConfig {
+            paths_mode: true,
+            source_paths: vec![batchalign_types::paths::ClientPath::new(
+                root.path()
+                    .join("input/sample.cha")
+                    .to_string_lossy()
+                    .to_string(),
+            )],
+            output_paths: vec![batchalign_types::paths::ClientPath::new(
+                host_out.to_string_lossy().to_string(),
+            )],
+            before_paths: Vec::new(),
+            staging_dir: batchalign_types::paths::ServerPath::from(staging_dir.clone()),
+            media_mapping: Default::default(),
+            media_subdir: Default::default(),
+            source_dir: batchalign_types::paths::ClientPath::new(
+                root.path().join("input").to_string_lossy().to_string(),
+            ),
+        };
+
+        // Different `%mor` content — a legitimate result update.
+        let candidate = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hi .
+";
+
+        let display = DisplayPath::from("nested/sample.cha");
+        let target = ChatOutputTarget::new(&filesystem, 0, &display);
+        write_chat_output_artifact_with_provenance_gate(
+            &target,
+            candidate,
+            ReleasedCommand::Morphotag,
+        )
+        .await
+        .expect("gated write");
+
+        let after = std::fs::read_to_string(&host_out).expect("read after");
+        assert_eq!(
+            after, candidate,
+            "primary output must be replaced when the new %mor content differs"
+        );
+    }
+
+    /// First run (no existing file at the primary output path): the gate
+    /// has nothing to compare against and must write through.
+    #[tokio::test]
+    async fn write_chat_output_artifact_with_provenance_gate_writes_when_target_missing() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let host_out = root.path().join("host/output/sample.cha");
+        // Note: target file does NOT exist yet.
+
+        let staging_dir = root.path().join("jobs/job-1");
+        let filesystem = RunnerFilesystemConfig {
+            paths_mode: true,
+            source_paths: vec![batchalign_types::paths::ClientPath::new(
+                root.path()
+                    .join("input/sample.cha")
+                    .to_string_lossy()
+                    .to_string(),
+            )],
+            output_paths: vec![batchalign_types::paths::ClientPath::new(
+                host_out.to_string_lossy().to_string(),
+            )],
+            before_paths: Vec::new(),
+            staging_dir: batchalign_types::paths::ServerPath::from(staging_dir.clone()),
+            media_mapping: Default::default(),
+            media_subdir: Default::default(),
+            source_dir: batchalign_types::paths::ClientPath::new(
+                root.path().join("input").to_string_lossy().to_string(),
+            ),
+        };
+
+        let candidate = "\
+@Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
+*PAR:\thello .
+%mor:\tco|hello .
+";
+
+        let display = DisplayPath::from("nested/sample.cha");
+        let target = ChatOutputTarget::new(&filesystem, 0, &display);
+        write_chat_output_artifact_with_provenance_gate(
+            &target,
+            candidate,
+            ReleasedCommand::Morphotag,
+        )
+        .await
+        .expect("gated write");
+
+        let after = std::fs::read_to_string(&host_out).expect("read after");
+        assert_eq!(after, candidate);
     }
 }

@@ -92,8 +92,14 @@ impl WorkerHandle {
             // Pre-ready progress events: a JSON object tagged
             // `"op": "progress_v2"` is the worker telling us about a
             // bootstrap-time wait (model download, model load, etc.).
-            // Forward to the preamble for diagnostics and keep reading.
+            // Forward to the preamble for failure diagnostics AND emit
+            // as `info!` so bootstrap timing reaches the daemon log
+            // live — the Python worker's stderr is buffered until the
+            // process exits, so without this surface, per-task timing
+            // events emitted during model load are invisible until
+            // the worker dies.
             if is_pre_ready_progress_event(trimmed) {
+                tracing::info!(event = %trimmed, "Pre-ready progress event");
                 preamble.push(trimmed.to_owned());
                 if preamble.len() > MAX_READY_STDOUT_PREAMBLE_LINES {
                     let mut detail = format!(

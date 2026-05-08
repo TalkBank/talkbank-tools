@@ -7,7 +7,9 @@
 
 use crate::api::{DisplayPath, ReleasedCommand};
 use crate::recipe_runner::materialize::PlannedMaterializedFile;
-use crate::recipe_runner::runtime::{primary_output_artifact, write_text_output_artifact};
+use crate::recipe_runner::runtime::{
+    ChatOutputTarget, primary_output_artifact, write_chat_output_artifact_with_provenance_gate,
+};
 use crate::runner::dispatch::infer_batched::apply_merge_abbrev;
 use crate::store::RunnerFilesystemConfig;
 
@@ -31,13 +33,8 @@ pub(crate) async fn write_primary_chat_output_artifact(
 ) -> std::io::Result<PlannedMaterializedFile> {
     let final_text = finalize_chat_output(chat_text, should_merge_abbrev);
     let primary_output = primary_output_artifact(command, &DisplayPath::from(source_filename));
-    write_text_output_artifact(
-        filesystem,
-        file_index,
-        &primary_output.display_path,
-        &final_text,
-    )
-    .await?;
+    let target = ChatOutputTarget::new(filesystem, file_index, &primary_output.display_path);
+    write_chat_output_artifact_with_provenance_gate(&target, &final_text, command).await?;
     Ok(primary_output)
 }
 

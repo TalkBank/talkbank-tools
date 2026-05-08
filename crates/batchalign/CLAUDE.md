@@ -1,7 +1,7 @@
 # batchalign-app — HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
-**Last modified:** 2026-05-01 09:47 EDT
+**Last modified:** 2026-05-08 18:40 EDT
 
 ## Overview
 
@@ -173,11 +173,36 @@ Domain newtypes are defined in `batchalign-types` using `string_id!` and `numeri
 
 **Boundary patterns:** Raw `String` from HTTP → `JobId::from()` at handler entry. `&Path` in domain code → `to_string_lossy()` at IPC/JSON. `bool` from CLI → `CachePolicy::from()` at dispatch. See `book/src/architecture/type-driven-design.md`.
 
-## Memory Gate
+## Admission and Eviction Gates
 
-Polls `sysinfo::available_memory()` with a configurable threshold (`0` disables).
-**Idle worker bypass**: skips memory check when pool has reusable workers for the job's
+The worker pool admits and evicts on three live signals, in this
+order, all hardcoded with no operator override:
+
+| Layer | Gate | File | Predicate |
+|---|---|---|---|
+| 0 (admission) | CPU loadavg | `worker/pool/cpu_gate.rs` | `getloadavg(3).one < available_parallelism()` |
+| 0.5 (admission) | Memory floor + projection | `worker/pool/memory_gate.rs` | `available_mb − new_worker_estimate > MIN_FREE_MEMORY_MB (= 2048)` |
+| Pre-pass (eviction) | Memory pressure | `worker/pool/idle_eviction.rs` | When `available_mb ≤ EVICTION_PRESSURE_THRESHOLD_MB (= 4096)`, evict idle workers largest-RSS first |
+
+The new-worker estimate prefers the observed average RSS of
+same-profile idle peers (`worker/pool/rss_observer.rs`) when peers
+exist; otherwise falls back to per-tier
+`startup_reservation_mb_for_tier`. There is no `idle_timeout_s` —
+eviction is purely pressure-driven.
+
+The host-memory snapshot is shared across every poll
+(`host_memory::system_memory_snapshot`, 1 s TTL) so admission gates,
+eviction pre-pass, in-spawn `memory_guard`, and host-facts probes
+all see the same reading.
+
+A separate **JobStore-level memory gate** at the job-admission seam
+polls `sysinfo::available_memory()` with a configurable threshold
+(`memory_gate_mb`, default 2048 MB). **Idle worker bypass**: skips
+the memory check when the pool has reusable workers for the job's
 `(command, lang)` — prevents deadlock where loaded workers hold RAM.
+
+See [`book/src/batchalign/developer/memory-safety.md`](../../book/src/batchalign/developer/memory-safety.md)
+for the full layered defense.
 
 ## Middleware Stack
 

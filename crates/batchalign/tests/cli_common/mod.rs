@@ -13,6 +13,7 @@ use std::time::Duration;
 use assert_cmd::cargo::cargo_bin_cmd;
 use batchalign::api::{JobInfo, JobStatus, MemoryMb, NumSpeakers};
 use batchalign::config::ServerConfig;
+use batchalign::host_facts::PerProfile;
 use batchalign::options::{
     AlignOptions, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions, CompareOptions,
     CorefOptions, MorphotagOptions, OpensmileOptions, TranscribeOptions, TranslateOptions,
@@ -329,9 +330,8 @@ pub async fn start_live_server(
         python_path: python_path.into(),
         test_echo: false,
         health_check_interval_s: 3_600,
-        idle_timeout_s: 3_600,
         ready_timeout_s: 120,
-        max_workers_per_key: 2,
+        max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

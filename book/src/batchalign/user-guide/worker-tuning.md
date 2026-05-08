@@ -224,7 +224,9 @@ max_concurrent_worker_startups: 1
 # memory_tier: small
 
 # Host-memory reserve/headroom (MB) preserved after reservations
-# 0 = disable explicit reserve. Default: tier-dependent (2000-8000 MB based on total RAM)
+# 0 = disable explicit reserve. Default: 2048 MB (one absolute floor on
+# every host; the worker-pool admission gate enforces the same number
+# live on every spawn attempt — see book/src/batchalign/developer/memory-safety.md)
 memory_gate_mb: 4000
 
 # Per-profile startup reservation overrides (MB). 0 = use tier default.
@@ -236,8 +238,9 @@ memory_gate_mb: 4000
 # io_startup_mb: 2000
 
 # Worker lifecycle
-# Default: tier-dependent (60s Small, 300s Medium, 600s Large/Fleet)
-worker_idle_timeout_s: 300      # Shut down idle workers after 5 minutes
+# Idle workers are evicted by host memory pressure (largest-RSS first
+# when available memory drops below the eviction threshold) — there is
+# no fixed idle timeout. Health checks run every `worker_health_interval_s`.
 worker_health_interval_s: 30    # Health check frequency
 
 # Warmup — list of commands to pre-load at startup
@@ -264,7 +267,6 @@ gpu_startup_mb: 6000            # Whisper float32 is ~4-5 GB
 max_concurrent_worker_startups: 1
 gpu_thread_pool_size: 1
 warmup_commands: []             # No warmup — workers spawn on demand
-worker_idle_timeout_s: 60       # Small tier default: free memory quickly
 ```
 
 The Small tier now also switches local workers to **task bootstrap** and clamps
@@ -296,7 +298,6 @@ warmup_commands:
   - morphotag
   - align
   - transcribe
-worker_idle_timeout_s: 1800     # Keep workers loaded longer (default Fleet: 600s)
 ```
 
 With this much RAM, worker profiles let the server run multiple concurrent jobs
@@ -325,8 +326,10 @@ The host-memory coordinator could not fit the requested execution plan. Possible
    `gpu_thread_pool_size`.
 2. **Other processes using RAM.** Check system memory usage.
 3. **Idle workers holding memory.** Workers that haven't been used in a while
-    still hold their loaded models. Reduce `worker_idle_timeout_s` to free
-    them sooner, or restart the server.
+    still hold their loaded models. The pool's pressure-driven eviction
+    releases idle workers automatically when host available memory drops
+    below the eviction threshold; if pressure is genuine but eviction
+    isn't firing fast enough, restart the server to reclaim immediately.
 4. **Another local batchalign3 server or test run is already holding leases.**
    Check `/health` for `host_memory_*` fields.
 

@@ -105,9 +105,6 @@ pub async fn start(
             host_policy.bootstrap_mode,
         );
 
-        let idle_timeout_s = args
-            .worker_idle_timeout_s
-            .unwrap_or_else(|| cfg.resolved_worker_idle_timeout_s());
         // CLI `--force-cpu` is a presence-only switch; convert to
         // `Some(true)` so the host-facts pipeline treats it as an
         // explicit override. Absent CLI flag leaves the
@@ -135,7 +132,6 @@ pub async fn start(
         let pool_config = PoolConfig {
             python_path: worker_python.clone(),
             test_echo: args.test_echo,
-            idle_timeout_s,
             health_check_interval_s: if cfg.worker_health_interval_s > 0 {
                 cfg.worker_health_interval_s
             } else {
@@ -144,13 +140,14 @@ pub async fn start(
             verbose,
             engine_overrides: engine_overrides.unwrap_or("").to_string(),
             runtime: worker_runtime,
-            // `Some(n)` is an operator override applied uniformly
-            // across profiles; `None` falls through to the built-in
-            // pool default.
-            max_workers_per_key: cfg
-                .max_workers_per_key
-                .map(|n| n as usize)
-                .unwrap_or_else(|| PoolConfig::default().max_workers_per_key),
+            // Per-profile cap. `Some(n)` from server.yaml is the
+            // operator's uniform override applied to all three
+            // profiles; otherwise we use the host-facts per-profile
+            // recommendation already resolved into `EffectiveConfig`.
+            max_workers_per_key: match cfg.max_workers_per_key {
+                Some(n) => crate::host_facts::PerProfile::uniform(n as usize),
+                None => effective.max_workers_per_key_by_profile.map(|n| n as usize),
+            },
             ready_timeout_s: if cfg.worker_ready_timeout_s > 0 {
                 cfg.worker_ready_timeout_s
             } else {

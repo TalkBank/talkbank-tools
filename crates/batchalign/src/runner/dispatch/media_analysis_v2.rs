@@ -8,7 +8,9 @@ use tokio::sync::Semaphore;
 use tracing::{error, warn};
 
 use crate::ensure_wav;
-use crate::recipe_runner::runtime::{result_display_path_for_command, write_text_output_artifact};
+use crate::recipe_runner::runtime::{
+    ChatOutputTarget, result_display_path_for_command, write_text_output_artifact,
+};
 use crate::runner::DispatchHostContext;
 use crate::runner::util::{
     FileRunTracker, FileStage, FileTaskOutcome, RunnerEventSink, classify_worker_error,
@@ -150,14 +152,10 @@ async fn process_one_media_analysis_file_v2(
             Ok((result_filename, output_text, output_type)) => {
                 lifecycle.stage(FileStage::Writing).await;
                 let finished_at = unix_now();
-                if let Err(error) = write_text_output_artifact(
-                    &job.filesystem,
-                    file_index,
-                    &result_filename.clone().into(),
-                    &output_text,
-                )
-                .await
-                {
+                let result_display_path = result_filename.clone().into();
+                let target =
+                    ChatOutputTarget::new(&job.filesystem, file_index, &result_display_path);
+                if let Err(error) = write_text_output_artifact(&target, &output_text).await {
                     let err_msg = format!("Failed to write output for {filename}: {error}");
                     lifecycle
                         .fail(&err_msg, FailureCategory::System, finished_at)

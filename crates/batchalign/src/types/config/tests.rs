@@ -21,15 +21,18 @@ fn default_config() {
     assert!(cfg.temporal_task_queue.starts_with("batchalign3-"));
     assert_eq!(cfg.temporal_heartbeat_s, 10);
     assert_eq!(cfg.temporal_activity_timeout_s, 86_400);
-    assert_eq!(cfg.worker_idle_timeout_s, 600);
     assert_eq!(cfg.worker_health_interval_s, 30);
-    // C2.7: `memory_gate_mb` defaults to `None`. The tier-aware
-    // headroom value is delivered by `resolved_memory_gate_mb()`,
-    // which falls through to `resolved_memory_tier().headroom_mb`
-    // when no override is set.
+    // `memory_gate_mb` defaults to `None`. The fallback value is
+    // delivered by `resolved_memory_gate_mb()`, which now resolves
+    // to the hardcoded `MIN_FREE_MEMORY_MB` floor (2 GB) — the
+    // same number the worker-pool admission gate enforces. The
+    // previous tier-derived fallback was retired alongside
+    // `recommend_memory_gate_mb`.
     assert_eq!(cfg.memory_gate_mb, None);
-    let tier = crate::types::runtime::MemoryTier::detect();
-    assert_eq!(cfg.resolved_memory_gate_mb(), tier.headroom_mb);
+    assert_eq!(
+        cfg.resolved_memory_gate_mb(),
+        MemoryMb(crate::worker::pool::memory_gate::MIN_FREE_MEMORY_MB)
+    );
     assert_eq!(cfg.max_concurrent_worker_startups, 1);
     assert_eq!(cfg.max_workers_per_key, None);
     assert_eq!(cfg.worker_ready_timeout_s, 300);
@@ -782,33 +785,13 @@ stanza_startup_mb: 4000
 }
 
 #[test]
-fn resolved_memory_gate_uses_tier_override_when_headroom_is_default() {
-    let cfg = ServerConfig {
-        memory_tier: Some(crate::types::runtime::MemoryTierKind::Small),
-        ..Default::default()
-    };
-    assert_eq!(cfg.resolved_memory_gate_mb().0, 2_000);
-}
-
-#[test]
-fn resolved_worker_idle_timeout_uses_tier_override_when_default_matches_detected() {
-    let cfg = ServerConfig {
-        memory_tier: Some(crate::types::runtime::MemoryTierKind::Small),
-        ..Default::default()
-    };
-    assert_eq!(cfg.resolved_worker_idle_timeout_s(), 60);
-}
-
-#[test]
-fn explicit_headroom_and_idle_timeout_override_memory_tier_defaults() {
+fn explicit_memory_gate_overrides_tier_default() {
     let cfg = ServerConfig {
         memory_tier: Some(crate::types::runtime::MemoryTierKind::Small),
         memory_gate_mb: Some(crate::api::MemoryMb(9_999)),
-        worker_idle_timeout_s: 777,
         ..Default::default()
     };
     assert_eq!(cfg.resolved_memory_gate_mb().0, 9_999);
-    assert_eq!(cfg.resolved_worker_idle_timeout_s(), 777);
 }
 
 /// The default Temporal task queue must encode the system hostname so

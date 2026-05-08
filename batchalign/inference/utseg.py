@@ -6,6 +6,7 @@ Pure inference — no CHAT, no caching, no pipeline.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -25,6 +26,84 @@ from batchalign.providers import (
 )
 
 L = logging.getLogger("batchalign.worker")
+
+
+class UtsegModelNotFoundError(RuntimeError):
+    """Raised when utseg has no language-specific BERT model for the
+    requested language and the operator has not opted in to the
+    Stanza constituency-parser fallback.
+
+    The default refuses substitution. Operators who want the previous
+    Stanza-fallback behavior must set the
+    ``BA3_UTSEG_FALLBACK_STANZA=1`` environment variable on the worker
+    process. This mirrors the ``WhisperHubModelNotFoundError`` pattern
+    in ``batchalign/inference/whisper_hub.py`` — surface the gap rather
+    than silently substitute one model for another.
+    """
+
+
+# Worker-level opt-in. When this env var is set to a truthy value
+# (``"1"``, ``"true"``, ``"yes"`` — case-insensitive) the dispatcher
+# retains the legacy Stanza fallback for languages without a BERT
+# entry. Otherwise it raises ``UtsegModelNotFoundError``.
+_FALLBACK_OPT_IN_ENV = "BA3_UTSEG_FALLBACK_STANZA"
+_FALLBACK_OPT_IN_TRUTHY: frozenset[str] = frozenset({"1", "true", "yes"})
+
+
+def _stanza_fallback_opted_in() -> bool:
+    raw = os.environ.get(_FALLBACK_OPT_IN_ENV, "")
+    return raw.strip().lower() in _FALLBACK_OPT_IN_TRUTHY
+
+
+# Stage identifier for the opt-in fallback notice. Stage names form a
+# closed protocol vocabulary consumed by the dashboard / CLI for
+# filtering and dedupe; the language goes in user_message, not the stage.
+_STAGE_UTSEG_FALLBACK_OPT_IN = "utseg_unsupported_language_fallback"
+
+# Per-process dedupe: warn once per (requested_lang, pack) pair. Worker
+# processes don't outlive a deploy, so the set never needs eviction.
+_FALLBACK_NOTICE_FIRED: set[tuple[str, str | None]] = set()
+
+
+def _emit_stanza_fallback_notice(
+    requested_lang: str,
+    pack: str | None,
+) -> None:
+    """Surface the BERT-absent → Stanza substitution to the user.
+
+    Only fires when the operator has opted in via
+    ``BA3_UTSEG_FALLBACK_STANZA``. The default-refuse path raises
+    ``UtsegModelNotFoundError`` instead and never reaches this helper.
+    """
+    # Avoid a circular import at module load time — the progress
+    # protocol pulls in worker config that imports this module
+    # transitively in some test setups.
+    from batchalign.worker._progress import emit_download_event
+
+    key = (requested_lang, pack)
+    if key in _FALLBACK_NOTICE_FIRED:
+        return
+    _FALLBACK_NOTICE_FIRED.add(key)
+
+    requested_display = requested_lang or "<unspecified>"
+    pack_display = pack if pack is not None else "<none>"
+
+    user_message = (
+        f"No TalkBank utseg model for language '{requested_display}'; "
+        f"using Stanza constituency parsing ({pack_display} pack) "
+        f"because {_FALLBACK_OPT_IN_ENV} is set. Quality will vary."
+    )
+
+    L.warning(
+        "utseg opt-in fallback: lang=%r → Stanza pack %r",
+        requested_display,
+        pack_display,
+    )
+
+    emit_download_event(
+        stage=_STAGE_UTSEG_FALLBACK_OPT_IN,
+        user_message=user_message,
+    )
 
 
 class UtsegBatchItem(BaseModel):
@@ -109,6 +188,16 @@ def batch_infer_utseg(
         L.info("batch_infer utseg(boundary-model): %d items, %.3fs", n, elapsed)
         return BatchInferResponse(results=results)
 
+    if not _stanza_fallback_opted_in():
+        raise UtsegModelNotFoundError(
+            f"No TalkBank utseg model is configured for language "
+            f"'{req.lang or '<unspecified>'}'. Either add a resolver "
+            f"entry in batchalign/models/resolve.py for a published "
+            f"model, or set {_FALLBACK_OPT_IN_ENV}=1 on the worker to "
+            f"opt in to Stanza constituency-parser fallback (quality "
+            f"will vary)."
+        )
+
     langs: list[str] = [req.lang] if req.lang else ["eng"]
     lang_alpha2, configs = build_stanza_config(langs)
 
@@ -116,6 +205,11 @@ def batch_infer_utseg(
     from stanza import DownloadMethod
 
     from batchalign.worker._progress import emit_download_event
+
+    _emit_stanza_fallback_notice(
+        req.lang,
+        lang_alpha2[0] if lang_alpha2 else None,
+    )
 
     nlp: StanzaNLP
     if len(lang_alpha2) > 1:

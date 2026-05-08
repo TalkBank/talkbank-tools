@@ -15,10 +15,10 @@
 //! `talkbank/docs/postmortems/2026-04-25-whisper-hub-malayalam-queue-wait-timeout.md`).
 //! Subsequent B-phases extend `RecommendedKnobs` with `force_cpu`,
 //! `max_total_workers`, `max_concurrent_jobs`, `max_workers_per_job`,
-//! `max_workers_per_key_by_profile`, and `memory_gate_mb`.
+//! and `max_workers_per_key_by_profile`.
 
 use super::HostFacts;
-use crate::api::{MemoryMb, ReleasedCommand};
+use crate::api::ReleasedCommand;
 
 /// Bundle of recommended values produced by [`recommend`].
 ///
@@ -73,14 +73,6 @@ pub struct RecommendedKnobs {
     /// too aggressive for small hosts (OOM risk) and too conservative
     /// for large hosts (under-utilized capacity).
     pub max_workers_per_key_by_profile: PerProfile<u32>,
-
-    /// Host-memory headroom reserve. The host-memory coordinator
-    /// refuses worker reservations that would leave available RAM
-    /// below this threshold. Subsumes
-    /// `ServerConfig::resolved_memory_gate_mb` (tier-derived path).
-    /// Equal to `MemoryTier::from_total_mb(ram).headroom_mb` —
-    /// 2 GB on Small, 4 GB on Medium, 8 GB on Large/Fleet.
-    pub memory_gate_mb: MemoryMb,
 }
 
 /// Values keyed by worker profile.
@@ -91,9 +83,9 @@ pub struct RecommendedKnobs {
 ///
 /// Generic over `T` so the same shape can carry process counts
 /// (`u32`), RAM budgets (`MemoryMb`), or other per-profile values
-/// in future phases. Today only `PerProfile<u32>` is in use.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PerProfile<T> {
+/// in future phases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct PerProfile<T: Copy> {
     /// GPU profile: ASR, FA, speaker — Whisper-class model loads,
     /// peak RAM ~12-15 GB per process.
     pub gpu: T,
@@ -103,6 +95,42 @@ pub struct PerProfile<T> {
     /// IO profile: opensmile, avqi — lightweight signal processing,
     /// peak RAM ~1-2 GB per process.
     pub io: T,
+}
+
+impl<T: Copy> PerProfile<T> {
+    /// Lookup by profile. Single source of truth for the
+    /// `WorkerProfile -> field` mapping; replaces inline match arms
+    /// at admission-control and metrics-snapshot callsites.
+    pub fn get(&self, profile: crate::worker::WorkerProfile) -> T {
+        match profile {
+            crate::worker::WorkerProfile::Gpu => self.gpu,
+            crate::worker::WorkerProfile::Stanza => self.stanza,
+            crate::worker::WorkerProfile::Io => self.io,
+        }
+    }
+
+    /// Build a `PerProfile<T>` whose three fields share the same value.
+    /// Used at the `EffectiveConfig → PoolConfig` boundary when an
+    /// operator override carries a single value to apply to all
+    /// profiles uniformly.
+    pub fn uniform(value: T) -> Self {
+        Self {
+            gpu: value,
+            stanza: value,
+            io: value,
+        }
+    }
+
+    /// Apply `f` to each field, returning a new `PerProfile<U>`.
+    /// Used at the `EffectiveConfig → PoolConfig` boundary to convert
+    /// `PerProfile<u32>` → `PerProfile<usize>`.
+    pub fn map<U: Copy, F: Fn(T) -> U>(&self, f: F) -> PerProfile<U> {
+        PerProfile {
+            gpu: f(self.gpu),
+            stanza: f(self.stanza),
+            io: f(self.io),
+        }
+    }
 }
 
 /// Compute the recommended knob values for the given host facts.
@@ -117,7 +145,6 @@ pub fn recommend(facts: &HostFacts) -> RecommendedKnobs {
         max_total_workers: recommend_max_total_workers(facts),
         max_concurrent_jobs: recommend_max_concurrent_jobs(facts),
         max_workers_per_key_by_profile: recommend_max_workers_per_key(facts),
-        memory_gate_mb: recommend_memory_gate_mb(facts),
     }
 }
 
@@ -164,12 +191,24 @@ const RAM_PER_WORKER_MB: u64 = 6 * 1024;
 /// the whole pool. Matches the legacy clamp.
 const MIN_TOTAL_WORKERS: u32 = 2;
 
-/// Upper bound on the worker cap. Beyond this, the per-key,
-/// per-profile concurrency budgets become the binding constraint —
-/// adding more total workers stops helping and starts hurting via
-/// process scheduling overhead. Matches the legacy
-/// `ABSOLUTE_MAX_TOTAL_WORKERS` constant in
-/// `crates/batchalign-app/src/worker/pool/mod.rs`.
+/// Upper bound on the worker cap.
+///
+/// 32 corresponds to ~1.14 workers/logical-core on the largest current
+/// fleet shape (28 cores). Beyond that, the CPU-bound Stanza profile
+/// oversubscribes cores enough that throughput drops from contention,
+/// and per-key / per-profile budgets become the binding constraint (see
+/// `recommend_max_workers_per_key`).
+///
+/// The formula is RAM-only. On a hypothetical future host with many
+/// more cores than ming (e.g. 64 cores / 512 GB), `ram/6GB = 85`
+/// clamped to 32 would severely under-utilize CPU. When such a host
+/// arrives, evolve the formula to derive from both CPU and RAM
+/// (e.g. `min(ram/6GB, cpu_logical_count × oversubscription_factor)`).
+///
+/// Empirical evidence that this cap is currently binding under
+/// multi-language morphosyntax workloads, plus the separately-filed
+/// busy-loop spawn-rejection bug that surfaces it, lives in
+/// `docs/bugs/BUG-028-worker-pool-spawn-rejection-busy-loop.md`.
 const MAX_TOTAL_WORKERS: u32 = 32;
 
 /// Conservative fallback when `ram_total_mb` is zero — almost
@@ -287,32 +326,6 @@ pub fn worst_case_per_job_peak_ram_mb() -> u64 {
     PEAK_RAM_PER_GPU_WORKER_MB
 }
 
-/// Recommend the host-memory headroom reserve in MB.
-///
-/// Subsumes the tier-derived path in
-/// `ServerConfig::resolved_memory_gate_mb`. Reads
-/// `MemoryTier::from_total_mb(ram_total_mb).headroom_mb`:
-///
-/// - **Small** (<24 GB): 2 GB.
-/// - **Medium** (24-48 GB): 4 GB.
-/// - **Large** (48-128 GB): 8 GB.
-/// - **Fleet** (≥128 GB): 8 GB.
-///
-/// The host-memory coordinator refuses reservations that would leave
-/// available RAM below this threshold; the value scales with host
-/// size so smaller hosts reserve less absolute headroom (since they
-/// have less RAM to give) but more proportional headroom (since loss
-/// of even a few GB hurts more on a small host).
-///
-/// Operator overrides are honored at the Phase C `EffectiveConfig`
-/// merge layer; the path that originally lived in
-/// `resolved_memory_gate_mb` (override-honoring with detected-default
-/// fallback) maps cleanly onto `EffectiveConfig::resolve` once Phase C
-/// lands.
-pub fn recommend_memory_gate_mb(facts: &HostFacts) -> MemoryMb {
-    crate::runtime::MemoryTier::from_total_mb(facts.ram_total_mb).headroom_mb
-}
-
 /// Recommend per-profile worker-process counts for `max_workers_per_key`.
 ///
 /// Replaces the flat `DEFAULT_MAX_WORKERS_PER_KEY = 4` with a
@@ -367,23 +380,20 @@ fn ram_divided(ram_total_mb: u64, divisor_mb: u64) -> u32 {
 
 /// Recommend the number of concurrent job slots on this host.
 ///
-/// Formula (subsumes `HostExecutionPolicy::auto_max_concurrent_jobs`):
-/// `min(cpu_logical_count.clamp(1, 8), tier.max_suggested_workers.max(1))`
-/// where `tier = MemoryTier::from_total_mb(ram_total_mb)`.
+/// CPU clamped to `[1, 8]` against memory tier's
+/// `max_suggested_workers`, both inside
+/// `host_policy::auto_max_concurrent_from`.
+/// `MemoryTier::max_suggested_workers` per tier: Small/Medium → 1,
+/// Large → 4, Fleet → 8.
 ///
-/// `MemoryTier::max_suggested_workers` per tier:
-/// - **Small** (<24 GB): 1 — single-job hosts.
-/// - **Medium** (24-48 GB): 1 — same.
-/// - **Large** (48-128 GB): 4 — typical fleet workers.
-/// - **Fleet** (≥128 GB): 8 — high-memory hosts (`net`, `ming`).
-///
-/// The `min` ensures both axes constrain the result: a 256 GB host with
-/// only 4 CPU cores recommends 4, not 8.
-///
-/// Reuses the existing pure helper `host_policy::auto_max_concurrent_from`
-/// to keep the formula in exactly one place — this function adapts the
-/// `HostFacts` shape to the helper's `(usize, usize)` interface and
-/// converts the result back to `u32`.
+/// The previous empirical-knee cap at 4 (introduced 2026-05-08 from
+/// a single-host morphotag sweep) was retired alongside the live
+/// CPU + memory admission gates: those gates measure
+/// "is there room for one more?" at the worker-spawn seam directly,
+/// so the static cap is no longer load-bearing. On Fleet-tier hosts
+/// (≥128 GB) the recommendation now climbs to 8 instead of being
+/// pinned at 4; admission control moves to the live gates in
+/// `worker/pool/cpu_gate.rs` and `worker/pool/memory_gate.rs`.
 pub fn recommend_max_concurrent_jobs(facts: &HostFacts) -> u32 {
     let tier = crate::runtime::MemoryTier::from_total_mb(facts.ram_total_mb);
     let by_cpu: usize = usize::try_from(facts.cpu_logical_count.max(1)).unwrap_or(usize::MAX);
@@ -832,16 +842,17 @@ mod tests {
         );
     }
 
-    /// Fleet tier (≥128 GB) caps at 8 (CPU clamp also caps at 8).
+    /// Fleet tier (≥128 GB) recommendation is bounded by the
+    /// `max_suggested_workers = 8` tier ceiling and the
+    /// `AUTO_CONCURRENT_MAX_SLOTS = 8` CPU clamp; both upper bounds
+    /// are 8, so any Fleet host with ≥8 CPUs recommends 8. The
+    /// previous empirical-knee cap at 4 was retired in favor of the
+    /// live admission gates.
     #[test]
     fn max_concurrent_jobs_fleet_tier_memory_bound() {
         let mut shape = apple_silicon(256);
         shape.cpu_logical_count = 24;
-        assert_eq!(
-            recommend_max_concurrent_jobs(&shape),
-            8,
-            "Fleet-tier host with 24 CPUs caps at min(8 cpu-clamp, 8 memory) = 8"
-        );
+        assert_eq!(recommend_max_concurrent_jobs(&shape), 8);
     }
 
     #[test]
@@ -903,8 +914,12 @@ mod tests {
     }
 
     /// CPU clamp at 8: a host with 32 CPUs must not recommend 32.
+    /// 32-CPU Fleet host: CPU axis clamps at 8 internally and the
+    /// tier axis caps at 8, so 8 is the recommendation. (Previously
+    /// the empirical cap pinned this to 4; that cap was retired in
+    /// favor of live admission gates.)
     #[test]
-    fn max_concurrent_jobs_cpu_clamps_at_eight() {
+    fn max_concurrent_jobs_high_cpu_fleet_host_clamped_at_eight() {
         let mut shape = apple_silicon(256);
         shape.cpu_logical_count = 32;
         assert_eq!(recommend_max_concurrent_jobs(&shape), 8);
@@ -1164,82 +1179,6 @@ mod tests {
         assert_eq!(p.io, 1);
     }
 
-    // -------------------------------------------------------------------
-    // memory_gate_mb — tier-derived headroom. Pure delegation to
-    // MemoryTier::from_total_mb(ram).headroom_mb; tests pin the per-tier
-    // values and the tier boundaries.
-    // -------------------------------------------------------------------
-
-    #[test]
-    fn memory_gate_mb_small_tier_is_2gb() {
-        assert_eq!(recommend_memory_gate_mb(&apple_silicon(16)).0, 2_000);
-    }
-
-    #[test]
-    fn memory_gate_mb_medium_tier_is_4gb() {
-        assert_eq!(recommend_memory_gate_mb(&apple_silicon(32)).0, 4_000);
-    }
-
-    #[test]
-    fn memory_gate_mb_large_tier_is_8gb() {
-        assert_eq!(recommend_memory_gate_mb(&apple_silicon(64)).0, 8_000);
-        assert_eq!(recommend_memory_gate_mb(&apple_silicon(96)).0, 8_000);
-    }
-
-    #[test]
-    fn memory_gate_mb_fleet_tier_is_8gb() {
-        assert_eq!(recommend_memory_gate_mb(&apple_silicon(256)).0, 8_000);
-    }
-
-    /// Pin the tier boundaries so a future `MemoryTier::from_total_mb`
-    /// adjustment (e.g., shifting Medium-vs-Large from 48 GB to a
-    /// different threshold) trips a recommendation test loudly.
-    #[test]
-    fn memory_gate_mb_tier_boundaries() {
-        // Small ↔ Medium boundary at 24 GB.
-        let mut just_below = apple_silicon(16);
-        just_below.ram_total_mb = 23_999;
-        assert_eq!(recommend_memory_gate_mb(&just_below).0, 2_000);
-        let mut at_medium = apple_silicon(16);
-        at_medium.ram_total_mb = 24_000;
-        assert_eq!(recommend_memory_gate_mb(&at_medium).0, 4_000);
-
-        // Medium ↔ Large boundary at 48 GB.
-        let mut just_below = apple_silicon(16);
-        just_below.ram_total_mb = 47_999;
-        assert_eq!(recommend_memory_gate_mb(&just_below).0, 4_000);
-        let mut at_large = apple_silicon(16);
-        at_large.ram_total_mb = 48_000;
-        assert_eq!(recommend_memory_gate_mb(&at_large).0, 8_000);
-
-        // Large ↔ Fleet boundary at 128 GB. headroom is the same
-        // (8 GB on both sides); the boundary still matters for other
-        // knobs (max_concurrent_jobs uses tier.max_suggested_workers
-        // which differs across this boundary).
-        let mut just_below = apple_silicon(16);
-        just_below.ram_total_mb = 127_999;
-        assert_eq!(recommend_memory_gate_mb(&just_below).0, 8_000);
-        let mut at_fleet = apple_silicon(16);
-        at_fleet.ram_total_mb = 128_000;
-        assert_eq!(recommend_memory_gate_mb(&at_fleet).0, 8_000);
-    }
-
-    /// Independent of GPU presence — same RAM = same headroom.
-    #[test]
-    fn memory_gate_mb_independent_of_gpu_presence() {
-        let make = |gpu: GpuPresence| facts(OperatingSystem::Linux, CpuArch::X86_64, gpu, 64);
-        let cuda = make(GpuPresence::NvidiaCuda {
-            device_count: 1,
-            total_vram_mb: 24_000,
-            driver_version: "555.42".into(),
-        });
-        let none = make(GpuPresence::None);
-        assert_eq!(
-            recommend_memory_gate_mb(&cuda),
-            recommend_memory_gate_mb(&none)
-        );
-    }
-
     #[test]
     fn recommend_bundles_per_knob_helpers() {
         let host = apple_silicon(64);
@@ -1258,6 +1197,5 @@ mod tests {
             bundle.max_workers_per_key_by_profile,
             recommend_max_workers_per_key(&host)
         );
-        assert_eq!(bundle.memory_gate_mb, recommend_memory_gate_mb(&host));
     }
 }

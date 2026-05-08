@@ -2,7 +2,9 @@
 
 use crate::api::{LanguageCode3, ReleasedCommand};
 use crate::pipeline::PipelineServices;
-use crate::recipe_runner::runtime::{primary_output_artifact, write_text_output_artifact};
+use crate::recipe_runner::runtime::{
+    ChatOutputTarget, primary_output_artifact, write_chat_output_artifact_with_provenance_gate,
+};
 use crate::runner::DispatchHostContext;
 use crate::scheduling::{FailureCategory, WorkUnitKind};
 use crate::text_batch::TextBatchFileInput;
@@ -219,13 +221,14 @@ pub(crate) async fn dispatch_batched_infer(
                 // Write output
                 let primary_output = primary_output_artifact(command, &filename);
 
-                if let Err(e) = write_text_output_artifact(
+                let target = ChatOutputTarget::new(
                     &job.filesystem,
                     file_index,
                     &primary_output.display_path,
-                    &output_text,
-                )
-                .await
+                );
+                if let Err(e) =
+                    write_chat_output_artifact_with_provenance_gate(&target, &output_text, command)
+                        .await
                 {
                     warn!(
                         job_id = %job_id,

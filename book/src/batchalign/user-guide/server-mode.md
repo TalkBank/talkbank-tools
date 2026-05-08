@@ -251,9 +251,8 @@ Important keys:
 - `temporal_namespace` (default `"default"`) / `temporal_task_queue` (default per-host hostname-derived; the loader panics if `sysinfo::System::host_name()` returns `None`, so set explicitly to share a queue across hosts) — Temporal connection settings used when the URL field selects Temporal.
 - `temporal_heartbeat_s` (default 10) / `temporal_activity_timeout_s` (default 3600) — Temporal activity heartbeat and per-attempt timeout controls.
 - `memory_tier` — override auto-detected tier: `small`, `medium`, `large`, `fleet` (also controls task-vs-profile bootstrap mode)
-- `memory_gate_mb` — host headroom reserve (default: tier-dependent, 2000-8000 MB)
+- `memory_gate_mb` — host headroom reserve in MB (default: 2048; the worker-pool admission gate enforces the same floor live on every spawn attempt)
 - `gpu_startup_mb` / `stanza_startup_mb` / `io_startup_mb` — per-profile startup reservation overrides (0 = tier default)
-- `worker_idle_timeout_s` — shut down idle workers after this many seconds (default: tier-dependent — 60s Small, 300s Medium, 600s Large/Fleet)
 - `worker_health_interval_s` — health check frequency in seconds (default: 30)
 - `job_ttl_days` — auto-delete completed jobs after this many days (default: 7)
 

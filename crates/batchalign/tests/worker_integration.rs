@@ -20,6 +20,7 @@
 mod common;
 
 use batchalign::api::{LanguageCode3, NumSpeakers, ReleasedCommand, WorkerLanguage};
+use batchalign::host_facts::PerProfile;
 use batchalign::worker::error::WorkerError;
 use batchalign::worker::handle::{
     WorkerConfig, WorkerHandle, WorkerRuntimeConfig, spawn_tcp_daemon,
@@ -323,10 +324,9 @@ async fn pool_dispatch_batch_infer_spawns_and_processes() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -359,10 +359,9 @@ async fn pool_reuses_existing_worker() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -391,10 +390,9 @@ async fn pool_multiple_task_groups() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -430,10 +428,9 @@ async fn pool_task_bootstrap_separates_same_profile_tasks() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig::default().with_bootstrap_mode(WorkerBootstrapMode::Task),
@@ -482,10 +479,9 @@ async fn pool_warmup_uses_infer_targets() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -539,10 +535,9 @@ async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -587,10 +582,9 @@ async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: WorkerRuntimeConfig {
@@ -647,10 +641,9 @@ async fn shutdown_only_kills_current_server_owned_daemons() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: owned_runtime,
@@ -684,10 +677,9 @@ async fn pool_pre_scale_respects_max_workers_per_key() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 2,
+        max_workers_per_key: PerProfile::uniform(2),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -732,10 +724,9 @@ async fn pool_serializes_worker_bootstrap_per_key() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: wrapped_python.to_string_lossy().into_owned(),
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 3,
+        max_workers_per_key: PerProfile::uniform(3),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -922,10 +913,9 @@ async fn profile_groups_related_tasks_into_single_worker() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),
@@ -965,10 +955,9 @@ async fn each_profile_gets_its_own_worker() {
     let pool = WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 60,
-        idle_timeout_s: 300,
         ready_timeout_s: 30,
         test_echo: true,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

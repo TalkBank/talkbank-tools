@@ -117,9 +117,28 @@ impl WorkerPool {
                             &worker.lang,
                             &worker.entry.engine_overrides,
                         );
+                        // Acquire a global-cap permit for the
+                        // discovered worker. If the pool is full,
+                        // skip rather than exceed the cap; a future
+                        // discovery sweep can pick the daemon up.
+                        let Some(permit_guard) =
+                            super::permit::SpawnPermitGuard::try_acquire_or_skip(
+                                &group.spawn_permits,
+                                || {
+                                    warn!(
+                                        profile = %worker.entry.profile,
+                                        lang = %worker.entry.lang,
+                                        "Skipping TCP worker integration: global cap reached"
+                                    );
+                                },
+                            )
+                        else {
+                            continue;
+                        };
                         lock_recovered(&group.tcp_workers).push_back(handle);
                         group.tcp_available.add_permits(1);
                         group.total.fetch_add(1, Ordering::Relaxed);
+                        permit_guard.forget();
                         info!(
                             profile = %worker.entry.profile,
                             lang = %worker.entry.lang,

@@ -25,6 +25,7 @@ use batchalign::api::{
 };
 use batchalign::config::ServerConfig;
 use batchalign::create_test_app;
+use batchalign::host_facts::PerProfile;
 use batchalign::options::{CommandOptions, CommonOptions, TranscribeOptions};
 use batchalign::worker::pool::PoolConfig;
 use common::resolve_python;
@@ -1242,9 +1243,8 @@ async fn server_starts_with_real_worker_capability_gate() {
         python_path: python_path.clone(),
         test_echo: false,
         health_check_interval_s: 600,
-        idle_timeout_s: 600,
         ready_timeout_s: 30,
-        max_workers_per_key: 8,
+        max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
         runtime: Default::default(),

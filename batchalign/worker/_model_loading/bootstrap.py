@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 
 from pydantic import BaseModel
 
@@ -23,6 +24,7 @@ from batchalign.worker._model_loading.asr import load_asr_engine
 from batchalign.worker._model_loading.forced_alignment import load_fa_engine
 from batchalign.worker._model_loading.translation import load_translation_engine
 from batchalign.worker._model_loading.utterance import load_utterance_model
+from batchalign.worker._progress import emit_download_event
 from batchalign.worker._stanza_loading import load_stanza_models, load_utseg_builder
 from batchalign.worker._types import (
     PROFILE_TASKS,
@@ -41,7 +43,11 @@ def _configure_loaded_tasks(
     *,
     target_label: str,
 ) -> None:
-    """Load one explicit task set and register the resulting handlers."""
+    """Load one explicit task set and register the resulting handlers.
+
+    Per-task elapsed_ms is emitted as `progress_v2` events so
+    occasional slow bootstrap loads surface in the daemon log live.
+    """
     lang = bootstrap.lang
     num_speakers = bootstrap.num_speakers
     L.info(
@@ -52,8 +58,21 @@ def _configure_loaded_tasks(
         os.getpid(),
     )
     _state.clear_batch_infer_handlers()
-    for task in tasks:
+    # Sort tasks deterministically so log order across runs is
+    # comparable; without this, set iteration order varies and
+    # cross-run elapsed_ms outlier diffs are harder to spot.
+    for task in sorted(tasks):
+        task_start = time.monotonic()
+        emit_download_event(
+            stage=f"loading_task_{task}_{lang}_start",
+            user_message=f"Loading {task} ({lang})…",
+        )
         _load_single_task(task, bootstrap)
+        elapsed_ms = int((time.monotonic() - task_start) * 1000)
+        emit_download_event(
+            stage=f"loading_task_{task}_{lang}_complete",
+            user_message=f"Loaded {task} ({lang}) in {elapsed_ms} ms",
+        )
 
     _state.loaded_tasks = set(tasks)
     _state.command = target_label

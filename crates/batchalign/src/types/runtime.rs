@@ -270,29 +270,26 @@ pub struct MemoryTier {
     pub io_startup_mb: MemoryMb,
     /// Suggested maximum concurrent workers across all profiles.
     pub max_suggested_workers: usize,
-    /// Worker idle timeout in seconds. Shorter on small machines to reclaim
-    /// memory faster (a Stanza worker holds ~2-3 GB while idle).
-    pub idle_timeout_s: u64,
 }
 
 impl MemoryTier {
     /// Select a tier from total system RAM (in MB). Pure function — no
     /// sysinfo dependency, fully testable with arbitrary values.
     pub fn from_total_mb(total_mb: u64) -> Self {
-        //                  (kind, headroom, gpu, stanza, io, max_workers, idle_timeout_s)
-        let (kind, headroom, gpu, stanza, io, max_workers, idle_s) = if total_mb < 24_000 {
-            (MemoryTierKind::Small, 2_000, 6_000, 3_000, 2_000, 1, 60)
+        //                  (kind, headroom, gpu, stanza, io, max_workers)
+        let (kind, headroom, gpu, stanza, io, max_workers) = if total_mb < 24_000 {
+            (MemoryTierKind::Small, 2_000, 6_000, 3_000, 2_000, 1)
         } else if total_mb < 48_000 {
             // Medium: LazyProfile mode — GPU worker starts empty, models loaded
             // on demand. Startup reservation is just process overhead (3 GB),
             // not full model weight. Max 1 worker to prevent OOM on 32 GB.
-            (MemoryTierKind::Medium, 4_000, 3_000, 6_000, 3_000, 1, 300)
+            (MemoryTierKind::Medium, 4_000, 3_000, 6_000, 3_000, 1)
         } else if total_mb < 128_000 {
             // Large — matches existing TOML constants exactly
-            (MemoryTierKind::Large, 8_000, 16_000, 12_000, 4_000, 4, 600)
+            (MemoryTierKind::Large, 8_000, 16_000, 12_000, 4_000, 4)
         } else {
             // Fleet — same budgets as Large, more workers
-            (MemoryTierKind::Fleet, 8_000, 16_000, 12_000, 4_000, 8, 600)
+            (MemoryTierKind::Fleet, 8_000, 16_000, 12_000, 4_000, 8)
         };
         Self {
             kind,
@@ -302,7 +299,6 @@ impl MemoryTier {
             stanza_startup_mb: MemoryMb(stanza),
             io_startup_mb: MemoryMb(io),
             max_suggested_workers: max_workers,
-            idle_timeout_s: idle_s,
         }
     }
 
@@ -502,23 +498,5 @@ mod tests {
             MemoryTier::from_total_mb(127_999).kind,
             MemoryTierKind::Large
         );
-    }
-
-    #[test]
-    fn small_tier_idle_timeout_is_short() {
-        let tier = MemoryTier::from_total_mb(16_000);
-        assert_eq!(tier.idle_timeout_s, 60);
-    }
-
-    #[test]
-    fn large_tier_idle_timeout_unchanged() {
-        let tier = MemoryTier::from_total_mb(64_000);
-        assert_eq!(tier.idle_timeout_s, 600);
-    }
-
-    #[test]
-    fn medium_tier_idle_timeout_is_intermediate() {
-        let tier = MemoryTier::from_total_mb(32_000);
-        assert_eq!(tier.idle_timeout_s, 300);
     }
 }

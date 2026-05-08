@@ -43,6 +43,7 @@ use batchalign::api::{
 };
 use batchalign::config::ServerConfig;
 use batchalign::create_test_app;
+use batchalign::host_facts::PerProfile;
 use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::pool::PoolConfig;
 
@@ -247,9 +248,8 @@ fn create_real_test_app(python_path: &str) -> RealAppHandle {
             python_path: python_path.into(),
             test_echo: true,
             health_check_interval_s: 600,
-            idle_timeout_s: 600,
             ready_timeout_s: 30,
-            max_workers_per_key: 1,
+            max_workers_per_key: PerProfile::uniform(1),
             verbose: 0,
             engine_overrides: String::new(),
             runtime: Default::default(),

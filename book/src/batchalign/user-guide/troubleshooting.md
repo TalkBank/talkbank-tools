@@ -115,8 +115,9 @@ giving up (default 120; see `default_memory_gate_timeout_s` in
 1. Too many concurrent workers — reduce `max_workers_per_job` or
    `max_concurrent_jobs` in `~/.batchalign3/server.yaml`
 2. Other processes consuming RAM
-3. Idle workers holding loaded models — reduce `worker_idle_timeout_s` to
-   release them sooner, or restart the server
+3. Idle workers holding loaded models — the pool evicts idle workers
+   automatically when host memory pressure rises; if eviction isn't
+   firing fast enough, restart the server
 
 **Quick fixes in `~/.batchalign3/server.yaml`:**
 
@@ -127,7 +128,6 @@ memory_tier: small
 # Or override individual values
 memory_gate_mb: 2000            # Reduce headroom reserve
 stanza_startup_mb: 3000         # Stanza actually uses ~2-3 GB
-worker_idle_timeout_s: 60       # Free memory faster
 
 # Disable the gate entirely (not recommended for production)
 # memory_gate_mb: 0
