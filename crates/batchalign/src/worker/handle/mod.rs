@@ -10,6 +10,7 @@
 pub mod config;
 mod ipc;
 mod lifecycle;
+mod progress_preamble;
 mod protocol;
 pub mod spawn;
 

@@ -102,11 +102,19 @@ impl WorkerHandle {
     pub async fn health_check(&mut self) -> Result<WorkerHealthResponse, WorkerError> {
         self.write_request(&WorkerRequest::Health).await?;
 
-        let response = tokio::time::timeout(Duration::from_secs(10), self.read_response())
+        // Tolerate progress preamble: a worker mid-bootstrap (e.g.
+        // Stanza catalog still downloading) may emit progress_v2
+        // events before it can answer the health probe.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let response = self
+            .read_response_skipping_progress_via_self(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::HealthCheckFailed("timeout waiting for health response".into())
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::HealthCheckFailed("timeout waiting for health response".into())
+                }
+                other => other,
+            })?;
 
         let resp = match response {
             WorkerResponse::Health { response } => response,
@@ -159,16 +167,21 @@ impl WorkerHandle {
         })
         .await?;
 
-        let response = tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_s),
-            self.read_response(),
-        )
-        .await
-        .map_err(|_| {
-            WorkerError::Protocol(format!(
-                "timeout ({timeout_s}s) waiting for ensure_task({task}) response"
-            ))
-        })??;
+        // ensure_task is THE on-demand model-loading IPC: per-language
+        // Stanza pack downloads, HuggingFace model fetches, and torch
+        // checkpoint warm-ups all fire progress_v2 events from inside
+        // this call. Tolerate them; the timeout is per the caller's
+        // task budget, not per individual progress event.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_s);
+        let response = self
+            .read_response_skipping_progress_via_self(deadline, None)
+            .await
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => WorkerError::Protocol(
+                    format!("timeout ({timeout_s}s) waiting for ensure_task({task}) response"),
+                ),
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::EnsureTask { response } => {
@@ -213,10 +226,18 @@ impl WorkerHandle {
         self.write_request(&WorkerRequest::Infer { request })
             .await?;
 
-        let timeout = Duration::from_secs(120);
-        let response = tokio::time::timeout(timeout, self.read_response())
+        // First-touch model loads (HF download, torch warmup) can fire
+        // progress_v2 from inside the inference call too. Skip them.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+        let response = self
+            .read_response_skipping_progress_via_self(deadline, None)
             .await
-            .map_err(|_| WorkerError::Protocol("timeout waiting for infer response".into()))??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::Protocol("timeout waiting for infer response".into())
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::Infer { response } => Ok(response),
@@ -241,15 +262,19 @@ impl WorkerHandle {
 
         // Generous timeout: roughly 5s per item, minimum 120s.
         let timeout_s = (request.items.len() as u64 * 5).max(120);
-        let timeout = Duration::from_secs(timeout_s);
-        let response = tokio::time::timeout(timeout, self.read_response())
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_s);
+        let item_count = request.items.len();
+        let response = self
+            .read_response_skipping_progress_via_self(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::Protocol(format!(
-                    "timeout ({timeout_s}s) waiting for batch_infer response ({} items)",
-                    request.items.len()
-                ))
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::Protocol(format!(
+                        "timeout ({timeout_s}s) waiting for batch_infer response ({item_count} items)"
+                    ))
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::BatchInfer { response } => Ok(response),
@@ -366,42 +391,22 @@ impl WorkerHandle {
     pub async fn capabilities(&mut self) -> Result<WorkerCapabilities, WorkerError> {
         self.write_request(&WorkerRequest::Capabilities).await?;
 
-        // Import probes in _capabilities() may load heavy ML libraries (torch,
-        // whisper, pyannote) on first invocation, AND on first run a Stanza
-        // catalog download can fire `progress_v2` events before the final
-        // `capabilities` response. Allow up to 60s of total wall clock for
-        // the response while consuming any preamble progress events that
-        // arrive in the meantime — same shape as the execute_v2 read loop
-        // and the ready-line read in handle::lifecycle.
+        // Import probes in _capabilities() may load heavy ML libraries
+        // (torch, whisper, pyannote) on first invocation, AND on first
+        // run a Stanza catalog download can fire `progress_v2` events
+        // before the final `capabilities` response. The 60s budget
+        // allows for cold imports + initial download.
         let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
-        loop {
-            let response = tokio::time::timeout_at(deadline, self.read_response())
-                .await
-                .map_err(|_| {
-                    WorkerError::Protocol("timeout waiting for capabilities response".into())
-                })??;
+        let response = self
+            .read_response_skipping_progress_via_self(deadline, None)
+            .await?;
 
-            match response {
-                WorkerResponse::ProgressV2 { event } => {
-                    tracing::debug!(
-                        worker_pid = ?self.pid,
-                        stage = %event.stage,
-                        completed = event.completed,
-                        total = event.total,
-                        "skipping progress_v2 preamble during capabilities probe"
-                    );
-                    continue;
-                }
-                WorkerResponse::Capabilities { response } => return Ok(response),
-                WorkerResponse::Error { error, kind } => {
-                    return Err(kind.into_worker_error(error));
-                }
-                other => {
-                    return Err(WorkerError::Protocol(format!(
-                        "unexpected response for capabilities: {other:?}"
-                    )));
-                }
-            }
+        match response {
+            WorkerResponse::Capabilities { response } => Ok(response),
+            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
+            other => Err(WorkerError::Protocol(format!(
+                "unexpected response for capabilities: {other:?}"
+            ))),
         }
     }
 }

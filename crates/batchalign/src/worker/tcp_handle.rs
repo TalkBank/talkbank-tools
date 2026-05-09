@@ -233,15 +233,49 @@ impl TcpWorkerHandle {
         }
     }
 
+    /// Twin of `WorkerHandle::read_response_skipping_progress_via_self`
+    /// for the TCP transport. Skip every `ProgressV2` event, optionally
+    /// forward to a channel, return the first non-progress response, or
+    /// time out at the deadline. See `worker/handle/progress_preamble.rs`
+    /// for the bug-class rationale and the unit-tested static twin.
+    async fn read_response_skipping_progress(
+        &mut self,
+        deadline: tokio::time::Instant,
+        progress_tx: Option<&tokio::sync::mpsc::Sender<ProgressEventV2>>,
+    ) -> Result<WorkerResponse, WorkerError> {
+        loop {
+            let response = tokio::time::timeout_at(deadline, self.read_response())
+                .await
+                .map_err(|_| {
+                    WorkerError::Protocol("timeout waiting for TCP worker response".into())
+                })??;
+
+            match response {
+                WorkerResponse::ProgressV2 { event } => {
+                    if let Some(tx) = progress_tx {
+                        let _ = tx.try_send(event);
+                    }
+                    continue;
+                }
+                other => return Ok(other),
+            }
+        }
+    }
+
     /// Check if the worker is healthy.
     pub async fn health_check(&mut self) -> Result<WorkerHealthResponse, WorkerError> {
         self.write_request(&WorkerRequest::Health).await?;
 
-        let response = tokio::time::timeout(Duration::from_secs(10), self.read_response())
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let response = self
+            .read_response_skipping_progress(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::HealthCheckFailed("timeout waiting for TCP health response".into())
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::HealthCheckFailed("timeout waiting for TCP health response".into())
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::Health { response } => {
@@ -266,12 +300,16 @@ impl TcpWorkerHandle {
         self.write_request(&WorkerRequest::Infer { request })
             .await?;
 
-        let timeout = Duration::from_secs(120);
-        let response = tokio::time::timeout(timeout, self.read_response())
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+        let response = self
+            .read_response_skipping_progress(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::Protocol("timeout waiting for TCP infer response".into())
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::Protocol("timeout waiting for TCP infer response".into())
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::Infer { response } => Ok(response),
@@ -292,15 +330,19 @@ impl TcpWorkerHandle {
             .await?;
 
         let timeout_s = (request.items.len() as u64 * 5).max(120);
-        let timeout = Duration::from_secs(timeout_s);
-        let response = tokio::time::timeout(timeout, self.read_response())
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_s);
+        let item_count = request.items.len();
+        let response = self
+            .read_response_skipping_progress(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::Protocol(format!(
-                    "timeout ({timeout_s}s) waiting for TCP batch_infer response ({} items)",
-                    request.items.len()
-                ))
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::Protocol(format!(
+                        "timeout ({timeout_s}s) waiting for TCP batch_infer response ({item_count} items)"
+                    ))
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::BatchInfer { response } => Ok(response),
@@ -370,11 +412,18 @@ impl TcpWorkerHandle {
     pub async fn capabilities(&mut self) -> Result<WorkerCapabilities, WorkerError> {
         self.write_request(&WorkerRequest::Capabilities).await?;
 
-        let response = tokio::time::timeout(Duration::from_secs(60), self.read_response())
+        // Same protocol contract as the stdio handle: tolerate
+        // progress_v2 preamble during cold-cache catalog/model loads.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        let response = self
+            .read_response_skipping_progress(deadline, None)
             .await
-            .map_err(|_| {
-                WorkerError::Protocol("timeout waiting for TCP capabilities response".into())
-            })??;
+            .map_err(|e| match e {
+                WorkerError::Protocol(msg) if msg.contains("timeout") => {
+                    WorkerError::Protocol("timeout waiting for TCP capabilities response".into())
+                }
+                other => other,
+            })?;
 
         match response {
             WorkerResponse::Capabilities { response } => Ok(response),
