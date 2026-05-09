@@ -227,11 +227,10 @@ ferrous-opencc = "0.4.0"
 trybuild = "1.0"
 unicode-width = "0.2"
 walkdir = "^2.5"
-
-# Used by xtask audit-docs (sync sqlite, no system dep).
-# Keep this on the libsqlite3-sys 0.28 line so workspace resolution stays
-# compatible with sqlx 0.8's sqlite backend.
-rusqlite = { version = "0.31", features = ["bundled"] }
+# rusqlite was previously a workspace dep for xtask audit-docs; now
+# replaced by sqlx (with a small tokio runtime in xtask) so the
+# workspace links a single libsqlite3-sys version, and sqlx tracks
+# the latest patched version automatically.
 
 [profile.dev]
 split-debuginfo = "unpacked"

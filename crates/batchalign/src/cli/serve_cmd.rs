@@ -162,6 +162,8 @@ pub async fn start(
             ensure_task_timeout_s: cfg.ensure_task_timeout_s,
             worker_registry_path: cfg.worker_registry_path.clone(),
             test_delay_ms: 0,
+            // Production: live host CPU loadavg gate, not a test override.
+            cpu_gate_threshold_override: None,
         };
         crate::serve_with_runtime(
             cfg,

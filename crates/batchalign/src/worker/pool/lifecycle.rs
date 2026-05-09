@@ -179,7 +179,16 @@ impl WorkerPool {
         // CPU-saturated; adding another worker oversubscribes, which
         // is what the static recommender's per-profile/per-host
         // formulas were trying to prevent by guessing.
-        let cpu_threshold = cpu_gate::host_cpu_count_as_threshold();
+        // Production leaves `cpu_gate_threshold_override` unset and
+        // we read the host's logical CPU count fresh. Tests that
+        // exercise the permit / per-key-cap / metrics paths set the
+        // override to a value far above any realistic load so the
+        // gate does not reject before reaching the test logic; the
+        // dedicated cpu_gate unit tests cover both branches.
+        let cpu_threshold = self
+            .config
+            .cpu_gate_threshold_override
+            .unwrap_or_else(cpu_gate::host_cpu_count_as_threshold);
         if let Err(saturated) = cpu_gate::check_cpu_saturation(cpu_threshold) {
             let count = self
                 .cpu_saturation_rejections_total

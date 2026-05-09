@@ -12,10 +12,21 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Local, NaiveDate};
 use regex::Regex;
-use rusqlite::{Connection, params};
+use sqlx::Connection;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteConnection};
 use walkdir::WalkDir;
 
 use crate::Result;
+
+/// Open the audit catalog. `create_if_missing` is on so the first
+/// run on a fresh checkout produces an empty DB without operator
+/// intervention.
+async fn open_catalog(path: &Path) -> sqlx::Result<SqliteConnection> {
+    let opts = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+    SqliteConnection::connect_with(&opts).await
+}
 
 /// Cutoff: the date of the talkbank-tools / batchalign3 monorepo merge.
 /// Docs whose `Last updated` predates this are 'pre-merge' staleness.
@@ -97,18 +108,20 @@ pub struct Args {
     pub meta_root: PathBuf,
 }
 
-pub fn run(args: Args) -> Result<()> {
-    let mut conn = Connection::open(&args.db)?;
+pub async fn run(args: Args) -> Result<()> {
+    let mut conn = open_catalog(&args.db).await?;
     // WAL + relaxed sync makes the per-doc transaction commits far
     // cheaper without giving up crash-safety against the OS losing
     // the last few writes (which we don't care about — the next scan
     // re-derives identical state from source).
-    conn.execute_batch(
+    sqlx::raw_sql(
         "PRAGMA foreign_keys = ON;
          PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;",
-    )?;
-    apply_migrations(&conn)?;
+    )
+    .execute(&mut conn)
+    .await?;
+    apply_migrations(&mut conn).await?;
 
     let scanned_at = iso_now();
 
@@ -151,9 +164,9 @@ pub fn run(args: Args) -> Result<()> {
 
             // One transaction per doc keeps the upsert + section
             // reconciliation atomic and amortizes the WAL fsync.
-            let tx = conn.transaction()?;
+            let mut tx = sqlx::Connection::begin(&mut conn).await?;
             let (doc_id, outcome) = upsert_doc(
-                &tx,
+                &mut *tx,
                 repo,
                 &rel_str,
                 &audience,
@@ -164,7 +177,8 @@ pub fn run(args: Args) -> Result<()> {
                 last_modified_doc.as_deref(),
                 &doc_hash,
                 &scanned_at,
-            )?;
+            )
+            .await?;
             if outcome == UpsertOutcome::Inserted {
                 new_docs += 1;
             }
@@ -172,8 +186,8 @@ pub fn run(args: Args) -> Result<()> {
 
             let sections = parse_sections(&content);
             total_sections += sections.len() as u64;
-            sync_sections(&tx, doc_id, &sections)?;
-            tx.commit()?;
+            sync_sections(&mut *tx, doc_id, &sections).await?;
+            tx.commit().await?;
         }
     }
 
@@ -184,7 +198,7 @@ pub fn run(args: Args) -> Result<()> {
     println!("  sections in tree:  {total_sections}");
     println!("  BA2-vs-BA3 docs:   {ba2_vs_ba3_docs}");
     println!();
-    print_summary(&conn)?;
+    print_summary(&mut conn).await?;
 
     Ok(())
 }
@@ -514,8 +528,8 @@ fn classify_ba2_vs_ba3(rel: &str, content: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
-fn upsert_doc(
-    conn: &Connection,
+async fn upsert_doc(
+    conn: &mut SqliteConnection,
     repo: Repo,
     path: &str,
     audience: &str,
@@ -530,18 +544,17 @@ fn upsert_doc(
     // Two-step rather than RETURNING: SQLite has no direct "was-this-an-
     // insert-or-an-update" signal, so we look up the prior id once and
     // report new-vs-existing from that.
-    let existing: Option<i64> = conn
-        .query_row(
-            "SELECT id FROM docs WHERE repo = ? AND path = ?",
-            params![repo.as_str(), path],
-            |row| row.get(0),
-        )
-        .ok();
+    let existing: Option<i64> =
+        sqlx::query_scalar("SELECT id FROM docs WHERE repo = ? AND path = ?")
+            .bind(repo.as_str())
+            .bind(path)
+            .fetch_optional(&mut *conn)
+            .await?;
     let outcome = match existing {
         Some(_) => UpsertOutcome::Updated,
         None => UpsertOutcome::Inserted,
     };
-    conn.execute(
+    sqlx::query(
         "INSERT INTO docs
             (repo, path, audience, priority, ba2_vs_ba3, staleness,
              status_label, last_modified_doc, content_hash, scanned_at)
@@ -555,24 +568,24 @@ fn upsert_doc(
             last_modified_doc = excluded.last_modified_doc,
             content_hash = excluded.content_hash,
             scanned_at = excluded.scanned_at",
-        params![
-            repo.as_str(),
-            path,
-            audience,
-            priority,
-            i64::from(ba2_vs_ba3),
-            staleness.as_str(),
-            status_label,
-            last_modified_doc,
-            content_hash,
-            scanned_at,
-        ],
-    )?;
-    let id: i64 = conn.query_row(
-        "SELECT id FROM docs WHERE repo = ? AND path = ?",
-        params![repo.as_str(), path],
-        |row| row.get(0),
-    )?;
+    )
+    .bind(repo.as_str())
+    .bind(path)
+    .bind(audience)
+    .bind(priority)
+    .bind(i64::from(ba2_vs_ba3))
+    .bind(staleness.as_str())
+    .bind(status_label)
+    .bind(last_modified_doc)
+    .bind(content_hash)
+    .bind(scanned_at)
+    .execute(&mut *conn)
+    .await?;
+    let id: i64 = sqlx::query_scalar("SELECT id FROM docs WHERE repo = ? AND path = ?")
+        .bind(repo.as_str())
+        .bind(path)
+        .fetch_one(&mut *conn)
+        .await?;
     Ok((id, outcome))
 }
 
@@ -581,67 +594,72 @@ fn upsert_doc(
 /// and citations). Anchors with unchanged `content_hash` keep their
 /// `vet_state`; changed content resets to `unvetted` while preserving
 /// the row id so attached claims/citations remain available for diffing.
-fn sync_sections(conn: &Connection, doc_id: i64, sections: &[ParsedSection]) -> Result<()> {
+async fn sync_sections(
+    conn: &mut SqliteConnection,
+    doc_id: i64,
+    sections: &[ParsedSection],
+) -> Result<()> {
     // One SELECT per doc fetches every existing (anchor, content_hash);
     // the per-section logic then runs entirely from this map. Avoids
     // the previous N+1 SELECT pattern.
-    let existing: HashMap<String, String> = {
-        let mut stmt =
-            conn.prepare("SELECT anchor, content_hash FROM sections WHERE doc_id = ?")?;
-        let rows = stmt.query_map([doc_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-        rows.collect::<rusqlite::Result<HashMap<String, String>>>()?
-    };
+    let existing: HashMap<String, String> = sqlx::query_as::<_, (String, String)>(
+        "SELECT anchor, content_hash FROM sections WHERE doc_id = ?",
+    )
+    .bind(doc_id)
+    .fetch_all(&mut *conn)
+    .await?
+    .into_iter()
+    .collect();
     let existing_anchors: BTreeSet<&str> = existing.keys().map(String::as_str).collect();
     let current_anchors: BTreeSet<&str> = sections.iter().map(|s| s.anchor.as_str()).collect();
 
     for anchor in existing_anchors.difference(&current_anchors) {
-        conn.execute(
-            "DELETE FROM sections WHERE doc_id = ? AND anchor = ?",
-            params![doc_id, anchor],
-        )?;
+        sqlx::query("DELETE FROM sections WHERE doc_id = ? AND anchor = ?")
+            .bind(doc_id)
+            .bind(*anchor)
+            .execute(&mut *conn)
+            .await?;
     }
 
     for s in sections {
         match existing.get(&s.anchor) {
             None => {
-                conn.execute(
+                sqlx::query(
                     "INSERT INTO sections
                         (doc_id, level, heading, anchor, ordinal,
                          line_start, line_end, content_hash)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    params![
-                        doc_id,
-                        i64::from(s.level),
-                        s.heading,
-                        s.anchor,
-                        s.ordinal,
-                        s.line_start,
-                        s.line_end,
-                        s.body_hash,
-                    ],
-                )?;
+                )
+                .bind(doc_id)
+                .bind(i64::from(s.level))
+                .bind(&s.heading)
+                .bind(&s.anchor)
+                .bind(s.ordinal)
+                .bind(s.line_start)
+                .bind(s.line_end)
+                .bind(&s.body_hash)
+                .execute(&mut *conn)
+                .await?;
             }
             Some(prev_hash) if *prev_hash == s.body_hash => {
-                conn.execute(
+                sqlx::query(
                     "UPDATE sections SET
                         level = ?, heading = ?, ordinal = ?,
                         line_start = ?, line_end = ?
                      WHERE doc_id = ? AND anchor = ?",
-                    params![
-                        i64::from(s.level),
-                        s.heading,
-                        s.ordinal,
-                        s.line_start,
-                        s.line_end,
-                        doc_id,
-                        s.anchor,
-                    ],
-                )?;
+                )
+                .bind(i64::from(s.level))
+                .bind(&s.heading)
+                .bind(s.ordinal)
+                .bind(s.line_start)
+                .bind(s.line_end)
+                .bind(doc_id)
+                .bind(&s.anchor)
+                .execute(&mut *conn)
+                .await?;
             }
             Some(_) => {
-                conn.execute(
+                sqlx::query(
                     "UPDATE sections SET
                         level = ?, heading = ?, ordinal = ?,
                         line_start = ?, line_end = ?,
@@ -650,17 +668,17 @@ fn sync_sections(conn: &Connection, doc_id: i64, sections: &[ParsedSection]) -> 
                         reviewer = NULL,
                         reviewed_at = NULL
                      WHERE doc_id = ? AND anchor = ?",
-                    params![
-                        i64::from(s.level),
-                        s.heading,
-                        s.ordinal,
-                        s.line_start,
-                        s.line_end,
-                        s.body_hash,
-                        doc_id,
-                        s.anchor,
-                    ],
-                )?;
+                )
+                .bind(i64::from(s.level))
+                .bind(&s.heading)
+                .bind(s.ordinal)
+                .bind(s.line_start)
+                .bind(s.line_end)
+                .bind(&s.body_hash)
+                .bind(doc_id)
+                .bind(&s.anchor)
+                .execute(&mut *conn)
+                .await?;
             }
         }
     }
@@ -677,16 +695,18 @@ fn sync_sections(conn: &Connection, doc_id: i64, sections: &[ParsedSection]) -> 
 ///
 /// This lets a databases created with an older version of the schema
 /// pick up newer columns without a manual migration step.
-fn apply_migrations(conn: &Connection) -> Result<()> {
-    if !column_exists(conn, "docs", "staleness")? {
-        conn.execute_batch(
-            "ALTER TABLE docs ADD COLUMN staleness TEXT NOT NULL DEFAULT 'unknown';",
-        )?;
+async fn apply_migrations(conn: &mut SqliteConnection) -> Result<()> {
+    if !column_exists(conn, "docs", "staleness").await? {
+        sqlx::raw_sql("ALTER TABLE docs ADD COLUMN staleness TEXT NOT NULL DEFAULT 'unknown';")
+            .execute(&mut *conn)
+            .await?;
     }
-    if !column_exists(conn, "sections", "fix_commit_hash")? {
-        conn.execute_batch("ALTER TABLE sections ADD COLUMN fix_commit_hash TEXT;")?;
+    if !column_exists(conn, "sections", "fix_commit_hash").await? {
+        sqlx::raw_sql("ALTER TABLE sections ADD COLUMN fix_commit_hash TEXT;")
+            .execute(&mut *conn)
+            .await?;
     }
-    conn.execute_batch(
+    sqlx::raw_sql(
         "CREATE TABLE IF NOT EXISTS staleness_flags (
             id INTEGER PRIMARY KEY,
             section_id INTEGER NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
@@ -700,15 +720,19 @@ fn apply_migrations(conn: &Connection) -> Result<()> {
             ON staleness_flags(section_id);
          CREATE INDEX IF NOT EXISTS idx_staleness_flags_pattern
             ON staleness_flags(pattern_name);",
-    )?;
+    )
+    .execute(&mut *conn)
+    .await?;
     Ok(())
 }
 
-fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
-    let mut stmt = conn.prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?;
-    let exists: Option<i64> = stmt
-        .query_row(params![table, column], |row| row.get(0))
-        .ok();
+async fn column_exists(conn: &mut SqliteConnection, table: &str, column: &str) -> Result<bool> {
+    let exists: Option<i64> =
+        sqlx::query_scalar("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")
+            .bind(table)
+            .bind(column)
+            .fetch_optional(&mut *conn)
+            .await?;
     Ok(exists.is_some())
 }
 
@@ -787,14 +811,16 @@ const FLAG_PATTERNS: &[FlagPattern] = &[
     },
 ];
 
-pub fn run_flag_staleness(args: Args) -> Result<()> {
-    let conn = Connection::open(&args.db)?;
-    conn.execute_batch(
+pub async fn run_flag_staleness(args: Args) -> Result<()> {
+    let mut conn = open_catalog(&args.db).await?;
+    sqlx::raw_sql(
         "PRAGMA foreign_keys = ON;
          PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;",
-    )?;
-    apply_migrations(&conn)?;
+    )
+    .execute(&mut conn)
+    .await?;
+    apply_migrations(&mut conn).await?;
 
     let regexes: Vec<(usize, Regex)> = FLAG_PATTERNS
         .iter()
@@ -805,32 +831,24 @@ pub fn run_flag_staleness(args: Args) -> Result<()> {
     // Wipe and rebuild — patterns can change between runs and
     // ambiguous "what was here last run?" semantics aren't worth
     // keeping. Cheap operation against an indexed table.
-    conn.execute("DELETE FROM staleness_flags", [])?;
+    sqlx::query("DELETE FROM staleness_flags")
+        .execute(&mut conn)
+        .await?;
 
     // Walk every section, re-read its source file, scan body lines.
     let now = iso_now();
-    let mut stmt = conn.prepare(
+    let rows: Vec<(i64, i64, i64, String, String)> = sqlx::query_as(
         "SELECT s.id, s.line_start, s.line_end, d.repo, d.path
          FROM sections s JOIN docs d ON d.id = s.doc_id",
-    )?;
-    let rows: Vec<(i64, i64, i64, String, String)> = stmt
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-            ))
-        })?
-        .collect::<rusqlite::Result<_>>()?;
-    drop(stmt);
+    )
+    .fetch_all(&mut conn)
+    .await?;
 
     // Cache file contents per (repo, path) so we don't re-read for
     // every section in the same file.
     let mut file_cache: HashMap<(String, String), Option<Vec<String>>> = HashMap::new();
 
-    let tx = conn.unchecked_transaction()?;
+    let mut tx = sqlx::Connection::begin(&mut conn).await?;
     let mut total_flags = 0u64;
     for (section_id, line_start, line_end, repo, rel_path) in rows {
         let key = (repo.clone(), rel_path.clone());
@@ -871,59 +889,52 @@ pub fn run_flag_staleness(args: Args) -> Result<()> {
                         }
                         excerpt.truncate(end);
                     }
-                    tx.execute(
+                    sqlx::query(
                         "INSERT INTO staleness_flags
                             (section_id, pattern_name, pattern_severity,
                              match_line, match_excerpt, flagged_at)
                          VALUES (?, ?, ?, ?, ?, ?)",
-                        params![
-                            section_id,
-                            pat.name,
-                            pat.severity,
-                            (body_idx as i64) + 1,
-                            excerpt,
-                            now,
-                        ],
-                    )?;
+                    )
+                    .bind(section_id)
+                    .bind(pat.name)
+                    .bind(pat.severity)
+                    .bind((body_idx as i64) + 1)
+                    .bind(&excerpt)
+                    .bind(&now)
+                    .execute(&mut *tx)
+                    .await?;
                     total_flags += 1;
                 }
             }
         }
     }
-    tx.commit()?;
+    tx.commit().await?;
 
     println!("xtask audit-docs flag-staleness complete:");
     println!("  flags inserted: {total_flags}");
     println!();
-    print_flag_summary(&conn)?;
+    print_flag_summary(&mut conn).await?;
     Ok(())
 }
 
-fn print_flag_summary(conn: &Connection) -> Result<()> {
+async fn print_flag_summary(conn: &mut SqliteConnection) -> Result<()> {
     println!("By pattern (top hits):");
-    let mut stmt = conn.prepare(
+    let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
         "SELECT pattern_name, pattern_severity, COUNT(*) AS hits,
                 COUNT(DISTINCT section_id) AS sections
          FROM staleness_flags
          GROUP BY pattern_name
          ORDER BY hits DESC",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-    for row in rows {
-        let (pattern, severity, hits, sections) = row?;
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    for (pattern, severity, hits, sections) in rows {
         println!("  {hits:>5} hits in {sections:>4} sections  [{severity}]  {pattern}");
     }
     println!();
 
     println!("Top 10 sections by flag count:");
-    let mut stmt = conn.prepare(
+    let rows: Vec<(String, String, String, i64)> = sqlx::query_as(
         "SELECT d.repo, d.path, s.heading, COUNT(*) AS flag_count
          FROM staleness_flags f
          JOIN sections s ON s.id = f.section_id
@@ -931,17 +942,10 @@ fn print_flag_summary(conn: &Connection) -> Result<()> {
          GROUP BY f.section_id
          ORDER BY flag_count DESC
          LIMIT 10",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-    for row in rows {
-        let (repo, path, heading, flag_count) = row?;
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    for (repo, path, heading, flag_count) in rows {
         println!("  {flag_count:>3}  [{repo}] {path} :: {heading}");
     }
 
@@ -952,63 +956,48 @@ fn print_flag_summary(conn: &Connection) -> Result<()> {
 // Reporting
 // ---------------------------------------------------------------------------
 
-fn print_summary(conn: &Connection) -> Result<()> {
+async fn print_summary(conn: &mut SqliteConnection) -> Result<()> {
     println!("By audience / priority bucket:");
-    let mut stmt = conn.prepare(
+    let rows: Vec<(String, i64, i64)> = sqlx::query_as(
         "SELECT audience, priority, COUNT(*)
          FROM docs
          GROUP BY audience, priority
          ORDER BY priority, audience",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, i64>(2)?,
-        ))
-    })?;
-    for row in rows {
-        let (audience, priority, count) = row?;
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    for (audience, priority, count) in rows {
         println!("  P{priority}  {audience:<10}  {count:>5} docs");
     }
     println!();
 
-    let total_sections: i64 =
-        conn.query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))?;
-    let unvetted: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM sections WHERE vet_state = 'unvetted'",
-        [],
-        |row| row.get(0),
-    )?;
+    let total_sections: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sections")
+        .fetch_one(&mut *conn)
+        .await?;
+    let unvetted: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM sections WHERE vet_state = 'unvetted'")
+            .fetch_one(&mut *conn)
+            .await?;
     println!("Sections: {total_sections} total, {unvetted} unvetted");
 
-    let ba2_docs: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM docs WHERE ba2_vs_ba3 = 1",
-        [],
-        |row| row.get(0),
-    )?;
+    let ba2_docs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM docs WHERE ba2_vs_ba3 = 1")
+        .fetch_one(&mut *conn)
+        .await?;
     println!("BA2-vs-BA3 docs flagged: {ba2_docs}");
 
     println!();
     println!("Top 20 BA2-vs-BA3 sections by body line count:");
-    let mut stmt = conn.prepare(
+    let rows: Vec<(String, String, String, i64)> = sqlx::query_as(
         "SELECT d.repo, d.path, s.heading, (s.line_end - s.line_start) AS body_lines
          FROM sections s
          JOIN docs d ON d.id = s.doc_id
          WHERE d.ba2_vs_ba3 = 1
          ORDER BY body_lines DESC
          LIMIT 20",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-    for row in rows {
-        let (repo, path, heading, body_lines) = row?;
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    for (repo, path, heading, body_lines) in rows {
         println!("  {body_lines:>4}  [{repo}] {path} :: {heading}");
     }
 
@@ -1079,9 +1068,17 @@ pub fn parse_and_run(rest: Vec<String>) -> Result<()> {
         talkbank_tools_root: tt_root,
         meta_root,
     };
-    match sub {
-        "scan" => run(args),
-        "flag-staleness" => run_flag_staleness(args),
-        _ => unreachable!(),
-    }
+    // The two subcommands are async-on-sqlx; rest of xtask is sync,
+    // so we spin up a small single-threaded tokio runtime just for
+    // this dispatch and block on the result.
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(async {
+        match sub {
+            "scan" => run(args).await,
+            "flag-staleness" => run_flag_staleness(args).await,
+            _ => unreachable!(),
+        }
+    })
 }

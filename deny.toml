@@ -11,24 +11,6 @@ ignore = [
     "RUSTSEC-2025-0141",
     # yaml-rust unmaintained (RUSTSEC-2024-0320). Transitive via syntect → comrak (dev-only).
     "RUSTSEC-2024-0320",
-    # paste unmaintained (RUSTSEC-2024-0436). Transitive via sqlx-core
-    # → sqlx 0.8. The crate author archived the repo; `pastey` is a
-    # drop-in fork. Only the sqlx 0.8 → 0.9 migration would drop paste,
-    # and that's blocked by the same libsqlite3-sys / rusqlite refresh
-    # described under RUSTSEC-2024-0363 below. paste 1.0.15 itself is
-    # complete and not vulnerable.
-    "RUSTSEC-2024-0436",
-    # sqlx 0.8.0 binary-protocol misinterpretation (RUSTSEC-2024-0363).
-    # Truncating cast on values >4 GiB lets a length-prefix overflow
-    # let the rest of a string be reinterpreted as protocol commands.
-    # Not exploitable in our usage: sqlx parameters bound in batchalign
-    # are bounded-size job IDs, file paths, and per-job JSON state
-    # blobs that never approach 4 GiB. Bumping to 0.8.6 requires a
-    # coordinated libsqlite3-sys upgrade (sqlx 0.8.6 wants 0.30.1;
-    # rusqlite 0.31 in xtask pins 0.28.0 and links to native sqlite3,
-    # which Cargo refuses to resolve to two versions). Tracked as a
-    # separate dep-refresh effort.
-    "RUSTSEC-2024-0363",
 ]
 
 [licenses]

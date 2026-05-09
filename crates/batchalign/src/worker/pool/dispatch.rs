@@ -502,6 +502,11 @@ mod tests {
                 io: 1,
             },
             max_total_workers: 64, // not the binding constraint here
+            // Disable the CPU-loadavg gate so this test isolates
+            // per-profile-cap behavior. CI runners are CPU-saturated
+            // by parallel cargo-test workers and would otherwise
+            // reject every claim with CpuSaturated.
+            cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());

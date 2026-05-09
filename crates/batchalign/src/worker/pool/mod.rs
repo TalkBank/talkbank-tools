@@ -218,6 +218,17 @@ pub struct PoolConfig {
     /// budget is not consumed by queue-wait when many callers contend for one
     /// shared GPU worker process.
     pub test_delay_ms: u64,
+    /// Test-only override for the CPU-loadavg admission threshold.
+    ///
+    /// Production leaves this `None`; the CPU gate uses
+    /// `cpu_gate::host_cpu_count_as_threshold()` (live
+    /// `available_parallelism()`). Tests that need to exercise the
+    /// permit / per-key-cap / metrics paths set this to a value
+    /// far above any realistic load (e.g. `f64::INFINITY`) so
+    /// `try_claim_spawn_slot` does not reject at Layer 0 on
+    /// CPU-saturated CI runners. Setting a finite override lets the
+    /// `cpu_gate` tests in [`super::cpu_gate`] cover both branches.
+    pub cpu_gate_threshold_override: Option<f64>,
 }
 
 /// Built-in default for `ensure_task` timeout (seconds).
@@ -249,6 +260,7 @@ impl Default for PoolConfig {
             ensure_task_timeout_s: 0,
             worker_registry_path: String::new(),
             test_delay_ms: 0,
+            cpu_gate_threshold_override: None,
         }
     }
 }
@@ -863,6 +875,12 @@ mod default_pool_config_tests {
         let pool = WorkerPool::new(PoolConfig {
             max_workers_per_key: PerProfile::uniform(4),
             max_total_workers: 16,
+            // Disable the CPU-loadavg gate so the test isolates
+            // permit / per-key-cap / metrics behavior. CI runners
+            // are CPU-saturated by parallel cargo-test workers and
+            // the gate would otherwise reject every claim with
+            // CpuSaturated before the assertions run.
+            cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());
@@ -940,6 +958,10 @@ mod default_pool_config_tests {
             max_workers_per_key: PerProfile::uniform(8),
             python_path: "/nonexistent/python-binary-that-will-fail".to_string(),
             test_echo: false,
+            // Disable Layer 0 so the test exercises the spawn-failure
+            // permit-refund path and is not gated out on saturated
+            // CI runners.
+            cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
         let baseline = pool.metrics_snapshot().permits_available;
@@ -1009,6 +1031,8 @@ mod default_pool_config_tests {
         let pool = WorkerPool::new(PoolConfig {
             max_workers_per_key: PerProfile::uniform(8),
             max_total_workers: 1,
+            // Disable Layer 0 — see the parallel test fixture above.
+            cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());
@@ -1042,6 +1066,8 @@ mod default_pool_config_tests {
         let pool = WorkerPool::new(PoolConfig {
             max_workers_per_key: PerProfile::uniform(1),
             max_total_workers: 8,
+            // Disable Layer 0 — see the parallel test fixture above.
+            cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
         let lang = WorkerLanguage::from(LanguageCode3::eng());
