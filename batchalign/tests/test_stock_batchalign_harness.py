@@ -248,7 +248,7 @@ def _run_harness(
 
 
 
-def test_default_manifest_points_at_in_repo_hk_fixture() -> None:
+def test_default_manifest_points_at_in_repo_cantonese_fixture() -> None:
     """The checked-in manifest should stay wired to the audited in-repo fixture pair."""
     manifest = json.loads(DEFAULT_MANIFEST.read_text(encoding="utf-8"))
     allowlist = json.loads(DEFAULT_ALLOWLIST.read_text(encoding="utf-8"))
@@ -257,9 +257,10 @@ def test_default_manifest_points_at_in_repo_hk_fixture() -> None:
     audio_path = (DEFAULT_MANIFEST.parent / case["audio_path"]).resolve()
     gold_path = (DEFAULT_MANIFEST.parent / case["gold_path"]).resolve()
 
-    assert case["id"] == "hk-05b-clip-whisper"
-    assert audio_path == ROOT / "batchalign" / "tests" / "hk" / "fixtures" / "05b_clip.mp3"
-    assert gold_path == ROOT / "batchalign" / "tests" / "hk" / "fixtures" / "benchmark" / "05b_clip.cha"
+    cantonese_fixtures = ROOT / "batchalign" / "tests" / "languages" / "cantonese" / "fixtures"
+    assert case["id"] == "cantonese-05b-clip-whisper"
+    assert audio_path == cantonese_fixtures / "05b_clip.mp3"
+    assert gold_path == cantonese_fixtures / "benchmark" / "05b_clip.cha"
     assert case["argv"] == ["--lang", "yue", "--whisper", "-n", "1"]
     assert audio_path.is_file()
     assert gold_path.is_file()

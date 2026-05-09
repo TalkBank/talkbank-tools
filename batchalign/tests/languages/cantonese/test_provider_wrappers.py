@@ -140,7 +140,7 @@ def test_infer_funaudio_asr_returns_result_payload(monkeypatch) -> None:
     monotonic_values = iter([0.0, 1.5])
     monkeypatch.setattr(funaudio_asr, "_recognizer", _FakeFunRecognizer())
     monkeypatch.setattr(
-        "batchalign.inference.hk._funaudio_asr.time.monotonic",
+        "batchalign.inference.languages.cantonese._funaudio_asr.time.monotonic",
         lambda: next(monotonic_values),
     )
 
@@ -217,7 +217,7 @@ def test_infer_tencent_asr_returns_result_payload(monkeypatch) -> None:
     monotonic_values = iter([0.0, 2.0])
     monkeypatch.setattr(tencent_asr, "_recognizer", _FakeTencentRecognizer())
     monkeypatch.setattr(
-        "batchalign.inference.hk._tencent_asr.time.monotonic",
+        "batchalign.inference.languages.cantonese._tencent_asr.time.monotonic",
         lambda: next(monotonic_values),
     )
 
@@ -298,7 +298,7 @@ def test_infer_aliyun_asr_returns_result_payload(monkeypatch) -> None:
         lambda _path: expected,
     )
     monkeypatch.setattr(
-        "batchalign.inference.hk._aliyun_asr.time.monotonic",
+        "batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic",
         lambda: next(monotonic_values),
     )
 

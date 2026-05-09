@@ -157,7 +157,7 @@ def test_tencent_override_uses_injected_boundary_credentials(monkeypatch) -> Non
             captured["config"] = config
 
         monkeypatch.setattr(
-            "batchalign.inference.hk._tencent_asr.load_tencent_asr",
+            "batchalign.inference.languages.cantonese._tencent_asr.load_tencent_asr",
             fake_load_tencent_asr,
         )
 

@@ -207,11 +207,11 @@ def test_transcribe_returns_result_detail_after_polling(monkeypatch) -> None:
     monotonic_values = iter([0.0, 1.0])
     sleep_calls: list[float] = []
     monkeypatch.setattr(
-        "batchalign.inference.hk._tencent_api.time.monotonic",
+        "batchalign.inference.languages.cantonese._tencent_api.time.monotonic",
         lambda: next(monotonic_values),
     )
     monkeypatch.setattr(
-        "batchalign.inference.hk._tencent_api.time.sleep",
+        "batchalign.inference.languages.cantonese._tencent_api.time.sleep",
         lambda seconds: sleep_calls.append(seconds),
     )
 
@@ -251,10 +251,10 @@ def test_transcribe_times_out_when_status_never_completes(monkeypatch) -> None:
 
     monotonic_values = iter([0.0, 601.0])
     monkeypatch.setattr(
-        "batchalign.inference.hk._tencent_api.time.monotonic",
+        "batchalign.inference.languages.cantonese._tencent_api.time.monotonic",
         lambda: next(monotonic_values),
     )
-    monkeypatch.setattr("batchalign.inference.hk._tencent_api.time.sleep", lambda _s: None)
+    monkeypatch.setattr("batchalign.inference.languages.cantonese._tencent_api.time.sleep", lambda _s: None)
 
     recognizer = _make_recognizer()
     recognizer._bucket = FakeBucket()

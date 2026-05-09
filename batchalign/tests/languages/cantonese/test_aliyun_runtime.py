@@ -94,7 +94,7 @@ def test_runner_start_streams_audio_chunks(monkeypatch) -> None:
             setattr(self, "_sample_rate", 8000),
         ),
     )
-    monkeypatch.setattr("batchalign.inference.hk._aliyun_asr.time.sleep", lambda _s: None)
+    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.sleep", lambda _s: None)
 
     runner = _AliyunRunner(token="token", appkey="app", wav_path="clip.wav")
     result = runner.start()
@@ -125,7 +125,7 @@ def test_get_token_reports_missing_sdk_dependency(monkeypatch) -> None:
 def test_get_token_uses_cached_value(monkeypatch) -> None:
     monkeypatch.setattr(aliyun_asr, "_cached_token", "cached")
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 10.0)
-    monkeypatch.setattr("batchalign.inference.hk._aliyun_asr.time.monotonic", lambda: 11.0)
+    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 11.0)
 
     assert _get_token("id", "secret") == "cached"
 
@@ -164,7 +164,7 @@ def test_get_token_requires_token_id(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "aliyunsdkcore.request", request_module)
     monkeypatch.setattr(aliyun_asr, "_cached_token", None)
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 0.0)
-    monkeypatch.setattr("batchalign.inference.hk._aliyun_asr.time.monotonic", lambda: 1.0)
+    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 1.0)
 
     with pytest.raises(RuntimeError, match="Token.Id"):
         _get_token("id", "secret")
@@ -204,7 +204,7 @@ def test_get_token_refreshes_and_caches_value(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "aliyunsdkcore.request", request_module)
     monkeypatch.setattr(aliyun_asr, "_cached_token", "")
     monkeypatch.setattr(aliyun_asr, "_cached_token_time", 0.0)
-    monkeypatch.setattr("batchalign.inference.hk._aliyun_asr.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr("batchalign.inference.languages.cantonese._aliyun_asr.time.monotonic", lambda: 100.0)
 
     token = _get_token("id", "secret")
 

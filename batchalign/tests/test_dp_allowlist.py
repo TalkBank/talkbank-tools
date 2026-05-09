@@ -37,14 +37,14 @@ def test_chat_ops_dp_calls_are_allowlisted() -> None:
     # - talkbank-transform/benchmark.rs: WER evaluation
     # - talkbank-transform/compare.rs: transcript comparison
     #   (2 calls: window alignment + rotation)
-    # - batchalign/fa/utr.rs: UTR global alignment
+    # - batchalign/chat_ops/fa/utr.rs: UTR global alignment
     #   (correctness-critical, not avoidable)
-    # - batchalign/fa/utr/two_pass.rs: overlap-aware UTR timing
-    #   recovery
+    # - batchalign/chat_ops/fa/utr/two_pass.rs: overlap-aware UTR
+    #   timing recovery
     assert len(align_hits) == 5
     assert {rel for rel, _, _ in align_hits} == {
-        "crates/batchalign/src/fa/utr.rs",
-        "crates/batchalign/src/fa/utr/two_pass.rs",
+        "crates/batchalign/src/chat_ops/fa/utr.rs",
+        "crates/batchalign/src/chat_ops/fa/utr/two_pass.rs",
         "crates/talkbank-transform/src/benchmark.rs",
         "crates/talkbank-transform/src/compare/engine.rs",
     }

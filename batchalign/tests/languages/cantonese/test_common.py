@@ -140,7 +140,7 @@ class TestProviderLangCode:
 
     def test_pycountry_errors_fall_back_to_original_code(self, monkeypatch) -> None:
         monkeypatch.setattr(
-            "batchalign.inference.hk._common.pycountry.languages.get",
+            "batchalign.inference.languages.cantonese._common.pycountry.languages.get",
             lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
         )
         assert provider_lang_code("eng") == "eng"
