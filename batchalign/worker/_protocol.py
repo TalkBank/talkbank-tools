@@ -105,7 +105,7 @@ def write_progress_event(
     emits each as ``tracing::info!``. Stderr is buffered until process
     exit, so bootstrap-time visibility requires the stdout path.
     """
-    payload = {
+    payload: dict[str, WorkerJSONValue] = {
         "op": "progress_v2",
         "event": {
             "request_id": request_id,

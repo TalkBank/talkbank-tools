@@ -105,7 +105,7 @@ def iso3_to_alpha2(iso3: LanguageCode) -> LanguageCode2:
         lang = pycountry.languages.get(alpha_3=iso3)
         if lang is not None:
             alpha2 = getattr(lang, "alpha_2", None)
-            if alpha2:
+            if isinstance(alpha2, str) and alpha2:
                 return alpha2
     except ImportError:
         # Fall through to the warning path.
