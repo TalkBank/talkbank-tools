@@ -1,24 +1,23 @@
-"""Regression: progress events emitted before the ready handshake must
-not corrupt the supervisor's first-line read.
+"""Regression: progress events use stdout consistently across the
+pre-ready and post-ready windows.
 
-The Rust supervisor reads exactly one JSON line from worker stdout
-during the handshake — the ready signal
-``{"ready": true, "pid": N, "transport": ...}``. Anything else on the
-first line fails the parse with
-"invalid ready JSON: missing field `ready`".
+The Rust supervisor's ``read_ready_line``
+(``crates/batchalign/src/worker/handle/lifecycle.rs``) accepts
+``{"op": "progress_v2", ...}`` lines as bootstrap-time preamble before
+the ``{"ready": true, ...}`` envelope, emitting each as
+``tracing::info!``. Stderr is buffered until process exit, so
+bootstrap-time visibility requires the stdout path. Routing pre-ready
+progress events to stderr would break that visibility contract.
 
-This had concrete consequences in production: a worker that needed to
-download a Stanza catalog or HuggingFace model during bootstrap would
-fire an ``emit_download_event`` *before* ``_print_ready()`` ran. Without
-the gate this test pins, the resulting ``progress_v2`` JSON line would
-beat the ready signal out the door and every per-language file in the
-batch failed with a ready-parse error.
+(Earlier supervisor versions strictly read one JSON line as the ready
+signal and rejected anything else — this test pinned a stderr-routing
+contract for that older protocol. The 2026-05-06 supervisor change
+relaxed the contract; this test was rewritten to track the new
+behavior.)
 
-The fix gates ``write_progress_event`` on a module-level flag in
-``_protocol`` (``_handshake_complete``). Pre-ready emissions reroute to
-stderr as plain log lines; post-ready emissions go to stdout normally.
-``_print_ready`` and ``_print_ready_tcp`` flip the flag the moment the
-ready line is on the wire.
+``_print_ready`` and ``_print_ready_tcp`` flip
+``_protocol._handshake_complete`` the moment the ready line is on the
+wire so post-ready emissions also use stdout (now via ``_write_json``).
 """
 
 from __future__ import annotations
@@ -36,12 +35,13 @@ def _reset_handshake_state():
     _protocol._handshake_complete = False
 
 
-def test_pre_ready_progress_event_goes_to_stderr():
-    """Before ready, ``write_progress_event`` must not write to stdout.
+def test_pre_ready_progress_event_goes_to_stdout_as_preamble():
+    """Before ready, ``write_progress_event`` emits a JSON line on stdout.
 
-    The supervisor's first-line read is reserved for the ready envelope;
-    a stray JSON line breaks the handshake and fails every job in the
-    batch with "invalid ready JSON: missing field `ready`".
+    The supervisor's ``read_ready_line`` accepts ``progress_v2`` lines
+    as bootstrap-time preamble (one or more lines before the ready
+    envelope) and forwards each as ``tracing::info!``. Stdout is the
+    visibility channel during bootstrap; stderr is buffered until exit.
     """
     _reset_handshake_state()
     fake_stdout = io.StringIO()
@@ -57,16 +57,17 @@ def test_pre_ready_progress_event_goes_to_stderr():
             stage="downloading_stanza_catalog",
         )
 
-    assert fake_stdout.getvalue() == "", (
-        "Pre-ready progress events must NOT touch stdout — that's "
-        "reserved for the ready envelope. Got: "
-        f"{fake_stdout.getvalue()!r}"
+    line = fake_stdout.getvalue().strip()
+    envelope = json.loads(line)
+    assert envelope["op"] == "progress_v2", (
+        "Pre-ready progress events should be emitted as a single "
+        f"progress_v2 JSON line on stdout. Got: {line!r}"
     )
-    stderr_text = fake_stderr.getvalue()
-    assert "downloading_stanza_catalog" in stderr_text, (
-        "Pre-ready progress events should still log to stderr so the "
-        "operator can see what the worker is doing during bootstrap. "
-        f"Got: {stderr_text!r}"
+    assert envelope["event"]["stage"] == "downloading_stanza_catalog"
+    assert fake_stderr.getvalue() == "", (
+        "Stderr is buffered until process exit; pre-ready events must "
+        "use the stdout preamble path. Got stderr: "
+        f"{fake_stderr.getvalue()!r}"
     )
 
 

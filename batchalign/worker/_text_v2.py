@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, ValidationError
 
+from batchalign.errors import BatchalignError
+
 from batchalign.inference.coref import (
     CorefBatchItem,
     batch_infer_coref,
@@ -439,7 +441,7 @@ def _build_morphosyntax_result(
         return MorphosyntaxResultPayloadV2.model_validate(
             _normalize_text_task_result_payload("morphosyntax", response, item_count)
         )
-    except (ValidationError, ValueError) as error:
+    except (ValidationError, ValueError, BatchalignError) as error:
         raise RuntimeError(f"invalid morphosyntax host output: {error}") from error
 
 
@@ -453,7 +455,7 @@ def _build_utseg_result(
         return UtsegResultPayloadV2.model_validate(
             _normalize_text_task_result_payload("utseg", response, item_count)
         )
-    except (ValidationError, ValueError) as error:
+    except (ValidationError, ValueError, BatchalignError) as error:
         raise RuntimeError(f"invalid utseg host output: {error}") from error
 
 
@@ -467,7 +469,7 @@ def _build_translate_result(
         return TranslationResultPayloadV2.model_validate(
             _normalize_text_task_result_payload("translate", response, item_count)
         )
-    except (ValidationError, ValueError) as error:
+    except (ValidationError, ValueError, BatchalignError) as error:
         raise RuntimeError(f"invalid translate host output: {error}") from error
 
 
@@ -481,7 +483,7 @@ def _build_coref_result(
         return CorefResultPayloadV2.model_validate(
             _normalize_text_task_result_payload("coref", response, item_count)
         )
-    except (ValidationError, ValueError) as error:
+    except (ValidationError, ValueError, BatchalignError) as error:
         raise RuntimeError(f"invalid coref host output: {error}") from error
 
 

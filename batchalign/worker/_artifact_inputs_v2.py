@@ -19,6 +19,7 @@ from typing import TypeVar
 import numpy as np
 from pydantic import TypeAdapter
 
+from batchalign.errors import BatchalignError
 from batchalign.worker._types_v2 import (
     ArtifactRefV2,
     InlineJsonRefV2,
@@ -51,7 +52,7 @@ def find_attachment_by_id_v2(
 
     try:
         raw = batchalign_core.find_worker_attachment_by_id(attachments, artifact_id)
-    except (ValueError, TypeError) as error:
+    except (ValueError, TypeError, BatchalignError) as error:
         raise ArtifactInputErrorV2(str(error)) from error
     return _ARTIFACT_REF_ADAPTER.validate_json(raw)
 
@@ -88,7 +89,7 @@ def load_json_attachment_v2(
 
     try:
         raw = batchalign_core.load_worker_json_attachment(attachments, artifact_id)
-    except (ValueError, TypeError) as error:
+    except (ValueError, TypeError, BatchalignError) as error:
         raise ArtifactInputErrorV2(str(error)) from error
     return json.loads(raw)
 
@@ -100,7 +101,7 @@ def load_prepared_text_json_v2(attachment: PreparedTextRefV2) -> object:
 
     try:
         raw = batchalign_core.load_worker_prepared_text_json(attachment)
-    except (ValueError, TypeError) as error:
+    except (ValueError, TypeError, BatchalignError) as error:
         raise ArtifactInputErrorV2(str(error)) from error
     return json.loads(raw)
 
@@ -118,7 +119,7 @@ def load_prepared_audio_f32le_v2(attachment: PreparedAudioRefV2) -> np.ndarray:
 
     try:
         raw = batchalign_core.load_worker_prepared_audio_f32le_bytes(attachment)
-    except (ValueError, TypeError) as error:
+    except (ValueError, TypeError, BatchalignError) as error:
         raise ArtifactInputErrorV2(str(error)) from error
     samples = np.frombuffer(raw, dtype="<f4").copy()
     if attachment.channels == 1:
