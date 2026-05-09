@@ -217,21 +217,51 @@ async function fetchJobInfo(request, baseUrl, jobId) {
 
 async function waitForJobStatus(request, baseUrl, jobId, predicate, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
+  let lastInfo = null;
   let lastStatus = "unknown";
 
   while (Date.now() < deadline) {
     const response = await request.get(`${baseUrl}/jobs/${jobId}`);
     if (response.ok()) {
-      const info = await response.json();
-      lastStatus = info.status;
-      if (predicate(info.status, info)) {
-        return info;
+      lastInfo = await response.json();
+      lastStatus = lastInfo.status;
+      if (predicate(lastStatus, lastInfo)) {
+        return lastInfo;
+      }
+      // Fail fast on terminal states the predicate didn't accept,
+      // so a failed-job test doesn't burn the full Playwright timeout
+      // waiting for an already-dead job. Pull the per-file error
+      // detail from the results endpoint so the failure message
+      // surfaces *why* the job failed.
+      if (lastStatus === "failed" || lastStatus === "cancelled") {
+        const detail = await fetchJobFailureDetail(request, baseUrl, jobId);
+        throw new Error(
+          `job ${jobId} reached terminal status=${lastStatus} but predicate ` +
+            `wanted otherwise.\n` +
+            `info: ${JSON.stringify(lastInfo, null, 2)}\n` +
+            `failure detail: ${detail}`
+        );
       }
     }
     await sleep(300);
   }
 
-  throw new Error(`timed out waiting for job ${jobId}; last status=${lastStatus}`);
+  throw new Error(
+    `timed out waiting for job ${jobId}; last status=${lastStatus}\n` +
+      `info: ${JSON.stringify(lastInfo, null, 2)}`
+  );
+}
+
+async function fetchJobFailureDetail(request, baseUrl, jobId) {
+  try {
+    const r = await request.get(`${baseUrl}/jobs/${jobId}/results`);
+    if (!r.ok()) {
+      return `<results endpoint returned ${r.status()} ${r.statusText()}>`;
+    }
+    return JSON.stringify(await r.json(), null, 2);
+  } catch (err) {
+    return `<could not fetch results: ${err}>`;
+  }
 }
 
 function makeChatFile(filename, utterance, { language = "eng" } = {}) {
