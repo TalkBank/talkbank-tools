@@ -511,8 +511,19 @@ mod tests {
             BTreeMap::new(),
         );
 
-        let plan = MediaAnalysisDispatchPlan::from_job(&snapshot, &ServerConfig::default())
-            .expect("media analysis plan");
+        // Pin memory_tier so resolved_memory_tier() does not call
+        // MemoryTier::detect() (which reads live host RAM and is not
+        // mockable). The plan's `worker_bootstrap` is derived from
+        // the resolved tier; without pinning, this assertion shifts
+        // between dev machines (Large/Fleet → Profile) and small CI
+        // runners (Small → Task). Large matches the test-only
+        // CommandKernelPlan::for_command default below.
+        let cfg = ServerConfig {
+            memory_tier: Some(crate::types::runtime::MemoryTierKind::Large),
+            ..Default::default()
+        };
+        let plan =
+            MediaAnalysisDispatchPlan::from_job(&snapshot, &cfg).expect("media analysis plan");
 
         assert_eq!(
             plan,

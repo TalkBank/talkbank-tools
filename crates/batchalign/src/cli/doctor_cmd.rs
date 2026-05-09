@@ -1263,7 +1263,17 @@ mod tests {
     /// flow through unchanged.
     #[test]
     fn snapshot_host_facts_report_default_apple_silicon_json() {
-        let cfg = ServerConfig::default();
+        // Pin memory_tier so resolved_memory_tier() does not call
+        // MemoryTier::detect() (which reads live host RAM via sysinfo
+        // and is not driven by MockHostFactsSource). Without this,
+        // the audit's `memory_gate_mb.recommended` shifts with the
+        // host's RAM tier and the snap diverges between Apple Silicon
+        // dev machines (Fleet, 8000 MB) and small CI runners (Small,
+        // 2000 MB).
+        let cfg = ServerConfig {
+            memory_tier: Some(crate::types::runtime::MemoryTierKind::Fleet),
+            ..Default::default()
+        };
         let source = host_facts::MockHostFactsSource::new(apple_silicon_64gb());
         let report = build_host_facts_report_from(&cfg, &source);
         insta::assert_json_snapshot!("host_facts_report_default_apple_silicon", report);
@@ -1276,6 +1286,9 @@ mod tests {
     fn snapshot_host_facts_report_with_warning_apple_silicon_json() {
         let cfg = ServerConfig {
             gpu_thread_pool_size: Some(4),
+            // See the default-snapshot test above for why memory_tier
+            // is pinned here.
+            memory_tier: Some(crate::types::runtime::MemoryTierKind::Fleet),
             ..Default::default()
         };
         let source = host_facts::MockHostFactsSource::new(apple_silicon_64gb());

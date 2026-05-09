@@ -25,7 +25,7 @@ jobs:
       - name: Build dashboard
         run: make batchalign-dashboard-build
       - name: Build CLI binary
-        run: cargo build --release -p batchalign-cli
+        run: cargo build --release -p batchalign
       - uses: actions/upload-artifact@v6
         with:
           name: cli-binary
@@ -143,7 +143,7 @@ jobs:
           test ! -e batchalign/serve/app.py
           test ! -e batchalign/serve/job_store.py
       - name: CI hygiene (Rust)
-        run: cargo test -p batchalign-cli --test ci_checks -q
+        run: cargo test -p batchalign --test ci_checks -q
       - name: Verify runtime constants
         run: python3 scripts/check_runtime_drift.py
       - name: Strict mypy
@@ -253,7 +253,7 @@ jobs:
         env:
           BATCHALIGN_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
-          cargo build -p batchalign-cli
+          cargo build -p batchalign
           ./target/debug/batchalign3 serve start \
             --foreground --test-echo --warmup off --port 18123 &
           SERVER_PID=$!

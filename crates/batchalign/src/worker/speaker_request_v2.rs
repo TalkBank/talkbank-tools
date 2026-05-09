@@ -140,7 +140,11 @@ mod tests {
             .expect("artifact store should exist");
         let ids = PreparedSpeakerRequestIdsV2::new("req-speaker-v2-prepared", "audio-speaker-v2");
         let media_path = tempdir.path().join("speaker-input.wav");
-        let ffmpeg_out = tokio::process::Command::new("ffmpeg")
+        // ffmpeg is a runtime prereq for align/asr commands; tests
+        // must skip gracefully when it isn't installed (e.g., CI
+        // runners without ffmpeg). Treat NotFound as a skip; treat
+        // any other launch error as a hard failure.
+        let ffmpeg_out = match tokio::process::Command::new("ffmpeg")
             .args([
                 "-y",
                 "-f",
@@ -153,7 +157,14 @@ mod tests {
             ])
             .output()
             .await
-            .expect("ffmpeg process should run");
+        {
+            Ok(out) => out,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("skipping: ffmpeg not installed");
+                return;
+            }
+            Err(e) => panic!("ffmpeg process: {e}"),
+        };
         if !ffmpeg_out.status.success() {
             eprintln!("skipping: could not generate test wav");
             return;

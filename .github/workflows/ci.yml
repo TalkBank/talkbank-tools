@@ -418,8 +418,8 @@ jobs:
           re2rust -W -Wno-nondeterministic-tags --input-encoding utf8 --utf8 \
             --no-generation-date \
             --conditions -o /tmp/lexer_check.rs \
-            crates/talkbank-re2c-parser/src/lexer.re
-          diff crates/talkbank-re2c-parser/src/generated/lexer.rs /tmp/lexer_check.rs
+            crates/talkbank-parser-re2c/src/lexer.re
+          diff crates/talkbank-parser-re2c/src/generated/lexer.rs /tmp/lexer_check.rs
 
       - name: Smoke test — chatter --help
         run: ./target/release/chatter --help

@@ -95,28 +95,34 @@ mod tests {
 
     #[test]
     fn compute_workers_explicit_config() {
+        // The explicit cap is a CEILING. `compute_job_workers` also
+        // clamps by `available_parallelism()` and per-category caps,
+        // both of which are host-derived and shrink on small CI
+        // runners. The right invariant is `1 <= result <= explicit`
+        // — same shape as `compute_workers_auto_tune_caps_at_max`
+        // below. Asserting `==` overspecified and only worked on
+        // many-core dev machines.
         let config = ServerConfig {
             max_workers_per_job: Some(3),
             ..Default::default()
         };
         let effective = effective_for_test(&config);
-        assert_eq!(
-            compute_job_workers(ReleasedCommand::Morphotag, 10, &effective, &config),
-            NumWorkers(3)
-        );
+        let result = compute_job_workers(ReleasedCommand::Morphotag, 10, &effective, &config);
+        assert!(*result >= 1 && *result <= 3, "got {result:?}");
     }
 
     #[test]
     fn compute_workers_explicit_caps_at_file_count() {
+        // Same reasoning as `compute_workers_explicit_config`:
+        // ceiling, not equality. The intent is "explicit cap of 8 is
+        // honored AND further clamped to file count of 2".
         let config = ServerConfig {
             max_workers_per_job: Some(8),
             ..Default::default()
         };
         let effective = effective_for_test(&config);
-        assert_eq!(
-            compute_job_workers(ReleasedCommand::Morphotag, 2, &effective, &config),
-            NumWorkers(2)
-        );
+        let result = compute_job_workers(ReleasedCommand::Morphotag, 2, &effective, &config);
+        assert!(*result >= 1 && *result <= 2, "got {result:?}");
     }
 
     #[test]

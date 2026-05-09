@@ -107,7 +107,7 @@ jobs:
       - name: Build CLI binary (macOS / Windows — native)
         if: runner.os != 'Linux'
         run: |
-          cargo build --release -p batchalign-cli --target ${{ matrix.target }}
+          cargo build --release -p batchalign --target ${{ matrix.target }}
           mkdir -p batchalign/_bin
       - name: Stage CLI binary (macOS)
         if: runner.os == 'macOS'
@@ -124,7 +124,7 @@ jobs:
           args: --release --out dist
           before-script-linux: |
             set -euo pipefail
-            cargo build --release -p batchalign-cli --target "$MATURIN_TARGET"
+            cargo build --release -p batchalign --target "$MATURIN_TARGET"
             mkdir -p batchalign/_bin
             cp "target/${MATURIN_TARGET}/release/batchalign3" batchalign/_bin/batchalign3
       - uses: actions/upload-artifact@v6
