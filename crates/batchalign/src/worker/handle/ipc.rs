@@ -367,19 +367,41 @@ impl WorkerHandle {
         self.write_request(&WorkerRequest::Capabilities).await?;
 
         // Import probes in _capabilities() may load heavy ML libraries (torch,
-        // whisper, pyannote) on first invocation. 60s allows for cold imports.
-        let response = tokio::time::timeout(Duration::from_secs(60), self.read_response())
-            .await
-            .map_err(|_| {
-                WorkerError::Protocol("timeout waiting for capabilities response".into())
-            })??;
+        // whisper, pyannote) on first invocation, AND on first run a Stanza
+        // catalog download can fire `progress_v2` events before the final
+        // `capabilities` response. Allow up to 60s of total wall clock for
+        // the response while consuming any preamble progress events that
+        // arrive in the meantime — same shape as the execute_v2 read loop
+        // and the ready-line read in handle::lifecycle.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        loop {
+            let response = tokio::time::timeout_at(deadline, self.read_response())
+                .await
+                .map_err(|_| {
+                    WorkerError::Protocol("timeout waiting for capabilities response".into())
+                })??;
 
-        match response {
-            WorkerResponse::Capabilities { response } => Ok(response),
-            WorkerResponse::Error { error, kind } => Err(kind.into_worker_error(error)),
-            other => Err(WorkerError::Protocol(format!(
-                "unexpected response for capabilities: {other:?}"
-            ))),
+            match response {
+                WorkerResponse::ProgressV2 { event } => {
+                    tracing::debug!(
+                        worker_pid = ?self.pid,
+                        stage = %event.stage,
+                        completed = event.completed,
+                        total = event.total,
+                        "skipping progress_v2 preamble during capabilities probe"
+                    );
+                    continue;
+                }
+                WorkerResponse::Capabilities { response } => return Ok(response),
+                WorkerResponse::Error { error, kind } => {
+                    return Err(kind.into_worker_error(error));
+                }
+                other => {
+                    return Err(WorkerError::Protocol(format!(
+                        "unexpected response for capabilities: {other:?}"
+                    )));
+                }
+            }
         }
     }
 }
