@@ -293,7 +293,14 @@ async function submitMorphotagJob(request, baseUrl, { files, lang = "eng", sourc
     headers: { "content-type": "application/json" },
   });
 
-  expect(response.ok()).toBeTruthy();
+  if (!response.ok()) {
+    const body = await response.text();
+    throw new Error(
+      `submitMorphotagJob POST ${baseUrl}/jobs returned ${response.status()} ${response.statusText()}\n` +
+        `request payload: ${JSON.stringify(payload, null, 2)}\n` +
+        `response body: ${body || "<empty>"}`
+    );
+  }
   return await response.json();
 }
 
