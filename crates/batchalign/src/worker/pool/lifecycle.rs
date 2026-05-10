@@ -169,27 +169,40 @@ impl WorkerPool {
     ) -> Result<(usize, SpawnPermitGuard), AdmissionRejection> {
         let max = self.config.max_workers_per_key.get(group.profile);
 
+        // Pressure gates (CPU loadavg, memory headroom) implement
+        // BACK-PRESSURE — they slow new spawns when existing workers
+        // are pressuring the host. Cold-start (no workers in this
+        // group) has nothing to back-pressure against; refusing here
+        // leaves the pool dead-on-arrival with no recovery path.
+        // Both gates honor the same cold-start bypass via their
+        // `_with_state` variants. Capacity gates (Layer 1 permit,
+        // Layer 2 per-key cap) below run regardless: those enforce
+        // budget, not pressure.
+        //
+        // Safety against actual at-spawn OOM is one layer down:
+        // `memory_guard` per-worker RSS observation + the OS OOM
+        // killer. The pressure gates are an optimization for healthy
+        // hosts, not load-bearing for correctness.
+        let pool_state = if group.is_empty() {
+            memory_gate::PoolGateState::ColdStart
+        } else {
+            memory_gate::PoolGateState::Warm
+        };
+
         // Layer 0: live CPU-loadavg gate. Refusing here before any
         // permit work means a saturated host doesn't churn the
-        // global-permit semaphore. The threshold is the host's
-        // logical CPU count, polled fresh from
-        // `available_parallelism()` each call — no config field, no
-        // env var, no operator override (no operator exists). When
-        // the 1m loadavg is at or above ncpus the host is already
-        // CPU-saturated; adding another worker oversubscribes, which
-        // is what the static recommender's per-profile/per-host
-        // formulas were trying to prevent by guessing.
-        // Production leaves `cpu_gate_threshold_override` unset and
-        // we read the host's logical CPU count fresh. Tests that
-        // exercise the permit / per-key-cap / metrics paths set the
-        // override to a value far above any realistic load so the
-        // gate does not reject before reaching the test logic; the
-        // dedicated cpu_gate unit tests cover both branches.
+        // global-permit semaphore. Threshold is the host's logical
+        // CPU count, polled fresh each call. Tests exercising the
+        // permit / per-key-cap / metrics paths set the override to a
+        // value far above any realistic load so the gate does not
+        // reject before reaching the test logic; the dedicated
+        // cpu_gate unit tests cover both branches.
         let cpu_threshold = self
             .config
             .cpu_gate_threshold_override
             .unwrap_or_else(cpu_gate::host_cpu_count_as_threshold);
-        if let Err(saturated) = cpu_gate::check_cpu_saturation(cpu_threshold) {
+        if let Err(saturated) = cpu_gate::check_cpu_saturation_with_state(pool_state, cpu_threshold)
+        {
             let count = self
                 .cpu_saturation_rejections_total
                 .fetch_add(1, Ordering::Relaxed)
@@ -238,17 +251,6 @@ impl WorkerPool {
                 Some(observed) => (observed, rss_observer::EstimateSource::ObservedAvgIdle),
                 None => (reservation_mb, rss_observer::EstimateSource::Reservation),
             };
-        // Cold-start vs warm: if no worker exists for this group's
-        // (profile, lang, engine) class, the admission gate must
-        // admit — back-pressure semantics don't apply when there's
-        // nothing to push back against. Refusing the first spawn
-        // leaves the pool dead-on-arrival on memory-tight hosts;
-        // memory_guard handles actual at-spawn OOM.
-        let pool_state = if group.total.load(Ordering::Relaxed) == 0 {
-            memory_gate::PoolGateState::ColdStart
-        } else {
-            memory_gate::PoolGateState::Warm
-        };
         if let Err(constrained) =
             memory_gate::check_memory_saturation_with_state(pool_state, mem_threshold, estimate_mb)
         {

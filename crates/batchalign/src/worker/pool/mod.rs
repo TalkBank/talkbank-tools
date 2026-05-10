@@ -404,6 +404,20 @@ impl WorkerGroup {
         self.total.fetch_sub(n, Ordering::Relaxed);
         permit::SpawnPermitGuard::release_n(&self.spawn_permits, n);
     }
+
+    /// True when this group has no workers (live, idle, or in-flight
+    /// for spawn). Drives the cold-start vs warm distinction at the
+    /// admission gates (see `memory_gate::PoolGateState`) and the
+    /// eviction-vs-wait branch in `dispatch::checkout`. The atomic
+    /// load is `Relaxed` because the gate decision is intentionally
+    /// race-tolerant: a concurrent spawn that flips the answer
+    /// between this load and the downstream `compare_exchange`
+    /// re-races at the CAS, and the gates themselves are stateless
+    /// so a stale ColdStart classification cannot cause incorrect
+    /// admission.
+    pub(super) fn is_empty(&self) -> bool {
+        self.total.load(Ordering::Relaxed) == 0
+    }
 }
 
 /// Shared map of worker groups, accessible from both the pool and background tasks.

@@ -98,7 +98,7 @@ impl WorkerPool {
                     // from another group; if that fails, park on the
                     // pool-wide `worker_returned` Notify with a
                     // bounded deadline.
-                    if group.total.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+                    if group.is_empty() {
                         let key: WorkerKey = (*target, lang.clone(), engine_overrides.to_owned());
 
                         // Register on `worker_returned` BEFORE the

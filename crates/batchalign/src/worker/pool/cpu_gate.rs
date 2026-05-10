@@ -94,6 +94,25 @@ pub(super) fn check_cpu_saturation(threshold: f64) -> Result<(), CpuSaturated> {
     }
 }
 
+/// State-aware CPU admission check, mirroring
+/// [`super::memory_gate::check_memory_saturation_with_state`].
+///
+/// `PoolGateState::ColdStart` admits unconditionally — the pool has
+/// no workers to back-pressure against, so refusing the first spawn
+/// just to relieve unrelated host load wedges the pool with no
+/// recovery path. CPU pressure is back-pressure, not safety.
+///
+/// `PoolGateState::Warm` runs the loadavg check normally.
+pub(super) fn check_cpu_saturation_with_state(
+    state: super::memory_gate::PoolGateState,
+    threshold: f64,
+) -> Result<(), CpuSaturated> {
+    if state == super::memory_gate::PoolGateState::ColdStart {
+        return Ok(());
+    }
+    check_cpu_saturation(threshold)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
