@@ -70,9 +70,6 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     /// consulted by `should_skip_inference` or by any other
     /// morphotag stage.
     pub is_no_align: bool,
-    /// Non-fatal reason this file should bypass morphotag inference and be
-    /// returned unchanged.
-    pub skip_reason: Option<String>,
     /// Per-file primary language resolved from the parsed `@Languages:` header
     /// (or the BA2-parity `eng` fallback when the header is absent). Set by
     /// `stage_parse`; consumed by every downstream stage that previously read
@@ -108,7 +105,6 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
             parse_errors: Vec::new(),
             is_ca: false,
             is_no_align: false,
-            skip_reason: None,
             resolved_lang: None,
             batch_items: Vec::new(),
             ud_responses: Vec::new(),
@@ -130,10 +126,14 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
 
     /// True when the file should bypass all morphosyntax inference stages
     /// (parse + serialize round-trip only). Set by `stage_parse` based on
-    /// `@Options: CA`, `@Options: NoAlign`, or an unsupported primary language.
+    /// `@Options: CA`. Unsupported-primary-language files no longer
+    /// pass-through; `stage_parse` returns a typed `Validation` error
+    /// for those so the operator sees a per-file failure with an
+    /// actionable message (rather than a silent "completed in 8 ms with
+    /// no work done" that the dashboard surfaces as success).
     fn should_skip_inference(&self) -> bool {
         // `is_no_align` is intentionally NOT consulted; see `is_no_align` field doc.
-        self.is_ca || self.skip_reason.is_some()
+        self.is_ca
     }
 }
 
@@ -245,12 +245,31 @@ pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode
     })
 }
 
-pub(crate) fn unsupported_primary_language_reason(chat_file: &ChatFile) -> Option<String> {
+/// Returns a per-file error message when the primary `@Languages` code is
+/// not in Stanza's supported set.
+///
+/// Pre-2026-05-10 this function's `Some(...)` return drove a silent
+/// pass-through (the file was returned unchanged with no `%mor`/`%gra`
+/// injected, and the job reported `completed`). That was dishonest UX:
+/// operators submitting a file with a typo'd or unsupported language
+/// got back their input unchanged, with no surface signal that nothing
+/// happened. The dashboard's failure column never lit up.
+///
+/// Post-2026-05-10 the caller (`stage_parse`) converts a `Some(...)`
+/// return into a `ServerError::Validation`, which propagates up as a
+/// per-file failure with the message visible in the dashboard. The
+/// operator can then fix the `@Languages` header and re-run.
+///
+/// `@Options: CA` files still pass-through (handled by `is_ca`, a
+/// separate flag) — that is a legitimate "morphotag not applicable to
+/// this transcript convention" case, not a typo to surface.
+pub(crate) fn unsupported_primary_language_error(chat_file: &ChatFile) -> Option<String> {
     if let Some(primary) = chat_file.languages.0.first() {
         if !crate::chat_ops::morphosyntax_ops::is_stanza_supported(primary) {
             return Some(format!(
-                "morphotag: skipping file because primary @Languages '{}' is not supported by Stanza. \
-                 The file is returned unchanged. Supported ISO-639-3 codes: {}.",
+                "morphotag: primary @Languages '{}' is not supported by Stanza. \
+                 Fix the @Languages header to use a supported ISO-639-3 code and re-run. \
+                 Supported codes: {}.",
                 primary,
                 talkbank_transform::morphosyntax::supported_iso3_codes().join(", ")
             ));
@@ -276,9 +295,9 @@ fn stage_parse<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
         ctx.is_no_align = is_no_align(&chat_file);
 
         if !ctx.is_ca {
-            ctx.skip_reason = unsupported_primary_language_reason(&chat_file);
-            if let Some(reason) = &ctx.skip_reason {
-                warn!(reason = %reason, "Morphotag pass-through");
+            if let Some(error_msg) = unsupported_primary_language_error(&chat_file) {
+                warn!(reason = %error_msg, "Morphotag rejected unsupported primary language");
+                return Err(ServerError::Validation(error_msg));
             }
         }
 
@@ -449,10 +468,13 @@ fn stage_postvalidate<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) 
 
 fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> StageFuture<'a> {
     Box::pin(async move {
-        // CA / unsupported-language pass-through: serialize as-is, no
-        // provenance, no placeholder sweep. `is_no_align` is intentionally
-        // NOT consulted; see `is_no_align` field doc.
-        if ctx.is_ca || ctx.skip_reason.is_some() {
+        // CA pass-through: serialize as-is, no provenance, no
+        // placeholder sweep. `is_no_align` is intentionally NOT
+        // consulted; see `is_no_align` field doc. Unsupported-primary-
+        // language files no longer reach this stage — `stage_parse`
+        // returns a typed `Validation` error for them, surfacing as a
+        // per-file failure rather than a silent pass-through.
+        if ctx.is_ca {
             let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
                 ServerError::Validation("Parsed chat missing before morphotag serialize".into())
             })?;
@@ -498,7 +520,7 @@ mod tests {
     //! Tests for per-file morphotag pass-through decisions. The full pipeline
     //! is exercised by integration tests against a worker pool; these unit
     //! tests cover the local predicate and pass-through serialization logic.
-    use super::{run_morphosyntax_pipeline, unsupported_primary_language_reason};
+    use super::{run_morphosyntax_pipeline, unsupported_primary_language_error};
     use crate::api::EngineVersion;
     use crate::cache::UtteranceCache;
     use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
@@ -514,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_primary_language_gets_skip_reason() {
+    fn unsupported_primary_language_returns_actionable_error_message() {
         let chat = "@UTF8\n\
                     @PID:\t11312/c-test\n\
                     @Begin\n\
@@ -524,15 +546,20 @@ mod tests {
                     *CHI:\tnešto .\n\
                     @End\n";
         let chat_file = parse(chat);
-        let msg = unsupported_primary_language_reason(&chat_file)
-            .expect("unsupported primary language should produce a skip reason");
+        let msg = unsupported_primary_language_error(&chat_file)
+            .expect("unsupported primary language must produce an error message");
         assert!(
             msg.contains("srp"),
-            "skip reason must name the unsupported lang: {msg}"
+            "error must name the unsupported lang: {msg}"
         );
         assert!(
-            msg.contains("returned unchanged"),
-            "skip reason must describe pass-through semantics: {msg}"
+            msg.contains("not supported by Stanza"),
+            "error must explicitly call out unsupported-by-Stanza so the \
+             operator sees the cause in the dashboard: {msg}"
+        );
+        assert!(
+            msg.contains("Fix the @Languages header"),
+            "error must be actionable — tell the operator what to do: {msg}"
         );
     }
 
@@ -548,7 +575,7 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            unsupported_primary_language_reason(&chat_file).is_none(),
+            unsupported_primary_language_error(&chat_file).is_none(),
             "eng must pass the Stanza-supported gate",
         );
     }
@@ -567,7 +594,7 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            unsupported_primary_language_reason(&chat_file).is_none(),
+            unsupported_primary_language_error(&chat_file).is_none(),
             "missing @Languages must NOT hard-error (BA2 parity: defaults to eng)",
         );
     }
@@ -656,13 +683,21 @@ mod tests {
                     @End\n";
         let chat_file = parse(chat);
         assert!(
-            unsupported_primary_language_reason(&chat_file).is_none(),
+            unsupported_primary_language_error(&chat_file).is_none(),
             "primary=eng with secondary=srp must pass (gate is on primary only)",
         );
     }
 
     #[tokio::test]
-    async fn unsupported_primary_language_round_trips_without_provenance() {
+    async fn unsupported_primary_language_returns_typed_validation_error() {
+        // 2026-05-10 inversion: unsupported primary language is no longer
+        // a silent pass-through. The pipeline returns a typed
+        // `ServerError::Validation` so the per-file dispatch surfaces the
+        // failure to the operator via the dashboard. The OLD behavior
+        // (round-trip unchanged with no provenance) was dishonest UX —
+        // operators got their input back with no signal that nothing
+        // happened. See `unsupported_primary_language_error` doc comment
+        // for the full rationale.
         let chat = "@UTF8\n\
                     @PID:\t11312/c-test\n\
                     @Begin\n\
@@ -671,7 +706,6 @@ mod tests {
                     @ID:\tsrp|test|CHI||female|||Target_Child|||\n\
                     *CHI:\tnešto .\n\
                     @End\n";
-        let expected = to_chat_string(&parse(chat));
         let tempdir = tempfile::tempdir().expect("tempdir");
         let cache = UtteranceCache::sqlite(Some(tempdir.path().join("cache")))
             .await
@@ -680,7 +714,7 @@ mod tests {
         let engine_version = EngineVersion::from("test-morphotag");
         let services = PipelineServices::new(&pool, &cache, &engine_version);
 
-        let output = run_morphosyntax_pipeline(
+        let err = run_morphosyntax_pipeline(
             chat,
             &crate::api::LanguageCode3::eng(),
             services,
@@ -690,15 +724,16 @@ mod tests {
             true,
         )
         .await
-        .expect("unsupported primary language should pass through");
+        .expect_err("unsupported primary language must surface as Err");
 
-        assert_eq!(
-            output, expected,
-            "unsupported primary language must round-trip unchanged"
+        let msg = err.to_string();
+        assert!(
+            msg.contains("srp"),
+            "error must name the unsupported lang: {msg}"
         );
         assert!(
-            !output.contains("[ba3 morphotag |"),
-            "unsupported primary language must not inject morphotag provenance"
+            msg.contains("not supported by Stanza"),
+            "error must call out unsupported-by-Stanza: {msg}"
         );
     }
 

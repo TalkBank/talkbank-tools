@@ -498,12 +498,17 @@ test.describe("real Rust server e2e (React dashboard)", () => {
     await expect(page.getByRole("button", { name: "Restart" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "real-failure.cha", exact: true })).toBeVisible();
-    await expect(page.locator("table").getByText("failed to parse ready signal")).toBeVisible();
+    // Post-2026-05-10 contract: unsupported primary @Languages surfaces
+    // as a per-file Validation error from the morphotag pipeline rather
+    // than as the legacy "failed to parse ready signal" worker-bootstrap
+    // crash. The error message names the unsupported lang and the
+    // Stanza-support cause; that is what the dashboard surfaces.
+    await expect(page.locator("table").getByText(/not supported by Stanza/)).toBeVisible();
 
     const failedResults = await fetchJobResults(request, harness.baseUrl, jobId);
     expect(failedResults.status).toBe("failed");
     expect(failedResults.files).toHaveLength(1);
-    expect(failedResults.files[0].error).toContain("failed to parse ready signal");
+    expect(failedResults.files[0].error).toContain("not supported by Stanza");
 
     const restartResponse = page.waitForResponse(
       (response) =>
@@ -531,7 +536,7 @@ test.describe("real Rust server e2e (React dashboard)", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("button", { name: "Restart" })).toBeVisible();
-    await expect(page.locator("table").getByText("failed to parse ready signal")).toBeVisible();
+    await expect(page.locator("table").getByText(/not supported by Stanza/)).toBeVisible();
 
     await page.getByRole("button", { name: "Delete" }).click();
     await expect(page).toHaveURL(new RegExp(`${harness.baseUrl}/dashboard/?$`));
