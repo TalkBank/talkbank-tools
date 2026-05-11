@@ -191,16 +191,27 @@ batchalign-build-pyo3:
 
 batchalign-build-wheel:
 	@echo "==> Building imported Batchalign wheel..."
-	@# Always rebuild the native binary so the wheel never bundles a stale
-	@# one — cargo's incremental compilation makes the no-op case fast.
-	@# Skip only when a Windows .exe has been pre-staged for
-	@# cross-compilation (the cross-compile workflow places batchalign3.exe
-	@# into batchalign/_bin/ and packages that). The previous guard
-	@# (`! -x batchalign/_bin/batchalign3 && ! -f .exe`) silently bundled
-	@# stale native binaries whenever the file already existed; this caused
-	@# the 2026-04-29 deploy to ship the previous day's binary even though
-	@# fresh sources had been committed. See the cancel-cascade postmortem.
-	@if [ ! -f batchalign/_bin/batchalign3.exe ]; then \
+	@# Default: always rebuild the native binary so the wheel never
+	@# bundles a stale one. The 2026-04-29 deploy postmortem (cancel-
+	@# cascade) was caused by a previous guard that silently reused
+	@# whatever was at batchalign/_bin/batchalign3 — even when the
+	@# sources had changed.
+	@#
+	@# Two known-safe skip paths:
+	@#   1. Windows cross-compile pre-stages batchalign3.exe (existing).
+	@#   2. CI's build-wheel job downloads the cli-binary artifact (the
+	@#      OUTPUT of build-cli, compiled FROM THIS COMMIT'S SOURCES) and
+	@#      sets BATCHALIGN_PRESTAGED_BIN=1 to declare provenance. In
+	@#      that one path the prestaged binary is guaranteed fresh and
+	@#      rebuilding duplicates ~9 min of fat-LTO compile.
+	@#
+	@# Local invocations (no env var, no .exe) fall through to the safe
+	@# always-rebuild path.
+	@if [ -f batchalign/_bin/batchalign3.exe ]; then \
+	  echo "==> Using pre-staged Windows binary (.exe)"; \
+	elif [ "$$BATCHALIGN_PRESTAGED_BIN" = "1" ] && [ -x batchalign/_bin/batchalign3 ]; then \
+	  echo "==> Using pre-staged Linux binary from CI build-cli artifact"; \
+	else \
 	  echo "==> Building native batchalign3 binary..."; \
 	  cargo build --release -p batchalign; \
 	  mkdir -p batchalign/_bin; \

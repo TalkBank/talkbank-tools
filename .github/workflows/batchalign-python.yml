@@ -75,6 +75,14 @@ jobs:
       - name: Make CLI binary executable
         run: chmod +x batchalign/_bin/batchalign3
       - name: Build wheel
+        # BATCHALIGN_PRESTAGED_BIN=1 tells the Makefile to reuse the
+        # binary downloaded above (from build-cli, compiled from THIS
+        # commit's sources). Skips ~9 min of duplicate fat-LTO compile
+        # per matrix entry. The 2026-04-29 deploy postmortem's stale-
+        # binary risk does not apply here because the artifact came
+        # from build-cli's compile of the same commit.
+        env:
+          BATCHALIGN_PRESTAGED_BIN: "1"
         run: make batchalign-build-wheel
       - uses: actions/upload-artifact@v6
         with:
