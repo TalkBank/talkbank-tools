@@ -8,6 +8,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Parallel-with-build-cli `cargo check` of the imported Rust crates.
+  # Previously lived inside `rust-integration` (post-build-wheel); moved
+  # here so the ~5 min of check work doesn't sit on the critical path
+  # behind Build CLI + Build Wheel. Shares the rust-workspace cache key
+  # with build-cli so workspace dep compile is reused.
+  batchalign-check:
+    name: Rust Imported Crate Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust-workspace
+      - name: Rust imported crate check
+        run: make batchalign-check
+
   build-cli:
     name: Build CLI Binary
     runs-on: ubuntu-latest
@@ -288,8 +307,10 @@ jobs:
         run: |
           uv sync --group dev --no-install-project
           uv pip install --no-deps dist/*.whl
-      - name: Rust imported crate check
-        run: make batchalign-check
+      # The "Rust imported crate check" step (make batchalign-check)
+      # moved to its own parallel job `batchalign-check`. It doesn't
+      # need build-cli's binary or build-wheel's wheel, so running it
+      # post-build-wheel was pure critical-path overhead.
       - name: Server startup smoke test
         # Uses build-cli's release binary instead of doing a debug
         # rebuild in-job. The smoke test exercises the server's
