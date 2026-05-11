@@ -180,8 +180,6 @@ batchalign-test-rust:
 batchalign-test-integration:
 	@echo "==> Running imported Batchalign CI hygiene..."
 	cargo run -q -p xtask -- lint-ci-hygiene
-	@echo "==> Testing imported batchalign CI proxy..."
-	cargo test -p batchalign --test ci_checks -q
 	@echo "==> Testing imported batchalign focused integration gates..."
 	cargo test -p batchalign --test json_compat --test workflow_helpers -q
 
@@ -239,8 +237,8 @@ _batchalign-typecheck-python:
 	test ! -e batchalign/cli/cli.py
 	test ! -e batchalign/serve/app.py
 	test ! -e batchalign/serve/job_store.py
-	@echo "==> Testing imported batchalign CI proxy..."
-	cargo test -p batchalign --test ci_checks -q
+	@echo "==> Running imported Batchalign CI hygiene..."
+	cargo run -q -p xtask -- lint-ci-hygiene
 	@$(MAKE) batchalign-runtime-check
 	@echo "==> Running imported Batchalign Python typecheck..."
 	uv run --no-sync mypy

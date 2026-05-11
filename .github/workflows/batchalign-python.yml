@@ -175,7 +175,13 @@ jobs:
           test ! -e batchalign/serve/app.py
           test ! -e batchalign/serve/job_store.py
       - name: CI hygiene (Rust)
-        run: cargo test -p batchalign --test ci_checks -q
+        # Call the xtask subcommand directly. The previous form was
+        # `cargo test -p batchalign --test ci_checks -q`, which compiled
+        # the entire batchalign crate in dev/test mode (~8 minutes) just
+        # to invoke a 21-line wrapper test that called this exact xtask.
+        # The wrapper added no value; the xtask is the canonical
+        # implementation.
+        run: cargo run -q -p xtask -- lint-ci-hygiene
       - name: Verify runtime constants
         run: uv run --no-sync python scripts/check_runtime_drift.py
       - name: Strict mypy
@@ -240,7 +246,11 @@ jobs:
 
   rust-integration:
     name: Rust Integration
-    needs: build-wheel
+    # Depends on both build-cli (for the prebuilt batchalign3 binary
+    # used in the smoke test) and build-wheel (for the Python wheel
+    # used by the test-echo runtime). Reusing build-cli's binary saves
+    # ~5 min of duplicate debug-mode compilation.
+    needs: [build-cli, build-wheel]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -268,6 +278,12 @@ jobs:
         with:
           name: wheel-3.12
           path: dist/
+      - uses: actions/download-artifact@v6
+        with:
+          name: cli-binary
+          path: target/release/
+      - name: Make CLI binary executable
+        run: chmod +x target/release/batchalign3
       - name: Install batchalign
         run: |
           uv sync --group dev --no-install-project
@@ -275,11 +291,14 @@ jobs:
       - name: Rust imported crate check
         run: make batchalign-check
       - name: Server startup smoke test
+        # Uses build-cli's release binary instead of doing a debug
+        # rebuild in-job. The smoke test exercises the server's
+        # startup path with --test-echo + --warmup off; release vs
+        # debug binary makes no behavioral difference to that path.
         env:
           BATCHALIGN_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
-          cargo build -p batchalign
-          ./target/debug/batchalign3 serve start \
+          ./target/release/batchalign3 serve start \
             --foreground --test-echo --warmup off --port 18123 &
           SERVER_PID=$!
           for i in $(seq 1 30); do
