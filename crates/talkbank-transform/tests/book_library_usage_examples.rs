@@ -20,9 +20,7 @@
 use talkbank_model::{DependentTier, ErrorSink, ParseError, ParseValidateOptions, WriteChat};
 use talkbank_parser::TreeSitterParser;
 use talkbank_transform::json::to_json_pretty_validated;
-use talkbank_transform::{
-    PipelineError, parse_and_validate, parse_and_validate_with_parser,
-};
+use talkbank_transform::{PipelineError, parse_and_validate, parse_and_validate_with_parser};
 
 const SAMPLE_MINIMAL: &str = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello .\n@End\n";
 
@@ -52,7 +50,10 @@ fn book_parsing_and_validating_simplest() -> Result<(), PipelineError> {
         assert!(!speaker.is_empty(), "speaker code should render non-empty");
         saw_speaker = true;
     }
-    assert!(saw_speaker, "minimal sample should contain at least one utterance");
+    assert!(
+        saw_speaker,
+        "minimal sample should contain at least one utterance"
+    );
     Ok(())
 }
 
@@ -74,7 +75,10 @@ fn book_parsing_and_validating_with_parser() -> Result<(), Box<dyn std::error::E
 /// dependent-tier iteration, MorTier::items() accessor.
 #[test]
 fn book_working_with_the_model() -> Result<(), PipelineError> {
-    let chat_file = parse_and_validate(SAMPLE_WITH_MOR, ParseValidateOptions::default().with_validation())?;
+    let chat_file = parse_and_validate(
+        SAMPLE_WITH_MOR,
+        ParseValidateOptions::default().with_validation(),
+    )?;
 
     let _participants = &chat_file.participants;
     assert!(
@@ -102,7 +106,10 @@ fn book_working_with_the_model() -> Result<(), PipelineError> {
 /// convenience + the streaming `write_chat(&mut output)` form.
 #[test]
 fn book_serializing_to_chat() -> Result<(), Box<dyn std::error::Error>> {
-    let chat_file = parse_and_validate(SAMPLE_MINIMAL, ParseValidateOptions::default().with_validation())?;
+    let chat_file = parse_and_validate(
+        SAMPLE_MINIMAL,
+        ParseValidateOptions::default().with_validation(),
+    )?;
 
     let chat_text = chat_file.to_chat_string();
     assert!(chat_text.starts_with("@UTF8"));
@@ -116,7 +123,10 @@ fn book_serializing_to_chat() -> Result<(), Box<dyn std::error::Error>> {
 /// Book example: "Serializing to JSON" via the schema-validated helper.
 #[test]
 fn book_serializing_to_json() -> Result<(), Box<dyn std::error::Error>> {
-    let chat_file = parse_and_validate(SAMPLE_MINIMAL, ParseValidateOptions::default().with_validation())?;
+    let chat_file = parse_and_validate(
+        SAMPLE_MINIMAL,
+        ParseValidateOptions::default().with_validation(),
+    )?;
     let json = to_json_pretty_validated(&chat_file)?;
     assert!(json.contains("\"speaker\""));
     Ok(())

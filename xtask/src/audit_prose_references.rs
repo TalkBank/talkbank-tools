@@ -37,15 +37,13 @@ struct AllowEntry {
 /// Historical surfaces that legitimately name deleted crates / moved
 /// paths. Reviewed 2026-05-11 against `flag-staleness` output after the
 /// `overview.md` Crate Dependency Graph fix.
-const ALLOW_LIST: &[AllowEntry] = &[
-    AllowEntry {
-        path: "book/src/batchalign/developer/maturin-pyo3-surface.md",
-        pattern_name: "deleted-crate-batchalign-revai",
-        rationale: "The '### What was removed' table documents \
+const ALLOW_LIST: &[AllowEntry] = &[AllowEntry {
+    path: "book/src/batchalign/developer/maturin-pyo3-surface.md",
+    pattern_name: "deleted-crate-batchalign-revai",
+    rationale: "The '### What was removed' table documents \
                     dependencies dropped from the slim PyO3 surface; \
                     naming `batchalign-revai` is the subject of the table.",
-    },
-];
+}];
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Violation {
@@ -172,7 +170,7 @@ fn is_excluded(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{scan_docs, Violation};
+    use super::{Violation, scan_docs};
 
     fn doc(path: &str, body: &str) -> (String, String) {
         (path.to_owned(), body.to_owned())
