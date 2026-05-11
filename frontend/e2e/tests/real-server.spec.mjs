@@ -510,6 +510,16 @@ test.describe("real Rust server e2e (React dashboard)", () => {
     expect(failedResults.files).toHaveLength(1);
     expect(failedResults.files[0].error).toContain("not supported by Stanza");
 
+    // Capture pre-restart submission time so we can detect a real
+    // re-attempt below. With instant-fail-on-parse (post-2026-05-10),
+    // the restart's new attempt may transit queued → running → failed
+    // faster than 300ms polling can catch the intermediate states.
+    // Asserting `submitted_at` changed is the load-bearing signal that
+    // the restart actually triggered a re-run, independent of whether
+    // the test happened to observe the transient `running` window.
+    const preRestartInfo = (await request.get(`${harness.baseUrl}/jobs/${jobId}`).then((r) => r.json()));
+    const preRestartSubmittedAt = preRestartInfo.submitted_at;
+
     const restartResponse = page.waitForResponse(
       (response) =>
         response.url() === `${harness.baseUrl}/jobs/${jobId}/restart` &&
@@ -519,20 +529,37 @@ test.describe("real Rust server e2e (React dashboard)", () => {
     await page.getByRole("button", { name: "Restart" }).click();
     await restartResponse;
 
-    await waitForJobStatus(
-      request,
-      harness.baseUrl,
-      jobId,
-      (status) => status === "queued" || status === "running",
-      30_000
-    );
-    await waitForJobStatus(
-      request,
-      harness.baseUrl,
-      jobId,
-      (status) => status === "failed",
-      120_000
-    );
+    // Wait for the re-attempt to finish: status back to `failed` AND
+    // submitted_at advanced beyond the pre-restart value (proof a
+    // re-run actually happened, not just the residual prior `failed`
+    // state). Inlined rather than using `waitForJobStatus` because
+    // that helper's fail-fast diagnostic treats any terminal `failed`
+    // as the predicate's failure — but here we expect to traverse
+    // failed → re-attempt → failed.
+    {
+      const deadline = Date.now() + 120_000;
+      let info = null;
+      while (Date.now() < deadline) {
+        const r = await request.get(`${harness.baseUrl}/jobs/${jobId}`);
+        if (r.ok()) {
+          info = await r.json();
+          if (info.status === "failed" && info.submitted_at !== preRestartSubmittedAt) {
+            break;
+          }
+        }
+        await sleep(300);
+      }
+      if (
+        !info ||
+        info.status !== "failed" ||
+        info.submitted_at === preRestartSubmittedAt
+      ) {
+        throw new Error(
+          `restart did not produce a fresh failed attempt. ` +
+            `preRestartSubmittedAt=${preRestartSubmittedAt} info=${JSON.stringify(info, null, 2)}`
+        );
+      }
+    }
     await page.reload({ waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("button", { name: "Restart" })).toBeVisible();

@@ -45,8 +45,12 @@ jobs:
     needs: build-cli
     runs-on: ubuntu-latest
     strategy:
+      # Push events build only the canonical Python (3.12). workflow_dispatch
+      # exercises the full 3.12/3.13/3.14 matrix for cross-version compat
+      # verification on release tags or manual reruns. Wall-time win on push:
+      # ~20 min (two fat-LTO release builds skipped).
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
@@ -83,8 +87,10 @@ jobs:
     needs: build-wheel
     runs-on: ubuntu-latest
     strategy:
+      # See build-wheel for the matrix-gating rationale: push runs 3.12
+      # only; workflow_dispatch runs all three.
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
@@ -347,7 +353,12 @@ jobs:
 
   dashboard-e2e:
     name: Dashboard E2E
-    needs: build-wheel
+    # Depends on both build-cli (for the pre-built batchalign3 binary)
+    # and build-wheel (for the Python wheel). Reusing build-cli's
+    # binary instead of rebuilding here saves ~25 minutes of fat-LTO
+    # Rust release compilation on every push — the bulk of the
+    # historical Dashboard E2E wall-time.
+    needs: [build-cli, build-wheel]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     steps:
@@ -370,6 +381,12 @@ jobs:
         with:
           name: wheel-3.12
           path: dist/
+      - uses: actions/download-artifact@v6
+        with:
+          name: cli-binary
+          path: target/release/
+      - name: Make CLI binary executable
+        run: chmod +x target/release/batchalign3
       - name: Install from pre-built wheel
         run: |
           uv sync --group dev --no-install-project
@@ -385,6 +402,11 @@ jobs:
         env:
           BATCHALIGN_PLAYWRIGHT_WITH_DEPS: "1"
           BATCHALIGN_REAL_SERVER_E2E: "1"
+          # scripts/run_react_dashboard_smoke.sh checks BATCHALIGN_BIN
+          # and skips the cargo release build if the binary is already
+          # in place. Pointing at the artifact downloaded above is what
+          # makes this job sub-15-minute.
+          BATCHALIGN_BIN: ${{ github.workspace }}/target/release/batchalign3
           RUSTFLAGS: -C debuginfo=0
         run: |
           export BATCHALIGN_PYTHON="$(uv run --no-sync python -c 'import sys; print(sys.executable)')"
