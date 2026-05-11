@@ -1,6 +1,8 @@
 # Migrating from CLAN
 
 **Status:** Current
+**Last updated:** 2026-05-11 18:58 EDT
+
 This guide helps users of the original CLAN C binaries transition to `chatter clan`.
 
 ## Command mapping
@@ -32,11 +34,11 @@ Legacy CLAN uses `+flag`/`-flag` syntax. Both styles work — the CLI automatica
 | `+z25-125` | `--range 25-125` | Utterance range |
 | `+r6` | `--include-retracings` | Count retraced material |
 | `+u` | *(default)* | Merge speakers (always on) |
-| `+dN` | `--display-mode N` | Display mode |
-| `+k` | `--case-sensitive` | Case-sensitive matching |
-| `+fEXT` | `--output-ext EXT` | Output file extension |
+| ~~`+dN`~~ | ~~`--display-mode N`~~ | Display mode — **currently non-functional**, see [`flag-translation.md`](flag-translation.md) for the rewriter-honor plan |
+| ~~`+k`~~ | ~~`--case-sensitive`~~ | Case-sensitive matching — **currently non-functional**, see [`flag-translation.md`](flag-translation.md) |
+| ~~`+fEXT`~~ | ~~`--output-ext EXT`~~ | Output file extension — **currently non-functional**, see [`flag-translation.md`](flag-translation.md) |
 
-You can continue using `+t*CHI` syntax if you prefer — it works identically.
+You can continue using `+t*CHI` syntax for the functional flags above if you prefer — it works identically.
 
 ## New capabilities
 
