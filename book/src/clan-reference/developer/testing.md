@@ -1,6 +1,8 @@
 # Testing Strategy
 
 **Status:** Current
+**Last updated:** 2026-05-11 20:22 EDT
+
 ## Unit tests
 
 Each command module includes `#[cfg(test)]` unit tests that verify counting logic, edge cases, and output formatting against known inputs.
@@ -45,4 +47,12 @@ Test fixtures are real CHAT files from the reference corpus at `corpus/reference
 
 ## Current test counts
 
-376 tests across unit, snapshot, golden, and integration test suites.
+The `talkbank-clan` suite spans unit, snapshot, golden, and integration
+tests. The absolute count moves as commands are added or extended;
+get the live number with:
+
+```bash
+cargo nextest list -p talkbank-clan
+```
+
+The last line of the summary is the total count.

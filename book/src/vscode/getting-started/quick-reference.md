@@ -1,7 +1,7 @@
 # Quick Reference
 
 **Status:** Current
-**Last updated:** 2026-04-13 20:34 EDT
+**Last updated:** 2026-05-11 20:18 EDT
 
 A comprehensive reference card for every keyboard shortcut, command, and
 setting in the TalkBank CHAT extension. Print this page or keep it open in a
@@ -285,17 +285,16 @@ asterisk (*) prompt for additional input before running.
 
 ## Snippets
 
-Type a prefix and press `Tab` to expand these templates:
+Type any of the listed prefixes and press `Tab` to expand. Each snippet has
+multiple equivalent prefixes — use whichever feels most natural.
 
-| Prefix | Expands To |
-|--------|-----------|
-| `@UTF8` | `@UTF8` header line |
-| `header` | Full header block (`@UTF8`, `@Begin`, `@Languages`, `@Participants`, `@ID`, `@End`) |
-| `newfile` | Complete new CHAT file template |
-| `@Participants` | `@Participants:` header with placeholder |
-| `@ID` | `@ID:` header with 10 pipe-delimited fields |
-| `*` | Main tier line (`*SPK:\t`) |
+| Prefixes | Expands To |
+|----------|-----------|
+| `@UTF8`, `header`, `newfile` | Complete new CHAT file template (`@UTF8`, `@Begin`, `@Languages`, `@Participants`, two `@ID` lines, an initial `*CHI:` line, `@End`) |
+| `@Participants`, `participant` | `@Participants:` header with two-speaker placeholder |
+| `@ID`, `id` | `@ID:` header with 10 pipe-delimited fields |
+| `*`, `utterance` | Main tier line with speaker placeholder and trailing `.` |
 | `%mor` | `%mor:` dependent tier |
 | `%gra` | `%gra:` dependent tier |
-| `@Comment` | `@Comment:` header |
-| `gem` | Gem block (`@Bg` / `@Eg` pair) |
+| `@Comment`, `comment` | `@Comment:` header |
+| `@Bg`, `@Eg`, `gem` | Gem block (`@Bg` / `@Eg` pair around the cursor) |

@@ -1,7 +1,7 @@
 # Installation
 
 **Status:** Current
-**Last updated:** 2026-04-28 23:14 EDT
+**Last updated:** 2026-05-11 20:14 EDT
 
 This chapter walks you through installing VS Code and the TalkBank CHAT
 extension. The language server (`talkbank-lsp`) ships inside each
@@ -38,9 +38,7 @@ Install via Homebrew:
 brew install --cask visual-studio-code@insiders
 ```
 
-This gives you the `code-insiders` command in your terminal. Fleet machines
-(net, brian, bilbo, etc.) receive VS Code Insiders automatically via Ansible
-provisioning.
+This gives you the `code-insiders` command in your terminal.
 
 ### Windows
 
@@ -83,12 +81,7 @@ sudo snap install code-insiders --classic
 Each platform VSIX bundles a matching `talkbank-lsp` binary. No Rust
 toolchain or PATH setup is required.
 
-### Option B: Ansible deployment (fleet machines)
-
-On TalkBank fleet machines, the platform-matching VSIX is installed via
-Ansible. You do not need to install it manually.
-
-### Option C: Development mode (building from source)
+### Option B: Development mode (building from source)
 
 Contributors running from a cloned workspace can build `talkbank-lsp` and
 launch the extension directly:
@@ -133,8 +126,8 @@ If you see plain, uncolored text, the extension did not activate. Check:
 
 - The file has a `.cha` extension
 - The language mode in the bottom status bar says "CHAT" (not "Plain Text")
-- The Output panel (`Cmd+Shift+U`) shows a "TalkBank CHAT" channel with server
-  startup messages
+- The Output panel (`Cmd+Shift+U`) shows a "TalkBank Language Server"
+  channel with server startup messages
 
 ---
 

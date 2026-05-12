@@ -1,7 +1,7 @@
 # Headers
 
 **Status:** Reference
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-11 20:30 EDT
 
 Headers are lines beginning with `@` that provide metadata about the transcript. They appear between `@Begin` and the first utterance (though some headers like `@Comment` can appear anywhere).
 
@@ -21,13 +21,23 @@ Mark the start and end of the transcript body. Every CHAT file must have exactly
 
 ### @Participants
 
-Declares all speakers in the transcript. Format: `CODE Name Role`, comma-separated.
+Declares all speakers in the transcript. Format:
+`CODE [Name] Role`, comma-separated. The role is required; the name
+is optional, so each entry is either `CODE Role` or `CODE Name Role`.
 
 ```chat
 @Participants:	CHI Target_Child, MOT Mother, FAT Father
+@Participants:	CHI Alex Target_Child, MOT Mary Mother
 ```
 
-Speaker codes are three-letter uppercase identifiers. Common codes:
+In the first line, `Target_Child`, `Mother`, and `Father` are roles,
+not names. In the second line, `Alex` and `Mary` are optional names
+sitting between the speaker code and the role.
+
+Speaker codes are short identifiers — the validator accepts up to
+seven characters from `A-Z`, `0-9`, `_`, `-`, and `'`. The convention
+is three uppercase letters; the most common codes are:
+
 - `CHI` — target child
 - `MOT` — mother
 - `FAT` — father

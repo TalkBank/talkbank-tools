@@ -1,7 +1,7 @@
 # ADR-003: Webview panels over TreeView
 
 **Status:** Accepted
-**Last updated:** 2026-04-16 22:02 EDT
+**Last updated:** 2026-05-11 20:25 EDT
 
 ## Context
 
@@ -84,9 +84,13 @@ break the cursor-position contract (e.g. "play media at cursor").
 
 ## Source anchors
 
-- Panel controllers: `src/<panel>Panel.ts` (7 files).
+- Panel controllers: `src/<panel>Panel.ts` — one TypeScript controller per
+  panel type (`analysisPanel`, `coderPanel`, `graphPanel`, `idEditorPanel`,
+  `kidevalPanel`, `mediaPanel`, `picturePanel`, `waveformPanel`).
 - Shared lifecycle: `src/panelHost.ts`, `src/panelAssets.ts`, `src/panelLifecycle.ts`.
-- Webview HTML/JS: `src/webview/<panel>Panel.{html,js}` (5 pairs).
+- Webview HTML/JS: `src/webview/<panel>Panel.{html,js}` — one HTML/JS pair
+  per webview-driven panel (the simpler controllers that drive native
+  VS Code dialogs instead of a webview do not need one).
 - Message contracts: `src/webviewMessageContracts.ts` (historical umbrella)
   + `src/webviewContracts/<panel>PanelContract.ts` (preferred home for
   new panels).

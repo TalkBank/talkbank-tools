@@ -1,7 +1,7 @@
 # The %mor Tier: Morphological Analysis
 
 **Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-11 20:35 EDT
 
 The `%mor` (morphological) dependent tier provides word-by-word morphosyntactic annotation aligned with the main tier. Each main-tier word receives a morphological code specifying part of speech, lemma, and grammatical features.
 
@@ -208,10 +208,10 @@ The top-level tier container:
 
 ```rust,ignore
 pub struct MorTier {
-    pub tier_type: MorTierType,  // MorTierType::Mor
-    pub items: MorItems,         // Vec<Mor> wrapper
-    pub terminator: Option<String>,
-    pub span: Span,              // source location
+    pub tier_type: MorTierType,    // MorTierType::Mor
+    pub(crate) items: MorItems,    // Vec<Mor> wrapper; accessed via accessor methods
+    pub terminator: Terminator,    // typed terminator (.`, `?`, `!`, `+...`, etc.)
+    pub span: Span,                // source location
 }
 ```
 
@@ -309,9 +309,12 @@ Key design decisions:
 
 ## Parser
 
-The tree-sitter parser produces `MorTier` from CHAT text. It is GLR-based and error-recovering, producing a CST that the Rust `talkbank-parser` crate walks to construct `MorTier`. Used by the CLI, LSP, and batchalign3. High-frequency values (`PosCategory`, `MorStem`) are interned via `Arc<str>` during construction.
+The tree-sitter parser produces `MorTier` from CHAT text. It is GLR-based and error-recovering, producing a CST that the Rust `talkbank-parser` crate walks to construct `MorTier`. Used by the CLI, LSP, and batchalign. High-frequency values (`PosCategory`, `MorStem`) are interned via `Arc<str>` during construction.
 
-The 78-file reference corpus is the correctness gate for %mor parsing.
+The `corpus/reference/` set is the correctness gate for `%mor` parsing —
+every file must parse and round-trip cleanly. The file count grows as
+new constructs are added; run `find corpus/reference -name '*.cha' | wc -l`
+to get the live total.
 
 ## Validation
 
@@ -324,13 +327,28 @@ Every `MorWord` is checked for:
 - **Empty lemma**: `pos|` with no lemma after the pipe
 - **Empty feature**: bare `-` separator with no feature text
 
-### Alignment Validation (E712)
+### Main-tier Alignment (E705 / E706)
 
-The `%mor` tier must align 1-to-1 with the main tier's alignable words (excluding pauses, events, and other non-word content). The number of `Mor` items must equal the number of alignable main-tier words.
+The `%mor` tier must align 1-to-1 with the main tier's alignable
+words (excluding pauses, events, and other non-word content). The
+number of `Mor` items must equal the number of alignable main-tier
+words. The validator emits **E705 `MorCountMismatchTooFew`** when
+`%mor` has fewer items than the main tier and **E706
+`MorCountMismatchTooMany`** when it has more. Terminator-mismatch
+errors are emitted separately as E707 (presence) and E716 (value).
 
-### GRA Alignment (E712)
+### GRA Alignment (E720)
 
-When both `%mor` and `%gra` tiers are present, the number of `%gra` relations must equal the number of `%mor` **chunks** (including clitics and the terminator). This is checked by `MorTier::count_chunks()`.
+When both `%mor` and `%gra` tiers are present, the number of `%gra`
+relations must equal the number of `%mor` **chunks** (including
+clitics and the terminator). A mismatch emits **E720
+`MorGraCountMismatch`**. This is computed via `MorTier::count_chunks()`.
+
+(`%gra`'s own internal validators — E708 malformed relation, E709
+invalid index, E712 word-index out of range, E713 head-index out of
+range, E721 non-sequential index, E722 no ROOT, E723 multiple
+ROOTs, E724 circular dependency — are documented in
+[Dependent Tiers § %gra](dependent-tiers.md#gra--grammatical-relations).)
 
 ## JSON Serialization
 
