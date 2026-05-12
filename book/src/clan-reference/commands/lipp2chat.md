@@ -1,7 +1,7 @@
 # LIPP2CHAT -- LIPP Phonetic Profile to CHAT Conversion
 
 **Status:** Current
-**Last updated:** 2026-05-12 10:51 EDT
+**Last updated:** 2026-05-12 11:25 EDT
 
 ## Purpose
 
@@ -19,7 +19,11 @@ chatter clan lipp2chat input.lipp
 |--------|---------|-------------|
 | `-s`, `--speaker` | `"CHI"` | Speaker code for all utterances |
 | `-l`, `--language` | `"eng"` | ISO 639 language code for the `@Languages` header |
-| `-c`, `--corpus` | `"lipp_corpus"` | Corpus name for the `@ID` header |
+| `-o`, `--output` | stdout | Output CHAT file path |
+
+The corpus name in `@ID` headers is hardcoded to `"lipp_corpus"`
+(`crates/talkbank-clan/src/converters/lipp2chat.rs:80`); there is
+no CLI flag to override it.
 
 ## Input Format
 

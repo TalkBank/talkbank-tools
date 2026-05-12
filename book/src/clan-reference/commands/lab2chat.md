@@ -1,6 +1,8 @@
 # LAB2CHAT -- LAB Timing Labels to CHAT Conversion
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:25 EDT
+
 ## Purpose
 
 Converts LAB (label) timing files into CHAT format. LAB files contain time-aligned word or segment labels commonly used in speech research tools (e.g., HTK, Kaldi).
@@ -15,9 +17,13 @@ chatter clan lab2chat input.lab
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `speaker` | `"SPK"` | Speaker code for all utterances |
-| `language` | `"eng"` | ISO 639 language code for the `@Languages` header |
-| `corpus` | `"lab_corpus"` | Corpus name for the `@ID` header |
+| `-s`, `--speaker` | `"SPK"` | Speaker code for all utterances |
+| `-L`, `--language` | `"eng"` | ISO 639 language code for the `@Languages` header (note: uppercase `-L` because lowercase `-l` would conflict) |
+| `-o`, `--output` | stdout | Output CHAT file path |
+
+The corpus name in `@ID` headers is hardcoded to `"lab_corpus"`
+(`crates/talkbank-clan/src/converters/lab2chat.rs:110`); there is
+no CLI flag to override it.
 
 ## Supported Formats
 
