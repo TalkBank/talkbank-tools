@@ -1,6 +1,8 @@
 # MORTABLE -- Morphological Category Cross-Tabulation
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:09 EDT
+
 ## Purpose
 
 Produces a per-speaker frequency table of morphosyntactic categories by matching POS tags from the `%mor` tier against patterns defined in a language-specific script file.
@@ -9,18 +11,17 @@ Requires a language script file (e.g., `eng.cut`) that defines patterns and thei
 
 See the [CLAN manual](https://talkbank.org/0info/manuals/CLAN.html#_Toc220409286) for the original MORTABLE command specification.
 
-> **⚠️ Currently unusable.** As of 2026-05-02, running any
-> `chatter clan mortable …` invocation (including `--help`) panics
-> at startup with `Short option names must be unique for each
-> argument, but '-f' is in use by both 'script' and 'format'`. The
-> conflict is between `Mortable.script: PathBuf` (declared with
-> `#[arg(short = 'f', long)]` at
-> `crates/talkbank-cli/src/cli/args/clan_commands.rs:259-261`) and
-> the universal `--format`/`-f` short on the shared
-> `CommonAnalysisArgs`. Until the `script` short is removed or
-> renamed, this command cannot be invoked. The flag set documented
-> below describes the *intended* surface; treat the command as
-> blocked until the clap conflict is resolved.
+> **Note on `-f` short flag.** Both `--script` and `--format`
+> declare `-f` as their short flag in
+> `crates/talkbank-cli/src/cli/args/clan_commands.rs:260` and
+> `:345`. clap currently accepts this — `chatter clan mortable
+> --help` runs successfully and `-f test.cut` resolves to
+> `--script` — so the previous warning that the command was
+> "unusable" no longer applies. Verified 2026-05-12 by invoking
+> `chatter clan mortable --help` and `chatter clan mortable -f
+> test.cut file.cha`. Prefer the long form `--script` /
+> `--format` in scripts to avoid ambiguity in future clap
+> upgrades.
 
 ## Usage
 
