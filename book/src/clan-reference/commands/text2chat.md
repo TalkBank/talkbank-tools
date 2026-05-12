@@ -1,6 +1,8 @@
 # TEXT2CHAT -- Plain Text to CHAT Conversion
 
 **Status:** Current
+**Last updated:** 2026-05-12 13:39 EDT
+
 ## Purpose
 
 Converts plain text files into CHAT format by splitting on sentence-ending punctuation (`.`, `?`, `!`) and assigning all utterances to a default speaker. This is the simplest converter, useful for bootstrapping CHAT files from raw text.
@@ -15,9 +17,14 @@ chatter clan text2chat input.txt
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `speaker` | `"SPK"` | Speaker code for all utterances |
-| `language` | `"eng"` | ISO 639 language code for the `@Languages` header |
-| `corpus` | `"text_corpus"` | Corpus name for the `@ID` header |
+| `-s`, `--speaker` | `"SPK"` | Speaker code for all utterances |
+| `-l`, `--language` | `"eng"` | ISO 639 language code for the `@Languages` header |
+| `-o`, `--output` | stdout | Output CHAT file path |
+
+The corpus name in `@ID` headers is hardcoded to `"text_corpus"`
+(`crates/talkbank-clan/src/converters/text2chat.rs:37`); there is
+no CLI flag to override it. Same pattern as the other converters
+in this directory.
 
 ## Input Format
 
