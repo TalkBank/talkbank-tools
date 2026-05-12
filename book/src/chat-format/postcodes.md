@@ -1,7 +1,7 @@
 # Postcodes (`[+ ...]`)
 
 **Status:** Reference
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-11 22:09 EDT
 
 A **postcode** is a tagged annotation token that attaches to an
 *utterance as a whole* and appears after the terminator. The
@@ -142,32 +142,53 @@ rather than by convention:
 | `["/]` | Quotation **begin** marker |
 | `["/.]` | Quotation **end** marker |
 
-These are used to demarcate quoted speech that spans more than one
-utterance. They must appear in balanced pairs within a transcript;
-the `E242` validator (`talkbank-model::validation::utterance::quotation`)
-fires when an end appears without a preceding begin or a begin appears
-without a matching end. The text MUST match exactly — trailing
-whitespace or alternative punctuation breaks the match and the pair
-is treated as unbalanced.
+Both forms are used to demarcate quoted speech. The
+`talkbank-model::validation::utterance::quotation::check_quotation_balance`
+validator emits **E242 `UnbalancedQuotation`** when a `"/.` end
+postcode appears in an utterance without a preceding `"/` begin in
+the same utterance, or when an utterance contains an unclosed `"/`
+begin. The text MUST match exactly — trailing whitespace or
+alternative punctuation breaks the match and the pair is treated
+as unbalanced.
 
-This validator is opt-in via `enable_quotation_validation` on
-`ValidationContext`; it is currently disabled in the default profile.
+Scope: this validator only checks **intra-utterance** balance and
+runs unconditionally on every utterance (see
+`talkbank-model/src/model/file/utterance/validate.rs` where
+`check_quotation_balance` is called outside any opt-in gate). The
+`enable_quotation_validation` flag on `ValidationContext` gates a
+separate family of cross-utterance quotation validators in
+`talkbank-model::validation::cross_utterance`, which deal with the
+**terminator-based** quotation forms (`+"/`, `+"/.`) rather than
+these postcode forms — those validators are off by default.
 
 ## Position in the AST
 
-Postcodes are stored on `MainTierContent` as a typed list:
+An utterance's main tier is `MainTier`, whose `content: TierContent`
+field carries the actual tier payload — including postcodes — as a
+typed list:
 
 ```rust,ignore
-pub struct MainTierContent {
-    pub content: Vec<UtteranceContent>,         // word-level content
-    pub terminator: Terminator,                 // ., ?, ! etc.
-    pub postcodes: TierPostcodes,               // [+ ...] tokens, after the terminator
-    pub bullet: Option<Bullet>,                 // optional terminal media bullet
+pub struct MainTier {
+    pub speaker: SpeakerCode,
+    pub content: TierContent,
+    // spans omitted for brevity
+}
+
+pub struct TierContent {
+    pub linkers: TierLinkers,                  // utterance-leading +<, ++, etc.
+    pub language_code: Option<LanguageCode>,   // [- code]
+    pub content: TierContentItems,             // word-level items (newtype over Vec<UtteranceContent>)
+    pub terminator: Option<Terminator>,        // ., ?, !, +..., etc.
+    pub postcodes: TierPostcodes,              // [+ ...] tokens after the terminator
+    pub bullet: Option<Bullet>,                // optional terminal media bullet
+    // content_span omitted for brevity
 }
 ```
 
-(Roughly — see `talkbank-model/src/model/content/tier_content.rs` for
-the exact shape.)
+(See `talkbank-model/src/model/content/main_tier.rs` and
+`tier_content.rs` for the exact shape; the same `TierContent` type is
+shared by dependent tiers, so the postcode slot exists on every tier
+even though only main-tier postcodes are conventional.)
 
 Because postcodes live at the utterance level, the per-word
 traversal helpers (`walk_words`, `walk_words_mut`) do not visit
@@ -193,10 +214,10 @@ Tools that emit or consume CHAT must respect the scope distinction.
   on each utterance — not the word-level annotations in
   `UtteranceContent`. The two lists are populated by different
   parser branches and have different semantics.
-- **Round-trip preservers** (extract→modify→inject pipelines like
-  the batchalign3 NLP injection passes): preserve the postcode list
-  unchanged. None of the standard NLP passes have a reason to add,
-  remove, or reorder postcodes.
+- **Round-trip preservers** (extract→modify→inject pipelines such as
+  the NLP injection passes in `crates/batchalign-*`): preserve the
+  postcode list unchanged. None of the standard NLP passes have a
+  reason to add, remove, or reorder postcodes.
 
 ## References
 
