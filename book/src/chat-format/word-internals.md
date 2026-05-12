@@ -1,7 +1,7 @@
 # The CHAT Word
 
 **Status:** Current
-**Last updated:** 2026-03-24 01:32 EDT
+**Last updated:** 2026-05-11 23:31 EDT
 
 "Word" is the most complex and most misunderstood concept in CHAT. This
 chapter documents what a word actually is, how the grammar parses it, and
@@ -66,7 +66,8 @@ flowchart TD
     wb -->|"children (any order)"| ws & short & sm & len & op & cae & cad & ub & ue & cm
 ```
 
-In the grammar (`grammar.js` lines 1145-1197), the rules are:
+In the grammar (search `grammar/grammar.js` for the `standalone_word`
+and `word_body` rules), the structure is:
 
 ```javascript
 standalone_word: $ => prec.right(6, seq(
@@ -210,6 +211,7 @@ maps directly to a grammar node.
 | `underline_begin` | `UnderlineBegin` | `UnderlineMarker` | `\x02\x01` |
 | `underline_end` | `UnderlineEnd` | `UnderlineMarker` | `\x02\x02` |
 | `+` (compound) | `CompoundMarker` | `WordCompoundMarker` | `+` in `ice+cream` |
+| `~` (clitic boundary) | `CliticBoundary` | `WordCliticBoundary` | `~` in `le~ha` |
 
 ### cleaned_text()
 
@@ -451,33 +453,40 @@ markers from grammar through model.
 
 ## Testing: The word_segment Purity Gate
 
-The file `grammar/test/corpus/word/word_segment_purity.txt` contains 8
-tests that enforce the purity invariant. Each test verifies that a
-specific structural marker produces a separate CST child and is not
-consumed by `word_segment`.
+The purity invariant — each structural marker produces a separate CST
+child rather than being consumed by `word_segment` — is enforced by a
+group of tree-sitter corpus tests under
+`grammar/test/corpus/word/`. Each `*_in_word_lint.txt` file embeds a
+structural marker inside a word and asserts the CST splits the word
+appropriately:
 
-The tests cover:
-
-| Test name | Input | Asserts |
+| Test file | Input | Asserts |
 |---|---|---|
-| `word_segment_purity_overlap` | `butt⌈er⌉` | `word_segment`, `overlap_point`, `word_segment`, `overlap_point` |
-| `word_segment_purity_ca_pitch_up` | `he↑llo` | `word_segment`, `ca_element`, `word_segment` |
-| `word_segment_purity_ca_pitch_down` | `he↓llo` | `word_segment`, `ca_element`, `word_segment` |
-| `word_segment_purity_ca_faster` | `∆hello∆` | `ca_delimiter`, `word_segment`, `ca_delimiter` |
-| `word_segment_purity_ca_softer` | `°hello°` | `ca_delimiter`, `word_segment`, `ca_delimiter` |
-| `word_segment_purity_underline` | `\x02\x01hello\x02\x02` | `underline_begin`, `word_segment`, `underline_end` |
-| `word_segment_purity_lengthening` | `no::` | `word_segment`, `lengthening` |
-| `word_segment_purity_stress` | `ˈhello` | `stress_marker`, `word_segment` |
+| `overlap_in_word_lint.txt` | `butt⌈er⌉` | `word_segment`, `overlap_point`, `word_segment`, `overlap_point` |
+| `ca_element_in_word_lint.txt` | CA element inside a word | `word_segment`, `ca_element`, `word_segment` |
+| `ca_delimiter_in_word_lint.txt` | CA delimiter pair around a word | `ca_delimiter`, `word_segment`, `ca_delimiter` |
+| `lengthening.txt`, `lengthening_between_segments.txt` | `no::`, etc. | `word_segment`, `lengthening` |
+| `stacked_ca_markers.txt` | Multiple adjacent CA markers in one word | Each marker is its own CST child |
 
-### How to add a new purity test
+Underline and stress invariants are covered by corpus tests elsewhere
+in `grammar/test/corpus/` and by the parser-equivalence tests in
+`crates/talkbank-parser-tests/`. The historical
+`word_segment_purity.txt` consolidated 8 named tests in one file; it
+was retired in commit `fdceeac2` when the corresponding constructs
+were given their own per-construct test files (this is the new layout
+that `make test-gen` produces from the spec sources).
+
+### How to add a new purity-style test
 
 If you add a new structural marker to the grammar:
 
 1. Add its characters to the symbol registry
    (`spec/symbols/symbol_registry.json`).
 2. Run `make symbols-gen` to regenerate the exclusion sets.
-3. Add a purity test in `grammar/test/corpus/word/word_segment_purity.txt`
-   that embeds the marker inside a word and asserts it is a separate child.
+3. Add a spec in `spec/constructs/` that embeds the marker inside a
+   word; run `make test-gen` so a per-construct test fixture is
+   created in `grammar/test/corpus/word/`. Verify the CST output
+   names each marker as its own child.
 4. Run the full verification sequence:
    ```bash
    cd grammar && tree-sitter generate && tree-sitter test
@@ -490,14 +499,14 @@ If you add a new structural marker to the grammar:
 
 | File | What it defines |
 |---|---|
-| `grammar/grammar.js` (lines 1145-1227) | `standalone_word`, `word_body`, `word_segment`, `_word_marker` |
+| `grammar/grammar.js` | search for `standalone_word`, `word_body`, `word_segment`, `_word_marker` |
 | `grammar/src/generated_symbol_sets.js` | Character exclusion sets (generated, do not edit) |
-| `grammar/test/corpus/word/word_segment_purity.txt` | 8 purity gate tests |
+| `grammar/test/corpus/word/*_in_word_lint.txt`, `lengthening*.txt`, `stacked_ca_markers.txt` | Per-construct purity-invariant gate tests (replaced the consolidated `word_segment_purity.txt` retired in `fdceeac2`) |
 | `grammar/docs/tokenization-rules.md` | The 6 tokenization ambiguities with full examples |
 | `grammar/docs/precedence-decisions.md` | Precedence proofs (zero, colon, purity invariant) |
 | `grammar/docs/pre-coarsening-grammar.js.reference` | Historical: the grammar before coarsening |
 | `crates/talkbank-model/src/model/content/word/word_type.rs` | `Word` struct |
-| `crates/talkbank-model/src/model/content/word/content.rs` | `WordContent` enum (11 variants) |
+| `crates/talkbank-model/src/model/content/word/content.rs` | `WordContent` enum (12 variants) |
 | `crates/talkbank-model/src/model/content/word/word_contents.rs` | `WordContents` (SmallVec-backed sequence) |
 | `crates/talkbank-model/src/model/content/word/category.rs` | `WordCategory` enum (5 variants) |
 | `crates/talkbank-model/src/model/content/word/form.rs` | `FormType` enum (22 variants) |
