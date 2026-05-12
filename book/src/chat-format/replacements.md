@@ -1,7 +1,7 @@
 # Replacements
 
 **Status:** Current
-**Last updated:** 2026-04-27 13:47 EDT
+**Last updated:** 2026-05-11 23:14 EDT
 
 A **replacement** is a CHAT annotation `[: ...]` that pairs a single
 spoken word on the main tier with one or more "intended" words. It
@@ -37,12 +37,13 @@ and contains one or more replacement words inside the brackets:
 *CHI:	rocking+house [: rocking+horse] [*] ?
 ```
 
-The grammar rule is in
-[`grammar/grammar.js:1063-1071`](https://github.com/TalkBank/talkbank-tools/blob/main/grammar/grammar.js)
-(`word_with_optional_annotations`) and
-[`grammar.js:1341-1352`](https://github.com/TalkBank/talkbank-tools/blob/main/grammar/grammar.js)
-(`replacement`). Replacement words can be separated by whitespace, so
-`[: going to]` is a single replacement of `gonna` with two words.
+The grammar rules are
+`word_with_optional_annotations` and `replacement` in
+[`grammar/grammar.js`](https://github.com/TalkBank/talkbank-tools/blob/main/grammar/grammar.js)
+— grep for the rule names rather than line numbers so this stays
+accurate as the grammar evolves. Replacement words can be separated
+by whitespace, so `[: going to]` is a single replacement of `gonna`
+with two words.
 
 ### There Is No Group-Level Replacement
 
@@ -104,9 +105,10 @@ generalizes consistently:
 - `%gra` produces **two** entries — paired to the two `%mor` items.
 
 The alignment-counting code that enforces this is in
-[`alignment/units.rs:144-162`](https://github.com/TalkBank/talkbank-tools/blob/main/crates/talkbank-model/src/model/file/utterance/metadata/alignment/units.rs).
-The full table of per-domain rules is in `ALIGNMENT_RULES.md` in the
-same directory tree.
+[`alignment/units.rs`](https://github.com/TalkBank/talkbank-tools/blob/main/crates/talkbank-model/src/model/file/utterance/metadata/alignment/units.rs)
+— look for the `UtteranceContent::ReplacedWord` arm. The full table
+of per-domain rules is in
+[`spec/docs/ALIGNMENT_RULES.md`](https://github.com/TalkBank/talkbank-tools/blob/main/spec/docs/ALIGNMENT_RULES.md).
 
 ## Rust AST
 
@@ -124,15 +126,19 @@ pub struct ReplacedWord {
 
 Two consequences of this shape:
 
-1. **There is no `WordKind::Replacement` enum variant.** A replacement
-   is a wrapper around a `Word`, not a kind of `Word`. (Contrast with
-   retraces, which use `WordKind::Retrace` plus the structural
-   `Retrace` content node — different mechanism for a different
-   concept.)
+1. **A replacement is a wrapper around a `Word`, not a kind of `Word`.**
+   `ReplacedWord` lives as its own variant of `UtteranceContent`
+   (and `BracketedItem`), holding an inner `word: Word` plus the
+   replacement payload. Contrast with retraces: `Retrace` is *also*
+   a variant of `UtteranceContent`/`BracketedItem`, but it wraps a
+   *group of content* (a single word or a `<...>` group), not a
+   single `Word`. Different mechanism, different scope — same
+   top-level slot in the AST.
 2. **The `walk_words()` content walker yields `WordItem::ReplacedWord`
-   as a distinct leaf.** Domain-aware extraction code branches on this
-   leaf type and chooses original or replacement per the table above.
-   See [`crates/talkbank-model/src/alignment/`](https://github.com/TalkBank/talkbank-tools/tree/main/crates/talkbank-model/src/alignment).
+   as a distinct leaf** (defined in
+   `crates/talkbank-model/src/alignment/helpers/walk/mod.rs`).
+   Domain-aware extraction code branches on this leaf type and
+   chooses original or replacement per the table above.
 
 ## Validation
 
@@ -237,9 +243,9 @@ them here so future contributors don't reinvent them.
 |---------|-----------|
 | Grammar rule (`replacement`) | `grammar/grammar.js:1341-1352` |
 | Word-with-replacement rule | `grammar/grammar.js:1063-1071` |
-| `ReplacedWord` struct | `crates/talkbank-model/src/model/annotation/replacement.rs:463-488` |
-| Per-domain alignment | `crates/talkbank-model/src/model/file/utterance/metadata/alignment/units.rs:144-162` |
-| Replacement validation | `crates/talkbank-model/src/model/annotation/replacement.rs:117-202` |
+| `ReplacedWord` struct | `crates/talkbank-model/src/model/annotation/replacement.rs` (search `pub struct ReplacedWord`) |
+| Per-domain alignment | `crates/talkbank-model/src/model/file/utterance/metadata/alignment/units.rs` (search `UtteranceContent::ReplacedWord`) |
+| Replacement validation | `crates/talkbank-model/src/model/annotation/replacement.rs` (search `impl ... Validate for ReplacementWords`) |
 | Reference corpus example | `corpus/reference/annotation/errors-and-replacements.cha` |
 | CHAT manual | <https://talkbank.org/0info/manuals/CHAT.html#Replacement_Scope> |
 
