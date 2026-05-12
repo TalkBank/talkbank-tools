@@ -1,6 +1,8 @@
 # COMPLEXITY — Syntactic Complexity Ratio
 
 **Status:** Current
+**Last updated:** 2026-05-12 10:07 EDT
+
 Computes syntactic complexity by counting subordinating dependency relations in the `%gra` tier.
 
 ## Usage
@@ -17,6 +19,8 @@ COMPLEXITY reads the `%gra` dependency tier and counts clause-embedding relation
 
 ### UD Relations (auto-detected)
 
+Per `crates/talkbank-clan/src/commands/complexity.rs:10`:
+
 | Relation | Description |
 |----------|-------------|
 | CSUBJ | Clausal subject |
@@ -24,7 +28,8 @@ COMPLEXITY reads the `%gra` dependency tier and counts clause-embedding relation
 | XCOMP | Open clausal complement |
 | ACL | Adnominal clause |
 | ADVCL | Adverbial clause modifier |
-| NSUBJ | Nominal subject |
+| APPOS | Apposition |
+| EXPL | Expletive |
 
 ### Legacy CLAN Relations (auto-detected)
 
