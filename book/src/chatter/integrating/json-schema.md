@@ -1,7 +1,7 @@
 # JSON Schema
 
 **Status:** Current
-**Last updated:** 2026-03-14
+**Last updated:** 2026-05-11 23:47 EDT
 
 `talkbank-tools` now generates JSON Schema from Rust-owned types with
 [schemars](https://docs.rs/schemars) for two different integration surfaces:
@@ -20,8 +20,9 @@ integrations consume stable contracts without re-deriving the shapes by hand.
 | `AnalyzeCommandPayload` execute-command contract | `https://talkbank.org/schemas/v0.1/analyze-command.json` | `schema/analyze-command.schema.json` | `cargo test --test generate_analyze_command_schema` |
 
 The generated schemas declare both `$schema` (JSON Schema 2020-12) and `$id`
-(the canonical URL above). The `chat-file` schema also has a `/latest/` alias
-for external consumers that always want the current transcript-model version.
+(the canonical URL above). External consumers that want to track the
+current transcript-model version should follow the `v0.1` URL; there is
+no `/latest/` alias in the generated artifacts.
 
 ## Transcript schema: `ChatFile`
 
@@ -159,7 +160,7 @@ generated artifacts stay in sync.
 - `schema/chat-file.schema.json` — generated schema
 - `schema/analyze-command.schema.json` — generated `talkbank/analyze` contract schema
 - `vscode/src/test/fixtures/analyzeCommandPayload.json` — shared concrete analyze-command fixture
-- `crates/talkbank-transform/src/json/` — schema loading and validation
+- `crates/talkbank-transform/src/json.rs` — schema loading and validation
 - `crates/talkbank-model/src/model/` — Rust data model
 - `crates/talkbank-lsp/src/backend/contracts.rs` — Rust-owned editor/server transport contracts
 - `tests/generate_schema/` — shared schema generation helpers
