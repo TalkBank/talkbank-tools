@@ -1,6 +1,8 @@
 # PLAY2CHAT -- PLAY Annotation to CHAT Conversion
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:15 EDT
+
 ## Purpose
 
 Converts PLAY (Phonological and Lexical Acquisition in Young children) annotation files into CHAT format.
@@ -15,8 +17,14 @@ chatter clan play2chat input.play
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `language` | `"eng"` | ISO 639 language code for the `@Languages` header |
-| `corpus` | `"play_corpus"` | Corpus name for the `@ID` header |
+| `-l`, `--language` | `"eng"` | ISO 639 language code for the `@Languages` header |
+| `-o`, `--output` | stdout | Output CHAT file path |
+
+The corpus name in `@ID` headers is hardcoded to `"play_corpus"`
+(`crates/talkbank-clan/src/converters/play2chat.rs:92`); there is
+no CLI flag to override it. If you need a different corpus name,
+post-edit the generated `@ID` lines or call
+`play_to_chat_with_options()` from Rust.
 
 ## Input Format
 
