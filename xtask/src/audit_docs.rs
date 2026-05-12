@@ -1271,14 +1271,6 @@ async fn run_status(db: &Path) -> Result<()> {
         println!("needs-fix outstanding: {needs_fix_count}");
     }
 
-    // Streak: consecutive days with at least one vet (any verdict that
-    // moves vet_state out of 'unvetted'). Approximate by counting
-    // distinct `DATE(reviewed_at, 'localtime')` values working backward
-    // from today (Local). The `'localtime'` modifier matters because
-    // `reviewed_at` is written by `iso_now()` as a local-time string
-    // bearing its UTC offset (e.g. `"2026-05-11 20:39 -04:00"`); a bare
-    // `DATE()` would normalize that to UTC and roll the evening EDT
-    // vet onto tomorrow's row, breaking the streak nightly.
     let streak = compute_streak(&mut conn, Local::now().date_naive()).await?;
     println!("Streak: {streak} day(s)");
     println!();
@@ -1574,16 +1566,43 @@ mod tests {
     /// for the local day `2026-05-11`. With the prior `DATE(reviewed_at)`
     /// SQL the answer is 0 (test fails red); with the
     /// `DATE(reviewed_at, 'localtime')` fix the answer is 1.
+    /// RAII guard that pins the process `TZ` env var for the lifetime of
+    /// the test and restores the prior value on drop, so a test that
+    /// mutates TZ does not leak that mutation into sibling tests run
+    /// from the same xtask binary.
+    struct TzGuard {
+        prior: Option<std::ffi::OsString>,
+    }
+
+    impl TzGuard {
+        fn pin(value: &str) -> Self {
+            let prior = std::env::var_os("TZ");
+            // SAFETY: env mutation is `unsafe` in 2024 edition because
+            // it races with concurrent reads; tokio tests are
+            // serialized by default and the matching `Drop` impl
+            // restores state before the next test starts.
+            unsafe {
+                std::env::set_var("TZ", value);
+            }
+            Self { prior }
+        }
+    }
+
+    impl Drop for TzGuard {
+        fn drop(&mut self) {
+            // SAFETY: same justification as `pin`.
+            unsafe {
+                match &self.prior {
+                    Some(p) => std::env::set_var("TZ", p),
+                    None => std::env::remove_var("TZ"),
+                }
+            }
+        }
+    }
+
     #[tokio::test]
     async fn compute_streak_respects_local_time_boundary() -> Result<()> {
-        // Pin the process TZ so SQLite's `'localtime'` modifier maps the
-        // offset-bearing timestamp to America/New_York. SAFETY: env
-        // mutation is `unsafe` in 2024 edition; this is the only test in
-        // the xtask binary that touches TZ (verified: no other rg hit on
-        // `TZ` env reads in xtask/), so no parallel test can race on it.
-        unsafe {
-            std::env::set_var("TZ", "America/New_York");
-        }
+        let _tz = TzGuard::pin("America/New_York");
 
         let mut conn = SqliteConnection::connect("sqlite::memory:").await?;
         conn.execute("CREATE TABLE sections (id INTEGER PRIMARY KEY, reviewed_at TEXT);")
