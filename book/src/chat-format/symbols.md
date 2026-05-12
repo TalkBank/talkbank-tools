@@ -1,7 +1,7 @@
 # Symbols
 
 **Status:** Reference — partially inaccurate, see warning on the CA section
-**Last updated:** 2026-05-01 15:43 EDT
+**Last updated:** 2026-05-11 23:19 EDT
 
 > **WARNING:** The "CA (Conversation Analysis) Delimiters" section below
 > erases a parser-level distinction. The symbol registry
@@ -44,11 +44,12 @@ Punctuation that ends an utterance:
 | `?` | Question | Interrogative |
 | `!` | Exclamation | Exclamatory |
 | `+...` | Trailing off | Incomplete utterance |
+| `+..?` | Trailing-off question | Question trails off |
 | `+/.` | Interruption | Speaker interrupted by another |
 | `+//.` | Self-interruption | Speaker interrupts self |
 | `+/?` | Interrupted question | Question interrupted |
 | `+!?` | Broken question | Exclamation-question |
-| `+".` | Quoted new line | Quotation continues on next line |
+| `+"/.` | Quoted new line | Quotation continues on next line |
 
 ### CA (Conversation Analysis) Delimiters
 
@@ -111,16 +112,18 @@ Common codes: `eng` (English), `fra` (French), `deu` (German), `spa` (Spanish), 
 |--------|---------|
 | `&=` | Paralinguistic event (e.g., `&=laughs`) |
 | `&-` | Filler (e.g., `&-um`) |
-| `&*` | Interposed event |
+| `&+` | Phonological fragment (e.g., `&+sh`) |
+| `&~` | Nonword (e.g., `&~mama`) |
+| `&*` | Other speaker's speech event (e.g., `&*MOT:word` — speech attributed to another speaker) |
 
 ### Scope Markers
 
 | Marker | Meaning |
 |--------|---------|
-| `[/]` | Retrace (repetition) |
-| `[//]` | Retrace with correction |
-| `[///]` | Reformulation |
-| `[/-]` | False start |
+| `[/]` | Partial retrace — speaker repeats the same words |
+| `[//]` | Full retrace — speaker restarts with different words |
+| `[///]` | Multiple retracing — multiple false starts |
+| `[/-]` | Reformulation — speaker rephrases with different structure |
 | `[*]` | Error |
 | `[?]` | Best guess |
 | `[>]` | Overlap follows |
