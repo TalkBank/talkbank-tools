@@ -1273,8 +1273,13 @@ async fn run_status(db: &Path) -> Result<()> {
 
     // Streak: consecutive days with at least one vet (any verdict that
     // moves vet_state out of 'unvetted'). Approximate by counting
-    // distinct DATE(reviewed_at) values working backward from today.
-    let streak = compute_streak(&mut conn).await?;
+    // distinct `DATE(reviewed_at, 'localtime')` values working backward
+    // from today (Local). The `'localtime'` modifier matters because
+    // `reviewed_at` is written by `iso_now()` as a local-time string
+    // bearing its UTC offset (e.g. `"2026-05-11 20:39 -04:00"`); a bare
+    // `DATE()` would normalize that to UTC and roll the evening EDT
+    // vet onto tomorrow's row, breaking the streak nightly.
+    let streak = compute_streak(&mut conn, Local::now().date_naive()).await?;
     println!("Streak: {streak} day(s)");
     println!();
 
@@ -1313,7 +1318,7 @@ async fn run_status(db: &Path) -> Result<()> {
 async fn run_streak(db: &Path) -> Result<()> {
     let mut conn = open_catalog(db).await?;
     apply_migrations(&mut conn).await?;
-    let streak = compute_streak(&mut conn).await?;
+    let streak = compute_streak(&mut conn, Local::now().date_naive()).await?;
     println!("{streak}");
     Ok(())
 }
@@ -1388,13 +1393,20 @@ async fn run_vet(
 }
 
 /// Count consecutive days with ≥1 vet (transition out of 'unvetted'
-/// recorded in `reviewed_at`). Walks backward from today; stops at
+/// recorded in `reviewed_at`). Walks backward from `today`; stops at
 /// the first day with no vet activity. Today counts whether or not
 /// the day already has a vet — a fresh morning still has the prior
 /// day's streak intact, encouraging "do today's section now."
-async fn compute_streak(conn: &mut SqliteConnection) -> Result<i64> {
+///
+/// `today` is injected (rather than read from `chrono::Local::now()`
+/// internally) so tests can pin both sides of the day-boundary
+/// comparison deterministically; the SQL extracts `reviewed_at`'s
+/// **local** date via the `'localtime'` modifier so an evening EDT
+/// vet (stored with a `-04:00` offset that normalizes to the next
+/// UTC day) is attributed to the operator's local day, not UTC.
+async fn compute_streak(conn: &mut SqliteConnection, today: NaiveDate) -> Result<i64> {
     let dates: Vec<String> = sqlx::query_scalar(
-        "SELECT DISTINCT DATE(reviewed_at) AS d FROM sections
+        "SELECT DISTINCT DATE(reviewed_at, 'localtime') AS d FROM sections
          WHERE reviewed_at IS NOT NULL
          ORDER BY d DESC",
     )
@@ -1404,7 +1416,6 @@ async fn compute_streak(conn: &mut SqliteConnection) -> Result<i64> {
         return Ok(0);
     }
 
-    let today = chrono::Local::now().date_naive();
     let mut streak = 0i64;
     let mut cursor = today;
     for raw in dates {
@@ -1542,4 +1553,61 @@ pub fn parse_and_run(rest: Vec<String>) -> Result<()> {
             other => Err(format!("audit-docs: unknown subcommand '{other}'\n{usage}").into()),
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::Executor;
+
+    /// Regression test for the streak-counter TZ bug.
+    ///
+    /// `reviewed_at` is stored as a local-time-with-offset string
+    /// (e.g. `"2026-05-11 20:39 -04:00"`). SQLite's `DATE()` on such a
+    /// string normalizes the moment to UTC and returns the **UTC** date
+    /// — so an evening EDT vet shows up under tomorrow's UTC date and
+    /// the streak walk fails to match `today` (local).
+    ///
+    /// This test pins the process TZ to `America/New_York`, inserts one
+    /// vet at the operator's local 20:39 (= 00:39 UTC the next day),
+    /// then asks `compute_streak` whether that counts toward a streak
+    /// for the local day `2026-05-11`. With the prior `DATE(reviewed_at)`
+    /// SQL the answer is 0 (test fails red); with the
+    /// `DATE(reviewed_at, 'localtime')` fix the answer is 1.
+    #[tokio::test]
+    async fn compute_streak_respects_local_time_boundary() -> Result<()> {
+        // Pin the process TZ so SQLite's `'localtime'` modifier maps the
+        // offset-bearing timestamp to America/New_York. SAFETY: env
+        // mutation is `unsafe` in 2024 edition; this is the only test in
+        // the xtask binary that touches TZ (verified: no other rg hit on
+        // `TZ` env reads in xtask/), so no parallel test can race on it.
+        unsafe {
+            std::env::set_var("TZ", "America/New_York");
+        }
+
+        let mut conn = SqliteConnection::connect("sqlite::memory:").await?;
+        conn.execute("CREATE TABLE sections (id INTEGER PRIMARY KEY, reviewed_at TEXT);")
+            .await?;
+        // Operator vetted at 2026-05-11 20:39 EDT, which iso_now() writes
+        // as "2026-05-11 20:39 -04:00" — the exact format observed in the
+        // live catalog. Without 'localtime', SQLite's DATE() returns
+        // '2026-05-12' (UTC) for this moment.
+        conn.execute(
+            "INSERT INTO sections (id, reviewed_at) \
+             VALUES (1, '2026-05-11 20:39 -04:00');",
+        )
+        .await?;
+
+        let today = NaiveDate::from_ymd_opt(2026, 5, 11)
+            .ok_or("test setup: NaiveDate::from_ymd_opt(2026, 5, 11) returned None")?;
+
+        let streak = compute_streak(&mut conn, today).await?;
+        assert_eq!(
+            streak, 1,
+            "vet at 2026-05-11 20:39 EDT (= 2026-05-12 00:39 UTC) must \
+             count toward the today=2026-05-11 streak when SQLite \
+             applies 'localtime' to reviewed_at"
+        );
+        Ok(())
+    }
 }
