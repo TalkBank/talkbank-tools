@@ -1,6 +1,8 @@
 # ELAN2CHAT -- ELAN XML to CHAT Conversion
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:27 EDT
+
 ## Purpose
 
 Converts ELAN annotation files (`.eaf`) into CHAT format. ELAN uses a time-aligned annotation format stored as XML, with time slots referenced by alignable annotations within tiers.
@@ -15,8 +17,12 @@ chatter clan elan2chat input.eaf
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `language` | `"eng"` | ISO 639 language code for the `@Languages` header |
-| `corpus` | `"elan_corpus"` | Corpus name for the `@ID` header |
+| `-l`, `--language` | `"eng"` | ISO 639 language code for the `@Languages` header |
+| `-o`, `--output` | stdout | Output CHAT file path |
+
+The corpus name in `@ID` headers is hardcoded to `"elan_corpus"`
+(`crates/talkbank-clan/src/converters/elan2chat.rs:230`); there is
+no CLI flag to override it.
 
 ## Conversion Details
 
