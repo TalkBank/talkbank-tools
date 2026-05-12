@@ -1,7 +1,7 @@
 # Phon Tiers (%xmodsyl, %xphosyl, %xphoaln)
 
 **Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-11 22:05 EDT
 
 The Phon extension tiers provide syllable-level phonological annotation and
 segmental alignment between target and actual IPA transcription. They are
@@ -93,14 +93,22 @@ for implementation details.
 
 ## Parsing Strategy
 
-We parse only the minimal word-level structure needed for alignment:
+We parse the structure that alignment validation needs, but not the IPA
+content itself:
 
-- **%xmodsyl / %xphosyl**: space-separated items counted for word-count alignment
-- **%xphoaln**: space-separated `target↔actual` groups counted for alignment
+- **%xmodsyl / %xphosyl**: word boundaries are recognized for word-count
+  alignment; the `phoneme:Position` sequence inside each word stays as
+  an opaque string (`talkbank-model::dependent_tier::phon::SylTier`'s
+  `words: Vec<NonEmptyString>`).
+- **%xphoaln**: each word is parsed into a `Vec<AlignmentPair>`, where
+  `AlignmentPair { source: Option<NonEmptyString>, target: Option<NonEmptyString> }`
+  represents one `source↔target` mapping and `None` represents `∅`.
+  Segment topology (which target phone maps to which actual phone, and
+  where insertions / deletions occur) is therefore queryable in code;
+  the IPA characters themselves remain opaque.
 
-Full IPA phoneme content, syllable position codes, and segment-level
-alignment pairs are stored as opaque strings. Deep phonological analysis is
-Phon's domain — we avoid duplicating that work.
+Deep phonological analysis is Phon's domain — we avoid duplicating that
+work.
 
 ## Phon XML Source Format
 
@@ -128,11 +136,21 @@ actual using index-based `<pm>` (phone map) entries.
 
 ## Data Quality Notes
 
-Approximately 4% of Phon corpus XML files (518 of 12,340) contain records
-where the number of IPA words (`<pw>` elements) differs from the number of
-orthographic words (`<w>` elements). This is expected in child phonology data
-— children may produce extra syllables, partial words, or over-productions
-relative to the target. The mismatch totals 6,312 records across the corpus.
+A small percentage of Phon corpus XML records have an orthography↔IPA
+word-count mismatch — i.e. the number of `<pw>` (phonological word)
+elements in `<ipaTarget>` / `<ipaActual>` differs from the number of `<w>`
+elements in `<orthography>`. This is expected in child phonology data:
+children may produce extra syllables, partial words, or over-productions
+relative to the target.
+
+For current counts on the data repos in `~/0tb/data/`, run:
+
+```bash
+python3 scripts/analysis/scan_phon_mismatches.py ~/0tb/data
+```
+
+It reports total XML files scanned, files with at least one mismatched
+record, and total mismatched records across the corpus.
 
 The PhonTalk CHAT export handles this discrepancy inconsistently:
 
@@ -143,9 +161,5 @@ The PhonTalk CHAT export handles this discrepancy inconsistently:
 
 This produces CHAT files where `%xmodsyl` may have more words than `%mod`,
 triggering E725–E728 validation errors.
-
-Pauses (`(.)`) do not explain these mismatches — they account for fewer than
-9% of the discrepancies. The vast majority are genuine orthography↔IPA word
-count differences in the source data.
 
 This is being investigated in collaboration with the Phon team.
