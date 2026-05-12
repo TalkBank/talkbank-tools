@@ -1,9 +1,11 @@
 # PHONFREQ — Phonological Frequency Analysis
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:13 EDT
+
 ## Purpose
 
-Counts individual phone (character) occurrences from `%pho` tier content, tracking positional distribution within each phonological word: initial (first character), final (last character), and other (middle positions). Only lowercase ASCII letters are counted, matching CLAN's behavior.
+Counts individual phone (character) occurrences from `%pho` tier content, tracking positional distribution within each phonological word: initial (first character), final (last character), and other (middle positions). Counts alphabetic characters (Unicode, including IPA) plus the `+` compound marker; stress marks (`ˈ`, `ˌ`), length marks (`ː`), digits, and other non-letter symbols are skipped (`crates/talkbank-clan/src/commands/phonfreq.rs:178`).
 
 See the [CLAN manual](https://talkbank.org/0info/manuals/CLAN.html#_Toc220409227) for the original PHONFREQ command specification.
 
