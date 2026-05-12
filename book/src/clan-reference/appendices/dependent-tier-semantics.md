@@ -1,9 +1,13 @@
 # Dependent Tier Semantics Matrix
 
 **Status:** Current
-Classification of the 28 `DependentTier` variants by structural complexity and how commands access them.
+**Last updated:** 2026-05-11 23:50 EDT
 
-## Fully Structured (7 tiers)
+Classification of the 31 `DependentTier` variants
+(crates/talkbank-model/src/model/dependent_tier/types.rs) by
+structural complexity and how commands access them.
+
+## Fully Structured (10 tiers)
 
 These tiers have dedicated AST types with typed items. Commands should iterate typed fields, never `split_whitespace()` on serialized text.
 
@@ -12,10 +16,13 @@ These tiers have dedicated AST types with typed items. Commands should iterate t
 | `%mor` | `MorTier` | `Vec<Mor>` → `MorWord { pos, lemma, features }` | EVAL, KIDEVAL, MLU, VOCD, DSS, IPSYN, SUGAR, FREQ, etc. |
 | `%gra` | `GraTier` | `Vec<GrammaticalRelation>` → `{ head, dependent, relation }` | EVAL, KIDEVAL, SUGAR, IPSYN |
 | `%pho` | `PhoTier` | `Vec<PhoItem>` → `PhoWord { phones }` | PHONFREQ |
-| `%mod` | `ModTier` (via MorTier) | Same structure as `%mor` | MODREP, MAKEMOD |
+| `%mod` | `Mod(PhoTier)` | Same structure as `%pho` | MODREP, MAKEMOD |
 | `%sin` | `SinTier` | `SinGroupGestures` | (not directly analyzed) |
 | `%act` | `ActTier` | `BulletContent` (text with optional timing) | (situational) |
 | `%cod` | `CodTier` | `BulletContent` → `CodSemanticElement` via `cod.rs` | CODES, CHAINS, KEYMAP, RELY |
+| `%xmodsyl` | `Modsyl(SylTier)` | `Vec<NonEmptyString>` — syllabified target IPA (Phon) | (see [Phon Tiers](../../chat-format/phon-tiers.md)) |
+| `%xphosyl` | `Phosyl(SylTier)` | `Vec<NonEmptyString>` — syllabified actual IPA (Phon) | (see [Phon Tiers](../../chat-format/phon-tiers.md)) |
+| `%xphoaln` | `Phoaln(PhoalnTier)` | `Vec<WordAlignment>` — segmental target↔actual mappings (Phon) | (see [Phon Tiers](../../chat-format/phon-tiers.md)) |
 
 ## Bullet-Bearing Text (7 tiers)
 
