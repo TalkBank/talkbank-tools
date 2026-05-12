@@ -1,6 +1,8 @@
 # Current Architecture Seams
 
 **Status:** Current
+**Last updated:** 2026-05-12 17:35 EDT
+
 This page documents the current internal seams that contributors should preserve when adding or restructuring CLAN-related functionality.
 
 ## CLI command registration
@@ -21,8 +23,9 @@ If you add a new CLAN command, register it in the appropriate split argument mod
 - `transforms.rs`
 - `converters.rs`
 - `compatibility.rs`
+- `helpers.rs` (shared utilities consumed by the others)
 
-Keep family-specific logic in those modules. Shared file resolution, filtering, and output helpers belong in `helpers.rs` or another shared helper module, not copied into each family.
+Keep family-specific logic in those modules. Shared file resolution, filtering, and output helpers belong in `helpers.rs`, not copied into each family.
 
 ## Validation output
 
@@ -38,14 +41,19 @@ Audit-mode JSONL writing is also intentionally isolated. `crates/talkbank-cli/sr
 
 ## Dashboard state ownership
 
-`test-dashboard` now uses message passing rather than shared UI state. The worker sends `DashboardEvent` values and the UI reduces them into `AppState`.
+`test-dashboard` (under `src/test_dashboard/` in the root `talkbank-tools` crate) now uses message passing rather than shared UI state. The worker sends `DashboardEvent` values and the UI reduces them into `AppState`.
 
 That architecture is easier to test and reason about than `Arc<Mutex<AppState>>`. New dashboard features should generally be introduced as:
 
-1. a new event variant
-2. reducer logic in `app.rs`
-3. worker-side emission in `runner.rs`
+1. a new variant of `DashboardEvent` in `src/test_dashboard/app.rs`
+2. reducer logic in `AppState::apply_event` in the same file
+3. worker-side emission in `src/test_dashboard/runner.rs`
 
 ## Editor integration note
 
-The VS Code extension and `talkbank-lsp` also now use a typed execute-command boundary, but the full developer note for that lives in `docs/developer-architecture.md` at the repo root because it spans more than the CLAN crate.
+The VS Code extension and `talkbank-lsp` use a typed execute-command boundary. The contract surface is documented in:
+
+- `book/src/vscode/reference/rpc-contracts.md` — the RPC contracts the extension and LSP speak
+- `book/src/vscode/developer/custom-commands.md` — how to add a new custom command
+- `crates/talkbank-lsp/CLAUDE.md` — invariants for the server side
+
