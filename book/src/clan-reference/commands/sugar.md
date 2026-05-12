@@ -1,6 +1,8 @@
 # SUGAR -- Sampling Utterances and Grammatical Analysis Revised
 
 **Status:** Current
+**Last updated:** 2026-05-12 13:38 EDT
+
 ## Purpose
 
 Computes language sample analysis metrics from `%mor` and `%gra` tiers, providing a quick clinical assessment of grammatical complexity. SUGAR is designed as a time-efficient alternative to more detailed scoring systems like DSS or IPSYN.
@@ -40,7 +42,7 @@ current CLI.
 ## Algorithm
 
 1. For each utterance, count morphemes and words from `%mor`
-2. Detect **verb-containing utterances** using POS tags: `v`, `cop`, `aux`, `mod`, `part`
+2. Detect **verb-containing utterances** using POS tags: `v`, `verb`, `cop`, `aux`, `mod`, `part` (`crates/talkbank-clan/src/commands/sugar.rs:198` — both `v` and the longer `verb` form are accepted)
 3. For verb utterances with `%gra`, count **subordinate clauses** via grammatical relations (`COMP`, `CSUBJ`, `CMOD`, etc.)
 4. Compute per-speaker ratios at finalization:
    - WPS = total words / number of verb utterances
