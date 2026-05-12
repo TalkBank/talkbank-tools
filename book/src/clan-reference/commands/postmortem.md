@@ -1,6 +1,8 @@
 # POSTMORTEM -- Pattern-Matching Rules for %mor Post-Processing
 
 **Status:** Current
+**Last updated:** 2026-05-12 11:28 EDT
+
 ## Purpose
 
 Reimplements CLAN's POSTMORTEM command, which applies pattern-matching and replacement rules to dependent tiers (typically `%mor:`). Rules are applied sequentially, and wildcard tokens (`*`) match any single token. The replacement side uses `$-` to copy the matched wildcard text.
@@ -21,12 +23,18 @@ chatter clan postmortem --rules rules.cut --target-tier spa file.cha
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `--rules` | path | `postmortem.cut` | Path to the rules file |
+| `-r`, `--rules` | path | *(required)* | Path to the rules file |
 | `--target-tier` | string | `"mor"` | Target tier label to apply rules to |
+| `-o`, `--output` | path | stdout | Output CHAT file path |
 
 ## External Data
 
-Requires a rules file (default: `postmortem.cut`). Format: `from_pattern => to_replacement` (one rule per line, using `=>` or `==>` as the separator). Lines starting with `#` or `;` are comments.
+Requires a rules file. CLAN uses `postmortem.cut` from its `lib/`
+directory by default; `chatter clan postmortem` does not bundle a
+rules file, so `--rules` must be passed explicitly. Format:
+`from_pattern => to_replacement` (one rule per line, using `=>` or
+`==>` as the separator). Lines starting with `#` or `;` are
+comments.
 
 Wildcards: `*` in the pattern matches any single token. `$-` in the replacement copies the matched wildcard text.
 
