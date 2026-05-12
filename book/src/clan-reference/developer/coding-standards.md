@@ -1,6 +1,8 @@
 # Coding Standards
 
 **Status:** Current
+**Last updated:** 2026-05-12 17:36 EDT
+
 ## Universal Rust Standards
 
 These apply to all Rust code across the TalkBank workspace.
