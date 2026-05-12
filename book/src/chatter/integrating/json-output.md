@@ -1,7 +1,7 @@
 # JSON Output Reference
 
 **Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-11 23:45 EDT
 
 This document describes the structure of JSON produced by `chatter to-json`.
 For the formal JSON Schema, see [JSON Schema](json-schema.md).
@@ -219,7 +219,8 @@ An utterance line contains:
   },
   "dependent_tiers": [ ... ],
   "alignments": { ... },
-  "utterance_language": { ... }
+  "utterance_language": { "status": "resolved_default", "code": "eng" },
+  "language_metadata": { ... }
 }
 ```
 
@@ -229,10 +230,12 @@ Key structural points:
 - `content`, `terminator`, and `bullet` are nested inside `main.content`.
 - `terminator` is an object with a `type` field (`"period"`, `"question"`,
   `"exclamation"`, etc.), not a bare string.
-- `bullet` (utterance-level timing) is inside `main.content` and is `null`
-  when absent.
-- `dependent_tiers`, `alignments`, and `utterance_language` are top-level
-  siblings of `main`.
+- `bullet` (utterance-level timing) is inside `main.content`, **omitted
+  when absent** (not present as `null`).
+- `dependent_tiers`, `alignments`, `utterance_language`, and
+  `language_metadata` are top-level siblings of `main`. Empty
+  `dependent_tiers` and `alignments` are omitted when there is nothing
+  to report.
 
 ### Content Items
 
@@ -258,8 +261,7 @@ When present, `dependent_tiers` is an **array** of tagged objects:
       "tier_type": "Mor",
       "items": [
         {
-          "main": { "pos": "pron", "lemma": "I" },
-          "post_clitics": []
+          "main": { "pos": "pron", "lemma": "I" }
         },
         {
           "main": { "pos": "verb", "lemma": "want", "features": ["Fin", "Ind", "Pres"] }
@@ -326,19 +328,25 @@ When validation runs (the default), the `alignments` object contains:
 "alignments": {
   "units": {
     "main_mor": [{"index": 0}, {"index": 1}],
+    "main_pho": [{"index": 0}, {"index": 1}],
+    "main_sin": [{"index": 0}, {"index": 1}],
+    "main_wor": [{"index": 0}, {"index": 1}],
     "mor": [{"index": 0}, {"index": 1}]
   },
   "mor": {
     "pairs": [
       { "source_index": 0, "target_index": 0 },
       { "source_index": 1, "target_index": 1 }
-    ]
+    ],
+    "errors": []
   }
 }
 ```
 
 Alignment links each main-tier word (`source_index`) to its corresponding
-dependent-tier item (`target_index`) by position.
+dependent-tier item (`target_index`) by position. `errors` contains any
+alignment-level diagnostics (count mismatches, etc.) and is `[]` when
+alignment validated cleanly.
 
 ## Headers
 
