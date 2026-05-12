@@ -1,7 +1,7 @@
 # CHAT Format Overview
 
 **Status:** Reference
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-11 21:51 EDT
 
 CHAT (Codes for the Human Analysis of Transcripts) is a standardized transcription format for spoken language data, developed by Brian MacWhinney as part of the [CHILDES](https://childes.talkbank.org/) and [TalkBank](https://talkbank.org/) projects. It is the most widely used format in child language research and conversational analysis.
 
@@ -40,7 +40,7 @@ A CHAT file consists of:
 - **Tab separation**: a tab character separates the tier prefix from its content (e.g., `*CHI:⟶content`)
 - **Terminators**: every utterance ends with a terminator (`.`, `?`, `!`, or special forms like `+...`)
 - **Line continuation**: long lines wrap with a tab at the start of continuation lines
-- **Speaker codes**: three-letter uppercase codes (e.g., `CHI`, `MOT`, `FAT`, `INV`)
+- **Speaker codes**: short identifiers — the validator accepts up to seven characters from `A-Z`, `0-9`, `_`, `-`, `'`; three uppercase letters is the convention (e.g., `CHI`, `MOT`, `FAT`, `INV`)
 - **Media linking**: timestamps link transcripts to audio/video via bullet markers
 
 ## CHAT vs Other Formats
