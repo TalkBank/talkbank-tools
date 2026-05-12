@@ -1,71 +1,96 @@
 # Adding a Command
 
 **Status:** Current
+**Last updated:** 2026-05-12 17:30 EDT
+
 ## Steps
 
-1. **Create the module** — `src/commands/<name>.rs` with four types:
-   - `Config` — command configuration (from CLI flags)
-   - `State` — mutable accumulator (implements `Default`)
-   - `Result` — output data (implements `Serialize`, `Debug`, `CommandOutput`)
-   - `Command` — unit struct implementing `AnalysisCommand`
+1. **Create the module** — `crates/talkbank-clan/src/commands/<name>.rs` with
+   four types:
+   - `<Name>Config` — command configuration (from CLI flags)
+   - `<Name>State` — mutable accumulator (implements `Default`)
+   - `<Name>Result` — typed output (implements `Serialize`, `Debug`,
+     `CommandOutput`); this is what the trait's associated `Output` type
+     resolves to
+   - `<Name>Command` — unit struct implementing `AnalysisCommand`
 
-2. **Register** — add `pub mod <name>;` to `src/commands/mod.rs`
+2. **Register** — add `pub mod <name>;` to `crates/talkbank-clan/src/commands/mod.rs`
 
 3. **Wire CLI** — add a subcommand variant to `ClanCommands` in
    `crates/talkbank-cli/src/cli/args/clan_commands.rs`
 
-4. **Wire dispatch** — add the match arm in the appropriate family module under
-   `crates/talkbank-cli/src/commands/clan/` and keep `run_clan()` in
-   `crates/talkbank-cli/src/commands/clan/mod.rs` as the thin top-level dispatcher
+4. **Wire dispatch** — add the match arm in the appropriate family module
+   (`analysis.rs`, `transforms.rs`, `converters.rs`, `compatibility.rs`,
+   or `helpers.rs`) under `crates/talkbank-cli/src/commands/clan/`; keep
+   `run_clan()` in `crates/talkbank-cli/src/commands/clan/mod.rs` as the
+   thin top-level dispatcher
 
 5. **Add golden test** — add a test case in the relevant file under
    `crates/talkbank-clan/tests/clan_golden/`
 
 ## Skeleton
 
+The trait is defined in `crates/talkbank-clan/src/framework/command.rs`.
+It has three associated types (`Config`, `State`, `Output`) and three
+methods (`process_utterance`, `end_file` with a default no-op impl, and
+`finalize`).
+
 ```rust,ignore
 //! # NAME — Brief description
 //!
 //! What the command does and when to use it.
 
-use crate::framework::prelude::*;
+use serde::Serialize;
+use talkbank_model::Utterance;
+
+use crate::framework::{AnalysisCommand, CommandOutput, FileContext};
 
 /// Command configuration.
-pub struct Config {
+pub struct NameConfig {
     // fields from CLI flags
 }
 
-/// Per-file accumulator.
+/// Per-run accumulator (carried across all files).
 #[derive(Default)]
-pub struct State {
+pub struct NameState {
     // mutable state built up during processing
 }
 
-/// Analysis result.
+/// Typed analysis result.
 #[derive(Debug, Serialize)]
-pub struct Result {
+pub struct NameResult {
     // typed output fields
 }
 
-impl CommandOutput for Result {
+impl CommandOutput for NameResult {
     fn render_text(&self) -> String { todo!() }
     fn render_clan(&self) -> String { todo!() }
 }
 
 /// The command.
-pub struct Command;
+pub struct NameCommand {
+    pub config: NameConfig,
+}
 
-impl AnalysisCommand for Command {
-    type Config = Config;
-    type State = State;
-    type Result = Result;
+impl AnalysisCommand for NameCommand {
+    type Config = NameConfig;
+    type State = NameState;
+    type Output = NameResult;
 
-    fn process_utterance(config: &Config, state: &mut State, utterance: &Utterance) {
-        // accumulate per-utterance data
+    fn process_utterance(
+        &self,
+        utterance: &Utterance,
+        file_context: &FileContext<'_>,
+        state: &mut Self::State,
+    ) {
+        // accumulate per-utterance data into `state`
     }
 
-    fn end_file(config: &Config, state: State) -> Self::Result {
-        // compute final result from accumulated state
+    // end_file has a default no-op impl; override only if you need
+    // per-file finalization.
+
+    fn finalize(&self, state: Self::State) -> Self::Output {
+        // compute final result from the accumulated state
         todo!()
     }
 }
