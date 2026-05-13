@@ -1,7 +1,9 @@
 # Golden Tests
 
 **Status:** Current
-Golden tests in `tests/clan_golden.rs` and `tests/transform_golden.rs` compare `chatter clan` output against the legacy CLAN C binaries character-by-character.
+**Last updated:** 2026-05-12 17:42 EDT
+
+Golden tests under `crates/talkbank-clan/tests/clan_golden/` (driven by the top-level `clan_golden.rs` entry point) and `crates/talkbank-clan/tests/transform_golden.rs` compare `chatter clan` output against the legacy CLAN C binaries character-by-character.
 
 ## How they work
 
@@ -14,12 +16,13 @@ The `@clan` snapshots capture CLAN's exact output and should never change (they 
 
 ## Requirements
 
-Golden tests require CLAN binaries. The test runtime looks for them in:
-1. `CLAN_BIN_DIR` env var (if set)
-2. `../OSX-CLAN/src/unix/bin/` (workspace sibling)
-3. `~/OSX-CLAN/src/unix/bin/` (legacy home path)
+Golden tests require CLAN binaries. The lookup is a single env var:
 
-Tests are automatically skipped when binaries aren't found, making them CI-safe.
+- `CLAN_BIN_DIR` — directory containing the CLAN command binaries (`check`, `freq`, `mlu`, …)
+
+See `clan_bin_dir()` and `clan_command_available()` in `crates/talkbank-clan/tests/common/mod.rs`. If `CLAN_BIN_DIR` is unset or the specific command binary is missing from that directory, the test prints a skip notice via `require_clan_command()` and returns early, making it CI-safe.
+
+(Note: the legacy CLAN _library_ paths used by `database_integration.rs` follow a different resolver — `CLAN_SOURCE_DIR` env var → meta-repo sibling `OSX-CLAN/` → `~/OSX-CLAN/`. That is unrelated to the golden-test bin lookup.)
 
 ## Fixture files
 
@@ -31,29 +34,26 @@ Test fixtures come from the reference corpus at `corpus/reference/` (at the repo
 
 ## Current parity
 
-**95% (113/118)** — 5 accepted divergences across 2 commands:
-
-- **DELIM (4)**: CLAN writes an empty file when no changes are needed; we always write the full file
-- **UNIQ (1)**: Unicode sort order for `U+230A` — C `strcoll()` vs Rust byte-order produces a single line swap with identical content and counts
+The current parity tally and the per-command divergence list live in
+[Per-Command Divergences](../divergences/per-command.md) — that page is the single source of truth, so the numbers stay in one place instead of drifting between docs.
 
 ## Adding a golden test
 
-For an analysis command:
+The harness in `crates/talkbank-clan/tests/clan_golden/harness.rs` provides two patterns:
 
-```rust
-#[test]
-fn golden_newcmd_fixture() {
-    let file = corpus_file("path/to/fixture.cha");
-    if clan_available() {
-        let clan_output = run_clan("newcmd", &file, &[]);
-        insta::assert_snapshot!("newcmd_fixture@clan", &clan_output);
-    }
-    let rust_output = run_rust_cmd("newcmd", &file, &[]);
-    insta::assert_snapshot!("newcmd_fixture@rust", &rust_output);
-}
-```
+- **Paired CLAN + Rust comparison** — declare a `ParityCase` and let the `parity_case_tests!` macro generate the test. CLAN side is auto-skipped when `clan_command_available()` reports the binary missing. Example: `clan_golden/check.rs:3` declares two paired CHECK cases.
+- **Rust-only snapshot** (when no CLAN binary corresponds, or the comparison is a one-off) — call the command's typed `Command`/`run_xxx` API directly and snapshot the output. Example: `clan_golden/rust_only.rs` shows the MORTABLE, RELY, and SCRIPT patterns.
 
-For a transform command, see `tests/transform_golden.rs` for the pattern — transforms write to temp files rather than stdout.
+Helpers used by both patterns:
+
+- `corpus_file("tiers/mor-gra.cha")` — resolve a path under `corpus/reference/`
+- `clan_command_available("freq")` / `require_clan_command("freq", "skip context")` — gate CLAN-side execution
+- `run_clan("freq", &file, &["-t", "*CHI"])` — run a legacy CLAN binary, returning `Option<String>`
+- `run_rust(...)` / `run_rust_filtered(...)` — run the chatter side with optional filter args
+
+The snapshot naming convention is `<case>@clan` for the CLAN output and `<case>@rust` for the chatter output; both land under `tests/clan_golden/snapshots/`.
+
+For a transform command, see `tests/transform_golden.rs` for the pattern — transforms write to temp files rather than stdout, and `run_rust_transform()` returns the contents of the rewritten file.
 
 ## Diagnosing parity breaks
 
