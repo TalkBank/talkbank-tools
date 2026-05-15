@@ -581,7 +581,7 @@ requires-dist = [
     { name = "rich", marker = "extra == 'train'", specifier = ">=13.6" },
     { name = "rich-click", marker = "extra == 'train'", specifier = ">=1.7.0" },
     { name = "soundfile", specifier = ">=0.12.0" },
-    { name = "stanza", extras = ["transformers"], specifier = ">=1.11.1" },
+    { name = "stanza", extras = ["transformers"], specifier = ">=1.12.0" },
     { name = "tencentcloud-sdk-python-asr" },
     { name = "tencentcloud-sdk-python-common" },
     { name = "tokenizers", specifier = ">=0.14.1" },
@@ -4327,7 +4327,7 @@ wheels = [
 
 [[package]]
 name = "stanza"
-version = "1.11.1"
+version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "emoji" },
@@ -4340,9 +4340,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "udtools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/bd/c2d7f7c3e13688dd07738a5cf911a30ba760d260752df55c7c77ed4b070f/stanza-1.11.1.tar.gz", hash = "sha256:eff84c40c9dab1badf89d09f04a9d887eebff01976e14f876582c0bd4bcc51e8", size = 1489287, upload-time = "2026-02-27T00:28:52.476Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/ce/8fd8ddc728973bdc7611edef341b764199000816ac119d113017b3b49089/stanza-1.12.0.tar.gz", hash = "sha256:5ce1c665498f0cec73d76fd3ac6d2bbdef07cf909552a42e77b99dc0896fadb2", size = 1540926, upload-time = "2026-05-14T23:24:28.411Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/d4/38e98f8152b1f82fb2bbf89b8bafd63415383b4b2b7cf34d93f911e62d03/stanza-1.11.1-py3-none-any.whl", hash = "sha256:fb57509c182df4c8556f179ecaa3d47a1612a107d781f78d4084a24f3e7ee98c", size = 1711245, upload-time = "2026-02-27T00:28:48.512Z" },
+    { url = "https://files.pythonhosted.org/packages/66/86/705d89cf15c24c91ffd43d3b12f179179c1bec502352964ea03853e6d50f/stanza-1.12.0-py3-none-any.whl", hash = "sha256:39831d940de8335b9b2735709be2fe814b2578dec353048d1ca7881fbafc9897", size = 1770307, upload-time = "2026-05-14T23:24:24.385Z" },
 ]
 
 [package.optional-dependencies]

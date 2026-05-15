@@ -15,9 +15,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError, model_validator
 
-from batchalign.inference._control_token_filter import (
-    strip_control_tokens_in_sentence,
-)
 from batchalign.inference._domain_types import LanguageCode
 
 if TYPE_CHECKING:
@@ -399,27 +396,6 @@ def batch_infer_morphosyntax(
                     sent = sents[i]
                     if apply_pyc_pos:
                         sent = _override_pos_with_pycantonese(sent)
-                    # Stanza occasionally leaks neural-LM control
-                    # tokens (e.g., <SOS> prefixed onto the first
-                    # word of an MWT expansion on Finnish 1.11.1)
-                    # into text/lemma. Strip and log per the defect-
-                    # workaround policy in
-                    # book/src/developer/upstream-defect-policy.md.
-                    # The registry slug is `stanza-fi-mwt-sos-leak`
-                    # (numeric "Defect N" labels in the registry can
-                    # renumber). `chatter validate` is the downstream
-                    # gate if a leak variant escapes the stripper.
-                    leaks = strip_control_tokens_in_sentence(sent)
-                    if leaks:
-                        L.warning(
-                            "Stripped %d Stanza control-token leak(s) from "
-                            "%s item %d (slug: stanza-fi-mwt-sos-leak). "
-                            "Leaks: %s",
-                            len(leaks),
-                            lang_code,
-                            idx,
-                            [(leak.field.value, leak.value, leak.stripped) for leak in leaks],
-                        )
                     results[idx] = InferResponse(
                         result={"raw_sentences": [sent]},
                         elapsed_s=0.0,
