@@ -1,7 +1,7 @@
 # L2 Morphotag: Current Status
 
 **Status:** Current
-**Last updated:** 2026-05-05 13:54 EDT
+**Last updated:** 2026-05-20 10:24 EDT
 
 > **L2 dispatch is now on by default.** Aggregate
 > evaluation across 19 language pairs (17 at 100% dispatch; `cym,eng`
@@ -122,8 +122,11 @@ Before: die kinder give@s up@s immer  →  adv|give-Fin-Imp-S adp|up
 After:  die kinder give@s up@s immer  →  verb|give-Fin-Imp-S part|up
 ```
 
-See `scripts/l2-eval/probe_phrasal_verbs.py` for the isolated Stanza
-probe that anchored the test expectations.
+The isolated Stanza probe that anchored the test expectations lived
+in the maintainers' L2-eval working area outside this public repo;
+the locked behaviour now lives in
+`crates/batchalign/src/chat_ops/morphosyntax_ops/l2/tests.rs` and
+the golden test cited below.
 
 **Test coverage.**
 
@@ -164,12 +167,16 @@ The prior "MWT blocker" note in this document is LIFTED.
 ### Interaction with the English grammatical-invariant rewrite
 
 A new Rust rewrite rule (see
-[Stanza Limitations — Defect 1](stanza-limitations.md)) runs on the **primary**
-English UD analysis to fix Stanza's copula-vs-possessive failure
-(`the sink's overflowing`). L2 extraction operates on the ORIGINAL
-`ud_responses` — captured in `pipeline/morphosyntax.rs:352-356` and
-`batch.rs` before the rewrite is applied — so the English rewrite cannot
-corrupt L2 position mapping. The two features are decoupled by design.
+[Stanza Limitations — Defect 1](stanza-limitations.md)) runs on the
+**primary** English UD analysis to fix Stanza's
+copula-vs-possessive failure (`the sink's overflowing`). L2
+extraction operates on the ORIGINAL `ud_responses` — captured at
+`crates/batchalign/src/pipeline/morphosyntax.rs:387` (assignment),
+then read by `l2::extract_l2_deferred_positions` at `:411` before
+`std::mem::take(&mut ctx.ud_responses)` at `:426`, with L2 splice
+gated on `!l2_deferred.is_empty()` at `:435`. The English rewrite
+runs after that capture, so it cannot corrupt L2 position mapping.
+The two features are decoupled by design.
 
 ## Earlier Fixes (MWT contraction)
 
@@ -181,8 +188,11 @@ morphology: `pron|it~aux|be`, `aux|do~part|not`.
 **Root cause:** Three bugs prevented MWT expansion in the L2 path:
 1. `"en"` missing from `MWT_LANGS` → English pipeline loaded without
    MWT processor (dead English-specific branch in `_stanza_loading.py`)
-2. Rust `inject.rs` included Range parent tokens in token vector →
-   MOR count mismatch → `retokenize_utterance()` failed
+2. The Rust injection layer at
+   `crates/talkbank-transform/src/morphosyntax/injection.rs`
+   included Range parent tokens in the token vector → MOR count
+   mismatch → `retokenize_utterance()` (at
+   `crates/talkbank-transform/src/retokenize.rs:195`) failed
 3. `map_ud_sentence()` merged Range components into clitics, wrong for
    the Retokenize path where each component needs its own MOR item
 

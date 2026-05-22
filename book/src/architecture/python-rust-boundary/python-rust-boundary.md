@@ -1,7 +1,7 @@
 # Python–Rust Boundary
 
 **Status:** Current
-**Last updated:** 2026-05-01 16:58 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 The talkbank-tools workspace has two architectural layers: the **CHAT
 core** (entirely Rust, no Python) and the **Batchalign runtime** (Rust
@@ -343,7 +343,6 @@ Python model invocation.
 | `speaker.py` | prepared waveform → raw speaker diarization segments |
 | `opensmile.py` | prepared waveform → raw acoustic feature rows |
 | `avqi.py` | paired prepared waveforms → raw voice quality metrics |
-| `benchmark.py` | Thin convenience wrapper over `batchalign_core.wer_metrics()` |
 
 Each is a pure inference function — no CHAT parsing, no text
 processing, no domain logic.

@@ -1,7 +1,7 @@
 # talkbank-lsp
 
 **Status:** Current
-**Last updated:** 2026-04-13 20:30 EDT
+**Last updated:** 2026-05-21 14:40 EDT
 
 [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) implementation for [CHAT format](https://talkbank.org/0info/manuals/CHAT.html).
 
@@ -18,7 +18,7 @@ Language Server Protocol. It uses tree-sitter for incremental parsing and the
 - **Hover** — alignment timing, speaker info, and error explanations
 - **Completion** — speaker codes, header keywords, and coding symbols
 - **Code actions** — quick fixes for auto-fixable validation errors
-- **Semantic highlighting** — syntax-aware token coloring via `talkbank-highlight`
+- **Semantic highlighting** — tree-sitter-query-driven token coloring (`src/highlight.rs` + `queries/highlights.scm`, exposed via `semantic_tokens.rs`)
 - **Document formatting** — canonical CHAT normalization
 - **Go to definition / references** — navigate speaker and tier relationships
 

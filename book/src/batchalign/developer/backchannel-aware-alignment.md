@@ -1,7 +1,7 @@
 # Overlap-Aware Alignment Improvements
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:37 EDT
 
 This page documents overlap-aware alignment improvements: what is shipped
 and known limitations.
@@ -76,9 +76,10 @@ flowchart TD
     pass2 --> result(["UtrResult\ninjected / skipped / unmatched"])
 ```
 
-Source: `select_strategy()` in `crates/batchalign/src/fa/utr.rs`,
-overlap detection in `utr/overlap_markers.rs`, two-pass logic in
-`utr/two_pass.rs`.
+Source: `select_strategy()` in
+`crates/batchalign/src/chat_ops/fa/utr.rs:116`, overlap detection in
+`chat_ops/fa/utr/overlap_markers.rs`, two-pass logic in
+`chat_ops/fa/utr/two_pass.rs`.
 
 ## Problem Statement
 
@@ -271,8 +272,10 @@ validate them before we rely on them.
 
 ### Implementation
 
-The change is entirely within UTR (`crates/batchalign/src/fa/utr.rs`)
-and its caller in `orchestrate.rs`.  No FA changes are needed.
+The change is entirely within UTR
+(`crates/batchalign/src/chat_ops/fa/utr.rs`) and its caller in
+`crates/batchalign/src/chat_ops/fa/orchestrate.rs`. No FA changes
+are needed.
 
 ```rust
 /// A word excluded from the DP reference sequence because it belongs

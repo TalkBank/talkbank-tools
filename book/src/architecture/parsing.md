@@ -1,7 +1,7 @@
 # Parsing
 
 **Status:** Current
-**Last updated:** 2026-03-24 01:32 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 The parsing pipeline converts CHAT text into a typed `ChatFile` AST.
 The default and canonical parser is the tree-sitter parser
@@ -83,11 +83,16 @@ use talkbank_parser::TreeSitterParser;
 
 let parser = TreeSitterParser::new()?;
 
-// Full-file parsing (methods on TreeSitterParser)
-let chat_file = parser.parse_chat_file(&source, &errors)?;
-let chat_file = parser.parse_chat_file_streaming(&source, callback)?;
+// Full-file parsing (methods on TreeSitterParser).
+// parse_chat_file returns ParseResult<ChatFile> with the diagnostic list
+// embedded in the result envelope.
+let chat_file = parser.parse_chat_file(&source)?;
+// parse_chat_file_streaming pushes diagnostics into an ErrorSink as it
+// goes, useful for very large files or LSP-style incremental flows.
+let chat_file = parser.parse_chat_file_streaming(&source, &errors);
 
-// Fragment parsing (methods on TreeSitterParser)
+// Fragment parsing (methods on TreeSitterParser) — used when synthesizing
+// CHAT from non-CHAT sources (ASR output, UD annotations).
 let word = parser.parse_word_fragment(word_text, &errors);
 let main_tier = parser.parse_main_tier_fragment(tier_text, &errors);
 ```

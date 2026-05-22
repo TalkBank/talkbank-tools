@@ -117,7 +117,7 @@ comrak = "0.52.0"
 crossbeam-channel = "0.5"
 crossterm = "0.29"
 ctrlc = "3.5"
-dashmap = "6.1"
+dashmap = "6.2"
 csv = "1"
 futures = "0.3"
 futures-util = "0.3"
@@ -143,7 +143,7 @@ predicates = "3.1"
 proc-macro2 = "1.0"
 proptest = "1.11.0"
 pyo3 = "0.28"
-quick-xml = "0.39"
+quick-xml = "0.40"
 quote = "1.0"
 rand = "0.10"
 ratatui = { version = "0.30", features = ["serde"] }
@@ -170,7 +170,7 @@ shellexpand = "3.1"
 similar = "3.1"
 smallvec = { version = "1.15", features = ["serde", "union", "const_generics"] }
 smol_str = { version = "0.3", features = ["serde"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate"] }
 strsim = "0.11.1"
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
 talkbank-clan = { path = "crates/talkbank-clan", version = "0.2.0" }
@@ -195,12 +195,12 @@ tokio = { version = "1.52", features = ["full"] }
 tokio-util = "0.7"
 toml = "^1.1.2"
 tracing-appender = "0.2"
-tracing-opentelemetry = "0.32"
+tracing-opentelemetry = "0.33"
 tower-http = { version = "0.6", features = ["cors", "fs", "limit", "trace", "compression-gzip", "compression-br", "catch-panic", "timeout"] }
 tower-lsp = "0.20"
-opentelemetry = { version = "0.31", features = ["trace"] }
-opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "http-proto", "reqwest-client"] }
+opentelemetry = { version = "0.32", features = ["trace"] }
+opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-client"] }
 temporalio-client = "0.4"
 temporalio-common = "0.4"
 temporalio-macros = "0.4"

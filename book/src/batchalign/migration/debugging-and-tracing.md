@@ -1,7 +1,7 @@
 # Debugging and Tracing Migration
 
 **Status:** Current
-**Last updated:** 2026-03-19
+**Last updated:** 2026-05-19 13:34 EDT
 
 ## BA2 Baseline: No Principled Debugging Story
 
@@ -124,7 +124,12 @@ batchalign3 align input/ output/ --override-media-cache-tasks utr_asr
 batchalign3 align input/ output/ --override-media-cache-tasks utr_asr,forced_alignment
 ```
 
-Valid task names: `morphosyntax`, `utr_asr`, `forced_alignment`,
-`utterance_segmentation`, `translation`.
+The flag is honored only for audio tasks that have a cache:
+`utr_asr` and `forced_alignment`. Text-NLP tasks
+(`morphosyntax`, `utterance_segmentation`, `translation`) are
+accepted on the CLI for forward compatibility but are no-ops
+because BA3 does not cache text-NLP results — each run recomputes
+from scratch.
 
-The existing `--override-media-cache` flag continues to skip all caches.
+The existing `--override-media-cache` flag continues to skip every
+honored cache in one shot.

@@ -1,14 +1,17 @@
 # Validation
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 16:14 EDT
 
 CHAT validation runs at multiple points in the processing pipeline.
-All validation logic is in Rust (`crates/batchalign/src/validate.rs`
-for the Batchalign side; `talkbank-model::validation` for CHAT-core
-validation). This page covers validity levels, pre/post validation
-gates, severity posture, the verification-gate set (G0–G14), and how
-validation failures interact with caches and bug reports.
+All validation logic is in Rust: `talkbank-model::validation` owns
+CHAT-core validation, and `talkbank_transform::validate`
+(`crates/talkbank-transform/src/validate.rs`) owns the Batchalign-side
+pre/post validation gate functions (`validate_to_level`,
+`validate_output`). This page covers validity levels, pre/post
+validation gates, severity posture, the verification-gate set
+(G0–G14), and how validation failures interact with caches and bug
+reports.
 
 For error-code infrastructure (codes, sinks, severities, layers), see
 [talkbank-tools-errors](talkbank-tools-errors.md). For the
@@ -119,20 +122,33 @@ The pre-push hook (`make install-hooks`) runs the fast subset (`fmt`,
 affected compile, parser guardrail, `generated-check`, `fuzz-check`)
 locally before push. CI runs the full set.
 
-## Validation in the PyO3 Interface
+## Validation at the PyO3 Boundary
 
-The `ParsedChat` PyO3 handle exposes validation methods for the
-Python API path:
+There is no public Python validation API. The `ParsedChat` handle
+that previously exposed `validate()` / `validate_structured()` /
+`validate_chat_structured()` was retired in the 2026-03-21 PyO3
+slimdown to worker-runtime-only. Validation now runs entirely on the
+Rust side; when a worker invocation detects a failure it constructs
+`BatchalignBoundaryError::ChatValidation { entries, … }` which the
+PyO3 boundary lowers into a `CHATValidationException` carrying a
+populated `errors: list[ValidationErrorEntry]` on the Python side.
 
-| Method | Returns | Description |
-|---|---|---|
-| `validate()` | `list[str]` | Tier alignment errors (human-readable) |
-| `validate_structured()` | JSON string | Tier alignment errors (structured) |
-| `validate_chat_structured()` | JSON string | Full semantic validation |
+Python callers that need structured validation results invoke
+`batchalign3` via subprocess and catch the exception:
 
-These are used by the direct Python pipeline facade and tests. The
-server path uses the same underlying validation functions directly
-on the `ChatFile` AST.
+```python
+from batchalign_core import CHATValidationException
+
+try:
+    batchalign_core.execute_v2(request)
+except CHATValidationException as exc:
+    for entry in exc.errors:
+        print(entry.code, entry.line, entry.message)
+```
+
+See [Errors — Batchalign Runtime](batchalign-errors.md) and
+[Python ↔ Rust errors](python-rust-errors.md) for the full boundary
+contract.
 
 ## Known limitations
 

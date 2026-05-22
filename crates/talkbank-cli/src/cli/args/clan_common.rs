@@ -58,20 +58,25 @@ pub struct CommonAnalysisArgs {
     #[arg(long)]
     pub include_retracings: bool,
 
-    /// Output format: text (default), json, or csv
-    #[arg(short, long, value_enum, default_value_t = ClanOutputFormat::Text)]
+    /// Output format: clan (default — character-for-character match with legacy CLAN), text, json, or csv
+    #[arg(short, long, value_enum, default_value_t = ClanOutputFormat::Clan)]
     pub format: ClanOutputFormat,
 }
 
 /// Output format for CLAN analysis commands.
+///
+/// `Clan` is the default — the TalkBank mandate is faithful
+/// reproduction of CLAN's output, so researchers who have built
+/// pipelines against CLAN output get byte-level compatibility by
+/// default. `Text` is the opt-in for chatter's cleaner format.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum ClanOutputFormat {
-    /// Human-readable text
+    /// CLAN-compatible output (character-for-character match with legacy CLAN)
+    Clan,
+    /// Human-readable text (chatter's cleaner format)
     Text,
     /// Structured JSON
     Json,
     /// CSV for spreadsheets
     Csv,
-    /// CLAN-compatible output (character-for-character match with legacy CLAN)
-    Clan,
 }

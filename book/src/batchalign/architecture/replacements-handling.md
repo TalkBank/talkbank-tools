@@ -1,7 +1,7 @@
 # Replacements in the batchalign3 Pipeline
 
 **Status:** Current
-**Last updated:** 2026-04-27 13:47 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 This page documents how `batchalign3` handles CHAT replacement
 annotations (`[: ...]`) end-to-end. For the canonical CHAT-format
@@ -42,8 +42,9 @@ replacement annotations.** A reader skimming the pipeline for
 
 ## Per-Domain Extraction Policy
 
-Domain-aware word extraction in `batchalign/src/extract.rs`
-(`collect_replaced_word`, line 133-189) is the central seam. When the
+Domain-aware word extraction in
+`crates/talkbank-transform/src/extract.rs::collect_replaced_word`
+(line 129) is the central seam. When the
 walker encounters a `ReplacedWord` leaf, it picks one side of the pair
 based on the requested `TierDomain`:
 
@@ -90,10 +91,10 @@ shifts.
 
 | Site | File:line | What it does |
 |------|-----------|--------------|
-| Extraction | `crates/batchalign/src/fa/extraction.rs:26-29` | Sends the *original* word to the FA worker |
-| Count | `crates/batchalign/src/fa/mod.rs:367-374` | Counts 1 for the `ReplacedWord` (regardless of replacement word count) |
-| Injection | `crates/batchalign/src/fa/injection.rs:76-84` | Consumes 1 cursor slot, sets `replaced.word.inline_bullet` |
-| Preservation | `crates/batchalign/src/fa/mod.rs:510` (`collect_existing_fa_word_timings`) | Reads `replaced.word.inline_bullet` |
+| Extraction | `crates/batchalign/src/chat_ops/fa/extraction.rs` | Sends the *original* word to the FA worker |
+| Count | `crates/batchalign/src/chat_ops/fa/mod.rs` | Counts 1 for the `ReplacedWord` (regardless of replacement word count) |
+| Injection | `crates/batchalign/src/chat_ops/fa/injection.rs` | Consumes 1 cursor slot, sets `replaced.word.inline_bullet` |
+| Preservation | `crates/batchalign/src/chat_ops/fa/mod.rs` (`collect_existing_fa_word_timings`) | Reads `replaced.word.inline_bullet` |
 
 ### The 2026-04-08 Bug This Invariant Prevents
 
@@ -107,7 +108,7 @@ the wrong timing. The invariant was named after that incident.
 
 ### The Read-Only Test That Validates It
 
-`crates/batchalign/src/fa/tests.rs::test_wor_policy_replacements_use_original_surface()`
+`crates/batchalign/src/chat_ops/fa/tests/grouping_and_wor.rs::test_wor_policy_replacements_use_original_surface()`
 constructs a fixture with `what's is dis [: this] ?` and asserts the
 extracted FA word list is `["what's", "is", "dis"]` — note `this` is
 absent. If extraction drifts to using the replacement, the test fails
@@ -121,9 +122,9 @@ it here so future readers can find it:
 
 | Site | File:line | What it does |
 |------|-----------|--------------|
-| Extraction | `crates/batchalign/src/extract.rs:140-155` | Sends the *replacement* words to Stanza |
+| Extraction | `crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) | Sends the *replacement* words to Stanza |
 | Count | `model.utterance.mor_alignable_word_count()` (delegated to talkbank-model) | Counts replacement-word count, not 1 |
-| Injection | `crates/batchalign/src/inject.rs:38-100` | Asserts injected `%mor` item count == count, then injects |
+| Injection | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` | Asserts injected `%mor` item count == count, then injects |
 
 The reason this invariant has stayed implicit: extract/count/inject
 all delegate to `talkbank-model`'s domain-aware rules
@@ -169,13 +170,13 @@ Listing them here so a contributor doesn't reach for the wrong tool.
   "Each Replacement Word Is Validated".)
 - **Generate replacements during retokenization.** When Stanza
   re-tokenizes a word, the retokenize module rebuilds the AST in place
-  (`crates/batchalign/src/retokenize/rebuild.rs:77-91`). It
+  (`crates/talkbank-transform/src/retokenize/rebuild.rs`). It
   preserves existing `ReplacedWord` nodes during reconstruction but
   does not create new ones.
 - **Generate replacements during ASR retrace detection.** Detected
   retraces produce `WordKind::Retrace` plus structural retrace nodes
   (`Retrace`, `<...> [/]`), which are a different mechanism. See
-  `crates/batchalign/src/build_chat.rs::build_word_utterance`
+  `crates/talkbank-transform/src/build_chat/utterances.rs::build_word_utterance`
   for how retraces are emitted; `WordKind::Replacement` does not exist.
 
 ## When to Reach for `[%]`, `[=]`, or `[*]` Instead
@@ -201,14 +202,14 @@ use cases, `[%]` is the working candidate, not `[:]`.
 
 | Concern | File:line |
 |---------|-----------|
-| Replacement extraction (per-domain branch) | `crates/batchalign/src/extract.rs:140-155` |
-| FA extraction (uses original) | `crates/batchalign/src/fa/extraction.rs:26-29` |
-| FA count | `crates/batchalign/src/fa/mod.rs:367-374` |
-| FA injection | `crates/batchalign/src/fa/injection.rs:76-84` |
-| FA preservation | `crates/batchalign/src/fa/mod.rs:510` |
-| `%mor` injection (count check) | `crates/batchalign/src/inject.rs:38-100` |
-| Retokenize preserves `ReplacedWord` | `crates/batchalign/src/retokenize/rebuild.rs:77-91` |
-| Read-only consumption test | `crates/batchalign/src/fa/tests.rs::test_wor_policy_replacements_use_original_surface` |
+| Replacement extraction (per-domain branch) | `crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) |
+| FA extraction (uses original) | `crates/batchalign/src/chat_ops/fa/extraction.rs` |
+| FA count | `crates/batchalign/src/chat_ops/fa/mod.rs` |
+| FA injection | `crates/batchalign/src/chat_ops/fa/injection.rs` |
+| FA preservation | `crates/batchalign/src/chat_ops/fa/mod.rs` |
+| `%mor` injection (count check) | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` |
+| Retokenize preserves `ReplacedWord` | `crates/talkbank-transform/src/retokenize/rebuild.rs` |
+| Read-only consumption test | `crates/batchalign/src/chat_ops/fa/tests/grouping_and_wor.rs::test_wor_policy_replacements_use_original_surface` |
 | CHAT-format canonical reference | [`talkbank-tools/book/src/chat-format/replacements.md`](https://github.com/TalkBank/talkbank-tools/blob/main/book/src/chat-format/replacements.md) |
 
 ## See Also

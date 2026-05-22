@@ -183,8 +183,8 @@ The extension goes well beyond replicating the macOS CLAN application. Features 
 
 ## Requirements
 
-- VS Code 1.85 or later
-- The `talkbank-lsp` binary (ships in the same release archive as `chatter`)
+- VS Code 1.110 or later (matches `engines.vscode` in `package.json`)
+- The platform-specific VSIX from the talkbank-tools release. It bundles a prebuilt `talkbank-lsp` binary under `server/`; the extension does not install the `chatter` CLI.
 
 The extension searches for `talkbank-lsp` on your system PATH first, then falls back to `target/debug/` and `target/release/` relative to the extension directory.
 

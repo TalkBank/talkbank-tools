@@ -217,10 +217,11 @@ impl CommandOutput for WdlenResult {
             render_section(&mut out, title, &reversed);
         }
 
-        // CLAN appends XML closing tags at the end.
+        // CLAN appends XML closing tags at the end. The final tag
+        // is followed by a newline in CLAN's output (`</Workbook>\n`).
         let _ = writeln!(out, "  </Table>");
         let _ = writeln!(out, " </Worksheet>");
-        let _ = write!(out, "</Workbook>");
+        let _ = writeln!(out, "</Workbook>");
 
         out
     }
@@ -377,9 +378,16 @@ impl AnalysisCommand for WdlenCommand {
         // CLAN treats clitic pairs (main~clitic) as single words for section 5.
         // Section 5: per-word = stem + Brown's suffix, clitics merged into one word.
         // Section 6: per-utterance = POS(main only) + stems + Brown's suffixes.
+        // CLAN excludes punctuation-class `%mor` items (`cm`, `punct`,
+        // `end`, `beg`) from morpheme counts — see
+        // `MorWord::is_punctuation_marker`. They remain real `%gra`
+        // chunks; just not counted for word/morpheme metrics.
         if let Some(mor_tier) = utterance.mor_tier() {
             let mut utt_morphemes: u64 = 0;
             for mor_item in mor_tier.items().iter() {
+                if mor_item.main.is_punctuation_marker() {
+                    continue;
+                }
                 // Section 5: entire Mor item (main + clitics) = one word entry.
                 let mut word_morphs = word_morpheme_count(&mor_item.main);
                 for clitic in &mor_item.post_clitics {

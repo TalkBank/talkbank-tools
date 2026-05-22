@@ -1,7 +1,7 @@
 # Command Catalog
 
 **Status:** Current
-**Last updated:** 2026-04-16 21:56 EDT
+**Last updated:** 2026-05-21 13:50 EDT
 
 Every user-invocable VS Code command this extension contributes,
 grouped by feature area. Commands are declared in `package.json`'s
@@ -34,7 +34,7 @@ those.
 | `talkbank.playContinuous` | Play Media Continuously | `Cmd+Shift+/` | `commands/media.ts` |
 | `talkbank.stopPlayback` | Stop Media Playback | | `commands/media.ts` |
 | `talkbank.rewindMedia` | Rewind Media (2 s) | `F8` | `commands/media.ts` |
-| `talkbank.loopSegment` | Toggle Segment Loop | `F5` | `commands/media.ts` |
+| `talkbank.loopSegment` | Toggle Segment Loop | `Shift+F5` | `commands/media.ts` |
 
 ## Walker mode
 

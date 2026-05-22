@@ -6,9 +6,9 @@
 //! tier-derived `max_concurrent_jobs`, recommender-output
 //! `max_workers_per_key`, empirical caps on the recommender output —
 //! and every estimate has turned out wrong on at least one
-//! command/host combination. Today's measurement (2026-05-08) on ming
-//! puts morphotag's contention knee at K=4 and align's at K=1: a
-//! single static value cannot satisfy both.
+//! command/host combination. A direct measurement on a development
+//! machine put morphotag's contention knee at K=4 and align's at K=1:
+//! a single static value cannot satisfy both.
 //!
 //! The 1-minute CPU load average answers the question the static
 //! estimates were trying to approximate ("does this host have CPU

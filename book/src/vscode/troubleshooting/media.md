@@ -1,7 +1,7 @@
 # Media Not Found
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:00 EDT
 
 This chapter covers issues with media playback -- audio or video files not found, unsupported formats, and remote connection limitations.
 
@@ -26,20 +26,22 @@ The extension resolves media files by searching for a file whose base name match
 1. **Same directory** as the `.cha` file
 2. **`media/` subdirectory** relative to the `.cha` file
 
-For example, if the `.cha` file is at `/data/corpus/interview.cha` and the header says `@Media: interview, audio`, the extension looks for:
+For example, if the `.cha` file is at `/data/corpus/interview.cha` and the header says `@Media: interview, audio`, the extension tries each extension from `MEDIA_EXTENSIONS` in `vscode/src/utils/mediaResolver.ts` in order:
 
+- `/data/corpus/interview.mov`
+- `/data/corpus/interview.mp4`
 - `/data/corpus/interview.mp3`
 - `/data/corpus/interview.wav`
-- `/data/corpus/interview.m4a`
-- `/data/corpus/interview.mp4`
-- `/data/corpus/media/interview.mp3`
-- (and so on for other supported extensions)
+- `/data/corpus/interview.m4v`
+- (and the rest of `MEDIA_EXTENSIONS` — `.aif`, `.avi`, `.wmv`, `.mpg`, `.aiff`)
+- `/data/corpus/media/interview.mov`
+- (and the same extension sequence under `media/`)
 
 **Fixes:**
 
 1. Ensure the media file exists in one of these locations
 2. Ensure the base filename in `@Media:` matches the actual file (case-sensitive on macOS/Linux)
-3. Check that the file extension is one the extension supports (see below)
+3. If the file uses an extension not in `MEDIA_EXTENSIONS` (e.g., `.ogg`, `.flac`, `.mkv`, `.m4a`), include the extension explicitly in the `@Media:` value (`@Media: interview.m4a, audio`) so the verbatim-path attempt succeeds before the extension loop runs
 
 ## Unsupported Format
 

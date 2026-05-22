@@ -161,7 +161,11 @@ fn extract_events(xml: &str, label: &str) -> Result<Vec<NormalizedEvent>, XmlStr
             Ok(Event::Text(text)) => {
                 // trim_text(true) already strips whitespace-only text;
                 // any non-empty remainder is semantic.
-                let cow = text.xml_content().map_err(|e| XmlStructuralDiff {
+                //
+                // quick-xml 0.40 split `xml_content()` into version-keyed
+                // variants. CHAT XML golden files are XML 1.0, so the
+                // 1.0 shortcut preserves prior behaviour byte-for-byte.
+                let cow = text.xml10_content().map_err(|e| XmlStructuralDiff {
                     detail: format!("{label}: text decode failed: {e}"),
                 })?;
                 let trimmed = cow.trim();

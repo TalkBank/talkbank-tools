@@ -62,7 +62,7 @@ continuous playback.
 
 ## Loop
 
-**Shortcut:** `F5`
+**Shortcut:** `Shift+F5`
 
 Toggles looping of the current segment. When enabled, the current bullet's time range
 repeats automatically. The loop count is controlled by `talkbank.walker.loopCount`:

@@ -1,7 +1,7 @@
 # Parser, Model, and API Contracts
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:35 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 ## Single-handle parser API
 `talkbank-parser` provides `TreeSitterParser` as the canonical API
@@ -64,11 +64,16 @@ their own validity decisions.
 5. Parser functions that accept `ErrorSink` should not return `Option<T>` for fallible parse state.
 
 ## API Versioning Policy (Pre-Release but Strict)
-- Even before 1.0, publish internal `CONTRACT_LEVELS.md`:
+- Three intended contract levels:
   - Stable-for-integrators
   - Stable-internal
   - Experimental
 - Mark every public function/type by contract level.
+
+This classification is not yet codified in a separate manifest file;
+the levels above are the working policy. Integrators should treat any
+unmarked surface as Experimental until contract levels are formally
+published.
 
 ## Acceptance Criteria
 - Single canonical parse outcome envelope exposed for integrators.

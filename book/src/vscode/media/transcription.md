@@ -64,7 +64,7 @@ When you press `F4`:
 |----------|---------|-------------|
 | `F4` | Stamp timing bullet | Insert bullet with current time range, advance to next line |
 | `F8` | Rewind | Jump back by `rewindSeconds` to re-listen |
-| `F5` | Loop | Toggle looping of the current playback region |
+| `Shift+F5` | Loop | Toggle looping of the current playback region |
 
 ## Configuration
 
@@ -96,7 +96,7 @@ taking hands off the keyboard. To remap transcription keys for a foot pedal:
 4. Click the pencil icon next to any command to assign a new keybinding
 
 This is the recommended way to map foot-pedal buttons to `F4` (stamp), `F8`
-(rewind), and `F5` (loop). Most USB foot pedals present as standard keyboard
+(rewind), and `Shift+F5` (loop). Most USB foot pedals present as standard keyboard
 devices and can be mapped to any VS Code keybinding.
 
 See [Keyboard Shortcuts](../configuration/keyboard-shortcuts.md) for more on

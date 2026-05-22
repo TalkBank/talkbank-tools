@@ -622,10 +622,10 @@ async fn pressure_evict_idle_workers_if_needed(groups_ref: &GroupsMap) {
 mod saturation_log_tests {
     use super::should_log_saturation;
 
-    /// A 30-minute saturation window on ming captured 664,937 rejection
-    /// events (BUG-028). With logarithmic gating, the same window emits
-    /// at most one WARN per power of two — about 20 events, not 664k.
-    /// This test pins the schedule.
+    /// A 30-minute saturation window in development captured 664,937
+    /// rejection events (BUG-028). With logarithmic gating, the same
+    /// window emits at most one WARN per power of two — about 20
+    /// events, not 664k. This test pins the schedule.
     #[test]
     fn logs_at_one_two_four_and_powers_of_two() {
         for &n in &[1u64, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1_048_576] {

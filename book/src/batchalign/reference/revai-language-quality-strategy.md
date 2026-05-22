@@ -1,7 +1,16 @@
 # Rev.AI Language Quality Strategy
 
-**Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Status:** Reference (the Options/Decision/Escalation framing below is
+preserved for context; the live behavior is the Option A hand-curated
+deny-list enforced at `validate_language_support()` in
+`crates/batchalign/src/types/request.rs:190`)
+**Last updated:** 2026-05-20 20:33 EDT
+
+> The deliberation framing on this page (five options, decision
+> rationale, escalation triggers) is historical analysis preserved
+> here for context. The current code-level behavior is the Option A
+> hand-curated deny-list described in §"Implementation notes (Option
+> A)"; that is the authoritative section to read first.
 
 ## Background
 

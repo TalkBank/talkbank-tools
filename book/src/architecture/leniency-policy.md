@@ -1,7 +1,7 @@
 # Parser Leniency Policy
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 This document is the single source of truth for how the tree-sitter grammar,
 Rust validation layer, and CLI tooling divide responsibility for enforcing the
@@ -110,16 +110,28 @@ summarised here with its rationale.
   to be valid.
 - **Revisit**: Scope to explicit strict validation mode if desired.
 
-### Decision 3: Undeclared inline language codes — E254 removed
+### Decision 3: Undeclared inline language codes — E254 re-introduced as warning
 
-- **Previous behaviour**: Inline `@s:...` markers with language codes not
-  declared in `@Languages` emitted `E254`.
-- **Current behaviour**: No `E254` emitted; error code removed from codebase.
-- **Implementation**: Removed checks in
-  `talkbank-model/src/validation/word/language/resolve.rs`.
-- **Rationale**: Reference file `lang-marker.cha` exercises undeclared codes.
-- **Revisit**: Team decision needed — strict declaration enforcement vs
-  permissive inline experimentation.
+- **Original behaviour**: Inline `@s:...` markers with language codes not
+  declared in `@Languages` emitted `E254` as an error.
+- **Intermediate behaviour**: `E254` was disabled and the code removed
+  from the codebase to keep reference file `lang-marker.cha` valid.
+- **Current behaviour**: `E254` (`UndeclaredExplicitWordLanguage`) is
+  back in the registry at
+  `crates/talkbank-model/src/errors/codes/error_code.rs:321` and
+  emitted at
+  `crates/talkbank-model/src/validation/word/language/resolve.rs:195`,
+  but as a **warning** rather than an error. This was paired with the
+  introduction of `E255`
+  (`WholeUtteranceLanguageSwitchShouldUsePrecode`) for whole-utterance
+  `@s` runs that should use `[- lang]` precodes.
+- **Why it returned**: Heterogeneous corpora (Cantonese, Polish, Czech,
+  Spanish, HK bilingual) made the warn-only signal load-bearing for
+  catching `@s:LANG` markers that disagreed with `@Languages`. The
+  warning surfaces the inconsistency without blocking the file.
+- **Revisit**: If the warn-only signal turns out to be ignored in
+  practice, decide between escalating back to error severity or
+  removing.
 
 ### Decision 4: Mixed-language digit legality — permissive-any rule
 

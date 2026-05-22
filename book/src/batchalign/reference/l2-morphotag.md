@@ -1,7 +1,7 @@
 # L2 Morphotag: Per-Word Code-Switching Analysis
 
 **Status:** Current
-**Last updated:** 2026-05-06 20:33 EDT
+**Last updated:** 2026-05-20 10:25 EDT
 
 > **L2 dispatch is now on by default.** After
 > evaluation across 19 language pairs and 17,352 `@s` words yielded
@@ -219,7 +219,7 @@ information through every stage. It is discarded only at injection time.
 flowchart TD
     A["ExtractedWord.lang\n(crates/talkbank-transform/extract.rs)"] -->|"resolve_word_language()"| B["LanguageResolution\n(crates/talkbank-model/validation/word/language/resolve.rs)"]
     B --> C["special_forms[i].1\n(MorphosyntaxBatchItem\ncrates/talkbank-transform/morphosyntax/payload.rs)"]
-    C --> D["Grouping by utterance lang\n(crates/batchalign/morphosyntax/batch.rs:221-230)"]
+    C --> D["Grouping by utterance lang\n(crates/batchalign/src/morphosyntax/batch.rs)"]
     D --> E["Primary Stanza worker\n(worker dispatch)"]
     E --> F["inject_results()\n(crates/talkbank-transform/morphosyntax/injection.rs)"]
     F -->|"resolved_lang.is_some()"| G["L2|xxx\n(information discarded)"]
@@ -366,8 +366,10 @@ and could not see that structural evidence, so:
   Priority 3 (closed-class trusted) returned ADP blindly.
 
 The fix threads the full secondary UD sentence into
-`merge_primary_secondary_with_context()` (crates/talkbank-transform/morphosyntax/l2/merge.rs:246)
-and adds the Priority 0 check shown in the diagram above. Result on German-English input:
+`merge_primary_secondary_with_context()`
+(`crates/talkbank-transform/src/morphosyntax/l2/merge.rs:542`), which
+delegates to the inner `resolve_merged_pos_with_context()` at `:152`
+where Priority 0 is implemented. Result on German-English input:
 
 | Main | `%mor` (before fix) | `%mor` (after fix) |
 |------|---------------------|--------------------|

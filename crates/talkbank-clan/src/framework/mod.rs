@@ -65,7 +65,9 @@ pub use filter::{
 pub use id_filter::{IdFilter, IdPattern, IdPatternField, ParseIdFilterError, parse_id_filter};
 pub use input::DiscoveredChatFiles;
 pub use normalized_word::{NormalizedWord, clan_display_form, clan_display_form_preserve_case};
-pub use output::{AnalysisResult, CommandOutput, OutputFormat, Section, TableRow};
+pub use output::{
+    AnalysisResult, CommandOutput, OutputFormat, Section, TableRow, format_clan_banner,
+};
 pub use runner::{AnalysisRunner, RunnerError};
 pub use transform::{TransformCommand, TransformError, run_transform};
 pub use word_filter::{

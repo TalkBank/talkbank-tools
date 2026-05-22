@@ -1,7 +1,7 @@
 # %gra Format Conventions
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:23 EDT
+**Last updated:** 2026-05-20 07:55 EDT
 
 This page describes the `%gra` forms that `batchalign3` currently accepts when
 reading corpora and the stricter form it generates when writing new `%gra`
@@ -51,15 +51,22 @@ subtypes:
 When reading existing CHAT files, `batchalign3` keeps `%gra` validation lenient
 enough to ingest historical corpora that contain invalid dependency trees.
 
-Current parser-side checks:
+Current parser-side checks (all four codes are defined as
+`Severity::Error` in
+`crates/talkbank-model/src/errors/codes/error_code.rs:566-578` and
+emitted from `crates/talkbank-model/src/model/dependent_tier/gra/tier.rs`):
 
-- `E721`: indices must be sequential (`1..N`) and remain an error
-- `W722`: no `ROOT` relation
-- `W723`: multiple `ROOT` relations
-- `W724`: circular dependency
+- `E721` (`GraNonSequentialIndex`): indices must be sequential (`1..N`)
+- `E722` (`GraNoRoot`): no `ROOT` relation
+- `E723` (`GraMultipleRoots`): multiple `ROOT` relations
+- `E724` (`GraCircularDependency`): circular dependency
 
-The root and cycle checks remain warnings at parse time so older corpora stay
-processable even when `%gra` is malformed.
+The lenient parser still ingests files that trip these checks — the
+errors are logged and the affected tier is left as parsed — so older
+corpora stay processable even when `%gra` is malformed. The codes
+themselves are not `Severity::Warning`; the leniency is a
+caller-side policy at the pipeline entry, not a downgrading of the
+error code.
 
 ## Generator Validation for New `%gra`
 

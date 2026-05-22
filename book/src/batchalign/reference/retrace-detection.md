@@ -1,7 +1,7 @@
 # Retrace Detection
 
 **Status:** Current behavior reference
-**Last verified:** 2026-04-20 18:25 EDT
+**Last verified:** 2026-05-21 15:20 EDT
 
 This page documents how current batchalign retrace detection works. It does not
 preserve branch-era side-by-side implementation archaeology.
@@ -58,7 +58,7 @@ Worked examples:
 | `&-um I &-um I went`     | first `I` only    | `&-um I [/] &-um I went .` (bigram repeat detected; the fillers embedded in the match stay as fillers) |
 
 The gate lives at the marking step in `apply_retrace_detection`
-(`crates/batchalign/src/asr_postprocess/cleanup.rs`), using the
+(`crates/talkbank-transform/src/asr_postprocess/cleanup.rs`), using the
 `is_filler(text)` helper that checks the `&-` prefix. `WordKind` does
 not carry a dedicated filler variant; disfluency replacement (stage 7)
 rewrites `um` to `&-um` before retrace detection runs, so the prefix is
@@ -106,9 +106,9 @@ Three worked examples:
 Bracket choice follows the structured representation rather than ad-hoc
 string postprocessing. Verified against
 `build_word_utterance()` in
-`crates/batchalign/src/build_chat.rs` and
+`crates/talkbank-transform/src/build_chat/utterances.rs` and
 `apply_retrace_detection()` in
-`crates/batchalign/src/asr_postprocess/cleanup.rs` (2026-04-15).
+`crates/talkbank-transform/src/asr_postprocess/cleanup.rs`.
 
 ## Known limits
 

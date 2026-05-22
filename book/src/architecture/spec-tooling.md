@@ -1,7 +1,7 @@
 # Spec Tooling and Generation Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:30 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 ## Objective
 Make `spec/` the reliable language-contract source while keeping generation
@@ -54,16 +54,23 @@ reference corpus / curated full files
   -> parser parity tests
 ```
 
-## Structural Reorganization for `spec/tools`
-- Split into explicit internal modules:
-  - `input` (markdown/spec parsing)
-  - `ir` (normalized internal representation)
-  - `emit` (grammar tests, rust tests, docs)
-  - `validate` (schema and semantic checks)
-  - `sync` (grammar node-types and symbol-registry checks)
-- Narrow its mission back to spec-driven artifact generation and validation,
-  rather than letting it remain a bootstrap-era staging ground for parser
-  semantics.
+## Structural Reorganization for `spec/tools` (proposed, not yet implemented)
+
+The intent here is to narrow `spec/tools`'s mission back to spec-driven
+artifact generation and validation rather than leaving it as a
+bootstrap-era staging ground for parser semantics. A proposed module
+split:
+
+- `input` (markdown/spec parsing)
+- `ir` (normalized internal representation)
+- `emit` (grammar tests, rust tests, docs)
+- `validate` (schema and semantic checks)
+- `sync` (grammar node-types and symbol-registry checks)
+
+Current layout (`crates: bin/, generated/, lib.rs, output/, spec/,
+templates/`) has not been migrated to this shape. Treat this section
+as a design target for future work rather than a description of the
+current source tree.
 
 ## Legacy vs Active
 
@@ -95,15 +102,19 @@ Treat these as legacy audit paths:
   - generated grammar/docs flows should not silently become the sole authority
     for fragment parsing semantics.
 
-## Authoring Experience
-- Provide strict but simple spec templates for constructs and errors.
-- Add `spec lint` command for immediate feedback:
-  - missing fields,
-  - invalid tags,
-  - malformed examples,
-  - unknown error codes.
-- Document when `make test-gen` is actually needed and when a small direct test
-  is the right answer instead.
+## Authoring Experience (proposed, not yet implemented)
+
+Spec authoring would benefit from:
+
+- Strict but simple spec templates for constructs and errors.
+- A `spec lint` command for immediate feedback (missing fields,
+  invalid tags, malformed examples, unknown error codes).
+- Clearer documentation of when `make test-gen` is actually needed and
+  when a small direct test is the right answer instead.
+
+The `spec lint` binary does not yet exist; the strict-validation work
+that exists today happens implicitly through `make test-gen` failures
+plus the spec validators in `spec/tools/src/bin/`.
 
 ## Versioning and Metadata
 Each spec file should include:

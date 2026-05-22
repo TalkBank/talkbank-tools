@@ -1,7 +1,7 @@
 # Grammar System and Token Governance
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 ## Current Reality
 `grammar/grammar.js` encodes substantial implicit language knowledge directly in regex exclusions,
@@ -19,11 +19,12 @@ This is currently powerful but fragile.
 3. Generated node types drift from assumptions in spec tooling.
 4. Lenient parsing choices become undocumented policy.
 
-## Canonical Target Design
-Implement a generated symbol registry as the single source of token constraints.
+## Current Design
+The generated symbol registry is the single source of token constraints.
+The pipeline has shipped — `make symbols-gen` rebuilds it.
 
-### Proposed Registry Artifacts
-- `spec/symbols/symbol_registry.yaml` (human-authored intent):
+### Registry Artifacts
+- `spec/symbols/symbol_registry.json` (human-authored intent):
   - symbol string
   - category (delimiter, continuation, overlap, punctuation, etc.)
   - contexts where reserved/allowed

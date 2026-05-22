@@ -404,6 +404,15 @@
 - [WDLEN — Word Length Distribution](clan-reference/commands/wdlen.md)
 - [WDSIZE — Word Size Distribution](clan-reference/commands/wdsize.md)
 
+# CLAN — Legacy MOR/POST stubs (not implemented)
+
+- [MOR — Morphological Analysis (stub)](clan-reference/commands/mor.md)
+- [MEGRASP — Grammar Relations (stub)](clan-reference/commands/megrasp.md)
+- [POST — POS Disambiguation (stub)](clan-reference/commands/post.md)
+- [POSTLIST — POST DB Listing (stub)](clan-reference/commands/postlist.md)
+- [POSTMODRULES — POST DB Editing (stub)](clan-reference/commands/postmodrules.md)
+- [POSTTRAIN — POST Model Training (stub)](clan-reference/commands/posttrain.md)
+
 # CLAN — Transform Commands
 
 - [CHSTRING — String Replacement](clan-reference/commands/chstring.md)

@@ -1,7 +1,7 @@
 # Release Contract
 
 **Status:** Current
-**Last updated:** 2026-04-02 07:27 EDT
+**Last updated:** 2026-05-20 00:47 EDT
 
 This document defines the stability tiers for all public surfaces of the
 batchalign3 project. Consumers can use these tiers to decide which surfaces
@@ -41,12 +41,25 @@ not covered by any compatibility promise.
 - **Installer scripts** -- partially implemented.
 - **Staged / remote execution** -- experimental.
 
-## Cross-repo dependency
+## Workspace dependency
 
-batchalign3 depends on talkbank-tools crates (`talkbank-model`,
-`talkbank-parser`, `talkbank-transform`, `talkbank-clan`). These are currently
-referenced via local path dependencies. Before 1.0, these will move to
-versioned crates.io dependencies to decouple release cycles.
+The batchalign crates live as siblings inside the talkbank-tools
+Cargo workspace (`batchalign3` was folded into talkbank-tools on
+2026-04-28). The runtime crate `batchalign` depends on the
+talkbank-* sibling crates by workspace path:
+
+- `talkbank-model` — CHAT data model + validation
+- `talkbank-parser` — tree-sitter-backed CHAT parser
+- `talkbank-transform` — pipelines, alignment, CHAT↔JSON
+
+`talkbank-clan` is NOT a runtime dependency of the batchalign crate;
+it is a sibling crate used by the standalone `chatter` CLI.
+
+Before 1.0 the talkbank-* sibling crates target being published to
+crates.io with stable versioned APIs; the batchalign runtime will
+follow that publish cadence. Until then, the workspace path
+dependencies are the single source of truth and there is no
+separate cross-repo release boundary.
 
 ## Platform support
 

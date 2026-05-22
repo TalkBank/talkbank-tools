@@ -1,7 +1,7 @@
 # Retokenization — Overview
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:24 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 Retokenization in BA3 refers to **two distinct transformations** that
 happen to share the name. A reader encountering "retokenization" in
@@ -22,7 +22,7 @@ chapter for each, and then documents the per-language coverage gap.
   Whisper, etc.) with timestamps.
 - **Output shape:** speaker-attributed utterances ready for CHAT
   assembly.
-- **Source:** `crates/batchalign/src/asr_postprocess/mod.rs`
+- **Source:** `crates/talkbank-transform/src/asr_postprocess/mod.rs`
   function `retokenize()` (around line 872).
 - **Always on:** every transcribe run goes through this stage.
 - **Reference:** `architecture/asr-token-pipeline.md` §Stage 6.
@@ -38,7 +38,7 @@ chapter for each, and then documents the per-language coverage gap.
   MWT + UD annotations).
 - **Output shape:** mutated `Utterance` with new word boundaries
   and injected morphosyntax tiers.
-- **Source:** `crates/batchalign/src/retokenize/` module
+- **Source:** `crates/talkbank-transform/src/retokenize/` module
   (entry point `retokenize_utterance()` in `mod.rs`).
 - **Gated:** opt-in via `--retokenize` CLI flag.
 - **Reference:** `reference/morphotag-retokenization.md` (primary),
@@ -50,7 +50,7 @@ chapter for each, and then documents the per-language coverage gap.
 ```mermaid
 flowchart LR
     subgraph TranscribeTime["transcribe command (always)"]
-        ASR["Rev.AI / Whisper tokens"] --> Clean["asr_postprocess/mod.rs<br/>stages 1–5"]
+        ASR["Rev.AI / Whisper tokens"] --> Clean["talkbank-transform<br/>asr_postprocess/mod.rs<br/>stages 1–5"]
         Clean --> ASRRetok["Stage 6: retokenize()<br/>split by punctuation"]
         ASRRetok --> Disfl["stages 7–8<br/>disfluency, retrace"]
         Disfl --> CHAT["CHAT file on disk"]
@@ -58,7 +58,7 @@ flowchart LR
     subgraph MorphotagTime["morphotag --retokenize (opt-in)"]
         CHAT2["CHAT file on disk"] --> Parse["parse_lenient()"]
         Parse --> Worker["Stanza worker:<br/>tokenize, pos, lemma, mwt"]
-        Worker --> MorphRetok["retokenize_utterance()<br/>reshape CHAT to match Stanza"]
+        Worker --> MorphRetok["talkbank-transform<br/>retokenize_utterance()<br/>reshape CHAT to match Stanza"]
         MorphRetok --> Inject["inject %mor / %gra"]
         Inject --> CHATOut["CHAT file on disk"]
     end
@@ -84,7 +84,7 @@ competence from three sources, in order of leverage:
    languages Stanza supports have an MWT processor.
 2. **BA3's Rust per-language overrides** — morphology-level patches
    on Stanza's UD output (POS/lemma corrections, case features).
-   Live in `crates/talkbank-transform/src/morphosyntax/lang_{en,fr,ja}.rs`.
+   Live in `crates/talkbank-transform/src/morphosyntax/lang_{en,fr,it,ja}.rs`.
 3. **BA3's Python tokenizer realignment postprocessor** —
    `batchalign/inference/_tokenizer_realign.py`, a character-DP
    realigner that forces Stanza to respect BA3's pre-tokenized
@@ -106,11 +106,11 @@ Morphology-patching tables were fully ported from BA2 to BA3:
 
 | BA2 file | Role | BA3 location |
 |----------|------|--------------|
-| `morphosyntax/en/irr.py` (170 verbs) | Past-tense irregularity flag | `nlp/lang_en.rs::IRREGULAR_VERBS` |
-| `morphosyntax/fr/case.py` | Nominative/accusative pronoun lists | `nlp/lang_fr.rs::{PRON_NOM, PRON_ACC}` |
-| `morphosyntax/fr/apm.py` + `fr/apmn.py` (158) | Auditory plural marking | `nlp/lang_fr.rs::APM_NOUNS` |
-| `morphosyntax/ja/verbforms.py` (50+ patterns) | Verb-form POS/lemma patches | `nlp/lang_ja.rs` |
-| Cantonese normalization (Python OpenCC) | OpenCC `s2hk` + 31 domain replacements | `asr_postprocess/cantonese.rs` (Rust `ferrous-opencc` + domain table) |
+| `morphosyntax/en/irr.py` (170 verbs) | Past-tense irregularity flag | `talkbank-transform/morphosyntax/lang_en.rs::IRREGULAR_VERBS` |
+| `morphosyntax/fr/case.py` | Nominative/accusative pronoun lists | `talkbank-transform/morphosyntax/lang_fr.rs::{PRON_NOM, PRON_ACC}` |
+| `morphosyntax/fr/apm.py` + `fr/apmn.py` (158) | Auditory plural marking | `talkbank-transform/morphosyntax/lang_fr.rs::APM_NOUNS` |
+| `morphosyntax/ja/verbforms.py` (50+ patterns) | Verb-form POS/lemma patches | `talkbank-transform/morphosyntax/lang_ja.rs` |
+| Cantonese normalization (Python OpenCC) | OpenCC `s2hk` + 31 domain replacements | `talkbank-transform/asr_postprocess/cantonese.rs` (Rust `ferrous-opencc` + domain table) |
 
 These ports were faithful; the underlying semantics carry over.
 
@@ -254,9 +254,9 @@ skip `WordKind::Retrace` copies and land on the "real" first word.
 
 - **ReplacedWord / AnnotatedWord splits**: today retokenize cannot
   split inside a replacement (1:1 text replacement only; see
-  `retokenize/rebuild.rs:232–285`). A future per-language fix
-  that needs to split inside an annotation must first lift this
-  constraint.
+  `crates/talkbank-transform/src/retokenize/rebuild.rs`). A future
+  per-language fix that needs to split inside an annotation must
+  first lift this constraint.
 
 - **Stale `%wor` after retokenize**: per
   `architecture/asr-token-pipeline.md`, `%wor` is a timing-

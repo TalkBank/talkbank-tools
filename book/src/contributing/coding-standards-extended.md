@@ -1,7 +1,7 @@
 # Coding Standards and Engineering Practices
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-21 08:38 EDT
 
 ## Objective
 Set enforceable, language-specific standards that reduce ambiguity and improve long-term maintainability.
@@ -23,7 +23,11 @@ Set enforceable, language-specific standards that reduce ambiguity and improve l
   - Guardrail script: `scripts/check-errorsink-option-signatures.sh`.
 - For model enums that encode validation state, require `ValidationTagged` derive.
   - Explicit annotation: `#[validation_tag(error|warning|clean)]`.
-  - Naming convention fallback: variants ending in `Error` / `Warning`.
+  - Naming-convention fallback (per
+    `crates/talkbank-derive/src/validation_tagged.rs:118-123`):
+    variants ending in `Error` → `Error`; variants ending in
+    `Warning` OR `Unsupported`, plus a variant named exactly
+    `Unsupported`, → `Warning`; otherwise → `Clean`.
 
 ## Grammar Standards
 - Grammar rules must map to documented token/category semantics.

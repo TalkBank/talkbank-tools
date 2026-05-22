@@ -1,7 +1,7 @@
 # JSON Schemas
 
 **Status:** Current
-**Last updated:** 2026-03-14
+**Last updated:** 2026-05-21 14:45 EDT
 
 This directory contains generated JSON Schema artifacts for both the TalkBank
 transcript model and stable editor/server contracts.
@@ -51,8 +51,9 @@ versioned URL.
 
 ## Deployment
 
-See `deploy.sh` in this directory for instructions on publishing the schema to
-`talkbank.org`.
+The checked-in `.json` files in this directory are what gets published
+at the canonical URLs above. There is no in-tree deploy script today;
+publication is handled out-of-band as part of the release process.
 
 ## Further reading
 

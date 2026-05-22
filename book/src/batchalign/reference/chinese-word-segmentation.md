@@ -1,7 +1,7 @@
 # Chinese/Cantonese Word Segmentation
 
 **Status:** Current
-**Last updated:** 2026-03-23 19:50 EDT
+**Last updated:** 2026-05-20 01:19 EDT
 
 ## Problem
 
@@ -114,7 +114,7 @@ flowchart TD
     pyc["PyCantonese segment()\n(inference/morphosyntax.py)"]
     stanza_retok["Stanza neural tokenizer\n(_stanza_loading.py:retok)"]
     stanza_pretok["Stanza pretokenized\n(standard pipeline)"]
-    rust_retok["Rust retokenize module\n(retokenize/mod.rs)"]
+    rust_retok["Rust retokenize module\n(crates/talkbank-transform/src/retokenize.rs\n+ retokenize/{rebuild,parse_helpers}.rs)"]
     chat_word["CHAT output\n(word-level tokens + %mor/%gra)"]
     chat_char["CHAT output\n(per-char tokens + %mor/%gra)"]
     warn["warn: Consider\n--retokenize"]

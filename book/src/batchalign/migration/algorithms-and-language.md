@@ -1,7 +1,7 @@
 # Algorithms, Language, and Alignment Migration
 
 **Status:** Current
-**Last updated:** 2026-05-05 13:54 EDT
+**Last updated:** 2026-05-19 13:34 EDT
 
 Comparison anchors:
 
@@ -561,15 +561,12 @@ The UTR (Utterance Timing Recovery) overlap strategy options are
   markers and returns `TwoPassOverlapUtr` if either is present, but
   this function is currently unreachable from Auto.
 
-**Historical data** (now-disabled auto-selection): an experimental
+**Historical data** (now-disabled auto-selection): an internal
 benchmark on 7 non-English files across 4 languages plus the SBCSAE
 and Jefferson English corpora measured +4.3pp on SBCSAE and +3.8pp
 on Jefferson for the auto-selected two-pass strategy on English,
-with regressions on non-English eliminated. The benchmark log lives
-in the workspace at
-`analysis/per-speaker-utr-experiment-2026-03-16/overlap-experiment-results.md`.
-These numbers describe the disabled mechanism, not what `auto`
-delivers today.
+with regressions on non-English eliminated. These numbers describe
+the disabled mechanism, not what `auto` delivers today.
 
 The companion architecture page
 [Command Flowcharts](../architecture/command-flowcharts.md#utr-detail-language-aware-strategy-selection)

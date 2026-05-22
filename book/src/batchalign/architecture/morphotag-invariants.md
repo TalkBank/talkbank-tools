@@ -1,7 +1,7 @@
 # Morphotag Reconciliation Invariants
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:50 EDT
+**Last updated:** 2026-05-19 20:10 EDT
 
 This page documents the **1-to-1 invariant** that the morphotag pipeline
 relies on, the three stages that together make it hold deterministically,
@@ -96,7 +96,8 @@ operates at the Stanza-token level instead of the CHAT-word level.
 The main tier gets rewritten to match Stanza's output, and the
 resulting `%mor` count equals the rewritten word count by construction.
 (The current implementation of this rewrite lives in
-`crates/batchalign/src/retokenize/`.)
+`crates/talkbank-transform/src/retokenize.rs` plus the
+`crates/talkbank-transform/src/retokenize/` sub-modules.)
 
 ## MorOutcome: the typed outcome vocabulary
 
@@ -150,5 +151,5 @@ the most likely failing stage:
 - `crates/talkbank-transform/src/morphosyntax/payload.rs` — NotApplicable classification
 - `batchalign/inference/morphosyntax.py` — realignment stage
 - `batchalign/tests/inference/test_morphosyntax_realignment_contract.py` — Stage 2 tests
-- `crates/batchalign/tests/mor_count_parity_reference_corpus.rs` — Stage 1 tests
+- `crates/batchalign/tests/chat_ops_mor_count_parity_reference_corpus.rs` — Stage 1 tests
 - `talkbank-tools/crates/talkbank-model/src/alignment/helpers/rules.rs` — `counts_for_tier`

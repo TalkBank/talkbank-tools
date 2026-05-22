@@ -1,7 +1,7 @@
 # Memory Safety: Preventing Kernel OOM Crashes
 
 **Status:** Current
-**Last updated:** 2026-05-10 08:31 EDT
+**Last updated:** 2026-05-21 15:20 EDT
 
 ## The Problem
 
@@ -245,15 +245,18 @@ macro_rules! require_python {
 }
 ```
 
-### Layer 9: Test isolation (default `make test-rust` skips integration tests)
+### Layer 9: Test isolation (default `make test` skips integration tests)
 
-The Makefile `test-rust` target only runs `--lib` tests (pure Rust, no Python).
-Integration tests that spawn workers are opt-in:
+The Makefile's `test` target runs Rust lib tests (pure Rust, no
+Python). Integration tests that spawn workers are opt-in via
+`cargo nextest run` filters against specific test binaries; ML
+model tests are gated behind their own per-host opt-in flags and
+must only be run on a Fleet/Large-tier host with ≥ 256 GB RAM:
 
 ```bash
-make test-rust       # SAFE: 1,273 library tests, no Python
-make test-workers    # Worker tests with --test-threads=1
-make test-ml         # ML model tests — net only (256 GB)
+make test                                            # Pure Rust, no Python
+cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
+# ML golden tests: Fleet/Large-tier hosts only — see docs/runbooks/batchalign3-testing.md
 ```
 
 ## Environment Variables
@@ -275,25 +278,27 @@ make test-ml         # ML model tests — net only (256 GB)
 
 ## How to Run Tests Safely
 
-### On a developer machine (64 GB)
+### On a developer machine (≤ 64 GB)
 
 ```bash
 # Always safe — pure Rust, no Python, no ML
-make test-rust
+make test
 
-# Worker tests (test-echo mode, no ML models) — safe with memory guard
-# These spawn real Python workers but in test-echo mode (no model loading)
-make test-workers
+# Worker integration tests (test-echo mode, no ML models): safe with
+# the memory guard; spawn real Python workers in test-echo mode
+# without model loading
+cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
 
-# NEVER run ML golden tests on a 64 GB machine
-# make test-ml  ← DO NOT RUN
+# NEVER run ML golden tests on a 64 GB machine — they will OOM.
 ```
 
-### On net (256 GB, M3 Ultra)
+### On a Fleet/Large-tier host (≥ 256 GB RAM, e.g. an M3 Ultra Mac Studio)
 
 ```bash
-# All tests including ML golden
-make test-rust && make test-workers && make test-ml
+# Pure Rust + worker integration + ML golden tests
+make test
+cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
+cargo nextest run -p batchalign --test ml_golden -- --test-threads=1
 ```
 
 ### Running a specific integration test
@@ -329,7 +334,7 @@ cargo nextest run -p batchalign
 | `crates/batchalign/src/worker/pool/idle_eviction.rs` | Pressure-driven idle-worker eviction (largest-RSS first when `available <= 4096 MB`) |
 | `crates/batchalign/src/host_memory.rs` | Host-wide ledger, startup leases, job execution leases, ML test lock; TTL-cached `system_memory_snapshot` shared by every memory poll |
 | `crates/batchalign/src/worker/memory_guard.rs` | Local spawn semaphore plus host-memory startup reservation |
-| `crates/batchalign/src/worker/handle.rs` | `WorkerHandle::spawn()` and `spawn_tcp_daemon()` call `acquire_spawn_permit()` |
+| `crates/batchalign/src/worker/handle/mod.rs` and `crates/batchalign/src/worker/handle/spawn.rs` | `WorkerHandle::spawn()` (`mod.rs:73`) and `spawn_tcp_daemon()` (`spawn.rs:135`) both call `acquire_spawn_permit()` |
 | `crates/batchalign/src/runner/mod.rs` | Coordinator-backed job execution planning and requeue |
 | `crates/batchalign/tests/common/mod.rs` | Machine-wide ML fixture lock |
 | `crates/batchalign/tests/worker_integration.rs` | `require_python!` macro with memory check |

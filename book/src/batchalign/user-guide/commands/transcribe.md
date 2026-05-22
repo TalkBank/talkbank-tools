@@ -1,7 +1,7 @@
 # transcribe
 
 **Status:** Current
-**Last updated:** 2026-05-11 10:25 EDT
+**Last updated:** 2026-05-21 16:10 EDT
 
 Create a new CHAT transcript from audio files using automatic speech
 recognition (ASR). Produces `.cha` files alongside or in a separate output
@@ -152,6 +152,7 @@ CHAT transcripts.
 | `--diarization {auto,enabled,disabled}` | `auto` | Dedicated Pyannote speaker diarization stage (`auto` = disabled) |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` word-timing tier |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
+| `--utseg-fallback-stanza` | off | Opt in to the legacy Stanza constituency-parser fallback for utterance segmentation when no TalkBank BERT model is configured for `--lang`. Default refuses substitution. See [utseg → Language support](utseg.md#language-support). |
 
 ---
 

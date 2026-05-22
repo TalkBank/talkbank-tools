@@ -1,7 +1,7 @@
 # Cantonese Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-06 16:30 EDT
+**Last updated:** 2026-05-20 20:18 EDT
 
 User reference for Cantonese (`yue`) processing in batchalign3 — ASR engine
 options, credentials, retokenize usage, and what to expect from each
@@ -153,7 +153,7 @@ Word segmentation was tested against all 9 Cantonese corpora in TalkBank
 (over 737,000 utterances). Multi-character preservation 84–90%,
 vocabulary coverage 98–100% across MOST, LeeWongLeung, CHCC, EACMC, HKU
 (CHILDES), MAIN, GlobalTales, and Aphasia HKU. Test:
-`tests/pipelines/morphosyntax/test_cantonese_all_corpora.py`.
+`batchalign/tests/languages/cantonese/morphosyntax/test_cantonese_all_corpora.py`.
 
 ## Number Expansion
 

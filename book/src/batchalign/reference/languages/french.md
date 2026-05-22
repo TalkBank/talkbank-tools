@@ -1,7 +1,7 @@
 # French
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 ## Scope
 
@@ -80,11 +80,6 @@ to begin with.
   runs every case through paired (free-tokenize vs postprocessor)
   pipelines. Invoke with `uv run pytest
   batchalign/tests/investigations/ -m golden`.
-* **Behavior-table renderer:**
-  `scripts/analysis/render_probe_matrix_table.py --lang fra` —
-  regenerates the per-language behavior table from the probe
-  matrix for comparison against the hand-curated native-handling
-  table above.
 
 ## References
 

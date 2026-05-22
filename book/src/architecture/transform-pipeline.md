@@ -1,7 +1,7 @@
 # Transform Pipeline
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-19 19:23 EDT
 
 The `talkbank-transform` crate provides high-level pipelines that compose parsing, validation, and serialization into reusable workflows.
 
@@ -36,25 +36,31 @@ The JSON follows the schema at `schema/chat-file.schema.json`.
 
 ### JSON → CHAT
 
-Convert JSON back to CHAT format:
+Convert JSON back to a `ChatFile` AST via the bridge helper:
 
 ```rust,ignore
-use talkbank_transform::json_to_chat;
+use talkbank_transform::build_chat::build_chat_from_json;
 
-let chat = json_to_chat(json_str)?;
+let chat_file = build_chat_from_json(json_str)?;
 ```
 
-The roundtrip is lossless for well-formed input.
+`build_chat_from_json` (in
+`crates/talkbank-transform/src/build_chat/bridge.rs`) deserializes
+the JSON shape produced by `chat_to_json` back into a `ChatFile`.
+Serializing the result through `WriteChat` re-produces CHAT text.
 
 ### CHAT → CHAT (Normalize)
 
 Parse and reserialize to normalize formatting:
 
 ```rust,ignore
-use talkbank_transform::normalize;
+use talkbank_transform::normalize_chat;
 
-let normalized = normalize(source, &parser)?;
+let normalized = normalize_chat(source, &parser)?;
 ```
+
+`normalize_chat` lives in
+`crates/talkbank-transform/src/pipeline/convert.rs`.
 
 ## Validation + Roundtrip Cache Lifecycle
 

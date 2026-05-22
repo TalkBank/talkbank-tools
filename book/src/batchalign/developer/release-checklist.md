@@ -1,7 +1,7 @@
 # Release Checklist
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:16 EDT
+**Last updated:** 2026-05-20 00:47 EDT
 
 This checklist must be completed in full before any git tag or PyPI publish
 of batchalign3. No gate may be skipped. If a gate cannot be satisfied,
@@ -14,7 +14,10 @@ the release is blocked until it is resolved.
 - [ ] `pyproject.toml` version matches target release version and stays `< 1.0.0` unless `docs/RELEASE-CONTRACT.md` + `docs/VERSIONING.md` are updated in the same patch to promote the surface
 - [ ] `batchalign/version` mirrors the target version/date/description (runtime metadata only; not the canonical policy source)
 - [ ] `crates/batchalign-*/Cargo.toml` and `crates/batchalign-pyo3/Cargo.toml` mirror the target version
-- [ ] `cargo test -p batchalign --test ci_checks -q` passes
+- [ ] Version-consistency check passes — confirm `pyproject.toml`,
+  `batchalign/version`, every `crates/batchalign-*/Cargo.toml`, and
+  the `batchalign3 --version` runtime string all match by hand
+  (there is no dedicated `ci_checks` test binary today)
 - [ ] Desktop metadata versions updated if desktop is included in the release
 
 ### 2. CI Green
@@ -59,8 +62,8 @@ the release is blocked until it is resolved.
 
 ### 7. Documentation
 
-- [ ] `RELEASE-CONTRACT.md` up to date
-- [ ] `PLATFORM-SUPPORT.md` up to date
+- [ ] `docs/RELEASE-CONTRACT.md` up to date
+- [ ] `docs/PLATFORM-SUPPORT.md` up to date
 - [ ] `docs/code-signing-and-distribution.md` still matches the actual distribution channels being used
 - [ ] CHANGELOG or release notes drafted for this version
 - [ ] API stability documentation reflects current state

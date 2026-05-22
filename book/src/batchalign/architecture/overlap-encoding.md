@@ -1,7 +1,7 @@
 # Overlap Encoding: `&*` and `+<` Internals
 
 **Status:** Current
-**Last updated:** 2026-03-17
+**Last updated:** 2026-05-19 20:10 EDT
 
 ## AST Representation
 
@@ -134,9 +134,9 @@ Of these, ~131,000 (40%) already have timing bullets.
 
 | File | Purpose |
 |------|---------|
-| `crates/batchalign/src/fa/utr.rs` | UtrStrategy trait, GlobalUtr, select_strategy, run_global_utr |
-| `crates/batchalign/src/fa/utr/two_pass.rs` | TwoPassOverlapUtr, recover_overlap_timing |
-| `crates/batchalign/src/fa/tests.rs` | Integration tests for both strategies |
+| `crates/batchalign/src/chat_ops/fa/utr.rs` | UtrStrategy trait, GlobalUtr, select_strategy, run_global_utr |
+| `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs` | TwoPassOverlapUtr, recover_overlap_timing |
+| `crates/batchalign/src/chat_ops/fa/tests/` | Integration tests (snapshots + per-feature modules) |
 | `crates/batchalign/src/runner/dispatch/utr.rs` | resolve_strategy, UtrPassContext.overlap_strategy |
 | `crates/batchalign/src/types/options.rs` | UtrOverlapStrategy enum |
-| `crates/batchalign/src/args/commands.rs` | `--utr-strategy` CLI flag |
+| `crates/batchalign/src/cli/args/commands.rs` | `--utr-strategy` CLI flag |

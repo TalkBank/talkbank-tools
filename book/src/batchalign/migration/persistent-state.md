@@ -1,7 +1,7 @@
 # Persistent State and Behavioral Changes
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-05-19 13:34 EDT
 
 Batchalign3 introduces several stateful behaviors that did not exist in
 Batchalign2. This page documents every form of persistent state, where it
@@ -49,24 +49,34 @@ default cache directories:
 
 ## Analysis cache
 
-The analysis cache is the largest behavioral difference from BA2. When you
-process a file, Batchalign computes a BLAKE3 hash of the input content plus
-command parameters. If the cache contains a result for that hash, it returns
-the cached result without invoking any ML models.
+The analysis cache is the largest behavioral difference from BA2. BA3
+caches **audio inference results only** — UTR ASR (`utr_asr`) and
+forced alignment (`forced_alignment`). Text-NLP commands (`morphotag`,
+`translate`, `utseg`, `coref`) deliberately do not cache; each run
+recomputes from scratch so that model or pipeline changes always take
+effect immediately.
+
+For the cached audio tasks, Batchalign computes a BLAKE3 hash of the
+input content plus command parameters. If the cache contains a result
+for that hash, it returns the cached result without invoking the audio
+model.
 
 **When this matters:**
 
-- Re-running `morphotag` on the same corpus returns instantly
-- Editing a file invalidates its cache entry (different content hash)
-- Changing `--lang` or `--retokenize` invalidates the cache (different params)
-- The cache is per-command: `morphotag` and `align` cache separately
+- Re-running `align` on the same media is near-instant — both the ASR
+  pass (UTR) and the forced alignment pass are cached.
+- Editing a file invalidates its cache entry (different content hash).
+- Changing audio-task parameters that affect the cache key (e.g.
+  `--utr-fuzzy`) invalidates the relevant entries.
+- `morphotag`, `translate`, `utseg`, and `coref` are never returned
+  from cache — they re-run every invocation.
 
 **Managing the cache:**
 
 ```bash
 batchalign3 cache stats        # Show cache size and entry count
-batchalign3 cache clear        # Delete all cached results
-batchalign3 cache clear --older-than 30d  # Delete entries older than 30 days
+batchalign3 cache clear        # Delete cached results (with confirmation)
+batchalign3 cache clear --all  # Also remove permanent UTR cache entries
 ```
 
 **BA2 had no cache.** Every invocation computed results from scratch.
@@ -104,7 +114,8 @@ models from disk.
 - First run of `morphotag` downloads Stanza models (~500 MB)
 - First run of `align` downloads Whisper/Wave2Vec models (~1-2 GB)
 - No network connection needed after first download
-- Models can be pre-downloaded with `batchalign3 cache warm`
+- The download itself surfaces through `progress_v2` events on every
+  UI channel; there is no separate pre-warm CLI command in BA3
 
 **BA2 also downloaded models on first use**, but the behavior is the same.
 
@@ -113,24 +124,36 @@ models from disk.
 `~/.batchalign.ini` stores the default ASR engine selection and API keys.
 Created by `batchalign3 setup`. This is the same format as BA2.
 
-## Implications for compat shim users
+## Implications for subprocess integrations
 
-If you are using `batchalign.compat.BatchalignPipeline`, be aware that:
+There is no public Python API in BA3; the supported integration path
+from Python is `subprocess`-into-`batchalign3`. The Python `compat`
+shim (`batchalign.compat.BatchalignPipeline`, etc.) has been removed
+along with the rest of the BA2 Python API — see
+[Developer Architecture Migration](developer-migration.md#7-python-api-migration).
+
+For scripts that drive `batchalign3` via subprocess, the persistent-state
+points still matter:
 
 1. **The first call may be slow** — models download and daemon starts.
-2. **The daemon persists** — after your Python process exits, the daemon
-   continues running. Stop it explicitly if you don't want it.
-3. **Results are cached** — re-processing identical input is near-instant,
-   which is different from BA2's always-compute behavior.
-4. **Memory usage** — the daemon holds ML models in memory (~2-4 GB).
-   This persists until you stop the daemon.
+2. **The daemon persists** — after your driver process exits, the daemon
+   continues running. Stop it explicitly with `batchalign3 serve stop`
+   if you don't want it.
+3. **Audio-task results are cached** — re-aligning identical media is
+   near-instant; text-NLP results recompute every run.
+4. **Memory usage** — the daemon holds ML models in memory (~2-4 GB)
+   until you stop it.
 
-To disable caching and daemon behavior entirely (BA2-like cold execution):
+To disable the audio cache for a specific run (BA2-like always-recompute
+for the cached tasks):
 
 ```bash
-# Run without cache
-batchalign3 --no-cache morphotag ~/corpus/ -o ~/output/
+batchalign3 align ~/corpus/ -o ~/output/ --override-media-cache
 ```
+
+The `--override-media-cache-tasks <list>` per-command flag offers
+finer-grained control. Text-NLP commands never cache, so there is no
+analogous flag for them.
 
 ## Clearing all state
 

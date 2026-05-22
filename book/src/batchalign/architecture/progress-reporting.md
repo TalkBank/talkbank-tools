@@ -1,7 +1,7 @@
 # Progress Reporting
 
 **Status:** Current
-**Last updated:** 2026-04-14 09:54 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 The server reports per-file progress to all connected clients (CLI, TUI, React
 dashboard) in real time. This chapter covers the data model, data flow, and how
@@ -67,7 +67,8 @@ processing file shows at least a stage name ("Reading", "Resolving audio",
 "Aligning", "Writing"), but the label is derived later from the stage code.
 No orchestrator changes needed.
 
-`set_file_progress()` in `runner/util.rs` is the helper:
+`set_file_progress()` at
+`crates/batchalign/src/runner/util/file_status/tracker.rs:126` is the helper:
 
 ```rust,ignore
 set_file_progress(store, job_id, filename, FileStage::Aligning, None, None).await;

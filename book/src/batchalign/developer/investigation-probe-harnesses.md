@@ -1,7 +1,7 @@
 # Investigation Probe Harnesses
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:52 EDT
 
 batchalign3 uses Stanza as an oracle for investigation tests —
 small, per-case probes that pin Stanza's current behavior so a
@@ -154,7 +154,7 @@ default CI. Sub-markers allow fine-grained selection:
 | Command | Runs |
 |---------|------|
 | `uv run pytest` | Fast tests only — no probes |
-| `uv run pytest -m "golden and mwt_probe"` | All MWT probes (~45s on ming) |
+| `uv run pytest -m "golden and mwt_probe"` | All MWT probes (~45s on a development machine) |
 | `uv run pytest -m "golden and decision_probe"` | All decision probes (~4s) |
 | `uv run pytest -m "golden and mwt_probe" -k "fra or ita"` | French + Italian MWT only |
 | `uv run pytest -m golden` | All golden tests (includes probe matrices + other ML goldens) |
@@ -277,7 +277,7 @@ This means:
   boundary shifted, which warrants investigation.
 
 For end-to-end production behavior, see the `%mor` integration
-tests under `crates/batchalign/src/morphosyntax/tests.rs`
+tests under `crates/talkbank-transform/src/morphosyntax/tests.rs`
 and the ML golden tests under `batchalign/tests/golden/`. Those
 exercise the full pipeline including reassembly.
 
@@ -325,10 +325,12 @@ Two concrete instances of this loop:
 - **Italian Defect 6/7/8.** Probe matrix
   surfaced `parla → par + la`, `arancione → arancio + ne`, and
   the compound-imperative family (`dammela`, `prendilo`, …). The
-  adjudication routed to a Rust-side reconciler in `nlp/lang_it.rs`
+  adjudication routed to a Rust-side reconciler in
+  `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
   (two allowlists + `map_ud_sentence` plumbing), with synthetic-UD
-  tests in `nlp/mapping/mod.rs` and end-to-end golden coverage in
-  `test_italian_defect6_end_to_end.py`.
+  tests in `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` and
+  end-to-end golden coverage in
+  `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py`.
 
 The feedback direction matters: **probes lead, code follows**. We
 do not write a rule and then probe to "confirm" it; we probe

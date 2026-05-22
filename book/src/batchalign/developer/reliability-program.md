@@ -1,7 +1,7 @@
 # Long-Term Reliability Program
 
 **Status:** Current
-**Last updated:** 2026-04-02 07:37 EDT
+**Last updated:** 2026-05-21 15:15 EDT
 
 This document defines the ongoing reliability practices for batchalign3.
 It covers corpus-level regression testing, failure tracking, stress/recovery
@@ -25,18 +25,20 @@ Schedule regular regression runs against the full TalkBank corpus data.
 
 | Trigger | Scope | Where |
 |---------|-------|-------|
-| After every release (mandatory) | Full corpus | `net` (256 GB RAM) |
-| Weekly on `main` (future scheduled CI) | Full corpus | `net` |
-| On demand for significant changes | Targeted subset | `net` or developer machine (small subset only) |
+| After every release (mandatory) | Full corpus | Fleet/Large-tier host (≥ 256 GB RAM) |
+| Weekly on `main` (future scheduled CI) | Full corpus | Fleet/Large-tier host |
+| On demand for significant changes | Targeted subset | Fleet/Large-tier host or developer machine (small subset only) |
 
 ### Infrastructure
 
-- **Execution host:** `net` (Mac Studio, M3 Ultra, 256 GB RAM) for full
-  corpus runs. Developer machines may run small targeted subsets but must
-  never attempt the full corpus (OOM risk).
-- **Golden baselines:** stored in `batchalign3/tests/golden/`. Each baseline
-  is a deterministic snapshot of pipeline output for a fixed set of input
-  files.
+- **Execution host:** a Fleet/Large-tier server (Mac Studio M3 Ultra
+  class, ≥ 256 GB RAM) for full corpus runs. Developer machines may
+  run small targeted subsets but must never attempt the full corpus
+  (OOM risk).
+- **Golden baselines:** stored in `batchalign/tests/golden/`. Each
+  baseline is a deterministic snapshot of pipeline output for a
+  fixed set of input files. (`batchalign3` is the CLI name; the
+  package directory is `batchalign/`.)
 - **Comparison tool:** diff golden output against new run output. Any
   difference is either an intentional change (update the baseline with a
   commit message explaining why) or a regression (file a bug).
@@ -116,8 +118,10 @@ on the server or on explicit request.
 
 ### Implementation
 
-- Use `cargo nextest` with `--profile stress` for test isolation and
-  parallelism control.
+- Use `cargo nextest` with the relevant test filter (no dedicated
+  `[profile.stress]` is defined in `.config/nextest.toml` today;
+  define one before landing the first stress test, or invoke
+  `cargo test -p batchalign --test <stress-test>` directly).
 - **Not part of default CI.** Triggered manually or as part of the release
   process.
 - **Run on the server only** — these tests consume significant memory and CPU.

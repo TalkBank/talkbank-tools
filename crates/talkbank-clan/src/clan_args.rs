@@ -124,6 +124,11 @@ fn try_rewrite_clan_flag(arg: &str, is_check: bool) -> Option<Vec<String>> {
 
 /// Rewrite `+t*CHI` → `--speaker CHI`, `-t*MOT` → `--exclude-speaker MOT`,
 /// `+t%mor` → `--tier mor`, `-t%gra` → `--exclude-tier gra`.
+///
+/// CLAN also accepts `+tCHI` (no `*` sigil) and treats it identically
+/// to `+t*CHI`; this function does the same — when the first character
+/// of the value is not one of `*`, `%`, or `@`, the value is taken as
+/// an implicit speaker code.
 fn rewrite_tier_speaker(polarity: u8, rest: &str) -> Option<Vec<String>> {
     if rest.is_empty() {
         return None;
@@ -166,7 +171,17 @@ fn rewrite_tier_speaker(polarity: u8, rest: &str) -> Option<Vec<String>> {
                 None
             }
         }
-        _ => None,
+        _ => {
+            // `+tCHI` / `-tMOT` — CLAN treats the value as an implicit
+            // speaker code (equivalent to `+t*CHI` / `-t*MOT`). Match
+            // that behaviour.
+            let flag = if polarity == b'+' {
+                "--speaker"
+            } else {
+                "--exclude-speaker"
+            };
+            Some(vec![flag.into(), rest.to_string()])
+        }
     }
 }
 
@@ -316,6 +331,29 @@ mod tests {
         assert_eq!(
             result,
             args("clan analyze freq --speaker CHI --speaker MOT file.cha")
+        );
+    }
+
+    /// CLAN silently treats `+tCHI` (no `*` sigil) the same as
+    /// `+t*CHI` — the sigil is implicit when the first character is
+    /// not `*`, `%`, or `@`. chatter must do the same so a user
+    /// pasting `freq +tCHI file.cha` from a CLAN script reaches the
+    /// `--speaker` field, not the fallthrough that drops the flag.
+    /// Asymmetrically true for `-tCHI` → `--exclude-speaker CHI`.
+    #[test]
+    fn speaker_include_no_asterisk() {
+        let input = args("clan analyze freq +tCHI file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze freq --speaker CHI file.cha"));
+    }
+
+    #[test]
+    fn speaker_exclude_no_asterisk() {
+        let input = args("clan analyze freq -tMOT file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(
+            result,
+            args("clan analyze freq --exclude-speaker MOT file.cha")
         );
     }
 

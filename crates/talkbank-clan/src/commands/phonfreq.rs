@@ -142,19 +142,53 @@ impl AnalysisCommand for PhonfreqCommand {
 
     /// Convert accumulated phone maps into deterministic output rows.
     fn finalize(&self, state: Self::State) -> Self::Output {
-        let entries: Vec<PhonfreqEntry> = state
+        let mut entries: Vec<(char, PhonfreqEntry)> = state
             .counts
             .into_iter()
-            .map(|(phone, counts)| PhonfreqEntry {
-                phone: phone.to_string(),
-                total: counts.total,
-                initial: counts.initial,
-                final_pos: counts.final_pos,
-                other: counts.other,
+            .map(|(phone, counts)| {
+                (
+                    phone,
+                    PhonfreqEntry {
+                        phone: phone.to_string(),
+                        total: counts.total,
+                        initial: counts.initial,
+                        final_pos: counts.final_pos,
+                        other: counts.other,
+                    },
+                )
             })
             .collect();
 
-        PhonfreqResult { entries }
+        // CLAN's phonfreq groups phones by Unicode block before sorting
+        // by codepoint within each group: Latin-1 Supplement (æ, ð) →
+        // IPA Extensions (ɑ, ə, ɛ, ɪ) → Basic Latin (j, k, m, n, …).
+        // Without an `alphabet.cut` file CLAN falls back to this
+        // hardcoded bucket order; we match it byte-for-byte.
+        entries.sort_by(|a, b| {
+            clan_phone_bucket(a.0)
+                .cmp(&clan_phone_bucket(b.0))
+                .then_with(|| a.0.cmp(&b.0))
+        });
+
+        PhonfreqResult {
+            entries: entries.into_iter().map(|(_, e)| e).collect(),
+        }
+    }
+}
+
+/// Assign a CLAN-style sort bucket to a phone character.
+///
+/// CLAN's `phonfreq` puts Latin-1 Supplement characters first, then
+/// IPA Extensions, then Basic Latin. Anything outside those ranges
+/// goes last in codepoint order. Returns a tuple-sortable bucket
+/// index — lower wins.
+fn clan_phone_bucket(c: char) -> u8 {
+    let cp = c as u32;
+    match cp {
+        0x0080..=0x00FF => 0, // Latin-1 Supplement (æ, ð, …)
+        0x0250..=0x02AF => 1, // IPA Extensions (ɑ, ə, ɛ, ɪ, …)
+        0x0061..=0x007A => 2, // Basic Latin lowercase (j, k, m, …)
+        _ => 3,               // anything else, sort by codepoint within
     }
 }
 
@@ -201,15 +235,27 @@ fn count_pho_word(word: &PhoWord, counts: &mut BTreeMap<char, PhoneCounts>) {
 
 impl CommandOutput for PhonfreqResult {
     /// Render per-phone totals and positional counts in CLAN-style columns.
+    ///
+    /// CLAN's phonfreq pads the phone column to 4 **bytes**, not 4
+    /// characters — so multi-byte UTF-8 phones (æ, ð, ɑ, ə, ɛ, ɪ) get
+    /// fewer trailing spaces than ASCII phones do. Rust's `{:<4}`
+    /// pads by character count, which over-pads multi-byte chars by
+    /// one position. We pad by byte length to match CLAN exactly.
     fn render_text(&self) -> String {
         use std::fmt::Write;
         let mut out = String::new();
 
         for entry in &self.entries {
+            let pad = 4usize.saturating_sub(entry.phone.len());
             writeln!(
                 out,
-                "{:>3}  {:<4} initial = {:>3}, final = {:>3}, other = {:>3}",
-                entry.total, entry.phone, entry.initial, entry.final_pos, entry.other,
+                "{:>3}  {}{} initial = {:>3}, final = {:>3}, other = {:>3}",
+                entry.total,
+                entry.phone,
+                " ".repeat(pad),
+                entry.initial,
+                entry.final_pos,
+                entry.other,
             )
             .ok();
         }

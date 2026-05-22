@@ -1,7 +1,7 @@
 # Malayalam Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-21 08:41 EDT
 
 Malayalam (`mal`) is supported in **transcribe-only** mode. Stanza
 ships no processor packages for Malayalam, so utseg / morphotag /
@@ -102,14 +102,17 @@ which permits digits only for `zho`, `cym`, `vie`, `tha`, `nan`,
 Malayalam backend.
 
 **Fix:** added a Malayalam entry to `NUM2LANG` in
-`crates/batchalign/data/num2lang.json` covering 0-20,
+`crates/talkbank-transform/data/num2lang.json` covering 0-20,
 decades 30-90, plus 100/1000 anchor words. The per-word Rust pass
-in `crates/batchalign/src/pipeline/transcribe.rs::prepare_asr_chunks`
+in `crates/batchalign/src/pipeline/transcribe.rs:527::prepare_asr_chunks`
 calls `expand_number(text, "mal")` on every word, converting digits
 to their Malayalam-script word forms. The Python IPC path no longer
 exists — Malayalam expansion is end-to-end Rust. Tests at
-`crates/batchalign/src/asr_postprocess/num2text.rs`
-(`malayalam_*`) lock in the expected expansions.
+`crates/talkbank-transform/src/asr_postprocess/num2text.rs:540`
+(`malayalam_single_digits_expand_to_script`,
+`malayalam_digits_collected_for_expansion`,
+`malayalam_anchor_decades_and_hundreds`) lock in the expected
+expansions.
 
 Higher-magnitude numbers (4-digit and beyond) are decomposed by
 `decompose_with_table` greedily against the anchor entries; if the
@@ -119,10 +122,8 @@ table can't fully decompose, the original digit string is returned
 ## Operational notes
 
 - Audio files of arbitrary length are supported; ASR processes
-  in 25-second chunks via the HuggingFace pipeline.
-- A `max_new_tokens=444` cap is applied to fine-tune generations
-  to prevent the rare runaway-decoder state where a model fails to
-  predict end-of-utterance and would otherwise hang.
+  in 25-second chunks via the HuggingFace pipeline
+  (`batchalign/inference/asr.py:177` `chunk_length_s=25`).
 - Output CHAT can be edited by hand and re-run through other
   TalkBank tooling; the absence of `%mor` / `%utseg` does not
   affect downstream tools that don't require them.

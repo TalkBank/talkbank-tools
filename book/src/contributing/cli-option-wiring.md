@@ -1,7 +1,7 @@
 # CLI Option Wiring
 
 **Status:** Current
-**Last updated:** 2026-03-17
+**Last updated:** 2026-05-20 20:29 EDT
 
 This document maps every CLI option to its downstream consumer in the dispatch
 layer. It serves as the authoritative reference for whether a flag is
@@ -17,14 +17,14 @@ be audited when adding or reviewing flags.
 ```text
 CLI args (clap) → CommandOptions (typed structs) → Dispatch extraction → Dispatch plan → Production code
       ↑                    ↑                              ↑                  ↑
-  commands.rs         options.rs                    dispatch/options.rs  dispatch/plan.rs
-  (parsing)        (build_typed_options)         (extract_*_dispatch_params)
+  cli/args/commands.rs  cli/args/options.rs     dispatch/options.rs   dispatch/plan.rs
+  (parsing)             (build_typed_options)   (extract_*_dispatch_params)
 ```
 
-1. **CLI parsing** (`crates/batchalign/src/args/commands.rs`) — clap structs
+1. **CLI parsing** (`crates/batchalign/src/cli/args/commands.rs`) — clap structs
     define flags with defaults.
-2. **Options bridge** (`crates/batchalign/src/args/options.rs`) —
-    `build_typed_options()` converts parsed args into `CommandOptions` enum variants.
+2. **Options bridge** (`crates/batchalign/src/cli/args/options.rs:119::build_typed_options`)
+    — converts parsed args into `CommandOptions` enum variants.
 3. **Dispatch extraction** (`crates/batchalign/src/runner/dispatch/options.rs`) —
     pure functions extract typed params from `CommandOptions` for each dispatch path.
 4. **Dispatch plan build** (`crates/batchalign/src/runner/dispatch/plan.rs`) —
@@ -54,8 +54,8 @@ struct. These are cross-cutting concerns shared by all commands:
 | `--lang` | (positional/global) | `job.lang` | Worker pool key, worker CLI | Wired |
 | `-n` / `--num-speakers` | (global) | `job.num_speakers` | `dispatch_transcribe_infer` | Wired |
 | `--before PATH` | `CommonOpts.before` | `job.before_paths` | `dispatch_fa_infer`, `dispatch_batched_infer` → incremental orchestrators | Wired (morphotag, align) |
-| `--in-place` | `CommonOpts.in_place` | Resolved at CLI dispatch | Path resolution in `dispatch/paths.rs` | Wired |
-| `--file-list FILE` | `CommonOpts.file_list` | Resolved at CLI dispatch | File discovery in `resolve.rs` | Wired |
+| `--in-place` | `CommonOpts.in_place` | Resolved at CLI dispatch | Path resolution in `crates/batchalign/src/cli/dispatch/paths.rs` | Wired |
+| `--file-list FILE` | `CommonOpts.file_list` | Resolved at CLI dispatch | File discovery in `crates/batchalign/src/cli/resolve.rs` | Wired |
 | `--override-media-cache` | `CommonOpts.override_media_cache` | `CommonOptions.override_media_cache` | Via `CommandOptions` (Path 1) | Wired |
 | `--engine-overrides JSON` | (global) | `CommonOptions.engine_overrides` | Typed built-in/custom engine selection and worker command overrides | Wired |
 | `--lexicon FILE` | (global) | `CommonOptions.mwt` | MWT dictionary injection | Wired |
@@ -86,11 +86,19 @@ test. If it's job-level, document it in the table above.
 ### UTR behavior (implemented)
 
 UTR is wired as a **detect-and-skip pre-pass** in `process_one_fa_file`
-(`crates/batchalign/src/runner/dispatch/fa_pipeline.rs`), with three optimizations:
+(`crates/batchalign/src/runner/dispatch/fa_pipeline.rs:472`), with three optimizations:
 ASR result caching, fallback UTR after FA failure, and partial-window ASR for
 mostly-timed files.
 
-The core logic is in `run_utr_pass()` (shared by both the pre-pass and fallback):
+The core logic is `run_utr_pass()` at
+`crates/batchalign/src/runner/dispatch/utr.rs:126` (with the
+`run_utr_pass_full` helper at `:339`); it is shared by both the
+pre-pass and the fallback. Chat-side helpers it calls
+(`count_utterance_timing` at
+`crates/batchalign/src/chat_ops/fa/grouping.rs:167`,
+`find_untimed_windows` at
+`crates/batchalign/src/chat_ops/fa/utr.rs:685`) live under
+`chat_ops/fa/`:
 
 1. Parse CHAT, call `count_utterance_timing()` → `(timed, untimed)`.
 2. If `untimed == 0`: skip UTR → proceed to FA.
@@ -118,9 +126,10 @@ The core logic is in `run_utr_pass()` (shared by both the pre-pass and fallback)
 This is **smarter than ba2's skip logic**: ba2 skipped UTR if *any* utterance
 had timing (potentially missing untimed ones). ba3 skips only if *all* are timed.
 
-The UTR module (`fa/utr.rs`) injects utterance-level bullets only — it does not
-set word-level timing. FA handles word-level alignment after UTR provides the
-utterance boundaries.
+The chat-side UTR module
+(`crates/batchalign/src/chat_ops/fa/utr.rs`) injects utterance-level
+bullets only — it does not set word-level timing. FA handles
+word-level alignment after UTR provides the utterance boundaries.
 
 Without UTR, untimed utterances fall back to interpolation between neighboring
 timed utterances (see [Proportional FA Estimation](../architecture/alignment/proportional-fa-estimation.md)).
@@ -203,7 +212,7 @@ Job-level options (`before_paths`, `lang`, `num_speakers`) are tested via:
 - **Diff engine tests** (`batchalign`): 11 tests covering `diff_chat()` classification
 - **Incremental orchestrator tests**: `process_fa_incremental` and
   `process_morphosyntax_incremental` are integration-tested via worker tests
-- **Path resolution tests**: `dispatch/paths.rs` `--before` directory/file matching
+- **Path resolution tests**: `crates/batchalign/src/cli/dispatch/paths.rs` `--before` directory/file matching
 
 ```bash
 cargo nextest run -p batchalign -E 'test(diff)'

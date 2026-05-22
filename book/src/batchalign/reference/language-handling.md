@@ -1,7 +1,7 @@
 # Language Handling in CHAT: Complete Data Model
 
 **Status:** Current
-**Last updated:** 2026-05-06 20:33 EDT
+**Last updated:** 2026-05-20 20:21 EDT
 
 ---
 
@@ -514,7 +514,7 @@ Errors are collected during resolution and reported via the validation system.
 
 ### Rust (batchalign - orchestration)
 
-- **Batch collection & language grouping**: `crates/batchalign/src/morphosyntax/batch.rs:40-250` — `run_morphosyntax_batch_impl()` groups utterances by language, dispatches per-language workers
+- **Batch collection & language grouping**: `crates/batchalign/src/morphosyntax/mod.rs:72::run_morphosyntax_impl` is the orchestration entry; per-utterance language grouping for the secondary L2 path lives at `crates/batchalign/src/morphosyntax/batch.rs:31::dispatch_secondary_l2` (file is 208 lines total)
 
 ### Python (stateless inference only)
 
@@ -538,4 +538,6 @@ it is policy/refinement work on top of the implemented L2 dispatch path:
 
 - CHAT Manual: https://talkbank.org/0info/manuals/CHAT.html
 - ISO 639-3 Language Codes: https://iso639-3.sil.org/
-- Related docs: `per-word-language-divergence.md`, `per-word-language-switching-ideal-approach.md`
+- Related docs: [Language Code Resolution](language-code-resolution.md),
+  [L2 Morphotag](l2-morphotag.md),
+  [L2 Handling](l2-handling.md)

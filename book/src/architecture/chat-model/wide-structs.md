@@ -1,7 +1,7 @@
 # Wide Struct Audit
 
 **Status:** Current
-**Last updated:** 2026-05-01 15:57 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 A workspace-wide audit rule for struct shape. Applies to all crates in
 `talkbank-tools` (parsing, model, validation, transform, CLI, LSP, batchalign
@@ -90,7 +90,7 @@ flowchart LR
 
 ### `Job` (batchalign) — interior runtime, grouped by concern
 
-`crates/batchalign/src/store/job.rs` now decomposes into:
+`crates/batchalign/src/store/job/types.rs` now decomposes into:
 
 - `JobIdentity`
 - `JobDispatchConfig`
@@ -157,7 +157,7 @@ lines.
 
 ## Audit Guardrail
 
-The Rust audit test at `crates/talkbank-cli/tests/wide_struct_audit.rs`
-classifies the current wide structs and fails when a new one appears without
-an explicit review entry. The corresponding xtask
-(`cargo xtask lint-wide-structs`) enforces field caps on reviewed structs.
+The xtask `cargo run -p xtask -- lint-wide-structs`
+(`xtask/src/wide_struct_audit.rs`) classifies the current wide structs,
+fails when a new one appears without an explicit review entry, and
+enforces field caps on reviewed structs.

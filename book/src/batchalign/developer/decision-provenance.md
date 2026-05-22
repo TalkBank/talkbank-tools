@@ -1,7 +1,7 @@
 # Decision Provenance
 
 **Status:** Current
-**Last updated:** 2026-03-30 22:06 EDT
+**Last updated:** 2026-05-19 22:44 EDT
 
 ## Overview
 
@@ -45,7 +45,9 @@ the tracing event and the record creation in one call.
 
 ## DecisionRecord
 
-**Source:** `crates/batchalign/src/decisions.rs`
+**Source:** `crates/talkbank-transform/src/decisions.rs` —
+`DecisionRecord` at :281, `DecisionModule` at :38, `new_and_trace`
+at :344, `inject_decision_tiers` at :380.
 
 ```rust,ignore
 pub struct DecisionRecord {
@@ -106,7 +108,7 @@ The `--review-level` flag controls which decision tiers are emitted:
 | `timing_stripped` | yes | Utterance start time is before previous utterance's start (E362 violation). All timing removed. |
 | `end_clamped` | no | Utterance end time exceeds next utterance's start. End clamped to next start. |
 
-**Source:** `crates/batchalign/src/fa/orchestrate.rs` —
+**Source:** `crates/batchalign/src/chat_ops/fa/orchestrate.rs:213` —
 `enforce_monotonicity()`
 
 ### UTR unmatched
@@ -115,7 +117,7 @@ The `--review-level` flag controls which decision tiers are emitted:
 |----------|:------------:|------|
 | `utr_unmatched` | yes | Untimed utterance could not be matched to any ASR tokens during timing recovery. |
 
-**Source:** `crates/batchalign/src/fa/utr.rs` — `run_global_utr()`
+**Source:** `crates/batchalign/src/chat_ops/fa/utr.rs:223` — `run_global_utr()`
 
 ### FA word timing drop
 
@@ -123,12 +125,13 @@ The `--review-level` flag controls which decision tiers are emitted:
 |----------|:------------:|------|
 | `words_timing_dropped` | yes | Word-level timing was dropped because clamping to utterance boundary made start >= end. |
 
-**Source:** `crates/batchalign/src/fa/postprocess.rs` —
+**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37` —
 `postprocess_utterance_timings()`
 
 ### FA bullet repair (existing)
 
-Repair decisions from `fa/repair.rs` are converted to `DecisionRecord` via
+Repair decisions from `crates/batchalign/src/chat_ops/fa/repair.rs:58`
+(`RepairDecision`) are converted to `DecisionRecord` via
 `From<&RepairDecision>` and included in the same injection pass.
 
 ### Morphosyntax (morphotag command)
@@ -140,7 +143,9 @@ Repair decisions from `fa/repair.rs` are converted to `DecisionRecord` via
 | `injection_failed` | yes | MOR word count mismatch (e.g., MWT expansion). No %mor/%gra produced. |
 | `nlp_no_sentences` | yes | Stanza returned an empty response for this utterance. No %mor/%gra produced. |
 
-**Source:** `crates/batchalign/src/morphosyntax/inject.rs`
+**Source:** `crates/talkbank-transform/src/morphosyntax/injection.rs`
+(consumed by `crates/batchalign/src/morphosyntax/worker.rs` on the
+mapping/retokenization/injection error paths).
 
 ## Audit of uninstrumented silent decisions
 
@@ -149,25 +154,29 @@ These decisions are logged via `tracing` but not yet tracked as
 
 | Decision | File | Priority |
 |----------|------|:--------:|
-| FA grouping skip (no timing/estimate) | `fa/grouping.rs:53` | Medium |
-| Token stitching partial | `fa/alignment.rs:159` | Medium |
-| Hardcoded period terminator | `build_chat.rs:482` | Low |
-| Default language (eng) | `build_chat.rs:142` | Low |
-| Cantonese normalization | `asr_postprocess/cantonese.rs` | Low |
-| Compound merging | `asr_postprocess/compounds.rs` | Low |
-| Number expansion | `asr_postprocess/num2text.rs` | Low |
-| Retrace detection | `asr_postprocess/mod.rs` | Low |
-| Stanza terminator mismatch | `retokenize/parse_helpers.rs:105` | Low |
-| Retokenization fallback | `morphosyntax/inject.rs:181` | Medium |
+| FA grouping skip (no timing/estimate) | `crates/batchalign/src/chat_ops/fa/grouping.rs` | Medium |
+| Token stitching partial | `crates/batchalign/src/chat_ops/fa/alignment.rs` | Medium |
+| Hardcoded period terminator | `crates/talkbank-transform/src/build_chat/` (directory) | Low |
+| Default language (eng) | `crates/talkbank-transform/src/build_chat/` | Low |
+| Cantonese normalization | `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` | Low |
+| Compound merging | `crates/talkbank-transform/src/asr_postprocess/compounds.rs` | Low |
+| Number expansion | `crates/talkbank-transform/src/asr_postprocess/num2text.rs` | Low |
+| Retrace detection | `crates/talkbank-transform/src/asr_postprocess/mod.rs` | Low |
+| Stanza terminator mismatch | `crates/talkbank-transform/src/retokenize/parse_helpers.rs` | Low |
+| Retokenization fallback | `crates/talkbank-transform/src/morphosyntax/injection.rs` | Medium |
 
 ## Integration with existing %xalign/%xrev
 
-The decision provenance system generalizes the existing FA bullet repair
-review tier infrastructure (`fa/review_tiers.rs`). The original
-`inject_review_tiers()` function and `RepairDecision` type are preserved
-for backward compatibility. `DecisionRecord` adds the `module` field and
-`From<&RepairDecision>` enables seamless conversion.
+The decision provenance system generalizes the existing FA bullet
+repair review tier infrastructure
+(`crates/batchalign/src/chat_ops/fa/review_tiers.rs:26`
+`inject_review_tiers`). The original `inject_review_tiers()` function
+and `RepairDecision` type (`chat_ops/fa/repair.rs:58`) are preserved
+for backward compatibility. `DecisionRecord` adds the `module` field
+and `From<&RepairDecision>` enables seamless conversion.
 
-The FA orchestrator (`fa/mod.rs`) now collects decisions from all stages
-(FA postprocessing, bullet repair, monotonicity enforcement) and injects
-them in a single pass via `inject_decision_tiers()`.
+The FA orchestrator (`crates/batchalign/src/chat_ops/fa/mod.rs` +
+`chat_ops/fa/orchestrate.rs`) now collects decisions from all stages
+(FA postprocessing, bullet repair, monotonicity enforcement) and
+injects them in a single pass via `inject_decision_tiers()` (defined
+at `crates/talkbank-transform/src/decisions.rs:380`).

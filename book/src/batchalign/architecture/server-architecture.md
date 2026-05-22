@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-11 14:36 EDT
+**Last updated:** 2026-05-21 15:00 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -253,7 +253,7 @@ newtypes and worker protocol types (see the workspace `Cargo.toml`).
 
 ## Dispatch resolution
 
-The CLI router in `crates/batchalign/src/dispatch/mod.rs` resolves targets
+The CLI router in `crates/batchalign/src/cli/dispatch/mod.rs` resolves targets
 in this order:
 
 1. explicit `--server` for command classes that can target a remote server
@@ -582,9 +582,9 @@ drift (self-healing)".
 
 | File | Role |
 |------|------|
-| `crates/batchalign/src/dispatch/mod.rs` | top-level dispatch router |
-| `crates/batchalign/src/dispatch/single.rs` | explicit remote single-server dispatch |
-| `crates/batchalign/src/dispatch/paths.rs` | local-daemon paths-mode dispatch |
+| `crates/batchalign/src/cli/dispatch/mod.rs` | top-level dispatch router |
+| `crates/batchalign/src/cli/dispatch/single.rs` | explicit remote single-server dispatch |
+| `crates/batchalign/src/cli/dispatch/paths.rs` | local-daemon paths-mode dispatch |
 | `crates/batchalign/src/daemon.rs` | daemon lifecycle, state files, sidecar handling |
 | `crates/batchalign/src/routes/mod.rs` | axum router composition and middleware |
 | `crates/batchalign/src/routes/jobs/mod.rs` | job submission/list/detail routes |

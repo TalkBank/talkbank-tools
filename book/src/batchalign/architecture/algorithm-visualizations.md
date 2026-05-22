@@ -1,7 +1,7 @@
 # Algorithm Visualizations
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:25 EDT
+**Last updated:** 2026-05-19 19:23 EDT
 
 The dashboard ships interactive visualizations for retokenization
 mapping and DP alignment (both static and live-from-job modes).
@@ -189,8 +189,8 @@ Static mode uses TypeScript ports of the Rust algorithms located in
 
 | Engine file | Rust source | What it ports |
 |-------------|------------|--------------|
-| `dpAlignment.ts` | `batchalign/src/dp_align.rs` | `align_small` with step-by-step emission |
-| `retokenize.ts` | `batchalign/src/retokenize/mapping.rs` | Word↔token mapping |
+| `dpAlignment.ts` | `crates/talkbank-transform/src/dp_align/` | `align_small` with step-by-step emission |
+| `retokenize.ts` | `crates/talkbank-transform/src/retokenize.rs` | Word↔token mapping |
 
 These are faithful ports — same algorithm, same cost model, same edge cases —
 not approximations.

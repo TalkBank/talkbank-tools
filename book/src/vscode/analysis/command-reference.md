@@ -1,7 +1,7 @@
 # Command Reference
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 13:40 EDT
 
 Complete reference for all 33 CLAN analysis commands available in the
 TalkBank extension. Run any command via right-click **Run CLAN
@@ -22,7 +22,8 @@ Analysis...** or the Command Palette. See
 | **dist** | Frequency | Word distribution and dispersion analysis across the transcript | -- | Detecting whether target words cluster in one part of the session |
 | **dss** | Profiling | Developmental Sentence Scoring -- weighted grammatical complexity | `%mor` tier; English only | Clinical assessment of grammatical maturity (ages 2;0--6;11) |
 | **eval** | Assessment | Combined language evaluation with normative comparison | -- | Adult language assessment against healthy norms |
-| **evald** | Assessment | Dementia-specific evaluation using DementiaBank norms | -- | Screening language decline in dementia populations |
+| **eval-d** | Assessment | Dementia-specific evaluation using DementiaBank norms | -- | Screening language decline in dementia populations |
+| **gemlist** | Other | List `@Bg`/`@Eg` gem-marker segments in document order | -- | Locating coded session phases / activity boundaries |
 | **flucalc** | Other | Fluency calculation -- measures disfluency types and rates | -- | Assessing stuttering severity and disfluency patterns |
 | **freq** | Frequency | Word and morpheme frequency counts with type-token ratio | -- | Basic vocabulary analysis, word lists for any transcript |
 | **freqpos** | Frequency | Frequency broken down by part-of-speech from `%mor` tier | `%mor` tier | Analyzing grammatical category distribution (e.g., noun-to-verb ratio) |
@@ -86,7 +87,7 @@ See [Assessment Tools](assessment.md) for detailed descriptions.
 
 - **kideval** -- child language assessment
 - **eval** -- general language assessment
-- **evald** -- dementia assessment
+- **eval-d** -- dementia assessment
 
 ### Search (2 commands)
 
@@ -130,7 +131,7 @@ by the language server.
 | **dss** | `clan-info/lib/dss/` | `eng.cut`, `engu.cut`, `bss.cut`, `jpn.cut` |
 | **ipsyn** | `clan-info/lib/ipsyn/` | `eng.cut`, `eng-100.cut` |
 | **kideval** | `clan-info/lib/kideval/` | 15 database files (see [Assessment Tools](assessment.md)) |
-| **eval** / **evald** | `clan-info/lib/eval/` | 4 database files (see [Assessment Tools](assessment.md)) |
+| **eval** / **eval-d** | `clan-info/lib/eval/` | Database files in that directory (see [Assessment Tools](assessment.md)) |
 | **corelex** | `clan-info/lib/corelex/` | `cat.cut`, `cinderella.cut`, `cookie.cut`, `cookie-short.cut`, `cookie_modern.cut`, `sandwich.cut`, `umbrella.cut`, `window.cut` |
 | **flucalc** | `clan-info/lib/fluency/` | `ALLflucodes.cut` |
 

@@ -1,7 +1,7 @@
 # XML Emitter
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 19:23 EDT
 
 ## Purpose
 
@@ -389,16 +389,14 @@ delete after the divergence is resolved.
 
 ## Related documents
 
-- `docs/reference-xml-coverage-gaps.md` — why some reference `.cha`
-  files have no paired XML golden. The permanent exclusions are
-  UD-POS files Java can't walk + `@Media`-without-timing files E544
-  blocks at validation.
-- `docs/rust-vs-java-chatter-regressions.md` — audit of the
-  Rust-vs-Java parser-level differences that the emitter bridges.
-- `docs/talkbank-xml-consumers-2026-04.md` — downstream XML
-  consumers and the Phon-pivot context.
 - `spec/errors/E544_media_linkage_without_timing.md` — the
   `@Media` bullet-existence validator that runs before emission.
+
+Reference-XML coverage gaps (which files Java Chatter can't emit) are
+called out inline in the "Parity oracle" bullet of §Purpose above —
+permanent exclusions are UD-POS files Java's tree walker doesn't
+recognise and `@Media`-without-timing files E544 blocks at
+validation, both intentional divergences, not Rust gaps.
 
 ## Staged features
 

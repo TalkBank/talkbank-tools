@@ -1,7 +1,7 @@
 # TalkBank CHAT Editor
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:15 EDT
 
 The TalkBank CHAT Editor is a VS Code extension for working with
 [CHAT format](https://talkbank.org/0info/manuals/CHAT.html) transcripts.
@@ -41,5 +41,7 @@ editor backed by a Rust language server.
 
 - **VS Code Insiders** (version 1.110 or later)
 - **macOS, Windows, or Linux**
-- The `chatter` CLI binary (installed automatically from the
-  [talkbank-tools](https://github.com/TalkBank/talkbank-tools) release)
+- The platform-specific VSIX from the talkbank-tools release. The VSIX
+  bundles a prebuilt `talkbank-lsp` binary; the extension does not
+  install the `chatter` CLI. If you also want `chatter` for terminal
+  workflows, install it separately from the same release.

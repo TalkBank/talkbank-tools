@@ -1,7 +1,7 @@
 # MLU -- Mean Length of Utterance
 
 **Status:** Current
-**Last updated:** 2026-05-11 17:14 EDT
+**Last updated:** 2026-05-22 08:32 EDT
 
 ## Purpose
 
@@ -18,16 +18,18 @@ chatter clan mlu --words file.cha
 chatter clan mlu --format json corpus/
 ```
 
-## Options
+## Options (chatter-native)
 
 | Option | CLAN Flag | Description |
 |--------|-----------|-------------|
-| `--speaker <CODE>` | `+t*CHI` | Include speaker |
-| `--exclude-speaker <CODE>` | `-t*CHI` | Exclude speaker |
-| `--words` | -- | Count words from main tier instead of morphemes from `%mor` |
+| `--speaker <CODE>` | `+t*CHI` (or `+tCHI`) | Include speaker |
+| `--exclude-speaker <CODE>` | `-t*CHI` (or `-tCHI`) | Exclude speaker |
+| `--words` | `-bw` | Count words from main tier instead of morphemes from `%mor` |
 | `--gem <LABEL>` | `+g"label"` | Restrict to gem segment |
 | `--range <START-END>` | `+z25-125` | Utterance range |
-| `--format <FMT>` | -- | Output format: text, json, csv, clan |
+| `--id-filter <PATTERN>` | `+t@ID="..."` | Filter by @ID pattern |
+| `--include-retracings` | `+r6` | Include retraced words in counting |
+| `--format <FMT>` | -- | Output format: clan (default), text, json, csv |
 
 ## CLAN Equivalence
 
@@ -35,6 +37,84 @@ chatter clan mlu --format json corpus/
 |---|---|
 | `mlu file.cha` | `chatter clan mlu file.cha` |
 | `mlu +t*CHI file.cha` | `chatter clan mlu file.cha --speaker CHI` |
+| `mlu -bw file.cha` | `chatter clan mlu file.cha --words` |
+
+## CLAN `+`-flag coverage audit
+
+Authoritative enumeration of every CLAN `mlu` flag, mapped against
+chatter's coverage. Sources:
+
+* `OSX-CLAN/src/clan/mlu.cpp` — `usage()` at line 51 and the
+  command-specific `getflag()` intercept at line 669.
+* `OSX-CLAN/src/clan/cutt.cpp` — `mainusage()` MLU branches.
+* `crates/talkbank-clan/src/clan_args.rs` — chatter's `+flag` to
+  `--flag` rewriter.
+* `crates/talkbank-cli/src/cli/args/clan_common.rs` and
+  `clan_commands.rs::Mlu` — chatter's clap field surface.
+
+(Status legend: same as
+[FREQ](./freq.md#status-legend) — Done / Partial / Rewriter only /
+Missing.)
+
+### MLU-specific `+`-flags (from `mlu.cpp::getflag`)
+
+| CLAN flag | Meaning | Chatter | Status | Notes |
+|---|---|---|---|---|
+| `-bw` | Count words, not morphemes | `--words` | Done | Direct mapping; doc note above. |
+| `-bc` | Count characters, not morphemes | — | Missing | non-UNX only in CLAN; chatter has no analog. |
+| `+cS` | Clause-marker delimiter `S` | — | Missing | Used to break utterances into clauses for MLU calculation. |
+| `+c@F` | Clause-markers listed in file `F` | — | Missing | File-list workflow. |
+| `+gS` | Exclude utterances consisting solely of word `S` | partial via `--exclude-word` | Partial | chatter's `--exclude-word` drops the word from counting; CLAN's `+gS` drops the whole utterance if it is *just* `S`. Different semantics. |
+| `+g@F` | `+g` from file | — | Missing | |
+| `+o3` | Combine selected speakers per file | partial via `--per-file` inverse | Partial | chatter's aggregate-vs-per-file model is the inverse choice. |
+| `+t%mor` (implicit) | Switch to `%mor` tier (special handling) | (default) | Done | chatter reads `%mor` by default; `+t%mor` is a CLAN re-confirmation. |
+| `-t%mor` | Exclude `%mor` tier — implies `--words` semantics | — | Missing | CLAN's escape hatch when `%mor` is present but should be ignored. |
+
+### General `+`-flags MLU inherits (from `cutt.cpp::mainusage`)
+
+| CLAN flag | Meaning | Chatter | Status | Notes |
+|---|---|---|---|---|
+| `+t*X` / `-t*X` | Include/exclude speaker | `--speaker` / `--exclude-speaker` | Done | `+tX` (no `*`) also accepted post-2026-05-21 fix. |
+| `+t%X` / `-t%X` | Include/exclude dependent tier `%X` | `--tier` / `--exclude-tier` (rewriter target) | Rewriter only | No clap field on MLU; only `+t%mor` is handled implicitly by the default-mor logic. Other `%X` errors at parse time. |
+| `+t@ID="..."` | Filter by @ID pattern | `--id-filter` | Done | Banner mapping deferred (PLAN §1.6). |
+| `+t#ROLE` | Filter by role | — | Missing | |
+| `+s"word"` / `-s"word"` | Include/exclude word in counting | `--include-word` / `--exclude-word` | Partial | MLU's `+s` has command-specific scope (postcode/bracket forms); chatter's word filter is the simple form only. |
+| `+s@F` | Search words from file | — | Missing | |
+| `+gX` | (in MLU: utterance-elision, see above) | `--gem` (banner default) | Partial | `+g` collides between MLU's elision semantic and the general gem filter. CLAN's MLU `+g` is the *elision* meaning per `getflag`; `--gem` is the general filter (semantics differ). Confusing in CLAN itself. |
+| `+zN-M` | Utterance range | `--range` | Done | |
+| `+rN` | Various retrace / clitic / prosodic-symbol / replacement controls | `--include-retracings` (handles `+r6` only) | Partial | |
+| `+u` | Combine across files | (default) | Done | chatter combines by default. Inverse default vs CLAN. |
+| `+re` | Recurse subdirectories | (default for directory args) | Done | |
+| `+pS` | Add `S` to word delimiters | — | Missing | |
+| `+k` | Case-sensitive matching | `--case-sensitive` (rewriter target) | Rewriter only | |
+| `+wN` / `-wN` | Context window | `--context-window` (rewriter target) | Rewriter only | KWAL-style. |
+| `+f` / `+fEXT` | Output to file | `--output-ext` (rewriter target) | Rewriter only | Phase 1.1 sidecar work. |
+
+### MLU `+d` display modes
+
+See the "Display Modes (`+dN` / `--display-mode N`) — DRAFT" section
+below for the per-N table. All `+d` and `+d1` invocations are
+**Rewriter only** today — the rewriter rewrites to
+`--display-mode N` but the `Mlu` clap struct has no consuming field.
+
+### Audit summary
+
+| Bucket | Count |
+|---|---|
+| Done (byte-parity or in scope) | 7 |
+| Partial (chatter abstraction differs) | 5 |
+| Rewriter only (would error at parse time) | 5 |
+| Missing (no rewriter, no clap field) | 8 |
+
+The `+g` overload is the most subtle issue: MLU's command-specific
+`+g` means "exclude an utterance if it consists solely of the given
+word" (a special-case elision filter), but chatter's `--gem`
+inherited from `CommonAnalysisArgs` means "restrict to gem segment
+labelled S" (a general gem filter). Identical syntax, different
+semantics — a CLAN user pasting `mlu +gum file.cha` (skip
+`um`-only utterances) gets gem-label filtering in chatter (a
+no-op for files with no `@G um` gem). Tracked as a Phase 1.7
+follow-up.
 
 ## Display Modes (`+dN` / `--display-mode N`) — DRAFT, awaiting PI review
 

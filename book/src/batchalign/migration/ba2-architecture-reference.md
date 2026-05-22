@@ -1,7 +1,7 @@
 # BA2 Architecture Reference
 
 **Status:** Frozen reference
-**Last updated:** 2026-04-07 06:13 EDT
+**Last updated:** 2026-05-19 17:18 EDT
 **Baseline:** `batchalign2-jan9` (`84ad500b09e52a82aca982c41a8ccd46b01f4f2c`)
 **Supplement:** later `batchalign2-master` compare redesign (`1f224df346c2ec590d45afa31136a3b878db622b`) as a forward-looking stress test
 
@@ -274,6 +274,6 @@ The wrong inheritance is:
 - ambiguous return types
 
 See [Dispatch and Execution](../../architecture/runtime/dispatch.md)
-for the current BA3 architecture (command model, planning, recipe-driven
-execution kernel) that preserves BA2's good ideas while keeping BA3's
-concurrency, worker reuse, and typed runtime boundaries.
+for the current BA3 architecture (command model, planning,
+recipe-driven execution kernel) that preserves BA2's good ideas while
+keeping BA3's concurrency, worker reuse, and typed runtime boundaries.

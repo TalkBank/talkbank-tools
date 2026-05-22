@@ -1,7 +1,7 @@
 # Cache Management
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:20 EDT
 
 The extension uses a SQLite cache to store validation results, avoiding redundant re-validation of files that have not changed. This chapter covers the cache location, monitoring, and maintenance.
 
@@ -31,9 +31,12 @@ This displays a popup with:
 
 - **Cache database size** -- the on-disk size of the SQLite file
 - **Total cached entries** -- how many files have cached results
-- **Valid / Invalid / Expired counts** -- breakdown of cache entry statuses
-- **Cache hit rate** -- percentage of validation requests served from cache
 - **Last updated timestamp** -- when the cache was last written to
+
+The popup template also renders Valid / Invalid / Expired entry
+counts and a Cache Hit Rate row. The CLI does not yet expose those
+breakdowns through `chatter cache stats --json`, so the extension
+shows them as zero until the CLI ships the relevant fields.
 
 ## Clearing the Cache
 

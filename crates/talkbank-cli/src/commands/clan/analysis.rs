@@ -234,18 +234,35 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                 &common,
             );
         }
-        ClanCommands::Sugar { path, common, .. } => run_analysis_and_print(
-            AnalysisCommandName::Sugar,
-            AnalysisOptions::default(),
-            &path,
-            &common,
-        ),
+        ClanCommands::Sugar { path, common, .. } => {
+            // CLAN's sugar refuses without `+t*<SPK>`. Match its
+            // exact stderr message.
+            if common.speaker.is_empty() {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify at least one speaker tier code with \"+t\" option on command line.",
+                );
+            }
+            run_analysis_and_print(
+                AnalysisCommandName::Sugar,
+                AnalysisOptions::default(),
+                &path,
+                &common,
+            );
+        }
         ClanCommands::Mortable {
             path,
             script,
             common,
             ..
         } => {
+            // CLAN's mortable refuses without `+l<script>`. Match
+            // CLAN's two-line refusal message exactly.
+            let script = script.unwrap_or_else(|| {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify language script file name with \"+l\" option.\n\
+                     For example, \"mortable +leng\" or \"mortable +leng.cut\".",
+                )
+            });
             run_analysis_and_print(
                 AnalysisCommandName::Mortable,
                 AnalysisOptions {
@@ -259,10 +276,18 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
         ClanCommands::Chains {
             path, tier, common, ..
         } => {
+            // CLAN's chains refuses without `+t<tier>` — emit the
+            // same message on stderr and exit non-zero before any
+            // banner is printed.
+            let tier = tier.unwrap_or_else(|| {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify a code tier with \"+t\" option.",
+                )
+            });
             run_analysis_and_print(
                 AnalysisCommandName::Chains,
                 AnalysisOptions {
-                    tier: option_if_not_default(tier, ChainsConfig::default().tier),
+                    tier: Some(tier),
                     ..AnalysisOptions::default()
                 },
                 &path,
@@ -361,6 +386,13 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             common,
             ..
         } => {
+            // CLAN's dss refuses without `+t*<SPK>` (speaker tier).
+            // Mirror that here: require at least one `--speaker`.
+            if common.speaker.is_empty() {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify at least one speaker tier name with \"+t\" option.",
+                );
+            }
             run_analysis_and_print(
                 AnalysisCommandName::Dss,
                 AnalysisOptions {
@@ -382,6 +414,15 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             common,
             ..
         } => {
+            // CLAN's ipsyn refuses without `+l<rules>`. Match the
+            // exact two-line message including the example
+            // continuation.
+            if rules.is_none() {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify ipsyn rules file name with \"+l\" option.\n\
+                     For example, \"ipsyn +leng\" or \"ipsyn +leng.cut\".",
+                );
+            }
             run_analysis_and_print(
                 AnalysisCommandName::Ipsyn,
                 AnalysisOptions {
@@ -396,12 +437,20 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                 &common,
             );
         }
-        ClanCommands::Eval { path, common, .. } => run_analysis_and_print(
-            AnalysisCommandName::Eval,
-            AnalysisOptions::default(),
-            &path,
-            &common,
-        ),
+        ClanCommands::Eval { path, common, .. } => {
+            // CLAN's eval refuses without `+t*<SPK>`.
+            if common.speaker.is_empty() {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify at least one speaker tier code with \"+t\" option on command line.",
+                );
+            }
+            run_analysis_and_print(
+                AnalysisCommandName::Eval,
+                AnalysisOptions::default(),
+                &path,
+                &common,
+            );
+        }
         ClanCommands::Kideval {
             path,
             dss_rules,
@@ -409,6 +458,20 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             common,
             ..
         } => {
+            // CLAN's kideval refuses without `+l<script>` (the
+            // language file that bundles DSS + IPSYN + EVAL rules
+            // for one language). chatter has separate --dss-rules
+            // and --ipsyn-rules flags; require at least one so the
+            // refusal triggers when neither is given. Match CLAN's
+            // exact two-line wording.
+            if dss_rules.is_none() && ipsyn_rules.is_none() {
+                // CLAN's kideval refusal includes a leading blank
+                // line; preserve that quirk for byte-level parity.
+                super::helpers::exit_with_clan_refusal(
+                    "\nPlease specify language script file name with \"+l\" option.\n\
+                     For example, \"kideval +leng\" or \"kideval +leng.cut\".",
+                );
+            }
             run_analysis_and_print(
                 AnalysisCommandName::Kideval,
                 AnalysisOptions {
@@ -420,12 +483,20 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                 &common,
             );
         }
-        ClanCommands::EvalD { path, common, .. } => run_analysis_and_print(
-            AnalysisCommandName::EvalDialect,
-            AnalysisOptions::default(),
-            &path,
-            &common,
-        ),
+        ClanCommands::EvalD { path, common, .. } => {
+            // CLAN's eval-d refuses without `+t*<SPK>` (same as eval).
+            if common.speaker.is_empty() {
+                super::helpers::exit_with_clan_refusal(
+                    "Please specify at least one speaker tier code with \"+t\" option on command line.",
+                );
+            }
+            run_analysis_and_print(
+                AnalysisCommandName::EvalDialect,
+                AnalysisOptions::default(),
+                &path,
+                &common,
+            );
+        }
         other => return Err(other),
     }
     Ok(())

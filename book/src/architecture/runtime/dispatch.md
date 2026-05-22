@@ -1,7 +1,7 @@
 # Dispatch and Execution
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 How a job moves from the CLI to a running command: the four CLI
 dispatch targets, the workflow families that organize commands, the
@@ -123,10 +123,11 @@ part of `transcribe_s`, matching batchalign2.
 ## Where to add new command semantics
 
 Start in `crates/batchalign/src/commands/` and
-`crates/batchalign/src/commands/catalog.rs`. Jump to
-`command_family.rs` when you need released-command family metadata,
-and to `text_batch.rs` when you need shared text-family helpers reused
-by the runner kernel.
+`crates/batchalign/src/command_model/catalog.rs`. Jump to
+`crates/batchalign/src/command_family.rs` when you need
+released-command family metadata, and to
+`crates/batchalign/src/text_batch.rs` when you need shared text-family
+helpers reused by the runner kernel.
 
 The command module owns the public entrypoint, metadata, and
 materialization choice. `runner/` stays focused on job lifecycle,

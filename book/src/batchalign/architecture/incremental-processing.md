@@ -1,7 +1,7 @@
 # Incremental Processing
 
 **Status:** Current
-**Last updated:** 2026-03-21 15:30
+**Last updated:** 2026-05-19 20:10 EDT
 
 Incremental processing allows batchalign to reprocess only the utterances that
 changed after a user edits a CHAT file, preserving cached dependent tiers
@@ -47,10 +47,10 @@ diff_chat(before, after) → Vec<UtteranceDelta>
    └── Deleted      → absent from output
 ```
 
-### Layer 1: Diff Engine (`batchalign/src/diff/`)
+### Layer 1: Diff Engine (`crates/talkbank-transform/src/diff/`)
 
-The diff engine lives in `batchalign` and has no server dependencies.
-It operates purely on `ChatFile` ASTs.
+The diff engine lives in `talkbank-transform` and has no server
+dependencies. It operates purely on `ChatFile` ASTs.
 
 **Algorithm:**
 
@@ -260,9 +260,9 @@ For FA with 8 groups where 1 contains a changed utterance:
 
 | File | Crate | Purpose |
 |------|-------|---------|
-| `diff/types.rs` | chat-ops | `UtteranceDelta`, `DiffSummary` |
-| `diff/classify.rs` | chat-ops | `diff_chat()` algorithm |
-| `diff/preserve.rs` | chat-ops | `copy_dependent_tiers()` |
-| `morphosyntax/` | app | `process_morphosyntax_incremental()` |
-| `fa/` | app | `process_fa_incremental()` |
-| `runner/dispatch/infer_batched.rs`, `fa_pipeline.rs` | app | Dispatch routing for incremental paths |
+| `diff/types.rs` | talkbank-transform | `UtteranceDelta`, `DiffSummary` |
+| `diff/classify.rs` | talkbank-transform | `diff_chat()` algorithm |
+| `diff/preserve.rs` | talkbank-transform | `copy_dependent_tiers()` |
+| `morphosyntax/` | batchalign | `process_morphosyntax_incremental()` |
+| `fa/` | batchalign | `process_fa_incremental()` |
+| `runner/dispatch/infer_batched.rs`, `fa_pipeline.rs` | batchalign | Dispatch routing for incremental paths |

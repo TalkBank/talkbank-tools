@@ -1,7 +1,7 @@
 # Overlapping Speech in CHAT
 
 **Status:** Current
-**Last updated:** 2026-03-16
+**Last updated:** 2026-05-21 08:39 EDT
 
 ## Two Encodings for Overlapping Speech
 
@@ -59,9 +59,12 @@ marks that the utterance started before the previous one finished:
 
 **For new transcription:** Use `+<` with separate utterances. Each speaker's
 words belong on their own tier. This gives backchannels their own timing,
-their own dependent tiers, and makes them countable by analysis tools.
-`batchalign3 align` automatically uses a two-pass overlap-aware alignment
-strategy when `+<` is present — no flags needed.
+their own dependent tiers, and makes them countable by analysis tools. The
+two-pass overlap-aware alignment strategy is available via
+`--utr-strategy two-pass`; the default `--utr-strategy auto` currently
+falls back to single-pass `GlobalUtr` until the two-pass algorithm is
+validated against more operator corpora (per
+`crates/batchalign/src/runner/dispatch/utr.rs:94-100`).
 
 **For existing files with `&*`:** They work fine as-is. The aligner already
 handles `&*` correctly (it is invisible to the DP alignment). No migration is
@@ -95,8 +98,8 @@ no independent timing.
 
 ### `+<` encoding
 
-When `batchalign3 align` encounters `+<` utterances, it uses a **two-pass
-UTR strategy** with automatic fallback:
+A **two-pass UTR strategy** is available for `+<` files. The
+algorithm:
 
 1. **Pass 1:** Build the global alignment reference from non-`+<` utterances
    only. Main-speaker words align correctly without backchannel interference.
@@ -107,19 +110,22 @@ UTR strategy** with automatic fallback:
    the strategy is **never worse** than the original algorithm — important
    for languages where ASR quality is lower.
 
-**This is the default behavior — no flags needed.** Files without `+<` use
-the original single-pass algorithm (identical results to previous versions).
-
-The `--utr-strategy` flag exists for experimentation and diagnostics:
+**Today the strategy is opt-in.** Per
+`crates/batchalign/src/runner/dispatch/utr.rs:94-100`, the default
+`--utr-strategy auto` always resolves to `GlobalUtr` ("Auto always
+uses GlobalUtr until the two-pass algorithm is validated on an
+operator's problem files"); the two-pass path is only constructed
+when the operator passes `--utr-strategy two-pass`. Files without
+`+<` use the original single-pass algorithm regardless.
 
 ```bash
-# Default: auto-detect (two-pass when +< present, global otherwise)
+# Default: auto (currently resolves to global single-pass)
 batchalign3 align corpus/ -o output/
 
-# Force global single-pass (ignore +< signal, original algorithm)
+# Explicit global single-pass
 batchalign3 align corpus/ -o output/ --utr-strategy global
 
-# Force two-pass even on files without +<
+# Opt in to the two-pass overlap-aware strategy
 batchalign3 align corpus/ -o output/ --utr-strategy two-pass
 ```
 

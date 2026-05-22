@@ -97,7 +97,11 @@ would require the user to have a Rust toolchain already.
 - Activation binary resolution: `src/activation/lsp.ts`
   (`LSP_BINARY_PATH_SETTING = 'talkbank.lsp.binaryPath'`).
 - Release workflow: `.github/workflows/vscode-release.yml`.
-- Per-platform build script: `scripts/build-vsix-<target>.sh`.
-- Package bundling: `vscode/package.json` `vsce:prepublish` scripts.
+- Per-platform packaging: `vscode/package.json` npm scripts
+  `package:darwin-arm64`, `package:darwin-x64`, `package:linux-x64`,
+  `package:linux-arm64`, `package:win32-x64`, each invoking
+  `vsce package --target <target>`.
+- Package bundling hook: `vscode/package.json`
+  `scripts.vscode:prepublish` (the standard `vsce` pre-package hook).
 - Setting declaration: `vscode/package.json`
   `contributes.configuration` → `talkbank.lsp.binaryPath`.

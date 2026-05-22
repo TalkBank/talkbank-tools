@@ -1,7 +1,7 @@
 # Building & Development
 
 **Status:** Current
-**Last updated:** 2026-04-07 06:29 EDT
+**Last updated:** 2026-05-19 22:38 EDT
 
 Development is supported on **Windows, macOS, and Linux**. The instructions below use Unix shell syntax; on Windows, use PowerShell or Git Bash equivalently.
 
@@ -17,56 +17,50 @@ Development is supported on **Windows, macOS, and Linux**. The instructions belo
 
 ## Development Install
 
-Batchalign3's Rust crates depend on [`talkbank-tools`](https://github.com/talkbank/talkbank-tools) via local path references. Both repos must be cloned as siblings:
+Batchalign source lives as the `batchalign-*` sibling crates inside
+this `talkbank-tools` repo (the standalone `batchalign3` repo was
+decommissioned 2026-04-28; there are no longer two siblings to clone).
+A development checkout is one repo:
 
 ```bash
-git clone https://github.com/talkbank/talkbank-tools.git
-git clone https://github.com/talkbank/batchalign3.git
-cd batchalign3
-make sync
+git clone https://github.com/TalkBank/talkbank-tools.git
+cd talkbank-tools
 make build
 ```
 
-If you do not need the dashboard build during iteration, you can rebuild just
-the Rust/PyO3 surfaces with `make build-python` and `make build-rust`.
-For the fastest contributor loop, `make build-python` rebuilds only the PyO3
-extension. `make build-python-full` also copies the pre-built CLI binary into
-`batchalign/_bin/` so `uv run batchalign3` uses the packaged binary instead of
-the dev fallback.
+`make build` rebuilds the embedded dashboard, then runs `cargo build
+--workspace --release`, which compiles every Rust crate (including the
+PyO3 bridge `batchalign-pyo3`). For PyO3-specific work, the dedicated
+target is:
 
-The expected directory layout:
-
-```text
-parent/
-├── talkbank-tools/    # CHAT grammar, parser, model, transform crates
-└── batchalign3/       # This repo (Rust CLI + server + Python ML workers)
+```bash
+make batchalign-build-wheel       # build the maturin wheel
+make batchalign-python-prepare    # build + install the wheel into the dev env
 ```
 
-This creates a `.venv` managed by uv. Never use `pip install` directly.
+`uv run batchalign3` then uses the installed wheel. Most contributors
+skip the wheel step and rely on the dev fallback in
+`batchalign/_cli.py`, which execs `target/{debug,release}/batchalign3`
+when no packaged binary is present.
 
-`make sync` provisions the same built-in engine surface as the base package,
-including Cantonese providers. There is no separate Cantonese-specific dev
-extra path.
+Never use `pip install` directly; `uv` manages the `.venv` and every
+Python dependency.
 
 ## Running the CLI
 
-In a source checkout, `uv run batchalign3` is still the normal way to invoke
-the installed console script. After `make build-python`, the Python wrapper
-falls back to the repo CLI when the embedded bridge is intentionally omitted,
-so the fast extension-only rebuild still leaves you with a runnable
-`batchalign3` command. This is the recommended loop while editing command
-semantics, workflow families, or most docs.
-
-For the fastest contributor loop, pair `make build-python` with one CLI build
-up front:
+In a source checkout, `uv run batchalign3` is the normal way to invoke
+the installed console script. When no packaged binary is present
+(`batchalign/_bin/batchalign3`), `batchalign/_cli.py` falls back to
+`target/{debug,release}/batchalign3` and then to `cargo run -p
+batchalign` as a last resort, so a single `cargo build -p batchalign`
+up front gives you a fast iteration loop:
 
 ```bash
 cargo build -p batchalign
+uv run batchalign3 --help     # uses the debug target via the wrapper fallback
 ```
 
-After that, repeated `uv run batchalign3 ...` invocations will use the local
-`target/debug/batchalign3` binary through the wrapper fallback. Reserve
-`uv run` for Python tools such as `pytest`, `mypy`, and `maturin` when you are
+Reserve `uv run` for Python tools (pytest, mypy, maturin) when you are
 not invoking the CLI.
 
 ```bash
@@ -82,40 +76,40 @@ cargo run -p batchalign -- transcribe input_dir -o output_dir --lang eng
 
 ## What to Rebuild After Changes
 
-Use the repo-native build targets so the Rust CLI, the shared `batchalign`
-crate, and the `batchalign_core` extension stay in sync:
+Use the repo-native build targets so the Rust CLI, the shared
+`batchalign` crate, and the `batchalign_core` PyO3 extension stay in
+sync:
 
 | What changed | What to rebuild |
 | --- | --- |
 | Python code only (`batchalign/`) | Nothing; the next worker process picks up the change |
-| Rust CLI / server (`crates/batchalign/`, `crates/batchalign/`) | `cargo build -p batchalign` or `make build-rust` |
-| Shared chat logic (`crates/batchalign/`) or PyO3 bridge (`crates/batchalign-pyo3/`) | `make build-python`; for the fastest CLI loop in a source checkout, also build the CLI once (`cargo build -p batchalign` or `make build-rust`) so the wrapper can fall back to `target/debug/batchalign3` |
-| Command/orchestrator changes (`crates/batchalign/src/commands/`, `compare.rs`, `benchmark.rs`, `transcribe/`, `fa/`, `morphosyntax/`, `command_family.rs`, `text_batch.rs`) | `make build-rust` and usually `make build-python` if the CLI bridge surface changed |
-| Cross-cutting or dashboard changes | `make build` (requires Node.js + npm because it rebuilds the embedded dashboard) |
+| Rust CLI / server (`crates/batchalign/`) | `cargo build -p batchalign` |
+| Shared chat logic (any `crates/`) or PyO3 bridge (`crates/batchalign-pyo3/`) | `make batchalign-python-prepare` (rebuilds the maturin wheel and reinstalls it into the dev env). For the fastest CLI loop, also build the CLI once (`cargo build -p batchalign`) so the wrapper can fall back to `target/debug/batchalign3`. |
+| Command/orchestrator changes (`crates/batchalign/src/commands/`, `compare.rs`, `benchmark.rs`, `transcribe/`, `fa/`, `morphosyntax/`, `command_family.rs`, `text_batch.rs`) | `cargo build -p batchalign`, and `make batchalign-python-prepare` if the PyO3 bridge surface changed |
+| Cross-cutting or dashboard changes | `make build` (requires Node.js + npm because it rebuilds the embedded dashboard, then runs `cargo build --workspace --release`) |
 
 ## Rebuilding the Rust Extension
 
-The `batchalign_core` Python package is a PyO3 Rust extension built by maturin.
-The repo-native rebuild path is:
+The `batchalign_core` Python package is a PyO3 Rust extension built by
+maturin. The repo-native rebuild path is:
 
 ```bash
-make build-python
+make batchalign-build-wheel       # build the maturin wheel
+make batchalign-python-prepare    # depends on batchalign-build-wheel; reinstalls into the dev env
 ```
 
-This rebuilds only the PyO3 worker runtime extension (~320 crates). The pyo3
-crate has no feature gates beyond `extension-module` — no heavy CLI or Rev.AI
-dependencies. In a source checkout, `batchalign/_cli.py` falls back to
-`target/debug/batchalign3` when the packaged binary isn't present.
+The PyO3 crate (`crates/batchalign-pyo3/`) has no feature gates beyond
+`extension-module` — no heavy CLI or Rev.AI dependencies. In a source
+checkout, `batchalign/_cli.py` falls back to
+`target/{debug,release}/batchalign3` when the packaged binary isn't
+present, so most contributors do not need to install the wheel
+during iteration.
 
-When you want the CLI binary packaged alongside the extension:
-
-```bash
-make build-python-full
-```
-
-That target first builds the Rust CLI binary, copies it to `batchalign/_bin/`,
-then rebuilds the extension. Use it when testing the installed-package
-experience locally.
+To exercise the installed-package experience locally, build the CLI
+once (`cargo build -p batchalign`) and copy it into
+`batchalign/_bin/batchalign3` before running `make
+batchalign-python-prepare`; the maturin `include` directive in
+`pyproject.toml` will then bundle it into the wheel.
 
 ## CLI Binary Packaging (`batchalign/_bin/`)
 
@@ -141,9 +135,10 @@ binary. It searches three locations in order:
 The binary is a 50+ MB platform-specific build artifact — it must not be
 tracked in git. Instead:
 
-- **Locally:** `make build-python-full` compiles the CLI and copies it into
-  `batchalign/_bin/`. Most developers skip this and rely on the dev-checkout
-  fallback (`target/debug/batchalign3`).
+- **Locally:** copy `target/release/batchalign3` (or `target/debug/batchalign3`)
+  into `batchalign/_bin/` before running `make batchalign-python-prepare`
+  if you need the installed-package experience. Most developers skip this and
+  rely on the dev-checkout fallback (`target/debug/batchalign3`).
 - **CI:** A dedicated `build-cli` job compiles the CLI binary once (release
   mode), uploads it as an artifact, and each Python-version wheel build
   downloads it into `batchalign/_bin/` before maturin packages it.
@@ -183,9 +178,11 @@ that actually owns the algorithmic or orchestration semantics (`compare.rs`,
   types for commands such as `utseg`, `translate`, and `coref`.
 - `crates/batchalign/src/runner/` owns job lifecycle, queueing, and shared
   dispatch machinery.
-- `crates/batchalign/src/dispatch/` should stay thin and focus on
-  argument parsing, capability gating, and whether a command runs locally or
-  through the server.
+- `crates/batchalign/src/runner/dispatch/` (benchmark_pipeline.rs,
+  fa_pipeline.rs, transcribe_pipeline.rs, infer_batched.rs, audio_task.rs,
+  asr_media.rs, media_analysis_v2.rs, options.rs, plan.rs, utr.rs) should
+  stay thin and focus on argument parsing, capability gating, and whether
+  a command runs locally or through the server.
 - `crates/batchalign-pyo3/` should stay a thin bridge, not the place where new command logic is
   invented.
 
@@ -200,12 +197,13 @@ cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
 Run the current mypy gate before every commit:
 
 ```bash
-uv run mypy
-# or together with clippy:
-make lint
+uv run mypy                       # mypy only
+make batchalign-typecheck-python  # mypy under the batchalign- target group used by CI
+make lint-affected                # affected-Rust clippy + affected Python mypy
 ```
 
-Strictness lives in `mypy.ini`, and CI runs the same repo-native command shape.
+Strictness lives in `mypy.ini`, and CI runs the same repo-native
+command shape.
 
 Do not commit with mypy errors. Use `# type: ignore[<code>]` only when
 necessary, and always include the specific error code.
@@ -222,15 +220,26 @@ All new and modified code must include type annotations:
 
 ## The CHAT Format Rule
 
-All CHAT parsing and serialization must go through principled AST manipulation via `batchalign_core` Rust functions. This is a hard rule with no exceptions.
+All CHAT parsing and serialization must go through principled AST
+manipulation in Rust. Python never touches CHAT text directly.
 
 **Do not:**
-- Use regex or string splitting to extract or modify CHAT content.
+- Use regex or string splitting to extract or modify CHAT content from Python.
 - Process CHAT line-by-line in Python.
 - Manipulate CHAT header metadata with ad-hoc text code.
 
 **Instead:**
-- Use existing `batchalign_core` functions (`parse`, `parse_lenient`, `build_chat`, `add_morphosyntax`, `add_forced_alignment`, `extract_nlp_words`, etc.).
-- If the function you need does not exist, add a new Rust function to `batchalign_core` and call it from Python.
+- From Python, shell out to the `batchalign3` CLI (`validate`, `to-json`,
+  command-specific subcommands) and consume its structured output, or
+  raise/catch `batchalign_core.CHATValidationException` at the parser
+  boundary (the typed exception that the PyO3 layer surfaces).
+- All CHAT AST manipulation lives in the Rust crates (`talkbank-parser`,
+  `talkbank-model`, `talkbank-transform`, `batchalign`). When new
+  AST-level behaviour is needed, add it on the Rust side and expose it
+  through the CLI; do not invent a new Python-facing parsing surface.
 
-CHAT has complex escaping, continuation lines, and encoding rules that ad-hoc text manipulation will get wrong. The Rust AST handles all of this correctly.
+CHAT has complex escaping, continuation lines, and encoding rules that
+ad-hoc text manipulation will get wrong. The Rust AST handles all of
+this correctly; the 2026-03-21 PyO3 slimdown deliberately retired the
+older user-facing PyO3 parse / build / add-morphosyntax bindings in
+favour of this CLI-and-typed-exception boundary.

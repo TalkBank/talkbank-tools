@@ -1,7 +1,7 @@
 # Dutch
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-21 08:42 EDT
 
 ## Scope
 
@@ -61,15 +61,14 @@ inherits this behavior for free.
 ## Tests
 
 * **Probe matrix cases:**
-  `batchalign/tests/investigations/_cases/dutch.py` — 14 typed
+  `batchalign/tests/investigations/_cases/dutch.py` — typed
   `ProbeCase` fixtures covering possessives, contractions, time
-  idioms, and control nouns.
+  idioms, and control nouns (`grep -c ProbeCase` against the file
+  is the live count).
 * **Matrix harness:**
   `batchalign/tests/investigations/test_stanza_mwt_probe_matrix.py`
   runs every case through paired pipelines. Invoke with
   `uv run pytest batchalign/tests/investigations/ -m golden`.
-* **Behavior-table renderer:**
-  `scripts/analysis/render_probe_matrix_table.py --lang nld`.
 
 ## References
 

@@ -119,11 +119,15 @@ impl CommandOutput for DistResult {
         .ok();
 
         for entry in &self.words {
-            // CLAN only shows Last turn and Average Distance if count >= 2
+            // CLAN's dist uses an 11-char-wide Average Distance column
+            // (`{:>11.4}` — observed against the legacy binary), so the
+            // gap from the previous 5-wide column is 5 leading spaces +
+            // 6-char float. The other columns stay 5-wide with 4-space
+            // gaps.
             if let Some(avg_dist) = entry.average_distance {
                 writeln!(
                     out,
-                    "{:<20} {:>5}    {:>5}    {:>5}    {:>10.4}",
+                    "{:<20} {:>5}    {:>5}    {:>5}    {:>11.4}",
                     entry.display_form,
                     entry.total_count,
                     entry.first_turn,

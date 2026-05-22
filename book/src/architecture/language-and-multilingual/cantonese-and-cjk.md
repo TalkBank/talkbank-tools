@@ -1,7 +1,7 @@
 # Cantonese and CJK — Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-05 08:21 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 Architecture and rationale for batchalign's CJK-language pipelines: ASR
 engine dispatch, Rust-side text normalization, and word segmentation
@@ -84,7 +84,7 @@ flowchart LR
     input --> OpenCC --> replace --> output
 ```
 
-Implementation: `batchalign/src/asr_postprocess/cantonese.rs`.
+Implementation: `crates/talkbank-transform/src/asr_postprocess/cantonese.rs`.
 
 - **`ferrous-opencc`** (pure-Rust crate) embeds OpenCC's `S2hk` conversion
   tables in the build. No C++ dependency, no optional import, no fallback
@@ -123,8 +123,9 @@ and before long-turn splitting:
 
 ### UTF-8-safe retokenization
 
-`batchalign/src/asr_postprocess/mod.rs` uses `char_indices()` for proper
-UTF-8 handling — byte slicing would panic on multi-byte CJK characters:
+`crates/talkbank-transform/src/asr_postprocess/mod.rs` uses
+`char_indices()` for proper UTF-8 handling — byte slicing would panic
+on multi-byte CJK characters:
 
 ```rust,ignore
 let last_char_boundary = text.text.char_indices()
@@ -272,18 +273,18 @@ that handles POS and depparse jointly.
 ### Rust
 
 ```text
-crates/batchalign/src/asr_postprocess/
+crates/talkbank-transform/src/asr_postprocess/
 ├── mod.rs          — Pipeline: process_raw_asr() with Cantonese stage 4b
 ├── cantonese.rs    — normalize_cantonese(), cantonese_char_tokens()
 ├── compounds.rs    — Compound word merging
 ├── num2text.rs     — Number expansion
 └── num2chinese.rs  — Chinese/Japanese number converter
 
-crates/batchalign/src/retokenize/         — Language-agnostic AST rewrite
-crates/batchalign/src/morphosyntax/cache.rs — cache_key() with retokenize differentiation
-crates/batchalign/src/morphosyntax/mod.rs — Per-character warning diagnostic
+crates/talkbank-transform/src/retokenize/         — Language-agnostic AST rewrite
+crates/batchalign/src/chat_ops/cache_key.rs       — cache_key() with retokenize differentiation
+crates/batchalign/src/morphosyntax/mod.rs         — Per-character warning diagnostic
 crates/batchalign-pyo3/src/cantonese_asr_bridge.rs — Provider output projection
-crates/batchalign-types/src/worker_v2/requests.rs  — MorphosyntaxRequestV2.retokenize wire field
+crates/batchalign-types/src/worker_v2/requests.rs — MorphosyntaxRequestV2.retokenize wire field
 ```
 
 ### Python

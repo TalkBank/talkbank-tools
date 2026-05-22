@@ -1,7 +1,7 @@
 # Number Expansion
 
 **Status:** Current
-**Last updated:** 2026-04-26 19:26 EDT
+**Last updated:** 2026-05-21 13:05 EDT
 
 ASR engines emit digit-bearing tokens (`"3"`, `"$5"`, `"1950s"`,
 `"3rd"`, `"80%"`) that the CHAT format does not allow on the main
@@ -38,23 +38,24 @@ expanded text.
 
 ## Coverage
 
-47 languages have a number-expansion table:
-
-- **43 codegenned from Python `num2words`** at build time
-  (English, Spanish, French, German, Italian, Portuguese, Dutch,
-  the Scandinavian languages, Turkish, Russian, Polish, Czech, Thai,
-  Telugu, Bengali, Kannada, Indonesian, etc.).
-- **4 hand-curated** because `num2words` lacks them or has known
-  defects: Malayalam (`mal`), Greek (`ell`), Basque (`eus`),
-  Croatian (`hrv`).
+The number-expansion table at
+`crates/talkbank-transform/data/num2lang.json` covers the long tail
+of European, Indic, East Asian, and Semitic languages — the active
+list is the JSON file itself; treat it as the canonical source. Most
+entries are codegenned from the Python `num2words` library at build
+time; a handful are hand-curated where `num2words` is missing the
+language or has known defects (Malayalam `mal`, Greek `ell`, Basque
+`eus`, Croatian `hrv`).
 
 CJK languages route through the dedicated `num2chinese` converter
 (Mandarin → simplified, Cantonese / Japanese → traditional).
 
 Languages whose CHAT validator already accepts inline digits
-(Welsh `cym`, Vietnamese `vie`, Min Nan `nan`, `min`, `hak`) skip
-expansion — the digit is left as-is because no E220 violation will
-occur.
+(Welsh `cym`, Vietnamese `vie`, Min Nan `nan`, Minangkabau `min`,
+Hakka `hak`) skip expansion — the digit is left as-is because no
+E220 violation will occur. The authoritative list lives in
+`crates/talkbank-transform/src/asr_postprocess/registry.rs` next to
+the `LangAllowsDigits` variant.
 
 Languages outside this set hit the validator as E220. To add one,
 see the [Adding Language Support](../developer/adding-language-support.md)

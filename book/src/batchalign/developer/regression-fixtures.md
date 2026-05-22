@@ -1,7 +1,7 @@
 # Regression Fixtures
 
 **Status:** Current
-**Last updated:** 2026-04-17 17:52 EDT
+**Last updated:** 2026-05-19 23:51 EDT
 
 This page describes the per-command regression-fixture system: how it is
 laid out, how to add a new fixture when a user reports a bug, and how the
@@ -254,8 +254,10 @@ The command-local `tests/ml_golden/<command>/regressions.rs` modules call
 5. Runs the command via `submit_paths_and_complete_direct` with the
    manifest's language and a `CommandOptions` constructed from the
    command type.
-6. Parses the output CHAT via `batchalign::chat_ops::parse::parse_lenient`
-   into a typed `ChatFile` AST. Asserts no parse errors.
+6. Parses the output CHAT via
+   `talkbank_transform::parse::parse_lenient`
+   (at `crates/talkbank-transform/src/parse.rs:17`) into a typed
+   `ChatFile` AST. Asserts no parse errors.
 7. Walks every assertion in the manifest, running each one against the
    typed AST. Some assertions target one main-tier utterance; others
    inspect the whole parsed output. Failures are collected and reported

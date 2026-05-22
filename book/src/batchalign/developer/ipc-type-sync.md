@@ -1,7 +1,7 @@
 # Rust→Python IPC Type Sync
 
 **Status:** Current
-**Last updated:** 2026-04-29 08:30 EDT
+**Last updated:** 2026-05-19 22:53 EDT
 
 ## Problem
 
@@ -78,7 +78,9 @@ When you add a Rust type that will cross the Python boundary:
    pub struct MyNewPayloadV2 { ... }
    ```
 
-2. **Register it** in `crates/batchalign/src/ipc_schema.rs`:
+2. **Register it** in `crates/batchalign/src/cli/ipc_schema.rs`
+   (the `ipc-schema` CLI subcommand is wired through `cli/mod.rs`
+   and `cli/args/commands.rs::IpcSchemaArgs`):
    ```text
    register!(v2, MyNewPayloadV2);
    ```

@@ -1,7 +1,7 @@
 # Coping with Upstream Bugs and Limitations — Policy and Workflow
 
 **Status:** Current
-**Last updated:** 2026-04-14 22:09 EDT
+**Last updated:** 2026-05-20 01:09 EDT
 
 Batchalign integrates several third-party NLP libraries — Stanza,
 Whisper, PyCantonese, Pyannote/NeMo, Rev.AI, Apple MPS, OpenSMILE,
@@ -130,10 +130,12 @@ reproduce.
 Operate on the typed intermediate representation, not on serialized
 CHAT text. For Stanza leaks that's the Python `doc.to_dict()`
 boundary in `batchalign/inference/*.py`. For Stanza UD misanalyses
-that's the `UdSentence` layer in `batchalign/src/nlp/invariants/`.
-For MPS GPU deadlocks that's the device selection layer. Never
-rewrite serialized output — that's the batchalign2 anti-pattern we
-deliberately avoid.
+that's the `UdSentence` layer at
+`crates/talkbank-transform/src/morphosyntax/invariants.rs` (with
+per-rule modules under `crates/talkbank-transform/src/morphosyntax/invariants/`,
+e.g. `finite_verb_main_clause.rs`). For MPS GPU deadlocks that's the
+device selection layer. Never rewrite serialized output — that's the
+batchalign2 anti-pattern we deliberately avoid.
 
 The workaround emits a `tracing::warn` per rewrite. The message
 names the defect, the upstream version, the rewritten value, and the
@@ -238,8 +240,12 @@ Things this policy explicitly rejects:
   — Per-language workaround catalog.
 - [`developer/apple-mps-workarounds.md`](apple-mps-workarounds.md)
   — MPS-specific defect registry.
-- `crates/batchalign/src/nlp/invariants/mod.rs` — the
+- `crates/talkbank-transform/src/morphosyntax/invariants.rs` — the
   Rust-side typed UD rewrite module that anchors this pattern for
-  morphosyntax.
-- `batchalign/inference/_control_token_filter.py` — the Python-side
-  Stanza-output workaround (Defect 4 in the Stanza registry).
+  morphosyntax; per-rule sub-modules live under
+  `crates/talkbank-transform/src/morphosyntax/invariants/`.
+- Stanza Defect 4 (Finnish `<SOS>` leak) was retired in Stanza 1.12.0;
+  the historical Python-side workaround
+  `batchalign/inference/_control_token_filter.py` is no longer in-tree.
+  See [Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)
+  for the current per-defect patch-point inventory.

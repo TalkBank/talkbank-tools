@@ -1,7 +1,7 @@
 # Developer Architecture Migration (batchalign2 -> batchalign3)
 
 **Status:** Current
-**Last updated:** 2026-05-05 13:54 EDT
+**Last updated:** 2026-05-19 17:18 EDT
 
 Comparison anchors for this page:
 

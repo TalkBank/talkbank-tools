@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-05-11 15:39 EDT
+**Last updated:** 2026-05-21 16:00 EDT
 
 The `chatter` CLI is the public command-line surface for `talkbank-tools`.
 
@@ -236,11 +236,17 @@ Create a new minimal valid CHAT file from defaults.
 chatter new-file
 chatter new-file -o starter.cha --speaker CHI --language eng
 chatter new-file -o adult.cha -s MOT -l eng -r Mother
+chatter new-file -c brown -u "hello world ."
 ```
 
-Flags: `-o/--output <PATH>` (stdout if omitted); `-s/--speaker <CODE>`
-(default `CHI`); `-l/--language <ISO 639-3>` (default `eng`);
-`-r/--role <ROLE>` (default `Target_Child`).
+Flags:
+
+- `-o, --output <PATH>` — stdout if omitted
+- `-s, --speaker <CODE>` — default `CHI`
+- `-l, --language <ISO 639-3>` — default `eng`
+- `-r, --role <ROLE>` — default `Target_Child`
+- `-c, --corpus <CORPUS>` — corpus identifier in the `@ID` header (default `corpus`)
+- `-u, --utterance <TEXT>` — optional initial main-tier utterance content
 
 ## Cache Commands
 

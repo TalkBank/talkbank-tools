@@ -1,7 +1,7 @@
 # Time Transparency: A Cross-Cutting UX Principle
 
 **Status:** Current
-**Last updated:** 2026-05-06 13:34 EDT
+**Last updated:** 2026-05-19 21:03 EDT
 
 ## Principle
 
@@ -152,8 +152,8 @@ Backoff loops that wait several seconds between attempts must surface
 each wait. Without an event, a `time.sleep(30)` looks identical to "BA3
 is stuck" from the outside. The orchestrator's retry layer
 (`crates/batchalign/src/runner/util/error_classification.rs` and
-`infer_retry.rs`) is the right place to hook this in for transport-level
-retries.
+`crates/batchalign/src/infer_retry.rs`) is the right place to hook this
+in for transport-level retries.
 
 ## Wording: what the user reads
 

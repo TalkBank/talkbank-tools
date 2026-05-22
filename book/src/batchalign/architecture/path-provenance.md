@@ -1,7 +1,7 @@
 # Typed Path Provenance
 
 **Status:** Current
-**Last updated:** 2026-03-28 17:55 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 Paths in batchalign3 cross machine boundaries: a client submits paths from
 their filesystem, the server resolves media on its own filesystem (potentially
@@ -182,7 +182,7 @@ flowchart TD
 <!-- Verified against:
   - crates/batchalign/src/runner/dispatch/fa_pipeline.rs (media resolution cascade)
   - crates/batchalign-types/src/paths.rs (all path types, infer_media_mapping)
-  - crates/batchalign/src/types/config.rs (ServerConfig.media_mappings)
+  - crates/batchalign/src/types/config/resolve.rs:108 (ServerConfig.media_mappings)
   - crates/batchalign/src/types/request.rs (JobSubmission fields)
 -->
 

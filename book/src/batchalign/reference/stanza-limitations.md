@@ -1,7 +1,7 @@
 # Stanza Limitations — Observed Defects with Version Pinning
 
 **Status:** Reference (living document — update when Stanza behavior changes)
-**Last updated:** 2026-05-14 23:31 EDT
+**Last updated:** 2026-05-20 20:20 EDT
 **Current Stanza pin:** `stanza[transformers]>=1.12.0` (see `pyproject.toml`)
 **Current English MWT package:** `gum`
 
@@ -146,10 +146,12 @@ Handles two sub-patterns:
   word is promoted to root, the former root is demoted to `obj`,
   subject and punctuation are reattached.
 
-Implementation: `crates/talkbank-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs`.
-Dispatcher: `crates/talkbank-transform/src/morphosyntax/invariants.rs`.
-Hook point: `crates/talkbank-transform/src/morphosyntax/injection.rs:142`
-(call site immediately before `map_ud_sentence`).
+Implementation: `crates/talkbank-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs::rescue_english_copula_progressive`.
+Dispatcher: `crates/talkbank-transform/src/morphosyntax/invariants.rs::apply_grammatical_invariants`.
+Hook point: `crates/talkbank-transform/src/morphosyntax/injection.rs:276`
+(`apply_grammatical_invariants(ud_sentence, &ctx)`; the subsequent
+`map_ud_sentence`/`map_ud_sentence_expanded` calls land at `:287` and
+`:289` respectively).
 
 ### Tests
 
@@ -371,42 +373,26 @@ reproduces reliably on ``tollei`` but was not seen on the other
 Finnish MWTs we sampled. Likely a corner case in the character LM's
 interaction with the MWT processor on this specific surface form.
 
-### BA3 mitigation (ACTIVE)
+### BA3 mitigation (RETIRED in Stanza 1.12.0)
 
-Detect control tokens at the Python/Rust ingress boundary and strip
-them in place, logging each rewrite with a ``tracing.warning``. The
-stripper is in
-``batchalign/inference/_control_token_filter.py::strip_control_tokens_in_sentence``;
-the call site is
-``batchalign/inference/morphosyntax.py::batch_infer_morphosyntax``
-right after ``doc.to_dict()`` yields the Stanza sentence.
-
-Control-token vocabulary covered: ``<SOS>``, ``<EOS>``, ``<UNK>``,
-``<PAD>``, ``<BOS>``, ``<CLS>``, ``<SEP>``, ``<MASK>``, ``<s>``,
-``</s>``. Case-insensitive to catch both tokenizer-stage ``<SOS>``
-and lemmatizer-lowercased ``<sos>`` (Stanza emits both variants on
-the same leak).
-
-The workaround mirrors Defect 1 and Defect 2: detect → rewrite →
-log → register → test. It does NOT silently swallow the defect:
-every rewrite is visible in server logs as a warning, so an ops
-reader monitoring the fleet can confirm the workaround still fires
-on each Stanza version.
+The earlier mitigation — a control-token stripper at
+``batchalign/inference/_control_token_filter.py`` plus its
+integration test and unit-test suite — was removed as part of the
+2026-05-14 Stanza 1.12.0 upgrade once
+``test_stanza_fi_mwt_sos_leak.py`` flipped GREEN against the new
+release. The standalone reproducer is kept as a regression sentinel;
+no active strip-in-place code remains in the pipeline.
 
 ### Tests
 
-* **Standalone upstream reproducer:**
+* **Standalone upstream reproducer (kept):**
   ``batchalign/tests/pipelines/morphosyntax/test_stanza_fi_mwt_sos_leak.py``
-  — no batchalign imports, safe to copy into an upstream Stanza
-  issue tracker submission.
-* **Pure-function unit tests (34 tests):**
-  ``batchalign/tests/inference/test_control_token_filter.py``
-  — pin the regex vocabulary and the strip-in-place contract.
-* **Integration test:**
+  — no batchalign imports; remains GREEN on Stanza 1.12.0 and is the
+  fail-loud signal if a future Stanza version reintroduces the leak.
+* The earlier
+  ``batchalign/tests/inference/test_control_token_filter.py`` and
   ``batchalign/tests/pipelines/morphosyntax/test_control_token_leak_propagation.py``
-  — exercises ``batch_infer_morphosyntax`` end-to-end on a live
-  Finnish Stanza pipeline, asserts the UD response is clean and a
-  warning was logged.
+  were deleted alongside the mitigation.
 
 ### Re-evaluation criteria (when Stanza upgrades)
 
@@ -601,11 +587,12 @@ will surface through a test rather than as silent output drift.
   asserts the runtime decision against the actual installed Stanza
   catalog — Swedish False, English True — and uses an AST scan to
   forbid re-introduction of a hardcoded ``MWT_LANGS`` set.
-* **Hebrew/Greek MWT split observation tests** (golden, real Stanza):
-  ``batchalign/tests/pipelines/morphosyntax/test_stanza_he_el_mwt_splits.py``
-  pins the linguistically-correct splits for the canonical Hebrew
-  and Greek constructions listed above. Standalone — no batchalign
-  imports — safe to share with upstream if Stanza output drifts.
+* **Hebrew/Greek/Estonian MWT split observation tests** (golden, real Stanza):
+  ``batchalign/tests/pipelines/morphosyntax/test_stanza_he_el_et_mwt_splits.py``
+  pins the linguistically-correct splits for the canonical Hebrew and
+  Greek constructions listed above plus the Estonian no-op probes.
+  Standalone — no batchalign imports — safe to share with upstream
+  if Stanza output drifts.
 * **CHAT end-to-end tests** (golden, integration):
   ``batchalign/tests/pipelines/morphosyntax/test_he_el_mwt_end_to_end.py``
   runs ``batchalign3 morphotag --sequential`` on minimal Hebrew and
@@ -815,20 +802,14 @@ context and the full list of examined constructions.
 
 ### Scope evidence
 
-A corpus-wide audit of committed `%mor` content
-(`scripts/analysis/audit_italian_mor_content.py`, pointed via
-`--root` or `$TB_DATA_JSON` at a pre-parsed JSON snapshot of the
-TalkBank CHAT corpora) counts **65 Defect-6 hits across 417 Italian
-files and 15 distinct surface forms**. The top
-surfaces are `parla` (15), `arancione` (13), `piccolo` (10),
-`seggiola`/`piccola`/`divano`/`trottola` (3–4 each), and a long
-tail of single-file occurrences. Re-run the audit to measure the
-delta after any mitigation:
-
-```bash
-uv run python scripts/analysis/audit_italian_mor_content.py \
-  --jsonl /tmp/italian_defects.jsonl
-```
+An earlier corpus-wide audit of committed `%mor` content counted
+**65 Defect-6 hits across 417 Italian files and 15 distinct surface
+forms**. The top surfaces were `parla` (15), `arancione` (13),
+`piccolo` (10), `seggiola`/`piccola`/`divano`/`trottola` (3–4 each),
+and a long tail of single-file occurrences. The audit script itself
+was a maintainer-side probe that did not survive into the current
+public source tree; re-running it for delta measurement requires
+rebuilding the probe against the current pre-parsed JSON snapshot.
 
 A narrower probe against an ita-only main-tier scan found 73
 occurrences of `parla` specifically across 43 files. Probes in

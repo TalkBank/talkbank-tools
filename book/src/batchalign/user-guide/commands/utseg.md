@@ -1,7 +1,7 @@
 # utseg
 
 **Status:** Current
-**Last updated:** 2026-05-05 06:53 EDT
+**Last updated:** 2026-05-21 16:10 EDT
 
 Re-segment utterance boundaries in an existing CHAT transcript. Text-only
 — no audio involved. The model selected per language is either a trained
@@ -109,14 +109,23 @@ Per-language model selection is driven by `_RESOLVER["utterance"]` in
 | `eng` | `talkbank/CHATUtterance-en` (BERT per-word classifier) | TalkBank fine-tune |
 | `cmn` / `zho` (Mandarin) | `talkbank/CHATUtterance-zh_CN` (BERT) | TalkBank fine-tune |
 | `yue` (Cantonese) | `PolyU-AngelChanLab/Cantonese-Utterance-Segmentation` (BERT) | PolyU AngelChanLab |
-| any other language | Stanza constituency parser, where available | Stanza |
+| any other language | refused by default; opt in via `--utseg-fallback-stanza` | Stanza |
 
 The English BERT is **not** applied cross-lingually — running `utseg
---lang fra` does not load `CHATUtterance-en`. Languages with no entry in
-the resolver fall through to the Stanza constituency path. Stanza ships
-constituency models for ~11 languages (en, de, es, it, pt, da, id, ja,
-tr, vi, zh-hans); for any other language, `utseg` currently produces
-no splits and the file passes through unchanged.
+--lang fra` does not load `CHATUtterance-en`. For any language without
+a TalkBank BERT model in the table above, `utseg` refuses the
+substitution by default and the file passes through unchanged. To
+permit the legacy Stanza constituency-parser fallback (the same
+segmenter Batchalign 2 used for unsupported languages), pass
+`--utseg-fallback-stanza`:
+
+```bash
+batchalign3 utseg corpus-fra/ --lang fra --utseg-fallback-stanza
+```
+
+Quality varies — Stanza ships constituency models for ~11 languages
+(en, de, es, it, pt, da, id, ja, tr, vi, zh-hans). The opt-in design
+prevents accidental quality regressions on unsupported languages.
 
 See [Utterance Segmentation](../../reference/utterance-segmentation.md)
 for the algorithm details and the

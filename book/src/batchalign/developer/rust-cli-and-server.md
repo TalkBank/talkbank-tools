@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-04-17 20:00 EDT
+**Last updated:** 2026-05-20 00:48 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
@@ -12,13 +12,16 @@ for replacing the legacy stdio JSON-lines worker contract.
 
 ## Crate Map
 
+After the 2026-04-28 monorepo merge, batchalign source lives as a
+small set of sibling crates inside this workspace:
+
 | Crate | Role |
 |-------|------|
-| `crates/batchalign` | Clap CLI, dispatch router, direct-host bootstrap, explicit server lifecycle, output writing |
-| `crates/batchalign` | Axum HTTP server, job store, worker pool, cache, command-owned orchestration |
-| `crates/batchalign` | CHAT extraction, injection, validation, ASR post-processing, DP alignment |
-| `crates/batchalign/src/commands/` | released-command definitions, author-facing constructors, and the command catalog |
-| `crates/batchalign-pyo3/` | PyO3 bridge (`batchalign_core`) — separate single-crate project, not in the workspace |
+| `crates/batchalign/` | The runtime crate: Clap CLI, dispatch router, direct-host bootstrap, Axum HTTP server, job store, worker pool, cache, and command-owned orchestration. The `chat_ops/` module owns CHAT extraction, injection, validation, ASR post-processing, and DP alignment that is batchalign-specific. |
+| `crates/batchalign/src/commands/` | (submodule) released-command definitions, author-facing constructors, and the command catalog |
+| `crates/batchalign-types/` | Domain newtypes, worker IPC types (V2), shared between the runtime crate and the PyO3 bridge |
+| `crates/batchalign-pyo3/` | PyO3 bridge crate (`batchalign_core`); workspace member, slim dep tree (`batchalign-types` + `talkbank-transform` + pyo3/numpy/serde/tracing) |
+| `crates/talkbank-{model,parser,transform,clan,...}` | CHAT data model, parser, pipelines, CLAN tools — shared across the workspace; `batchalign` depends on the first three by workspace path |
 
 ## Common Developer Commands
 
@@ -31,7 +34,8 @@ cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
 
 ## CLI Command Dispatch (Single Source of Truth)
 
-`batchalign::cli::run_command()` in `crates/batchalign/src/lib.rs` is the
+`batchalign::cli::run_command()` in
+`crates/batchalign/src/cli/mod.rs:251` is the
 **single canonical command router**. The standalone binary (`main.rs`) calls it.
 The installed `batchalign3` console command is a tiny Python wrapper
 (`batchalign/_cli.py`) that finds and execs the standalone binary — either
@@ -49,16 +53,19 @@ No command-specific logic lives in either of them.
 
 The CLI layer now exposes two contributor-facing named seams:
 
-- `ReleasedCommand` in `crates/batchalign-types/src/domain.rs` is the closed
-  released command vocabulary for contributor-facing Rust code. Parse external
-  strings into this enum as early as possible; keep the old string-backed
-  `CommandName` only at wire/storage boundaries.
-- `CommandProfile` in `crates/batchalign/src/args/mod.rs` keeps the
-  command identity, language, file extensions, and speaker count together as a
-  typed profile instead of a positional tuple.
-- `DispatchRequest` in `crates/batchalign/src/dispatch/mod.rs` carries the
-  typed command profile, I/O settings, and runtime flags into the dispatcher as
-  one named boundary object.
+- `ReleasedCommand` in
+  `crates/batchalign-types/src/domain.rs:36` is the closed released
+  command vocabulary for contributor-facing Rust code. Parse external
+  strings into this enum as early as possible; keep the old
+  string-backed `CommandName` only at wire/storage boundaries.
+- `CommandProfile` in
+  `crates/batchalign/src/cli/args/mod.rs:148` keeps the command
+  identity, language, file extensions, and speaker count together as
+  a typed profile instead of a positional tuple.
+- `DispatchRequest` in
+  `crates/batchalign/src/cli/dispatch/mod.rs:42` carries the typed
+  command profile, I/O settings, and runtime flags into the
+  dispatcher as one named boundary object.
 
 The dispatcher also consults
 `batchalign::released_command_uses_local_audio()` and the shared released
@@ -123,10 +130,10 @@ flowchart TD
 That shared convergence is deliberate: direct mode and server mode should differ
 in **host/orchestration** behavior, not in the actual forced-alignment logic.
 
-When the CLI is polling or writing file results, `FileErrorDetail` in
-`crates/batchalign/src/dispatch/helpers.rs` keeps file-scoped failures as a
-named record instead of spreading filename/message pairs through the progress
-code.
+When the CLI is polling or writing file results, `FileErrorDetail`
+in `crates/batchalign/src/cli/dispatch/helpers.rs:24` keeps
+file-scoped failures as a named record instead of spreading
+filename/message pairs through the progress code.
 
 The command-specific logic now starts in
 `crates/batchalign/src/commands/`. That layer owns the canonical
@@ -391,18 +398,20 @@ must be updated:
 
 ### 1. CLI argument definition
 
-**`crates/batchalign/src/args/mod.rs`** — Add `Commands::Foo(FooArgs)`
-variant to the `Commands` enum.
+**`crates/batchalign/src/cli/args/mod.rs`** — Add
+`Commands::Foo(FooArgs)` variant to the `Commands` enum.
 
-**`crates/batchalign/src/args/commands.rs`** — Define `FooArgs` struct
-with clap attributes. Include `CommonOpts` if the command processes files.
+**`crates/batchalign/src/cli/args/commands.rs`** — Define `FooArgs`
+struct with clap attributes. Include `CommonOpts` if the command
+processes files.
 
 ### 2. CLI dispatch
 
-**`crates/batchalign/src/lib.rs`** — Add the match arm in
-`run_command()`. For processing commands, this typically falls through to
-the `cmd =>` wildcard arm that calls `dispatch::dispatch()`. For utility
-commands (like `serve`, `jobs`, `models`), add an explicit arm.
+**`crates/batchalign/src/cli/mod.rs`** — Add the match arm in
+`run_command()` (defined at `cli/mod.rs:251`). For processing
+commands, this typically falls through to the `cmd =>` wildcard arm
+that calls `cli::dispatch::dispatch()`. For utility commands (like
+`serve`, `jobs`, `models`), add an explicit arm.
 
 ### 3. Typed command options
 
@@ -410,7 +419,7 @@ commands (like `serve`, `jobs`, `models`), add an explicit arm.
 `CommandOptions::Foo { ... }` variant to the serde-tagged enum. This is the
 wire format between CLI and server.
 
-**`crates/batchalign/src/args/options.rs`** — Add the builder in
+**`crates/batchalign/src/cli/args/options.rs`** — Add the builder in
 `build_typed_options()` that converts `FooArgs` → `CommandOptions::Foo`.
 
 ### 4. Server-side task routing and capability gate
@@ -546,6 +555,9 @@ also depends on `batchalign` (for `run_command()`) and `batchalign`
 (for OpenAPI types), but it now does so with `default-features = false` so the
 extension path does not compile the standalone binary's OTLP stack.
 
-See [Building & Development](building.md) for the recommended fast local loop
-(`make build-python`, then one `cargo build -p batchalign` if you want the
-source-checkout fallback to use the repo binary).
+See [Building & Development](building.md) for the recommended fast
+local loop (one `cargo build -p batchalign` for the source-checkout
+fallback; `uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml
+-F pyo3/extension-module` or the
+`make batchalign-build-wheel` → `make batchalign-python-prepare`
+chain when you need the PyO3 extension installed into the dev env).

@@ -1,7 +1,7 @@
 # Assessment Tools
 
 **Status:** Current
-**Last updated:** 2026-03-30 16:35 EDT
+**Last updated:** 2026-05-21 13:45 EDT
 
 The assessment tools — KidEval, Eval, and Eval-D — compare a
 speaker's language measures against normative databases. Instead of
@@ -44,22 +44,20 @@ activity combinations at a glance. Click any cell to select it:
 
 ```text
               Narrative    Toyplay
-English (NA)   ● 375       ● 3503
-English (UK)   ● 540       ● 3459
-French         ● 399       ● 627
-Japanese       —            ● 167
-Spanish        ● 106       ● 936
-Chinese        ● 392       ● 1196
-Dutch          —            —       *
-Cantonese      —            —       *
+English (NA)   ●            ●
+English (UK)   ●            ●
+French         ●            ●
+Japanese       —            ●
+Spanish        ●            ●
+Chinese        ●            ●
 
-● = available with sample count
+● = available
 — = not available
-* = general database (not activity-specific)
 ```
 
 When a language + activity is selected, a **matching database card**
-appears showing the database filename, sample count, and metadata.
+appears showing the database filename, sample count (read live from
+the `.cut` file), and metadata.
 
 The activity type matters: narrative tasks (story retelling, picture
 description) and toy play sessions elicit different language patterns.
@@ -81,21 +79,35 @@ Leave these fields blank to compare against the full normative sample.
 
 ### Available KidEval databases
 
-| Language | Activity | Database | Samples |
-|----------|----------|----------|--------:|
-| English (NA) | Narrative | `eng_narrative_db.cut` | 375 |
-| English (NA) | Toyplay | `eng_toyplay_db.cut` | 3,503 |
-| English (UK) | Narrative | `engu_narrative_db.cut` | 540 |
-| English (UK) | Toyplay | `engu_toyplay_db.cut` | 3,459 |
-| French | Narrative | `fra_narrative_db.cut` | 399 |
-| French | Toyplay | `fra_toyplay_db.cut` | 627 |
-| Japanese | Toyplay | `jpn_toyplay_db.cut` | 167 |
-| Spanish | Narrative | `spa_narrative_db.cut` | 106 |
-| Spanish | Toyplay | `spa_toyplay_db.cut` | 936 |
-| Chinese | Narrative | `zho_narrative_db.cut` | 392 |
-| Chinese | Toyplay | `zho_toyplay_db.cut` | 1,196 |
-| Dutch | General | `nld.cut` | 121 |
-| Cantonese | General | `yue.cut` | 49 |
+KidEval discovers `_db.cut` databases by suffix
+(`crates/talkbank-clan/src/database/discovery.rs`); the live list is
+whatever exists under `clan-info/lib/kideval/` at runtime. The
+authoritative sample count for a database is the number of `^=` header
+lines it contains (each sample is a 4-line record). To check a count
+locally:
+
+```bash
+grep -c '^=' clan-info/lib/kideval/<database>.cut
+```
+
+| Language | Activity | Database |
+|----------|----------|----------|
+| English (NA) | Narrative | `eng_narrative_db.cut` |
+| English (NA) | Toyplay | `eng_toyplay_db.cut` |
+| English (UK) | Narrative | `engu_narrative_db.cut` |
+| English (UK) | Toyplay | `engu_toyplay_db.cut` |
+| French | Narrative | `fra_narrative_db.cut` |
+| French | Toyplay | `fra_toyplay_db.cut` |
+| Japanese | Toyplay | `jpn_toyplay_db.cut` |
+| Spanish | Narrative | `spa_narrative_db.cut` |
+| Spanish | Toyplay | `spa_toyplay_db.cut` |
+| Chinese | Narrative | `zho_narrative_db.cut` |
+| Chinese | Toyplay | `zho_toyplay_db.cut` |
+
+`clan-info/lib/kideval/` also contains `nld.cut` and `yue.cut`, but
+those are DSS / IPSyn rule files, not sample databases — they are not
+enumerated by the `_db.cut` discovery and don't participate in KidEval
+norms.
 
 ### Step 3: View results
 

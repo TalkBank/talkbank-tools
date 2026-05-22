@@ -1,7 +1,7 @@
 # ASR Token Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 19:23 EDT
 
 This page documents the complete lifecycle of text tokens as they flow from
 ASR providers through post-processing into the CHAT AST. Each stage has a
@@ -244,9 +244,9 @@ flowchart LR
 ```
 
 Verified against source: `strip_separator_words` in
-`crates/batchalign/src/asr_postprocess/mod.rs`;
+`crates/talkbank-transform/src/asr_postprocess/mod.rs`;
 `apply_disfluency_replacements` and `apply_retrace_detection` in
-`crates/batchalign/src/asr_postprocess/cleanup.rs`.
+`crates/talkbank-transform/src/asr_postprocess/cleanup.rs`.
 
 ## Timing Flow
 
@@ -354,11 +354,11 @@ These types are documented in
 
 | Component | File |
 |-----------|------|
-| ASR types and newtypes | `asr_postprocess/asr_types.rs` |
-| Pipeline orchestrator | `asr_postprocess/mod.rs` |
-| Compound merging | `asr_postprocess/compounds.rs` |
-| Disfluency and retrace | `asr_postprocess/cleanup.rs` |
-| Number expansion | `asr_postprocess/num2text.rs` |
-| Cantonese normalization | `asr_postprocess/cantonese.rs` |
-| CHAT assembly | `build_chat.rs` |
-| CHAT-direction newtypes | `text_types.rs` |
+| ASR types and newtypes | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` |
+| Pipeline orchestrator | `crates/talkbank-transform/src/asr_postprocess/mod.rs` |
+| Compound merging | `crates/talkbank-transform/src/asr_postprocess/compounds.rs` |
+| Disfluency and retrace | `crates/talkbank-transform/src/asr_postprocess/cleanup.rs` |
+| Number expansion | `crates/talkbank-transform/src/asr_postprocess/num2text.rs` |
+| Cantonese normalization | `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` |
+| CHAT assembly | `crates/talkbank-transform/src/build_chat/` (directory) |
+| CHAT-direction newtypes | `crates/talkbank-model/src/text_types.rs` |

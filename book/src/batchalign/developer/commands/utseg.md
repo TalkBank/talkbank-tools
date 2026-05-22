@@ -1,7 +1,7 @@
 # utseg — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:18 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 Implementation guide for the `utseg` command. For user-facing documentation,
 see [User Guide: utseg](../../user-guide/commands/utseg.md).
@@ -80,7 +80,7 @@ available processors are queried at worker startup via
 ```bash
 make test
 cargo nextest run -p batchalign -E 'test(utseg::)'
-# ML golden tests — only on net
+# ML golden tests — only on Fleet/Large-tier hosts
 cargo nextest run --profile ml -E 'test(utseg::golden)'
 ```
 

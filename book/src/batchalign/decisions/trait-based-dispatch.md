@@ -1,7 +1,7 @@
 # Trait-Based Dispatch
 
 **Status:** Current decision
-**Last updated:** 2026-03-17
+**Last updated:** 2026-05-21 15:05 EDT
 
 ## Decision
 
@@ -154,7 +154,7 @@ their scale:
 **1. Single conditional (ASR post-processing)**
 
 ```text
-// asr_postprocess/mod.rs — one branch for Cantonese
+// crates/talkbank-transform/src/asr_postprocess/mod.rs — one branch for Cantonese
 if lang == "yue" {
     words = normalize_cantonese_words(words);
 }
@@ -168,22 +168,24 @@ and a dynamic dispatch call — all to replace a one-line conditional.
 **2. Per-language modules (morphosyntax)**
 
 ```text
-nlp/lang_en.rs  — 271 lines, English irregular verbs
-nlp/lang_fr.rs  — 262 lines, French-specific rules
-nlp/lang_ja.rs  — 460 lines, Japanese verb form patterns
+crates/talkbank-transform/src/morphosyntax/lang_en.rs  — English irregular verbs
+crates/talkbank-transform/src/morphosyntax/lang_fr.rs  — French-specific rules
+crates/talkbank-transform/src/morphosyntax/lang_ja.rs  — Japanese verb form patterns
 ```
 
-Called from two `if lang2(&ctx.lang) == "ja"` checks in `mor_word.rs`.
-This is already the right shape — each language's rules are isolated in
-their own module, the dispatch point is obvious, and adding a new language
-means adding a module and a conditional.  A trait would formalize the
-interface but wouldn't reduce code or improve safety.
+Called from `if lang2(&ctx.lang) == "ja"` checks in
+`crates/talkbank-transform/src/morphosyntax/mor_word.rs` (and similar
+language gates in `features.rs`). This is already the right shape —
+each language's rules are isolated in their own module, the dispatch
+point is obvious, and adding a new language means adding a module and
+a conditional. A trait would formalize the interface but wouldn't
+reduce code or improve safety.
 
 **3. Table-driven lookup (number expansion)**
 
 ```text
-// num2text.rs — 12 languages in a static lookup table
-static NUM2LANG: LazyLock<HashMap<&str, LangTable>> = ...;
+// crates/talkbank-transform/src/asr_postprocess/num2text.rs — codegenned + hand-curated language tables
+static NUM2LANG: LazyLock<BTreeMap<String, BTreeMap<String, String>>> = ...;
 ```
 
 Adding a language is adding a table entry.  This is more flexible than a
@@ -216,15 +218,26 @@ pipeline stages would help.  This is not currently planned.
 
 ### For the UTR strategy trait
 
-1. Define the trait in `batchalign/src/fa/utr.rs` (or a new
-   `fa/utr/` module if the file gets too large).
-2. Move the current global UTR logic into `struct GlobalUtr` implementing
-   the trait.
-3. Add `UtrStrategyChoice` to CLI args with `hide = true`.
-4. Wire strategy selection in `runner/dispatch/utr.rs` — construct the
-   appropriate impl and call `strategy.run(ctx, chat_file, audio_path)`.
-5. Add backbone and per-speaker implementations as separate files
-   (`fa/utr/backbone.rs`, `fa/utr/per_speaker.rs`).
+The trait and its shipped implementations now live at
+`crates/batchalign/src/chat_ops/fa/utr.rs` and the `chat_ops/fa/utr/`
+submodule (`drift_scenarios.rs`, `overlap_markers.rs`, `two_pass.rs`).
+The shipped strategies are `GlobalUtr` and `TwoPassOverlapUtr`,
+selected via `--utr-strategy` (`UtrOverlapStrategy::{Auto, Global,
+TwoPass}`), with dispatch wired in
+`crates/batchalign/src/runner/dispatch/utr.rs`.
+
+If a new strategy is added later:
+
+1. Implement it as a sibling file under
+   `crates/batchalign/src/chat_ops/fa/utr/` next to the existing
+   strategy files.
+2. Reuse the `UtrStrategy` trait from `chat_ops/fa/utr.rs`; do not
+   widen the trait surface unless absolutely required.
+3. Wire selection in `crates/batchalign/src/runner/dispatch/utr.rs`,
+   following the existing pattern for `Global` and `TwoPass`.
+
+The earlier "backbone" and "per-speaker" sketches did not ship and
+should not be reintroduced as templates without a fresh design pass.
 
 ### For future trait candidates
 

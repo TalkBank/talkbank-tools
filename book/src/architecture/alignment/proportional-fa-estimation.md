@@ -1,7 +1,7 @@
 # Proportional FA Estimation
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 When forced alignment runs against a CHAT file with utterances that
 have no timing bullets, the FA grouping algorithm falls back to
@@ -65,7 +65,7 @@ no-op for pre-timed files (Rust never hits the estimation path).
 ## Implementation
 
 `group_utterances()` in
-`crates/batchalign/src/fa/grouping.rs` takes a
+`crates/batchalign/src/chat_ops/fa/grouping.rs` takes a
 `total_audio_ms: Option<u64>` parameter and uses a two-pass
 approach:
 
@@ -76,12 +76,9 @@ approach:
    is `Some`, compute the proportional estimate and use it as the
    bullet.
 
-The PyO3 bridge accepts `total_audio_ms: Option<u64>` in
-`ParsedChat.add_forced_alignment(...)`
-(`crates/batchalign-pyo3/src/parsed_chat/fa.rs`). The post-processing
-loop handles utterances that were untimed on input but received
-timing from FA — they need `postprocess_utterance_timings` and
-`add_wor_tier` too.
+The post-processing loop handles utterances that were untimed on
+input but received timing from FA — they need
+`postprocess_utterance_timings` and `add_wor_tier` too.
 
 The Python worker (`batchalign/inference/fa.py`) computes audio
 duration from the loaded `ASRAudioFile`:

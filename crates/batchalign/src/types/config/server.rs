@@ -334,9 +334,9 @@ pub struct ServerConfig {
 /// users never see this.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FleetTarget {
-    /// HTTP URL of the batchalign server (e.g. `"http://net:8001"`).
+    /// HTTP URL of the batchalign server (e.g. `"http://your-server:8001"`).
     pub url: String,
-    /// SSH host for rsync file transfer (e.g. `"net"`).
+    /// SSH host for rsync file transfer (e.g. `"your-server"`).
     pub ssh_host: String,
     /// SSH user for rsync file transfer (e.g. `"operator"`).
     pub ssh_user: String,

@@ -15,12 +15,15 @@ Error specifications serve multiple purposes:
 ```
 spec/errors/
 ├── README.md                    # This file
-├── ERROR_SPEC_FORMAT.md         # Specification format documentation
 ├── E241_illegal_untranscribed_marker.md
 ├── E522_undefined_participant.md
 ├── E604_gra_without_mor.md
 └── ... (other error specs)
 ```
+
+The detailed spec-format documentation lives at
+`spec/docs/ERROR_SPEC_FORMAT.md`; this directory holds the error specs
+themselves.
 
 ## Spec Format
 
@@ -54,7 +57,7 @@ Link to relevant section in CHAT manual
 Additional implementation notes
 ```
 
-See [ERROR_SPEC_FORMAT.md](ERROR_SPEC_FORMAT.md) for complete format documentation.
+See [../docs/ERROR_SPEC_FORMAT.md](../docs/ERROR_SPEC_FORMAT.md) for complete format documentation.
 
 ## Workflow
 
@@ -290,10 +293,10 @@ When adding a new validation rule:
 
 ## See Also
 
-- [ERROR_SPEC_FORMAT.md](ERROR_SPEC_FORMAT.md) - Detailed format specification
+- [../docs/ERROR_SPEC_FORMAT.md](../docs/ERROR_SPEC_FORMAT.md) - Detailed format specification
 - [talkbank-model validation CLAUDE.md](../../crates/talkbank-model/src/validation/CLAUDE.md) - Validator implementation patterns
 - [Root CLAUDE.md](../../CLAUDE.md) - TDD and testing requirements
 
 ---
 
-Last Updated: 2026-01-19
+Last Updated: 2026-05-21

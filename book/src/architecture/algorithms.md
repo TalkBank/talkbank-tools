@@ -1,7 +1,7 @@
 # Algorithms and Data Structures
 
 **Status:** Current
-**Last updated:** 2026-03-24 01:32 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 This chapter documents the key algorithms and data structure decisions across
 the TalkBank Rust crates.
@@ -100,7 +100,7 @@ annotations).
 
 ### Hirschberg (Linear-Space Edit Distance)
 
-**Location:** `batchalign/src/dp_align.rs`
+**Location:** `crates/talkbank-transform/src/dp_align/`
 
 | Property | Value |
 |----------|-------|
@@ -177,7 +177,7 @@ loops.
 
 ### WER Word Conforming
 
-**Location:** `batchalign/src/wer_conform.rs`
+**Location:** `crates/talkbank-transform/src/wer_conform.rs`
 
 Priority-ordered 10-step rule chain for word normalization before WER comparison:
 

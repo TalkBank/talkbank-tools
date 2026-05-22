@@ -1,7 +1,7 @@
 # Japanese Morphosyntax Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-20 07:58 EDT
 
 ---
 
@@ -29,15 +29,27 @@ flag. Both modes force the `combined` package for all four processors.
 
 ### Package Selection
 
-All Japanese Stanza pipelines use `combined` instead of `default`
-(`engine.py:127–132`):
+All Japanese Stanza pipelines use `combined` instead of `default`.
+The override is wired in
+`batchalign/worker/_stanza_loading.py:196-209` (the `if alpha2 ==
+"ja"` branch that constructs the `stanza.Pipeline` with an explicit
+`package={...combined...}`):
 
 ```python
 if alpha2 == "ja":
-    processors["tokenize"] = "combined"
-    processors["pos"] = "combined"
-    processors["lemma"] = "combined"
-    processors["depparse"] = "combined"
+    nlp = stanza.Pipeline(
+        lang=alpha2,
+        processors=processors,
+        download_method=DownloadMethod.REUSE_RESOURCES,
+        tokenize_no_ssplit=True,
+        tokenize_pretokenized=True,
+        package={
+            "tokenize": "combined",
+            "pos": "combined",
+            "lemma": "combined",
+            "depparse": "combined",
+        },
+    )
 ```
 
 The `combined` package bundles tokenization, POS tagging, lemmatization, and
@@ -46,19 +58,18 @@ processor would load a mismatched model.
 
 ### MWT Exclusion
 
-Japanese is in `_MWT_EXCLUSION` (`engine.py:45–49`):
-
-```python
-_MWT_EXCLUSION = frozenset({
-    "hr", "zh", "zh-hans", "zh-hant", "ja", "ko",
-    "sl", "sr", "bg", "ru", "et", "hu",
-    "eu", "el", "he", "af", "ga", "da",
-})
-```
-
-This means Japanese never loads the `mwt` processor. The `combined` package is
-forced separately (above) because `_MWT_EXCLUSION` only controls whether MWT
-expansion runs — the package override is needed regardless of mode.
+Japanese never loads the `mwt` processor. The historical hardcoded
+`_MWT_EXCLUSION` frozenset was retired in favour of the runtime
+capability-driven helper `should_request_mwt()` at
+`batchalign/worker/_stanza_loading.py:40` (see Defect 5 in
+[Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)):
+the helper consults the live Stanza capability table and excludes
+`mwt` for any language whose model does not ship that processor.
+Japanese falls into the exclusion naturally — its `combined`
+package does not include an `mwt` processor, so `should_request_mwt`
+returns `False` for `ja` without a per-language entry. The package
+override above is needed regardless of MWT mode, so the two
+concerns stay independent.
 
 ### Keep-Tokens Mode (`retokenize=False`)
 
@@ -95,7 +106,7 @@ token `"ふ す"` (with internal space).
 This whitespace is a tokenization artifact, not a word boundary. It must be
 stripped — not split — because the space does not represent a separate word.
 
-### Fix 1: Token Text (`morphosyntax/inject.rs:103–115`)
+### Fix 1: Token Text (`crates/talkbank-transform/src/morphosyntax/injection.rs`)
 
 Before passing tokens to the retokenize algorithm, whitespace is stripped from
 token text:
@@ -121,11 +132,11 @@ if retokenize {
 }
 ```
 
-### Fix 2: Lemma Text (`validation.rs:19–22`)
+### Fix 2: Lemma Text (`crates/talkbank-transform/src/morphosyntax/ud_types.rs:426`)
 
-Stanza's lemmatizer can also produce lemmas with internal whitespace (e.g.,
-`"ふ す"`). The `sanitize_mor_text()` function strips all whitespace before
-%mor assembly:
+Stanza's lemmatizer can also produce lemmas with internal whitespace
+(e.g., `"ふ す"`). The `sanitize_mor_text()` function strips all
+whitespace before %mor assembly:
 
 ```rust
 pub fn sanitize_mor_text(s: &str) -> String {
@@ -150,13 +161,16 @@ item.
 
 ## Lemma Cleaning
 
-The `clean_lemma()` function (`mapping.rs:441–554`) performs generic lemma
-cleanup, but several rules are Japanese-relevant:
+The `clean_lemma()` function
+(`crates/talkbank-transform/src/morphosyntax/mor_word.rs:81`)
+performs generic lemma cleanup, but several rules are
+Japanese-relevant:
 
 ### Japanese Quote Fallback
 
-When Stanza returns a Japanese bracket quote as the lemma, the function falls
-back to the surface text (`mapping.rs:445–456`):
+When Stanza returns a Japanese bracket quote as the lemma, the
+function falls back to the surface text (in the body of `clean_lemma`
+at `mor_word.rs:81`):
 
 ```text
 // Handle Japanese quotes
@@ -174,28 +188,32 @@ target = target.replace('\u{300C}', ""); // 「
 
 ### Smart Quote Handling
 
-If the lemma contains a left smart quote (U+201C `"`), the function falls back
-to the surface text (`mapping.rs:517–519`). This catches cases where Stanza's
-lemmatizer produces a quote character instead of the actual lemma.
+If the lemma contains a left smart quote (U+201C `"`), the function
+falls back to the surface text (within `clean_lemma` at
+`mor_word.rs:81`). This catches cases where Stanza's lemmatizer
+produces a quote character instead of the actual lemma.
 
 ### Empty Lemma Safeguard
 
-After all cleaning, if the lemma is empty, the function falls back to the
-surface text. If the surface text is also empty, it uses `"x"` as a
-placeholder (`mapping.rs:546–551`). This prevents the E342 "bare pipe" parse
-error (`pos|` with no stem).
+After all cleaning, if the lemma is empty, the function falls back
+to the surface text. If the surface text is also empty, it uses
+`"x"` as a placeholder (still within `clean_lemma` at
+`mor_word.rs:81`). This prevents the E342 "bare pipe" parse error
+(`pos|` with no stem).
 
 ---
 
 ## POS Mapping
 
-The `map_ud_word_to_mor()` function (`mapping.rs:345–399`) applies
+The `map_ud_word_to_mor()` function
+(`crates/talkbank-transform/src/morphosyntax/mor_word.rs:13`) applies
 Japanese-specific overrides in steps 3–4.
 
 ### Step 3: Verb Form Overrides
 
-If the language is Japanese, verb form overrides run before generic POS mapping
-(`mapping.rs:359–365`):
+If the language is Japanese, verb form overrides run before generic
+POS mapping (inside `map_ud_word_to_mor` at
+`mor_word.rs:13`):
 
 ```rust,ignore
 if lang2(&ctx.lang) == "ja"
@@ -212,9 +230,10 @@ produces a lemma containing a comma (which would be illegal in a %mor stem).
 
 ### Step 4: PUNCT → cm
 
-All Japanese `PUNCT` tokens map to the `cm` (comma marker) POS category, and
-Japanese commas (both full-width `、` and ASCII `,`) also map to `cm`
-(`mapping.rs:367–375`):
+All Japanese `PUNCT` tokens map to the `cm` (comma marker) POS
+category, and Japanese commas (both full-width `、` and ASCII `,`)
+also map to `cm` (still inside `map_ud_word_to_mor` at
+`crates/talkbank-transform/src/morphosyntax/mor_word.rs:13`):
 
 ```rust,ignore
 if lang2(&ctx.lang) == "ja" {
@@ -241,8 +260,9 @@ actual commas map to `cm`.
 
 ## Verb Form Overrides
 
-The `japanese_verbform()` function (`lang_ja.rs`, 460 lines, 65 override
-rules) is ported from Python's `batchalign/pipelines/morphosyntax/ja/verbforms.py`.
+The `japanese_verbform()` function
+(`crates/talkbank-transform/src/morphosyntax/lang_ja.rs`, 65 override
+rules) is ported from the BA2 Python verb-form override file.
 
 ### Structure
 
@@ -276,24 +296,29 @@ The 65 rules cover these categories (in match order):
 
 ### Order Dependence
 
-**Order is significant.** The function mirrors Python's exact `if/elif` chain
-(`lang_ja.rs:34`): earlier rules take precedence. For example, a word
-containing both `ちゃ` and `なきゃ` would match the `ちゃ` rule because it
-appears first.
+**Order is significant.** The function mirrors the original
+Python's exact `if/elif` chain in
+`crates/talkbank-transform/src/morphosyntax/lang_ja.rs`: earlier
+rules take precedence. For example, a word containing both `ちゃ`
+and `なきゃ` would match the `ちゃ` rule because it appears first.
 
 ### Execution Timing
 
-Verb form overrides run **before** POS mapping (`mapping.rs:359`). This means
-they can change both the POS category and lemma that flow into feature
-computation and %mor assembly.
+Verb form overrides run **before** POS mapping (inside
+`map_ud_word_to_mor` at
+`crates/talkbank-transform/src/morphosyntax/mor_word.rs:13`). This
+means they can change both the POS category and lemma that flow
+into feature computation and %mor assembly.
 
 ---
 
 ## No Clitic Detection
 
-The `is_clitic()` function (`mapping.rs:322–329`) identifies MWT sub-tokens
-that are clitics (e.g., English `n't`, `'s`; French `l'`, `-ce`). Japanese has
-no entries — the function returns `false` for all Japanese tokens:
+The `is_clitic()` function
+(`crates/talkbank-transform/src/morphosyntax/mor_word.rs:200`)
+identifies MWT sub-tokens that are clitics (e.g., English `n't`,
+`'s`; French `l'`, `-ce`). Japanese has no entries — the function
+returns `false` for all Japanese tokens:
 
 ```rust,ignore
 fn is_clitic(text: &str, ctx: &MappingContext) -> bool {
@@ -328,17 +353,17 @@ of the current public runtime contract.
 
 ## Code Reference
 
-| Concept | File | Lines |
-|---------|------|-------|
-| `_MWT_EXCLUSION` list | `engine.py` | 45–49 |
-| `combined` package forcing | `engine.py` | 127–132 |
-| Stanza config modes | `engine.py` | 105–169 |
-| Token text whitespace strip | `lib.rs` | 1447–1462 |
-| Lemma whitespace strip | `validation.rs` | 19–22 |
-| `clean_lemma()` (quote handling) | `mapping.rs` | 441–554 |
-| `map_ud_word_to_mor()` (JA overrides) | `mapping.rs` | 345–399 |
-| Japanese PUNCT → cm | `mapping.rs` | 367–375 |
-| `is_clitic()` (no JA entries) | `mapping.rs` | 322–329 |
-| Verb form overrides | `lang_ja.rs` | 1–460 |
-| Retokenize algorithm | `retokenize.rs` | full file |
-| `@s:` marker extraction | `extract.rs` | 31–42 |
+| Concept | File | Anchor |
+|---------|------|--------|
+| Capability-driven MWT exclusion (retired the historical `_MWT_EXCLUSION` frozenset) | `batchalign/worker/_stanza_loading.py` | `should_request_mwt()` @40 |
+| `combined` package forcing for Japanese | `batchalign/worker/_stanza_loading.py` | :196-209 (`if alpha2 == "ja"` branch) |
+| Stanza config (keep-tokens vs no-MWT) modes | `batchalign/worker/_stanza_loading.py` | `load_stanza_models()` @126 |
+| Token text whitespace strip | `crates/talkbank-transform/src/morphosyntax/injection.rs` | retokenize-mode token sanitizer |
+| Lemma whitespace strip | `crates/talkbank-transform/src/morphosyntax/ud_types.rs` | `sanitize_mor_text()` @426 |
+| `clean_lemma()` (quote handling) | `crates/talkbank-transform/src/morphosyntax/mor_word.rs` | @81 |
+| `map_ud_word_to_mor()` (JA overrides) | `crates/talkbank-transform/src/morphosyntax/mor_word.rs` | @13 |
+| Japanese PUNCT → cm | `crates/talkbank-transform/src/morphosyntax/mor_word.rs` | inside `map_ud_word_to_mor` @13 |
+| `is_clitic()` (no JA entries) | `crates/talkbank-transform/src/morphosyntax/mor_word.rs` | @200 |
+| Verb form overrides | `crates/talkbank-transform/src/morphosyntax/lang_ja.rs` | `japanese_verbform()` |
+| Retokenize algorithm | `crates/talkbank-transform/src/retokenize.rs` (+ `retokenize/{rebuild,parse_helpers}.rs`) | full module |
+| `@s:` marker extraction | `crates/talkbank-transform/src/extract.rs` | `WordLanguageMarker` extraction |

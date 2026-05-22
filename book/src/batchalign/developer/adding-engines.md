@@ -1,7 +1,7 @@
 # Adding Inference Providers
 
 **Status:** Current
-**Last updated:** 2026-05-10 12:12 EDT
+**Last updated:** 2026-05-19 21:18 EDT
 
 Batchalign3 no longer has a public entry-point plugin system. New engines are
 added in-tree as built-in worker capabilities.
@@ -376,14 +376,14 @@ In addition to those Rust-side changes, update these Python-side surfaces:
    `COMMAND_SPECS`. Then run `cargo xtask gen-runtime-toml` to regenerate
    `batchalign/runtime_constants.toml` (the generated file is the shared
    Rust/Python source of truth; do not edit it directly).
-2. **`batchalign/runtime.py`** — Add the command to `COMMAND_PROBES` with the
-   tuple of Python modules that must be importable for the command to appear in
-   `detect_capabilities()`.
-3. **`batchalign/worker/_handlers.py`** — Add the `InferTask` to
-   `_INFER_TASK_PROBES` so the worker advertises it. This must match the
-   same dependencies used in `COMMAND_PROBES`. See
-   [step 4 above](#4-wire-dispatch-and-capability-advertisement) for details.
-4. **`batchalign/worker/_model_loading/`** — Register the dynamic
+2. **`batchalign/worker/_handlers.py`** — Add the `InferTask` to
+   `_INFER_TASK_PROBES` (at `_handlers.py:77`) so the worker
+   advertises it. This is the only Python-side probe mechanism; the
+   server cross-checks advertised infer-tasks against required
+   command capabilities. See
+   [step 4 above](#4-wire-dispatch-and-capability-advertisement) for
+   details.
+3. **`batchalign/worker/_model_loading/`** — Register the dynamic
    runtime host for the new task if it depends on loaded model state or
    engine-specific wiring. Reserve **`batchalign/worker/_execute_v2.py`** for
    the small task router that dispatches to those prepared hosts.

@@ -1,7 +1,7 @@
 # Worker Failure Classification and Retry Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-06 14:30 EDT
+**Last updated:** 2026-05-19 21:04 EDT
 
 This chapter is the canonical contributor reference for how a Python
 worker exception becomes — or does not become — an end-user error. It
@@ -271,7 +271,7 @@ Source files:
 
 ### `WorkerError` taxonomy
 
-Eight variants. Each has a documented retryability class.
+Each variant has a documented retryability class.
 
 | Variant | Fires when | Retryable? |
 |---|---|---|
@@ -284,6 +284,7 @@ Eight variants. Each has a documented retryability class.
 | `WorkerResponse(String)` | Worker returned `{"op":"error", "kind":"runtime"}` | Retryable — per-request failure |
 | **`Bootstrap(String)`** | Worker returned `{"op":"error", "kind":"bootstrap"}` | **Terminal** — deterministic |
 | `Io(io::Error)` | Pipe-level I/O failure (broken pipe, etc.) | Retryable — pool replaces worker |
+| `MemoryGuard(MemoryGuardError)` | Memory-guard refused to admit the worker (insufficient headroom under the configured budget) | **Not retried** by `is_retryable_worker_failure` — classified as `FailureCategory::MemoryPressure`, which is outside the retry set; the scheduler re-admits later once memory frees |
 | `NoWorker { command, lang }` | Reserved variant; unused today | Terminal |
 
 The `Bootstrap` variant added 2026-05-06 is the one this chapter is

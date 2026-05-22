@@ -1,7 +1,7 @@
 # Italian
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:20 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 ## Scope
 
@@ -78,11 +78,9 @@ Every row ships one `%mor` item per CHAT word (Stage 3's
 `assemble_mors` collapses the MWT Range correctly), so the count
 invariant holds. Every row's linguistic content is wrong.
 
-A corpus-wide audit of committed `%mor` content
-(`scripts/analysis/audit_italian_mor_content.py`, pointed via
-`--root` or `$TB_DATA_JSON` at a pre-parsed JSON snapshot of the
-TalkBank CHAT corpora) found **65 Defect-6 hits across 417 Italian
-files and 15 distinct surface forms**. Mid-sentence
+A corpus-wide audit of committed `%mor` content (pre-parsed JSON
+snapshot of the TalkBank CHAT corpora) found **65 Defect-6 hits
+across 417 Italian files and 15 distinct surface forms**. Mid-sentence
 position does protect verbs in context — `la storia parla di ...`
 gets correct `verb|parlare-Fin-Ind-Pres-S3` — but the noun/adjective
 pseudo-analyses fire independent of position.
@@ -269,10 +267,11 @@ retraining Stanza or writing a full Italian morphological
 analyzer.
 
 It is explicitly a **hack layer**: every entry is expected to
-be retired eventually as Stanza improves upstream. The
-`italian_reconciler_gate_audit.py` script is the retirement
-tool — it empties the allowlists, reruns the Italian tests,
-and lists entries that Stanza now handles natively.
+be retired eventually as Stanza improves upstream. The retirement
+workflow is to empty the allowlists in `lang_it.rs`, rerun the
+Italian integration tests
+(`crates/batchalign/src/chat_ops/nlp/mapping/tests/italian_defects.rs`),
+and remove any entry whose dependent test now passes without it.
 
 ### Defect taxonomy
 
@@ -451,8 +450,10 @@ sequenceDiagram
 *Verified against: `map_ud_sentence` (synthesis sites at each
 reconciler branch), `map_ud_sentence_expanded` (uniform
 `push_ud` helper), `build_gra_and_validate`
-(language-neutral in `nlp/mapping/mod.rs`), `provenance.rs`
-(data types), `helpers.rs` (normalize_deprel +
+(language-neutral in
+`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`,
+re-exported through `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs`),
+`provenance.rs` (data types), `helpers.rs` (normalize_deprel +
 assemble_mors + provenance_for_ud_word), `apply_compound_imperative_override`
 in `lang_it.rs`, and the test `test_italian_defect8_dammela_emits_multi_chunk_mor`.*
 
@@ -496,12 +497,11 @@ Shared invariants across all three:
    harmless. This lets shape-9 and shape-10 entries share
    `IT_COMPONENT_REWRITES` even though their Stanza-error
    signatures differ.
-4. **Retirement via audit script.** `italian_reconciler_gate_audit.py`
-   empties all three allowlists and reruns the reconciler-
-   dependent integration tests. Entries whose tests still fail
-   are load-bearing; entries whose tests now pass without the
-   reconciler are retirement candidates (Stanza fixed the
-   defect upstream).
+4. **Retirement workflow.** Empty all three allowlists in
+   `lang_it.rs` and rerun the reconciler-dependent integration
+   tests. Entries whose tests still fail are load-bearing;
+   entries whose tests now pass without the reconciler are
+   retirement candidates (Stanza fixed the defect upstream).
 
 ## Reconciler for Defect 6 / 7 / 8 / 9 / 10 / 12 / 13
 
@@ -625,14 +625,12 @@ name April). The allowlist is still a closed curated set;
 legitimate nouns pass through unchanged — pinned by
 `test_italian_defect8_genuine_noun_stays_noun`.
 
-The `prendere` family was surfaced by
-``scripts/analysis/scan_italian_compound_imperative_candidates.py``,
-which scans CHAT main-tier words for shapes likely to be
-verb+enclitic compounds. The same scan identified `diglielo`
-(already correctly handled by Stanza) and `mettilo`/`mettila`/
-`mettili`/`mettiti` (tagged VERB but not decomposed — a lemma-
-quality issue rather than a pure Defect 8 signature; deferred to
-a future investigation).
+The `prendere` family was surfaced by a one-off corpus scan for
+CHAT main-tier words with verb+enclitic shapes; the same scan
+identified `diglielo` (already correctly handled by Stanza) and
+`mettilo`/`mettila`/`mettili`/`mettiti` (tagged VERB but not
+decomposed — a lemma-quality issue rather than a pure Defect 8
+signature; deferred to a future investigation).
 
 **Scope : multi-chunk output is now emitted.**
 Each allowlist entry specifies the post-clitic stack via
@@ -821,27 +819,22 @@ pick them up when Italian is next on deck.
    (244 combined occurrences). Other Italian verbs with
    clitic-shaped stem endings (e.g. `canta` → `cant + a`?,
    `balla` → `ball + a`?) may also mis-split in specific
-   sentence-initial contexts. Run
-   `audit_italian_mor_content.py` against a pre-parsed JSON
-   corpus mirror (built via `tb parse`) to surface the remaining
-   long tail — it detects any committed
-   `verb|STEM~pron|CLITIC` where `STEM + CLITIC == surface` and
-   `STEM` isn't a real Italian lemma. Set `TB_DATA_JSON` or pass
-   `--root` to point at your JSON mirror.
+   sentence-initial contexts. A future corpus sweep over the
+   pre-parsed JSON mirror (built via `tb parse`) can surface
+   the remaining long tail by querying for committed
+   `verb|STEM~pron|CLITIC` patterns where `STEM + CLITIC ==
+   surface` and `STEM` isn't a real Italian lemma.
 
 7. **Stanza-upgrade re-audit.** Each reconciler entry should be
-   re-evaluated when Stanza is upgraded. Tooling landed
-   See `scripts/analysis/italian_reconciler_gate_audit.py`
-   (run with `uv run python ...`). The script empties all three
-   allowlists via regex patching, runs the reconciler-dependent
-   integration tests, restores the file via `git checkout HEAD --`
-   (trap-safe), and writes a markdown report listing each test as
-   **STILL NEEDED** (FAIL without reconciler — keep the entry)
-   or **RETIRE CANDIDATE** (PASS without reconciler — Stanza
-   fixed it; remove the entry). Refuses to run if `lang_it.rs`
-   has any uncommitted edits. Run this after every Stanza
-   major-version bump; retirement candidates become allowlist
-   cleanup PRs.
+   re-evaluated when Stanza is upgraded. Manual workflow: empty
+   the three allowlists in `lang_it.rs`, run the reconciler-
+   dependent integration tests, classify each failure as
+   **STILL NEEDED** (test fails without the reconciler — keep
+   the entry) or **RETIRE CANDIDATE** (test passes without it —
+   Stanza fixed the defect upstream; remove the entry).
+   Restore `lang_it.rs` from `HEAD` before committing the
+   selective retirements. Run this after every Stanza
+   major-version bump.
 
 None of these are blockers for user-facing Italian work. They
 are concrete, scoped extensions with clear next steps documented
@@ -853,7 +846,9 @@ in the commit history of `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
 
 BA2 carried two per-language hacks for Italian in
 `ud.py:662-695`, ported into BA3's
-`crates/batchalign/src/tokenizer_realign/mwt_overrides.rs`
+`crates/talkbank-transform/src/tokenizer_realign.rs` (the
+historical `mwt_overrides.rs` sub-module has since been
+consolidated into the single `tokenizer_realign.rs` file)
 and then emptied after a paired empirical audit:
 
 | Rule | What it did | Audit finding |
@@ -890,9 +885,6 @@ configuration.
   runs every case through paired (free-tokenize vs postprocessor)
   pipelines. Invoke with `uv run pytest
   batchalign/tests/investigations/ -m golden`.
-* **Behavior-table renderer:**
-  `scripts/analysis/render_probe_matrix_table.py --lang ita`.
-
 ## References
 
 * [Stanza Limitations — Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds)

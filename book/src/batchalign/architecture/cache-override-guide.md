@@ -1,7 +1,7 @@
 # Cache Override Guide
 
 **Status:** Current
-**Last updated:** 2026-04-08 15:08 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 When fixing a bug or changing behavior, the first question is: **do deployed
 users need `--override-media-cache`?** This guide provides the mental model and
@@ -28,14 +28,12 @@ post-processing). The rule is simple:
 
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
-| Word extraction from CHAT AST | Outside (pre-cache) | `extract.rs` |
-| Cache key: `BLAKE3(words \| lang \| MWT lexicon)` | — | `morphosyntax/cache.rs` |
+| Word extraction from CHAT AST | Outside (pre-cache) | `crates/talkbank-transform/src/extract.rs` |
+| Cache key: `BLAKE3(words \| lang \| MWT lexicon)` | — | task-specific `cache_key()` helpers under `chat_ops/{fa,nlp}/`, hashed via the shared `CacheKey::from_content` newtype in `chat_ops/cache_key.rs` |
 | Stanza inference → raw %mor/%gra JSON | **Inside** | Python `morphosyntax.py` |
-| Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `retokenize/` |
-| Deserialize cached JSON | Outside | `morphosyntax/cache.rs` |
-| Patch MorTier terminator | Outside | `inject_from_cache()` |
-| Validate MOR/GRA chunk count alignment | Outside | `inject_from_cache()` |
-| Inject %mor/%gra into AST | Outside | `morphosyntax/cache.rs` |
+| Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `crates/talkbank-transform/src/retokenize.rs` + `retokenize/` |
+| Deserialize cached JSON | Outside | `crates/batchalign/src/morphosyntax/` |
+| Patch MorTier terminator + Validate MOR/GRA chunk count + Inject %mor/%gra into AST | Outside | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` (same path regardless of cache hit vs miss) |
 
 ### Utterance Segmentation (utseg)
 
@@ -159,7 +157,7 @@ store. This is conservative: it avoids data loss from format migration bugs.
 
 ## Deployment Checklist
 
-When deploying a fix to the fleet (net, worker-machine, etc.):
+When deploying a fix to the fleet (production server, worker hosts, etc.):
 
 1. **Identify the change category** using the decision matrix above.
 2. **If override is NOT needed:** Deploy the new binary. Cached results are

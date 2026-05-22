@@ -1,7 +1,7 @@
 # Grammar Workflow
 
 **Status:** Current
-**Last updated:** 2026-03-23 23:49 EDT
+**Last updated:** 2026-05-20 20:27 EDT
 
 The tree-sitter grammar at `grammar/grammar.js` is the formal definition of the CHAT format. Changes require careful validation.
 
@@ -12,9 +12,9 @@ step must pass before committing a grammar change.
 flowchart TD
     edit(["Edit grammar/grammar.js"])
     generate["tree-sitter generate\n→ src/parser.c\n→ src/node-types.json"]
-    grammar_test["tree-sitter test\n(160 corpus tests)"]
+    grammar_test["tree-sitter test\n(corpus tests)"]
     rust_test["cargo test -p talkbank-parser\n(CST-to-model conversion)"]
-    equiv["parser equivalence\n(74 reference corpus files)"]
+    equiv["parser equivalence\n(corpus/reference/ files)"]
     spec_check{"Grammar change\naffects spec examples?"}
     test_gen["make test-gen\n→ grammar/test/corpus/\n→ parser-tests/tests/generated/\n→ docs/errors/"]
     commit(["Commit"])
@@ -49,7 +49,8 @@ This produces `src/parser.c` and `src/node-types.json`. Never edit these files b
 tree-sitter test
 ```
 
-All 160 tests must pass. Tests live in `test/corpus/` and are partially auto-generated from specs.
+Every test under `grammar/test/corpus/` must pass. Tests live there
+and are partially auto-generated from specs (see `make test-gen`).
 
 ### 4. Run Parser Tests
 
@@ -86,7 +87,7 @@ If new node types were added to the grammar, the generated `node_types.rs` in `t
 
 ## Critical Policy
 
-The reference corpus at `corpus/reference/` (74 files) must pass parser equivalence at 100%. If a grammar change breaks even one file, revert immediately. The reference corpus is the ultimate arbiter of correctness.
+The reference corpus at `corpus/reference/` must pass parser equivalence at 100%. If a grammar change breaks even one file, revert immediately. The reference corpus is the ultimate arbiter of correctness.
 
 ## Common Patterns
 

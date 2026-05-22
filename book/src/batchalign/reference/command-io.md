@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-20 01:20 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -443,8 +443,9 @@ paths_mode = allow_paths_mode
 - `is_local_server(url)` at
   `crates/batchalign/src/cli/dispatch/single.rs` returns `true` only for
   `localhost`, `127.0.0.1`, and `::1` (loopback). Any non-loopback host is
-  treated as remote, so a `--server http://net:8001` submission stays on
-  content mode even when the CLI is running on `net` itself.
+  treated as remote, so a `--server http://<your-server>:8001`
+  submission stays on content mode even when the CLI is running on
+  that server itself.
 
 Paths mode is therefore strictly a **local, same-filesystem** routing mode.
 Remote submissions always use content mode.
@@ -550,7 +551,9 @@ direct host. No HTTP hop, no staging directory, no body limit.
 
 ## Non-Matching File Handling
 
-**Current Rust CLI** (`discover.rs`, `dispatch/single.rs`, `dispatch/paths.rs`):
+**Current Rust CLI** (`crates/batchalign/src/cli/discover/`,
+`crates/batchalign/src/cli/dispatch/single.rs`,
+`crates/batchalign/src/cli/dispatch/paths.rs`):
 - Files that don't match the command's extensions are copied from `IN_DIR` to
   `OUT_DIR` for directory inputs.
 - Dummy CHAT files (`@Options: dummy`) are copied unchanged and are not

@@ -1,7 +1,7 @@
-# TextGrid Format and Export
+# TextGrid Format and Conversion
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-21 08:43 EDT
 
 ---
 
@@ -65,93 +65,68 @@ item [2]:
     ...
 ```
 
----
-
-## Batchalign's TextGrid Export
-
-TextGrid export support exists today. Remaining work is cleanup and
-simplification, not initial implementation.
-
-### Entry Point
-
-**Python**: `batchalign/formats/textgrid/generator.py`
-
-```python
-def dump_textgrid(chat_text: str, by_word: bool = True) -> textgrid.Textgrid:
-    """Convert CHAT text to a praatio Textgrid.
-
-    Parameters
-    ----------
-    chat_text : str
-        Valid CHAT text (must have timing data).
-    by_word : bool
-        If True, each word becomes an interval; if False, each utterance.
-
-    Returns
-    -------
-    Textgrid
-        A praatio Textgrid object (can be saved to .TextGrid file).
-    """
-    import batchalign_core
-
-    # Extract timing data from CHAT
-    tiers_json = json.loads(
-        batchalign_core.extract_timed_tiers(chat_text, by_word)
-    )
-
-    # Build TextGrid
-    tg = textgrid.Textgrid()
-    for speaker, entries in tiers_json.items():
-        intervals = [
-            Interval(
-                float(e["start_ms"]) / 1000,  # Convert ms → seconds
-                float(e["end_ms"]) / 1000,
-                str(e["text"]),
-            )
-            for e in entries
-        ]
-        if intervals:
-            tg.addTier(textgrid.IntervalTier(
-                speaker, intervals,
-                intervals[0].start, intervals[-1].end,
-            ))
-
-    return tg
-```
-
-### Usage
-
-```python
-from batchalign.formats.textgrid import dump_textgrid
-
-# Read CHAT file (must have timing from forced alignment)
-with open("transcript.cha") as f:
-    chat_text = f.read()
-
-# Export to TextGrid
-tg = dump_textgrid(chat_text, by_word=True)
-
-# Save to file
-tg.save("transcript.TextGrid")
-
-# Open in Praat for analysis
-```
+Both long (the example above) and short TextGrid formats are
+supported by the parser.
 
 ---
 
-## Implementation
+## TextGrid Conversion in talkbank-tools
 
-The Rust function `extract_timed_tiers()` in `crates/batchalign-pyo3/src/pyfunctions.rs` handles
-CHAT parsing and timed data extraction. When a `%wor` tier exists, it is
-preferred as the timing source; otherwise main-tier word timing is used.
-See the source for implementation details.
+TextGrid ↔ CHAT conversion is implemented in Rust, inside the
+`talkbank-clan` crate, and exposed through the `chatter` CLI.
+
+### Entry points
+
+| Direction | Rust function | Location |
+|-----------|---------------|----------|
+| TextGrid → CHAT | `praat_to_chat(content)` and `praat_to_chat_with_options(...)` | `crates/talkbank-clan/src/converters/praat2chat.rs:199`, `:204` |
+| CHAT → TextGrid | `chat_to_praat(chat)` | `crates/talkbank-clan/src/converters/praat2chat.rs:292` |
+
+Both functions operate on the typed `ChatFile` AST and return /
+accept TextGrid strings; no intermediate Python layer is involved.
+
+### CLI
+
+The conversions are wired into `chatter clan` as the
+`praat2chat` and `chat2praat` subcommands (dispatch in
+`crates/talkbank-cli/src/commands/clan/converters.rs`):
+
+```bash
+# Convert a TextGrid file to CHAT
+chatter clan praat2chat input.TextGrid > output.cha
+
+# Convert a CHAT file to TextGrid
+chatter clan chat2praat input.cha > output.TextGrid
+```
+
+### Programmatic use (Rust)
+
+```rust,ignore
+use talkbank_clan::converters::praat2chat::{praat_to_chat, chat_to_praat};
+
+let chat_file = praat_to_chat(textgrid_content)?;
+let textgrid_text = chat_to_praat(&chat_file)?;
+```
 
 ---
 
 ## Dependencies
 
-- **praatio**: Python library for reading/writing TextGrid files
-- **batchalign_core.extract_timed_tiers**: Rust function (PyO3 binding)
-- **Forced alignment**: TextGrid export only works on files with timing data
+- **`talkbank-clan` crate** — owns the TextGrid parser, serializer,
+  and converters.
+- **No Python runtime dependency** — the previous Python
+  implementation (`batchalign/formats/textgrid/generator.py` and the
+  `batchalign_core.extract_timed_tiers` PyO3 binding) was retired
+  when the converter moved into Rust. The `praatio` package still
+  appears in `pyproject.toml` for unrelated Python tooling, but the
+  TextGrid pipeline no longer routes through it.
 
-TextGrid export is current supported functionality for Praat-oriented workflows.
+---
+
+## Reference fixtures
+
+A canonical short-format example lives at
+`crates/talkbank-clan/tests/fixtures/sample.TextGrid` and is used by
+the round-trip unit tests in `praat2chat.rs` (see the
+`#[test]` block starting at
+`crates/talkbank-clan/src/converters/praat2chat.rs:415::praat_to_chat_basic`).

@@ -1,16 +1,21 @@
 # CHAT Dependent Tier Handling by Command
 
 **Status:** Current
+**Last updated:** 2026-05-20 01:14 EDT
+
 Each command reads and writes different dependent tiers (`%mor`, `%gra`, `%wor`, `%xtra`).
 This determines which parse mode is used at pipeline entry.
 
 ## Parse modes
 
-- **Strict** (`ParsedChat.parse()`): Rejects the file on ANY parse error. Used when the
-  input is expected to be valid — i.e., output from a previous pipeline stage.
-- **Lenient** (`ParsedChat.parse_lenient()`): Error recovery — keeps parseable content and
-  drops broken tiers. Used at pipeline entry because input may have malformed dependent
-  tiers from legacy CLAN runs or previous batchalign versions.
+- **Strict** (tree-sitter parse via `talkbank_parser`): Rejects the
+  file on ANY parse error. Used when the input is expected to be valid
+  — i.e., output from a previous pipeline stage.
+- **Lenient** (`talkbank_transform::parse::parse_lenient` at
+  `crates/talkbank-transform/src/parse.rs:17`): Error recovery —
+  keeps parseable content and drops broken tiers. Used at pipeline
+  entry because input may have malformed dependent tiers from legacy
+  CLAN runs or previous batchalign versions.
 
 ## Where each parse mode is used
 
@@ -33,9 +38,14 @@ This determines which parse mode is used at pipeline entry.
 
 ## Why morphotag clears before processing
 
-The Rust `collect_morphosyntax_payloads()` function skips utterances that already
-have a `%mor` tier (optimization for cache injection). Without clearing first, files
-with existing `%mor` would be silently round-tripped unchanged. Calling
-`handle.clear_morphosyntax()` at the top of `process_morphosyntax()` ensures
-all utterances are reprocessed. Cache hits still work — the cache lookup happens
-*after* clearing but *before* Stanza runs.
+The Rust `collect_payloads()` function
+(`crates/talkbank-transform/src/morphosyntax/payload.rs:135`) skips
+utterances that already have a `%mor` tier (optimization for cache
+injection). Without clearing first, files with existing `%mor` would
+be silently round-tripped unchanged. Calling the Rust function
+`clear_morphosyntax`
+(`crates/talkbank-transform/src/morphosyntax/payload.rs:333`) at the
+top of `process_morphosyntax()`
+(`crates/batchalign/src/morphosyntax/mod.rs:64`) ensures all
+utterances are reprocessed. Cache hits still work — the cache lookup
+happens *after* clearing but *before* Stanza runs.

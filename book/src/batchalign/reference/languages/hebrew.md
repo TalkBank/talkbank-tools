@@ -1,16 +1,17 @@
 # Hebrew Language Support
 
 **Status:** Current
-**Last updated:** 2026-03-23 12:15 EDT
+**Last updated:** 2026-05-20 20:16 EDT
 
-Hebrew (`heb`) has a fine-tuned Whisper model, RTL punctuation handling,
-MWT support, and Hebrew-specific UD features (HebBinyan, HebExistential).
+Hebrew (`heb`) ships with RTL punctuation handling, capability-driven
+MWT for preposition+article contractions, and Hebrew-specific UD
+features (HebBinyan, HebExistential).
 
 ## Quick Reference
 
 | Pipeline Stage | Hebrew-Specific Behavior |
 |---------------|--------------------------|
-| ASR | `ivrit-ai/whisper-large-v3` fine-tuned Hebrew Whisper |
+| ASR | `openai/whisper-large-v3` via `--asr-engine whisper` (no per-language fine-tune wired today) |
 | Text normalization | RTL punctuation → ASCII (؟→?, ۔→., ،→,) |
 | Number expansion | **Not supported** — digits pass through unexpanded |
 | Morphosyntax | MWT enabled (preposition+article contractions), HebBinyan/HebExistential features |
@@ -20,12 +21,16 @@ MWT support, and Hebrew-specific UD features (HebBinyan, HebExistential).
 
 | Engine | Model | Notes |
 |--------|-------|-------|
-| `--asr-engine whisper` | `ivrit-ai/whisper-large-v3` | Fine-tuned for Hebrew conversational speech |
+| `--asr-engine whisper` | `openai/whisper-large-v3` | Default; same model for every language |
 | `--asr-engine whisper-oai` | `openai/whisper-turbo` | Generic, lower accuracy |
+| `--asr-engine whisper_hub` | (empty entry today) | Opt-in HuggingFace fine-tune loader; requires explicit `--engine-overrides` `model_id`. No Hebrew fine-tune is seeded in `batchalign/models/resolve.py::_RESOLVER["whisper_hub"]` yet. |
 | Rev.AI | Cloud API | Supports Hebrew |
 
-The `ivrit-ai/whisper-large-v3` model significantly outperforms generic Whisper
-on Hebrew audio.
+If a Hebrew-specific fine-tune (such as the community
+`ivrit-ai/whisper-large-v3` checkpoint) is wanted, add it reactively to
+`_RESOLVER["whisper_hub"]` with a dated provenance comment and an
+empirical evaluation note. See
+[Whisper Hub ASR](../whisper-hub-asr.md) for the conventions.
 
 ## RTL Punctuation
 
@@ -44,7 +49,13 @@ pipeline normalizes these to ASCII (runs for all languages, not just Hebrew):
 ### MWT (Multi-Word Tokens)
 
 Hebrew uses Stanza's MWT processor for preposition+article contractions
-(e.g., בַּ → ב + ה). Hebrew is in `MWT_LANGS`, not `_MWT_EXCLUSION`.
+(e.g., בַּ → ב + ה). MWT eligibility is **capability-driven**:
+`should_request_mwt(alpha2, get_cached_capability_table())` at
+`batchalign/worker/_stanza_loading.py:40` consults the cached Stanza
+catalog and reports `has_mwt=True` for `he`. The earlier hardcoded
+`MWT_LANGS` / `_MWT_EXCLUSION` sets were deleted —
+[Stanza Limitations Defect 5](../stanza-limitations.md) has the
+rewrite rationale.
 
 ### HebBinyan (Verb Conjugation Pattern)
 
@@ -99,6 +110,7 @@ editors depends on the editor's BiDi support.
 
 | File | Role |
 |------|------|
-| `batchalign/src/nlp/features.rs` | HebBinyan/HebExistential extraction |
-| `batchalign/src/nlp/mapping.rs` | `heb` → `he` mapping, integration tests |
-| `worker/_stanza_loading.py` | Stanza pipeline config (MWT enabled) |
+| `crates/talkbank-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
+| `crates/talkbank-transform/src/morphosyntax/types.rs:38` | `heb` → `he` Stanza alpha-2 mapping |
+| `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs` | Hebrew integration tests (`:15`, `:45`, `:268`) |
+| `batchalign/worker/_stanza_loading.py` | Stanza pipeline config; MWT eligibility driven by `should_request_mwt()` |

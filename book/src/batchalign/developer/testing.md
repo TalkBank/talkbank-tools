@@ -1,7 +1,7 @@
 # Testing
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-05-20 00:58 EDT
 
 ## Philosophy
 
@@ -243,9 +243,9 @@ Several test pairs look redundant but exist **intentionally** — Rust and Pytho
 must independently verify the shared wire format. If only one side is tested, a
 serialization change in the other language could silently break IPC.
 
-| Python test | Rust test | What they verify |
-|-------------|-----------|-----------------|
-| `test_ipc_type_conformance.py` | `ci_checks.rs` (IPC drift) | Schema field parity between Rust and Python models |
+| Python test | Rust counterpart | What they verify |
+|-------------|------------------|-----------------|
+| `test_ipc_type_conformance.py` | `scripts/check_ipc_type_drift.sh` (CI gate) | Schema field parity between Rust and Python models |
 | `test_worker_ipc.py` | `worker_protocol_v2_compat.rs` | JSON roundtrip through both language's serializers |
 | `test_worker_protocol_v2_types.py` | `worker_protocol_matrix.rs` | V2 protocol envelope parsing on both sides |
 
@@ -266,7 +266,6 @@ cargo nextest run -p batchalign --test workflow_helpers
 
 # Focused suites
 cargo nextest run -p batchalign --test cli
-cargo nextest run -p batchalign --test ci_checks
 cargo nextest run -p batchalign --test e2e
 cargo nextest run -p batchalign --test integration
 cargo nextest run -p batchalign --test json_compat
@@ -303,11 +302,15 @@ ML tests spawn Python worker subprocesses that load multi-GB models.
 Several safeguards prevent runaway resource consumption:
 
 **Global worker cap:** The `WorkerPool` enforces a hard ceiling on total
-workers across all `(profile, lang, engine)` keys. Default:
-`available_memory / 6GB`, clamped to `[2, 32]` (with a fallback of 4 if
-`sysinfo` reports 0 — e.g. macOS undercounts). See
-`default_max_total_workers()` in `crates/batchalign/src/worker/pool/mod.rs`.
-Configurable via `max_total_workers` in `server.yaml` or `PoolConfig`.
+workers across all `(profile, lang, engine)` keys. The production
+formula `ram_total_mb / 6GB`, clamped to `[2, 32]` (with a fallback
+of 4 if `sysinfo` reports 0 — e.g. macOS undercounts), lives in
+`recommend_max_total_workers()` at
+`crates/batchalign/src/host_facts/recommendations.rs:244`. The
+runtime value is exposed via `EffectiveConfig::max_total_workers`
+and consumed by `PoolConfig` (see comments at
+`crates/batchalign/src/worker/pool/mod.rs:157`). Configurable via
+`max_total_workers` in `server.yaml`.
 
 **Pool Drop:** `WorkerPool` implements `Drop` to kill all idle workers
 synchronously, even when tests exit without calling `pool.shutdown()`.
@@ -336,22 +339,23 @@ npm run test:e2e:setup
 ## Type checking
 
 ```bash
-uv run mypy
-# or together with clippy:
-make lint
+uv run mypy                       # mypy only
+make batchalign-typecheck-python  # mypy under the batchalign-* target group
+make lint-affected                # affected-Rust clippy + affected Python mypy
 ```
 
 ## CI hygiene
 
 Release-facing CI checks cover:
 
-- CLI/package version sync
-- Stale legacy-term detection
-- Retired package/path checks
-- Command execution path integration coverage
+- CLI/package version sync (`make ci-local` + xtask `lint-ci-hygiene`)
+- Stale legacy-term detection (xtask `lint-ci-hygiene`)
+- Retired package/path checks (xtask `lint-ci-hygiene`)
+- Command execution path integration coverage (focused tests under
+  `crates/batchalign/tests/`)
 
 ```bash
-cargo nextest run -p batchalign --test ci_checks
+cargo xtask lint-ci-hygiene
 make ci-local
 ```
 
@@ -408,8 +412,10 @@ cargo nextest run -p batchalign --test turmoil_net
    media walker have complex concurrency paths exercised only by `test-echo`
    integration tests. A dedicated stress harness (multiple concurrent jobs with
    real server lifecycle) would catch race conditions earlier.
-   Shuttle was evaluated but can't test our Semaphore/broadcast primitives
-   (see `docs/tool-evaluations/shuttle.md`).
+   Shuttle was evaluated but can't test our Semaphore/broadcast
+   primitives (broadcast is a stub that panics, Semaphore forwards
+   to real tokio with no schedule exploration); the full
+   tool-evaluation note lives outside this public repo.
 
 2. **No negative-path ML tests.** Golden tests verify happy paths. There are no
    tests for graceful degradation when models are unavailable, corrupt, or
@@ -423,16 +429,15 @@ cargo nextest run -p batchalign --test turmoil_net
 
 ## Background test runner (`make test-bg`)
 
-The cost function for test runs is wall-clock time spent *waiting*, not
-just time spent running. `scripts/test-bg.sh` wraps any command, runs it
-detached, writes structured logs, and posts a macOS desktop notification on
-completion. The developer keeps working; failures ping loudly, successes
-ping quietly (or silently with `--quiet`).
+The cost function for test runs is wall-clock time spent *waiting*,
+not just time spent running. `scripts/test-bg.sh` wraps any command,
+runs it detached, writes structured logs, and posts a macOS desktop
+notification on completion. The developer keeps working; failures
+ping loudly, successes ping quietly (or silently with `--quiet`).
 
 ```bash
-make test-bg CMD="make test-rust"                     # rust suite in background
-make test-bg CMD="uv run pytest -m 'golden and mwt_probe' -k fra"
-make test-bg-status                                   # running + recent runs
+scripts/test-bg.sh -- cargo nextest run --workspace
+scripts/test-bg.sh -- uv run pytest -m 'golden and mwt_probe' -k fra
 ```
 
 Log layout per run (under `~/.batchalign3/bg-test/<slug>/`):
@@ -443,10 +448,10 @@ Log layout per run (under `~/.batchalign3/bg-test/<slug>/`):
 | `<ts>.status` | Exit code. File's presence is the unambiguous "done" signal. |
 | `<ts>.meta` | cmd, pid, ts_start, ts_end, duration_s, exit. |
 
-The COMPLETED sentinel line lets a watcher (tail, `Monitor` tool, etc.)
-detect completion without polling the filesystem. The `.status` file is
-the authoritative done signal.
+The COMPLETED sentinel line lets a watcher (tail, `Monitor` tool,
+etc.) detect completion without polling the filesystem. The
+`.status` file is the authoritative done signal.
 
-Smoke tests live at `scripts/tests/test_test_bg.sh` (invocable via
-`make test-bg-smoke`) and verify the success/failure/meta/async-parent
-contracts.
+A Makefile glue layer (`make test-bg` / `test-bg-status` /
+`test-bg-smoke`) was discussed but is not landed; `scripts/test-bg.sh`
+is the current entry point.

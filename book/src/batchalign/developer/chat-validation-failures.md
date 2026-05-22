@@ -1,7 +1,7 @@
 # CHAT Validation Failures
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-21 15:10 EDT
 
 This document catalogs how CHAT validation failures arise, how they are handled
 in BA3 vs BA2, and what the correct behavior should be. It is the reference for
@@ -168,7 +168,7 @@ unparseable CHAT" class in three layers:
    Spanish this means `skip_postprocessing=true` (skip Inverse Text
    Normalization), so numerals / `%` / written-form date tokens never
    appear in the response for those languages. See
-   `batchalign/src/revai/preflight.rs::skip_postprocessing_hint`.
+   `crates/batchalign/src/revai/preflight.rs::skip_postprocessing_hint`.
 
 2. **Fallible `ChatWordText` construction.**
    `transcript_from_asr_utterances` calls
@@ -213,9 +213,10 @@ what broke.
 
 | File | Role |
 |------|------|
-| `batchalign/src/validate.rs` | `ValidityLevel`, `validate_to_level()`, `validate_output()` |
-| `batchalign/src/pipeline/text_infer.rs` | Single-file cached text pipeline with pre/post gates |
-| `batchalign/src/utseg.rs` | Batch utseg path with pre-validation + CHAT dump |
-| `batchalign/src/pipeline/transcribe.rs` | Transcribe pipeline stages (ASR → utseg → morphosyntax) |
-| `batchalign/src/runner/debug_dumper.rs` | `DebugDumper` — zero-cost artifact writer |
+| `crates/talkbank-model/src/pipeline.rs` | `ValidityLevel` enum |
+| `crates/talkbank-transform/src/validate.rs` | `validate_to_level()`, `validate_output()` |
+| `crates/batchalign/src/pipeline/text_infer.rs` | Single-file cached text pipeline with pre/post gates |
+| `crates/talkbank-transform/src/utseg.rs` | Batch utseg path with pre-validation + CHAT dump |
+| `crates/batchalign/src/pipeline/transcribe.rs` | Transcribe pipeline stages (ASR → utseg → morphosyntax) |
+| `crates/batchalign/src/runner/debug_dumper.rs` | `DebugDumper` — zero-cost artifact writer |
 | `batchalign/inference/asr.py` | Whisper timestamp clamping |

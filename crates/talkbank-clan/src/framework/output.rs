@@ -79,6 +79,60 @@ pub trait CommandOutput: Serialize + std::fmt::Debug {
     }
 }
 
+/// Build the CLAN-style invocation banner that prefixes a single analysis
+/// result in CLAN-format mode.
+///
+/// The legacy CLAN mainloop (`cutt.cpp` near line 12015) emits this six-line
+/// block before each per-file analysis result:
+///
+/// ```text
+/// <invocation>
+/// <ctime-style timestamp>
+/// <command-name> (<version>) is conducting analyses on:
+///   <scope>
+/// ****************************************
+/// <source>
+/// ```
+///
+/// `invocation` is the user's argv joined by spaces (e.g.
+/// `"freq +scat path/to/file.cha"`). Line 1 echoes the invocation the way
+/// CLAN's `main()` does on every command. `command_name` is the bare CLI
+/// name (e.g. `"freq"`) that appears in line 3 of the banner — kept
+/// separate from `invocation` because the user's argv may include flags
+/// and paths that line 3 should not repeat.
+///
+/// `version` is the legacy `(DD-Mon-YYYY)` build date that CLAN's
+/// `VersionNumber()` prints. `scope` is the analysis-scope description
+/// (e.g. `"ALL speaker tiers"` or `"ONLY dependent tiers matching:
+/// %MOR;"`). `source` is either `"From file <basename>"` for a positional
+/// file argument or `"From pipe input"` when reading from stdin.
+/// `timestamp` is the `ctime`-style date string CLAN emits (e.g.
+/// `"Thu May 21 17:47:15 2026"`).
+///
+/// CLAN itself emits this block **twice** in a stdin invocation — once at
+/// startup (`FirstTime` branch) and once when the input is committed to a
+/// scratch file. chatter emits it once on every invocation; the
+/// duplication is a documented CLAN-bug divergence
+/// (`book/src/clan-reference/divergences/framework.md#clan-bug-divergences`,
+/// ledger row CLAN-DIV-001).
+pub fn format_clan_banner(
+    invocation: &str,
+    command_name: &str,
+    version: &str,
+    scope: &str,
+    source: &str,
+    timestamp: &str,
+) -> String {
+    format!(
+        "{invocation}\n\
+         {timestamp}\n\
+         {command_name} ({version}) is conducting analyses on:\n\
+         \x20 {scope}\n\
+         ****************************************\n\
+         {source}\n"
+    )
+}
+
 /// A single row in a table section.
 #[derive(Debug, Clone, Serialize)]
 pub struct TableRow {

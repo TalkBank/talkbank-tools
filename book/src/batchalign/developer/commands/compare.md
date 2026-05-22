@@ -1,7 +1,7 @@
 # compare — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:18 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 Implementation guide for the `compare` command. For user-facing
 documentation, see [User Guide: compare](../../user-guide/commands/compare.md).
@@ -105,7 +105,7 @@ assembly.
 make test
 cargo nextest run -p batchalign -E 'test(compare::)'
 
-# Golden tests (real Stanza for morphotag step — only on net)
+# Golden tests (real Stanza for morphotag step — only on Fleet/Large-tier hosts)
 cargo nextest run --profile ml -E 'test(compare::golden)'
 ```
 

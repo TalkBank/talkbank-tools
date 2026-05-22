@@ -1,13 +1,16 @@
 # Documentation Architecture
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-21 13:05 EDT
 
 ## Principle: Centralized Book + Subsystem Satellites
 
-All prose documentation lives in **mdBook** (`book/`). The `docs/` directory contains
-only generated build artifacts. Subsystem-specific working docs stay in place only when
-tightly coupled to files in that directory.
+User-facing and contributor-facing prose lives in **mdBook**
+(`book/`). The repo-level `docs/` directory holds operator-facing
+material (release contract, versioning, code-signing, platform
+support, validation feature flags) plus the generated error reference
+under `docs/errors/`. Subsystem-specific working docs stay in place
+only when tightly coupled to files in that directory.
 
 ```mermaid
 flowchart TD
@@ -62,7 +65,7 @@ under `book/src/`:
 | `book/src/chatter/` | chatter CLI users + integrators | CLI reference, library usage, JSON contracts |
 | `book/src/chat-format/` | All users + integrators | CHAT format reference (headers, tiers, symbols) |
 | `book/src/vscode/` | VS Code extension users + extension devs | Editor workflows, configuration, design ADRs |
-| `book/src/clan-reference/` | CLAN users + porters | 80+ command reference pages, divergence + migration |
+| `book/src/clan-reference/` | CLAN users + porters | Per-command reference pages, divergence + migration |
 | `book/src/architecture/` | All devs | Cross-surface architecture, parser/grammar/data-model design |
 | `book/src/contributing/` | Contributors | Setup, testing, coding standards, dev checks |
 

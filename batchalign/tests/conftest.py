@@ -20,7 +20,7 @@ def _is_ci() -> bool:
     """Return True when running under any CI provider.
 
     Conservative: any of the common env vars signals CI. Interactive
-    shells (ming, a developer laptop) have none of these set.
+    shells on a developer machine have none of these set.
     """
     return any(os.environ.get(k) for k in ("CI", "GITHUB_ACTIONS", "BUILDKITE", "JENKINS_URL"))
 

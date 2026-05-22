@@ -1,7 +1,7 @@
 # Morphosyntax Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-07 18:30 EDT
+**Last updated:** 2026-05-21 13:00 EDT
 
 ## 1. Overview
 
@@ -69,13 +69,16 @@ use real caching; text tasks (morphosyntax, utseg, translate) do not.
 
 ### Data Flow
 
-Rust: `crates/batchalign/src/morphosyntax/batch.rs` — `run_morphosyntax_batch_impl()`
+```text
+Rust entry point: `crates/batchalign/src/morphosyntax/mod.rs::run_morphosyntax_impl`
   │
   ├── Parse CHAT (Rust AST via tree-sitter, parsed once per file)
   │
   ├── clear_morphosyntax()  — strip existing %mor/%gra tiers
+  │     (talkbank-transform::morphosyntax::payload)
   │
   ├── collect_payloads()  — extract utterance word lists globally
+  │     (talkbank-transform::morphosyntax::payload)
   │
   ├── Batch infer (all utterances pool → one Stanza call per language)
   │     ├── Group by language, dispatch concurrently
@@ -87,58 +90,73 @@ Rust: `crates/batchalign/src/morphosyntax/batch.rs` — `run_morphosyntax_batch_
   │
   ├── map_ud_sentence() or map_ud_sentence_expanded()
   │     → %mor/%gra (UD→CHAT mapping, Rust)
+  │     (talkbank-transform::morphosyntax::sentence_mapping)
   │
   ├── inject_results()  — AST injection + validation
+  │     (talkbank-transform::morphosyntax::injection)
   │
-   ├── dispatch_secondary_l2() (if `@s` words and not `--no-l2-morphotag`)
-   │     → transform-layer plan, secondary dispatch, merge, splice
+  ├── dispatch_secondary_l2() (if `@s` words and not `--no-l2-morphotag`)
+  │     → transform-layer plan, secondary dispatch, merge, splice
+  │     (crates/batchalign/src/morphosyntax/batch.rs)
   │
   ├── apply_pos_hints() (if --respect-pos-hints, default on)
   │     → transcriber `$POS` annotations override POS categories
+  │     (talkbank-transform::morphosyntax::pos_hints)
   │
   ├── remove_empty_morphosyntax_placeholders()
   │     → sweep serialize-time empty %mor/%gra slots
+  │     (talkbank-transform::morphosyntax::pos_hints)
   │
   └── Serialize → CHAT (now with %mor/%gra, L2 morphology, POS hints)
-```text
+```
 
 ### Module Inventory
 
 **Rust** — `talkbank-transform` crate (`crates/talkbank-transform/src/`)
 
 The core morphosyntax pipeline logic lives in `talkbank-transform`. Most files
-handle CHAT-side extraction, UD→CHAT mapping, and injection. The Rust server
-and PyO3 bridge both depend on this crate for morphosyntax orchestration.
+handle CHAT-side extraction, UD→CHAT mapping, and injection. The
+`batchalign` crate orchestrates; `talkbank-transform` implements.
 
 | File | Purpose |
 |------|---------|
-| `pipeline/parse.rs` | CHAT parsing entry point |
-| `extract.rs` | Word extraction from AST for morphosyntax input |
-| `inject.rs` | Primary + retokenize injection. Chooses `map_ud_sentence` (Preserve) vs `map_ud_sentence_expanded` (Retokenize) |
-| `morphosyntax/l2/` | L2 code-switching: planning, extract, merge, splice @s words via secondary Stanza models |
+| `parse.rs` | `parse_lenient()` — top-level CHAT parsing entry point |
+| `extract.rs` | `ExtractedWord` struct + word extraction from AST for morphosyntax input |
+| `inject.rs` | `inject_morphosyntax()` — primary AST injection of %mor / %gra tiers |
+| `morphosyntax/injection.rs` | `inject_results()` — orchestration helper called by the batch pipeline |
+| `morphosyntax/payload.rs` | `clear_morphosyntax()`, `collect_payloads()`, `dispatch_secondary_l2()` host adapter |
 | `morphosyntax/sentence_mapping.rs` | `map_ud_sentence()`, `map_ud_sentence_expanded()`, shared `build_gra_and_validate()` |
+| `morphosyntax/gra_validate.rs` | `validate_generated_gra()` — single-root, cycle-free, valid-heads checks |
 | `morphosyntax/mapping_helpers.rs` | `assemble_mors()` (clitic merge), `is_clitic()`, `map_relation()` |
 | `morphosyntax/stanza_raw.rs` | Parse raw Stanza JSON output, supply defaults for Range token annotation fields |
-| `morphosyntax/lang_en.rs` | English-specific rules (200+ irregular verbs) |
+| `morphosyntax/pos_hints.rs` | `apply_pos_hints()` and the empty-placeholder sweep |
+| `morphosyntax/l2/` | L2 code-switching: planning, extract, merge, splice @s words via secondary Stanza models |
+| `morphosyntax/lang_en.rs` | English-specific rules (irregular verbs, irrealis annotations) |
 | `morphosyntax/lang_fr.rs` | French-specific rules (pronoun case, APM) |
-| `morphosyntax/lang_ja.rs` | Japanese-specific rules (verb form, 140+ rules) |
+| `morphosyntax/lang_ja.rs` | Japanese-specific rules (verb form overrides) |
 | `morphosyntax/lang_it.rs` | Italian-specific rules |
+| `retokenize/`, `retokenize.rs` | AST retokenization (Stanza-tokens rewrite); see Section 7 |
+| `dp_align/` | Hirschberg DP alignment used by retokenize |
 
-**Rust** — `batchalign` crate (`crates/batchalign/src/chat_ops/nlp/`)
+**Rust** — `batchalign` crate (`crates/batchalign/src/`)
 
-Mapping-related utilities and test harnesses that depend on `talkbank-transform`:
+The batchalign crate owns command orchestration; the morphosyntax-specific
+glue is:
 
 | File | Purpose |
 |------|---------|
-| `mapping/mod.rs` | Mapping orchestration and UD→CHAT dispatch |
-| `mapping/helpers.rs` | Mapping utilities |
-| `types.rs` | `UdSentence`, `UdWord`, `UdId` (Single/Range/Decimal), `UdResponse`, `UniversalPos` |
+| `morphosyntax/mod.rs` | `run_morphosyntax_impl()` — top-level orchestrator called from the `morphotag` command |
+| `morphosyntax/batch.rs` | `dispatch_secondary_l2()` — async wrapper that calls into the transform-layer L2 seam for secondary @s dispatch |
+| `morphosyntax/worker.rs` | Stanza-pool dispatch, `partition_groups_by_stanza_support()` |
+| `chat_ops/nlp/mapping/mod.rs` | Re-export shim: `pub use talkbank_transform::morphosyntax::*` — historical alias kept so existing imports keep resolving. New code should import from `talkbank_transform` directly. |
+| `chat_ops/nlp/types.rs` | FA-only raw-response types (`FaRawToken`, `FaIndexedTiming`, `FaRawResponse`); the UD/NLP type set (`UdSentence`, `UdWord`, `UdId`, etc.) lives in `talkbank_transform::morphosyntax`. |
 
 **Python** (stateless ML inference only)
 
 | File | Purpose |
 |------|---------|
 | `inference/morphosyntax.py` | Calls Stanza `nlp()`, returns raw `to_dict()` output |
+| `worker/_infer_hosts.py` | Worker-side host wrapper invoked by `execute_v2` |
 
 Python does no orchestration, caching, or UD→CHAT mapping — all handled by Rust.
 
@@ -243,9 +261,9 @@ This is mostly a good thing:
   the same feature inventory everywhere.
 - **No manual grammar maintenance.** Stanza models are trained automatically.  Adding a
   language means training a model, not writing a grammar by hand.
-- **Better dependency analysis.** UD %gra is demonstrably more accurate than what CLAN
-  produced — the Rust mapper's O(N) cycle detection catches issues that Python's CLAN-era
-  code missed in 87.5% of utterances on test data.
+- **Better dependency analysis.** UD %gra is more accurate than what CLAN
+  produced — the Rust mapper's O(N) cycle detection catches malformed-head
+  structures that earlier CLAN-era pipelines silently accepted.
 - **Feature transparency.** UD features like `Number=Plur` are semantically meaningful
   and machine-readable.  CLAN suffixes like `-PL` required per-grammar documentation.
 
@@ -278,13 +296,14 @@ Stanza NLP (Python worker, `worker/_infer_hosts.py` → `inference/morphosyntax.
     ↓  produces UdSentence { words: Vec<UdWord> }
     ↓  each UdWord has: id, text, lemma, upos, feats, head, deprel
     ↓
-map_ud_sentence() (Rust, mapping.rs)
+map_ud_sentence() (Rust, talkbank-transform::morphosyntax::sentence_mapping)
     ↓  produces (Vec<Mor>, Vec<GrammaticalRelation>)
     ↓
-Post-construction validation
-    ↓  rejects if chunk count != gra count
+Post-construction validation (gra_validate.rs::validate_generated_gra)
+    ↓  rejects if chunk count != gra count, single-root violated, or cycle detected
     ↓
-inject_morphosyntax_from_cache() or add_morphosyntax_batched()
+inject_morphosyntax() (talkbank-transform::inject) /
+inject_results()      (talkbank-transform::morphosyntax::injection)
     ↓  writes %mor and %gra tiers into the AST
     ↓
 CHAT serialization
@@ -398,9 +417,12 @@ POS categories use lowercased UPOS tags:
 | CCONJ | `cconj\|` | (none) |
 | SCONJ | `sconj\|` | (none) |
 
-Language-specific rules exist for English (200+ irregular verbs in `lang_en.rs`), French
-(pronoun case, APM in `lang_fr.rs`), and Japanese (verb form overrides, 140+ rules in
-`lang_ja.rs`).
+Language-specific rules live in dedicated modules under
+`crates/talkbank-transform/src/morphosyntax/`: `lang_en.rs` (English
+irregular-verb table and irrealis annotations), `lang_fr.rs` (French
+pronoun case and APM handling), `lang_ja.rs` (Japanese verb-form
+overrides), `lang_it.rs` (Italian). Add a language by mirroring the
+shape of one of these modules.
 
 ## 6. Post-Construction Validation
 
@@ -419,14 +441,16 @@ Cycle detection uses an **O(N) White-Gray-Black DFS with memoization**: each wor
 its head chain to the root, marking nodes IN_PROGRESS (gray) on the way down and NO_CYCLE
 (black) on the way back.  Encountering a gray node means a cycle.
 
-On failure, `validate_generated_gra` returns `Err(MappingError)` with a detailed error
-message including the full invalid structure.  The caller (morphosyntax orchestrator) logs the error and
-skips the utterance — no corrupted %gra is written to disk.
+On failure, `validate_generated_gra` (in
+`crates/talkbank-transform/src/morphosyntax/gra_validate.rs`) returns
+`Err(MappingError)` with a detailed error message including the full
+invalid structure. The caller (morphosyntax orchestrator) logs the
+error and skips the utterance — no corrupted %gra is written to disk.
 
-The Rust mapper uses `HashMap<usize, usize>` to translate UD word IDs to CHAT chunk
-indices.  Missing keys fall through to `unwrap_or(&0)` (caught by the valid-heads check),
-rather than silently wrapping around like Python master's `actual_indicies[elem[1]-1]`
-array indexing — which was the root cause of Python's circular dependency bug.
+The mapper uses `HashMap<usize, usize>` to translate UD word IDs to
+CHAT chunk indices. Missing keys fall through to `unwrap_or(&0)` and
+are caught by the valid-heads check, so a wild UD response cannot
+silently produce a malformed `%gra` line.
 
 ### Chunk Count Alignment
 
@@ -444,18 +468,17 @@ written to CHAT files.
 
 ## 7. Module Details
 
-### `lib.rs` — PyO3 Entry Points
+### PyO3 boundary
 
-Key morphosyntax functions exported to Python via `#[pymodule]`:
-
-| Function | Purpose |
-|----------|---------|
-| `extract_morphosyntax_payloads(handle)` | Extract all utterance payloads as JSON array |
-| `inject_morphosyntax_from_cache(handle, ...)` | Inject cached %mor/%gra strings into AST |
-| `add_morphosyntax_batched(handle, lang, callback, ...)` | Batched pipeline: extract → callback → inject |
-| `extract_morphosyntax_strings(handle)` | Extract final %mor/%gra strings for cache storage |
-| `extract_nlp_words(chat_text, domain)` | Extract alignable words as JSON |
-| `py_dp_align(payload, reference, case_insensitive)` | Hirschberg alignment |
+The PyO3 surface (`crates/batchalign-pyo3/src/lib.rs`) is intentionally
+narrow: it exposes only the worker-side IPC and ML-inference adapters
+(`worker_protocol`, `worker_asr_exec`, `worker_fa_exec`,
+`worker_media_exec`, `worker_text_results`, `worker_artifacts`,
+`cantonese_asr_bridge`). All morphosyntax orchestration — extract,
+map, inject, cache key derivation, secondary L2 dispatch — happens
+in Rust, called directly by the `run_morphosyntax_impl` orchestrator
+in the `batchalign` crate. Python participates only as a Stanza
+inference endpoint behind the worker IPC.
 
 ### `extract.rs` — Word Extraction
 
@@ -484,56 +507,82 @@ Stanza, which assigns them `UPOS=X`, producing a spurious `x|XXX` entry on
 %mor that breaks alignment (E706). See `Word::compute_untranscribed()` in
 `talkbank-model`.
 
-### `dp_align.rs` — Hirschberg Alignment
+### `dp_align/` — Hirschberg Alignment
 
-Rust-only Hirschberg implementation (Python `utils/dp.py` no longer exists):
+`crates/talkbank-transform/src/dp_align/` provides the linear-space
+sequence aligner used by retokenization. Properties:
+
 - **Cost model:** match=0, substitution=2, gap=1
 - **Space:** O(min(n,m)) via Hirschberg's linear-space trick
-- **Small cutoff:** Falls back to full DP table when n*m < 2048
+- **Small cutoff:** Falls back to full DP table for small n × m
 
-### `mor_parser.rs` — %mor/%gra Parsing
+### `%mor` / `%gra` parsing
 
-Delegates to `talkbank_parser` for parsing %mor strings into typed
-`Mor` and `GrammaticalRelation` structures.  `embed_gra_on_mors()` attaches GRA relations
-to Mor items by 1-indexed chunk position.
+`%mor` and `%gra` lines are parsed through the canonical fragment
+parsers in `crates/talkbank-parser/` into typed `Mor` and
+`GrammaticalRelation` values (`crates/talkbank-model/src/model/
+dependent_tier/mor/`). Batchalign never re-parses these tiers from
+serialized strings during pipeline execution; it operates on the
+typed AST.
 
 ### `inject.rs` — Morphosyntax Injection
 
-1. Walks the AST using the same traversal order as `extract.rs`
-2. Assigns Mor items to alignable Word nodes
-3. Builds tier markers (`MorTierMarker`, `GraTierMarker`)
-4. Adds to utterance dependent tiers, replacing existing tiers if present
+The injection path lives in two places:
 
-**Key invariant:** traversal order in `inject.rs` must exactly match `extract.rs`.
+- `crates/talkbank-transform/src/inject.rs::inject_morphosyntax` —
+  the top-level entry point that walks the AST using the same
+  traversal order as `extract.rs` and assigns `Mor` items to
+  alignable `Word` nodes.
+- `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` —
+  the helper called by the batched orchestrator after
+  `map_ud_sentence` returns.
+
+**Key invariant:** the traversal order used by `inject_morphosyntax`
+must exactly match the one used by `extract.rs`. The shared
+`walk_words()` walker in `talkbank-model` enforces this — both
+modules call into the same primitive and supply only their
+leaf-handling closures.
 
 ### `retokenize/` — AST Retokenization
 
-Split into five files: `mod.rs` (entry point), `rebuild.rs` (AST rebuilding),
-`mapping.rs` (word index mapping), `parse_helpers.rs` (word parsing), `tests.rs`.
+`crates/talkbank-transform/src/retokenize.rs` declares the module;
+its implementation files live alongside in
+`crates/talkbank-transform/src/retokenize/`:
 
-When `retokenize=true`, Stanza uses its own UD tokenizer, which can change word
-boundaries (splits, merges, different text).  The algorithm:
+- `rebuild.rs` — AST rebuilding when Stanza's tokens differ from the
+  original main tier
+- `parse_helpers.rs` — `resolve_token_text()` and word-parsing helpers
+  used during rebuild
 
-1. **Filter Range parent tokens** from `ud_sentence.words` — only component
-   words appear in the token vector. Range parents are the container entry
-   (e.g., `id=[1,2] text="gonna"`) whose components follow immediately.
-   Including both would overcount tokens and break MOR alignment.
+When `retokenize=true`, Stanza uses its own UD tokenizer, which can
+change word boundaries (splits, merges, different text). The algorithm:
+
+1. **Filter Range parent tokens** from `ud_sentence.words` — only
+   component words appear in the token vector. Range parents are the
+   container entry (e.g., `id=[1,2] text="gonna"`) whose components
+   follow immediately. Including both would overcount tokens and break
+   MOR alignment.
 2. Character-level DP alignment between original and Stanza token texts
 3. Build mapping: original_word_idx → stanza_token_indices
-4. Walk AST, rebuilding content vectors (1:1, 1:N splits, preserving non-word content)
-5. New Words created via `DirectParser::parse_word()` (not `Word::new()`)
-6. Inject MOR/GRA tiers (MOR items are per-component via `map_ud_sentence_expanded()`)
+4. Walk AST, rebuilding content vectors (1:1, 1:N splits, preserving
+   non-word content)
+5. New `Word` values created by calling the fragment parser in
+   `talkbank-parser` (not `Word::new`, which would bypass parser
+   validation for Stanza-supplied text that may carry CHAT-significant
+   characters)
+6. Inject MOR/GRA tiers (MOR items are per-component via
+   `map_ud_sentence_expanded()`)
 
-### `nlp/mapping/` — UD-to-CHAT Mapping
+### UD-to-CHAT mapping module path
 
-The core mapping logic lives in `mapping/mod.rs`. Two public entry points:
-
-- **`map_ud_sentence()`** — merges MWT Range components into clitic MOR items (for Preserve mode and L2 splice)
-- **`map_ud_sentence_expanded()`** — produces per-component MOR items (for Retokenize mode)
-
-Both delegate GRA generation, root validation, and chunk-count alignment to
-the shared `build_gra_and_validate()` helper.
-See [Section 5](#5-ud-to-chat-mapping) for details.
+The implementation of `map_ud_sentence()` and
+`map_ud_sentence_expanded()` lives in
+`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`. The
+older `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` is a
+re-export shim (`pub use talkbank_transform::morphosyntax::*`) kept so
+existing imports continue to resolve; new consumers should import
+from `talkbank_transform` directly. See [Section 5](#5-ud-to-chat-mapping)
+for the algorithm details.
 
 ## 8. The Callback Pattern
 
@@ -586,16 +635,14 @@ The worker-side morphosyntax host wraps Stanza to conform to this interface:
 7. Extract Stanza token texts
 8. Return `[{mor, gra, tokens}, ...]` JSON array
 
-### Cache Orchestration
+### Cache orchestration
 
-Caching is handled at the server orchestration level (`process_morphosyntax_batch()`), not in the
-inference module.  The flow:
-
-1. `extract_morphosyntax_payloads()` — get all utterance payloads
-2. For each payload, compute BLAKE3 key from `text + lang + "|mwt"`
-3. Cache hits: `inject_morphosyntax_from_cache()` — inject cached strings
-4. Cache misses: send to batch callback, inject results, store in cache
-5. `extract_morphosyntax_strings()` — extract final strings for cache storage
+There is no morphosyntax cache. Morphosyntax is a text-only NLP task,
+and the engine deliberately does not cache its outputs — see the
+"Cache note" at the end of [Section 2](#2-architecture). Every utterance
+runs through Stanza inference on every invocation; warm Stanza
+workers make this faster than the SQLite lookup the audio caches
+require. Caching applies only to FA and UTR.
 
 ## 9. L2 Morphotag (Default)
 
@@ -712,15 +759,22 @@ and its %mor slot gets the clitic form.
 
 ### `cleaned_text` is Derived, Not Settable
 
-The CHAT serializer uses `Word.content` (WordContents), not `raw_text` or `cleaned_text`.
-Simply changing `word.cleaned_text = "new"` does not change serialized output.  To create
-a word with different text, use `DirectParser::parse_word()`.
+The CHAT serializer uses `Word.content` (`WordContents`), not
+`raw_text` or `cleaned_text`. Simply changing
+`word.cleaned_text = "new"` does not change serialized output. To
+create a word with different text, parse it via the `talkbank-parser`
+fragment API (`SingleItemParser::parse_word` or the
+`parse_word_fragment` entry on `parser_api.rs`), which runs the full
+tree-sitter parse and produces a structurally-valid `Word`.
 
 ### `Word::new()` Bypasses Validation
 
-`Word::new(raw_text, cleaned_text)` creates a minimal Word with a single `WordContent::Text`
-element.  For retokenization where text comes from Stanza (may contain CHAT-significant
-characters), prefer `parse_token_as_word()` which runs the full parser.
+`Word::new(raw_text, cleaned_text)` creates a minimal `Word` with a
+single `WordContent::Text` element. For retokenization where text
+comes from Stanza (which may contain CHAT-significant characters),
+prefer one of the fragment parser entries above instead, so that
+markers, brackets, and other CHAT structure are recognized rather
+than embedded raw.
 
 ### Traversal Order Must Match Between extract/inject/retokenize
 

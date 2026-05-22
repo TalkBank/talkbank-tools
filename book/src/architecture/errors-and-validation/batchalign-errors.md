@@ -1,7 +1,7 @@
 # Errors — Batchalign Runtime
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 16:14 EDT
 
 How Batchalign produces, propagates, and surfaces errors specific to
 the ML runtime: parse modes, ML/IPC failures, network errors,
@@ -42,48 +42,54 @@ Used by engines that can tolerate partial results:
 
 ## Structured Error Access (PyO3)
 
-`ParsedChat` exposes three error-related methods to Python:
+Structured CHAT-validation errors reach Python through the typed
+boundary, not via a `ParsedChat` method surface (the legacy
+`ParsedChat` binding was removed in the 2026-03-21 PyO3 slimdown to
+worker-runtime-only — see [Python ↔ Rust Boundary](../python-rust-boundary/python-rust-boundary.md)).
+Validation failures inside the Rust worker construct
+`BatchalignBoundaryError::ChatValidation { entries, … }` (defined at
+`crates/batchalign-pyo3/src/error.rs`); the boundary lowers that into
+`CHATValidationException` on the Python side with a populated
+`errors: list[ValidationErrorEntry]` field.
 
-| Method | Returns | Purpose |
+`ValidationErrorEntry` is a TypedDict (Python view of the Rust struct
+at `crates/batchalign-pyo3/src/error.rs:85`) with these fields:
+
+| Field | Type | Notes |
 |---|---|---|
-| `validate()` | `list[str]` | Human-readable alignment errors (uses `Display`); backward-compatible logging |
-| `validate_structured()` | JSON string | Same alignment checks as `validate()`, but structured |
-| `parse_warnings()` | JSON string | Warnings collected during lenient parsing; empty `"[]"` for strict parses or clean files |
+| `code` | `str` | e.g. `"E705"` |
+| `severity` | `str` | `"error"` / `"warning"` |
+| `line` | `Optional[int]` | 1-based; `None` when unavailable |
+| `column` | `Optional[int]` | 1-based; `None` when unavailable |
+| `message` | `str` | Full diagnostic message |
+| `suggestion` | `Optional[str]` | Optional remediation hint |
 
-`validate_structured()` example payload:
-
-```json
-[
-  {
-    "code": "E705",
-    "severity": "error",
-    "line": null,
-    "column": null,
-    "message": "Main tier has 2 alignable items, but %mor tier has 1 items\n...",
-    "suggestion": "Each alignable word in main tier must have corresponding %mor item"
-  }
-]
-```
-
-Used by the direct Python API and debugging surfaces that need
-structured alignment errors without re-parsing message text.
+Python callers inspect `exc.errors[0].code` and friends rather than
+parsing message text. The boundary contract is enforced by
+`batchalign/tests/test_pyo3_error_typing.py`.
 
 ## Pre-Serialization Validation Gate
 
 After Rust-owned processing stages have injected their results and
 before final serialization, the production path validates the
 generated `ChatFile` again to catch bugs in our own generation code
-(MOR/GRA count mismatch, terminator identity errors).
+(MOR/GRA count mismatch, terminator identity errors). The check
+lives in `crates/talkbank-transform/src/validate.rs`:
 
 ```rust,ignore
-// crates/batchalign/src/validate.rs
-let errors = validate_chat(&chat_file);
-if !errors.is_empty() {
-    return Err(ChatValidationError { errors });
-}
+use talkbank_transform::validate::{validate_output, validate_to_level};
+
+// Pre-validation: input must meet the command's required ValidityLevel.
+validate_to_level(&chat_file, &parse_errors, hooks.validity)?;
+// ... command body runs, mutates chat_file ...
+// Post-validation: catch regressions introduced by command code.
+validate_output(&chat_file, hooks.command)?;
 ```
 
-The exception message includes error codes and line numbers:
+Call sites: `crates/batchalign/src/pipeline/text_infer.rs` and
+`crates/batchalign/src/coref.rs` import both functions from
+`talkbank_transform::validate`. The exception message includes error
+codes and line numbers:
 
 ```text
 Pre-serialization validation failed:
@@ -96,25 +102,36 @@ checks), see [validation](validation.md).
 
 ## `CHATValidationException`
 
-Defined in `batchalign/errors.py`:
+Defined in Rust at `crates/batchalign-pyo3/src/error.rs` via
+`pyo3::create_exception!` and re-exported through Python:
 
-```python
-class CHATValidationException(Exception):
-    def __init__(self, message: str,
-                 errors: list[dict[str, object]] | None = None) -> None:
-        super().__init__(message)
-        self.errors: list[dict[str, object]] = errors or []
+```rust,ignore
+// crates/batchalign-pyo3/src/error.rs
+use pyo3::create_exception;
+create_exception!(batchalign_core, BatchalignError, PyException);
+create_exception!(batchalign_core, CHATValidationException, BatchalignError);
 ```
 
-The `errors` list contains the structured dicts from
-`validate_structured()`. Code that catches this exception can inspect
-`exc.errors` for programmatic access to error codes, line numbers,
-and suggestions without parsing the message string.
+```python
+# batchalign/errors.py
+from batchalign_core import (
+    BatchalignError,
+    CHATValidationException,
+    ...
+)
+```
 
-This is the Python-facing exception surface; the Rust processing
-server and CLI do not depend on a `pipeline.py` wrapper to surface
-validation failures. Backward compatible: `CHATValidationException("plain message")`
-still works and sets `errors=[]`.
+When `BatchalignBoundaryError::ChatValidation { entries, .. }` crosses
+the PyO3 boundary, the `From<BatchalignBoundaryError> for PyErr` impl
+constructs the Python exception with a populated `errors:
+list[ValidationErrorEntry]` and an optional `bug_report_id`. Code that
+catches the exception inspects `exc.errors[i].code`,
+`exc.errors[i].line`, etc. for programmatic access without parsing
+the message string.
+
+See [Python ↔ Rust errors](python-rust-errors.md) for the full
+boundary contract, including the typed-exception hierarchy and the
+internals-leakage scan.
 
 ## Runtime Error Classification
 

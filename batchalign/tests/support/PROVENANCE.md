@@ -14,15 +14,15 @@ automated regression testing only.
 |---------|-------------|------------|----------|-----------|----------|------|
 | `test.mp3` | (original recording) | — | eng | Pre-existing, committed by Chen | 27s | 441KB |
 | `eng_multi_speaker.mp3` | CHILDES Eng-NA MacWhinney | `data/childes-data/Eng-NA/MacWhinney/010411a.mp3` | eng | `ffmpeg -ss 20 -t 18` from corpus mp3 | 18s | 99KB |
-| `spa_marrero_clip.mp3` | CHILDES Spanish Marrero | `data/childes-data/Spanish/Marrero/Idaira/040707.mp3` | spa | `prepare_corpus_media_fixture.py --lines 1-5` via net | 8s | 127KB |
-| `fra_geneva_clip.mp3` | CHILDES French Geneva | `data/childes-data/French/Geneva/020303.mp3` | fra | `prepare_corpus_media_fixture.py --lines 4-10` via net | 4s | 34KB |
-| `jpn_tyo_clip.mp3` | Aphasia Japanese TYO | `data/aphasia-data/Japanese/Protocol/TYO/PWA/TYO_a1.mp4` | jpn | `prepare_corpus_media_fixture.py --lines 1-8` via net, converted mp4→mp3 | 21s | 219KB |
-| `yue_hku_clip.mp3` | Aphasia Cantonese HKU | `data/aphasia-data/Cantonese/Protocol/HKU/PWA/A023.mp4` | yue | `prepare_corpus_media_fixture.py --lines 11-16 --context 2` via net, converted mp4→mp3 | 26s | 353KB |
-| `biling_vec_hrv_clip.mp3` | Bilingual C-ORAL-IC | `data/biling-data/C-ORAL-IC/2020_01.mp3` | vec, hrv | `prepare_corpus_media_fixture.py --lines 1-8` via net | 23s | 374KB |
-| `biling_cat_spa_clip.mp3` | CHILDES Romance Catalan Jordina | `data/childes-data/Romance/Catalan/Jordina/010911.mp4` | cat, spa | `ffmpeg -t 15 -vn` piped from net | 13s | 225KB |
+| `spa_marrero_clip.mp3` | CHILDES Spanish Marrero | `data/childes-data/Spanish/Marrero/Idaira/040707.mp3` | spa | `prepare_corpus_media_fixture.py --lines 1-5` via the production server | 8s | 127KB |
+| `fra_geneva_clip.mp3` | CHILDES French Geneva | `data/childes-data/French/Geneva/020303.mp3` | fra | `prepare_corpus_media_fixture.py --lines 4-10` via the production server | 4s | 34KB |
+| `jpn_tyo_clip.mp3` | Aphasia Japanese TYO | `data/aphasia-data/Japanese/Protocol/TYO/PWA/TYO_a1.mp4` | jpn | `prepare_corpus_media_fixture.py --lines 1-8` via the production server, converted mp4→mp3 | 21s | 219KB |
+| `yue_hku_clip.mp3` | Aphasia Cantonese HKU | `data/aphasia-data/Cantonese/Protocol/HKU/PWA/A023.mp4` | yue | `prepare_corpus_media_fixture.py --lines 11-16 --context 2` via the production server, converted mp4→mp3 | 26s | 353KB |
+| `biling_vec_hrv_clip.mp3` | Bilingual C-ORAL-IC | `data/biling-data/C-ORAL-IC/2020_01.mp3` | vec, hrv | `prepare_corpus_media_fixture.py --lines 1-8` via the production server | 23s | 374KB |
+| `biling_cat_spa_clip.mp3` | CHILDES Romance Catalan Jordina | `data/childes-data/Romance/Catalan/Jordina/010911.mp4` | cat, spa | `ffmpeg -t 15 -vn` piped from the production server | 13s | 225KB |
 
-Media on net is accessed via `ssh operator@server` from the volumes listed in
-`~/.batchalign3/server.yaml` media_mappings. The `prepare_corpus_media_fixture.py`
+Media on the production server is accessed via `ssh operator@server`
+from the volumes listed in `~/.batchalign3/server.yaml` media_mappings. The `prepare_corpus_media_fixture.py`
 script (in `scripts/analysis/`) handles media resolution, download, and trimming
 automatically.
 

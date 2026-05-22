@@ -1,7 +1,7 @@
 # Validation Cache
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 The CHAT-core validation cache, used by `chatter validate` and the
 LSP server. Distinct from the
@@ -39,16 +39,25 @@ flowchart TD
 
 ## Schema
 
-`file_cache` table:
+`file_cache` table (see
+`crates/talkbank-transform/migrations/20260101000000_initial.sql`):
 
 | Column | Role |
 |---|---|
-| `file_path` | Primary key — absolute resolved path |
-| `check_alignment` | Whether alignment validation was requested |
-| `parser_kind` | Parser backend (tree-sitter or re2c) |
-| `result` | Serialized validation outcome |
-| `cached_at` | Insertion timestamp |
+| `path_hash` | BLAKE3 hash of the resolved path (part of the lookup key) |
+| `file_path` | Resolved file path, indexed for path-based maintenance ops |
+| `content_hash` | Hash of the file content; mismatch invalidates the entry |
 | `version` | Schema/code version — mismatch invalidates the entry |
+| `cached_at` | Insertion timestamp |
+| `check_alignment` | Whether alignment validation was requested |
+| `is_valid` | Cached validation outcome (0/1) |
+| `roundtrip_tested` | Whether roundtrip equivalence was checked |
+| `roundtrip_passed` | Roundtrip result when tested |
+| `parser_kind` | Parser backend (tree-sitter or re2c) |
+
+The lookup key is the compound unique index
+`(path_hash, version, check_alignment, parser_kind)`; `file_path` is a
+secondary index used by maintenance operations (orphan pruning, etc.).
 
 ## Database location
 

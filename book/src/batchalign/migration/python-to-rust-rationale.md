@@ -1,7 +1,7 @@
 # Why Replace Python CHAT Handling with Rust
 
 **Status:** Completed
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-19 13:34 EDT
 
 ---
 
@@ -85,13 +85,6 @@ Tests can verify each side independently:
 - **Python side:** Given these words, does the callback produce the right %mor/%gra?
 - **End-to-end:** Does CHAT → Rust → callback → CHAT produce valid output?
 
-### Python fallback preserves backward compatibility
-
-If the Rust extension isn't available (e.g., on systems where it hasn't been built),
-the code automatically falls back to the existing Python implementation. No user-facing
-changes are required. This means deployment is incremental — we can enable Rust on one
-system at a time.
-
 ### Round-trip verification
 
 Every test that modifies a CHAT file also verifies the output re-parses correctly.
@@ -160,7 +153,6 @@ benefit from the same AST.
 - **Special forms** (`@c`, `@s`, `@b`): Extracted from AST, passed in callback, restored after analysis
 - **Multi-language skip** (`skipmultilang`): Utterances with `[- lang]` override correctly skipped
 - **Progress reporting**: Per-utterance progress callbacks work through Rust
-- **Caching**: Handled at the Python callback level (transparent to Rust)
 
 ### No Python Fallback
 
@@ -190,5 +182,5 @@ All follow-up steps from the original decision have been completed:
 The Rust morphosyntax pipeline is safer (AST eliminates string-hacking bugs), faster
 (orders of magnitude for DP alignment), better tested (150 tests across Rust and Python),
 and architecturally cleaner (callback pattern isolates ML from text processing). The
-Python fallback ensures zero risk during rollout, and the underlying AST infrastructure
-is reusable for every TalkBank processing pipeline.
+Python fallback has since been removed (see §"No Python Fallback" above), and the
+underlying AST infrastructure is reusable for every TalkBank processing pipeline.

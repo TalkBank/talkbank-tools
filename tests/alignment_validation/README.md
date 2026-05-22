@@ -1,7 +1,7 @@
-# rust   tests   alignment validation   README
+# tests   alignment validation   README
 
 ## Overview
-Short summary for `rust/tests/alignment_validation/README.md`. This document is intentionally concise; legacy detail has been trimmed.
+Short summary for `tests/alignment_validation/README.md`. This document is intentionally concise; legacy detail has been trimmed.
 
 ## Key Commands
 ```bash
@@ -13,8 +13,7 @@ cargo test
 - Update alongside code changes to keep commands and references accurate.
 
 ## See Also
-- CLAUDE.md
-- rust/CLAUDE.md
+- The repo-root CLAUDE.md
 
 ---
-Last Updated: 2026-02-05
+Last Updated: 2026-05-21

@@ -17,7 +17,7 @@ Stanza would simply encode author bias — exactly what
 ``feedback_empirical_before_assertions`` warns against. So Phase 3
 ships the *cases* here; the *verdicts* (non-``OBSERVE_ONLY``
 expected outcomes) are set in a follow-up commit after the golden
-run on ming.
+run on a development machine.
 """
 
 from __future__ import annotations

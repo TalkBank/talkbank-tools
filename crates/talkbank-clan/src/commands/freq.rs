@@ -235,6 +235,12 @@ impl CommandOutput for FreqResult {
                  \x20   with option: +sm;*,o%\n",
             );
         }
+        // CLAN emits a trailing blank line after the last per-speaker block;
+        // match that so a hex-level diff against the legacy freq output ends
+        // cleanly.
+        if !self.speakers.is_empty() {
+            out.push('\n');
+        }
         out
     }
 

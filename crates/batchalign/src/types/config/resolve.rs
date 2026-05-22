@@ -16,7 +16,7 @@ pub enum TemporalBackend {
     Disabled,
     /// Temporal server at the given URL.
     Server {
-        /// Temporal server URL (e.g. `"http://net:7233"`).
+        /// Temporal server URL (e.g. `"http://temporal-host:7233"`).
         url: String,
     },
 }

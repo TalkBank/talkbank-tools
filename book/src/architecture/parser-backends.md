@@ -1,7 +1,7 @@
 # Parser Backends
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 TalkBank has two CHAT parser implementations. Both implement the `ChatParser`
 trait and produce identical `ChatFile` model types.
@@ -89,8 +89,11 @@ Both parsers convert to the same `talkbank_model::ChatFile` type and share
 post-hoc promotion logic:
 
 - `TierContent::extract_terminal_bullet()` — trailing InternalBullet → utterance bullet
-- `TierContent::resolve_ca_terminator()` — trailing CA arrow → terminator
 - `parse_bullet_node_timestamps()` — structured bullet CST → (start_ms, end_ms)
+
+CA intonation arrows are no longer promoted to terminators at the
+parser/model boundary; both parsers leave them as `Separator` items.
+See [CA Terminator Resolution](parser-and-grammar/ca-terminator-resolution.md).
 
 ## Detailed Parity Report
 

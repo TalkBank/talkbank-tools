@@ -1,7 +1,7 @@
 # CHAT Data Model
 
 **Status:** Current
-**Last updated:** 2026-05-01 15:57 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 The `talkbank-model` crate defines the typed AST for CHAT files. Every
 other crate — parser, transform, CLAN, CLI, LSP, and the entire batchalign
@@ -27,7 +27,7 @@ tree:
 
 ```mermaid
 flowchart TD
-    chatfile["ChatFile\n(chat_file/core.rs)"]
+    chatfile["ChatFile\n(talkbank-model/src/model/file/chat_file/core.rs)"]
     chatfile --> lines["lines: Vec&lt;Line&gt;"]
     chatfile --> participants["participants:\nIndexMap&lt;SpeakerCode, Participant&gt;"]
     chatfile --> languages["languages: LanguageCodes"]

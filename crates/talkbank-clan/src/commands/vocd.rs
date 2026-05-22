@@ -233,10 +233,13 @@ impl AnalysisCommand for VocdCommand {
 
         // Collect %mor lemmas for CLAN echo (used when speaker has insufficient tokens).
         // Strip fusional features (&PRES, &INF, etc.) — CLAN echoes base lemmas only.
+        // Skip punctuation-class items (`cm`, `punct`, `end`, `beg`) — CLAN's
+        // mor-lemma echo omits them; see `MorWord::is_punctuation_marker`.
         if let Some(mor_tier) = utterance.mor_tier() {
             let lemmas: Vec<String> = mor_tier
                 .items()
                 .iter()
+                .filter(|mor| !mor.main.is_punctuation_marker())
                 .flat_map(|mor| {
                     let mut words = vec![strip_fusional(&mor.main.lemma)];
                     for clitic in &mor.post_clitics {

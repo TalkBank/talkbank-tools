@@ -184,7 +184,7 @@ impl HostMemoryLease {
     /// records the worker, not the daemon. From that point on,
     /// `prune_stale_leases` uses the worker's liveness to decide whether
     /// to retain the lease — closing the Bug 2 (ghost-slot) accounting
-    /// drift that wedged ming on 2026-05-01.
+    /// drift that wedged a development host (the historical "Bug 2" incident).
     ///
     /// Returns `Ok(())` on successful update, or `HostMemoryError` if
     /// the ledger could not be locked or rewritten. The lease's
@@ -841,7 +841,7 @@ fn prune_stale_leases(ledger: &mut MemoryLedger) {
         // external kill — without the daemon noticing. Tagging the
         // lease with the worker's PID and checking THAT PID's
         // liveness is what closes the ghost-slot accounting drift
-        // that wedged ming on 2026-05-01.
+        // that wedged a development host (the historical "Bug 2" incident).
         if let Some(worker_pid) = lease.worker_pid {
             return process_is_alive(worker_pid);
         }
@@ -1350,8 +1350,8 @@ mod tests {
     /// projected leftover after granting 1 worker is 64 − 0 − 12 = 52
     /// GB ≥ 8 GB reserve. The planner MUST grant at least 1 worker.
     ///
-    /// This is the "tragicomic" case from 2026-05-01: 64 GB hosts
-    /// (bilbo/sue/lilly/vaishnavi) reportedly couldn't run morphotag
+    /// This is the "tragicomic" case from a historical incident:
+    /// several 64 GB fleet hosts reportedly couldn't run morphotag
     /// with default config, even though "they sure as hell can."
     /// This test pins what the planner is supposed to do.
     #[test]

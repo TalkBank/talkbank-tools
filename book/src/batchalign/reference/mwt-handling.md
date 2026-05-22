@@ -1,7 +1,7 @@
 # MWT (Multi-Word Token) Handling
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:15 EDT
+**Last updated:** 2026-05-20 20:19 EDT
 
 ---
 
@@ -81,8 +81,13 @@ wrong POS tags.
   `tokenize_pretokenized=True` for safety.  The neural tokenizer would
   re-segment already-tokenized CJK text unpredictably.
 
-See `MWT_LANGS` in `worker/_stanza_loading.py` for the live allowlist.
-The English-specific pipeline branch loads MWT GUM via this allowlist.
+MWT eligibility is **capability-driven**:
+`should_request_mwt(alpha2, get_cached_capability_table())` at
+`batchalign/worker/_stanza_loading.py:40` consults the cached Stanza
+catalog (`batchalign/worker/_stanza_capabilities.py`) and requests the
+`mwt` processor only when the table reports `has_mwt=True` for the
+language. The earlier hardcoded `MWT_LANGS` set was deleted, with
+`test_stanza_config_parity.py:82` guarding against reintroduction.
 
 ---
 
@@ -238,14 +243,16 @@ arrive as a **tuple** (Stanza's internal MWT marker), not plain strings.
 The postprocessor treats tuples as MWT and returns them unchanged.
 
 **Python-side hint preservation.** Rust handles MWT correctly in
-`inject.rs`. On the Python side, if `_tokenizer_realign.py::_realign_sentence`
-flattened the `(text, True)` tuples to plain strings via `_conform(tok)`
-before the Rust char-DP aligner ran, MWT would silently skip Range-token
-expansion for every contraction. `_realign_sentence` overlays Stanza's
-original tuples onto aligner output where lengths
-match and no merging happened, so the hint survives realignment and
-Stanza's MWT processor continues to honor it. Applies to every language
-listed in `MWT_LANGS` (`batchalign/worker/_stanza_loading.py`). See
+`crates/talkbank-transform/src/morphosyntax/injection.rs`. On the
+Python side, if `_tokenizer_realign.py::_realign_sentence` flattened
+the `(text, True)` tuples to plain strings via `_conform(tok)` before
+the Rust char-DP aligner ran, MWT would silently skip Range-token
+expansion for every contraction. `_realign_sentence` overlays
+Stanza's original tuples onto aligner output where lengths match and
+no merging happened, so the hint survives realignment and Stanza's
+MWT processor continues to honor it. Applies to every language for
+which `should_request_mwt()` returns `True` in
+`batchalign/worker/_stanza_loading.py`. See
 [Stanza Limitations — Defect 2](stanza-limitations.md) for the full
 trace and re-evaluation criteria.
 
@@ -330,9 +337,12 @@ contractions.  For `Claus'`, it produces two MWT components
 **`clean_lemma` defensive fix**: When `'` is isolated as a PUNCT MWT component,
 Stanza's lemma is also `'`.  The old `clean_lemma` stripped the apostrophe,
 producing an empty string → `punct|` (empty stem) → E342 parse failure.
-`mapping.rs` now falls back to the surface text when stripping produces empty:
-`clean_lemma("'", "'")` returns `("'", false)`, producing `punct|'` (valid).
-A `debug_assert!` at `MorStem` construction time catches any future regressions.
+`crates/talkbank-transform/src/morphosyntax/mor_word.rs:81::clean_lemma`
+now falls back to the surface text when stripping produces empty:
+`clean_lemma("'", "'")` returns `("'", false)`, producing `punct|'`
+(valid). A `debug_assert!` at `MorStem` construction time catches any
+future regressions (regression test
+`clean_lemma_falls_back_from_empty_to_text` at `mor_word.rs:221`).
 
 ### Accent Normalization: "café" -> "cafe"
 
@@ -478,20 +488,24 @@ Input:   *CHI: I don't know .
 
 | Component | File | Description |
 |-----------|------|-------------|
-| MWT allowlist | `worker/_stanza_loading.py` | `MWT_LANGS` set — languages that use MWT tokenizer mode |
-| Stanza config builder | `worker/_stanza_loading.py` | `load_stanza_models()` — chooses tokenizer mode, wires postprocessor |
-| MWT contraction rule | `inference/_tokenizer_realign.py:_is_contraction()` | Replicates Python master ud.py:680–685: English+apostrophe → True |
-| Tokenizer realignment | `inference/_tokenizer_realign.py:_realign_sentence()` | Character-position merging; merged tokens get `(text, bool)` tuples |
-| Postprocessor factory | `inference/_tokenizer_realign.py:make_tokenizer_postprocessor()` | Creates the Stanza callback; captures `alpha2` in closure |
-| Batch callback | `inference/morphosyntax.py:219-224` | `batch_infer_morphosyntax()` sets/clears `TokenizerContext.original_words` |
+| MWT eligibility | `batchalign/worker/_stanza_loading.py:40` | `should_request_mwt(alpha2, capability_table)` — capability-driven, replaces the deleted `MWT_LANGS` static |
+| Stanza capability table | `batchalign/worker/_stanza_capabilities.py` | Cached snapshot of `stanza.resources.common.load_resources_json()`; `_ISO3_OVERRIDES` at `:50` handles Stanza-specific iso3 cases |
+| Stanza config builder | `batchalign/worker/_stanza_loading.py:126` | `load_stanza_models()` — chooses tokenizer mode, wires postprocessor |
+| MWT contraction rule | `batchalign/inference/_tokenizer_realign.py:120` | `_is_contraction()` — English+apostrophe → True (replicates BA2 `ud.py:680-685`) |
+| Tokenizer realignment | `batchalign/inference/_tokenizer_realign.py:148` | `_realign_sentence()` — character-position merging; merged tokens get `(text, bool)` tuples |
+| Postprocessor factory | `batchalign/inference/_tokenizer_realign.py:67` | `make_tokenizer_postprocessor()` — creates the Stanza callback; captures `alpha2` in closure |
+| Batch callback | `batchalign/inference/morphosyntax.py:201` | `batch_infer_morphosyntax()` — sets/clears `TokenizerContext.original_words` |
 
 ### Layer 2 — Rust (UD → %mor/%gra)
 
+All paths below are under `crates/talkbank-transform/src/morphosyntax/`.
+
 | Component | File | Description |
 |-----------|------|-------------|
-| MWT grouping | `sentence_mapping.rs:map_ud_sentence()` | `UdId::Range` groups MWT components under one CHAT word index |
-| Clitic assembly | `mapping_helpers.rs:assemble_mors()` | Joins MWT components with `~` (post-clitic) or `$` (pre-clitic) |
-| POS mapping | `mor_word.rs:map_ud_word_to_mor()` | UD UPOS → CHAT category; `clean_lemma` with empty-string fallback |
+| MWT grouping (merge mode) | `sentence_mapping.rs:81::map_ud_sentence` | `UdId::Range` groups MWT components under one CHAT word index |
+| MWT grouping (expand mode) | `sentence_mapping.rs:24::map_ud_sentence_expanded` | Per-component MOR for `--retokenize` |
+| Clitic assembly | `mapping_helpers.rs:60::assemble_mors` | Joins MWT components with `~` (post-clitic) or `$` (pre-clitic) |
+| POS mapping | `mor_word.rs:13::map_ud_word_to_mor` | UD UPOS → CHAT category; `clean_lemma` at `mor_word.rs:81` with empty-string fallback |
 | English rules | `lang_en.rs` | Irregular verbs (200+), suffix patterns per POS |
 | French rules | `lang_fr.rs` | Pronominal clitics, APM, case agreement |
 | Japanese rules | `lang_ja.rs` | Verb conjugation (140+ patterns) |

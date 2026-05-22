@@ -1,22 +1,14 @@
 # Symbols
 
-**Status:** Reference — partially inaccurate, see warning on the CA section
-**Last updated:** 2026-05-11 23:19 EDT
+**Status:** Reference
+**Last updated:** 2026-05-21 14:50 EDT
 
-> **WARNING:** The "CA (Conversation Analysis) Delimiters" section below
-> erases a parser-level distinction. The symbol registry
-> (`spec/symbols/symbol_registry.json`) splits these characters into
-> three grammatical categories with different parser treatment:
-> `ca_delimiter_symbols`, `ca_element_symbols`, and
-> `word_segment_forbidden_*`. `↑` and `↓` *attach to a word*
-> (`book↑` is one token); `→`, `↗`, `↘` are *separators* that the
-> parser splits as their own nodes. Lumping them together as "CA
-> delimiters" with one semantic is misleading. Until this page is
-> rewritten to mirror the registry, trust the registry. See
-> `<workspace>/docs/architecture-review-2026-05-01.md` §6 stale-doc
-> entry for this page.
-
-CHAT uses a rich set of symbols for transcription conventions. This page documents the symbol categories and the symbol registry that drives both the grammar and the Rust crates.
+CHAT uses a rich set of symbols for transcription conventions. This
+page documents the symbol categories and the symbol registry that
+drives both the grammar and the Rust crates. The
+[symbol registry](https://github.com/TalkBank/talkbank-tools/blob/main/spec/symbols/symbol_registry.json)
+(`spec/symbols/symbol_registry.json`) is the source of truth — when
+this page and the registry disagree, the registry wins.
 
 ## Symbol Registry
 
@@ -51,23 +43,50 @@ Punctuation that ends an utterance:
 | `+!?` | Broken question | Exclamation-question |
 | `+"/.` | Quoted new line | Quotation continues on next line |
 
-### CA (Conversation Analysis) Delimiters
+### CA (Conversation Analysis) Symbols
 
-Symbols used in conversation analysis notation:
+CA notation symbols fall into three parser-distinct categories in
+`spec/symbols/symbol_registry.json`. They are not interchangeable —
+the grammar treats them as different node kinds.
+
+**CA element symbols** (`ca_element_symbols`) attach to a word, so
+`book↑` is a single token whose content carries the symbol:
 
 | Symbol | Meaning |
 |--------|---------|
-| `↑` | Rising pitch |
-| `↓` | Falling pitch |
-| `→` | Level pitch |
-| `↗` | Rise-fall |
-| `↘` | Fall-rise |
-| `≋` | Creaky voice |
+| `↑` | Rising pitch (attaches to a word) |
+| `↓` | Falling pitch (attaches to a word) |
 | `∙` | Micropause |
+| `≠` | Inhalation marker |
+| `⁑` `↻` `∾` `⤆` `⤇` `Ἡ` | Other CA element symbols |
 
-### CA Elements
+**CA arrow separators** (in `word_segment_forbidden_start_symbols`)
+are own-node separators between words, not word-attachments. The
+parser splits them as their own nodes:
 
-Symbols that appear within conversation analysis annotations (prosodic marking, stress, etc.).
+| Symbol | Meaning |
+|--------|---------|
+| `→` | Level pitch contour |
+| `↗` | Rising-to-mid contour |
+| `↘` | Falling-to-mid contour |
+| `⇗` | Rising-to-high contour |
+| `⇘` | Falling-to-low contour |
+| `↖` `↙` `←` | Other CA arrow separators |
+
+**CA delimiter symbols** (`ca_delimiter_symbols`) bracket annotated
+prosodic regions:
+
+| Symbol | Meaning |
+|--------|---------|
+| `°` | Quiet speech |
+| `∆` `∇` | Higher / lower pitch register |
+| `∬` `∮` | Other prosodic-region delimiters |
+| `▁` `▔` | Low / high prosodic-region delimiters |
+| `⁇` `§` `⁎` `↫` `◉` `☺` `♋` `Ϋ` | Additional registered CA delimiters |
+
+Confirm the current contents of each category by reading
+`spec/symbols/symbol_registry.json` directly — that is the file
+`make symbols-gen` derives the grammar and Rust constants from.
 
 ### Word Segment Characters
 
@@ -94,17 +113,39 @@ Common codes: `eng` (English), `fra` (French), `deu` (German), `spa` (Spanish), 
 
 ### @ Markers (Word-Level)
 
+The authoritative form-marker set is `FormType` in
+`crates/talkbank-model/src/model/content/word/form.rs`. Current
+variants:
+
 | Marker | Meaning |
 |--------|---------|
-| `@s:LANG` | Second language word |
-| `@l` | Letter |
+| `@a` | Approximate / phonologically consistent form |
+| `@b` | Babbling |
 | `@c` | Child-invented form |
-| `@f` | Family-specific word |
+| `@d` | Dialect form |
+| `@f` | Family-specific form |
+| `@fp` | Filled pause (deprecated — use `&-um` etc.) |
+| `@g` | Gemination / general special form |
+| `@i` | Interjection |
+| `@k` | Letter sequence (kinship) |
+| `@l` | Single letter |
+| `@ls` | Letter plural |
 | `@n` | Neologism |
 | `@o` | Onomatopoeia |
-| `@b` | Babbling |
+| `@p` | Proper name |
+| `@q` | Metalinguistic reference |
+| `@sas` | Second-attempt success |
+| `@si` | Singing |
+| `@sl` | Slang |
+| `@t` | Test word |
+| `@u` | Unibet transcription |
 | `@wp` | Word play |
-| `@si` | Signed word |
+| `@x` | Complex / excluded |
+| `@z:<label>` | User-defined special form (carries an arbitrary label) |
+
+The second-language qualifier `@s:LANG` is a separate construct (see
+the L2 morphotag section of the Batchalign book); it is not part of
+`FormType`.
 
 ### & Markers (Events and Fillers)
 

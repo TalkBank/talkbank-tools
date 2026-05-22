@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Current
-**Last updated:** 2026-05-11 09:55 EDT
+**Last updated:** 2026-05-21 16:10 EDT
 
 This page documents the current public `batchalign3` CLI surface. For anything
 you are scripting against, confirm with `batchalign3 <command> --help`.
@@ -294,6 +294,8 @@ on schema drift against the target directory.
 
 ```bash
 batchalign3 bench <COMMAND> <IN_DIR> <OUT_DIR> [--runs N]
+batchalign3 bench align corpus/ out/ --runs 3 --dataset eng-childes-v1
+batchalign3 bench align corpus/ out/ --use-cache
 ```
 
 Benchmark command execution time across repeated runs. `<COMMAND>` is
@@ -302,11 +304,19 @@ one of: `align`, `transcribe`, `transcribe_s` (with diarization),
 `compare`. Distinct from the `benchmark` top-level command, which
 measures ASR word accuracy.
 
+| Option | Meaning |
+| --- | --- |
+| `--runs N` | Number of repeat runs (default: 1) |
+| `--dataset LABEL` | Dataset label included in structured output (useful for cross-run comparison) |
+| `--use-cache` | Use the analysis cache for benchmark runs (default: bypass cache so each run hits cold paths) |
+
 ### `doctor`
 
 ```bash
 batchalign3 doctor
 batchalign3 doctor --lang yue --format json
+batchalign3 doctor --explain memory_gate_mb
+batchalign3 doctor --warnings-as-errors
 ```
 
 Pre-flight diagnostic that spawns a test worker, sends known inputs
@@ -319,6 +329,8 @@ quirks) before they become production failures.
 | `--lang LANG` | Language to test (default: `eng`) |
 | `--format {human,json}` | Output format (default: `human`) |
 | `--python PATH` | Custom Python path (overrides `BATCHALIGN_PYTHON`) |
+| `--explain KNOB` | Trace why one resolved knob has its current value (`gpu_thread_pool_size`, `force_cpu`, `max_total_workers`, `max_concurrent_jobs`, `max_workers_per_key`, `memory_gate_mb`). Prints resolved value, source (operator override vs. host-facts recommendation), the rule that produced the recommendation, and the relevant detected facts. Implies `--check`. |
+| `--warnings-as-errors` | Treat host-facts validation warnings as fatal: exit non-zero when any warning fires, not only on error. Intended for CI gates that want zero-warning deployments. Has no effect outside `--check` / `--explain`. |
 
 ### `replay`
 

@@ -1,7 +1,7 @@
 # %gra Structural Safeguards
 
-**Status:** Current implementation behavior  
-**Last updated:** 2026-03-14
+**Status:** Current implementation behavior
+**Last updated:** 2026-05-19 22:51 EDT
 
 This page describes the current structural safeguards around generated `%gra`
 tiers in `batchalign3 morphotag`.
@@ -22,18 +22,24 @@ successful `%gra` is linguistically correct. The safeguard is structural.
 
 ## Where the validation happens
 
-Current implementation:
+Current implementation (post crate-split):
 
-- `crates/batchalign/src/nlp/mapping.rs`
+- `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` —
+  `map_ud_sentence()` at line 81 builds `%mor` and `%gra`.
+- `crates/talkbank-transform/src/morphosyntax/gra_validate.rs` —
+  `validate_generated_gra(&gras)?` at line 20 runs before the mapping
+  is returned.
+- The chunk-count alignment check happens in the same module before
+  `Ok((mors, gras))` is returned.
+- `MappingError` (with `InvalidRoot`, `CircularDependency`,
+  `InvalidHeadReference` variants) is the error type, defined in the
+  parent `talkbank_transform::morphosyntax` module.
 
-Key points in that file:
-
-- `map_ud_sentence()` builds `%mor` and `%gra`
-- `validate_generated_gra(&gras)?` runs before the mapping is returned
-- chunk-count alignment is checked before returning `Ok((mors, gras))`
-
-If validation fails, the function returns `Err(MappingError)` and the caller can
-log and skip the utterance rather than writing broken output.
+If validation fails, the function returns `Err(MappingError)` and the
+caller can log and skip the utterance rather than writing broken
+output. The batchalign side only carries the focused validation
+tests at
+`crates/batchalign/src/chat_ops/nlp/mapping/tests/core_mapping.rs`.
 
 ## What is validated
 

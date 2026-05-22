@@ -1,7 +1,7 @@
 # transcribe — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-05 08:21 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -181,7 +181,7 @@ dedicated speaker stage runs.
 # Fast unit tests (no ML models)
 make test
 
-# Transcribe golden tests (real ASR models — only on net)
+# Transcribe golden tests (real ASR models — only on Fleet/Large-tier hosts)
 cargo nextest run --profile ml -E 'test(transcribe::)'
 
 # Python ASR inference tests

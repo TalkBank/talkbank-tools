@@ -1,34 +1,56 @@
 # Harvesting Review Results
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 13:30 EDT
 
-After reviewers have rated utterances in aligned CHAT files, the ratings
-need to be collected for analysis. The `%xrev` and `%xalign` tiers are
-part of the CHAT files, so harvesting is just parsing.
+After reviewers have rated utterances in aligned CHAT files, the
+ratings need to be collected for analysis. The `%xrev` and `%xalign`
+tiers are part of the CHAT files themselves, so harvesting is just a
+matter of extracting those lines.
 
-## Using the harvesting script
+## Tier shape
 
-```bash
-python3 scripts/harvest_reviews.py path/to/reviewed/files/ --output reviews.csv
+Each reviewed utterance contributes two dependent-tier lines:
+
+```text
+%xalign:	boundary_averaged
+%xrev:	ok
 ```
 
-This scans all `.cha` files in the directory, extracts `%xrev` and `%xalign`
-tiers, and produces a CSV with one row per reviewed utterance:
+`%xalign` carries the alignment strategy the pipeline chose for the
+bullet (`boundary_averaged`, `gap_filled`, etc.). `%xrev` carries the
+human rating: `ok`, `early`, `late`, `wrong`, `?`, or `corrected`. A
+corrected utterance additionally has the new timing inline in the
+`%xrev` line (e.g., `corrected 1200_1450`).
 
-| Column | Description |
-|--------|-------------|
-| `file` | Filename |
-| `utterance_idx` | Utterance number in the file |
-| `speaker` | Speaker code (e.g., "CHI", "PIL") |
-| `strategy` | What `%xalign` reports (e.g., "boundary_averaged") |
-| `rating` | Human rating: ok, early, late, wrong, or ? |
-| `machine_start` | Original bullet start (ms) |
-| `machine_end` | Original bullet end (ms) |
-| `corrected_start` | Corrected start if `[corrected]` (ms), else empty |
-| `corrected_end` | Corrected end if `[corrected]` (ms), else empty |
-| `delta_ms` | Displacement from machine timing (ms), else empty |
-| `note` | Free-form reviewer note |
+## Quick extraction with shell tooling
+
+There is no ships-with harvester binary today; the tier format is
+regular enough to extract with standard tools. The two patterns below
+cover most reporting needs.
+
+### Rating distribution across a directory
+
+```bash
+# Counts of ok / early / late / wrong / ? across every .cha
+rg --no-filename '^%xrev:\s*' path/to/reviewed/ \
+  | awk '{print $2}' | sort | uniq -c | sort -rn
+```
+
+### Per-strategy ratings
+
+```bash
+# Paste %xalign + %xrev pairs into one stream, then tabulate.
+rg --no-filename --no-line-number '^%x(align|rev):' path/to/reviewed/ \
+  | paste -d' ' - - \
+  | awk '{print $2, $4}' \
+  | sort | uniq -c | sort -rn
+```
+
+For richer aggregations (per-file, displacement statistics on
+corrected bullets, pattern detection in reviewer notes), parse the
+tiers from typed JSON via `chatter to-json` rather than re-implementing
+CHAT parsing in shell.
 
 ## What to do with the results
 
@@ -63,13 +85,8 @@ grep -i 'backchannel\|overlap\|speaker' reviews.csv
 
 ## Comparing conditions
 
-To compare raw align vs `--bullet-repair` vs FIXBULLETS, review the same
-files under each condition and harvest separately:
-
-```bash
-python3 scripts/harvest_reviews.py raw-output/ --output raw.csv
-python3 scripts/harvest_reviews.py repaired-output/ --output repaired.csv
-python3 scripts/harvest_reviews.py fixbullets-output/ --output fixbullets.csv
-```
-
-Then compare the `%good` rate across conditions.
+To compare raw align vs `--bullet-repair` vs FIXBULLETS, review the
+same files under each condition into separate output directories and
+re-run the rating-distribution command from "Quick extraction" above
+against each directory in turn. Compare the `ok` counts across
+conditions.

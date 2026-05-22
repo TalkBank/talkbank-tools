@@ -1,7 +1,7 @@
 # Mandarin Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-06 16:30 EDT
+**Last updated:** 2026-05-20 20:16 EDT
 
 Mandarin (`cmn`/`zho`) shares the Stanza `zh` model and Chinese number
 expansion system with Cantonese, but has distinct word segmentation behavior
@@ -13,7 +13,7 @@ and no alternative ASR engines.
 |---------------|---------------------------|
 | ASR | Whisper (default), no Mandarin-specific alternatives |
 | Text normalization | None (Cantonese normalization is `yue`-only) |
-| Number expansion | Chinese number system (`num2chinese` with simplified script for `zho`, traditional for `cmn`) |
+| Number expansion | Chinese number system (`num2chinese` with simplified script for both `cmn` and `zho`) |
 | Utterance segmentation | `talkbank/CHATUtterance-zh_CN` for `cmn` / `zho` in standalone `utseg` and transcribe pre-CHAT segmentation |
 | Word segmentation | Stanza neural tokenizer via `--retokenize` |
 | Morphosyntax | Stanza Chinese (`zh`) model; `@s` Mandarin words in mixed-language files use the same Chinese morphosyntax path |
@@ -100,12 +100,15 @@ path for already-built CHAT text.
 
 ## Number Expansion
 
-Mandarin uses the Chinese number expansion system:
+Mandarin uses the Chinese number expansion system. Per
+`crates/talkbank-transform/src/asr_postprocess/num2text.rs:243-247`,
+both `cmn` and `zho` dispatch to `ChineseScript::Simplified`; only
+`yue` and `jpn` use `ChineseScript::Traditional`:
 
 | Code | Script | Example |
 |------|--------|---------|
 | `zho` | Simplified | 5 → 五, 10000 → 一万 |
-| `cmn` | Traditional | 5 → 五, 10000 → 一萬 |
+| `cmn` | Simplified | 5 → 五, 10000 → 一万 |
 
 ## Morphosyntax
 
@@ -159,7 +162,7 @@ runs for `yue`. Mandarin text passes through without character normalization.
 
 | File | Role |
 |------|------|
-| `worker/_stanza_loading.py` | `load_stanza_retokenize_model()` for lazy `zh` retok pipeline |
-| `inference/morphosyntax.py` | Mandarin retokenize path in `batch_infer_morphosyntax()` |
-| `crates/batchalign/src/asr_postprocess/num2chinese.rs` | Chinese number expansion |
-| `crates/batchalign/src/retokenize/` | AST rewrite (language-agnostic) |
+| `batchalign/worker/_stanza_loading.py` | `load_stanza_retokenize_model()` for lazy `zh` retok pipeline (`:251`) |
+| `batchalign/inference/morphosyntax.py` | Mandarin retokenize path in `batch_infer_morphosyntax()` |
+| `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs` | Chinese number expansion |
+| `crates/talkbank-transform/src/retokenize.rs` + `crates/talkbank-transform/src/retokenize/` | AST rewrite (language-agnostic) |

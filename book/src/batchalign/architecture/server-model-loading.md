@@ -1,7 +1,7 @@
 # Server Model Loading and Caching
 
 **Status:** Current
-**Last updated:** 2026-05-05 08:21 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 This document describes every ML model loaded by batchalign3 workers,
 when each model is loaded into memory, and how results are cached.
@@ -140,11 +140,11 @@ English only. **Result caching:** None.
 
 ### `benchmark` (server-owned composition over `asr`)
 
-Same engines as `transcribe` plus:
+Same engines as `transcribe` plus a Rust-side WER step:
 
 | Module | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
-| `inference/benchmark.py` | None (Rust DP alignment via `batchalign_core.wer_compute()`) | local | negligible | N/A | No |
+| `crates/talkbank-transform/src/benchmark.rs` | None (Rust Hirschberg DP alignment via the allowlisted `dp_align::align` call site) | local | negligible | N/A | No |
 
 ---
 

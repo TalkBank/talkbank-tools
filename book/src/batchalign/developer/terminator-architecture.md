@@ -1,7 +1,7 @@
 # Terminator Architecture
 
 **Status:** Current
-**Last updated:** 2026-03-30 20:43 EDT
+**Last updated:** 2026-05-21 13:15 EDT
 
 This document is a comprehensive reference for how CHAT terminators are created,
 stored, defaulted, validated, and propagated through every batchalign3 pipeline.
@@ -160,12 +160,18 @@ When the file is serialized:
 
 Output: `*KE: words --> [bullet1] [bullet2]` -- two bullets.
 
-### The fix required
+### The corrective direction
 
-The grammar must include CA intonation arrows in the `terminator` rule so they
-are parsed in the `utterance_end` region, not consumed by `contents`. The
-parser's `terminator_from_node_kind()` must also map the arrow node kinds to
-the corresponding `Terminator` enum variants.
+The arrows are not terminators. Per CHECK, the five CA intonation
+arrows (`→ ↗ ⇗ ↘ ⇘`) are **separators**, not utterance enders, and
+the current `Terminator::CaRisingToHigh / CaRisingToMid / CaLevel /
+CaFallingToMid / CaFallingToLow` variants are the misclassification.
+The corrective direction is to remove those five variants from the
+model and grammar — keeping the arrows in the `separator` rule where
+they belong — and to fix the double-bullet symptom downstream: bullets
+positioned after an arrow on a CA tier should remain a single terminal
+`TierContent.bullet`, not split into `InternalBullet` + terminal.
+Tracked as BUG-009.
 
 ## Where Terminators Are Created
 
@@ -182,7 +188,7 @@ and their linker forms are mapped.
 
 ### 2. ASR post-processing
 
-**File:** `batchalign/src/asr_postprocess/mod.rs` (line 661)
+**File:** `crates/talkbank-transform/src/asr_postprocess/mod.rs`
 
 When `retokenize()` flushes remaining words without explicit punctuation, it
 unconditionally appends a period:
@@ -196,7 +202,7 @@ created from ASR will have periods that should not exist.
 
 ### 3. Utterance segmentation (utseg)
 
-**File:** `batchalign/src/utseg.rs` (line 241)
+**File:** `crates/talkbank-transform/src/utseg.rs`
 
 When splitting an utterance into multiple, every split gets a hardcoded Period:
 
@@ -209,7 +215,7 @@ terminator-less structure.
 
 ### 4. CHAT building from ASR
 
-**File:** `batchalign/src/build_chat.rs` (line 482)
+**File:** `crates/talkbank-transform/src/build_chat/mod.rs`
 
 Infers terminator from the last word text. Default is Period:
 
@@ -223,7 +229,7 @@ _ => Terminator::Period { span: Span::DUMMY }
 
 ### Morphosyntax payload collection
 
-**File:** `batchalign/src/morphosyntax/payloads.rs` (line 120)
+**File:** `crates/talkbank-transform/src/morphosyntax/payload.rs`
 
 ```text
 .unwrap_or_else(|| ".".to_string())
@@ -233,18 +239,20 @@ When collecting words for the Python Stanza worker, a missing terminator is
 silently replaced with `"."` in the payload string. This affects the NLP model's
 sentence-type features.
 
-### MOR tier cache injection
+### MOR tier injection terminator handling
 
-**File:** `batchalign/src/morphosyntax/cache.rs` (line 136)
+**File:** `crates/talkbank-transform/src/morphosyntax/injection.rs`
 
-Copies the utterance's terminator to the cached MOR tier. When the terminator
-is `None`, the MOR tier gets an empty string.
+The injection layer copies the utterance's terminator into the rebuilt
+MOR tier. When the terminator is `None`, the MOR tier gets an empty
+string at that position. There is no morphosyntax cache layer to read
+from (text NLP runs use a no-op cache).
 
 ## Where Terminators Are Validated
 
 ### Pre-command validation (CA-aware)
 
-**File:** `batchalign/src/validate.rs` (line 105)
+**File:** `crates/talkbank-transform/src/validate.rs`
 
 ```rust,ignore
 let is_ca = file.options.iter().any(|f| matches!(f, ChatOptionFlag::Ca));
@@ -255,7 +263,7 @@ Correctly exempts CA files from the missing-terminator check.
 
 ### Post-command validation (NOT CA-aware)
 
-**File:** `batchalign/src/validate.rs` (line 155)
+**File:** `crates/talkbank-transform/src/validate.rs`
 
 ```text
 if utt.main.content.terminator.is_none() { /* warning */ }
@@ -267,7 +275,7 @@ terminator, but post-validation doesn't know that.
 
 ### NLP mapping assumptions
 
-**File:** `batchalign/src/nlp/mapping/mod.rs` (line 156)
+**File:** `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`
 
 The MOR/GRA coordination code assumes every utterance has a terminator that
 maps to a PUNCT relation in GRA:
@@ -378,25 +386,25 @@ terminal bullet. Both serialize on the main line.
 
 Every file in batchalign3 that references terminators, classified by behavior:
 
+All paths below are under `crates/`.
+
 | File | Behavior | Notes |
 |------|----------|-------|
-| `asr_postprocess/mod.rs:661` | **DEFAULTS to `.`** | Appends period when no punctuation |
-| `build_chat.rs:474-482` | **CREATES from last word** | Defaults to Period for unrecognized |
-| `utseg.rs:241` | **CREATES Period** | Split utterances always get period |
-| `morphosyntax/payloads.rs:120` | **DEFAULTS to `"."`** | Cache key includes silent default |
-| `morphosyntax/cache.rs:136` | **READS, patches** | Copies from utterance to MOR tier |
-| `morphosyntax/inject.rs:201` | **PRESERVES** | Passes through to retokenize |
-| `retokenize/parse_helpers.rs:105` | **PRESERVES** | Keeps original when Stanza differs |
-| `retokenize/rebuild.rs:35` | **PRESERVES** | Carries expected_terminator through |
-| `compare.rs:1072` | **READS** | Collects as `Option<String>` |
-| `translate.rs:239` | **READS** | Lists all variants for spacing |
-| `validate.rs:105` | **CHECKS (CA-aware)** | Pre-validation exempts CA |
-| `validate.rs:155` | **CHECKS (NOT CA-aware)** | Post-validation always warns |
-| `nlp/mapping/mod.rs:156` | **ASSUMES +1** | GRA index assumes terminator exists |
-| `nlp/mapping/validate.rs:36` | **ASSUMES** | Skips last GRA as terminator PUNCT |
-| `fa/injection.rs` | **PRESERVES** | Never touches terminator |
-| `fa/postprocess.rs` | **PRESERVES** | Never touches terminator |
-| `fa/orchestrate.rs` | **PRESERVES** | Never touches terminator |
+| `talkbank-transform/src/asr_postprocess/mod.rs` | **DEFAULTS to `.`** | Appends period when no punctuation |
+| `talkbank-transform/src/build_chat/mod.rs` | **CREATES from last word** | Defaults to Period for unrecognized |
+| `talkbank-transform/src/utseg.rs` | **CREATES Period** | Split utterances always get period |
+| `talkbank-transform/src/morphosyntax/payload.rs` | **DEFAULTS to `"."`** | Payload string includes silent default |
+| `talkbank-transform/src/morphosyntax/injection.rs` | **READS, patches** | Copies utterance terminator into MOR tier |
+| `talkbank-transform/src/inject.rs` | **PRESERVES** | Top-level injection entry; passes through to retokenize |
+| `talkbank-transform/src/retokenize/parse_helpers.rs` | **PRESERVES** | Keeps original when Stanza differs |
+| `talkbank-transform/src/retokenize/rebuild.rs` | **PRESERVES** | Carries expected_terminator through |
+| `batchalign/src/compare.rs` | **READS** | Collects as `Option<String>` |
+| `talkbank-transform/src/translate.rs` | **READS** | Lists all variants for spacing |
+| `talkbank-transform/src/validate.rs` | **CHECKS (CA-aware)** | Pre-validation exempts CA |
+| `talkbank-transform/src/validate.rs` | **CHECKS (NOT CA-aware)** | Post-validation always warns |
+| `talkbank-transform/src/morphosyntax/sentence_mapping.rs` | **ASSUMES +1** | GRA index assumes terminator exists |
+| `talkbank-transform/src/morphosyntax/gra_validate.rs` | **ASSUMES** | Skips last GRA as terminator PUNCT |
+| `batchalign/src/fa/` | **PRESERVES** | Forced-alignment never touches terminator |
 
 ## Known Issues
 

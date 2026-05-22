@@ -158,6 +158,97 @@ impl AnalysisCommandName {
             Self::Uniq => "uniq",
         }
     }
+
+    /// Return the CLAN banner scope mode for this command.
+    ///
+    /// CLAN's `cutt.cpp` mainloop emits one of three scope shapes
+    /// depending on the `nomain` and `tct` flags the command sets in
+    /// its arg parser. Each chatter command must select the same mode
+    /// as its CLAN counterpart for byte-level banner parity.
+    pub const fn clan_scope_mode(self) -> ClanScopeMode {
+        match self {
+            // Dependent-tier-only commands (CLAN `nomain=TRUE` and a
+            // single `tct` entry): banner emits just `ONLY dependent
+            // tiers matching: %X;` with no speaker-tier prefix.
+            Self::Mlu | Self::Vocd => ClanScopeMode::DependentOnly("mor"),
+
+            // Combined commands (CLAN `nomain=FALSE` with a `tct`
+            // dependent-tier filter): banner emits `ALL speaker
+            // tiers` followed by `and those speakers' ONLY dependent
+            // tiers matching: %X;` on a continuation line.
+            //
+            // `maxwd` was previously here but its CLAN banner is
+            // main-only (it counts characters on the main tier, not
+            // morphemes on %mor) — moved to MainOnly below.
+            Self::Wdlen
+            | Self::Wdsize
+            | Self::Dss
+            | Self::Ipsyn
+            | Self::Mortable
+            | Self::Corelex
+            | Self::Eval
+            | Self::EvalDialect
+            | Self::Kideval
+            | Self::Sugar => ClanScopeMode::MainAndDependent("mor"),
+            // `complexity` reads %gra rather than %mor, and CLAN
+            // emits a 4th-banner-shape `and ONLY header tiers
+            // matching: @ID:;` continuation after the dep-tier line.
+            // The header-filter continuation isn't yet modelled in
+            // `ClanScopeMode`; the MainAndDependent("gra:") here
+            // only captures the dep-tier dimension. Tracked in
+            // scripts/clan-parity/STATUS.md.
+            Self::Complexity => ClanScopeMode::MainAndDependent("gra:"),
+            Self::Phonfreq => ClanScopeMode::MainAndDependent("pho:"),
+
+            // Main-tier-only commands: banner emits just `ALL speaker
+            // tiers` (or the explicit speaker-tier filter set).
+            // `freqpos` is in this group despite consuming `%mor`
+            // because CLAN's freqpos emits the main-only banner.
+            Self::Freq
+            | Self::Mlt
+            | Self::Maxwd
+            | Self::Kwal
+            | Self::Combo
+            | Self::Cooccur
+            | Self::Dist
+            | Self::Gemlist
+            | Self::Chip
+            | Self::Modrep
+            | Self::Codes
+            | Self::Chains
+            | Self::Timedur
+            | Self::Freqpos
+            | Self::Flucalc
+            | Self::Keymap
+            | Self::Rely
+            | Self::Script
+            | Self::Trnfix
+            | Self::Uniq => ClanScopeMode::MainOnly,
+        }
+    }
+}
+
+/// Selects which scope text CLAN's banner emits.
+///
+/// CLAN's `cutt.cpp` mainloop branches on `nomain` (does the command
+/// consume main tier at all?) and `tct` (is a `+t%X` dependent-tier
+/// filter active?). The combinations produce three distinct banner
+/// shapes; chatter mirrors that taxonomy here so the
+/// banner-emission code can stay in one helper.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClanScopeMode {
+    /// `ALL speaker tiers` — main-tier-only commands.
+    MainOnly,
+    /// `ONLY dependent tiers matching: %X;` — no main tier, single
+    /// dependent tier. The carried `&str` is the tier name without
+    /// the leading `%` (e.g. `"mor"`).
+    DependentOnly(&'static str),
+    /// `ALL speaker tiers\n\tand those speakers' ONLY dependent tiers
+    /// matching: %X;` — main tier plus a dependent-tier filter. The
+    /// carried `&str` is the tier name (e.g. `"mor"`); for phonfreq
+    /// CLAN includes a trailing colon (`%PHO:;`), so the carried
+    /// value is `"pho:"`.
+    MainAndDependent(&'static str),
 }
 
 impl fmt::Display for AnalysisCommandName {

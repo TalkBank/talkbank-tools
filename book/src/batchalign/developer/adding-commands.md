@@ -1,7 +1,7 @@
 # Adding a New Command
 
 **Status:** Current
-**Last updated:** 2026-04-17 20:00 EDT
+**Last updated:** 2026-05-19 21:12 EDT
 
 This guide walks through adding a new batchalign3 command end-to-end.
 
@@ -43,9 +43,9 @@ The key files, in the order you'll edit them:
 | 2 | `batchalign/src/commands/your_command.rs` | `CommandDefinition` |
 | 3 | `batchalign/src/commands/catalog.rs` and `commands/mod.rs` | Register/export the module |
 | 4 | `batchalign/src/your_command.rs` or shared runner code | Core logic (ML dispatch, post-processing) |
-| 5 | `batchalign/src/args/commands.rs` | CLI arg struct |
-| 6 | `batchalign/src/args/mod.rs` | `CommandProfile` match arm |
-| 7 | `batchalign/src/args/options.rs` | `CommandOptions` variant + `build_typed_options` arm |
+| 5 | `batchalign/src/cli/args/commands.rs` | CLI arg struct |
+| 6 | `batchalign/src/cli/args/mod.rs` | `CommandProfile` match arm |
+| 7 | `batchalign/src/cli/args/options.rs` | `CommandOptions` variant + `build_typed_options` arm |
 
 ## Step 1: Add the ReleasedCommand variant
 
@@ -193,11 +193,11 @@ pub(crate) async fn run_your_command_impl(
 }
 ```
 
-See `morphosyntax.rs` or `translate.rs` for complete examples.
+See `crates/batchalign/src/morphosyntax/` (directory module) or `crates/batchalign/src/translate.rs` (single-file module) for complete examples.
 
 ## Step 5: CLI args
 
-Add to `crates/batchalign/src/args/commands.rs`:
+Add to `crates/batchalign/src/cli/args/commands.rs`:
 
 ```rust,ignore
 #[derive(Args, Debug, Clone)]
@@ -223,7 +223,7 @@ pub enum Commands {
 
 ## Step 6: Command profile
 
-In `crates/batchalign/src/args/mod.rs`, add a match arm:
+In `crates/batchalign/src/cli/args/mod.rs`, add a match arm:
 
 ```rust,ignore
 Commands::YourCommand(a) => CommandProfile {
@@ -245,7 +245,7 @@ pub enum CommandOptions {
 }
 ```
 
-And in `crates/batchalign/src/args/options.rs`, add the `build_typed_options` arm.
+And in `crates/batchalign/src/cli/args/options.rs`, add the `build_typed_options` arm.
 
 ## Step 8: Verify
 
@@ -281,24 +281,26 @@ boundary.
 
 | BA2 Python (`compare.py`) | BA3 Rust | File |
 |---------------------------|----------|------|
-| `_find_best_segment()` — bag-of-words window search | `batchalign::chat_ops::compare::find_best_segment` | same |
-| `CompareEngine.process()` — local window alignment + token status | `batchalign::chat_ops::compare::compare()` | `batchalign/src/compare.rs` |
-| `CompareAnalysisEngine.analyze()` — metrics CSV | `CompareMetricsCsvTable` / `format_metrics_csv()` via compare materializers | `batchalign/src/compare.rs` / `compare.rs` |
-| gold document projection | `project_gold_structurally()` | `batchalign/src/compare.rs` |
-| `Document` / `Utterance` / `Form` model | `ChatFile` AST + dependent tiers | `talkbank-model` / `batchalign` |
-| CLI dispatch `morphosyntax -> compare -> compare_analysis` | `build_comparison_artifacts()` + released/main-annotated materializers | `compare.rs` |
+| `_find_best_segment()` — bag-of-words window search | `talkbank_transform::compare::find_best_segment` | `crates/talkbank-transform/src/compare/engine.rs:72` |
+| `CompareEngine.process()` — local window alignment + token status | `talkbank_transform::compare::compare()` | `crates/talkbank-transform/src/compare/engine.rs:173` |
+| `CompareAnalysisEngine.analyze()` — metrics CSV | `CompareMetricsCsvTable` / `CompareMetricsCsvRow` | `crates/talkbank-transform/src/compare/metrics.rs:8,103` |
+| gold document projection | `project_gold_structurally()` | `crates/talkbank-transform/src/compare/materialize.rs:209` |
+| compare data model (bundle, utterances, metrics, word matches) | `ComparisonBundle` / `UtteranceComparison` / `CompareMetrics` / `GoldWordMatch` | `crates/talkbank-transform/src/compare/model.rs:75,27,38,92` |
+| tier serialization models | `XsrepTierContent` / `XsmorTierContent` | `crates/talkbank-transform/src/compare/serialize.rs:186,228` |
+| `Document` / `Utterance` / `Form` model | `ChatFile` AST + dependent tiers | `talkbank-model` |
+| CLI dispatch `morphosyntax -> compare -> compare_analysis` | `build_comparison_artifacts()` + released/main-annotated materializers | `crates/batchalign/src/compare.rs` (orchestrator) |
 
 ### Architecture sketch
 
 ```mermaid
 flowchart TD
-    request["compare.rs orchestration\nmain_text + gold_text"] --> morph["Morphotag main only\nreuses morphosyntax worker"]
+    request["batchalign/src/compare.rs orchestration\nmain_text + gold_text"] --> morph["Morphotag main only\nreuses morphosyntax worker"]
     request --> gold["Parse raw gold"]
     morph --> main["Parse morphotagged main"]
-    main --> bundle["compare(&main, &gold)\nComparisonBundle:\nmain_utterances + gold_utterances\n+ gold_word_matches + metrics"]
+    main --> bundle["talkbank_transform::compare::compare(&main, &gold)\n→ ComparisonBundle:\nmain_utterances + gold_utterances\n+ gold_word_matches + metrics"]
     gold --> bundle
-    bundle --> tiers["XsrepTierContent / XsmorTierContent"]
-    bundle --> csv["CompareMetricsCsvTable"]
+    bundle --> tiers["XsrepTierContent / XsmorTierContent\n(talkbank-transform/src/compare/serialize.rs)"]
+    bundle --> csv["CompareMetricsCsvTable\n(talkbank-transform/src/compare/metrics.rs)"]
     tiers --> released["materialize_released()\nreleased output:\nprojected reference CHAT + .compare.csv"]
     tiers --> main_view["materialize_main_annotated()\ninternal/benchmark output:\nmain %xsrep/%xsmor + .compare.csv"]
     csv --> released
@@ -353,17 +355,17 @@ extract words → conform → find windows → DP align → annotate gold → se
 
 BA3 splits this into layers:
 
-1. **`batchalign::chat_ops::compare`** — pure functions, no ML, no IO:
-   - `find_best_segment()` — same local-window idea as BA2
-   - `compare(&main, &gold)` → `ComparisonBundle` with main/gold compare views,
+1. **`talkbank_transform::compare`** (`crates/talkbank-transform/src/compare/`) — pure functions, no ML, no IO:
+   - `find_best_segment()` (`engine.rs:72`) — same local-window idea as BA2
+   - `compare(&main, &gold)` (`engine.rs:173`) → `ComparisonBundle` with main/gold compare views,
      structural word matches, and metrics
-   - `project_gold_structurally()` — AST-first gold projection
-   - `XsrepTierContent` / `XsmorTierContent` — typed compare-tier models lowered
+   - `project_gold_structurally()` (`materialize.rs:209`) — AST-first gold projection
+   - `XsrepTierContent` / `XsmorTierContent` (`serialize.rs:186,228`) — typed compare-tier models lowered
      once at the `UserDefinedDependentTier` boundary
-   - `CompareMetricsCsvTable` / `format_metrics_csv()` — typed metrics rows
+   - `CompareMetricsCsvTable` / `CompareMetricsCsvRow` (`metrics.rs:8,103`) — typed metrics rows
      serialized through the Rust `csv` crate
 
-2. **`compare.rs`** — orchestration:
+2. **`crates/batchalign/src/compare.rs`** — orchestration:
     - `build_comparison_artifacts()` — morphotag main only, parse gold raw, call `compare()`
     - `materialize_released()` — released compare output path
     - `materialize_main_annotated()` — internal benchmark/main output path
@@ -379,7 +381,9 @@ BA3 splits this into layers:
 The gold materializer is no longer a stub. Extend it by working with typed data:
 
 1. Edit `project_gold_structurally()` in
-   `batchalign/src/compare.rs`.
+   `crates/talkbank-transform/src/compare/materialize.rs:209` (the
+   actual implementation; `crates/batchalign/src/compare.rs:27,140`
+   only re-exports and calls it).
 2. Use `ComparisonBundle.gold_word_matches` and AST accessors, not `%xsrep` /
    `%xsmor` strings, as the projection source.
 3. Keep the current safety rules explicit: exact matches may copy `%mor` /
@@ -401,9 +405,9 @@ types before you add serializer code.
 
 ### Files to read (in order)
 
-1. `crates/batchalign/src/compare.rs` — compare core + structural projection
+1. `crates/talkbank-transform/src/compare/` — compare core (engine.rs, model.rs, materialize.rs, serialize.rs, metrics.rs)
 2. `crates/batchalign/src/compare.rs` — orchestration + materializers
 3. `crates/batchalign/src/execution/` — recipe-driven dispatch (replaces old `compare_pipeline.rs`)
 4. `crates/batchalign/src/planning/` — `build_job_plan()` for typed execution plans
-5. `book/src/migration/ba2-compare-migration.md` — BA2-master compare to BA3 map
-6. BA2 reference: `~/batchalign2-master/batchalign/pipelines/analysis/compare.py`
+5. `book/src/batchalign/migration/ba2-compare-migration.md` — BA2-master compare to BA3 map
+6. BA2 reference: archived in the maintainers' BA2 working copy (see migration docs for location)

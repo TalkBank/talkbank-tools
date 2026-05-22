@@ -1,7 +1,7 @@
 # Rust Core (`batchalign_core`)
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-05-20 00:53 EDT
 
 For new contributors, start with:
 
@@ -13,8 +13,11 @@ For new contributors, start with:
 The PyO3 bridge lives at `crates/batchalign-pyo3/` inside the
 `talkbank-tools` workspace. It's a single-crate project that builds
 the `batchalign_core` Python extension module that worker processes
-import. It depends on the sibling `batchalign` and `batchalign-types`
-crates.
+import. Its workspace deps are `batchalign-types` (domain newtypes
++ V2 IPC types) and `talkbank-transform` (Cantonese ASR projection,
+tokenizer realignment, morphosyntax sentence mapping, ASR
+post-processing). The runtime `batchalign` crate is NOT a pyo3
+dependency.
 
 Editable installs use the maturin build backend declared in
 `pyproject.toml` (`build-backend = "maturin"`, `[tool.maturin]
@@ -28,9 +31,10 @@ bundles both the extension and the native binary.
 
 | Crate | Location | Purpose |
 |-------|----------|---------|
-| `batchalign-pyo3` | `crates/batchalign-pyo3/` | Worker runtime — what Python imports as `batchalign_core` |
-| `batchalign` | `crates/batchalign/` | The big Rust crate: CLI, axum server, dispatch, FA, morphosyntax, Rev.AI client, CHAT extraction/injection |
-| `batchalign-types` | `crates/batchalign-types/` | Shared domain types and worker IPC types |
+| `batchalign-pyo3` | `crates/batchalign-pyo3/` | Worker runtime — what Python imports as `batchalign_core`. Deps: `batchalign-types` + `talkbank-transform` |
+| `batchalign` | `crates/batchalign/` | The big Rust crate: CLI, axum server, dispatch, FA, morphosyntax, Rev.AI client, batchalign-specific CHAT extraction/injection in `chat_ops/`. NOT consumed by batchalign-pyo3. |
+| `batchalign-types` | `crates/batchalign-types/` | Shared domain types and worker IPC types (depended on by both `batchalign` and `batchalign-pyo3`) |
+| `talkbank-transform` | `crates/talkbank-transform/` | Pipelines, CHAT↔JSON, morphosyntax, Cantonese normalization, tokenizer realignment, asr_postprocess — the shared CHAT-aware logic the pyo3 worker calls into |
 
 ## Module organization
 

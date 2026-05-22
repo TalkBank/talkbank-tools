@@ -1,7 +1,7 @@
 # Parameter Design
 
 **Status:** Current
-**Last updated:** 2026-05-01 18:02 EDT
+**Last updated:** 2026-05-20 20:30 EDT
 
 Conventions for function-parameter shape in the `batchalign` server-side
 orchestrators (`morphosyntax.rs`, `fa.rs`, `transcribe.rs`,
@@ -188,10 +188,10 @@ IPC boundary when serializing JSON for Python workers (`path.to_string_lossy()`)
 |----------|--------|-------|
 | `process_morphosyntax` | 9 params | 3 (`chat_text`, `services`, `params`) |
 | `process_morphosyntax_incremental` | 10 params | 4 (`before`, `after`, `services`, `params`) |
-| `process_fa` | 14 params | 5 (`chat_text`, `audio`, `services`, `fa_params`, `progress`) |
+| `process_fa` | 14 params | 6 (`chat_text`, `audio`, `worker_lang`, `services`, `fa_params`, `progress`) |
 | `process_fa_incremental` | 15 params | 6 |
 | `process_compare` | 8 params | 6 |
-| `process_transcribe` | 6 params | 4 (`audio_path`, `services`, `opts`, `progress`) |
+| `process_transcribe` | 6 params | 5 (`audio_path`, `services`, `opts`, `progress`, `debug_dir`) |
 | `process_one_transcribe_file` | 16 params | 8 |
 
 ## Where Grouping Doesn't Help
@@ -250,9 +250,9 @@ via `to_string_lossy()`.
 
 | File | Contents |
 |------|----------|
-| `types/params.rs` | `CachePolicy`, `WorTierPolicy`, `MorphosyntaxParams`, `FaParams`, `AudioContext` |
-| `pipeline/mod.rs` | `PipelineServices` |
-| `transcribe.rs` | `TranscribeOptions` |
+| `crates/batchalign/src/types/params.rs` | `CachePolicy`, `WorTierPolicy`, `MorphosyntaxParams`, `FaParams`, `AudioContext` |
+| `crates/batchalign/src/pipeline/mod.rs:23` | `PipelineServices` |
+| `crates/batchalign/src/transcribe/types.rs:127` | `TranscribeOptions` (sibling definition at `crates/batchalign/src/types/options.rs:258`) |
 
 ## Guidelines
 

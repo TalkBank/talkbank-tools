@@ -1,7 +1,7 @@
 # Language Code Resolution
 
 **Status:** Current
-**Last updated:** 2026-05-06 21:30 EDT
+**Last updated:** 2026-05-20 20:15 EDT
 
 This page documents how batchalign3 maps language codes to models, Stanza
 pipelines, and processing behavior.
@@ -97,16 +97,22 @@ For full architecture and incident history see
 
 ## Model Resolution (ASR)
 
-Language-specific ASR model selection only applies to the HuggingFace Whisper
-engine (`--asr-engine whisper`). The resolver maps language codes to fine-tuned
-models:
+The default HuggingFace Whisper engine (`--asr-engine whisper`) loads
+`openai/whisper-large-v3` across every language — see
+`batchalign/inference/asr.py::_infer_whisper` and the default in
+`batchalign/inference/asr.py:120`. There is no per-language fine-tune
+table on this engine.
 
-| Language | Code | Model | Base/Tokenizer | Size |
-|----------|------|-------|----------------|------|
-| English | eng | `talkbank/CHATWhisper-en` | `openai/whisper-large-v2` | large-v2 |
-| Cantonese | yue | `alvanlii/whisper-small-cantonese` | same | small |
-| Hebrew | heb | `ivrit-ai/whisper-large-v3` | same | large-v3 |
-| All others | * | `openai/whisper-large-v3` | same | large-v3 |
+Per-language fine-tunes are opt-in via the separate `--asr-engine
+whisper_hub` engine, whose resolver lives at
+`batchalign/models/resolve.py::_RESOLVER["whisper_hub"]`. The resolver
+is seeded reactively from empirical evaluation — entries are added one
+at a time with dated provenance, not speculatively. As of this writing
+the only seeded entry is `mal → thennal/whisper-medium-ml`; absent
+languages raise `WhisperHubModelNotFoundError` directing the user to
+pass an explicit `model_id` via `--engine-overrides`. See
+[Whisper Hub ASR](whisper-hub-asr.md) for the engine, its evidence, and
+the recommendation to add new entries.
 
 Other ASR engines ignore language for model selection:
 - `--asr-engine whisper-oai`: always `whisper-turbo`
@@ -115,12 +121,21 @@ Other ASR engines ignore language for model selection:
 
 ## Model Resolution (UTR)
 
-UTR (Utterance Timing Recovery) has its own model resolution:
+UTR (Utterance Timing Recovery) is **engine-based, not
+language-keyed**. The CLI selects a UTR backend with `--utr-engine
+{rev,whisper,...}` (plus `--utr-engine-custom NAME` for cloud
+backends). Each engine carries its own model identity:
 
-| Language | Code | Model |
-|----------|------|-------|
-| English | eng | `talkbank/CHATWhisper-en-large-v1` |
-| All others | * | `openai/whisper-large-v2` |
+| Engine | Model / Backend |
+|--------|-----------------|
+| `--utr-engine whisper` | `openai/whisper-large-v2` (stock Whisper) |
+| `--utr-engine rev` | Rev.AI cloud API |
+| `--utr-engine-custom tencent_utr` | Tencent Cloud UTR backend |
+
+There is no per-language UTR-model resolver — `--utr-engine whisper`
+loads the same checkpoint regardless of `--lang`. See
+[Whisper ASR](whisper-asr.md) §"Utterance Timing Recovery" for the
+full picture.
 
 ## Model Resolution (Utterance Segmentation)
 
@@ -160,19 +175,19 @@ flowchart TD
 
 ## MWT Language Dispatch
 
-Multi-Word Token (MWT) processing is driven by an explicit allowlist in
-`batchalign/worker/_stanza_loading.py`.
+Multi-Word Token (MWT) processing is **capability-driven**. The
+loader at `batchalign/worker/_stanza_loading.py:40::should_request_mwt`
+consults the Stanza catalog table built at worker startup from
+`stanza.resources.common.load_resources_json()` (see
+`batchalign/worker/_stanza_capabilities.py`) and requests the `mwt`
+processor only when that table reports `has_mwt=True` for the
+language. The earlier hardcoded `MWT_LANGS` set was deleted — see
+[Stanza Limitations Defect 5](stanza-limitations.md) for the full
+rewrite rationale, and `test_stanza_config_parity.py:82` for the AST
+scan that prevents reintroduction.
 
-Current behavior:
-
-- Languages in `MWT_LANGS` load Stanza's `mwt` processor.
-- Languages not in that allowlist skip `mwt`.
-- Notably, Japanese (`ja`), Korean (`ko`), and Chinese (`zh`) are excluded.
-- Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Malay (`ms`) are
-  currently included because they are present in the live allowlist.
-
-See [Non-English Workarounds](../developer/non-english-workarounds.md) §X1 for the full
-dispatch table.
+See [Non-English Workarounds](../developer/non-english-workarounds.md) §X1 for the
+per-language consequences.
 
 ## Rev.AI Language Codes
 
@@ -310,18 +325,22 @@ maintain our own validation tables.
 
 #### Stanza (morphosyntax)
 
-- **Stanza has a `stanza.resources` module** that lists available models, but
-  batchalign does not query it — instead using a hardcoded 55-entry mapping
-- Could be queried at startup: `stanza.resources.common.list_available_languages()`
-- Our mapping: `iso3_to_alpha2()` in `batchalign/worker/_stanza_loading.py`
-- **Validation approach:** Check if the language exists in the explicit mapping
-  table before attempting to load the pipeline
+- **Stanza has a `stanza.resources` module** that lists available models;
+  batchalign queries it at worker startup (`stanza.resources.common.load_resources_json()`)
+  and caches a per-language capability table in
+  `batchalign/worker/_stanza_capabilities.py`.
+- Our ISO-639-3 → alpha-2 mapping: `iso3_to_alpha2()` in
+  `batchalign/worker/_stanza_loading.py:63`, with Stanza-specific
+  overrides in `_ISO3_OVERRIDES` (`_stanza_capabilities.py:50`).
+- **Validation approach:** Check the cached capability table before
+  attempting to load the pipeline — the same path that drives
+  `should_request_mwt()` and the rest of per-processor availability.
 
 #### Tencent (cloud Chinese ASR)
 
 - **No API endpoint**; hardcoded to Chinese variants only
 - Our validation: `_CHINESE_CODES = {"zho", "yue", "wuu", "nan", "hak"}`
-  in `batchalign/inference/languages/cantonese/_tencent_asr.py`
+  in `batchalign/inference/languages/cantonese/_tencent_api.py:24`
 - Already raises `ValueError` for non-Chinese — this is good, but happens
   at worker load time rather than job submission time
 
@@ -405,15 +424,26 @@ This is tracked as a future improvement. The Rev.AI mapping table
 
 To add language-specific behavior for a new language:
 
-1. **Stanza mapping** — Add to the ISO 639-3 → 639-1 table in `_stanza_loading.py`
-2. **Rev.AI mapping** — Add an explicit entry in `revai/preflight.rs` (do NOT
-   rely on the truncation fallback)
-3. **ASR model** — Optionally add a fine-tuned model entry in the resolver
-4. **Number expansion** — Add a table to `data/num2lang.json` or handle in
-   `num2text.rs`
-5. **Utterance segmentation** — Optionally train a BERT boundary model
-6. **Morphosyntax workarounds** — Add a `nlp/lang_XX.rs` file if Stanza
-   produces systematic errors for this language
-7. **MWT dispatch** — Determine if the language uses contractions
-8. **Test with `benchmark`** — Verify the language code is accepted by all
-   engines in the pipeline (ASR, morphotag, compare)
+1. **Stanza mapping** — Add to `_ISO3_OVERRIDES` in
+   `batchalign/worker/_stanza_capabilities.py` only when the standard
+   alpha-2 mapping does not match Stanza's catalog key.
+2. **Rev.AI mapping** — Add an explicit entry in
+   `crates/batchalign/src/revai/preflight.rs::try_revai_language_hint`
+   (do NOT rely on the truncation fallback).
+3. **ASR model** — Optionally add a fine-tune to
+   `batchalign/models/resolve.py::_RESOLVER["whisper_hub"]` with a
+   dated provenance comment; users select it via `--asr-engine
+   whisper_hub`.
+4. **Number expansion** — Add an entry to
+   `crates/talkbank-transform/data/num2lang.json`, or handle the
+   language in `crates/talkbank-transform/src/asr_postprocess/num2text.rs`.
+5. **Utterance segmentation** — Optionally train a BERT boundary
+   model and add it to `batchalign/models/resolve.py::_RESOLVER["utterance"]`.
+6. **Morphosyntax workarounds** — Add a
+   `crates/talkbank-transform/src/morphosyntax/lang_XX.rs` file if
+   Stanza produces systematic errors for this language (see existing
+   `lang_en.rs`, `lang_fr.rs`, `lang_it.rs`, `lang_ja.rs`).
+7. **MWT dispatch** — No code change required; capability-driven
+   `should_request_mwt()` picks up Stanza's catalog automatically.
+8. **Test with `benchmark`** — Verify the language code is accepted by
+   all engines in the pipeline (ASR, morphotag, compare).

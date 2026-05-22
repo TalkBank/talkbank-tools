@@ -1,20 +1,21 @@
 # Filesystem Paths Used by batchalign3
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:45 EDT
+**Last updated:** 2026-05-20 07:50 EDT
 
 All current filesystem paths used by the public `batchalign3` runtime.
 
-Unless otherwise noted, paths are rooted under `batchalign::config::ba_state_dir()`,
-which defaults to `~/.batchalign3` and can be overridden with
-`BATCHALIGN_STATE_DIR`.
+Unless otherwise noted, paths are rooted under
+`batchalign::types::config::layout::ba_state_dir()` (defined at
+`crates/batchalign/src/types/config/layout.rs:98`), which defaults
+to `~/.batchalign3` and can be overridden with `BATCHALIGN_STATE_DIR`.
 
 ## Configuration
 
 | Path | Purpose | Defined in |
 |------|---------|------------|
 | `~/.batchalign.ini` | User config shared with older tooling (for example Rev.AI credentials and default ASR selection) | `batchalign/config.py`, `crates/batchalign/src/cli/setup_cmd.rs` |
-| `~/.batchalign3/server.yaml` | Server/daemon configuration | `crates/batchalign/src/types/config.rs` |
+| `~/.batchalign3/server.yaml` | Server/daemon configuration | `crates/batchalign/src/types/config/` (directory module: `layout.rs`, `server.rs`, `resolve.rs`, `tests.rs`) |
 
 ## Runtime data
 

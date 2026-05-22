@@ -1,7 +1,7 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 ## Overview
 
@@ -15,8 +15,8 @@ all modes.
 
 ### Submit-path retries
 
-`BatchalignClient::submit_job` (`crates/batchalign/src/client.rs`) goes
-through the shared `request_with_retry` helper. The contract is narrow on
+`BatchalignClient::submit_job` (`crates/batchalign/src/cli/client.rs`)
+goes through the shared `request_with_retry` helper. The contract is narrow on
 purpose and load-bearing for fleet-scale runs:
 
 - **Retry class:** transient `reqwest::Error::is_connect()` or `is_timeout()`
@@ -46,8 +46,8 @@ accept pause, and the alt branch for a deterministic 413 rejection:
 
 ```mermaid
 sequenceDiagram
-    participant Cli as "BatchalignClient::submit_job\n(cli/src/client.rs)"
-    participant Retry as "request_with_retry\n(cli/src/client.rs)"
+    participant Cli as "BatchalignClient::submit_job\n(batchalign/src/cli/client.rs)"
+    participant Retry as "request_with_retry\n(batchalign/src/cli/client.rs)"
     participant Daemon as "axum POST /jobs\n(routes/jobs/mod.rs::submit_job)"
 
     Cli->>Retry: method=POST, url=/jobs, body=JobSubmission\nper_attempt_timeout=120s
@@ -75,7 +75,7 @@ sequenceDiagram
 ```
 
 Diagram verified against:
-`crates/batchalign/src/client.rs` (`submit_job`, `request_with_retry`,
+`crates/batchalign/src/cli/client.rs` (`submit_job`, `request_with_retry`,
 `read_http_error_detail`, constants `RETRY_ATTEMPTS`/`RETRY_BACKOFF`),
 `crates/batchalign/src/routes/jobs/mod.rs` (`submit_job` handler),
 `crates/batchalign/src/routes/mod.rs` (`RequestBodyLimitLayer`),
@@ -200,7 +200,7 @@ back into the submitting daemon's local cache:
 ```mermaid
 sequenceDiagram
     participant Remote as "Remote worker activity\n(temporal_backend.rs::BatchalignTemporalActivities)"
-    participant TS as "Temporal server\n(net:7233)"
+    participant TS as "Temporal server\n(&lt;temporal-host&gt;:7233)"
     participant Recon as "TemporalReconciler\n(temporal_reconciler.rs)"
     participant Query as "TemporalClientStateQuery\n(temporal_backend.rs)"
     participant Store as "JobStore\n(store/queries/mod.rs)"

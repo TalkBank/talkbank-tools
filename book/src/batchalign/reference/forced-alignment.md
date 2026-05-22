@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-20 07:51 EDT
 
 ## Overview
 
@@ -329,8 +329,9 @@ offset before injection into the AST.
 
 #### FA grouping strategy
 
-Groups are formed by `group_utterances()` in
-`batchalign/src/fa/grouping.rs`. Each group maps to one FA worker call.
+Groups are formed by `group_utterances()` (at
+`crates/batchalign/src/chat_ops/fa/grouping.rs:42`). Each group maps
+to one FA worker call.
 Grouping is driven by two independent constraints — a group is flushed and a new
 one started when either is exceeded:
 
@@ -388,8 +389,8 @@ whether to flush, so `collect_fa_words()` is called at the top of the loop
 (before the flush check) and the words are held in `extracted` until after the
 flush decision. This avoids calling `collect_fa_words()` twice.
 
-Source: `crates/batchalign/src/fa/grouping.rs`,
-constant `WHISPER_FA_MAX_LABEL_TOKENS`.
+Source: `crates/batchalign/src/chat_ops/fa/grouping.rs`,
+constant `WHISPER_FA_MAX_LABEL_TOKENS` (line 15).
 
 ### Failure points, recovery, and what the user sees
 
@@ -417,7 +418,7 @@ flowchart TD
     fa_inc["process_fa_incremental()\n(fa/incremental.rs)"]
     fa_groups["Group utterances\n+ per-group dispatch\n(fa/transport.rs)"]
     fa_ok{"All groups\nresolved?"}
-    mono["enforce_monotonicity()\nstrip non-monotonic starts\nclamp end overlaps\n(fa/orchestrate.rs)"]
+    mono["enforce_monotonicity()\nstrip non-monotonic starts\nclamp end overlaps\n(chat_ops/fa/orchestrate.rs)"]
     mono_warn["WARN monotonicity:\nend_clamped / start_stripped\nfor affected utterances"]
     post_val["Post-validation\n(warn-only, never fatal)"]
     out["Serialize → CHAT\nwrite output"]
@@ -445,7 +446,7 @@ flowchart TD
 
 > Source files: `crates/batchalign/src/runner/dispatch/fa_pipeline.rs`,
 > `crates/batchalign/src/fa/mod.rs`, `crates/batchalign/src/fa/transport.rs`,
-> `crates/batchalign/src/fa/orchestrate.rs`
+> `crates/batchalign/src/chat_ops/fa/orchestrate.rs` (enforce_monotonicity, strip_e704_same_speaker_overlaps)
 
 #### Per-group fallback detail
 
@@ -795,7 +796,7 @@ subsequent `align` re-runs (e.g., after transcript editing), clamping is
 applied using the now-authoritative FA-derived bullet, preventing edited words
 from being placed outside the established audio window.
 
-**Source:** `crates/batchalign/src/fa/postprocess.rs` —
+**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37` —
 `postprocess_utterance_timings()`.
 
 ## What is fast today vs later
@@ -1216,23 +1217,31 @@ diverge, some utterances get no UTR timing.  FA's proportional estimation can
 then assign a correct-but-earlier timestamp to those untimed utterances, breaking
 monotonicity.
 
-**Post-FA enforcement pass**: After all utterances have been force-aligned, a
-final pass in `add_forced_alignment_inner` walks utterances in text order,
-tracking the last accepted start timestamp.  Any utterance whose start precedes
-the previous accepted start has its timing stripped entirely -- utterance bullet,
-inline word bullets, and the %wor tier are all removed.  The utterance is left as
-plain untimed text, identical to how it would look before alignment.
+**Post-FA enforcement pass**: After all utterances have been
+force-aligned, `enforce_monotonicity()` (at
+`crates/batchalign/src/chat_ops/fa/orchestrate.rs:213`) walks
+utterances in text order, tracking the last accepted start
+timestamp. Any utterance whose start precedes the previous accepted
+start has its timing stripped entirely — utterance bullet, inline
+word bullets, and the `%wor` tier are all removed (the
+`start_stripped` decision in the `%xalign` decision tier; see the
+[Monotonicity warnings table](#monotonicity-warnings)). The
+utterance is left as plain untimed text, identical to how it would
+look before alignment.
 
-This is the conservative choice: no information is corrupted, only alignment
-coverage is reduced.  The correctly-timed surrounding utterances retain their full
-word-level alignment.
+This is the conservative choice: no information is corrupted, only
+alignment coverage is reduced. The correctly-timed surrounding
+utterances retain their full word-level alignment.
 
 **Pre-serialization validation gate**: As an additional safety net,
-`validate_chat_structured()` runs the full E362 monotonicity check before any
-CHAT is serialized to disk. If the post-FA pass has a bug, the validation gate
-blocks invalid output through the normal Rust-owned validation failure path
-(server-side `ChatValidationError` metadata, or structured validation surfaced
-through the Python compatibility layer).
+the post-validation walk at the end of
+`process_one_fa_file()` (in
+`crates/batchalign/src/runner/dispatch/fa_pipeline.rs`) checks the
+full output against the talkbank-model validators (including E362
+monotonicity) before serialization. The walk is warn-only — output
+is always serialized so it can be inspected — but the warnings are
+the early signal that the post-FA enforcement layer above missed
+something.
 
 ### Real-world impact
 

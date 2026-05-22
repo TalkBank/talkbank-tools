@@ -2,7 +2,7 @@
 
 **Status:** Current
 **Last verified:** 2026-04-02 20:47 EDT
-**Last updated:** 2026-04-29 08:30 EDT
+**Last updated:** 2026-05-20 01:09 EDT
 
 This document is the implementation spec for the live typed worker boundary
 currently named `worker_v2`.
@@ -603,7 +603,8 @@ Current implementation status:
   staged Rust result adapter already form one coherent cross-language seam
 - `batchalign/worker/_execute_v2.py` now exposes a live `execute_v2` stdio
   handler that routes forced-alignment requests into the typed V2 executor
-- `crates/batchalign/src/worker/handle.rs` and
+- `crates/batchalign/src/worker/handle/` (mod.rs + spawn.rs +
+  ipc.rs + lifecycle.rs + protocol.rs) and
   `crates/batchalign/src/worker/pool/mod.rs` now carry that `execute_v2`
   op across the long-lived worker process boundary
 - live full-file FA and incremental FA now use the V2 execute path in
@@ -632,8 +633,9 @@ Current implementation status:
   responses back into the established Rust `AsrResponse` domain
 - `batchalign/worker/_execute_v2.py` now routes all live Python-hosted ASR
   through the `execute_v2` stdio boundary
-- `crates/batchalign/src/transcribe.rs` now uses that live V2 path for all
-  Python-hosted ASR; only Rev.AI bypasses Python and stays Rust-owned
+- `crates/batchalign/src/transcribe/` (directory module) now uses
+  that live V2 path for all Python-hosted ASR; only Rev.AI bypasses
+  Python and stays Rust-owned
 
 ### Phase 5. Speaker migration
 
@@ -702,7 +704,9 @@ Responses are written under a stdout lock so JSON lines never interleave.
 
 ### Rust side
 
-The `SharedGpuWorker` type (in `pool/shared_gpu.rs`) replaces the exclusive
+The `SharedGpuWorker` type (in
+`crates/batchalign/src/worker/pool/shared_gpu/`, with the transport
+split between `stdio.rs` and `tcp.rs`) replaces the exclusive
 `CheckedOutWorker` for GPU profile dispatch:
 
 ```mermaid

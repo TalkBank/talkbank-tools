@@ -1,7 +1,7 @@
 # `whisper_hub` ASR Engine
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 ## What it is
 
@@ -94,9 +94,9 @@ Artifacts live in an operational workspace outside this public repo.
 
 - Single audio file. A native Malayalam reader should compare word-level
   accuracy before shipping this default for a large corpus.
-- CPU inference (no GPU numbers). `thennal/whisper-medium-ml` took 353
-  seconds on ming's CPU for 73 seconds of audio (4.8× real-time slower).
-  GPU should be ~3–5× faster than real-time.
+- CPU inference (no GPU numbers). `thennal/whisper-medium-ml` took
+  353 seconds on a development machine's CPU for 73 seconds of audio
+  (4.8× real-time slower). GPU should be ~3–5× faster than real-time.
 
 ## Fine-tune gotchas
 

@@ -73,6 +73,26 @@ pub struct MorWord {
 }
 
 impl MorWord {
+    /// Return `true` for `%mor` items whose POS tag is one of the CHAT
+    /// punctuation markers (`cm`, `punct`, `end`, `beg`).
+    ///
+    /// CLAN's analysis commands (`mlu`, `wdlen`, `vocd`, …) exclude
+    /// these from morpheme / token counts even though they appear as
+    /// real chunks on the `%mor` tier and on the `%gra` index. The
+    /// mapping table in
+    /// `crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`
+    /// projects all four onto `PUNCT` in UD-space; we surface the
+    /// same set here so callers can filter without re-reading the
+    /// raw POS string.
+    ///
+    /// Important: this is for **counting only**. Do **not** use it
+    /// to filter `Mor::count_chunks()` output, which addresses
+    /// `%gra` chunks — punctuation tokens have a real GRA relation
+    /// (`PUNCT`) and must be preserved at the chunk level.
+    pub fn is_punctuation_marker(&self) -> bool {
+        matches!(self.pos.as_str(), "cm" | "punct" | "end" | "beg")
+    }
+
     /// Create a new morphological word with the given POS and lemma.
     ///
     /// Features start empty and can be layered in with builder helpers.

@@ -1,7 +1,7 @@
 # Host Facts Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-10 08:31 EDT
+**Last updated:** 2026-05-19 22:51 EDT
 
 The host-facts pipeline is the four-layer architecture that resolves
 operator overrides against detected host capabilities and warns when
@@ -12,8 +12,8 @@ each host's resolved values come from the recommendation function
 when the operator hasn't overridden them.
 
 For the operator surface, see [`doctor`](../user-guide/doctor.md).
-This architecture was motivated by a queue-wait incident on
-2026-04-25.
+This architecture was motivated by a queue-wait incident on a
+production-grade host.
 
 ## The four layers
 
@@ -197,7 +197,7 @@ a small cleanup; deferred until the cost actually shows up.
    `Display`, the rule in `validate()`, and 5 tests (above, equal,
    below, None, Display contract).
 9. **Doctor**: add an arm to `explain_knob` in
-   `crates/batchalign/src/doctor_cmd.rs` so
+   `crates/batchalign/src/cli/doctor_cmd.rs` so
    `doctor --explain NEW` works. The
    `explain_handles_every_documented_knob` test catches forgotten
    arms.
@@ -212,7 +212,7 @@ a small cleanup; deferred until the cost actually shows up.
 
 External consumers (the doctor JSON output, future operator tools)
 read through projection types in
-`crates/batchalign/src/doctor_cmd.rs`:
+`crates/batchalign/src/cli/doctor_cmd.rs`:
 
 - `HostFactsReport { detected, effective, validation }`
 - `EffectiveConfigSummary` (flat bag of resolved scalars)

@@ -1,7 +1,7 @@
 # Preprocessing and Postprocessing for Model Inference
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 All domain logic — text normalization, alignment, result injection, and error recovery — lives in Rust. Python workers are stateless ML inference endpoints. This chapter documents the preprocessing that prepares data for inference and the postprocessing that incorporates results back into the CHAT AST.
 
@@ -21,7 +21,7 @@ Rust: validate response → align with AST → inject results → serialize CHAT
 
 ### Morphosyntax
 
-**Extract** (`morphosyntax.rs: collect_payloads`):
+**Extract** (`talkbank-transform/morphosyntax/payload.rs::collect_payloads`):
 1. Walk content with `walk_words(domain=Mor)`
 2. Collect `cleaned_text()` for each alignable word
 3. Replace special forms (`@c` → `"xbxxx"`, `@s` → language marker) — Stanza can't handle CHAT-specific markers
@@ -34,7 +34,8 @@ Rust: validate response → align with AST → inject results → serialize CHAT
 
 **Python returns:** Raw Stanza `to_dict()` output — POS tags, lemmas, dependency parse, features.
 
-**Postprocess** (`morphosyntax/inject.rs`, `retokenize/`, `nlp/mapping/`):
+**Postprocess** (`talkbank-transform/morphosyntax/injection.rs`,
+`talkbank-transform/retokenize/`, `talkbank-transform/morphosyntax/sentence_mapping.rs`):
 
 Two injection paths diverge based on `TokenizationMode`:
 
@@ -45,11 +46,23 @@ Both paths share GRA generation via `build_gra_and_validate()`.
 
 Steps:
 1. **Range token filtering** (Retokenize only): exclude `UdId::Range` parent entries from the token vector — only component words appear.
-2. **Grammatical-invariant rewrites** (`apply_grammatical_invariants`, `nlp/invariants/`): operate on the typed `UdSentence` BEFORE `map_ud_sentence` runs. English primary only today, dispatched via `lang2(&ctx.lang)` in `nlp/mapping/context.rs`. The only rule shipped so far is `finite_verb_main_clause::rescue_english_copula_progressive` — detects `<noun>'s <-ing>` patterns that Stanza mis-parses as possessive-gerund and rewrites them into a coherent copula-progressive tree (PART → AUX `be`, root NOUN → VERB VerbForm=Part, governor deprel → nsubj). See [Stanza Limitations — Defect 1](../reference/stanza-limitations.md) for the defect description and re-evaluation procedure.
+2. **Grammatical-invariant rewrites** (`apply_grammatical_invariants` at
+   `talkbank-transform/morphosyntax/invariants.rs:14`,
+   `talkbank-transform/morphosyntax/invariants/` for the per-rule modules):
+   operate on the typed `UdSentence` BEFORE `map_ud_sentence` runs. English
+   primary only today, dispatched via `lang2(&ctx.lang)` in
+   `talkbank-transform/morphosyntax/sentence_mapping.rs`. The only rule
+   shipped so far is `finite_verb_main_clause::rescue_english_copula_progressive`
+   (at `invariants/finite_verb_main_clause.rs:9`) — detects `<noun>'s <-ing>`
+   patterns that Stanza mis-parses as possessive-gerund and rewrites them
+   into a coherent copula-progressive tree (PART → AUX `be`, root NOUN →
+   VERB VerbForm=Part, governor deprel → nsubj). See
+   [Stanza Limitations — Defect 1](../reference/stanza-limitations.md) for
+   the defect description and re-evaluation procedure.
 3. **UD → CHAT mapping:** Convert Universal Dependencies POS/features to TalkBank %mor format (category mappings, stem extraction, feature translation).
 4. **MWT handling:** In Preserve mode, multi-word tokens produce one clitic MOR (`pron|it~aux|be`). In Retokenize mode, each component gets its own MOR.
 5. **%gra construction:** Build dependency graph with chunk-based indexing (GRA indices are %mor chunk positions, not surface word positions).
-6. **L2 splice** (default; opt out with `--no-l2-morphotag`): after primary injection, @s words with `L2|xxx` are routed to secondary Stanza models and spliced back with real morphology. L2 extracts its `l2_deferred` positions from the ORIGINAL `ud_responses` captured before `apply_grammatical_invariants` ran (`pipeline/morphosyntax.rs:352-356`, `batch.rs`), so the English rewrite cannot corrupt L2 position mapping.
+6. **L2 splice** (default; opt out with `--no-l2-morphotag`): after primary injection, @s words with `L2|xxx` are routed to secondary Stanza models and spliced back with real morphology. L2 extracts its `l2_deferred` positions from the ORIGINAL `ud_responses` captured before `apply_grammatical_invariants` ran (`crates/batchalign/src/pipeline/morphosyntax.rs:352-356`, plus the L2 dispatch in `crates/batchalign/src/morphosyntax/batch.rs`), so the English rewrite cannot corrupt L2 position mapping.
 7. **Validation:** Check word count alignment, GRA cycle detection, chunk count consistency.
 8. **Injection:** Replace or add %mor and %gra dependent tiers on the utterance.
 
@@ -78,7 +91,7 @@ monotonicity enforcement, pause assignment, `%wor` tier generation.
 
 ASR preprocessing is the most complex because raw ASR output needs extensive normalization before it becomes CHAT:
 
-**ASR postprocessing pipeline** (`asr_postprocess/`):
+**ASR postprocessing pipeline** (`crates/talkbank-transform/src/asr_postprocess/`):
 
 | Stage | Module | What it does |
 |-------|--------|-------------|
@@ -90,6 +103,9 @@ ASR preprocessing is the most complex because raw ASR output needs extensive nor
 | 5. Long turn splitting | `mod.rs` | Break turns > 300 words into separate utterances |
 | 5b. Pause-based splitting | `mod.rs` | Long pauses in unpunctuated runs create utterance boundaries |
 | 6. Retokenization | `mod.rs` | Split into utterances by punctuation boundaries |
+
+All module filenames in the table above are under
+`crates/talkbank-transform/src/asr_postprocess/`.
 
 **Retokenization** (step 6) is particularly important: ASR produces one long stream of text, but CHAT needs it segmented into utterances. The retokenizer uses punctuation (`.`, `?`, `!`) as utterance boundaries and assigns timing from the ASR tokens.
 
@@ -105,7 +121,7 @@ for the full rule set and probe-verdict citations.
 ```mermaid
 flowchart TD
     Raw["AsrOutput\n(raw provider tokens)"]
-    TPS["strip_english_title_periods_on_elements\n(asr_postprocess/cleanup.rs)\n⚠ BEFORE stage 3 split"]
+    TPS["strip_english_title_periods_on_elements\n(talkbank-transform/asr_postprocess/cleanup.rs)\n⚠ BEFORE stage 3 split"]
     S3["stage 3: split_multiword_tokens\n(. treated as separator)"]
     S4b["stages 4b–5b:\ncompound merge, number expansion,\nCJK norm, long-turn/pause splits"]
     ICap["apply_english_transcribe_rules_pre_retokenize\n(I-cap on words)"]
@@ -171,11 +187,14 @@ Each task computes a cache key from its input payload, so identical inputs skip 
 
 | Task | Cache key formula |
 |------|------------------|
-| Morphosyntax | `SHA256("{words}|{lang}|mwt")` |
-| Utseg | `SHA256("{words}|{lang}")` |
-| Translation | `SHA256("{text}|{src_lang}|{tgt_lang}")` |
-| FA | `SHA256("{audio_identity}|{start}|{end}|{text}|{pauses}|{engine}")` |
+| Morphosyntax | `BLAKE3("{words}|{lang}|mwt")` |
+| Utseg | `BLAKE3("{words}|{lang}")` |
+| Translation | `BLAKE3("{text}|{src_lang}|{tgt_lang}")` |
+| FA | `BLAKE3("{audio_identity}|{start}|{end}|{text}|{pauses}|{engine}")` |
 | UTR ASR | `BLAKE3("utr_asr|{audio_identity}|{lang}")` |
 | Coref | No caching (document-level context) |
+
+Cache keys are 64-char hex BLAKE3 hashes via the shared
+`CacheKey::from_content` newtype (`crates/batchalign/src/chat_ops/cache_key.rs:23`).
 
 Cache is tiered: moka in-memory (hot) → SQLite on-disk (cold).

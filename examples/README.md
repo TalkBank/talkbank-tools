@@ -5,7 +5,7 @@
 | Example | Description | Usage |
 |---------|-------------|-------|
 | `simple_roundtrip.rs` | Parse CHAT from stdin, serialize back to stdout | `echo '@UTF8\n...' \| cargo run --example simple_roundtrip` |
-| `compare_parsers.rs` | Parse a file with both tree-sitter and direct parsers, compare output | `cargo run --example compare_parsers -- path/to/file.cha` |
+| `compare_parsers.rs` | Parse a file twice with `TreeSitterParser` and diff the AST. Useful for narrowing parser non-determinism; not a tree-sitter-vs-re2c oracle (for that, use `cargo run --release -p talkbank-cli -- validate --parser re2c`). | `cargo run --example compare_parsers -- path/to/file.cha` |
 
 ## Developer / Debug Tools
 
@@ -27,7 +27,7 @@ These examples are useful for debugging parser and model issues during developme
 | `test_action_annot.rs` | Test action annotation parsing |
 | `test_group.rs` | Test group/bracket parsing |
 | `test_pause_parsing.rs` | Test pause notation parsing |
-| `test_rust_parser.rs` | Test direct parser on specific files |
+| `test_rust_parser.rs` | Smoke-test `TreeSitterParser` on a specific file |
 | `test_stability.rs` | Test parse stability across multiple passes |
 
 ## Profiling Tools

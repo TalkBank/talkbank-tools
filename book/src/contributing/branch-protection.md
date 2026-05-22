@@ -1,7 +1,7 @@
 # Branch Protection and Required CI Checks
 
 **Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Last updated:** 2026-05-21 13:05 EDT
 
 This page defines the required status checks and protection policy for `main`.
 
@@ -17,7 +17,7 @@ Enable branch protection for `main` with:
 Configure these CI checks as required:
 - `Rust Check and Test`
 - `Spec Tools Check and Test`
-- `Grammar Generate and Test`
+- `Grammar (tree-sitter)`
 - `Generated Artifacts Up To Date`
 
 These checks are defined in `.github/workflows/ci.yml`.

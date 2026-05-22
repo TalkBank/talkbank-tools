@@ -157,7 +157,11 @@ fn parse_elan(content: &str) -> Result<Vec<ElanTier>, TransformError> {
                 }
             }
             Ok(Event::Text(e)) if in_annotation_value => {
-                let decoded = e.xml_content().map_err(|err| {
+                // quick-xml 0.40 split `xml_content()` into version-keyed
+                // variants. ELAN's `.eaf` files are XML 1.0 (declared in
+                // their `<?xml version="1.0" …?>` header), so the 1.0
+                // shortcut preserves prior behaviour byte-for-byte.
+                let decoded = e.xml10_content().map_err(|err| {
                     TransformError::Parse(format!("Invalid ANNOTATION_VALUE text: {err}"))
                 })?;
                 annotation_text.push_str(&decoded);

@@ -1,7 +1,7 @@
 # Tauri + React Dashboard
 
 **Status:** Current
-**Last updated:** 2026-03-19
+**Last updated:** 2026-05-20 00:57 EDT
 
 ## Overview
 
@@ -288,7 +288,7 @@ error with instructions (non-interactive).
 Run the shell-focused Rust tests with:
 
 ```bash
-cargo test --manifest-path apps/dashboard-apps/chatter-desktop/src-tauri/Cargo.toml
+cargo test --manifest-path apps/dashboard-desktop/src-tauri/Cargo.toml
 ```
 
 These tests intentionally cover the native shell contracts only:

@@ -120,14 +120,15 @@ impl CommandOutput for FreqposResult {
         use std::fmt::Write;
         let mut out = String::new();
 
-        // Find the max display form length for alignment
+        // Find the max display form length for alignment.
+        // CLAN's freqpos uses a 20-character word-display column.
         let max_display_len = self
             .entries
             .iter()
             .map(|e| e.display_form.len())
             .max()
             .unwrap_or(0)
-            .max(21);
+            .max(20);
 
         for entry in &self.entries {
             writeln!(

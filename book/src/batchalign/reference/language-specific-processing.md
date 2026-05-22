@@ -1,6 +1,8 @@
 # Language-Specific Processing Overview
 
 **Status:** Current
+**Last updated:** 2026-05-20 20:22 EDT
+
 This page is the single entry point for understanding how batchalign3 handles
 non-English languages. It maps every stage of the processing pipeline to the
 language-specific behavior at that stage.
@@ -38,20 +40,27 @@ flowchart TD
 
 ### Stage 1: Model Resolution
 
-Language determines which fine-tuned model is loaded for ASR. See
-[Language Code Resolution](language-code-resolution.md) for the full mapping.
+The default `--asr-engine whisper` loads `openai/whisper-large-v3`
+across every language (`batchalign/inference/asr.py:120`). UTR is
+engine-based: `--utr-engine whisper` loads `openai/whisper-large-v2`,
+`--utr-engine rev` uses Rev.AI's cloud API, and
+`--utr-engine-custom tencent_utr` routes to Tencent. There is no
+per-language fine-tune resolver wired into `--asr-engine whisper` or
+the UTR engines; per-language fine-tunes are opt-in through the
+separate `--asr-engine whisper_hub` engine (see
+[Whisper Hub ASR](whisper-hub-asr.md) for the seeded entries — today
+only `mal → thennal/whisper-medium-ml`).
 
-| Language | ASR Model | UTR Model |
-|----------|-----------|-----------|
-| English (eng) | `talkbank/CHATWhisper-en` | `talkbank/CHATWhisper-en-large-v1` |
-| Cantonese (yue) | `alvanlii/whisper-small-cantonese` | `openai/whisper-large-v2` |
-| Hebrew (heb) | `ivrit-ai/whisper-large-v3` | `openai/whisper-large-v2` |
-| All others | `openai/whisper-large-v3` | `openai/whisper-large-v2` |
+| Engine | Model |
+|--------|-------|
+| `--asr-engine whisper` (default) | `openai/whisper-large-v3` for all languages |
+| `--asr-engine whisper-oai` | always `whisper-turbo` |
+| `--asr-engine whisperx` | always `whisper-large-v2` |
+| `--asr-engine whisper_hub` | per-language HuggingFace fine-tune via `_RESOLVER` or explicit `--engine-overrides model_id` |
+| `--utr-engine whisper` | `openai/whisper-large-v2` for every language |
 
-Only the HuggingFace `--asr-engine whisper` engine uses language-specific
-resolution. `--asr-engine whisper-oai` always loads `whisper-turbo`;
-`--asr-engine whisperx` always loads `whisper-large-v2`. See
-[Whisper ASR](whisper-asr.md).
+See [Language Code Resolution](language-code-resolution.md) and
+[Whisper ASR](whisper-asr.md) for the full picture.
 
 ### Stage 2: Number Expansion
 
@@ -59,13 +68,15 @@ Digit strings in ASR output are converted to language-appropriate word forms.
 
 | Language group | Method | Example |
 |----------------|--------|---------|
-| Mandarin (zho, cmn) | `num2chinese` (simplified) | 42 → 四十二 |
-| Cantonese (yue), Japanese (jpn) | `num2chinese` (traditional) | 42 → 四十二, 10000 → 一萬 |
-| 12 table languages | NUM2LANG JSON lookup | 5 → "five" (eng), "cinco" (spa), "cinq" (fra) |
+| Mandarin (zho, cmn) | `num2chinese` (simplified) | 10000 → 一万 |
+| Cantonese (yue), Japanese (jpn) | `num2chinese` (traditional) | 10000 → 一萬 |
+| Table languages | NUM2LANG JSON lookup | 5 → "five" (eng), "cinco" (spa), "cinq" (fra) |
 | All others | Pass-through (no expansion) | 42 → "42" |
 
-The 12 table languages: `deu`, `ell`, `eng`, `eus`, `fra`, `hrv`, `ind`,
-`jpn`, `nld`, `por`, `spa`, `tha`.
+The table-driven languages are enumerated in
+`crates/talkbank-transform/data/num2lang.json` (46 entries today;
+re-derive via `python3 -c "import json; print(sorted(json.load(open('crates/talkbank-transform/data/num2lang.json'))))"`
+rather than maintaining a parallel list here).
 
 See [Number Expansion](number-expansion.md) for details on the Chinese
 character conversion algorithm and the table-based approach.
@@ -134,9 +145,9 @@ Cross-language infrastructure:
 
 | Feature | What | Reference |
 |---------|------|-----------|
-| MWT dispatch table | Explicit allowlist; 39 languages currently enable MWT | §X1 |
-| ISO 639-3 → 639-1 mapping | 55 explicit mappings, including yue→zh and cmn→zh | [Language Code Resolution](language-code-resolution.md) |
-| Number expansion | 12 table languages + Chinese/Japanese | [Number Expansion](number-expansion.md) |
+| MWT dispatch | Capability-driven via `should_request_mwt()` against the cached Stanza catalog | §X1 + [Stanza Limitations Defect 5](stanza-limitations.md) |
+| ISO 639-3 → 639-1 mapping | `iso3_to_alpha2()` + `_ISO3_OVERRIDES` (Stanza-specific overrides) for codes like yue/cmn/zho → `zh-hans`, nor → `nb` | [Language Code Resolution](language-code-resolution.md) |
+| Number expansion | Table-driven via `num2lang.json` + `num2chinese.rs` for CJK | [Number Expansion](number-expansion.md) |
 
 ### Stage 7: Forced Alignment
 

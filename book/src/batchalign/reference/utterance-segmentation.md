@@ -1,7 +1,7 @@
 # Utterance Segmentation
 
 **Status:** Current
-**Last updated:** 2026-05-05 08:21 EDT
+**Last updated:** 2026-05-19 14:18 EDT
 
 Utterance segmentation splits continuous ASR output into individual utterances
 for CHAT transcription. This is a critical step — CHAT requires one utterance
@@ -191,7 +191,7 @@ To add utterance segmentation for a new language:
 
 | File | Purpose |
 |------|---------|
-| `batchalign/src/asr_postprocess/mod.rs` | Typed ASR normalization + punctuation retokenization |
+| `crates/talkbank-transform/src/asr_postprocess/mod.rs` | Typed ASR normalization + punctuation retokenization |
 | `batchalign/models/utterance/infer.py` | BA2-style utterance model runtime |
 | `batchalign/worker/_model_loading/utterance.py` | Utterance model bootstrap |
 | `batchalign/inference/utseg.py` | Worker-side utseg dispatch (typed assignments or Stanza trees) |

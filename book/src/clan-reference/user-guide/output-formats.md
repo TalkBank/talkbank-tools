@@ -1,6 +1,8 @@
 # Output Formats
 
 **Status:** Current
+**Last updated:** 2026-05-21 15:35 EDT
+
 Every analysis command produces a typed result that can be rendered in multiple formats.
 
 ## Text (default)
@@ -33,7 +35,26 @@ Tabular output for spreadsheet tools:
 chatter clan mlu --format csv file.cha
 ```
 
+## Transform commands: `-o, --output`
+
+Transform commands (`chstring`, `combtier`, `compound`, `dataclean`,
+`dates`, `delim`, `fixbullets`, `fixit`, `flo`, `gem`, `indent`,
+`lines`, `longtier`, `lowcase`, `makemod`, `ort`, `postmortem`,
+`quotes`, `repeat`, `retrace`, `roles`, `tierorder`, `trim`) and
+format converters (`chat2*`, `*2chat`) accept a shared
+`-o, --output <PATH>` flag for choosing where the rewritten CHAT (or
+target-format) bytes go. The default is stdout.
+
+```bash
+chatter clan delim file.cha                       # writes to stdout
+chatter clan delim file.cha -o file-fixed.cha     # writes to a file
+chatter clan delim file.cha --output file-fixed.cha
+```
+
+The `--format` flag does **not** apply to transform commands — they
+emit the full CHAT (or target-format) file, not analysis output.
+
 ## Notes
 
-- Transform commands write modified CHAT files, not analysis output — format flags don't apply
-- Converters produce the target format (SRT, ELAN XML, etc.)
+- Transform commands write modified CHAT files, not analysis output — `--format` flags don't apply
+- Converters produce the target format (SRT, ELAN XML, etc.) and respect `-o, --output`

@@ -1,7 +1,7 @@
 # Command Contracts: Input Preconditions and Output Guarantees
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:25 EDT
+**Last updated:** 2026-05-19 20:10 EDT
 
 This document specifies, for each batchalign3 command that operates
 on CHAT files, the minimum input validity required, what the command
@@ -110,7 +110,7 @@ This is the ideal state, but no command requires it as a precondition.
 **Input:** CHAT file with main tier utterances
 
 **Reads:**
-- Main tier words (via `collect_utterance_content()` in `AlignmentDomain::Mor`)
+- Main tier words (via `collect_utterance_content()` in `TierDomain::Mor`)
 - `@Languages` header (determines Stanza model language)
 - Per-utterance language markers (`[- spa]`) for multilingual filtering
 - Special form markers (`@s`, `@c`, `@b`) on words for POS override
@@ -158,7 +158,7 @@ and `%gra` tiers may be absent or invalid — they will be replaced.
 per speaker turn from ASR output)
 
 **Reads:**
-- Main tier words (via `collect_utterance_content()` in `AlignmentDomain::Mor`)
+- Main tier words (via `collect_utterance_content()` in `TierDomain::Mor`)
 
 **Writes:**
 - Utterance structure: splits multi-word utterances into multiple utterances
@@ -377,10 +377,12 @@ No CHAT contract applies.
 
 ## Pre-Validation Gate Design
 
-### Proposed Implementation
+### Current Implementation
 
 Each command declares its minimum validity level. Before dispatching to the
-orchestrator, the runner validates the parsed CHAT file to that level:
+orchestrator, the runner validates the parsed CHAT file to that level
+(call sites: `coref.rs`, `pipeline/text_infer.rs`, `pipeline/morphosyntax.rs`,
+`morphosyntax/mod.rs`):
 
 ```text
 Runner receives file
@@ -432,16 +434,8 @@ validate strictly against the command's requirements.
 
 ## Post-Processing Validation
 
-### Current Gap
-
-The Python pipeline runs `validate_output()` (alignment + semantic validation)
-before serializing. The Rust server-side orchestrators do NOT — they only run
-command-specific post-checks (e.g., `validate_mor_alignment` for morphotag).
-
-### Proposed Fix
-
-All server-side orchestrators should run a post-processing validation gate
-before returning the serialized CHAT. The gate should check:
+All server-side orchestrators run a post-processing validation gate
+before returning the serialized CHAT. The gate checks:
 
 1. **Alignment validation**: tier word counts match (for commands that write
    dependent tiers)
@@ -450,7 +444,14 @@ before returning the serialized CHAT. The gate should check:
 3. **Structural validity**: the output file meets at least its input validity
    level (no degradation)
 
-On failure: file the bug report, mark the file as error, return the original
+Call sites: `crates/batchalign/src/coref.rs:193`, `:371`;
+`crates/batchalign/src/pipeline/text_infer.rs:95`, `:291`;
+`crates/batchalign/src/pipeline/morphosyntax.rs:461`;
+`crates/batchalign/src/morphosyntax/mod.rs:208`. The underlying
+functions (`validate_to_level`, `validate_output`) live in
+`crates/talkbank-transform/src/validate.rs`.
+
+On failure: file a bug report, mark the file as error, return the original
 input file unchanged (do not write corrupt output).
 
 ---

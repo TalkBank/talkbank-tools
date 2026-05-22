@@ -1,7 +1,7 @@
 # Debugging Infrastructure
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-19 22:43 EDT
 
 ## Design Goal
 
@@ -45,7 +45,6 @@ regardless of whether `--debug-dir` was specified:
 
 | Dump file | Trigger | Contents |
 |-----------|---------|----------|
-| `batch_failure_morphosyntax_{timestamp}.json` | Morphosyntax batch parse failure | All batch items (words + lang), error message |
 | `failed_ipc_{timestamp}.json` | Any worker IPC failure (timeout, crash, protocol) | Full request JSON, error type/message, worker PID + label, response fragment |
 
 These dumps are small (word lists, not audio) and the failure rate is low,
@@ -61,27 +60,29 @@ manual package patching to capture the payload.
 When `--debug-dir /path/to/dir` is passed (or `BATCHALIGN_DEBUG_DIR` is set),
 the `DebugDumper` writes detailed pipeline artifacts:
 
-| Artifact | Pipeline | Contents |
-|----------|----------|----------|
-| `{stem}_pre_morphosyntax.cha` | Morphotag | CHAT before morphosyntax injection |
-| `{stem}_morphosyntax_extracted.json` | Morphotag | Batch items sent to Python |
-| `{stem}_morphosyntax_ud_responses.json` | Morphotag | Raw Stanza output |
-| `{stem}_utr_input.cha` | Align | CHAT before UTR timing injection |
-| `{stem}_utr_tokens.json` | Align | ASR timing tokens |
-| `{stem}_fa_input.cha` | Align | CHAT before FA |
-| `{stem}_fa_grouping.json` | Align | FA group structure |
-| `{stem}_fa_group_{n}.json` | Align | Per-group FA timings |
-| `{stem}_asr_response.json` | Transcribe | Raw ASR output |
-| `{stem}_post_asr.cha` | Transcribe | CHAT after ASR assembly |
+| Artifact | Pipeline | Contents | DebugDumper method |
+|----------|----------|----------|---------------------|
+| `{stem}_pre_morphosyntax.cha` | Morphotag | CHAT before morphosyntax injection | `dump_pre_morphosyntax_chat` |
+| `{stem}_utr_input.cha` | Align | CHAT before UTR timing injection | `dump_utr_input` |
+| `{stem}_utr_tokens.json` | Align | ASR timing tokens | `dump_utr_tokens` |
+| `{stem}_fa_input.cha` | Align | CHAT before FA | `dump_fa_grouping` (writes `_fa_input.cha`) |
+| `{stem}_fa_grouping.json` | Align | FA group structure | `dump_fa_grouping` |
+| `{stem}_fa_group_{n}.json` | Align | Per-group FA timings | `dump_fa_group_result` |
+| `{stem}_asr_response.json` | Transcribe | Raw ASR output | `dump_asr_response` |
+| `{stem}_post_asr.cha` | Transcribe | CHAT after ASR assembly | `dump_post_asr_chat` |
 
 These are **zero-cost when disabled** — `DebugDumper` methods return
 immediately without allocation when constructed without a directory.
 
-## Structured Diagnostics (`stanza_raw::diagnose_parse_failure`)
+## Structured Diagnostics (`talkbank_transform::morphosyntax::stanza_raw::diagnose_parse_failure`)
 
 Instead of relying on raw serde deserialization errors ("missing field
-`lemma`"), the diagnostics function scans Stanza's raw `to_dict()` output
-and produces structured, actionable reports:
+`lemma`"), the diagnostics function scans Stanza's raw `to_dict()`
+output and produces structured, actionable reports. Source:
+`crates/talkbank-transform/src/morphosyntax/stanza_raw.rs:50` for the
+`StanzaWordDiagnostic` struct, `:76` for `diagnose_parse_failure`,
+`:217` for `normalize_word_dict`. Consumed by the batchalign-side
+worker at `crates/batchalign/src/morphosyntax/worker.rs:15,358`.
 
 ```rust
 pub struct StanzaWordDiagnostic {
@@ -222,8 +223,8 @@ diagnostics into a `MorphosyntaxTrace` that the dashboard can display.
 
 | File | What |
 |------|------|
-| `crates/batchalign/src/morphosyntax/stanza_raw.rs` | `normalize_word_dict()`, `diagnose_parse_failure()`, `StanzaWordDiagnostic` |
-| `crates/batchalign/src/morphosyntax/worker.rs` | Enriched error path with diagnostics |
-| `crates/batchalign/src/morphosyntax/batch.rs` | Error-path batch dump |
-| `crates/batchalign/src/runner/debug_dumper.rs` | `DebugDumper` + `dump_morphosyntax_failed_batch()` |
-| `crates/batchalign/src/worker/handle/mod.rs` | `dump_failed_ipc_request()` for all IPC failures |
+| `crates/talkbank-transform/src/morphosyntax/stanza_raw.rs` | `normalize_word_dict()`, `diagnose_parse_failure()`, `StanzaWordDiagnostic` |
+| `crates/batchalign/src/morphosyntax/worker.rs` | Enriched error path with diagnostics (imports `diagnose_parse_failure` from `talkbank_transform::morphosyntax`) |
+| `crates/batchalign/src/morphosyntax/batch.rs` | Error-path batch handling |
+| `crates/batchalign/src/runner/debug_dumper.rs` | `DebugDumper` and per-artifact dump methods (see Layer 3 table) |
+| `crates/batchalign/src/worker/handle/protocol.rs:155` | `dump_failed_ipc_request()` for all IPC failures (called from `worker/handle/ipc.rs`) |

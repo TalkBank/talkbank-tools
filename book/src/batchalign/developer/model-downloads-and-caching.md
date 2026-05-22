@@ -1,7 +1,7 @@
 # Model Downloads and Caching (Developer Reference)
 
 **Status:** Current
-**Last updated:** 2026-05-06 13:34 EDT
+**Last updated:** 2026-05-19 23:48 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
 models — the contributor-facing complement to the
@@ -183,19 +183,23 @@ cached — running them twice runs the model twice.
 
 ### Cache-breaking changes log
 
-When the morphosyntax pipeline changes in a way that produces different
-results for the same input, the pipeline version constant in `cache.rs`
-(`MORPHOSYNTAX_PIPELINE_VERSION`) is bumped. This invalidates all old
-cached results automatically — no user action required.
+When the morphosyntax pipeline changes in a way that produces
+different results for the same input, the cache namespace bumps via
+the `engine_version` + `ba_version` arguments that
+`crates/batchalign/src/cache/mod.rs` requires on every `put` /
+`put_batch` call (see lines 206–223). Old cached results miss
+automatically — no user action required.
 
 | Version | Date | Change | Impact |
 |---|---|---|---|
 | 1 | pre-2026 | Original Stanza-only pipeline | Baseline |
 | 2 | 2026-03-23 | Added PyCantonese POS override for Cantonese (`yue`) | All cached Cantonese %mor results invalidated. Re-running morphotag on Cantonese files produces corrected POS tags (佢哋→PRON instead of PROPN, etc.). Non-Cantonese cache entries unaffected but also invalidated (harmless — recomputed with same results). |
 
-When to bump:
+When to bump `ba_version` (rolling the morphosyntax pipeline forward):
 - Adding or removing POS post-processing (e.g., PyCantonese override)
-- Changing UD→CHAT mapping rules in `nlp/`
+- Changing UD→CHAT mapping rules in
+  `crates/talkbank-transform/src/morphosyntax/` (or the parallel
+  `crates/batchalign/src/chat_ops/nlp/mapping/`)
 - Changing Stanza model selection for a language
 - Fixing a bug that changes %mor / %gra output for existing inputs
 
@@ -237,10 +241,11 @@ First-run download is slow (minutes for Stanza, longer for Whisper).
 
 ### Fresh-install integration test
 
-`batchalign/tests/integration/test_fresh_install_morphotag.py` (planned)
-nukes the Stanza cache, starts a daemon, submits a morphotag job, asserts
-success. This is the canonical regression gate for the on-demand
-contract: if it fails, BA3 has reintroduced a download opt-out somewhere.
+`batchalign/tests/test_fresh_install_stanza_bootstrap.py` nukes the
+Stanza cache, walks the bootstrap path, and asserts the catalog
+auto-downloads. This is the canonical regression gate for the
+on-demand contract: if it fails, BA3 has reintroduced a download
+opt-out somewhere.
 
 ### OOM protection in golden tests
 

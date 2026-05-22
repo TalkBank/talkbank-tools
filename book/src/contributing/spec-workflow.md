@@ -1,7 +1,7 @@
 # Spec Workflow
 
 **Status:** Current
-**Last updated:** 2026-03-24 01:32 EDT
+**Last updated:** 2026-05-21 08:38 EDT
 
 Specifications in `spec/` are the source of truth for CHAT format intent, grammar
 examples, and validation/error contracts.
@@ -78,37 +78,42 @@ Error specs define invalid CHAT patterns with expected error codes.
 
 ### 1. Create the Spec File
 
-Error specs live in `spec/errors/`, named by error code:
-
-```text
-spec/errors/E301_missing_participants.md
-```
+Error specs live in `spec/errors/`, named by error code. The
+convention is `E###_auto.md` (or `E###_<short-slug>.md`); for example
+`spec/errors/E301_auto.md` covers "Empty speaker code".
 
 ### 2. Write the Spec
 
+The actual on-disk format (per `spec/errors/E301_auto.md`) uses
+bolded metadata keys; there is no `Name` field and severity is
+implicit in the error-code numbering:
+
 ```markdown
-# Error E301
-
-## Metadata
-
-- Code: E301
-- Name: missing_participants
-- Severity: Error
-- Layer: parser
+# E301: Empty speaker code
 
 ## Description
 
-The @Participants header is required in every CHAT file.
+Empty speaker code
 
-## Examples
+## Metadata
 
-### missing_participants_basic
+- **Error Code**: E301
+- **Category**: Main tier validation
+- **Level**: utterance
+- **Layer**: parser
+
+## Example 1
+
+**Source**: `E3xx_main_tier_errors/E301_empty_speaker.cha`
+**Trigger**: Main tier with * but no speaker code
+**Expected Error Codes**: E301
 
 \```chat
 @UTF8
 @Begin
-*CHI:	hello .
-@End
+@Languages:	eng
+@Participants:	CHI Child
+...
 \```
 ```
 

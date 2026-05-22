@@ -1,7 +1,7 @@
 # Portuguese
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-21 08:42 EDT
 
 ## Scope
 
@@ -68,8 +68,6 @@ word. Portuguese inherits this behavior for free.
   `batchalign/tests/investigations/test_stanza_mwt_probe_matrix.py`
   runs every case through paired pipelines. Invoke with
   `uv run pytest batchalign/tests/investigations/ -m golden`.
-* **Behavior-table renderer:**
-  `scripts/analysis/render_probe_matrix_table.py --lang por`.
 
 ## References
 

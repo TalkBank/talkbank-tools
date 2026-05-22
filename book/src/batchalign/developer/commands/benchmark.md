@@ -1,7 +1,7 @@
 # benchmark — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:18 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 Implementation guide for the `benchmark` command. For user-facing
 documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.md).
@@ -46,7 +46,7 @@ with a typed `GoldFileMissing` error.
 
 ```bash
 make test
-# Full ML golden test (ASR + compare — only on net)
+# Full ML golden test (ASR + compare — only on Fleet/Large-tier hosts)
 cargo nextest run --profile ml -E 'test(benchmark::golden)'
 ```
 

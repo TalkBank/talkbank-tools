@@ -1,7 +1,7 @@
 # morphotag — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-05 13:54 EDT
+**Last updated:** 2026-05-19 22:58 EDT
 
 Implementation guide for the `morphotag` command. For user-facing
 documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.md).
@@ -395,14 +395,18 @@ serialized so invalid files can be inspected for debugging. The validation gate
 exists to catch corruption from upstream defects (e.g., Stanza control-token
 leaks) that escape the ingress filter.
 
-Implementation: `crates/batchalign/src/chat_ops/morphosyntax_ops/validate.rs`,
-called from `crates/batchalign/src/morphosyntax/batch.rs:532–536`.
+Implementation: post-injection alignment validation lives in
+`crates/talkbank-transform/src/morphosyntax/injection.rs` (the module
+top comment names the responsibility, and the typed
+`MisalignmentBug` / `MisalignmentDiagnostic` paths fire at the result
+sites in that file). The batchalign-side `morphosyntax/worker.rs`
+calls the injection path and propagates the validation outcomes.
 
 ```bash
 # Unit tests (no ML models)
 make test
 
-# Morphotag golden tests (real Stanza models — only on net or machines with models)
+# Morphotag golden tests (real Stanza models — only on Fleet/Large-tier hosts with the models present)
 cargo nextest run --profile ml -E 'test(morphosyntax::)'
 
 # Retokenization unit tests

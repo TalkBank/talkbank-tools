@@ -1,7 +1,7 @@
 # Tutorial: Reviewing Aligned Files
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:10 EDT
 
 This tutorial walks through reviewing a CHAT file that was aligned by
 `batchalign3 align --bullet-repair`. It takes about 5 minutes to review
@@ -85,7 +85,8 @@ When the status bar shows all items rated (e.g., "Review: 7/7"), save the
 file with `Cmd+S`. The ratings are stored in the `%xrev` tiers — they're
 part of the CHAT file now.
 
-If you use `tb-deploy` to push changes, the ratings travel with the file.
+If you use the `tb` data-repo tool to push your edits (`tb push` from
+the workspace root), the ratings travel with the file.
 
 ## Step 6: Stop Review Mode
 

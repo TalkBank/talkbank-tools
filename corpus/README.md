@@ -2,78 +2,56 @@
 
 ## Overview
 
-The reference corpus at `corpus/reference/` is the 100%-pass quality gate for all parser/grammar changes. Both parsers (tree-sitter and chumsky direct parser) must agree on every file. Every file is self-describing with `@Comment:` headers explaining what it demonstrates.
+The reference corpus at `corpus/reference/` is the 100%-pass quality
+gate for all parser/grammar changes. Both parsers — the canonical
+tree-sitter parser (`talkbank-parser`) and the alternate re2c parser
+(`talkbank-parser-re2c`, used as a specification oracle and
+performance parser) — must agree on every file. Every file is
+self-describing with `@Comment:` headers explaining what it
+demonstrates.
 
 ## Structure
 
-```
-corpus/reference/
-├── core/           12 files — document structure, headers, metadata
-├── content/        11 files — main tier: words, terminators, linkers, pauses
-├── annotation/      8 files — brackets, retraces, groups, scoping
-├── tiers/          10 files — dependent tiers: %mor, %gra, %pho, %wor, etc.
-├── ca/              4 files — conversation analysis: overlaps, intonation
-├── audio/           5 files — audio-linked with %wor (5 .mp3 files)
-└── languages/      20 files — one per language, morphotagged with %mor/%gra
-```
+`corpus/reference/` is organized into subdirectories by what each
+group of files demonstrates:
 
-**Total: 74 files** across 20 languages. **Node coverage: 334/334 concrete types (100%)**.
+- `core/` — document structure, headers, metadata
+- `content/` — main tier: words, terminators, linkers, pauses
+- `annotation/` — brackets, retraces, groups, scoping
+- `tiers/` — dependent tiers: `%mor`, `%gra`, `%pho`, `%wor`, etc.
+- `ca/` — conversation analysis: overlaps, intonation
+- `audio/` — audio-linked files with `%wor` plus the matching `.mp3`s
+- `languages/` — one conversation per language, morphotagged with
+  `%mor`/`%gra`
+- `edge-cases/` — boundary and corner-case constructs
+- `word-features/` — feature-focused word-level fixtures
 
-## Subdirectory Details
-
-### `core/` — Document Structure (12 files)
-
-Headers, metadata, pre-begin headers, episodes, comments, warnings, unsupported constructs, multiline continuation.
-
-### `content/` — Main Tier Content (11 files)
-
-Words (basic, special forms, prosody), terminators (standard, continuation, question, quote/special), pauses and events, linkers, postcodes/freecodes, language switching, quotations, media bullets, separators.
-
-### `annotation/` — Bracketed Annotations (8 files)
-
-Error markers/replacements, retraces, overlap markers, scope markers, other markers, regular groups, phonological groups, sign groups, long features.
-
-### `tiers/` — Dependent Tiers (10 files)
-
-%mor/%gra, %pho, %sin, %wor, descriptive (%com/%act/%gpx/%sit/%exp), coding (%cod/%spa/%int etc.), other (%add/%alt/%def etc.), user-defined (%xtra/%xcod), unsupported, multi-tier utterance.
-
-### `ca/` — Conversation Analysis (4 files)
-
-Overlaps, intonation contours, uptake/special, nonvocal and long features. All files use `@Options: CA`.
-
-### `audio/` — Audio-Linked Files (5 files)
-
-| File | Language | Audio |
-|------|----------|-------|
-| `english-child-speech.cha` | eng | `english-child-speech.mp3` |
-| `chinese-adult-conversation.cha` | zho | `chinese-adult-conversation.mp3` |
-| `russian-child-narrative.cha` | rus | `russian-child-narrative.mp3` |
-| `spanish-child-speech.cha` | spa | `spanish-child-speech.mp3` |
-| `french-child-speech.cha` | fra | `french-child-speech.mp3` |
-
-### `languages/` — One Per Language (20 files)
-
-ara, dan, deu, ell, eng, est, fra, heb, hrv, hun, isl, ita, jpn, nld, pol, por, rus, spa, tur, zho. Each file has 3–5 utterances with %mor/%gra from batchalign3 morphotag.
-
-## Direct Parser Skip List
-
-`headers-unsupported.cha` contains constructs the direct parser does not support (unsupported headers, tiers, and lines). This file is tested with tree-sitter only — the direct parser comparison is skipped.
+The live file counts and node-coverage status are recomputed on every
+`make verify` / `make coverage` run; check those for current numbers.
 
 ## Validation
 
 ```bash
-make verify                    # All pre-merge gates (G0–G10)
-make coverage                  # Node coverage check (G10)
+make verify                    # All pre-merge gates
+make coverage                  # Node coverage check
 cargo run --release -p talkbank-cli -- validate corpus/reference/ --roundtrip --force
 ```
 
 ## Key Policies
 
-- All 74 files MUST pass parser equivalence at 100% (except skip-listed files).
-- If a grammar/parser change breaks even one file, revert immediately.
-- Every file has `@Comment:` headers explaining its purpose and constructs.
-- Language files have fresh %mor/%gra from batchalign3 morphotag.
+- Every file in `corpus/reference/` MUST pass parser equivalence
+  between tree-sitter and re2c, and roundtrip validation.
+- If a grammar/parser change breaks even one file, revert
+  immediately.
+- Every file has `@Comment:` headers explaining its purpose and
+  constructs.
+- Language files have fresh `%mor`/`%gra` from batchalign3 morphotag.
 - Never hand-edit generated artifacts.
 
+## See Also
+
+- The repo-root CLAUDE.md
+- `crates/talkbank-parser-tests/` — the equivalence-test harness
+
 ---
-Last Updated: 2026-03-01
+Last Updated: 2026-05-21

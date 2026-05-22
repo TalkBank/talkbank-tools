@@ -1,7 +1,7 @@
 # Batchalign Workers
 
 **Status:** Current
-**Last updated:** 2026-05-10 12:12 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 Per-app worker concerns specific to the Batchalign runtime: pool
 sizing, RAM-tier-aware memory budgets, model loading per worker,
@@ -339,43 +339,23 @@ Invariants:
 `HashMap<K, GroupSnapshot>`. Five unit tests in
 `worker/pool/eviction.rs` cover every selector branch.
 
-### Safeguard 2 — typed language-group failure propagation
+### Safeguard 2 — orchestrator-level failure propagation
 
-`crates/batchalign/src/morphosyntax/outcomes.rs`, `/batch.rs`. Even
+`crates/batchalign/src/morphosyntax/{mod.rs, worker.rs}`. Even
 with idle-eviction, a language group can still fail dispatch. The
 orchestrator must not silently continue with an empty `UdResponse`.
 
-```rust,ignore
-pub(super) struct LanguageGroupOutcome {
-    pub lang3: String,
-    pub global_indices: Vec<usize>,
-    pub result: Result<Vec<UdResponse>, ServerError>,
-}
+Each per-language-group infer call returns
+`Result<Vec<UdResponse>, ServerError>`. The morphosyntax orchestrator
+collects these results and, on any `Err`, propagates a typed
+`ServerError::Validation` upward with a message naming the failed
+languages. The `clear` step has already reset the affected files'
+tiers in place, so failure short-circuits before injection — no file
+is serialized with stripped tiers.
 
-pub(super) struct LanguageGroupFailure {
-    pub num_failed: usize,
-    pub languages: String,
-    pub failed: Vec<FailedLanguageGroup>,
-}
-
-pub(super) struct AggregatedOutcomes {
-    pub responses: Vec<UdResponse>,       // partial; successful groups populated
-    pub failure: Option<LanguageGroupFailure>,
-}
-
-pub(super) fn aggregate_language_group_outcomes(
-    outcomes: Vec<LanguageGroupOutcome>,
-    total_miss_count: usize,
-) -> AggregatedOutcomes;
-```
-
-The orchestrator computes `failure.affected_global_indices()` and
-marks every file whose miss range intersects that set as
-`TextBatchFileResult::err` with a message naming the failed
-languages. Injection is skipped for those files; the `clear` step
-has already reset their tiers in place, so skipping prevents
-serializing stripped output. Files whose languages all succeeded
-still get injected normally.
+Files whose language groups all succeeded still get injected normally;
+the CLI surfaces the per-file failure list through the standard
+job/file-status reporting path.
 
 ### End-to-end contract
 
@@ -450,16 +430,16 @@ forward-looking proposal under
 | File | Role |
 |---|---|
 | `runner/dispatch/infer_batched.rs` | Batch dispatcher: read → delegate → write |
-| `morphosyntax/batch.rs` | Morphotag batch: parse → collect → cache → dispatch → inject |
+| `morphosyntax/batch.rs` | Morphotag L2 dispatch for `@s` words |
 | `morphosyntax/worker.rs` | Per-language-group worker dispatch with chunking |
-| `morphosyntax/outcomes.rs` | Typed language-group outcome aggregation |
+| `morphosyntax/mod.rs` | Top-level morphotag orchestrator; aggregates per-language `Result<Vec<UdResponse>, ServerError>` and propagates failures upward |
 | `fa/mod.rs` | FA per-file processing |
 | `runner/dispatch/fa_pipeline.rs` | FA orchestrator with `JoinSet` concurrency |
 | `runner/dispatch/transcribe_pipeline.rs` | Transcribe per-file with optional morphotag |
 | `utseg.rs`, `translate.rs`, `coref.rs` | Other batched text commands |
 | `worker/pool/mod.rs` | Worker lifecycle and group management |
-| `worker/pool/eviction.rs` | Idle eviction + selector |
-| `worker/pool/checkout.rs` / `dispatch.rs` | Checkout state machine |
+| `worker/pool/eviction.rs` | Idle eviction (`try_evict_idle_from_other_group`, `select_eviction_target`) |
+| `worker/pool/checkout.rs` / `dispatch.rs` | Checkout state machine (saturation timeout, `worker_returned` notify) |
 | `runner/util/auto_tune.rs` | `compute_job_workers()` planning |
 | `types/runtime.rs` | Re-exports `MemoryTier::from_total_mb` and `estimate_per_worker_peak_mb_with_profile` from `batchalign-types::memory` (Phase β); `command_execution_budget_mb` for legacy callers. `MemoryTier` is the sole canonical source of per-tier per-profile envelopes (Principle 1); `estimate_per_worker_peak_mb_with_profile` is the tier-aware per-command estimator (Principle 2). |
-| `runtime_constants.toml` | Per-command base RAM (process and threaded variants), worker caps, command-to-task map. Generated from `batchalign-types/src/command_spec.rs` via `xtask gen-runtime-toml` (Phase β); do not edit directly. No longer holds per-profile worker startup envelopes — those live on `MemoryTier`. |
+| `batchalign/runtime_constants.toml` | Per-command base RAM (process and threaded variants), worker caps, command-to-task map. Generated from `batchalign-types/src/command_spec.rs` via `xtask gen-runtime-toml` (Phase β); do not edit directly. No longer holds per-profile worker startup envelopes — those live on `MemoryTier`. |

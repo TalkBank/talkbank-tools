@@ -1,7 +1,7 @@
 # Transcription from Audio
 
 **Status:** Current
-**Last updated:** 2026-04-16 16:55 EDT
+**Last updated:** 2026-05-21 14:10 EDT
 
 This chapter describes the end-to-end workflow for creating a new CHAT transcript from an audio recording using the extension's Transcription Mode.
 
@@ -49,7 +49,7 @@ that mutates the document.
 - An audio or video file (MP3, WAV, M4A, MP4, OGG)
 - A `.cha` file with at least a minimal CHAT header including an `@Media:` reference to the audio file
 
-If you are starting from scratch, create a new `.cha` file with this template (available via the `chatheader` snippet):
+If you are starting from scratch, create a new `.cha` file with this template (the same snippet expands from the prefixes `@UTF8`, `header`, or `newfile` in `vscode/snippets/chat.json`):
 
 ```text
 @UTF8

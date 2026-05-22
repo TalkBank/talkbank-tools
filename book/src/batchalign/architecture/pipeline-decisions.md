@@ -1,7 +1,7 @@
 # NLP Pipeline Decision Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:50 EDT
+**Last updated:** 2026-05-19 20:22 EDT
 
 This chapter documents how batchalign3's four NLP pipelines (morphotag,
 utseg, coref, forced alignment) represent per-utterance decisions, how
@@ -35,20 +35,20 @@ Four pipelines participate, each with its own natural shape:
 ```mermaid
 flowchart LR
     subgraph Morphotag
-        MP["collect_payloads<br/>(morphosyntax/payloads.rs)"] --> MD["Stanza worker"]
-        MD --> MI["inject_results<br/>(morphosyntax/inject.rs)"]
+        MP["collect_payloads<br/>(talkbank-transform/morphosyntax/payload.rs)"] --> MD["Stanza worker"]
+        MD --> MI["inject_results<br/>(talkbank-transform/morphosyntax/injection.rs)"]
     end
     subgraph Utseg
-        UP["collect_utseg_payloads<br/>(utseg.rs)"] --> UD["Stanza constituency worker"]
-        UD --> UI["apply_utseg_results<br/>(utseg.rs)"]
+        UP["collect_utseg_payloads<br/>(talkbank-transform/utseg.rs)"] --> UD["Stanza constituency worker"]
+        UD --> UI["apply_utseg_results<br/>(talkbank-transform/utseg.rs)"]
     end
     subgraph Coref
-        CP["collect_coref_payloads<br/>(coref.rs)"] --> CD["Stanza coref worker"]
-        CD --> CI["apply_coref_results_with_outcomes<br/>(coref.rs)"]
+        CP["collect_coref_payloads<br/>(talkbank-transform/coref.rs)"] --> CD["Stanza coref worker"]
+        CD --> CI["apply_coref_results_with_outcomes<br/>(talkbank-transform/coref.rs)"]
     end
     subgraph "Forced Alignment"
-        FU["fa::utr<br/>(pre-pass)"] --> FA["FA worker"]
-        FA --> FP["fa::repair<br/>(post-pass)"]
+        FU["fa::utr<br/>(batchalign/chat_ops/fa/utr.rs)"] --> FA["FA worker"]
+        FA --> FP["fa::orchestrate<br/>(batchalign/chat_ops/fa/orchestrate.rs)"]
     end
 ```
 

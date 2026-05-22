@@ -1,11 +1,14 @@
 # Rust Compilation Times: Findings and Optimizations
 
-**Status:** Current
-**Last updated:** 2026-03-24 00:01 EDT
+**Status:** Reference (historical analysis; current Cargo.toml profile knobs
+are the source of truth)
+**Last updated:** 2026-05-20 20:32 EDT
 
-This document summarizes the compilation performance analysis for the talkbank-tools
-workspace (10 crates, Apple M4 Max 16-core) and the changes made to improve
-iterative development speed.
+This document captures the compilation performance analysis that drove the
+current dev/test profile knobs in the workspace root `Cargo.toml`. The
+absolute measurements below were taken before the 2026-04-28 batchalign3
+fold roughly tripled the third-party dependency surface; subsequent updates
+are reflected in `Cargo.toml` comments, which are the source of truth.
 
 ## Background: How Rust Compilation Works
 
@@ -98,8 +101,12 @@ This overrides the global sccache setting for this project only, re-enabling
 incremental compilation. Other Rust projects on the system are unaffected.
 
 **Why not modify the global config?** Keeping the project-local override is
-safer — sccache may still be useful for other projects or CI workflows. The
-override is also version-controlled, so all contributors benefit.
+safer — sccache may still be useful for other projects or CI workflows.
+
+**Note:** `.cargo/config.toml` is gitignored (not committed) because the
+empty-string `rustc-wrapper = ""` value trips a `cargo-llvm-cov` bug that
+treats `""` as a real wrapper path instead of "no wrapper." Each
+contributor opts in locally; CI does not carry the override.
 
 ### Change 2: Reduced Debug Info
 
@@ -118,29 +125,33 @@ bulky type and variable metadata. You still get useful panic/backtrace output
 with source locations — you just can't inspect local variables in a debugger
 (lldb/gdb). For most development workflows this is the right tradeoff.
 
-### Change 3: Optimized Third-Party Dependencies
+### Change 3: Optimized Third-Party Dependencies — RETIRED post-fold
 
-```toml
-[profile.dev.package."*"]
-opt-level = 1
-```
+The original change set `[profile.dev.package."*"] opt-level = 1` to
+optimize every third-party crate. After the 2026-04-28 batchalign3 fold
+roughly tripled the third-party dependency surface (axum, async-trait,
+tokio's full feature set, etc.), the build-time cost of this setting
+became prohibitive, and the workspace `Cargo.toml` comment block now
+explains why it was removed.
 
-The `"*"` selector targets all non-workspace (third-party) crates. `-O1` is a
-lightweight optimization level that enables basic optimizations (inlining,
-dead code elimination) without the compile-time cost of `-O2`/`-O3`. Since
-Cargo caches compiled dependencies, this is a one-time cost that pays off
-every time you run tests.
+`[profile.test.package."*"] opt-level = 1` was also removed for the
+same reason; for specific tests where runtime is the bottleneck, opt
+in locally rather than reintroducing the workspace-wide setting.
 
-## Results
+## Results (pre-fold, 2026-03 measurement)
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| Clean build | ~3-5 min (est.) | **39s** |
-| Incremental rebuild (touch `talkbank-model`) | ~60-90s | **4s** |
-| Test runtime (serde/regex/tree-sitter hot paths) | Slow (-O0) | Faster (-O1) |
+The numbers below were captured pre-fold against the original ten-crate
+workspace. The fold roughly tripled the third-party dep set and forced
+retiring `[profile.dev.package."*"] opt-level = 1`; today's wall-clock
+will be slower and depends on which crate you touched. Re-run
+`cargo build --timings` on the current workspace if you need fresh
+numbers.
 
-The incremental rebuild improvement is the headline win: **~15-20x faster**
-for the most common development operation (change one file, rebuild).
+| Scenario | Before | After (pre-fold) |
+|----------|--------|------------------|
+| Clean build | ~3-5 min (est.) | ~39s |
+| Incremental rebuild (touch `talkbank-model`) | ~60-90s | ~4s |
+| Test runtime (serde/regex/tree-sitter hot paths) | Slow (-O0) | Faster (-O1, when opt-in) |
 
 ## Optional: Cranelift Backend for Maximum Iteration Speed
 

@@ -1,7 +1,7 @@
 # Hebrew Morphosyntax
 
 **Status:** Current
-**Last updated:** 2026-05-01 05:19 EDT
+**Last updated:** 2026-05-20 07:56 EDT
 
 Hebrew-specific handling in batchalign3's morphosyntax pipeline.
 
@@ -91,7 +91,7 @@ language's feature set, but only Stanza's Hebrew model actually produces
 these features:
 
 ```rust,ignore
-// batchalign/src/nlp/features.rs
+// crates/talkbank-transform/src/morphosyntax/features.rs (lines 43, 46)
 if let Some(v) = feats.get("HebBinyan") {
     parts.push(v.to_lowercase());
 }
@@ -118,21 +118,25 @@ Unlike English, French, Japanese, Italian, Portuguese, and Dutch, Hebrew has
 **no Stanza workarounds** in batchalign3. The HebBinyan and HebExistential
 feature mapping is standard UD feature processing, not a bug workaround.
 
-If systematic Stanza errors are discovered for Hebrew, a `nlp/lang_he.rs`
-file should be created following the pattern of existing language files.
+If systematic Stanza errors are discovered for Hebrew, a
+`crates/talkbank-transform/src/morphosyntax/lang_he.rs` file should
+be created following the pattern of existing language files
+(`lang_en.rs`, `lang_fr.rs`, `lang_it.rs`, `lang_ja.rs`).
 
 ## Source Files
 
 | File | What |
 |------|------|
-| `batchalign/src/nlp/features.rs` | HebBinyan/HebExistential extraction |
-| `batchalign/src/nlp/mapping.rs` | `heb` → `he` code mapping, integration tests |
+| `crates/talkbank-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
+| `crates/talkbank-transform/src/morphosyntax/types.rs:38` | `heb` → `he` code mapping (Rust ISO-3 → Stanza ISO-1) |
+| `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` | Core mapping module that consumes the extracted features |
+| `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs` | Hebrew integration tests |
 | `batchalign/worker/_stanza_loading.py` | Stanza pipeline configuration for Hebrew |
 
 ## Test Coverage
 
 | Test | File | What |
 |------|------|------|
-| `test_hebrew_verb_hebbinyan` | `mapping.rs:2334` | HebBinyan=PAAL → lowercase suffix |
-| `test_hebrew_verb_hebexistential` | `mapping.rs:2364` | HebExistential=True → lowercase suffix |
-| `test_hebrew_3letter_code_works` | `mapping.rs:2777` | "heb" (not "he") processes HebBinyan |
+| `test_hebrew_verb_hebbinyan` | `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs:15` | HebBinyan=PAAL → lowercase suffix |
+| `test_hebrew_verb_hebexistential` | `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs:45` | HebExistential=True → lowercase suffix |
+| `test_hebrew_3letter_code_works` | `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs:268` | "heb" (not "he") processes HebBinyan |

@@ -65,6 +65,12 @@ const SKIP_DIRS: &[&str] = &[
     "dist",
     "node_modules",
     "target",
+    // SwiftPM / Cargo dependency-checkout cache (grammar/.build/ on
+    // macOS hosts) — every checked-out dep's own .md files would
+    // otherwise pollute the catalog with hundreds of unrelated entries.
+    ".build",
+    // Serena MCP local cache.
+    ".serena",
     // Meta-repo embeds talkbank-tools as a sub-clone; skip the nested
     // copy so we don't double-count.
     "talkbank-tools",
@@ -221,10 +227,33 @@ pub async fn run(args: Args) -> Result<()> {
         tx.commit().await?;
     }
 
+    // Stale-row cleanup: a doc whose `scanned_at` is older than this
+    // run's timestamp was not seen on disk this walk, which means the
+    // file was deleted (or now lives behind a SKIP_DIR exclusion that
+    // didn't exist before). Drop the row; `ON DELETE CASCADE` on
+    // sections.doc_id removes its sections too. Without this, stale
+    // entries from deleted docs (e.g. retired `book/src/batchalign/
+    // decisions/*` pages) keep appearing in the Bucket A/B/C queue
+    // with no way for any human edit to satisfy them.
+    let stale_docs: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM docs WHERE repo = ? AND scanned_at != ?")
+            .bind(REPO_TALKBANK_TOOLS)
+            .bind(&scanned_at)
+            .fetch_one(&mut conn)
+            .await?;
+    if stale_docs > 0 {
+        sqlx::query("DELETE FROM docs WHERE repo = ? AND scanned_at != ?")
+            .bind(REPO_TALKBANK_TOOLS)
+            .bind(&scanned_at)
+            .execute(&mut conn)
+            .await?;
+    }
+
     println!("xtask audit-docs scan complete:");
     println!("  scanned_at:        {scanned_at}");
     println!("  docs total:        {total_docs}");
     println!("  docs new:          {new_docs}");
+    println!("  docs stale-pruned: {stale_docs}");
     println!("  sections in tree:  {total_sections}");
     println!(
         "  bucket A / B / C:  {} / {} / {}",
@@ -495,6 +524,14 @@ fn classify_audience(rel: &str) -> String {
 }
 
 fn classify_priority(rel: &str, content: &str) -> i64 {
+    // Clan docs sit at priority 5 unconditionally, overriding the
+    // BA2/BA3, README, user-guide, and book/src/ branches that would
+    // otherwise apply. The classification is intentional, not derived
+    // from content: a clan doc that mentions BA2 still classifies as
+    // clan. See `is_clan_path`.
+    if is_clan_path(rel) {
+        return 5;
+    }
     if classify_ba2_vs_ba3(rel, content) {
         return 1;
     }
@@ -521,6 +558,19 @@ fn classify_priority(rel: &str, content: &str) -> i64 {
     4
 }
 
+/// Every doc that vets the CLAN command surface or CLAN integration.
+/// Classified to priority 5 and Bucket C. The list is intentionally
+/// explicit (not a substring glob on "clan") so unrelated paths
+/// containing the word "clan" cannot accidentally land in the set.
+fn is_clan_path(rel: &str) -> bool {
+    rel.starts_with("book/src/clan-reference/")
+        || rel == "book/src/chatter/user-guide/clan-line-numbering.md"
+        || rel == "book/src/chatter/user-guide/migrating-from-clan.md"
+        || rel == "book/src/vscode/developer/clan-parity.md"
+        || rel.starts_with("crates/talkbank-clan/")
+        || rel.starts_with("crates/send2clan-sys/")
+}
+
 /// Bucket assignment, deterministic from path. Recomputed every
 /// scan; never hand-edited.
 ///
@@ -535,6 +585,16 @@ fn classify_priority(rel: &str, content: &str) -> i64 {
 /// sweep ensures readers know the doc is historical or reference;
 /// no claim verification.
 fn classify_bucket(rel: &str) -> Bucket {
+    // Clan paths route to Bucket C so the Bucket A release-readiness
+    // gate rolls up only the non-clan user-facing surface. Bucket C
+    // is documented below as "won't-vet, internal-only"; clan in C
+    // is a deliberate overload of that bucket as a
+    // "deferred user-facing" set, distinguished from the historical /
+    // contributor docs by its priority-5 tier (`classify_priority`).
+    if is_clan_path(rel) {
+        return Bucket::C;
+    }
+
     // Bucket C: internal-only docs, contributor guidance, postmortems,
     // handoffs, investigations, decision records.
     if rel.ends_with("CLAUDE.md")
@@ -933,7 +993,15 @@ async fn column_exists(conn: &mut SqliteConnection, table: &str, column: &str) -
         return Err(format!("column_exists: refusing non-identifier table name '{table}'").into());
     }
     let sql = format!("SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?");
-    let exists: Option<i64> = sqlx::query_scalar(&sql)
+    // sqlx 0.9 tightened `query_scalar` to require `impl SqlSafeStr`,
+    // which is only implemented for `&'static str` by default — runtime-
+    // built strings must be wrapped in `AssertSqlSafe` to certify they
+    // were manually audited for injection safety. `table` here is
+    // restricted to `[A-Za-z0-9_]` by the validation immediately above,
+    // so the interpolated SQL cannot contain quote-breakers, comment
+    // sequences, or terminators; that audit makes `AssertSqlSafe`
+    // truthful, not a bypass.
+    let exists: Option<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
         .bind(column)
         .fetch_optional(&mut *conn)
         .await?;

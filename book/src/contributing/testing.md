@@ -1,7 +1,7 @@
 # Testing
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:39 EDT
+**Last updated:** 2026-05-20 20:26 EDT
 
 ## Test Generation Pipeline
 
@@ -12,8 +12,8 @@ directories and recreates them — never hand-edit generated files.
 ```mermaid
 flowchart LR
     subgraph sources["Source of Truth"]
-        constructs["spec/constructs/\n(112 construct specs)"]
-        errors["spec/errors/\n(187 error specs)"]
+        constructs["spec/constructs/\n(construct specs, see directory listing)"]
+        errors["spec/errors/\n(error specs, see directory listing)"]
         templates["spec/tools/templates/\n(Tera wrappers)"]
     end
 
@@ -24,9 +24,9 @@ flowchart LR
     end
 
     subgraph outputs["Generated Outputs (DO NOT EDIT)"]
-        ts_tests["grammar/test/corpus/\n(166 tree-sitter tests)"]
-        rust_tests["tests/generated/\n(167 Rust tests)"]
-        error_docs["docs/errors/\n(182 error doc pages)"]
+        ts_tests["grammar/test/corpus/\n(tree-sitter tests)"]
+        rust_tests["tests/generated/\n(Rust tests)"]
+        error_docs["docs/errors/\n(per-spec error pages)"]
     end
 
     constructs & errors --> gen_ts
@@ -49,10 +49,10 @@ Testing is organized in layers, from fastest to most comprehensive.
 
 ```mermaid
 flowchart TD
-    unit["Unit + Integration Tests\n(cargo nextest run)\n~2300 tests, ~5s"]
+    unit["Unit + Integration Tests\n(cargo nextest run)"]
     specgen["Spec-Generated Tests\n(make test-generated)\nParser + validation layer"]
-    grammar["Grammar Corpus\n(tree-sitter test)\n166 tree-sitter tests"]
-    ref["Reference Corpus\n(97 files, 100% required)"]
+    grammar["Grammar Corpus\n(tree-sitter test)"]
+    ref["Reference Corpus\n(corpus/reference/, 100% required)"]
     gates["Verification Gates\n(make verify)\nG0–G14 sequential pipeline"]
 
     unit --> specgen --> grammar --> ref --> gates
@@ -75,9 +75,11 @@ verification step when you change public API examples or doc comments.
 cargo nextest run -p talkbank-parser-tests -E 'test(parser_equivalence)'
 ```
 
-Runs the parser on each file in the 78-file reference corpus and validates
+Runs the parser on each file in the `corpus/reference/` tree and validates
 results. Each `.cha` file is its own test, enabling per-file parallelism and
-failure isolation via nextest.
+failure isolation via nextest. The exact file count is whatever
+`find corpus/reference -name '*.cha' -type f | wc -l` reports — do not
+hard-code it here.
 
 ### Spec-Generated Tests
 
@@ -103,7 +105,10 @@ grammar structure changes.
 
 ### Error Corpus Tests
 
-Supplementary test fixtures in `tests/error_corpus/`. The `expectations.json` manifest maps `.cha` files to expected outcomes.
+Error fixtures live in `spec/errors/` and are turned into Rust tests
+via `make test-gen`. There is no separate `tests/error_corpus/`
+manifest in the current layout; add a new error spec under
+`spec/errors/E###_*.md` and regenerate.
 
 ### Tree-Sitter Tests
 
@@ -112,11 +117,17 @@ cd grammar
 tree-sitter test
 ```
 
-160+ tests that verify the grammar produces correct CSTs for known inputs.
+Verifies the grammar produces correct CSTs for known inputs. The
+actual test count comes from `ls grammar/test/corpus/*.txt | wc -l`;
+do not hard-code it.
 
 ## Reference Corpus
 
-The reference corpus at `corpus/reference/` contains 97 `.cha` files across 20 languages that represent the diversity of real-world CHAT data. The parser must handle every file at 100%.
+The reference corpus at `corpus/reference/` is organized into subdirs
+(`annotation/`, `audio/`, `ca/`, `content/`, `core/`, `edge-cases/`,
+`languages/`, `tiers/`, `word-features/`). The parser must handle
+every file at 100% — the exact file count is whatever
+`find corpus/reference -name '*.cha' -type f | wc -l` reports.
 
 This corpus is the ultimate arbiter of correctness for full-file parsing.
 
@@ -136,7 +147,7 @@ flowchart TD
     G4 -->|pass| G5["G5: Generated parser corpus\nequivalence suite"]
     G5 -->|pass| G6["G6: Golden fragment validity\n(words + tiers)"]
     G6 -->|pass| G7["G7: Bare-timestamp\nregression gate"]
-    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(97 files)"]
+    G7 -->|pass| G8["G8: Reference corpus\nsemantic equivalence\n(parser_equivalence_files)"]
     G8 -->|pass| G9["G9: %wor tier parsing\nand alignment"]
     G9 -->|pass| G10["G10: Golden tier roundtrip\n(%mor, %gra, %pho, %wor)"]
     G10 -->|pass| G11["G11: Reference corpus\nnode coverage audit"]
@@ -157,7 +168,7 @@ flowchart TD
 | G5 | Generated parser corpus equivalence suite |
 | G6 | Golden fragment validity (words + tiers) |
 | G7 | Bare-timestamp regression gate |
-| G8 | Reference corpus semantic equivalence (97 files) |
+| G8 | Reference corpus semantic equivalence (`parser_equivalence_files` over the full `corpus/reference/` tree) |
 | G9 | %wor tier parsing and alignment |
 | G10 | Golden tier roundtrip (%mor, %gra, %pho, %wor) |
 | G11 | Reference corpus node coverage |
@@ -223,5 +234,6 @@ Configuration: `mutants.toml` at the repo root excludes trivial functions.
 - **Model tests**: add to the relevant crate's `tests/` directory or `#[cfg(test)]` module
 - **Parser tests**: if the change is about grammar shape or validation contracts,
   add or update specs and regenerate with `make test-gen`
-- **Error corpus tests**: add a `.cha` file to `tests/error_corpus/` and update `expectations.json`
+- **Error tests**: add a new spec under `spec/errors/E###_*.md` and run
+  `make test-gen`; the Rust test under `tests/generated/` is produced automatically
 - **CLAN command tests**: add golden test cases in `tests/clan_golden/` using the manifest-driven `ParityCase` / `RustSnapshotCase` pattern

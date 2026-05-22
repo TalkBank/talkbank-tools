@@ -308,8 +308,9 @@ def test_wave2vec_fa_requests_are_serialized_under_thread_pool(tmp_path: Path) -
     wave2vec runner simultaneously — causing SIGSEGV/SIGABRT in LibTorch that
     kills the worker process and fails ALL pending file alignments in the job.
 
-    Regression test for the 2026-04-09 production crash on net where 78/304
-    CA corpus files failed alignment in job bd69b68b.
+    Regression test for a production crash where a multi-file CA-corpus
+    job failed alignment on most of its files because multiple threads
+    entered the wave2vec runner concurrently.
 
     RED (before fix): ``max_concurrent_calls > 1`` — multiple threads entered
     the runner at the same time (confirmed by counter exceeding 1 while another

@@ -547,11 +547,12 @@ async fn cancel_records_provenance() {
 
 /// RED test (Phase 1, RED 1.2) — double-cancel produces two audit rows.
 ///
-/// Mirrors the 2026-04-25 Malayalam incident on net, where a user pressed
-/// cancel twice exactly an hour apart. Both presses must be visible in
-/// the audit table (with `accepted=false` on the second when the job is
-/// already terminal), so a forensic reader can see the duplicate-cancel
-/// pattern that motivates the audit table in the first place.
+/// Mirrors a real-world double-cancel pattern (a user pressed cancel
+/// twice, separated by ~an hour). Both presses must be visible in
+/// the audit table (with `accepted=false` on the second when the job
+/// is already terminal), so a forensic reader can see the
+/// duplicate-cancel pattern that motivates the audit table in the
+/// first place.
 #[tokio::test]
 async fn cancel_twice_records_two_audit_rows() {
     let Some(session) = acquire_test_server_session().await else {

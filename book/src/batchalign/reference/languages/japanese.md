@@ -1,7 +1,7 @@
 # Japanese Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:22 EDT
+**Last updated:** 2026-05-20 20:17 EDT
 
 Japanese (`jpn`) uses Stanza's `combined` package and the retokenize system
 for word boundary handling. This page covers the full picture: what works,
@@ -47,9 +47,12 @@ With `--retokenize`, Stanza's neural tokenizer may:
 - **Merge** adjacent CHAT words into one token (e.g., ふ + す → ふす)
 - **Split** one CHAT word into sub-tokens
 
-The Rust retokenize module (`retokenize/mod.rs`) handles the AST rewrite
-using the same character-level span mapping used for English contractions
-and CJK word segmentation.
+The Rust retokenize module at
+`crates/talkbank-transform/src/retokenize.rs:195::retokenize_utterance`
+handles the AST rewrite using the same character-level span mapping
+used for English contractions and CJK word segmentation. Sibling
+helpers live under `crates/talkbank-transform/src/retokenize/`
+(`parse_helpers.rs`, `rebuild.rs`).
 
 ## Known Limitations
 
@@ -73,9 +76,17 @@ detailed whitespace handling documentation.
 
 ## Verified Behavior
 
-- Retokenize N:1 merge (ふ + す → ふす): tested in `retokenize/tests.rs`
+- Retokenize split-and-merge: covered by inline `#[cfg(test)]` tests
+  in `crates/talkbank-transform/src/retokenize.rs` (e.g.,
+  `deterministic_mapping_succeeds_for_split_and_merge` at `:287`).
 - Stanza `combined` package loads correctly for `ja`
-- MWT exclusion: Japanese is in `_MWT_EXCLUSION` set
+  (`batchalign/worker/_stanza_loading.py:196-207`).
+- MWT exclusion: `should_request_mwt()` reports `has_mwt=False` for
+  `ja`; the retokenize/utseg path uses a local
+  `mwt_exclude = {"zh", "ja", "ko", "th", "vi", "my"}` set at
+  `batchalign/worker/_stanza_loading.py:310`. The global
+  `_MWT_EXCLUSION` was retired alongside `MWT_LANGS` (see
+  [Stanza Limitations Defect 5](../stanza-limitations.md)).
 
 ## Open Questions
 
@@ -94,7 +105,7 @@ overrides, and whitespace artifact handling, see:
 
 | File | Role |
 |------|------|
-| `worker/_stanza_loading.py` | Japanese `combined` package selection, MWT exclusion |
-| `inference/morphosyntax.py` | Stanza inference (shared with all languages) |
-| `crates/batchalign/src/retokenize/` | AST rewrite for merged/split tokens |
+| `batchalign/worker/_stanza_loading.py` | Japanese `combined` package selection (`:196-207`); MWT eligibility via `should_request_mwt()` |
+| `batchalign/inference/morphosyntax.py` | Stanza inference (shared with all languages) |
+| `crates/talkbank-transform/src/retokenize.rs` + `crates/talkbank-transform/src/retokenize/{parse_helpers,rebuild}.rs` | AST rewrite for merged/split tokens |
 | `crates/talkbank-transform/src/morphosyntax/lang_ja.rs` | POS mapping with Japanese-specific rules |

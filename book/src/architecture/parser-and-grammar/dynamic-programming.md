@@ -1,7 +1,7 @@
 # Dynamic Programming
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 16:54 EDT
 
 Where dynamic programming is used at runtime across the workspace,
 which uses are intrinsically necessary, and which are
@@ -18,9 +18,9 @@ that no new runtime DP appears outside the allowlisted call sites.
 | FA word-level remapping | `crates/batchalign/src/chat_ops/fa/alignment.rs::apply_indexed_timings` | **None** | Indexed callback protocol maps timings 1:1 by index |
 | FA token-level remapping | `crates/batchalign/src/chat_ops/fa/alignment.rs::align_token_timings` | **None** | Deterministic token→word stitching only; unmatched words remain untimed |
 | UTR timing recovery | `crates/batchalign/src/chat_ops/fa/utr.rs::inject_utr_timing` | Hirschberg edit-distance DP | Global alignment of all document words against all ASR tokens |
-| Morphosyntax retokenize mapping | `crates/talkbank-transform/src/retokenize/mapping.rs::build_word_token_mapping` | **None** | Deterministic span-join + length-aware monotonic fallback |
-| WER evaluation | `crates/talkbank-transform/src/dp_align/` + `wer_conform.rs` | Hirschberg edit-distance DP | Canonical use of DP for transcript comparison |
-| Compare command | `crates/batchalign/src/compare.rs` via `dp_align::align` | Hirschberg edit-distance DP | Aligns main vs gold transcript words to compute WER and inject `%xsrep` / `%xsmor` tiers |
+| Morphosyntax retokenize mapping | `crates/talkbank-transform/src/retokenize.rs::build_word_token_mapping` | **None** | Deterministic span-join + length-aware monotonic fallback |
+| WER evaluation | `crates/talkbank-transform/src/benchmark.rs` (uses `dp_align::align`) | Hirschberg edit-distance DP | Canonical use of DP for transcript comparison |
+| Compare command | `crates/talkbank-transform/src/compare/engine.rs` (uses `dp_align::align`) | Hirschberg edit-distance DP | Aligns main vs gold transcript words to compute WER and inject `%xsrep` / `%xsmor` tiers |
 
 ## Classification
 
@@ -244,24 +244,19 @@ onset — roughly a 3× reduction in search space.
 
 ## Allowlist Policy
 
-`batchalign/tests/test_dp_allowlist.py` fails CI if new runtime DP
-call sites appear outside the allowlist:
+`batchalign/tests/test_dp_allowlist.py::test_chat_ops_dp_calls_are_allowlisted`
+fails CI if new runtime `dp_align::align` / `dp_align::align_chars`
+call sites appear outside the allowlist (the test scans both
+`crates/batchalign/src/**/*.rs` and `crates/talkbank-transform/src/**/*.rs`):
 
 | Call site | Purpose |
 |---|---|
-| `crates/batchalign-pyo3/src/pyfunctions.rs` | PyO3 bridge (1 call) |
-| `crates/batchalign/src/benchmark.rs` | WER (1 call) |
-| `crates/batchalign/src/compare.rs` | Transcript comparison (1 call) |
-| `crates/batchalign/src/chat_ops/fa/utr.rs` | UTR timing recovery (1 call) |
+| `crates/talkbank-transform/src/benchmark.rs` | WER evaluation |
+| `crates/talkbank-transform/src/compare/engine.rs` | Transcript comparison (window alignment + rotation, 2 calls) |
+| `crates/batchalign/src/chat_ops/fa/utr.rs` | UTR global timing recovery |
+| `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs` | UTR two-pass overlap-aware pass |
 
-DP-related behavior is also protected by golden tests:
-
-```bash
-uv run pytest batchalign/tests/golden/test_dp_golden.py -m golden -v -n 0
-```
-
-For intentional behavior changes:
-
-```bash
-uv run pytest batchalign/tests/golden/test_dp_golden.py -m golden -v -n 0 --update-golden
-```
+The PyO3 boundary surface no longer hosts a `dp_align` call site
+(the pre-slimdown `pyfunctions.rs` bridge was retired). Any new
+runtime DP call site must be added to the allowlist in
+`test_dp_allowlist.py` with a justification.

@@ -1,7 +1,7 @@
 # Rust Workspace Map
 
 **Status:** Current
-**Last updated:** 2026-04-30 21:15 EDT
+**Last updated:** 2026-05-20 00:54 EDT
 
 The Batchalign code lives inside the `talkbank-tools` Cargo workspace
 as sibling crates under `crates/`. There are no cross-repo path
@@ -16,7 +16,6 @@ flowchart TD
         pyo3["batchalign-pyo3\n(batchalign_core Python extension)"]
 
         ba --> types
-        pyo3 --> ba
         pyo3 --> types
     end
 
@@ -27,6 +26,7 @@ flowchart TD
     end
 
     ba --> model & parser & transform
+    pyo3 --> transform
 ```
 
 ## Crates
@@ -35,7 +35,7 @@ flowchart TD
 | --- | --- |
 | `batchalign` | the `batchalign3` binary plus the axum server, dispatch, daemon lifecycle, worker pool, job store, cache, CHAT extraction/injection/mapping, FA, ASR post-processing, and the Rev.AI client. The bulk of the runtime. |
 | `batchalign-types` | shared domain, protocol, and scheduling types (newtypes, worker IPC contracts) — the small low-dependency crate everything else builds on. |
-| `batchalign-pyo3` | builds the `batchalign_core` Python extension module via maturin. Re-exports just enough of `batchalign` for the worker IPC bridge. |
+| `batchalign-pyo3` | builds the `batchalign_core` Python extension module via maturin. Workspace deps are `batchalign-types` + `talkbank-transform`; it does NOT depend on the runtime `batchalign` crate. |
 | `xtask` | repo-local automation: affected-check selection, install/build smoke tests, repository policy checks. |
 
 ## Internal organization of the `batchalign` crate
@@ -66,7 +66,9 @@ cargo nextest run -p batchalign --test integration
 cargo xtask affected-rust packages
 
 # Python extension build
-make build-python
+uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml -F pyo3/extension-module
+# or, for a full wheel install into the dev env:
+#   make batchalign-build-wheel && make batchalign-python-prepare
 cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
 ```
 
@@ -84,8 +86,8 @@ cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
 
 ## First files to read
 
-1. `crates/batchalign/src/lib.rs` — `run_command()`, the canonical
-   command router.
+1. `crates/batchalign/src/cli/mod.rs:251` — `run_command()`, the
+   canonical command router.
 2. `crates/batchalign/src/cli/` — CLI dispatch (explicit server vs.
    auto-daemon).
 3. `crates/batchalign/src/execution/` — server-side task routing and

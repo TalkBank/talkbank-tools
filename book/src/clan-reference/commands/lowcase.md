@@ -15,7 +15,10 @@ chatter clan lowcase file.cha
 
 ## Options
 
-This command has no configurable options.
+This command has no command-specific flags beyond the shared
+`-o, --output <PATH>` (default: stdout). See
+[Output Formats](../user-guide/output-formats.md#transform-commands--o---output)
+for the transform output flag.
 
 ## Behavior
 

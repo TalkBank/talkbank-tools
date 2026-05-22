@@ -1,7 +1,18 @@
 # Reference Corpus Overhaul
 
-**Status:** Reference
-**Last updated:** 2026-05-01 09:47 EDT
+**Status:** Historical (Phase 0–6 narrative is preserved for context;
+the live corpus layout is described in
+[Testing § Reference Corpus](testing.md#reference-corpus) — read that
+first for current counts and structure)
+**Last updated:** 2026-05-20 20:33 EDT
+
+> Subsequent reorganization moved the corpus from the
+> 345-flat-plus-language-subdirs layout described below into nine
+> topical subdirectories under `corpus/reference/`. Absolute counts
+> in this page (file totals, language-dir counts, the
+> `constructs/` directory) reflect the pre-reorganization state and
+> are kept here only as the historical record of how the corpus got
+> to where it is.
 
 ## Motivation
 

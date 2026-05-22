@@ -202,9 +202,10 @@ const MIN_TOTAL_WORKERS: u32 = 2;
 /// `recommend_max_workers_per_key`).
 ///
 /// The formula is RAM-only. On a hypothetical future host with many
-/// more cores than ming (e.g. 64 cores / 512 GB), `ram/6GB = 85`
-/// clamped to 32 would severely under-utilize CPU. When such a host
-/// arrives, evolve the formula to derive from both CPU and RAM
+/// more cores than the current Fleet-tier reference machine (e.g.
+/// 64 cores / 512 GB), `ram/6GB = 85` clamped to 32 would severely
+/// under-utilize CPU. When such a host arrives, evolve the formula
+/// to derive from both CPU and RAM
 /// (e.g. `min(ram/6GB, cpu_logical_count × oversubscription_factor)`).
 ///
 /// Empirical evidence that this cap is currently binding under

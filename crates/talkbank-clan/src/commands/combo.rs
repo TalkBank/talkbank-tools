@@ -114,6 +114,40 @@ impl SearchExpr {
             }),
         }
     }
+
+    /// Return the set of word forms in `words` that contributed to a
+    /// successful match. For And, returns one word per term (the
+    /// first occurrence). For Or, returns every word whose form
+    /// matches any term. Lowercased forms.
+    ///
+    /// Used by CLAN-format rendering to wrap matched words as
+    /// `(N)<word>` in the utterance echo.
+    fn matched_words(&self, words: &[NormalizedWord]) -> Vec<String> {
+        let mut out = Vec::new();
+        match self {
+            SearchExpr::And(terms) => {
+                for term in terms {
+                    if let Some(w) = words
+                        .iter()
+                        .find(|w| word_pattern_matches(w.as_str(), term.as_str()))
+                    {
+                        out.push(w.as_str().to_owned());
+                    }
+                }
+            }
+            SearchExpr::Or(terms) => {
+                for w in words {
+                    if terms
+                        .iter()
+                        .any(|t| word_pattern_matches(w.as_str(), t.as_str()))
+                    {
+                        out.push(w.as_str().to_owned());
+                    }
+                }
+            }
+        }
+        out
+    }
 }
 
 /// Configuration for the COMBO command.
@@ -132,6 +166,27 @@ pub struct ComboMatch {
     pub utterance_text: String,
     /// Source filename.
     pub filename: String,
+    /// 1-based source line number of the utterance — used by
+    /// CLAN-compatible rendering to emit
+    /// `*** File "pipeout": line N.`. `0` when no line map is
+    /// available.
+    pub line_number: usize,
+    /// Per-search-expression hits: for each configured `SearchExpr`,
+    /// the 1-based index of the expression and the set of lowercased
+    /// word tokens that contributed to its match. CLAN-format
+    /// rendering wraps each matched word as `(N)<word>` where `N` is
+    /// the expression index.
+    pub expr_hits: Vec<MatchedExpr>,
+}
+
+/// One search expression's contribution to a `ComboMatch`.
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchedExpr {
+    /// 1-based index of the expression in `ComboConfig.search`.
+    pub index: usize,
+    /// Lowercased word forms that the expression matched against this
+    /// utterance.
+    pub matched_words: Vec<String>,
 }
 
 /// Typed output for the COMBO command.
@@ -188,6 +243,118 @@ impl CommandOutput for ComboResult {
     fn render_text(&self) -> String {
         self.to_analysis_result().render(OutputFormat::Text)
     }
+
+    /// CLAN-compatible output matching legacy `combo` character-for-character.
+    ///
+    /// Format (from CLAN snapshot):
+    /// ```text
+    /// ----------------------------------------
+    /// *** File "pipeout": line 6.
+    /// *MOT:    (1)the (1)cat is on the mat .
+    /// ----------------------------------------
+    /// *** File "pipeout": line 12.
+    /// *MOT:    yes , (1)the (1)cat .
+    /// ----------------------------------------
+    ///
+    ///     Strings matched 3 times
+    /// ```
+    ///
+    /// CLAN's combo wraps each word that matched the configured
+    /// search expression with `(N)` where `N` is the 1-based index
+    /// of the expression. Multiple expressions can match in the
+    /// same utterance; each contributing word gets its own
+    /// `(<expression-index>)` prefix.
+    fn render_clan(&self) -> String {
+        use std::fmt::Write;
+        let mut out = String::new();
+
+        for m in &self.matches {
+            writeln!(out, "----------------------------------------").ok();
+            // CLAN uses "pipeout" as the filename when reading from
+            // stdin (chatter follows the same convention for
+            // CLAN-format output to match the byte stream).
+            writeln!(out, "*** File \"pipeout\": line {}.", m.line_number).ok();
+            // utterance_text already carries the `*SPK:\t...` prefix
+            // (`Utterance::Main::to_chat_string()` includes it), so
+            // we don't add another speaker prefix here. Wrap each
+            // matched word as (N)<word> in place.
+            let annotated = annotate_combo_matches(&m.utterance_text, &m.expr_hits);
+            writeln!(out, "{annotated}").ok();
+        }
+        // Summary line. CLAN emits:
+        //   <last match line>\n\n    Strings matched N times\n\n
+        // No trailing `----` after the last match (the separators
+        // appear *before* each match, not between or after).
+        if !self.matches.is_empty() {
+            writeln!(out).ok();
+            writeln!(out, "    Strings matched {} times", self.matches.len()).ok();
+            writeln!(out).ok();
+        }
+        out
+    }
+}
+
+/// Wrap matched words in `text` with their expression-index prefix
+/// `(N)`. CLAN's combo annotates the **first occurrence** of each
+/// matched word per expression, not every occurrence — so for the
+/// AND search `the+cat` against `the cat is on the mat`, only the
+/// first `the` gets `(1)the`; the second `the` is left bare.
+///
+/// Implementation: keep a per-word "still owed" count for each
+/// `(expr_index, lowercased_word)` pair, decrement on each match
+/// during token walk, stop annotating that word once the budget is
+/// exhausted.
+fn annotate_combo_matches(text: &str, expr_hits: &[MatchedExpr]) -> String {
+    if expr_hits.is_empty() {
+        return text.to_owned();
+    }
+    // (lowercased_word) -> (expr_index, remaining_budget).
+    // Lower expr indices "win" when multiple expressions matched
+    // the same word, matching CLAN's first-expression-wins shape.
+    let mut budget: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    for hit in expr_hits {
+        for w in &hit.matched_words {
+            let entry = budget.entry(w.clone()).or_insert((hit.index, 0));
+            // Lower expression index wins.
+            if hit.index < entry.0 {
+                *entry = (hit.index, entry.1 + 1);
+            } else {
+                entry.1 += 1;
+            }
+        }
+    }
+    // Preserve the leading `*SPK:\t` prefix verbatim — CLAN emits
+    // a real tab between speaker and content; `split_whitespace`
+    // would collapse it to a single space. Only the body after the
+    // tab is rewritten with the `(N)` prefixes.
+    let (prefix, body) = match text.find('\t') {
+        Some(tab_pos) => text.split_at(tab_pos + 1),
+        None => ("", text),
+    };
+    let mut out = String::with_capacity(text.len());
+    out.push_str(prefix);
+    // Token-walk the body, prefixing each matched token with `(N)`
+    // while it still has budget. Token boundaries are whitespace;
+    // punctuation tokens (`,`, `.`, etc.) are left untouched and
+    // don't consume budget.
+    let mut first = true;
+    for tok in body.split_whitespace() {
+        if !first {
+            out.push(' ');
+        }
+        first = false;
+        let lower = tok.to_lowercase();
+        if let Some(slot) = budget.get_mut(lower.as_str()) {
+            if slot.1 > 0 {
+                out.push_str(&format!("({}){tok}", slot.0));
+                slot.1 -= 1;
+                continue;
+            }
+        }
+        out.push_str(tok);
+    }
+    out
 }
 
 /// Accumulated state for COMBO across all files.
@@ -239,15 +406,36 @@ impl AnalysisCommand for ComboCommand {
             .map(NormalizedWord::from_word)
             .collect();
 
-        // Check if any search expression matches
-        let matched = self.config.search.iter().any(|expr| expr.matches(&words));
+        // Collect per-expression match details for CLAN-format rendering.
+        let expr_hits: Vec<MatchedExpr> = self
+            .config
+            .search
+            .iter()
+            .enumerate()
+            .filter_map(|(i, expr)| {
+                if expr.matches(&words) {
+                    Some(MatchedExpr {
+                        index: i + 1,
+                        matched_words: expr.matched_words(&words),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-        if matched {
+        if !expr_hits.is_empty() {
             let utterance_text = utterance.main.to_chat_string();
+            let line_number = file_context
+                .line_map
+                .map(|lm| lm.line_of(utterance.main.span.start))
+                .unwrap_or(0);
             state.matches.push(ComboMatch {
                 speaker: utterance.main.speaker.as_str().to_owned(),
                 utterance_text,
                 filename: file_context.filename.to_owned(),
+                line_number,
+                expr_hits,
             });
         }
     }

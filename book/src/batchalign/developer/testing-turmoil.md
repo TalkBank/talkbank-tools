@@ -1,7 +1,7 @@
 # Deterministic Simulation Testing with turmoil
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-20 00:58 EDT
 
 ## Why we need this
 
@@ -49,7 +49,7 @@ flowchart LR
     end
 
     tcp -.->|"tested by"| turmoil_tests["turmoil_net.rs"]
-    workers -.->|"tested by"| worker_tests["worker_failure_paths.rs\nworker_routing.rs"]
+    workers -.->|"tested by"| worker_tests["worker_failure_paths.rs\nworker_routing_and_lifecycle.rs"]
     sqlite -.->|"tested by"| integration["integration.rs"]
 ```
 
@@ -268,13 +268,13 @@ turmoil hosts have their own simulated single-threaded runtime. Creating the
 app inside turmoil doesn't work because Python subprocess spawning needs real
 wall-clock time.
 
-**Solution:** `create_real_test_app_blocking()` creates a **multi-thread tokio
+**Solution:** `create_real_test_app()` creates a **multi-thread tokio
 runtime** that hosts the background actors. The `Router` is extracted and
 handed to the turmoil host for simulated network serving. The runtime stays
 alive (leaked as `&'static`) so its worker threads keep polling the actors:
 
 ```rust,ignore
-let mut app = create_real_test_app_blocking(&python);
+let mut app = create_real_test_app(&python);
 let router = app.take_router();
 let _app: &'static _ = Box::leak(Box::new(app)); // keep actors alive
 
@@ -338,13 +338,14 @@ faults. This requires either:
 
 ### Shuttle not viable for our concurrency primitives
 
-Shuttle (AWS) was investigated for testing concurrency within the server,
-but our highest-value primitives (`tokio::sync::broadcast` — 19 uses,
-`tokio::sync::Semaphore` — 7 uses) are not modeled by shuttle (broadcast
-is a stub that panics, Semaphore forwards to real tokio with no schedule
+Shuttle (AWS) was investigated for testing concurrency within the
+server, but our highest-value primitives (`tokio::sync::broadcast`,
+`tokio::sync::Semaphore`) are not modeled by shuttle (broadcast is a
+stub that panics, Semaphore forwards to real tokio with no schedule
 exploration). The supported primitives (Mutex, oneshot, mpsc) have
-straightforward usage patterns with low race-condition risk. See
-`docs/tool-evaluations/shuttle.md` for the full investigation.
+straightforward usage patterns with low race-condition risk; the full
+tool-evaluation note for shuttle lives outside this public repo in
+the maintainers' tool-evaluations index.
 
 ## Dependencies
 

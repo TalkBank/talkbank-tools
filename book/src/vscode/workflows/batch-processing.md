@@ -1,7 +1,7 @@
 # Batch Processing
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:05 EDT
 
 This chapter covers workflows that operate on multiple files at once -- directory-level analysis, corpus-scale validation, and integration with the `chatter` CLI and batchalign3 for bulk operations.
 
@@ -18,7 +18,12 @@ The extension supports running any of the 33 CLAN analysis commands on an entire
 5. The extension runs the analysis across all `.cha` files in the directory
 6. Results are aggregated and displayed in a single Analysis Panel
 
-The LSP's `resolve_files()` function walks the directory tree to find all `.cha` files. Results display as styled tables with section headings, key-value statistics, and bar charts -- the same rendering used for single-file analysis.
+CHAT-file discovery for directory-scope runs is done by the
+`talkbank-clan` framework (`crates/talkbank-clan/src/framework/input.rs`,
+using `walkdir::WalkDir`), so the LSP delegates the recursive walk
+rather than re-implementing it. Results display as styled tables with
+section headings, key-value statistics, and bar charts -- the same
+rendering used for single-file analysis.
 
 > **(SCREENSHOT: Analysis Panel showing aggregated results from a directory-level FREQ analysis)**
 > *Capture this: Right-click a folder containing several .cha files, run FREQ analysis, show the results panel with aggregated frequency tables*

@@ -1,11 +1,11 @@
-# rust   vscode   images   screenshots   README
+# vscode   images   screenshots   README
 
 ## Overview
-Short summary for `rust/vscode/images/screenshots/README.md`. This document is intentionally concise; legacy detail has been trimmed.
+Short summary for `vscode/images/screenshots/README.md`. This document is intentionally concise; legacy detail has been trimmed.
 
 ## Key Commands
 ```bash
-cd rust/vscode
+cd vscode
 npm install
 npm run compile
 ```
@@ -15,8 +15,7 @@ npm run compile
 - Update alongside code changes to keep commands and references accurate.
 
 ## See Also
-- CLAUDE.md
-- rust/CLAUDE.md
+- The repo-root CLAUDE.md
 
 ---
-Last Updated: 2026-02-05
+Last Updated: 2026-05-21

@@ -1,7 +1,7 @@
 # CHAT Parsing (Rust)
 
 **Status:** Current
-**Last updated:** 2026-03-21 14:47 EDT
+**Last updated:** 2026-05-19 19:23 EDT
 
 All CHAT parsing and serialization is handled by Rust. The CHAT lifecycle
 (parsing, word extraction, result injection, validation, serialization)
@@ -58,11 +58,14 @@ structures (`ChatFile`, `MainTier`, `WorTier`, `Terminator`, etc.).
 
 ### NLP Word Extraction
 
-`extract_nlp_words()` walks the AST and produces an ordered list of
-"NLP-clean" words with node indices.  It skips retraces, events, CA markers,
-overlap points, and other non-lexical content.  The node indices let Python
-map NLP output (Stanza tokens, FA word timings) back to AST positions in
-O(1) per token -- no DP re-alignment needed.
+`extract_words()`
+(`crates/talkbank-transform/src/extract.rs:48`) walks the AST and
+produces an ordered list of "NLP-clean" words with node indices.  It
+skips retraces, events, CA markers, overlap points, and other
+non-lexical content based on the requested `TierDomain`.  The node
+indices let downstream code map NLP output (Stanza tokens, FA word
+timings) back to AST positions in O(1) per token — no DP re-alignment
+needed.
 
 This replaced the old Python `annotation_clean` function (60+ lines of
 `.replace()` calls) and eliminated O(n*m) DP alignment in the morphosyntax
@@ -84,17 +87,24 @@ morphosyntax).
 
 ### Serialization
 
-`handle.serialize()` produces valid CHAT text from the AST.  The `WriteCHAT`
-trait handles all formatting concerns: continuation lines, escaping, bullet
-timestamp encoding, tier alignment, and header ordering.
+The `WriteChat` trait
+(`crates/talkbank-model/src/model/write_chat.rs:41`) produces valid
+CHAT text from the AST.  It handles all formatting concerns:
+continuation lines, escaping, bullet timestamp encoding, tier
+alignment, and header ordering. Rust callers invoke `chat_file.to_chat_string()`;
+there is no PyO3 `handle.serialize()` surface today (the ParsedChat
+binding was retired in the 2026-03-21 pyo3 slimdown).
 
 ### Validation
 
-`handle.validate()` and `handle.validate_structured()` run the full suite
-of CHAT validation checks (E362 monotonicity, E701/E704 temporal,
-tier alignment, header correctness) and return structured error/warning
-lists.  These are used by the pre-serialization validation gate in the
-pipeline.
+Server-side validation runs through `validate_to_level` and
+`validate_output` in `crates/talkbank-transform/src/validate.rs`,
+covering the full suite of CHAT validation checks (E362 monotonicity,
+E701/E704 temporal, tier alignment, header correctness). These return
+typed error lists used by the pre-serialization validation gate. On
+the Python side, structured validation results reach callers as
+`CHATValidationException.errors` (a `list[ValidationErrorEntry]`) —
+see [Errors — Batchalign Runtime](../../architecture/errors-and-validation/batchalign-errors.md).
 
 ## What Stays in Python
 

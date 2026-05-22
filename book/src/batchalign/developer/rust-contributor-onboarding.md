@@ -1,7 +1,7 @@
 # Rust Contributor Onboarding
 
 **Status:** Current
-**Last updated:** 2026-03-21 07:16 EDT
+**Last updated:** 2026-05-21 15:25 EDT
 
 This page is the shortest path to productive work on the Rust side of Batchalign3.
 
@@ -15,12 +15,19 @@ This page is the shortest path to productive work on the Rust side of Batchalign
 
 ## Current Rust Surfaces
 
-- root workspace:
-  - `batchalign`
-  - `batchalign`
-  - `batchalign`
-- PyO3 bridge:
-  - `crates/batchalign-pyo3/` building `batchalign_core`
+The batchalign side of the workspace is split across three crates:
+
+- `crates/batchalign-types/` — shared domain and worker-boundary types
+  (worker protocol, language/domain scalars, wire-facing identifiers).
+  No filesystem, no network, no model loading.
+- `crates/batchalign/` — the application: CLI, HTTP server, worker
+  pool, cache, daemon lifecycle, command dispatch. Depends on
+  `batchalign-types` and on the `talkbank-*` crates for CHAT
+  parsing/validation/transform.
+- `crates/batchalign-pyo3/` — the PyO3 bridge, building the
+  `batchalign_core` Python module that the worker processes import.
+  Worker-runtime-only surface (ASR / FA / media / cantonese-asr
+  adapters); no morphosyntax orchestration.
 
 ## Setup
 
@@ -46,9 +53,11 @@ Rebuild rule of thumb while iterating:
 
 ## Where To Work
 
-- CLI flags, logs, cache, daemon behavior: `crates/batchalign`
-- server routes, jobs, persistence, OpenAPI: `crates/batchalign`
-- shared CHAT transformations and mapping logic: `crates/batchalign`
+- CLI flags, args parsing, cache, daemon, dispatch: `crates/batchalign/src/cli/`, `crates/batchalign/src/cache/`, `crates/batchalign/src/daemon.rs`
+- Server routes, jobs, persistence, OpenAPI: `crates/batchalign/src/server.rs`, `crates/batchalign/src/routes/`, `crates/batchalign/src/openapi.rs`
+- Worker pool, IPC, daemon spawn: `crates/batchalign/src/worker/`
+- Shared CHAT transformations and morphosyntax / FA / UTR / mapping logic: `crates/talkbank-transform/` (and `crates/batchalign/src/chat_ops/` for the batchalign-side adapters that route through it)
+- Worker-boundary types and wire-facing scalars: `crates/batchalign-types/`
 - Python extension boundary: `crates/batchalign-pyo3/`
 
 ## Expectations

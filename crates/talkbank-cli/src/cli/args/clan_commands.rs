@@ -256,9 +256,12 @@ pub enum ClanCommands {
         /// Path to CHAT file(s) or directory
         path: Vec<PathBuf>,
 
-        /// Path to language script file (.cut)
+        /// Path to language script file (`.cut`) — required, matching
+        /// CLAN's `+l` refusal. Left as `Option` here so the missing-
+        /// flag case can emit CLAN's exact error message instead of
+        /// clap's default `required` complaint.
         #[arg(short = 'f', long)]
-        script: PathBuf,
+        script: Option<PathBuf>,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -269,9 +272,11 @@ pub enum ClanCommands {
         /// Path to CHAT file(s) or directory
         path: Vec<PathBuf>,
 
-        /// Tier label to read codes from (default: cod)
-        #[arg(long, default_value_t = ChainsConfig::default().tier)]
-        tier: talkbank_clan::framework::TierKind,
+        /// Tier label to read codes from (required — CLAN's chains
+        /// refuses with `Please specify a code tier with "+t" option.`
+        /// when no code tier is provided)
+        #[arg(long)]
+        tier: Option<talkbank_clan::framework::TierKind>,
 
         #[command(flatten)]
         common: CommonAnalysisArgs,
@@ -341,8 +346,8 @@ pub enum ClanCommands {
         #[arg(long, default_value_t = RelyConfig::default().tier)]
         tier: talkbank_clan::framework::TierKind,
 
-        /// Output format: text (default), json, or csv
-        #[arg(short, long, value_enum, default_value_t = super::clan_common::ClanOutputFormat::Text)]
+        /// Output format: clan (default — character-for-character match with legacy CLAN), text, json, or csv
+        #[arg(short, long, value_enum, default_value_t = super::clan_common::ClanOutputFormat::Clan)]
         format: super::clan_common::ClanOutputFormat,
     },
 

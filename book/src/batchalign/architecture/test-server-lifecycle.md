@@ -1,7 +1,7 @@
 # Test Server and Worker Lifecycle
 
 **Status:** Current
-**Last updated:** 2026-03-20 17:45
+**Last updated:** 2026-05-19 22:58 EDT
 
 ## The problem
 
@@ -21,20 +21,32 @@ server backend — process-local, so 7 binaries = 7 independent worker pools.
 
 ### Implemented solution: single binary consolidation
 
-All 7 ML binaries are now consolidated into one binary (`ml_golden.rs`) with
-submodules. One binary = one process = one `LazyLock` = one `PreparedWorkers` =
-one set of loaded models. Peak memory is ~8-12 GB instead of 7x that.
+All ML integration tests are now consolidated into one binary (`ml_golden.rs`)
+with submodules. One binary = one process = one `LazyLock` = one
+`PreparedWorkers` = one set of loaded models. Peak memory is single-digit GB
+instead of one-pool-per-binary multiples.
+
+The submodule layout (under `crates/batchalign/tests/ml_golden/`) groups tests
+by what they exercise:
 
 ```rust,ignore
 ml_golden (one binary, one process)
   → LazyLock → PreparedWorkers → python3 (Stanza, Whisper, Wave2Vec, pyannote)
-  ├── ml_golden::golden           (12 tests)
-  ├── ml_golden::golden_audio     (22 tests)
-  ├── ml_golden::golden_parity    (16 tests)
-  ├── ml_golden::live_server_fixture (5 tests)
-  ├── ml_golden::profile_verification (3 tests)
-  ├── ml_golden::option_receipt   (5 tests)
-  └── ml_golden::error_paths      (7 tests)
+  ├── golden                    // baseline morphotag goldens
+  ├── morphotag                 // morphotag-specific scenarios
+  ├── align                     // forced-alignment goldens
+  ├── compare                   // benchmark / WER goldens
+  ├── compare_master_parity     // BA2-vs-BA3 parity
+  ├── coref                     // coref goldens
+  ├── benchmark                 // benchmark task goldens
+  ├── avqi                      // AVQI voice-quality goldens
+  ├── opensmile                 // OpenSMILE feature-extraction goldens
+  ├── options                   // option-receipt / config-roundtrip
+  ├── live_server_fixture       // bare-fixture sanity
+  ├── profile_verification      // server profile/dispatch verification
+  ├── error_paths               // error and recovery goldens
+  ├── audio_helpers.rs          // shared audio test helpers
+  └── parity_helpers.rs         // shared parity test helpers
 ```
 
 The `LiveServerSession` fixture within the binary is well-designed:
@@ -261,7 +273,7 @@ These remain as additional safety nets beyond the single-binary consolidation:
 |-------|-------|------|
 | nextest default-filter | `.config/nextest.toml` | ML binary excluded from `cargo nextest run` |
 | nextest ml test group | `.config/nextest.toml` | ML binary serialized (`max-threads=1`) when opted in |
-| Claude Code guard hook | `.claude/settings.local.json` | Blocks test commands when worker processes detected |
+| Claude Code guard hook | operator's `~/.claude/settings.json` deny list (workspace-level, not tracked in this repo) | Blocks test commands when worker processes detected |
 | Global worker cap | `WorkerPool` (`max_total_workers`) | Hard ceiling on total workers across all keys |
 | `WorkerPool::Drop` | `pool/mod.rs` | Kills idle workers when pool dropped without `shutdown()` |
 | PID file reaper | `pool/reaper.rs` | Scans `~/.batchalign3/worker-pids/` on startup, kills orphans |
@@ -287,7 +299,7 @@ autotuner and memory gate handle scheduling. Models load once and stay warm.
 The test lifecycle problem is a microcosm of the deployment lifecycle:
 
 - **Development**: one developer machine, multiple concurrent test/dev sessions
-- **Production (net)**: one server, multiple concurrent jobs from the fleet
+- **Production**: one server, multiple concurrent jobs from the fleet
 
 The single-daemon test architecture exercises the same code paths as production:
 autotuner, memory gate, worker pool, idle timeout, health checking. The

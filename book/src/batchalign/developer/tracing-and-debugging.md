@@ -1,7 +1,7 @@
 # Tracing and Debugging
 
 **Status:** Current
-**Last updated:** 2026-03-29 11:32 EDT
+**Last updated:** 2026-05-20 01:02 EDT
 
 This document describes the tracing and debugging strategy across the
 batchalign3 stack: Rust (batchalign-core PyO3 bridge), Rust (CLI and server
@@ -84,14 +84,17 @@ In background mode (`batchalign3 serve start` without `--foreground`), the
 The highest-risk surface in the stack is the Rust-Python boundary where data
 crosses serialization layers. This boundary is instrumented at three points:
 
-### 1. Morphosyntax batch callback (`crates/batchalign-pyo3/src/morphosyntax_ops.rs`)
+### 1. Morphosyntax batch orchestrator (Rust side)
 
-The `add_morphosyntax_batched_inner` function has three phases:
-
-- **Phase 1** (pure Rust — extract words): `debug!` logs utterance and word
-  counts extracted from the AST.
-- **Phase 2** (GIL — Python callback): `debug!` logs response item count.
-- **Phase 3** (pure Rust — inject results): `debug!` logs completion.
+The batchalign-side orchestrator at
+`crates/batchalign/src/morphosyntax/worker.rs` instruments the
+extract → infer → inject sequence with `debug!` traces at each stage
+boundary: utterance + word counts going in, response item counts
+coming back from the worker, and injection-time counts going out.
+(The previous PyO3 ParsedChat callback path
+`add_morphosyntax_batched_inner` in `pyo3/src/morphosyntax_ops.rs`
+was retired in the 2026-03-21 PyO3 slimdown; worker-runtime pyo3
+today is worker_protocol.rs + worker_*_exec.rs only.)
 
 ### 2. Python inference module (`batchalign/inference/morphosyntax.py`)
 
@@ -101,10 +104,13 @@ The `batch_infer_morphosyntax` function logs:
 - Sentence count mismatch warnings at `WARNING` level
 - Stanza batch failure warnings at `WARNING` level
 
-### 3. Worker IPC (`handle.rs`)
+### 3. Worker IPC (`crates/batchalign/src/worker/handle/`)
 
-Worker spawn, shutdown, health checks, and IPC dispatch are logged at `info!`
-and `debug!` levels. Worker stderr is captured for crash diagnostics.
+Worker spawn, shutdown, health checks, and IPC dispatch are logged
+at `info!` and `debug!` levels across the
+`crates/batchalign/src/worker/handle/` submodules (`mod.rs`,
+`config.rs`, `ipc.rs`, `lifecycle.rs`, `spawn.rs`, `protocol.rs`).
+Worker stderr is captured for crash diagnostics.
 
 ## Performance
 
@@ -139,29 +145,38 @@ at which point the error is far from the root cause.
 
 Three categories of `new_unchecked` usage have been addressed:
 
-**A. ASR transcript construction** (`lib.rs` / `build_chat_inner`):
-ASR engines return raw text that must become CHAT words. The code now tries
-`DirectParser::parse_word()` first and only falls back to `new_unchecked` with
-a `warn!` if parsing fails.
+**A. ASR transcript construction**
+(`crates/talkbank-transform/src/build_chat/`):
+ASR engines return raw text that must become CHAT words. The code
+tries `DirectParser::parse_word()` first and only falls back to
+`new_unchecked` with a `warn!` if parsing fails. Entry points:
+`build_chat()` in `build_chat/mod.rs:41` and `build_chat_from_json()`
+in `build_chat/bridge.rs:10`.
 
-**B. Retokenization fallback** (`retokenize.rs`):
-When Stanza splits a CHAT word into MWT sub-tokens, each sub-token must be
-parsed back into a CHAT `Word`. The `try_parse_token_as_word()` family of
-functions return `Option<Word>` instead of always succeeding. On parse failure,
-the original word is preserved (no invalid content enters the AST).
+**B. Retokenization fallback**
+(`crates/talkbank-transform/src/retokenize/`):
+When Stanza splits a CHAT word into MWT sub-tokens, each sub-token
+must be parsed back into a CHAT `Word`. `try_parse_token_as_word()`
+at `crates/talkbank-transform/src/retokenize/parse_helpers.rs:108`
+returns `Option<Word>` instead of always succeeding. On parse
+failure, the original word is preserved (no invalid content enters
+the AST).
 
-**C. Temporary scaffolding** (`lib.rs:1323`):
-A temporary word used only as input to `resolve_word_language()` — never
-injected into the AST. This is a documented acceptable use of `new_unchecked`.
+**C. Temporary scaffolding**: a temporary word is used only as input
+to `resolve_word_language()`
+(`crates/talkbank-model/src/validation/word/language/resolve.rs:137`)
+and never injected into the AST. This is a documented acceptable use
+of `new_unchecked`.
 
-### Injection-time alignment check (`inject.rs`)
+### Injection-time alignment check (`crates/talkbank-transform/src/morphosyntax/injection.rs`)
 
-Before injecting MOR/GRA tiers into an utterance, the code now validates that
-the number of MOR items matches the number of alignable words extracted from
-the AST. A mismatch is a bug — it means the extraction or NLP mapping is wrong.
+Before injecting MOR/GRA tiers into an utterance, the code validates
+that the number of MOR items matches the number of alignable words
+extracted from the AST. A mismatch is a bug — it means the
+extraction or NLP mapping is wrong.
 
 ```rust,ignore
-// inject.rs — count alignment check
+// crates/talkbank-transform/src/morphosyntax/injection.rs — count alignment check
 let word_count = extracted.len();
 let mor_count = mors.len();
 if word_count != mor_count {

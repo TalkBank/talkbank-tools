@@ -1,7 +1,7 @@
 # Media Conversion
 
 **Status:** Current
-**Last updated:** 2026-03-27 14:44 EDT
+**Last updated:** 2026-05-20 20:31 EDT
 
 ## Overview
 
@@ -37,7 +37,7 @@ complete pipeline, from CLI invocation to output CHAT, showing where
 media resolution and conversion fit in.
 
 ```text
-batchalign3 [--server http://net:8001] align input/ output/ --lang eng
+batchalign3 [--server http://<your-server>:8001] align input/ output/ --lang eng
   │
   ├─ CLI: discover .cha files in input/ (sorted largest-first)
   ├─ CLI: detect dispatch mode
@@ -64,7 +64,7 @@ batchalign3 [--server http://net:8001] align input/ output/ --lang eng
   │  │     .wav/.mp3/.flac/.ogg → pass through unchanged                │
   │  │     .mp4/.m4a/.webm/.wma → ffmpeg convert to WAV, cache result   │
   │  │       fingerprint: BLAKE3(file_size + first 64KB + last 64KB)    │
-  │  │       cache dir: ~/.batchalign3/media_cache/                      │
+  │  │       cache dir: platform data_dir/batchalign3/media_cache/      │
   │  │       file lock: per-fingerprint .lock prevents concurrent ffmpeg │
   │  │       output: 16kHz mono PCM_S16LE WAV                           │
   │  │                                                                   │
@@ -218,7 +218,7 @@ local paths such as `source_dir`, local `media_mappings`, or an explicit
 host, not a way to dereference an arbitrary remote client's private directory
 layout.
 
-## MP4 Media on Net Volumes
+## MP4 Media on Network Volumes
 
 Total: **16,739 MP4 files** across all volumes.
 

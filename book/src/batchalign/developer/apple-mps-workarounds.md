@@ -1,7 +1,7 @@
 # Apple MPS Workarounds
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:36 EDT
 
 ## MPS Exclusion Policy
 
@@ -47,7 +47,7 @@ No major ML project defaults to MPS:
 | **PyTorch Lightning** | MPS marked "experimental" |
 
 Representative open PyTorch MPS issues:
-- [#178497](https://github.com/pytorch/pytorch/issues/178497): `sum`, `mean`, `count_nonzero` give wrong results — confirmed by PyTorch team as originating in Apple's MPS framework
+- [#178497](https://github.com/pytorch/pytorch/issues/178497): `sum`, `mean`, `count_nonzero` give wrong results — confirmed by PyTorch team as originating in Apple's MPS framework. Closed 2026-05-14 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12.
 - [#179352](https://github.com/pytorch/pytorch/issues/179352): `scaled_dot_product_attention` incorrect for large batches (cosine similarity 0.49 vs CPU)
 - [#154329](https://github.com/pytorch/pytorch/issues/154329): memory leak (~1 MB/sec) confirmed on M4 Max/Studio
 - [#144634](https://github.com/pytorch/pytorch/issues/144634): `torch.mps.synchronize()` hangs on error — Apple engineer acknowledged, still open
@@ -97,7 +97,7 @@ The most insidious MPS problem is not crashes but **silently wrong results**:
   elements exceed 32K
   ([#177116](https://github.com/pytorch/pytorch/issues/177116))
 - `torch.multinomial` crashes with SIGSEGV on MPS for larger tensors
-  ([#178579](https://github.com/pytorch/pytorch/issues/178579))
+  ([#178579](https://github.com/pytorch/pytorch/issues/178579) — closed 2026-04-16 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12)
 - `uint16/uint32/uint64` binary ops produce garbage values
 - `ComplexFloat` dtype not supported at all
 
@@ -148,8 +148,8 @@ GPU and CPU with expensive data transfers.
 GPU-profile workers previously used `ThreadPoolExecutor(gpu_thread_pool_size)`
 for concurrent inference, relying on PyTorch releasing the GIL during GPU
 kernels. On CPU, this causes thread oversubscription: each thread's PyTorch ops
-use all cores via OpenMP, so 4 threads × 24 cores = 96 threads fighting for 24
-cores on net's M3 Ultra.
+use all cores via OpenMP, so 4 threads × 24 cores = 96 threads
+fighting for 24 cores on an M3 Ultra–class CPU.
 
 Fix: GPU-profile workers now serve sequentially on CPU (one request at a time,
 all cores per request). `gpu_thread_pool_size` in `server.yaml` takes effect
@@ -241,7 +241,7 @@ MPS is excluded from diarization because:
 The device selector (`_device_for_speaker_runtime`) returns `"cuda"` or
 `"cpu"`, never `"mps"`.
 
-### Device Policy (`device.py`)
+### Device Policy (`batchalign/device.py`)
 
 The `BATCHALIGN_FORCE_CPU` environment variable (or `DevicePolicy(force_cpu=True)`)
 forces all model loaders onto CPU. This is the escape hatch when MPS causes
@@ -256,10 +256,11 @@ MPS has well-documented memory management problems:
   [#145374](https://github.com/pytorch/pytorch/issues/145374))
 - **OOM with memory available**: MPS cache doesn't release when it should
   ([pytorch/pytorch#105839](https://github.com/pytorch/pytorch/issues/105839))
-- **`sysinfo::available_memory()`** on macOS undercounts — reports only
-  free + purgeable, missing reclaimable file cache. On net (256 GB, heavy I/O),
-  this can underreport by tens of GB. No fix exists because macOS doesn't
-  expose a `MemAvailable` equivalent like Linux.
+- **`sysinfo::available_memory()`** on macOS undercounts — reports
+  only free + purgeable, missing reclaimable file cache. On a
+  Fleet-tier host (≥ 256 GB RAM, heavy I/O), this can underreport by
+  tens of GB. No fix exists because macOS doesn't expose a
+  `MemAvailable` equivalent like Linux.
 
 **Mitigations:**
 - `torch.mps.empty_cache()` — call periodically during long-running inference
@@ -298,7 +299,7 @@ the corresponding workaround.
 | Issue | Status | What to do if fixed |
 |-------|--------|-------------------|
 | [huggingface/transformers#31408](https://github.com/huggingface/transformers/issues/31408) | Closed | SDPA broke MPS in v4.40.0. Our `attn_implementation="eager"` workaround is for this. Check if later versions fixed SDPA on MPS. |
-| [pytorch/pytorch#141774](https://github.com/pytorch/pytorch/issues/141774) | Open | Autocast fails for `scaled_dot_product_attention` on MPS. Related to the SDPA issue above. |
+| [pytorch/pytorch#141774](https://github.com/pytorch/pytorch/issues/141774) | Closed 2024-11-29 (completed) | Autocast fails for `scaled_dot_product_attention` on MPS. Fixed upstream; our `attn_implementation="eager"` workaround may no longer be required when MPS is re-evaluated. |
 | [pytorch/pytorch#162092](https://github.com/pytorch/pytorch/issues/162092) | Open | Voxtral (Whisper variant) produces gibberish on MPS. |
 
 ### Speaker Diarization

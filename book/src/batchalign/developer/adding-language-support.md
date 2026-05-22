@@ -1,7 +1,7 @@
 # Adding Support for a New Language
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 21:19 EDT
 
 This page is the checklist to run through when someone says "let's add
 language X." Skipping any of these checks produces silent quality bugs
@@ -25,8 +25,8 @@ need a "not available for X" line.
 |------------|--------------|---------|
 | **ISO 639-3 code** | `pycountry`, `talkbank-types::LanguageCode3` | Everything downstream |
 | **Stanza pipeline?** | `python -c "import stanza; print('XXX' in stanza.resources.common.load_resources_json())"` AND check the entry has a `packages` key (not just charlm stubs) | morphotag, utseg, retokenize gating |
-| **`num2words` backend?** (build-time only) | `python -c "import num2words; print('XX' in num2words.CONVERTER_CLASSES)"` (use ISO 639-1 2-char code). Used by `scripts/codegen_num2lang.py` to populate the Rust `NUM2LANG` table; runtime uses Rust only. | Number expansion (E220 risk) |
-| **Rev.AI quality?** | Submit a sample to Rev.AI; check for hallucinations, script confusion, repetition. Document result in `book/src/reference/revai-language-quality-strategy.md` | Default ASR engine choice |
+| **`num2words` backend?** (build-time only) | `python -c "import num2words; print('XX' in num2words.CONVERTER_CLASSES)"` (use ISO 639-1 2-char code). The Rust `NUM2LANG` table at `crates/talkbank-transform/data/num2lang.json` is the codegenned output of an offline `num2words` sweep; runtime uses Rust only. (No in-tree codegen script today — see [Number Expansion](../architecture/number-expansion.md) for the regeneration protocol.) | Number expansion (E220 risk) |
+| **Rev.AI quality?** | Submit a sample to Rev.AI; check for hallucinations, script confusion, repetition. Document result in `book/src/batchalign/reference/revai-language-quality-strategy.md` | Default ASR engine choice |
 | **Stock Whisper quality?** | Same: run a representative sample, evaluate | Fallback ASR engine choice |
 | **HuggingFace fine-tune available?** | Search HF Hub for `whisper-*-{lang}` checkpoints | `whisper_hub` engine routing in `batchalign/models/resolve.py` |
 | **CHAT digit-validator allows digits?** | `rg "{lang}" talkbank-tools/crates/talkbank-model/src/validation/word/language/digits.rs` | Whether E220 fires on Whisper digit emissions |
@@ -46,10 +46,12 @@ just `backward_charlm`/`forward_charlm` stubs):
 - Confirm MWT, POS, lemma, depparse, constituency availability via the
   capability table.
 - If MWT is present, the Stanza-induced retokenize path
-  (`crates/batchalign/src/retokenize/`) automatically applies.
+  (`crates/talkbank-transform/src/retokenize.rs` and
+  `crates/talkbank-transform/src/retokenize/{rebuild,parse_helpers}.rs`)
+  automatically applies.
 - Per-language analysis quirks (clitics, compounds, elision) may need a
-  `crates/batchalign/src/nlp/lang_<code>.rs` module —
-  see Italian (`lang_it.rs`) and French as references.
+  `crates/talkbank-transform/src/morphosyntax/lang_<code>.rs` module —
+  see Italian (`lang_it.rs`) and French (`lang_fr.rs`) as references.
 
 If Stanza ships only stubs (no `packages`): the language is
 **transcribe-only**. Document this on the language's reference page.
@@ -75,30 +77,32 @@ pipeline is Rust-only (no Python IPC) and is NOT Stanza-gated.
 What determines whether digits get spelled out:
 
 - **CJK (`zho`/`cmn`/`jpn`/`yue`)**: handled in Rust by `num2chinese`
-  in `crates/batchalign/src/asr_postprocess/num2chinese.rs`.
-- **English ordinals/years/decades**: handled by `ordinal_year_eng.rs`
+  in `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs`.
+- **English ordinals/years/decades**: handled by
+  `crates/talkbank-transform/src/asr_postprocess/ordinal_year_eng.rs`
   via deterministic composition rules.
 - **All other cases**: per-language `NUM2LANG` table at
-  `crates/batchalign/data/num2lang.json`. Built once by
-  `scripts/codegen_num2lang.py`, which invokes Python `num2words` for
-  every covered language and writes the Rust JSON.
+  `crates/talkbank-transform/data/num2lang.json`. The table is the
+  offline-codegenned output of a `num2words` sweep; runtime is
+  Rust-only.
 
-**If `num2words` has the language backend** (verified via
-`num2words.CONVERTER_CLASSES`): add the ISO 639-3 → 2-char mapping to
-`ISO3_TO_NUM2WORDS` in `scripts/codegen_num2lang.py` and re-run the
-script. Commit the regenerated `num2lang.json`.
+**Regenerating the table.** The historical codegen script
+(`scripts/codegen_num2lang.py`) is no longer in the tree; the
+table is committed as a generated artifact. The maintenance protocol
+lives in [Number Expansion](../architecture/number-expansion.md) —
+follow that page when adding or refreshing a language entry. When
+`num2words.CONVERTER_CLASSES` does not cover a language (e.g.
+Malayalam, Hindi, Tamil, most non-Telugu/Kannada/Bengali Indic
+languages), either:
 
-**If `num2words` does NOT have the language backend** (e.g.,
-Malayalam, Hindi, Tamil — most Indic languages other than Telugu /
-Kannada / Bengali): two options:
-
-1. Add a `HAND_CURATED` entry to `scripts/codegen_num2lang.py` with
-   digits 0-9 and the common compounds you need. The codegen step
-   never overwrites the hand-curated overlay.
-2. Add the language to the digit-allowed list in
-   `talkbank-tools/crates/talkbank-model/src/validation/word/language/digits.rs::mixed_language_allows_numbers`,
-   accepting that transcripts will have Arabic digits intermixed with
-   the target script. Lossy but unblocks transcribe runs.
+1. Add a hand-curated overlay (digits 0-9 and the common compounds
+   you need) following the procedure in the number-expansion page.
+2. Add the language to the digit-allowed list via
+   `language_allows_numbers` in
+   `crates/talkbank-model/src/validation/context.rs:34` (consulted by
+   the validator through `mixed_language_allows_numbers` in
+   `crates/talkbank-model/src/validation/word/language/helpers.rs:57`,
+   which gates `digits.rs`). Lossy but unblocks transcribe runs.
 
 Pick option 1 unless the user community explicitly accepts digits in
 the transcript.
@@ -115,7 +119,7 @@ a representative sample:
    resolution in `batchalign/models/resolve.py`.
 3. **Rev.AI** (`--asr-engine rev`): only if it produces clean output
    for this language. Many languages return garbage from Rev.AI; see
-   `book/src/reference/revai-language-quality-strategy.md` for the
+   `book/src/batchalign/reference/revai-language-quality-strategy.md` for the
    canonical Malayalam-failure case study.
 4. **Specialty engines** (Tencent, Aliyun, FunASR for Cantonese): only
    when domain quality demands it.
@@ -141,7 +145,7 @@ the input is deterministic (e.g., digits → spelled words).
 ### 5. Reference documentation
 
 Every language with non-trivial special treatment gets a page under
-`book/src/reference/languages/<lang>.md`. Even a transcribe-only
+`book/src/batchalign/reference/languages/<lang>.md`. Even a transcribe-only
 language deserves a page so future contributors know where to look.
 
 The page must include:
@@ -154,8 +158,8 @@ The page must include:
 - Open issues section if any known bugs apply to this language
 - Operational notes (chunk size, model parameters, etc.)
 
-Add the language to `book/src/reference/languages/overview.md` index
-so it shows up in the SUMMARY.
+Add the language to `book/src/batchalign/reference/languages/overview.md`
+index so it shows up in the SUMMARY.
 
 ## Verification
 
@@ -179,14 +183,15 @@ user-visible support — adjust integration before merging.
 
 ## Related documentation
 
-- `book/src/reference/languages/overview.md` — language index
-- `book/src/reference/revai-language-quality-strategy.md` — when to
+- `book/src/batchalign/reference/languages/overview.md` — language index
+- `book/src/batchalign/reference/revai-language-quality-strategy.md` — when to
   switch away from Rev.AI
-- `book/src/reference/whisper-hub-asr.md` — HuggingFace fine-tune
+- `book/src/batchalign/reference/whisper-hub-asr.md` — HuggingFace fine-tune
   routing
-- `crates/batchalign/CLAUDE.md` — `asr_postprocess` module
-  map
-- `scripts/codegen_num2lang.py` — `ISO3_TO_NUM2WORDS` and
-  `HAND_CURATED` overlay for the Rust `NUM2LANG` table
-- `talkbank-tools/crates/talkbank-model/src/validation/word/language/`
+- `crates/batchalign/CLAUDE.md` — batchalign crate map
+- [Number Expansion](../architecture/number-expansion.md) — protocol
+  for refreshing `crates/talkbank-transform/data/num2lang.json` and
+  the hand-curated overlay (the historical
+  `scripts/codegen_num2lang.py` script is no longer in-tree)
+- `crates/talkbank-model/src/validation/word/language/`
   — language-aware validators, including E220 digits

@@ -8,7 +8,7 @@ usable RAM (total × (1 − reserve_fraction)) by the profile's peak
 per-worker RSS. Replaces the old binary 128 GB cliff in conftest
 with graduated parallelism:
 
-  * ming (256 GB, ml=12 GB peak) → 21 workers capped at CPU count.
+  * Fleet host (256 GB, ml=12 GB peak) → 21 workers capped at CPU count.
   * 64 GB laptop, ml=12 GB      → 3 workers.
   * 32 GB laptop, ml=12 GB      → 1 worker (serialized).
   * 16 GB laptop, ml=12 GB      → 0 workers (refuse, too little RAM).

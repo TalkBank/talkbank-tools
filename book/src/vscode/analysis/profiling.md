@@ -1,7 +1,7 @@
 # Profiling Commands
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 14:25 EDT
 
 Profiling commands measure structural properties of a speaker's language:
 how long their utterances are, how diverse their vocabulary is, and how
@@ -19,8 +19,10 @@ young children (Brown, 1973).
 
 **How it works:** The command counts morphemes on the `%mor` tier for
 each utterance, then computes the mean across all utterances for each
-speaker. If the file has no `%mor` tier, it falls back to counting words
-on the main tier.
+speaker. Files without a `%mor` tier produce `utterances = 0,
+morphemes = 0` — there is no automatic main-tier-word fallback (this
+matches the CLAN reference behavior). Add a `%mor` tier first (e.g.,
+via the morphotag command) before running MLU.
 
 **When to use it:**
 - Tracking grammatical development in children aged 1;6 to 5;0

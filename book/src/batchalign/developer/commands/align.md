@@ -1,7 +1,7 @@
 # align — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 11:45 EDT
+**Last updated:** 2026-05-21 15:15 EDT
 
 Implementation guide for the `align` command. For user-facing documentation,
 see [User Guide: align](../../user-guide/commands/align.md).
@@ -17,8 +17,8 @@ see [User Guide: align](../../user-guide/commands/align.md).
 | Command definition | `crates/batchalign/src/commands/align.rs` — `AlignCommand` | `CommandDefinition` impl, pre-validation gate |
 | FA pipeline | `crates/batchalign/src/runner/dispatch/fa_pipeline.rs` | Per-file FA orchestration: UTR → grouping → FA → injection |
 | UTR dispatch | `crates/batchalign/src/runner/dispatch/utr.rs` | `resolve_strategy()`, language-aware strategy gate |
-| UTR library | `crates/batchalign/src/fa/utr.rs` | `run_utr_pass()`, `inject_utr_timing()`, partial-window logic |
-| FA library | `crates/batchalign/src/fa/` | Grouping, extraction, DP alignment, injection, postprocessing |
+| UTR library | `crates/batchalign/src/chat_ops/fa/utr.rs` | `run_utr_pass()`, `inject_utr_timing()`, partial-window logic |
+| FA library | `crates/batchalign/src/chat_ops/fa/` | Grouping, extraction, DP alignment, injection, postprocessing |
 | Worker IPC | `batchalign/inference/fa.py` — `batch_infer_fa()` | Loads Whisper/Wave2Vec, returns token timestamps |
 
 ---
@@ -100,7 +100,7 @@ will use Tier 2.
 This three-level hierarchy is logged during FA execution as `"FA partition
 (reused from %wor / cache hits / misses)"` so operators can track reuse efficiency.
 
-Implementation: `crates/batchalign/src/fa/mod.rs:345–391`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:345–391`.
 
 ---
 
@@ -199,7 +199,7 @@ audio window to find the actual speech. After FA finishes, `update_utterance_bul
 overwrites the rescued range with the FA word span (tighter), so the rescue is
 self-healing and auditable.
 
-Implementation: `crates/batchalign/src/fa/mod.rs:247–267`. Decisions (which utterances
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:247–267`. Decisions (which utterances
 were rescued) are recorded and later injected as `%xalign` tiers for audit trail.
 
 **Edge filler expansion** (enabled always)  
@@ -207,7 +207,7 @@ UTR-assigned bullets may be too narrow to include trailing or leading fillers wh
 audio lives in inter-utterance gaps. This step expands utterance bullets to cover
 those edge fillers, ensuring they are included in the FA group.
 
-Implementation: `crates/batchalign/src/fa/mod.rs:269–272`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:269–272`.
 
 ## Compound filler splitting
 
@@ -217,7 +217,7 @@ as separate words. After alignment, the N timings are merged back into one span.
 Only `WordCategory::Filler` words are split — regular compounds (`ice_cream`)
 are unchanged.
 
-See `crates/batchalign/src/fa/COMPOUND_FILLER_ALIGNMENT.md`.
+See `crates/batchalign/src/chat_ops/fa/COMPOUND_FILLER_ALIGNMENT.md`.
 
 ---
 
@@ -237,7 +237,7 @@ tiers for complete auditability.
 All previous `%xalign`/`%xrev` tiers are stripped before injection (even on clean
 re-runs with no new decisions) to prevent stale decision duplication across reruns.
 
-Implementation: `crates/batchalign/src/fa/mod.rs:506–537`. The injection layer is in
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506–537`. The injection layer is in
 `crates/talkbank-transform/src/decisions/`.
 
 ---
@@ -250,7 +250,7 @@ Validation errors are **warnings only** — cross-speaker overlap is normal in
 conversation data and non-fatal. If critical errors appear (e.g., invalid tier
 codes), they are logged but do not fail the job.
 
-Implementation: `crates/batchalign/src/fa/mod.rs:539–554`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:539–554`.
 
 ---
 
@@ -260,7 +260,7 @@ Implementation: `crates/batchalign/src/fa/mod.rs:539–554`.
 # Fast unit tests (no ML models)
 make test
 
-# FA-specific tests with real models (only on net, 256 GB RAM)
+# FA-specific tests with real models (only on Fleet/Large-tier hosts, ≥ 256 GB RAM)
 cargo nextest run --profile ml -E 'test(fa::)'
 
 # Incremental processing tests
@@ -268,7 +268,7 @@ cargo nextest run -p batchalign --test incremental
 ```
 
 Key test locations:
-- `crates/batchalign/src/fa/` — unit tests for grouping, injection, UTR
+- `crates/batchalign/src/chat_ops/fa/` — unit tests for grouping, injection, UTR
 - `crates/batchalign/tests/` — integration tests for the FA pipeline
 
 ---

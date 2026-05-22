@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-04-06 11:01 EDT
+**Last updated:** 2026-05-20 20:23 EDT
 
 ## Overview
 
@@ -78,18 +78,21 @@ batchalign3 transcribe input/ -o output/ --asr-engine whisperx --lang=eng
 
 ## Model Selection
 
-Language-specific model resolution lives in `inference/asr.py`:
+The default `--asr-engine whisper` engine loads `openai/whisper-large-v3`
+across every language; the model id is wired at
+`batchalign/inference/asr.py:120` (`model: str = "openai/whisper-large-v3"`).
+There is no per-language fine-tune table on this engine.
 
-| Language   | Model (fine-tuned)              | Base (tokenizer)          |
-|------------|---------------------------------|---------------------------|
-| English    | `talkbank/CHATWhisper-en`       | `openai/whisper-large-v2` |
-| Cantonese  | `alvanlii/whisper-small-cantonese` | same                   |
-| Hebrew     | `ivrit-ai/whisper-large-v3`     | same                      |
-| `auto`     | `openai/whisper-large-v3`       | same                      |
-| All others | `openai/whisper-large-v3`       | same                      |
+Per-language fine-tunes are opt-in via the separate `--asr-engine
+whisper_hub` backend. The resolver lives at
+`batchalign/models/resolve.py::_RESOLVER["whisper_hub"]` and is
+seeded reactively, one entry at a time, with dated provenance comments
+(today the only seeded entry is `mal → thennal/whisper-medium-ml`).
+Absent languages raise `WhisperHubModelNotFoundError` directing the
+user to pass an explicit `model_id` via `--engine-overrides`. See
+[Whisper Hub ASR](whisper-hub-asr.md).
 
-**Only the HuggingFace Whisper engine (`--asr-engine whisper`) uses this resolution.**
-The other engines have hardcoded models:
+Other engines have hardcoded models:
 
 - OpenAI Whisper (`--asr-engine whisper-oai`): always `"turbo"` (via `whisper.load_model("turbo")`)
 - WhisperX (`--asr-engine whisperx`): always `"large-v2"` (via `whisperx.load_model("large-v2")`)
@@ -176,12 +179,16 @@ Two UTR engines exist:
 
 ### Whisper UTR (default)
 
-- Whisper UTR in `inference/asr.py` (reuses `WhisperASRHandle` with a different model):
-- Loads via `load_whisper_asr()` with UTR-specific model IDs:
-  - English: `talkbank/CHATWhisper-en-large-v1` (a different fine-tune than ASR)
-  - Others: `openai/whisper-large-v2`
-- Results cached by audio file identity (BLAKE3 of path + size)
-- Hands timed words to `batchalign_core.add_utterance_timing` (Rust)
+- Whisper UTR loads via `load_whisper_asr()` in
+  `batchalign/inference/asr.py:119` and reuses the `WhisperASRHandle`
+  type.
+- The same `openai/whisper-large-v2` checkpoint is used for every
+  language — UTR engines are not language-keyed in BA3 (see
+  [Language Code Resolution](language-code-resolution.md)
+  §"Model Resolution (UTR)"). Per-language fine-tunes for UTR are
+  not wired in the current resolver.
+- Results cached by audio file identity (BLAKE3 of path + size).
+- Hands timed words to `batchalign_core.add_utterance_timing` (Rust).
 
 ### Rev.AI UTR (alternative)
 
@@ -195,10 +202,13 @@ All ASR engines normalize their output through the Rust post-processing pipeline
 in `crates/talkbank-transform/src/asr_postprocess/`:
 
 1. **Compound word merging** -- joins words like `["ice", "cream"]` into
-   `"icecream"` using a known compound list (`data/compounds.json`, 3,660 pairs)
+   `"icecream"` using a known compound list (`crates/talkbank-transform/data/compounds.json`;
+   3,660 raw entries → 3,584 unique pairs after dedup, asserted at
+   `crates/talkbank-transform/src/asr_postprocess/compounds.rs:84`)
 2. **Number-to-words** -- converts digits to words using language-specific
-   lookup tables (`data/num2lang.json`, 12 languages) plus Chinese/Japanese
-   via `num2chinese.rs`
+   lookup tables (`crates/talkbank-transform/data/num2lang.json`; 46 languages today)
+   plus Chinese/Japanese via
+   `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs`
 3. **Retokenization** into utterances:
    - With utterance engine (English, Chinese, Cantonese): uses a BERT model
      to predict utterance boundaries
@@ -213,16 +223,17 @@ engine.  Available for: English (`talkbank/CHATUtterance-en`), Mandarin
 
 ## Memory and Performance
 
-A full `align` pipeline loads up to three models:
+A full `align` pipeline loads up to two Whisper checkpoints (FA + UTR
+with the Whisper backend):
 
 | Component        | Model                        | Approx. Memory |
 |------------------|------------------------------|----------------|
-| FA (Whisper)     | `whisper-large-v2`           | ~3 GB          |
-| UTR (Whisper)    | `CHATWhisper-en-large-v1`    | ~3 GB          |
-| UTR engine only  | `whisper-large-v2`           | ~3 GB          |
+| FA (Whisper)     | `openai/whisper-large-v2`    | ~3 GB          |
+| UTR (`--utr-engine whisper`) | `openai/whisper-large-v2` | ~3 GB |
 
-The ASR `transcribe` command loads one Whisper model (~3 GB) plus optionally
-an utterance segmentation BERT model (~400 MB).
+Switching UTR to Rev.AI (`--utr-engine rev`) avoids the second model
+load entirely. The ASR `transcribe` command loads one Whisper model
+(~3 GB) plus optionally an utterance segmentation BERT model (~400 MB).
 
 All models use lazy loading -- imports and model weights are loaded on first
 use, not at CLI startup.
@@ -231,15 +242,12 @@ use, not at CLI startup.
 
 | Context              | Model ID                           | Size    |
 |----------------------|------------------------------------|---------|
-| ASR (English)        | `talkbank/CHATWhisper-en`          | large-v2 base |
-| ASR (Hebrew)         | `ivrit-ai/whisper-large-v3`        | large-v3 |
-| ASR (Cantonese)      | `alvanlii/whisper-small-cantonese` | small   |
-| ASR (other)          | `openai/whisper-large-v3`          | large-v3 |
-| ASR (OAI engine)     | `openai/whisper-turbo`             | turbo   |
-| ASR (WhisperX)       | `openai/whisper-large-v2`          | large-v2 |
-| FA                   | `openai/whisper-large-v2`          | large-v2 |
-| UTR (English)        | `talkbank/CHATWhisper-en-large-v1` | large-v1 base |
-| UTR (other)          | `openai/whisper-large-v2`          | large-v2 |
+| ASR (`--asr-engine whisper`, all languages) | `openai/whisper-large-v3` | large-v3 |
+| ASR (`--asr-engine whisper-oai`)            | `openai/whisper-turbo`    | turbo   |
+| ASR (`--asr-engine whisperx`)               | `openai/whisper-large-v2` | large-v2 |
+| ASR (`--asr-engine whisper_hub`, opt-in fine-tunes) | per `_RESOLVER["whisper_hub"]` or `--engine-overrides model_id` | varies |
+| FA                                          | `openai/whisper-large-v2` | large-v2 |
+| UTR (`--utr-engine whisper`, all languages) | `openai/whisper-large-v2` | large-v2 |
 
 ## Implications for whisper.cpp Migration
 
@@ -251,10 +259,10 @@ use, not at CLI startup.
 
 ### What would require work
 
-- **Fine-tuned models** (`talkbank/CHATWhisper-en`, `CHATWhisper-en-large-v1`,
-  `alvanlii/whisper-small-cantonese`, `ivrit-ai/whisper-large-v3`): These are
-  HuggingFace format.  They would need conversion to GGML format and quality
-  validation.
+- **Fine-tuned models**: any HuggingFace fine-tune seeded into
+  `_RESOLVER["whisper_hub"]` (today only `thennal/whisper-medium-ml`)
+  would need conversion to GGML format and quality validation before
+  whisper.cpp could load it.
 - **Forced alignment**: whisper.cpp does not expose cross-attention alignment
   heads the way HuggingFace Transformers does.  The DTW-based alignment in
   the Whisper FA model would need a different approach -- likely using whisper.cpp's

@@ -1,7 +1,7 @@
 # Running CLAN Commands
 
 **Status:** Current
-**Last updated:** 2026-04-16 16:55 EDT
+**Last updated:** 2026-05-21 14:05 EDT
 
 The TalkBank extension includes 33 CLAN analysis commands that run
 directly inside VS Code. No external CLAN binary is needed -- all
@@ -20,7 +20,7 @@ flowchart LR
     inbox["Input dialog<br/>(text / file picker)"]
     cancel[["Cancel → exit"]]
     scope{"Single file<br/>or directory?"}
-    walk["Recursive walk<br/>resolve_files()"]
+    walk["Recursive walk<br/>(walkdir::WalkDir,<br/>talkbank-clan/framework/input.rs)"]
     dispatch["LSP talkbank/analyze<br/>(typed request)"]
     runner["AnalysisRunner<br/>(talkbank-clan crate)"]
     result["JSON result<br/>(typed Response)"]

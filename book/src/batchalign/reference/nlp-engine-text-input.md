@@ -1,7 +1,7 @@
 # NLP Engine Text Input Expectations
 
 **Status:** Current
-**Last updated:** 2026-05-02 09:12 EDT
+**Last updated:** 2026-05-20 20:24 EDT
 
 Comprehensive reference for what text format each NLP engine/tool in batchalign3
 expects as input, what preprocessing is applied, and what would break if raw
@@ -22,7 +22,7 @@ all CHAT markers at parse time.
 
 ### The `cleaned_text()` Contract
 
-`Word::cleaned_text()` (defined in `talkbank-model/.../word_type.rs:285`)
+`Word::cleaned_text()` (defined in `crates/talkbank-model/src/model/content/word/word_type.rs:190`)
 concatenates only two `WordContent` variants:
 
 - `WordContent::Text` -- base graphemes
@@ -71,9 +71,11 @@ is converted from ISO 639-3 to a Whisper language name via
 **Post-processing by Rust (`asr_postprocess/`):** The raw Whisper output goes
 through a multi-stage Rust pipeline before becoming CHAT:
 
-1. Compound merging (3,584 known compound pairs)
+1. Compound merging (3,584 known compound pairs after dedup; see
+   `crates/talkbank-transform/src/asr_postprocess/compounds.rs`)
 2. Multi-word splitting (space-separated tokens get timestamp interpolation)
-3. Number expansion (digits to word form, 12 languages)
+3. Number expansion via `crates/talkbank-transform/data/num2lang.json`
+   (46 languages today) plus `num2chinese.rs` for CJK
 4. Cantonese normalization (simplified to traditional + domain replacements, `lang=yue` only)
 5. Long turn splitting (>300 words)
 6. Retokenization (split into utterances by punctuation)
@@ -145,7 +147,7 @@ sentences separated by `\n\n`.
 cleaned_word1 cleaned_word2 cleaned_word3\n\ncleaned_word4 cleaned_word5
 ```
 
-This is constructed in `morphosyntax.py` line 272:
+This is constructed in `batchalign/inference/morphosyntax.py:273`:
 
 ```python
 text = " ".join(words).strip()
@@ -171,14 +173,18 @@ The Python `morphosyntax.py` explicitly avoids stripping parentheses (line
 268-271 comment: "Do NOT strip parentheses here -- Rust cleaned_text() already
 handles CHAT notation").
 
-**Stanza pipeline configuration (`_stanza_loading.py`):**
+**Stanza pipeline configuration (`batchalign/worker/_stanza_loading.py`):**
+Per-language MWT eligibility is **capability-driven** via
+`should_request_mwt(alpha2, get_cached_capability_table())` at
+`_stanza_loading.py:40`; languages where the cached catalog reports
+`has_mwt=True` get the postprocessor and `tokenize_no_ssplit=True`,
+others fall back to `tokenize_pretokenized=True`. The earlier
+hardcoded `MWT_LANGS` allowlist was deleted.
 
-| Language | `tokenize_pretokenized` | `tokenize_no_ssplit` | `tokenize_postprocessor` | MWT |
+| Language class | `tokenize_pretokenized` | `tokenize_no_ssplit` | `tokenize_postprocessor` | MWT |
 |---|---|---|---|---|
-| Japanese (`ja`) | `True` | `True` | None | No |
-| Non-MWT languages | `True` | `True` | None | No |
-| English (`en`) | (model decides) | `True` | Custom realigner | Yes (gum) |
-| MWT languages (fr, de, it, ...) | (model decides) | `True` | Custom realigner | Yes |
+| `should_request_mwt() == False` (e.g. Japanese, Chinese, Korean, Swedish today) | `True` | `True` | None | No |
+| `should_request_mwt() == True` (e.g. English, French, German, Italian, Hebrew, Greek) | (model decides) | `True` | Custom realigner | Yes (English uses `gum`) |
 
 **Key Stanza behaviors:**
 
@@ -242,7 +248,7 @@ handles CHAT notation").
 doc = nlp(" ".join(item.words))
 ```
 
-(from `utseg.py` line 120)
+(call site in `batchalign/inference/utseg.py::batch_infer_utseg`)
 
 **Preprocessing:** Same as morphosyntax -- words arrive as `Vec<String>` of
 cleaned text from Rust extraction, joined with spaces in Python.
@@ -271,7 +277,7 @@ strings and computes word-to-utterance assignments.
 text = "\n\n".join(" ".join(s) for s in item.sentences)
 ```
 
-(from `coref.py` line 97)
+(call site in `batchalign/inference/coref.py::batch_infer_coref`)
 
 **Stanza pipeline:** Configured with `tokenize_pretokenized=True` and
 processors `"tokenize, coref"` with the
@@ -301,7 +307,7 @@ detokenized = " ".join(item.words)
 detokenized = detokenized.replace("_", " ").strip()
 ```
 
-(from `fa.py` lines 344-345)
+(from `batchalign/inference/fa.py:370-371`)
 
 Whisper FA uses `handle.processor()` which tokenizes the text internally. The
 text is fed through as a "forced" transcription target.
@@ -310,14 +316,13 @@ text is fed through as a "forced" transcription target.
 operates at the character level:
 
 ```python
-transcript = torch.tensor([
-    dictionary.get(c, dictionary["*"])
-    for word in words
-    for c in word.lower()
-])
+wildcard = dictionary["*"]
+# ...
+token = dictionary.get(char, wildcard)
 ```
 
-(from `fa.py` lines 255-258)
+(from `batchalign/inference/fa.py:259` for the wildcard binding and
+`:267` for the per-character lookup)
 
 Each word is lowercased and decomposed into individual characters for CTC
 forced alignment. Unknown characters map to the `*` wildcard token.

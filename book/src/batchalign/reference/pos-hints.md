@@ -1,7 +1,7 @@
 # Transcriber `$POS` Hints
 
 **Status:** Reference — default on; opt out via `--no-pos-hints`
-**Last updated:** 2026-05-02 08:58 EDT
+**Last updated:** 2026-05-21 08:40 EDT
 
 CHAT main-tier words may carry a `$POS` suffix that encodes the
 transcriber's part-of-speech annotation in CLAN-MOR conventions
@@ -60,10 +60,13 @@ flowchart TD
     M --> N["Serialize CHAT\n(to_chat_string)"]
 ```
 
-Source verified: `crates/batchalign/src/morphosyntax/batch.rs`
-(`run_morphosyntax_batch_impl`), `crates/talkbank-transform/src/morphosyntax/pos_hints.rs`
-(`apply_pos_hints`), and `crates/talkbank-transform/src/morphosyntax/l2/splice.rs`
-(`splice_l2_into_chat`).
+Source verified:
+`crates/batchalign/src/morphosyntax/mod.rs:72::run_morphosyntax_impl`
+(orchestration entry) and
+`crates/batchalign/src/morphosyntax/batch.rs:31::dispatch_secondary_l2`
+(L2 dispatch);
+`crates/talkbank-transform/src/morphosyntax/pos_hints.rs:36::apply_pos_hints`;
+`crates/talkbank-transform/src/morphosyntax/l2/splice.rs:405::splice_l2_into_chat`.
 
 ## Per-hint decision flow
 
@@ -239,21 +242,23 @@ per-invocation relief while a fix is prepared.
 
 The Hindi POC used a twin morphotag run (stock vs prototype) on a
 100-utterance sample of Devanagari-converted classroom speech.
-Reproduce with:
+Reproduce by routing language per-file from the `@Languages:` header
+(morphotag has no `--lang` flag, per
+`crates/batchalign/src/cli/args/commands.rs:365-370`):
 
 ```bash
-# 1. Stock run (hints disabled — the old pre-default behavior)
+# 1. Stock run (hints disabled — the old pre-default behavior).
+#    The sample-100-devanagari.cha @Languages: header drives routing.
 batchalign3 morphotag --no-pos-hints sample-100-devanagari.cha \
-    --output stock/ --lang hin --sequential --workers 1
+    --output stock/ --sequential --workers 1
 
 # 2. Hint-respecting run (current default)
 batchalign3 morphotag sample-100-devanagari.cha \
-    --output proto/ --lang hin --sequential --workers 1
+    --output proto/ --sequential --workers 1
 
-# 3. Compare
-python3 hindi-experiment/scripts/compare_morphotag.py \
-    stock/sample-100-devanagari.cha \
-    proto/sample-100-devanagari.cha
+# 3. Diff the two outputs at the %mor tier level using diff/grep on
+#    the .cha files, or write a small comparator against the
+#    `chatter to-json` output.
 ```
 
 On that sample: 5 POS overrides out of 26 hints applied; 3 of 5

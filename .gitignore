@@ -66,3 +66,8 @@ lcov*.info
 # Vendored Swift Package Manager checkouts (should never be committed)
 **/.build/
 **/.tmp-review-venv/
+
+# CLAN side-output files produced during parity testing
+pipeout*.xls
+pipeout*.cex
+pipeout*.cha

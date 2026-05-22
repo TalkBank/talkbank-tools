@@ -1,17 +1,18 @@
 """Verification: Tencent ASR word segmentation for Cantonese.
 
-Spencer Cheng (PolyU) reported that Tencent ASR does word segmentation.
-This test documents the empirical finding from running real Cantonese
-audio through Tencent ASR on net (2026-03-23).
+An external collaborator hypothesised that Tencent ASR does word
+segmentation for Cantonese. This test documents the empirical finding
+from running real Cantonese audio through Tencent ASR on a
+production-grade host.
 
 Finding: Tencent produces 100% single-character output for Cantonese.
-25 CJK words, 0 multi-character. Spencer's claim is DISPROVED for
+25 CJK words, 0 multi-character. The hypothesis is DISPROVED for
 Cantonese. All Cantonese ASR engines produce per-character output.
 
 Provenance:
-- Audio: yue_hku_clip.mp3 (A023.mp4 lines 11-16, 26s aphasia speech)
-- Engine: Tencent Cloud ASR via batchalign3 on net
-- Credentials: ~/.batchalign.ini on net
+- Audio: yue_hku_clip.mp3 (aphasia Cantonese clip, ~26s)
+- Engine: Tencent Cloud ASR via batchalign3 on a production-grade host
+- Credentials: `~/.batchalign.ini` on that host
 - Script: scripts/check-media/verify_tencent_cantonese.sh
 
 Raw Tencent output (single utterance):

@@ -1,7 +1,7 @@
 # CI and Release
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:39 EDT
+**Last updated:** 2026-05-21 13:05 EDT
 
 ## Pre-Merge Verification
 
@@ -67,15 +67,17 @@ General process:
   Current GitHub Release archives, wheels, and VSIX files are not a license to
   imply native-installer trust guarantees we do not yet automate.
 
-## Cross-Repo Testing
+## Cross-Surface Testing
 
-After changes to core crates, verify the downstream consumer:
+Batchalign now lives inside this workspace as the `batchalign-*` sibling
+crates plus the Python package at `batchalign/`. After changes to core
+Rust crates that the Python extension depends on, rebuild the bridge
+and run the Python suite from the workspace root:
 
 ```bash
-# batchalign (Python + Rust)
-cd /path/to/batchalign3
-uv run maturin develop    # Rebuild Rust extension
-uv run pytest             # 878 tests
+uv run maturin develop    # Rebuild the batchalign-pyo3 extension in-place
+uv run pytest batchalign  # Python test suite
 ```
 
-CLI, LSP, and CLAN tests run as part of the main workspace's `make test` and `make verify`.
+CLI, LSP, and CLAN tests run as part of the main workspace's
+`make test` and `make verify`.

@@ -1,7 +1,7 @@
 # Maturin Build and PyO3 Dependency Surface
 
 **Status:** Current
-**Last updated:** 2026-05-01 09:47 EDT
+**Last updated:** 2026-05-19 22:59 EDT
 
 ## Overview
 
@@ -12,12 +12,13 @@ cdylib linking). No other features exist — the extension is always slim.
 ## Dependency Graph
 
 ```text
-batchalign-pyo3 (the .so, ~2,730 lines, 9 files)
+batchalign-pyo3 (the .so)
   |
-  +-- batchalign-types          (newtypes, worker IPC types)
-  +-- batchalign       (Cantonese ASR projection, Cantonese normalization,
-  |                              tokenizer realignment, text task normalization)
-  +-- pyo3, numpy, serde, serde_json, tracing
+  +-- batchalign-types       (newtypes, worker IPC types)
+  +-- talkbank-transform     (Cantonese ASR projection, Cantonese normalization,
+  |                           tokenizer realignment, asr_postprocess,
+  |                           morphosyntax, text task normalization)
+  +-- pyo3, numpy, serde, serde_json, tracing, tracing-subscriber
 ```
 
 That's it. ~319 crates in the full dependency tree. No server, no CLI, no
@@ -28,9 +29,10 @@ Rev.AI, no talkbank-model, no talkbank-parser.
 | Crate | Used by pyo3 for | Could be removed? |
 |-------|-------------------|-------------------|
 | `batchalign-types` | Domain newtypes, worker IPC types (`ExecuteRequestV2`, etc.) | No — core shared types |
-| `batchalign` | Cantonese ASR projection, Cantonese normalization, tokenizer realignment, coref types, text result normalization | No — worker-side Rust logic |
+| `talkbank-transform` | Cantonese ASR projection, Cantonese normalization, tokenizer realignment, coref types, text result normalization, morphosyntax sentence mapping (post-crate-split home of all the formerly-`batchalign`-side worker logic) | No — worker-side Rust logic |
 | `pyo3` / `numpy` | PyO3 bridge, NumPy array handling for audio | No — fundamental |
 | `serde` / `serde_json` | JSON serialization for IPC | No — fundamental |
+| `tracing` / `tracing-subscriber` | Worker-process logging (env-filtered) | No — required for diagnostics |
 
 ### What was removed
 
@@ -68,17 +70,19 @@ handoffs into the Rust binary:
 ## Build Commands
 
 ```bash
-# Development rebuild (debug, fast — ~7s incremental)
-make build-python
-# equivalent: uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml -F pyo3/extension-module
-
-# Full package (extension + CLI binary in batchalign/_bin/)
-make build-python-full
+# Development rebuild (debug, fast — incremental)
+uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml \
+    -F pyo3/extension-module
+# Or via the Makefile target chain (build wheel + install into the dev env):
+make batchalign-build-wheel
+make batchalign-python-prepare
 
 # Release wheel for deployment
 cargo build --release -p batchalign --bin batchalign3
 cp target/release/batchalign3 batchalign/_bin/batchalign3
-uv run maturin build --release -m crates/batchalign-pyo3/Cargo.toml -F pyo3/extension-module --out dist/
+uv run maturin build --release \
+    -m crates/batchalign-pyo3/Cargo.toml \
+    -F pyo3/extension-module --out dist/
 
 # Check compilation without building wheel
 cargo check --manifest-path crates/batchalign-pyo3/Cargo.toml

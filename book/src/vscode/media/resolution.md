@@ -1,7 +1,7 @@
 # Media Resolution
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 13:25 EDT
 
 This chapter explains how the extension locates media files referenced by CHAT
 transcripts. Understanding the resolution process helps when media playback fails
@@ -20,38 +20,49 @@ specifying the base filename and the media type:
 The header provides two pieces of information:
 
 1. **Base filename** --- the name without extension (e.g., `interview`)
-2. **Media type** --- either `audio` or `video`, which determines the file
-   extensions the resolver tries
+2. **Media type tag** --- either `audio` or `video`. Downstream features
+   may use this label, but the file-resolution step does **not** branch
+   on it — the resolver uses a single ordered list of extensions
+   regardless of the declared type.
 
-For `audio`, the resolver looks for: `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`
+The extension list lives in `vscode/src/utils/mediaResolver.ts`
+(`MEDIA_EXTENSIONS`), ordered by commonality:
 
-For `video`, the resolver looks for: `.mp4`, `.mov`, `.avi`, `.webm`, `.mkv`
+`.mov`, `.mp4`, `.mp3`, `.wav`, `.m4v`, `.aif`, `.avi`, `.wmv`,
+`.mpg`, `.aiff`.
 
 ## Resolution Search Order
 
-When you trigger playback or open the waveform, the extension's media resolver
-(`mediaResolver.ts`) searches for the media file in the following order:
+When you trigger playback or open the waveform, the resolver in
+`vscode/src/utils/mediaResolver.ts::resolveMediaPath` searches in this
+order:
 
-1. **Same directory** as the `.cha` file
-2. **`media/` subdirectory** --- a sibling `media/` folder next to the `.cha` file
-3. **Configured media roots** --- additional search paths from extension settings
+1. **Verbatim** --- if the `@Media:` value already includes an
+   extension that exists on disk, that exact path wins.
+2. **Same directory, every extension** --- for each `.ext` in
+   `MEDIA_EXTENSIONS`, try `docDir/<stem><ext>`.
+3. **`media/` subdirectory, every extension** --- for each `.ext` in
+   `MEDIA_EXTENSIONS`, try `docDir/media/<stem><ext>` (CLAN's
+   conventional layout).
 
-At each location, the resolver tries every applicable file extension for the
-declared media type. The first match wins.
+The first existing file wins. There are no additional configured search
+roots — the resolver only looks in the document's own directory and a
+sibling `media/`.
 
 ### Example
 
 Given a file at `/corpus/English/Brown/Adam/adam01.cha` with header
-`@Media: adam01, audio`, the resolver searches:
+`@Media: adam01, audio`, the resolver searches in order:
 
 ```text
+/corpus/English/Brown/Adam/adam01.mov
+/corpus/English/Brown/Adam/adam01.mp4
 /corpus/English/Brown/Adam/adam01.mp3
 /corpus/English/Brown/Adam/adam01.wav
-/corpus/English/Brown/Adam/adam01.m4a
-  ...
-/corpus/English/Brown/Adam/media/adam01.mp3
-/corpus/English/Brown/Adam/media/adam01.wav
-/corpus/English/Brown/Adam/media/adam01.m4a
+/corpus/English/Brown/Adam/adam01.m4v
+  ... (the rest of MEDIA_EXTENSIONS in order)
+/corpus/English/Brown/Adam/media/adam01.mov
+/corpus/English/Brown/Adam/media/adam01.mp4
   ...
 ```
 
@@ -118,15 +129,26 @@ base name exactly (case-sensitive on macOS and Linux).
 
 ### 3. Check the File Extension
 
-The media file must have a recognized extension for its type. An `.mp3` file
-declared as `video` in the `@Media` header will not be found --- the resolver only
-tries video extensions (`.mp4`, `.mov`, etc.) for video-typed headers.
+The media file must have one of the recognized extensions in
+`MEDIA_EXTENSIONS` (above). The resolver does not distinguish audio
+from video at the search step — an `.mp3` file declared as `video` in
+the `@Media` header will still be found, because the same extension
+list is tried for every header. If the actual file uses an extension
+not in that list, add the extension explicitly to the `@Media:` value
+(e.g., `@Media: adam01.flac, audio`), which makes the resolver hit the
+verbatim path first.
 
-### 4. Check the Output Panel
+### 4. Reproduce the search by hand
 
-Open the **Output** panel in VS Code (`Cmd+Shift+U`) and select the **TalkBank**
-channel. The extension logs media resolution attempts and failures here, showing
-exactly which paths were searched and why resolution failed.
+The resolver in `vscode/src/utils/mediaResolver.ts` does not currently
+emit log output for each attempted path. If a file should match but
+doesn't, walk through the candidate list from "Resolution Search Order"
+above by hand: list the directory contents (`ls /path/to/.cha/dir/`
+and `ls /path/to/.cha/dir/media/` if present) and look for the stem
+with any of the extensions in `MEDIA_EXTENSIONS`. The most common
+causes are filename case mismatch on macOS / Linux, a stray extension
+not in the list (e.g., `.ogg`, `.flac`, `.mkv`), or an unexpected
+extra directory level between the `.cha` and the media.
 
 ### 5. Large or Unsupported Formats
 

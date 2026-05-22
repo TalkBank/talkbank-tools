@@ -1,7 +1,7 @@
 # Frequency & Distribution
 
 **Status:** Current
-**Last updated:** 2026-03-30 13:40 EDT
+**Last updated:** 2026-05-21 13:35 EDT
 
 Frequency and distribution commands count words, morphemes, and
 phonological segments in various ways. They answer questions like
@@ -60,19 +60,22 @@ characters) across the transcript.
 length is a variable of interest. Comparing word length distributions
 across sessions can reveal changes in lexical sophistication.
 
-## WDSIZE -- Vocabulary Size
+## WDSIZE -- Word-Size Histogram
 
-**What it does:** Reports the cumulative vocabulary size -- the number
-of unique word types -- as the transcript progresses. This produces a
-vocabulary growth curve.
+**What it does:** Reports the character-length histogram of stems on
+the `%mor` (morphology) tier — how many one-character stems, two-
+character stems, and so on. Per speaker.
+
+**Requires:** A `%mor` tier (or use FREQ for surface-form length).
 
 **Results include:**
-- Total vocabulary size per speaker
-- Character length statistics from `%mor` stems
+- Histogram of `%mor` stem lengths per speaker
+- Summary statistics over the histogram
 
-**When to use it:** For studying vocabulary growth over the course of
-a session or across sessions. The growth curve shows whether a speaker
-is still introducing new words or has plateaued.
+**When to use it:** When stem-length distribution matters (e.g.,
+phonological / orthographic complexity comparisons). For surface-form
+vocabulary growth, use FREQ or VOCD instead — WDSIZE is not a
+vocabulary tracker.
 
 ## MAXWD -- Longest Words
 
@@ -104,15 +107,20 @@ assessment, or studying sound acquisition patterns.
 
 ## MODREP -- Model and Replica
 
-**What it does:** Analyzes imitation patterns by comparing a child's
-utterance (the replica) to the preceding adult utterance (the model).
-Reports what was repeated exactly, what was modified, and what was added
-or omitted.
+**What it does:** Compares model and replica content **between the
+`%mod` and `%pho` tiers**, not between main-tier utterances. The
+`%mod` tier holds the model phonetic form; `%pho` holds the replica's
+actual phonetic transcription. MODREP reports segment-level matches,
+modifications, and omissions between the two.
 
-**When to use it:** For studying imitation and language learning
-strategies. High exact-imitation rates in older children may indicate
-echolalia; selective imitation patterns reveal what structures the child
-is actively acquiring.
+**Requires:** Both `%mod` and `%pho` tiers populated for the
+utterances of interest. Files without these tiers produce empty
+results.
+
+**When to use it:** For phonological-imitation analysis where the
+researcher has aligned model and replica transcriptions on dedicated
+tiers. For looser main-tier echo/imitation analysis, use a different
+command (e.g., CHIP or pattern-matched FREQ).
 
 ## COOCCUR -- Co-occurrence
 
@@ -181,4 +189,4 @@ measures:
 
 - [Profiling Commands](profiling.md) -- MLU, MLT, VOCD, DSS, IPSyn
 - [Assessment Tools](assessment.md) -- KidEval, Eval, Eval-D
-- [Command Reference](command-reference.md) -- all 33 commands in one table
+- [Command Reference](command-reference.md) -- every CLAN command wired into the extension, in one table

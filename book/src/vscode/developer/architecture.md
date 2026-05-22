@@ -1,7 +1,7 @@
 # Architecture
 
 **Status:** Current
-**Last updated:** 2026-04-16 16:19 EDT
+**Last updated:** 2026-05-21 13:55 EDT
 
 This chapter describes the internal architecture of the TalkBank CHAT VS Code extension and its backing language server. It is written for developers who want to understand or contribute to the codebase.
 
@@ -104,7 +104,7 @@ If you are new to the codebase, read these files in order:
 1. **`backend/state.rs`** -- the shared state struct and all caches
 2. **`backend/mod.rs`** -- how LSP requests are dispatched to handlers
 3. **`backend/documents.rs`** -- the document lifecycle (open/change/save/close)
-4. **`diagnostics/validation_orchestrator.rs`** -- the validation pipeline
+4. **`backend/diagnostics/validation_orchestrator.rs`** -- the validation pipeline
 5. **`alignment/mod.rs`** -- how hover and highlight find alignment data
 6. **`alignment/tier_hover/main_tier.rs`** -- concrete example of a tier handler
 7. **`graph/mod.rs`** -- dependency graph DOT generation

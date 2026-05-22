@@ -59,7 +59,7 @@ fn use_temporal_recognizes_sentinel_values() {
     let mut cfg = ServerConfig::default();
     assert!(!cfg.use_temporal());
 
-    cfg.temporal_server_url = "http://net:7233".to_string();
+    cfg.temporal_server_url = "http://temporal-host:7233".to_string();
     assert!(cfg.use_temporal());
 
     for sentinel in ["", "none", "local", "disabled", "  ", " none "] {

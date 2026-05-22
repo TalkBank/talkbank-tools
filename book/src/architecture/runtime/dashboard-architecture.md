@@ -1,7 +1,7 @@
 # Dashboard Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-21 15:00 EDT
 
 The Batchalign dashboard is one React UI shipped two ways: the web
 dashboard served by the Rust control plane, and a desktop operator
@@ -85,7 +85,7 @@ construction.
 |---|---|
 | `frontend/` | React dashboard sources (served by `batchalign` server) |
 | `apps/dashboard-desktop/` | Tauri shell (rust-tauri + React UI build) |
-| `crates/batchalign/src/server/openapi.rs` | OpenAPI schema generation |
+| `crates/batchalign/src/openapi.rs` | OpenAPI schema generation |
 
 For the chatter desktop app (a separate Tauri product, not the
 batchalign dashboard), see

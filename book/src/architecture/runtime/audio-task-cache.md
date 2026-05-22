@@ -1,7 +1,7 @@
 # Audio-Task Cache
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-21 14:55 EDT
 
 Batchalign caches **audio-task results** (forced alignment, UTR ASR,
 media conversion). It does **not** cache text-NLP results
@@ -153,14 +153,14 @@ SQLite schema where `key` is the primary key.
 
 Keys are **BLAKE3** content-addressed hashes (64-character hex
 strings), computed by the `CacheKey` newtype in
-`crates/batchalign/src/cache_key.rs`. There is no constructor from
+`crates/batchalign/src/chat_ops/cache_key.rs`. There is no constructor from
 arbitrary strings — keys can only be created through the
 task-specific `cache_key()` functions, which hash input payloads
 internally.
 
 ### `AudioIdentity`
 
-The `AudioIdentity` newtype (`crates/batchalign/src/fa/mod.rs`)
+The `AudioIdentity` newtype (`crates/batchalign/src/chat_ops/fa/mod.rs`)
 identifies an audio file for cache keying. It is computed from
 **filesystem metadata only**, not from a content hash of the audio
 data.

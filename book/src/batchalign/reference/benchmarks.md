@@ -1,7 +1,7 @@
 # Benchmarks
 
 **Status:** Current
-**Last updated:** 2026-05-02 14:00 EDT
+**Last updated:** 2026-05-20 01:14 EDT
 
 Batchalign provides a `benchmark` command to evaluate ASR accuracy against
 gold transcripts. It transcribes each audio file, compares the result
@@ -23,7 +23,7 @@ Word normalization is applied before comparison: compound splitting
 (`airplane` → `air plane`), contraction expansion (`he's` → `he is`),
 filler normalization (all fillers → `um`), abbreviation expansion
 (`FBI` → `F B I`), and proper name replacement (all names → `name`).
-The normalization logic lives in `batchalign/src/wer_conform.rs`.
+The normalization logic lives in `crates/talkbank-transform/src/wer_conform.rs`.
 
 ## Pipeline
 
@@ -154,13 +154,13 @@ The `--lang` flag affects ASR engine behavior:
 
 | Component | File | Key function |
 |---|---|---|
-| Orchestrator | `crates/batchalign/src/benchmark.rs` | `process_benchmark()` |
-| Per-file dispatcher | `crates/batchalign/src/runner/dispatch/benchmark_pipeline.rs` | `process_one_benchmark_file()` |
-| Gold file resolution | `crates/batchalign/src/benchmark.rs` | `gold_chat_path_for_audio()` |
-| WER computation | `crates/batchalign/src/compare.rs` | `compare()` |
-| Word normalization | `crates/batchalign/src/wer_conform.rs` | `conform_words()` |
-| CSV output | `crates/batchalign/src/compare.rs` | `format_metrics_csv()` |
-| %xsrep / %xsmor injection | `crates/batchalign/src/compare.rs` | `inject_comparison()` |
+| Orchestrator | `crates/batchalign/src/benchmark.rs` | `process_benchmark()` (line 44) |
+| Per-file dispatcher | `crates/batchalign/src/runner/dispatch/benchmark_pipeline.rs` | `process_one_benchmark_file()` (line 185) |
+| Gold file resolution | `crates/batchalign/src/benchmark.rs` | `gold_chat_path_for_audio()` (line 72) |
+| WER computation | `crates/talkbank-transform/src/compare/engine.rs` | `compare()` (line 173) |
+| Word normalization | `crates/talkbank-transform/src/wer_conform.rs` | `conform_words()` (line 96) |
+| CSV output | `crates/talkbank-transform/src/compare/metrics.rs` | `format_metrics_csv()` (line 284) |
+| %xsrep / %xsmor injection | `crates/talkbank-transform/src/compare/materialize.rs` | `inject_comparison()` (line 266) |
 
 ## See also
 

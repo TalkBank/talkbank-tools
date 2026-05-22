@@ -1,7 +1,7 @@
 # Desktop App Testing
 
 **Status:** Current
-**Last updated:** 2026-03-17
+**Last updated:** 2026-05-20 20:28 EDT
 
 This document covers the testing strategy for the Chatter desktop app
 (`apps/chatter-desktop/`). Testing is split into three tiers by speed and scope.
@@ -51,7 +51,7 @@ cargo nextest run -p chatter-desktop --test validation_bridge
 |------|-----------------|
 | `apps/chatter-desktop/tests/unit/validationRunner.test.cjs` | Validation capability uses centralized command names, subscribes before invoke, and disposes listeners exactly once |
 | `apps/chatter-desktop/tests/unit/validationState.test.cjs` | Validation reducer computes relative file names and merges diagnostics/status immutably |
-| `reference_corpus_no_hard_errors` | 74 reference files produce zero `Severity::Error` (warnings allowed) |
+| `reference_corpus_no_hard_errors` | every file under `corpus/reference/` produces zero `Severity::Error` (warnings allowed) |
 | `event_lifecycle_has_correct_sequence` | Discovering → Started → FileComplete×N → Finished ordering |
 | `frontend_events_serialize_to_expected_json_shape` | Every event has `type` field; camelCase field names match TypeScript types; diagnostics include `renderedText` |
 | `protocol_contracts_serialize_to_expected_json_shape` | Rust command/event constants and request payloads stay aligned with the TypeScript protocol module |
@@ -138,7 +138,7 @@ does not support WebDriver. Run E2E tests in CI (Linux) or on a Windows machine.
 tauri-driver
 
 # Terminal 2: run the tests
-cd desktop
+cd apps/chatter-desktop
 npm run test:e2e
 ```
 
@@ -218,9 +218,12 @@ becomes a problem.
 
 ## Test Data
 
-All tests use the reference corpus at `corpus/reference/` (74 files). This
-corpus is checked into the repo and must always pass validation. Two files
-currently produce warnings (E534, E603) but zero hard errors.
+All tests use the reference corpus at `corpus/reference/`. This
+corpus is checked into the repo and must always pass validation with
+zero hard errors (warnings are allowed). The exact set of files and
+the current warning-emitting files are whatever
+`find corpus/reference -name '*.cha' -type f` and the validator
+report — do not hard-code those lists here.
 
 Do not create ad-hoc `.cha` test files. Use existing reference corpus files
 or ask the user to provide test data.

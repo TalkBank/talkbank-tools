@@ -1,7 +1,7 @@
 # Performance Optimizations
 
 **Status:** Current
-**Last updated:** 2026-05-01 17:07 EDT
+**Last updated:** 2026-05-19 17:38 EDT
 
 Performance-critical patterns shipped in `talkbank-tools` and the
 batchalign runtime. Each entry describes what runs in production and
@@ -31,7 +31,7 @@ The `CachedStr` newtype:
 Return type is `&str` (not `String`); callers that need an owned
 copy add `.to_string()` explicitly.
 
-`crates/talkbank-model/src/model/content/word/types.rs`.
+`crates/talkbank-model/src/model/content/word/word_type.rs`.
 
 ## `ValidationContext` — `Arc<SharedValidationData>` Split
 
@@ -75,7 +75,8 @@ mutation, the new `ChatFile` is wrapped in `Arc::new()` and
 inserted atomically.
 
 `crates/talkbank-lsp/src/backend/state.rs`,
-`requests.rs`, `validation_orchestrator.rs`.
+`crates/talkbank-lsp/src/backend/requests/`,
+`crates/talkbank-lsp/src/backend/diagnostics/validation_orchestrator.rs`.
 
 ## Reusable `TreeSitterParser`
 
@@ -99,13 +100,17 @@ mmap_size   = 268435456  (256 MB)
 Combined ~2–3× write-throughput improvement with no durability
 risk — WAL mode is already crash-safe.
 
-## Per-Thread SQLite Connections
+## Sync ↔ Async Cache Bridge
 
-`CachePool` uses `thread_local::ThreadLocal<CacheConnection>` for
-its SQLite handles. Each worker thread lazily opens its own
-connection. WAL mode handles concurrency natively — concurrent
-readers, serialized writers with `busy_timeout` retry. No `Mutex`
-anywhere; cache hits are contention-free.
+The `ValidationCache` trait is sync (required by crossbeam worker
+threads), but the cache backend uses async `sqlx::SqlitePool`.
+`CachePool` (`crates/talkbank-transform/src/unified_cache/cache_impl.rs`)
+holds a single embedded `tokio::runtime::Runtime` and calls
+`rt.block_on()` internally on every cache operation. WAL mode handles
+the underlying concurrency natively — concurrent readers, serialized
+writers with `busy_timeout` retry. The embedded runtime is
+single-threaded and lightweight, so the bridge cost is small compared
+to the cache hit it enables.
 
 ## Pass/Fail-Only Cache Schema
 
