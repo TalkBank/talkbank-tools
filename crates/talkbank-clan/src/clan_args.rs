@@ -300,6 +300,14 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // +r6 — include retracings
         (b'+', b'r') if rest == "6" => Some(vec!["--include-retracings".into()]),
 
+        // +re — recurse subdirectories. chatter recurses by default
+        // when given a directory argument, so the flag is a global
+        // no-op (same shape as `+u` on non-CHECK commands above).
+        // Drop the token rather than passing it through to clap,
+        // which would land it in the path-arg list and emit a
+        // confusing `Warning: "+re" is not a file or directory`.
+        (b'+', b'r') if rest == "e" => Some(vec![]),
+
         // +u: For CHECK, +u means validate UD features; for other commands, merge speakers (no-op)
         (b'+', b'u') if rest.is_empty() && subcommand == Check => Some(vec!["--check-ud".into()]),
         (b'+', b'u') if rest.is_empty() => Some(vec![]),
@@ -842,6 +850,18 @@ mod tests {
         let input = args("clan analyze freq +z25-125 file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, args("clan analyze freq --range 25-125 file.cha"));
+    }
+
+    #[test]
+    fn recurse_flag_dropped() {
+        // CLAN `+re` requests subdirectory recursion. chatter
+        // recurses by default for directory args, so the flag is a
+        // global no-op. Without this drop, `+re` survives the
+        // rewriter and lands in the path-arg list, triggering a
+        // confusing `Warning: "+re" is not a file or directory`.
+        let input = args("clan analyze freq +re corpus/");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze freq corpus/"));
     }
 
     #[test]
