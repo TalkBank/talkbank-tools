@@ -371,12 +371,17 @@ pub struct TranslateArgs {
     #[command(flatten)]
     pub common: CommonOpts,
 
-    /// Translation engine: `google` (default) or `seamless`.
+    /// Translation engine: `google` (default), `nllb`, or `seamless`.
     ///
-    /// Google calls the public Google Translate endpoint and requires
-    /// outbound network reachability — unsuitable behind the Great
-    /// Firewall without VPN. Seamless runs a local Meta SeamlessM4T
-    /// model and has no inference-time network requirement.
+    /// `google` calls the public Google Translate endpoint and
+    /// requires outbound network reachability — unsuitable behind
+    /// the Great Firewall without VPN. `nllb` is the recommended
+    /// self-hosted fallback (Meta NLLB-200-distilled-1.3B,
+    /// text-MT-native, ~5 GB local model, no inference-time
+    /// network requirement). `seamless` is the BA2-inherited
+    /// local-model fallback retained for back-compat; its CJK
+    /// quality on short utterances is poor — prefer `nllb` for
+    /// new work.
     #[arg(long, value_enum, default_value_t)]
     pub translate_engine: TranslateEngine,
 
