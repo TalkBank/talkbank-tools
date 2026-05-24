@@ -1,7 +1,7 @@
 # CLAN Parity Roadmap
 
 **Status:** Current
-**Last updated:** 2026-05-23 21:08 EDT
+**Last updated:** 2026-05-23 23:42 EDT
 
 Planning doc for the remaining CLAN flag-parity work. Source of truth
 for "how much is left" so future sessions don't have to re-derive it
@@ -255,6 +255,33 @@ is a single commit on `main` in `talkbank-tools`.
   bigram inline storage
 
 Tests: 966 → 1006 (+40 over the batch).
+
+**Audit-vs-runtime sweep (2026-05-23 evening, 3 commits):**
+
+- **MLU/MLT/WDLEN `+k` audit-page flip.** The prior `+k` rollout
+  reached these non-word-keying commands via the
+  `CommonAnalysisArgs.case_sensitive` flatten, but their audit pages
+  still said `Rewriter only`. Verified by direct probe and flipped to
+  `Done (no-op per CLAN)`. Pure documentation; no code change.
+- **`+re` global no-op rewriter arm.** CLAN's `+re` requests
+  subdirectory recursion; chatter already recurses by default. The
+  rewriter had no arm for the token, so `+re` survived to clap's
+  path-arg list and emitted a confusing
+  `Warning: "+re" is not a file or directory` on every invocation.
+  Added a one-line `(b'+', b'r') if rest == "e" => Some(vec![])`
+  next to the existing `+u` no-op. ~10 commands' "Done" rows are now
+  truthful in addition to operationally correct.
+- **MLU/MLT `-bw` → `--words` rewriter arm.** Audit-vs-code drift:
+  audit pages had marked `-bw` Done forever, but the rewriter only
+  had a comment — no actual arm. clap parsed `-bw` as a `-b -w`
+  short-flag pair and errored on the unknown `-b`. Added the missing
+  `(b'-', b'b') if matches!(subcommand, Mlu | Mlt) && rest == "w"`
+  arm. Three regression tests guard the rollout and the scope
+  boundary.
+
+Three new rewriter tests (`mlu_minus_bw_to_words`,
+`mlt_minus_bw_to_words`, `freq_minus_bw_unchanged`,
+`recurse_flag_dropped`) shipped with the second and third commits.
 
 ## Next-up candidates
 
