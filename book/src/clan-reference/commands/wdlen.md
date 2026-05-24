@@ -1,7 +1,7 @@
 # WDLEN -- Word Length Distribution
 
 **Status:** Current
-**Last updated:** 2026-05-22 09:05 EDT
+**Last updated:** 2026-05-23 23:09 EDT
 
 ## Purpose
 
@@ -68,7 +68,7 @@ against chatter's coverage. Sources:
 | `+u` | Combine across files | (default) | Done | Inverse default vs CLAN. |
 | `+re` | Recurse | (default) | Done | |
 | `+pS` | Word delimiter | — | Missing | |
-| `+k` | Case-sensitive | `--case-sensitive` (rewriter target) | Rewriter only | |
+| `+k` | Case-sensitive | `--case-sensitive` (via `CommonAnalysisArgs`) | Done (no-op per CLAN) | WDLEN does no word-keying; `+k` is silently accepted per CLAN's `cutt.cpp::mainusage` no-op semantic. Covered by `CommonAnalysisArgs.case_sensitive` flatten on `ClanCommands::Wdlen`. |
 | `+wN` / `-wN` | Context window | `--context-window` (rewriter target) | Rewriter only | |
 | `+f` / `+fEXT` | Output to file | `--output-ext` (rewriter target) | Rewriter only | Phase 1.1. |
 
@@ -76,9 +76,9 @@ against chatter's coverage. Sources:
 
 | Bucket | Count |
 |---|---|
-| Done (byte-parity or in scope) | 8 |
+| Done (byte-parity or in scope) | 9 |
 | Partial | 2 |
-| Rewriter only | 5 |
+| Rewriter only | 4 |
 | Missing | 6 |
 
 WDLEN's specific gaps (`+a` depend-only mode, `+bS`/`-bS`

@@ -1,7 +1,7 @@
 # MLU -- Mean Length of Utterance
 
 **Status:** Current
-**Last updated:** 2026-05-23 15:20 EDT
+**Last updated:** 2026-05-23 23:09 EDT
 
 ## Purpose
 
@@ -86,7 +86,7 @@ Missing.)
 | `+u` | Combine across files | (default) | Done | chatter combines by default. Inverse default vs CLAN. |
 | `+re` | Recurse subdirectories | (default for directory args) | Done | |
 | `+pS` | Add `S` to word delimiters | — | Missing | |
-| `+k` | Case-sensitive matching | `--case-sensitive` (rewriter target) | Rewriter only | |
+| `+k` | Case-sensitive matching | `--case-sensitive` (via `CommonAnalysisArgs`) | Done (no-op per CLAN) | MLU does no word-keying; `+k` is silently accepted per CLAN's `cutt.cpp::mainusage` no-op semantic. Covered by `CommonAnalysisArgs.case_sensitive` flatten on `ClanCommands::Mlu`. |
 | `+wN` / `-wN` | Context window | `--context-window` (rewriter target) | Rewriter only | KWAL-style. |
 | `+f` / `+fEXT` | Output to file | `--output-ext` (rewriter target) | Rewriter only | Phase 1.1 sidecar work. |
 
@@ -101,9 +101,9 @@ below for the per-N table. All `+d` and `+d1` invocations are
 
 | Bucket | Count |
 |---|---|
-| Done (byte-parity or in scope) | 10 |
+| Done (byte-parity or in scope) | 11 |
 | Partial (chatter abstraction differs) | 5 |
-| Rewriter only (would error at parse time) | 5 |
+| Rewriter only (would error at parse time) | 4 |
 | Missing (no rewriter, no clap field) | 5 |
 
 The `+g` overload is the most subtle issue: MLU's command-specific
