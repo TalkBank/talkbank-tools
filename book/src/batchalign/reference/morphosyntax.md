@@ -1,7 +1,7 @@
 # Morphosyntax Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-21 13:00 EDT
+**Last updated:** 2026-05-23 23:52 EDT
 
 ## 1. Overview
 
@@ -221,7 +221,7 @@ Automatically trained models producing Universal Dependencies analysis for 70+ l
 
 The shared `talkbank-model` `Mor` type:
 
-```rust
+```rust,ignore
 struct Mor {
     main: MorWord,
     post_clitics: SmallVec<[MorWord; 2]>,

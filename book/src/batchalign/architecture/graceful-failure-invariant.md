@@ -1,7 +1,7 @@
 # Graceful Failure Invariant
 
 **Status:** Current
-**Last updated:** 2026-05-23 09:20 EDT
+**Last updated:** 2026-05-23 23:52 EDT
 
 ## The rule
 
@@ -77,7 +77,7 @@ did not kill its neighbors).
 `TextWorkflowFileError` (in `crates/batchalign/src/text_batch.rs`)
 has two variants:
 
-```rust
+```rust,ignore
 pub(crate) enum TextWorkflowFileError {
     /// Batch-level: worker spawn, IPC, schema, pre- or
     /// post-validation, serialization. No per-item attribution.
@@ -96,7 +96,7 @@ pub(crate) enum TextWorkflowFileError {
 `ItemError` carries the position in the file's payload list and the
 engine's error string verbatim:
 
-```rust
+```rust,ignore
 pub(crate) struct ItemError {
     pub item_index: usize,
     pub message: String,
