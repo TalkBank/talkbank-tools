@@ -499,6 +499,13 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // clap surface; pass through.
         (b'+', b'd') if subcommand == Gemfreq => None,
 
+        // VOCD `+d`/`+dN` — `onlydata` output-detail level per
+        // `OSX-CLAN/src/clan/vocd/vocd.cpp:311` (same `+1`-offset
+        // pattern as chains/ipsyn; bounded by `OnlydataLimit`).
+        // chatter has no `--display-mode` consumer for VOCD; pass
+        // through.
+        (b'+', b'd') if subcommand == Vocd => None,
+
         // +dN — display mode
         (b'+', b'd') => rewrite_display_mode(rest),
 
@@ -1305,6 +1312,28 @@ mod tests {
     #[test]
     fn gemfreq_dn_passes_through() {
         let input = args("clan gemfreq +d1 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// VOCD `+d`/`+dN` are `onlydata` output-detail levels per
+    /// `OSX-CLAN/src/clan/vocd/vocd.cpp:311`
+    /// (`onlydata = atoi(getfarg(...))+1`, bounded by
+    /// `OnlydataLimit`, with `onlydata == 4` rejected in CLAN_SRV
+    /// builds). Audit lists `+d`, `+d1`, `+d2`, `+d3` as documented
+    /// levels. chatter has no `--display-mode` consumer for VOCD;
+    /// per-VOCD arm passes through.
+    #[test]
+    fn vocd_d_bare_passes_through() {
+        let input = args("clan vocd +d file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// Non-bare VOCD `+dN` also passes through (strict-RED case).
+    #[test]
+    fn vocd_dn_passes_through() {
+        let input = args("clan vocd +d1 file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, input);
     }

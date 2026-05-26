@@ -1,7 +1,7 @@
 # VOCD -- Vocabulary Diversity (D Statistic)
 
 **Status:** Current
-**Last updated:** 2026-05-22 23:32 EDT
+**Last updated:** 2026-05-26 11:29 EDT
 
 ## Purpose
 
@@ -58,7 +58,7 @@ analysis tool — dominated by the D_optimum sampling parameters.
 | `+br` | D_optimum: random sampling *with* replacement (default: without) | — | Missing | |
 | `+be` | D_optimum: sequential sampling | — | Missing | |
 | `+c` / `+c0` / `+c1` | Find capitalised words only (`+c`/`+c0`) or mid-uppercase (`+c1`) | `--capitalization <initial\|mid>` | Done | Landed 2026-05-22. Shares the `CapitalizationFilter` enum with FREQ. `+c`/`+c0` (alias) → `initial` filter; `+c1` → `mid` (e.g. `McDonald`, `iPhone`). Applied before VOCD's token sequence reaches the D-statistic sampler. |
-| `+d`, `+d1`, `+d2`, `+d3` | Output mode (utterances + types/tokens; summary only; etc.) | — | Rewriter only | `--display-mode N`; no consuming clap field. |
+| `+d`, `+d1`, `+d2`, `+d3` | Output mode (utterances + types/tokens; summary only; etc.) | — | Missing | `OSX-CLAN/src/clan/vocd/vocd.cpp:311` sets `onlydata = atoi(getfarg(...))+1` (bounded by `OnlydataLimit`; `onlydata == 4` rejected under CLAN_SRV). chatter has no `--display-mode` consumer for VOCD. Per-VOCD rewriter arm in `clan_args.rs` passes the token through so clap reports the literal `+dN` argument rather than the misleading `--display-mode` rewrite. |
 | `+gnS` / `-gnS` | Compute LRD — `S` = NUMERATOR `+s` directives | — | Missing | LRD = Limiting Relative Diversity. |
 | `+gdS` / `-gdS` | Compute LRD — `S` = DENOMINATOR `+s` directives | — | Missing | |
 | `+o` | Override default lemma-based analysis | — | Missing | Switches VOCD from `%mor` lemma-based to main-tier word-based. |
@@ -87,8 +87,8 @@ analysis tool — dominated by the D_optimum sampling parameters.
 |---|---|
 | Done | 9 |
 | Partial | 2 |
-| Rewriter only | 6 |
-| Missing | 12 |
+| Rewriter only | 5 |
+| Missing | 13 |
 
 VOCD has the **largest Missing bucket** of any audited command,
 driven by the D_optimum sampling parameter family (`+b0`, `+b1`,
