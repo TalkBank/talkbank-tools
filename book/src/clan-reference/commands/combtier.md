@@ -34,7 +34,7 @@ COMBTIER is a **transform**. Sources:
 
 | CLAN flag | Meaning | Chatter | Status | Notes |
 |---|---|---|---|---|
-| `+tS` | Tier to combine (required) | `--tier <NAME>` (required; rewriter intercept) | Done | Same required-flag refusal shape — CLAN exits with "Please specify tier to combine with +t option." Rewriter routes both `+tcom` (bare prefix) and `+t%com` (percent prefix) to `--tier com` via a per-Combtier intercept in `clan_args.rs` (the generic `+t<bareword> → --speaker <bareword>` rewrite would otherwise produce `--speaker com`, which combtier rejects since its required field is `--tier`). Prior to 2026-05-26 the `Combtier` variant was missing from `ClanSubcommandKind`, so the intercept could not fire and `combtier +tcom` failed clap with `error: unexpected argument '--speaker' found`. |
+| `+tS` | Tier to combine (required) | `--tier <NAME>` (required; rewriter intercept) | Done | Same required-flag refusal shape — CLAN exits with "Please specify tier to combine with +t option." Rewriter routes both `+tcom` (bare prefix) and `+t%com` (percent prefix) to `--tier com` via a per-Combtier intercept in `clan_args.rs` (combtier overrides the analysis-command convention where `+tS` means "speaker filter"). |
 | `--separator` (chatter extension) | Separator between combined contents | `--separator` | Chatter-only | No CLAN analog — CLAN's default is a space, hard-coded. |
 
 ### Audit summary

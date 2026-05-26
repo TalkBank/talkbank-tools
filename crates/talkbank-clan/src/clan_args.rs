@@ -169,24 +169,21 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
             Some(vec!["--words".into()])
         }
 
-        // COMBTIER `+tS` (bare-prefix form) — tier label to combine.
-        // CLAN COMBTIER overloads `+tS` away from the analysis-
-        // command convention (`+tCHI` = speaker filter) — here it
-        // means "tier label" (e.g. `+tcom` combines all `%com` lines
-        // per `OSX-CLAN/src/clan/combtier.cpp` usage). chatter's
-        // COMBTIER clap struct has `--tier <NAME>` for this; route
-        // the bareword form there instead of the generic
-        // `+t<bareword> → --speaker <bareword>` rewrite that
-        // `rewrite_tier_speaker` would otherwise produce. The
-        // `+t%X` form falls through unchanged to the generic `%`
-        // branch (also emits `--tier X`), so only the bare-prefix
-        // case needs interception.
+        // COMBTIER `+tS` (bare-prefix form) — tier label to combine,
+        // per `OSX-CLAN/src/clan/combtier.cpp` usage
+        // ("+tS: Combine all tiers S into one tier."). COMBTIER
+        // overloads `+tS` away from the analysis-command convention
+        // (`+tCHI` = speaker filter); route the bareword form to
+        // `--tier S` instead of letting `rewrite_tier_speaker`
+        // produce `--speaker S`. The `+t%X` form is handled by
+        // `rewrite_tier_speaker`'s `%` branch, which also emits
+        // `--tier X`, so only the bare-prefix case needs intercept.
         (b'+', b't')
             if subcommand == Combtier
                 && !rest.is_empty()
                 && !matches!(rest.as_bytes()[0], b'*' | b'%' | b'@' | b'#') =>
         {
-            Some(vec!["--tier".into(), rest.to_string()])
+            rewrite_subcommand_value_flag(rest, "--tier")
         }
 
         (b'+', b't') | (b'-', b't') => rewrite_tier_speaker(polarity, rest),
@@ -410,30 +407,15 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
             Some(vec!["--format".into(), "csv".into()])
         }
 
-        // LOWCASE `+d2` — "ignore dict file, lowercase everything"
-        // mode per `OSX-CLAN/src/clan/lowcase.cpp` case 'd'
-        // (lines 555-562; the integer 0..=2 toggles between dict-
-        // preserving (0/bare), dict-capitalizing (1), and ignore-
-        // dict (2)). chatter's `transforms/lowcase.rs` lowercases
-        // every word on the main tier unconditionally — exactly
-        // the +d2 behavior — so the flag is a no-op.
-        //
-        // Intercepted here, before the generic `+dN` arm below,
-        // because lowcase has no clap field for `--display-mode`.
-        // Without this arm the generic rewrite produces
-        // `--display-mode 2`, which clap rejects with
-        // `error: unexpected argument '--display-mode' found`.
-        //
-        // LOWCASE `+d` / `+d0` / `+d1` (the dict-using modes) are
-        // not intercepted here — they are documented Missing on
-        // the lowcase audit page and should continue to fail until
-        // chatter implements the dict-file workflow. They currently
-        // produce a misleading `unexpected argument '--display-mode'`
-        // error via the generic +dN arm; cleaning that up is part
-        // of the broader "remove the dead generic +dN arm" cleanup
-        // tracked separately (chatter has zero `--display-mode`
-        // consumers anywhere — the generic arm is architecturally
-        // dead).
+        // LOWCASE `+d2` — "ignore dict file, lowercase everything",
+        // per `OSX-CLAN/src/clan/lowcase.cpp` case 'd' (integer 0..=2
+        // toggles dict-preserving / dict-capitalizing / ignore-dict).
+        // chatter's `transforms/lowcase.rs` lowercases unconditionally,
+        // matching the `+d2` semantic, so the flag is a no-op.
+        // Intercepted before the generic `+dN → --display-mode N`
+        // catch-all; lowcase has no `--display-mode` clap field.
+        // `+d`/`+d0`/`+d1` (dict-using modes) are documented Missing
+        // and intentionally still fall through to fail clap.
         (b'+', b'd') if subcommand == Lowcase && rest == "2" => Some(vec![]),
 
         // +dN — display mode
@@ -1030,24 +1012,12 @@ mod tests {
     #[test]
     fn combtier_bare_tier_routes_to_tier_not_speaker() {
         // CLAN COMBTIER `+tS` selects the tier label to combine
-        // (where S is `com` for %com, `spa` for %spa, etc.) per
-        // `OSX-CLAN/src/clan/combtier.cpp` usage:
-        // "+tS: Combine all tiers S into one tier."
-        //
-        // The generic `rewrite_tier_speaker` helper's bareword
-        // fallback (no `*` / `%` / `@` / `#` prefix) treats `+tS`
-        // as an implicit speaker code (`+tCHI` → `--speaker CHI`),
-        // matching CLAN's general convention for analysis commands.
-        // COMBTIER overrides that convention — its `+tS` is the
-        // tier name, not a speaker code — so chatter needs a per-
-        // Combtier intercept routing `+tcom` → `--tier com` instead
-        // of `--speaker com`.
-        //
-        // Without this intercept, `combtier +tcom` rewrites to
-        // `combtier --speaker com`, which clap rejects with
-        // `error: unexpected argument '--speaker' found` because
-        // combtier's clap struct has `--tier` (the chatter-side
-        // counterpart) but no `--speaker`.
+        // (e.g. `+tcom` for `%com`) per `OSX-CLAN/src/clan/combtier.cpp`
+        // usage: "+tS: Combine all tiers S into one tier." This
+        // overrides the analysis-command convention where `+tCHI`
+        // means "speaker filter", so the per-Combtier intercept
+        // routes the bareword form to `--tier` instead of letting
+        // `rewrite_tier_speaker`'s fallback emit `--speaker`.
         let input = args("clan analyze combtier +tcom file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, args("clan analyze combtier --tier com file.cha"));
@@ -1068,20 +1038,11 @@ mod tests {
 
     #[test]
     fn lowcase_d2_dropped() {
-        // CLAN LOWCASE `+d2` selects the "ignore dict file, lower-
-        // case everything" mode per `OSX-CLAN/src/clan/lowcase.cpp`
-        // case 'd' (lines 555-562): the integer value 0..=2 toggles
-        // between dict-preserving (0/bare), dict-capitalizing (1),
-        // and ignore-dict (2). chatter's `transforms/lowcase.rs`
-        // lowercases every word on the main tier unconditionally —
-        // exactly the +d2 behavior — so the flag is a no-op.
-        //
-        // Without this arm, `lowcase` is not in `ClanSubcommandKind`
-        // (so per-command arms are unreachable) and the generic
-        // `+dN → --display-mode N` catch-all at the bottom of the
-        // rewrite cascade fires, producing `--display-mode 2`,
-        // which lowcase has no clap field for. Clap then rejects
-        // with `error: unexpected argument '--display-mode' found`.
+        // CLAN LOWCASE `+d2` = "ignore dict, lowercase everything"
+        // per `OSX-CLAN/src/clan/lowcase.cpp` case 'd' (integer 0..=2
+        // toggles dict-preserving / dict-capitalizing / ignore-dict).
+        // chatter's `transforms/lowcase.rs` lowercases unconditionally,
+        // matching the `+d2` semantic — no-op rewrite.
         let input = args("clan analyze lowcase +d2 file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, args("clan analyze lowcase file.cha"));
