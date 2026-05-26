@@ -1863,10 +1863,7 @@ fn translate_engine_flag_tencent_is_parsed() {
     match opts {
         CommandOptions::Translate(t) => {
             assert_eq!(t.translate_engine, TranslateEngineName::Tencent);
-            assert_eq!(
-                t.effective_translate_engine(),
-                TranslateEngineName::Tencent,
-            );
+            assert_eq!(t.effective_translate_engine(), TranslateEngineName::Tencent,);
         }
         other => panic!("expected Translate variant, got: {other:?}"),
     }
