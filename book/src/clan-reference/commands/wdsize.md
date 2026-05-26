@@ -1,7 +1,7 @@
 # WDSIZE — Word Size Distribution
 
 **Status:** Current
-**Last updated:** 2026-05-23 15:00 EDT
+**Last updated:** 2026-05-26 08:47 EDT
 
 Character-length histogram for word stems from the `%mor` tier.
 
@@ -52,7 +52,6 @@ WDSIZE is an **analysis** command (banner-emitting). Sources:
 
 | CLAN flag | Meaning | Chatter | Status | Notes |
 |---|---|---|---|---|
-| `+a` | Use `%mor` only (no fallback to main tier) | (default) | Done | chatter's default uses `%mor` stems; the `--main-tier` flag is the opt-out. The CLAN/chatter defaults match. |
 | `+bS` | Add chars in `S` to morpheme-delimiter list | — | Missing | Same gap as WDLEN/MAXWD's `+bS`. |
 | `-bS` | Remove chars from delimiter list (`-b` clears all) | — | Missing | |
 | `+cS` | Clause-marker delimiter `S` | — | Missing | Same as MLU/MLT's `+c`. |
@@ -63,10 +62,21 @@ WDSIZE is an **analysis** command (banner-emitting). Sources:
 
 | Bucket | Count |
 |---|---|
-| Done | 8 (default + 6 general inherited as documented on FREQ + `+wCN`) |
+| Done | 7 (6 general inherited as documented on FREQ + `+wCN`) |
 | Partial | 1 |
 | Rewriter only | 4 |
 | Missing | 3 |
+
+> **Note on a removed audit row (2026-05-26).** A prior version of
+> this page listed a `+a` row claiming "Use `%mor` only (no fallback
+> to main tier)" as Done-by-default. Direct inspection of
+> `OSX-CLAN/src/clan/wdsize.cpp::getflag` shows the WDSIZE option
+> switch handles only `b`, `d`, `s`, `t`, `w` — there is no
+> `case 'a'`. The row was a phantom; the CLAN flag does not exist.
+> Removed entirely rather than reclassified, per the discrepancy-
+> adjudication rule (CLAN source = canonical authority for parity
+> claims). The 2026-05-26 audit-vs-runtime sweep flagged the row as
+> Category B and the investigation surfaced the phantom.
 
 WDSIZE shares its morpheme-delimiter and clause-marker gaps with
 WDLEN/MAXWD/MLU/MLT — the cluster of commands that all read
