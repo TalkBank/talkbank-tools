@@ -67,6 +67,7 @@ enum ClanSubcommandKind {
     Wdsize,
     Freqpos,
     Cooccur,
+    Lowcase,
     Other,
 }
 
@@ -101,6 +102,7 @@ impl ClanSubcommandKind {
                 "wdsize" => return Self::Wdsize,
                 "freqpos" => return Self::Freqpos,
                 "cooccur" => return Self::Cooccur,
+                "lowcase" => return Self::Lowcase,
                 _ => {}
             }
         }
@@ -384,6 +386,32 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         (b'+', b'd') if subcommand == Freq && rest == "2" => {
             Some(vec!["--format".into(), "csv".into()])
         }
+
+        // LOWCASE `+d2` — "ignore dict file, lowercase everything"
+        // mode per `OSX-CLAN/src/clan/lowcase.cpp` case 'd'
+        // (lines 555-562; the integer 0..=2 toggles between dict-
+        // preserving (0/bare), dict-capitalizing (1), and ignore-
+        // dict (2)). chatter's `transforms/lowcase.rs` lowercases
+        // every word on the main tier unconditionally — exactly
+        // the +d2 behavior — so the flag is a no-op.
+        //
+        // Intercepted here, before the generic `+dN` arm below,
+        // because lowcase has no clap field for `--display-mode`.
+        // Without this arm the generic rewrite produces
+        // `--display-mode 2`, which clap rejects with
+        // `error: unexpected argument '--display-mode' found`.
+        //
+        // LOWCASE `+d` / `+d0` / `+d1` (the dict-using modes) are
+        // not intercepted here — they are documented Missing on
+        // the lowcase audit page and should continue to fail until
+        // chatter implements the dict-file workflow. They currently
+        // produce a misleading `unexpected argument '--display-mode'`
+        // error via the generic +dN arm; cleaning that up is part
+        // of the broader "remove the dead generic +dN arm" cleanup
+        // tracked separately (chatter has zero `--display-mode`
+        // consumers anywhere — the generic arm is architecturally
+        // dead).
+        (b'+', b'd') if subcommand == Lowcase && rest == "2" => Some(vec![]),
 
         // +dN — display mode
         (b'+', b'd') => rewrite_display_mode(rest),
@@ -974,6 +1002,27 @@ mod tests {
             result,
             args("clan analyze freq --reverse-concordance file.cha")
         );
+    }
+
+    #[test]
+    fn lowcase_d2_dropped() {
+        // CLAN LOWCASE `+d2` selects the "ignore dict file, lower-
+        // case everything" mode per `OSX-CLAN/src/clan/lowcase.cpp`
+        // case 'd' (lines 555-562): the integer value 0..=2 toggles
+        // between dict-preserving (0/bare), dict-capitalizing (1),
+        // and ignore-dict (2). chatter's `transforms/lowcase.rs`
+        // lowercases every word on the main tier unconditionally —
+        // exactly the +d2 behavior — so the flag is a no-op.
+        //
+        // Without this arm, `lowcase` is not in `ClanSubcommandKind`
+        // (so per-command arms are unreachable) and the generic
+        // `+dN → --display-mode N` catch-all at the bottom of the
+        // rewrite cascade fires, producing `--display-mode 2`,
+        // which lowcase has no clap field for. Clap then rejects
+        // with `error: unexpected argument '--display-mode' found`.
+        let input = args("clan analyze lowcase +d2 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze lowcase file.cha"));
     }
 
     #[test]

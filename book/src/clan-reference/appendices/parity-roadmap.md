@@ -1,7 +1,7 @@
 # CLAN Parity Roadmap
 
 **Status:** Current
-**Last updated:** 2026-05-26 08:47 EDT
+**Last updated:** 2026-05-26 09:05 EDT
 
 Planning doc for the remaining CLAN flag-parity work. Source of truth
 for "how much is left" so future sessions don't have to re-derive it
@@ -283,7 +283,21 @@ Three new rewriter tests (`mlu_minus_bw_to_words`,
 `mlt_minus_bw_to_words`, `freq_minus_bw_unchanged`,
 `recurse_flag_dropped`) shipped with the second and third commits.
 
-**Audit-vs-runtime sweep, second pass (2026-05-26, 3 commits):**
+**Audit-vs-runtime sweep, second pass (2026-05-26, 4 commits):**
+
+- **LOWCASE `+d2` no-op rewriter arm + `Lowcase` enum variant.**
+  `lowcase` was missing from `ClanSubcommandKind`, so the rewriter
+  could not route any per-command logic to it; the generic
+  `+dN → --display-mode N` catch-all fired for `lowcase +d2` and
+  produced clap rejection (`error: unexpected argument
+  '--display-mode' found`). The audit page already claimed `+d2`
+  was Done (chatter's `transforms/lowcase.rs` matches the CLAN
+  `+d2` semantic of "ignore dict, lowercase everything"). Added
+  `Lowcase` to the enum + detect arm + a per-Lowcase no-op for
+  `+d2`. Cleared the misleading rejection. The broader cleanup
+  of the dead generic `+dN → --display-mode` catch-all (chatter
+  has zero `--display-mode` consumers anywhere) is a separate
+  future commit. Pinned by `lowcase_d2_dropped`.
 
 - **COOCCUR `+o` + FREQ `+o` / `+o0` no-op rewriter arms.** Both
   audit pages claimed Done with "(default)" — the no-op claim is

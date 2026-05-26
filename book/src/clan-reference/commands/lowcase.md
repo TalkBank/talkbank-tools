@@ -1,7 +1,7 @@
 # LOWCASE -- Lowercase All Words on Main Tiers
 
 **Status:** Current
-**Last updated:** 2026-05-22 12:51 EDT
+**Last updated:** 2026-05-26 09:05 EDT
 
 ## Purpose
 
@@ -35,7 +35,7 @@ LOWCASE is a **transform**. Sources:
 | `+c` | Lowercase only the first word on a tier | — | Missing | First-word-only mode. |
 | `+d` | Do NOT change words listed in `iF` dict file; lower-case the rest | — | Missing | Dictionary-guarded lowercasing — typically a proper-nouns / pronouns list. |
 | `+d1` | Capitalize words in dict file; leave the rest unchanged | — | Missing | Inverse mode (capitalization, not lowercasing). |
-| `+d2` | Ignore dict file; lower-case everything | (default) | Done | chatter's default matches this — every word on main tier lowercased. |
+| `+d2` | Ignore dict file; lower-case everything | (default; no-op rewriter arm) | Done (no-op per CLAN) | chatter's `transforms/lowcase.rs` lowercases every main-tier word unconditionally — exactly the `+d2` semantic per `OSX-CLAN/src/clan/lowcase.cpp` case 'd' (`isChangeToUpper = atoi(...)`, range 0..=2). Rewriter drops the token (`clan_args.rs`). Prior to 2026-05-26 the `Lowcase` variant was missing from `ClanSubcommandKind`, so the generic `+dN → --display-mode N` arm fired and produced `error: unexpected argument '--display-mode' found`. |
 | `+iF` | Dictionary file `F` with words to NOT lowercase | — | Missing | Pairs with `+d`. |
 
 ### Audit summary
