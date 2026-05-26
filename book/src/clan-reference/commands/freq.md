@@ -1,7 +1,7 @@
 # FREQ -- Word Frequency
 
 **Status:** Current
-**Last updated:** 2026-05-26 08:21 EDT
+**Last updated:** 2026-05-26 08:47 EDT
 
 ## Purpose
 
@@ -86,7 +86,7 @@ chatter's coverage. Sources:
 | `+c5` | With `+d7`, reverse source/target tier priority | — | Missing | Linked-tier rendering. |
 | `+c6` | Count only repeat segments | — | Missing | Repeat-marker `↫` workflow. |
 | `+c7` | For multi-word searches output actual words matched | — | Missing | |
-| `+o` / `+o0` | Sort by descending frequency | (default) | Done | chatter's default sort already matches. |
+| `+o` / `+o0` | Sort by descending frequency | (default; no-op rewriter arm) | Done (no-op per CLAN) | chatter's FREQ `finalize` sorts by count descending unconditionally; CLAN's `+o`/`+o0` request the same behavior, so the rewriter drops the token (`clan_args.rs`). Prior to 2026-05-26 the rewriter only handled `+o1` (`--reverse-concordance`); bare `+o` / `+o0` survived to clap as path args and triggered `Warning: "+o" is not a file or directory`. The audit-vs-runtime drift was caught by the 2026-05-26 sweep. |
 | `+o1` | Sort by reverse concordance | `--reverse-concordance` | Done | Landed 2026-05-23. Replaces the default frequency-descending sort with a sort by the reversed character sequence of each word — groups words sharing a suffix. Pinned by `freq_reverse_concordance_groups_by_suffix` (with `cat`/`bat`/`dog`/`log` input, the sorted result reflects reversed-string comparison) and `freq_default_sort_is_alphabetical_when_freqs_equal` (regression companion). End-to-end smoke: `cat bat dog log apple maple` with `+o1` clusters maple/apple, dog/log, bat/cat. `+o2` (reverse concordance + non-CHAT output) is a separate Missing item. |
 | `+o2` | Sort by reverse concordance of first word, preserve full line | — | Missing | Non-CHAT output. |
 | `+o3` | Combine selected speakers per file into one list | partial via `--per-file` inverse | Partial | chatter's aggregate-vs-per-file model is the inverse choice; not byte-identical. |

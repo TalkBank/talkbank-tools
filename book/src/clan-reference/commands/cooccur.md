@@ -1,7 +1,7 @@
 # COOCCUR — Word Co-occurrence (Bigram) Counting
 
 **Status:** Current
-**Last updated:** 2026-05-22 09:45 EDT
+**Last updated:** 2026-05-26 08:47 EDT
 
 ## Purpose
 
@@ -46,7 +46,7 @@ Authoritative enumeration of every CLAN `cooccur` flag. Sources:
 |---|---|---|---|---|
 | `+b` / `-b` | Match `+s` words only at beginning / end of cluster | — | Missing | Boundary-sensitive matching. |
 | `+nN` | Cluster size of N words (default 2) | `--cluster-size N` | Done | Landed 2026-05-23. Rewriter `+nN` → `--cluster-size N`. `CooccurConfig` gains `cluster_size: u8` (default 2). `WordPair` generalized to `WordCluster(Vec<NormalizedWord>)`; `PairDisplay` flattened to `displays: Vec<String>`; `CooccurPair` JSON shape replaced with `CooccurCluster { words, displays, count }`. `process_utterance` uses `windows(cluster_size)` instead of `windows(2)`; utterances shorter than N produce no clusters. Pinned by `cooccur_cluster_size_three_emits_trigrams`, `cooccur_cluster_size_larger_than_utterance_is_skipped`, and the rewriter test `cooccur_cluster_size`. End-to-end smoke verified for N=2/3/4. JSON schema breaking change: `pairs/unique_pairs/total_pair_instances` renamed to `clusters/unique_clusters/total_cluster_instances`; per-row fields `word1/word2/display1/display2` collapsed into `words: Vec<String>` and `displays: Vec<String>`. |
-| `+o` | Sort output by descending frequency | (default) | Done | |
+| `+o` | Sort output by descending frequency | (default; no-op rewriter arm) | Done (no-op per CLAN) | CLAN's `cooccur.cpp` toggles `isSort = TRUE`, switching to a BST whose `larger num_occ goes left` invariant makes in-order traversal emit clusters by descending count. chatter's `finalize` step at `commands/cooccur.rs:292` already sorts by `count` descending unconditionally, so the flag is no-op on the chatter side. Rewriter drops the token (`clan_args.rs`). |
 | `+d` | Strip frequency counts from output | `--no-frequency-counts` | Done | Rewriter intercepts bare `+d`. |
 
 ### Audit summary

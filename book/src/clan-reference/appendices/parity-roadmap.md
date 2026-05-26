@@ -1,7 +1,7 @@
 # CLAN Parity Roadmap
 
 **Status:** Current
-**Last updated:** 2026-05-26 08:21 EDT
+**Last updated:** 2026-05-26 08:47 EDT
 
 Planning doc for the remaining CLAN flag-parity work. Source of truth
 for "how much is left" so future sessions don't have to re-derive it
@@ -282,6 +282,23 @@ Tests: 966 → 1006 (+40 over the batch).
 Three new rewriter tests (`mlu_minus_bw_to_words`,
 `mlt_minus_bw_to_words`, `freq_minus_bw_unchanged`,
 `recurse_flag_dropped`) shipped with the second and third commits.
+
+**Audit-vs-runtime sweep, second pass (2026-05-26, 3 commits):**
+
+- **COOCCUR `+o` + FREQ `+o` / `+o0` no-op rewriter arms.** Both
+  audit pages claimed Done with "(default)" — the no-op claim is
+  semantically correct (chatter's FREQ and COOCCUR finalize steps
+  both sort by count descending unconditionally, matching CLAN's
+  `+o` BST-larger-goes-left invariant), but the rewriter had no
+  arm for the tokens. The tokens survived to clap as path args
+  and triggered `Warning: "+o" is not a file or directory` on
+  every invocation. The FREQ comment at the existing `+o1` arm
+  already acknowledged the gap ("`+o` / `+o0` are the descending-
+  frequency default... only `+o1` flips to the alternate sort").
+  Added 4 rewriter tests (`cooccur_sort_flag_dropped`,
+  `freq_o_dropped`, `freq_o0_dropped`, and a regression guard
+  `freq_o1_still_routes_to_reverse_concordance` to pin the match-
+  arm ordering).
 
 **Tier-2 follow-on (2026-05-26, 2 commits):**
 

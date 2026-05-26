@@ -471,14 +471,33 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // which is not yet wired in chatter).
         (b'-', b'o') if rest.is_empty() && subcommand == Uniq => Some(vec!["--sort".into()]),
 
+        // FREQ `+o` / `+o0` — descending-frequency sort. chatter's
+        // FREQ result sorts by count descending unconditionally
+        // (`crates/talkbank-clan/src/commands/freq.rs` finalize),
+        // so the flag is a no-op. Without this arm `+o` survives
+        // to clap as a path arg and triggers
+        // `Warning: "+o" is not a file or directory`. Match before
+        // the `+o1` arm so the `rest.is_empty()` / `rest == "0"`
+        // guards take precedence over the catch-all `rest == "1"`
+        // check. `+o2` (non-CHAT spreadsheet output) is a separate
+        // documented gap — falls through to default.
+        (b'+', b'o') if subcommand == Freq && (rest.is_empty() || rest == "0") => Some(vec![]),
+
         // FREQ `+o1` — sort by reverse concordance. `+o` / `+o0`
-        // are the descending-frequency default (chatter default,
-        // no rewrite needed); only `+o1` flips to the alternate
-        // sort. `+o2` (non-CHAT spreadsheet output) is a separate
-        // documented gap — not handled here.
+        // handled above; `+o2` (non-CHAT spreadsheet output) is a
+        // separate documented gap — not handled here.
         (b'+', b'o') if subcommand == Freq && rest == "1" => {
             Some(vec!["--reverse-concordance".into()])
         }
+
+        // COOCCUR `+o` — descending-frequency sort. chatter's
+        // COOCCUR `finalize` step at
+        // `crates/talkbank-clan/src/commands/cooccur.rs:292` already
+        // sorts by `count` descending, then alphabetically; CLAN's
+        // `cooccur.cpp` uses a BST with `larger num_occ goes left`
+        // invariant so in-order traversal produces the same
+        // descending order. No-op rewrite drops the token.
+        (b'+', b'o') if subcommand == Cooccur && rest.is_empty() => Some(vec![]),
 
         // `+oN` / `-oN` under FIXBULLETS specify a signed time-offset
         // shift in milliseconds (`+o800` adds 800 ms, `-o800`
@@ -902,6 +921,59 @@ mod tests {
         let input = args("clan analyze freq +re corpus/");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, args("clan analyze freq corpus/"));
+    }
+
+    #[test]
+    fn cooccur_sort_flag_dropped() {
+        // CLAN COOCCUR `+o` enables a frequency-descending sort over
+        // the cluster table. The semantic is encoded in
+        // `OSX-CLAN/src/clan/cooccur.cpp`: `case 'o': isSort = TRUE;`
+        // at line 337 toggles a BST whose invariant ("larger num_occ
+        // goes left") makes in-order traversal emit clusters by
+        // descending count.
+        //
+        // chatter's COOCCUR finalize step at
+        // `crates/talkbank-clan/src/commands/cooccur.rs:292` already
+        // sorts unconditionally by `count` descending (then
+        // alphabetically as tiebreak), so `+o` is a no-op on the
+        // chatter side. Drop the token rather than passing it to
+        // clap, which would land it in the path-arg list and emit
+        // `Warning: "+o" is not a file or directory`.
+        let input = args("clan analyze cooccur +o file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze cooccur file.cha"));
+    }
+
+    #[test]
+    fn freq_o_dropped() {
+        // CLAN FREQ `+o` (bare) requests descending-frequency sort,
+        // which is chatter's default in the FREQ finalize step.
+        // No-op rewrite — same shape as `cooccur_sort_flag_dropped`.
+        let input = args("clan analyze freq +o file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze freq file.cha"));
+    }
+
+    #[test]
+    fn freq_o0_dropped() {
+        // CLAN FREQ `+o0` is the explicit form of `+o` (same
+        // descending-frequency-sort semantic). No-op rewrite.
+        let input = args("clan analyze freq +o0 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan analyze freq file.cha"));
+    }
+
+    #[test]
+    fn freq_o1_still_routes_to_reverse_concordance() {
+        // Regression guard: the new `+o`/`+o0` no-op arms must
+        // not shadow the existing `+o1 → --reverse-concordance`
+        // arm. Match-arm ordering matters here.
+        let input = args("clan analyze freq +o1 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(
+            result,
+            args("clan analyze freq --reverse-concordance file.cha")
+        );
     }
 
     #[test]
