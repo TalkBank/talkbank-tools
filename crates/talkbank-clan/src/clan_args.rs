@@ -71,6 +71,7 @@ enum ClanSubcommandKind {
     Combtier,
     Chains,
     Modrep,
+    Trnfix,
     Other,
 }
 
@@ -109,6 +110,7 @@ impl ClanSubcommandKind {
                 "combtier" => return Self::Combtier,
                 "chains" => return Self::Chains,
                 "modrep" => return Self::Modrep,
+                "trnfix" => return Self::Trnfix,
                 _ => {}
             }
         }
@@ -440,6 +442,16 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // bounded by `OnlydataLimit` per `OSX-CLAN/src/clan/ipsyn.cpp:3945`.
         // chatter has no `--only-data` flag; pass through.
         (b'+', b'd') if subcommand == Ipsyn => None,
+
+        // TRNFIX `+d` is a bare-vs-non-bare toggle per
+        // `OSX-CLAN/src/clan/TrnFix.cpp:132`: bare `+d` sets
+        // `whichDopt = 1` (include speaker tier in output);
+        // `+d<anything>` sets `whichDopt = 2` (also write a
+        // mismatches-summary file). chatter has no consuming flag;
+        // pass through so clap rejects the literal token rather
+        // than the misleading `--display-mode` rewrite from the
+        // catch-all below.
+        (b'+', b'd') if subcommand == Trnfix => None,
 
         // +dN — display mode
         (b'+', b'd') => rewrite_display_mode(rest),
@@ -1108,6 +1120,29 @@ mod tests {
     #[test]
     fn ipsyn_dn_passes_through() {
         let input = args("clan ipsyn +d1 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// TRNFIX `+d` (bare) sets `whichDopt = 1` and `+d<anything>`
+    /// sets `whichDopt = 2` per `OSX-CLAN/src/clan/TrnFix.cpp:132`
+    /// — a bare-vs-non-bare toggle controlling speaker-tier
+    /// inclusion and a mismatches-summary file. chatter has no
+    /// consuming flag; pass through so clap reports a clean
+    /// "unexpected argument" error instead of the misleading
+    /// "--display-mode" rewrite from the catch-all.
+    #[test]
+    fn trnfix_d_bare_passes_through() {
+        let input = args("clan trnfix +d file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// Non-bare TRNFIX `+dN` (`whichDopt = 2` branch) also passes
+    /// through unchanged.
+    #[test]
+    fn trnfix_dn_passes_through() {
+        let input = args("clan trnfix +d1 file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, input);
     }

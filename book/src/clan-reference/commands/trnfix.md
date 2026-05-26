@@ -1,7 +1,7 @@
 # TRNFIX — Compare Two Dependent Tiers
 
 **Status:** Current
-**Last updated:** 2026-05-22 09:49 EDT
+**Last updated:** 2026-05-26 10:36 EDT
 
 ## Purpose
 
@@ -36,8 +36,8 @@ chatter clan trnfix file.cha --tier1 mor --tier2 gra
 |---|---|---|---|---|
 | `+a` | Disambiguate words before compare (default: compare whole words) | — | Missing | Affects mismatch resolution semantics. |
 | `+bS` | Specify a tier to compare (repeatable; first → tier1, second → tier2) | `--tier1` / `--tier2` | Partial | chatter splits into two explicit fields rather than positional `+b` semantics. |
-| `+d` | Include speaker tier in output | — | Rewriter only | |
-| `+d1` | `+d` + include utterances in mismatches summary file | — | Rewriter only | |
+| `+d` | Include speaker tier in output | — | Missing | `OSX-CLAN/src/clan/TrnFix.cpp:132` bare branch sets `whichDopt = 1`; per-TRNFIX rewriter arm passes the token through so clap rejects loudly. |
+| `+d1` | `+d` + include utterances in mismatches summary file | — | Missing | `OSX-CLAN/src/clan/TrnFix.cpp:132` non-bare branch sets `whichDopt = 2`; per-TRNFIX rewriter arm passes the token through so clap rejects loudly. |
 
 ### Audit summary
 
@@ -45,8 +45,8 @@ chatter clan trnfix file.cha --tier1 mor --tier2 gra
 |---|---|
 | Done | 5 |
 | Partial | 2 |
-| Rewriter only | 4 |
-| Missing | 3 |
+| Rewriter only | 2 |
+| Missing | 5 |
 
 TRNFIX's `+a` disambiguate-before-compare is the most semantically
 significant gap: it changes whether multi-analysis `%mor` tokens
