@@ -286,6 +286,33 @@ fn mor_placeholder_stays_deliberately_unimplemented() -> Result<(), TestError> {
     Ok(())
 }
 
+/// CHAT2ELAN `+eEXT` is the media-extension flag (per
+/// `OSX-CLAN/src/clan/chat2elan.cpp:117`, `case 'e'`). chatter has
+/// `--media-extension <EXT>` on the chat2elan clap surface (see
+/// `clan_commands.rs`). Without a per-chat2elan rewriter arm,
+/// `+eEXT` falls through to the generic `(b'+', b'e') =>
+/// rewrite_check_error(rest)` arm which routes it to
+/// `--error EXT` — a `check`-family flag chat2elan doesn't accept.
+#[test]
+fn legacy_chat2elan_e_routes_to_media_extension() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let file = corpus_file("core/basic-conversation.cha");
+
+    let output = harness.run_output(&["clan", "chat2elan", "+e.wav", file.as_str()])?;
+
+    assert_exit_code(
+        &output,
+        0,
+        "chat2elan +e.wav should route to --media-extension .wav",
+    );
+    let stdout = stdout_string(&output);
+    assert!(
+        stdout.contains("media.wav") || stdout.contains("MEDIA_URL=\"file:///media.wav\""),
+        "expected EAF MEDIA_DESCRIPTOR referencing `.wav`, got: {stdout}"
+    );
+    Ok(())
+}
+
 /// FIXBULLETS `-oN` rewrites to `--offset -N` (negative milliseconds).
 /// The legacy unit test on the rewriter alone (in `clan_args.rs::tests`)
 /// passes because it only asserts the rewriter's `Vec<String>` output,

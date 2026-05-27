@@ -85,6 +85,7 @@ enum ClanSubcommandKind {
     Flucalc,
     Kideval,
     Rely,
+    Chat2elan,
     Other,
 }
 
@@ -137,6 +138,7 @@ impl ClanSubcommandKind {
                 "flucalc" => return Self::Flucalc,
                 "kideval" => return Self::Kideval,
                 "rely" => return Self::Rely,
+                "chat2elan" => return Self::Chat2elan,
                 _ => {}
             }
         }
@@ -929,6 +931,26 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         (b'-', b'o') if subcommand == Fixbullets && rest.parse::<u32>().is_ok() => {
             Some(vec![format!("--offset=-{rest}")])
         }
+        // CHAT2ELAN `+eEXT` — media-file-name extension per
+        // `OSX-CLAN/src/clan/chat2elan.cpp:117` (`case 'e'`).
+        // chatter's chat2elan exposes `--media-extension <EXT>` on
+        // its clap surface. Must precede the generic `+e` →
+        // `--error` arm below, which is `check`-family-only but
+        // currently unscoped.
+        //
+        // Semantic bridge: CLAN's `+e.wav` requires the user to
+        // supply the leading dot literally (the rest of the token
+        // is concatenated verbatim onto the media basename).
+        // chatter's `--media-extension` auto-prepends `.` and
+        // expects the bare extension (e.g. `wav`). Strip a leading
+        // dot if present so `+e.wav` and `+ewav` both produce the
+        // same output. MIME-type detection also requires the bare
+        // extension form.
+        (b'+', b'e') if subcommand == Chat2elan && !rest.is_empty() => {
+            let ext = rest.strip_prefix('.').unwrap_or(rest);
+            Some(vec!["--media-extension".into(), ext.to_string()])
+        }
+
         // +eN — include error / +e — list errors
         (b'+', b'e') => rewrite_check_error(rest),
         // -eN — exclude error
@@ -1575,6 +1597,34 @@ mod tests {
     #[test]
     fn gemfreq_dn_passes_through() {
         assert_passthrough("clan gemfreq +d1 file.cha");
+    }
+
+    /// CHAT2ELAN `+e.EXT` (with the CLAN-canonical leading dot)
+    /// rewrites to `--media-extension EXT` (bare). The leading-dot
+    /// strip is the semantic bridge between CLAN's verbatim-suffix
+    /// convention and chatter's auto-prepend-dot convention.
+    /// Subprocess regression guard:
+    /// `legacy_chat2elan_e_routes_to_media_extension`.
+    #[test]
+    fn chat2elan_e_dotted_strips_leading_dot() {
+        let input = args("clan chat2elan +e.wav file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(
+            result,
+            args("clan chat2elan --media-extension wav file.cha")
+        );
+    }
+
+    /// CHAT2ELAN `+eEXT` (without dot) routes verbatim to
+    /// `--media-extension EXT`.
+    #[test]
+    fn chat2elan_e_bare_routes_directly() {
+        let input = args("clan chat2elan +ewav file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(
+            result,
+            args("clan chat2elan --media-extension wav file.cha")
+        );
     }
 
     /// CHSTRING `+b` is "work only on text right of the colon (CHAT

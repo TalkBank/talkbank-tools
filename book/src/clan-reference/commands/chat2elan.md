@@ -1,7 +1,7 @@
 # CHAT2ELAN -- CHAT to ELAN XML Conversion
 
 **Status:** Current
-**Last updated:** 2026-05-22 13:30 EDT
+**Last updated:** 2026-05-27 10:20 EDT
 
 ## Purpose
 
@@ -38,12 +38,12 @@ CHAT2ELAN is a **converter** — input CHAT, output ELAN XML
 
 ### CHAT2ELAN-specific `+`-flags (from `Chat2Elan.cpp::usage`)
 
-| CLAN flag | Meaning | Chatter | Status |
-|---|---|---|---|
-| `+eS` | Media file name extension | `--media-extension <EXT>` | Done |
+| CLAN flag | Meaning | Chatter | Status | Notes |
+|---|---|---|---|---|
+| `+eS` | Media file name extension | `--media-extension <EXT>` | Done | CLAN: `chat2elan.cpp:117` (`case 'e'`). Rewriter routes `+eEXT` → `--media-extension EXT` via per-chat2elan arm placed BEFORE the generic `+e` → `--error` arm (which is `check`-family-only but currently unscoped). Strips a leading dot if present: `+e.wav` and `+ewav` both produce `--media-extension wav`, because chatter's `--media-extension` auto-prepends `.` whereas CLAN concatenates the user-provided suffix verbatim. Subprocess regression guard: `legacy_chat2elan_e_routes_to_media_extension`. |
 
 Audit summary: 1 Done, 0 Missing. Single-flag surface, mapped
-one-to-one. Rewriter routing for `+eS` is a follow-up.
+one-to-one.
 
 ## Output
 
