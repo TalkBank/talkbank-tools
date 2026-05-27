@@ -760,9 +760,6 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // through.
         (b'+', b'd') if subcommand == Uniq => None,
 
-        // +dN — display mode
-        (b'+', b'd') => rewrite_display_mode(rest),
-
         // +k — case sensitive
         (b'+', b'k') if rest.is_empty() => Some(vec!["--case-sensitive".into()]),
 
@@ -1027,19 +1024,6 @@ fn rewrite_subcommand_value_flag(rest: &str, long_flag: &str) -> Option<Vec<Stri
         return None;
     }
     Some(vec![long_flag.into(), rest.to_string()])
-}
-
-/// Rewrite `+dN` → `--display-mode N`.
-fn rewrite_display_mode(rest: &str) -> Option<Vec<String>> {
-    if rest.is_empty() {
-        return None;
-    }
-    // Validate that rest is a number
-    if rest.chars().all(|c| c.is_ascii_digit()) {
-        Some(vec!["--display-mode".into(), rest.to_string()])
-    } else {
-        None
-    }
 }
 
 /// Rewrite `+wN` → `--context-after N`, `-wN` → `--context-before N`.
