@@ -1,7 +1,7 @@
 # COMBO -- Boolean Keyword Search
 
 **Status:** Current
-**Last updated:** 2026-05-26 13:30 EDT
+**Last updated:** 2026-05-27 10:36 EDT
 
 ## Purpose
 
@@ -48,12 +48,12 @@ against chatter's coverage. Sources:
 | CLAN flag | Meaning | Chatter | Status | Notes |
 |---|---|---|---|---|
 | `+bN` | Search an `N` number-cluster unit | — | Missing | Multi-utterance match. |
-| `+g1` | String-oriented search on the whole tier (default: word-oriented) | — | Missing | |
-| `+g2` | String-oriented search on a single word | — | Missing | |
+| `+g1` | String-oriented search on the whole tier (default: word-oriented) | — | Missing | chatter does not yet implement string-oriented whole-tier search. Per-COMBO rewriter arm in `clan_args.rs` returns None so the literal `+g1` token passes through to clap (which rejects it) rather than silently mis-routing to `--gem 1` via the generic `+g` → `rewrite_gem` arm. |
+| `+g2` | String-oriented search on a single word | — | Missing | chatter does not yet implement string-oriented single-word search. Same passthrough pattern as `+g1`. |
 | `+g3` | Find only the first match per utterance | `--first-match-only` | Done | Landed 2026-05-22. When set, the per-expression matcher short-circuits after the first hit per utterance — `expr_hits` records only the first matching expression. Default behaviour reports every matching expression. |
 | `+g4` | Exclude utterance delimiters from the search | (no-op accept) | Done | Landed 2026-05-23. chatter's COMBO calls `countable_words` on the main tier, which iterates `UtteranceContent::Word`/`AnnotatedWord`/`ReplacedWord` (and recursively into groups) but never reaches `Terminator` — terminators live at a separate AST level. So `+g4`'s effect (exclude delimiters) is the chatter default; the rewriter consumes the flag, clap never sees it. Without the arm, `+g4` would fall through to the generic gem-segment branch and mis-route to `--gem 4`. Pinned by `combo_g4_is_silently_consumed_as_noop`. |
 | `+g5` | Use `^` as AND operator instead of "followed-by" | (no-op accept) | Done | Landed 2026-05-22. chatter's `combo` already uses `+` as AND (matching `+g5`'s semantic), so `+g5` is consumed by the rewriter as a no-op — no clap field is needed, the flag is silently dropped. |
-| `+g6` | Include the tier's code name in the search | — | Missing | |
+| `+g6` | Include the tier's code name in the search | — | Missing | chatter's search does not include the tier code name. Same passthrough pattern as `+g1`/`+g2`. |
 | `+g7` | Do not count duplicate matches | `--dedupe-matches` | Done | Landed 2026-05-22. Repeated word forms within a single utterance contribute at most one entry to each expression's `matched_words`; first-encounter order preserved. Mainly affects OR expressions (`cookie,milk`) over utterances with repeated tokens. |
 | `+sS` / `-sS` | Pattern (required) — output tiers matching / not matching | `-S` / `--search` plus `--exclude-search` | Done | Both polarities mapped 2026-05-22. The rewriter routes `+sS` → `--search S` and `-sS` → `--exclude-search S` for COMBO specifically (other commands keep the per-word `+s`/`-s` semantic). Utterances matching any `--exclude-search` expression are dropped even if they match an `--search` expression. |
 | `+s@F` / `-s@F` | Load search expressions from file F (one per line) | `--search-file` / `--exclude-search-file` | Done | Landed 2026-05-22. Each surviving line is parsed by `SearchExpr::parse`, so AND (`+`) and OR (`,`) operators work per line, just like inline `--search`. File format matches `cutt.cpp::rdexclf`: blank lines, `# `-comments, `;%* `-annotation lines skipped; UTF-8 BOM stripped. Repeatable. Pinned by `combo_search_at_sigil_routes_to_search_file` and `combo_exclude_search_at_sigil_routes_to_exclude_search_file` in `clan_args.rs`. |

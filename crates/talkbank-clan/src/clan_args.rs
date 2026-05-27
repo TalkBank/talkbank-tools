@@ -351,6 +351,23 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         (b'+', b'g') if subcommand == Combo && rest == "4" => Some(Vec::new()),
         (b'+', b'g') if subcommand == Combo && rest == "5" => Some(Vec::new()),
         (b'+', b'g') if subcommand == Combo && rest == "7" => Some(vec!["--dedupe-matches".into()]),
+        // COMBO `+g1` / `+g2` / `+g6` are search-mode switches
+        // (string-oriented whole-tier / single-word search;
+        // include tier code name in search) that chatter does not
+        // yet implement — audit page status "Missing" per
+        // `book/src/clan-reference/commands/combo.md:51-52,56`.
+        // Without these arms, the tokens fall through to the
+        // generic `+g` → `rewrite_gem` arm below and silently
+        // re-route to `--gem 1` / `--gem 2` / `--gem 6` (literal
+        // gem names), losing the user's intent. Pass-through
+        // (None) lets clap reject the literal token honestly so
+        // the user knows the flag is unimplemented rather than
+        // running with wrong-but-silent behavior.
+        (b'+', b'g')
+            if subcommand == Combo && (rest == "1" || rest == "2" || rest == "6") =>
+        {
+            None
+        }
         // DIST's bare `+g` is a counting policy ("one occurrence
         // per turn"), distinct from the inherited `+gLABEL` gem
         // filter. Only the no-rest form routes here; `+gLABEL`
@@ -1635,6 +1652,33 @@ mod tests {
     #[test]
     fn gemfreq_dn_passes_through() {
         assert_passthrough("clan gemfreq +d1 file.cha");
+    }
+
+    /// COMBO `+g1` (string-oriented whole-tier search), `+g2`
+    /// (string-oriented single-word search), and `+g6` (include
+    /// tier code name in search) are unimplemented in chatter
+    /// (audit page status "Missing"). Without per-command arms,
+    /// they fall through to the generic `+g` → `rewrite_gem` arm
+    /// and get silently re-routed to `--gem 1` / `--gem 2` /
+    /// `--gem 6` — clap accepts those as literal gem names but the
+    /// user's intent (a search-mode switch) is lost. The per-
+    /// command arms preempt the gem-rewrite by returning None,
+    /// so the literal `+g1` token passes through to clap which
+    /// rejects it honestly. Same pattern as the existing
+    /// chstring `+d` passthrough arm.
+    #[test]
+    fn combo_g1_passes_through_not_misrouted_to_gem() {
+        assert_passthrough("clan combo --search the +g1 file.cha");
+    }
+
+    #[test]
+    fn combo_g2_passes_through_not_misrouted_to_gem() {
+        assert_passthrough("clan combo --search the +g2 file.cha");
+    }
+
+    #[test]
+    fn combo_g6_passes_through_not_misrouted_to_gem() {
+        assert_passthrough("clan combo --search the +g6 file.cha");
     }
 
     /// CHAT2SRT `+v` is the first "subcommand alias" rewrite:
