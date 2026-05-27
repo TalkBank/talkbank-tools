@@ -75,6 +75,15 @@ pub struct FreqConfig {
     /// preserves original case, so `Want`/`want`/`WANT` become three
     /// distinct entries.
     pub case_sensitive: bool,
+    /// CLAN `+sWORD` / `-sWORD`: per-word include/exclude filter.
+    /// FREQ applies this at per-word emit (not at the utterance
+    /// gate), so utterances with no matching words still appear
+    /// (with 0 counts) and non-matching words inside matching
+    /// utterances are not counted. Single source of truth: the
+    /// framework's `FilterConfig.words` must NOT also carry these
+    /// patterns for FREQ. Always constructed with
+    /// [`crate::framework::WordFilterMode::PerWordEmit`].
+    pub word_filter: crate::framework::WordFilter,
 }
 
 /// Per-speaker frequency data accumulated during processing.
@@ -363,6 +372,7 @@ impl AnalysisCommand for FreqCommand {
 
         let cap_filter = self.config.capitalization;
         let case_sensitive = self.config.case_sensitive;
+        let word_filter = &self.config.word_filter;
         if self.config.use_mor {
             // Count morphemes from %mor tier, using CHAT representation as key.
             // Each MorWord (main + post-clitics) counts as a separate frequency
@@ -371,7 +381,10 @@ impl AnalysisCommand for FreqCommand {
                 for mor_item in mor_tier.items().iter() {
                     let mut raw = String::new();
                     let _ = mor_item.main.write_chat(&mut raw);
-                    if cap_filter.includes(&raw) {
+                    // CLAN's `+sWORD` / `-sWORD` is a per-word filter
+                    // for FREQ (not an utterance gate). Skip non-matching
+                    // morphemes here at emit time. Empty filter = pass-all.
+                    if cap_filter.includes(&raw) && word_filter.word_matches(&raw) {
                         *speaker_freq
                             .counts
                             .entry(NormalizedWord::from_text_cased(&raw, case_sensitive))
@@ -383,7 +396,7 @@ impl AnalysisCommand for FreqCommand {
                     for clitic in &mor_item.post_clitics {
                         let mut craw = String::new();
                         let _ = clitic.write_chat(&mut craw);
-                        if cap_filter.includes(&craw) {
+                        if cap_filter.includes(&craw) && word_filter.word_matches(&craw) {
                             *speaker_freq
                                 .counts
                                 .entry(NormalizedWord::from_text_cased(&craw, case_sensitive))
@@ -397,6 +410,10 @@ impl AnalysisCommand for FreqCommand {
             // Count words from main tier using the shared countable_words() iterator
             for word in countable_words(&utterance.main.content.content) {
                 if !cap_filter.includes(word.cleaned_text()) {
+                    continue;
+                }
+                // CLAN's `+sWORD` / `-sWORD` per-word filter — empty = pass-all.
+                if !word_filter.word_matches(word.cleaned_text()) {
                     continue;
                 }
                 let key = NormalizedWord::from_word_cased(word, case_sensitive);
@@ -504,6 +521,7 @@ mod tests {
                 word_list_only: false,
                 types_tokens_only: false,
                 case_sensitive: false,
+                word_filter: Default::default(),
             },
         };
         let mut state = FreqState::default();
@@ -553,6 +571,7 @@ mod tests {
                 word_list_only: false,
                 types_tokens_only: false,
                 case_sensitive: false,
+                word_filter: Default::default(),
             },
         };
         let mut state = FreqState::default();
@@ -621,6 +640,7 @@ mod tests {
                 word_list_only: false,
                 types_tokens_only: false,
                 case_sensitive: false,
+                word_filter: Default::default(),
             },
         };
         let mut state = FreqState::default();
@@ -954,6 +974,7 @@ mod tests {
             word_list_only: false,
             types_tokens_only: false,
             case_sensitive: true,
+            word_filter: Default::default(),
         });
         let mut state = FreqState::default();
         let chat_file = ChatFile::new(vec![]);

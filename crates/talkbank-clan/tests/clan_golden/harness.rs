@@ -354,6 +354,7 @@ pub fn run_rust_filtered(
                 word_list_only: extra_args.contains(&"--word-list-only"),
                 types_tokens_only: extra_args.contains(&"--types-tokens-only"),
                 case_sensitive: extra_args.contains(&"--case-sensitive"),
+                word_filter: Default::default(),
             }))
         }
         "mlu" => {

@@ -390,3 +390,78 @@ fn clan_output_format_matches_legacy_freq_when_available() -> Result<(), TestErr
     assert_eq!(stdout_string(&chatter).trim(), legacy.trim());
     Ok(())
 }
+
+/// RED test for the FREQ `+sWORD` per-word filter parity gap.
+///
+/// CLAN's `+s "the"` for FREQ is a per-word filter: count only matching
+/// words. On `corpus/reference/core/basic-conversation.cha`, the CHI
+/// block must show ONLY "the" (1 type, 1 token); the MOT block must
+/// appear with 0 types/0 tokens (MOT used no "the").
+///
+/// Chatter currently applies `--include-word` at the utterance level
+/// via `FilterConfig.words` (see
+/// `crates/talkbank-clan/src/framework/filter.rs:320-336`), which both
+/// over-counts (CHI utterance contains `the` so the WHOLE utterance is
+/// counted: "chocolate", "ones", "the") and drops the MOT block
+/// entirely (MOT utterance has no "the" so it's excluded by the
+/// utterance gate).
+///
+/// Verified empirically and source-grounded 2026-05-27:
+/// `docs/investigations/2026-05-27-freq-include-word-architectural-finding.md`.
+///
+/// Fix tracked under Tier-1 backlog item 1 (WordFilterMode
+/// `UtteranceContext` / `PerWordEmit` split):
+/// `docs/investigations/2026-05-27-freq-full-implementation-audit.md`.
+///
+/// This test is the highest-level seam at which the per-word filter
+/// semantic surfaces. Per the depth-first-one-CLAN-command-at-a-time
+/// rule + top-down TDD discipline, this RED test must be the starting
+/// point for the WordFilterMode fix.
+#[test]
+fn legacy_freq_s_word_filters_per_word_not_per_utterance() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let file = corpus_file("core/basic-conversation.cha");
+
+    let output = harness.run_output(&[
+        "clan",
+        "freq",
+        "+sthe",
+        "--format",
+        "clan",
+        file.as_str(),
+    ])?;
+    assert_exit_code(&output, 0, "freq +sthe should succeed");
+
+    let stdout = stdout_string(&output);
+
+    // CHI's utterance `the chocolate ones !` contains "the".
+    // CLAN-faithful semantic: count only "the" (1 type, 1 token).
+    // Buggy chatter behavior: counts whole utterance (3 types, 3 tokens).
+    assert!(
+        stdout.contains("Speaker: *CHI:"),
+        "expected CHI speaker block; got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("  1 the"),
+        "expected CHI block to count 'the'; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("  1 chocolate"),
+        "+sthe should filter out 'chocolate' (not a search word); got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("  1 ones"),
+        "+sthe should filter out 'ones' (not a search word); got:\n{stdout}"
+    );
+
+    // MOT's utterance `we can make some together .` contains no "the".
+    // CLAN-faithful semantic: MOT block appears with 0 types / 0 tokens.
+    // Buggy chatter behavior: MOT utterance fails the utterance gate
+    // (no matching word) and the MOT block is omitted entirely.
+    assert!(
+        stdout.contains("Speaker: *MOT:"),
+        "expected MOT speaker block even with 0 matches; got:\n{stdout}"
+    );
+
+    Ok(())
+}

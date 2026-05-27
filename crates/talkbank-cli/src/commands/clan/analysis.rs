@@ -44,6 +44,14 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
             ..
         } => {
             let case_sensitive = common.case_sensitive;
+            // FREQ's `+sWORD` is per-word, not utterance-gate; the
+            // helper extracts the patterns and clears them from
+            // `common` so the framework's utterance gate is a no-op
+            // on word filtering for FREQ.
+            let mut common = common;
+            let word_filter = super::helpers::take_per_word_filter(&mut common)
+                .unwrap_or_else(|err| super::helpers::exit_with_error(format!("Error: {err}")));
+
             run_analysis_and_print(
                 AnalysisOptions::Freq(FreqOptions {
                     mor,
@@ -52,6 +60,7 @@ pub(super) fn dispatch(command: ClanCommands) -> Result<(), ClanCommands> {
                     word_list_only,
                     types_tokens_only,
                     case_sensitive,
+                    word_filter,
                 }),
                 &path,
                 &common,

@@ -414,6 +414,10 @@ pub struct FreqOptions {
     pub types_tokens_only: bool,
     /// CLAN `+k`: case-sensitive keying.
     pub case_sensitive: bool,
+    /// CLAN `+sWORD` / `-sWORD`: per-word include/exclude filter.
+    /// Always constructed with
+    /// [`crate::framework::WordFilterMode::PerWordEmit`] for FREQ.
+    pub word_filter: crate::framework::WordFilter,
 }
 
 /// MLU-specific raw input.
@@ -837,6 +841,7 @@ impl AnalysisRequestBuilder {
                     word_list_only: o.word_list_only,
                     types_tokens_only: o.types_tokens_only,
                     case_sensitive: o.case_sensitive,
+                    word_filter: o.word_filter,
                 })))
             }
             AnalysisOptions::Mlu(o) => Ok(AnalysisPlan::Service(AnalysisRequest::Mlu(MluConfig {
@@ -1207,6 +1212,7 @@ mod tests {
             word_list_only: false,
             types_tokens_only: false,
             case_sensitive: false,
+            word_filter: Default::default(),
         }))
         .build()
         .expect("freq should build");

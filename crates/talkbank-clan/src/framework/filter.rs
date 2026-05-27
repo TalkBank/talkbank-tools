@@ -284,15 +284,56 @@ pub struct TierFilter {
 /// `case_sensitive` (CLAN `+k`) defaults to `false` — patterns and
 /// words are lower-cased before matching. When `true`, both sides
 /// keep their original casing and an exact-case match is required.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct WordFilter {
     /// Word patterns to include (empty = include all)
     pub include: Vec<super::WordPattern>,
     /// Word patterns to exclude
     pub exclude: Vec<super::WordPattern>,
-    /// Case-sensitive matching (CLAN `+k`). Default `false` =
-    /// case-insensitive (lower-case both sides).
+    /// Case-sensitive matching (CLAN `+k`). `false` lower-cases
+    /// both pattern and word before comparison.
     pub case_sensitive: bool,
+    /// Where this filter applies in the pipeline. See
+    /// [`WordFilterMode`]. Required: every construction site names
+    /// the mode explicitly — there is no default, because picking
+    /// the wrong mode silently produces non-CLAN output (over- or
+    /// under-counting).
+    pub mode: WordFilterMode,
+}
+
+impl Default for WordFilter {
+    /// Empty utterance-gate filter — all utterances pass, no
+    /// include/exclude. This is the safe baseline used by tests and
+    /// by commands that have no `+sWORD` / `-sWORD` involvement.
+    fn default() -> Self {
+        Self {
+            include: Vec::new(),
+            exclude: Vec::new(),
+            case_sensitive: false,
+            mode: WordFilterMode::UtteranceContext,
+        }
+    }
+}
+
+/// Where a [`WordFilter`] applies in the analysis pipeline.
+///
+/// CLAN's `+sWORD` / `-sWORD` flag has a per-command semantic;
+/// this enum makes that explicit at the type level. There is no
+/// `Default` impl — every construction site must name the variant.
+/// See `docs/investigations/2026-05-27-freq-include-word-architectural-finding.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WordFilterMode {
+    /// Filter at the utterance level via [`FilterConfig::matches`].
+    /// Utterances containing no matching word are skipped entirely.
+    /// Right for KWAL, COMBO, and any command whose output unit is
+    /// the utterance.
+    UtteranceContext,
+    /// Filter at the per-word emit level via
+    /// [`WordFilter::word_matches`]. The utterance gate is a no-op;
+    /// the command applies the filter to each word at counting time.
+    /// Right for FREQ, UNIQ, PHONFREQ, and any command whose output
+    /// unit is the (speaker, word) pair.
+    PerWordEmit,
 }
 
 /// Gem segment filter (CUTT: +g/-g).
@@ -354,15 +395,18 @@ impl SpeakerFilter {
 }
 
 impl WordFilter {
-    /// Check whether an utterance's words pass this filter.
-    ///
-    /// - If `include` is non-empty, the utterance must contain at least one
-    ///   countable word matching any include pattern (case-insensitive exact match,
-    ///   `*` wildcards supported).
-    /// - If `exclude` is non-empty, the utterance must NOT contain any countable
-    ///   word matching any exclude pattern.
-    /// - If both are empty, all utterances pass.
+    /// Utterance-level gate. Returns `true` (utterance passes) when:
+    /// - [`WordFilterMode::PerWordEmit`]: always (filtering happens
+    ///   at emit time via [`WordFilter::word_matches`]).
+    /// - [`WordFilterMode::UtteranceContext`]: include is empty OR
+    ///   at least one countable word matches an include pattern,
+    ///   AND no countable word matches an exclude pattern.
+    /// Patterns support `*` wildcards; case-insensitive unless
+    /// [`WordFilter::case_sensitive`] is set (CLAN `+k`).
     pub fn matches(&self, utterance: &Utterance) -> bool {
+        if self.mode == WordFilterMode::PerWordEmit {
+            return true;
+        }
         if self.include.is_empty() && self.exclude.is_empty() {
             return true;
         }
@@ -412,6 +456,48 @@ impl WordFilter {
                 exclude_folded
                     .iter()
                     .any(|pattern| word_pattern_matches(text, pattern))
+            });
+            if has_excluded {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Per-word predicate. Returns `true` (word passes) when:
+    /// include is empty OR word matches an include pattern, AND
+    /// exclude is empty OR word does not match any exclude pattern.
+    /// Mode is not consulted; callers (FREQ, UNIQ, PHONFREQ, …) are
+    /// responsible for choosing per-word semantics.
+    ///
+    // PERF: per-call this re-folds every include/exclude pattern
+    // (one `String` allocation each when case-insensitive). For
+    // hot-path FREQ over millions of words × M patterns, that
+    // dominates. Future fix: pre-fold patterns once at construction
+    // (a compiled-WordFilter newtype) so this method is allocation-
+    // free per call. Tracked under the FREQ implementation audit.
+    pub fn word_matches(&self, text: &str) -> bool {
+        if self.include.is_empty() && self.exclude.is_empty() {
+            return true;
+        }
+
+        let folded = fold_case(text, self.case_sensitive);
+
+        if !self.include.is_empty() {
+            let has_match = self.include.iter().any(|pattern| {
+                let pattern_folded = fold_case(pattern.as_ref(), self.case_sensitive);
+                word_pattern_matches(folded.as_ref(), pattern_folded.as_ref())
+            });
+            if !has_match {
+                return false;
+            }
+        }
+
+        if !self.exclude.is_empty() {
+            let has_excluded = self.exclude.iter().any(|pattern| {
+                let pattern_folded = fold_case(pattern.as_ref(), self.case_sensitive);
+                word_pattern_matches(folded.as_ref(), pattern_folded.as_ref())
             });
             if has_excluded {
                 return false;
@@ -603,6 +689,7 @@ mod tests {
             include: vec![WordPattern::from("Hello")],
             exclude: vec![],
             case_sensitive: true,
+            ..WordFilter::default()
         };
         let lower = make_test_utterance(&["hello", "world"]);
         assert!(!filter.matches(&lower));

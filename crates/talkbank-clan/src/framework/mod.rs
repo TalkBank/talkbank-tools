@@ -60,7 +60,7 @@ pub use domain_types::{
 };
 pub use filter::{
     FilterConfig, GemFilter, LoadWordListError, ParseUtteranceRangeError, RoleFilter,
-    SpeakerFilter, TierFilter, UtteranceRange, WordFilter, load_search_expr_file,
+    SpeakerFilter, TierFilter, UtteranceRange, WordFilter, WordFilterMode, load_search_expr_file,
     load_word_list_file, parse_utterance_range,
 };
 pub use id_filter::{IdFilter, IdPattern, IdPatternField, ParseIdFilterError, parse_id_filter};

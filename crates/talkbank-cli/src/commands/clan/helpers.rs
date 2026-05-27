@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use crate::cli::{ClanOutputFormat, CommonAnalysisArgs};
 use talkbank_clan::framework::{
     DiscoveredChatFiles, FilterConfig, GemFilter, GemLabel, LoadWordListError, OutputFormat,
-    SpeakerFilter, TransformCommand, WordFilter, WordPattern, format_clan_banner,
+    SpeakerFilter, TransformCommand, WordFilter, WordFilterMode, WordPattern, format_clan_banner,
     load_word_list_file, run_transform,
 };
 use talkbank_clan::service::AnalysisService;
@@ -412,7 +412,7 @@ pub(super) fn run_transform_or_exit<T: TransformCommand>(
 /// Build the combined list of `WordPattern`s for one side of
 /// the word filter: CLI literals first, then each file's
 /// patterns in argv order (lines preserved).
-fn collect_word_patterns(
+pub(super) fn collect_word_patterns(
     cli: &[String],
     files: &[PathBuf],
 ) -> Result<Vec<WordPattern>, LoadWordListError> {
@@ -422,6 +422,32 @@ fn collect_word_patterns(
         patterns.extend(load_word_list_file(path)?);
     }
     Ok(patterns)
+}
+
+/// Extract the CLAN `+sWORD` / `-sWORD` patterns from `common`,
+/// build a [`WordFilter`] with [`WordFilterMode::PerWordEmit`], and
+/// clear the word-filter fields on `common` so the framework's
+/// utterance-gate sees an empty include/exclude list.
+///
+/// Per-word commands (FREQ, …) call this at their CLI entry point;
+/// it is the single source of truth for "which `common` fields
+/// count as word-filter inputs" so a future field addition (e.g.
+/// `--include-word-regex`) updates one place.
+pub(super) fn take_per_word_filter(
+    common: &mut CommonAnalysisArgs,
+) -> Result<WordFilter, LoadWordListError> {
+    let include = collect_word_patterns(&common.include_word, &common.include_word_file)?;
+    let exclude = collect_word_patterns(&common.exclude_word, &common.exclude_word_file)?;
+    common.include_word.clear();
+    common.include_word_file.clear();
+    common.exclude_word.clear();
+    common.exclude_word_file.clear();
+    Ok(WordFilter {
+        include,
+        exclude,
+        case_sensitive: common.case_sensitive,
+        mode: WordFilterMode::PerWordEmit,
+    })
 }
 
 /// Sibling of [`collect_word_patterns`] for COMBO's
@@ -468,10 +494,14 @@ pub(super) fn build_filter(common: &CommonAnalysisArgs) -> Result<FilterConfig, 
     // `--exclude-word` already accumulated. Order: CLI patterns
     // first, then file patterns in `--…-file` argv order, with
     // each file's lines in source order.
+    // Utterance-gate filter. Per-word commands (FREQ, …) extract
+    // their patterns via `take_per_word_filter` before reaching here,
+    // leaving the include/exclude lists empty for those commands.
     let word_filter = WordFilter {
         include: collect_word_patterns(&common.include_word, &common.include_word_file)?,
         exclude: collect_word_patterns(&common.exclude_word, &common.exclude_word_file)?,
         case_sensitive: common.case_sensitive,
+        mode: WordFilterMode::UtteranceContext,
     };
 
     let role_filter = talkbank_clan::framework::RoleFilter {
