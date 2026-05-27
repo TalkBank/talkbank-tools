@@ -54,16 +54,66 @@ pub(super) fn execute_v2_worker_key(
 }
 
 /// Extract backend-specific engine override JSON from a V2 execute request.
+///
+/// The returned JSON string is used both as the worker pool key AND as
+/// the worker's `--engine-overrides` argv. It MUST round-trip every
+/// per-engine knob the user supplied — if the JSON omits `qwen_model`
+/// here, the worker spawn argv omits it too and the engine loader
+/// silently defaults to a different model than what the user asked
+/// for (the bug fixed 2026-05-27 that caused 70+ minutes of wasted
+/// compute when Bucket A's `qwen_model=0.6B` requests landed on a
+/// pool worker spawned with no `qwen_model`, defaulting to 1.7B).
+///
+/// Implementation: serialize an `EngineOverrides` (typed struct) so
+/// the JSON shape matches the schema's wire format byte-for-byte, then
+/// merge in `extras` from the V2 request. Adding a new per-engine
+/// knob in future requires no changes here — the `extras` BTreeMap
+/// carries them verbatim.
 pub(super) fn execute_v2_engine_overrides(request: &ExecuteRequestV2) -> Option<String> {
     match &request.payload {
-        TaskRequestV2::Asr(request) => asr_backend_override_name(request.backend)
-            .map(|backend| format!(r#"{{"asr":"{backend}"}}"#)),
+        TaskRequestV2::Asr(request) => {
+            let backend = asr_backend_override_name(request.backend)?;
+            let map = asr_engine_overrides_map(backend, &request.extras);
+            serde_json::to_string(&map).ok()
+        }
         TaskRequestV2::ForcedAlignment(request) => Some(format!(
             r#"{{"fa":"{}"}}"#,
             fa_backend_override_name(request.backend)
         )),
         _ => None,
     }
+}
+
+/// Build the engine-overrides map for an ASR V2 request: the engine wire
+/// name plus every per-engine extras knob (`qwen_model`, `qwen_device`,
+/// `funaudio_*`, …) the user supplied.
+///
+/// Shared between [`execute_v2_engine_overrides`] (eager-profile pool
+/// key + worker spawn argv) and [`ensure_task_params`] (LazyProfile
+/// IPC reconfiguration). Both call sites previously had the same
+/// merge loop inline; consolidating prevents one site from drifting
+/// while the other stays correct.
+///
+/// The result is a `BTreeMap` so the output is deterministic (stable
+/// key order across runs) which keeps the pool key stable for
+/// cache-hit reuse. The function is NOT a thin wrapper over
+/// `EngineOverrides::to_json_string` because the dispatch-override
+/// naming convention (e.g. `{"fa":"wave2vec"}`) intentionally differs
+/// from the engine wire-name format (`{"fa":"wav2vec_fa"}`) the typed
+/// serializer would emit — see `FaEngineName::wire_name()` vs
+/// `dispatch_override_name()`. The OLD code hardcoded
+/// `format!(r#"{{"asr":"{backend}"}}"#)` here and silently dropped
+/// extras, which was the 2026-05-27 `qwen_model` dispatch bug.
+fn asr_engine_overrides_map(
+    backend: &str,
+    extras: &std::collections::BTreeMap<String, String>,
+) -> std::collections::BTreeMap<String, String> {
+    let mut map = std::collections::BTreeMap::new();
+    map.insert("asr".to_owned(), backend.to_owned());
+    for (k, v) in extras {
+        map.insert(k.clone(), v.clone());
+    }
+    map
 }
 
 /// Extract the ensure_task parameters (task name + engine overrides map) from a
@@ -78,11 +128,8 @@ pub(super) fn ensure_task_params(
     let task_name = crate::worker::target::task_name(task).to_string();
 
     let overrides = match &request.payload {
-        TaskRequestV2::Asr(req) => asr_backend_override_name(req.backend).map(|name| {
-            let mut map = std::collections::BTreeMap::new();
-            map.insert("asr".to_owned(), name.to_owned());
-            map
-        }),
+        TaskRequestV2::Asr(req) => asr_backend_override_name(req.backend)
+            .map(|name| asr_engine_overrides_map(name, &req.extras)),
         TaskRequestV2::ForcedAlignment(req) => {
             let mut map = std::collections::BTreeMap::new();
             map.insert(
@@ -154,6 +201,7 @@ mod tests {
                 input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
+                extras: std::collections::BTreeMap::new(),
             }),
         );
 
@@ -168,6 +216,58 @@ mod tests {
         assert_eq!(key.0, WorkerTarget::profile(WorkerProfile::Gpu));
         assert_eq!(key.1, WorkerLanguage::from(LanguageCode3::fra()));
         assert_eq!(key.2, r#"{"asr":"whisper"}"#);
+    }
+
+    #[test]
+    fn execute_v2_engine_overrides_preserves_asr_extras_through_dispatch() {
+        // Regression pin for the 2026-05-27 root-cause bug: prior to
+        // adding ``extras`` to ``AsrRequestV2`` and threading them
+        // through here, the pool key + worker spawn argv silently
+        // dropped every per-engine knob the user passed via
+        // ``--engine-overrides``. A request with
+        // ``qwen_model=Qwen/Qwen3-ASR-0.6B`` was serialized as bare
+        // ``{"asr":"qwen"}`` and the worker defaulted to 1.7B,
+        // costing hours of wasted compute.
+        //
+        // This test is the seam test the per-knob Fix 1 CLI-parse
+        // test SHOULD have been: it asserts the user's extras reach
+        // the worker spawn argv JSON. Adding any new per-engine knob
+        // (funaudio_*, future engines) is automatically covered
+        // because the assertion is "every key in input.extras
+        // appears in output JSON", not a fixed allowlist.
+        let mut extras = std::collections::BTreeMap::new();
+        extras.insert("qwen_model".to_owned(), "Qwen/Qwen3-ASR-0.6B".to_owned());
+        extras.insert("qwen_device".to_owned(), "cpu".to_owned());
+
+        let request = request_with_payload(
+            InferenceTaskV2::Asr,
+            TaskRequestV2::Asr(AsrRequestV2 {
+                lang: WorkerLanguage::from(LanguageCode3::yue()),
+                backend: AsrBackendV2::HkQwen,
+                input: AsrInputV2::ProviderMedia(
+                    crate::types::worker_v2::ProviderMediaInputV2 {
+                        media_path: "/dev/null".into(),
+                        num_speakers: crate::api::NumSpeakers(1),
+                    },
+                ),
+                extras: extras.clone(),
+            }),
+        );
+
+        let json = execute_v2_engine_overrides(&request)
+            .expect("Asr request should produce engine_overrides JSON");
+        let parsed: std::collections::BTreeMap<String, String> =
+            serde_json::from_str(&json).expect("engine_overrides JSON must round-trip");
+
+        assert_eq!(parsed.get("asr").map(String::as_str), Some("qwen"));
+        for (k, v) in &extras {
+            assert_eq!(
+                parsed.get(k),
+                Some(v),
+                "extras key {k:?} (value {v:?}) was dropped at the V2 dispatch boundary — \
+                 pool key + worker spawn argv would lose it"
+            );
+        }
     }
 
     #[test]
@@ -242,6 +342,7 @@ mod tests {
                 input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
                     audio_ref_id: WorkerArtifactIdV2::from("audio-1"),
                 }),
+                extras: std::collections::BTreeMap::new(),
             }),
         );
 

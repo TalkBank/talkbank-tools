@@ -467,6 +467,12 @@ async fn infer_utr_asr_response(
             })
         }
         UtrEngine::Whisper | UtrEngine::HkTencent => {
+            // UTR uses the default per-engine configuration — there are
+            // no UTR-specific knobs in `EngineOverrides.extras` today.
+            // An empty extras map preserves the current behavior and
+            // gives a stable place to wire UTR-time knobs later if any
+            // engine grows them.
+            let empty_extras = std::collections::BTreeMap::new();
             crate::transcribe::infer_asr(
                 context.services.pool,
                 &crate::transcribe::AsrInferParams {
@@ -477,6 +483,7 @@ async fn infer_utr_asr_response(
                     lang: &crate::api::LanguageSpec::Resolved(context.lang.clone()),
                     num_speakers: NumSpeakers(1),
                     rev_job_id: None,
+                    extras: &empty_extras,
                 },
             )
             .await

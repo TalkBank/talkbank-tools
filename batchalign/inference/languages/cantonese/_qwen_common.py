@@ -1,4 +1,4 @@
-"""Qwen3-ASR helpers for the built-in HK/Cantonese engine.
+"""Qwen3-ASR helpers for the built-in Cantonese engine.
 
 Wraps the ``qwen-asr`` PyPI package. Mirrors the
 ``_funaudio_common.FunAudioRecognizer`` shape so the worker
@@ -6,17 +6,15 @@ bootstrap can swap engines uniformly. The actual model load is
 deferred until first inference call — keeps worker startup time
 bounded when no Qwen jobs are dispatched to the worker.
 
-Engine selection rationale: Lee et al. (2026) report ~13% CER on
-per-utterance Cantonese child speech for Qwen3-ASR-1.7B, beating
-the cloud APIs (Tencent ~24%, Alibaba ~17%) and Cantonese-finetuned
-Whisper variants (~56-66%). Houjun's BatchalignHK prototype
-(``BatchalignHK/batchalign/pipelines/asr/qwenasr.py``, 2026-04-04)
-provided the initial proof-of-feasibility; this port adapts that
-shape to BA3's worker protocol.
+Engine selection rationale: Qwen3-ASR is an open-weight
+Cantonese-capable ASR model from Alibaba. External evaluations on
+per-utterance Cantonese child speech report competitive CER
+relative to the major cloud APIs and to Cantonese-finetuned Whisper
+variants; it is wired here as one engine option among several.
 
-Device default is ``cpu``. The Apple Silicon fleet has no CUDA, and
-empirical testing on 2026-05-26 found that MPS-backed inference
-produces degraded output on the 1.7B model (transformers' MPS path
+Device default is ``cpu``. Apple Silicon hosts have no CUDA, and
+empirical testing found that MPS-backed inference produces degraded
+output on the 1.7B model (the upstream ``transformers`` MPS path
 isn't fully supported for Qwen3 attention ops yet). Hosts with CUDA
 can opt in via ``engine_overrides["qwen_device"]="cuda"``.
 """

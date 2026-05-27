@@ -1,14 +1,14 @@
 # translate
 
 **Status:** Current
-**Last updated:** 2026-05-26 12:48 EDT
+**Last updated:** 2026-05-27 11:12 EDT
 
 Add English translations to non-English CHAT transcripts by injecting a
 `%xtra` tier after each utterance. Text-only — no audio involved.
 
 ## Engine
 
-Four backends are available:
+Five backends are available:
 
 - **Google Translate** (`googletrans`) — calls the public Google Translate
   endpoint. Requires outbound reachability to `translate.google.com`;
@@ -17,13 +17,24 @@ Four backends are available:
 - **Tencent Cloud TMT** (`tencent`) — China-friendly cloud API. Strong
   quality on Mandarin (`zh→en`); produces correct "Hello world" for
   `你好世界` where NLLB renders it "Good day". **Does NOT support
-  Cantonese** (`yue→en`); route Cantonese through `nllb` instead.
+  Cantonese** (`yue→en`); route Cantonese through `aliyun` (cloud) or
+  `nllb` (self-hosted) instead.
   Requires CAM credentials with `tmt:TextTranslate` permission in
   `~/.batchalign.ini` `[asr]` section (`engine.tencent.id` / `key` /
   `region`), or via the `BATCHALIGN_TENCENT_{ID,KEY,REGION}`
   environment variables that the Rust control plane uses to inject
   fleet-managed credentials. Free tier: 5M characters/month;
   throttled to 5 QPS in-worker (0.2 s/item).
+- **Aliyun Machine Translation** (`aliyun`) — China-friendly cloud API
+  via Alibaba Cloud's `alimt` General service. **Supports Cantonese
+  (`yue→en`)** — the canonical cloud option for HK material, where
+  Tencent TMT does not list Cantonese as a source language. Requires
+  Aliyun access-key credentials in `~/.batchalign.ini` `[asr]` section
+  (`engine.aliyun.ak_id` / `ak_secret`, shared with the Aliyun ASR
+  backend), or via the `BATCHALIGN_ALIYUN_AK_{ID,SECRET}` environment
+  variables. Region is pinned to `cn-hangzhou` (Aliyun MT exposes one
+  global endpoint at `mt.aliyuncs.com`, so the region only affects
+  request signing). Quotas and pricing per Aliyun MT service terms.
 - **Meta NLLB-200-distilled-1.3B** (`nllb`) — runs locally in the Python
   worker. Model downloaded from HuggingFace on first use (~5 GB) and
   cached thereafter; no outbound network at inference time. **Best
@@ -35,13 +46,14 @@ Four backends are available:
   short-CJK quality is poor and the model hallucinates on empty inputs;
   **prefer `nllb` or `tencent` for new work.** Retained for back-compat.
 
-Select with `--translate-engine google|tencent|nllb|seamless`. Default is
-Google. Operators on hosts where Google Translate is unreachable pass
-`--translate-engine tencent` (best Mandarin) or `--translate-engine nllb`
-(handles Cantonese, no cloud account required) explicitly per invocation
-(a shell alias is the right place to make that persistent for a given
-user) — there is no per-host config file knob for engine selection, by
-design.
+Select with `--translate-engine google|tencent|aliyun|nllb|seamless`.
+Default is Google. Operators on hosts where Google Translate is
+unreachable pass `--translate-engine tencent` (best Mandarin),
+`--translate-engine aliyun` (Cantonese-capable cloud option), or
+`--translate-engine nllb` (self-hosted, handles Cantonese, no cloud
+account required) explicitly per invocation (a shell alias is the right
+place to make that persistent for a given user) — there is no per-host
+config file knob for engine selection, by design.
 
 For symmetry with how ASR and FA engines are selected, the shared
 `--engine-overrides '{"translate":"<engine>"}'` global flag also
@@ -131,7 +143,7 @@ re-invoke the worker.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--translate-engine google\|tencent\|nllb\|seamless` | `google` | Pick the translation engine for this invocation. `tencent` is best for Mandarin (requires CAM credentials, no Cantonese support); `nllb` is the recommended self-hosted fallback and handles Cantonese; `seamless` is BA2-inherited and retained for back-compat. |
+| `--translate-engine google\|tencent\|aliyun\|nllb\|seamless` | `google` | Pick the translation engine for this invocation. `tencent` is best for Mandarin (requires CAM credentials, no Cantonese support); `aliyun` is the Cantonese-capable cloud option (requires Aliyun access keys); `nllb` is the recommended self-hosted fallback and handles Cantonese; `seamless` is BA2-inherited and retained for back-compat. |
 | `--merge-abbrev` / `--no-merge-abbrev` | off | Merge abbreviations in the translated output |
 
 ---
@@ -159,7 +171,9 @@ will say so.
 | Rate-limit (429) on one or more items | File marked failed citing the 429 message verbatim. Retry; if persistent, switch to `--translate-engine tencent` or `--translate-engine nllb` or split the workload. |
 | Self-hosted model first-download (HuggingFace) fails | File marked failed with the underlying HF error. If on a host where the default HF endpoint is slow, set `HF_ENDPOINT=https://hf-mirror.com` before the worker starts. Applies to both `nllb` (~5 GB) and `seamless` (~1.2 GB). |
 | Tencent CAM credentials missing / wrong | File marked failed citing `~/.batchalign.ini` parse error or `AuthFailure.UnauthorizedOperation`. Ensure `engine.tencent.id`/`key`/`region` are populated and the CAM user has `tmt:TextTranslate` policy attached. The TMT product itself must also be "opened" at the Tencent Cloud account level (`FailedOperation.UserNotRegistered` indicates this is missing). |
-| Tencent `yue→en` request | Raises `ValueError: Tencent TMT does not support source language 'yue'; use --translate-engine nllb`. Switch the Cantonese run to `nllb`. |
+| Tencent `yue→en` request | Raises `ValueError: Tencent TMT does not support source language 'yue'; use --translate-engine aliyun (cloud, supports Cantonese) or --translate-engine nllb (self-hosted local model)`. Switch the Cantonese run to `aliyun` or `nllb`. |
+| Aliyun MT credentials missing / wrong | File marked failed citing `~/.batchalign.ini` parse error or an Aliyun SDK `ClientException`/`ServerException`. Ensure `engine.aliyun.ak_id` / `ak_secret` are populated (same keys the Aliyun ASR backend uses); the Aliyun MT service must also be activated in the Alibaba Cloud console for the access key's account. |
+| Aliyun MT unmapped source language | Raises `ValueError: Aliyun MT does not have a mapped source language for '<iso>'; use --translate-engine nllb for this language`. Use `nllb` for the unmapped language or extend `_ISO_639_3_TO_ALIYUN_LANG` in `batchalign/worker/_model_loading/translation.py`. |
 | googletrans library import error in a stripped venv | Worker startup fails (loud), not a per-job failure. |
 
 ---

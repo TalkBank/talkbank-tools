@@ -35,6 +35,12 @@ pub(crate) struct AsrInferParams<'a> {
     pub num_speakers: NumSpeakers,
     /// Rev.AI pre-submitted job ID (from preflight).
     pub rev_job_id: Option<&'a str>,
+    /// Per-engine configuration extras (e.g. `qwen_model`,
+    /// `qwen_device`) drawn from `CommonOptions.engine_overrides.extras`.
+    /// Plumbed through to the worker spawn argv so the engine's load
+    /// function sees what the user actually requested — the `backend`
+    /// enum only encodes WHICH engine, not its configuration.
+    pub extras: &'a std::collections::BTreeMap<String, String>,
 }
 
 /// Parameters for dedicated speaker-diarization inference.
@@ -147,6 +153,7 @@ async fn infer_asr_via_worker_v2(
             },
             lang: worker_lang,
             backend: worker_mode.as_v2_backend(),
+            extras: params.extras,
         },
     )
     .await

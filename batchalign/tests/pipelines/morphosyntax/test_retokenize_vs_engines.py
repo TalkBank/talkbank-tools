@@ -1,8 +1,8 @@
-"""Test Houjun's claim: retokenize as secondary pass vs ASR engine segmentation.
+"""Retokenize-as-secondary-pass vs ASR engine segmentation for Cantonese.
 
-Houjun (2026-03-23): "Retokenize as a secondary pass would do a better job
-than either Tencent or in particular FunAudio alone since Stanza has a special
-model trained just for this task."
+Working hypothesis under test (2026-03): "Retokenize as a secondary pass
+would do a better job than either Tencent or in particular FunAudio alone
+since Stanza has a special model trained just for this task."
 
 Three sub-claims to verify:
 1. Stanza retokenize is better than FunASR alone (for Cantonese)
@@ -63,7 +63,7 @@ class TestRetokenizeVsFunASR:
     def test_retokenize_strictly_improves_word_count(self) -> None:
         """For every test sentence, retokenize produces fewer tokens than FunASR.
 
-        This proves Houjun's sub-claim 1: retokenize is better than FunASR alone.
+        This proves sub-claim 1: retokenize is better than FunASR alone.
         """
         import batchalign_core
 
@@ -91,8 +91,8 @@ class TestRetokenizeVsFunASR:
 # This claim is UNVERIFIABLE without real Tencent output. We cannot prove or
 # disprove it because:
 # - We don't have real Tencent Cantonese ASR output
-# - Spencer claims Tencent does word segmentation, but our test data only
-#   shows single-character words from Tencent
+# - An unverified anecdotal claim says Tencent does word segmentation,
+#   but our test data only shows single-character words from Tencent
 # - If Tencent already segments correctly, retokenize could be HARMFUL
 #   (re-segmenting already-correct boundaries)
 #

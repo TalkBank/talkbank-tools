@@ -419,6 +419,7 @@ mod tests {
             write_wor: false,
             media_name: None,
             rev_job_id: None,
+            engine_extras: std::collections::BTreeMap::new(),
         };
 
         process_one_transcribe_file(

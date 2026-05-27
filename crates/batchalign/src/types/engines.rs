@@ -241,9 +241,9 @@ pub enum AsrEngineName {
     /// FunAudio ASR (HK/Cantonese).
     HkFunaudio,
     /// Qwen3-ASR (Alibaba, HK/Cantonese). Local model loaded via the
-    /// ``qwen-asr`` Python package; recommended default for ``yue``
-    /// per Lee et al. (2026) where it landed at ~13% CER on
-    /// per-utterance child speech.
+    /// ``qwen-asr`` Python package. Open-weight Cantonese-capable ASR;
+    /// external evaluations report competitive CER on per-utterance
+    /// child speech.
     HkQwen,
 }
 
@@ -376,8 +376,8 @@ impl<'de> Deserialize<'de> for AsrEngineName {
 /// Typed translation engine selector.
 ///
 /// The wire format uses the lowercase tokens ``"google"``,
-/// ``"seamless"``, ``"nllb"``, and ``"tencent"``; the Python worker's
-/// ``resolve_translate_engine``
+/// ``"seamless"``, ``"nllb"``, ``"tencent"``, and ``"aliyun"``; the
+/// Python worker's ``resolve_translate_engine``
 /// (``batchalign/worker/_model_loading/translation.py``) matches on
 /// those exact strings. Any change here must be mirrored on the Python
 /// side or dispatch breaks silently.
@@ -404,6 +404,16 @@ pub enum TranslateEngineName {
     /// or via ``BATCHALIGN_TENCENT_{ID,KEY,REGION}`` environment
     /// variables. Free tier 5M chars/month.
     Tencent,
+    /// Aliyun (Alibaba Cloud) Machine Translation — cloud-API engine.
+    /// Supports Cantonese (``yue``) as a source language, which Tencent
+    /// TMT does not — the canonical cloud translate option for HK
+    /// Cantonese material. Requires access-key credentials in
+    /// ``~/.batchalign.ini`` ``[asr]`` section
+    /// (``engine.aliyun.id``/``key``/``region``, shared with the Aliyun
+    /// ASR backend) or via ``BATCHALIGN_ALIYUN_{ID,KEY,REGION}``
+    /// environment variables. Quotas and pricing per Aliyun MT service
+    /// terms.
+    Aliyun,
 }
 
 impl EngineBackend for TranslateEngineName {
@@ -413,6 +423,7 @@ impl EngineBackend for TranslateEngineName {
             Self::Seamless => "seamless",
             Self::Nllb => "nllb",
             Self::Tencent => "tencent",
+            Self::Aliyun => "aliyun",
         }
     }
 
@@ -428,6 +439,7 @@ impl EngineBackend for TranslateEngineName {
             "seamless" => Some(Self::Seamless),
             "nllb" => Some(Self::Nllb),
             "tencent" => Some(Self::Tencent),
+            "aliyun" => Some(Self::Aliyun),
             _ => None,
         }
     }
@@ -445,6 +457,7 @@ impl TranslateEngineName {
             Self::Seamless => "seamless",
             Self::Nllb => "nllb",
             Self::Tencent => "tencent",
+            Self::Aliyun => "aliyun",
         }
     }
 
@@ -474,9 +487,12 @@ impl TranslateEngineName {
     /// (``batchalign/worker/_progress.py::_HF_SIZE_HINTS_GB``).
     pub fn resident_memory_mb(&self) -> u64 {
         match self {
-            // googletrans + Tencent TMT are both thin HTTP-client
-            // engines with no local model loaded — same baseline.
-            Self::Google | Self::Tencent => HTTP_CLIENT_BASELINE_RSS_MB,
+            // googletrans + Tencent TMT + Aliyun MT are all thin
+            // HTTP-client engines with no local model loaded — same
+            // baseline. The Aliyun MT REST client and ``googletrans``
+            // both wrap ``requests``/``aiohttp``-style transports;
+            // there is no per-process model state to account for.
+            Self::Google | Self::Tencent | Self::Aliyun => HTTP_CLIENT_BASELINE_RSS_MB,
             Self::Seamless => SEAMLESS_M4T_MEDIUM_RSS_MB,
             Self::Nllb => NLLB_200_DISTILLED_1_3B_RSS_MB,
         }
@@ -732,6 +748,23 @@ mod tests {
         assert_eq!(
             TranslateEngineName::try_from_wire_name("tencent"),
             Some(TranslateEngineName::Tencent),
+        );
+    }
+
+    #[test]
+    fn translate_engine_aliyun_wire_roundtrip() {
+        // Aliyun Machine Translation is the cloud-API translate engine
+        // for Cantonese (``yue``) and other Asian-language source codes
+        // that Tencent TMT does not list. The wire name ``"aliyun"``
+        // must match the Python worker's ``TranslationBackend.ALIYUN``
+        // value in ``batchalign/inference/_domain_types.py`` exactly,
+        // since the resolver in
+        // ``batchalign/worker/_model_loading/translation.py`` matches
+        // on string equality.
+        assert_eq!(TranslateEngineName::Aliyun.wire_name(), "aliyun");
+        assert_eq!(
+            TranslateEngineName::try_from_wire_name("aliyun"),
+            Some(TranslateEngineName::Aliyun),
         );
     }
 

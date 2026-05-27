@@ -249,6 +249,7 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
                 TranslateEngine::Seamless => TranslateEngineName::Seamless,
                 TranslateEngine::Nllb => TranslateEngineName::Nllb,
                 TranslateEngine::Tencent => TranslateEngineName::Tencent,
+                TranslateEngine::Aliyun => TranslateEngineName::Aliyun,
             },
             merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
         })),

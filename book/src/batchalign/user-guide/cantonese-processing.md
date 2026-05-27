@@ -1,7 +1,7 @@
 # Cantonese Engines
 
 **Status:** Current
-**Last updated:** 2026-05-26 21:24 EDT
+**Last updated:** 2026-05-27 12:00 EDT
 
 Batchalign includes alternative ASR and forced alignment engines for Cantonese.
 These are built-in modules activated via `--engine-overrides` and shipped in
@@ -11,7 +11,7 @@ the base package.
 
 | Engine | Task | Description |
 |--------|------|-------------|
-| `qwen` | ASR | Qwen3-ASR-1.7B local model (Alibaba). Recommended for Cantonese — Lee et al. (2026) measured ~13% CER on child speech, beating the cloud APIs. Downloads ~3.4 GB weights on first use; no cloud credentials. |
+| `qwen` | ASR | Qwen3-ASR-1.7B local model (Alibaba). Open-weight Cantonese-capable ASR; external evaluations report competitive CER on per-utterance child speech. Downloads ~3.4 GB weights on first use; no cloud credentials. |
 | `tencent` | ASR | Tencent Cloud speech recognition with speaker diarization. |
 | `aliyun` | ASR | Alibaba Cloud NLS real-time speech recognition (Cantonese only). |
 | `funaudio` | ASR | FunASR/SenseVoice local model (no cloud credentials needed). |
@@ -150,8 +150,8 @@ dependencies (like OpenCC) are required.
 - Local model via the [`qwen-asr`](https://github.com/QwenLM/Qwen3-ASR)
   PyPI package — no cloud credentials, no network at inference time.
 - Default model is `Qwen/Qwen3-ASR-1.7B`. The 0.6B variant is
-  faster (Lee et al. 2026 reports ~2 min vs ~9 min per session) at
-  some accuracy cost.
+  noticeably faster (smaller model, lighter compute) at some
+  accuracy cost.
 - First run downloads ~3.4 GB (1.7B fp16) or ~1.2 GB (0.6B) from
   HuggingFace; subsequent runs read from the local cache.
 - The `qwen-asr` package handles long-audio chunking internally;

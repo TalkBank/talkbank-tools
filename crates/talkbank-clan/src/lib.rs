@@ -14,7 +14,7 @@
 )]
 //! Reimplementation of CLAN analysis commands in Rust.
 //!
-//! CLAN (Computerized Language Analysis) is a toolkit by Brian MacWhinney containing
+//! CLAN (Computerized Language Analysis) is a toolkit by MacWhinney containing
 //! ~116 analysis commands implemented in ~215K lines of C/C++. This crate faithfully
 //! reimplements the self-contained analysis commands in Rust, leveraging the existing
 //! talkbank-tools parsing and model infrastructure.

@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:23 EDT
+**Last updated:** 2026-05-27 12:00 EDT
 
 ## Overview
 
@@ -44,7 +44,8 @@ batchalign3 transcribe input/ -o output/ --asr-engine whisper-oai --lang=eng
 - Uses OpenAI's official `whisper` Python library directly
 - **Hardcoded to "turbo" model** -- ignores language-specific model resolution
 - Converts Whisper segments/words output to Rev.AI-style JSON internally
-- Current Rust CLI default is `--asr-engine rev` when no ASR override is given.
+- Current Rust CLI default is `--asr-engine rev` when no ASR override is given
+  AND no per-language default applies (see "Per-language defaults" below).
 - The internal engine string remains `whisper_oai` where engine registries or
   typed option payloads refer to engine names.
 
@@ -75,6 +76,22 @@ batchalign3 transcribe input/ -o output/ --asr-engine whisperx --lang=eng
 - Loads both a transcription model and an alignment model
 - Chunked processing with fallback: 60s -> 30s -> 15s
 - CUDA-only for `float16`; falls back to `float32` on CPU
+
+## Per-language defaults
+
+The fallback dispatch when no `--engine-overrides '{"asr":...}'` is set
+AND no Rev.AI key is configured is **not** unconditionally Whisper. The
+worker resolver consults a per-language default table
+(`_LANG_DEFAULTS` in `batchalign/worker/_model_loading/asr.py`) before
+falling through to Whisper. Currently:
+
+- `yue` (Cantonese) → FunASR/SenseVoice (per the 2026-05 Cantonese ASR
+  benchmark, where vanilla Whisper-large-v3 was the worst-measured
+  engine on TalkBank Tier 3 child speech)
+- all other languages → Whisper (the documented historical fallback)
+
+To override the per-language default, pass an explicit
+`--engine-overrides '{"asr":"<engine>"}'`. The override always wins.
 
 ## Model Selection
 

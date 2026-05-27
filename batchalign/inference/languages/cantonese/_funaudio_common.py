@@ -47,7 +47,25 @@ class FunAudioRecognizer:
         self._model: Any | None = None
 
     def _get_model(self) -> Any:
-        """Return a cached FunASR model instance, creating it on first call."""
+        """Return a cached FunASR model instance, creating it on first call.
+
+        On cache miss (first call per worker lifetime), emits a pair of
+        ``progress_v2`` download events bracketing the
+        ``AutoModel(...)`` construction so the daemon log / dashboard /
+        TUI show "Loading FunASR model… (first-run download may take
+        several minutes)" instead of dead air. Subsequent calls hit the
+        ``self._model is not None`` short-circuit above and emit
+        nothing — a future call cannot mislead the user into thinking
+        another download is happening.
+
+        Per CLAUDE.md §11 time-transparency rule; mirrors the eager
+        ``warm()`` pattern in ``_qwen_common.QwenRecognizer`` but
+        without the eager-call-at-bootstrap shape because FunASR's
+        worker bootstrap is deliberately lazy. Late binding of
+        ``emit_download_event`` (import inside the function) keeps the
+        recognizer importable in test contexts that don't bring up the
+        full worker stack.
+        """
         if self._model is not None:
             return self._model
 
@@ -59,6 +77,16 @@ class FunAudioRecognizer:
                 "FunAudio engine dependency 'funasr' is missing from this "
                 "environment. Reinstall batchalign3 or install funasr."
             ) from exc
+
+        from batchalign.worker._progress import emit_download_event
+
+        emit_download_event(
+            stage="downloading_funaudio_asr",
+            user_message=(
+                f"Loading FunASR model {self.model_name} ({self.device}); "
+                f"first-run HuggingFace download may take several minutes…"
+            ),
+        )
 
         with redirect_stdout(io.StringIO()):
             if "paraformer" not in self.model_name:
@@ -87,6 +115,11 @@ class FunAudioRecognizer:
                     punc_model="ct-punc-c",
                     punc_model_revision="v2.0.4",
                 )
+
+        emit_download_event(
+            stage="downloading_funaudio_asr_complete",
+            user_message=f"FunASR model loaded ({self.model_name}).",
+        )
         return self._model
 
     @staticmethod

@@ -132,6 +132,7 @@ impl TranscribeDispatchPlan {
             wor_tier,
             allow_stanza_fallback_utseg,
             batch_size: _,
+            engine_extras,
         } = extract_transcribe_dispatch_params(&job.dispatch.options)?;
         let with_utseg = runtime_flag(job, "utseg", true);
         let with_morphosyntax = runtime_flag(job, "morphosyntax", false);
@@ -154,6 +155,7 @@ impl TranscribeDispatchPlan {
                 write_wor: wor_tier.should_write(),
                 media_name: None,
                 rev_job_id: None,
+                engine_extras,
             },
             should_merge_abbrev: merge_abbrev.should_merge(),
         })
@@ -181,6 +183,7 @@ impl BenchmarkDispatchPlan {
             wor_tier,
             merge_abbrev,
             override_media_cache,
+            engine_extras,
         } = extract_benchmark_dispatch_params(&job.dispatch.options)?;
 
         Some(Self {
@@ -198,6 +201,7 @@ impl BenchmarkDispatchPlan {
                 write_wor: wor_tier.should_write(),
                 media_name: None,
                 rev_job_id: None,
+                engine_extras,
             },
             mwt: MwtDict::default(),
             should_merge_abbrev: merge_abbrev.should_merge(),

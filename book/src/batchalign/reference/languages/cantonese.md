@@ -1,7 +1,7 @@
 # Cantonese Language Support
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:18 EDT
+**Last updated:** 2026-05-27 11:30 EDT
 
 User reference for Cantonese (`yue`) processing in batchalign3 — ASR engine
 options, credentials, retokenize usage, and what to expect from each
@@ -13,7 +13,7 @@ normalization pipeline, segmenter selection, source-file map), see
 
 | Pipeline stage | Cantonese-specific behavior |
 |---|---|
-| ASR | 4 engine options: Whisper, Tencent Cloud, Aliyun NLS, FunASR/SenseVoice |
+| ASR | 5 engine options: FunASR/SenseVoice (default), Tencent Cloud, Aliyun NLS, Qwen3-ASR, Whisper |
 | Text normalization | Simplified → Traditional + 31-entry domain replacement (automatic) |
 | Number expansion | Traditional Chinese characters (五, 四十二, 一萬) |
 | Character tokenization | Per-character splitting for timestamp alignment |
@@ -25,29 +25,46 @@ normalization pipeline, segmenter selection, source-file map), see
 
 ## ASR Engine Options
 
-The default (Whisper) works out of the box. Alternatives are activated
-via `--engine-overrides`.
+**The default for `yue` is FunASR/SenseVoice** — a local model that
+empirically outperforms vanilla Whisper-large-v3 by a wide margin
+on Cantonese child speech (42.8% CER vs 81.9% CER on TalkBank Tier
+3 fixtures; see the 2026-05-26 Cantonese ASR benchmark). The
+default is wired in `batchalign/worker/_model_loading/asr.py`'s
+`_LANG_DEFAULTS` table and applies when no `--engine-overrides
+'{"asr":...}'` is set and no Rev.AI key is configured. Alternatives
+are activated via `--engine-overrides`.
 
 | Engine | Type | Credentials | Word output | Strength |
 |---|---|---|---|---|
-| Whisper | Local | None | Per-character | General-purpose, no setup |
-| Tencent Cloud | Cloud | Required | Per-character | Speaker diarization |
+| FunASR/SenseVoice (**default for yue**) | Local | None | Per-character | No cloud, VAD built-in, lowest measured CER on child speech |
+| Tencent Cloud | Cloud | Required | Per-character | Speaker diarization, strong on clean adult speech |
 | Aliyun NLS | Cloud | Required | Per-character | Real-time streaming |
-| FunASR/SenseVoice | Local | None | Per-character | No cloud, VAD built-in, low CER on clear speech |
+| Qwen3-ASR | Local | None | Per-character | Alibaba open-weight ASR; competitive on per-utterance Cantonese child speech in external evaluations (unverified on TalkBank's longer-form fixtures) |
+| Whisper | Local | None | Per-character | General-purpose multilingual; **worst measured on TalkBank Cantonese** — not recommended unless other engines are unavailable |
 
 ### Usage
 
 ```bash
-# Default (Whisper)
+# Default (FunASR/SenseVoice) — no flag needed
 batchalign3 transcribe input/ -o output/ --lang yue
 
 # Tencent Cloud ASR (requires credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
   --engine-overrides '{"asr": "tencent"}'
 
-# FunASR local (no credentials needed)
+# Aliyun NLS ASR (requires credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
-  --engine-overrides '{"asr": "funaudio"}'
+  --engine-overrides '{"asr": "aliyun"}'
+
+# Qwen3-ASR (default 1.7B variant; pinned via qwen_model for 0.6B)
+batchalign3 transcribe input/ -o output/ --lang yue \
+  --engine-overrides '{"asr": "qwen"}'
+batchalign3 transcribe input/ -o output/ --lang yue \
+  --engine-overrides '{"asr": "qwen", "qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+
+# Whisper (explicit opt-in; not recommended for Cantonese)
+batchalign3 transcribe input/ -o output/ --lang yue \
+  --engine-overrides '{"asr": "whisper"}'
 
 # Cantonese forced alignment
 batchalign3 align input/ -o output/ --lang yue \
@@ -87,7 +104,24 @@ WAV format required (16 kHz mono).
 
 **FunASR/SenseVoice.** Local model — no cloud credentials, no network.
 Auto model selection: Paraformer or SenseVoice based on availability.
-VAD built in. Per-character timestamp alignment.
+VAD built in. Per-character timestamp alignment. Wired as the
+per-language default for `yue` via `_LANG_DEFAULTS` in
+`batchalign/worker/_model_loading/asr.py` so a bare
+`batchalign3 transcribe --lang yue ...` invocation no longer falls
+through to Whisper.
+
+**Qwen3-ASR.** Alibaba's open-weight Cantonese-capable ASR
+(`qwen-asr` Python package, model downloaded from HuggingFace on
+first use). Two variants are publicly released — 1.7B (default,
+heavier) and 0.6B (lighter, smaller download). Select the 0.6B
+variant via `--engine-overrides '{"asr": "qwen", "qwen_model":
+"Qwen/Qwen3-ASR-0.6B"}'`; per-engine extras like `qwen_model` and
+`qwen_device` are accepted by the `EngineOverrides` schema and
+forwarded to the worker. External evaluations report competitive
+CER on per-utterance Cantonese child speech with the 1.7B variant;
+TalkBank's own longer-form Cantonese fixtures show this engine
+benefits from per-utterance segmentation rather than full-session
+input.
 
 **Cantonese forced alignment.** Converts Chinese characters to jyutping
 romanization (via PyCantonese), strips tone numbers for Wave2Vec

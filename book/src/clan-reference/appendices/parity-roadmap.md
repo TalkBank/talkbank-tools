@@ -53,8 +53,8 @@ single canonical view of remaining work. No external deadline.
 
 ## Historical context
 
-CLAN is the work of decades (Leonid Spektor, with Brian MacWhinney,
-since roughly the early 1980s). The flag long-tail reflects 40+ years
+CLAN is the work of decades (Spektor, with MacWhinney, since
+roughly the early 1980s). The flag long-tail reflects 40+ years
 of feature accretion across commands as researchers asked for more
 ways to slice the same corpora. Many flags are display-mode variants
 that produce alternate output shapes for the same analysis; some are

@@ -1,7 +1,7 @@
 # ASR Token Pipeline
 
 **Status:** Current
-**Last updated:** 2026-05-19 19:23 EDT
+**Last updated:** 2026-05-27 11:55 EDT
 
 This page documents the complete lifecycle of text tokens as they flow from
 ASR providers through post-processing into the CHAT AST. Each stage has a
@@ -30,7 +30,7 @@ flowchart TD
     Fin["finalize_words_to_chunks()\nStages 4b-5b"]
     EnICap["apply_english_transcribe_rules_pre_retokenize()\n(I-cap: i→I, i'll→I'll, …)"]
     Retok["utterances_from_prepared_chunks()\nStage 6: ASR-stream retokenization\n(split by punctuation)"]
-    Final["finalize_utterances()\nStages 7-8:\ndisfluency + retrace"]
+    Final["finalize_utterances()\nStages 7-9:\ndisfluency + retrace +\nCHAT-illegal sanitization"]
     EnUttCap["apply_english_transcribe_rules_post_retokenize()\n(utterance-initial cap)"]
     TryFrom{"ChatWordText::try_from_lang()\nconstruction-time guard"}
     Reject["Err(Vec&lt;ParseError&gt;)\nfail loud with structured\nprovenance"]
@@ -121,17 +121,25 @@ These stages remain in the pipeline for two reasons:
    flag-setting policy would reintroduce the input class these stages
    handle. They cost nothing to keep and prevent silent regressions.
 
-The final enforcement is the `ChatWordText::try_from_lang` gate at
-the end of the pipeline (see below) — language-agnostic,
-engine-agnostic, and failure-loud. If any upstream stage ever emits
-a token the CHAT grammar rejects, this gate stops the build and names
-the exact utterance / speaker / language / token text.
+Two layers protect the downstream CHAT build. Stage 9 (oracle-driven
+sanitization) is the first line — it rebuilds a CHAT-legal prefix for
+any token whose interior contains characters the grammar rejects
+(Whisper's bare `:` leaks, Tencent's `~`, exotic Unicode glued to ASCII
+letters) and drops the token entirely only when no legal prefix
+survives. The final enforcement is the `ChatWordText::try_from_lang`
+gate at the end of the pipeline (see below) — language-agnostic,
+engine-agnostic, and failure-loud — which fires only for tokens that
+sanitization cannot recover. Before stage 9 landed, a single
+grammar-illegal char anywhere in the transcript would fail the entire
+file at this gate; the v2 Cantonese ASR benchmark lost 6 of 18
+fixtures this way.
 | 4b | Cantonese normalization | `finalize_words_to_chunks()` | Simplified → traditional + domain replacements (lang=yue only) |
 | 5 | Long turn splitting | `finalize_words_to_chunks()` | Chunks > 300 words split |
 | 5b | Pause-based splitting | `finalize_words_to_chunks()` | Long pauses in unpunctuated runs create boundaries |
 | 6 | Retokenization | `utterances_from_prepared_chunks()` | Split into utterances by punctuation boundaries |
 | 7 | Disfluency replacement | `finalize_utterances()` | Filled pauses marked ("um" → "&-um"), orthographic replacements |
 | 8 | N-gram retrace detection | `finalize_utterances()` | Repeated n-grams marked with `WordKind::Retrace`. **Fillers (`&-` prefix) participate in matching but are never marked Retrace** — see [Retrace Detection](../reference/retrace-detection.md#fillers-do-not-produce-retrace-markers). |
+| 9 | CHAT-illegal char sanitization | `finalize_utterances()` → `sanitize_chat_illegal_chars_in_utterances()` (`asr_postprocess/cleanup.rs`) | For each word whose interior fails `ChatWordText::try_from`, greedily rebuild a CHAT-legal prefix character by character (push, check via the oracle, pop on reject). Drop the word when the rebuilt string is empty. Engine-emitted noise (`:` from Whisper, `~` from Tencent, exotic glyphs) no longer destroys whole utterances. Runs after number expansion so monetary / numeric expansions are already in word form when the oracle sees them. |
 
 ## Text Newtypes at Each Stage
 

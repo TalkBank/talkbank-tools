@@ -3753,8 +3753,8 @@ fn synthesis_stanza_empty_response_at_n_root_still_synthesizes() {
 /// Reproducer matching the production failure shape exactly:
 /// fixture has timestamp + speaker code that matches the failing
 /// data (`*INV: poker@q . 132030_132740`). This is the smallest
-/// fixture that mirrors `tele61b.cha` line 135 — the file Franklin's
-/// 2026-05-07 16:25 re-morphotag run touched without fixing.
+/// fixture that mirrors `tele61b.cha` line 135 — the file a
+/// 2026-05-07 re-morphotag run touched without fixing.
 ///
 /// **EXPECTED RED**: if this test fails, the synthesis-layer fix at
 /// `injection.rs:216-221` doesn't reach this case. If it passes, the

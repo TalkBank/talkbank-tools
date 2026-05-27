@@ -50,7 +50,7 @@ The gates run two distinct policies, named explicitly per
   class. Both gates **bypass** unconditionally: back-pressure has
   nothing to push against on an empty pool, and refusing here
   leaves the pool dead-on-arrival on memory-tight hosts (the
-  Houjun's-laptop failure mode that motivated the split).
+  laptop-class failure mode that motivated the split).
 - **Warm** — N+1 worker for a class with existing workers. Both
   gates run their projection.
 

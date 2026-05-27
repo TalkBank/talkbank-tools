@@ -76,6 +76,7 @@ fn gpu_execute_request(request_id: &str) -> ExecuteRequestV2 {
             input: AsrInputV2::PreparedAudio(PreparedAudioInputV2 {
                 audio_ref_id: WorkerArtifactIdV2::from("audio-test"),
             }),
+            extras: std::collections::BTreeMap::new(),
         }),
         attachments: Vec::new(),
     }

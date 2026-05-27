@@ -10,6 +10,8 @@ discard cannot recur silently.
 
 from __future__ import annotations
 
+import typing
+
 import pytest
 
 from batchalign.inference._domain_types import TranslationBackend
@@ -43,6 +45,16 @@ class TestResolveTranslateEngine:
             is TranslationBackend.TENCENT
         )
 
+    def test_aliyun_override_wins(self) -> None:
+        # Aliyun MT is the Cantonese-supporting cloud alternative to
+        # Tencent TMT; the resolver must accept its wire token without
+        # the silent-fall-through-to-Google behavior the dispatcher
+        # previously had.
+        assert (
+            resolve_translate_engine({"translate": "aliyun"})
+            is TranslationBackend.ALIYUN
+        )
+
     def test_default_without_overrides_is_google(self) -> None:
         assert resolve_translate_engine(None) is TranslationBackend.GOOGLE
 
@@ -64,6 +76,196 @@ class TestResolveTranslateEngine:
     def test_unknown_engine_error_mentions_supported_options(self) -> None:
         with pytest.raises(ValueError, match="google, seamless, nllb, tencent"):
             resolve_translate_engine({"translate": "whisper"})
+
+
+# ---------------------------------------------------------------------------
+# Behavioral tests: Aliyun MT loader wires correctly with a mocked SDK
+# ---------------------------------------------------------------------------
+#
+# Real Aliyun MT credentials are not part of CI (quota too small).
+# These tests use mocked SDK modules to prove the loader correctly
+# assembles requests, parses responses, and writes state. Real
+# end-to-end smoke-testing is the operator's responsibility; the
+# procedure is documented at
+# ``book/src/batchalign/user-guide/commands/translate.md``.
+
+
+def _patch_aliyun_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    do_action: typing.Callable[[object], bytes],
+) -> dict[str, str]:
+    """Install fakes for the three Aliyun SDK modules the loader imports.
+
+    ``do_action`` is invoked as ``AcsClient.do_action_with_exception``;
+    pass a closure that returns canned response bytes for happy-path
+    tests, or one that raises to assert the client was never called.
+
+    Returns a dict that the fake ``TranslateGeneralRequest`` populates
+    with each ``set_*`` call — tests assert against it for wire shape.
+    """
+    import sys
+
+    captured_request: dict[str, str] = {}
+
+    class _FakeRequest:
+        def set_FormatType(self, v: str) -> None:
+            captured_request["FormatType"] = v
+
+        def set_SourceLanguage(self, v: str) -> None:
+            captured_request["SourceLanguage"] = v
+
+        def set_TargetLanguage(self, v: str) -> None:
+            captured_request["TargetLanguage"] = v
+
+        def set_SourceText(self, v: str) -> None:
+            captured_request["SourceText"] = v
+
+        def set_Scene(self, v: str) -> None:
+            captured_request["Scene"] = v
+
+    class _FakeClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def do_action_with_exception(self, req: object) -> bytes:
+            return do_action(req)
+
+    fake_request_mod = type(sys)("fake_request_mod")
+    fake_request_mod.TranslateGeneralRequest = _FakeRequest  # type: ignore[attr-defined]
+    monkeypatch.setitem(
+        sys.modules,
+        "aliyunsdkalimt.request.v20181012.TranslateGeneralRequest",
+        fake_request_mod,
+    )
+
+    fake_exc_mod = type(sys)("fake_exc_mod")
+    fake_exc_mod.ClientException = type(  # type: ignore[attr-defined]
+        "ClientException", (Exception,), {}
+    )
+    fake_exc_mod.ServerException = type(  # type: ignore[attr-defined]
+        "ServerException", (Exception,), {}
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "aliyunsdkcore.acs_exception.exceptions",
+        fake_exc_mod,
+    )
+
+    fake_client_mod = type(sys)("fake_client_mod")
+    fake_client_mod.AcsClient = _FakeClient  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "aliyunsdkcore.client", fake_client_mod)
+
+    from batchalign.inference.languages.cantonese import _common
+
+    monkeypatch.setattr(
+        _common,
+        "read_asr_config",
+        lambda *_args, **_kwargs: {
+            "engine.aliyun.ak_id": "test-id",
+            "engine.aliyun.ak_secret": "test-secret",
+        },
+    )
+
+    return captured_request
+
+
+def _reset_translate_state() -> None:
+    from batchalign.worker._types import _state
+
+    _state.translate_backend = None
+    _state.translate_fn = None
+
+
+class TestLoadAliyunTranslate:
+    """Unit-level wiring proof for ``_load_aliyun_translate``.
+
+    Patches the SDK so no Aliyun network call is made. Asserts the
+    loader (a) reads creds via ``read_asr_config``, (b) builds a
+    ``TranslateGeneralRequest`` with the documented field set,
+    (c) parses the ``Data.Translated`` field, and (d) writes both
+    ``_state.translate_backend`` and ``_state.translate_fn`` so the
+    upstream batch-infer layer picks up the new engine.
+    """
+
+    def test_loader_wires_state_and_request_shape(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from batchalign.inference._domain_types import LanguageCode
+        from batchalign.worker._model_loading import translation as translation_mod
+        from batchalign.worker._types import _state
+
+        captured = _patch_aliyun_sdk(
+            monkeypatch,
+            do_action=lambda _req: (
+                b'{"Code": "200", "Data": {"Translated": "hello world", '
+                b'"DetectedLanguage": "yue", "WordCount": "2"}, '
+                b'"RequestId": "test-req-id"}'
+            ),
+        )
+        _reset_translate_state()
+
+        translation_mod._load_aliyun_translate()
+
+        assert _state.translate_backend is TranslationBackend.ALIYUN
+        assert _state.translate_fn is not None
+        result = _state.translate_fn("你好", LanguageCode("yue"))
+
+        # Wire-shape pin: any future refactor that drops ``Scene`` or
+        # changes ``FormatType`` will break here, surfacing the change.
+        assert captured == {
+            "FormatType": "text",
+            "SourceLanguage": "yue",
+            "TargetLanguage": "en",
+            "SourceText": "你好",
+            "Scene": "general",
+        }
+        assert result == "hello world"
+
+    def test_empty_text_short_circuits_without_calling_sdk(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Aliyun rejects empty SourceText with a generic
+        # InvalidParameter error that masquerades as a credential
+        # failure — short-circuit defense in the loader prevents that
+        # confusing error path.
+        from batchalign.inference._domain_types import LanguageCode
+        from batchalign.worker._model_loading import translation as translation_mod
+        from batchalign.worker._types import _state
+
+        def _must_not_call(_req: object) -> bytes:
+            raise AssertionError("Aliyun client must not be called on empty input")
+
+        _patch_aliyun_sdk(monkeypatch, do_action=_must_not_call)
+        _reset_translate_state()
+
+        translation_mod._load_aliyun_translate()
+        assert _state.translate_fn is not None
+        assert _state.translate_fn("", LanguageCode("eng")) == ""
+
+    def test_unmapped_source_language_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The closure must error loudly on an unmapped ISO-639-3
+        # source language rather than passing a possibly-wrong code
+        # to Aliyun and getting silent degradation (the same failure
+        # mode that motivated the Tencent guard on ``yue``).
+        from batchalign.inference._domain_types import LanguageCode
+        from batchalign.worker._model_loading import translation as translation_mod
+        from batchalign.worker._types import _state
+
+        def _must_not_call(_req: object) -> bytes:
+            raise AssertionError("Aliyun client must not be called for unmapped language")
+
+        _patch_aliyun_sdk(monkeypatch, do_action=_must_not_call)
+        _reset_translate_state()
+
+        translation_mod._load_aliyun_translate()
+        assert _state.translate_fn is not None
+        with pytest.raises(ValueError, match="Aliyun MT does not have a mapped"):
+            # ``mlt`` is a valid ISO-639-3 (Maltese) but not in our
+            # map; serves as the canonical unmapped case.
+            _state.translate_fn("text", LanguageCode("mlt"))
 
 
 # ---------------------------------------------------------------------------

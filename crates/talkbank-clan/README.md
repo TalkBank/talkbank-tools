@@ -9,7 +9,7 @@ Rust reimplementation of [CLAN](https://talkbank.org/0info/manuals/CLAN.html)
 
 ## Overview
 
-CLAN is a toolkit by Brian MacWhinney containing ~116 analysis commands
+CLAN is a toolkit by MacWhinney containing ~116 analysis commands
 originally implemented in ~215K lines of C/C++. This crate faithfully
 reimplements the self-contained analysis commands, leveraging the TalkBank
 Rust parsing and model infrastructure for correctness and performance.
@@ -162,9 +162,9 @@ Both styles work interchangeably — CLAN flags are automatically rewritten:
 
 ## Credits
 
-- **Brian MacWhinney** — Original CLAN design and C/C++ implementation
-- **Leonid Spektor** — Original CLAN C code development
-- **Franklin Chen** — Rust reimplementation
+- **MacWhinney** — Original CLAN design and C/C++ implementation
+- **Spektor** — Original CLAN C code development
+- **Chen** — Rust reimplementation
 
 ## License
 

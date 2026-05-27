@@ -1,7 +1,7 @@
 # CLI Option Wiring
 
 **Status:** Current
-**Last updated:** 2026-05-20 20:29 EDT
+**Last updated:** 2026-05-27 12:00 EDT
 
 This document maps every CLI option to its downstream consumer in the dispatch
 layer. It serves as the authoritative reference for whether a flag is
@@ -152,9 +152,19 @@ This achieves ~96% coverage vs 100% with UTR.
 `--asr-engine` was not a flag in batchalign2. BA2 used mutually exclusive
 `--whisper/--rev/--whisperx/--whisper_oai` flags, which BA3 preserves as
 compatibility aliases. The CLI now rejects invalid `--engine-overrides` JSON at
-parse time, and the resolved `asr` / `fa` selections flow through typed
-built-in-or-custom engine selectors before dispatch chooses the Rust-owned
-Rev.AI path versus the worker-backed ASR backends.
+parse time, and the resolved `asr` / `fa` / `translate` selections flow through
+typed built-in-or-custom engine selectors before dispatch chooses the
+Rust-owned Rev.AI path versus the worker-backed ASR backends.
+
+The `EngineOverrides` schema accepts the three recognized engine-name keys
+(`asr`, `fa`, `translate`) **plus** per-engine extras that flow into the
+`extras: BTreeMap<String, String>` field (e.g. `qwen_model`, `qwen_device`).
+Engine *name* values are validated strictly — a typo in the wire name still
+errors loudly — but unknown *extras* keys pass through as opaque per-engine
+knobs that the worker can interpret. See
+`crates/batchalign/src/types/engines.rs::EngineOverrides` for the typed
+shape and `crates/batchalign/src/cli/args/tests.rs::engine_overrides_accept_qwen_model_and_device_extras`
+for the round-trip pin.
 
 `--batch-size` was not a flag in batchalign2 (hardcoded to 8 for WhisperX).
 

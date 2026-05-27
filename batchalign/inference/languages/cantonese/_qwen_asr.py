@@ -1,4 +1,4 @@
-"""Qwen3-ASR worker provider for HK/Cantonese.
+"""Qwen3-ASR worker provider for Cantonese.
 
 New-style provider: ``load`` is called once at worker startup,
 ``infer_*`` is called per request. Mirrors the
@@ -10,7 +10,10 @@ can swap engines uniformly.
 from __future__ import annotations
 
 import logging
+import os
+import signal
 import time
+from typing import NoReturn
 
 from pydantic import ValidationError
 
@@ -19,6 +22,7 @@ from batchalign.worker._types import (
     BatchInferResponse,
     InferResponse,
 )
+from batchalign.worker._progress import emit_download_event
 from batchalign.inference.asr import (
     AsrBatchItem,
     AsrElement,
@@ -32,6 +36,47 @@ from ._common import EngineOverrides
 from ._qwen_common import QwenRecognizer
 
 L = logging.getLogger("batchalign.hk.qwen_asr")
+
+
+# Wall-clock timeout for ``QwenRecognizer.warm()`` — the call that
+# resolves into ``Qwen3ASRModel.from_pretrained(...)`` in the
+# ``qwen-asr`` package. That call is a single blocking import-and-load
+# with no upstream progress callbacks; on 2026-05-27 it was observed to
+# hang for 70+ minutes at 0% CPU with no Qwen model ever appearing in
+# the HF cache (the worker had loaded the Whisper-large-v2 FA model and
+# then stalled before reaching the qwen-asr code path). The timeout
+# below converts that silent hang into a typed TimeoutError so the
+# worker exits, the daemon marks the job failed, and the operator sees
+# a useful error in the daemon log instead of staring at a 0% CPU
+# process for hours. Default is generous (20 min) to accommodate first-
+# time model download on slow networks; configurable via env var for
+# debugging or for tighter CI budgets.
+_QWEN_LOAD_TIMEOUT_SECONDS: int = int(
+    os.environ.get("BATCHALIGN_QWEN_LOAD_TIMEOUT_SECONDS", "1200")
+)
+
+
+def _raise_qwen_load_timeout(_signum: int, _frame: object) -> NoReturn:
+    """SIGALRM handler installed during ``QwenRecognizer.warm()``.
+
+    Raises a typed ``TimeoutError`` that propagates out of ``warm()``
+    naturally — Python signal handlers run between bytecodes, so
+    ``Qwen3ASRModel.from_pretrained``'s pure-Python sections will
+    surface the exception promptly. C-extension blocks (libtorch,
+    HF Hub native) only surface it when they return to Python; if a
+    hang IS deep inside C code, the worker may not interrupt cleanly
+    — see [[task #9]] for the watchdog-process follow-up.
+    """
+    raise TimeoutError(
+        f"Qwen3-ASR model load timed out after "
+        f"{_QWEN_LOAD_TIMEOUT_SECONDS} second(s). The qwen-asr package's "
+        f"``Qwen3ASRModel.from_pretrained`` call did not complete in the "
+        f"allotted window — this matches the silent-hang failure mode "
+        f"observed during the 2026-05-27 v2 Cantonese ASR benchmark "
+        f"sweep. The worker is exiting; the daemon will mark the job "
+        f"failed and the operator can investigate the qwen-asr package "
+        f"integration. Override via BATCHALIGN_QWEN_LOAD_TIMEOUT_SECONDS."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +120,38 @@ def load_qwen_asr(
             device = str(engine_overrides["qwen_device"])
 
     recognizer = QwenRecognizer(lang=lang, model_id=model_id, device=device)
-    recognizer.warm()
+
+    # Surface the model-load event to every UI channel per the
+    # time-transparency rule in talkbank-tools/CLAUDE.md §11. The
+    # ``from_pretrained`` call can take minutes (first-time HF Hub
+    # download) and an operator watching the daemon log or dashboard
+    # needs to see "loading Qwen3-ASR…" rather than silent dead air.
+    emit_download_event(
+        stage="downloading_qwen_asr",
+        user_message=(
+            f"Loading Qwen3-ASR model {model_id} ({device}); "
+            f"first-run download may take several minutes…"
+        ),
+    )
+
+    # Bracket ``warm()`` with a SIGALRM-based timeout. See
+    # ``_raise_qwen_load_timeout`` for the rationale; the short version
+    # is that the qwen-asr package's first-use code path is known to
+    # hang silently, and the worker MUST exit loudly on that hang so
+    # the daemon can mark the job failed.
+    old_handler = signal.signal(signal.SIGALRM, _raise_qwen_load_timeout)
+    signal.alarm(_QWEN_LOAD_TIMEOUT_SECONDS)
+    try:
+        recognizer.warm()
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+    emit_download_event(
+        stage="downloading_qwen_asr_complete",
+        user_message=f"Qwen3-ASR model loaded ({model_id}).",
+    )
+
     _recognizer = recognizer
     L.info(
         "Qwen3-ASR recognizer initialized: lang=%s, model=%s, device=%s",

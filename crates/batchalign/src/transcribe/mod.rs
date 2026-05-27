@@ -132,6 +132,7 @@ mod tests {
             write_wor: false,
             media_name: Some("sample".into()),
             rev_job_id: None,
+            engine_extras: std::collections::BTreeMap::new(),
         }
     }
 

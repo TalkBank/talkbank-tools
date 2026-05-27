@@ -3,7 +3,7 @@
 Tests PyCantonese's segment() function against actual words from the CHILDES
 CHCC Winston Cantonese corpus (child bilingual Cantonese-Mandarin speech).
 This validates that our word segmentation solution works on the kind of data
-that Angel Chan's team at PolyU will process.
+the PolyU Cantonese-research collaborators process.
 
 Findings (2026-03-23):
 - 2,280 unique pure-CJK words extracted from corpus

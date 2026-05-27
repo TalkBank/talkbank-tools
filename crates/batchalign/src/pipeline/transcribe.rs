@@ -310,6 +310,7 @@ fn stage_asr_infer<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> St
                 lang: &ctx.opts.lang,
                 num_speakers: NumSpeakers(ctx.opts.num_speakers as u32),
                 rev_job_id: ctx.opts.rev_job_id.as_deref(),
+                extras: &ctx.opts.engine_extras,
             },
         )
         .await?;
@@ -930,6 +931,7 @@ mod tests {
             write_wor: false,
             media_name: Some("sample".into()),
             rev_job_id: None,
+            engine_extras: std::collections::BTreeMap::new(),
         }
     }
 

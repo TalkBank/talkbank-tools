@@ -1,7 +1,7 @@
 # translate — Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-26 12:48 EDT
+**Last updated:** 2026-05-27 11:12 EDT
 
 Implementation guide for the `translate` command. For user-facing
 documentation, see [User Guide: translate](../../user-guide/commands/translate.md).
@@ -18,9 +18,9 @@ documentation, see [User Guide: translate](../../user-guide/commands/translate.m
 | Translate orchestration | `crates/batchalign/src/translate.rs` | Cross-file batching, cache, `%xtra` injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Shared with morphotag and utseg |
 | Injection | `crates/batchalign/src/translate.rs` | Writes `%xtra:` tiers from translation strings |
-| Engine type | `crates/batchalign/src/types/engines.rs` — `TranslateEngineName` | Wire-format enum (`google` / `seamless` / `nllb` / `tencent`), `EngineBackend` impl, `EngineOverrides.translate` field |
+| Engine type | `crates/batchalign/src/types/engines.rs` — `TranslateEngineName` | Wire-format enum (`google` / `seamless` / `nllb` / `tencent` / `aliyun`), `EngineBackend` impl, `EngineOverrides.translate` field |
 | Engine resolution (server) | `crates/batchalign/src/types/options.rs` — `TranslateOptions::effective_translate_engine` | Precedence: shared `--engine-overrides` `{"translate":"..."}` > `--translate-engine` flag > Google default |
-| Engine bootstrap | `batchalign/worker/_model_loading/translation.py::load_translation_engine(bootstrap)` | Reads `bootstrap.engine_overrides["translate"]`, dispatches via exhaustive match to `_load_google_translate`, `_load_seamless_translate`, `_load_nllb_translate`, or `_load_tencent_translate`. Unknown engine names raise `ValueError` |
+| Engine bootstrap | `batchalign/worker/_model_loading/translation.py::load_translation_engine(bootstrap)` | Reads `bootstrap.engine_overrides["translate"]`, dispatches via exhaustive match to `_load_google_translate`, `_load_seamless_translate`, `_load_nllb_translate`, `_load_tencent_translate`, or `_load_aliyun_translate`. Unknown engine names raise `ValueError` |
 | Engine resolution (worker) | `batchalign/worker/_model_loading/translation.py::resolve_translate_engine` | Pure function from `engine_overrides` dict → `TranslationBackend`; default Google |
 | Worker IPC | `batchalign/inference/translate.py` — `batch_infer_translate()` | Iterates batch items, calls the resolved `translate_fn(text, src_lang)`, returns `raw_translation` per item. Sleeps 1.5s per item when backend is `GOOGLE` (rate limit). Pre-processing (Chinese space removal) happens in Rust before the call; post-processing in Rust after |
 
@@ -79,8 +79,8 @@ lowest:
 1. `common.engine_overrides.translate` — set by
    `--engine-overrides '{"translate":"<engine>"}'`.
 2. `TranslateOptions.translate_engine: TranslateEngineName` — set by
-   `--translate-engine google|tencent|nllb|seamless`. Defaults to
-   Google via `default_translate_engine()`.
+   `--translate-engine google|tencent|aliyun|nllb|seamless`. Defaults
+   to Google via `default_translate_engine()`.
 
 There is deliberately no `server.yaml` knob for engine selection.
 Translation engine is a policy choice, not a host fact, and policy
@@ -90,8 +90,8 @@ a config file. See the no-config-junk principle in
 
 The worker pool key includes the resolved translate engine
 (`dispatch_engine_overrides_json` always emits a `translate` entry).
-Google, Tencent, Seamless, and NLLB workers are not interchangeable,
-so they end up in separate pools.
+Google, Tencent, Aliyun, Seamless, and NLLB workers are not
+interchangeable, so they end up in separate pools.
 
 ## Tencent backend specifics
 
@@ -131,6 +131,63 @@ Empty `SourceText` would be rejected by the Tencent API with a typed
 `InvalidParameter` error. The loader short-circuits empty input
 (returns the empty string) so a stray empty utterance doesn't surface
 as a SDK exception that looks like a credentials problem.
+
+## Aliyun backend specifics
+
+The Aliyun loader (`_load_aliyun_translate`) uses the same shared
+`read_asr_config()` helper, with credentials drawn from the
+`BATCHALIGN_ALIYUN_AK_{ID,SECRET}` environment variables (injected
+by the Rust control plane at worker spawn) or the
+`~/.batchalign.ini` `[asr]` section:
+
+- `engine.aliyun.ak_id` → Aliyun Access Key ID
+- `engine.aliyun.ak_secret` → Aliyun Access Key Secret
+
+These are the same access-key pair used by the Aliyun NLS ASR
+backend. Aliyun MT does NOT need the `ak_appkey` field that NLS
+ASR consumes — that key authorizes the WebSocket speech service,
+not the REST translation service.
+
+Region is pinned to `cn-hangzhou` (`_ALIYUN_MT_REGION` in
+`translation.py`). Aliyun MT exposes a single global endpoint at
+`mt.aliyuncs.com` across every supported region, so the AcsClient
+region only affects request signing — there is no
+`cn-hangzhou` vs `us-west-1` quality / availability split. If
+region-pinning becomes a deployment concern later, promote to a
+config-driven override.
+
+SDK package: `aliyun-python-sdk-alimt` (pinned at `>=3.2.0` in
+`pyproject.toml`). The loader uses the v20181012 General Translation
+endpoint via `TranslateGeneralRequest` with `FormatType="text"` and
+`Scene="general"` (both promoted to module-level constants
+`_ALIYUN_MT_FORMAT_TYPE` / `_ALIYUN_MT_SCENE` so the wire shape is
+visible without grepping for magic strings).
+
+Language-code handling: `_ISO_639_3_TO_ALIYUN_LANG` (in
+`batchalign/worker/_model_loading/translation.py`) maps the
+ISO-639-3 codes BA3 emits to Aliyun's ISO-639-1-ish codes
+(`spa→spa`, `cmn→zh`, `kor→ko`, **`yue→yue`**, etc.). The presence
+of `yue` is the load-bearing reason this backend exists alongside
+Tencent — see [User Guide: translate](../../user-guide/commands/translate.md)
+for the operator-visible rationale.
+
+Response envelope: Aliyun MT returns a JSON byte payload of the
+shape `{"Code": "200", "Data": {"Translated": "...", "DetectedLanguage":
+"...", "WordCount": "..."}, "RequestId": "..."}`. Non-`"200"` codes
+surface as `ClientException`/`ServerException` from
+`do_action_with_exception` before the loader parses; by the time
+`json.loads` runs, `Code == "200"` is expected.
+
+Empty `SourceText` short-circuits the same way Tencent does (return
+empty string before any SDK call) for the same reason — Aliyun
+treats empty input as an invalid request and would surface a typed
+SDK exception that looks like a credentials problem.
+
+End-to-end verification: the loader's SDK call shape is wired
+against the `aliyun-python-sdk-alimt==3.2.0` source. Real-API smoke
+testing happens at the operator boundary per the user-guide; CI
+covers the wire shape via the mocked-SDK test in
+`batchalign/tests/pipelines/translate/test_translation_model_loading.py::TestLoadAliyunTranslate`.
 
 ## BA2 → BA3 migration notes
 

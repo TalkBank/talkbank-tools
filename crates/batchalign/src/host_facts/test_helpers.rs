@@ -49,7 +49,7 @@ pub fn apple_silicon_64gb() -> HostFacts {
 /// the GitHub Actions ubuntu-latest runner the Dashboard E2E test
 /// runs on (16 GB physical, ~14 GB available after kernel/agent
 /// overhead). Used by host-facts validator tests that pin the
-/// "must work on Houjun's laptop" UX contract — a default
+/// "must work on a small laptop" UX contract — a default
 /// `uv tool install batchalign3` install on this host must not
 /// be refused startup just because the capability surface
 /// hypothetically includes GPU-class workloads the user has no

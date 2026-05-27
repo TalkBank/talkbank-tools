@@ -202,6 +202,13 @@ class TestProtocolSafety:
             FunAudioRecognizer(lang="yue")._get_model()
 
     def test_get_model_suppresses_funasr_stdout(self, monkeypatch, capsys) -> None:
+        # Verifies the ``redirect_stdout`` swallow around the
+        # FunASR AutoModel construction — funasr's version banner
+        # ("funasr version: ...") must not leak to the worker stdout
+        # because that channel carries the V2 protocol's JSON
+        # request/response stream. The recognizer's own
+        # ``progress_v2`` JSON events ARE expected on stdout (they
+        # ARE the protocol) and are filtered out below.
         fake_module = types.ModuleType("funasr")
 
         class FakeAutoModel:
@@ -215,7 +222,17 @@ class TestProtocolSafety:
         rec._get_model()
 
         captured = capsys.readouterr()
-        assert captured.out == ""
+        # Strip our own protocol events; what remains MUST be empty
+        # (no FunASR banner, no other framework noise).
+        non_protocol_lines = [
+            line
+            for line in captured.out.splitlines()
+            if line.strip() and '"op": "progress_v2"' not in line
+        ]
+        assert non_protocol_lines == [], (
+            f"unexpected non-protocol stdout from _get_model(): "
+            f"{non_protocol_lines}"
+        )
 
     def test_get_model_uses_paraformer_constructor(self, monkeypatch) -> None:
         fake_module = types.ModuleType("funasr")
@@ -277,3 +294,96 @@ class TestProtocolSafety:
         rec._model = FakeModel()
 
         assert rec._run_model("dummy.wav") == []
+
+
+class TestFunaudioDownloadEvents:
+    """Time-transparency: FunASR's first-use model load must emit
+    ``progress_v2`` download events so the daemon log / dashboard /
+    TUI show "Loading FunASR model…" instead of dead air during the
+    multi-minute first-time HuggingFace download.
+
+    Per CLAUDE.md §11 (talkbank-tools/CLAUDE.md), every operation that
+    takes more than ~1 second must surface to all UI channels via
+    ``emit_download_event``. FunASR's lazy ``_get_model()`` was an
+    observability gap — this test pins the start/complete event pair
+    on cache miss and the no-event behavior on cache hit.
+    """
+
+    def test_first_get_model_emits_start_and_complete_events(
+        self, monkeypatch
+    ) -> None:
+        import sys
+        from batchalign.inference.languages.cantonese._funaudio_common import (
+            FunAudioRecognizer,
+        )
+
+        # Fake ``funasr.AutoModel`` so the test does not actually
+        # download or load a ~1 GB model from HuggingFace.
+        class _FakeAutoModel:
+            def __init__(self, **_kwargs):
+                pass
+
+        fake_funasr_mod = type(sys)("fake_funasr_mod")
+        fake_funasr_mod.AutoModel = _FakeAutoModel  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "funasr", fake_funasr_mod)
+
+        # Capture every ``emit_download_event`` call so the test can
+        # assert on stage names + ordering.
+        events: list[dict[str, str]] = []
+
+        def fake_emit(stage: str, user_message: str, **_kwargs) -> None:
+            events.append({"stage": stage, "user_message": user_message})
+
+        monkeypatch.setattr(
+            "batchalign.worker._progress.emit_download_event", fake_emit
+        )
+
+        rec = FunAudioRecognizer(lang="yue")
+        rec._get_model()
+
+        assert len(events) == 2, (
+            f"first _get_model() must emit start+complete events; "
+            f"got {len(events)} event(s): {events}"
+        )
+        assert events[0]["stage"] == "downloading_funaudio_asr"
+        assert "FunASR" in events[0]["user_message"] or "FunAudio" in events[0]["user_message"]
+        assert events[1]["stage"] == "downloading_funaudio_asr_complete"
+
+    def test_second_get_model_call_is_cache_hit_no_events(
+        self, monkeypatch
+    ) -> None:
+        # Once the model is loaded, subsequent ``_get_model()`` calls
+        # MUST NOT re-emit the download events — they would mislead
+        # the user into thinking another download is happening.
+        import sys
+        from batchalign.inference.languages.cantonese._funaudio_common import (
+            FunAudioRecognizer,
+        )
+
+        class _FakeAutoModel:
+            def __init__(self, **_kwargs):
+                pass
+
+        fake_funasr_mod = type(sys)("fake_funasr_mod")
+        fake_funasr_mod.AutoModel = _FakeAutoModel  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "funasr", fake_funasr_mod)
+
+        events: list[dict[str, str]] = []
+
+        def fake_emit(stage: str, user_message: str, **_kwargs) -> None:
+            events.append({"stage": stage, "user_message": user_message})
+
+        monkeypatch.setattr(
+            "batchalign.worker._progress.emit_download_event", fake_emit
+        )
+
+        rec = FunAudioRecognizer(lang="yue")
+        rec._get_model()  # First call: 2 events.
+        events.clear()
+        rec._get_model()  # Second call: cache hit, 0 events.
+        rec._get_model()  # Third call: same.
+
+        assert events == [], (
+            f"subsequent _get_model() calls must hit cache without "
+            f"emitting download events; got {events}"
+        )

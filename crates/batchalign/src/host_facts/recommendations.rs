@@ -321,8 +321,8 @@ const PEAK_RAM_PER_STANZA_WORKER_MB: u64 = 12_000;
 /// **What changed (rearch follow-up).** Earlier this function returned
 /// a hardcoded 16 GB GPU peak regardless of host tier or installed
 /// capabilities. That blocked startup on 16 GB laptops doing
-/// morphotag-only work, exactly the "must run on Houjun's laptop"
-/// scenario the rearch was meant to support. The runtime gates
+/// morphotag-only work, exactly the laptop-class scenario the
+/// rearch was meant to support. The runtime gates
 /// (memory_gate.rs admission, idle_eviction.rs eviction, RSS observer
 /// Mode B) are tier-aware via [`MemoryTier`]'s
 /// `{gpu,stanza,io}_startup_mb` fields; this function now consults the

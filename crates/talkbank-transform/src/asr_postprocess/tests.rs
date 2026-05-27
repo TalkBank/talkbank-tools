@@ -968,7 +968,7 @@ fn sanitize_preserves_valid_words_unchanged() {
 #[test]
 fn sanitize_strips_chat_illegal_chars_from_word_internals() {
     use super::cleanup::sanitize_chat_illegal_word_chars;
-    // The exotic Unicode case Franklin documented from v2 benchmark:
+    // Exotic-Unicode regression case from a Cantonese benchmark run:
     // a token whose interior contains chars the grammar rejects
     // (Tibetan + Greek + math symbols glued to ASCII letters). The
     // whole token fails `ChatWordText::try_from`, triggering the

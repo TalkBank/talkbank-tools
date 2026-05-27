@@ -125,12 +125,15 @@ pub enum DiarizationMode {
 /// endpoint and is unsuitable behind the Great Firewall without VPN.
 /// `tencent` uses Tencent Cloud TMT (cloud API, China-friendly,
 /// best empirical quality on Mandarin but does NOT support Cantonese
-/// — requires CAM credentials with ``tmt:TextTranslate``). `seamless`
-/// and `nllb` are local-model alternatives downloaded from HuggingFace
-/// on first use; neither requires outbound network at inference time.
-/// `nllb` is the recommended self-hosted fallback and handles
-/// Cantonese first-class; `seamless` is retained for back-compat with
-/// BA2 callers.
+/// — requires CAM credentials with ``tmt:TextTranslate``). `aliyun`
+/// uses Alibaba Cloud Machine Translation (cloud API, China-friendly,
+/// supports Cantonese as a source language — requires Aliyun
+/// access-key credentials, shared with the Aliyun ASR backend).
+/// `seamless` and `nllb` are local-model alternatives downloaded
+/// from HuggingFace on first use; neither requires outbound network
+/// at inference time. `nllb` is the recommended self-hosted fallback
+/// and handles Cantonese first-class; `seamless` is retained for
+/// back-compat with BA2 callers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum TranslateEngine {
     /// Public Google Translate via the ``googletrans`` library (default).
@@ -142,6 +145,9 @@ pub enum TranslateEngine {
     Nllb,
     /// Tencent Cloud TMT cloud API (best Mandarin; no Cantonese).
     Tencent,
+    /// Aliyun (Alibaba Cloud) Machine Translation cloud API
+    /// (supports Cantonese; the canonical cloud option for ``yue``).
+    Aliyun,
 }
 
 /// ASR engine for the `benchmark` command (subset of AsrEngine).

@@ -66,6 +66,7 @@ dependencies = [
     "tencentcloud-sdk-python-tmt",
     "cos-python-sdk-v5",
     "aliyun-python-sdk-core>=2.13.3",
+    "aliyun-python-sdk-alimt>=3.2.0",
     "alibabacloud-nls-python-sdk>=1.0.0",
     "funasr",
     # Qwen3-ASR — Alibaba's open-weight Cantonese-capable ASR. Local

@@ -162,6 +162,12 @@ pub struct TranscribeOptions {
     pub media_name: Option<String>,
     /// Rev.AI pre-submitted job ID (from preflight).
     pub rev_job_id: Option<RevAiJobId>,
+    /// Per-engine configuration extras drawn from
+    /// `CommonOptions.engine_overrides.extras` (e.g. `qwen_model`,
+    /// `qwen_device`, `funaudio_model`). Plumbed through the V2 dispatch
+    /// boundary so they reach the worker spawn argv — the `backend` enum
+    /// only carries WHICH engine, not its configuration.
+    pub engine_extras: std::collections::BTreeMap<String, String>,
 }
 
 #[cfg(test)]

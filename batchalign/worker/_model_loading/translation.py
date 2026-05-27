@@ -1,6 +1,6 @@
 """Translation-engine bootstrap helpers for worker startup.
 
-Four backends are supported:
+Five backends are supported:
 
 * ``TranslationBackend.GOOGLE`` — public Google Translate via the
   ``googletrans`` library. Requires reachability to
@@ -9,7 +9,16 @@ Four backends are supported:
   Cloud-API engine; CAM credentials in ``~/.batchalign.ini`` `[asr]`
   section (``engine.tencent.id``/``key``/``region``). Free tier
   5M chars/month. Best empirical quality on Mandarin (zh→en); does
-  NOT support Cantonese (yue→en) — those routes must use NLLB.
+  NOT support Cantonese (yue→en) — those routes must use NLLB or
+  ``TranslationBackend.ALIYUN``.
+* ``TranslationBackend.ALIYUN`` — Aliyun (Alibaba Cloud) Machine
+  Translation General API (``alimt``). Cloud-API engine; access-key
+  credentials in ``~/.batchalign.ini`` `[asr]` section
+  (``engine.aliyun.ak_id``/``ak_secret``, shared with the Aliyun
+  ASR backend). Supports Cantonese (``yue``) as a source language —
+  the canonical cloud option for HK material. Region is hardcoded
+  to ``cn-hangzhou`` because Aliyun MT exposes a single global
+  endpoint (``mt.aliyuncs.com``).
 * ``TranslationBackend.SEAMLESS`` — Meta's SeamlessM4T, loaded locally
   from HuggingFace. No outbound network at inference time. Known to
   produce poor CJK quality on short utterances; retained for back-compat.
@@ -26,6 +35,7 @@ backend a worker pool loads and passes the choice through
 
 from __future__ import annotations
 
+import json
 import logging
 import typing
 from typing import NewType
@@ -46,6 +56,14 @@ FloresLanguageTag = NewType("FloresLanguageTag", str)
 # misplaced ISO-639-3 code at the Tencent API boundary won't typecheck.
 TencentLanguageCode = NewType("TencentLanguageCode", str)
 
+# An Aliyun MT source-language code. Aliyun uses ISO-639-1 codes for
+# most languages (``"en"``, ``"zh"``, ``"ja"``) plus ``"yue"`` for
+# Cantonese (the explicit reason this backend exists alongside
+# Tencent — Tencent's TMT does not list Cantonese as a source
+# language). Distinct from ``LanguageCode`` (ISO-639-3) so a
+# misplaced ISO-639-3 code at the Aliyun API boundary won't typecheck.
+AliyunLanguageCode = NewType("AliyunLanguageCode", str)
+
 L = logging.getLogger("batchalign.worker")
 
 
@@ -65,6 +83,8 @@ def load_translation_engine(bootstrap: WorkerBootstrapRuntime) -> None:
         _load_nllb_translate()
     elif backend is TranslationBackend.TENCENT:
         _load_tencent_translate()
+    elif backend is TranslationBackend.ALIYUN:
+        _load_aliyun_translate()
     else:
         # Exhaustive match — mypy/pyright prove this is unreachable;
         # at runtime ``typing.assert_never`` raises AssertionError so
@@ -320,9 +340,16 @@ def _load_tencent_translate() -> None:
             return ""
         tencent_src = _ISO_639_3_TO_TENCENT_LANG.get(src_lang)
         if tencent_src is None:
+            # Cantonese (``yue``) is the prototypical case that lands
+            # here — Tencent TMT does not list it as a source language.
+            # Both NLLB (local) and Aliyun (cloud) handle it
+            # first-class; surface both options so the operator picks
+            # by deployment constraint (offline vs network-available).
             raise ValueError(
                 f"Tencent TMT does not support source language "
-                f"{src_lang!r}; use --translate-engine nllb for this language"
+                f"{src_lang!r}; use --translate-engine aliyun "
+                f"(cloud, supports Cantonese) or --translate-engine nllb "
+                f"(self-hosted local model) for this language"
             )
         req = models.TextTranslateRequest()
         req.SourceText = text
@@ -339,6 +366,145 @@ def _load_tencent_translate() -> None:
 
     _state.translate_backend = TranslationBackend.TENCENT
     _state.translate_fn = tencent_fn
+
+
+# Map ISO-639-3 codes BA3 emits per CHAT @Languages header to the
+# source-language codes Aliyun MT's ``TranslateGeneralRequest``
+# expects. Aliyun uses ISO-639-1 codes for most languages plus
+# ``"yue"`` for Cantonese — the explicit reason this backend exists
+# alongside Tencent. Closed set; unmapped languages raise
+# ``ValueError`` directing the operator to ``--translate-engine
+# nllb`` for that language.
+_ISO_639_3_TO_ALIYUN_LANG: dict[LanguageCode, AliyunLanguageCode] = {
+    LanguageCode("eng"): AliyunLanguageCode("en"),
+    LanguageCode("spa"): AliyunLanguageCode("spa"),
+    LanguageCode("fra"): AliyunLanguageCode("fra"),
+    LanguageCode("deu"): AliyunLanguageCode("de"),
+    LanguageCode("ita"): AliyunLanguageCode("it"),
+    LanguageCode("por"): AliyunLanguageCode("pt"),
+    LanguageCode("rus"): AliyunLanguageCode("ru"),
+    LanguageCode("cmn"): AliyunLanguageCode("zh"),
+    LanguageCode("zho"): AliyunLanguageCode("zh"),
+    LanguageCode("yue"): AliyunLanguageCode("yue"),
+    LanguageCode("jpn"): AliyunLanguageCode("ja"),
+    LanguageCode("kor"): AliyunLanguageCode("ko"),
+    LanguageCode("ara"): AliyunLanguageCode("ar"),
+    LanguageCode("tha"): AliyunLanguageCode("th"),
+    LanguageCode("vie"): AliyunLanguageCode("vie"),
+    LanguageCode("tur"): AliyunLanguageCode("tr"),
+    LanguageCode("ind"): AliyunLanguageCode("id"),
+    LanguageCode("msa"): AliyunLanguageCode("ms"),
+}
+
+
+# Aliyun MT exposes a single global service endpoint
+# (``mt.aliyuncs.com``) across every supported region, so the AcsClient
+# region only affects request signing/routing. ``cn-hangzhou`` is the
+# documented default and is what the SDK's endpoint map registers
+# first; pinning it here keeps the loader region-agnostic for
+# operators while leaving room for a config-driven override later if
+# region-specific quotas or latency matter for a deployment.
+_ALIYUN_MT_REGION: str = "cn-hangzhou"
+
+# Aliyun MT request field values that the loader always sends.
+# Promoted from inline literals so that the wire shape is visible at
+# a glance and a future refactor that needs to change format / scene
+# touches one constant instead of grepping for magic strings.
+# ``Scene`` selects between general / social / commerce / finance /
+# medical / etc. Aliyun-side domain-tuned models — ``general`` is the
+# default-quality non-specialized model and matches conversational
+# TalkBank transcripts (no fixed domain).
+_ALIYUN_MT_FORMAT_TYPE: str = "text"
+_ALIYUN_MT_SCENE: str = "general"
+
+
+def _load_aliyun_translate() -> None:
+    """Bind ``_state.translate_fn`` to an Aliyun MT translator.
+
+    Credentials come from the same source the Aliyun ASR backend
+    uses: ``read_asr_config`` (in
+    ``batchalign.inference.languages.cantonese._common``), which
+    prefers ``BATCHALIGN_ALIYUN_AK_{ID,SECRET}`` environment
+    variables (injected by the Rust control plane at worker spawn)
+    and falls back to ``~/.batchalign.ini`` ``[asr]`` section.
+    Aliyun MT requires only the access-key pair — the ``ak_appkey``
+    used by Aliyun NLS ASR is NOT needed here.
+
+    Region is pinned to ``cn-hangzhou`` (Aliyun MT has one global
+    endpoint at ``mt.aliyuncs.com`` so the region only affects
+    request signing, not service routing). Empty ``SourceText`` is
+    rejected by the Aliyun API; the inference closure short-circuits
+    empty input (defense in depth — the upstream batch-infer layer
+    in ``batchalign.inference.translate`` also skips empties).
+    """
+    from batchalign.inference.languages.cantonese._common import read_asr_config
+
+    creds = read_asr_config(
+        ("engine.aliyun.ak_id", "engine.aliyun.ak_secret"),
+        engine="Aliyun translate",
+    )
+    access_key_id = creds["engine.aliyun.ak_id"]
+    access_key_secret = creds["engine.aliyun.ak_secret"]
+
+    from aliyunsdkalimt.request.v20181012.TranslateGeneralRequest import (
+        TranslateGeneralRequest,
+    )
+    from aliyunsdkcore.acs_exception.exceptions import (
+        ClientException,
+        ServerException,
+    )
+    from aliyunsdkcore.client import AcsClient
+
+    client = AcsClient(access_key_id, access_key_secret, _ALIYUN_MT_REGION)
+
+    def aliyun_fn(text: str, src_lang: LanguageCode) -> str:
+        """Translate one text payload through Aliyun MT."""
+        if not text:
+            # Defense in depth: upstream batch infer skips empties,
+            # but a slip here would surface as a typed SDK exception
+            # that looks like a credential failure.
+            return ""
+        aliyun_src = _ISO_639_3_TO_ALIYUN_LANG.get(src_lang)
+        if aliyun_src is None:
+            raise ValueError(
+                f"Aliyun MT does not have a mapped source language "
+                f"for {src_lang!r}; use --translate-engine nllb for "
+                f"this language"
+            )
+        req = TranslateGeneralRequest()
+        req.set_FormatType(_ALIYUN_MT_FORMAT_TYPE)
+        req.set_SourceLanguage(aliyun_src)
+        req.set_TargetLanguage("en")
+        req.set_SourceText(text)
+        req.set_Scene(_ALIYUN_MT_SCENE)
+        try:
+            raw = client.do_action_with_exception(req)
+        except (ClientException, ServerException) as exc:
+            raise RuntimeError(
+                f"Aliyun MT translation failed: {exc}"
+            ) from exc
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Aliyun MT returned non-JSON response: {raw!r}"
+            ) from exc
+        # Aliyun MT response envelope: ``{"Code": "200", "Data":
+        # {"Translated": "...", "WordCount": "...", "DetectedLanguage":
+        # "..."}, "RequestId": "..."}``. ``Code`` is a stringified
+        # numeric; non-"200" indicates an API-level error that the
+        # SDK already raised via ``do_action_with_exception``, so by
+        # the time we get here Code is expected to be "200".
+        data = parsed.get("Data") or {}
+        translated = data.get("Translated")
+        if not isinstance(translated, str):
+            raise RuntimeError(
+                f"Aliyun MT response missing Data.Translated string: {parsed!r}"
+            )
+        return translated
+
+    _state.translate_backend = TranslationBackend.ALIYUN
+    _state.translate_fn = aliyun_fn
 
 
 __all__ = [

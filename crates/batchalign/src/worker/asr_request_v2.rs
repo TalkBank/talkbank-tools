@@ -84,6 +84,12 @@ pub struct AsrBuildInputV2<'a> {
     pub lang: &'a WorkerLanguage,
     /// Concrete V2 ASR backend selected by Rust.
     pub backend: AsrBackendV2,
+    /// Per-engine configuration extras (e.g. `qwen_model`,
+    /// `qwen_device`) drawn from `CommonOptions.engine_overrides.extras`.
+    /// Carried through the V2 dispatch boundary so the worker spawn
+    /// argv preserves what the user asked for — the typed `backend`
+    /// enum only encodes WHICH engine to load, not its configuration.
+    pub extras: &'a std::collections::BTreeMap<String, String>,
 }
 
 /// Concrete ASR input transport selected by the Rust control plane.
@@ -163,6 +169,7 @@ pub async fn build_asr_request_v2(
             lang: input.lang.clone(),
             backend: input.backend,
             input: asr_input,
+            extras: input.extras.clone(),
         }),
         attachments,
     })
@@ -211,6 +218,7 @@ mod tests {
         let lang = WorkerLanguage::from(crate::api::LanguageCode3::yue());
         let media_path = tempdir.path().join("sample.wav");
 
+        let empty_extras = std::collections::BTreeMap::new();
         let request = build_asr_request_v2(
             &store,
             AsrBuildInputV2 {
@@ -221,6 +229,7 @@ mod tests {
                 },
                 lang: &lang,
                 backend: AsrBackendV2::HkTencent,
+                extras: &empty_extras,
             },
         )
         .await

@@ -1,6 +1,6 @@
 """Worker utterance-model loading stays explicit per language code.
 
-These tests capture the utterance-model wiring Spencer's question depends on:
+These tests capture the utterance-model wiring for the CJK code set:
 Cantonese (`yue`) and both Mandarin codes (`cmn`, `zho`) load the dedicated
 Mandarin/Cantonese boundary models at worker bootstrap.
 """

@@ -388,6 +388,21 @@ pub struct AsrRequestV2 {
     pub backend: AsrBackendV2,
     /// Backend-specific input transport.
     pub input: AsrInputV2,
+    /// Per-engine configuration extras (e.g. `qwen_model`,
+    /// `qwen_device`, `funaudio_model`). Opaque string-keyed map carried
+    /// verbatim from the user's `--engine-overrides` JSON through every
+    /// dispatch layer down to the worker spawn argv and the Python
+    /// engine-load function. Empty when no per-engine knob is set.
+    ///
+    /// Why this lives on the typed V2 request rather than only on
+    /// `EngineOverrides`: a CLI override like
+    /// `{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B"}` would otherwise
+    /// be silently truncated to `{"asr":"qwen"}` at this typed boundary,
+    /// and the worker would default to the 1.7B model regardless of what
+    /// the user asked for — the bug fixed 2026-05-27. The `#[serde(default)]`
+    /// keeps older daemons that don't emit the field forward-compatible.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extras: std::collections::BTreeMap<String, String>,
 }
 
 /// V2 forced-alignment request payload.

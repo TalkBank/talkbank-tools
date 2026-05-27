@@ -113,6 +113,15 @@ pub(crate) struct TranscribeDispatchParams {
     /// utseg model is configured. Surfaced as
     /// `--utseg-fallback-stanza` on the transcribe / transcribe-s CLI.
     pub allow_stanza_fallback_utseg: bool,
+    /// Per-engine configuration extras drawn from
+    /// `CommonOptions.engine_overrides.extras` (e.g. `qwen_model`,
+    /// `qwen_device`, `funaudio_model`). The transcribe-engine selector
+    /// (`asr_engine` above) only encodes WHICH engine to load; this map
+    /// carries the engine-specific configuration knobs the user passed
+    /// via `--engine-overrides`. Plumbed through the dispatch / V2
+    /// worker boundary so the engine's load function actually sees the
+    /// knob the user requested.
+    pub engine_extras: std::collections::BTreeMap<String, String>,
 }
 
 /// Extract transcribe dispatch parameters from [`CommandOptions`].
@@ -132,6 +141,7 @@ pub(crate) fn extract_transcribe_dispatch_params(
                 merge_abbrev: t.merge_abbrev,
                 override_media_cache: t.common.override_media_cache,
                 allow_stanza_fallback_utseg: t.utseg_fallback.is_allowed(),
+                engine_extras: t.common.engine_overrides.extras.clone(),
             })
         }
         _ => None,
@@ -181,6 +191,10 @@ pub(crate) struct BenchmarkDispatchParams {
     pub wor_tier: WorTierPolicy,
     pub merge_abbrev: MergeAbbrevPolicy,
     pub override_media_cache: bool,
+    /// Per-engine configuration extras (see
+    /// [`TranscribeDispatchParams::engine_extras`] for the rationale —
+    /// benchmark reuses the transcribe pipeline so the same knobs apply).
+    pub engine_extras: std::collections::BTreeMap<String, String>,
 }
 
 /// Extract benchmark dispatch parameters from [`CommandOptions`].
@@ -193,6 +207,7 @@ pub(crate) fn extract_benchmark_dispatch_params(
             wor_tier: b.wor,
             merge_abbrev: b.merge_abbrev,
             override_media_cache: b.common.override_media_cache,
+            engine_extras: b.common.engine_overrides.extras.clone(),
         }),
         _ => None,
     }

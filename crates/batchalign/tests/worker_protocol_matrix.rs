@@ -706,6 +706,7 @@ fn mismatched_execute_request(request_id: &str, task: InferenceTaskV2) -> Execut
                 media_path: "/tmp/mismatched-provider.wav".into(),
                 num_speakers: NumSpeakers(2),
             }),
+            extras: std::collections::BTreeMap::new(),
         }),
         attachments: vec![],
     }

@@ -1929,6 +1929,30 @@ fn translate_engine_flag_tencent_is_parsed() {
 }
 
 #[test]
+fn translate_engine_flag_aliyun_is_parsed() {
+    // Aliyun MT is the cloud translate option that supports Cantonese
+    // as a source language. The CLI flag parses to
+    // ``TranslateEngineName::Aliyun`` and the typed-options
+    // ``effective_translate_engine()`` returns the same — no surprises
+    // around precedence in the no-global-override case.
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "translate",
+        "--translate-engine",
+        "aliyun",
+        "corpus/",
+    ]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    match opts {
+        CommandOptions::Translate(t) => {
+            assert_eq!(t.translate_engine, TranslateEngineName::Aliyun);
+            assert_eq!(t.effective_translate_engine(), TranslateEngineName::Aliyun,);
+        }
+        other => panic!("expected Translate variant, got: {other:?}"),
+    }
+}
+
+#[test]
 fn translate_engine_global_override_beats_explicit_flag() {
     // --engine-overrides is the shared cross-command override mechanism;
     // it must take precedence over the per-command --translate-engine

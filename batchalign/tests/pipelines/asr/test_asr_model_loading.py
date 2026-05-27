@@ -60,9 +60,9 @@ class TestResolveAsrEngine:
         assert result is AsrEngine.TENCENT
 
     def test_qwen_override_wins(self) -> None:
-        # Qwen3-ASR is the empirical winner on per-utterance Cantonese
-        # child speech per Lee et al. (2026) — added 2026-05-26 as the
-        # recommended default for ``yue`` after the BA3-port benchmark.
+        # Qwen3-ASR is an open-weight Cantonese-capable ASR option;
+        # this test pins that an explicit override routes to it
+        # regardless of the per-language default for ``yue``.
         assert (
             resolve_asr_engine({"asr": "qwen"}, None, lang="yue") is AsrEngine.QWEN
         )
@@ -357,3 +357,57 @@ def test_tencent_override_uses_injected_boundary_credentials(monkeypatch) -> Non
         assert _state.asr_engine is AsrEngine.TENCENT
     finally:
         _state.asr_engine = old_engine
+
+
+def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
+    """If ``QwenRecognizer.warm()`` hangs (model download/load stuck
+    in the qwen-asr package's ``from_pretrained`` call), the loader
+    must raise ``TimeoutError`` within the configured timeout, not
+    sit silently at 0% CPU for hours.
+
+    Origin: 2026-05-27 v2 benchmark Bucket A — worker sat at 0% CPU
+    for 70+ min on the first fixture with no Qwen model ever
+    downloaded; the qwen-asr package's first-use code path blocked
+    indefinitely with no observable progress. This test pins the
+    timeout-and-fail-loudly contract that prevents that wasted
+    compute from recurring.
+    """
+    import time
+    from batchalign.inference.languages.cantonese import _qwen_asr
+
+    # Force a short timeout so the test completes in ~1 second instead
+    # of waiting out the production-default 1200 s.
+    monkeypatch.setattr(_qwen_asr, "_QWEN_LOAD_TIMEOUT_SECONDS", 1)
+
+    hang_invocations: list[int] = []
+
+    def hang_warm(self) -> None:
+        """Simulate the production hang: ``warm()`` never returns."""
+        hang_invocations.append(1)
+        # Sleep longer than the configured timeout. If the loader
+        # honours the timeout, the test takes ~1 second; if it
+        # doesn't, it would wait the full 10 s and the elapsed
+        # assertion below fails.
+        time.sleep(10)
+
+    monkeypatch.setattr(
+        "batchalign.inference.languages.cantonese._qwen_common.QwenRecognizer.warm",
+        hang_warm,
+    )
+
+    start = time.monotonic()
+    with pytest.raises(TimeoutError, match=r"Qwen3-ASR.*timed out after 1 second"):
+        _qwen_asr.load_qwen_asr(
+            "yue", {"qwen_model": "Qwen/Qwen3-ASR-0.6B"}
+        )
+    elapsed = time.monotonic() - start
+
+    assert hang_invocations == [1], "warm() should have been entered exactly once"
+    # The timeout must fire fast (1 s configured + a small handler
+    # delivery slack). If we took anywhere near the 10 s sleep the
+    # interrupt mechanism is broken.
+    assert elapsed < 5.0, (
+        f"Qwen loader did not honour the {_qwen_asr._QWEN_LOAD_TIMEOUT_SECONDS}s "
+        f"timeout — elapsed {elapsed:.2f}s; expected <5s. The signal-based "
+        f"alarm is not interrupting ``warm()`` as designed."
+    )

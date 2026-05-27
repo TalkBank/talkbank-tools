@@ -81,9 +81,18 @@ TcpPort: TypeAlias = int
 
 
 class TranslationBackend(Enum):
-    """Which translation engine is active."""
+    """Which translation engine is active.
+
+    Wire values are the lowercase tokens the Rust control plane sends
+    in ``engine_overrides["translate"]``. Adding a variant requires a
+    mirror update in ``crates/batchalign/src/types/engines.rs``
+    (``TranslateEngineName``) — the dispatcher in
+    ``batchalign/worker/_model_loading/translation.py`` decodes the
+    string into this enum via ``TranslationBackend(value)``.
+    """
 
     GOOGLE = "google"
     SEAMLESS = "seamless"
     NLLB = "nllb"
     TENCENT = "tencent"
+    ALIYUN = "aliyun"
