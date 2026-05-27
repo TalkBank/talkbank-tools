@@ -77,6 +77,7 @@ enum ClanSubcommandKind {
     Chstring,
     Chip,
     Flo,
+    Wdlen,
     Other,
 }
 
@@ -121,6 +122,7 @@ impl ClanSubcommandKind {
                 "chstring" => return Self::Chstring,
                 "chip" => return Self::Chip,
                 "flo" => return Self::Flo,
+                "wdlen" => return Self::Wdlen,
                 _ => {}
             }
         }
@@ -584,6 +586,27 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // with the literal token rather than the misleading
         // `--display-mode` rewrite from the catch-all below.
         (b'+', b'd') if subcommand == Combo => None,
+
+        // WDSIZE `+d`/`+dN` — local `case 'd'` at
+        // `OSX-CLAN/src/clan/wdsize.cpp:239` with intentional
+        // fallthrough. Bare `+d` (empty rest) sets
+        // `combinput = TRUE`, then falls through to `default:`
+        // which calls `maingetflag` for the `onlydata`-level effect
+        // via `cutt.cpp:9382`. `+dN` skips the combinput assignment
+        // (rest non-empty) and falls straight to maingetflag.
+        // chatter has no `--combine-input` or `--display-mode`
+        // consumer for WDSIZE. Pass through so clap rejects with
+        // the literal token rather than the misleading
+        // `--display-mode` rewrite from the catch-all below.
+        (b'+', b'd') if subcommand == Wdsize => None,
+
+        // WDLEN `+d`/`+dN` — same shape as WDSIZE at
+        // `OSX-CLAN/src/clan/wdlen.cpp:322`: bare `+d` sets
+        // `combinput = TRUE`, then falls through to `default:` →
+        // `maingetflag` for the `onlydata`-level effect via
+        // `cutt.cpp:9382`. chatter has no consumer for either
+        // effect; pass through.
+        (b'+', b'd') if subcommand == Wdlen => None,
 
         // +dN — display mode
         (b'+', b'd') => rewrite_display_mode(rest),
@@ -1590,6 +1613,54 @@ mod tests {
     #[test]
     fn check_dn_passes_through() {
         let input = args("clan check +d1 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// WDSIZE has a local `case 'd'` at
+    /// `OSX-CLAN/src/clan/wdsize.cpp:239` with intentional
+    /// fallthrough: bare `+d` (empty rest) sets `combinput = TRUE`,
+    /// then falls into `default:` which calls `maingetflag` for the
+    /// `onlydata`-level effect via `cutt.cpp:9382`. `+dN` skips the
+    /// combinput assignment and falls straight to maingetflag.
+    /// chatter has no `--combine-input` or `--display-mode`
+    /// consumer for WDSIZE. Bare `+d` is the regression guard
+    /// (catch-all already returns None for empty rest, so this
+    /// passes pre-arm too).
+    #[test]
+    fn wdsize_d_bare_passes_through() {
+        let input = args("clan wdsize +d file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// Non-bare WDSIZE `+dN` (strict-RED). Pre-arm, the catch-all
+    /// rewrites to `["--display-mode", "1"]` which clap then
+    /// mis-suggests as `--tui-mode` (no `--display-mode` consumer
+    /// exists). The arm restores the literal-flag error path.
+    #[test]
+    fn wdsize_dn_passes_through() {
+        let input = args("clan wdsize +d1 file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// WDLEN has the same `case 'd'` fallthrough at
+    /// `OSX-CLAN/src/clan/wdlen.cpp:322` as WDSIZE — bare `+d`
+    /// sets `combinput = TRUE`, then falls through to `default:`
+    /// → `maingetflag`. chatter has no consumer for either effect.
+    /// Bare `+d` is the regression guard.
+    #[test]
+    fn wdlen_d_bare_passes_through() {
+        let input = args("clan wdlen +d file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, input);
+    }
+
+    /// Non-bare WDLEN `+dN` (strict-RED).
+    #[test]
+    fn wdlen_dn_passes_through() {
+        let input = args("clan wdlen +d1 file.cha");
         let result = rewrite_clan_args(&input);
         assert_eq!(result, input);
     }
