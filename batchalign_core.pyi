@@ -48,4 +48,5 @@ def execute_asr_request_v2(
     hk_tencent_runner: object | None = ...,
     hk_aliyun_runner: object | None = ...,
     hk_funaudio_runner: object | None = ...,
+    hk_qwen_runner: object | None = ...,
 ) -> str: ...

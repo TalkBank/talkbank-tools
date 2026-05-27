@@ -37,6 +37,7 @@ def execute_asr_request_v2(
     hk_tencent_runner: Callable[..., object] | None = None,
     hk_aliyun_runner: Callable[..., object] | None = None,
     hk_funaudio_runner: Callable[..., object] | None = None,
+    hk_qwen_runner: Callable[..., object] | None = None,
 ) -> str: ...
 
 def execute_forced_alignment_request_v2(
