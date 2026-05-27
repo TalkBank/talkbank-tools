@@ -147,6 +147,14 @@ impl ClanSubcommandKind {
 }
 
 pub fn rewrite_clan_args(args: &[String]) -> Vec<String> {
+    // Pre-pass: handle "CLAN unifies, chatter splits" subcommand
+    // aliases where a single CLAN flag flips the output format in
+    // a way that chatter exposes as a sibling subcommand. Swaps
+    // the subcommand token and drops the trigger flag so the
+    // regular per-arg rewriter sees a canonical args list.
+    let resolved = resolve_subcommand_alias(args);
+    let args = resolved.as_ref();
+
     let subcommand = ClanSubcommandKind::detect(args);
 
     let mut out = Vec::with_capacity(args.len());
@@ -169,6 +177,36 @@ pub fn rewrite_clan_args(args: &[String]) -> Vec<String> {
     }
 
     out
+}
+
+/// Handle "CLAN unifies, chatter splits" subcommand aliases by
+/// swapping the subcommand token and removing the trigger flag.
+/// Returns the input borrowed when no alias applies (no allocation
+/// for the common case) and an owned Vec otherwise.
+///
+/// Current aliases:
+/// - `chat2srt +v` → `chat2vtt` (drop `+v`). Per
+///   `OSX-CLAN/src/clan/chat2srt.cpp:108` `case 'v'`, CLAN's
+///   chat2srt flips its output to WebVTT when `+v` is present.
+///   chatter splits SRT and WebVTT into distinct subcommands
+///   (`chat2srt` and `chat2vtt`), each with its own clap surface.
+fn resolve_subcommand_alias(args: &[String]) -> std::borrow::Cow<'_, [String]> {
+    use std::borrow::Cow;
+
+    // chat2srt + +v → chat2vtt (drop +v).
+    let chat2srt_idx = args.iter().position(|a| a == "chat2srt");
+    let v_idx = args.iter().position(|a| a == "+v");
+    if let (Some(sc_idx), Some(flag_idx)) = (chat2srt_idx, v_idx) {
+        // Both must be present; either ordering is allowed (the
+        // subcommand always comes before the flag in well-formed
+        // CLAN invocations, but the check is order-agnostic).
+        let mut owned: Vec<String> = args.to_vec();
+        owned[sc_idx] = "chat2vtt".to_string();
+        owned.remove(flag_idx);
+        return Cow::Owned(owned);
+    }
+
+    Cow::Borrowed(args)
 }
 
 /// Attempt to rewrite a single CLAN-style argument.
@@ -1597,6 +1635,29 @@ mod tests {
     #[test]
     fn gemfreq_dn_passes_through() {
         assert_passthrough("clan gemfreq +d1 file.cha");
+    }
+
+    /// CHAT2SRT `+v` is the first "subcommand alias" rewrite:
+    /// CLAN's chat2srt unifies SRT and WebVTT output under one
+    /// command, flipped by `+v`; chatter splits the two formats
+    /// into sibling subcommands `chat2srt` (SRT) and `chat2vtt`
+    /// (WebVTT). The `resolve_subcommand_alias` pre-pass swaps the
+    /// subcommand token and removes the trigger flag before the
+    /// per-arg rewriter runs.
+    /// Subprocess regression guard:
+    /// `legacy_chat2srt_v_switches_to_chat2vtt`.
+    #[test]
+    fn chat2srt_v_resolves_to_chat2vtt() {
+        let input = args("clan chat2srt +v file.cha");
+        let result = rewrite_clan_args(&input);
+        assert_eq!(result, args("clan chat2vtt file.cha"));
+    }
+
+    /// `chat2srt` without `+v` passes through unchanged (no
+    /// subcommand alias triggers).
+    #[test]
+    fn chat2srt_without_v_stays_chat2srt() {
+        assert_passthrough("clan chat2srt file.cha");
     }
 
     /// CHAT2ELAN `+e.EXT` (with the CLAN-canonical leading dot)

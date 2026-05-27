@@ -1,7 +1,7 @@
 # CHAT2SRT -- CHAT to Subtitle Conversion
 
 **Status:** Current
-**Last updated:** 2026-05-22 13:31 EDT
+**Last updated:** 2026-05-27 10:28 EDT
 
 ## Purpose
 
@@ -40,7 +40,7 @@ Sources: `OSX-CLAN/src/clan/Chat2Srt.cpp::usage`,
 | CLAN flag | Meaning | Chatter | Status | Notes |
 |---|---|---|---|---|
 | `+d` | Clean output without codes/replacements (default: keep all) | (default in chatter) | Partial | chatter's converter strips most CHAT annotations by default. The exact CLAN "everything" vs "clean" distinction is not user-toggleable. |
-| `+v` | Create WebVTT instead of SRT | Use the `chat2vtt` subcommand | Done | Different shape: chatter splits SRT vs WebVTT into two subcommands, each with its own clap surface; CLAN unifies them with `+v`. |
+| `+v` | Create WebVTT instead of SRT | `chat2vtt` subcommand (auto-switched) | Done | CLAN: `chat2srt.cpp:108` (`case 'v'`). Different shape: chatter splits SRT vs WebVTT into two subcommands, each with its own clap surface; CLAN unifies them with `+v`. The `resolve_subcommand_alias` pre-pass in `clan_args.rs` swaps the subcommand token (`chat2srt` → `chat2vtt`) and drops `+v` before the per-arg rewriter runs, so legacy `chatter clan chat2srt +v file.cha` invocations work transparently. Subprocess regression guard: `legacy_chat2srt_v_switches_to_chat2vtt`. |
 
 ### Audit summary
 

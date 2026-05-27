@@ -286,6 +286,34 @@ fn mor_placeholder_stays_deliberately_unimplemented() -> Result<(), TestError> {
     Ok(())
 }
 
+/// CHAT2SRT `+v` flips the output format from SRT to WebVTT
+/// (CLAN: `OSX-CLAN/src/clan/chat2srt.cpp:108` `case 'v'`). chatter
+/// splits this into two distinct subcommands: `chat2srt` (SRT) and
+/// `chat2vtt` (WebVTT), each with its own clap surface. The
+/// rewriter needs to detect `chat2srt +v` and rewrite the
+/// subcommand token to `chat2vtt`, dropping `+v` — the first
+/// "subcommand alias" rewrite in this codebase (prior rewriters
+/// only modified single tokens, not the subcommand selection).
+#[test]
+fn legacy_chat2srt_v_switches_to_chat2vtt() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let file = corpus_file("core/basic-conversation.cha");
+
+    let output = harness.run_output(&["clan", "chat2srt", "+v", file.as_str()])?;
+
+    assert_exit_code(
+        &output,
+        0,
+        "chat2srt +v should run successfully (switched to chat2vtt)",
+    );
+    let stdout = stdout_string(&output);
+    assert!(
+        stdout.starts_with("WEBVTT"),
+        "expected WEBVTT output (chat2vtt format), got: {stdout}"
+    );
+    Ok(())
+}
+
 /// CHAT2ELAN `+eEXT` is the media-extension flag (per
 /// `OSX-CLAN/src/clan/chat2elan.cpp:117`, `case 'e'`). chatter has
 /// `--media-extension <EXT>` on the chat2elan clap surface (see
