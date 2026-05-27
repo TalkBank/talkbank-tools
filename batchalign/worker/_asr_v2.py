@@ -36,6 +36,7 @@ class AsrExecutionHostV2:
     hk_tencent_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
     hk_aliyun_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
     hk_funaudio_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
+    hk_qwen_runner: Callable[[AsrBatchItem], MonologueAsrResponse] | None = None
 
 
 def build_default_asr_execution_host_v2(
@@ -64,6 +65,7 @@ def build_default_asr_execution_host_v2(
     hk_tencent_runner = None
     hk_aliyun_runner = None
     hk_funaudio_runner = None
+    hk_qwen_runner = None
 
     if asr_engine is AsrEngine.TENCENT:
         from batchalign.inference.languages.cantonese._tencent_asr import infer_tencent_asr_v2
@@ -77,12 +79,17 @@ def build_default_asr_execution_host_v2(
         from batchalign.inference.languages.cantonese._funaudio_asr import infer_funaudio_asr_v2
 
         hk_funaudio_runner = infer_funaudio_asr_v2
+    elif asr_engine is AsrEngine.QWEN:
+        from batchalign.inference.languages.cantonese._qwen_asr import infer_qwen_asr_v2
+
+        hk_qwen_runner = infer_qwen_asr_v2
 
     return AsrExecutionHostV2(
         local_whisper_runner=local_whisper_runner,
         hk_tencent_runner=hk_tencent_runner,
         hk_aliyun_runner=hk_aliyun_runner,
         hk_funaudio_runner=hk_funaudio_runner,
+        hk_qwen_runner=hk_qwen_runner,
     )
 
 
@@ -101,6 +108,7 @@ def execute_asr_request_v2(
             host.hk_tencent_runner,
             host.hk_aliyun_runner,
             host.hk_funaudio_runner,
+            host.hk_qwen_runner,
         )
     )
 

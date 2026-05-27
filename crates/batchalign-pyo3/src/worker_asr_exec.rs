@@ -331,6 +331,7 @@ fn run_asr(
     hk_tencent_runner: Option<Py<PyAny>>,
     hk_aliyun_runner: Option<Py<PyAny>>,
     hk_funaudio_runner: Option<Py<PyAny>>,
+    hk_qwen_runner: Option<Py<PyAny>>,
 ) -> Result<TaskResultV2, AsrExecuteFailure> {
     let asr_request = extract_asr_request(request)?;
     // ``WhisperHub`` shares the worker-side runtime shape with
@@ -365,6 +366,12 @@ fn run_asr(
             hk_funaudio_runner,
             "no FunAudio ASR host loaded for worker protocol V2",
         ),
+        AsrBackendV2::HkQwen => run_provider_backend(
+            py,
+            asr_request,
+            hk_qwen_runner,
+            "no Qwen3-ASR host loaded for worker protocol V2",
+        ),
         AsrBackendV2::Revai => Err(AsrExecuteFailure::ModelUnavailable(
             "Rev.AI is handled directly by the Rust control plane, not the Python worker"
                 .to_owned(),
@@ -386,7 +393,8 @@ fn run_asr(
     local_whisper_runner=None,
     hk_tencent_runner=None,
     hk_aliyun_runner=None,
-    hk_funaudio_runner=None
+    hk_funaudio_runner=None,
+    hk_qwen_runner=None
 ))]
 pub(crate) fn execute_asr_request_v2(
     py: Python<'_>,
@@ -395,6 +403,7 @@ pub(crate) fn execute_asr_request_v2(
     hk_tencent_runner: Option<Py<PyAny>>,
     hk_aliyun_runner: Option<Py<PyAny>>,
     hk_funaudio_runner: Option<Py<PyAny>>,
+    hk_qwen_runner: Option<Py<PyAny>>,
 ) -> PyResult<String> {
     let request = parse_execute_request(request)?;
     let started_at = Instant::now();
@@ -412,6 +421,7 @@ pub(crate) fn execute_asr_request_v2(
             hk_tencent_runner,
             hk_aliyun_runner,
             hk_funaudio_runner,
+            hk_qwen_runner,
         ) {
             Ok(result) => success_response(&request, result, started_at),
             Err(AsrExecuteFailure::Artifact(message)) => {

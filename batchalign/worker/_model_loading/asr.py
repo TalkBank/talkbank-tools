@@ -51,6 +51,11 @@ def load_asr_engine(bootstrap: WorkerBootstrapRuntime) -> None:
 
         load_funaudio_asr(lang, engine_overrides)
         _state.asr_engine = AsrEngine.FUNAUDIO
+    elif backend is AsrEngine.QWEN:
+        from batchalign.inference.languages.cantonese._qwen_asr import load_qwen_asr
+
+        load_qwen_asr(lang, engine_overrides)
+        _state.asr_engine = AsrEngine.QWEN
     elif backend is AsrEngine.WHISPER_HUB:
         # Community HF Whisper fine-tune loaded by model_id. Resolution
         # and the "unknown language" error path live in

@@ -128,6 +128,7 @@ class AsrEngine(str, Enum):
     TENCENT = "tencent"
     ALIYUN = "aliyun"
     FUNAUDIO = "funaudio"
+    QWEN = "qwen"
 
 
 class FaEngine(str, Enum):

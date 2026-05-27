@@ -139,7 +139,8 @@ async fn infer_asr_via_worker_v2(
                 }
                 AsrWorkerMode::HkTencentV2
                 | AsrWorkerMode::HkAliyunV2
-                | AsrWorkerMode::HkFunaudioV2 => AsrInputSourceV2::ProviderMedia {
+                | AsrWorkerMode::HkFunaudioV2
+                | AsrWorkerMode::HkQwenV2 => AsrInputSourceV2::ProviderMedia {
                     media_path: params.audio_path,
                     num_speakers: params.num_speakers,
                 },

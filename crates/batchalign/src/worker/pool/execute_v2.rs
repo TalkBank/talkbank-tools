@@ -104,6 +104,7 @@ fn asr_backend_override_name(backend: AsrBackendV2) -> Option<&'static str> {
         AsrBackendV2::HkTencent => Some("tencent"),
         AsrBackendV2::HkAliyun => Some("aliyun"),
         AsrBackendV2::HkFunaudio => Some("funaudio"),
+        AsrBackendV2::HkQwen => Some("qwen"),
         AsrBackendV2::Revai => None,
     }
 }

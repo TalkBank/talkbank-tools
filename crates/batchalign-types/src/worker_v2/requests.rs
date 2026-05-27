@@ -138,6 +138,8 @@ pub enum AsrBackendV2 {
     HkAliyun,
     /// FunASR Cantonese provider.
     HkFunaudio,
+    /// Qwen3-ASR Cantonese provider (local model via qwen-asr package).
+    HkQwen,
     /// Rev.AI provider.
     Revai,
 }

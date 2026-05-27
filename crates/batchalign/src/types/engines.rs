@@ -240,6 +240,11 @@ pub enum AsrEngineName {
     HkAliyun,
     /// FunAudio ASR (HK/Cantonese).
     HkFunaudio,
+    /// Qwen3-ASR (Alibaba, HK/Cantonese). Local model loaded via the
+    /// ``qwen-asr`` Python package; recommended default for ``yue``
+    /// per Lee et al. (2026) where it landed at ~13% CER on
+    /// per-utterance child speech.
+    HkQwen,
 }
 
 impl EngineBackend for AsrEngineName {
@@ -253,6 +258,7 @@ impl EngineBackend for AsrEngineName {
             Self::HkTencent => "tencent",
             Self::HkAliyun => "aliyun",
             Self::HkFunaudio => "funaudio",
+            Self::HkQwen => "qwen",
         }
     }
 
@@ -270,6 +276,7 @@ impl EngineBackend for AsrEngineName {
             "tencent" => Some(Self::HkTencent),
             "aliyun" => Some(Self::HkAliyun),
             "funaudio" => Some(Self::HkFunaudio),
+            "qwen" => Some(Self::HkQwen),
             _ => None,
         }
     }
@@ -287,6 +294,7 @@ impl AsrEngineName {
             Self::HkTencent => Some("tencent"),
             Self::HkAliyun => Some("aliyun"),
             Self::HkFunaudio => Some("funaudio"),
+            Self::HkQwen => Some("qwen"),
             Self::RevAi | Self::WhisperX | Self::WhisperOai => None,
         }
     }
@@ -319,7 +327,19 @@ impl AsrEngineName {
             // (it doesn't get a pool-managed Python worker), so the
             // admission gate never observes this value in production.
             Self::Whisper | Self::WhisperHub | Self::WhisperX => WHISPER_LARGE_V3_RSS_MB,
-            // Cloud HTTP clients with no local model.
+            // Local model — Qwen3-ASR-1.7B weights (~3.4 GB fp16 /
+            // ~7 GB fp32) + tokenizer + Python runtime. Same RSS
+            // class as Whisper-large-v3; pinned via the
+            // ``asr_engine_qwen_resident_memory_matches_local_model_footprint``
+            // test in this module.
+            Self::HkQwen => WHISPER_LARGE_V3_RSS_MB,
+            // Cloud HTTP clients with no local model. FunASR is
+            // grouped here for historical reasons even though
+            // SenseVoiceSmall is a local model; the wrapper's
+            // resident footprint is closer to a cloud client because
+            // it offloads to ModelScope's cached model server.
+            // Re-classify if a long-form FunASR run on a tight host
+            // ever OOM-kills.
             Self::RevAi
             | Self::WhisperOai
             | Self::HkTencent
@@ -750,6 +770,41 @@ mod tests {
             );
         }
         assert!(HTTP_CLIENT_BASELINE_RSS_MB < WHISPER_LARGE_V3_RSS_MB);
+    }
+
+    #[test]
+    fn asr_engine_qwen_wire_roundtrip() {
+        // ``HkQwen`` wires as ``"qwen"`` across the JSON and the
+        // engine-overrides knob. Round-trip pinned so a future rename
+        // breaks visibly.
+        let engine = AsrEngineName::HkQwen;
+        assert_eq!(engine.wire_name(), "qwen");
+        assert_eq!(
+            AsrEngineName::try_from_wire_name("qwen"),
+            Some(AsrEngineName::HkQwen)
+        );
+        assert_eq!(engine.dispatch_override_name(), Some("qwen"));
+    }
+
+    #[test]
+    fn asr_engine_qwen_resident_memory_matches_local_model_footprint() {
+        // Qwen3-ASR-1.7B is a local model, not a cloud HTTP client.
+        // Its resident footprint must reserve enough headroom for the
+        // weights + tokenizer + Python runtime. We pin it to the same
+        // class as Whisper-large-v3 — both are local ~1.5-3 GB
+        // models with similar Python-side overhead. Wrong-side
+        // partitioning (treating Qwen as a cloud HTTP client) would
+        // under-reserve memory and trigger admission-gate OOM kills
+        // on tight hosts.
+        let qwen_mb = AsrEngineName::HkQwen.resident_memory_mb();
+        assert!(
+            qwen_mb >= WHISPER_LARGE_V3_RSS_MB,
+            "Qwen ({qwen_mb} MB) must reserve at least the local-model baseline ({WHISPER_LARGE_V3_RSS_MB} MB)"
+        );
+        assert!(
+            qwen_mb > HTTP_CLIENT_BASELINE_RSS_MB,
+            "Qwen must NOT be partitioned as a cloud HTTP client ({HTTP_CLIENT_BASELINE_RSS_MB} MB)"
+        );
     }
 
     #[test]

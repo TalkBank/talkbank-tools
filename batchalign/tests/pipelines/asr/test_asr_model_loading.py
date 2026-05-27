@@ -59,6 +59,14 @@ class TestResolveAsrEngine:
         assert isinstance(result, AsrEngine)
         assert result is AsrEngine.TENCENT
 
+    def test_qwen_override_wins(self) -> None:
+        # Qwen3-ASR is the empirical winner on per-utterance Cantonese
+        # child speech per Lee et al. (2026) — added 2026-05-26 as the
+        # recommended default for ``yue`` after the BA3-port benchmark.
+        assert (
+            resolve_asr_engine({"asr": "qwen"}, None) is AsrEngine.QWEN
+        )
+
     def test_unknown_engine_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unknown asr engine 'wisper'"):
             resolve_asr_engine({"asr": "wisper"}, None)

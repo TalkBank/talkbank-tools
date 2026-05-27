@@ -70,6 +70,8 @@ pub(crate) enum AsrWorkerMode {
     HkAliyunV2,
     /// FunAudio ASR via worker protocol V2 provider-media requests.
     HkFunaudioV2,
+    /// Qwen3-ASR via worker protocol V2 provider-media requests.
+    HkQwenV2,
 }
 
 impl AsrWorkerMode {
@@ -81,6 +83,7 @@ impl AsrWorkerMode {
             "tencent" => Self::HkTencentV2,
             "aliyun" => Self::HkAliyunV2,
             "funaudio" => Self::HkFunaudioV2,
+            "qwen" => Self::HkQwenV2,
             _ => Self::LocalWhisperV2,
         }
     }
@@ -93,6 +96,7 @@ impl AsrWorkerMode {
             Self::HkTencentV2 => AsrBackendV2::HkTencent,
             Self::HkAliyunV2 => AsrBackendV2::HkAliyun,
             Self::HkFunaudioV2 => AsrBackendV2::HkFunaudio,
+            Self::HkQwenV2 => AsrBackendV2::HkQwen,
         }
     }
 }
@@ -118,6 +122,7 @@ impl AsrBackend {
             Self::Worker(AsrWorkerMode::HkTencentV2) => "tencent",
             Self::Worker(AsrWorkerMode::HkAliyunV2) => "aliyun",
             Self::Worker(AsrWorkerMode::HkFunaudioV2) => "funaudio",
+            Self::Worker(AsrWorkerMode::HkQwenV2) => "qwen",
         }
     }
 }

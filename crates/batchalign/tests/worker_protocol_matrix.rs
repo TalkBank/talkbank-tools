@@ -137,6 +137,7 @@ fn asr_backend_label(backend: AsrBackendV2) -> &'static str {
         AsrBackendV2::HkTencent => "hk_tencent",
         AsrBackendV2::HkAliyun => "hk_aliyun",
         AsrBackendV2::HkFunaudio => "hk_funaudio",
+        AsrBackendV2::HkQwen => "hk_qwen",
         AsrBackendV2::Revai => "revai",
     }
 }
@@ -421,10 +422,12 @@ fn validate_asr_request(
         )),
         (AsrBackendV2::HkTencent, AsrInputV2::ProviderMedia(_))
         | (AsrBackendV2::HkAliyun, AsrInputV2::ProviderMedia(_))
-        | (AsrBackendV2::HkFunaudio, AsrInputV2::ProviderMedia(_)) => Ok(()),
+        | (AsrBackendV2::HkFunaudio, AsrInputV2::ProviderMedia(_))
+        | (AsrBackendV2::HkQwen, AsrInputV2::ProviderMedia(_)) => Ok(()),
         (AsrBackendV2::HkTencent, other)
         | (AsrBackendV2::HkAliyun, other)
-        | (AsrBackendV2::HkFunaudio, other) => Err(format!(
+        | (AsrBackendV2::HkFunaudio, other)
+        | (AsrBackendV2::HkQwen, other) => Err(format!(
             "ASR backend {} requires provider_media input, got {}",
             asr_backend_label(asr_request.backend),
             asr_input_kind_name(other)

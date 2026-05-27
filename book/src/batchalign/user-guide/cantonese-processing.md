@@ -1,7 +1,7 @@
 # Cantonese Engines
 
 **Status:** Current
-**Last updated:** 2026-05-11 15:46 EDT
+**Last updated:** 2026-05-26 21:24 EDT
 
 Batchalign includes alternative ASR and forced alignment engines for Cantonese.
 These are built-in modules activated via `--engine-overrides` and shipped in
@@ -11,10 +11,11 @@ the base package.
 
 | Engine | Task | Description |
 |--------|------|-------------|
-| `tencent` | ASR | Tencent Cloud speech recognition with speaker diarization |
-| `aliyun` | ASR | Alibaba Cloud NLS real-time speech recognition (Cantonese only) |
-| `funaudio` | ASR | FunASR/SenseVoice local model (no cloud credentials needed) |
-| `wav2vec_canto` | FA | Cantonese forced alignment with jyutping preprocessing |
+| `qwen` | ASR | Qwen3-ASR-1.7B local model (Alibaba). Recommended for Cantonese — Lee et al. (2026) measured ~13% CER on child speech, beating the cloud APIs. Downloads ~3.4 GB weights on first use; no cloud credentials. |
+| `tencent` | ASR | Tencent Cloud speech recognition with speaker diarization. |
+| `aliyun` | ASR | Alibaba Cloud NLS real-time speech recognition (Cantonese only). |
+| `funaudio` | ASR | FunASR/SenseVoice local model (no cloud credentials needed). |
+| `wav2vec_canto` | FA | Cantonese forced alignment with jyutping preprocessing. |
 
 ## Installation
 
@@ -33,7 +34,15 @@ these engines. There are no Cantonese-specific extras to install.
 Select an alternative engine with `--engine-overrides`:
 
 ```bash
-# Transcribe with Tencent Cloud ASR
+# Recommended: Qwen3-ASR (local, no credentials)
+batchalign3 transcribe input/ -o output/ --lang yue \
+  --engine-overrides '{"asr": "qwen"}'
+
+# Pick the 0.6B model for faster inference on tight hardware
+batchalign3 transcribe input/ -o output/ --lang yue \
+  --engine-overrides '{"asr": "qwen", "qwen_model": "Qwen/Qwen3-ASR-0.6B"}'
+
+# Transcribe with Tencent Cloud ASR (cloud, needs CAM credentials)
 batchalign3 transcribe input/ -o output/ --lang yue \
   --engine-overrides '{"asr": "tencent"}'
 
@@ -43,7 +52,7 @@ batchalign3 transcribe input/ -o output/ --lang yue \
 
 # Benchmark against a gold CHAT companion in the input directory
 batchalign3 benchmark input/ --output output/ --lang yue -n 1 \
-  --engine-overrides '{"asr": "tencent"}'
+  --engine-overrides '{"asr": "qwen"}'
 
 # Force align with Cantonese FA engine
 batchalign3 align input/ -o output/ --lang yue \
@@ -76,6 +85,20 @@ engine.aliyun.ak_appkey = <appkey>
 
 Missing or empty credentials raise `ConfigError` with a clear message
 indicating which keys are needed.
+
+### Qwen3-ASR
+
+Qwen3-ASR has no cloud credentials — it is a local HuggingFace model
+downloaded on first use (~3.4 GB for the default `Qwen/Qwen3-ASR-1.7B`).
+Two `--engine-overrides` knobs are recognized:
+
+- `qwen_model` — override the HuggingFace model id. The 1.7B default
+  is the recommended-quality variant; pass `Qwen/Qwen3-ASR-0.6B` for
+  faster inference at some accuracy cost.
+- `qwen_device` — `"cpu"` (default), `"cuda"`, or `"mps"`. The
+  Apple Silicon fleet defaults to CPU because empirical testing
+  found MPS inference produced degraded output on the 1.7B model
+  as of 2026-05-26.
 
 ## Cantonese Text Normalization
 
@@ -121,6 +144,23 @@ dependencies (like OpenCC) are required.
   contains `paraformer`.
 - VAD (Voice Activity Detection) built in via `fsmn-vad`
 - Per-character Cantonese tokenization for timestamp alignment
+
+### Qwen3-ASR
+
+- Local model via the [`qwen-asr`](https://github.com/QwenLM/Qwen3-ASR)
+  PyPI package — no cloud credentials, no network at inference time.
+- Default model is `Qwen/Qwen3-ASR-1.7B`. The 0.6B variant is
+  faster (Lee et al. 2026 reports ~2 min vs ~9 min per session) at
+  some accuracy cost.
+- First run downloads ~3.4 GB (1.7B fp16) or ~1.2 GB (0.6B) from
+  HuggingFace; subsequent runs read from the local cache.
+- The `qwen-asr` package handles long-audio chunking internally;
+  no per-utterance pre-segmentation is required at the call site.
+- Word-level timestamps emitted when the model returns them; falls
+  back to whole-utterance text when timestamps aren't available.
+- Single-speaker output (no built-in diarization); BA3's downstream
+  diarization stage attaches speaker tags.
+- Apache-2.0 licensed.
 
 ### Cantonese FA
 
