@@ -469,6 +469,22 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
             Some(vec!["--format".into(), "csv".into()])
         }
 
+        // FREQ `+dN` for all other values (bare `+d`, `+d0`,
+        // `+d5`-`+d8`, `+d20`, percent forms `+d<=N` /
+        // `+d>=N` / `+d<N` / `+d=N` / `+d>N`) — local
+        // `case 'd'` at `OSX-CLAN/src/clan/freq.cpp:690` is the
+        // richest in CLAN: percent-bounded type filter
+        // (`percentC`/`percent`), `+d5` zeroMatch (mutually
+        // exclusive with percent), `+d8` cross-tabulation
+        // (`isCrossTabulation`), `+d20` per-row spreadsheet
+        // (`isSpreadsheetOnePerRow`), and more. chatter has no
+        // typed consumer for any unmapped value. Pass through
+        // so clap rejects the literal token. Adding typed
+        // consumers for these values is feature work tracked
+        // separately; this arm is the final P-3 cleanup that
+        // makes the bottom-level catch-all dead reachable.
+        (b'+', b'd') if subcommand == Freq => None,
+
         // LOWCASE `+d2` — "ignore dict file, lowercase everything",
         // per `OSX-CLAN/src/clan/lowcase.cpp` case 'd' (integer 0..=2
         // toggles dict-preserving / dict-capitalizing / ignore-dict).
@@ -2006,16 +2022,20 @@ mod tests {
         assert_eq!(result, args("clan analyze freq file.cha"));
     }
 
-    /// Generic `+dN` display-mode fallback for values that have no
-    /// command-specific rewriter arm. `+d6` is still Rewriter-only
-    /// in the FREQ audit; this test pins that the fallback path
-    /// still works. (`+d1`/`+d2`/`+d3`/`+d4` each have their own
-    /// FREQ-specific arms that route to typed flags.)
+    /// FREQ `+dN` values not mapped by a specific arm
+    /// (`+d1`/`+d2`/`+d3`/`+d4`) now pass through. CLAN's
+    /// `case 'd'` at `freq.cpp:690` has rich semantics for the
+    /// other values (`+d5` zeroMatch, `+d6`, `+d8` cross-
+    /// tabulation, `+d20` per-row spreadsheet, percent-bounded
+    /// `+d<=N`/`+d>=N`/...). chatter has no typed consumer for
+    /// any of them; the FREQ-specific catch-all arm at line ~471
+    /// passes them through so clap rejects the literal token
+    /// rather than the misleading `--display-mode N` rewrite.
+    /// Replaces the prior `display_mode_fallback` test that
+    /// pinned the now-dead catch-all behavior.
     #[test]
-    fn display_mode_fallback() {
-        let input = args("clan analyze freq +d6 file.cha");
-        let result = rewrite_clan_args(&input);
-        assert_eq!(result, args("clan analyze freq --display-mode 6 file.cha"));
+    fn freq_dn_unmapped_passes_through() {
+        assert_passthrough("clan analyze freq +d6 file.cha");
     }
 
     #[test]
