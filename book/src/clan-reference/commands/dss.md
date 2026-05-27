@@ -1,7 +1,7 @@
 # DSS -- Developmental Sentence Scoring
 
 **Status:** Current
-**Last updated:** 2026-05-26 10:59 EDT
+**Last updated:** 2026-05-27 10:41 EDT
 
 ## Purpose
 
@@ -54,7 +54,7 @@ refusal byte-parity as EVAL/KIDEVAL/IPSYN/SUGAR.
 | CLAN flag | Meaning | Chatter | Status | Notes |
 |---|---|---|---|---|
 | `+aN` | Debug DSS rules level N (1–3) | — | Missing | Rule-tracing diagnostic. |
-| `+cN` | Analyse N complete unique utterances (default 50) | `--max-utterances N` | Partial | Same rewriter-routing gap as IPSYN. |
+| `+cN` | Analyse N complete unique utterances (default 50) | `--max-utterances N` | Done | Rewriter routes `+cN` → `--max-utterances N` via the shared `(b'+', b'c') if matches!(subcommand, Ipsyn \| Dss)` arm in `clan_args.rs` (the existing IPSYN routing covers DSS too). Audit row flipped from Partial → Done 2026-05-27. |
 | `+d` | Output in spreadsheet format | — | Missing | `OSX-CLAN/src/clan/dss.cpp:2520` sets `IsOutputSpreadsheet = 1` for bare `+d`. chatter has no `--format csv` for DSS. Per-DSS rewriter arm in `clan_args.rs` passes the token through so clap reports the literal `+d` argument rather than the misleading `--display-mode` rewrite. |
 | `+d1` | Spreadsheet format with one TOTAL line per file | — | Missing | Same `dss.cpp:2520` switch sets `IsOutputSpreadsheet = 2` for `+d1`. Per-DSS rewriter arm passes the token through. |
 | `+lF` | Specify language script file `F` (eng, engu, bss, jpn) | `--rules <PATH>` | Done | Same rewriter-routing gap as IPSYN. |

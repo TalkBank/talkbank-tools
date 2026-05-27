@@ -471,6 +471,17 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
 
         // +u: For CHECK, +u means validate UD features; for other commands, merge speakers (no-op)
         (b'+', b'u') if rest.is_empty() && subcommand == Check => Some(vec!["--check-ud".into()]),
+
+        // FLUCALC `+u` enables per-utterance output in CLAN
+        // (`flucalc.cpp:778-781`, `isUttList = TRUE`). chatter has
+        // only `--per-file` (file granularity), NOT per-utterance —
+        // audit page status "Partial". Pass through (None) instead
+        // of letting the generic `+u` arm below silently drop it;
+        // clap rejects the literal `+u` honestly. Per-FLUCALC arm
+        // placed BEFORE the generic so flucalc's behavior diverges
+        // from the merge-speakers no-op of other commands.
+        (b'+', b'u') if rest.is_empty() && subcommand == Flucalc => None,
+
         (b'+', b'u') if rest.is_empty() => Some(vec![]),
 
         // FREQPOS `+d` (no N) switches position classification
@@ -1692,6 +1703,20 @@ mod tests {
     #[test]
     fn gemfreq_dn_passes_through() {
         assert_passthrough("clan gemfreq +d1 file.cha");
+    }
+
+    /// FLUCALC `+u` enables per-utterance output in CLAN
+    /// (`flucalc.cpp:778-781`, `isUttList = TRUE; no_arg_option(f)`).
+    /// chatter has only `--per-file` (file granularity), not
+    /// per-utterance — audit page status "Partial". Without a
+    /// per-flucalc arm, the generic `+u` arm at the global level
+    /// silently drops the flag (`Some(vec![])`) and chatter runs
+    /// with default aggregated output — user thinks they got
+    /// per-utterance results, actually got aggregated. The
+    /// per-flucalc arm returns None for honest rejection.
+    #[test]
+    fn flucalc_u_passes_through_for_honest_rejection() {
+        assert_passthrough("clan flucalc +u file.cha");
     }
 
     /// MAXWD `+g1` / `+g2` / `+g3` are utterance-mode metric

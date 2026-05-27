@@ -1,7 +1,7 @@
 # FLUCALC -- Fluency Calculation
 
 **Status:** Current
-**Last updated:** 2026-05-22 09:22 EDT
+**Last updated:** 2026-05-27 10:42 EDT
 
 ## Purpose
 
@@ -53,7 +53,7 @@ Authoritative enumeration of every CLAN `flucalc` flag. Sources:
 | `+c5` | With `+p`: reverse source/target tier priority | — | Missing | |
 | `+dN` | Sample size `N` (s, w) — e.g. `+d100s` for 100 syllables | — | Rewriter only | `--display-mode N`; no consuming clap field. |
 | `+e1`..`+e5` | Side-effect file creation (syllable counts, fluent utterances, disfluencies) | — | Missing | |
-| `+u` | Compute output per utterance | partial via `--per-file` | Partial | Different granularity. |
+| `+u` | Compute output per utterance | partial via `--per-file` | Partial | CLAN (`flucalc.cpp:778-781`, `isUttList = TRUE`) enables per-utterance output. chatter has only `--per-file` (file granularity), not per-utterance. Per-FLUCALC rewriter arm in `clan_args.rs` returns None for honest rejection: clap reports the literal `+u` argument rather than the global `+u` arm silently dropping it (which would let chatter run with default aggregated output while the user expected per-utterance results). |
 | `+pS` / `+p@F` | Search word `S` and match POS | — | Missing | |
 | `+g` / `-g` / `+gS` | Gem semantics (same overload as EVAL) | `--gem` (S form only) | Partial | |
 | `+n` / `-n` | Gem termination semantics | — | Missing | |
