@@ -272,13 +272,7 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // the digit-only form honestly. Letter forms like
         // `lab2chat +tCHI` are not lab2chat semantics either but
         // are out of scope here; they continue to fall through.
-        (b'+', b't')
-            if subcommand == Lab2chat
-                && !rest.is_empty()
-                && rest.bytes().all(|b| b.is_ascii_digit()) =>
-        {
-            None
-        }
+        (b'+', b't') if subcommand == Lab2chat && rest_is_digits(rest) => None,
 
         (b'+', b't') | (b'-', b't') => rewrite_tier_speaker(polarity, rest),
 
@@ -373,22 +367,17 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         (b'+', b'g') if subcommand == Combo && rest == "4" => Some(Vec::new()),
         (b'+', b'g') if subcommand == Combo && rest == "5" => Some(Vec::new()),
         (b'+', b'g') if subcommand == Combo && rest == "7" => Some(vec!["--dedupe-matches".into()]),
-        // GEMFREQ `-wS` — exclude-word polarity per
-        // `OSX-CLAN/src/clan/gemfreq.cpp:296` (`case 'w': *(f-1) =
-        // 's'` rewrites the flag char from `w` to `s` then calls
-        // `maingetflag`, so CLAN's `-wS` becomes `-sS` which is the
-        // standard exclude-word semantic). chatter's clap `-w`
-        // short is `--include-word` (OPPOSITE polarity), so
-        // without this arm the `-wS` token is silently mis-routed
-        // to include-word — chatter shows only utterances
-        // containing S, while CLAN excludes them. Per-GEMFREQ arm
-        // emits `--exclude-word S` to match CLAN's intent. Same
-        // pattern is needed for any command where CLAN's `case
-        // 'w'` redirects to `case 's'` exclude semantics (e.g.
-        // freq, freqpos — left as P-4 follow-ups since their
-        // audit-page rows already document the polarity correctly).
+        // GEMFREQ `-wS` — CLAN's `gemfreq.cpp:296` literally
+        // rewrites the flag char from `w` to `s` (`case 'w':
+        // *(f-1) = 's'`) then calls `maingetflag`, so `-wS` is the
+        // standard exclude-word semantic. Delegate to
+        // `rewrite_search_word` to share polarity routing and
+        // quote-stripping with the regular `-s`/`+s` path.
+        // chatter's clap `-w` short is `--include-word` (OPPOSITE
+        // polarity), so without this arm `-wS` would silently
+        // mis-route to include-word.
         (b'-', b'w') if subcommand == Gemfreq && !rest.is_empty() => {
-            Some(vec!["--exclude-word".into(), rest.to_string()])
+            rewrite_search_word(b'-', rest)
         }
 
         // MAXWD `+gN` (N in 1..=3) is the utterance-mode metric
@@ -401,13 +390,7 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         // to a literal gem-name filter. Pass-through (None) lets
         // clap reject `+gN` honestly. Maxwd's `+gX` (non-digit X)
         // gem filter is left for `rewrite_gem` to handle.
-        (b'+', b'g')
-            if subcommand == Maxwd
-                && !rest.is_empty()
-                && rest.bytes().all(|b| b.is_ascii_digit()) =>
-        {
-            None
-        }
+        (b'+', b'g') if subcommand == Maxwd && rest_is_digits(rest) => None,
 
         // COMBO `+g1` / `+g2` / `+g6` are search-mode switches
         // (string-oriented whole-tier / single-word search;
@@ -1057,19 +1040,12 @@ fn try_rewrite_clan_flag(arg: &str, subcommand: ClanSubcommandKind) -> Option<Ve
         }
         // CHAT2ELAN `+eEXT` — media-file-name extension per
         // `OSX-CLAN/src/clan/chat2elan.cpp:117` (`case 'e'`).
-        // chatter's chat2elan exposes `--media-extension <EXT>` on
-        // its clap surface. Must precede the generic `+e` →
-        // `--error` arm below, which is `check`-family-only but
-        // currently unscoped.
-        //
-        // Semantic bridge: CLAN's `+e.wav` requires the user to
-        // supply the leading dot literally (the rest of the token
-        // is concatenated verbatim onto the media basename).
-        // chatter's `--media-extension` auto-prepends `.` and
-        // expects the bare extension (e.g. `wav`). Strip a leading
-        // dot if present so `+e.wav` and `+ewav` both produce the
-        // same output. MIME-type detection also requires the bare
-        // extension form.
+        // Routes to `--media-extension`. Strips a leading dot:
+        // CLAN concatenates the user-supplied suffix verbatim
+        // onto the media basename (so users type `+e.wav`),
+        // whereas chatter's `--media-extension` auto-prepends `.`
+        // and expects the bare form. Must precede the generic
+        // `+e` → `--error` arm below.
         (b'+', b'e') if subcommand == Chat2elan && !rest.is_empty() => {
             let ext = rest.strip_prefix('.').unwrap_or(rest);
             Some(vec!["--media-extension".into(), ext.to_string()])
@@ -1196,6 +1172,13 @@ fn rewrite_gem(polarity: u8, rest: &str) -> Option<Vec<String>> {
         "--exclude-gem"
     };
     Some(vec![flag.into(), label])
+}
+
+/// True when `rest` is a non-empty all-ASCII-digit string — used by
+/// per-command pass-through arms (`+gN`, `+tN`, etc.) that need to
+/// distinguish digit-suffix forms from other shapes.
+fn rest_is_digits(rest: &str) -> bool {
+    !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// Rewrite `+z25-125` → `--range 25-125`.
