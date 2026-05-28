@@ -449,7 +449,7 @@ async fn dispatch_avqi_attempt(
 
     Ok((
         avqi_result_filename(filename),
-        format_avqi_report(&result),
+        format_avqi_report(&result, &pool_key.0),
         ContentType::Text,
     ))
 }
@@ -499,20 +499,43 @@ fn format_opensmile_csv(result: &OpenSmileResultV2) -> String {
     lines.join("\n") + "\n"
 }
 
-fn format_avqi_report(result: &AvqiResultV2) -> String {
-    [
-        ("avqi", result.avqi),
-        ("cpps", result.cpps),
-        ("hnr", result.hnr),
-        ("shimmer_local", result.shimmer_local),
-        ("shimmer_local_db", result.shimmer_local_db),
-        ("slope", result.slope),
-        ("tilt", result.tilt),
-    ]
-    .into_iter()
-    .map(|(name, value)| format!("{name},{value}"))
-    .collect::<Vec<_>>()
-    .join("\n")
+/// Serialize an AVQI result to text using BA2's prose shape:
+///
+/// ```text
+/// AVQI: 5.123
+/// CPPS: 67.890
+/// HNR: 12.346
+/// Shimmer Local: 0.012
+/// Shimmer Local dB: 1.234
+/// LTAS Slope: -2.346
+/// LTAS Tilt: 0.679
+/// CS File: foo.cs.wav
+/// SV File: foo.sv.wav
+/// Language: eng
+/// ```
+///
+/// BA2's writer at `batchalign/cli/cli.py:499-510` uses uppercase
+/// labels with colon-space separator, three-decimal precision for the
+/// seven numeric metrics, and trailing newline per line. BA3 emits the
+/// same shape so BA2-era parsers of `.avqi.txt` keep working.
+fn format_avqi_report(result: &AvqiResultV2, language: &str) -> String {
+    let metrics = [
+        ("AVQI", result.avqi),
+        ("CPPS", result.cpps),
+        ("HNR", result.hnr),
+        ("Shimmer Local", result.shimmer_local),
+        ("Shimmer Local dB", result.shimmer_local_db),
+        ("LTAS Slope", result.slope),
+        ("LTAS Tilt", result.tilt),
+    ];
+    let mut lines = Vec::with_capacity(metrics.len() + 3);
+    for (label, value) in metrics {
+        lines.push(format!("{label}: {value:.3}"));
+    }
+    lines.push(format!("CS File: {}", result.cs_file));
+    lines.push(format!("SV File: {}", result.sv_file));
+    lines.push(format!("Language: {language}"));
+    lines.join("\n") + "\n"
 }
 
 fn opensmile_result_filename(filename: &str) -> String {
@@ -606,5 +629,53 @@ mod tests {
         };
         let csv = format_opensmile_csv(&result);
         assert_eq!(csv, "feature,value\n");
+    }
+
+    /// BA2's avqi text report (`batchalign/cli/cli.py:499-510`) writes
+    /// the seven metric values plus `CS File`, `SV File`, `Language`
+    /// fields with `{Label}: {value:.3f}\n` formatting:
+    ///
+    /// ```text
+    /// AVQI: 5.123
+    /// CPPS: 67.890
+    /// HNR: 12.345
+    /// Shimmer Local: 0.012
+    /// Shimmer Local dB: 1.234
+    /// LTAS Slope: -2.345
+    /// LTAS Tilt: 0.678
+    /// CS File: foo.cs.wav
+    /// SV File: foo.sv.wav
+    /// Language: eng
+    /// ```
+    ///
+    /// BA3 must emit the same shape so BA2-era researcher scripts that
+    /// parse `.avqi.txt` keep working.
+    #[test]
+    fn avqi_report_matches_ba2_text_shape() {
+        let result = AvqiResultV2 {
+            avqi: 5.1234,
+            cpps: 67.8900,
+            hnr: 12.3456,
+            shimmer_local: 0.0123,
+            shimmer_local_db: 1.2345,
+            slope: -2.3456,
+            tilt: 0.6789,
+            cs_file: "foo.cs.wav".to_string(),
+            sv_file: "foo.sv.wav".to_string(),
+            success: true,
+            error: None,
+        };
+        let report = format_avqi_report(&result, "eng");
+        let expected = "AVQI: 5.123\n\
+                        CPPS: 67.890\n\
+                        HNR: 12.346\n\
+                        Shimmer Local: 0.012\n\
+                        Shimmer Local dB: 1.234\n\
+                        LTAS Slope: -2.346\n\
+                        LTAS Tilt: 0.679\n\
+                        CS File: foo.cs.wav\n\
+                        SV File: foo.sv.wav\n\
+                        Language: eng\n";
+        assert_eq!(report, expected);
     }
 }
