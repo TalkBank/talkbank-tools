@@ -160,8 +160,12 @@ pub(crate) fn dispatch_protocol_message(
         "infer" => {
             let Some(req_payload) = message.get_item("request")? else {
                 return Ok((
-                    error_payload(py, "infer request must include mapping field 'request'", None)?
-                        .unbind(),
+                    error_payload(
+                        py,
+                        "infer request must include mapping field 'request'",
+                        None,
+                    )?
+                    .unbind(),
                     false,
                 ));
             };
@@ -169,8 +173,12 @@ pub(crate) fn dispatch_protocol_message(
                 Ok(payload) => payload.as_any(),
                 Err(_) => {
                     return Ok((
-                        error_payload(py, "infer request must include mapping field 'request'", None)?
-                            .unbind(),
+                        error_payload(
+                            py,
+                            "infer request must include mapping field 'request'",
+                            None,
+                        )?
+                        .unbind(),
                         false,
                     ));
                 }
@@ -193,7 +201,7 @@ pub(crate) fn dispatch_protocol_message(
                     error_payload(
                         py,
                         "batch_infer request must include mapping field 'request'",
-                    None,
+                        None,
                     )?
                     .unbind(),
                     false,
@@ -206,7 +214,7 @@ pub(crate) fn dispatch_protocol_message(
                         error_payload(
                             py,
                             "batch_infer request must include mapping field 'request'",
-                        None,
+                            None,
                         )?
                         .unbind(),
                         false,
@@ -231,7 +239,7 @@ pub(crate) fn dispatch_protocol_message(
                     error_payload(
                         py,
                         "execute_v2 request must include mapping field 'request'",
-                    None,
+                        None,
                     )?
                     .unbind(),
                     false,
@@ -244,7 +252,7 @@ pub(crate) fn dispatch_protocol_message(
                         error_payload(
                             py,
                             "execute_v2 request must include mapping field 'request'",
-                        None,
+                            None,
                         )?
                         .unbind(),
                         false,
@@ -271,7 +279,7 @@ pub(crate) fn dispatch_protocol_message(
                     error_payload(
                         py,
                         "ensure_task request must include mapping field 'request'",
-                    None,
+                        None,
                     )?
                     .unbind(),
                     false,
@@ -290,7 +298,8 @@ pub(crate) fn dispatch_protocol_message(
                 Some(v) => v,
                 None => {
                     return Ok((
-                        error_payload(py, "ensure_task request must include 'task'", None)?.unbind(),
+                        error_payload(py, "ensure_task request must include 'task'", None)?
+                            .unbind(),
                         false,
                     ));
                 }
