@@ -563,3 +563,97 @@ fn batch_with_sanity_scan_flag_flags_inverted_mlu() -> Result<(), TestError> {
     );
     Ok(())
 }
+
+/// `chatter batch --sanity-scan` must run the post-loop scan even when
+/// some per-session pipelines errored. Real corpora always have at
+/// least one parse/precondition failure mixed in; gating the scan
+/// behind "zero errors" silently disables the cycle-35 deliverable on
+/// every realistic batch.
+///
+/// Final exit-code precedence: errors > 0 → `EXIT_PRECONDITION` (2)
+/// overrides everything else, including the scan's `EXIT_LOW_CONFIDENCE`
+/// (4) when it flags sessions. The operator gets BOTH signals:
+/// non-zero exit from precondition violations AND the
+/// `sanity-scan-misclassification` entries appended to the pending file.
+#[test]
+fn batch_sanity_scan_runs_even_when_some_sessions_error() -> Result<(), TestError> {
+    let harness = CliHarness::new()?;
+    let dir = tempdir()?;
+    let donor_dir = dir.path().join("donor");
+    let ref_dir = dir.path().join("ref");
+    let out_dir = dir.path().join("out");
+    let overrides_path = dir.path().join("overrides.toml");
+    let pending_path = dir.path().join("pending.toml");
+    fs::create_dir_all(&donor_dir)?;
+    fs::create_dir_all(&ref_dir)?;
+    fs::create_dir_all(&out_dir)?;
+
+    // Session A: clean-winner with inverted-MLU shape — the
+    // sanity-scan should flag it (the scan is the assertion target).
+    fs::write(
+        donor_dir.join("session-misclass.cha"),
+        FIX_DONOR_INVERTED_MLU,
+    )?;
+    fs::write(ref_dir.join("session-misclass.cha"), FIX_REF_CHI_LONG)?;
+    // Session B: donor parses, but the reference is gibberish — the
+    // per-session pipeline exits non-zero and the batch increments
+    // `errors`. This is the precondition that the pre-fix code
+    // early-exited on, before the scan ran.
+    fs::write(donor_dir.join("session-error.cha"), FIX_DONOR_CLEAN_WINNER)?;
+    fs::write(
+        ref_dir.join("session-error.cha"),
+        "this is not a CHAT file at all\n",
+    )?;
+
+    harness
+        .chatter_cmd()
+        .arg("batch")
+        .arg(&donor_dir)
+        .arg(&ref_dir)
+        .arg("--anchor")
+        .arg("CHI")
+        .arg("--inserted-role")
+        .arg("INV:Investigator")
+        .arg("--retain")
+        .arg("CHI")
+        .arg("--write-override")
+        .arg(&overrides_path)
+        .arg("--write-pending")
+        .arg(&pending_path)
+        .arg("--sanity-scan")
+        .arg("--sanity-scan-threshold")
+        .arg("2.0")
+        .arg("-o")
+        .arg(&out_dir)
+        .assert()
+        // Precondition (2) takes precedence over scan-flagged (4)
+        // when both apply.
+        .code(2);
+
+    // session-misclass produced a merged file (clean-winner path).
+    assert!(
+        out_dir.join("session-misclass.cha").exists(),
+        "clean-winner session should produce a merged file"
+    );
+    // session-error did not (the precondition failure case).
+    assert!(
+        !out_dir.join("session-error.cha").exists(),
+        "errored session should not produce a merged file"
+    );
+
+    // The bug-fix assertion: the sanity-scan ran AND wrote a
+    // misclassification entry. Pre-fix, `batch.rs` early-exited at
+    // line 202 (`if errors > 0 { exit(EXIT_PRECONDITION) }`) before
+    // the scan could run, so the pending file would only contain the
+    // pre-loop low-confidence entries (none in this fixture).
+    let pending_text = fs::read_to_string(&pending_path)?;
+    assert!(
+        pending_text.contains("sanity-scan-misclassification"),
+        "post-loop sanity-scan must run even when errors > 0; pending file is missing the misclassification entry:\n{pending_text}"
+    );
+    assert!(
+        pending_text.contains("session-misclass"),
+        "pending file should flag the inverted-MLU session:\n{pending_text}"
+    );
+    Ok(())
+}

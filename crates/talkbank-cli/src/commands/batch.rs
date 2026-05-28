@@ -199,27 +199,51 @@ pub fn run_batch(args: BatchArgs<'_>) {
     eprintln!(
         "batch summary: {total} matched donor(s); {successes} merged, {refusals} pending adjudication, {errors} errored, {unmatched} unmatched (no reference), {skipped} skipped (output existed)"
     );
-    if errors > 0 {
-        std::process::exit(EXIT_PRECONDITION);
-    }
-    if let (Some(threshold), Some(override_path), Some(pending_path)) =
-        (sanity_scan, write_override_path, write_pending_path)
-    {
-        run_sanity_scan_subprocess(
-            &self_exe,
-            output_dir,
-            override_path,
-            anchor,
-            threshold,
-            pending_path,
-        );
-    }
+
+    // Run the post-loop sanity-scan unconditionally on `--sanity-scan`
+    // (subject to the standalone scan having something to scan — see
+    // the `successes > 0` guard below). Per-session errors are NOT a
+    // gate: real corpora always have at least one parse / precondition
+    // failure mixed in, and the cycle-35 deliverable would be silently
+    // dead code if we early-exited on `errors > 0` here.
+    let scan_exit = match (sanity_scan, write_override_path, write_pending_path) {
+        (Some(threshold), Some(override_path), Some(pending_path)) if successes > 0 => {
+            run_sanity_scan_subprocess(
+                &self_exe,
+                output_dir,
+                override_path,
+                anchor,
+                threshold,
+                pending_path,
+            )
+        }
+        // Either the operator didn't ask for the scan, or no session
+        // produced an override-trailed merged output for the scan to
+        // operate on. Either way, the scan contributes no exit signal.
+        _ => EXIT_SUCCESS,
+    };
+
+    // Exit-code precedence: a `PRECONDITION` failure from at least
+    // one per-session pipeline error outranks any
+    // `LOW_CONFIDENCE` from the post-loop scan, which itself
+    // outranks `SUCCESS`. The pending file already carries every
+    // signal the operator needs to triage individual sessions; the
+    // exit code only needs to surface the highest-severity outcome.
+    let final_exit = if errors > 0 {
+        EXIT_PRECONDITION
+    } else {
+        scan_exit
+    };
+    std::process::exit(final_exit);
 }
 
 /// Spawn `chatter sanity-scan` as a final post-loop step. Inherits
 /// stdout/stderr so the operator sees the scan's per-session
-/// `flagged` / `ok` lines + summary. Propagates the scan's exit
-/// code: 0 if no flags, 4 if any flags, 1 on read/parse error.
+/// `flagged` / `ok` lines + summary. Returns the scan's exit code
+/// (0 no flags, 4 flags raised, 1 read/parse error) for the caller
+/// to fold into the batch driver's final exit-code precedence —
+/// `run_batch` must outrank this with `EXIT_PRECONDITION` when any
+/// per-session pipeline errored.
 fn run_sanity_scan_subprocess(
     self_exe: &Path,
     output_dir: &Path,
@@ -227,7 +251,7 @@ fn run_sanity_scan_subprocess(
     anchor: &str,
     threshold: SanityScanThreshold,
     write_pending: &Path,
-) {
+) -> i32 {
     let status = Command::new(self_exe)
         .arg("sanity-scan")
         .arg(output_dir)
@@ -241,16 +265,13 @@ fn run_sanity_scan_subprocess(
         .arg(write_pending)
         .status();
     match status {
-        Ok(s) => match s.code() {
-            Some(code) => std::process::exit(code),
-            // Signal-killed: propagate as input error (no useful
-            // exit code to forward).
-            None => std::process::exit(EXIT_INPUT_ERROR),
-        },
+        // `None` from `.code()` means signal-killed; encode as input
+        // error since there's no useful exit code to forward.
+        Ok(s) => s.code().unwrap_or(EXIT_INPUT_ERROR),
         Err(e) => {
             warn!("sanity-scan subprocess spawn failed: {}", e);
             eprintln!("Error: sanity-scan subprocess spawn failed: {e}");
-            std::process::exit(EXIT_INPUT_ERROR);
+            EXIT_INPUT_ERROR
         }
     }
 }
