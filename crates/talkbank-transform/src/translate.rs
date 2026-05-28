@@ -90,7 +90,15 @@ pub fn inject_translation(
     utterance: &mut talkbank_model::model::Utterance,
     translation_text: &str,
 ) -> Result<(), String> {
-    if translation_text.is_empty() {
+    // BA2 parity (`batchalign/formats/chat/generator.py:117-118`):
+    // skip the `%xtra` tier when the translation text is empty after
+    // trim or is just a bare CHAT terminator. Translator backends
+    // sometimes return only `.`, `!`, or `?` for source utterances
+    // that contained no translatable content; emitting
+    // `%xtra:\t.` for those cases is operational noise that BA2 has
+    // always suppressed.
+    let trimmed = translation_text.trim();
+    if trimmed.is_empty() || matches!(trimmed, "." | "!" | "?") {
         return Ok(());
     }
 
@@ -384,6 +392,35 @@ mod tests {
 
         let output_after = chat.to_chat_string();
         assert_eq!(output_before, output_after);
+    }
+
+    /// BA2 parity (`generator.py:117-118`): the `%xtra` tier is
+    /// suppressed when the translation text is empty after trim OR is
+    /// just a bare CHAT terminator (`.`, `!`, `?`). This happens when
+    /// the source utterance had no content for the translator to
+    /// operate on (e.g., the speaker turn was a pure terminator), and
+    /// emitting `%xtra:\t.` is operationally noise.
+    ///
+    /// ```python
+    /// # BA2 generator.py:117-118
+    /// if utterance.translation != None and utterance.translation.strip() not in ["", ".", "!", "?"]:
+    ///     result.append("%xtra:\t"+utterance.translation)
+    /// ```
+    #[test]
+    fn test_inject_bare_terminator_translation_is_noop() {
+        let chat_text = include_str!("../../../test-fixtures/eng_hello_female.cha");
+        let mut chat = parse_chat(chat_text);
+        let output_before = chat.to_chat_string();
+
+        for noise in [".", "!", "?", "  .  ", " ", "\t"] {
+            let utt = get_utterance_mut(&mut chat, 0);
+            inject_translation(utt, noise).unwrap();
+            let output_after = chat.to_chat_string();
+            assert_eq!(
+                output_before, output_after,
+                "BA2-parity skip-on-terminator-noise failed for input {noise:?}",
+            );
+        }
     }
 
     #[test]
