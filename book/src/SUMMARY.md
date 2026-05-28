@@ -191,6 +191,7 @@
 - [Python Versioning](batchalign/developer/python-versioning.md)
 - [IPC Type Sync (Rust→Python)](batchalign/developer/ipc-type-sync.md)
 - [Tracing and Debugging](batchalign/developer/tracing-and-debugging.md)
+- [CPU Profiling](batchalign/developer/cpu-profiling.md)
 - [Debugging Infrastructure](batchalign/developer/debugging-infrastructure.md)
 - [CHAT Validation Failures](batchalign/developer/chat-validation-failures.md)
 - [Apple MPS Workarounds](batchalign/developer/apple-mps-workarounds.md)

@@ -120,6 +120,7 @@ dev = [
     "batchalign3",
     "maturin>=1.7,<2.0",
     "mypy",
+    "py-spy>=0.4.2",
     "pytest",
     "pytest-asyncio",
     "pytest-cov>=5.0",

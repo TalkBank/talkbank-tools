@@ -1,7 +1,7 @@
 # Tracing and Debugging
 
 **Status:** Current
-**Last updated:** 2026-05-20 01:02 EDT
+**Last updated:** 2026-05-27 22:03 EDT
 
 This document describes the tracing and debugging strategy across the
 batchalign3 stack: Rust (batchalign-core PyO3 bridge), Rust (CLI and server
@@ -445,3 +445,125 @@ detects several classes of Stanza misbehavior:
 When detected, these are logged at `WARNING` level. The bogus-lemma check is
 in `_is_bogus_lemma()` and triggers substitution with a `"?"` lemma rather
 than propagating the bad value.
+
+## Debugging Async Dispatch with `tokio-console`
+
+Symptoms this tool answers: the Rust dispatch chain is stuck —
+`batchalign3` is parked at 0% CPU after a `Starting ASR inference`
+log line, no progress, no errors — and the question is "which
+async task is blocked, on which resource, for how long?"
+`tokio-console` shows the live state of every Tokio task plus the
+synchronization primitive each task is waiting on. It complements
+`py-spy` (which covers the Python worker side); see
+[CPU Profiling](./cpu-profiling.md) for the Python-side recipes.
+
+### Build the debug-runtime binary
+
+`console-subscriber` is gated behind a `debug-runtime` cargo
+feature and requires `--cfg tokio_unstable` at rustc time
+(the Tokio runtime instrumentation hooks are unstable APIs).
+Production binaries built without this feature carry zero cost:
+the dep is not linked and no gRPC server starts.
+
+```bash
+RUSTFLAGS="--cfg tokio_unstable" \
+  cargo build -p batchalign --bin batchalign3 --features debug-runtime
+```
+
+Build time on first run includes downloading and compiling the
+`console-subscriber` + `tonic` + `prost` dep tree (~3-5 min on a
+fast machine, cached thereafter).
+
+### Run the workload and attach
+
+```bash
+# Terminal 1: run any batchalign3 command with the debug-runtime binary.
+# The console gRPC server starts on 127.0.0.1:6669 at process startup.
+./target/debug/batchalign3 transcribe input/ -o out/ --lang yue \
+    --engine-overrides '{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B"}' \
+    --sequential --no-server -vv
+
+# Terminal 2: install (once) and attach the TUI client.
+cargo install tokio-console
+tokio-console http://127.0.0.1:6669
+```
+
+### What to look for
+
+The TUI has four primary views:
+
+| View | Use for |
+|---|---|
+| **Tasks (default `t`)** | List of all live async tasks with state (RUNNING / IDLE / SCHEDULED), `tracing::span` name, busy / idle / poll counts. Look for a task labeled with the request_id of the stuck operation. |
+| **Resources (`r`)** | Every `tokio::sync::*` primitive in use: `Mutex`, `Notify`, `Semaphore`, `oneshot::Sender/Receiver`, `mpsc`, `Barrier`. Each row shows how many tasks are waiting on it and for how long. |
+| **Task detail (`Enter` on a task)** | Backtrace of the most recent poll, which resource the task is waiting on, what woke it last. |
+| **Resource detail (`Enter` on a resource)** | Waiter list — exactly which tasks are blocked on this primitive. |
+
+Built-in **lints** fire automatically in the bottom pane: "task
+has been blocked on the same resource for > N seconds", "task is
+busy-polling without yielding", "many tasks waiting on a single
+`Mutex`". For the qwen dispatch hang investigation, the relevant
+lint signature was "task blocked on `oneshot::Receiver` for > 30s"
+— would fire within the first minute of any reproduction.
+
+### Span naming convention
+
+For tokio-console to label tasks meaningfully, the async functions
+on the dispatch chain are annotated with `#[tracing::instrument]`:
+
+| Span name | File | Carries |
+|---|---|---|
+| `dispatch_execute_v2_with_progress` | `worker/pool/dispatch.rs` | `request_id` |
+| `dispatch_gpu_execute_v2` | `worker/pool/dispatch.rs` | `target`, `lang`, `request_id` |
+| `get_or_create_gpu_worker` | `worker/pool/mod.rs` | `target`, `lang` |
+| `execute_v2` | `worker/pool/shared_gpu/stdio.rs` | `pid`, `request_id` |
+| `shared_gpu_reader_loop` | `worker/pool/shared_gpu/stdio.rs` | `pid` |
+| `write_request` / `read_response` | `worker/handle/ipc.rs` | `pid` |
+
+When adding new dispatch surface, add `#[instrument(skip_all,
+fields(...))]` with the same convention so the TUI labels stay
+useful. `skip_all` is important — the default `#[instrument]`
+captures every argument's `Debug` impl, which is too noisy for
+large request payloads.
+
+### Attaching from a different host
+
+The gRPC server binds to `127.0.0.1:6669` by default — localhost
+only. To attach from a workstation to a fleet host's batchalign3
+process, SSH-forward the port:
+
+```bash
+ssh -L 6669:127.0.0.1:6669 operator@server
+# then locally:
+tokio-console http://127.0.0.1:6669
+```
+
+### When NOT to use it
+
+- **Production binaries.** The `tokio_unstable` cfg couples to
+  non-stable Tokio APIs; the gRPC server adds a real dep tree;
+  neither is appropriate for production observability. Use the
+  existing OpenTelemetry / `tracing-appender` server-log surface
+  for production.
+- **Memory or UB bugs.** Wrong category. Use `memray` / `dhat-rs`
+  / `miri` instead.
+- **Subprocess IPC bugs in isolation.** `tokio-console` sees the
+  Rust side only. A bug that crosses into the Python worker also
+  needs `py-spy dump` on the worker pid — both views together
+  cover the dispatch chain end-to-end.
+
+## Debugging Python workers with `py-spy`
+
+See [CPU Profiling](./cpu-profiling.md) for the full reference.
+Quick recipes:
+
+```bash
+sudo py-spy dump --pid <worker-pid>           # one-shot stack of every thread
+sudo py-spy top --pid <worker-pid>            # live top
+sudo py-spy record --native --subprocesses \
+    --pid $(pgrep -f batchalign3) -o flame.svg  # flame graph
+```
+
+`py-spy dump` is the first thing to try when a Python worker is
+hung at 0% CPU — replaces the old "tail the log and guess"
+pattern.

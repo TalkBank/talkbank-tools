@@ -19,7 +19,7 @@ use std::time::Duration;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout};
 use tokio::sync::{Semaphore, oneshot};
-use tracing::{debug, info, warn};
+use tracing::{Instrument, debug, info, instrument, warn};
 
 use crate::types::worker_v2::{ExecuteRequestV2, ExecuteResponseV2};
 use crate::worker::WorkerPid;
@@ -122,9 +122,16 @@ impl SharedGpuWorker {
         let reader_control = control.clone();
         let reader_pid = pid;
 
-        let reader_task = tokio::spawn(async move {
-            Self::reader_loop(parts.stdout, reader_pending, reader_control, reader_pid).await;
-        });
+        // Wrap the reader loop in a named span so tokio-console can
+        // attribute its activity to a specific worker pid, and so log
+        // lines from the loop carry the pid in their span context.
+        let reader_span = tracing::info_span!("shared_gpu_reader_loop", pid = %reader_pid);
+        let reader_task = tokio::spawn(
+            async move {
+                Self::reader_loop(parts.stdout, reader_pending, reader_control, reader_pid).await;
+            }
+            .instrument(reader_span),
+        );
 
         let dispatch_semaphore = Semaphore::new(super::dispatch_permits_from(
             config.runtime.gpu_thread_pool_size,
@@ -152,6 +159,10 @@ impl SharedGpuWorker {
     /// the per-request timeout clock starts, so a caller that has to wait
     /// for an executor slot does not spend its own budget on queue-wait
     /// behind earlier requests. Stdin writes remain serialized by `stdin`.
+    #[instrument(
+        skip_all,
+        fields(pid = %self.pid, request_id = %request.request_id),
+    )]
     pub(in crate::worker::pool) async fn execute_v2(
         &self,
         request: &ExecuteRequestV2,

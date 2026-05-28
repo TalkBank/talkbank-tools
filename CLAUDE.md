@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-05-06 13:34 EDT
+**Last modified:** 2026-05-27 22:02 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -755,6 +755,56 @@ Legacy `+flag`/`-flag` syntax is rewritten to `--flag` equivalents by `clan_args
 - Backend initialization failures must surface as diagnostics, not panics.
 - Request handlers should degrade gracefully when parser services are unavailable.
 - Keep LSP diagnostics aligned with parser parse-health semantics.
+
+## Debugging Recipes (Python workers, async runtime)
+
+**py-spy — Python CPU profiler / hung-worker triage.**
+Reads a running Python process by PID without modifying its code or
+restarting it. First thing to try when a batchalign worker is hung
+at 0% CPU. Install: `brew install py-spy` (macOS) or `uv pip install
+py-spy`.
+
+```bash
+# One-shot stack dump of a hung Python worker (replaces guess-and-restart)
+sudo py-spy dump --pid <worker-pid>
+
+# Live top-style per-function CPU view
+sudo py-spy top --pid <worker-pid>
+
+# Flame graph of an active transcribe job; --native sees PyTorch / Stanza
+# / Whisper internals; --subprocesses follows forked children
+sudo py-spy record -o profile.svg --pid $(pgrep -f batchalign3) \
+    --native --subprocesses
+```
+
+`sudo` is required on macOS to read another process's memory unless
+the binary is code-signed for ptrace; for self-owned dev processes,
+the prompt is fine.
+
+**tokio-console — async runtime debugger for the Rust side.** Live
+TUI showing every async task, what it is waiting on, and for how
+long. Use when the Rust dispatch is parked on a `oneshot::Receiver`
+/ `Mutex` / `Semaphore` and you need to see which task and on what
+resource. Build behind the `debug-runtime` feature flag (zero
+production-binary impact); requires `--cfg tokio_unstable` rustflag
+because the runtime instrumentation hooks are unstable APIs.
+
+```bash
+# Build the debug-runtime binary
+RUSTFLAGS="--cfg tokio_unstable" \
+  cargo build -p batchalign --bin batchalign3 --features debug-runtime
+
+# Run any normal batchalign3 command with this binary; it spawns a
+# gRPC server on 127.0.0.1:6669 at startup.
+./target/debug/batchalign3 transcribe input/ -o out/
+
+# In another terminal, attach the TUI client (cargo install tokio-console):
+tokio-console http://127.0.0.1:6669
+```
+
+Full operator workflow + what-to-look-for guide:
+`book/src/batchalign/developer/tracing-and-debugging.md` and
+`book/src/batchalign/developer/cpu-profiling.md`.
 
 ## Large-Scale Corpus Validation
 

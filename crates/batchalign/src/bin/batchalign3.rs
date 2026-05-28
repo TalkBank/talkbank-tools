@@ -151,17 +151,35 @@ fn init_tracing(
         (None, None)
     };
 
+    // Dev-time async runtime debugger. The `debug-runtime` feature
+    // appends a `console_subscriber::ConsoleLayer` to the registry
+    // chain; the layer spawns a background gRPC server (default
+    // 127.0.0.1:6669) that the `tokio-console` TUI client connects to.
+    // Production builds (default features) never link the dep and
+    // never call this code path, so they carry zero cost.
+    //
+    // The cfg-gated `let registry = registry.with(...)` rebinding
+    // pattern is used instead of `Option<Layer>` because the latter
+    // produces a Layered<Option<impl Layer<...>>, ...> chain whose
+    // opaque-type wrapper does not satisfy SubscriberInitExt in
+    // recent tracing-subscriber versions.
     let otlp = OtlpRuntimeConfig::from_env();
     if otlp.should_enable() {
         match init_otlp_provider(&otlp) {
             Ok(provider) => {
                 let tracer = provider.tracer("batchalign3");
-                tracing_subscriber::registry()
+                let registry = tracing_subscriber::registry()
                     .with(env_filter)
                     .with(tracing_subscriber::fmt::layer().with_target(false))
                     .with(file_layer)
-                    .with(tracing_opentelemetry::layer().with_tracer(tracer))
-                    .init();
+                    .with(tracing_opentelemetry::layer().with_tracer(tracer));
+                #[cfg(feature = "debug-runtime")]
+                let registry = registry.with(
+                    console_subscriber::ConsoleLayer::builder()
+                        .with_default_env()
+                        .spawn(),
+                );
+                registry.init();
                 return (guard, Some(provider));
             }
             Err(message) => {
@@ -170,11 +188,17 @@ fn init_tracing(
         }
     }
 
-    tracing_subscriber::registry()
+    let registry = tracing_subscriber::registry()
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().with_target(false))
-        .with(file_layer)
-        .init();
+        .with(file_layer);
+    #[cfg(feature = "debug-runtime")]
+    let registry = registry.with(
+        console_subscriber::ConsoleLayer::builder()
+            .with_default_env()
+            .spawn(),
+    );
+    registry.init();
     (guard, None)
 }
 

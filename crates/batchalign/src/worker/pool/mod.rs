@@ -67,7 +67,7 @@ use crate::host_facts::PerProfile;
 use crate::worker::{WorkerBootstrapMode, WorkerCapabilities, WorkerProfile, WorkerTarget};
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
 use crate::worker::error::WorkerError;
@@ -766,6 +766,10 @@ impl WorkerPool {
     /// because GPU worker creation is rare (once per lang+overrides combo),
     /// and the `pre_scale` call in the runner ensures the worker exists
     /// before file dispatch begins.
+    #[instrument(
+        skip_all,
+        fields(target = %target.label(), lang = %lang),
+    )]
     pub(super) async fn get_or_create_gpu_worker(
         &self,
         target: &WorkerTarget,

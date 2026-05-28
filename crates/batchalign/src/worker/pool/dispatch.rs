@@ -10,7 +10,7 @@ use crate::types::worker_v2::{ExecuteRequestV2, ExecuteResponseV2};
 use crate::worker::error::WorkerError;
 use crate::worker::tcp_handle::TcpWorkerHandle;
 use crate::worker::{BatchInferRequest, BatchInferResponse, WorkerBootstrapMode, WorkerTarget};
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use super::checkout::CheckedOutWorker;
 use super::eviction::EvictionOutcome;
@@ -289,6 +289,10 @@ impl WorkerPool {
 
     /// Dispatch a V2 execute request, forwarding intermediate progress events
     /// through an optional async channel.
+    #[instrument(
+        skip_all,
+        fields(request_id = %request.request_id),
+    )]
     pub async fn dispatch_execute_v2_with_progress(
         &self,
         lang: impl Into<WorkerLanguage>,
@@ -348,6 +352,14 @@ impl WorkerPool {
     /// stdio workers. For TCP workers, multiple callers share one worker via
     /// concurrent dispatch. For stdio workers, uses the existing
     /// `SharedGpuWorker` pattern.
+    #[instrument(
+        skip_all,
+        fields(
+            target = %target.label(),
+            lang = %lang,
+            request_id = %request.request_id,
+        ),
+    )]
     async fn dispatch_gpu_execute_v2(
         &self,
         target: &WorkerTarget,

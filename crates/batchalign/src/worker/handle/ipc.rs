@@ -13,7 +13,7 @@ use crate::worker::{
     WorkerHealthResponse,
 };
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use super::WorkerHandle;
 use super::protocol::{
@@ -22,6 +22,7 @@ use super::protocol::{
 
 impl WorkerHandle {
     /// Serialize and write a JSON-lines request to the worker's stdin.
+    #[instrument(skip_all, fields(pid = %self.pid))]
     pub(super) async fn write_request(
         &mut self,
         request: &WorkerRequest<'_>,
@@ -39,6 +40,7 @@ impl WorkerHandle {
     /// Skips empty lines and non-JSON noise (up to
     /// [`MAX_RESPONSE_STDOUT_NOISE_LINES`]). On pipe errors or EOF, drains
     /// stderr for diagnostic output before returning the error.
+    #[instrument(skip_all, fields(pid = %self.pid))]
     pub(super) async fn read_response(&mut self) -> Result<WorkerResponse, WorkerError> {
         let mut skipped_noise_lines = 0usize;
 
