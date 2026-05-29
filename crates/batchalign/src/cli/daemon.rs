@@ -179,6 +179,22 @@ pub struct DaemonInfo {
     /// resolved=true and the next invocation kicks the daemon over.
     #[serde(default)]
     pub force_cpu: bool,
+    /// The `--workers` value the daemon was started with, if any.
+    /// `None` means either the operator didn't pass `--workers` at
+    /// startup (so the daemon resolved its own per-job parallelism
+    /// from host facts) or the daemon.json file pre-dates this field.
+    /// Used by the warm-reuse path to fire the `--workers` shadowing
+    /// warning only when the requested value actually differs from
+    /// the running daemon's — eliminating false positives when the
+    /// operator re-passes a value that already matches.
+    #[serde(default)]
+    pub workers: Option<u32>,
+    /// The `--timeout` value the daemon was started with, if any.
+    /// Same backcompat + same false-positive elimination story as
+    /// `workers`, applied to the daemon's per-task ceiling
+    /// (`audio_task_timeout_s`).
+    #[serde(default)]
+    pub audio_task_timeout_s: Option<u64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +299,22 @@ fn runtime_mismatch(info: &DaemonInfo, resolved_force_cpu: bool) -> bool {
     info.force_cpu != resolved_force_cpu
 }
 
+/// True when the operator passed a CLI flag whose value differs from
+/// the running daemon's recorded value. Suppresses the warm-reuse
+/// shadowing warning when the user re-passes a value that already
+/// matches the daemon. A `None` on the daemon side (pre-upgrade
+/// daemon.json that lacks the field) is treated as "unknown" and
+/// triggers the warning so the user still gets a signal — falling
+/// back to the pre-persisted-value behavior on first contact after
+/// upgrade.
+fn flag_shadows_daemon<T: PartialEq>(requested: Option<T>, persisted: Option<T>) -> bool {
+    match (requested, persisted) {
+        (None, _) => false,
+        (Some(_), None) => true,
+        (Some(r), Some(p)) => r != p,
+    }
+}
+
 /// Resolve the daemon's effective `force_cpu` value given the CLI
 /// flag plus the host's deployed `server.yaml` and detected facts.
 ///
@@ -376,18 +408,49 @@ async fn ensure_daemon_locked(
 
             if health_check(info.port).await {
                 // The daemon's per-task ceiling (`audio_task_timeout_s`)
-                // is fixed at startup. Reusing an existing daemon means
-                // the user's `--timeout` only affects client-side
-                // polling, not the worker's actual deadline — without
-                // surfacing that, a request can fail with a timeout
-                // below the requested value and no obvious cause.
-                if timeout.is_some() {
+                // and per-job parallelism (`max_workers_per_job`) are
+                // both fixed at daemon startup. On the warm-reuse path
+                // the user's `--timeout` / `--workers` are silently
+                // discarded — without surfacing that, a request can
+                // fail with a timeout below the requested value, or a
+                // multi-file batch can run serially because the daemon
+                // stayed at workers=1 (the host-facts auto-clamp on
+                // hosts without a usable GPU). Auto-restart is not the
+                // answer here: the running daemon may be processing
+                // other operators' jobs, and killing it would discard
+                // their in-flight work. Warning is honest signal.
+                if flag_shadows_daemon(timeout, info.audio_task_timeout_s) {
+                    let running = info
+                        .audio_task_timeout_s
+                        .map(|s| format!("{s}s"))
+                        .unwrap_or_else(|| "<unknown — daemon pre-dates this field>".to_string());
+                    let requested = timeout
+                        .map(|s| format!("{s}s"))
+                        .unwrap_or_else(|| "<not set>".to_string());
                     eprintln!(
-                        "warning: --timeout applies to new daemons. This run is reusing the \
-                         existing {} daemon, whose per-task ceiling was set at startup. \
-                         To change the daemon's ceiling, run `batchalign3 serve stop` then \
-                         `batchalign3 serve start --timeout <secs>`, or pass `--no-server` \
-                         to bypass the daemon entirely.",
+                        "warning: --timeout {requested} requested but the {} daemon was \
+                         started with --timeout {running}. The per-task ceiling stays at \
+                         the running value for this submission. To apply the new ceiling, \
+                         run `batchalign3 serve stop` then `batchalign3 serve start --timeout \
+                         <secs>`, or pass `--no-server` to bypass the daemon entirely.",
+                        profile.label(),
+                    );
+                }
+                let info_workers = info.workers.map(|n| n as usize);
+                if flag_shadows_daemon(workers, info_workers) {
+                    let running = info
+                        .workers
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "<unknown — daemon pre-dates this field>".to_string());
+                    let requested = workers
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "<not set>".to_string());
+                    eprintln!(
+                        "warning: --workers {requested} requested but the {} daemon was \
+                         started with --workers {running}. Per-job parallelism stays at \
+                         the running value for this submission. To apply the new value, \
+                         run `batchalign3 serve stop` then `batchalign3 serve start --workers \
+                         <N>`, or pass `--no-server` to bypass the daemon entirely.",
                         profile.label(),
                     );
                 }
@@ -614,8 +677,19 @@ async fn start_daemon(
     let pid = proc.id();
     // Persist the resolved value, not the CLI raw bool, so future
     // restart decisions compare against the same merged result the
-    // daemon process is actually running with.
-    write_daemon_info_for(profile, dir, pid, port, resolved_force_cpu)?;
+    // daemon process is actually running with. workers/timeout are
+    // captured raw so the warm-reuse warning can name the exact value
+    // the daemon was started with.
+    let persisted_workers = workers.map(|n| n as u32);
+    write_daemon_info_for(
+        profile,
+        dir,
+        pid,
+        port,
+        resolved_force_cpu,
+        persisted_workers,
+        timeout,
+    )?;
 
     if wait_for_health(pid, port).await {
         eprintln!(
@@ -732,6 +806,8 @@ fn write_daemon_info_for(
     pid: u32,
     port: u16,
     force_cpu: bool,
+    workers: Option<u32>,
+    audio_task_timeout_s: Option<u64>,
 ) -> Result<(), CliError> {
     let started_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -748,6 +824,8 @@ fn write_daemon_info_for(
         started_at,
         build_hash: crate::cli::build_hash().to_string(),
         force_cpu,
+        workers,
+        audio_task_timeout_s,
     };
 
     std::fs::create_dir_all(dir)?;
@@ -821,6 +899,28 @@ fn current_version() -> String {
 mod tests {
     use super::*;
 
+    /// Build a `DaemonInfo` with all the unrelated fields filled in,
+    /// so each test can name only what it actually exercises. Keeps the
+    /// individual tests focused on the field they pin.
+    fn info_with(
+        build_hash: String,
+        version: String,
+        force_cpu: bool,
+        workers: Option<u32>,
+        audio_task_timeout_s: Option<u64>,
+    ) -> DaemonInfo {
+        DaemonInfo {
+            pid: 1,
+            port: 8000,
+            version,
+            started_at: 0.0,
+            build_hash,
+            force_cpu,
+            workers,
+            audio_task_timeout_s,
+        }
+    }
+
     #[test]
     fn daemon_info_roundtrip() {
         let info = DaemonInfo {
@@ -830,6 +930,8 @@ mod tests {
             started_at: 1700000000.0,
             build_hash: "1.0.0-abc1234-1700000000".to_string(),
             force_cpu: true,
+            workers: Some(4),
+            audio_task_timeout_s: Some(3600),
         };
         let json = serde_json::to_string(&info).unwrap();
         let back: DaemonInfo = serde_json::from_str(&json).unwrap();
@@ -837,6 +939,8 @@ mod tests {
         assert_eq!(back.port, 54321);
         assert_eq!(back.version, "1.0.0");
         assert_eq!(back.build_hash, "1.0.0-abc1234-1700000000");
+        assert_eq!(back.workers, Some(4));
+        assert_eq!(back.audio_task_timeout_s, Some(3600));
     }
 
     #[test]
@@ -845,55 +949,44 @@ mod tests {
         let json = r#"{"pid": 999, "port": 8000, "version": "1.0.0"}"#;
         let info: DaemonInfo = serde_json::from_str(json).unwrap();
         assert_eq!(info.build_hash, "");
+        // Old state files also lack workers/audio_task_timeout_s — both
+        // must default to None so the flag-shadowing warning falls back
+        // to fire-on-any-passing-the-flag (the pre-persisted behavior).
+        assert_eq!(info.workers, None);
+        assert_eq!(info.audio_task_timeout_s, None);
     }
 
     #[test]
     fn is_stale_detects_build_hash_mismatch() {
-        let info = DaemonInfo {
-            pid: 1,
-            port: 8000,
-            version: current_version(),
-            started_at: 0.0,
-            build_hash: "old-build-hash".to_string(),
-            force_cpu: false,
-        };
+        let info = info_with(
+            "old-build-hash".to_string(),
+            current_version(),
+            false,
+            None,
+            None,
+        );
         // Our build hash is different from "old-build-hash"
         assert!(is_stale(&info));
     }
 
     #[test]
     fn is_stale_falls_back_to_version_when_no_build_hash() {
-        let info = DaemonInfo {
-            pid: 1,
-            port: 8000,
-            version: "0.0.0-fake".to_string(),
-            started_at: 0.0,
-            build_hash: String::new(),
-            force_cpu: false,
-        };
+        let info = info_with(String::new(), "0.0.0-fake".to_string(), false, None, None);
         assert!(is_stale(&info));
 
-        let info_current = DaemonInfo {
-            pid: 1,
-            port: 8000,
-            version: current_version(),
-            started_at: 0.0,
-            build_hash: String::new(),
-            force_cpu: false,
-        };
+        let info_current = info_with(String::new(), current_version(), false, None, None);
         assert!(!is_stale(&info_current));
     }
 
     #[test]
     fn is_stale_same_build_hash() {
-        let info = DaemonInfo {
-            pid: 1,
-            port: 8000,
-            version: current_version(),
-            started_at: 0.0,
-            build_hash: crate::cli::build_hash().to_string(),
-            force_cpu: false,
-        };
+        let info = info_with(
+            crate::cli::build_hash().to_string(),
+            current_version(),
+            false,
+            None,
+            None,
+        );
         assert!(!is_stale(&info));
     }
 
@@ -931,20 +1024,34 @@ mod tests {
     fn write_read_daemon_info_roundtrip() {
         for profile in [DaemonProfile::Main, DaemonProfile::Sidecar] {
             let dir = tempfile::tempdir().unwrap();
-            write_daemon_info_for(profile, dir.path(), 42, 9999, true).unwrap();
+            write_daemon_info_for(profile, dir.path(), 42, 9999, true, Some(6), Some(1800))
+                .unwrap();
             let info = read_daemon_info_for(profile, dir.path()).unwrap();
             assert_eq!(info.pid, 42);
             assert_eq!(info.port, 9999);
             assert_eq!(info.version, current_version());
             assert_eq!(info.build_hash, crate::cli::build_hash());
             assert!(info.force_cpu);
+            assert_eq!(info.workers, Some(6));
+            assert_eq!(info.audio_task_timeout_s, Some(1800));
         }
+    }
+
+    #[test]
+    fn write_read_daemon_info_roundtrip_no_workers_no_timeout() {
+        // Daemon started without --workers or --timeout (the common
+        // server-mode case where host facts pick the parallelism).
+        let dir = tempfile::tempdir().unwrap();
+        write_daemon_info_for(DaemonProfile::Main, dir.path(), 7, 8001, false, None, None).unwrap();
+        let info = read_daemon_info_for(DaemonProfile::Main, dir.path()).unwrap();
+        assert_eq!(info.workers, None);
+        assert_eq!(info.audio_task_timeout_s, None);
     }
 
     #[test]
     fn cleanup_state_file_removes() {
         let dir = tempfile::tempdir().unwrap();
-        write_daemon_info_for(DaemonProfile::Main, dir.path(), 1, 8000, false).unwrap();
+        write_daemon_info_for(DaemonProfile::Main, dir.path(), 1, 8000, false, None, None).unwrap();
         assert!(read_daemon_info_for(DaemonProfile::Main, dir.path()).is_some());
         cleanup_state_file_for(DaemonProfile::Main, dir.path());
         assert!(read_daemon_info_for(DaemonProfile::Main, dir.path()).is_none());
@@ -952,16 +1059,47 @@ mod tests {
 
     #[test]
     fn runtime_mismatch_detects_force_cpu_changes() {
-        let info = DaemonInfo {
-            pid: 1,
-            port: 8000,
-            version: current_version(),
-            started_at: 0.0,
-            build_hash: crate::cli::build_hash().to_string(),
-            force_cpu: false,
-        };
+        let info = info_with(
+            crate::cli::build_hash().to_string(),
+            current_version(),
+            false,
+            None,
+            None,
+        );
         assert!(runtime_mismatch(&info, true));
         assert!(!runtime_mismatch(&info, false));
+    }
+
+    #[test]
+    fn flag_shadows_daemon_silent_when_user_did_not_pass_flag() {
+        // User accepted the daemon's default — never warn, regardless
+        // of what the daemon was started with.
+        assert!(!flag_shadows_daemon::<u32>(None, None));
+        assert!(!flag_shadows_daemon(None, Some(4)));
+    }
+
+    #[test]
+    fn flag_shadows_daemon_silent_when_values_match() {
+        // The whole point of this helper: re-passing a value that
+        // already matches the running daemon must NOT warn.
+        assert!(!flag_shadows_daemon(Some(4), Some(4)));
+        assert!(!flag_shadows_daemon(Some(1800u64), Some(1800u64)));
+    }
+
+    #[test]
+    fn flag_shadows_daemon_warns_on_value_mismatch() {
+        assert!(flag_shadows_daemon(Some(4), Some(1)));
+        assert!(flag_shadows_daemon(Some(3600u64), Some(1800u64)));
+    }
+
+    #[test]
+    fn flag_shadows_daemon_warns_when_persisted_is_unknown() {
+        // Pre-upgrade daemon.json files lack the field → persisted is
+        // None. The user passed a value, so we cannot prove it matches.
+        // Warn (the pre-persisted-value behavior, preserved on first
+        // contact post-upgrade).
+        assert!(flag_shadows_daemon(Some(4), None::<u32>));
+        assert!(flag_shadows_daemon(Some(1800u64), None));
     }
 
     /// `--force-cpu` always wins over the host-facts recommendation,

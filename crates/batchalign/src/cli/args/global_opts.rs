@@ -16,6 +16,13 @@ pub struct GlobalOpts {
 
     /// Maximum concurrent files per job (default: auto-tune; GPU commands
     /// default to 1).
+    ///
+    /// Applies to new daemons (auto-spawned or `--no-server` direct
+    /// runs). When reusing an existing daemon (the common server-mode
+    /// path), the per-job parallelism was fixed at the daemon's startup
+    /// and `--workers` here does NOT override it — pass `--no-server`
+    /// or restart the daemon to change the parallelism. A note is
+    /// printed when `--workers` is provided but reuse is happening.
     #[arg(long, global = true)]
     pub workers: Option<usize>,
 
