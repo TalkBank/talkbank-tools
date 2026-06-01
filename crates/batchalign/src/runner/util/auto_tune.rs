@@ -41,8 +41,24 @@ pub(in crate::runner) fn compute_job_workers(
         return NumWorkers(1);
     }
 
+    // A command is "GPU-heavy" for concurrency purposes only when the
+    // host is actually serving it on a GPU. Under `force_cpu` (Apple
+    // Silicon with MPS excluded, hosts without CUDA, operator-set CPU
+    // mode), all commands run through CPU workers; there is no shared
+    // GPU model process to contend on, so per-job parallelism is bounded
+    // by CPU/thread caps, not by `gpu_thread_pool_size`.
+    //
+    // Without this guard, `--workers N` is silently shadowed: the
+    // operator requests N, `gpu_thread_pool_size = 1` (recommended for
+    // non-functional GPUs) collapses `category_cap` to 1, and the
+    // final clamp ignores the explicit knob. The integration test
+    // `tests/serve_start_workers_persisted.rs` pins the user-visible
+    // symptom; the unit test
+    // `compute_workers_force_cpu_treats_gpu_commands_as_cpu_bound` in
+    // `runner::util` pins the planner-level invariant.
     let is_gpu_heavy = batchalign_types::command_spec::command_spec_for(command).profile
-        == batchalign_types::worker_profile::WorkerProfile::Gpu;
+        == batchalign_types::worker_profile::WorkerProfile::Gpu
+        && !effective.force_cpu;
 
     let by_cpu = std::thread::available_parallelism()
         .map(|p| p.get())

@@ -150,6 +150,35 @@ mod tests {
     }
 
     #[test]
+    fn compute_workers_force_cpu_treats_gpu_commands_as_cpu_bound() {
+        // When the host runs with `force_cpu=true` (Apple Silicon with
+        // MPS excluded, hosts without CUDA, operator-set CPU mode),
+        // GPU-tagged commands like Transcribe execute on CPU workers.
+        // There is no shared GPU model to contend on, so
+        // `gpu_thread_pool_size` must NOT clamp the operator's
+        // explicit `max_workers_per_job`. The integration test
+        // `tests/serve_start_workers_persisted.rs` pins the same
+        // invariant at the CLI subprocess seam; this unit test guards
+        // it at the planner level.
+        let config = ServerConfig {
+            max_workers_per_job: Some(4),
+            // `gpu_thread_pool_size=1` is what
+            // `recommend_gpu_thread_pool_size` returns when the GPU is
+            // not functional; set explicitly so the test does not
+            // depend on the host's GPU state.
+            gpu_thread_pool_size: Some(1),
+            force_cpu: Some(true),
+            ..Default::default()
+        };
+        let effective = effective_for_test(&config);
+        let result = compute_job_workers(ReleasedCommand::Transcribe, 6, &effective, &config);
+        assert!(
+            *result >= 2,
+            "Under force_cpu, --workers 4 must not be clamped by gpu_thread_pool_size=1, got {result}"
+        );
+    }
+
+    #[test]
     fn compute_workers_gpu_commands_respect_medium_tier_cap() {
         let config = ServerConfig {
             memory_tier: Some(crate::types::runtime::MemoryTierKind::Medium),
