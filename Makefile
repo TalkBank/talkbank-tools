@@ -339,20 +339,32 @@ verify:
 	@echo "==> [G15] mdBook build + linkcheck"
 	@$(MAKE) book-check
 
-# Build the unified TalkBank mdBook and run the linkcheck2 backend.
-# The book.toml configures both [output.html] and [output.linkcheck2],
-# so a single `mdbook build` exercises HTML rendering and exhaustive
-# link verification (catching SUMMARY-unreachable targets like the
-# 2026-05-22 batchalign/introduction.md regression). Requires `mdbook`
-# and `mdbook-linkcheck` on PATH; CI installs both, and any local
-# operator running `make verify` must have them installed too.
+# Build the unified TalkBank mdBook and link-check it with lychee.
+#
+# mermaid must be a preprocessor (it rewrites ```mermaid blocks), and no
+# released mdbook-mermaid parses mdBook 0.5's renamed preprocessor wire
+# format, so the diagram-rendering pair is pinned to the 0.4.x era
+# (mdBook 0.4.52 + mdbook-mermaid 0.16.2). Link-checking is decoupled
+# onto lychee, which runs on the built HTML and is independent of
+# mdBook's wire format. The previous mdbook-linkcheck2 renderer only
+# accepts mdBook 0.5's `items` RenderContext, which 0.4.x does not emit,
+# so it could not run alongside mermaid on any single mdBook version.
+# lychee still catches SUMMARY-unreachable targets like the 2026-05-22
+# batchalign/introduction.md regression. `--offline` skips web links;
+# `--root-dir` resolves the 404 page's leading '/'.
 book-check:
 	@command -v mdbook >/dev/null || { \
 		echo "ERROR: mdbook not found on PATH."; \
-		echo "Install: cargo install mdbook mdbook-linkcheck mdbook-mermaid"; \
+		echo "Install: cargo install mdbook@0.4.52 mdbook-mermaid@0.16.2 lychee"; \
+		exit 1; \
+	}
+	@command -v lychee >/dev/null || { \
+		echo "ERROR: lychee not found on PATH."; \
+		echo "Install: cargo install lychee"; \
 		exit 1; \
 	}
 	mdbook build book
+	lychee --offline --root-dir "$(CURDIR)/book/build" "$(CURDIR)/book/build"
 
 # Reference corpus grammar node type coverage
 coverage:

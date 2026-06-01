@@ -20,14 +20,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install mdBook
-        uses: taiki-e/install-action@mdbook
-      - name: Install mdbook-mermaid
-        run: cargo install mdbook-mermaid --locked
-      - name: Install mdbook-linkcheck2
-        run: cargo install mdbook-linkcheck2 --locked
+      # Book toolchain. mdBook + mdbook-mermaid are pinned to the 0.4.x era:
+      # the mermaid preprocessor is protocol-sensitive to mdBook's wire format
+      # and no released mdbook-mermaid supports mdBook 0.5. Link-checking is
+      # decoupled onto lychee, which runs on the built HTML and is independent
+      # of mdBook's wire format (the old mdbook-linkcheck2 renderer only
+      # accepts mdBook 0.5's `items` RenderContext, which 0.4.x does not emit).
+      - name: Install mdbook + mdbook-mermaid + lychee
+        run: |
+          cargo install \
+            mdbook@0.4.52 \
+            mdbook-mermaid@0.16.2 \
+            lychee@0.24.2 \
+            --locked
       - name: Build book
         run: mdbook build book
+      - name: Link-check book (lychee, offline)
+        run: lychee --offline --root-dir "${GITHUB_WORKSPACE}/book/build" "${GITHUB_WORKSPACE}/book/build"
       - name: Test book code blocks (fence-shape regression guard)
         # Every Rust block in the book is currently rust,ignore (mdbook
         # test can't disambiguate workspace crate variants in
