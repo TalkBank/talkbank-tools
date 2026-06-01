@@ -28,15 +28,13 @@ mod cli_common;
 
 use batchalign::api::{FilePayload, JobInfo, JobSubmission, NumSpeakers, ReleasedCommand};
 use batchalign::api::{LanguageCode3, LanguageSpec};
-use batchalign::options::{
-    AsrEngineName, CommandOptions, CommonOptions, TranscribeOptions,
-};
+use batchalign::options::{AsrEngineName, CommandOptions, CommonOptions, TranscribeOptions};
 
 use cli_common::{CliHarness, poll_job_done, resolve_python};
 
-/// Pin the observable Spencer saw broken: `serve start --workers 4`
-/// followed by a 6-file batch must result in `JobInfo.num_workers >= 2`
-/// (ideally `Some(4)`).
+/// Pin the user-visible invariant: `serve start --workers 4`
+/// followed by a 6-file batch must result in
+/// `JobInfo.num_workers == Some(4)`.
 ///
 /// A 6-file batch is deliberately above the single-file `num_workers=1`
 /// floor: `granted_workers` cannot exceed file count, so `<= 4 files`
@@ -55,11 +53,9 @@ async fn serve_start_workers_propagates_to_submitted_job_num_workers() {
     // running on the operator's machine. Range chosen to be high and
     // unlikely to overlap other tests.
     let port: u16 = 19500 + (std::process::id() as u16 % 500);
-    let config = format!(
-        "host: 127.0.0.1\nport: {port}\nwarmup_commands: []\nauto_daemon: false\n"
-    );
-    std::fs::write(harness.server_config_path(), &config)
-        .expect("write server.yaml");
+    let config =
+        format!("host: 127.0.0.1\nport: {port}\nwarmup_commands: []\nauto_daemon: false\n");
+    std::fs::write(harness.server_config_path(), &config).expect("write server.yaml");
 
     // Explicit background-mode `serve start --workers 4`. NOT
     // `transcribe`, which would go through the separate
@@ -178,13 +174,8 @@ async fn serve_start_workers_propagates_to_submitted_job_num_workers() {
     );
 }
 
-async fn wait_for_health(
-    client: &reqwest::Client,
-    base_url: &str,
-    timeout_s: u64,
-) -> bool {
-    let deadline =
-        std::time::Instant::now() + std::time::Duration::from_secs(timeout_s);
+async fn wait_for_health(client: &reqwest::Client, base_url: &str, timeout_s: u64) -> bool {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_s);
     while std::time::Instant::now() < deadline {
         if let Ok(resp) = client.get(format!("{base_url}/health")).send().await
             && resp.status().is_success()
