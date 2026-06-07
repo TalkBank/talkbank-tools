@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use batchalign::api::{
-    JobInfo, JobStatus, JobSubmission, LanguageSpec, NumSpeakers, ReleasedCommand,
-};
+use batchalign::api::{JobInfo, JobStatus, JobSubmission, NumSpeakers, ReleasedCommand};
 use batchalign::options::CommandOptions;
+
+use super::submission_lang;
 
 /// Submit a paths-mode job to a live server and return the completed job info
 /// plus the content of the output files.
@@ -24,8 +24,7 @@ pub async fn submit_paths_and_complete(
 
     let submission = JobSubmission {
         command,
-        lang: LanguageSpec::try_from(lang)
-            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+        lang: submission_lang(command, lang),
         num_speakers: NumSpeakers(1),
         files: vec![],
         media_files: vec![],
@@ -127,8 +126,7 @@ pub async fn submit_paths_and_complete_direct(
 
     let submission = JobSubmission {
         command,
-        lang: LanguageSpec::try_from(lang)
-            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+        lang: submission_lang(command, lang),
         num_speakers: NumSpeakers(1),
         files: vec![],
         media_files: vec![],
@@ -215,8 +213,7 @@ pub async fn submit_paths_with_before_and_complete_direct(
 
     let submission = JobSubmission {
         command,
-        lang: LanguageSpec::try_from(lang)
-            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+        lang: submission_lang(command, lang),
         num_speakers: NumSpeakers(1),
         files: vec![],
         media_files: vec![],

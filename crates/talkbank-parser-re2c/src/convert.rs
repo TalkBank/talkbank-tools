@@ -114,12 +114,21 @@ fn body_item_to_word_content(item: &WordBodyItem<'_>) -> WordContent {
 
 /// Compute cleaned_text from word body items.
 /// Only Text and Shortening contribute; all markers are stripped.
+///
+/// `↫ ... ↫` (CA segment repetition) brackets a stuttered repeated segment that
+/// is not lexical: per the CHAT manual, `↫b-b-b↫boy` is the word "boy". Text
+/// between a `↫` pair is dropped. This mirrors `Word::compute_cleaned_text` in
+/// `talkbank-model`; keep the two in sync.
 fn compute_cleaned_text(body: &[WordBodyItem<'_>]) -> String {
     let mut cleaned = String::new();
+    let mut in_segment_repetition = false;
     for item in body {
         match item {
-            WordBodyItem::Text(s) => cleaned.push_str(s),
-            WordBodyItem::Shortening(s) => cleaned.push_str(s),
+            WordBodyItem::CaDelimiter(CaDelimiterKind::SegmentRepetition) => {
+                in_segment_repetition = !in_segment_repetition;
+            }
+            WordBodyItem::Text(s) if !in_segment_repetition => cleaned.push_str(s),
+            WordBodyItem::Shortening(s) if !in_segment_repetition => cleaned.push_str(s),
             _ => {}
         }
     }

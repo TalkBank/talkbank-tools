@@ -4,7 +4,10 @@ use super::fixtures::{
     DIRECT_ENG_AFTER_INCREMENTAL, DIRECT_ENG_BEFORE_INCREMENTAL, DIRECT_ENG_FILE_A,
     DIRECT_ENG_FILE_B, DIRECT_SPEAKER_FATHER, DIRECT_SPEAKER_MOTHER,
 };
-use super::helpers::{count_ast_mor_tiers, has_mor_tier, parse_output, strip_ba3_comments};
+use super::helpers::{
+    count_ast_mor_tiers, find_mor_line_for, has_mor_tier, minimal_chat, parse_output,
+    strip_ba3_comments,
+};
 use crate::common::{
     LiveDirectJobClient, assert_completed_without_errors, require_live_direct_warmed,
 };
@@ -21,6 +24,70 @@ fn default_morphotag_options() -> CommandOptions {
 
         ..Default::default()
     })
+}
+
+/// CA segment-repetition delimiter `↫` (U+21AB, `ca_segment_repetition` in the
+/// chatter spec) annotates a repeated word onset produced by a child who
+/// stutters: `↫sch↫schaap` is the Dutch word "schaap" (sheep) with the repeated
+/// onset "sch" marked. The repeated fragment and the CA delimiters are not
+/// lexical material; morphotag must analyze the underlying word "schaap", never
+/// the glued surface "schschaap".
+///
+/// Regression: BA3's word collection failed to strip the CA segment-repetition
+/// delimiter before sending the token to Stanza, so on FluencyBank stuttering
+/// corpora it tagged garbled forms like `noun|schschaap`. BA2 handled this
+/// correctly. This is the top-level (end-to-end morphotag) boundary test for
+/// that defect; the deterministic unit guard lives alongside the collection code.
+#[tokio::test]
+async fn direct_morphotag_strips_ca_segment_repetition_before_tagging() {
+    let Some(session) = require_live_direct_warmed(
+        InferTask::Morphosyntax,
+        ReleasedCommand::Morphotag,
+        "nld",
+        "Direct session does not support Dutch morphosyntax infer",
+    )
+    .await
+    else {
+        return;
+    };
+    // One Dutch utterance whose sole content word carries the CA
+    // segment-repetition delimiter. Built in-memory per the morphotag-test
+    // idiom (no ad-hoc .cha fixture file). Morphotag is a per-file-language
+    // command, so it is submitted with LanguageSpec::PerFile (language resolved
+    // from the @Languages: nld header), not a job-level lang sentinel.
+    let content = minimal_chat("nld", "CHI", "↫sch↫schaap");
+    let files = vec![FilePayload {
+        filename: "ca_segment_repetition.cha".into(),
+        content: content.into(),
+    }];
+
+    // morphotag is a per-file-language command, so `submit_and_complete_direct`
+    // submits it with LanguageSpec::PerFile (the lang argument is ignored for
+    // per-file commands); language resolves from the @Languages: nld header.
+    let (info, results) = crate::common::submit_and_complete_direct(
+        &session,
+        ReleasedCommand::Morphotag,
+        "nld",
+        files,
+        default_morphotag_options(),
+    )
+    .await;
+    assert_completed_without_errors("ca_segment_repetition_morphotag", &info, &results);
+    assert_eq!(results.len(), 1, "Should produce 1 output file");
+
+    let out = &results[0].content;
+    let mor = find_mor_line_for(out, "schaap")
+        .expect("the utterance containing 'schaap' should have a %mor tier");
+
+    assert!(
+        !mor.contains("schschaap"),
+        "morphotag must strip the CA segment-repetition fragment, not glue it \
+         onto the word; got %mor: {mor}"
+    );
+    assert!(
+        mor.contains("schaap"),
+        "morphotag should analyze the underlying word 'schaap'; got %mor: {mor}"
+    );
 }
 
 /// Morphotag with multiple files verifies batching and independent output

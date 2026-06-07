@@ -529,8 +529,7 @@ pub async fn submit_and_complete(
 ) -> (JobInfo, Vec<FileResult>) {
     let submission = JobSubmission {
         command,
-        lang: LanguageSpec::try_from(lang)
-            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+        lang: submission_lang(command, lang),
         num_speakers: NumSpeakers(1),
         files,
         media_files: vec![],
@@ -579,8 +578,7 @@ pub async fn submit_and_complete_direct(
 ) -> (JobInfo, Vec<FileResult>) {
     let submission = JobSubmission {
         command,
-        lang: LanguageSpec::try_from(lang)
-            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+        lang: submission_lang(command, lang),
         num_speakers: NumSpeakers(1),
         files,
         media_files: vec![],
@@ -599,6 +597,28 @@ pub async fn submit_and_complete_direct(
     let (info, detail) = session.run_submission(submission).await;
     let results = collect_direct_content_results(&detail).await;
     (info, results)
+}
+
+/// Resolve the `LanguageSpec` for a test submission, given the command.
+///
+/// morphotag, translate, and coref have no `--lang` flag and MUST submit
+/// `LanguageSpec::PerFile` (language resolved per file from each `@Languages:`
+/// header); the request validator rejects `Auto`/`Resolved` for them
+/// (`validate_lang_command_pairing`, the 2026-05-03 morphotag incident). Every
+/// other command takes a concrete language (or `auto`), parsed from `lang`.
+///
+/// Centralizing this keeps the per-file-command rule in one place: building a
+/// submission from a bare language string otherwise silently produces
+/// `Resolved(lang)`, which makes morphotag/translate/coref tests panic on a
+/// warmed backend and silently skip everywhere else.
+pub(crate) fn submission_lang(command: ReleasedCommand, lang: &str) -> LanguageSpec {
+    match command {
+        ReleasedCommand::Morphotag | ReleasedCommand::Translate | ReleasedCommand::Coref => {
+            LanguageSpec::PerFile
+        }
+        _ => LanguageSpec::try_from(lang)
+            .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+    }
 }
 
 /// Assert a live-server job completed cleanly without per-file failures.

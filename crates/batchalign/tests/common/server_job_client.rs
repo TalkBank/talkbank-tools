@@ -1,4 +1,4 @@
-use super::poll_job_done;
+use super::{poll_job_done, submission_lang};
 use batchalign::api::{
     FilePayload, JobInfo, JobResultResponse, JobStatus, JobSubmission, LanguageSpec, NumSpeakers,
     ReleasedCommand,
@@ -126,8 +126,7 @@ impl<'a> LiveServerJobClient<'a> {
 
         let submission = JobSubmission {
             command,
-            lang: LanguageSpec::try_from(lang)
-                .expect("test lang must be a valid ISO 639-3 code or \"auto\""),
+            lang: submission_lang(command, lang),
             num_speakers: NumSpeakers(1),
             files: vec![],
             media_files: vec![],

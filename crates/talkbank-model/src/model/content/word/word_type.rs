@@ -282,12 +282,34 @@ impl Word {
     ///
     /// All prosodic/analytical markers (lengthening, stress, CA elements, overlap
     /// points, compound markers, underline markers) are excluded.
+    ///
+    /// # CA segment repetition (`↫`)
+    ///
+    /// The `↫` (U+21AB) CA delimiter is a *paired bracket* around a stuttered,
+    /// repeated segment that is NOT lexical material. Per the CHAT manual's
+    /// Disfluency Transcription chapter, "the ↫ brackets the repetition":
+    /// `↫b-b-b↫boy` is the word "boy" and `↫sch↫schaap` is "schaap". The pair may
+    /// also bracket a repeated *final* segment (`like↫ike-ike↫` → "like"). Text
+    /// (and shortenings) appearing *between* a `↫ … ↫` pair are therefore excluded
+    /// from the cleaned text. This is specific to `SegmentRepetition`; every other
+    /// CA delimiter (`∆` faster, `∇` slower, …) wraps genuinely spoken material
+    /// whose enclosed text IS kept (`∆fast∆` → "fast").
     pub fn compute_cleaned_text(&self) -> String {
+        use super::ca::CADelimiterType;
+
         let mut result = String::new();
+        // Whether iteration is currently between a pair of `↫` segment-repetition
+        // delimiters, whose bracketed (stuttered) content is non-lexical and dropped.
+        let mut in_segment_repetition = false;
         for item in &self.content {
             match item {
-                WordContent::Text(t) => result.push_str(t.as_ref()),
-                WordContent::Shortening(s) => result.push_str(s.as_ref()),
+                WordContent::CADelimiter(delimiter)
+                    if delimiter.delimiter_type == CADelimiterType::SegmentRepetition =>
+                {
+                    in_segment_repetition = !in_segment_repetition;
+                }
+                WordContent::Text(t) if !in_segment_repetition => result.push_str(t.as_ref()),
+                WordContent::Shortening(s) if !in_segment_repetition => result.push_str(s.as_ref()),
                 _ => {}
             }
         }
@@ -341,5 +363,73 @@ impl Word {
         let mut s = String::new();
         let _ = self.write_chat(&mut s);
         s
+    }
+}
+
+#[cfg(test)]
+mod cleaned_text_tests {
+    use super::super::ca::{CADelimiter, CADelimiterType};
+    use super::super::content::{WordContent, WordText};
+    use super::Word;
+
+    fn seg_rep() -> WordContent {
+        WordContent::CADelimiter(CADelimiter::new(CADelimiterType::SegmentRepetition))
+    }
+    fn faster() -> WordContent {
+        WordContent::CADelimiter(CADelimiter::new(CADelimiterType::Faster))
+    }
+    fn text(s: &str) -> WordContent {
+        WordContent::Text(WordText::new_unchecked(s))
+    }
+
+    /// `↫sch↫schaap`: the `↫` pair brackets the repeated onset "sch"; the
+    /// lexical word is "schaap". CHAT manual, Disfluency Transcription:
+    /// "The ↫ brackets the repetition".
+    #[test]
+    fn segment_repetition_initial_onset_excluded() {
+        let word = Word::new_unchecked("↫sch↫schaap", "ignored").with_content(vec![
+            seg_rep(),
+            text("sch"),
+            seg_rep(),
+            text("schaap"),
+        ]);
+        assert_eq!(word.compute_cleaned_text(), "schaap");
+    }
+
+    /// `↫b-b-b↫boy` (manual example): the iterated repeated onset is excluded.
+    #[test]
+    fn segment_repetition_iterated_onset_excluded() {
+        let word = Word::new_unchecked("↫b-b-b↫boy", "ignored").with_content(vec![
+            seg_rep(),
+            text("b-b-b"),
+            seg_rep(),
+            text("boy"),
+        ]);
+        assert_eq!(word.compute_cleaned_text(), "boy");
+    }
+
+    /// `like↫ike-ike↫` (manual): the `↫` pair can mark a repeated FINAL
+    /// segment; the lexical word is "like".
+    #[test]
+    fn segment_repetition_final_segment_excluded() {
+        let word = Word::new_unchecked("like↫ike-ike↫", "ignored").with_content(vec![
+            text("like"),
+            seg_rep(),
+            text("ike-ike"),
+            seg_rep(),
+        ]);
+        assert_eq!(word.compute_cleaned_text(), "like");
+    }
+
+    /// Non-repetition CA delimiters (`∆` faster speech) wrap genuinely spoken
+    /// material, so their enclosed text stays in the cleaned text.
+    #[test]
+    fn faster_delimiter_keeps_enclosed_text() {
+        let word = Word::new_unchecked("∆fast∆", "ignored").with_content(vec![
+            faster(),
+            text("fast"),
+            faster(),
+        ]);
+        assert_eq!(word.compute_cleaned_text(), "fast");
     }
 }
