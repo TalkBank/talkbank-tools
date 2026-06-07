@@ -1,5 +1,7 @@
 # E722: GRA has no ROOT
 
+**Last modified:** 2026-05-30 19:04 EDT
+
 **Last updated:** 2026-04-04 08:15 EDT
 
 ## Description
@@ -17,7 +19,7 @@
 ## Example 1
 
 **Source**: `error_corpus/validation_errors/E722_gra_no_root.cha`
-**Trigger**: No relation with head=0 or head=self (ROOT)
+**Trigger**: `%gra` has no non-terminator ROOT relation while `%mor/%gra` counts still match
 **Expected Error Codes**: E722
 
 ```chat
@@ -28,13 +30,14 @@
 @ID:	eng|corpus|CHI|||||Target_Child|||
 *CHI:	I want .
 %mor:	pro|I v|want .
-%gra:	1|2|SUBJ 2|1|OBJ
+%gra:	1|2|SUBJ 2|3|OBJ 3|0|PUNCT
 @End
 ```
 
 ## Expected Behavior
 
-The validator should report E722 (warning) because the `%gra` tier has no ROOT relation — neither relation has `head=0` or `head=self`.
+The validator should report E722 because the only root relation is the final
+terminator `PUNCT`, which is excluded from the non-terminator ROOT count.
 
 **Trigger**: See example above
 
@@ -44,6 +47,9 @@ See CHAT manual sections on dependent tier formats (%mor, %gra, %pho, etc.). Eac
 
 ## Notes
 
-- The previous example had a trailing ` .` on the `%gra` tier which caused tree-sitter to produce E316 (unparsable content). `%gra` tiers do not have terminators — removed the trailing period to allow the tier to parse correctly so the E722 structural validation can fire.
+- The example must keep `%mor/%gra` counts aligned; otherwise E720 masks the
+  rootless-graph condition before E722 can fire.
+- A rootless `%gra` tier without a cycle is only possible when the terminator
+  `PUNCT` relation is the sole `head=0` relation.
 - E722 is emitted as a Warning (not Error) since 2026-02-14 due to non-conforming corpus data.
 - Review and enhance this specification as needed

@@ -1,20 +1,22 @@
-# E305: Expected main tier content
+# E305: Missing terminator
+
+**Last modified:** 2026-05-30 19:04 EDT
 
 ## Description
 
-Expected main tier content
+Main tier is missing its required utterance terminator.
 
 ## Metadata
 
 - **Error Code**: E305
 - **Category**: Main tier validation
 - **Level**: utterance
-- **Layer**: parser
+- **Layer**: validation
 
 ## Example 1
 
-**Source**: `E3xx_main_tier_errors/E305_missing_content.cha`
-**Trigger**: Main tier with speaker but no content after colon-tab
+**Source**: `E3xx_main_tier_errors/E305_missing_terminator.cha`
+**Trigger**: Main tier has spoken content but no terminator
 **Expected Error Codes**: E305
 
 ```chat
@@ -23,13 +25,14 @@ Expected main tier content
 @Languages:	eng
 @Participants:	CHI Child
 @ID:	eng|corpus|CHI|||||Child|||
-*CHI:
+*CHI:	hello world
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The parser should recover the utterance content, and validation should report
+that the utterance is missing a terminator.
 
 ## CHAT Rule
 

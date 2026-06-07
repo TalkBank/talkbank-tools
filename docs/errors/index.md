@@ -262,7 +262,7 @@ Syntax error - caret at word start
 
 ## validation (E2x)
 
-A parsed Word object has empty content — the word node exists in the CST but contains no text.
+A parsed Word object has empty content, the word node exists in the CST but contains no text.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -310,19 +310,19 @@ Unexpected node - helper function
 
 ## Main tier validation (E3x)
 
-Expected terminator not found
+Main tier line is missing its speaker code after .
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E304](E304.md) | E304: Expected terminator not found | error | ✅ |
+| [E304](E304.md) | E304: Missing speaker code | error | ⏳ |
 
 ## Main tier validation (E3x)
 
-Expected main tier content
+Main tier is missing its required utterance terminator.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E305](E305.md) | E305: Expected main tier content | error | ✅ |
+| [E305](E305.md) | E305: Missing terminator | error | ✅ |
 
 ## Main tier validation (E3x)
 
@@ -1274,7 +1274,7 @@ The %mor tier has a terminator but the main tier does not, or vice versa.One tie
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E707](E707.md) | E707: Mor terminator presence mismatch | error | ✅ |
+| [E707](E707.md) | E707: Mor terminator presence mismatch | error | ⏳ |
 
 ## Dependent tier parsing (E7x)
 

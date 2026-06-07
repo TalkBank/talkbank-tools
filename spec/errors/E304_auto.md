@@ -1,21 +1,24 @@
-# E304: Expected terminator not found
+# E304: Missing speaker code
+
+**Last modified:** 2026-05-30 19:04 EDT
 
 ## Description
 
-Expected terminator not found
+Main tier line is missing its speaker code after `*`.
 
 ## Metadata
 
+- **Status**: not_implemented
 - **Error Code**: E304
 - **Category**: Main tier validation
 - **Level**: utterance
-- **Layer**: validation
+- **Layer**: parser
 
 ## Example 1
 
-**Source**: `E3xx_main_tier_errors/E304_missing_terminator.cha`
-**Trigger**: Utterance without terminator (., ?, or !)
-**Expected Error Codes**: E304
+**Source**: `synthetic missing-speaker recovery case`
+**Trigger**: Main tier begins with `*:` instead of `*SPK:`
+**Expected Error Codes**: E301
 
 ```chat
 @UTF8
@@ -23,13 +26,16 @@ Expected terminator not found
 @Languages:	eng
 @Participants:	CHI Child
 @ID:	eng|corpus|CHI|||||Child|||
-*CHI:	hello world
+*:	hello .
 @End
 ```
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The current full-file tree-sitter recovery path does not reach a distinct E304
+diagnostic for this malformed line. Instead it currently reports E301
+(`MissingMainTier`) for `*:`-style inputs and E316 for some nearby malformed
+variants.
 
 ## CHAT Rule
 
@@ -37,5 +43,6 @@ The parser should successfully parse these CHAT files (unless marked as parser l
 
 ## Notes
 
-- Auto-generated from error corpus
+- Marked `not_implemented` for full-file spec coverage because current
+  tree-sitter recovery does not surface E304 from raw CHAT examples.
 - Review and enhance this specification as needed

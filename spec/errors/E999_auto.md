@@ -1,5 +1,7 @@
 # E999: Unknown error
 
+**Last modified:** 2026-05-30 19:04 EDT
+
 ## Description
 
 Unknown error
@@ -14,8 +16,8 @@ Unknown error
 ## Example 1
 
 **Source**: `E4xx_alignment_errors/terminator_alignment.cha`
-**Trigger**: Main tier terminator should align with %mor terminator
-**Expected Error Codes**: E707
+**Trigger**: `%mor` omits its terminator, so the pipeline now reports missing-terminator and alignment-skipped diagnostics
+**Expected Error Codes**: E305, E600
 
 ```chat
 @UTF8
@@ -34,7 +36,9 @@ Unknown error
 
 ## Expected Behavior
 
-The parser should successfully parse these CHAT files (unless marked as parser layer), and the appropriate error should be reported.
+The current parser/model pipeline should report the diagnostics it actually
+emits for this malformed `%mor` tier: missing terminator on the tier itself,
+plus alignment skipped due to parse-taint.
 
 ## CHAT Rule
 

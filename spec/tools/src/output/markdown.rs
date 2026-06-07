@@ -47,7 +47,7 @@ pub fn generate_error_page(error: &ErrorDefinition, status: &str) -> String {
 
     // Status callout (blockquote) placed before severity so it is the first
     // operational fact the reader sees.
-    output.push_str(&format!("> {} — ", badge));
+    output.push_str(&format!("> {}, ", badge));
     output.push_str(status_callout(status));
 
     // Metadata
@@ -152,7 +152,7 @@ mod tests {
         assert!(output.contains("IllegalUntranscribed"));
         assert!(output.contains("**Severity**: error"));
         assert!(output.contains("**Status**: ✅ Active"));
-        assert!(output.contains("> ✅ Active — This check is active in the validator."));
+        assert!(output.contains("> ✅ Active, This check is active in the validator."));
     }
 
     /// Not-implemented specs should be clearly marked as planned so readers
@@ -172,7 +172,7 @@ mod tests {
 
         let output = generate_error_page(&error, "not_implemented");
         assert!(output.contains("**Status**: ⏳ Planned"));
-        assert!(output.contains("> ⏳ Planned — "));
+        assert!(output.contains("> ⏳ Planned, "));
         assert!(output.contains("not yet enforced by the validator"));
     }
 }
