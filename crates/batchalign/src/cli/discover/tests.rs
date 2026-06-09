@@ -20,6 +20,20 @@ fn discover_filters_by_extension() {
 }
 
 #[test]
+fn discover_skips_appledouble_sidecars() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("real.cha"), "@Begin\n*CHI:\thello .\n@End").unwrap();
+    fs::write(dir.path().join("._real.cha"), b"\0\x05AppleDouble metadata").unwrap();
+
+    let (files, outputs) = discover_client_files(dir.path(), out.path(), &["cha"]).unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(outputs.len(), 1);
+    assert_eq!(files[0].file_name().unwrap(), "real.cha");
+    assert_eq!(outputs[0].file_name().unwrap(), "real.cha");
+}
+
+#[test]
 fn discover_skips_dummy() {
     let dir = tempfile::tempdir().unwrap();
     let out = tempfile::tempdir().unwrap();

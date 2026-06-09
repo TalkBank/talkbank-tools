@@ -34,6 +34,12 @@ pub fn is_dummy_chat(path: &Path) -> bool {
         || text.contains("This is a dummy file to permit playback from the TalkBank browser")
 }
 
+fn is_appledouble_sidecar(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("._"))
+}
+
 /// Discover files from a single directory for server dispatch.
 ///
 /// Walks `in_dir` recursively, filters by `extensions`, sorts by file size
@@ -54,6 +60,9 @@ pub fn discover_client_files(
             continue;
         }
         let path = entry.path();
+        if is_appledouble_sidecar(path) {
+            continue;
+        }
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
