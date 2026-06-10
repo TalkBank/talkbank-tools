@@ -24,12 +24,20 @@ miss.
 from __future__ import annotations
 
 import functools
+import json
 import logging
+import os
+import urllib.request
 from dataclasses import dataclass, field
 
 from batchalign.worker._progress import emit_download_event
 
 L = logging.getLogger(__name__)
+
+# How long the one-time, per-worker resources.json refresh may block before
+# giving up and using the cached manifest. Short so an offline or slow-network
+# worker boots promptly instead of hanging on catalog I/O (Rule 11).
+_MANIFEST_REFRESH_TIMEOUT_S = 10
 
 
 class StanzaCatalogDownloadError(RuntimeError):
@@ -209,6 +217,86 @@ def resolve_stanza_version(loaded_version: str = "") -> str:
         return getattr(stanza, "__version__", "unknown")
     except (ImportError, ModuleNotFoundError):
         return "unknown"
+
+
+def refresh_resources_manifest_if_present() -> None:
+    """Re-fetch a present-but-stale Stanza ``resources.json`` from upstream.
+
+    Every worker pipeline is built with ``DownloadMethod.REUSE_RESOURCES``,
+    which reuses the cached manifest and never re-fetches it, then verifies any
+    freshly-downloaded model against that cached manifest. When upstream
+    re-publishes a model under the *same* resources version (Stanford did this
+    to four lemma models under 1.12.0 in 2026-06), a worker still holding the
+    pre-publish manifest fails Stanza's integrity check on the next download
+    (``md5 for ... is X, expected Y``) and the job dies. Refreshing the manifest
+    keeps it in lockstep with the models downloaded against it.
+
+    This is a **worker-startup action**, called once from the worker bootstrap
+    (``_main.main``), not from ``get_cached_capability_table``, which is also
+    invoked by tests and tooling that must not trigger a network fetch or mutate
+    the real on-disk cache.
+
+    Guarded for the fleet:
+
+    - Only acts when a manifest is already present. The missing case is the
+      fresh-install bootstrap handled by ``_bootstrap_and_retry``; its download
+      already fetches the current manifest, so no skew is possible there.
+    - Any failure (offline, timeout, HTTP error, malformed body, disk error) is
+      logged and swallowed, leaving the cached manifest in place. An air-gapped
+      worker therefore behaves exactly as before the fix (plain
+      ``REUSE_RESOURCES`` semantics); the refresh must never break a worker.
+    """
+    import stanza.resources.common as src
+
+    manifest_path = os.path.join(src.DEFAULT_MODEL_DIR, "resources.json")
+    if not os.path.exists(manifest_path):
+        return
+
+    # Mirror Stanza's own URL construction (download_resources_json):
+    # ``<resources_url>/resources_<version>.json``. Reading the module
+    # constants keeps us aligned with whatever STANZA_RESOURCES_URL /
+    # STANZA_RESOURCES_VERSION the worker environment is configured with.
+    url = (
+        f"{src.DEFAULT_RESOURCES_URL}/"
+        f"resources_{src.DEFAULT_RESOURCES_VERSION}.json"
+    )
+    # Rule 11 (time transparency): this is an external blocking call (up to the
+    # timeout), so frame it on the progress channel even though it is usually
+    # sub-second.
+    emit_download_event(
+        stage="refreshing_stanza_catalog",
+        user_message="Checking for Stanza resource catalog updates (~1 MB)…",
+    )
+    outcome_message = "Using cached Stanza resource catalog."
+    try:
+        with urllib.request.urlopen(
+            url, timeout=_MANIFEST_REFRESH_TIMEOUT_S
+        ) as response:
+            data = response.read()
+        json.loads(data)  # validate before installing: never persist a torn body or HTML error page
+
+        # Atomic install so a concurrent reader never observes a partial file.
+        tmp_path = manifest_path + ".tmp-refresh"
+        with open(tmp_path, "wb") as fout:
+            fout.write(data)
+            fout.flush()
+            os.fsync(fout.fileno())
+        os.replace(tmp_path, manifest_path)
+
+        outcome_message = "Stanza resource catalog up to date."
+        L.info("Refreshed Stanza resources.json from %s", url)
+    except Exception as exc:
+        # Best-effort, fail-open to the cached manifest: a refresh must never
+        # break a worker. Offline / timeout / HTTP / JSON / disk errors all
+        # fall back to pre-fix REUSE_RESOURCES behavior.
+        L.warning(
+            "Stanza resources.json refresh skipped; using cached manifest (%s)",
+            exc,
+        )
+    emit_download_event(
+        stage="refreshing_stanza_catalog_complete",
+        user_message=outcome_message,
+    )
 
 
 @functools.lru_cache(maxsize=1)

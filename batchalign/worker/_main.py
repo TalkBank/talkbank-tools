@@ -32,6 +32,9 @@ from batchalign.worker._model_loading import (
     parse_engine_overrides,
     resolve_injected_revai_api_key,
 )
+from batchalign.worker._stanza_capabilities import (
+    refresh_resources_manifest_if_present,
+)
 from batchalign.worker._types import InferTask, WorkerProfile
 from batchalign.worker._protocol import (
     _print_ready,
@@ -192,6 +195,14 @@ def main() -> None:
     except ValueError as error:
         parser.error(str(error))  # pragma: no cover - argparse exits
     _state.bootstrap = bootstrap
+
+    # One-time, per-worker refresh of a present-but-stale Stanza resources.json,
+    # before any model is loaded, so downloads later in this worker's life verify
+    # against a current manifest instead of a cached one upstream may have
+    # superseded (the 2026-06 lemma re-publish skew). Skipped for the model-free
+    # test-echo worker. Best-effort and offline-safe; never fails the worker.
+    if not args.test_echo:
+        refresh_resources_manifest_if_present()
 
     if args.test_echo:
         if bootstrap.profile is not None:
