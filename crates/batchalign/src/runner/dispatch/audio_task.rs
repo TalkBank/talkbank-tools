@@ -327,7 +327,8 @@ mod tests {
             _job_id: &JobId,
             _final_status: crate::api::JobStatus,
             _completed_at: UnixTimestamp,
-        ) {
+        ) -> Option<String> {
+            None
         }
     }
 

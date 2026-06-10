@@ -83,12 +83,15 @@ pub(crate) trait RunnerEventSink: Send + Sync {
     async fn requeue_job_after_memory_gate(&self, job_id: &JobId, retry_at: UnixTimestamp);
     async fn bump_deferred_work_units(&self);
     async fn bump_memory_gate_aborts(&self);
+    /// Finalize the job and return its job-level failure reason (the aggregated
+    /// per-file errors), or `None` for a non-failed job, so the runner can log
+    /// the outcome at the right level.
     async fn finalize_job(
         &self,
         job_id: &JobId,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
-    );
+    ) -> Option<String>;
 }
 
 /// Store-backed implementation of the runner event sink.
@@ -286,9 +289,9 @@ impl RunnerEventSink for StoreRunnerEventSink {
         job_id: &JobId,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
-    ) {
+    ) -> Option<String> {
         self.store
             .finalize_job(job_id, final_status, completed_at)
-            .await;
+            .await
     }
 }

@@ -150,7 +150,8 @@ impl RunnerEventSink for RecordingSink {
         _job_id: &JobId,
         _final_status: JobStatus,
         _completed_at: UnixTimestamp,
-    ) {
+    ) -> Option<String> {
+        None
     }
 }
 

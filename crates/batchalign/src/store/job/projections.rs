@@ -106,6 +106,7 @@ impl Job {
             total_files: self.total_files() as i64,
             completed_files: self.execution.completed_files,
             error_files,
+            error: self.execution.error.clone(),
             submitted_at: Some(ts_iso(self.schedule.submitted_at)),
             submitted_by: if self.source.submitted_by.is_empty() {
                 None

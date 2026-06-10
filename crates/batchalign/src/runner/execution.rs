@@ -382,14 +382,27 @@ async fn run_hosted_job(
     let completed_at = unix_now();
     let final_status = finalize_status(&completion, forced_errors);
 
-    sink.finalize_job(job_id, final_status, completed_at).await;
+    let failure_reason = sink.finalize_job(job_id, final_status, completed_at).await;
 
-    info!(
-        job_id = %job_id,
-        correlation_id = %correlation_id,
-        status = %final_status,
-        "Job finished"
-    );
+    // A failed job logs its aggregated reason at ERROR so the cause is visible
+    // in server.log, not just in jobs.db / the CLI response (the 2026-06
+    // silent-failure bug). Non-failed jobs (and the rare failure with no
+    // per-file reason recorded) stay at INFO.
+    match failure_reason {
+        Some(reason) => error!(
+            job_id = %job_id,
+            correlation_id = %correlation_id,
+            status = %final_status,
+            reason = %reason,
+            "Job finished"
+        ),
+        None => info!(
+            job_id = %job_id,
+            correlation_id = %correlation_id,
+            status = %final_status,
+            "Job finished"
+        ),
+    }
 
     Ok(HostedJobRunOutcome::Completed)
 }

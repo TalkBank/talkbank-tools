@@ -337,6 +337,12 @@ pub struct JobListItem {
     /// Number of files that ended in `Error` status.
     #[serde(default)]
     pub error_files: i64,
+    /// Job-level error message when the job failed (the aggregated per-file
+    /// failure reason). Surfaces the cause in the `/jobs` list and the live
+    /// dashboard/TUI feed instead of a bare "failed". `None` for non-failed
+    /// jobs. Distinct from per-file errors and from the `error_files` count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
     /// ISO 8601 timestamp of submission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub submitted_at: Option<String>,

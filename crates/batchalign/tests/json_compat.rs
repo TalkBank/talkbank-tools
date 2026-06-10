@@ -240,6 +240,7 @@ fn snapshot_job_list_item() {
         total_files: 10,
         completed_files: 10,
         error_files: 1,
+        error: None,
         submitted_at: Some("2026-01-15T10:00:00Z".into()),
         submitted_by: Some("192.168.1.1".into()),
         submitted_by_name: Some("Lab-Mac-1".into()),

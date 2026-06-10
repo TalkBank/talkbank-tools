@@ -486,6 +486,10 @@ impl JobRegistry {
     }
 
     /// Finalize one job and return the summary row for live notifications.
+    ///
+    /// The returned `JobListItem` carries the job-level `error` (populated by
+    /// `to_list_item` from the reason `finalize` aggregated), so the caller can
+    /// both broadcast it and persist it without a separate read.
     pub(crate) async fn finalize_job(
         &self,
         job_id: &JobId,

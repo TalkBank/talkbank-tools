@@ -22,6 +22,8 @@
 
 use tokio_util::sync::CancellationToken;
 
+use std::collections::BTreeSet;
+
 use crate::api::{FileStatusKind, JobStatus, UnixTimestamp};
 
 use super::Job;
@@ -157,6 +159,15 @@ impl Job {
     /// Finalize the job after all file tasks have stopped mutating its state.
     pub(crate) fn finalize(&mut self, final_status: JobStatus, completed_at: UnixTimestamp) {
         self.execution.status = final_status;
+        // When finalizing as Failed, surface WHY: aggregate the per-file error
+        // messages into the job-level error so the dashboard, jobs.db, and the
+        // CLI all show a reason instead of a bare "failed". Without this the
+        // job-level error stays `None` even though `file_statuses` carry the
+        // real cause, the 2026-06 silent-failure bug, where a failed job
+        // recorded an empty `error` column and no job-level reason.
+        if final_status == JobStatus::Failed {
+            self.set_failure_reason_from_files();
+        }
         self.execution.batch_progress = None;
         self.schedule.completed_at = Some(completed_at);
         self.schedule.next_eligible_at = None;
@@ -166,6 +177,52 @@ impl Job {
             .values()
             .filter(|file_status| file_status.status.is_terminal())
             .count() as i64;
+    }
+
+    /// Build a job-level failure reason from the terminally-errored files.
+    ///
+    /// Distinct per-file messages are de-duplicated (the common case is many
+    /// files hitting the identical worker error, e.g. a bad Stanza model) and
+    /// sorted for a deterministic string. When errored files recorded no
+    /// message, falls back to a count (`"N file(s) failed"`) rather than an
+    /// empty reason. Returns `None` only when no file is terminally errored.
+    fn aggregate_file_failure_reason(&self) -> Option<String> {
+        let mut messages: BTreeSet<&str> = BTreeSet::new();
+        let mut failed_files = 0usize;
+        for file_status in self.execution.file_statuses.values() {
+            if file_status.status == FileStatusKind::Error {
+                failed_files += 1;
+                if let Some(message) = file_status.error.as_deref() {
+                    messages.insert(message);
+                }
+            }
+        }
+        if failed_files == 0 {
+            return None;
+        }
+        let joined = messages.into_iter().collect::<Vec<_>>().join("; ");
+        Some(if joined.is_empty() {
+            format!("{failed_files} file(s) failed")
+        } else if failed_files > 1 {
+            format!("{failed_files} file(s) failed: {joined}")
+        } else {
+            joined
+        })
+    }
+
+    /// Set the job-level error from the aggregated per-file failure reason,
+    /// unless one was already set directly (e.g. by [`Job::fail`]).
+    ///
+    /// The single idempotent entry point that both [`Job::finalize`] and
+    /// [`Job::reconcile_recovered_runtime_state`] use, so a Failed job always
+    /// carries its cause regardless of which terminal path it took (normal
+    /// finalization or recovery after a server bounce).
+    fn set_failure_reason_from_files(&mut self) {
+        if self.execution.error.is_none()
+            && let Some(reason) = self.aggregate_file_failure_reason()
+        {
+            self.execution.error = Some(reason);
+        }
     }
 
     /// Reset the job so unfinished files may run again from queued state.
@@ -240,6 +297,12 @@ impl Job {
             } else {
                 JobStatus::Completed
             };
+            // Same as `finalize`: a recovered job that lands in Failed must
+            // surface its cause, not an empty error (the 2026-06 silent-failure
+            // bug, on the startup-recovery path).
+            if all_errored {
+                self.set_failure_reason_from_files();
+            }
             self.execution.completed_files = self.total_files() as i64;
             self.schedule.next_eligible_at = None;
             self.clear_lease();
@@ -381,5 +444,65 @@ mod tests {
         }
         assert!(job.all_terminal_files_failed());
         assert!(job.any_terminal_files_failed());
+    }
+
+    /// A job that fails with terminally-errored files that recorded NO message
+    /// still gets a job-level reason ("N file(s) failed"), not an empty error.
+    #[test]
+    fn finalize_failed_records_count_when_files_have_no_message() {
+        let mut job = running_job_fixture();
+        let file = job
+            .execution
+            .file_statuses
+            .get_mut("job-file.cha")
+            .expect("fixture file present");
+        file.status = FileStatusKind::Error;
+        file.error = None;
+
+        job.finalize(JobStatus::Failed, UnixTimestamp(1_778_518_060.0));
+
+        assert_eq!(job.execution.status, JobStatus::Failed);
+        let reason = job.execution.error.as_deref().expect(
+            "failed job with errored files must record a reason even without \
+             per-file messages",
+        );
+        assert!(
+            reason.contains("file(s) failed"),
+            "expected a count-based reason, got: {reason}"
+        );
+    }
+
+    /// Recovery of an interrupted/running job whose files all terminal-errored
+    /// must surface the failure reason on the job-level error, the same as
+    /// `finalize` does; a server bounce must not drop the cause.
+    #[test]
+    fn reconcile_recovered_failed_job_records_file_failure_reason() {
+        let mut job = running_job_fixture();
+        let started = UnixTimestamp(1_778_517_900.0);
+        let finished = UnixTimestamp(1_778_518_000.0);
+        assert!(job.mark_file_processing("job-file.cha", started));
+        assert!(job.mark_file_error(
+            "job-file.cha",
+            &FileFailureRecord {
+                message: "worker bootstrap error: md5 mismatch".into(),
+                category: FailureCategory::WorkerBootstrap,
+                finished_at: finished,
+            },
+        ));
+        assert!(
+            job.execution.error.is_none(),
+            "precondition: job-level error unset before recovery"
+        );
+
+        let disposition = job.reconcile_recovered_runtime_state();
+
+        assert!(matches!(disposition, RecoveryDisposition::Failed));
+        assert_eq!(job.execution.status, JobStatus::Failed);
+        let reason = job
+            .execution
+            .error
+            .as_deref()
+            .expect("recovered failed job must record the aggregated file failure reason");
+        assert!(reason.contains("md5 mismatch"), "got: {reason}");
     }
 }
