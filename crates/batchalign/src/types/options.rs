@@ -135,11 +135,10 @@ impl CommonOptions {
     /// config's default). This ensures `pre_scale_with_overrides` produces
     /// the same key that `dispatch_execute_v2` will look up.
     ///
-    /// Worker-facing, so this MUST use the dispatch override names the
-    /// Python worker accepts, not the persistence wire names: see
-    /// `EngineOverrides::to_dispatch_json_string` (2026-06-11 incident:
-    /// a capability-discovery worker spawned with the persisted
-    /// `{"fa":"cantonese_fa"}` died at bootstrap, failing the job).
+    /// Worker-facing, so this MUST use the dispatch override names, not
+    /// the persistence wire names; see
+    /// `EngineOverrides::to_dispatch_json_string` for the rationale and
+    /// the 2026-06-11 incident.
     pub fn engine_overrides_json(&self) -> String {
         self.engine_overrides.to_dispatch_json_string()
     }
@@ -616,10 +615,9 @@ impl CommandOptions {
     /// The override names here MUST match those in `fa_backend_override_name()`
     /// and `asr_backend_override_name()` in `worker/pool/execute_v2.rs`.
     pub fn dispatch_engine_overrides_json(&self) -> String {
-        // If the user explicitly set engine overrides, those take precedence.
-        // Serialized with dispatch names; the persistence wire names
-        // (`to_json_string`) are rejected by the worker's engine loaders
-        // (the 2026-06-11 four-failed-align-jobs incident).
+        // If the user explicitly set engine overrides, those take
+        // precedence, serialized with dispatch names; see
+        // `EngineOverrides::to_dispatch_json_string`.
         let user = &self.common().engine_overrides;
         if !user.is_empty() {
             return user.to_dispatch_json_string();

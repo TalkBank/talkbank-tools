@@ -96,12 +96,14 @@ pub(super) fn execute_v2_engine_overrides(request: &ExecuteRequestV2) -> Option<
 ///
 /// The result is a `BTreeMap` so the output is deterministic (stable
 /// key order across runs) which keeps the pool key stable for
-/// cache-hit reuse. The function is NOT a thin wrapper over
-/// `EngineOverrides::to_json_string` because the dispatch-override
-/// naming convention (e.g. `{"fa":"wave2vec"}`) intentionally differs
-/// from the engine wire-name format (`{"fa":"wav2vec_fa"}`) the typed
-/// serializer would emit — see `FaEngineName::wire_name()` vs
-/// `dispatch_override_name()`. The OLD code hardcoded
+/// cache-hit reuse. The naming convention here is the dispatch-override
+/// scheme (e.g. `{"fa":"wave2vec"}`), the same one
+/// `EngineOverrides::to_dispatch_json_string` uses at the typed-options
+/// boundary; the two are bound by the
+/// `dispatch_override_names_agree_across_boundaries` contract test
+/// below. (This function is not a wrapper over that method because this
+/// seam starts from `AsrBackendV2`/`FaBackendV2` request payloads, not
+/// from `EngineOverrides`.) The OLD code hardcoded
 /// `format!(r#"{{"asr":"{backend}"}}"#)` here and silently dropped
 /// extras, which was the 2026-05-27 `qwen_model` dispatch bug.
 fn asr_engine_overrides_map(
@@ -180,6 +182,49 @@ mod tests {
             task,
             payload,
             attachments: Vec::new(),
+        }
+    }
+
+    /// Contract test: the dispatch override names emitted at the
+    /// typed-options boundary (`FaEngineName::dispatch_override_name` /
+    /// `AsrEngineName::dispatch_override_name`, used by
+    /// `EngineOverrides::to_dispatch_json_string`) and the names emitted
+    /// at the V2 execute boundary (`fa_backend_override_name` /
+    /// `asr_backend_override_name`) must agree variant-for-variant; both
+    /// feed the same Python engine loaders and the same worker pool keys.
+    /// Prose "MUST match" doc comments were previously the only binding;
+    /// this test makes the binding mechanical. (WhisperX and WhisperOai
+    /// have no V2 backend counterpart, so they have nothing to agree with.)
+    #[test]
+    fn dispatch_override_names_agree_across_boundaries() {
+        use crate::types::engines::{AsrEngineName, FaEngineName};
+
+        for (engine, backend) in [
+            (FaEngineName::Whisper, FaBackendV2::Whisper),
+            (FaEngineName::Wave2Vec, FaBackendV2::Wave2vec),
+            (FaEngineName::Wav2vecCanto, FaBackendV2::Wav2vecCanto),
+        ] {
+            assert_eq!(
+                engine.dispatch_override_name(),
+                fa_backend_override_name(backend),
+                "FA dispatch name skew for {engine:?}"
+            );
+        }
+
+        for (engine, backend) in [
+            (AsrEngineName::Whisper, AsrBackendV2::LocalWhisper),
+            (AsrEngineName::WhisperHub, AsrBackendV2::WhisperHub),
+            (AsrEngineName::HkTencent, AsrBackendV2::HkTencent),
+            (AsrEngineName::HkAliyun, AsrBackendV2::HkAliyun),
+            (AsrEngineName::HkFunaudio, AsrBackendV2::HkFunaudio),
+            (AsrEngineName::HkQwen, AsrBackendV2::HkQwen),
+            (AsrEngineName::RevAi, AsrBackendV2::Revai),
+        ] {
+            assert_eq!(
+                engine.dispatch_override_name(),
+                asr_backend_override_name(backend),
+                "ASR dispatch name skew for {engine:?}"
+            );
         }
     }
 
