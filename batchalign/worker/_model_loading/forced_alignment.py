@@ -55,13 +55,28 @@ def load_fa_engine(bootstrap: WorkerBootstrapRuntime) -> None:
         typing.assert_never(backend)
 
 
+# Legacy persistence wire names from the Rust control plane. Builds
+# before 2026-06-12 serialized FA overrides with these names at the
+# worker boundary (killing the worker at bootstrap; the four failed
+# align jobs of 2026-06-11), and jobs persisted by those builds still
+# carry the names in their stored options JSON. Accept them as aliases
+# so a replayed or restarted job cannot kill a worker.
+_LEGACY_FA_WIRE_NAMES: dict[str, FaEngine] = {
+    "wav2vec_fa": FaEngine.WAVE2VEC,
+    "whisper_fa": FaEngine.WHISPER,
+    "cantonese_fa": FaEngine.WAV2VEC_CANTO,
+}
+
+
 def resolve_fa_engine(engine_overrides: dict[str, str] | None) -> FaEngine:
     """Resolve which FA engine this worker should load.
 
     Precedence:
 
-    1. Explicit engine override from the Rust control plane. Unknown
-       wire strings raise ``ValueError`` rather than silently loading
+    1. Explicit engine override from the Rust control plane, accepting
+       both the dispatch names (``FaEngine`` values) and the legacy
+       persistence wire names (``_LEGACY_FA_WIRE_NAMES``). Unknown
+       strings raise ``ValueError`` rather than silently loading
        Wave2Vec — a typo in a per-host override would otherwise
        produce wrong-model output.
     2. Default to Whisper FA, preserving historical behavior.
@@ -69,6 +84,9 @@ def resolve_fa_engine(engine_overrides: dict[str, str] | None) -> FaEngine:
     if not engine_overrides or "fa" not in engine_overrides:
         return FaEngine.WHISPER
     choice = engine_overrides["fa"]
+    legacy = _LEGACY_FA_WIRE_NAMES.get(choice)
+    if legacy is not None:
+        return legacy
     try:
         return FaEngine(choice)
     except ValueError as exc:

@@ -586,7 +586,10 @@ impl EngineOverrides {
             && self.extras.is_empty()
     }
 
-    /// Serialize to a JSON string for pool worker keying and CLI pass-through.
+    /// Serialize to a JSON string in the PERSISTENCE wire format
+    /// (`wire_name()` tokens). For anything that reaches a worker
+    /// (pool keys, capability-discovery spawns, worker argv), use
+    /// [`Self::to_dispatch_json_string`] instead.
     ///
     /// Returns empty string when no overrides are set.
     pub fn to_json_string(&self) -> String {
@@ -595,6 +598,51 @@ impl EngineOverrides {
         } else {
             serde_json::to_string(self).unwrap_or_else(|e| format!("<serialization failed: {e}>"))
         }
+    }
+
+    /// Serialize for the worker-facing boundary (pool worker keys,
+    /// capability-discovery spawns, and the worker's `--engine-overrides`
+    /// argv), using the DISPATCH override names the Python worker's
+    /// engine loaders accept (`dispatch_override_name()`), NOT the
+    /// persistence wire names (`wire_name()`).
+    ///
+    /// The two schemes differ for every FA engine ("wav2vec_fa" /
+    /// "whisper_fa" / "cantonese_fa" persisted vs "wave2vec" /
+    /// "whisper" / "wav2vec_canto" dispatched). Sending a persistence
+    /// name kills the worker at bootstrap: `resolve_fa_engine` raises
+    /// before the ready signal, which failed four consecutive align
+    /// jobs on a fleet host on 2026-06-11.
+    ///
+    /// Cloud-only ASR engines with no local worker (Rev.AI, WhisperX,
+    /// WhisperOai) have no dispatch name and are omitted. Extras
+    /// round-trip verbatim, exactly as in [`Self::to_json_string`]
+    /// (the 2026-05-27 `qwen_model` lesson).
+    ///
+    /// Returns an empty string when no overrides are set, matching the
+    /// pool config's default key.
+    pub fn to_dispatch_json_string(&self) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
+        let mut map = std::collections::BTreeMap::new();
+        if let Some(ref asr) = self.asr
+            && let Some(name) = asr.dispatch_override_name()
+        {
+            map.insert("asr".to_owned(), name.to_owned());
+        }
+        if let Some(ref fa) = self.fa {
+            map.insert("fa".to_owned(), fa.dispatch_override_name().to_owned());
+        }
+        if let Some(ref translate) = self.translate {
+            map.insert(
+                "translate".to_owned(),
+                translate.dispatch_override_name().to_owned(),
+            );
+        }
+        for (key, value) in &self.extras {
+            map.insert(key.clone(), value.clone());
+        }
+        serde_json::to_string(&map).unwrap_or_else(|e| format!("<serialization failed: {e}>"))
     }
 }
 

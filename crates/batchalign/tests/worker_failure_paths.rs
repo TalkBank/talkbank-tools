@@ -220,6 +220,67 @@ async fn crash_in_one_group_does_not_affect_other_groups() {
     pool.shutdown().await;
 }
 
+/// A worker that dies before emitting its ready signal must surface its
+/// stderr (the Python traceback) in the spawn error.
+///
+/// Regression test for the 2026-06-11 incident on a fleet host: four
+/// consecutive align jobs failed with "worker closed stdout without
+/// emitting ready signal" and zero diagnostics, because the worker's
+/// stderr was not captured anywhere. The pre-ready stdout tail alone
+/// (progress_v2 events) cannot explain a crash; the traceback on stderr
+/// can. This test uses a fake interpreter that reproduces the observed
+/// failure shape exactly: one progress event on stdout, a traceback on
+/// stderr, exit without a ready signal.
+#[cfg(unix)]
+#[tokio::test]
+async fn worker_death_before_ready_surfaces_stderr() {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let script_path = tmp.path().join("crashing-python");
+    {
+        let mut f = std::fs::File::create(&script_path).expect("create script");
+        writeln!(f, "#!/bin/sh").expect("write");
+        writeln!(
+            f,
+            "echo '{{\"op\": \"progress_v2\", \"event\": {{\"request_id\": \"\", \"completed\": 0, \"total\": 0, \"stage\": \"refreshing_stanza_catalog\"}}}}'"
+        )
+        .expect("write");
+        writeln!(f, "echo 'Traceback (most recent call last):' >&2").expect("write");
+        writeln!(
+            f,
+            "echo 'RuntimeError: synthetic bootstrap crash for test' >&2"
+        )
+        .expect("write");
+        writeln!(f, "exit 3").expect("write");
+    }
+    let mut perms = std::fs::metadata(&script_path)
+        .expect("stat script")
+        .permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&script_path, perms).expect("chmod script");
+
+    let config = WorkerConfig {
+        python_path: script_path.to_string_lossy().into_owned(),
+        test_echo: true,
+        profile: WorkerProfile::Stanza,
+        lang: WorkerLanguage::from(LanguageCode3::eng()),
+        ready_timeout_s: 30,
+        ..Default::default()
+    };
+
+    let err = match WorkerHandle::spawn(config).await {
+        Err(err) => err,
+        Ok(_) => panic!("spawn must fail when the worker dies before ready"),
+    };
+    let message = err.to_string();
+    assert!(
+        message.contains("RuntimeError: synthetic bootstrap crash for test"),
+        "spawn error must carry the worker's stderr tail for diagnosability; got: {message}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // T078: Worker timeout integration tests
 // ---------------------------------------------------------------------------

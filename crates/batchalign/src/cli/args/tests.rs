@@ -1832,6 +1832,76 @@ fn engine_overrides_accept_qwen_model_and_device_extras() {
     );
 }
 
+// Regression: 2026-06-11 fleet incident (four consecutive failed align
+// jobs on one host). A user-supplied FA engine override (the documented
+// `--engine-overrides '{"fa": "wav2vec_canto"}'` form) was re-serialized
+// for the worker boundary via the PERSISTENCE wire names ("wav2vec_fa" /
+// "whisper_fa" / "cantonese_fa"), which the Python worker's
+// `resolve_fa_engine()` rejects. Every worker spawned for capability
+// discovery died before its ready signal and the job failed with
+// "Failed to bootstrap live worker capabilities". Both worker-facing
+// serializations, capability discovery (`engine_overrides_json`) and
+// pre-scale (`dispatch_engine_overrides_json`), must emit the dispatch
+// override names the worker accepts, for every accepted user spelling.
+#[test]
+fn user_fa_override_reaches_worker_under_dispatch_name() {
+    for (user_spelling, dispatch_name) in [
+        ("wav2vec_canto", "wav2vec_canto"),
+        ("cantonese_fa", "wav2vec_canto"),
+        ("wav2vec_fa_canto", "wav2vec_canto"),
+        ("wave2vec", "wave2vec"),
+        ("wav2vec_fa", "wave2vec"),
+        ("whisper_fa", "whisper"),
+    ] {
+        let overrides_arg = format!(r#"{{"fa": "{user_spelling}"}}"#);
+        let cli = Cli::parse_from([
+            "batchalign3",
+            "--engine-overrides",
+            &overrides_arg,
+            "align",
+            "corpus/",
+        ]);
+        let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+        let expected = format!(r#"{{"fa":"{dispatch_name}"}}"#);
+        assert_eq!(
+            opts.dispatch_engine_overrides_json(),
+            expected,
+            "pre-scale dispatch JSON for user spelling {user_spelling:?}"
+        );
+        assert_eq!(
+            opts.common().engine_overrides_json(),
+            expected,
+            "capability-discovery JSON for user spelling {user_spelling:?}"
+        );
+    }
+}
+
+// Companion to the FA regression above: user-supplied ASR overrides with
+// per-engine extras must keep both the engine name and the extras when
+// serialized for the worker boundary (the 2026-05-27 `qwen_model` lesson),
+// under the dispatch naming scheme.
+#[test]
+fn user_asr_override_with_extras_reaches_worker_intact() {
+    let cli = Cli::parse_from([
+        "batchalign3",
+        "--engine-overrides",
+        r#"{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B"}"#,
+        "transcribe",
+        "audio/",
+    ]);
+    let opts = build_typed_options(&cli.command, &cli.global).unwrap();
+    for json in [
+        opts.dispatch_engine_overrides_json(),
+        opts.common().engine_overrides_json(),
+    ] {
+        assert!(json.contains(r#""asr":"qwen""#), "engine name lost: {json}");
+        assert!(
+            json.contains(r#""qwen_model":"Qwen/Qwen3-ASR-0.6B""#),
+            "extras lost: {json}"
+        );
+    }
+}
+
 #[test]
 fn engine_overrides_extras_survive_without_asr_field() {
     // Extras alone count as a non-empty override (operator tuning
