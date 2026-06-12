@@ -17,6 +17,9 @@ extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 numpy = "0.28"
+# Pinned to 0.28 until the numpy crate ships pyo3-0.29 support: numpy 0.28
+# (current latest) requires pyo3 ^0.28, and pyo3-ffi's `links = "python"`
+# forbids two pyo3 versions in one dependency graph.
 pyo3 = { version = "0.28" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
