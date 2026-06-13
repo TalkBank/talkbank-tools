@@ -150,7 +150,7 @@ jobs:
           echo "ARCHIVE=${ARCHIVE}" >> $env:GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: chatter-${{ matrix.target }}
           path: ${{ env.ARCHIVE }}
@@ -162,14 +162,14 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: chatter-*
           merge-multiple: true
           path: dist/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: TalkBank Core ${{ env.RELEASE_TAG }}

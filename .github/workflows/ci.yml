@@ -271,7 +271,7 @@ jobs:
         run: cargo llvm-cov --doc --lcov --output-path lcov-doc.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: lcov.info,lcov-doc.info
           flags: rust

@@ -127,7 +127,7 @@ jobs:
             cargo build --release -p batchalign --target "$MATURIN_TARGET"
             mkdir -p batchalign/_bin
             cp "target/${MATURIN_TARGET}/release/batchalign3" batchalign/_bin/batchalign3
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.target }}
           path: dist/
@@ -146,11 +146,11 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-${{ matrix.target }}
           path: dist/
@@ -211,7 +211,7 @@ jobs:
         with:
           command: sdist
           args: --out dist
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/
@@ -221,7 +221,7 @@ jobs:
     needs: [preflight, build, sdist, wheel-smoke]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           pattern: "{wheel-*,sdist}"
           merge-multiple: true
@@ -243,7 +243,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           pattern: "{wheel-*,sdist}"
           merge-multiple: true

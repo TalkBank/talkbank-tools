@@ -116,7 +116,7 @@ jobs:
         run: npm run package:${{ matrix.target }}
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: talkbank-chat-${{ matrix.target }}-${{ inputs.version }}
           path: vscode/talkbank-chat-${{ matrix.target }}.vsix
@@ -130,12 +130,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: vscode-v${{ inputs.version }}
           name: VS Code Extension Preview v${{ inputs.version }}

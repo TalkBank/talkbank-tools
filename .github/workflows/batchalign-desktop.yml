@@ -80,7 +80,7 @@ jobs:
         run: npm run build
 
       - name: Upload desktop bundle artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard-desktop-experimental-${{ matrix.os }}
           path: apps/dashboard-desktop/src-tauri/target/release/bundle/

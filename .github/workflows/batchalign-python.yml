@@ -59,12 +59,12 @@ jobs:
         run: make batchalign-dashboard-build
       - name: Build CLI binary
         run: cargo build --release -p batchalign
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-binary
           path: target/release/batchalign3
           retention-days: 1
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: dashboard-dist
           path: frontend/dist/
@@ -84,7 +84,7 @@ jobs:
         python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
@@ -95,11 +95,11 @@ jobs:
         with:
           workspaces: "pyo3 -> target"
           shared-key: build-wheel-${{ matrix.python-version }}
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: cli-binary
           path: batchalign/_bin/
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: dashboard-dist
           path: frontend/dist/
@@ -115,7 +115,7 @@ jobs:
         env:
           BATCHALIGN_PRESTAGED_BIN: "1"
         run: make batchalign-build-wheel
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.python-version }}
           path: dist/*.whl
@@ -132,11 +132,11 @@ jobs:
         python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-${{ matrix.python-version }}
           path: dist/
@@ -152,11 +152,11 @@ jobs:
     needs: build-wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-3.12
           path: dist/
@@ -178,7 +178,7 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
@@ -188,11 +188,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: rust-workspace
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-3.12
           path: dist/
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: dashboard-dist
           path: frontend/dist/
@@ -252,7 +252,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
       - name: Python audit
@@ -290,7 +290,7 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
@@ -300,16 +300,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: rust-workspace
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: dashboard-dist
           path: frontend/dist/
       - uses: taiki-e/install-action@nextest
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-3.12
           path: dist/
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: cli-binary
           path: target/release/
@@ -358,7 +358,7 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
           sudo rm -rf /usr/local/lib/android /usr/share/swift
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
@@ -372,7 +372,7 @@ jobs:
           shared-key: rust-workspace
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-3.12
           path: dist/
@@ -427,7 +427,7 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
           sudo rm -rf /usr/local/lib/android /usr/share/swift
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           python-version: "3.12"
@@ -437,11 +437,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: dashboard-release
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheel-3.12
           path: dist/
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: cli-binary
           path: target/release/
