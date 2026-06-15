@@ -90,8 +90,8 @@ When `--roundtrip` is set, the summary also includes
 - `status` values currently observed: `valid`, `invalid`,
   `parse_error`, `read_error`. New status values may appear.
 - Errors do not include a byte-offset `location` field in the
-  NDJSON surface; for byte-offset diagnostics use the LSP or the
-  non-JSON renderer.
+  NDJSON surface; for byte-offset diagnostics use the non-JSON
+  renderer.
 - The `note` field on invalid file records is human-facing
   guidance and may be added or omitted between releases.
 - Exit code `0` means all files validated successfully; exit code

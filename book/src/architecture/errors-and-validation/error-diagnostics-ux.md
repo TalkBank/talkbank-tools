@@ -122,7 +122,6 @@ miette rendering.
 
 - Human-readable CLI diagnostics.
 - Machine-readable JSON diagnostics.
-- LSP diagnostic mapping.
 
 All formats share the same underlying diagnostic schema.
 

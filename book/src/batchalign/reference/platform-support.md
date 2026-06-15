@@ -5,7 +5,7 @@
 
 This page is the Batchalign-only view of platform support. The
 operator-facing repo-wide platform-support matrix (covering `chatter`,
-Rust core, grammar, VS Code, and both desktop apps) lives outside the
+Rust core, grammar, and the desktop app) lives outside the
 public book.
 
 ## CLI + Server (`batchalign3`)
@@ -31,8 +31,7 @@ public book.
 | macOS / Windows | C (Experimental) | In-repo Tauri shell only; not a supported public release surface |
 | Linux | C (Experimental) | No supported public desktop distribution |
 
-This section is about **Batchalign Desktop** in `apps/dashboard-desktop/`, not
-the separate **Chatter Desktop** validation app in `apps/chatter-desktop/`.
+This section is about **Batchalign Desktop** in `apps/dashboard-desktop/`.
 
 ## Tier Definitions
 

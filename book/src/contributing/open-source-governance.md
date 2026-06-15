@@ -16,7 +16,7 @@ contribution, and release processes.
 | `CODE_OF_CONDUCT.md` | Done | Root file added; adopts Contributor Covenant 2.1 with repo contact |
 | `SECURITY.md` | Done | Root file added; issue-template contact link now resolves to a real policy |
 | `CODEOWNERS` | **TODO** | Not added yet: repo contents do not currently publish an authoritative GitHub owner/team map for path-level review ownership |
-| `.github/workflows/*.yml` | Done | `ci.yml` (core Rust, grammar, docs, VS Code, fuzz, smoke, and summary jobs) + `release.yml` (multi-platform) |
+| `.github/workflows/*.yml` | Done | `ci.yml` (core Rust, grammar, docs, fuzz, smoke, and summary jobs) + `release.yml` (multi-platform) |
 | `.github/ISSUE_TEMPLATE/*` | Done | Bug report + feature request (YAML forms) |
 | Pull request template | Done | `.github/PULL_REQUEST_TEMPLATE.md` mirrors current CONTRIBUTING + PR review requirements |
 

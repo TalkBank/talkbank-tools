@@ -12,7 +12,7 @@ command is documented there. Our goal is to incorporate and improve the
 non-GUI substance of that manual here, while making divergences from the
 legacy C implementation explicit.
 
-GUI-era material from the legacy manual does not belong in the CLI book. That material should instead be carried over into the documentation for the TalkBank VS Code extension, where editor workflows, inspection tools, and interactive affordances can be documented in the right place.
+GUI-era material from the legacy manual does not belong in this CLI command reference. Editor workflows, inspection tools, and interactive affordances are out of scope here and are not reproduced from the legacy manual.
 
 ## What's in this book
 

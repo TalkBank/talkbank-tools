@@ -106,4 +106,4 @@ Use `--force` to bypass the cache for specific paths.
 Pipelines use the `ErrorSink` trait for error reporting. Callers can provide:
 - A collecting sink (gathers all diagnostics for batch output)
 - A printing sink (writes diagnostics to stderr in real-time)
-- A custom sink (for LSP diagnostics, JSON output, etc.)
+- A custom sink (for editor diagnostics, JSON output, etc.)

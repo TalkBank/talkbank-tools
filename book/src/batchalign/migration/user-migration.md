@@ -277,7 +277,7 @@ OpenAPI surfaces), which substantially changes how teams monitor long runs.
   assets are installed. What is deferred from the first public `batchalign3`
   release is the separate desktop/Tauri launcher path, not the web dashboard
   itself.
-- **Editor UX (ecosystem)**: LSP/VS Code integrations now prefer structured
+- **Editor UX (ecosystem)**: downstream editor integrations now prefer structured
   alignment sidecars where available, reducing regex-only timing extraction drift.
 
 This changes how users should think about failures/retries:

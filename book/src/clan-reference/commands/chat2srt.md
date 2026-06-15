@@ -77,7 +77,7 @@ how are you
 
 ## Differences from CLAN
 
-- **GUI material intentionally omitted here**: The legacy manual's Subtitle Writer walkthrough belongs in the TalkBank VS Code extension docs, not in this CLI command chapter.
+- **GUI material intentionally omitted here**: The legacy manual's Subtitle Writer walkthrough is out of scope for this CLI command chapter.
 - Uses typed AST for subtitle text extraction
 - Produces valid, well-formed SRT/WebVTT output
 - Additionally supports WebVTT output format

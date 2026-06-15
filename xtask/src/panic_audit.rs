@@ -162,7 +162,7 @@ struct Options {
     /// Emit the full per-site catalogue as JSON instead of a summary.
     json: bool,
     /// Restrict scanning to files whose workspace-relative path begins
-    /// with this crate prefix (e.g. `crates/talkbank-lsp`). Empty means
+    /// with this crate prefix (e.g. `crates/talkbank-cli`). Empty means
     /// scan the full workspace.
     crate_filter: Option<String>,
 }
@@ -271,13 +271,7 @@ fn build_report(root: &Path, opts: &Options) -> Result<AuditReport> {
 /// rather than diluting the convention.
 fn panic_audit_roots(root: &Path) -> Vec<PathBuf> {
     let mut roots = rust_scan_roots(root);
-    for extra in [
-        "xtask",
-        "crates/batchalign-pyo3",
-        "experiments",
-        "apps/chatter-desktop/src-tauri",
-        "apps",
-    ] {
+    for extra in ["xtask", "crates/batchalign-pyo3", "experiments", "apps"] {
         roots.push(root.join(extra));
     }
     roots
@@ -307,7 +301,7 @@ fn collect_files(root: &Path, opts: &Options) -> Vec<PathBuf> {
 }
 
 /// Workspace-relative crate root for grouping summary stats. Returns
-/// `Some("crates/talkbank-lsp")` for any path under that crate; `None`
+/// `Some("crates/talkbank-cli")` for any path under that crate; `None`
 /// for top-level files like `xtask/src/main.rs` (which fall back to the
 /// directory class).
 fn crate_dir_of(relative_path: &str) -> Option<String> {

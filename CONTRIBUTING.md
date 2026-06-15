@@ -9,8 +9,7 @@ This repository is the unified home for:
 
 - the CHAT specification and grammar pipeline
 - the core Rust crates (`talkbank-*`)
-- the `chatter` CLI and `talkbank-lsp`
-- the VS Code extension
+- the `chatter` CLI
 - the imported Batchalign stack (`batchalign3`, Python package, `batchalign-*` crates, dashboard, PyO3 bridge)
 
 Start with the root [README.md](README.md) for the documentation map by surface.
@@ -29,7 +28,6 @@ do not require this step.
 The main user-facing binaries live in:
 
 - `crates/talkbank-cli/` -> `chatter`
-- `crates/talkbank-lsp/` -> `talkbank-lsp`
 - `crates/batchalign/` -> `batchalign3`
 
 ## Development Setup
@@ -140,10 +138,9 @@ Update docs in the same PR when behavior, workflows, or contracts change.
 
 Key doc surfaces:
 
-- `book/` — the unified TalkBank Toolchain mdBook. All four product
-  surfaces (chatter, Batchalign3, VS Code extension, CLAN command
-  reference) live as sections under `book/src/`.
-- `vscode/README.md` for the VS Code extension entrypoint
+- `book/`: the unified TalkBank Toolchain mdBook. All product
+  surfaces (chatter, Batchalign3, CLAN command reference) live as
+  sections under `book/src/`.
 - crate READMEs for component-specific entrypoints
 
 ## Reporting Bugs

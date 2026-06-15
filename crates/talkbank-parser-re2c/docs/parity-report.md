@@ -119,7 +119,7 @@ chatter validate --parser re2c corpus/
 # Use re2c parser with roundtrip testing
 chatter validate --parser re2c --roundtrip corpus/
 
-# Default: tree-sitter (supports incremental reparsing for LSP)
+# Default: tree-sitter (supports incremental reparsing)
 chatter validate corpus/
 ```
 
@@ -132,7 +132,7 @@ run. The cache is parser-aware (separate entries for `tree-sitter` vs `re2c`).
 - Profiling parse performance
 
 **When to use tree-sitter (default):**
-- LSP (requires incremental reparsing)
+- Incremental reparsing (e.g. editor integration)
 - When error code specificity matters (TreeSitter has more specific E3xx codes)
 - When CST-level information is needed
 
@@ -206,7 +206,7 @@ Callers therefore see *both*:
   malformed-input distinctions just keeps working on the recovered
   structure).
 - A diagnostic stream that flags the malformed input (validators,
-  CLI exit codes, LSP underlines).
+  CLI exit codes, editor underlines).
 
 ### Re2c parity for the same recovery
 

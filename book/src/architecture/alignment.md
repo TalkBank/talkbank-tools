@@ -342,7 +342,6 @@ pass-2 search windows), and `chatter debug overlap-audit`.
 | Consumer | Crate | Usage |
 |---|---|---|
 | Validation | `talkbank-model` | Cross-tier checks (E714/E715, E725–E728), overlap (E347/E348/E373/E704) |
-| LSP hover | `talkbank-lsp` | Show aligned tier items for word under cursor |
 | Word extraction | `talkbank-transform` / `batchalign` | NLP-ready words from utterances |
 | FA injection | `batchalign` | Insert timing bullets into AST |
 | Overlap windowing | `batchalign` | CA marker-aware UTR pass-2 search windows |

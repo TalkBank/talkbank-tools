@@ -5,7 +5,7 @@
 
 This page specifies the typed Rust vocabulary shared by `chatter merge`,
 `chatter speaker-id`, the override-file reader/writer, and any future
-adjudication tooling (CLI, VS Code, web). Documenting these types
+adjudication tooling (CLI, web). Documenting these types
 **before** writing the implementing code is deliberate: the types are
 the spec, and they need to be designed against the user contract in
 [chatter merge](../chatter/user-guide/merge.md) and

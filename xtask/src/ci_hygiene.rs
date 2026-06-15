@@ -510,77 +510,12 @@ fn check_batchalign_release_health_smoke_text(text: &str) -> std::result::Result
     }
 }
 
-fn check_vscode_release_policy_text(text: &str) -> std::result::Result<(), String> {
-    for banned in [
-        "vsce publish",
-        "npx vsce publish",
-        "ovsx publish",
-        "npx ovsx publish",
-    ] {
-        if text.contains(banned) {
-            return Err(format!(
-                "VS Code release automation is GitHub Releases VSIX-only for the first public release; found forbidden publish command `{banned}`"
-            ));
-        }
-    }
-
-    if !text.contains("softprops/action-gh-release") {
-        return Err(
-            "VS Code release workflow must create a GitHub Release for VSIX distribution".into(),
-        );
-    }
-
-    Ok(())
-}
-
-fn check_vscode_release_text(path: &str, text: &str) -> std::result::Result<(), String> {
-    for banned in [
-        "publishes them to the Marketplace",
-        "Marketplace serves the right VSIX per platform automatically",
-        "Marketplace treats those as pre-release channels",
-        "publishes to the Marketplace first",
-    ] {
-        if text.contains(banned) {
-            return Err(format!(
-                "{path} contradicts the first-release VS Code distribution policy (GitHub Releases VSIX-only): found `{banned}`"
-            ));
-        }
-    }
-
-    if !text.contains("GitHub Release") && !text.contains("GitHub Releases") {
-        return Err(format!(
-            "{path} must describe GitHub Releases as the current VS Code distribution channel"
-        ));
-    }
-
-    Ok(())
-}
-
 fn check_release_operations(root: &Path) -> std::result::Result<(), String> {
     let mut failures = Vec::new();
 
     let batchalign_workflow = read_required_file(root, ".github/workflows/batchalign-release.yml")?;
     if let Err(msg) = check_batchalign_release_health_smoke_text(&batchalign_workflow) {
         failures.push(format!(".github/workflows/batchalign-release.yml: {msg}"));
-    }
-
-    let vscode_workflow = read_required_file(root, ".github/workflows/vscode-release.yml")?;
-    if let Err(msg) = check_vscode_release_policy_text(&vscode_workflow) {
-        failures.push(format!(".github/workflows/vscode-release.yml: {msg}"));
-    }
-
-    for rel in [
-        "book/src/vscode/developer/releasing.md",
-        "book/src/vscode/design/adr-004-bundled-lsp-binary.md",
-    ] {
-        match read_required_file(root, rel) {
-            Ok(text) => {
-                if let Err(msg) = check_vscode_release_text(rel, &text) {
-                    failures.push(msg);
-                }
-            }
-            Err(msg) => failures.push(msg),
-        }
     }
 
     let signing_doc = root.join("docs/code-signing-and-distribution.md");
@@ -660,10 +595,7 @@ pub fn run(root: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        check_batchalign_release_health_smoke_text, check_vscode_release_policy_text,
-        check_vscode_release_text,
-    };
+    use super::check_batchalign_release_health_smoke_text;
 
     #[test]
     fn batchalign_release_requires_health_smoke() {
@@ -677,30 +609,5 @@ jobs:
 
         let err = check_batchalign_release_health_smoke_text(workflow).unwrap_err();
         assert!(err.contains("/health"), "{err}");
-    }
-
-    #[test]
-    fn vscode_release_rejects_marketplace_publish_steps() {
-        let workflow = r#"
-jobs:
-  release:
-    steps:
-      - run: npx vsce publish
-"#;
-
-        let err = check_vscode_release_policy_text(workflow).unwrap_err();
-        assert!(err.contains("GitHub Releases VSIX-only"), "{err}");
-    }
-
-    #[test]
-    fn vscode_release_docs_reject_marketplace_first_language() {
-        let doc = r#"
-The extension publishes to the Marketplace first.
-"#;
-
-        let err =
-            check_vscode_release_text("book/src/vscode/design/adr-004-bundled-lsp-binary.md", doc)
-                .unwrap_err();
-        assert!(err.contains("GitHub Releases VSIX-only"), "{err}");
     }
 }

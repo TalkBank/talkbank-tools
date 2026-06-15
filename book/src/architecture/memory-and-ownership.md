@@ -81,14 +81,12 @@ flowchart TD
     cst["tree-sitter CST\n(Tree, borrowed nodes)"]
     model["ChatFile\n(owned AST)"]
     cache["SQLite cache\n(validation result)"]
-    lsp["LSP server\n(per-document state)"]
     json["JSON output\n(serde serialization)"]
     cli["CLI output\n(CHAT text)"]
 
     src -->|tree-sitter parse| cst
     cst -->|CST-to-model conversion| model
     model -->|validate + hash| cache
-    model -->|held in backend| lsp
     model -->|to_json()| json
     model -->|to_chat_string()| cli
 ```
@@ -98,8 +96,6 @@ flowchart TD
   `ChatFile` fields (SmolStr, <code>Arc&lt;str&gt;</code>). The `Tree` is dropped after conversion.
 - **Validation:** `ChatFile` is borrowed (`&self`) during validation. Errors are
   streamed to an `ErrorSink` — no accumulation required.
-- **LSP:** Each open document holds an owned `ChatFile` in the backend. Re-parsed
-  on every edit via tree-sitter incremental parsing.
 - **CLI batch:** Each file is independently parsed → validated → reported → dropped.
   No cross-file state except the shared cache.
 

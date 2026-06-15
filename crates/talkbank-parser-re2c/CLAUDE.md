@@ -243,7 +243,7 @@ Key integration points:
 - `ParserDispatch` enum in `worker.rs` wraps both parser backends
 - `ParserBackend` CLI enum in `talkbank-cli/src/cli/args/core.rs`
 - Cache keys include the parser label (`"re2c"` vs `"tree-sitter"`)
-- TreeSitterParser remains the default; LSP always uses TreeSitterParser (needs incremental parsing)
+- TreeSitterParser remains the default; editor / incremental-reparsing integrations always use TreeSitterParser (needs incremental parsing)
 
 ## Equivalence Status
 

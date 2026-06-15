@@ -19,7 +19,6 @@ flowchart TD
         cli["chatter CLI"]
         workers["std::thread workers\n(crossbeam channels)"]
         cache["CachePool\n(embedded tokio rt)"]
-        lsp["talkbank-lsp\n(tokio multi-thread)"]
         cli --> workers
         workers --> cache
     end
@@ -44,7 +43,6 @@ flowchart TD
 | Component | Runtime | Why |
 |---|---|---|
 | `batchalign` server | Multi-thread (default) | Concurrent HTTP + WebSocket + job tasks |
-| `talkbank-lsp` | Multi-thread | Concurrent LSP requests from editor |
 | Validation `CachePool` | `current_thread` (embedded) | Bridge for sync workers; minimal overhead |
 
 ## Validation Parallelism (CHAT core)
@@ -262,27 +260,6 @@ tokio::select! {
 Double Ctrl+C pattern — first press: graceful cancel via crossbeam
 channel; second press: `std::process::exit(130)` (immediate).
 
-## Desktop App (Tauri)
-
-`apps/chatter-desktop/src-tauri/src/commands.rs` uses
-`ArcSwapOption` (from `arc-swap`) for lock-free storage of the
-cancel sender:
-
-```rust,ignore
-pub struct ValidationState {
-    cancel_tx: ArcSwapOption<Sender<()>>,
-}
-```
-
-- `validate()` atomically stores the cancel sender via
-  `.store(Some(...))`.
-- `cancel_validation()` atomically takes it via `.swap(None)`.
-- Zero contention: no mutex, no lock, no blocking.
-
-Event forwarding uses the same crossbeam channel pattern as the TUI:
-`validate_directory_streaming()` returns a `Receiver<ValidationEvent>`,
-and a dedicated thread forwards events to the Tauri frontend via
-`app.emit()`.
 
 ## Mutex Policy
 
@@ -327,4 +304,3 @@ No `RwLock` usage anywhere. No `std::sync::Mutex` held across
 | DashMap for string interning | Shard-level locks; concurrent safe interning without global contention |
 | WAL + 5 s busy timeout | Multiple concurrent readers + writers; auto-retry prevents failures |
 | `std::sync::Mutex` for worker queue | Held < 10 μs; no need for async-aware lock |
-| `ArcSwapOption` for desktop cancel sender | Lock-free atomic swap; no contention |

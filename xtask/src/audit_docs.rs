@@ -566,7 +566,6 @@ fn is_clan_path(rel: &str) -> bool {
     rel.starts_with("book/src/clan-reference/")
         || rel == "book/src/chatter/user-guide/clan-line-numbering.md"
         || rel == "book/src/chatter/user-guide/migrating-from-clan.md"
-        || rel == "book/src/vscode/developer/clan-parity.md"
         || rel.starts_with("crates/talkbank-clan/")
         || rel.starts_with("crates/send2clan-sys/")
 }
@@ -617,7 +616,6 @@ fn classify_bucket(rel: &str) -> Bucket {
         || rel.starts_with("book/src/chatter/")
         || rel.starts_with("book/src/clan-reference/")
         || rel.starts_with("book/src/chat-format/")
-        || rel.starts_with("book/src/vscode/")
         || (rel.starts_with("book/src/batchalign/")
             && rel.contains("/user-guide/"))
         || rel == "book/src/SUMMARY.md"

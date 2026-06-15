@@ -17,7 +17,7 @@ Procedural macros for the model crate (`SemanticEq`, `SemanticDiff`, `SpanShift`
 
 ### talkbank-parser
 
-The sole parser. Wraps the tree-sitter C parser and converts the concrete syntax tree (CST) into `ChatFile` model types. Provides error recovery via tree-sitter's GLR algorithm. Used by the LSP, CLI, and batchalign3.
+The sole parser. Wraps the tree-sitter C parser and converts the concrete syntax tree (CST) into `ChatFile` model types. Provides error recovery via tree-sitter's GLR algorithm. Used by the CLI and batchalign3.
 
 ### talkbank-transform
 
@@ -33,17 +33,9 @@ CLAN analysis commands (FREQ, MLU, etc.), transforms (FLO, etc.), and format con
 
 The `chatter` CLI binary: validate, normalize, to-json, CLAN command dispatch, and corpus management.
 
-### talkbank-lsp
-
-Language Server Protocol server with tree-sitter incremental parsing, real-time diagnostics, and semantic highlighting.
-
 ### send2clan-sys
 
 FFI bindings for sending files to the CLAN application (macOS Apple Events, Windows WM_APP).
-
-### chatter-desktop
-
-Desktop validation app (Tauri v2, React). Mandates TUI parity with the CLI.
 
 ## Test Crates
 

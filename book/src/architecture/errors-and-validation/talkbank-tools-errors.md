@@ -5,7 +5,7 @@
 
 The error infrastructure used across all CHAT-core crates
 (`talkbank-model`, `talkbank-parser`, `talkbank-transform`,
-`talkbank-clan`, `talkbank-cli`, `talkbank-lsp`). Defined in the
+`talkbank-clan`, `talkbank-cli`). Defined in the
 `errors` module of `talkbank-model`.
 
 For the Batchalign-runtime side (ML / IPC / network / ASR / worker

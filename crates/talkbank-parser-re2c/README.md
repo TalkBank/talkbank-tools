@@ -98,8 +98,8 @@ The re2c DFA accounts for 15-31% of total parse time. The remaining
   management in the re2c path. TreeSitter's internal memory pool also
   grows over many files (requires periodic reset every ~5k files).
 - **No incremental parsing.** TreeSitter supports incremental reparsing
-  (essential for the LSP). Re2c+chumsky does not. The LSP always uses
-  TreeSitterParser.
+  (essential for editor / incremental-reparsing integrations). Re2c+chumsky
+  does not, so those integrations always use TreeSitterParser.
 - **Error recovery.** TreeSitter has built-in error recovery producing
   partial CSTs. The chumsky parser reports unhandled tokens via
   `ErrorSink` but does not attempt structural recovery.

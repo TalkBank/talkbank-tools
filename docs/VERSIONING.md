@@ -12,13 +12,12 @@ source below wins for public communication and release policy.
 
 | Surface / release line | Release tier | Canonical source | Current value | Notes |
 |------------------------|--------------|------------------|---------------|-------|
-| TalkBank core Rust release line (`chatter`, preview TalkBank crates, preview `talkbank-lsp`) | Mixed: stable CLI + preview libraries/LSP | `Cargo.toml` `workspace.package.version` | `0.2.0` | Shared version for the main Rust workspace. Matching the workspace version does not imply that every Rust crate already has a crates.io publication path. |
+| TalkBank core Rust release line (`chatter`, preview TalkBank crates) | Mixed: stable CLI + preview libraries | `Cargo.toml` `workspace.package.version` | `0.2.0` | Shared version for the main Rust workspace. Matching the workspace version does not imply that every Rust crate already has a crates.io publication path. |
 | Standalone `tree-sitter-talkbank` grammar packages (crates.io, npm, PyPI) | Public preview | `grammar/Cargo.toml` `package.version` | `0.2.0` | `grammar/package.json` and `grammar/pyproject.toml` mirror this value for the same grammar release line. |
 | `batchalign3` public product release line (Python package, bundled CLI, local server, dashboard UI) | Public preview | `pyproject.toml` `[project].version` | `0.1.0` | Authoritative version for PyPI/wheel installs and the user-visible Batchalign product surface. |
 | Batchalign runtime banner metadata | Internal | `batchalign/version` | `0.1.0` | Runtime metadata only; intentionally mirrors the public Batchalign preview version, but it is not a release-contract source. |
 | Batchalign Rust/PyO3 build crates (`crates/batchalign-*`, `pyo3/`) | Internal | Their local `Cargo.toml` manifests, kept in lockstep with `pyproject.toml` | `0.1.0` | Internal build metadata only. These crates are unpublished (`publish = false`) and are not independent public Rust APIs. |
-| VS Code extension | Public preview | `vscode/package.json` `version` | `0.1.0` | Independent Marketplace release line. |
-| Experimental desktop shells | Experimental | `desktop/package.json`, `desktop/src-tauri/Cargo.toml`, `apps/dashboard-desktop/package.json`, `apps/dashboard-desktop/src-tauri/Cargo.toml` | `0.1.0` | Experimental only; not part of the public release contract. |
+| Experimental desktop shell | Experimental | `apps/dashboard-desktop/package.json`, `apps/dashboard-desktop/src-tauri/Cargo.toml` | `0.1.0` | Experimental only; not part of the public release contract. |
 
 ## Rules
 
@@ -26,7 +25,7 @@ source below wins for public communication and release policy.
 
 2. **Preview and experimental surfaces stay below `1.0.0` until explicitly promoted.** A `1.0.0` tag is a stability signal, not just a bigger number. Do not ship it for preview or experimental surfaces unless `docs/RELEASE-CONTRACT.md`, this file, and the release workflow/docs are all updated together to describe the stronger promise.
 
-3. **TalkBank core Rust surfaces share one version.** `Cargo.toml` `workspace.package.version` is the source of truth for `chatter`, the preview TalkBank library crates, and preview `talkbank-lsp`.
+3. **TalkBank core Rust surfaces share one version.** `Cargo.toml` `workspace.package.version` is the source of truth for `chatter` and the preview TalkBank library crates.
 
 4. **The standalone grammar ships as one cross-ecosystem release line.** `grammar/Cargo.toml` is the canonical version source for `tree-sitter-talkbank`; the npm and PyPI metadata must mirror it in the same patch so crates.io, npm, and PyPI do not drift.
 
@@ -38,9 +37,9 @@ source below wins for public communication and release policy.
 
 8. **CI semver checks are a Rust guardrail, not a blanket publication or crates.io promise.** `cargo-semver-checks` runs in CI, but only the surfaces marked public/stable in `docs/RELEASE-CONTRACT.md` are currently covered by the repo's strongest external compatibility promise.
 
-9. **The TalkBank library crates are source-first until publication work exists.** The current release workflow ships `chatter` and preview `talkbank-lsp` binaries, while library consumers still use git/path dependencies. Do not describe `workspace.package.version` as a crates.io-ready release line for `talkbank-model`, `talkbank-parser`, `talkbank-transform`, or `talkbank-clan` until a dedicated publish workflow and dependency-ready manifests exist.
+9. **The TalkBank library crates are source-first until publication work exists.** The current release workflow ships the `chatter` binary, while library consumers still use git/path dependencies. Do not describe `workspace.package.version` as a crates.io-ready release line for `talkbank-model`, `talkbank-parser`, `talkbank-transform`, or `talkbank-clan` until a dedicated publish workflow and dependency-ready manifests exist.
 
-10. **The VS Code extension and desktop apps version independently.** Their versions do not need to match the Rust workspace, the grammar line, or the Batchalign Python package.
+10. **The desktop app versions independently.** Its version does not need to match the Rust workspace, the grammar line, or the Batchalign Python package.
 
 11. **If a surface changes tier or version authority, update policy docs together.** `docs/RELEASE-CONTRACT.md` and `docs/VERSIONING.md` should change in the same patch.
 
@@ -75,6 +74,6 @@ After a surface is explicitly promoted to stable at `1.0.0` or later:
 3. Update any secondary packaging metadata that must match for build/distribution
    (for example, grammar npm/PyPI mirrors or Batchalign internal manifests).
 4. Re-run the relevant checks for that surface (for example, Rust semver checks
-   for public Rust APIs, or preview release smoke tests for Batchalign/VS Code).
+   for public Rust APIs, or preview release smoke tests for Batchalign).
 5. If the change also promotes or demotes a surface, update
    `docs/RELEASE-CONTRACT.md` in the same patch.

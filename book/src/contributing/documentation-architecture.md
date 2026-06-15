@@ -14,7 +14,7 @@ only when tightly coupled to files in that directory.
 
 ```mermaid
 flowchart TD
-    main["book/ (the unified TalkBank Toolchain mdBook)\nAll surfaces: chatter, batchalign, vscode, clan-reference\nAll audiences: users, integrators, contributors"]
+    main["book/ (the unified TalkBank Toolchain mdBook)\nAll surfaces: chatter, batchalign, clan-reference\nAll audiences: users, integrators, contributors"]
     spec["spec/docs/\nSpec authoring guides"]
     errors["docs/errors/\nGenerated error reference"]
     api["cargo doc\nRust API docs (auto-generated)"]
@@ -28,7 +28,7 @@ flowchart TD
 
 | Content type | Location | Examples |
 |---|---|---|
-| User guides, CHAT format reference | `book/src/chatter/user-guide/`, `book/src/chat-format/` | CLI usage, validation errors, VS Code extension |
+| User guides, CHAT format reference | `book/src/chatter/user-guide/`, `book/src/chat-format/` | CLI usage, validation errors |
 | Architecture and design | `book/src/architecture/` | Parsing, data model, concurrency, memory |
 | Contributor workflows | `book/src/contributing/` | Grammar workflow, testing, coding standards |
 | Integrator contracts | `book/src/chatter/integrating/` | JSON schema, diagnostic contract |
@@ -64,7 +64,6 @@ under `book/src/`:
 | `book/src/batchalign/` | Batchalign users + devs | Pipeline, server, migration from BA2, ML commands |
 | `book/src/chatter/` | chatter CLI users + integrators | CLI reference, library usage, JSON contracts |
 | `book/src/chat-format/` | All users + integrators | CHAT format reference (headers, tiers, symbols) |
-| `book/src/vscode/` | VS Code extension users + extension devs | Editor workflows, configuration, design ADRs |
 | `book/src/clan-reference/` | CLAN users + porters | Per-command reference pages, divergence + migration |
 | `book/src/architecture/` | All devs | Cross-surface architecture, parser/grammar/data-model design |
 | `book/src/contributing/` | Contributors | Setup, testing, coding standards, dev checks |

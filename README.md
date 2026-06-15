@@ -8,23 +8,21 @@
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 
 The unified home for the [TalkBank](https://talkbank.org/) toolchain.
-Four user-facing products ship from this repo, all centered on the
+Three user-facing products ship from this repo, all centered on the
 CHAT transcript format:
 
-- **Batchalign3** — audio/ML pipeline that produces and enriches CHAT
+- **Batchalign3**: audio/ML pipeline that produces and enriches CHAT
   (transcribe, align, morphotag, translate, segment).
-- **`chatter`** — CHAT-first command-line tool for validation,
+- **`chatter`**: CHAT-first command-line tool for validation,
   normalization, conversion, and CLAN-compatible analysis.
-- **VS Code extension** — interactive editor for CHAT files with
-  live validation and rich navigation.
-- **CLAN command reference** — a Rust reimplementation of CLAN's
+- **CLAN command reference**: a Rust reimplementation of CLAN's
   analysis, transform, and converter commands, accessible through
   `chatter clan ...`.
 
 Plus the supporting library surface: the public Rust crates for
-parsing/validation/transform, the `talkbank-lsp` language server,
-the `tree-sitter-talkbank` grammar, the Batchalign Python package,
-the PyO3 bridge, and two experimental desktop apps.
+parsing/validation/transform, the `tree-sitter-talkbank` grammar,
+the Batchalign Python package, the PyO3 bridge, and the experimental
+Batchalign dashboard desktop app.
 
 ## Start here
 
@@ -34,9 +32,7 @@ Pick the row that matches what you want to do today.
 |---|---|
 | Transcribe, align, morphotag, translate, or segment media/transcripts | [Batchalign3 Quickstart](book/src/quickstart/index.md), [Batchalign3 Installation](book/src/batchalign/user-guide/installation.md), [Batchalign3 CLI Reference](book/src/batchalign/user-guide/cli-reference.md) |
 | Validate, normalize, convert, or analyze CHAT from the command line | [`chatter` Installation](book/src/chatter/user-guide/installation.md), [`chatter` CLI Reference](book/src/chatter/user-guide/cli-reference.md), [Migrating from CLAN](book/src/chatter/user-guide/migrating-from-clan.md) |
-| Edit CHAT files interactively with live validation | [VS Code extension](book/src/vscode/getting-started/installation.md) |
 | Look up a specific CLAN command (FREQ, MLU, KIDEVAL, …) | [CLAN command reference](book/src/clan-reference/introduction.md) |
-| Integrate CHAT support into another editor | [`talkbank-lsp` README](crates/talkbank-lsp/README.md) |
 | Work with the typed Rust APIs directly | [Library Usage](book/src/chatter/integrating/library-usage.md) |
 | Understand the CHAT grammar/spec/parser pipeline | [chatter Architecture](book/src/architecture/overview.md), [`grammar/`](grammar/), [`spec/`](spec/) |
 | Contribute to the repo | [CONTRIBUTING.md](CONTRIBUTING.md) + [Contributing Setup](book/src/contributing/setup.md) |
@@ -84,15 +80,6 @@ See the [`chatter` Installation guide](book/src/chatter/user-guide/installation.
 [CLI reference](book/src/chatter/user-guide/cli-reference.md), and
 [CLAN command reference](book/src/clan-reference/introduction.md).
 
-### VS Code extension — interactive CHAT editor
-
-Live syntax highlighting, validation, code-completion, cross-tier
-navigation, dependency graphs, and review/coder workflows. VSIX
-bundles ship from GitHub Releases.
-
-See [vscode/README.md](vscode/README.md) and the
-[VS Code extension Getting Started](book/src/vscode/getting-started/installation.md).
-
 ## Surface status at a glance
 
 | Surface | What first-time users should assume today |
@@ -100,18 +87,16 @@ See [vscode/README.md](vscode/README.md) and the
 | Batchalign3 CLI / server / dashboard | Public preview Batchalign product surface for audio/ML workflows |
 | `chatter` CLI | Stable public CHAT-first command-line surface; strongest current support story |
 | Public Rust core crates | Stable public source-level integration surface for CHAT parsing/validation |
-| `talkbank-lsp` + VS Code extension | Public preview editor surface; GitHub Releases publish platform-specific VSIX bundles |
 | `tree-sitter-talkbank` grammar | Public preview reusable grammar surface |
 | `apps/dashboard-desktop/` (Batchalign Desktop) | Experimental Batchalign GUI shell only; not a supported release surface |
-| `apps/chatter-desktop/` (Chatter Desktop) | Experimental validation GUI only; not a supported release surface |
 
 ## Documentation
 
 All user, developer, and architecture docs live in **one** mdBook:
-[`book/`](book/) — the **TalkBank Toolchain** book. It absorbs four
-previously-separate sub-books (chatter, Batchalign3, VS Code,
-CLAN command reference) into one tree organized by audience-first
-sections under `book/src/`.
+[`book/`](book/): the **TalkBank Toolchain** book. It absorbs the
+previously-separate sub-books (chatter, Batchalign3, CLAN command
+reference) into one tree organized by audience-first sections under
+`book/src/`.
 
 | Section | What lives there | Entry point |
 |---|---|---|
@@ -119,7 +104,6 @@ sections under `book/src/`.
 | `book/src/batchalign/` | Batchalign3: migration from BA2, user guide, architecture, technical reference, developer guide, design decisions | [Batchalign3 introduction](book/src/batchalign/introduction.md) |
 | `book/src/chatter/` | `chatter` CLI: user guide, integration | [`chatter` introduction (book root)](book/src/introduction.md) |
 | `book/src/chat-format/` | The CHAT format reference: headers, utterances, retraces, replacements, dependent tiers, symbols | [CHAT format overview](book/src/chat-format/overview.md) |
-| `book/src/vscode/` | VS Code extension: getting started, editing, navigation, media, analysis, review, coder, workflows, configuration, troubleshooting, developer guide | [VS Code Getting Started](book/src/vscode/getting-started/installation.md) |
 | `book/src/clan-reference/` | CLAN command reference: per-command pages for the analysis, transform, and converter families | [CLAN command reference introduction](book/src/clan-reference/introduction.md) |
 | `book/src/architecture/` | Architecture and parser/grammar/data-model design | [Architecture overview](book/src/architecture/overview.md) |
 | `book/src/contributing/` | Contributor workflows, testing, coding standards, dev checks | [Contributing Setup](book/src/contributing/setup.md) |
@@ -140,14 +124,12 @@ the auto-generated error catalog under `docs/errors/`.
 
 | Path | What lives there |
 |---|---|
-| `book/` | The unified TalkBank Toolchain mdBook (all four product surfaces, CHAT format, architecture, contributing) |
-| `crates/` | Rust crates: parser, model, transform, CLAN, CLI, LSP, plus the `batchalign-*` crates |
+| `book/` | The unified TalkBank Toolchain mdBook (all product surfaces, CHAT format, architecture, contributing) |
+| `crates/` | Rust crates: parser, model, transform, CLAN, CLI, plus the `batchalign-*` crates |
 | `batchalign/` | Python package for `batchalign3` |
 | `crates/batchalign-pyo3/` | PyO3 bridge and wheel build surface |
 | `frontend/` | Shared Batchalign web UI |
-| `apps/chatter-desktop/` | Tauri validation app (experimental) |
 | `apps/dashboard-desktop/` | Tauri shell for the Batchalign dashboard (experimental) |
-| `vscode/` | VS Code extension source |
 | `grammar/` | Tree-sitter grammar |
 | `spec/` | Spec source of truth and generators |
 | `schema/` | JSON Schema and XML-related artifacts |
@@ -155,11 +137,10 @@ the auto-generated error catalog under `docs/errors/`.
 
 ## Installing and building
 
-### Install `chatter` / `talkbank-lsp` from source
+### Install `chatter` from source
 
 ```bash
 cargo install --path crates/talkbank-cli
-cargo install --path crates/talkbank-lsp
 ```
 
 ### Install `batchalign3`

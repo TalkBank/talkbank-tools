@@ -18,10 +18,7 @@ This document answers two separate questions for each public-facing surface in
 | `chatter` CLI | Public stable | Release binaries for Linux x86_64, macOS arm64/x86_64, and Windows x86_64 |
 | Public Rust core crates (`talkbank-model`, `talkbank-parser`, `talkbank-transform`, `talkbank-clan`) | Public preview | Source-first cross-platform surface; Linux is the only full PR test gate today |
 | `tree-sitter-talkbank` grammar | Public preview | Reusable cross-platform grammar package; grammar CI currently runs on Ubuntu |
-| `talkbank-lsp` | Public preview | Bundled in the same core release archives as `chatter` for Linux x86_64, macOS arm64/x86_64, and Windows x86_64 |
-| VS Code extension | Public preview | GitHub Releases publish platform-specific VSIX bundles (macOS arm64/x64, Linux x64/arm64, Windows x64) |
 | `batchalign3` CLI / local server / dashboard | Public preview | Wheels for macOS arm64/x86_64, Linux x86_64/aarch64, and Windows x86_64 |
-| Chatter Desktop (`desktop/`) | Experimental | In-repo validation GUI only; no supported release distribution |
 | Batchalign Desktop (`apps/dashboard-desktop/`) | Experimental | In-repo Batchalign GUI shell only; no supported release distribution |
 
 ## Support level definitions
@@ -67,31 +64,6 @@ Use cross-platform language here carefully: the grammar itself is intended to be
 portable, but the CI proof today is Ubuntu-only and the binding story is not
 uniform across languages.
 
-## `talkbank-lsp`
-
-| Platform | Tier | CI / artifact evidence | Notes |
-|---|---|---|---|
-| Linux x86_64 | B | Bundled in core release archives; VSIX packaging smoke stages the binary | No standalone PR test job for `talkbank-lsp` on Linux |
-| macOS arm64 | B | Bundled in core release archives | Ships via release archives and VSIX packaging |
-| macOS x86_64 | B | Bundled in core release archives | Ships via release archives and VSIX packaging |
-| Windows x86_64 | B | Bundled in core release archives | Ships via release archives and VSIX packaging |
-
-`talkbank-lsp` is public preview: usable and distributed, but not yet described
-as a fully frozen integration contract.
-
-## VS Code extension
-
-| Platform | Tier | CI / artifact evidence | Notes |
-|---|---|---|---|
-| Linux x64 VSIX | B | PR CI compiles/tests extension and smokes Linux VSIX packaging | Strongest packaging coverage today |
-| Linux arm64 VSIX | B | Release workflow builds VSIX | Release-built only |
-| macOS arm64 VSIX | B | Release workflow builds VSIX | Release-built only |
-| macOS x64 VSIX | B | Release workflow builds VSIX | Release-built only |
-| Windows x64 VSIX | B | Release workflow builds VSIX | Release-built only |
-
-For now, user-facing distribution should be described as **GitHub Releases
-VSIX-only**, not Marketplace-first.
-
 ## `batchalign3` CLI / local server / dashboard
 
 | Platform | Tier | CI / artifact evidence | Notes |
@@ -109,19 +81,10 @@ Batchalign deployment mode.
 
 ## Desktop surfaces
 
-The repo contains **two different desktop apps**. They are easy to confuse, so
-docs should always name them explicitly:
+The repo contains one experimental desktop app:
 
-- **Chatter Desktop** = `desktop/` = experimental native GUI for CHAT
-  validation-only workflows.
 - **Batchalign Desktop** = `apps/dashboard-desktop/` = experimental native shell
   around the Batchalign processing/dashboard UI.
-
-### Chatter Desktop (`desktop/`)
-
-| Platform | Tier | Current claim |
-|---|---|---|
-| macOS / Windows / Linux | C | Experimental in-repo app only; not part of the supported public release contract |
 
 ### Batchalign Desktop (`apps/dashboard-desktop/`)
 
@@ -136,10 +99,8 @@ docs should always name them explicitly:
 - Say **"`batchalign3` is the public preview audio/ML surface"**.
 - Say **"the Rust crates are public preview and currently source-first via
   git/path dependencies"**.
-- Say **"the VS Code extension is public preview and currently distributed as
-  GitHub Releases VSIX bundles"**.
 - Say **"`tree-sitter-talkbank` is public preview"**, not "fully stable across
   all bindings".
-- Say **"Chatter Desktop"** or **"Batchalign Desktop"** by name.
-- Do **not** describe either desktop app as a generally supported end-user
+- Say **"Batchalign Desktop"** by name.
+- Do **not** describe the desktop app as a generally supported end-user
   release surface today.

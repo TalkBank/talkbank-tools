@@ -7,12 +7,6 @@ Batchalign Desktop is the native Batchalign GUI shell in
 `apps/dashboard-desktop/`. It is **experimental** and is **not** currently a
 supported public release surface.
 
-This is also **not** the Chatter desktop app. The two desktop surfaces in this
-repository are:
-
-- **Batchalign Desktop** (`apps/dashboard-desktop/`) — Batchalign processing UI
-- **Chatter Desktop** (`apps/chatter-desktop/`) — CHAT validation-only GUI
-
 For supported end-user workflows today, install and run **`batchalign3`** via
 the canonical CLI path in [Installation](installation.md). Treat this chapter as
 orientation for the in-repo desktop shell, not as the primary installation path

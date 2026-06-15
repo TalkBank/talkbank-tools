@@ -8,8 +8,8 @@ The default and canonical parser is the tree-sitter parser
 (`talkbank-parser`). A second implementation, `talkbank-parser-re2c`,
 exists alongside it as a specification oracle and high-throughput
 batch parser; it produces the same `ChatFile` model and is opt-in via
-`chatter validate --parser re2c`. The LSP and all production paths
-use the tree-sitter parser.
+`chatter validate --parser re2c`. All production paths use the
+tree-sitter parser by default.
 
 ## Tree-Sitter Parser
 

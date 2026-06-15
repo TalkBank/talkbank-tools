@@ -80,10 +80,6 @@ targeted regeneration step rather than a universal parser-testing ritual.
 
 ## Editor Setup
 
-### VS Code
-
-Install the TalkBank extension from `vscode/` for CHAT syntax highlighting and diagnostics.
-
 ### rust-analyzer
 
 The workspace should work out of the box with rust-analyzer. The root `Cargo.toml` workspace configuration is standard.

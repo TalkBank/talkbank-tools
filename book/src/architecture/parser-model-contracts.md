@@ -51,7 +51,7 @@ their own validity decisions.
   - `code`, `severity`, `category`, `message`, `location`, `context`, `suggestion`
 
 ## Parser Role
-- `talkbank-parser`: the sole parser, used by CLI/LSP/API/batchalign3. `TreeSitterParser` is the only API handle — callers create one and pass `&TreeSitterParser` everywhere.
+- `talkbank-parser`: the sole parser, used by CLI/API/batchalign3. `TreeSitterParser` is the only API handle; callers create one and pass `&TreeSitterParser` everywhere.
 - Tree-sitter GLR provides error recovery; the Rust traversal code converts CST to typed model.
 - Full-file methods: `parser.parse_chat_file()`, `parser.parse_chat_file_streaming()`.
 - Fragment methods: `parser.parse_word_fragment()`, `parser.parse_main_tier_fragment()`, etc.

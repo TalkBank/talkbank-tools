@@ -3,8 +3,7 @@
 **Status:** Current
 **Last updated:** 2026-05-19 16:54 EDT
 
-The CHAT-core validation cache, used by `chatter validate` and the
-LSP server. Distinct from the
+The CHAT-core validation cache, used by `chatter validate`. Distinct from the
 [audio-task cache](../runtime/audio-task-cache.md) used by Batchalign
 for FA / UTR ASR / media conversion: this cache stores
 **parse + validate** results keyed by file path + options.

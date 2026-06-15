@@ -11,7 +11,7 @@ The purpose of this audit is to keep the book honest about command intent:
   legacy semantics
 - when the manual is silent or incomplete, the command chapter should say so
   explicitly
-- GUI-oriented legacy material should move to the TalkBank VS Code extension docs, not this CLI book
+- GUI-oriented legacy material is out of scope for this CLI command reference
 
 ## Status legend
 

@@ -18,7 +18,7 @@ Key features:
 
 - **Error recovery** — The GLR-based tree-sitter parser recovers from syntax
   errors and produces partial results, making it suitable for editor
-  integration (LSP) and interactive use.
+  integration and interactive use.
 - **Explicit parser handle** — Create a `TreeSitterParser` once and reuse it
   for all parsing in a scope. No hidden global state.
 - **Granular parsing** — `TreeSitterParser` methods parse at any level:

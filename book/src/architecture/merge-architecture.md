@@ -396,8 +396,7 @@ library consumer would see):
 | `talkbank-cli` | Two new `Commands` enum variants and their argument structs | Internal to the binary — not a library surface |
 
 No existing public surface is modified or removed; this is a
-purely-additive change. Existing consumers (the VS Code
-extension, `talkbank-lsp`, `chatter-desktop`, `batchalign`)
+purely-additive change. Existing consumers (such as `batchalign`)
 continue to depend on the existing surface and can ignore the
 additions until a workflow uses them.
 

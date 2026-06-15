@@ -4,8 +4,8 @@
 **Last updated:** 2026-05-19 14:18 EDT
 
 The `talkbank-model` crate defines the typed AST for CHAT files. Every
-other crate — parser, transform, CLAN, CLI, LSP, and the entire batchalign
-runtime — depends on it. This page describes the model itself, the
+other crate (parser, transform, CLAN, CLI, and the entire batchalign
+runtime) depends on it. This page describes the model itself, the
 three-level content hierarchy, the content-walker primitives, and the
 extract → infer → inject pattern that all NLP tasks follow.
 

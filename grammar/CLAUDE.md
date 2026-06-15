@@ -187,7 +187,6 @@ After grammar changes pass local verification, these downstream repositories may
 | Crate/Repo | Why | Command |
 |------------|-----|---------|
 | `talkbank-parser` | uses this parser directly | `cargo check -p talkbank-parser` |
-| `talkbank-lsp` | LSP parser consumer | `cargo check -p talkbank-lsp` |
 | `batchalign3` | parser bridge integration | `cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml` |
 
 ## Emergency Revert Procedure

@@ -7,9 +7,7 @@ Tauri desktop shell wrapping the canonical React frontend (`../../frontend`).
 Provides a native GUI so researchers can pick files, choose a command, and watch
 progress without opening a terminal.
 
-This is the current Batchalign desktop shell. It is distinct from the
-repository-root `desktop/` app, which is the separate Chatter desktop
-validation surface for CHAT-first workflows.
+This is the Batchalign desktop shell.
 
 ## Architecture
 

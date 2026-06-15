@@ -26,9 +26,7 @@ public or stability-guaranteed.
 | `tree-sitter-talkbank` standalone grammar packages | **Public preview** | `grammar/Cargo.toml` `package.version` | One grammar release line mirrored into npm and PyPI metadata. The grammar is public and reusable, but CST/API shape may still evolve before stabilization. |
 | `batchalign3` Python package, bundled CLI, and user-visible Batchalign version banners | **Public preview** | `pyproject.toml` `[project].version` | Publicly installable and documented on the `0.1.x` preview line. Internal Cargo manifests mirror this version so the CLI/server/runtime surface presents one product release line, but the compatibility promise remains preview-tier. |
 | `batchalign3 serve` local server and dashboard UI | **Public preview** | Tracks the `batchalign3` product release line in `pyproject.toml` | End-user surface is supported, but the REST/WebSocket/API contract is not yet frozen for third-party integrations. |
-| `talkbank-lsp` language server | **Public preview** | `Cargo.toml` `workspace.package.version` | Functional and documented, but protocol/configuration details may still evolve. |
-| VS Code extension | **Public preview** | `vscode/package.json` `version` | First public release channel is GitHub Releases VSIX-only. Marketplace publishing is intentionally deferred while binary discovery and release ops are still being hardened. |
-| Desktop shells in `desktop/` and `apps/dashboard-desktop/` | **Experimental** | Their local `package.json` / `Cargo.toml` manifests | In-repo experiments only; not part of the supported release contract. |
+| Desktop shell in `apps/dashboard-desktop/` | **Experimental** | Its local `package.json` / `Cargo.toml` manifests | In-repo experiment only; not part of the supported release contract. |
 | Internal implementation surfaces: `crates/batchalign-*` Rust crates, `batchalign-pyo3`, `send2clan-sys`, `frontend/`, generated worker/OpenAPI artifacts | **Internal** | Local manifests and generated files | Build/runtime internals only. The Batchalign Rust/PyO3 crates are explicitly unpublished (`publish = false`), so matching the public product version does **not** make them supported public Rust APIs. External consumers should not depend on them directly. |
 
 ## Conservative promises
@@ -52,7 +50,7 @@ public or stability-guaranteed.
 
 ## What this document does not promise
 
-- Matching version numbers across Rust, Python, VS Code, and desktop surfaces.
+- Matching version numbers across Rust, Python, and desktop surfaces.
 - Stable third-party integration against the Batchalign REST/WebSocket/API
   layer.
 - A first-release crates.io publication promise for the TalkBank Rust library

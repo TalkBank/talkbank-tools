@@ -11,10 +11,8 @@ members = [
     "crates/talkbank-transform",
     "crates/talkbank-clan",
     "crates/talkbank-cli",
-    "crates/talkbank-lsp",
     "crates/send2clan-sys",
     "crates/talkbank-parser-re2c",
-    "apps/chatter-desktop/src-tauri",
     "apps/dashboard-desktop/src-tauri",
     "crates/batchalign-pyo3",
 ]
@@ -61,7 +59,6 @@ num_cpus = { workspace = true }
 rayon = { workspace = true }
 schemars = { workspace = true }
 sqlx = { workspace = true }
-talkbank-lsp = { workspace = true }
 talkbank-parser-tests = { workspace = true }
 unicode-width = { workspace = true }
 walkdir = { workspace = true }
@@ -180,7 +177,6 @@ talkbank-cli = { path = "crates/talkbank-cli", version = "0.2.0" }
 
 # TalkBank crates — path for local dev, version for crates.io publishing
 talkbank-derive = { path = "crates/talkbank-derive", version = "0.2.0" }
-talkbank-lsp = { path = "crates/talkbank-lsp", version = "0.2.0" }
 talkbank-model = { path = "crates/talkbank-model", version = "0.2.0" }
 talkbank-parser = { path = "crates/talkbank-parser", version = "0.2.0" }
 talkbank-parser-tests = { path = "crates/talkbank-parser-tests", version = "0.2.0" }

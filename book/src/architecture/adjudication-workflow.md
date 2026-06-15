@@ -343,7 +343,7 @@ This means:
 - **The terminal UI is dumb.** All it does is `Display`-format
   the context and parse the operator's response into an
   `OperatorDecision`. No business logic in the UI layer.
-- **Future UI backends (VS Code, web) implement `Prompter`** and
+- **Future UI backends (web) implement `Prompter`** and
   drop in. The adjudication core is unchanged.
 
 ## The `OperatorDecision` type

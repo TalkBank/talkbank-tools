@@ -5,9 +5,8 @@
 
 The `talkbank-tools` repository holds the entire TalkBank toolchain: the
 CHAT specification, tree-sitter grammar, parsing/model/validation/transform
-crates, the `chatter` CLI, the LSP server, the VS Code extension, the
-desktop app, and the Batchalign runtime/application layer. Everything lives
-in one repository under one root Cargo workspace.
+crates, the `chatter` CLI, and the Batchalign runtime/application layer.
+Everything lives in one repository under one root Cargo workspace.
 
 ## Data Flow
 
@@ -22,7 +21,7 @@ parser.c        Generated C parser (never hand-edited)
     ↓
 Rust crates     Parser → Model → Validation → Transform
     ↓
-Applications    chatter CLI, LSP server, VS Code, desktop app, batchalign
+Applications    chatter CLI, desktop app, batchalign
 ```
 
 ## Two layers
@@ -30,7 +29,7 @@ Applications    chatter CLI, LSP server, VS Code, desktop app, batchalign
 The repository contains two architectural layers:
 
 **CHAT core (`talkbank-*` crates).** Parsing, data model, validation,
-transform, CLAN analysis, CLI, LSP. Compiles and runs on a fresh machine
+transform, CLAN analysis, CLI. Compiles and runs on a fresh machine
 with no model downloads, no network, no Python. Everything that "is CHAT"
 lives here. See the crate-boundary policy in `talkbank-tools/CLAUDE.md`
 for what goes where.
@@ -53,9 +52,7 @@ flowchart TD
     transform["talkbank-transform\nPipelines, CHAT↔JSON, caching"]
     clan["talkbank-clan\nCLAN analysis commands"]
     cli["talkbank-cli (chatter)\nCLI: validate, normalize, convert"]
-    lsp["talkbank-lsp\nLanguage Server Protocol"]
     s2c["send2clan-sys\nFFI to CLAN app"]
-    desktop["chatter-desktop\nDesktop validation app (Tauri)"]
     tests["talkbank-parser-tests\nEquivalence tests"]
 
     batchalign_types["batchalign-types\nWire types (V2 protocol)"]
@@ -65,9 +62,9 @@ flowchart TD
     derive --> model
     model --> parser & re2c
     parser --> transform
-    transform --> clan & cli & lsp & desktop
-    clan --> cli & lsp
-    s2c --> cli & desktop
+    transform --> clan & cli
+    clan --> cli
+    s2c --> cli
     parser --> tests
     re2c --> tests
 
@@ -91,8 +88,6 @@ talkbank-tools/
 ├── crates/                 All Rust crates (CHAT core + batchalign)
 ├── corpus/                 Reference corpus
 ├── schema/                 JSON Schema (auto-generated)
-├── vscode/                 VS Code extension
-├── apps/chatter-desktop/   Desktop validation app (Tauri v2, React)
 ├── apps/dashboard-desktop/ Batchalign dashboard Tauri shell (experimental)
 ├── batchalign/             Python worker code (ML inference only)
 ├── frontend/               React dashboard (served by batchalign server)
@@ -105,7 +100,7 @@ talkbank-tools/
 Two separate workspaces:
 
 1. **Root workspace** (`Cargo.toml`) — all Rust crates for parsing, model,
-   transform, batchalign runtime, plus `apps/chatter-desktop/src-tauri`.
+   transform, batchalign runtime, plus `apps/dashboard-desktop/src-tauri`.
 2. **Spec workspace** (`spec/Cargo.toml`) — `spec/tools` for core
    generation, `spec/runtime-tools` for runtime-aware spec tooling.
 

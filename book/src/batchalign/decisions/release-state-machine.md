@@ -77,7 +77,6 @@ Evidence:
 - CI gates pass (clippy, tests, parser equivalence)
 - Release workflow fixed and smoke-tested
 - Core crates (parser, model, transform, clan) well-tested
-- VS Code extension functional but in preview
 
 Blockers to Public Beta:
 

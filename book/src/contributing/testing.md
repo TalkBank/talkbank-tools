@@ -201,7 +201,6 @@ cargo nextest run --no-capture
 | Model (types, validation, alignment) | `cargo nextest run -p talkbank-model` |
 | CLAN command | `cargo nextest run -p talkbank-clan -E 'test(command_name)'` + golden test |
 | CLI (chatter args, dispatch) | `cargo nextest run -p talkbank-cli` |
-| LSP | `cargo nextest run -p talkbank-lsp` |
 | Spec files | `make test-gen && make verify` |
 | Pre-merge (any change) | `make verify` |
 | Pre-push (quick) | `make ci-local` |

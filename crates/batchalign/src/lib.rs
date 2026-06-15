@@ -1,8 +1,6 @@
 #![warn(missing_docs)]
 // Test code is exempt from the crate's `deny`-level panic lints; see
-// `docs/panic-audit/batchalign-app.md` for the full pattern, and the
-// matching `cfg_attr(test, ...)` block in
-// `crates/talkbank-lsp/src/lib.rs` for the rationale.
+// `docs/panic-audit/batchalign-app.md` for the full pattern and rationale.
 #![cfg_attr(
     test,
     allow(

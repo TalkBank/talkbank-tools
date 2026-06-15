@@ -14,10 +14,9 @@ pipeline. It serves three purposes:
    and on the basis of which Jaccard scores. Years later, a
    researcher can answer "why was PAR0 labeled INV in this
    session?" by reading the file.
-3. **Interchange** — an adjudication UI (CLI, VS Code extension,
-   future web app) and the batch pipeline share the same file
-   format; UI tools can be added or replaced without changing
-   the on-disk contract.
+3. **Interchange**: an adjudication UI (CLI, future web app) and
+   the batch pipeline share the same file format; UI tools can be
+   added or replaced without changing the on-disk contract.
 
 This page is the authoritative reference for the file's schema.
 For the *usage* contract (which commands read/write it, when, why),

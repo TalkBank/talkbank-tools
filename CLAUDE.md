@@ -20,7 +20,7 @@ These rules matter because contributors often read code before they read docs.
    multiple meaningful states or invalid state combinations.
 5. **No panic-based control flow in long-lived logic.** Do not add
    `unwrap()`, `expect()`, or equivalent panics in parser, model, validation,
-   CLI, LSP, or background-tooling paths that should report typed failures.
+   CLI, or background-tooling paths that should report typed failures.
 6. **Use real domain errors.** Prefer `thiserror`-based error types and
    diagnostics over stringly failures.
 7. **Keep modules browseable.** Split catch-all modules when they start
@@ -47,11 +47,11 @@ These rules matter because contributors often read code before they read docs.
 
 ## Overview
 
-Unified TalkBank CHAT toolchain: tree-sitter grammar, Rust crates (parsing, data model, validation, transformation, CLAN analysis), CLI (`chatter`), LSP server, VS Code extension, and FFI bindings.
+Unified TalkBank CHAT toolchain: tree-sitter grammar, Rust crates (parsing, data model, validation, transformation, CLAN analysis), CLI (`chatter`), and FFI bindings.
 
 **Supported platforms:** Windows, macOS, and Linux. All code must build and run correctly on all three platforms. CI tests on Ubuntu; release builds target all three (macOS ARM + Intel, Linux x86 + ARM, Windows x86).
 
-Data flows: **spec** (source of truth) → **grammar** (`grammar/`) → **crates** (parsers, model, transform, clan, cli, lsp).
+Data flows: **spec** (source of truth) → **grammar** (`grammar/`) → **crates** (parsers, model, transform, clan, cli).
 
 ## Running in Development
 
@@ -123,13 +123,6 @@ cd grammar && tree-sitter parse path/to/file.cha
 cd spec/tools && cargo test
 cd spec/tools && cargo check --all-targets
 
-# VS Code extension
-cd vscode && npm run compile && npm test && npm run lint
-
-# Desktop app (Tauri v2)
-cd apps/chatter-desktop && npm install && cargo tauri dev   # dev mode with hot reload
-cd apps/chatter-desktop && cargo tauri build                # distributable app bundle
-
 # CLAN golden tests (requires CLAN binaries)
 cargo nextest run -p talkbank-clan -E 'test(golden)'
 
@@ -158,8 +151,6 @@ corpus/         Reference corpus (must pass 100%)
   reference/      Sacred reference set
 tests/          Integration tests and fixtures
 schema/         JSON Schema for ChatFile AST
-vscode/         VS Code extension (TypeScript)
-apps/chatter-desktop/   Desktop validation app (Tauri v2, React + TypeScript)
 apps/dashboard-desktop/ Tauri shell for the Batchalign React dashboard (experimental)
 fuzz/           Fuzz testing targets (separate Cargo workspace)
 ```
@@ -174,9 +165,7 @@ flowchart TD
     transform["talkbank-transform\nPipelines, CHAT↔JSON, caching"]
     clan["talkbank-clan\nCLAN analysis commands"]
     cli["talkbank-cli (chatter)\nCLI: validate, normalize, convert"]
-    lsp["talkbank-lsp\nLanguage Server Protocol"]
     s2c["send2clan-sys\nFFI to CLAN app"]
-    desktop["chatter-desktop\nDesktop validation app (Tauri)"]
     re2c["talkbank-parser-re2c\nAlternate parser (equivalence oracle)"]
     tests["talkbank-parser-tests\nEquivalence tests"]
 
@@ -184,9 +173,9 @@ flowchart TD
     model --> parser
     model --> re2c
     parser --> transform
-    transform --> clan & cli & lsp & desktop
-    clan --> cli & lsp
-    s2c --> cli & desktop
+    transform --> clan & cli
+    clan --> cli
+    s2c --> cli
     parser --> tests
     re2c --> tests
 ```
@@ -205,16 +194,14 @@ surfaces.
 | `talkbank-transform` | pipelines, serialization, caching | Parse+validate pipeline, CHAT↔JSON roundtrip |
 | `talkbank-clan` | `framework/`, `commands/`, `transforms/`, `converters/` | CLAN analysis (FREQ, MLU, etc.), transforms (FLO, etc.), format converters |
 | `talkbank-cli` | `cli/`, `commands/`, `ui/` | `chatter` binary: validate, normalize, to-json, clan dispatch |
-| `talkbank-lsp` | `backend/`, `alignment/`, `graph/` | LSP server with tree-sitter incremental parsing |
 | `send2clan-sys` | `ffi.rs`, `api/` | C FFI to CLAN app (macOS Apple Events, Windows WM_APP) |
 | `talkbank-parser-re2c` | `re2c/`, `lexer.rs`, `parser.rs` | Alternate parser using re2c lexer (equivalence oracle for tree-sitter parser) |
 | `talkbank-parser-tests` | golden word lists, `generated/` | Parser equivalence, roundtrip, property tests |
-| `chatter-desktop` | `commands.rs`, `events.rs` | Native desktop validation app (Tauri v2, React) |
 | `xtask` | `main.rs` | Cargo xtask build helpers (symbol generation, etc.) |
 
 ### Two Cargo Workspaces (plus desktop)
 
-1. **Root workspace** (`Cargo.toml`) — all Rust crates under `crates/` + `apps/chatter-desktop/src-tauri`
+1. **Root workspace** (`Cargo.toml`): all Rust crates under `crates/` + `apps/dashboard-desktop/src-tauri`
 2. **Spec workspace** (`spec/Cargo.toml`) — `spec/tools` for core generation and `spec/runtime-tools` for runtime-aware spec tooling
 
 Use the relevant manifest path for spec tooling:
@@ -750,12 +737,6 @@ Domain-aware gating is built in: `Some(Mor)` skips retrace groups, `Some(Pho|Sin
 
 Legacy `+flag`/`-flag` syntax is rewritten to `--flag` equivalents by `clan_args::rewrite_clan_args()`. Key mappings: `+t*CHI` → `--speaker CHI`, `+s<word>` → `--include-word <word>`, `+z25-125` → `--range 25-125`.
 
-## LSP Reliability Rules
-
-- Backend initialization failures must surface as diagnostics, not panics.
-- Request handlers should degrade gracefully when parser services are unavailable.
-- Keep LSP diagnostics aligned with parser parse-health semantics.
-
 ## Debugging Recipes (Python workers, async runtime)
 
 **py-spy — Python CPU profiler / hung-worker triage.**
@@ -859,7 +840,6 @@ chatter validate --parser re2c --roundtrip corpus/  # + roundtrip test
 ```
 
 TreeSitterParser is the default. Re2c is opt-in via `--parser re2c`.
-LSP always uses TreeSitterParser (needs incremental parsing).
 
 ### Current Status
 
@@ -880,21 +860,18 @@ See `crates/talkbank-parser-re2c/docs/parity-report.md` for detailed metrics.
 | `grammar/CLAUDE.md` | Tree-sitter grammar design, 4-step verification, strict+catch-all pattern |
 | `spec/CLAUDE.md` | Specification structure, templates, `make test-gen` workflow |
 | `spec/tools/CLAUDE.md` | Spec generator binaries, spec/runtime-tools sibling crate |
-| `crates/talkbank-lsp/CLAUDE.md` | LSP crate: **alignment lives in `talkbank-model`, do not reimplement**; three `%mor`/`%gra` index spaces; RPC and feature handler rules |
 | `crates/talkbank-parser-re2c/CLAUDE.md` | Re2c parser crate (alternate parser / spec oracle) |
-| `vscode/CLAUDE.md` | VS Code extension: presentation-only layer, no domain logic on the TS side |
-| `apps/chatter-desktop/CLAUDE.md` | Desktop app (Tauri v2, React) — **mandates TUI parity** |
 
 ## The unified mdBook (in this repo)
 
 The single book at `book/` is the canonical user / developer
-documentation for the whole toolchain — chatter, Batchalign, the
-VS Code extension, the CLAN reference, CHAT format, architecture,
-and contributing guides all live there.
+documentation for the whole toolchain: chatter, Batchalign, the
+CLAN reference, CHAT format, architecture, and contributing guides
+all live there.
 
 | Path | Title | Sections |
 |------|-------|----------|
-| `book/` | TalkBank Toolchain | `chatter/`, `batchalign/`, `vscode/`, `clan-reference/`, `chat-format/`, `architecture/`, `contributing/` |
+| `book/` | TalkBank Toolchain | `chatter/`, `batchalign/`, `clan-reference/`, `chat-format/`, `architecture/`, `contributing/` |
 
 **Policy.** The book is the canonical user / developer documentation
 for the whole toolchain. Keep only one top-level `README.md` per repo

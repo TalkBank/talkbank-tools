@@ -1,9 +1,8 @@
 # Canonical GitHub release line for the shared Rust workspace. This publishes the
-# public-stable `chatter` CLI plus the preview `talkbank-lsp` binary built from
-# the same workspace version. It intentionally does not cargo-publish the
-# library crates; those remain source-first preview surfaces until a dedicated
-# crates.io workflow and publish-ready helper-crate chain exist. Batchalign, VS
-# Code, and desktop surfaces ship via their own release workflows.
+# public-stable `chatter` CLI built from the workspace version. It intentionally
+# does not cargo-publish the library crates; those remain source-first preview
+# surfaces until a dedicated crates.io workflow and publish-ready helper-crate
+# chain exist. Batchalign ships via its own release workflows.
 name: TalkBank Core Release
 
 run-name: Core release ${{ inputs.tag || github.ref_name }}
@@ -108,7 +107,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }} -p talkbank-cli -p talkbank-lsp
+        run: cargo build --release --target ${{ matrix.target }} -p talkbank-cli
 
       - name: Smoke test — chatter --help (native only)
         if: >-
@@ -137,7 +136,7 @@ jobs:
           ARCHIVE="chatter-v${VERSION}-${{ matrix.target }}.tar.gz"
           tar czf "${ARCHIVE}" \
             -C target/${{ matrix.target }}/release \
-            chatter talkbank-lsp
+            chatter
           echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
 
       - name: Package archive (Windows)
@@ -146,7 +145,7 @@ jobs:
         run: |
           $VERSION = "${{ env.RELEASE_TAG }}".TrimStart("v")
           $ARCHIVE = "chatter-v${VERSION}-${{ matrix.target }}.zip"
-          Compress-Archive -Path "target/${{ matrix.target }}/release/chatter.exe","target/${{ matrix.target }}/release/talkbank-lsp.exe" -DestinationPath $ARCHIVE
+          Compress-Archive -Path "target/${{ matrix.target }}/release/chatter.exe" -DestinationPath $ARCHIVE
           echo "ARCHIVE=${ARCHIVE}" >> $env:GITHUB_ENV
 
       - name: Upload artifact

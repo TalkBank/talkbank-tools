@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-19 14:18 EDT
 
 A workspace-wide audit rule for struct shape. Applies to all crates in
-`talkbank-tools` (parsing, model, validation, transform, CLI, LSP, batchalign
+`talkbank-tools` (parsing, model, validation, transform, CLI, batchalign
 runtime).
 
 A struct with many fields is not automatically wrong. The smell is:
@@ -141,12 +141,6 @@ vs. render flags vs. status):
 
 - `src/test_dashboard/app.rs` `AppState`
 - `crates/talkbank-cli/src/ui/validation_tui/state.rs` `TuiState`
-
-### `Backend` (talkbank-lsp)
-
-`crates/talkbank-lsp/src/backend/state.rs` is a service-root aggregate.
-Defensible, but still wants grouping such as document caches, parse caches,
-validation state, language services.
 
 ### Metric structs
 

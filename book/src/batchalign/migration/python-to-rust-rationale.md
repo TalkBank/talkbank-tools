@@ -137,10 +137,9 @@ and annotation conventions that are never checked at compile time.
 ### The AST is shared infrastructure
 
 The `talkbank-model` and `talkbank-parser` crates aren't just for morphotag.
-They power the TalkBank LSP (Language Server Protocol) server, the CHAT validation
-tooling, and will be the foundation for migrating forced alignment and utterance
-segmentation to Rust. Every pipeline that currently uses `annotation_clean()` will
-benefit from the same AST.
+They power the CHAT validation tooling and will be the foundation for migrating
+forced alignment and utterance segmentation to Rust. Every pipeline that
+currently uses `annotation_clean()` will benefit from the same AST.
 
 ---
 

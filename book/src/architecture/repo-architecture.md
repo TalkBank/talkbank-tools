@@ -18,15 +18,13 @@ crates/                   all Rust crates (root Cargo workspace)
   talkbank-transform/     pipelines, CHAT↔JSON, caching, parallel validation
   talkbank-clan/          CLAN analysis commands and format converters
   talkbank-cli/           the `chatter` CLI binary
-  talkbank-lsp/           LSP server
   send2clan-sys/          C FFI to the legacy CLAN app
   batchalign/             Batchalign runtime: CLI, axum server, dispatch, FA, morphosyntax, Rev.AI client
   batchalign-types/       Batchalign shared domain + worker IPC types
   batchalign-pyo3/        PyO3 bridge — builds the `batchalign_core` Python extension
 batchalign/               Batchalign Python worker code (ML inference hosting only)
-apps/                     desktop apps (Tauri v2 + React): chatter-desktop, dashboard-desktop
+apps/                     desktop app (Tauri v2 + React): dashboard-desktop
 frontend/                 React dashboard for the Batchalign server
-vscode/                   VS Code extension (TypeScript)
 corpus/                   reference corpus (must pass 100%)
 schema/                   JSON Schema for ChatFile AST
 tests/                    workspace-level integration tests and fixtures
@@ -68,7 +66,7 @@ docs/                     release-contract policy documents and the auto-generat
 4. The `batchalign` crate consumes the talkbank-* core crates
    (model, parser, transform, etc.) but never reimplements CHAT
    primitives.
-5. CLI / LSP / desktop apps depend on stable internal APIs, never
+5. CLI / desktop apps depend on stable internal APIs, never
    directly on unstable internals of other crates.
 6. Generator tools may read specs and grammar metadata but do not
    become runtime dependencies.

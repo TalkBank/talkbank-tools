@@ -13,21 +13,17 @@ blocked until signing/notarization automation exists.
 
 | Surface | Current distribution channel | First-release policy |
 |---|---|---|
-| TalkBank core CLI / `talkbank-lsp` | GitHub Release tar/zip archives from `.github/workflows/release.yml` | Allowed as terminal-first archives. Do not describe them as native installers. |
+| TalkBank core CLI (`chatter`) | GitHub Release tar/zip archives from `.github/workflows/release.yml` | Allowed as terminal-first archives. Do not describe them as native installers. |
 | `batchalign3` | PyPI wheels + sdist, plus optional GitHub Release wheel/sdist attachments from `.github/workflows/batchalign-release.yml` | Allowed. Release smoke must verify the packaged `batchalign3 serve` `/health` path. |
-| VS Code extension | GitHub Releases VSIX files from `.github/workflows/vscode-release.yml` | Allowed. First public release is VSIX-only, not Marketplace-first. |
 | Desktop / native installers | `.app`, `.pkg`, `.dmg`, `.exe`, `.msi`, or similar double-click install surfaces | Blocked for public release until signing policy and automation are implemented for that surface. |
 
 ## What release docs may claim today
 
-- **Allowed language:** GitHub Release archive, VSIX download, PyPI wheel, `uv`
+- **Allowed language:** GitHub Release archive, PyPI wheel, `uv`
   install, terminal-first archive.
 - **Blocked language unless the workflow actually does it:** signed,
   notarized, SmartScreen-trusted, native installer, App Store / Marketplace
   rollout.
-- **VS Code:** tell users to install the matching `.vsix` from the
-  `vscode-vX.Y.Z` GitHub release. Do not point first-release docs at the VS
-  Code Marketplace.
 
 ## Signing/notarization gate
 

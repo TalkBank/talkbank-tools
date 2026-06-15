@@ -3,15 +3,13 @@
 **Status:** Current
 **Last updated:** 2026-05-21 14:45 EDT
 
-This directory contains generated JSON Schema artifacts for both the TalkBank
-transcript model and stable editor/server contracts.
+This directory contains generated JSON Schema artifacts for the TalkBank
+transcript model.
 
 ## Files
 
 - **`chat-file.schema.generated.json`** -- generated transcript-model schema artifact
 - **`chat-file.schema.json`** -- checked-in transcript-model schema
-- **`analyze-command.schema.generated.json`** -- generated `talkbank/analyze` contract schema artifact
-- **`analyze-command.schema.json`** -- checked-in `talkbank/analyze` contract schema
 
 The `.generated.json` and canonical `.json` files currently contain the same
 content. Keeping both matches the shared schema-generation harness and makes it
@@ -21,10 +19,9 @@ clear which files are machine-written outputs.
 
 ```
 https://talkbank.org/schemas/v0.1/chat-file.json
-https://talkbank.org/schemas/v0.1/analyze-command.json
 ```
 
-The `$id` in each schema resolves to its canonical URL. The transcript-model
+The `$id` in the schema resolves to its canonical URL. The transcript-model
 schema also has a `/latest/` alias that always points to the current version.
 
 ## How it's generated
@@ -37,11 +34,9 @@ The schemas are auto-generated from Rust type definitions using
 
 ```bash
 cargo test --test generate_schema
-cargo test --test generate_analyze_command_schema
 ```
 
-The transcript schema comes from `talkbank-model`. The analyze-command schema
-comes from `crates/talkbank-lsp/src/backend/contracts.rs`.
+The transcript schema comes from `talkbank-model`.
 
 ## Versioning
 
@@ -58,10 +53,7 @@ publication is handled out-of-band as part of the release process.
 ## Further reading
 
 - [JSON Schema book chapter](../book/src/integrating/json-schema.md) -- usage
-  guide, external validation examples, transcript roundtrip guarantee, and
-  editor/server contract notes
+  guide, external validation examples, and transcript roundtrip guarantee
 - `crates/talkbank-transform/src/json/mod.rs` -- Rust API for schema-validated
   serialization
-- `crates/talkbank-lsp/src/backend/contracts.rs` -- Rust-owned analyze-command contract
 - `tests/generate_schema/` -- shared generation helpers, metadata injection, schema transforms
-- `tests/generate_analyze_command_schema.rs` -- analyze-contract generation test

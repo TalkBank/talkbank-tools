@@ -77,7 +77,7 @@ level.
   (continuation) @indent.begin)
 ```
 
-**Effort:** Small. Requires testing with the VS Code extension to verify
+**Effort:** Small. Requires testing in a tree-sitter-aware editor to verify
 behavior matches expectations.
 
 ### Expand `locals.scm` for richer speaker scoping
@@ -152,7 +152,7 @@ references for IDE symbol navigation (breadcrumbs, outline, jump-to-definition).
 (gra_dependent_tier) @reference.type
 ```
 
-**Value:** VS Code outline view showing headers as sections, speaker turns as
+**Value:** Editor outline views showing headers as sections, speaker turns as
 items, and dependent tiers as sub-items. Makes navigating long transcripts much
 faster.
 
@@ -280,7 +280,7 @@ our `highlights.scm` captures are correct. Example:
 ```
 
 **Value:** Prevents highlight regressions as the grammar evolves. Currently,
-highlight correctness is only verified by manual inspection in VS Code.
+highlight correctness is only verified by manual inspection in a tree-sitter-aware editor.
 
 **Effort:** Small. Create test files, add `tree-sitter test` invocation.
 

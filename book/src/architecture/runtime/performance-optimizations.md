@@ -60,24 +60,6 @@ is complete.
 validators that read shared fields (`context.shared.participant_ids`,
 not `context.participant_ids`).
 
-## LSP `DashMap<Url, Arc<ChatFile>>`
-
-LSP request handlers (hover, completion, symbols, folding, inlay
-hints, formatting — ~10 handlers) get `Arc::clone()` of the
-`ChatFile` rather than holding a `DashMap` shard guard. The shard
-lock is released immediately after the pointer copy.
-
-The mutation path (validation orchestrator) needs an owned
-`ChatFile` for alignment computation. It extracts the old file via
-`ChatFile::clone(entry.value())` — a deep clone — but this only
-happens on file change (debounced), not on every request. After
-mutation, the new `ChatFile` is wrapped in `Arc::new()` and
-inserted atomically.
-
-`crates/talkbank-lsp/src/backend/state.rs`,
-`crates/talkbank-lsp/src/backend/requests/`,
-`crates/talkbank-lsp/src/backend/diagnostics/validation_orchestrator.rs`.
-
 ## Reusable `TreeSitterParser`
 
 `TreeSitterParser` is expensive to create (~1 ms for tree-sitter
@@ -135,17 +117,6 @@ strip = true            # Strip symbols from deployed binaries
 Net ~15% throughput improvement for CLI validation. Deploy scripts
 use `--release` so these settings apply to fleet binaries
 automatically; dev builds are unaffected.
-
-## LSP `LineIndex`
-
-`offset_to_position` is O(log n) via a pre-computed line-offset
-index and binary search, replacing the original O(n) scan. This
-eliminates O(n²) behavior for semantic tokens on large files.
-
-## LSP `did_save` Skip
-
-LSP skips re-validation on save if the document hasn't changed
-since the last debounced `did_change` validation.
 
 ## Audit-Mode Parallelization
 

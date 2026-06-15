@@ -11,11 +11,11 @@ trait and produce identical `ChatFile` model types.
 - **Crate:** `talkbank-parser`
 - **Technology:** [tree-sitter](https://tree-sitter.github.io/) GLR parser
 - **Grammar:** `grammar/grammar.js` → generated C parser
-- **Strengths:** Incremental reparsing (LSP), robust error recovery (GLR),
+- **Strengths:** Incremental reparsing, robust error recovery (GLR),
   CST-level diagnostics
 - **Weaknesses:** Slower on batch workloads, `!Send + !Sync` (one parser per thread)
 
-Used by the LSP, the default CLI, and all production validation.
+Used by the default CLI and all production validation.
 
 ## Re2cParser
 
@@ -76,7 +76,7 @@ Run benchmarks: `cargo bench -p talkbank-parser-re2c --bench parse_comparison`
 
 | Use Case | Recommended Parser | Why |
 |----------|-------------------|-----|
-| LSP / editor integration | tree-sitter | Incremental reparsing |
+| Incremental reparsing / editor integration | tree-sitter | Incremental reparsing |
 | Batch validation (>100 files) | re2c | 4-8x faster |
 | CI validation | Either | Both correct; re2c saves CI time |
 | Error diagnostics (user-facing) | tree-sitter | More specific E3xx codes |

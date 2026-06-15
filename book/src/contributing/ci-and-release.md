@@ -38,16 +38,15 @@ matches the release contract for the surface you are shipping.
 
 | Workflow | Scope | Tier | Output | Guardrails |
 |----------|-------|------|--------|------------|
-| `.github/workflows/release.yml` (`TalkBank Core Release`) | Canonical Rust binary release line for `chatter`; bundles preview `talkbank-lsp` alongside it | Public stable + preview convenience binary | GitHub Release assets for the shared Rust workspace version | Requires an existing `vX.Y.Z` tag matching `Cargo.toml`; runs native binary smoke tests before publishing; does **not** cargo-publish the Rust library crates |
+| `.github/workflows/release.yml` (`TalkBank Core Release`) | Canonical Rust binary release line for `chatter` | Public stable | GitHub Release assets for the shared Rust workspace version | Requires an existing `vX.Y.Z` tag matching `Cargo.toml`; runs native binary smoke tests before publishing; does **not** cargo-publish the Rust library crates |
 | `.github/workflows/batchalign-release.yml` (`Batchalign Package Release (Preview)`) | Public `batchalign3` package/CLI release line | Public preview | Wheels + sdist, with optional GitHub Release and optional PyPI publish | Requires an existing `vX.Y.Z` tag matching `pyproject.toml`; runs wheel smoke tests before publish |
-| `.github/workflows/vscode-release.yml` (`VS Code Extension Release (Preview)`) | VS Code extension release line only | Public preview | GitHub prerelease containing five platform-specific VSIX files; no Marketplace publish | Requires `vscode/package.json` version match; compiles, lints, and tests before packaging |
 | `.github/workflows/batchalign-desktop.yml` (`Batchalign Desktop Bundles (Experimental)`) | Dashboard desktop shell bundle builds | Experimental | GitHub Actions artifacts only | Artifact-only internal validation; does not create a public GitHub release |
 
 General process:
 
 1. Run the relevant verification for the surface you are releasing (`make verify`
-   for the core Rust release line, the built-in workflow checks for VS Code, and
-   the Batchalign packaging checks for `batchalign3`).
+   for the core Rust release line, and the Batchalign packaging checks for
+   `batchalign3`).
 2. Update the canonical version source for that surface.
 3. For the core Rust and Batchalign package release lines, create and push the
    matching `vX.Y.Z` git tag before dispatching the workflow.
@@ -58,13 +57,10 @@ General process:
 
 ## First-release release-ops guardrails
 
-- **VS Code stays GitHub Releases VSIX-only for the first public release.** Do
-  not add Marketplace publishing steps or docs until the release contract and
-  workflow/docs are explicitly reopened together.
 - **Batchalign release smoke must cover `batchalign3 serve` + `/health`.** The
   wheel smoke path is not complete if it only checks `--help` and `version`.
 - **Signing/notarization language must follow `docs/code-signing-and-distribution.md`.**
-  Current GitHub Release archives, wheels, and VSIX files are not a license to
+  Current GitHub Release archives and wheels are not a license to
   imply native-installer trust guarantees we do not yet automate.
 
 ## Cross-Surface Testing
@@ -79,5 +75,5 @@ uv run maturin develop    # Rebuild the batchalign-pyo3 extension in-place
 uv run pytest batchalign  # Python test suite
 ```
 
-CLI, LSP, and CLAN tests run as part of the main workspace's
+CLI and CLAN tests run as part of the main workspace's
 `make test` and `make verify`.

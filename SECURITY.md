@@ -16,7 +16,7 @@ Preferred reporting channels:
 Please include:
 
 - the affected surface (`chatter`, public TalkBank crates, `batchalign3`,
-  `talkbank-lsp`, VS Code extension, or another repo path)
+  or another repo path)
 - the commit SHA, branch, or released version you tested
 - reproduction steps or a proof of concept
 - impact assessment

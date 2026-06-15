@@ -6,8 +6,7 @@
 `chatter` runs on **Windows, macOS, and Linux**. Pre-built binaries are
 available from the [GitHub Releases](https://github.com/TalkBank/talkbank-tools/releases)
 page; choose the plain `vX.Y.Z` TalkBank core release entry and its
-`chatter-v...` assets (VS Code preview releases use `vscode-vX.Y.Z` tags in the
-same repository). To build from source, follow the instructions below.
+`chatter-v...` assets. To build from source, follow the instructions below.
 
 ## Prerequisites
 
@@ -68,12 +67,11 @@ Everything lives in a single repository:
 
 ```text
 ~/talkbank/
-└── talkbank-tools/         # This repo (grammar, crates, CLI, LSP, VS Code, CLAN, Batchalign)
+└── talkbank-tools/         # This repo (grammar, crates, CLI, CLAN, Batchalign)
     ├── grammar/            # Tree-sitter grammar
     ├── crates/             # All Rust crates (talkbank-* and batchalign-*)
     ├── spec/               # CHAT specification
-    ├── vscode/             # VS Code extension
-    ├── apps/               # Tauri desktop apps (chatter-desktop, dashboard-desktop) — both experimental
+    ├── apps/               # Tauri desktop app (dashboard-desktop, experimental)
     └── book/               # TalkBank Toolchain mdBook
 ```
 

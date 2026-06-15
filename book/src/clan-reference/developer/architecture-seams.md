@@ -49,11 +49,3 @@ That architecture is easier to test and reason about than `Arc<Mutex<AppState>>`
 2. reducer logic in `AppState::apply_event` in the same file
 3. worker-side emission in `src/test_dashboard/runner.rs`
 
-## Editor integration note
-
-The VS Code extension and `talkbank-lsp` use a typed execute-command boundary. The contract surface is documented in:
-
-- `book/src/vscode/reference/rpc-contracts.md` — the RPC contracts the extension and LSP speak
-- `book/src/vscode/developer/custom-commands.md` — how to add a new custom command
-- `crates/talkbank-lsp/CLAUDE.md` — invariants for the server side
-

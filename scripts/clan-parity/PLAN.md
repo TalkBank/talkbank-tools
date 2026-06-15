@@ -598,9 +598,7 @@ story.
 **Track B: "I use the CLAN GUI app."** Conceptual mapping:
 each GUI menu / dialog → chatter command. Migration cost
 acknowledged: GUI users learn the terminal, but get faster
-batch processing and reproducible scripts in exchange. Pointer
-at the VS Code extension as an alternative GUI for CHAT
-editing (separate from analysis-command parity).
+batch processing and reproducible scripts in exchange.
 
 Plus shared content for both audiences:
 

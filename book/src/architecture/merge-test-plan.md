@@ -373,7 +373,7 @@ the resulting override file plus the residual pending file.
 ### L4.5 — Prompter contract conformance
 
 These tests pin the contract that any `Prompter` impl must
-satisfy, so future UI backends (VS Code, web) can be developed
+satisfy, so future UI backends (web) can be developed
 against the same invariants.
 
 | Test | Scenario | Assertion |

@@ -8,8 +8,7 @@ media conversion). It does **not** cache text-NLP results
 (morphosyntax, utterance segmentation, translation). All caching is
 managed by the Rust server — Python workers are cache-unaware.
 
-For the CHAT-core validation cache used by `chatter validate` and
-the LSP, see
+For the CHAT-core validation cache used by `chatter validate`, see
 [validation cache](../parser-and-grammar/validation-cache.md).
 
 ## Why no text-NLP cache

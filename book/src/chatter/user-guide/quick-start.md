@@ -99,6 +99,5 @@ Every time you save, `chatter` re-validates and shows updated diagnostics.
 
 - **[CLI Reference](cli-reference.md)** — all commands, flags, and output formats
 - **[Validation Errors](validation-errors.md)** — every error code, with examples and fix guidance
-- **[VS Code Extension](vscode-extension.md)** — live diagnostics, CLAN commands, media playback
 - **[Migrating from CLAN](migrating-from-clan.md)** — flag mapping for CLAN veterans
 - **[Batch Workflows](batch-workflows.md)** — corpus-scale validation and analysis

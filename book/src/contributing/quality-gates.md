@@ -17,7 +17,7 @@ sequence. `hooks-check` runs first as a warning, but it is not a numbered gate.
 Root CI is broader than `make verify`, but it is **not** a byte-for-byte mirror
 of the local gate sequence. The workflow includes local-contract coverage where
 practical, plus CI-only jobs such as grammar generation, reference-corpus
-roundtrip, VS Code jobs, cross-platform CLI smoke, dependency audit, and the
+roundtrip, cross-platform CLI smoke, dependency audit, and the
 aggregate `ci-report`.
 
 ### Local gate coverage in CI
@@ -46,7 +46,6 @@ These are required CI signals but are not part of `make verify`:
 
 - `grammar`
 - `reference-corpus-roundtrip`
-- `vscode` and `vscode-vsix-smoke`
 - `cross-platform-smoke`
 - `dependency-audit`
 - `semver-checks` (pull requests)
