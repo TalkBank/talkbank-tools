@@ -139,9 +139,9 @@ predicates = "3.1"
 # Proc-macro dependencies
 proc-macro2 = "1.0"
 proptest = "1.11.0"
-# 0.28 until the numpy crate (tied to the same pyo3 minor via pyo3-ffi's
-# `links = "python"`) ships 0.29 support; see crates/batchalign-pyo3/Cargo.toml.
-pyo3 = "0.28"
+# pyo3 moves in lockstep with the numpy crate (pyo3-ffi's `links = "python"`
+# forbids two pyo3 versions in one graph); see crates/batchalign-pyo3/Cargo.toml.
+pyo3 = "0.29"
 quick-xml = "0.40"
 quote = "1.0"
 rand = "0.10"
