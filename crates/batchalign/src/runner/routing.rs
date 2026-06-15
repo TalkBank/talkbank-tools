@@ -245,6 +245,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 l2_morphotag: plan.l2_morphotag,
                 respect_pos_hints: plan.respect_pos_hints,
                 should_merge_abbrev: plan.should_merge_abbrev,
+                review_level: plan.review_level,
             },
             num_workers,
         )

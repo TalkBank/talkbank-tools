@@ -1,17 +1,35 @@
 # Review Tiers: `%xalign` and `%xrev`
 
 **Status:** Current
-**Last updated:** 2026-05-11 11:48 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
-When batchalign3 makes a decision that could be wrong — clamping a timestamp,
-filling a gap between utterances, stripping non-monotonic timing, failing to
-map a Stanza token back to a CHAT word — it records the decision in a
-`%xalign` tier and, on the subset that warrant human attention, flags a
+When batchalign3 makes a decision that could be wrong (clamping a timestamp,
+filling a gap between utterances, stripping non-monotonic timing, or failing to
+map a Stanza token back to a CHAT word), it can record the decision in a
+`%xalign` tier and, on the subset that warrant human attention, flag a
 paired `%xrev: [?]` marker. Together these tiers make an aligned CHAT file
 **self-documenting for one review cycle**: a reviewer can see what the
 algorithm did and why, then confirm, correct, or overrule the decision.
 
 This page is the reviewer's guide to that workflow.
+
+> **Off by default.** As of 2026-06-15, batchalign3 does **not** write
+> `%xalign` / `%xrev` tiers unless you ask for them. They are unfinished
+> review scaffolding, and leaving them in finished files just creates
+> cleanup work, so emission is opt-in (no tiers are written at the default
+> `none` level):
+>
+> - `align`: pass `--review-level low-confidence` (or `all`). The default
+>   is `none`.
+> - `morphotag`: pass `--review-level low-confidence` (or `all`), or set
+>   the `review_level` field in the job options. The default is `none`, and
+>   the decision tiers are produced only on morphotag's incremental
+>   reprocessing path (`--before`).
+>
+> The decision-recording machinery is fully retained; only the emission is
+> gated, so the feature can be turned back on per-run at any time. The rest
+> of this page describes the review workflow that applies *once you have
+> opted in*.
 
 ## Read this first: the tiers are short-lived scaffolding
 
@@ -83,42 +101,48 @@ The `module` prefix on `%xalign` content tells the reviewer which pipeline
 stage raised the decision. All decisions currently land in a single unified
 `%xalign` tier regardless of module.
 
-| Module prefix | Source stage | Status today | Typical strategies |
+All four module prefixes only land in output when review level is above
+`none` (off by default; see the callout at the top).
+
+| Module prefix | Source stage | Status | Typical strategies |
 |---|---|---|---|
-| `fa:` | Forced alignment (`align`) | Live | `gap_filled`, `boundary_averaged`, `lis_removal`, `words_timing_dropped` |
-| `monotonicity:` | Timing sanity (`align`) | Live | `end_clamped`, `timing_stripped` |
-| `utr:` | Utterance timing recovery (`align` pre-pass) | Live | `unmatched`, `zero_duration_skipped` |
-| `morphosyntax:` | Stanza mapping (`morphotag`) | **Infrastructure only** — strategy enum exists at `crates/talkbank-transform/src/decisions.rs::MorphosyntaxStrategy`, but the morphotag dispatch path does not currently call any tier-emission function, and no constructor sites are wired up yet. When morphotag eventually emits decision tiers, the construction code will live alongside the dispatch path under `crates/batchalign/src/chat_ops/morphosyntax_ops/`. No `morphosyntax:` `%xalign` lines actually land in output today. | `mapping_failed`, `retokenization_failed`, `injection_failed`, `nlp_no_sentences` |
+| `fa:` | Forced alignment (`align`) | Opt-in via `--review-level` | `gap_filled`, `boundary_averaged`, `lis_removal`, `words_timing_dropped` |
+| `monotonicity:` | Timing sanity (`align`) | Opt-in via `--review-level` | `end_clamped`, `timing_stripped` |
+| `utr:` | Utterance timing recovery (`align` pre-pass) | Opt-in via `--review-level` | `unmatched`, `zero_duration_skipped` |
+| `morphosyntax:` | Stanza mapping (`morphotag`) | Opt-in via the `review_level` option, **incremental path only**: emitted by `process_morphosyntax_incremental` (`crates/batchalign/src/morphosyntax/mod.rs`). The batched / full-file morphotag path does not inject decision tiers. | `mapping_failed`, `retokenization_failed`, `injection_failed`, `nlp_no_sentences` |
 
-The live `fa:`, `monotonicity:`, and `utr:` decisions are emitted by the
+The `fa:`, `monotonicity:`, and `utr:` decisions are emitted by the
 FA pipeline via `inject_review_tiers` in
-`crates/batchalign/src/chat_ops/fa/review_tiers.rs:26`, called from
-`crates/batchalign/src/fa/incremental.rs:340`. `fa:` and `monotonicity:`
-strategy decisions are constructed in
+`crates/batchalign/src/chat_ops/fa/review_tiers.rs`, called from
+`crates/batchalign/src/fa/incremental.rs` (and `fa/mod.rs`). `fa:` and
+`monotonicity:` strategy decisions are constructed in
 `crates/batchalign/src/chat_ops/fa/orchestrate.rs`; `utr:` strategies
-are constructed in `crates/batchalign/src/chat_ops/fa/utr.rs` (e.g.
-`utr.rs:326,351`). The generalized cross-pipeline writer
-`inject_decision_tiers` exists at
-`crates/talkbank-transform/src/decisions.rs:380` but is currently only
-exercised in tests; wiring it into morphotag is the path that would
-turn the `morphosyntax:` row above from "infrastructure only" to
-"live".
+are constructed in `crates/batchalign/src/chat_ops/fa/utr.rs`. The
+generalized cross-pipeline writer `inject_decision_tiers`
+(`crates/talkbank-transform/src/decisions.rs`) is also called by
+morphotag's incremental path (`morphosyntax/mod.rs`), which is how
+`morphosyntax:` decisions reach the `%xalign` tier. All call sites take a
+`ReviewLevel`, which defaults to `None`, so nothing is written unless a
+caller opts in.
 
-## Controlling emission: `--review-level`
+## Controlling emission: review level
 
-The `align` command accepts `--review-level` (the field
-`AlignArgs.review_level` at `crates/batchalign/src/cli/args/commands.rs:188`).
-Since `morphotag` does not currently emit these tiers, it does not
-accept the flag — the table row in §"Decision modules" notes that the
-`morphosyntax:` infrastructure exists but is not wired up.
+Both the `align` and `morphotag` commands accept `--review-level`
+(`AlignArgs.review_level` / `MorphotagArgs.review_level` in
+`crates/batchalign/src/cli/args/commands.rs`, mapped through
+`resolve_review_level`). Daemon / programmatic callers can equivalently set
+the `review_level` field in the submitted job options. Both default to
+`none`.
 
 | Level | Emits |
 |---|---|
-| `none` | No `%xalign` or `%xrev` tiers. Smallest output — use for publication. |
-| `low-confidence` (default) | `%xalign` + `%xrev: [?]` only on uncertain decisions. |
+| `none` (default) | No `%xalign` or `%xrev` tiers. This is the default for both `align` and `morphotag`. |
+| `low-confidence` | `%xalign` + `%xrev: [?]` only on uncertain decisions. |
 | `all` | `%xalign` on every bulleted utterance plus `%xrev: [?]` on uncertain ones. |
 
-Source: `CliReviewLevel` in `crates/batchalign/src/cli/args/commands.rs:61`.
+Source: `ReviewLevel` in `crates/talkbank-transform/src/decisions.rs` and
+`CliReviewLevel` in `crates/batchalign/src/cli/args/commands.rs`. Both
+enums default to `None`.
 
 ## The review loop
 
@@ -129,7 +153,7 @@ moves on.
 
 ```mermaid
 flowchart TD
-    align["align\nemits fresh %xalign + %xrev: [?]\n(morphotag emission is infrastructure-only today)"]
+    align["align --review-level low-confidence|all\nemits fresh %xalign + %xrev: [?]\n(off by default)"]
     stale{"File mtime > @Comment ts?\nAlgo version differs?"}
     rerun["Rerun align\nto get fresh tiers"]
     review["Reviewer inspects\n%xrev: [?] markers"]
@@ -186,18 +210,23 @@ ready for publication.
 
 ### Today
 
-Re-run the command with `--review-level=none`:
+Because `none` is the default, a plain run already produces a file with no
+review scaffolding:
 
 ```bash
-batchalign3 --no-open-dashboard align FILE.cha -o published/ --lang eng --review-level none
+batchalign3 --no-open-dashboard align FILE.cha -o published/ --lang eng
 ```
 
-This strips all existing `%x*` tiers and does not emit new ones. The
-published file has no audit scaffolding.
+If the file already carries review tiers from an earlier opted-in run,
+remove them by deleting every `%xalign` / `%xrev` line by hand, or re-run
+**with review tiers enabled** (`--review-level low-confidence`), which
+strips the old set and emits a fresh one. A run at `--review-level none`
+does **not** strip pre-existing tiers (the injector returns early before
+the strip step); it only avoids adding new ones.
 
-**Caveat:** this also throws away the reviewed ratings — they exist only in
-the pre-strip file. Save a copy before publishing if you want to preserve
-reviewer work.
+**Caveat:** editing or re-running throws away any reviewed ratings; they
+exist only in the file you started from. Save a copy first if you want to
+preserve reviewer work.
 
 ### Roadmap
 
@@ -237,15 +266,15 @@ for them first.
 | `fa:words_timing_dropped` | Word-level timings were dropped because clamping made `start >= end`. | Is the utterance bullet too narrow? Does it need widening? |
 | `fa:gap_filled` | A bullet gap was filled by extending the adjacent utterance. | Did the speaker really continue, or is there silence that should stay? |
 
-### Morphotag (`morphotag`) — strategies defined but not yet emitted
+### Morphotag (`morphotag`): incremental path, opt-in only
 
-The strategy enum (`MorphosyntaxStrategy` at
-`crates/talkbank-transform/src/decisions.rs:158`) defines these
-variants, and `DecisionRecord`s for them are constructed during
-morphotag injection — but no morphotag code path currently calls
-`inject_decision_tiers`, so they are never written into output CHAT.
-Treat this table as the contract you would see *after* wiring is
-added, not as a description of what currently lands in files.
+The strategy enum (`MorphosyntaxStrategy` in
+`crates/talkbank-transform/src/decisions.rs`) defines these variants, and
+`DecisionRecord`s for them are constructed during morphotag injection.
+They reach the `%xalign` tier only on morphotag's **incremental
+reprocessing path** (`process_morphosyntax_incremental`) and only when
+that job's `review_level` is above `none` (the default). The batched /
+full-file morphotag path does not inject decision tiers at all.
 
 | Prefix:strategy | What it means | What to check |
 |---|---|---|
@@ -258,21 +287,26 @@ added, not as a description of what currently lands in files.
 
 **Why do the tiers come back when I re-run the command?**
 
-Re-running `align` strips any existing `%x*` tiers before emitting new
-ones (see `strip_decision_tiers()` in
-`crates/talkbank-transform/src/decisions.rs:438`, called from
-`inject_review_tiers` in `chat_ops/fa/review_tiers.rs`). The ratings
-you entered are discarded on re-run. `morphotag` does not currently
-touch these tiers in either direction — it neither emits nor strips
-them — so review-tier state on a file persists across morphotag
-reruns until the next `align` run rewrites them. To preserve ratings,
-finalize (once shipped) or save a copy before re-running `align`.
+Only if you opt in. With the default `review_level` of `none`, re-running
+`align` or `morphotag` does not write `%xalign` / `%xrev` at all (both
+injectors return early at `None`). When you do opt in
+(`--review-level low-confidence|all` for `align`, or the `review_level`
+option for `morphotag`'s incremental path), the run strips any existing
+review tiers it manages and emits a fresh set (`strip_decision_tiers()` in
+`crates/talkbank-transform/src/decisions.rs`, called from
+`inject_review_tiers` / `inject_decision_tiers`). The ratings you entered
+are discarded on such a re-run, so save a copy first if you want to keep
+them.
 
 **Can I delete the tiers by hand?**
 
-Yes. They're ordinary CHAT dependent tiers. Deleting every `%xalign` and
-`%xrev` line from the file is equivalent to re-running with
-`--review-level=none`, except faster for a single file.
+Yes. They're ordinary CHAT dependent tiers, so deleting every `%xalign`
+and `%xrev` line is a safe way to clean a single file. Note that
+re-running with `--review-level=none` does **not** strip tiers an earlier
+opted-in run left behind (the injector returns early at `none` before the
+strip step); it only guarantees no new tiers are added. To remove existing
+tiers, delete them by hand or re-run with review tiers enabled (which
+strips and re-emits).
 
 **Do my ratings actually feed into algorithm improvement?**
 

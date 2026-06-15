@@ -103,6 +103,8 @@ async fn build_comparison_artifacts(
         mwt,
         l2_morphotag: false,
         respect_pos_hints: false,
+        // Compare's internal morphotag never surfaces review tiers.
+        review_level: crate::chat_ops::fa::ReviewLevel::None,
     };
     let morphotagged_main =
         crate::morphosyntax::process_morphosyntax(main_text, services, &mor_params).await?;

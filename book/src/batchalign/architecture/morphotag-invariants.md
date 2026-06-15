@@ -1,7 +1,7 @@
 # Morphotag Reconciliation Invariants
 
 **Status:** Current
-**Last updated:** 2026-05-19 20:10 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
 This page documents the **1-to-1 invariant** that the morphotag pipeline
 relies on, the three stages that together make it hold deterministically,
@@ -112,6 +112,13 @@ silent `%mor` loss.
 | `NotApplicable { reason }` | The utterance had zero Mor-alignable words. No `%mor` is produced, and that is correct. Reasons: `FillerOnly`, `FragmentOnly`, `NonwordOnly`, `UntranscribedOnly`, `AllRetraced`, `MixedNonLinguistic`, `Empty`. | `%xalign: morphosyntax:not_applicable reason=filler_only` (when `--review-level` enables it) |
 | `Aligned { n_words }` | `N` CHAT words, `N` `%mor` items; happy path. | No decision tier (review-worthy only on demand). |
 | `MisalignmentBug(diag)` | `|mors| ≠ N` after mapping. A bug in extract, realign, or project. Carries a typed diagnostic with `chat_words`, `stanza_tokens_after_mapping`, `expected`, `actual`, and a best-effort `suspected_class`. | `%xalign: morphosyntax:misalignment_bug class=... expected=... actual=... chat_words=... stanza_tokens=...`, plus `%xrev: [?]` (always requires review). |
+
+The "Surfaces as" `%xalign` / `%xrev` tiers are written only when the
+morphotag job's `review_level` is above `none`, and only on the
+incremental reprocessing path. `review_level` **defaults to `none`**, so
+by default these decisions surface through structured tracing and the
+typed `Outcome`, not as tiers in the output CHAT. See the
+[Review Tiers guide](../user-guide/review-tiers-guide.md).
 
 The `MisalignmentClass` classifier (best-effort) points developers at
 the most likely failing stage:

@@ -61,13 +61,15 @@ pub enum CaMarkerPolicy {
 /// Review tier verbosity for the `align` command.
 ///
 /// Controls whether `%xalign` (machine decisions) and `%xrev` (human review
-/// prompts) are injected into the output CHAT.
+/// prompts) are injected into the output CHAT. Defaults to `None` (no review
+/// tiers); pass `--review-level low-confidence` or `--review-level all` to
+/// opt in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum CliReviewLevel {
-    /// No review tiers.
-    None,
-    /// Only flag low-confidence utterances with `%xrev: [?]` (default).
+    /// No review tiers (default).
     #[default]
+    None,
+    /// Only flag low-confidence utterances with `%xrev: [?]`.
     #[value(name = "low-confidence")]
     LowConfidence,
     /// Add `%xalign` on every bulleted utterance + `%xrev: [?]` on uncertain ones.
@@ -211,10 +213,10 @@ pub struct AlignArgs {
 
     /// Emit %xalign/%xrev review tiers documenting alignment decisions.
     ///
-    /// low-confidence (default when --bullet-repair is set): only flag
-    /// uncertain utterances with %xrev: [?] for human review.
-    /// all: add %xalign on every bulleted utterance.
-    /// none: no review tiers.
+    /// none (default): no review tiers are written.
+    /// low-confidence: flag uncertain utterances with %xrev: [?] for human
+    /// review.
+    /// all: add %xalign on every bulleted utterance + %xrev on uncertain ones.
     #[arg(long, value_enum, default_value_t)]
     pub review_level: CliReviewLevel,
 
@@ -478,6 +480,19 @@ pub struct MorphotagArgs {
     /// Do not merge abbreviations in output (default).
     #[arg(long = "no-merge-abbrev", conflicts_with = "merge_abbrev")]
     pub no_merge_abbrev: bool,
+
+    /// Emit %xalign/%xrev review tiers documenting morphosyntax decisions.
+    ///
+    /// none (default): no review tiers are written.
+    /// low-confidence: flag uncertain decisions with %xrev: [?] for human
+    /// review.
+    /// all: add %xalign on every utterance with decisions + %xrev on
+    /// uncertain ones.
+    ///
+    /// Applies to the incremental reprocessing path (`--before`); the
+    /// full-file morphotag path does not emit decision tiers.
+    #[arg(long, value_enum, default_value_t)]
+    pub review_level: CliReviewLevel,
 }
 
 /// Arguments for the `coref` command.

@@ -304,10 +304,14 @@ pub(crate) async fn process_morphosyntax_incremental(
                 ) {
                     Ok(injection_result) => {
                         if !injection_result.decisions.is_empty() {
+                            // Review-tier verbosity is caller-controlled and
+                            // defaults to None (no %xalign/%xrev emitted). It was
+                            // a hardcoded LowConfidence here, which made the tiers
+                            // leak into morphotag output regardless of any default.
                             talkbank_transform::decisions::inject_decision_tiers(
                                 &mut after_file,
                                 &injection_result.decisions,
-                                talkbank_transform::decisions::ReviewLevel::LowConfidence,
+                                params.review_level,
                             );
                         }
                         // Secondary L2 dispatch for @s words.

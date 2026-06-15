@@ -46,6 +46,10 @@ pub(crate) struct BatchedInferDispatchPlan {
     /// Apply transcriber `$POS` hints as a post-pass on %mor (default on;
     /// CLI exposes `--no-pos-hints` to opt out).
     pub respect_pos_hints: bool,
+    /// Review-tier verbosity for the incremental morphotag decision tiers
+    /// (`%xalign` / `%xrev`). Defaults to `None`; opt in via the
+    /// `review_level` field of the submitted `MorphotagOptions`.
+    pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
 impl BatchedInferDispatchPlan {
@@ -59,6 +63,7 @@ impl BatchedInferDispatchPlan {
             merge_abbrev,
             l2_morphotag,
             respect_pos_hints,
+            review_level,
         } = morphotag_params.unwrap_or(MorphotagDispatchParams {
             tokenization_mode: TokenizationMode::Preserve,
             multilingual_policy: MultilingualPolicy::ProcessAll,
@@ -66,6 +71,7 @@ impl BatchedInferDispatchPlan {
             merge_abbrev: job.dispatch.options.merge_abbrev_policy(),
             l2_morphotag: false,
             respect_pos_hints: false,
+            review_level: crate::chat_ops::fa::ReviewLevel::None,
         });
 
         Self {
@@ -76,6 +82,7 @@ impl BatchedInferDispatchPlan {
             mwt: job.dispatch.options.common().mwt.clone(),
             l2_morphotag,
             respect_pos_hints,
+            review_level,
         }
     }
 }

@@ -41,6 +41,10 @@ pub(crate) async fn dispatch_batched_infer(
         mwt: _,
         l2_morphotag: _,
         respect_pos_hints: _,
+        // The batched morphotag path runs run_morphosyntax_pipeline, which
+        // does not inject %xalign/%xrev decision tiers; review_level only
+        // applies to the incremental path (morphotag_single).
+        review_level: _,
     } = plan;
     let job_id = &job.identity.job_id;
     let correlation_id = &*job.identity.correlation_id;

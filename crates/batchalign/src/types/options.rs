@@ -352,6 +352,14 @@ pub struct MorphotagOptions {
     /// hints are respected; set via `--no-pos-hints` to opt out.
     #[serde(default)]
     pub no_pos_hints: bool,
+
+    /// Review-tier verbosity for the incremental morphotag decision tiers
+    /// (`%xalign` / `%xrev`). Defaults to `None` (no review tiers written);
+    /// submit `low-confidence` or `all` to opt in. Mirrors the `align`
+    /// command's `review_level`. The decision-recording machinery is
+    /// retained regardless; only the emission is gated.
+    #[serde(default)]
+    pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
 /// Options for the `translate` command.
@@ -1262,6 +1270,32 @@ mod tests {
         assert_eq!(
             opts.dispatch_engine_overrides_json(),
             r#"{"asr":"whisper"}"#,
+        );
+    }
+
+    /// A default `align` job must not emit the experimental `%xalign`/`%xrev`
+    /// review tiers. The opt-in (`--review-level all` / `low-confidence`) is
+    /// preserved; only the default flips off. RED while the enum default is
+    /// `LowConfidence`.
+    #[test]
+    fn align_default_review_level_is_none() {
+        assert_eq!(
+            AlignOptions::default().review_level,
+            crate::chat_ops::fa::ReviewLevel::None,
+        );
+    }
+
+    /// A default `morphotag` job must not emit the experimental
+    /// `%xalign`/`%xrev` decision tiers from the incremental path either.
+    /// This default flows MorphotagOptions -> MorphotagDispatchParams ->
+    /// BatchedInferDispatchPlan -> MorphotagRuntimeOptions ->
+    /// MorphosyntaxParams -> inject_decision_tiers, so a future re-hardcode
+    /// at any layer surfaces as a failure here.
+    #[test]
+    fn morphotag_default_review_level_is_none() {
+        assert_eq!(
+            MorphotagOptions::default().review_level,
+            crate::chat_ops::fa::ReviewLevel::None,
         );
     }
 }

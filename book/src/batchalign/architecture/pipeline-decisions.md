@@ -1,7 +1,7 @@
 # NLP Pipeline Decision Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-19 20:22 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
 This chapter documents how batchalign3's four NLP pipelines (morphotag,
 utseg, coref, forced alignment) represent per-utterance decisions, how
@@ -56,6 +56,15 @@ Each pipeline's invariant is different, but all four now emit typed
 outcomes that flow through one shared reporting surface,
 [`DecisionRecord`](#the-decisionrecord-surface), which serializes into
 the `%xalign` tier and structured tracing output.
+
+> **Emission is opt-in.** Decisions are always recorded and traced, but
+> serialization into the `%xalign` / `%xrev` tiers is gated by the run's
+> `ReviewLevel`, which **defaults to `None`** (no tiers written). Both
+> `align` and `morphotag` opt in with `--review-level low-confidence|all`
+> (or the equivalent `review_level` job option); for `morphotag` the tiers
+> only land on the incremental path. Structured tracing fires regardless of
+> review level. See the
+> [Review Tiers guide](../user-guide/review-tiers-guide.md).
 
 ## Per-task outcome vocabulary
 
@@ -474,9 +483,11 @@ morphosyntax:misalignment_bug`, the flow for a developer is:
 3. **Check the Python worker log** for a realignment-skipped WARN for
    the same file/language — if present, the dispatch-side context
    wasn't set and the `RealignmentSkipped` class is concrete.
-4. **Rerun with `--review-level all`** to see the `%xalign` tier on
+4. **Rerun with review tiers enabled** to see the `%xalign` tier on
    every utterance (aligned or not), giving a positional sense of
-   where the mismatch occurs in the document.
+   where the mismatch occurs in the document. Review tiers are off by
+   default; rerun `morphotag --review-level all --before <prior>` (the
+   `%xalign` decisions land on the incremental path).
 
 If the repro is reliable, add a failing regression test in
 `batchalign` using `chatter trim` to produce a minimal

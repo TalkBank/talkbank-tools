@@ -1,6 +1,5 @@
 ---
-source: crates/batchalign-app/tests/json_compat.rs
-assertion_line: 85
+source: crates/batchalign/tests/json_compat.rs
 expression: sub
 ---
 {
@@ -37,7 +36,7 @@ expression: sub
     "wor": true,
     "merge_abbrev": false,
     "bullet_repair": false,
-    "review_level": "low_confidence"
+    "review_level": "none"
   },
   "paths_mode": false,
   "source_paths": [],

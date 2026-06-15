@@ -848,6 +848,8 @@ fn stage_run_morphosyntax<'a, 'ctx>(
             mwt: &empty_mwt,
             l2_morphotag: false,
             respect_pos_hints: false,
+            // Transcribe's morphotag sub-step never surfaces review tiers.
+            review_level: crate::chat_ops::fa::ReviewLevel::None,
         };
         ctx.chat_text = Some(
             crate::morphosyntax::process_morphosyntax(input, ctx.services, &mor_params).await?,

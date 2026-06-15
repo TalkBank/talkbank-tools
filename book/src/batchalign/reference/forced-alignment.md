@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-05-20 07:51 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
 ## Overview
 
@@ -630,9 +630,14 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 #### Monotonicity warnings
 
 After all groups are resolved, `enforce_monotonicity()` makes two passes over
-the utterance list.  Each stripping or clamping decision is recorded as a
-`%xalign` decision tier and emits a `WARN` log line.  The two decision types
-have **different severity and different `%xrev` behavior**:
+the utterance list.  Each stripping or clamping decision is always recorded
+and emits a `WARN` log line; whether it *also* lands as a `%xalign` decision
+tier in the output CHAT depends on the run's review level, which defaults to
+`none` (no tiers written; see
+[Review Tiers](../user-guide/review-tiers-guide.md)). The `%xrev` column
+below applies when review tiers are enabled (`--review-level low-confidence`
+or `all`). The two decision types have **different severity and different
+`%xrev` behavior**:
 
 | Decision | Cause | `%xrev` written? | Action needed? |
 |----------|-------|:---:|---|

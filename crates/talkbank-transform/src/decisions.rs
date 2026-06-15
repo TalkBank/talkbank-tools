@@ -361,13 +361,24 @@ impl DecisionRecord {
 }
 
 /// Controls how many decision tiers are emitted.
+///
+/// Defaults to [`None`]: batchalign3 does NOT inject the experimental
+/// `%xalign` / `%xrev` provenance tiers into output CHAT unless a caller
+/// explicitly opts in (e.g. `align --review-level low-confidence|all`).
+/// The decision-recording machinery is fully retained; only the emission
+/// is off by default, so the feature can be re-enabled later. These tiers
+/// are unfinished alignment / morphotag review scaffolding that researchers
+/// otherwise had to strip out of every file by hand, so they are not
+/// written unless explicitly requested.
+///
+/// [`None`]: ReviewLevel::None
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewLevel {
-    /// No review tiers at all.
-    None,
-    /// Only `%xrev: [?]` on low-confidence utterances (default).
+    /// No review tiers at all (default).
     #[default]
+    None,
+    /// Only `%xrev: [?]` on low-confidence utterances.
     LowConfidence,
     /// `%xalign` on every bulleted utterance + `%xrev: [?]` on low-confidence.
     All,
@@ -550,6 +561,52 @@ mod tests {
 
         let output = chat.to_chat_string();
         assert!(!output.contains("%xalign:"), "output:\n{output}");
+    }
+
+    /// The DEFAULT review level must emit no `%xalign`/`%xrev` tiers.
+    ///
+    /// batchalign3 does not inject the experimental alignment-provenance
+    /// tiers into output CHAT by default. Both the `align` (FA) path and
+    /// the incremental `morphotag` path funnel through
+    /// `inject_decision_tiers`, so coupling the enum default to
+    /// "no emission" here is the single contract that, once `None` is the
+    /// default, makes every `Default::default()` construction site
+    /// (AlignOptions, daemon/runner/store params) silently inherit the
+    /// off behavior. RED while the default is `LowConfidence`.
+    #[test]
+    fn inject_decision_tiers_default_level_emits_nothing() {
+        let chat_text = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tCHI Target_Child
+@ID:\teng|test|CHI|2;0.0||||Target_Child|||
+*CHI:\thello . \u{0015}1000_2000\u{0015}
+@End
+";
+        let mut chat = parse_chat(chat_text);
+
+        // A decision that WOULD emit %xalign (and %xrev, since it is flagged
+        // for review) at LowConfidence/All. Default level must suppress both.
+        let decisions = vec![DecisionRecord {
+            line_idx: 5,
+            speaker: "CHI".into(),
+            strategy: DecisionStrategy::Fa(FaStrategy::GapFilled),
+            reason: "gap=500ms".into(),
+            needs_review: true,
+        }];
+
+        inject_decision_tiers(&mut chat, &decisions, ReviewLevel::default());
+
+        let output = chat.to_chat_string();
+        assert!(
+            !output.contains("%xalign:"),
+            "default review level must not emit %xalign:\n{output}"
+        );
+        assert!(
+            !output.contains("%xrev:"),
+            "default review level must not emit %xrev:\n{output}"
+        );
     }
 
     #[test]

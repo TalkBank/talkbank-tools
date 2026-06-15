@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-05-02 02:30 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -302,7 +302,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
 | `--before PATH` | — | Previous version of the file for incremental alignment (skip unchanged utterances) |
 | `--bullet-repair` | off | Post-FA bullet repair for timing violations (experimental) |
-| `--review-level {none,low-confidence,all}` | `low-confidence` | `%xalign`/`%xrev` review tier verbosity when `--bullet-repair` is set |
+| `--review-level {none,low-confidence,all}` | `none` | `%xalign`/`%xrev` review tier verbosity. Off by default; pass `low-confidence` or `all` to emit review tiers. |
 
 ---
 

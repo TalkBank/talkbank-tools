@@ -161,6 +161,7 @@ pub(crate) struct MorphotagDispatchParams {
     pub merge_abbrev: MergeAbbrevPolicy,
     pub l2_morphotag: bool,
     pub respect_pos_hints: bool,
+    pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
 /// Extract morphotag dispatch parameters from [`CommandOptions`].
@@ -175,6 +176,7 @@ pub(crate) fn extract_morphotag_dispatch_params(
             merge_abbrev: m.merge_abbrev,
             l2_morphotag: !m.no_l2_morphotag,
             respect_pos_hints: !m.no_pos_hints,
+            review_level: m.review_level,
         }),
         _ => None,
     }

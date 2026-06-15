@@ -238,6 +238,14 @@ pub struct MorphosyntaxParams<'a> {
     /// they disagree. Lemma and features from Stanza are preserved.
     /// Default `true`; opt out via `--no-pos-hints`.
     pub respect_pos_hints: bool,
+    /// Review-tier verbosity for the incremental morphotag decision tiers
+    /// (`%xalign` / `%xrev`). Defaults to [`ReviewLevel::None`] at every
+    /// construction site, so morphotag does not inject the experimental
+    /// provenance tiers into output CHAT unless a caller opts in. The
+    /// decision-recording code is retained either way.
+    ///
+    /// [`ReviewLevel::None`]: crate::chat_ops::fa::ReviewLevel::None
+    pub review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
 /// Audio file context for forced alignment and transcription.

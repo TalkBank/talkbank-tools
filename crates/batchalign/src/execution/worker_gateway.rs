@@ -24,6 +24,11 @@ pub(crate) struct MorphotagRuntimeOptions {
     pub(crate) l2_morphotag: bool,
     pub(crate) respect_pos_hints: bool,
     pub(crate) should_merge_abbrev: bool,
+    /// Review-tier verbosity for the incremental morphotag path
+    /// (`%xalign` / `%xrev`). Defaults to `None` via [`MorphotagOptions`].
+    ///
+    /// [`MorphotagOptions`]: crate::options::MorphotagOptions
+    pub(crate) review_level: crate::chat_ops::fa::ReviewLevel,
 }
 
 /// Worker-system seam consumed by the new execution kernel.
@@ -142,6 +147,8 @@ impl WorkerGateway for PooledWorkerGateway {
             mwt,
             l2_morphotag: false,
             respect_pos_hints: false,
+            // Compare's internal morphotag never surfaces review tiers.
+            review_level: crate::chat_ops::fa::ReviewLevel::None,
         };
         crate::morphosyntax::process_morphosyntax(
             chat_text,
@@ -165,6 +172,7 @@ impl WorkerGateway for PooledWorkerGateway {
             mwt: &*options.mwt,
             l2_morphotag: options.l2_morphotag,
             respect_pos_hints: options.respect_pos_hints,
+            review_level: options.review_level,
         };
         let services = PipelineServices::new(&self.pool, &self.cache, &self.engine_version);
         if let Some(before) = before_text {

@@ -1,7 +1,7 @@
 # Decision Provenance
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:44 EDT
+**Last updated:** 2026-06-15 13:21 EDT
 
 ## Overview
 
@@ -91,12 +91,14 @@ When `needs_review` is true, a `%xrev: [?]` tier is also added:
 
 ## Controlling output
 
-The `--review-level` flag controls which decision tiers are emitted:
+The review level controls which decision tiers are emitted. Both `align`
+and `morphotag` expose it as `--review-level` (or the equivalent
+`review_level` job option):
 
 | Level | Behavior |
 |-------|----------|
-| `none` | No decision tiers (smallest output) |
-| `low-confidence` (default) | Only `needs_review=true` decisions |
+| `none` (default) | No decision tiers (smallest output) |
+| `low-confidence` | Only `needs_review=true` decisions |
 | `all` | Every decision + informational `%xalign: no_decisions` on clean utterances |
 
 ## Currently instrumented decisions

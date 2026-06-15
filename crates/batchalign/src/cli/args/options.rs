@@ -59,6 +59,24 @@ fn resolve_wor_tier_policy(enabled: bool, disabled: bool) -> WorTierPolicy {
     resolve_flag_pair(enabled, disabled).into()
 }
 
+/// Map the CLI `--review-level` enum onto the domain [`ReviewLevel`].
+///
+/// Shared by the `align` and `morphotag` arms so the two commands stay
+/// byte-for-byte symmetric on review-tier verbosity.
+///
+/// [`ReviewLevel`]: crate::chat_ops::fa::ReviewLevel
+fn resolve_review_level(
+    level: super::commands::CliReviewLevel,
+) -> crate::chat_ops::fa::ReviewLevel {
+    use super::commands::CliReviewLevel;
+    use crate::chat_ops::fa::ReviewLevel;
+    match level {
+        CliReviewLevel::None => ReviewLevel::None,
+        CliReviewLevel::LowConfidence => ReviewLevel::LowConfidence,
+        CliReviewLevel::All => ReviewLevel::All,
+    }
+}
+
 /// Parse a wire name into a [`CacheTaskName`].
 ///
 /// Only audio tasks are cached. Text-task names are accepted for
@@ -182,13 +200,7 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
                 wor: resolve_wor_tier_policy(a.wor, a.nowor),
                 merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
                 bullet_repair: a.bullet_repair,
-                review_level: match a.review_level {
-                    super::commands::CliReviewLevel::None => crate::chat_ops::fa::ReviewLevel::None,
-                    super::commands::CliReviewLevel::LowConfidence => {
-                        crate::chat_ops::fa::ReviewLevel::LowConfidence
-                    }
-                    super::commands::CliReviewLevel::All => crate::chat_ops::fa::ReviewLevel::All,
-                },
+                review_level: resolve_review_level(a.review_level),
                 media_dir: a.media_dir.clone(),
             }))
         }
@@ -263,6 +275,9 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             // opt-out flag.
             no_l2_morphotag: a.no_l2_morphotag,
             no_pos_hints: a.no_pos_hints,
+            // Off by default; `morphotag --review-level low-confidence|all`
+            // opts in, symmetric with `align`.
+            review_level: resolve_review_level(a.review_level),
         })),
         Commands::Coref(a) => Some(CommandOptions::Coref(CorefOptions {
             common,

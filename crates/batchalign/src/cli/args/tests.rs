@@ -115,6 +115,40 @@ fn morphotag_rejects_removed_positive_l2_flag() {
 }
 
 #[test]
+fn morphotag_default_review_level_is_none() {
+    let options = typed_options_for(&["batchalign3", "morphotag", "corpus/"]);
+    match options {
+        CommandOptions::Morphotag(opts) => assert_eq!(
+            opts.review_level,
+            crate::chat_ops::fa::ReviewLevel::None,
+            "default morphotag must not emit %xalign/%xrev review tiers"
+        ),
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
+fn morphotag_review_level_flag_opts_in() {
+    // Symmetric with `align --review-level`: the morphotag command accepts
+    // the same flag, mapping CLI values onto the domain `ReviewLevel`.
+    let options = typed_options_for(&[
+        "batchalign3",
+        "morphotag",
+        "corpus/",
+        "--review-level",
+        "all",
+    ]);
+    match options {
+        CommandOptions::Morphotag(opts) => assert_eq!(
+            opts.review_level,
+            crate::chat_ops::fa::ReviewLevel::All,
+            "--review-level all should opt morphotag into full review-tier emission"
+        ),
+        other => panic!("expected Morphotag options, got {other:?}"),
+    }
+}
+
+#[test]
 fn parse_align_with_options() {
     let cli = Cli::parse_from([
         "batchalign3",
