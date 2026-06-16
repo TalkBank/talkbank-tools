@@ -62,7 +62,6 @@ run_check "Unit tests" "cargo test --workspace --lib --quiet"
 # 5. Reference corpus (CRITICAL)
 echo ""
 echo "▶ Reference corpus (CRITICAL - may take a moment)..."
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus --quiet > /tmp/roundtrip_output.log 2>&1; then
     echo -e "${GREEN}✓ Reference corpus${NC}"
     CHECKS_PASSED=$((CHECKS_PASSED + 1))

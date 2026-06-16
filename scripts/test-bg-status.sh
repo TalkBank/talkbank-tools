@@ -26,9 +26,9 @@ if [[ ${#metas[@]} -eq 0 ]]; then
 fi
 
 # Sort by basename timestamp (descending). Rely on the <ts>.meta
-# naming — bash doesn't have a portable array-sort, so delegate.
-IFS=$'\n' sorted=( $(printf '%s\n' "${metas[@]}" | awk -F/ '{print $NF"\t"$0}' | sort -t. -k1,1nr | cut -f2-) )
-unset IFS
+# naming; bash has no portable array-sort, so delegate to sort and read the
+# newline-delimited result back into the array with mapfile.
+mapfile -t sorted < <(printf '%s\n' "${metas[@]}" | awk -F/ '{print $NF"\t"$0}' | sort -t. -k1,1nr | cut -f2-)
 
 printf '%-28s  %-8s  %-8s  %-8s  %s\n' 'SLUG/TS' 'STATE' 'EXIT' 'DUR(s)' 'LOG'
 

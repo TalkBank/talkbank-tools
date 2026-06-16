@@ -126,7 +126,9 @@ cancel_job() { curl -sf -X POST "${BASE_URL}/jobs/$1/cancel" > /dev/null; }
 # Delete a job.
 delete_job() { curl -sf -X DELETE "${BASE_URL}/jobs/$1" > /dev/null; }
 
-# Restart a job.
+# Restart a job. Part of the job-control helper set; retained for completeness
+# alongside submit/delete even though the current scenarios do not call it.
+# shellcheck disable=SC2329
 restart_job() { curl -sf -X POST "${BASE_URL}/jobs/$1/restart" > /dev/null; }
 
 # Get health JSON.
@@ -178,6 +180,9 @@ start_temporal() {
     log "Temporal PID=${TEMPORAL_PID}"
 }
 
+# Invoked from teardown(), which runs on the EXIT trap; shellcheck does not
+# trace that indirect call path.
+# shellcheck disable=SC2329
 stop_temporal() {
     if [ -n "$TEMPORAL_PID" ]; then
         kill "$TEMPORAL_PID" 2>/dev/null || true
@@ -603,8 +608,7 @@ tier4_recovery() {
         wait "$bg_pid" 2>/dev/null || true
         sleep 2
         log "  Restarting server (preserving state)..."
-        start_server false
-        if [ $? -ne 0 ]; then
+        if ! start_server false; then
             fail "T4.1: Server failed to restart"
         else
             # Check recovery log.
@@ -695,6 +699,9 @@ tier4_recovery() {
 
 # ── Teardown ─────────────────────────────────────────────────────────
 
+# Registered as the EXIT trap handler (see `trap teardown EXIT` below).
+# Trap-registered functions are not recognized as invoked by the linter.
+# shellcheck disable=SC2329
 teardown() {
     log "Tearing down..."
     stop_server

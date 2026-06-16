@@ -56,6 +56,9 @@ if [ "$BUILD_WHEEL" = true ]; then
     uv build --wheel --out-dir "$DIST_DIR/"
 fi
 
+# ls -t picks the newest wheel by mtime; wheel filenames are tool-generated
+# and contain no whitespace or special characters, so ls is safe here.
+# shellcheck disable=SC2012
 WHEEL="$(ls -t "$DIST_DIR"/*.whl 2>/dev/null | head -1)"
 if [ -z "$WHEEL" ]; then
     echo "ERROR: No wheel found in $DIST_DIR/. Run without --no-build."
@@ -132,6 +135,9 @@ gh release download "$TAG" \
     --dir "$DOWNLOAD_DIR" \
     --pattern "*.whl"
 
+# Only one wheel is downloaded into this fresh dir; its name is tool-generated
+# with no whitespace or special characters, so ls is safe here.
+# shellcheck disable=SC2012
 DOWNLOADED_WHEEL="$(ls "$DOWNLOAD_DIR"/*.whl | head -1)"
 echo "[OK] Downloaded: $(basename "$DOWNLOADED_WHEEL")"
 

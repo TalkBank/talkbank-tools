@@ -36,6 +36,9 @@ if [ "$BUILD_WHEEL" = true ]; then
     echo ""
 fi
 
+# ls -t picks the newest wheel by mtime; wheel filenames are tool-generated
+# and contain no whitespace or special characters, so ls is safe here.
+# shellcheck disable=SC2012
 WHEEL="$(ls -t "$DIST_DIR"/*.whl 2>/dev/null | head -1)"
 if [ -z "$WHEEL" ]; then
     echo "ERROR: No wheel found in $DIST_DIR/. Run without --no-build."

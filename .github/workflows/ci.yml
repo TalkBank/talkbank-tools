@@ -411,6 +411,20 @@ jobs:
       - name: Fuzz validate (30s)
         run: cd fuzz && cargo +nightly fuzz run fuzz_validate -- -max_total_time=30
 
+  shellcheck:
+    name: Shell scripts (shellcheck, strictest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Every tracked shell script must pass shellcheck at its default
+      # (strictest) severity. ubuntu-latest ships shellcheck; the runner finds
+      # every *.sh plus shebang scripts via git ls-files. See CLAUDE.md.
+      - name: shellcheck all shell scripts
+        run: bash scripts/lint/shellcheck-all.sh
+
   ci-report:
     name: CI Gate Summary
     runs-on: ubuntu-latest
@@ -423,6 +437,7 @@ jobs:
       - chat-manual-anchor-check
       - grammar
       - cross-platform-smoke
+      - shellcheck
 
     steps:
       - name: Write gate summary
@@ -449,6 +464,7 @@ jobs:
             echo "| Generated artifacts match committed sources | Generated Artifacts | $(result_to_badge '${{ needs.generated-artifacts.result }}') |"
             echo "| Grammar generate + test, parser.c unchanged | Grammar | $(result_to_badge '${{ needs.grammar.result }}') |"
             echo "| CLI build + smoke test on macOS and Windows | Cross-Platform Smoke | $(result_to_badge '${{ needs.cross-platform-smoke.result }}') |"
+            echo "| Every tracked shell script passes shellcheck (strictest) | Shell scripts | $(result_to_badge '${{ needs.shellcheck.result }}') |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -459,7 +475,8 @@ jobs:
                 "${{ needs.generated-artifacts.result }}"     != "success" ||
                 "${{ needs.chat-manual-anchor-check.result }}" != "success" ||
                 "${{ needs.grammar.result }}"                 != "success" ||
-                "${{ needs.cross-platform-smoke.result }}"   != "success" ]]; then
+                "${{ needs.cross-platform-smoke.result }}"   != "success" ||
+                "${{ needs.shellcheck.result }}"             != "success" ]]; then
               echo "### ❌ One or more gates failed — see job logs above" >> "$GITHUB_STEP_SUMMARY"
               exit 1
           fi

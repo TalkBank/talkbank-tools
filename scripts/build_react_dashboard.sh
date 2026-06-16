@@ -27,7 +27,9 @@ fi
 npm run build
 
 mkdir -p "$TARGET_DIR"
-rm -rf "$TARGET_DIR"/*
+# ${TARGET_DIR:?} aborts if the variable is somehow empty, so the glob can
+# never expand to /* (TARGET_DIR is already validated non-empty above).
+rm -rf "${TARGET_DIR:?}"/*
 cp -R "$FRONTEND_DIR/dist"/. "$TARGET_DIR"/
 
 echo "React dashboard deployed to: $TARGET_DIR"

@@ -40,7 +40,8 @@ FAIL=0
 SKIP=0
 
 TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+# Single-quote the trap so $TMPDIR is expanded when the trap fires, not now.
+trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Parity check: $CORPUS_DIR"
 echo "CLAN binaries: $CLAN_DIR"

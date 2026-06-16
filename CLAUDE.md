@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-05-27 22:02 EDT
+**Last modified:** 2026-06-16 10:16 EDT
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -128,7 +128,20 @@ cargo nextest run -p talkbank-clan -E 'test(golden)'
 
 # Fuzz testing (from fuzz/ directory)
 cd fuzz && cargo fuzz run fuzz_parse_chat_file
+
+# Shell scripts: every tracked shell script must pass shellcheck at its
+# default (strictest) severity. The `shellcheck` CI job (in ci.yml, wired into
+# the ci-report merge gate) runs this; run it locally the same way:
+bash scripts/lint/shellcheck-all.sh
 ```
+
+**Shell scripts must pass `shellcheck` (strictest).** The `shellcheck` CI job
+runs `scripts/lint/shellcheck-all.sh` over every tracked `*.sh` and shebang
+script at the default severity (no `--severity` floor) and is part of the
+`ci-report` merge gate. Write scripts in `bash`/`sh`, not `zsh`. Fix findings
+properly; only for a genuinely intentional pattern add a line-scoped
+`# shellcheck disable=SCxxxx` with a reason (never a blanket file-top disable).
+A comment must not begin with the word "shellcheck".
 
 ## Architecture
 

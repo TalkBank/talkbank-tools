@@ -42,17 +42,7 @@ for cha_file in "$CORPUS_DIR"/check_*.cha; do
     # Run CLAN CHECK with file argument
     raw_output=$("$CHECK_BIN" "$cha_file" 2>&1 || true)
 
-    # Extract error section: lines with *** File or error messages with (N)
-    # CLAN outputs errors after the ******** separator
-    error_lines=$(echo "$raw_output" | awk '
-        /^\*\*\* File/ { print; next }
-        /\([0-9]+\)$/ { print; next }
-        # Also capture context lines between *** File and error message
-        /^\*[A-Z]/ { print; next }
-        /^%/ { print; next }
-    ')
-
-    # Also capture the full body between the two ******** blocks
+    # Capture the full body between the two ******** blocks
     body=$(echo "$raw_output" | awk '
         BEGIN { count=0 }
         /^\*{8}/ { count++; next }
