@@ -558,6 +558,28 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
         }
     }
 
+    // A retrace marker binds FORWARD to the repeated/corrected material it points
+    // at: `<X> [/] Y` is one unit where X was abandoned and Y is the retry, so a
+    // retrace content node must travel with the following kept word's group.
+    // Retraced words are not counted in the Mor word domain, so retrace nodes get
+    // no direct assignment above; the generic back-fill below would attach them to
+    // the PRECEDING word, stranding them as a dangling `[/]` when the split
+    // boundary falls between the retrace and its material (real BA3 utseg output
+    // stranded retraces this way across the UMICH SNL corpus). Pre-assign each
+    // un-grouped retrace node the group of the next already-grouped content item;
+    // if none follows (a legitimately utterance-final retrace), leave it for the
+    // generic back-fill. Regression: `utseg_split_does_not_strand_retrace`.
+    for idx in 0..num_content_items {
+        if content_item_group[idx].is_some()
+            || !matches!(content_items[idx], UtteranceContent::Retrace(_))
+        {
+            continue;
+        }
+        if let Some(next_group) = content_item_group[idx + 1..].iter().find_map(|g| *g) {
+            content_item_group[idx] = Some(next_group);
+        }
+    }
+
     // Back-fill unassigned items
     let mut last_group: Option<usize> = None;
     for group in content_item_group.iter_mut() {
@@ -806,6 +828,84 @@ mod tests {
         let out1 = result[1].to_chat_string();
         assert!(out0.contains("I eat cookies"), "First split: {out0}");
         assert!(out1.contains("and he likes cake"), "Second split: {out1}");
+    }
+
+    /// True if `chat` contains a retrace marker (`[/]`, `[//]`, `[///]`)
+    /// immediately followed (after optional whitespace) by a terminator. Such a
+    /// marker is dangling: the retrace has no repeated/corrected material after
+    /// it, which is invalid CHAT.
+    fn has_dangling_retrace(chat: &str) -> bool {
+        for marker in ["[/]", "[//]", "[///]"] {
+            let mut from = 0;
+            while let Some(pos) = chat[from..].find(marker) {
+                let after = chat[from + pos + marker.len()..].trim_start();
+                if after.starts_with(['.', '?', '!']) {
+                    return true;
+                }
+                from += pos + marker.len();
+            }
+        }
+        false
+    }
+
+    /// utseg must never split an utterance between a retrace marker and the
+    /// repeated/corrected material it points at. The real BA3 utseg pass stranded
+    /// retraces across the UMICH SNL corpus this way, e.g.
+    /// `Dig up your mud dig [/] dig [/] dig [/] dig fire trucks coming .`
+    /// split before the kept "dig" produced a dangling
+    /// `... dig [/] dig [/] dig [/] .` plus `dig fire trucks coming .`.
+    #[test]
+    fn utseg_split_does_not_strand_retrace() {
+        // `mud dig [/] dig [/] dig fire .`: a leading word, two retraced "dig",
+        // then the kept run "dig fire". Retraced words are not counted in the
+        // Mor word domain, so the three countable words are `mud`, `dig` (kept),
+        // `fire`. A stanza boundary before the kept "dig" assigns `mud` to group
+        // 0 and `dig fire` to group 1; the retrace nodes back-fill to the
+        // preceding word's group (0), stranding them away from their material.
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tPAR0 Participant\n\
+            @ID:\teng|test|PAR0|||||Participant|||\n\
+            *PAR0:\tmud dig [/] dig [/] dig fire .\n@End\n";
+        let chat = parse_chat(chat_text);
+        let utt = get_utterance(&chat, 0).clone();
+        let result = split_utterance(utt, &[0, 1, 1]);
+        for (i, seg) in result.iter().enumerate() {
+            let s = seg.to_chat_string();
+            println!("segment {i}: {s}");
+            assert!(
+                !has_dangling_retrace(&s),
+                "utseg split stranded a retrace in segment {i}: {s}"
+            );
+        }
+    }
+
+    /// Group-form (`<...> [/]`) variant of `utseg_split_does_not_strand_retrace`.
+    /// The real headline case was `Sis <that first> [/] .` followed by
+    /// `that first you .` (utseg split `Sis <that first> [/] that first you .`
+    /// before the kept "that"). A `<...> [/]` group is a single `Retrace` content
+    /// node, so it must bind forward to its material exactly like a single-word
+    /// retrace.
+    #[test]
+    fn utseg_split_does_not_strand_group_retrace() {
+        let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
+            @Participants:\tPAR0 Participant\n\
+            @ID:\teng|test|PAR0|||||Participant|||\n\
+            *PAR0:\tSis <that first> [/] that first you .\n@End\n";
+        let chat = parse_chat(chat_text);
+        let utt = get_utterance(&chat, 0).clone();
+        // Words in the Mor domain (the retrace group is skipped): Sis, that,
+        // first, you. A boundary before the kept "that" puts Sis in group 0 and
+        // the kept material in group 1.
+        let result = split_utterance(utt, &[0, 1, 1, 1]);
+        assert_eq!(result.len(), 2, "expected a split into two segments");
+        for (i, seg) in result.iter().enumerate() {
+            let s = seg.to_chat_string();
+            println!("segment {i}: {s}");
+            assert!(
+                !has_dangling_retrace(&s),
+                "utseg split stranded a group retrace in segment {i}: {s}"
+            );
+        }
     }
 
     #[test]
