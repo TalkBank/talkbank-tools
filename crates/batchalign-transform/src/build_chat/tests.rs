@@ -2,7 +2,6 @@ use super::*;
 use crate::asr_postprocess;
 use crate::parse::{TreeSitterParser, parse_lenient};
 use crate::serialize::to_chat_string;
-use talkbank_model::Validate;
 
 /// Helper: create a regular WordDesc with validated text and explicit kind.
 fn wd(text: &str, start_ms: Option<u64>, end_ms: Option<u64>) -> WordDesc {

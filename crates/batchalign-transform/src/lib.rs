@@ -58,10 +58,12 @@
 // and downstream consumers reach the whole generic surface through one root.
 pub use talkbank_transform::*;
 
-// Compatibility: chatter moved caching into the `talkbank-cache` crate, which
-// `talkbank-transform` re-exports at its root rather than as a `unified_cache`
-// module. Re-expose the historical `unified_cache` module path so existing
-// batchalign references (`batchalign_transform::unified_cache::...`) resolve.
+/// Compatibility shim for the historical `unified_cache` module path.
+///
+/// chatter moved caching into the `talkbank-cache` crate, which
+/// `talkbank-transform` re-exports at its root rather than as a `unified_cache`
+/// module. This re-exposes the old path so existing batchalign references
+/// (`batchalign_transform::unified_cache::...`) keep resolving.
 pub mod unified_cache {
     pub use talkbank_transform::{CacheError, CachePool, CacheStats, UnifiedCache};
 }

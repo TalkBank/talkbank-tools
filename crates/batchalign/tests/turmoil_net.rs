@@ -39,7 +39,7 @@ use hyper_util::rt::TokioIo;
 use turmoil::net;
 
 use batchalign::api::{
-    FilePayload, JobSubmission, LanguageCode3, LanguageSpec, MemoryMb, NumSpeakers, ReleasedCommand,
+    FilePayload, JobSubmission, LanguageSpec, MemoryMb, NumSpeakers, ReleasedCommand,
 };
 use batchalign::config::ServerConfig;
 use batchalign::create_test_app;

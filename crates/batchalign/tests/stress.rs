@@ -26,7 +26,7 @@ mod common;
 use std::time::Duration;
 
 use batchalign::api::{
-    FilePayload, HealthResponse, JobInfo, JobSubmission, LanguageCode3, LanguageSpec, MemoryMb,
+    FilePayload, HealthResponse, JobInfo, JobSubmission, LanguageSpec, MemoryMb,
     NumSpeakers, ReleasedCommand,
 };
 use batchalign::config::ServerConfig;

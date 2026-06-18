@@ -527,7 +527,7 @@ mod tests {
     use crate::pipeline::PipelineServices;
     use crate::worker::pool::{PoolConfig, WorkerPool};
     use batchalign_transform::parse::parse_lenient;
-    use batchalign_transform::serialize::to_chat_string;
+    
 
     fn parse(text: &str) -> talkbank_model::model::ChatFile {
         let parser = crate::chat_parser();

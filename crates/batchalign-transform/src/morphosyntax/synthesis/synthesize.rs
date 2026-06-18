@@ -34,7 +34,6 @@ pub fn synthesize_special_form_mor(form_type: &FormType, surface: &str) -> Mor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_model::WriteChat as _;
 
     fn render(form_type: FormType, surface: &str) -> String {
         let mut buf = String::new();
