@@ -42,7 +42,7 @@ fn reference_corpus_root() -> PathBuf {
     manifest_dir
         .parent()
         .and_then(|p| p.parent())
-        .map(|p| p.join("../talkbank-tools/corpus/reference"))
+        .map(|p| p.join("../chatter/corpus/reference"))
         .expect("CARGO_MANIFEST_DIR should have at least two parents")
 }
 

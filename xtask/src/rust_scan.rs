@@ -14,9 +14,12 @@
 use std::path::{Path, PathBuf};
 
 /// The conventional `.rs`-bearing roots of the workspace. Other tools
-/// in xtask (`wide_struct_audit`) use this same list.
+/// in xtask (`wide_struct_audit`) use this same list. After the CHAT core
+/// moved to the chatter repo, `crates/` (the batchalign crates) is the only
+/// remaining `.rs` root here; the old `src`, `tests`, `spec/tools`,
+/// `examples`, and `fuzz` roots were removed with the root CHAT package.
 pub fn rust_scan_roots(root: &Path) -> Vec<PathBuf> {
-    ["src", "crates", "tests", "spec/tools", "examples", "fuzz"]
+    ["crates"]
         .iter()
         .map(|relative| root.join(relative))
         .collect()

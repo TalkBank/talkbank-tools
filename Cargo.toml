@@ -9,52 +9,11 @@ members = [
     "apps/dashboard-desktop/src-tauri",
     "crates/batchalign-pyo3",
 ]
-exclude = [
-    "spec/tools",  # Independent workspace
-    "fuzz",        # cargo-fuzz uses its own nightly toolchain with sanitizer flags
-]
-
-[package]
-name = "talkbank-tools"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-publish = false
-
-[lints]
-workspace = true
-
-[dependencies]
-clap = { workspace = true }
-crossterm = { workspace = true }
-dirs = { workspace = true }
-indicatif = { workspace = true }
-ratatui = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-
-# TalkBank crates
-talkbank-model = { workspace = true }
-talkbank-parser = { workspace = true }
-talkbank-transform = { workspace = true }
-tempfile = { workspace = true }
-thiserror = { workspace = true }
-tree-sitter = { workspace = true }
-tree-sitter-talkbank = { workspace = true }
-
-
-[dev-dependencies]
-crossbeam-channel = { workspace = true }
-jsonschema = { workspace = true }
-num_cpus = { workspace = true }
-rayon = { workspace = true }
-schemars = { workspace = true }
-sqlx = { workspace = true }
-talkbank-parser-tests = { workspace = true }
-unicode-width = { workspace = true }
-walkdir = { workspace = true }
+# talkbank-tools is now a virtual workspace: the batchalign3 codebase. The CHAT
+# core (model, parser, transform, spec, grammar) lives in the chatter repo; the
+# old root talkbank-tools CHAT-validation package (bins, TUI, roundtrip tests)
+# was removed in the chatter dedup. Members consume chatter's crates via the
+# path deps under [workspace.dependencies].
 
 [workspace.package]
 version = "0.2.0"
@@ -214,7 +173,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Tree-sitter parsing
 tree-sitter = "0.26"
 tree-sitter-highlight = "0.26"
-tree-sitter-talkbank = { path = "grammar", version = "0.2.0" }
 ferrous-opencc = "0.4.0"
 
 trybuild = "1.0"

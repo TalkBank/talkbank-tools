@@ -169,11 +169,13 @@ BATCHALIGN_PYTEST_ARGS ?= batchalign --disable-pytest-warnings -k "not test_whis
 
 batchalign-check:
 	@echo "==> Checking imported Batchalign Rust crates..."
-	cargo check -p batchalign-types -p batchalign --all-targets
+	cargo check -p batchalign-types -p batchalign -p batchalign-transform -p batchalign-pyo3 --all-targets
 
 batchalign-test-rust:
 	@echo "==> Testing imported batchalign-types..."
 	cargo test -p batchalign-types --lib -q
+	@echo "==> Testing batchalign-transform (ML over chatter's generic transform)..."
+	cargo test -p batchalign-transform --lib -q
 	@echo "==> Testing imported batchalign..."
 	cargo test -p batchalign --lib -q
 
@@ -304,39 +306,20 @@ lint-affected:
 	cargo run -q -p xtask -- affected-rust clippy
 
 # Canonical pre-merge verification gates
+# The CHAT-format gates (parser signature guardrail, spec tools, CHAT manual
+# anchors, parser-equivalence / golden / corpus / generated-check / fuzz) moved
+# to chatter, which is now the single home for the CHAT core (model, parser,
+# transform, spec, grammar). talkbank-tools verifies the batchalign layer it
+# still owns; CHAT-format verification lives in the chatter repo.
 verify:
 	@$(MAKE) hooks-check
-	@echo "==> [G0] Parser signature guardrail"
-	@$(MAKE) parser-guard
 	@echo "==> [G1] Rust workspace compile check"
 	cargo check --workspace --all-targets
-	@echo "==> [G2] Spec tools compile check"
-	cd spec/tools && cargo check --all-targets
-	@echo "==> [G3] Spec runtime tools compile check"
-	cargo check --manifest-path spec/runtime-tools/Cargo.toml --all-targets
-	@echo "==> [G4] CHAT manual anchor links"
-	@$(MAKE) chat-anchors-check
-	@echo "==> [G5] Generated parser corpus equivalence suite"
-	cargo nextest run -p talkbank-parser-tests --test generated
-	@echo "==> [G6] Golden fragment validity (words + tiers)"
-	@$(MAKE) test-fragment-semantics
-	@echo "==> [G7] Bare-timestamp regression gate"
-	cargo nextest run --test bare_timestamp_regression
-	@echo "==> [G8] Reference corpus semantic equivalence"
-	cargo nextest run -p talkbank-parser-tests --test parser_equivalence_files
-	@echo "==> [G9] %wor tier parsing and alignment"
-	cargo nextest run -p talkbank-parser-tests --test wor_terminator_alignment
-	@echo "==> [G10] Golden tier roundtrip (%mor, %gra, %pho, %wor)"
-	cargo nextest run -p talkbank-parser-tests --test parser_suite
-	@echo "==> [G11] Reference corpus node coverage"
-	@$(MAKE) coverage
-	@echo "==> [G12] Generated artifacts match committed sources"
-	@$(MAKE) generated-check
-	@echo "==> [G13] Fuzz workspace isolation"
-	@$(MAKE) fuzz-check
-	@echo "==> [G14] Imported Batchalign Rust/PyO3 gate"
-	@$(MAKE) batchalign-ci-rust
-	@echo "==> [G15] mdBook build + linkcheck"
+	@echo "==> [G2] Batchalign Rust check (types, transform, batchalign, pyo3)"
+	@$(MAKE) batchalign-check
+	@echo "==> [G3] Batchalign Rust lib tests"
+	@$(MAKE) batchalign-test-rust
+	@echo "==> [G4] mdBook build + linkcheck"
 	@$(MAKE) book-check
 
 # Build the unified TalkBank mdBook and link-check it with lychee.

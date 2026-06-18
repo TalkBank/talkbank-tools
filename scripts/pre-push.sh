@@ -10,29 +10,18 @@ set -euo pipefail
 
 echo "==> pre-push: fmt check"
 cargo fmt --all -- --check
-cd spec/tools && cargo fmt --all -- --check && cd ../..
 
 echo "==> pre-push: affected compile check"
 cargo run -q -p xtask -- affected-rust check
 
-echo "==> pre-push: parser guardrail"
-scripts/check-errorsink-option-signatures.sh
-
-# Mirrors the "Generated Artifacts Up To Date" CI job. This is the
-# gate that caught commit 8b483edef (E316 spec added, docs/errors/index.md
-# not regenerated) only after push.
-echo "==> pre-push: generated artifacts up to date"
-make generated-check
-
-# Mirrors the "Fuzz Smoke Test" CI job's workspace discovery step.
-# Cheap (no compile), catches manifests that drift out of
-# workspace.members / workspace.exclude.
-echo "==> pre-push: fuzz workspace isolation"
-make fuzz-check
+# The CHAT-format pre-push gates (spec/tools fmt, parser signature guardrail,
+# generated-artifacts check, fuzz workspace isolation) moved to chatter, which
+# is now the single home for the CHAT core. This hook guards the batchalign
+# layer talkbank-tools still owns.
 
 # Mirrors the "TalkBank Toolchain mdBook" CI workflow. mdbook's
 # linkcheck2 backend exhaustively verifies every relative link
-# against SUMMARY.md — catching SUMMARY-unreachable targets like
+# against SUMMARY.md, catching SUMMARY-unreachable targets like
 # the 2026-05-22 batchalign/introduction.md regression that broke
 # CI after a 68-commit squash push. Requires mdbook + mdbook-
 # linkcheck + mdbook-mermaid on PATH (make book-check enforces).
