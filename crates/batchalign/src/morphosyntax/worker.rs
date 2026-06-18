@@ -12,7 +12,7 @@ use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::text_request_v2::{PreparedTextRequestIdsV2, build_morphosyntax_request_v2};
 use crate::worker::text_result_v2::parse_morphosyntax_result_v2;
-use talkbank_transform::morphosyntax::{diagnose_parse_failure, parse_raw_stanza_output};
+use batchalign_transform::morphosyntax::{diagnose_parse_failure, parse_raw_stanza_output};
 use tracing::{info, warn};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -15,8 +15,8 @@ use batchalign::options::{
     WorTierPolicy,
 };
 use batchalign::worker::InferTask;
-use talkbank_transform::extract::extract_words;
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::extract::extract_words;
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 struct FixtureExecutionOutput {
     raw_chat: String,

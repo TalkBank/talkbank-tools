@@ -3,12 +3,12 @@
 use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, TokenizationMode};
 use crate::chat_ops::speaker::{SpeakerSegment as ChatSpeakerSegment, reassign_speakers};
 use std::path::Path;
-use talkbank_transform::asr_postprocess::{
+use batchalign_transform::asr_postprocess::{
     self, AsrPipelineSnapshot, AsrWord, PreparedMonologueChunk, Utterance,
 };
-use talkbank_transform::build_chat;
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::utseg::UtsegBatchItem;
+use batchalign_transform::build_chat;
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::utseg::UtsegBatchItem;
 
 use tracing::info;
 
@@ -404,7 +404,7 @@ fn resolved_asr_language(
                     .collect::<Vec<_>>()
                     .join(" ");
                 let detected_iso3 =
-                    talkbank_transform::asr_postprocess::lang_detect::detect_primary_language(&[
+                    batchalign_transform::asr_postprocess::lang_detect::detect_primary_language(&[
                         &all_text,
                     ])
                     .ok_or_else(|| {
@@ -463,7 +463,7 @@ fn build_prechat_utseg_items(chunks: &[PreparedMonologueChunk]) -> Vec<UtsegBatc
 
 fn apply_prechat_assignments(
     chunks: &[PreparedMonologueChunk],
-    assignments: &[talkbank_transform::utseg::UtsegResponse],
+    assignments: &[batchalign_transform::utseg::UtsegResponse],
 ) -> Vec<PreparedMonologueChunk> {
     chunks
         .iter()
@@ -476,7 +476,7 @@ fn apply_prechat_assignments(
 
 async fn process_asr_with_prechat_segmentation(
     ctx: &mut TranscribePipelineContext<'_>,
-    asr_output: &talkbank_transform::asr_postprocess::AsrOutput,
+    asr_output: &batchalign_transform::asr_postprocess::AsrOutput,
     resolved_lang: &LanguageCode3,
 ) -> Result<Vec<Utterance>, ServerError> {
     let lang_str = resolved_lang.to_string();
@@ -526,7 +526,7 @@ async fn process_asr_with_prechat_segmentation(
 /// normalization, long-turn / pause splitting) finalize per monologue.
 #[allow(dead_code)]
 fn prepare_asr_chunks(
-    asr_output: &talkbank_transform::asr_postprocess::AsrOutput,
+    asr_output: &batchalign_transform::asr_postprocess::AsrOutput,
     lang: &str,
 ) -> Vec<PreparedMonologueChunk> {
     prepare_asr_chunks_with_snapshot(asr_output, lang, None)
@@ -544,7 +544,7 @@ fn prepare_asr_chunks(
 /// snapshot's flat fields (other than `after_long_turn_split` which
 /// is `Vec<Vec<...>>` and accumulates chunks in order).
 fn prepare_asr_chunks_with_snapshot(
-    asr_output: &talkbank_transform::asr_postprocess::AsrOutput,
+    asr_output: &batchalign_transform::asr_postprocess::AsrOutput,
     lang: &str,
     mut snapshot: Option<&mut AsrPipelineSnapshot>,
 ) -> Vec<PreparedMonologueChunk> {
@@ -691,7 +691,7 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
         // for code-switching markup and multi-language headers.
         let is_auto = matches!(&ctx.opts.lang, LanguageSpec::Auto);
         let langs: Vec<String> = if is_auto {
-            use talkbank_transform::asr_postprocess::lang_detect;
+            use batchalign_transform::asr_postprocess::lang_detect;
 
             // Concatenate each utterance's words for language detection
             let utt_texts: Vec<String> = utterances

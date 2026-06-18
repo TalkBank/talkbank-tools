@@ -30,7 +30,7 @@
 //! ```
 //!
 //! Each pass emits typed records that flow through the shared
-//! [`DecisionRecord`](talkbank_transform::decisions::DecisionRecord) surface via
+//! [`DecisionRecord`](batchalign_transform::decisions::DecisionRecord) surface via
 //! `DecisionModule::Fa`. Aggregate stats
 //! ([`UtrResult`](super::utr::UtrResult),
 //! [`RepairStats`](super::repair::RepairStats)) live on their respective
@@ -48,7 +48,7 @@
 //!
 //! Instead, each pass continues to own its own vocabulary and emits
 //! `DecisionRecord`s as side effects. The shared
-//! [`DecisionModule::Fa`](talkbank_transform::decisions::DecisionModule::Fa) module
+//! [`DecisionModule::Fa`](batchalign_transform::decisions::DecisionModule::Fa) module
 //! tag and the `strategy` string (e.g. `"end_clamped"`, `"gap_filled"`,
 //! `"timing_stripped"`) give the downstream consumer a unified view.
 //!
@@ -63,7 +63,7 @@
 //!   protocol bug.
 //! - `IndexedCountMismatch` — worker returned the wrong number of
 //!   per-word timings. The FA equivalent of morphotag's
-//!   [`MisalignmentBug`](talkbank_transform::morphosyntax::MorOutcomeKind::MisalignmentBug).
+//!   [`MisalignmentBug`](batchalign_transform::morphosyntax::MorOutcomeKind::MisalignmentBug).
 //!
 //! Call sites that were string-matching on the error substring
 //! `"length mismatch"` now match on the variant directly — see

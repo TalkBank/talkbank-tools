@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Shared batchalign crates
 batchalign-types = { workspace = true }
-talkbank-transform = { workspace = true }
+batchalign-transform = { workspace = true }
 
 [profile.dev]
 split-debuginfo = "unpacked"

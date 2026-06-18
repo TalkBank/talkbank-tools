@@ -36,9 +36,9 @@ use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
 use crate::pipeline::PipelineServices;
 use crate::pipeline::morphosyntax::run_morphosyntax_pipeline;
-use talkbank_transform::parse::{is_dummy, parse_lenient};
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
+use batchalign_transform::parse::{is_dummy, parse_lenient};
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
 pub(crate) use batch::dispatch_secondary_l2;
@@ -113,8 +113,8 @@ pub(crate) async fn process_morphosyntax_incremental(
     services: PipelineServices<'_>,
     params: &MorphosyntaxParams<'_>,
 ) -> Result<String, ServerError> {
-    use talkbank_transform::diff::preserve::TierKind;
-    use talkbank_transform::diff::{DiffSummary, UtteranceDelta, copy_dependent_tiers, diff_chat};
+    use batchalign_transform::diff::preserve::TierKind;
+    use batchalign_transform::diff::{DiffSummary, UtteranceDelta, copy_dependent_tiers, diff_chat};
 
     let primary_lang = LanguageCode::new(params.lang.as_ref());
     let parser = crate::chat_parser();
@@ -308,7 +308,7 @@ pub(crate) async fn process_morphosyntax_incremental(
                             // defaults to None (no %xalign/%xrev emitted). It was
                             // a hardcoded LowConfidence here, which made the tiers
                             // leak into morphotag output regardless of any default.
-                            talkbank_transform::decisions::inject_decision_tiers(
+                            batchalign_transform::decisions::inject_decision_tiers(
                                 &mut after_file,
                                 &injection_result.decisions,
                                 params.review_level,
@@ -355,7 +355,7 @@ pub(crate) async fn process_morphosyntax_incremental(
 mod tests {
     use super::*;
     use crate::chat_ops::morphosyntax_ops::MultilingualPolicy;
-    use talkbank_transform::parse::TreeSitterParser;
+    use batchalign_transform::parse::TreeSitterParser;
 
     #[test]
     fn test_declared_languages_via_chat_ops() {

@@ -67,7 +67,7 @@ zhconv = { workspace = true }
 rustc-hash = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }
-talkbank-transform = { workspace = true }
+batchalign-transform = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }

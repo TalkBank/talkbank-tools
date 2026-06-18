@@ -145,8 +145,8 @@ pub fn reassign_speakers(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_transform::parse::{TreeSitterParser, parse_strict};
-    use talkbank_transform::serialize::to_chat_string;
+    use batchalign_transform::parse::{TreeSitterParser, parse_strict};
+    use batchalign_transform::serialize::to_chat_string;
 
     #[test]
     fn reassign_speakers_rewrites_utterances_and_headers() {

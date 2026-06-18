@@ -147,11 +147,11 @@ pub fn generate_ipc_schema() -> BTreeMap<String, BTreeMap<String, Schema>> {
         register!(
             batch,
             crate::chat_ops::morphosyntax_ops::MorphosyntaxBatchItem,
-            talkbank_transform::utseg::UtsegBatchItem,
-            talkbank_transform::translate::TranslateBatchItem,
-            talkbank_transform::coref::CorefBatchItem,
-            talkbank_transform::coref::CorefAnnotation,
-            talkbank_transform::coref::ChainRef,
+            batchalign_transform::utseg::UtsegBatchItem,
+            batchalign_transform::translate::TranslateBatchItem,
+            batchalign_transform::coref::CorefBatchItem,
+            batchalign_transform::coref::CorefAnnotation,
+            batchalign_transform::coref::ChainRef,
         );
         layers.insert("batch_items".into(), batch);
     }

@@ -13,7 +13,7 @@ use talkbank_model::model::{
 };
 
 use super::repair::RepairDecision;
-pub use talkbank_transform::decisions::ReviewLevel;
+pub use batchalign_transform::decisions::ReviewLevel;
 
 /// Inject `%xalign` and `%xrev` tiers based on repair decisions.
 ///
@@ -35,7 +35,7 @@ pub fn inject_review_tiers(
     // Strip existing %xalign / %xrev tiers so that re-running FA on a file
     // that already has review tiers replaces them rather than accumulating a
     // second set.  Delegates to the shared helper in `decisions.rs`.
-    talkbank_transform::decisions::strip_decision_tiers(chat_file);
+    batchalign_transform::decisions::strip_decision_tiers(chat_file);
 
     // Index decisions by line_idx for O(1) lookup.
     let decision_map: std::collections::HashMap<usize, Vec<&RepairDecision>> = {
@@ -103,13 +103,13 @@ mod tests {
 *CHI:\tworld . \u{0015}4000_5000\u{0015}
 @End
 ";
-        let parser = talkbank_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = talkbank_transform::parse::parse_lenient(&parser, chat_text);
+        let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
+        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let decisions = vec![RepairDecision {
             line_idx: 5, // first utterance line
             speaker: "CHI".to_string(),
-            strategy: talkbank_transform::decisions::FaStrategy::GapFilled,
+            strategy: batchalign_transform::decisions::FaStrategy::GapFilled,
             reason: "gap_filled gap=500ms same_speaker machine=1000_2000 snapped_start=500"
                 .to_string(),
             needs_review: true,
@@ -118,7 +118,7 @@ mod tests {
         inject_review_tiers(&mut chat_file, &decisions, ReviewLevel::LowConfidence);
 
         // Serialize and check for %xalign and %xrev.
-        let output = talkbank_transform::serialize::to_chat_string(&chat_file);
+        let output = batchalign_transform::serialize::to_chat_string(&chat_file);
         assert!(
             output.contains("%xalign:"),
             "should contain %xalign tier:\n{output}"
@@ -148,20 +148,20 @@ mod tests {
 *CHI:\thello . \u{0015}1000_2000\u{0015}
 @End
 ";
-        let parser = talkbank_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = talkbank_transform::parse::parse_lenient(&parser, chat_text);
+        let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
+        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let decisions = vec![RepairDecision {
             line_idx: 5,
             speaker: "CHI".to_string(),
-            strategy: talkbank_transform::decisions::FaStrategy::GapFilled,
+            strategy: batchalign_transform::decisions::FaStrategy::GapFilled,
             reason: "gap_filled test".to_string(),
             needs_review: true,
         }];
 
         inject_review_tiers(&mut chat_file, &decisions, ReviewLevel::None);
 
-        let output = talkbank_transform::serialize::to_chat_string(&chat_file);
+        let output = batchalign_transform::serialize::to_chat_string(&chat_file);
         assert!(
             !output.contains("%xalign:"),
             "ReviewLevel::None should not emit %xalign:\n{output}"

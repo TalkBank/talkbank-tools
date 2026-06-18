@@ -7,7 +7,7 @@
 //! benchmark, merge_abbreviations, constituency, tokenizer_realign,
 //! utseg_compute, and the canonical `coref` / `translate` / `utseg` task
 //! surfaces) lives in `talkbank-transform`. Import those directly from
-//! `talkbank_transform`; this crate no longer re-exports them.
+//! `batchalign_transform`; this crate no longer re-exports them.
 //!
 //! P8 fold (2026-04-30): this module is the merged form of the former
 //! `batchalign-chat-ops` crate, now living inside the `batchalign` crate

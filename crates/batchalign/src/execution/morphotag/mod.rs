@@ -119,7 +119,7 @@ pub(crate) async fn dispatch_morphotag_job(
             // error in the job's status.
             let parser = crate::chat_parser();
             let (parsed_chat, _parse_errors) =
-                talkbank_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
+                batchalign_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
             let file_lang = match crate::pipeline::morphosyntax::resolve_per_file_lang(&parsed_chat)
             {
                 Ok(code) => code,

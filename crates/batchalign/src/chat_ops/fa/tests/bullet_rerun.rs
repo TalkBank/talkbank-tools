@@ -63,7 +63,7 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
     // when decisions is non-empty.  Clean re-run → decisions is empty → no
     // strip → old tiers remain.
     if !decisions.is_empty() {
-        talkbank_transform::decisions::inject_decision_tiers(
+        batchalign_transform::decisions::inject_decision_tiers(
             &mut chat,
             &decisions,
             crate::chat_ops::fa::ReviewLevel::LowConfidence,

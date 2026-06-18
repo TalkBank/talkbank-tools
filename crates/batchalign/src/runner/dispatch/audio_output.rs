@@ -40,7 +40,7 @@ pub(crate) async fn write_primary_chat_output_artifact(
 
 #[cfg(test)]
 mod tests {
-    use talkbank_transform::serialize::to_chat_string;
+    use batchalign_transform::serialize::to_chat_string;
 
     use super::*;
     use crate::api::ContentType;
@@ -66,7 +66,7 @@ mod tests {
         let chat = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tPAR Participant\n@ID:\teng|test|PAR|||||Participant|||\n*PAR:\tF B I do it .\n@End\n";
         let merged = finalize_chat_output(chat, true);
         let parser = crate::chat_parser();
-        let (parsed, _) = talkbank_transform::parse::parse_lenient(&parser, &merged);
+        let (parsed, _) = batchalign_transform::parse::parse_lenient(&parser, &merged);
         let reparsed = to_chat_string(&parsed);
         assert!(
             reparsed.contains("FBI"),

@@ -20,13 +20,13 @@ use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::text_request_v2::{PreparedTextRequestIdsV2, build_coref_request_v2};
 use crate::worker::text_result_v2::parse_coref_result_v2;
-use talkbank_transform::coref::{
+use batchalign_transform::coref::{
     ChainRef, CorefBatchItem, CorefRawAnnotation, CorefRawResponse, CorefResponse,
     apply_coref_results, collect_coref_payloads, raw_to_bracket_response,
 };
-use talkbank_transform::parse::{is_dummy, parse_lenient};
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
+use batchalign_transform::parse::{is_dummy, parse_lenient};
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
 use crate::error::ServerError;
@@ -515,7 +515,7 @@ fn coref_response_from_v2_item(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_transform::parse::TreeSitterParser;
+    use batchalign_transform::parse::TreeSitterParser;
 
     #[test]
     fn test_file_has_english_with_eng_languages() {

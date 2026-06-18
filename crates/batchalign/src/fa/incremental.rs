@@ -23,11 +23,11 @@ use crate::pipeline::PipelineServices;
 use crate::runner::util::{FileStage, ProgressSender, ProgressUpdate};
 use crate::types::results::FaResult;
 use crate::types::traces::{FaGroupTrace, TimingTrace, ViolationTrace};
-use talkbank_transform::diff::UtteranceDelta;
-use talkbank_transform::diff::preserve::{TierKind, copy_dependent_tiers};
-use talkbank_transform::parse::{is_dummy, is_no_align, parse_lenient};
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
+use batchalign_transform::diff::UtteranceDelta;
+use batchalign_transform::diff::preserve::{TierKind, copy_dependent_tiers};
+use batchalign_transform::parse::{is_dummy, is_no_align, parse_lenient};
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
 use super::transport::{FaWorkerBatch, FaWorkerTransport};
@@ -49,7 +49,7 @@ pub(crate) async fn process_fa_incremental(
     fa_params: &FaParams,
     progress: Option<&ProgressSender>,
 ) -> Result<FaResult, ServerError> {
-    use talkbank_transform::diff::{DiffSummary, diff_chat};
+    use batchalign_transform::diff::{DiffSummary, diff_chat};
 
     let parser = crate::chat_parser();
     let (before_file, _) = parse_lenient(&parser, before_text);
@@ -335,7 +335,7 @@ pub(crate) async fn process_fa_incremental(
     // ones.  inject_review_tiers does this internally, but only when
     // review_level != None.  Stripping unconditionally prevents stale tiers from
     // accumulating when review_level == None or when no new decisions are made.
-    talkbank_transform::decisions::strip_decision_tiers(&mut chat_file);
+    batchalign_transform::decisions::strip_decision_tiers(&mut chat_file);
     if fa_params.review_level != crate::chat_ops::fa::ReviewLevel::None {
         crate::chat_ops::fa::inject_review_tiers(
             &mut chat_file,
@@ -487,11 +487,11 @@ mod tests {
     use super::*;
     use crate::chat_ops::fa::{FaTimingMode, FaWord, TimeSpan, apply_fa_results};
     use crate::chat_ops::{UtteranceIdx, WordIdx};
-    use talkbank_transform::diff::diff_chat;
+    use batchalign_transform::diff::diff_chat;
 
     fn parse_chat(text: &str) -> ChatFile {
-        let parser = talkbank_transform::parse::TreeSitterParser::new().unwrap();
-        talkbank_transform::parse::parse_lenient(&parser, text).0
+        let parser = batchalign_transform::parse::TreeSitterParser::new().unwrap();
+        batchalign_transform::parse::parse_lenient(&parser, text).0
     }
 
     fn chat_with_wor(words0: &str, words1: &str) -> String {
@@ -534,7 +534,7 @@ mod tests {
     fn reuse_stable_wor_timing_from_before_marks_timing_only_utterances() {
         let mut before = parse_chat(&chat_with_wor("hello world .", "goodbye ."));
         crate::chat_ops::fa::refresh_existing_alignment(&mut before, true);
-        let before_text = talkbank_transform::serialize::to_chat_string(&before);
+        let before_text = batchalign_transform::serialize::to_chat_string(&before);
         let before = parse_chat(&before_text);
         let mut after = parse_chat(&before_text);
 

@@ -9,7 +9,7 @@ fn ud_response_from_words(words_json: &str) -> crate::chat_ops::nlp::UdResponse 
 #[test]
 fn test_clear_morphosyntax() {
     use talkbank_model::model::Line;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Minimal CHAT with %mor and %gra tiers
@@ -68,7 +68,7 @@ fn test_clear_morphosyntax() {
 #[test]
 fn test_clear_morphosyntax_preserves_other_tiers() {
     use talkbank_model::model::Line;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // CHAT with %mor, %gra, and %act -- only %mor/%gra should be removed
@@ -105,7 +105,7 @@ fn test_clear_morphosyntax_preserves_other_tiers() {
 #[test]
 fn test_clear_morphosyntax_no_tiers() {
     use talkbank_model::model::Line;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // CHAT without any dependent tiers -- clear should be a no-op
@@ -127,7 +127,7 @@ fn test_clear_morphosyntax_no_tiers() {
 
 #[test]
 fn test_validate_mor_alignment_ok() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Correctly aligned: 2 main words + 2 %mor items
@@ -144,7 +144,7 @@ fn test_validate_mor_alignment_ok() {
 
 #[test]
 fn test_validate_mor_alignment_no_mor_tier() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // No %mor -- validation should pass (nothing to check)
@@ -241,7 +241,7 @@ fn snapshot_ud_response_from_python() {
 /// Verify collect_payloads produces the expected shape for a simple CHAT.
 #[test]
 fn snapshot_collected_payloads() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_the_dog_runs.cha");
@@ -274,7 +274,7 @@ fn snapshot_collected_payloads() {
 /// the batch item must carry lang="spa" from the file header.
 #[test]
 fn collect_payloads_uses_file_language_not_batch_default_spa() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/spa_hola_que_es_este.cha");
@@ -301,7 +301,7 @@ fn collect_payloads_uses_file_language_not_batch_default_spa() {
 /// Same regression for Russian: @Languages: rus with batch default "eng".
 #[test]
 fn collect_payloads_uses_file_language_not_batch_default_rus() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/rus_vot_istoriya.cha");
@@ -325,7 +325,7 @@ fn collect_payloads_uses_file_language_not_batch_default_rus() {
 /// Same regression for Chinese: @Languages: zho with batch default "eng".
 #[test]
 fn collect_payloads_uses_file_language_not_batch_default_zho() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/zho_hao_qing_zhong.cha");
@@ -349,7 +349,7 @@ fn collect_payloads_uses_file_language_not_batch_default_zho() {
 /// Same regression for French: @Languages: fra with batch default "eng".
 #[test]
 fn collect_payloads_uses_file_language_not_batch_default_fra() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/fra_lescargot_dort.cha");
@@ -374,7 +374,7 @@ fn collect_payloads_uses_file_language_not_batch_default_fra() {
 /// (Control case: ensures fix doesn't regress the happy path.)
 #[test]
 fn collect_payloads_lang_correct_when_primary_matches_header() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_hello_world_male.cha");
@@ -395,7 +395,7 @@ fn collect_payloads_lang_correct_when_primary_matches_header() {
 /// should be used as the utterance default (not the batch primary_lang).
 #[test]
 fn collect_payloads_uses_first_declared_language_for_multilingual() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Bilingual file: primary declared language is "spa", secondary is "eng"
@@ -433,7 +433,7 @@ fn collect_payloads_uses_first_declared_language_for_multilingual() {
 fn test_inject_results_retokenize_cantonese_retrace() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
     use crate::chat_ops::nlp::{UdId, UdResponse, UdSentence, UdWord};
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/retok_yue_retrace.cha");
@@ -537,9 +537,9 @@ fn test_inject_results_retokenize_cantonese_retrace() {
 fn test_french_elision_in_quoted_context() {
     use crate::chat_ops::morphosyntax_ops::collect_payloads;
 
-    let parser = talkbank_transform::parse::TreeSitterParser::new().unwrap();
+    let parser = batchalign_transform::parse::TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/fra_french_elision_quotes.cha");
-    let (chat_file, _) = talkbank_transform::parse::parse_lenient(&parser, chat);
+    let (chat_file, _) = batchalign_transform::parse::parse_lenient(&parser, chat);
 
     let primary = talkbank_model::model::LanguageCode::new("fra");
     let langs = declared_languages(&chat_file, &primary);
@@ -579,7 +579,7 @@ fn test_french_elision_in_quoted_context() {
 /// Verify collect_payloads identifies @s:spa word positions in special_forms.
 #[test]
 fn collect_payloads_identifies_at_s_positions_single() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_single.cha");
@@ -634,7 +634,7 @@ fn collect_payloads_identifies_at_s_positions_single() {
 /// Verify contiguous @s:spa span in special_forms.
 #[test]
 fn collect_payloads_identifies_contiguous_at_s_span() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
@@ -688,12 +688,12 @@ fn collect_payloads_identifies_contiguous_at_s_span() {
 fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
     use talkbank_model::ParseValidateOptions;
     use talkbank_model::model::Line;
-    use talkbank_transform::morphosyntax::l2::{
+    use batchalign_transform::morphosyntax::l2::{
         extract_l2_deferred_positions, merge_planned_secondary_span, plan_secondary_dispatch,
         splice_l2_into_chat,
     };
-    use talkbank_transform::morphosyntax::{UdId, UdPunctable, UdSentence, UdWord, UniversalPos};
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::morphosyntax::{UdId, UdPunctable, UdSentence, UdWord, UniversalPos};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
@@ -876,7 +876,7 @@ fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
 fn inject_results_retokenize_mwt_range_tokens_no_failure() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
     use crate::chat_ops::nlp::{UdId, UdPunctable, UdResponse, UdSentence, UdWord, UniversalPos};
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Minimal CHAT: "gonna eat cookies ."
@@ -1046,7 +1046,7 @@ fn inject_results_retokenize_mwt_range_tokens_no_failure() {
 #[test]
 fn inject_results_preserve_coraal_units_keeps_mor_gra() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_morph_coraal_units.cha");
@@ -1130,7 +1130,7 @@ fn inject_results_preserve_coraal_units_keeps_mor_gra() {
 #[test]
 fn inject_results_preserve_minga_because_keeps_mor_gra() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_morph_minga_because.cha");
@@ -1204,7 +1204,7 @@ fn inject_results_preserve_minga_because_keeps_mor_gra() {
 #[test]
 fn inject_results_preserve_kings_continuation_keeps_mor_gra() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_morph_kings_continuation.cha");
@@ -1297,7 +1297,7 @@ fn inject_results_preserve_kings_continuation_keeps_mor_gra() {
 /// Verify bare @s shortcut resolves via @Languages header.
 #[test]
 fn collect_payloads_bare_at_s_shortcut_resolution() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/deu_eng_at_s_bare.cha");
@@ -1368,8 +1368,8 @@ fn clear_then_reinject_preserves_tier_order_mor_gra_wor() {
     use talkbank_model::model::DependentTier;
     use talkbank_model::model::dependent_tier::{GraTier, MorTier, WorTier};
     use talkbank_parser::TreeSitterParser;
-    use talkbank_transform::inject::replace_or_add_tier;
-    use talkbank_transform::parse::parse_lenient;
+    use batchalign_transform::inject::replace_or_add_tier;
+    use batchalign_transform::parse::parse_lenient;
 
     let text = concat!(
         "@UTF8\n",
@@ -1445,7 +1445,7 @@ fn clear_then_reinject_preserves_tier_order_mor_gra_wor() {
 fn add_wor_tier_preserves_tier_order_wor_mor_gra() {
     use crate::chat_ops::fa::add_wor_tier;
     use talkbank_parser::TreeSitterParser;
-    use talkbank_transform::parse::parse_lenient;
+    use batchalign_transform::parse::parse_lenient;
 
     let text = concat!(
         "@UTF8\n",
@@ -1489,7 +1489,7 @@ fn add_wor_tier_preserves_tier_order_wor_mor_gra() {
 fn collect_payloads_treats_empty_mor_placeholder_as_unprocessed() {
     use talkbank_model::model::LanguageCode;
     use talkbank_parser::TreeSitterParser;
-    use talkbank_transform::parse::parse_lenient;
+    use batchalign_transform::parse::parse_lenient;
 
     let text = concat!(
         "@UTF8\n",
@@ -1591,7 +1591,7 @@ fn first_utterance_mut(
 #[test]
 fn inject_results_count_mismatch_propagates_error() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Three alignable words on the main tier.
@@ -1671,7 +1671,7 @@ fn inject_results_count_mismatch_propagates_error() {
 #[test]
 fn mid_utterance_comma_end_to_end_injects_cm_mor() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Three words plus a comma plus a terminator: `hello , good world .`
@@ -1827,7 +1827,7 @@ fn fmt_gra(rels: &[talkbank_model::model::GrammaticalRelation]) -> String {
 /// EXPECTED on current build: FAILS — relation is "DEP" not "ROOT".
 #[test]
 fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_at_o_single_word_red.cha");
@@ -1919,7 +1919,7 @@ fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
 /// deprel=DEP instead of deprel=ROOT.
 #[test]
 fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_at_si_all_signed_red.cha");
@@ -1998,7 +1998,7 @@ fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
 /// deprel=DEP instead of deprel=ROOT.
 #[test]
 fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_at_o_root_with_modifier_red.cha");
@@ -2086,7 +2086,7 @@ fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
 /// the fix lands for A1/A2/A4, this must still pass.
 #[test]
 fn family_a_at_o_with_nonzero_head_does_not_become_root() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Inline fixture — keeping it inline so the assertion's premise
@@ -2292,7 +2292,7 @@ fn assert_utterances_preserved_one_to_one(label: &str, before: &[String], after:
 #[test]
 fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = "\
@@ -2459,7 +2459,7 @@ fn validate_or_panic(chat_file: &mut talkbank_model::ChatFile, label: &str) {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_at_s_unsupported.cha");
@@ -2522,7 +2522,7 @@ fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Inline minimal CHAT — `cafe@s:eng+fra` is "valid in BOTH eng
@@ -2586,7 +2586,7 @@ fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `no@s:eng&spa` — the word "no" is ambiguously English or Spanish.
@@ -2657,7 +2657,7 @@ fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `[- nep]` whole-utterance language switch into Nepali.
@@ -2762,7 +2762,7 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `[- spa]` whole-utterance switch into Spanish (Stanza-supported).
@@ -2861,7 +2861,7 @@ fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `palabra@s` (bare shortcut) with @Languages declaring only `eng`
@@ -2965,7 +2965,7 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `namaste@s` (bare shortcut) — with @Languages: eng, nep and
@@ -3057,7 +3057,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 // ---------------------------------------------------------------------
 #[test]
 fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // `bonjour@s:fra` — explicit French marker on a Stanza-SUPPORTED
@@ -3166,7 +3166,7 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 /// response that puts the placeholder at head=0 with `deprel="dep"`
 /// (the case the synthesis-layer fix must rewrite to ROOT).
 fn run_synthesis_root_invariant_check(form_marker: &str, surface: &str, expected_pos: &str) {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = format!(
@@ -3366,7 +3366,7 @@ fn synthesis_at_i_interjection_root_keeps_root_deprel() {
 /// in production for special-form-only utterances; the fix
 /// synthesizes morphology in-place from the FormType.
 fn assert_empty_stanza_synthesizes_root(form_marker: &str, surface: &str, expected_pos: &str) {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = format!(
@@ -3476,7 +3476,7 @@ fn synthesis_stanza_empty_response_at_q_root_still_synthesizes() {
 /// relation may not be the one whose deprel gets rewritten.
 #[test]
 fn synthesis_stanza_tokenizes_xbxxx_into_two_at_q_root_keeps_root_deprel() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = "@UTF8\n\
@@ -3554,7 +3554,7 @@ fn synthesis_stanza_tokenizes_xbxxx_into_two_at_q_root_keeps_root_deprel() {
 /// in 2026-05-07's fix #2.
 #[test]
 fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = "@UTF8\n\
@@ -3661,7 +3661,7 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
 /// inject_results (orchestration / cache / serialization).
 #[test]
 fn no_stanza_response_through_inject_should_produce_observed_failure_shape() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let candidates: &[(&str, &str)] = &[
         // (label, ud_words_json)
@@ -3764,7 +3764,7 @@ fn synthesis_stanza_empty_response_at_n_root_still_synthesizes() {
 /// this utterance, or whether the Stanza dispatch skips it).
 #[test]
 fn synthesis_production_fixture_at_q_with_timestamp() {
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Mirrors *INV: poker@q . 132030_132740 from tele61b.cha:135.
@@ -3845,7 +3845,7 @@ fn synthesis_at_n_non_root_position_uses_dep_deprel() {
     // Companion test: when the @form word is NOT at head=0, the
     // deprel must be "dep" (the BA2-equivalent generic relation).
     // Pin this so a regression that "always emits ROOT" gets caught.
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
     // Two content words + terminator: `she said haho@n .`

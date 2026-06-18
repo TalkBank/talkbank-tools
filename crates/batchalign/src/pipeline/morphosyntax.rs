@@ -7,9 +7,9 @@ use crate::chat_ops::morphosyntax_ops::{
 };
 use crate::chat_ops::nlp::UdResponse;
 use crate::chat_ops::{ChatFile, LanguageCode};
-use talkbank_transform::parse::{is_ca, is_no_align, parse_lenient};
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
+use batchalign_transform::parse::{is_ca, is_no_align, parse_lenient};
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::warn;
 
 use crate::api::LanguageCode3;
@@ -271,7 +271,7 @@ pub(crate) fn unsupported_primary_language_error(chat_file: &ChatFile) -> Option
                  Fix the @Languages header to use a supported ISO-639-3 code and re-run. \
                  Supported codes: {}.",
                 primary,
-                talkbank_transform::morphosyntax::supported_iso3_codes().join(", ")
+                batchalign_transform::morphosyntax::supported_iso3_codes().join(", ")
             ));
         }
     }
@@ -526,8 +526,8 @@ mod tests {
     use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, TokenizationMode};
     use crate::pipeline::PipelineServices;
     use crate::worker::pool::{PoolConfig, WorkerPool};
-    use talkbank_transform::parse::parse_lenient;
-    use talkbank_transform::serialize::to_chat_string;
+    use batchalign_transform::parse::parse_lenient;
+    use batchalign_transform::serialize::to_chat_string;
 
     fn parse(text: &str) -> talkbank_model::model::ChatFile {
         let parser = crate::chat_parser();

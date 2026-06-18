@@ -18,9 +18,9 @@ use super::BatchedInferDispatchPlan;
 /// Parse CHAT text, apply merge_abbreviations transform, re-serialize.
 pub(in crate::runner) fn apply_merge_abbrev(chat_text: &str) -> String {
     let parser = crate::chat_parser();
-    let (mut file, _) = talkbank_transform::parse::parse_lenient(&parser, chat_text);
-    talkbank_transform::merge_abbreviations(&mut file);
-    talkbank_transform::serialize::to_chat_string(&file)
+    let (mut file, _) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
+    batchalign_transform::merge_abbreviations(&mut file);
+    batchalign_transform::serialize::to_chat_string(&file)
 }
 
 /// Dispatch files via the server-side infer path.

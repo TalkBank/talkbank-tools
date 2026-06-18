@@ -16,13 +16,13 @@ use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::text_request_v2::{PreparedTextRequestIdsV2, build_utseg_request_v2};
 use crate::worker::text_result_v2::parse_utseg_result_v2;
-use talkbank_transform::utseg::{
+use batchalign_transform::utseg::{
     UtsegBatchItem, UtsegResponse, apply_utseg_results, collect_utseg_payloads,
 };
 
 /// Thin adapter matching the legacy `fn(&ChatFile) -> Vec<(usize, Item)>`
 /// hook signature. The Wave 5 utseg collector returns the richer
-/// [`UtsegPayloadCollection`](talkbank_transform::utseg::UtsegPayloadCollection)
+/// [`UtsegPayloadCollection`](batchalign_transform::utseg::UtsegPayloadCollection)
 /// struct; this wrapper discards the `not_applicable` outcomes so the
 /// existing text-pipeline hooks keep compiling. Surfacing the outcomes
 /// through the pipeline is future follow-up work; the data is already
@@ -31,8 +31,8 @@ use talkbank_transform::utseg::{
 fn collect_utseg_batch_items(chat_file: &ChatFile) -> Vec<(usize, UtsegBatchItem)> {
     collect_utseg_payloads(chat_file).batch_items
 }
-use talkbank_transform::utseg_compute;
-use talkbank_transform::validate::ValidityLevel;
+use batchalign_transform::utseg_compute;
+use batchalign_transform::validate::ValidityLevel;
 use tracing::{info, warn};
 
 use crate::error::ServerError;

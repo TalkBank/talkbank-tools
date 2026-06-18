@@ -52,7 +52,23 @@
 //! assert_eq!(chat_file.utterances().count(), 1);
 //! ```
 
-pub mod adjudication;
+// Generic CHAT transform surface: single home is chatter's talkbank-transform,
+// re-exported so the batchalign-specific modules below (which reach generic
+// helpers via `crate::parse`, `crate::extract`, `crate::dependent_tiers`, ...)
+// and downstream consumers reach the whole generic surface through one root.
+pub use talkbank_transform::*;
+
+// Compatibility: chatter moved caching into the `talkbank-cache` crate, which
+// `talkbank-transform` re-exports at its root rather than as a `unified_cache`
+// module. Re-expose the historical `unified_cache` module path so existing
+// batchalign references (`batchalign_transform::unified_cache::...`) resolve.
+pub mod unified_cache {
+    pub use talkbank_transform::{CacheError, CachePool, CacheStats, UnifiedCache};
+}
+
+// Batchalign-specific transforms. These need ML-pipeline context (ASR output,
+// neural morphotag, forced-alignment decisions, utterance segmentation), so
+// they live on the Batchalign side, NOT in the generic talkbank-transform crate.
 pub mod asr_postprocess;
 pub mod benchmark;
 pub mod build_chat;
@@ -60,66 +76,20 @@ pub mod compare;
 pub mod constituency;
 pub mod coref;
 pub mod decisions;
-pub mod dependent_tiers;
 pub mod diff;
 pub mod dp_align;
-pub mod extract;
-pub mod fix_s;
 pub mod inject;
 pub mod merge_abbrev;
 pub mod morphosyntax;
-pub mod parse;
-pub mod redact;
 pub mod retokenize;
-pub mod sanity_scan;
-pub mod serialize;
-pub mod speaker_id;
 pub mod tokenizer_realign;
-pub mod transcript_merge;
 pub mod translate;
 pub mod utseg;
 pub mod utseg_compute;
-pub mod validate;
 pub mod wer_conform;
 
-// Format bridges and serialization boundaries.
-pub mod json;
-// CHAT → TalkBank XML emission (Rust replacement for Java Chatter's XML output).
-pub mod xml;
-
-// Corpus-scale orchestration namespaces.
-pub mod corpus;
-pub mod unified_cache;
-pub mod validation_runner;
-
-// Internal crate-root wiring for the convenience APIs below.
-mod pipeline;
-mod rendering;
-
-// Common convenience re-exports. Detailed APIs continue to live in their
-// owning modules above.
-pub use self::corpus::{
-    CorpusEntry, CorpusManifest, FailureReason, FileEntry, FileStatus as CorpusFileStatus,
-    ManifestError, build_manifest, corpus_summary, discover_corpora, format_manifest,
-};
-pub use self::json::{
-    JsonError, JsonResult, SCHEMA_JSON, is_schema_validation_available, schema_load_error,
-    to_json_pretty_unvalidated, to_json_pretty_validated, to_json_unvalidated, to_json_validated,
-    validate_json_string,
-};
+// The generic convenience re-exports (corpus, json, pipeline, rendering,
+// caching, validation_runner) now come from chatter via the `pub use
+// talkbank_transform::*` glob above. Only the batchalign-specific convenience
+// re-export stays here.
 pub use self::merge_abbrev::merge_abbreviations;
-pub use self::pipeline::{
-    PipelineError, chat_to_json, chat_to_json_unvalidated, normalize_chat, parse_and_validate,
-    parse_and_validate_streaming, parse_and_validate_streaming_with_parser,
-    parse_and_validate_with_parser, parse_file_and_validate,
-};
-pub use self::rendering::{
-    render_error_with_miette, render_error_with_miette_with_named_source,
-    render_error_with_miette_with_source, render_error_with_miette_with_source_colored,
-};
-pub use self::unified_cache::{CachePool, CacheStats, UnifiedCache};
-pub use self::validation_runner::{
-    CacheMode, CacheOutcome, DirectoryMode, ErrorEvent, FileCompleteEvent, FileStatus, ParserKind,
-    RoundtripEvent, ValidationCache, ValidationConfig, ValidationEvent, ValidationStats,
-    ValidationStatsSnapshot, validate_directory_streaming,
-};

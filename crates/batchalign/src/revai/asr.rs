@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use crate::revai::{RevAiClient, SubmitOptions, Transcript, TranscriptResult};
-use talkbank_transform::asr_postprocess::{
+use batchalign_transform::asr_postprocess::{
     AsrElement, AsrElementKind, AsrMonologue, AsrOutput, AsrRawText, AsrTimestampSecs, SpeakerIndex,
 };
 use tracing::{info, warn};

@@ -33,8 +33,8 @@
 use talkbank_model::model::{BulletSource, ChatFile, Line};
 
 #[cfg(test)]
-use talkbank_transform::decisions::DecisionModule;
-use talkbank_transform::decisions::DecisionRecord;
+use batchalign_transform::decisions::DecisionModule;
+use batchalign_transform::decisions::DecisionRecord;
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -259,8 +259,8 @@ pub fn rescue_narrow_bullets(chat_file: &mut ChatFile) -> Vec<DecisionRecord> {
         decisions.push(DecisionRecord::new_and_trace(
             obs.line_idx,
             utt.main.speaker.as_str().to_string(),
-            talkbank_transform::decisions::DecisionStrategy::Fa(
-                talkbank_transform::decisions::FaStrategy::NarrowBulletRescued,
+            batchalign_transform::decisions::DecisionStrategy::Fa(
+                batchalign_transform::decisions::FaStrategy::NarrowBulletRescued,
             ),
             format!(
                 "word_count={wc} original_end={oe} expanded_end={ne} \
@@ -349,7 +349,7 @@ fn collect_rescue_candidates(chat_file: &ChatFile) -> Vec<RescueObservation> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+    use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     /// Build a small CHAT file with three utterances. The middle one has a
     /// 22-word main tier compressed into a 380 ms bullet — exactly the

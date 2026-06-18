@@ -34,7 +34,7 @@ fn utr_serialize_reparse_no_internal_bullets() {
     );
 
     // Serialize to CHAT text (this is what the old pipeline did)
-    let serialized = talkbank_transform::serialize::to_chat_string(&chat);
+    let serialized = batchalign_transform::serialize::to_chat_string(&chat);
 
     // Re-parse (this is what FA did — the bug)
     let reparsed = parse_chat(&serialized);
@@ -103,7 +103,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
         true,
     );
 
-    let output = talkbank_transform::serialize::to_chat_string(&chat);
+    let output = batchalign_transform::serialize::to_chat_string(&chat);
     let double_bullets = count_double_bullet_lines(&output);
     assert_eq!(
         double_bullets, 0,

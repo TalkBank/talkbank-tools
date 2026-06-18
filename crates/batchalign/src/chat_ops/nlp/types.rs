@@ -1,6 +1,6 @@
 //! Whisper-style FA raw-response types (`FaRawToken`, `FaIndexedTiming`,
 //! `FaRawResponse`). The UD/NLP types these used to live alongside have
-//! moved to `talkbank_transform::morphosyntax`; only the FA-specific shapes
+//! moved to `batchalign_transform::morphosyntax`; only the FA-specific shapes
 //! remain here because they're audio/timing-coupled.
 
 use serde::{Deserialize, Serialize};

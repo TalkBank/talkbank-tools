@@ -19,7 +19,7 @@
 use batchalign::api::{JobStatus, ReleasedCommand};
 use batchalign::chat_ops::ChatFile;
 use batchalign::options::{FaEngineName, WorTierPolicy};
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 use crate::common::LiveDirectJobClient;
 use crate::common::drift_assertions::evaluate_drift_assertion;

@@ -7,8 +7,8 @@ use batchalign::options::{
     AlignOptions, AsrEngineName, CommandOptions, CommonOptions, TranscribeOptions, WorTierPolicy,
 };
 use batchalign::worker::InferTask;
-use talkbank_transform::extract::extract_words;
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::extract::extract_words;
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 pub(crate) fn parse_output(chat: &str, label: &str) -> batchalign::chat_ops::ChatFile {
     let parser = TreeSitterParser::new().unwrap();

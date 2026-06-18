@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use talkbank_model::alignment::helpers::TierDomain;
 use talkbank_model::model::{ChatFile, Line};
 use talkbank_parser::TreeSitterParser;
-use talkbank_transform::extract;
+use batchalign_transform::extract;
 use walkdir::WalkDir;
 
 fn reference_corpus_root() -> PathBuf {

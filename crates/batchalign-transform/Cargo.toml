@@ -1,5 +1,5 @@
 [package]
-name = "talkbank-transform"
+name = "batchalign-transform"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Transformation pipelines for CHAT format (CHAT ↔ JSON, normalization)"
+description = "Batchalign-specific CHAT transforms (ASR postprocess, morphosyntax, utterance segmentation, FA decisions) over chatter's generic talkbank-transform"
 readme = "README.md"
 
 [dependencies]
@@ -31,6 +31,7 @@ strsim = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }
 talkbank-parser-re2c = { workspace = true }
+talkbank-transform = { workspace = true }
 thiserror = { workspace = true } #unified
 tokio = { workspace = true }
 toml = { workspace = true }

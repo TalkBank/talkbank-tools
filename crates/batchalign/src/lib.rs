@@ -241,8 +241,8 @@ pub(crate) use websocket::ws_route;
 /// The tree-sitter grammar is compiled into the binary and structurally
 /// validated by CI, so construction is infallible in practice.
 #[allow(clippy::expect_used)]
-pub(crate) fn chat_parser() -> talkbank_transform::parse::TreeSitterParser {
-    talkbank_transform::parse::TreeSitterParser::new().expect("tree-sitter CHAT grammar must load")
+pub(crate) fn chat_parser() -> batchalign_transform::parse::TreeSitterParser {
+    batchalign_transform::parse::TreeSitterParser::new().expect("tree-sitter CHAT grammar must load")
 }
 
 /// Return whether one closed released command requires shared-filesystem audio access.

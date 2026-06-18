@@ -1,5 +1,5 @@
 use batchalign::chat_ops::{ChatFile, DependentTier};
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 pub(super) fn repeated_chat(lang: &str, speaker: &str, stem: &str, utterances: usize) -> String {
     let mut chat = format!(

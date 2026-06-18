@@ -42,9 +42,9 @@ use crate::chat_ops::fa::{
 use crate::chat_ops::{CacheKey, CacheTaskName};
 use crate::params::{AudioContext, FaParams};
 use crate::pipeline::PipelineServices;
-use talkbank_transform::parse::{is_dummy, is_no_align, parse_lenient};
-use talkbank_transform::serialize::to_chat_string;
-use talkbank_transform::validate::{ValidityLevel, validate_output, validate_to_level};
+use batchalign_transform::parse::{is_dummy, is_no_align, parse_lenient};
+use batchalign_transform::serialize::to_chat_string;
+use batchalign_transform::validate::{ValidityLevel, validate_output, validate_to_level};
 use tracing::{info, warn};
 
 use crate::api::DurationMs;
@@ -506,7 +506,7 @@ pub(crate) async fn run_fa_from_ast(
     // 9d. Inject decision provenance tiers (%xalign / %xrev) for all
     //    pipeline decisions that altered the output.
     {
-        let mut all_decisions: Vec<talkbank_transform::decisions::DecisionRecord> = Vec::new();
+        let mut all_decisions: Vec<batchalign_transform::decisions::DecisionRecord> = Vec::new();
 
         // Narrow-bullet rescue decisions (from step 2a, before grouping).
         // Surfaced via %xalign so the audit trail records which utterances
@@ -526,9 +526,9 @@ pub(crate) async fn run_fa_from_ast(
         // whether new decisions were made.  Without this, a clean re-run (no
         // decisions) leaves old %xalign/%xrev tiers in place; the NEXT run that
         // DOES produce decisions then appends to them, creating duplicates.
-        talkbank_transform::decisions::strip_decision_tiers(&mut chat_file);
+        batchalign_transform::decisions::strip_decision_tiers(&mut chat_file);
         if !all_decisions.is_empty() {
-            talkbank_transform::decisions::inject_decision_tiers(
+            batchalign_transform::decisions::inject_decision_tiers(
                 &mut chat_file,
                 &all_decisions,
                 fa_params.review_level,

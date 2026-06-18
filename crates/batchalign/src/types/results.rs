@@ -7,7 +7,7 @@
 
 use crate::chat_ops::fa::FaTimingMode;
 use crate::chat_ops::morphosyntax_ops::RetokenizationInfo;
-use talkbank_transform::asr_postprocess::AsrPipelineSnapshot;
+use batchalign_transform::asr_postprocess::AsrPipelineSnapshot;
 
 use super::traces::{
     AsrPipelineTrace, AsrTokenTrace, FaFallbackEventTrace, FaGroupTrace, FaTimelineTrace,
@@ -112,7 +112,7 @@ pub fn snapshot_into_pipeline_trace(snapshot: AsrPipelineSnapshot) -> AsrPipelin
     }
 }
 
-fn asr_word_to_timed_trace(w: &talkbank_transform::asr_postprocess::AsrWord) -> TimedWordTrace {
+fn asr_word_to_timed_trace(w: &batchalign_transform::asr_postprocess::AsrWord) -> TimedWordTrace {
     TimedWordTrace {
         text: w.text.as_str().to_owned(),
         start_ms: w.start_ms,

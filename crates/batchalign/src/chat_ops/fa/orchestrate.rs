@@ -30,7 +30,7 @@ pub fn apply_fa_results(
     responses: &[Vec<Option<WordTiming>>],
     timing_mode: FaTimingMode,
     write_wor: bool,
-) -> Vec<talkbank_transform::decisions::DecisionRecord> {
+) -> Vec<batchalign_transform::decisions::DecisionRecord> {
     let mut decisions = Vec::new();
     // 0. Strip stale decision tiers (%xalign / %xrev) from any previous FA run.
     //
@@ -38,7 +38,7 @@ pub fn apply_fa_results(
     // be produced.  Without an unconditional strip, a clean re-run (no new
     // decisions) leaves the previous run's tiers in place; the NEXT run that
     // DOES produce decisions then appends to them, creating duplicates.
-    talkbank_transform::decisions::strip_decision_tiers(chat_file);
+    batchalign_transform::decisions::strip_decision_tiers(chat_file);
 
     // 1. Strip InternalBullet tokens left over from parsing.
     //
@@ -78,11 +78,11 @@ pub fn apply_fa_results(
         if let Some(utt) = get_utterance_mut(chat_file, utt_idx) {
             let words_dropped = postprocess_utterance_timings(utt, timing_mode);
             if words_dropped > 0 {
-                decisions.push(talkbank_transform::decisions::DecisionRecord {
+                decisions.push(batchalign_transform::decisions::DecisionRecord {
                     line_idx: utt_idx.0,
                     speaker: utt.main.speaker.as_str().to_string(),
-                    strategy: talkbank_transform::decisions::DecisionStrategy::Fa(
-                        talkbank_transform::decisions::FaStrategy::WordsTimingDropped,
+                    strategy: batchalign_transform::decisions::DecisionStrategy::Fa(
+                        batchalign_transform::decisions::FaStrategy::WordsTimingDropped,
                     ),
                     reason: format!("count={words_dropped} reason=clamped_to_utterance_boundary"),
                     needs_review: true,
@@ -212,8 +212,8 @@ pub fn refresh_reusable_utterances(
 /// than left as a zero-duration `•T_T•` span, which would fail E362 validation.
 pub fn enforce_monotonicity(
     chat_file: &mut ChatFile,
-) -> Vec<talkbank_transform::decisions::DecisionRecord> {
-    use talkbank_transform::decisions::DecisionRecord;
+) -> Vec<batchalign_transform::decisions::DecisionRecord> {
+    use batchalign_transform::decisions::DecisionRecord;
 
     let mut decisions = Vec::new();
 
@@ -229,8 +229,8 @@ pub fn enforce_monotonicity(
                 decisions.push(DecisionRecord::new_and_trace(
                     line_idx,
                     utt.main.speaker.as_str().to_string(),
-                    talkbank_transform::decisions::DecisionStrategy::Monotonicity(
-                        talkbank_transform::decisions::MonotonicityStrategy::TimingStripped,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
                     ),
                     format!("non_monotonic start_ms={s} previous_start_ms={last_start_ms}"),
                     true,
@@ -275,8 +275,8 @@ pub fn enforce_monotonicity(
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
                     prev_utt.main.speaker.as_str().to_string(),
-                    talkbank_transform::decisions::DecisionStrategy::Monotonicity(
-                        talkbank_transform::decisions::MonotonicityStrategy::TimingStripped,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        batchalign_transform::decisions::MonotonicityStrategy::TimingStripped,
                     ),
                     format!(
                         "zero_duration_clamp original_end={original_end} \
@@ -290,8 +290,8 @@ pub fn enforce_monotonicity(
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
                     prev_utt.main.speaker.as_str().to_string(),
-                    talkbank_transform::decisions::DecisionStrategy::Monotonicity(
-                        talkbank_transform::decisions::MonotonicityStrategy::EndClamped,
+                    batchalign_transform::decisions::DecisionStrategy::Monotonicity(
+                        batchalign_transform::decisions::MonotonicityStrategy::EndClamped,
                     ),
                     format!(
                         "end_truncated_by={overlap_ms}ms original_end={original_end} \
@@ -355,9 +355,9 @@ pub fn enforce_monotonicity(
 /// keep their `%wor` because their timing is still monotonic.
 pub fn strip_wor_from_monotonicity_stripped_utterances(
     chat_file: &mut ChatFile,
-    decisions: &[talkbank_transform::decisions::DecisionRecord],
+    decisions: &[batchalign_transform::decisions::DecisionRecord],
 ) {
-    use talkbank_transform::decisions::{DecisionStrategy, MonotonicityStrategy};
+    use batchalign_transform::decisions::{DecisionStrategy, MonotonicityStrategy};
 
     // Collect the line indices of utterances that had their bullets stripped
     // (as opposed to end-clamped, which still have valid timing).

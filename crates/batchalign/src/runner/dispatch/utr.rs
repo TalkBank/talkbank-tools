@@ -294,7 +294,7 @@ pub(in crate::runner) async fn run_utr_pass(
             all_tokens.sort_by_key(|token| token.start_ms);
 
             if context.dumper.is_enabled() {
-                let text = talkbank_transform::serialize::to_chat_string(chat_file);
+                let text = batchalign_transform::serialize::to_chat_string(chat_file);
                 context.dumper.dump_utr_input(context.filename, &text);
             }
             context
@@ -313,7 +313,7 @@ pub(in crate::runner) async fn run_utr_pass(
             );
 
             if context.dumper.is_enabled() {
-                let text = talkbank_transform::serialize::to_chat_string(chat_file);
+                let text = batchalign_transform::serialize::to_chat_string(chat_file);
                 context
                     .dumper
                     .dump_utr_output(context.filename, &text, &utr_result);
@@ -414,7 +414,7 @@ async fn run_utr_pass_full(
     let asr_tokens = asr_response_to_utr_tokens(&asr_response, 0);
 
     if context.dumper.is_enabled() {
-        let text = talkbank_transform::serialize::to_chat_string(chat_file);
+        let text = batchalign_transform::serialize::to_chat_string(chat_file);
         context.dumper.dump_utr_input(context.filename, &text);
     }
     context
@@ -433,7 +433,7 @@ async fn run_utr_pass_full(
     );
 
     if context.dumper.is_enabled() {
-        let text = talkbank_transform::serialize::to_chat_string(chat_file);
+        let text = batchalign_transform::serialize::to_chat_string(chat_file);
         context
             .dumper
             .dump_utr_output(context.filename, &text, &utr_result);

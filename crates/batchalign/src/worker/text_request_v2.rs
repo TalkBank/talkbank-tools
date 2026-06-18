@@ -16,9 +16,9 @@ use crate::types::worker_v2::{
     ArtifactRefV2, CorefRequestV2, ExecuteRequestV2, InferenceTaskV2, MorphosyntaxRequestV2,
     TaskRequestV2, TranslateRequestV2, UtsegRequestV2, WorkerArtifactIdV2, WorkerRequestIdV2,
 };
-use talkbank_transform::coref::CorefBatchItem;
-use talkbank_transform::translate::TranslateBatchItem;
-use talkbank_transform::utseg::UtsegBatchItem;
+use batchalign_transform::coref::CorefBatchItem;
+use batchalign_transform::translate::TranslateBatchItem;
+use batchalign_transform::utseg::UtsegBatchItem;
 
 use super::artifacts_v2::PreparedArtifactStoreV2;
 

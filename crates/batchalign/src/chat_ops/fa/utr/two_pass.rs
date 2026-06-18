@@ -21,7 +21,7 @@
 use talkbank_model::model::{Bullet, ChatFile, Line};
 
 use crate::chat_ops::fa::grouping::group_utterances;
-use talkbank_transform::dp_align::{self, MatchMode};
+use batchalign_transform::dp_align::{self, MatchMode};
 
 use super::{
     AsrTimingToken, UtrResult, UtrStrategy, UtrUtteranceInfo, collect_utr_utterance_info,

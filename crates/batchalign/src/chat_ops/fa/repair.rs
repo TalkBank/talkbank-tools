@@ -61,10 +61,10 @@ pub struct RepairDecision {
     /// Speaker code.
     pub speaker: String,
     /// Typed FA strategy that produced this decision. Narrower than
-    /// the crate-wide [`DecisionStrategy`](talkbank_transform::decisions::DecisionStrategy):
+    /// the crate-wide [`DecisionStrategy`](batchalign_transform::decisions::DecisionStrategy):
     /// this struct is FA-specific, so the strategy is constrained to
     /// [`FaStrategy`] at the point of construction.
-    pub strategy: talkbank_transform::decisions::FaStrategy,
+    pub strategy: batchalign_transform::decisions::FaStrategy,
     /// Human-readable reason string for `%xalign`.
     pub reason: String,
     /// Whether this decision is low-confidence (should get `%xrev: [?]`).
@@ -125,7 +125,7 @@ pub fn repair_bullets(chat_file: &mut ChatFile, dry_run: bool) -> RepairResult {
         decisions.push(RepairDecision {
             line_idx,
             speaker: entry.speaker.clone(),
-            strategy: talkbank_transform::decisions::FaStrategy::GapFilled,
+            strategy: batchalign_transform::decisions::FaStrategy::GapFilled,
             reason: format!(
                 "gap_filled gap={}ms same_speaker machine={}_{} snapped_start={}",
                 gap, entry.start_ms, entry.end_ms, new_start_ms
@@ -156,7 +156,7 @@ pub fn repair_bullets(chat_file: &mut ChatFile, dry_run: bool) -> RepairResult {
         decisions.push(RepairDecision {
             line_idx: later_line_idx,
             speaker: later.speaker.clone(),
-            strategy: talkbank_transform::decisions::FaStrategy::BoundaryAveraged,
+            strategy: batchalign_transform::decisions::FaStrategy::BoundaryAveraged,
             reason: format!(
                 "boundary_averaged overlap={}ms machine={}_{} adjacent={}:{}",
                 overlap, later.start_ms, later.end_ms, earlier.speaker, earlier_line_idx
@@ -177,7 +177,7 @@ pub fn repair_bullets(chat_file: &mut ChatFile, dry_run: bool) -> RepairResult {
         decisions.push(RepairDecision {
             line_idx,
             speaker: entry.speaker.clone(),
-            strategy: talkbank_transform::decisions::FaStrategy::LisRemoval,
+            strategy: batchalign_transform::decisions::FaStrategy::LisRemoval,
             reason: format!(
                 "lis_removal same_speaker_non_monotonic machine={}_{}",
                 entry.start_ms, entry.end_ms
@@ -425,9 +425,9 @@ mod tests {
         let chat_text = std::fs::read_to_string("../../test-fixtures/bullet_repair_e704.cha")
             .expect("fixture file missing — run trim_chat_audio.py to regenerate");
 
-        let parser = talkbank_transform::parse::TreeSitterParser::new().expect("parser init");
+        let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
         let (mut chat_file, _errors) =
-            talkbank_transform::parse::parse_lenient(&parser, &chat_text);
+            batchalign_transform::parse::parse_lenient(&parser, &chat_text);
 
         // Dry-run first: verify we detect issues without modifying the file.
         let dry_result = repair_bullets(&mut chat_file, true);
@@ -488,8 +488,8 @@ mod tests {
 *CHI:\tworld . \u{0015}4000_5000\u{0015}
 @End
 ";
-        let parser = talkbank_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = talkbank_transform::parse::parse_lenient(&parser, chat_text);
+        let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
+        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let result = repair_bullets(&mut chat_file, false);
         assert_eq!(result.stats.boundary_averaged, 0);
@@ -533,12 +533,12 @@ mod tests {
     }
 }
 
-impl From<&RepairDecision> for talkbank_transform::decisions::DecisionRecord {
+impl From<&RepairDecision> for batchalign_transform::decisions::DecisionRecord {
     fn from(d: &RepairDecision) -> Self {
         Self {
             line_idx: d.line_idx,
             speaker: d.speaker.clone(),
-            strategy: talkbank_transform::decisions::DecisionStrategy::Fa(d.strategy),
+            strategy: batchalign_transform::decisions::DecisionStrategy::Fa(d.strategy),
             reason: d.reason.clone(),
             needs_review: d.needs_review,
         }

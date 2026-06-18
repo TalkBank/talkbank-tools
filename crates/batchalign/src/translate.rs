@@ -16,11 +16,11 @@ use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::pool::WorkerPool;
 use crate::worker::text_request_v2::{PreparedTextRequestIdsV2, build_translate_request_v2};
 use crate::worker::text_result_v2::parse_translate_result_v2;
-use talkbank_transform::translate::{
+use batchalign_transform::translate::{
     TranslateBatchItem, TranslateResponse, apply_translate_results, chat_punct_chars,
     collect_translate_payloads, postprocess_translation, preprocess_for_translate,
 };
-use talkbank_transform::validate::ValidityLevel;
+use batchalign_transform::validate::ValidityLevel;
 use tracing::info;
 
 use crate::error::ServerError;

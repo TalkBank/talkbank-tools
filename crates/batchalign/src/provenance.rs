@@ -13,8 +13,8 @@ use std::collections::BTreeMap;
 
 use crate::api::ReleasedCommand;
 use crate::chat_ops::{ChatFile, Header, Line, Span};
-use talkbank_transform::parse::parse_lenient;
-use talkbank_transform::serialize::to_chat_string;
+use batchalign_transform::parse::parse_lenient;
+use batchalign_transform::serialize::to_chat_string;
 
 /// Processing provenance metadata for one batchalign3 command invocation.
 #[derive(Debug, Clone)]

@@ -22,12 +22,12 @@ use crate::chat_ops::{DependentTier, Header, Line};
 use crate::error::ServerError;
 use crate::params::MorphosyntaxParams;
 use crate::text_batch::TextBatchFileInput;
-use talkbank_transform::compare::{
+use batchalign_transform::compare::{
     ComparisonBundle, clear_comparison, compare, format_metrics_csv, inject_comparison,
     project_gold_structurally,
 };
-use talkbank_transform::parse::parse_lenient;
-use talkbank_transform::serialize::to_chat_string;
+use batchalign_transform::parse::parse_lenient;
+use batchalign_transform::serialize::to_chat_string;
 
 /// Released compare outputs.
 pub(crate) struct CompareMaterializedOutputs {
@@ -326,9 +326,9 @@ pub(crate) async fn process_compare_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use talkbank_transform::compare::compare;
-    use talkbank_transform::parse::TreeSitterParser;
-    use talkbank_transform::parse::parse_lenient;
+    use batchalign_transform::compare::compare;
+    use batchalign_transform::parse::TreeSitterParser;
+    use batchalign_transform::parse::parse_lenient;
 
     fn make_chat(utterances: &[(&str, &str)]) -> String {
         let mut lines = vec![

@@ -4,7 +4,7 @@
 
 use std::env;
 use talkbank_transform::UnifiedCache;
-use talkbank_transform::unified_cache::CacheError;
+use talkbank_transform::CacheError;
 
 /// CLI entrypoint that removes cache records whose key begins with the given path prefix.
 fn main() -> Result<(), CacheError> {

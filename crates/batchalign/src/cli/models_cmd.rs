@@ -7,8 +7,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::chat_ops::TierDomain;
-use talkbank_transform::extract::extract_words;
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::extract::extract_words;
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 use walkdir::WalkDir;
 
 use crate::cli::args::{ModelsPrepArgs, ModelsTrainArgs};

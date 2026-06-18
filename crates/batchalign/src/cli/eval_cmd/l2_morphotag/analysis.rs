@@ -26,7 +26,7 @@ use talkbank_model::model::{
     ChatFile, GrammaticalRelationType, LanguageCode, Line, MorFeature, PosCategory,
     content::word::WordLanguageMarker,
 };
-use talkbank_transform::parse::{TreeSitterParser, parse_lenient};
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 use super::types::{
     AtSAnalysis, AtSOccurrence, FeatureSet, FileAnalysis, GraItemText, LanguageMarkerKind,

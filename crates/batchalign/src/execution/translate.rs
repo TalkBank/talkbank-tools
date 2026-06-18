@@ -61,7 +61,7 @@ pub(crate) async fn dispatch_translate_job(
         // becomes a typed Err in this file's batch results, surfaced to
         // the operator via the job's file_statuses.
         let (chat_file, _parse_errors) =
-            talkbank_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
+            batchalign_transform::parse::parse_lenient(&parser, file_input.chat_text.as_ref());
         match crate::pipeline::morphosyntax::resolve_per_file_lang(&chat_file) {
             Ok(src_lang) => {
                 // Single-file batch at the gateway boundary. This loses

@@ -232,7 +232,7 @@ impl AudioChatTask for AlignAudioTask<'_> {
         };
 
         if let Some(ref bt) = before_text {
-            let current_text = talkbank_transform::serialize::to_chat_string(&self.chat_file);
+            let current_text = batchalign_transform::serialize::to_chat_string(&self.chat_file);
             crate::fa::process_fa_incremental(
                 bt,
                 &current_text,
@@ -745,7 +745,7 @@ async fn process_one_fa_file(
     // UTR (in-place mutation) and then directly to FA — no serialize/re-parse.
     let fa_parser = crate::chat_parser();
     let (mut chat_file, parse_errors) =
-        talkbank_transform::parse::parse_lenient(&fa_parser, &chat_text);
+        batchalign_transform::parse::parse_lenient(&fa_parser, &chat_text);
 
     // Read the primary language from @Languages, falling back to the
     // job-level lang only if the file has no `@Languages:` header. If

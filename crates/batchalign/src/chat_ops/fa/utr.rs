@@ -26,7 +26,7 @@
 
 use talkbank_model::model::{Bullet, ChatFile, Line, Linker};
 
-use talkbank_transform::dp_align::{self, MatchMode};
+use batchalign_transform::dp_align::{self, MatchMode};
 
 use super::extraction::collect_fa_words;
 
@@ -70,7 +70,7 @@ pub struct UtrResult {
     /// Excluded from equality comparison and serialization — these are
     /// provenance metadata, not part of the UTR result semantics.
     #[serde(skip)]
-    pub decisions: Vec<talkbank_transform::decisions::DecisionRecord>,
+    pub decisions: Vec<batchalign_transform::decisions::DecisionRecord>,
 }
 
 impl PartialEq for UtrResult {
@@ -319,11 +319,11 @@ pub(super) fn run_global_utr(
                     {
                         result
                             .decisions
-                            .push(talkbank_transform::decisions::DecisionRecord {
+                            .push(batchalign_transform::decisions::DecisionRecord {
                                 line_idx,
                                 speaker: utt.main.speaker.as_str().to_string(),
-                                strategy: talkbank_transform::decisions::DecisionStrategy::Utr(
-                                    talkbank_transform::decisions::UtrStrategy::ZeroDurationSkipped,
+                                strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
+                                    batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
                                 ),
                                 reason: format!(
                                     "words={} asr_range=[{min_asr},{max_asr}] \
@@ -344,11 +344,11 @@ pub(super) fn run_global_utr(
                 {
                     result
                         .decisions
-                        .push(talkbank_transform::decisions::DecisionRecord {
+                        .push(batchalign_transform::decisions::DecisionRecord {
                             line_idx,
                             speaker: utt.main.speaker.as_str().to_string(),
-                            strategy: talkbank_transform::decisions::DecisionStrategy::Utr(
-                                talkbank_transform::decisions::UtrStrategy::Unmatched,
+                            strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
+                                batchalign_transform::decisions::UtrStrategy::Unmatched,
                             ),
                             reason: format!("words={} no_asr_match", info.words.len()),
                             needs_review: true,

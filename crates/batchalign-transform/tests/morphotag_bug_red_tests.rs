@@ -12,7 +12,7 @@
 //! ## Empirical status (2026-05-01)
 //!
 //! BUG-009 was hypothesized to manifest at the
-//! [`talkbank_transform::morphosyntax::collect_payloads`] boundary
+//! [`batchalign_transform::morphosyntax::collect_payloads`] boundary
 //! (the typed-AST → Stanza-payload seam). The two BUG-009 tests below
 //! show that this boundary is **already correct** for the realistic
 //! `nobfield.cha` patterns: the parser correctly classifies `→` as a
@@ -40,7 +40,7 @@
 use talkbank_model::ParseValidateOptions;
 use talkbank_model::model::LanguageCode;
 use talkbank_parser::TreeSitterParser;
-use talkbank_transform::morphosyntax::{
+use batchalign_transform::morphosyntax::{
     MappingContext, MultilingualPolicy, UdId, UdPunctable, UdSentence, UdWord, UniversalPos,
     collect_payloads, declared_languages, map_ud_sentence,
 };

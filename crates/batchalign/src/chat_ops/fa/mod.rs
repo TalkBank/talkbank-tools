@@ -243,7 +243,7 @@ pub fn remove_wor_tier(utterance: &mut Utterance) {
 /// diff noise.
 pub fn add_wor_tier(utterance: &mut Utterance) {
     let wor_tier = utterance.main.generate_wor_tier();
-    talkbank_transform::inject::replace_or_add_tier(
+    batchalign_transform::inject::replace_or_add_tier(
         &mut utterance.dependent_tiers,
         DependentTier::Wor(wor_tier),
     );

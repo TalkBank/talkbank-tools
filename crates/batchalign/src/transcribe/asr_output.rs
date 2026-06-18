@@ -1,11 +1,11 @@
 //! ASR response conversion, participant ID generation, and CHAT helpers.
 
-use talkbank_transform::asr_postprocess::{
+use batchalign_transform::asr_postprocess::{
     self, AsrElement, AsrElementKind, AsrMonologue, AsrOutput, AsrRawText, AsrTimestampSecs,
     SpeakerIndex,
 };
-use talkbank_transform::build_chat::{self, TranscriptDescription};
-use talkbank_transform::serialize::to_chat_string;
+use batchalign_transform::build_chat::{self, TranscriptDescription};
+use batchalign_transform::serialize::to_chat_string;
 use tracing::warn;
 
 use crate::error::ServerError;

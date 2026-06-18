@@ -58,9 +58,9 @@ pub(crate) async fn process_transcribe(
 mod tests {
     use super::*;
     use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, WorkerLanguage};
-    use talkbank_transform::asr_postprocess::{self, SpeakerIndex};
-    use talkbank_transform::build_chat::{self, TranscriptDescription};
-    use talkbank_transform::serialize::to_chat_string;
+    use batchalign_transform::asr_postprocess::{self, SpeakerIndex};
+    use batchalign_transform::build_chat::{self, TranscriptDescription};
+    use batchalign_transform::serialize::to_chat_string;
 
     #[test]
     fn asr_backend_mapping_distinguishes_live_v2_worker_modes() {
@@ -822,8 +822,8 @@ mod tests {
         );
 
         // Must reparse cleanly
-        let parser = talkbank_transform::parse::TreeSitterParser::new().unwrap();
-        let (_parsed, errors) = talkbank_transform::parse::parse_lenient(&parser, &chat);
+        let parser = batchalign_transform::parse::TreeSitterParser::new().unwrap();
+        let (_parsed, errors) = batchalign_transform::parse::parse_lenient(&parser, &chat);
         assert!(
             errors.is_empty(),
             "generated CHAT must reparse cleanly: {errors:?}"
@@ -868,8 +868,8 @@ mod tests {
         );
 
         // Must reparse cleanly
-        let parser = talkbank_transform::parse::TreeSitterParser::new().unwrap();
-        let (_parsed, errors) = talkbank_transform::parse::parse_lenient(&parser, &chat);
+        let parser = batchalign_transform::parse::TreeSitterParser::new().unwrap();
+        let (_parsed, errors) = batchalign_transform::parse::parse_lenient(&parser, &chat);
         assert!(
             errors.is_empty(),
             "generated CHAT must reparse cleanly: {errors:?}"
