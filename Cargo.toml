@@ -194,7 +194,7 @@ tokio-util = "0.7"
 toml = "^1.1.2"
 tracing-appender = "0.2"
 tracing-opentelemetry = "0.33"
-tower-http = { version = "0.6", features = ["cors", "fs", "limit", "trace", "compression-gzip", "compression-br", "catch-panic", "timeout"] }
+tower-http = { version = "0.7", features = ["cors", "fs", "limit", "trace", "compression-gzip", "compression-br", "catch-panic", "timeout"] }
 tower-lsp = "0.20"
 opentelemetry = { version = "0.32", features = ["trace"] }
 opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
