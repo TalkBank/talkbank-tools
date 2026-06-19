@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# futures-util is used via the #[workflow_methods] proc-macro (boxed_local) with
+# no explicit `use`, so cargo-machete cannot see the usage. Keep it ignored.
+[package.metadata.cargo-machete]
+ignored = ["futures-util"]
+
 [features]
 default = ["server", "binary-entry", "embed-dashboard"]
 
@@ -59,18 +64,12 @@ required-features = ["binary-entry"]
 # ── Always required (engine + direct mode) ────────────────────────────
 batchalign-types = { workspace = true }
 # chat_ops module deps (formerly batchalign-chat-ops, folded 2026-04-30)
-aho-corasick = { workspace = true }
-smallvec = { workspace = true }
-strsim = { workspace = true }
-whatlang = { workspace = true }
-zhconv = { workspace = true }
-rustc-hash = { workspace = true }
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }
 batchalign-transform = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-futures-util = { workspace = true }
+futures-util = { workspace = true }  # used via #[workflow_methods] macro (see machete ignore)
 libc = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }

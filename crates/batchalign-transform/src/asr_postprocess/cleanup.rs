@@ -152,6 +152,10 @@ pub fn strip_boundary_quotes(words: Vec<AsrWord>) -> Vec<AsrWord> {
 ///
 /// Logs sanitization at `debug!` (mutate) / `warn!` (drop entirely).
 /// Origin: `docs/investigations/2026-05-26-cantonese-asr-benchmark-v2.md`.
+///
+/// Test-only convenience over the per-word sanitizer; production code sanitizes
+/// at the utterance level via [`sanitize_chat_illegal_chars_in_utterances`].
+#[cfg(test)]
 pub fn sanitize_chat_illegal_word_chars(words: Vec<AsrWord>) -> Vec<AsrWord> {
     words
         .into_iter()

@@ -5,7 +5,6 @@ members = [
     "crates/batchalign-types",
     "crates/batchalign",
     "crates/batchalign-transform",
-    "crates/send2clan-sys",
     "apps/dashboard-desktop/src-tauri",
     "crates/batchalign-pyo3",
 ]
@@ -103,7 +102,6 @@ regex = "1.12"
 reqwest = { version = "0.13", features = ["multipart", "json", "blocking"] }
 rstest = "0.26.1"
 schemars = { version = "1.2", features = ["indexmap2", "smol_str03"] }
-send2clan-sys = { path = "crates/send2clan-sys", version = "0.2.0" }
 serde_yaml = "0.9"
 
 # Core dependencies (shared across crates)
