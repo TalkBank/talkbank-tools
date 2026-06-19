@@ -1,7 +1,7 @@
 # Stanza Defect Mitigation Map
 
 **Status:** Current
-**Last updated:** 2026-05-19 21:02 EDT
+**Last updated:** 2026-06-19 18:31 EDT
 
 Stanza is a third-party NLP library whose defects surface at different
 pipeline stages depending on the root cause. batchalign3's mitigation
@@ -82,13 +82,13 @@ them. No pipeline gate rejects junk content.
 
 | Defect | Stage | Mitigation file | Test pointer | Stanza version confirmed |
 |:-----:|:------|:----------------|:-------------|:------|
-| [1](../reference/stanza-limitations.md#defect-1-copula-s-vs-possessive-s-disambiguation-fails-before-nominal-gerunds) | Post-depparse, pre-map-UD | `crates/talkbank-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs` | `test_preserve_mwt_end_to_end.py`; `finite_verb_main_clause.rs` `#[cfg(test)]` (14 tests) | 1.10.1, 1.11.1 |
-| [2](../reference/stanza-limitations.md#defect-2-mwt-hint-tuples-must-be-preserved-through-postprocessors-stanzapython-interop-gotcha) | Tokenize (postprocessor hook) | `batchalign/inference/_tokenizer_realign.py::_realign_sentence` | `test_stanza_mwt_copula_observations.py`; `golden_l2_morphotag_*` (4 tests) | 1.10.1, 1.11.1 |
+| [1](../reference/stanza-limitations.md#defect-1-copula-s-vs-possessive-s-disambiguation-fails-before-nominal-gerunds) | Post-depparse, pre-map-UD | `crates/batchalign-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs` | `test_preserve_mwt_end_to_end.py`; `finite_verb_main_clause.rs` `#[cfg(test)]` (14 tests) | 1.10.1, 1.11.1, 1.12.0, 1.12.1, 1.13.0 |
+| [2](../reference/stanza-limitations.md#defect-2-mwt-hint-tuples-must-be-preserved-through-postprocessors-stanzapython-interop-gotcha) | Tokenize (postprocessor hook) | `batchalign/inference/_tokenizer_realign.py::_realign_sentence` | `test_stanza_mwt_copula_observations.py`; `golden_l2_morphotag_*` (4 tests) | 1.10.1, 1.11.1, 1.12.0, 1.12.1, 1.13.0 |
 | [3](../reference/stanza-limitations.md#defect-3-cjk-tokenization-and-pos-quality-reference-only--existing-workarounds) | Dedicated engines (not a pipeline patch) | `batchalign/inference/languages/cantonese/*` (PyCantonese); unified Stanza training (out-of-tree) | `test_cantonese_*`, `test_stanza_cantonese_*`, `test_mandarin_*` | 1.10.x, 1.11.x |
 | [4](../reference/stanza-limitations.md#defect-4-neural-lm-control-tokens-leak-into-document-output-finnish-mwt) | Retired in Stanza 1.12.0 (no active patch-point) | — (mitigation files removed in commit `cea8f082`) | — | retired upstream in 1.12.0 |
-| [5](../reference/stanza-limitations.md#defect-5-mwt-processor-selection-must-come-from-the-live-capability-table-not-a-hardcoded-mirror) | Pipeline construction | `batchalign/worker/_stanza_loading.py::should_request_mwt` | `test_stanza_loading.py::TestShouldRequestMwt`; `test_stanza_config_parity.py::TestMwtCapabilityDriven`; `test_stanza_he_el_mwt_splits.py`; `test_he_el_mwt_end_to_end.py` | every 1.x through 1.11.1 |
-| [6](../reference/stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds) | Unpatched content quality (POS layer — no hook; injection succeeds with junk content) | — | `test_stanza_mwt_probe_matrix.py::test_stanza_mwt_probe_with_postprocessor[ita__dell_opera_in_context]`, `[ita__parla_imperative_forte]`, `[ita__parla_imperative_piu_forte]`, `[ita__arancione_noun_bogus_verb]`, `[ita__piccolo_adj_bogus_verb]` (xfail — UD-level pins) | 1.11.1 |
-| [7](../reference/stanza-limitations.md#defect-7-italian-sentence-initial-article-la-gets-junk-mwt-expansion-il--i) | Unpatched content quality (MWT processor — no hook; injection succeeds with junk content) | — | `test_stanza_mwt_probe_matrix.py::test_stanza_mwt_probe_with_postprocessor[ita__parla_3sg_storia_context]` (xfail — UD-level pin) | 1.11.1 |
+| [5](../reference/stanza-limitations.md#defect-5-mwt-processor-selection-must-come-from-the-live-capability-table-not-a-hardcoded-mirror) | Pipeline construction | `batchalign/worker/_stanza_loading.py::should_request_mwt` | `test_stanza_loading.py::TestShouldRequestMwt`; `test_stanza_config_parity.py::TestMwtCapabilityDriven`; `test_stanza_he_el_mwt_splits.py`; `test_he_el_mwt_end_to_end.py` | every 1.x through 1.13.0 |
+| [6](../reference/stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds) | Unpatched content quality (POS layer, no hook; injection succeeds with junk content) | (none) | `test_stanza_mwt_probe_matrix.py::test_stanza_mwt_probe_with_postprocessor[ita__dell_opera_in_context]`, `[ita__parla_imperative_forte]`, `[ita__parla_imperative_piu_forte]`, `[ita__arancione_noun_bogus_verb]`, `[ita__piccolo_adj_bogus_verb]` (xfail, UD-level pins) | 1.11.1, 1.12.0, 1.12.1, 1.13.0 |
+| [7](../reference/stanza-limitations.md#defect-7-italian-sentence-initial-article-la-gets-junk-mwt-expansion-il--i) | Unpatched content quality (MWT processor, no hook; injection succeeds with junk content) | (none) | `test_stanza_mwt_probe_matrix.py::test_stanza_mwt_probe_with_postprocessor[ita__parla_3sg_storia_context]` (xfail, UD-level pin) | 1.11.1, 1.12.0, 1.12.1, 1.13.0 |
 
 ## Stages without defects (today)
 

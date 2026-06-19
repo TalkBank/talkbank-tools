@@ -1,8 +1,8 @@
 # Stanza Limitations — Observed Defects with Version Pinning
 
 **Status:** Reference (living document — update when Stanza behavior changes)
-**Last updated:** 2026-05-28 11:20 EDT
-**Current Stanza pin:** `stanza[transformers]>=1.12.1,<1.13` (see `pyproject.toml`)
+**Last updated:** 2026-06-19 18:31 EDT
+**Current Stanza pin:** `stanza[transformers]>=1.13.0,<1.14` (see `pyproject.toml`)
 **Current English MWT package:** `gum`
 
 > **2026-05-14 — Stanza 1.12.0 upgrade:** every defect below was
@@ -20,6 +20,21 @@
 > `en_combined` `'s`/`her` lemma classifier in 1.12.1 does NOT fix
 > defect 1 — Stanza still mis-MWTs "the stool's going over"-style
 > sentences at the MWT layer, before the lemma classifier runs.
+
+> **2026-06-19, Stanza 1.13.0 upgrade:** every defect below was
+> re-evaluated against Stanza 1.13.0 via the same reproducer.
+> Verdicts: defect 4 still **Fixed upstream** (Finnish `<SOS>` leak
+> sentinel still GREEN, no regression); defects 1, 2, 5, 6, 7, 8
+> still confirmed and have `1.13.0` added to their version lists
+> (zero XPASS on the Italian MWT-probe `xfail` markers); defect 3 not
+> re-evaluated. English pretokenized POS/lemma/deprel is byte-
+> identical to 1.12.x, and the constituency/utseg suite is unchanged
+> by the 1.13.0 constituency-parser model condensation, so no `%mor`
+> regeneration is warranted. Separately, the Spanish `del_alone` MWT
+> drift sentinel was re-locked from 2 to 1 UD words: isolated `del`
+> stopped MWT-expanding as of the 1.12.1 Spanish updates (verified
+> identical on 1.12.2 and 1.13.0), with zero production impact since
+> downstream Range reassembly is 1-to-1 either way.
 
 > **See also:**
 > [Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)
@@ -62,7 +77,7 @@ observed behavior.
 
 ## Defect 1: Copula `'s` vs possessive `'s` disambiguation fails before nominal gerunds
 
-* **Stanza version:** 1.10.1, 1.11.1, 1.12.0, and 1.12.1 (all confirmed; re-verified by `test_stanza_mwt_copula_observations.py` against 1.12.1 on 2026-05-28)
+* **Stanza version:** 1.10.1, 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified by `test_stanza_mwt_copula_observations.py` against 1.12.1 on 2026-05-28 and against 1.13.0 on 2026-06-19)
 * **MWT package:** `gum`
 * **Construction:** `<noun>'s <word-ending-in-ing>` in a main clause.
 
@@ -226,7 +241,7 @@ item; not scheduled.
 
 ## Defect 2: MWT hint tuples must be preserved through postprocessors (Stanza/Python interop gotcha)
 
-* **Stanza version:** 1.10.1, 1.11.1, 1.12.0, and 1.12.1 (all confirmed; re-verified by `test_stanza_mwt_copula_observations.py` against 1.12.1 on 2026-05-28)
+* **Stanza version:** 1.10.1, 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified by `test_stanza_mwt_copula_observations.py` against 1.12.1 on 2026-05-28 and against 1.13.0 on 2026-06-19)
 * **Nature:** Not strictly a Stanza bug — a contract that the
   `tokenize_postprocessor` API places on callers but does not document
   prominently. Easy to violate in a wrapper that flattens tuples to strings.
@@ -312,7 +327,7 @@ This entry is listed for completeness; it belongs in the same registry.
 
 * **Stable slug** (use this in code references — defect numbers can
   renumber as entries are retired): ``stanza-fi-mwt-sos-leak``
-* **Stanza version:** 1.11.1 (confirmed); older versions not tested. **Fixed in Stanza 1.12.0 and 1.12.1** — verified by `test_stanza_fi_mwt_sos_leak.py` GREEN on 2026-05-14 and re-verified GREEN against 1.12.1 on 2026-05-28. The strip+warn mitigation was removed in the 1.12.0 upgrade commit (the associated `test_control_token_leak_propagation.py` mitigation-removal sentinel was retired alongside it); the standalone reproducer `test_stanza_fi_mwt_sos_leak.py` is retained as the regression sentinel against any future re-introduction of the leak.
+* **Stanza version:** 1.11.1 (confirmed); older versions not tested. **Fixed in Stanza 1.12.0, 1.12.1, and 1.13.0:** verified by `test_stanza_fi_mwt_sos_leak.py` GREEN on 2026-05-14, re-verified GREEN against 1.12.1 on 2026-05-28, and re-verified GREEN against 1.13.0 on 2026-06-19. The strip+warn mitigation was removed in the 1.12.0 upgrade commit (the associated `test_control_token_leak_propagation.py` mitigation-removal sentinel was retired alongside it); the standalone reproducer `test_stanza_fi_mwt_sos_leak.py` is retained as the regression sentinel against any future re-introduction of the leak.
 * **Nature:** Character-level language-model internal tokens (``<SOS>``,
   start-of-sequence) leak into Stanza's public ``Document`` API,
   appearing as literal substrings on ``word.text`` and ``word.lemma``.
@@ -652,7 +667,7 @@ per-word morphological features would be wrong, and the resulting
 <a id="stanza-it-verb-clitic-pos-split"></a>
 
 * **Stable slug:** ``stanza-it-verb-clitic-pos-split``
-* **Stanza version:** 1.11.1, 1.12.0, and 1.12.1 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28)
+* **Stanza version:** 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28 and again on 2026-06-19, zero XPASS)
 * **MWT package:** Italian default
 * **Failure class:** linguistic-content quality. Stage 3's MWT Range
   reassembly
@@ -882,7 +897,7 @@ evidence can extend it case-by-case.
 <a id="stanza-it-la-sentence-initial-split"></a>
 
 * **Stable slug:** ``stanza-it-la-sentence-initial-split``
-* **Stanza version:** 1.11.1, 1.12.0, and 1.12.1 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28)
+* **Stanza version:** 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28 and again on 2026-06-19, zero XPASS)
 * **MWT package:** Italian default
 * **Failure class:** linguistic-content quality. Stage 3's
   `assemble_mors` collapses the bogus 2-word expansion into a single
@@ -1000,7 +1015,7 @@ audit context.
 <a id="stanza-it-compound-imperative-mid-sentence-adj"></a>
 
 * **Stable slug:** ``stanza-it-compound-imperative-mid-sentence-adj``
-* **Stanza version:** 1.11.1, 1.12.0, and 1.12.1 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28)
+* **Stanza version:** 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified via MWT probe matrix `xfail` markers held on 2026-05-28 and again on 2026-06-19, zero XPASS)
 * **MWT package:** Italian default
 * **Failure class:** linguistic-content quality. Stanza tokenizes
   the compound correctly (one UD word) but mis-classifies its POS
