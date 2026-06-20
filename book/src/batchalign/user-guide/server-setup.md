@@ -110,7 +110,7 @@ batchalign3 --server http://server:8001 align corpus/ -o output/
 ## Multi-Machine Fleet
 
 For larger teams, multiple machines can serve as Temporal workers. All
-workers poll the same task queue — Temporal automatically load-balances.
+workers poll the same task queue, Temporal automatically load-balances.
 
 ### Prerequisites
 

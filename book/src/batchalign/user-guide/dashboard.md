@@ -68,15 +68,15 @@ On mobile or narrow screens, the right column stacks below the job list.
 
 Each job card shows:
 
-- **Command badge** — color-coded by command type (green for transcribe, indigo
+- **Command badge**: color-coded by command type (green for transcribe, indigo
   for align, violet for morphotag, etc.)
-- **Status** — queued (amber), running (blue, pulsing), completed (green),
+- **Status**: queued (amber), running (blue, pulsing), completed (green),
   failed (red), cancelled (gray)
-- **Source directory** — abbreviated path to the input files
-- **File progress** — `completed/total files (percent)`
-- **Workers** — how many concurrent file workers are assigned
-- **Duration or age** — elapsed time (running) or "3m ago" (completed)
-- **Error count** — if any files failed, shown in red
+- **Source directory**: abbreviated path to the input files
+- **File progress**: `completed/total files (percent)`
+- **Workers**: how many concurrent file workers are assigned
+- **Duration or age**: elapsed time (running) or "3m ago" (completed)
+- **Error count**: if any files failed, shown in red
 
 Click a job card to open the job detail page.
 
@@ -99,21 +99,21 @@ For active jobs, an animated progress bar with striped fill. Shows an
 indeterminate shimmer when the job is queued but no files have started.
 
 ### Command Args
-The original submission options as formatted JSON — useful for debugging
+The original submission options as formatted JSON, useful for debugging
 which engine, language, and flags produced this output.
 
 ### File Table
 Every file in the job, grouped by directory. Each row shows:
 
-- **Filename** — just the basename (directory shown as a collapsible group header)
-- **Status** — dot + label + optional error category badge
-- **Pipeline phase indicator** — for processing files, a 5-segment bar showing
+- **Filename**: just the basename (directory shown as a collapsible group header)
+- **Status**: dot + label + optional error category badge
+- **Pipeline phase indicator**: for processing files, a 5-segment bar showing
   which pipeline phase is active (Read → Transcribe → Align → Analyze → Finalize)
-- **Sub-file progress** — when available, a mini progress bar with counter
+- **Sub-file progress**: when available, a mini progress bar with counter
   (e.g., "Aligning 3/7")
-- **Stage label** — the current processing stage in italic text
-- **Duration** — how long this file took (done files)
-- **Error detail** — click to expand full error text (error files)
+- **Stage label**: the current processing stage in italic text
+- **Duration**: how long this file took (done files)
+- **Error detail**: click to expand full error text (error files)
 
 ### Error Panel
 If files have failed, errors are grouped by error code with counts. Each group
@@ -131,7 +131,7 @@ Shows the three worker profiles and their current state:
 ### GPU Profile (amber)
 - Shared ASR + Forced Alignment + Speaker models in one process
 - When active: "1 process" with language tags (e.g., `eng shared`)
-- Key callout: "Models shared — align + transcribe reuse one process"
+- Key callout: "Models shared, align + transcribe reuse one process"
 - Commands served: align, transcribe, transcribe_s, benchmark
 
 ### Stanza Profile (indigo)
@@ -153,15 +153,15 @@ If the server is still loading models on startup, a blue spinner shows
 
 Real-time system RAM usage:
 
-- **Gauge bar** — colored segment showing used vs available memory. Changes
+- **Gauge bar**: colored segment showing used vs available memory. Changes
   color based on proximity to the memory gate threshold:
-  - **Green** — plenty of headroom (available > 4× threshold)
-  - **Amber** — getting close (available between 2× and 4× threshold)
-  - **Red** — danger zone (available < 2× threshold)
-- **Numbers** — "148 GB used" / "108 GB available"
-- **Gate threshold** — shown as a vertical marker on the gauge and a status
+  - **Green**: plenty of headroom (available > 4× threshold)
+  - **Amber**: getting close (available between 2× and 4× threshold)
+  - **Red**: danger zone (available < 2× threshold)
+- **Numbers**: "148 GB used" / "108 GB available"
+- **Gate threshold**: shown as a vertical marker on the gauge and a status
   badge (e.g., "Gate: 2 GB threshold")
-- **Gate rejections** — if any jobs have been rejected due to memory pressure,
+- **Gate rejections**: if any jobs have been rejected due to memory pressure,
   shown as a red count badge
 
 The memory gate prevents new jobs from starting when available RAM drops below
@@ -197,19 +197,19 @@ it's in using a 5-segment indicator:
 | **Analyze** | Morphosyntax, segmentation, translation, coreference | Seconds to minutes |
 | **Finalize** | Post-processing, building CHAT, writing output | Seconds |
 
-Not all files go through all phases — an `align` job skips Transcribe and
+Not all files go through all phases, an `align` job skips Transcribe and
 Analyze; a `morphotag` job skips Transcribe and Align.
 
 ## Connection Status
 
 The header shows a connection indicator:
 
-- **Green dot + "Connected"** — live WebSocket connection to the server. Updates
+- **Green dot + "Connected"**: live WebSocket connection to the server. Updates
   stream in real time.
-- **Red dot + "Reconnecting..."** — connection lost. The dashboard will
+- **Red dot + "Reconnecting..."**: connection lost. The dashboard will
   automatically reconnect with exponential backoff.
 
-When connected, job and file status updates arrive via WebSocket push — no
+When connected, job and file status updates arrive via WebSocket push, no
 manual refresh needed. The dashboard also polls the health endpoint every few
 seconds to keep the memory and worker panels current.
 
@@ -218,12 +218,12 @@ seconds to keep the memory and worker panels current.
 The dashboard includes interactive algorithm visualizations at
 `/dashboard/visualizations`:
 
-- **DP Alignment Explorer** — step through the dynamic programming cost matrix
+- **DP Alignment Explorer**: step through the dynamic programming cost matrix
   used for word alignment, with fill and traceback animation
-- **Retokenization Mapper** — see how Stanza word splits/merges are resolved
+- **Retokenization Mapper**: see how Stanza word splits/merges are resolved
   back to CHAT words
-- **ASR Pipeline Waterfall** — (planned) stage-by-stage ASR post-processing
-- **FA Timeline** — (planned) DAW-style forced alignment timing visualization
+- **ASR Pipeline Waterfall**: (planned) stage-by-stage ASR post-processing
+- **FA Timeline**: (planned) DAW-style forced alignment timing visualization
 
 Each visualization has a **static mode** (editable sample data, no server needed)
 and a **live mode** (actual trace data from a completed job with `debug_traces`
@@ -232,8 +232,8 @@ enabled).
 ## Keyboard Shortcuts
 
 The dashboard is mouse-driven. The job detail page supports:
-- **Tab** — cycle through filter tabs
-- **Arrow keys** — navigate file list pagination
+- **Tab**: cycle through filter tabs
+- **Arrow keys**: navigate file list pagination
 
 ## Tips
 

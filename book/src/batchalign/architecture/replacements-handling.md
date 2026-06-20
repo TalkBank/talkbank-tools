@@ -16,7 +16,7 @@ companion.
 > `batchalign3` **never emits** `[: ...]` annotations. It **preserves
 > and consumes** replacements that the user's existing corpus contains.
 > Domain-aware extraction routes the replacement form to `%mor` /
-> `%gra`, and the original form to `%wor` / `%pho` / `%sin` / FA — per
+> `%gra`, and the original form to `%wor` / `%pho` / `%sin` / FA, per
 > the CHAT-format rule. Four-site invariants in FA enforce that the
 > two sides stay in sync; an analogous (currently undocumented) three-
 > site invariant exists for `%mor`.
@@ -31,8 +31,8 @@ companion.
 | **Route** the left side to `%wor` / FA / `%pho` / `%sin` | ✅ Yes | `fa/extraction.rs`, `extract.rs` (per-domain branches) |
 | **Re-serialize** to valid CHAT including the replacement | ✅ Yes | model-layer `WriteChat` |
 | **Emit** a new `[: ...]` annotation programmatically | ❌ **No** | Nothing in this codebase constructs a `ReplacedWord` |
-| **Sanitize** an ASR token by wrapping it in `[: ...]` | ❌ **No** (and would not work — replacement words are validated; see `talkbank-tools` doc §"Each Replacement Word Is Validated") |
-| **Normalize** a token via direct text mutation | ✅ Yes — separate mechanism | `asr_postprocess::cleanup` (e.g. `um` → `&-um` is a text edit, not a replacement annotation) |
+| **Sanitize** an ASR token by wrapping it in `[: ...]` | ❌ **No** (and would not work, replacement words are validated; see `talkbank-tools` doc §"Each Replacement Word Is Validated") |
+| **Normalize** a token via direct text mutation | ✅ Yes, separate mechanism | `asr_postprocess::cleanup` (e.g. `um` → `&-um` is a text edit, not a replacement annotation) |
 
 This distinction is the most common source of confusion: **the
 batchalign3 pipeline produces "cleaned" word text by mutating
@@ -83,7 +83,7 @@ is **not implemented** anywhere in the pipeline.
 ## The Four-Site Invariant (Forced Alignment)
 
 For forced alignment specifically, the policy "a `ReplacedWord`
-contributes exactly one word to FA — the original spoken word, not the
+contributes exactly one word to FA, the original spoken word, not the
 replacement words" is enforced at four code sites that **must stay in
 sync**. If any one site uses the wrong side, alignment desyncs by the
 delta in word count, and every subsequent timing in the same FA group
@@ -101,7 +101,7 @@ shifts.
 Before this invariant was codified, an extraction site sent the
 *replacement* words while the count site still counted 1 for the
 `ReplacedWord`. For `dis [: this]`, FA received 1 token (`this`) but
-the count expected 1 (`dis`) — the symptom was correct *for that
+the count expected 1 (`dis`), the symptom was correct *for that
 word*. But for `<dis [: this] is>` style content, the count and
 extraction disagreed, and every subsequent word in the FA group got
 the wrong timing. The invariant was named after that incident.
@@ -110,14 +110,14 @@ the wrong timing. The invariant was named after that incident.
 
 `crates/batchalign/src/chat_ops/fa/tests/grouping_and_wor.rs::test_wor_policy_replacements_use_original_surface()`
 constructs a fixture with `what's is dis [: this] ?` and asserts the
-extracted FA word list is `["what's", "is", "dis"]` — note `this` is
+extracted FA word list is `["what's", "is", "dis"]`: note `this` is
 absent. If extraction drifts to using the replacement, the test fails
 loudly.
 
 ## The Three-Site Invariant (`%mor`)
 
-By symmetry with FA, an analogous invariant exists for `%mor` —
-extract, count, inject — that has historically been *implicit*. Naming
+By symmetry with FA, an analogous invariant exists for `%mor`,
+extract, count, inject, that has historically been *implicit*. Naming
 it here so future readers can find it:
 
 | Site | File:line | What it does |
@@ -161,7 +161,7 @@ Listing them here so a contributor doesn't reach for the wrong tool.
 
 - **Emit replacements from ASR normalization.** ASR cleanup mutates
   `AsrWord.text` directly (e.g. `um` → `&-um`, `'cause` → `(be)cause`).
-  The result is a single token whose surface form is CHAT-legal —
+  The result is a single token whose surface form is CHAT-legal,
   there is no `[: ...]` wrapper.
 - **Use replacements to carry CHAT-illegal text.** Each replacement
   word goes through the standard `Word` validator. `[: C-3PO]` fails
@@ -217,7 +217,7 @@ use cases, `[%]` is the working candidate, not `[:]`.
 - CHAT Data Model (in the `chatter` project): how `UtteranceContent`
   variants (including `ReplacedWord`) flow through the pipeline;
   `walk_words`, `WordItem`, and per-domain extraction primitives.
-- [ASR Token Pipeline](./asr-token-pipeline.md) — the disfluency /
+- [ASR Token Pipeline](./asr-token-pipeline.md), the disfluency /
   normalization rules that mutate `AsrWord.text` (a different
   mechanism from replacements).
 - The %mor Tier (in the `chatter` project): for what `%mor` represents

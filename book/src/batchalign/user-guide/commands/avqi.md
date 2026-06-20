@@ -57,8 +57,8 @@ flowchart TD
 ## Input file naming convention
 
 For each speaker, place two files in `INPUT_DIR`:
-- `SPEAKER.cs.wav` (or `.mp3`, `.mp4`) — continuous speech sample
-- `SPEAKER.sv.wav` — sustained vowel sample
+- `SPEAKER.cs.wav` (or `.mp3`, `.mp4`), continuous speech sample
+- `SPEAKER.sv.wav`: sustained vowel sample
 
 The pair is matched by the common stem before `.cs.` / `.sv.`. Missing
 partners are reported as an error.
@@ -86,5 +86,5 @@ the whole pair to fail.
 
 ## Related documentation
 
-- [Command I/O: avqi](../../reference/command-io.md#11-avqi) — I/O patterns
-- [Command Flowcharts: avqi](../../architecture/command-flowcharts.md#avqi) — full architecture flowchart
+- [Command I/O: avqi](../../reference/command-io.md#11-avqi), I/O patterns
+- [Command Flowcharts: avqi](../../architecture/command-flowcharts.md#avqi), full architecture flowchart

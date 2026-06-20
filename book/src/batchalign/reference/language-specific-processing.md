@@ -48,7 +48,7 @@ engine-based: `--utr-engine whisper` loads `openai/whisper-large-v2`,
 per-language fine-tune resolver wired into `--asr-engine whisper` or
 the UTR engines; per-language fine-tunes are opt-in through the
 separate `--asr-engine whisper_hub` engine (see
-[Whisper Hub ASR](whisper-hub-asr.md) for the seeded entries — today
+[Whisper Hub ASR](whisper-hub-asr.md) for the seeded entries, today
 only `mal → thennal/whisper-medium-ml`).
 
 | Engine | Model |
@@ -191,13 +191,13 @@ the same normalization contract.
 
 ## Related Pages
 
-- [Language Code Resolution](language-code-resolution.md) — ISO mapping, model resolution
-- [Cantonese Processing](languages/cantonese.md) — normalization, char tokenization, FA
-- [Hebrew Morphosyntax](hebrew-morphosyntax.md) — HebBinyan, HebExistential
-- [Japanese Morphosyntax](japanese-morphosyntax.md) — verb forms, combined package
-- [Number Expansion](number-expansion.md) — num2chinese, NUM2LANG tables
-- [Utterance Segmentation](utterance-segmentation.md) — per-language models
-- [Non-English Workarounds](../developer/non-english-workarounds.md) — workaround and convention catalog
-- [Whisper ASR](whisper-asr.md) — engine selection, model IDs
-- [Cantonese Language Support](languages/cantonese.md) — engines, normalization, word segmentation, FA
-- [Cantonese and CJK — Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md) — engine dispatch, normalization pipeline, segmenter selection
+- [Language Code Resolution](language-code-resolution.md), ISO mapping, model resolution
+- [Cantonese Processing](languages/cantonese.md), normalization, char tokenization, FA
+- [Hebrew Morphosyntax](hebrew-morphosyntax.md), HebBinyan, HebExistential
+- [Japanese Morphosyntax](japanese-morphosyntax.md), verb forms, combined package
+- [Number Expansion](number-expansion.md), num2chinese, NUM2LANG tables
+- [Utterance Segmentation](utterance-segmentation.md), per-language models
+- [Non-English Workarounds](../developer/non-english-workarounds.md), workaround and convention catalog
+- [Whisper ASR](whisper-asr.md), engine selection, model IDs
+- [Cantonese Language Support](languages/cantonese.md), engines, normalization, word segmentation, FA
+- [Cantonese and CJK, Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md), engine dispatch, normalization pipeline, segmenter selection

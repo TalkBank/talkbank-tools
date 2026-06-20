@@ -1,4 +1,4 @@
-# Cantonese and CJK — Architecture
+# Cantonese and CJK: Architecture
 
 **Status:** Current
 **Last updated:** 2026-05-19 17:38 EDT
@@ -15,7 +15,7 @@ This page also covers the CJK utterance-segmentation split:
 - `cmn` / `zho` use `talkbank/CHATUtterance-zh_CN`
 - all three are separate from the word-segmentation / `--retokenize` path
 
-## Engine Dispatch — Enum, Not Plugins
+## Engine Dispatch: Enum, Not Plugins
 
 Cantonese ASR/FA engines are registered directly in worker model loading
 and dispatch code. No plugin discovery, no entry points, no dynamic
@@ -46,7 +46,7 @@ flowchart LR
 
 Engines are `(load, infer)` function pairs in
 `batchalign/inference/languages/cantonese/`. Each engine fails at startup
-with a clear error if its model/credentials are unavailable — never at
+with a clear error if its model/credentials are unavailable, never at
 runtime during inference. Compile-time exhaustiveness checking on the
 enum guarantees no engine can be silently missed.
 
@@ -56,18 +56,18 @@ Python owns SDK/model loading and the transport call. Rust owns the shared
 projection from raw provider output into monologues and timed-word payloads
 (`crates/batchalign-pyo3/src/cantonese_asr_bridge.rs`):
 
-- **Tencent** — `ResultDetail` with pre-segmented `Words` array → absolute
+- **Tencent**: `ResultDetail` with pre-segmented `Words` array → absolute
   timestamps computed from segment start + word offset.
-- **FunASR** — Raw text + per-character timestamps → `cantonese_char_tokens()`
+- **FunASR**: Raw text + per-character timestamps → `cantonese_char_tokens()`
   splits and normalizes; timestamps interpolated.
-- **Aliyun** — Sentence-level results with optional per-word timing →
+- **Aliyun**: Sentence-level results with optional per-word timing →
   fallback character tokenization when per-word timing unavailable.
 
 Tencent words with zero or negative duration (`end_ms <= start_ms`) are
 filtered in `timed_words()`. FunASR timestamps are sort-normalized into
 start-time order before downstream processing.
 
-## Text Normalization — Rust-Only
+## Text Normalization: Rust-Only
 
 Cantonese ASR engines (FunASR, Tencent, Aliyun) return text in simplified
 Chinese or with Mainland character variants. CHAT corpora require
@@ -89,7 +89,7 @@ Implementation: `crates/talkbank-transform/src/asr_postprocess/cantonese.rs`.
 - **`ferrous-opencc`** (pure-Rust crate) embeds OpenCC's `S2hk` conversion
   tables in the build. No C++ dependency, no optional import, no fallback
   path. Compiled into `batchalign_core.so`.
-- **31-entry domain replacement table** — Aho-Corasick with
+- **31-entry domain replacement table**: Aho-Corasick with
   `LeftmostLongest` matching ensures multi-character patterns
   (e.g., `聯係`→`聯繫`) take priority over single-character ones
   (`系`→`係`). Multi-character entries (13) match before single-character
@@ -103,7 +103,7 @@ batchalign_core.normalize_cantonese("你真系好吵呀")  # → "你真係好�
 batchalign_core.cantonese_char_tokens("真系呀，")  # → ["真", "係", "啊"]
 ```
 
-Python `_common.py` delegates to these — zero normalization logic remains
+Python `_common.py` delegates to these, zero normalization logic remains
 in Python.
 
 ### Pipeline integration
@@ -124,7 +124,7 @@ and before long-turn splitting:
 ### UTF-8-safe retokenization
 
 `crates/talkbank-transform/src/asr_postprocess/mod.rs` uses
-`char_indices()` for proper UTF-8 handling — byte slicing would panic
+`char_indices()` for proper UTF-8 handling, byte slicing would panic
 on multi-byte CJK characters:
 
 ```rust,ignore
@@ -134,11 +134,11 @@ let last_char_boundary = text.text.char_indices()
     .unwrap_or(0);
 ```
 
-## Word Segmentation — `--retokenize`
+## Word Segmentation: `--retokenize`
 
 CJK ASR engines output character-level tokens because Chinese characters
 are the atomic unit of speech recognition. Stanza POS/dependency models
-expect word-level input — tagging individual characters produces
+expect word-level input, tagging individual characters produces
 meaningless results. The `--retokenize` flag on `morphotag` enables word
 segmentation before Stanza inference.
 
@@ -181,7 +181,7 @@ The cache key includes `|retok` when retokenize is active. Without this,
 a non-retokenize cache entry (per-character `%mor`) would be incorrectly
 returned for a retokenize request (word-level `%mor`), or vice versa.
 
-### Data flow — Cantonese with `--retokenize`
+### Data flow: Cantonese with `--retokenize`
 
 ```mermaid
 sequenceDiagram
@@ -261,7 +261,7 @@ that handles POS and depparse jointly.
   on UD_Cantonese-HK + tested on held-out UD set: POS 93.5% (vs. 63%
   Mandarin baseline), LAS 65.2% (vs. 24%). On spoken Cantonese test
   sentences PyCantonese POS still wins (96% vs. 86%) on core vocabulary
-  due to domain mismatch — the trained model would be most useful as a
+  due to domain mismatch, the trained model would be most useful as a
   fallback for words PyCantonese doesn't know. Requires packaging the
   model file and updating `_stanza_loading.py`.
 - **FunASR CER varies with speech clarity.** FunASR/SenseVoice produces
@@ -306,7 +306,7 @@ batchalign/inference/morphosyntax.py — _segment_cantonese(), Mandarin retokeni
 batchalign/worker/_stanza_loading.py — load_stanza_retokenize_model() (lazy Chinese)
 ```
 
-### Tests — no `unittest.mock`
+### Tests: no `unittest.mock`
 
 The test suite uses test doubles (alternate protocol implementations)
 rather than mocks: `PyCantoneseFake` (deterministic jyutping lookup,

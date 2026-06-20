@@ -151,7 +151,7 @@ graph LR
 - Whisper auto-detects from the **first ~30 seconds** of audio, so the dominant
   language in the opening segment drives detection for the whole file
 - Language-specific fine-tuned models (e.g., `talkbank/CHATWhisper-en`) are
-  **not used** in auto mode — the generic multilingual model is loaded instead
+  **not used** in auto mode, the generic multilingual model is loaded instead
 - Downstream stages (`morphotag`, `align`) still need an explicit language for
   their own model selection; `auto` currently applies only to ASR transcription
 
@@ -200,7 +200,7 @@ Two UTR engines exist:
   `batchalign/inference/asr.py:119` and reuses the `WhisperASRHandle`
   type.
 - The same `openai/whisper-large-v2` checkpoint is used for every
-  language — UTR engines are not language-keyed in BA3 (see
+  language, UTR engines are not language-keyed in BA3 (see
   [Language Code Resolution](language-code-resolution.md)
   §"Model Resolution (UTR)"). Per-language fine-tunes for UTR are
   not wired in the current resolver.

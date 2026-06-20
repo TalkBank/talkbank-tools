@@ -21,7 +21,7 @@ small set of sibling crates inside this workspace:
 | `crates/batchalign/src/commands/` | (submodule) released-command definitions, author-facing constructors, and the command catalog |
 | `crates/batchalign-types/` | Domain newtypes, worker IPC types (V2), shared between the runtime crate and the PyO3 bridge |
 | `crates/batchalign-pyo3/` | PyO3 bridge crate (`batchalign_core`); workspace member, slim dep tree (`batchalign-types` + `talkbank-transform` + pyo3/numpy/serde/tracing) |
-| `crates/talkbank-{model,parser,transform,clan,...}` | CHAT data model, parser, pipelines, CLAN tools — shared across the workspace; `batchalign` depends on the first three by workspace path |
+| `crates/talkbank-{model,parser,transform,clan,...}` | CHAT data model, parser, pipelines, CLAN tools, shared across the workspace; `batchalign` depends on the first three by workspace path |
 
 ## Common Developer Commands
 
@@ -38,7 +38,7 @@ cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
 `crates/batchalign/src/cli/mod.rs:251` is the
 **single canonical command router**. The standalone binary (`main.rs`) calls it.
 The installed `batchalign3` console command is a tiny Python wrapper
-(`batchalign/_cli.py`) that finds and execs the standalone binary — either
+(`batchalign/_cli.py`) that finds and execs the standalone binary, either
 packaged in the wheel at `batchalign/_bin/batchalign3`, or from
 `target/debug/batchalign3` in a source checkout.
 
@@ -75,14 +75,14 @@ content-mode submission.
 
 On the app side, the current execution split is now:
 
-- `ExecutionEngine` — shared command execution core
-- `ServerExecutionHost` — queue/store/server-owned lifecycle behavior
-- `DirectHost` / `DirectExecutionHost` — inline local execution without queueing
+- `ExecutionEngine`: shared command execution core
+- `ServerExecutionHost`: queue/store/server-owned lifecycle behavior
+- `DirectHost` / `DirectExecutionHost`: inline local execution without queueing
   or registry discovery
-- `ServerBackend` / `EmbeddedServerBackend` / `TemporalServerBackend` —
+- `ServerBackend` / `EmbeddedServerBackend` / `TemporalServerBackend`,
   route-facing server control-plane seam over persisted jobs, orchestration,
   event subscription, traces, and runtime shutdown
-- `prepare_workers*()` vs `prepare_direct_workers()` — explicit separation
+- `prepare_workers*()` vs `prepare_direct_workers()`: explicit separation
   between server worker bootstrap and direct local worker bootstrap
 
 ### Align / FA host flow
@@ -398,16 +398,16 @@ must be updated:
 
 ### 1. CLI argument definition
 
-**`crates/batchalign/src/cli/args/mod.rs`** — Add
+**`crates/batchalign/src/cli/args/mod.rs`**: Add
 `Commands::Foo(FooArgs)` variant to the `Commands` enum.
 
-**`crates/batchalign/src/cli/args/commands.rs`** — Define `FooArgs`
+**`crates/batchalign/src/cli/args/commands.rs`**: Define `FooArgs`
 struct with clap attributes. Include `CommonOpts` if the command
 processes files.
 
 ### 2. CLI dispatch
 
-**`crates/batchalign/src/cli/mod.rs`** — Add the match arm in
+**`crates/batchalign/src/cli/mod.rs`**: Add the match arm in
 `run_command()` (defined at `cli/mod.rs:251`). For processing
 commands, this typically falls through to the `cmd =>` wildcard arm
 that calls `cli::dispatch::dispatch()`. For utility commands (like
@@ -415,19 +415,19 @@ that calls `cli::dispatch::dispatch()`. For utility commands (like
 
 ### 3. Typed command options
 
-**`crates/batchalign/src/types/options.rs`** — Add
+**`crates/batchalign/src/types/options.rs`**: Add
 `CommandOptions::Foo { ... }` variant to the serde-tagged enum. This is the
 wire format between CLI and server.
 
-**`crates/batchalign/src/cli/args/options.rs`** — Add the builder in
+**`crates/batchalign/src/cli/args/options.rs`**: Add the builder in
 `build_typed_options()` that converts `FooArgs` → `CommandOptions::Foo`.
 
 ### 4. Server-side task routing and capability gate
 
-**`crates/batchalign/src/commands/<name>.rs`** — Add the command's
+**`crates/batchalign/src/commands/<name>.rs`**: Add the command's
 `CommandDefinition`.
 
-**`crates/batchalign/src/commands/catalog.rs`** — Register/export that definition
+**`crates/batchalign/src/commands/catalog.rs`**: Register/export that definition
 in the released-command catalog.
 
 Compatibility helpers in `crates/batchalign/src/runner/policy.rs` still
@@ -437,7 +437,7 @@ derive directly from the command-owned catalog.
 The server's capability gate (`validate_infer_capability_gate()` in
 `crates/batchalign/src/state.rs`) cross-checks the worker's
 advertised `infer_tasks` against the released-command descriptors in the
-command-owned catalog — commands whose descriptor requires an infer task must
+command-owned catalog, commands whose descriptor requires an infer task must
 have a matching worker capability.
 
 The critical implementation rule is that **startup capability state is not
@@ -486,11 +486,11 @@ for details.
 
 Route the command to its orchestrator in the appropriate dispatch module under
 `crates/batchalign/src/runner/dispatch/`:
-- `infer_batched.rs` — `dispatch_batched_infer()` for text-only commands (cross-file batching)
-- `fa_pipeline.rs` — `dispatch_fa_infer()` for per-file forced alignment
-- `transcribe_pipeline.rs` — `dispatch_transcribe_infer()` for audio-to-CHAT generation
-- `benchmark_pipeline.rs` — `dispatch_benchmark_infer()` for transcribe + compare composition
-- `media_analysis_v2.rs` — `dispatch_media_analysis_v2()` for opensmile/avqi
+- `infer_batched.rs`: `dispatch_batched_infer()` for text-only commands (cross-file batching)
+- `fa_pipeline.rs`: `dispatch_fa_infer()` for per-file forced alignment
+- `transcribe_pipeline.rs`: `dispatch_transcribe_infer()` for audio-to-CHAT generation
+- `benchmark_pipeline.rs`: `dispatch_benchmark_infer()` for transcribe + compare composition
+- `media_analysis_v2.rs`: `dispatch_media_analysis_v2()` for opensmile/avqi
 
 **Recipe-driven execution (new model):** Compare has been migrated from
 `runner/dispatch/` to the recipe-driven `execution/` kernel. New commands
@@ -500,11 +500,11 @@ and `crates/batchalign/src/planning/` for `build_job_plan()`.
 
 ### 6. Orchestrator module
 
-**`crates/batchalign/src/commands/foo.rs`** — The command-owned wrapper that
+**`crates/batchalign/src/commands/foo.rs`**: The command-owned wrapper that
 owns the command's semantic shape, shared plan selection, and materialization
 policy.
 
-**`crates/batchalign/src/foo.rs`** or `runner/dispatch/*` — Keep shared
+**`crates/batchalign/src/foo.rs`** or `runner/dispatch/*`: Keep shared
 algorithmic code and reusable runner families here when it improves clarity, but
 do not make them the only obvious home of the released command.
 
@@ -518,19 +518,19 @@ For batch text workflows, prefer the named wrappers in
 
 ### 7. Worker support
 
-**`batchalign/worker/_model_loading/`** — Register the dynamic batch-infer
+**`batchalign/worker/_model_loading/`**: Register the dynamic batch-infer
 handler for `InferTask.FOO` during worker bootstrap if the task needs loaded
 runtime state or engine-specific wiring.
 
-**`batchalign/worker/_infer.py`** — Only update this file if the task is a
+**`batchalign/worker/_infer.py`**: Only update this file if the task is a
 pure static route that does not need bootstrap-installed runtime wiring.
 
-**`batchalign/inference/foo.py`** — The Python inference module (pure model
+**`batchalign/inference/foo.py`**: The Python inference module (pure model
 invocation, no CHAT awareness).
 
 ### 8. CHAT operations (if needed)
 
-**`crates/batchalign/src/foo.rs`** — Payload collection, cache key
+**`crates/batchalign/src/foo.rs`**: Payload collection, cache key
 computation, result injection functions used by the orchestrator.
 
 ## OpenAPI Workflow

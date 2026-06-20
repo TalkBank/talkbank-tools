@@ -1,4 +1,4 @@
-# translate — Developer Reference
+# translate: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-27 11:12 EDT
@@ -12,17 +12,17 @@ documentation, see [User Guide: translate](../../user-guide/commands/translate.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `TranslateArgs` | `--translate-engine` flag (`TranslateEngine` clap enum) + lang override |
-| CLI → wire | `crates/batchalign/src/cli/args/options.rs` — `Commands::Translate` arm | Maps `TranslateEngine` → `Option<TranslateEngineName>` on `TranslateOptions` |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranslateArgs` | `--translate-engine` flag (`TranslateEngine` clap enum) + lang override |
+| CLI → wire | `crates/batchalign/src/cli/args/options.rs`: `Commands::Translate` arm | Maps `TranslateEngine` → `Option<TranslateEngineName>` on `TranslateOptions` |
 | Command definition | `crates/batchalign/src/commands/translate.rs` | `CommandDefinition` impl |
 | Translate orchestration | `crates/batchalign/src/translate.rs` | Cross-file batching, cache, `%xtra` injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Shared with morphotag and utseg |
 | Injection | `crates/batchalign/src/translate.rs` | Writes `%xtra:` tiers from translation strings |
-| Engine type | `crates/batchalign/src/types/engines.rs` — `TranslateEngineName` | Wire-format enum (`google` / `seamless` / `nllb` / `tencent` / `aliyun`), `EngineBackend` impl, `EngineOverrides.translate` field |
-| Engine resolution (server) | `crates/batchalign/src/types/options.rs` — `TranslateOptions::effective_translate_engine` | Precedence: shared `--engine-overrides` `{"translate":"..."}` > `--translate-engine` flag > Google default |
+| Engine type | `crates/batchalign/src/types/engines.rs`: `TranslateEngineName` | Wire-format enum (`google` / `seamless` / `nllb` / `tencent` / `aliyun`), `EngineBackend` impl, `EngineOverrides.translate` field |
+| Engine resolution (server) | `crates/batchalign/src/types/options.rs`: `TranslateOptions::effective_translate_engine` | Precedence: shared `--engine-overrides` `{"translate":"..."}` > `--translate-engine` flag > Google default |
 | Engine bootstrap | `batchalign/worker/_model_loading/translation.py::load_translation_engine(bootstrap)` | Reads `bootstrap.engine_overrides["translate"]`, dispatches via exhaustive match to `_load_google_translate`, `_load_seamless_translate`, `_load_nllb_translate`, `_load_tencent_translate`, or `_load_aliyun_translate`. Unknown engine names raise `ValueError` |
 | Engine resolution (worker) | `batchalign/worker/_model_loading/translation.py::resolve_translate_engine` | Pure function from `engine_overrides` dict → `TranslationBackend`; default Google |
-| Worker IPC | `batchalign/inference/translate.py` — `batch_infer_translate()` | Iterates batch items, calls the resolved `translate_fn(text, src_lang)`, returns `raw_translation` per item. Sleeps 1.5s per item when backend is `GOOGLE` (rate limit). Pre-processing (Chinese space removal) happens in Rust before the call; post-processing in Rust after |
+| Worker IPC | `batchalign/inference/translate.py`: `batch_infer_translate()` | Iterates batch items, calls the resolved `translate_fn(text, src_lang)`, returns `raw_translation` per item. Sleeps 1.5s per item when backend is `GOOGLE` (rate limit). Pre-processing (Chinese space removal) happens in Rust before the call; post-processing in Rust after |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`
 as of 2026-04-14: the CLI posts source/output path lists instead of CHAT
@@ -76,15 +76,15 @@ with `if i.translation: continue` and preserved the first translation.
 `BenchmarkOptions::effective_asr_engine`. From highest priority to
 lowest:
 
-1. `common.engine_overrides.translate` — set by
+1. `common.engine_overrides.translate`: set by
    `--engine-overrides '{"translate":"<engine>"}'`.
-2. `TranslateOptions.translate_engine: TranslateEngineName` — set by
+2. `TranslateOptions.translate_engine: TranslateEngineName`: set by
    `--translate-engine google|tencent|aliyun|nllb|seamless`. Defaults
    to Google via `default_translate_engine()`.
 
 There is deliberately no `server.yaml` knob for engine selection.
 Translation engine is a policy choice, not a host fact, and policy
-belongs at the invocation site (CLI flag or shell alias) — never in
+belongs at the invocation site (CLI flag or shell alias), never in
 a config file. See the no-config-junk principle in
 `book/src/batchalign/user-guide/commands/translate.md`.
 
@@ -110,7 +110,7 @@ These are the same CAM credentials used by the Tencent ASR backend
 authorizes any product the CAM user has permission for). The user
 must have `tmt:TextTranslate` policy attached (e.g.,
 `QcloudTMTFullAccess`), and the TMT product must be "opened" at the
-Tencent Cloud account level — both are root-account / admin actions
+Tencent Cloud account level, both are root-account / admin actions
 on the Tencent side.
 
 Rate-limit handling: the inference closure in
@@ -124,7 +124,7 @@ Language-code handling: `_ISO_639_3_TO_TENCENT_LANG` (in
 codes BA3 emits to Tencent's ISO-639-1 codes (`spa→es`, `cmn→zh`,
 etc.). Unmapped source languages raise a clear `ValueError`
 recommending `--translate-engine nllb`. Tencent does NOT list
-`yue→en` in its supported pairs — Cantonese requests are rejected at
+`yue→en` in its supported pairs, Cantonese requests are rejected at
 the table lookup, not at the API call.
 
 Empty `SourceText` would be rejected by the Tencent API with a typed
@@ -145,13 +145,13 @@ by the Rust control plane at worker spawn) or the
 
 These are the same access-key pair used by the Aliyun NLS ASR
 backend. Aliyun MT does NOT need the `ak_appkey` field that NLS
-ASR consumes — that key authorizes the WebSocket speech service,
+ASR consumes, that key authorizes the WebSocket speech service,
 not the REST translation service.
 
 Region is pinned to `cn-hangzhou` (`_ALIYUN_MT_REGION` in
 `translation.py`). Aliyun MT exposes a single global endpoint at
 `mt.aliyuncs.com` across every supported region, so the AcsClient
-region only affects request signing — there is no
+region only affects request signing, there is no
 `cn-hangzhou` vs `us-west-1` quality / availability split. If
 region-pinning becomes a deployment concern later, promote to a
 config-driven override.
@@ -168,7 +168,7 @@ Language-code handling: `_ISO_639_3_TO_ALIYUN_LANG` (in
 ISO-639-3 codes BA3 emits to Aliyun's ISO-639-1-ish codes
 (`spa→spa`, `cmn→zh`, `kor→ko`, **`yue→yue`**, etc.). The presence
 of `yue` is the load-bearing reason this backend exists alongside
-Tencent — see [User Guide: translate](../../user-guide/commands/translate.md)
+Tencent, see [User Guide: translate](../../user-guide/commands/translate.md)
 for the operator-visible rationale.
 
 Response envelope: Aliyun MT returns a JSON byte payload of the
@@ -179,7 +179,7 @@ surface as `ClientException`/`ServerException` from
 `json.loads` runs, `Code == "200"` is expected.
 
 Empty `SourceText` short-circuits the same way Tencent does (return
-empty string before any SDK call) for the same reason — Aliyun
+empty string before any SDK call) for the same reason, Aliyun
 treats empty input as an invalid request and would surface a typed
 SDK exception that looks like a credentials problem.
 

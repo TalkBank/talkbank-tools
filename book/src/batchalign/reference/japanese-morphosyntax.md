@@ -65,7 +65,7 @@ capability-driven helper `should_request_mwt()` at
 [Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)):
 the helper consults the live Stanza capability table and excludes
 `mwt` for any language whose model does not ship that processor.
-Japanese falls into the exclusion naturally — its `combined`
+Japanese falls into the exclusion naturally, its `combined`
 package does not include an `mwt` processor, so `should_request_mwt`
 returns `False` for `ja` without a per-language entry. The package
 override above is needed regardless of MWT mode, so the two
@@ -104,7 +104,7 @@ the join. For example, two CHAT words `ふ` and `す` become a single Stanza
 token `"ふ す"` (with internal space).
 
 This whitespace is a tokenization artifact, not a word boundary. It must be
-stripped — not split — because the space does not represent a separate word.
+stripped, not split, because the space does not represent a separate word.
 
 ### Fix 1: Token Text (`crates/batchalign-transform/src/morphosyntax/injection.rs`)
 
@@ -152,7 +152,7 @@ with underscores, preventing syntactic contamination of the %mor tier.
 ### Why Stripping, Not Splitting
 
 The internal space is a Stanza artifact from merging two CHAT tokens. The
-merged token is a single linguistic unit — splitting on the space would create
+merged token is a single linguistic unit, splitting on the space would create
 two %mor entries for what Stanza considers one word, breaking the word↔mor
 alignment. Stripping produces a valid CHAT word that correctly maps to one %mor
 item.
@@ -207,7 +207,7 @@ to the surface text. If the surface text is also empty, it uses
 
 The `map_ud_word_to_mor()` function
 (`crates/batchalign-transform/src/morphosyntax/mor_word.rs:13`) applies
-Japanese-specific overrides in steps 3–4.
+Japanese-specific overrides in steps 3-4.
 
 ### Step 3: Verb Form Overrides
 
@@ -317,7 +317,7 @@ into feature computation and %mor assembly.
 The `is_clitic()` function
 (`crates/batchalign-transform/src/morphosyntax/mor_word.rs:200`)
 identifies MWT sub-tokens that are clitics (e.g., English `n't`,
-`'s`; French `l'`, `-ce`). Japanese has no entries — the function
+`'s`; French `l'`, `-ce`). Japanese has no entries, the function
 returns `false` for all Japanese tokens:
 
 ```rust,ignore
@@ -336,7 +336,7 @@ sub-tokens to identify.
 
 ---
 
-## Per-Word Language Routing — Current Limitation
+## Per-Word Language Routing: Current Limitation
 
 CHAT supports per-word language markers (`@s:jpn`) for code-switching. The
 Rust extraction layer (`extract.rs`) correctly extracts these markers into a

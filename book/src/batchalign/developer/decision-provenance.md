@@ -17,7 +17,7 @@ The **decision provenance system** surfaces these decisions as `%xalign` and
 
 **Single source of truth:** Every decision point creates a `DecisionRecord`
 via `new_and_trace()`, which emits a structured tracing event AND returns
-the record. No duplicate logging — the `DecisionRecord` is the source of
+the record. No duplicate logging, the `DecisionRecord` is the source of
 truth; tracing events, `%xalign` tiers, and dashboard warnings are all
 derived from it.
 
@@ -110,7 +110,7 @@ and `morphotag` expose it as `--review-level` (or the equivalent
 | `timing_stripped` | yes | Utterance start time is before previous utterance's start (E362 violation). All timing removed. |
 | `end_clamped` | no | Utterance end time exceeds next utterance's start. End clamped to next start. |
 
-**Source:** `crates/batchalign/src/chat_ops/fa/orchestrate.rs:213` —
+**Source:** `crates/batchalign/src/chat_ops/fa/orchestrate.rs:213`,
 `enforce_monotonicity()`
 
 ### UTR unmatched
@@ -119,7 +119,7 @@ and `morphotag` expose it as `--review-level` (or the equivalent
 |----------|:------------:|------|
 | `utr_unmatched` | yes | Untimed utterance could not be matched to any ASR tokens during timing recovery. |
 
-**Source:** `crates/batchalign/src/chat_ops/fa/utr.rs:223` — `run_global_utr()`
+**Source:** `crates/batchalign/src/chat_ops/fa/utr.rs:223`: `run_global_utr()`
 
 ### FA word timing drop
 
@@ -127,7 +127,7 @@ and `morphotag` expose it as `--review-level` (or the equivalent
 |----------|:------------:|------|
 | `words_timing_dropped` | yes | Word-level timing was dropped because clamping to utterance boundary made start >= end. |
 
-**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37` —
+**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37`,
 `postprocess_utterance_timings()`
 
 ### FA bullet repair (existing)

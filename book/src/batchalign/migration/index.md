@@ -125,7 +125,7 @@ migration book).
    control-plane, typed-contract, and codebase-structure changes.
 3. For algorithmic behavior (alignment, retokenization, multilingual/Japanese,
    DP), read [Algorithms, Language, and Alignment Migration](algorithms-and-language.md).
-4. For engine-extension details, read [Cantonese and CJK — Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md) and [Adding New Engines](../developer/adding-engines.md).
+4. For engine-extension details, read [Cantonese and CJK, Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md) and [Adding New Engines](../developer/adding-engines.md).
 
 ## Relationship to existing detailed references
 

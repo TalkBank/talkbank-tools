@@ -14,7 +14,7 @@ This guide walks through adding a new batchalign3 command end-to-end.
 | `ReferenceProjection` (compare against gold) | `compare` | `commands/compare.rs`, `compare.rs` |
 | `Composite` (orchestrates sub-workflows) | `benchmark` | `commands/benchmark.rs`, `runner/dispatch/benchmark_pipeline.rs` |
 
-**Start with `align`** — it is still the simplest command-owned example. If
+**Start with `align`**: it is still the simplest command-owned example. If
 your command takes CHAT text in and produces modified CHAT out, follow `align`.
 If your command needs to batch multiple files through one ML call, follow
 `morphotag`.
@@ -264,14 +264,14 @@ If your command needs a new ML model:
 3. Implement the Python worker handler in `batchalign/worker/`
 
 If reusing an existing model (e.g., Stanza for morphosyntax), you only need
-to wire the Rust side — the worker already knows how to handle the infer task.
+to wire the Rust side, the worker already knows how to handle the infer task.
 
 ---
 
 ## Worked example: Compare (ReferenceProjection)
 
 Compare is the most instructive example because it uses the `ReferenceProjection`
-family — the workflow produces typed intermediate artifacts, then a swappable
+family, the workflow produces typed intermediate artifacts, then a swappable
 `Materializer` turns them into the final output. This is how BA2's
 `CompareEngine` + `CompareAnalysisEngine` pair maps to BA3 without falling back
 to string-level projection or ad hoc string assembly at the serialization
@@ -356,21 +356,21 @@ extract words → conform → find windows → DP align → annotate gold → se
 BA3 splits this into layers:
 
 1. **`talkbank_transform::compare`** (`crates/batchalign-transform/src/compare/`): pure functions, no ML, no IO:
-   - `find_best_segment()` (`engine.rs:72`) — same local-window idea as BA2
+   - `find_best_segment()` (`engine.rs:72`), same local-window idea as BA2
    - `compare(&main, &gold)` (`engine.rs:173`) → `ComparisonBundle` with main/gold compare views,
      structural word matches, and metrics
-   - `project_gold_structurally()` (`materialize.rs:209`) — AST-first gold projection
-   - `XsrepTierContent` / `XsmorTierContent` (`serialize.rs:186,228`) — typed compare-tier models lowered
+   - `project_gold_structurally()` (`materialize.rs:209`), AST-first gold projection
+   - `XsrepTierContent` / `XsmorTierContent` (`serialize.rs:186,228`), typed compare-tier models lowered
      once at the `UserDefinedDependentTier` boundary
-   - `CompareMetricsCsvTable` / `CompareMetricsCsvRow` (`metrics.rs:8,103`) — typed metrics rows
+   - `CompareMetricsCsvTable` / `CompareMetricsCsvRow` (`metrics.rs:8,103`), typed metrics rows
      serialized through the Rust `csv` crate
 
-2. **`crates/batchalign/src/compare.rs`** — orchestration:
-    - `build_comparison_artifacts()` — morphotag main only, parse gold raw, call `compare()`
-    - `materialize_released()` — released compare output path
-    - `materialize_main_annotated()` — internal benchmark/main output path
+2. **`crates/batchalign/src/compare.rs`**: orchestration:
+    - `build_comparison_artifacts()`: morphotag main only, parse gold raw, call `compare()`
+    - `materialize_released()`: released compare output path
+    - `materialize_main_annotated()`: internal benchmark/main output path
 
-3. **`execution/`** — recipe-driven server integration (new model):
+3. **`execution/`**: recipe-driven server integration (new model):
     - `dispatch_compare_job()` builds a `JobPlan` and runs `ExecutionKernel`
     - `CompareStageExecutor` handles recipe stages: plan work units, read
       inputs, morphosyntax, compare-align, materialize outputs
@@ -406,8 +406,8 @@ types before you add serializer code.
 ### Files to read (in order)
 
 1. `crates/batchalign-transform/src/compare/`: compare core (engine.rs, model.rs, materialize.rs, serialize.rs, metrics.rs)
-2. `crates/batchalign/src/compare.rs` — orchestration + materializers
-3. `crates/batchalign/src/execution/` — recipe-driven dispatch (replaces old `compare_pipeline.rs`)
-4. `crates/batchalign/src/planning/` — `build_job_plan()` for typed execution plans
-5. `book/src/batchalign/migration/ba2-compare-migration.md` — BA2-master compare to BA3 map
+2. `crates/batchalign/src/compare.rs`: orchestration + materializers
+3. `crates/batchalign/src/execution/`: recipe-driven dispatch (replaces old `compare_pipeline.rs`)
+4. `crates/batchalign/src/planning/`: `build_job_plan()` for typed execution plans
+5. `book/src/batchalign/migration/ba2-compare-migration.md`: BA2-master compare to BA3 map
 6. BA2 reference: archived in the maintainers' BA2 working copy (see migration docs for location)

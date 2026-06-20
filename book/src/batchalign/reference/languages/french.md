@@ -20,7 +20,7 @@ natively:
 
 French carries no per-language BA3 MWT-override rules. All earlier
 overrides ported from BA2 (`ud.py:662-695`) were audited and removed
-— see [History](#history).
+, see [History](#history).
 
 ## What Stanza handles natively
 
@@ -72,7 +72,7 @@ to begin with.
 ## Tests
 
 * **Probe matrix cases:**
-  `batchalign/tests/investigations/_cases/french.py` — typed
+  `batchalign/tests/investigations/_cases/french.py`: typed
   `ProbeCase` fixtures (elision prefixes, clitic contractions,
   MWT natives, `aujourd'hui`, plus the seed 040802:1620 utterance).
 * **Matrix harness:**

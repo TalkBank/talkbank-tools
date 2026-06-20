@@ -7,7 +7,7 @@ All CHAT parsing and serialization is handled by Rust. The CHAT lifecycle
 (parsing, word extraction, result injection, validation, serialization)
 runs in Rust both on the server side (`batchalign` crate) and
 through the PyO3 bridge (`batchalign_core`). Python handles only ML
-inference — Whisper, Stanza, wav2vec, translation models.
+inference, Whisper, Stanza, wav2vec, translation models.
 
 **Status:** Current
 **Last verified:** 2026-03-11
@@ -64,7 +64,7 @@ produces an ordered list of "NLP-clean" words with node indices.  It
 skips retraces, events, CA markers, overlap points, and other
 non-lexical content based on the requested `TierDomain`.  The node
 indices let downstream code map NLP output (Stanza tokens, FA word
-timings) back to AST positions in O(1) per token — no DP re-alignment
+timings) back to AST positions in O(1) per token, no DP re-alignment
 needed.
 
 This replaced the old Python `annotation_clean` function (60+ lines of
@@ -103,8 +103,8 @@ covering the full suite of CHAT validation checks (E362 monotonicity,
 E701/E704 temporal, tier alignment, header correctness). These return
 typed error lists used by the pre-serialization validation gate. On
 the Python side, structured validation results reach callers as
-`CHATValidationException.errors` (a `list[ValidationErrorEntry]`) —
-see [Errors — Batchalign Runtime](../../architecture/errors-and-validation/batchalign-errors.md).
+`CHATValidationException.errors` (a `list[ValidationErrorEntry]`),
+see [Errors, Batchalign Runtime](../../architecture/errors-and-validation/batchalign-errors.md).
 
 ## What Stays in Python
 
@@ -156,6 +156,6 @@ If you need the public migration story for where older BA2-style DP-heavy
 recovery changed, use the migration chapters rather than this architecture page.
 
 See:
-- [Python–Rust Boundary](../../architecture/python-rust-boundary/python-rust-boundary.md)
-  — server-side CHAT ownership, wire protocol, capability discovery,
+- [Python-Rust Boundary](../../architecture/python-rust-boundary/python-rust-boundary.md)
+ , server-side CHAT ownership, wire protocol, capability discovery,
   worker module layout.

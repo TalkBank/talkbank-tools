@@ -61,8 +61,8 @@ emitted from `../chatter/crates/talkbank-model/src/model/dependent_tier/gra/tier
 - `E723` (`GraMultipleRoots`): multiple `ROOT` relations
 - `E724` (`GraCircularDependency`): circular dependency
 
-The lenient parser still ingests files that trip these checks — the
-errors are logged and the affected tier is left as parsed — so older
+The lenient parser still ingests files that trip these checks, the
+errors are logged and the affected tier is left as parsed, so older
 corpora stay processable even when `%gra` is malformed. The codes
 themselves are not `Severity::Warning`; the leniency is a
 caller-side policy at the pipeline entry, not a downgrading of the

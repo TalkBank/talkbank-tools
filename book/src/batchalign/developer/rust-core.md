@@ -31,7 +31,7 @@ bundles both the extension and the native binary.
 
 | Crate | Location | Purpose |
 |-------|----------|---------|
-| `batchalign-pyo3` | `crates/batchalign-pyo3/` | Worker runtime — what Python imports as `batchalign_core`. Deps: `batchalign-types` + `talkbank-transform` |
+| `batchalign-pyo3` | `crates/batchalign-pyo3/` | Worker runtime, what Python imports as `batchalign_core`. Deps: `batchalign-types` + `talkbank-transform` |
 | `batchalign` | `crates/batchalign/` | The big Rust crate: CLI, axum server, dispatch, FA, morphosyntax, Rev.AI client, batchalign-specific CHAT extraction/injection in `chat_ops/`. NOT consumed by batchalign-pyo3. |
 | `batchalign-types` | `crates/batchalign-types/` | Shared domain types and worker IPC types (depended on by both `batchalign` and `batchalign-pyo3`) |
 | `batchalign-transform` | `crates/batchalign-transform/` | Pipelines, CHAT↔JSON, morphosyntax, Cantonese normalization, tokenizer realignment, asr_postprocess: the shared CHAT-aware logic the pyo3 worker calls into |
@@ -40,7 +40,7 @@ bundles both the extension and the native binary.
 
 The PyO3 crate is a slim worker runtime. All CHAT manipulation lives
 in the sibling `batchalign` crate and is called directly by the Rust
-runtime — never via callbacks from Python.
+runtime, never via callbacks from Python.
 
 | Module | Purpose |
 |--------|---------|
@@ -61,7 +61,7 @@ the source under `crates/batchalign-pyo3/src/`.
 
 ### Worker protocol
 
-- `dispatch_protocol_message(...)` — route IPC messages to typed
+- `dispatch_protocol_message(...)`: route IPC messages to typed
   Python handlers.
 
 ### Worker V2 executors
@@ -84,7 +84,7 @@ the source under `crates/batchalign-pyo3/src/`.
 | `cantonese_char_tokens(...)` | Per-character tokenization for Cantonese FA |
 | Cantonese bridge functions | Project FunASR / Tencent / Aliyun output into common shapes |
 
-These functions are internal — they exist for the Rust runtime to
+These functions are internal, they exist for the Rust runtime to
 call into the worker process. They are not part of any public API
 surface and external code should not import them.
 

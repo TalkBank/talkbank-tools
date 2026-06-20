@@ -22,7 +22,7 @@
 - [BA2 CLI Reference (Baseline)](batchalign/migration/ba2-cli-reference.md)
 - [Debugging and Tracing](batchalign/migration/debugging-and-tracing.md)
 
-# Batchalign3 — User Guide
+# Batchalign3: User Guide
 
 - [Introduction](batchalign/introduction.md)
 - [Installation](batchalign/user-guide/installation.md)
@@ -56,9 +56,9 @@
 - [Doctor: Diagnostics and Config Validation](batchalign/user-guide/doctor.md)
 - [Troubleshooting](batchalign/user-guide/troubleshooting.md)
 
-# Batchalign3 — Architecture
+# Batchalign3: Architecture
 
-- [Python–Rust Boundary](architecture/python-rust-boundary/python-rust-boundary.md)
+- [Python-Rust Boundary](architecture/python-rust-boundary/python-rust-boundary.md)
 - [Dispatch and Execution](architecture/runtime/dispatch.md)
 - [Command Lifecycles](batchalign/architecture/command-lifecycles.md)
 - [Command Flowcharts](batchalign/architecture/command-flowcharts.md)
@@ -72,12 +72,12 @@
 - [Server Architecture](batchalign/architecture/server-architecture.md)
 - [Dashboard Architecture](architecture/runtime/dashboard-architecture.md)
 - [Batchalign Workers](architecture/runtime/batchalign-workers.md)
-- [Cantonese and CJK — Architecture](architecture/language-and-multilingual/cantonese-and-cjk.md)
+- [Cantonese and CJK, Architecture](architecture/language-and-multilingual/cantonese-and-cjk.md)
 - [Audio-Task Cache](architecture/runtime/audio-task-cache.md)
 - [Validation Cache](architecture/parser-and-grammar/validation-cache.md)
 - [Cache Override Guide](batchalign/architecture/cache-override-guide.md)
 - [Validation](architecture/errors-and-validation/validation.md)
-- [Errors — Batchalign Runtime](architecture/errors-and-validation/batchalign-errors.md)
+- [Errors, Batchalign Runtime](architecture/errors-and-validation/batchalign-errors.md)
 - [Errors at the Python ↔ Rust Boundary](architecture/errors-and-validation/python-rust-errors.md)
 - [Graceful-Failure Invariant](batchalign/architecture/graceful-failure-invariant.md)
 - [Command Contracts](batchalign/architecture/command-contracts.md)
@@ -100,7 +100,7 @@
 - [Time Transparency UX Principle](batchalign/architecture/time-transparency.md)
 - [Worker Failure Classification](batchalign/architecture/worker-failure-classification.md)
 
-# Batchalign3 — Technical Reference
+# Batchalign3: Technical Reference
 
 - [CHAT Format](batchalign/reference/chat-format.md)
 - [`@Options` and Per-File Command Scoping](batchalign/reference/chat-options.md)
@@ -117,7 +117,7 @@
 - [Language Data Model](batchalign/reference/language-handling.md)
 - [L2 & Language Switching](batchalign/reference/l2-handling.md)
 - [Multi-Word Tokens](batchalign/reference/mwt-handling.md)
-- [Retokenization — Overview](batchalign/reference/retokenization-overview.md)
+- [Retokenization, Overview](batchalign/reference/retokenization-overview.md)
 - [English Transcribe Corrections](batchalign/reference/english-transcribe-corrections.md)
 - [Morphotag Retokenization](batchalign/reference/morphotag-retokenization.md)
 - [Stanza Limitations (versioned)](batchalign/reference/stanza-limitations.md)
@@ -151,7 +151,7 @@
 - [Cross-Repo Dependency Contract](batchalign/reference/cross-repo-dependency.md)
 - [Platform Support](batchalign/reference/platform-support.md)
 
-# Batchalign3 — Developer Guide
+# Batchalign3: Developer Guide
 
 - [Building & Development](batchalign/developer/building.md)
 - [Testing](batchalign/developer/testing.md)
@@ -203,7 +203,7 @@
 - [Release Contract](batchalign/developer/release-contract.md)
 - [Reliability Program](batchalign/developer/reliability-program.md)
 
-# Batchalign3 — Design Decisions
+# Batchalign3: Design Decisions
 
 - [Models Training Runtime ADR](batchalign/decisions/models-training-runtime-adr.md)
 - [Lenient Parsing](batchalign/decisions/lenient-parsing.md)

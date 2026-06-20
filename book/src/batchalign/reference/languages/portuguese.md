@@ -16,7 +16,7 @@ contractions that Stanza's neural MWT processor handles natively:
   "of water")
 
 Portuguese carries no per-language BA3 MWT-override rules as of
-2026-04-21. The single BA2-ported rule was audited and removed —
+2026-04-21. The single BA2-ported rule was audited and removed,
 see [History](#history).
 
 ## What Stanza handles natively
@@ -61,7 +61,7 @@ word. Portuguese inherits this behavior for free.
 ## Tests
 
 * **Probe matrix cases:**
-  `batchalign/tests/investigations/_cases/portuguese.py` — typed
+  `batchalign/tests/investigations/_cases/portuguese.py`: typed
   `ProbeCase` fixtures covering `d'água` standalone and in context,
   plus native MWTs (`do`, `da`, `na`).
 * **Matrix harness:**

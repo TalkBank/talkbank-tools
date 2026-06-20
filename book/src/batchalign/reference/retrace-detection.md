@@ -31,7 +31,7 @@ output continues to show `"I [/] I"` rather than `"i [/] i"`.
 
 ## Fillers do not produce retrace markers
 
-Filled pauses (`&-um`, `&-uh`, `&-ur` — any token carrying the `&-`
+Filled pauses (`&-um`, `&-uh`, `&-ur`: any token carrying the `&-`
 prefix after stage 7 disfluency replacement) **participate in n-gram
 matching** but are **never re-typed to `WordKind::Retrace`**. A bare
 repetition of fillers is filler behavior, not a false start, and is

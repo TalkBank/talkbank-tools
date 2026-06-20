@@ -744,7 +744,7 @@ flowchart LR
 
 Key components:
 - **`dispatch_semaphore: Arc<Semaphore>`** (`shared_gpu/stdio.rs`,
-  `shared_gpu/tcp.rs`) — caps in-flight `execute_v2` calls per worker at
+  `shared_gpu/tcp.rs`), caps in-flight `execute_v2` calls per worker at
   `gpu_thread_pool_size` so Rust dispatch concurrency matches Python's
   `ThreadPoolExecutor` capacity. **Permit is acquired before
   `pending.insert()` and before the `tokio::time::timeout` wrap**, so a
@@ -752,11 +752,11 @@ Key components:
   budget on queue-wait. Without this gate, late callers would register
   pending oneshots and start their timers while their request sat in the
   Python executor's queue, and the timer would expire ahead of the
-  response — see "Why the dispatch semaphore exists" below.
-- **`stdin: Mutex<ChildStdin>`** — serialized writes so JSON lines don't interleave
-- **`pending: Mutex<HashMap<String, oneshot::Sender>>`** — maps request_id to response channel
-- **Background reader task** — continuously reads stdout, parses responses, routes by request_id
-- **Control channel** — sequential non-V2 ops (health, capabilities, shutdown) via a separate oneshot
+  response, see "Why the dispatch semaphore exists" below.
+- **`stdin: Mutex<ChildStdin>`**: serialized writes so JSON lines don't interleave
+- **`pending: Mutex<HashMap<String, oneshot::Sender>>`**: maps request_id to response channel
+- **Background reader task**: continuously reads stdout, parses responses, routes by request_id
+- **Control channel**: sequential non-V2 ops (health, capabilities, shutdown) via a separate oneshot
 
 ### The dispatch semaphore contract
 
@@ -803,7 +803,7 @@ Orphaned responses (the response arrives after the pending entry has been
 removed) are logged at `WARN` level. The expected steady-state rate is
 zero; the typical cause is a shutdown race where the worker drained a
 request while the orchestrator tore down. A burst of orphaned-response
-warnings during normal operation indicates the in-flight cap is wrong —
+warnings during normal operation indicates the in-flight cap is wrong,
 e.g., a `gpu_thread_pool_size` mismatch between Rust pool config and the
 daemon's spawn arguments.
 

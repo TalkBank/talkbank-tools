@@ -10,7 +10,7 @@ This determines which parse mode is used at pipeline entry.
 
 - **Strict** (tree-sitter parse via `talkbank_parser`): Rejects the
   file on ANY parse error. Used when the input is expected to be valid
-  — i.e., output from a previous pipeline stage.
+ , i.e., output from a previous pipeline stage.
 - **Lenient** (`talkbank_transform::parse::parse_lenient` at
   `../chatter/crates/talkbank-transform/src/parse.rs:17`): Error recovery:
   keeps parseable content and drops broken tiers. Used at pipeline
@@ -47,5 +47,5 @@ be silently round-tripped unchanged. Calling the Rust function
 (`crates/batchalign-transform/src/morphosyntax/payload.rs:333`) at the
 top of `process_morphosyntax()`
 (`crates/batchalign/src/morphosyntax/mod.rs:64`) ensures all
-utterances are reprocessed. Cache hits still work — the cache lookup
+utterances are reprocessed. Cache hits still work, the cache lookup
 happens *after* clearing but *before* Stanza runs.

@@ -1,4 +1,4 @@
-# Python–Rust Boundary
+# Python-Rust Boundary
 
 **Status:** Current
 **Last updated:** 2026-05-19 17:38 EDT
@@ -51,14 +51,14 @@ flowchart TD
 
 This architecture eliminates duplicated logic between Python and Rust,
 enables unified caching at the server level, and makes workers
-interchangeable — any worker with the right model can serve any
+interchangeable, any worker with the right model can serve any
 request.
 
 ## Dispatch Decision
 
 Text-only commands **require** the infer path. If a worker lacks the
 required task in its `infer_tasks` capability list, the job fails with
-an "upgrade required" error — there is no Python `process` fallback.
+an "upgrade required" error, there is no Python `process` fallback.
 
 ```mermaid
 flowchart TD
@@ -137,7 +137,7 @@ calls the appropriate Python handler.
 ```
 
 Prepared artifacts (text, audio) are owned by Rust and read by the
-worker via path references in `attachments` — they do not cross IPC
+worker via path references in `attachments`: they do not cross IPC
 inline.
 
 ### `execute_v2` response
@@ -159,10 +159,10 @@ inline.
 Prepared-text batch items and response items are positionally matched
 (`items[i]` corresponds to batch element `i`).
 
-## Three-Layer Split — Internal Only
+## Three-Layer Split: Internal Only
 
 The Batchalign worker side is internally split into three layers. The
-split exists for maintainability — none of these layers is a public
+split exists for maintainability, none of these layers is a public
 extension surface for third-party plugins.
 
 ### 1. Core primitives (Rust)
@@ -174,7 +174,7 @@ directly owns low-level CHAT mutation rules.
 
 ### 2. Inference providers (Python, internal)
 
-`batchalign/inference/` modules — pure Python task adapters around
+`batchalign/inference/` modules, pure Python task adapters around
 third-party ML libraries (Stanza, Whisper, pyannote, FunASR, Tencent,
 Aliyun, etc.). They receive typed task payloads from the Rust dispatch
 layer and return typed task results. They do not parse `.cha` files
@@ -184,7 +184,7 @@ pieces (Whisper-in-Rust is already gated and shipping).
 
 ### 3. Pipeline operations (Rust)
 
-The CHAT-aware orchestration layers in Rust — choose extraction
+The CHAT-aware orchestration layers in Rust, choose extraction
 strategy, batch requests, call providers via worker IPC, read/write
 cache, inject results, apply task-specific validation and recovery.
 Pipeline operations compose core primitives instead of editing raw
@@ -201,13 +201,13 @@ would drift from the core.
 
 ### Boundary rules per layer
 
-- **Provider layer** — typed worker-IPC payloads only. No `.cha`
+- **Provider layer**: typed worker-IPC payloads only. No `.cha`
   parsing, no direct tier editing. Implementations are Python today;
   long-term they migrate into Rust.
-- **Pipeline layer** — operates on `ChatFile` in Rust. Uses core
+- **Pipeline layer**: operates on `ChatFile` in Rust. Uses core
   extraction and injection primitives. May depend on providers, but
   does not expose provider internals.
-- **Core layer** — owns structural CHAT invariants. Exposes safe
+- **Core layer**: owns structural CHAT invariants. Exposes safe
   primitives upward. Does not depend on provider-specific SDK logic.
 
 ## No Public Python API
@@ -300,7 +300,7 @@ Python Cantonese ASR engines call back into Rust for output projection
 
 `crates/batchalign/src/revai/` provides Rev.AI HTTP calls. The Rust
 server uses this crate directly for all Rev.AI operations (transcribe,
-UTR, pre-submission). No Rev.AI functions are exposed to Python — the
+UTR, pre-submission). No Rev.AI functions are exposed to Python, the
 PyO3 wrappers were removed as dead code.
 
 ### GIL strategy
@@ -344,19 +344,19 @@ Python model invocation.
 | `opensmile.py` | prepared waveform → raw acoustic feature rows |
 | `avqi.py` | paired prepared waveforms → raw voice quality metrics |
 
-Each is a pure inference function — no CHAT parsing, no text
+Each is a pure inference function, no CHAT parsing, no text
 processing, no domain logic.
 
 ## Capability Discovery
 
-Capabilities are detected **lazily** from the first real worker spawn —
+Capabilities are detected **lazily** from the first real worker spawn,
 no dedicated probe worker at startup. When the first worker for any
 profile starts up, the Rust server queries it and:
 
-1. **Infer tasks** — which inference backends are available
+1. **Infer tasks**: which inference backends are available
    (`_capabilities()` import probes in
    `batchalign/worker/_handlers.py`).
-2. **Engine versions** — non-empty engine identifier per advertised
+2. **Engine versions**: non-empty engine identifier per advertised
    infer task, used for cache / version gating.
 
 The Rust server then runs these through
@@ -393,7 +393,7 @@ local model package?".
 > critical because the worker that reports capabilities may only load
 > models for one command, but Rust still needs enough information to
 > derive the released command surface. All dependencies in the table
-> are part of the base `batchalign3` package — a standard
+> are part of the base `batchalign3` package, a standard
 > `uv tool install batchalign3` gives you every built-in engine
 > family. The import probes exist as a safety net for environments
 > where a dependency failed to install or was removed.
@@ -440,10 +440,10 @@ import probe or did not report an engine version.
 ## See also
 
 - [INTERFACE_MAP.md](https://github.com/TalkBank/talkbank-tools/blob/main/INTERFACE_MAP.md)
-  — unified reference for all 9+ Python/Rust interface boundaries
+ , unified reference for all 9+ Python/Rust interface boundaries
   (file locations, schema definitions, responsibility splits).
 - Per-command engine surfaces (request/response shapes per task,
   per-command server orchestration steps): on the
   [Dispatch and Execution](../runtime/dispatch.md) page.
-- [Cantonese and CJK — Architecture](../language-and-multilingual/cantonese-and-cjk.md)
+- [Cantonese and CJK, Architecture](../language-and-multilingual/cantonese-and-cjk.md)
   for the Cantonese-specific Python ↔ Rust seam.

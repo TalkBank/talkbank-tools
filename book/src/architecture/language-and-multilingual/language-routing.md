@@ -88,10 +88,10 @@ Language flows to **all** engines: ASR (`generate_kwargs`), Stanza
 
 Language is determined per utterance in this priority:
 
-1. **`[- lang]` precode** on the utterance (e.g., `[- fra]`) —
+1. **`[- lang]` precode** on the utterance (e.g., `[- fra]`),
    highest priority.
-2. **`@Languages` header** — first declared language used as fallback.
-3. **`--lang` CLI flag** — used when no file-level language is
+2. **`@Languages` header**: first declared language used as fallback.
+3. **`--lang` CLI flag**: used when no file-level language is
    declared.
 
 Implementation: `declared_languages()` in
@@ -129,7 +129,7 @@ processed with the primary language's Stanza pipeline regardless of
 their language directive. Non-primary utterances either got
 wrong-language morphosyntax or were silently dropped.
 
-## Per-Word Routing — Currently Limited
+## Per-Word Routing: Currently Limited
 
 Batchalign parses per-word language markers (`@s:lang`), but current
 runtime behavior does **not** do full per-word language routing into
@@ -156,7 +156,7 @@ each word to a different language-specific model and then merge the
 result back at word granularity. State the boundary clearly rather
 than imply richer routing than the release provides.
 
-## Auto-Detection — `--lang auto`
+## Auto-Detection: `--lang auto`
 
 When the user passes `--lang auto`, the pipeline auto-detects the
 spoken language(s) from audio content, generates correct CHAT
@@ -218,12 +218,12 @@ flowchart TD
 
 ### Two-stage resolution
 
-**Stage 1 — primary language (whole-file).** Determines the dominant
+**Stage 1, primary language (whole-file).** Determines the dominant
 language for `@Languages` header and `@ID` lines.
 
 | ASR engine | Primary determination |
 |---|---|
-| Rev.AI (auto) | **Rev.AI Language Identification API** — audio-based pre-pass (~5–30s). Returns `top_language` with confidence. Far more accurate than text trigrams for code-switched audio. |
+| Rev.AI (auto) | **Rev.AI Language Identification API**: audio-based pre-pass (~5-30s). Returns `top_language` with confidence. Far more accurate than text trigrams for code-switched audio. |
 | Whisper (auto) | whatlang majority vote across utterances (fallback to `eng` if undetectable). |
 | Any (explicit) | User-specified `--lang spa` used directly. |
 
@@ -233,11 +233,11 @@ improves ASR quality (Rev.AI can optimize for the known language) and
 enables language-specific settings like `speakers_count` and
 `skip_postprocessing`.
 
-**Stage 2 — per-utterance language (code-switching).** Only runs
+**Stage 2, per-utterance language (code-switching).** Only runs
 when `--lang auto`. For each post-processed utterance:
 
 1. Concatenate all word texts into a single string.
-2. Run `whatlang::detect()` — returns `(Lang, confidence)` or `None`.
+2. Run `whatlang::detect()`: returns `(Lang, confidence)` or `None`.
 3. If confidence ≥ 0.5 and text has ≥ 40 alpha characters, set
    `utt.lang = Some(iso639_3_code)`.
 4. If `utt.lang` differs from the primary language, a `[- lang]`
@@ -248,7 +248,7 @@ when `--lang auto`. For each post-processed utterance:
 **Rev.AI Language Identification API.** Audio-based phonetic
 classifier. `POST /languageid/v1/jobs` → poll → result. Handles
 code-switching correctly because it hears the dominant phonetic
-patterns. ~5–30 s, ~$0.01–0.05 per file (negligible vs. transcription
+patterns. ~5-30 s, ~$0.01-0.05 per file (negligible vs. transcription
 cost). Coverage: all Rev.AI-supported languages (~60+).
 
 Fallback chain: if Language ID fails (network error, unsupported
@@ -258,7 +258,7 @@ whatlang on the transcript text.
 **whatlang trigram detection.** Used for per-utterance code-switching
 tagging (all backends) and as primary fallback when Rev.AI Language
 ID is unavailable. O(n) in text length, no ML model, no network call
-— typically < 1 ms per utterance, < 50 ms for 200 utterances.
+, typically < 1 ms per utterance, < 50 ms for 200 utterances.
 Reliable for monolingual utterances > 40 characters; unreliable for
 code-switched utterances. Coverage: 69 languages with ISO 639-3
 mappings.
@@ -272,7 +272,7 @@ mappings.
 **Known limitation.** whatlang struggles with code-switched
 utterances (e.g., "Me dice que trabaja en furniture I mean..."). Such
 utterances may be classified as either language depending on which
-trigrams dominate. Inherent to character n-gram classifiers — Rev.AI
+trigrams dominate. Inherent to character n-gram classifiers, Rev.AI
 Language ID (audio-based) is preferred for primary detection.
 
 ### CHAT output
@@ -320,12 +320,12 @@ detections and produces the ordered list.
 ## See Also
 
 - [Stanza Capability Registry](../../batchalign/architecture/stanza-capability-registry.md)
-  — which Stanza models are loaded for which languages.
+ , which Stanza models are loaded for which languages.
 - [Stanza Defect Mitigation Map](../../batchalign/architecture/stanza-defect-mitigation-map.md)
-  — per-language defects in deployed Stanza models.
-- [Cantonese and CJK — Architecture](cantonese-and-cjk.md) —
+ , per-language defects in deployed Stanza models.
+- [Cantonese and CJK, Architecture](cantonese-and-cjk.md),
   Cantonese-specific routing detail (POS override, `--retokenize`).
 - [Language Handling](../../batchalign/reference/language-handling.md)
-  — user-facing language reference.
+ , user-facing language reference.
 - [Language Code Resolution](../../batchalign/reference/language-code-resolution.md)
-  — user-facing detail on resolution priority and edge cases.
+ , user-facing detail on resolution priority and edge cases.

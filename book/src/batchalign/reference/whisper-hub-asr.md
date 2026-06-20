@@ -44,7 +44,7 @@ batchalign3 transcribe input/ output/ \
 
 The per-language default model_id table lives in
 `batchalign/models/resolve.py`. It is intentionally small and seeded
-reactively from empirical evaluation — a language only gets a default
+reactively from empirical evaluation, a language only gets a default
 after we've confirmed the chosen fine-tune produces coherent output.
 
 | Language (ISO-639-3) | Default HF model_id | Notes |
@@ -84,7 +84,7 @@ A 73-second Malayalam sample was transcribed by four candidates:
 | `openai/whisper-medium` | 13.4 % | 0.73 | No (Khmer + Gurmukhi character loops) |
 
 Rev.AI on the same file returned 55 tokens of Hangul + Gurmukhi + Latin
-+ U+FFFD — zero Malayalam script. That result drove the deny-list
++ U+FFFD, zero Malayalam script. That result drove the deny-list
 entry in `revai/preflight.rs::REVAI_KNOWN_BROKEN`, which now
 recommends `whisper_hub` for Malayalam specifically.
 
@@ -96,14 +96,14 @@ Artifacts live in an operational workspace outside this public repo.
   accuracy before shipping this default for a large corpus.
 - CPU inference (no GPU numbers). `thennal/whisper-medium-ml` took
   353 seconds on a development machine's CPU for 73 seconds of audio
-  (4.8× real-time slower). GPU should be ~3–5× faster than real-time.
+  (4.8× real-time slower). GPU should be ~3-5× faster than real-time.
 
 ## Fine-tune gotchas
 
 HF Whisper fine-tunes differ from stock OpenAI checkpoints in one
 critical way: they bake `language` and `task` into their own
 `generation_config`. Passing them again via `generate_kwargs` produces
-gibberish — the model applies two competing prompts.
+gibberish, the model applies two competing prompts.
 
 `whisper_hub` handles this by passing `language="auto"` through to the
 shared `load_whisper_asr()`, which makes the handle's `gen_kwargs("auto")`
@@ -114,7 +114,7 @@ fine-tune loader.
 ## When this engine stops being a fit
 
 If the per-language table grows past ~10 entries and we're re-testing
-defaults often, it's time to escalate to a probe harness — see Option C
+defaults often, it's time to escalate to a probe harness, see Option C
 in [`revai-language-quality-strategy.md`](revai-language-quality-strategy.md).
 
 ## Cross-references

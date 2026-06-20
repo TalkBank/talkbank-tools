@@ -13,7 +13,7 @@ that means for deploying fixes.
 
 ## Core Mental Model
 
-Every cached command has a **cache boundary** — a line between what's stored in
+Every cached command has a **cache boundary**: a line between what's stored in
 the cache (raw ML output) and what's computed fresh on every run (Rust
 post-processing). The rule is simple:
 
@@ -95,7 +95,7 @@ retokenization) runs fresh every time.
 
 | What I changed | Override needed? | Why |
 |---------------|-----------------|-----|
-| Post-processing logic (injection, bullet computation, %wor generation, retokenization after cache, terminator patching) | **No** | Runs after cache retrieval — cached value is still correct |
+| Post-processing logic (injection, bullet computation, %wor generation, retokenization after cache, terminator patching) | **No** | Runs after cache retrieval, cached value is still correct |
 | Cache key computation | **No** | Old entries become orphans (different key = automatic miss). New keys miss and re-infer. |
 | Word extraction logic (changes which words are sent to the model) | **Yes** | Cached result was computed from different input words |
 | ML model/engine code (Python worker) | **Automatic** if `engine_version` changes; **Yes** if version string unchanged | Engine version scoping handles model upgrades transparently |
@@ -112,20 +112,20 @@ lost their timing coverage.
 
 **Analysis:**
 
-1. What's cached? `Vec<Option<WordTiming>>` — the raw per-word timings from
+1. What's cached? `Vec<Option<WordTiming>>`: the raw per-word timings from
    Whisper/Wave2Vec.
-2. Where's the bug? In `update_utterance_bullet()` — post-processing that runs
+2. Where's the bug? In `update_utterance_bullet()`: post-processing that runs
    *after* cache retrieval.
-3. Are the cached timings wrong? No — the word-level timings are correct. The
+3. Are the cached timings wrong? No, the word-level timings are correct. The
    bug was in how we used them to update the utterance bullet.
 
 **Fix:** `update_utterance_bullet()` now uses `BulletSource` provenance to decide
 whether to overwrite or union:
 
 - **`BulletSource::Authoritative`** (hand-linked, parsed from file, or FA-derived):
-  **union** — never shrink. Preserves filler/gesture coverage.
+  **union**: never shrink. Preserves filler/gesture coverage.
 - **`BulletSource::Utr`** (provisional UTR hint, set by `Bullet::utr_hint()`):
-  **overwrite** — FA word span is authoritative. The UTR window was a rough
+  **overwrite**: FA word span is authoritative. The UTR window was a rough
   estimate; the FA alignment is more precise.
 
 **Verdict: No `--override-media-cache` needed.** The source-aware update logic
@@ -140,10 +140,10 @@ auto-deletes the cache entry that produced it and writes a bug report to
 
 - **Helps when:** A cached value produces output that fails validation. Next run
   re-infers and (if the underlying model is correct) produces valid output.
-- **Does NOT help when:** The cached value is *wrong but valid* — e.g., it
+- **Does NOT help when:** The cached value is *wrong but valid*, e.g., it
   passes validation but contains incorrect timings. Validation can't catch
   semantic correctness.
-- **Does NOT help when:** The post-processing is buggy — the cache entry will be
+- **Does NOT help when:** The post-processing is buggy, the cache entry will be
   deleted, but re-inference produces the same cached value, which the same buggy
   post-processing corrupts again. Fix the post-processing first.
 
@@ -151,7 +151,7 @@ auto-deletes the cache entry that produced it and writes a bug report to
 
 If a cached entry fails to deserialize (e.g., because the stored format changed
 between versions), the cache layer logs a warning and falls back to
-re-inference. The stale entry is **not** automatically deleted — it becomes a
+re-inference. The stale entry is **not** automatically deleted, it becomes a
 permanent miss that re-infers every time until `--override-media-cache` forces a fresh
 store. This is conservative: it avoids data loss from format migration bugs.
 
@@ -165,7 +165,7 @@ When deploying a fix to the fleet (production server, worker hosts, etc.):
 3. **If override IS needed:** Deploy the new binary, then re-run affected
    commands with `--override-media-cache` on the target corpora. For large corpora,
    consider running only on affected files rather than the full dataset.
-4. **If engine version changed:** No action needed — version scoping
+4. **If engine version changed:** No action needed, version scoping
    automatically invalidates stale entries. Verify by checking cache stats in
    server logs (should show misses on first run).
 5. **If unsure:** `--override-media-cache` is always safe. The cost is re-inference

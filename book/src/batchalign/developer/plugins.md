@@ -13,15 +13,15 @@
 
 ## Why It Was Removed
 
-1. **Single consumer** — `batchalign-hk-plugin` was the only plugin. The
+1. **Single consumer**: `batchalign-hk-plugin` was the only plugin. The
    discovery machinery existed for one package.
-2. **Entry-point fragility** — `importlib.metadata.entry_points()` failed
+2. **Entry-point fragility**: `importlib.metadata.entry_points()` failed
    silently on broken packages, loaded wrong versions across environments, and
    was difficult to debug.
-3. **Enum dispatch is safer** — `AsrEngine` and `FaEngine` enums provide
+3. **Enum dispatch is safer**: `AsrEngine` and `FaEngine` enums provide
    compile-time exhaustiveness checking and clear error messages for missing
    engines.
-4. **Built-in providers are simpler** — we keep provider dependencies in the
+4. **Built-in providers are simpler**: we keep provider dependencies in the
    base package rather than recreating plugin-style install tiers.
 
 ## Current Engine Extension Pattern
@@ -46,7 +46,7 @@ through late-bound plugin discovery.
 
 For a real-world example of this pattern, see the Cantonese ASR engines in
 `batchalign/inference/languages/cantonese/` and the
-[Cantonese and CJK — Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md).
+[Cantonese and CJK, Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md).
 
 ## Migration Guide for Existing Plugins
 

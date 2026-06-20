@@ -48,9 +48,9 @@ Cargo workspace (`batchalign3` was folded into talkbank-tools on
 2026-04-28). The runtime crate `batchalign` depends on the
 talkbank-* sibling crates by workspace path:
 
-- `talkbank-model` — CHAT data model + validation
-- `talkbank-parser` — tree-sitter-backed CHAT parser
-- `talkbank-transform` — pipelines, alignment, CHAT↔JSON
+- `talkbank-model`: CHAT data model + validation
+- `talkbank-parser`: tree-sitter-backed CHAT parser
+- `talkbank-transform`: pipelines, alignment, CHAT↔JSON
 
 `talkbank-clan` is NOT a runtime dependency of the batchalign crate;
 it is a sibling crate used by the standalone `chatter` CLI.

@@ -29,7 +29,7 @@ options listed below were added in the Feb 9 master.
 
 The Feb 9 globals BA3 carries forward (as wired flags) are
 `--verbose`, `--workers`, `--timeout`, and `--force-cpu`. Every other
-Feb 9 global was removed — passing it to BA3 produces a clap parse
+Feb 9 global was removed, passing it to BA3 produces a clap parse
 error, not a silent no-op.
 
 | Flag | Type | Default | Baseline | BA3 Status |
@@ -140,7 +140,7 @@ engine = seamless_translate
 The `[translate] engine` entry was read by
 `pipelines/dispatch.py:resolve_engine_specs` and silently became the
 engine for every subsequent BA2 invocation on that host until the
-file was edited again — exactly the per-host hidden-state pattern
+file was edited again, exactly the per-host hidden-state pattern
 that the BA3 design rejects.
 
 **BA3 replacement.** BA3 surfaces the same capability as an explicit
@@ -152,7 +152,7 @@ GFW) pass `--translate-engine tencent` (best Mandarin),
 `--translate-engine aliyun` (Cantonese-capable cloud), or
 `--translate-engine nllb` (self-hosted local model) per invocation.
 BA3 deliberately does not honor the BA2 `[translate] engine` config
-key — engine choice is a policy decision that lives at the command
+key, engine choice is a policy decision that lives at the command
 line.
 
 ### `coref` (hidden)

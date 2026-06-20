@@ -6,10 +6,10 @@
 `batchalign3 doctor` is the diagnostic surface for a batchalign3
 deployment. It runs in two modes:
 
-- **Default** — runs the worker pipeline test (Python availability,
+- **Default**: runs the worker pipeline test (Python availability,
   Stanza imports, test-echo round-trip, morphotag pipeline,
   available memory) and prints a host-facts summary.
-- **`--check`** — host-facts only. Skips the Python pipeline entirely
+- **`--check`**: host-facts only. Skips the Python pipeline entirely
   for fast config-sanity verification.
 
 This page covers the operator workflow. Implementation details for
@@ -85,7 +85,7 @@ during real jobs.
 
 Slower than `--check` because it loads ML models. Use it after
 software updates, model refreshes, or when a new fleet host comes
-online — not as a per-deploy gate.
+online, not as a per-deploy gate.
 
 ## CI gate: zero-warning deployments
 
@@ -113,7 +113,7 @@ cleanly with surrounding shell output.
 ### JSON: `--format json`
 
 For machine consumers (CI scripts, monitoring dashboards). The schema
-is stable — fields can be added but renames or removals require a
+is stable, fields can be added but renames or removals require a
 deliberate version bump.
 
 ```bash
@@ -123,20 +123,20 @@ batchalign3 doctor --explain force_cpu --format json | jq '.source'
 
 Top-level keys in `--check` mode:
 
-- `detected` — the `HostFacts` snapshot (OS, arch, RAM, GPU, etc.)
-- `effective` — resolved knob values (operator overrides merged with
+- `detected`: the `HostFacts` snapshot (OS, arch, RAM, GPU, etc.)
+- `effective`: resolved knob values (operator overrides merged with
   recommendations)
-- `validation` — `{ warnings: [string], errors: [string] }`
+- `validation`: `{ warnings: [string], errors: [string] }`
 
 Top-level keys in `--explain` mode:
 
-- `knob` — the requested knob name
-- `resolved_value` — the value the runtime will use
-- `source` — `"operator_override"` or `"recommendation"`
-- `recommendation` — what the recommendation function returned
+- `knob`: the requested knob name
+- `resolved_value`: the value the runtime will use
+- `source`: `"operator_override"` or `"recommendation"`
+- `recommendation`: what the recommendation function returned
   (always present, so operators can compare)
-- `rule` — narrative description of the recommendation rule
-- `facts_used` — narrative description of the relevant detected facts
+- `rule`: narrative description of the recommendation rule
+- `facts_used`: narrative description of the relevant detected facts
 
 In default mode (the worker-pipeline path), the payload is
 `{ "checks": [CheckResult], "host_facts": HostFactsReport }`.
@@ -145,10 +145,10 @@ In default mode (the worker-pipeline path), the payload is
 
 The validator reports two kinds of finding:
 
-- **Warnings** — the override is suboptimal but the server can still
+- **Warnings**: the override is suboptimal but the server can still
   run. Surfaced as `tracing::warn!` lines at server startup. Default
   exit policy: non-fatal.
-- **Errors** — the override would deterministically crash or produce
+- **Errors**: the override would deterministically crash or produce
   wrong output. The server refuses to start; `doctor --check` exits
   non-zero with the recommendation in the message.
 
@@ -165,7 +165,7 @@ Today's error variants:
 
 | Variant | Triggered by |
 |---|---|
-| `MaxConcurrentJobsWouldDeterministicallyOom` | `max_concurrent_jobs * worst_case_per_job_peak_ram_mb(tier) > ram_total_mb`. Worst case = the heaviest worker profile **for the detected tier**: 6 GB on Small (`< 24 GB`), 6 GB on Medium (Stanza), 16 GB on Large/Fleet. Even if every job uses the heaviest profile, no scheduling outcome fits — the server refuses to start. The error message suggests `--sequential` (which forces single-job execution and bypasses the multiplier). Alternatively: drop `max_concurrent_jobs` from `server.yaml` (the host-facts recommendation is by construction safe) or set a value that satisfies `n * worst_case_per_job_peak_ram_mb(tier) <= ram_total_mb`. |
+| `MaxConcurrentJobsWouldDeterministicallyOom` | `max_concurrent_jobs * worst_case_per_job_peak_ram_mb(tier) > ram_total_mb`. Worst case = the heaviest worker profile **for the detected tier**: 6 GB on Small (`< 24 GB`), 6 GB on Medium (Stanza), 16 GB on Large/Fleet. Even if every job uses the heaviest profile, no scheduling outcome fits, the server refuses to start. The error message suggests `--sequential` (which forces single-job execution and bypasses the multiplier). Alternatively: drop `max_concurrent_jobs` from `server.yaml` (the host-facts recommendation is by construction safe) or set a value that satisfies `n * worst_case_per_job_peak_ram_mb(tier) <= ram_total_mb`. |
 
 Conservative-vs-recommendation cases (operator under-eager) are
 intentionally silent. The operator knows their host better than

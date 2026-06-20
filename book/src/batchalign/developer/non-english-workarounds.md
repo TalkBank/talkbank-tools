@@ -25,7 +25,7 @@ These entries mix three kinds of behavior:
 
 **All workarounds were ported from batchalign2** and now live entirely in Rust
 (`crates/batchalign-transform/src/morphosyntax/lang_*.rs`). Python workers only
-call Stanza and return raw output — all workaround logic is applied
+call Stanza and return raw output, all workaround logic is applied
 server-side.
 
 ### Decision Framework
@@ -96,7 +96,7 @@ For each workaround, the recommended verification test is:
 | **What** | Static lookup of irregular past tense / participle forms (be→was/been, go→went/gone, etc.). Used by `verb_features()` to emit `-PAST` or `-PASTP` suffixes. |
 | **Why** | Stanza's lemmatizer doesn't reliably map inflected forms back to base forms for irregular verbs. The lookup confirms whether a surface form is indeed a known irregular conjugation of its lemma. |
 | **Origin** | Ported from `batchalign2/pipelines/morphosyntax/en/irr.py` |
-| **Still needed?** | **Yes — permanent.** This is a CHAT convention: %mor must show `-PAST`/`-PASTP` suffixes on irregular verbs. Even if Stanza improved, the lookup table is needed to classify forms. |
+| **Still needed?** | **Yes, permanent.** This is a CHAT convention: %mor must show `-PAST`/`-PASTP` suffixes on irregular verbs. Even if Stanza improved, the lookup table is needed to classify forms. |
 | **Tests** | `lang_en.rs`: `test_irregular_past`, `test_irregular_participle`, `test_regular_verb`, `test_case_insensitive` |
 
 ### E2. English Contraction MWT Handling
@@ -118,7 +118,7 @@ For each workaround, the recommended verification test is:
 | **What** | English uses Stanza's "gum" MWT package instead of default. |
 | **Why** | The GUM corpus MWT model provides better English contraction handling. |
 | **Origin** | batchalign2 Stanza configuration |
-| **Still needed?** | **Unknown — testable.** Newer Stanza versions may have improved the default package. Test: run English morphotag with and without "gum" package, compare results on contraction-heavy input. |
+| **Still needed?** | **Unknown, testable.** Newer Stanza versions may have improved the default package. Test: run English morphotag with and without "gum" package, compare results on contraction-heavy input. |
 | **Tests** | `test_stanza_config_parity.py` |
 
 ---
@@ -146,7 +146,7 @@ For each workaround, the recommended verification test is:
 | **What** | List of French nouns that undergo auditory plural marking (e.g., "cheval"/"chevaux"). Used by `noun_features()` to correctly emit plural suffixes in %mor. |
 | **Why** | Stanza may not distinguish between regular and APM plurals. CHILDES/CHAT convention requires explicit plural marking for these nouns. |
 | **Origin** | `batchalign2/pipelines/morphosyntax/fr/apmn.py` |
-| **Still needed?** | **Yes — permanent.** This is a CHAT/CHILDES convention for French child language analysis. The list defines which nouns get special plural treatment regardless of Stanza's output. |
+| **Still needed?** | **Yes, permanent.** This is a CHAT/CHILDES convention for French child language analysis. The list defines which nouns get special plural treatment regardless of Stanza's output. |
 | **Tests** | `lang_fr.rs`: 4 tests; `mapping.rs`: `test_french_noun_apm_plural`, `test_french_noun_non_apm_plural` |
 
 ### F3. MWT Overrides (3 rules + elision + multi-clitic)
@@ -161,7 +161,7 @@ For each workaround, the recommended verification test is:
 | | **Multi-clitic** (e.g., "d'l'attraper") → split into individual clitics |
 | **Why** | Stanza's French MWT model has known quirks with these forms. |
 | **Origin** | `batchalign2/ud.py:671-689` |
-| **Still needed?** | **Likely yes for aujourd'hui and elision rules.** These are French orthographic conventions, not Stanza bugs. The "au" forcing could be tested with current Stanza — it may handle it correctly now. |
+| **Still needed?** | **Likely yes for aujourd'hui and elision rules.** These are French orthographic conventions, not Stanza bugs. The "au" forcing could be tested with current Stanza, it may handle it correctly now. |
 | **Tests** | French-specific tests embedded in `tokenizer_realign.rs` |
 
 ---
@@ -179,7 +179,7 @@ For each workaround, the recommended verification test is:
 | **Why** | Stanza's Japanese models systematically mislabel auxiliary particles and verbs. The surface form is a reliable signal for the true grammatical function. |
 | **Origin** | `batchalign2/pipelines/morphosyntax/ja/verbforms.py` |
 | **Still needed?** | **Almost certainly yes.** Japanese auxiliary verb classification is a known challenge for UD models. These are systematic patterns, not isolated bugs. Each rule should be verified individually against current Stanza output, but the overall framework will likely remain necessary. |
-| **Order matters** | The if/elif chain is order-dependent — matches Python exactly. |
+| **Order matters** | The if/elif chain is order-dependent, matches Python exactly. |
 | **Tests** | `lang_ja.rs`: 4 tests covering sconj, intj, de, and no-override cases |
 
 ### J2. Combined Processor Package
@@ -201,7 +201,7 @@ For each workaround, the recommended verification test is:
 | **What** | Japanese PUNCT tokens are remapped to `cm` POS. Japanese commas ("、", ",") specifically get lemma "cm". |
 | **Why** | CHAT uses "cm\|cm" for comma punctuation, but Stanza tags these as regular PUNCT. |
 | **Origin** | Python master Japanese handling |
-| **Still needed?** | **Yes — permanent.** This is a CHAT convention, not a Stanza bug. |
+| **Still needed?** | **Yes, permanent.** This is a CHAT convention, not a Stanza bug. |
 | **Tests** | Covered by morphosyntax round-trip tests |
 
 ---
@@ -216,7 +216,7 @@ For each workaround, the recommended verification test is:
 | **What** | When Stanza tags "l'" as MWT `(l', true)`, suppress the expansion hint. |
 | **Why** | Stanza aggressively expands "l'" which should not always be split. |
 | **Origin** | `batchalign2/ud.py:662-668` |
-| **Still needed?** | **Testable.** Run Stanza on Italian text with "l'" — if it still over-expands, keep. |
+| **Still needed?** | **Testable.** Run Stanza on Italian text with "l'", if it still over-expands, keep. |
 | **Tests** | Italian tests embedded in `tokenizer_realign.rs` |
 
 ### I2. "lei" Merge (le + i → lei)
@@ -242,7 +242,7 @@ For each workaround, the recommended verification test is:
 | **What** | Force MWT expansion on "d'água" (de + água). |
 | **Why** | Stanza may not recognize this as a contraction. |
 | **Origin** | `batchalign2/ud.py:669-670` |
-| **Still needed?** | **Testable.** Run Stanza on "d'água" — if it splits correctly, can remove. |
+| **Still needed?** | **Testable.** Run Stanza on "d'água", if it splits correctly, can remove. |
 | **Tests** | Portuguese test embedded in `tokenizer_realign.rs` |
 
 ---
@@ -262,7 +262,7 @@ For each workaround, the recommended verification test is:
 
 ---
 
-## Cantonese (`yue`) — Engines
+## Cantonese (`yue`): Engines
 
 ### C1. Text Normalization Pipeline
 
@@ -273,7 +273,7 @@ For each workaround, the recommended verification test is:
 | **What** | Two-stage normalization: Simplified→Traditional via `ferrous-opencc`, then a domain replacement table (multi-char first to prevent partial matches). |
 | **Why** | Cantonese ASR output uses simplified or colloquial forms that need normalization to standard written Cantonese. |
 | **Origin** | Cantonese-specific (new in batchalign3) |
-| **Still needed?** | **Yes — permanent.** Regional dialect normalization, not a model bug. |
+| **Still needed?** | **Yes, permanent.** Regional dialect normalization, not a model bug. |
 | **Tests** | `test_common.py` |
 
 ### C2. Jyutping Romanization for FA
@@ -284,7 +284,7 @@ For each workaround, the recommended verification test is:
 | **What** | Converts hanzi to jyutping (tone-stripped, apostrophe-joined) before Wave2Vec FA. |
 | **Why** | Wave2Vec MMS was trained on romanized text, so hanzi must be romanized for alignment. |
 | **Origin** | Cantonese-specific (new in batchalign3) |
-| **Still needed?** | **Yes — permanent.** Architectural requirement of the FA model. |
+| **Still needed?** | **Yes, permanent.** Architectural requirement of the FA model. |
 | **Tests** | `test_cantonese_fa.py` |
 
 ---
@@ -300,7 +300,7 @@ For each workaround, the recommended verification test is:
 | **What** | Determines which languages use Stanza's MWT processor. CJK, some Slavic languages excluded. |
 | **Why** | MWT is not applicable to all languages. CJK languages don't have multi-word tokens. |
 | **Origin** | `batchalign2/ud.py:1034-1036` |
-| **Still needed?** | **Yes — permanent.** Fundamental to pipeline architecture. |
+| **Still needed?** | **Yes, permanent.** Fundamental to pipeline architecture. |
 | **Tests** | `test_stanza_config_parity.py` |
 
 ### X2. ISO 639-3 → ISO 639-1 Mapping
@@ -312,7 +312,7 @@ For each workaround, the recommended verification test is:
 | **What** | Converts 3-letter codes (batchalign internal) to 2-letter codes (Stanza). Special: yue→zh, cmn→zh. |
 | **Why** | Stanza uses 2-letter codes. |
 | **Origin** | Essential mapping maintained from batchalign2 |
-| **Still needed?** | **Yes — permanent.** Different code systems. |
+| **Still needed?** | **Yes, permanent.** Different code systems. |
 | **Tests** | Implicit in all morphosyntax tests |
 
 ### X3. Number Expansion
@@ -324,7 +324,7 @@ For each workaround, the recommended verification test is:
 | **What** | Converts digit strings to word forms (5→"five", 5→"五") during ASR post-processing. |
 | **Why** | ASR output digit strings need language-appropriate word forms for CHAT transcription. |
 | **Origin** | `batchalign2/pipelines/asr/utils.py` |
-| **Still needed?** | **Yes — permanent.** Language-specific numeral systems. |
+| **Still needed?** | **Yes, permanent.** Language-specific numeral systems. |
 | **Tests** | Parameterized tests for English, Spanish, Chinese |
 
 ---

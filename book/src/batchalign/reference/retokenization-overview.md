@@ -1,4 +1,4 @@
-# Retokenization — Overview
+# Retokenization: Overview
 
 **Status:** Current
 **Last updated:** 2026-05-19 14:18 EDT
@@ -79,13 +79,13 @@ boundaries).
 BA3's morphosyntax retokenization inherits its per-language
 competence from three sources, in order of leverage:
 
-1. **Stanza's native models and MWT processor** — per-language
+1. **Stanza's native models and MWT processor**: per-language
    neural tokenizers ship with each Stanza model. ~45 of the
    languages Stanza supports have an MWT processor.
-2. **BA3's Rust per-language overrides** — morphology-level patches
+2. **BA3's Rust per-language overrides**: morphology-level patches
    on Stanza's UD output (POS/lemma corrections, case features).
    Live in `crates/batchalign-transform/src/morphosyntax/lang_{en,fr,it,ja}.rs`.
-3. **BA3's Python tokenizer realignment postprocessor** —
+3. **BA3's Python tokenizer realignment postprocessor**,
    `batchalign/inference/_tokenizer_realign.py`, a character-DP
    realigner that forces Stanza to respect BA3's pre-tokenized
    input. Mostly language-agnostic; one English-specific
@@ -94,7 +94,7 @@ competence from three sources, in order of leverage:
 A fourth layer existed in batchalign2 at the `jan9` snapshot but
 was dropped in the rewrite:
 
-4. **BA2's `tokenizer_processor()` + `auxiliaries` joining pass** —
+4. **BA2's `tokenizer_processor()` + `auxiliaries` joining pass**,
    a hand-coded per-language tokenization override layer that
    expanded polyapostrophic contractions, joined clitics to hosts,
    and patched Stanza's mis-splits for Italian, French, Portuguese,
@@ -121,19 +121,19 @@ following BA2 rules have **no BA3 equivalent**:
 
 | BA2 rule | Phenomenon | BA2 location |
 |----------|-----------|--------------|
-| French `jusqu'` / `puisqu'` / `quelqu'` / `aujourd'hui` | Elision-prefix clitic handling | `ud.py:422–431`, `684–693` |
-| French polyapostrophic splitter (`d'l'attraper`) | Multi-level apostrophe expansion | `ud.py:684–693` |
+| French `jusqu'` / `puisqu'` / `quelqu'` / `aujourd'hui` | Elision-prefix clitic handling | `ud.py:422-431`, `684-693` |
+| French polyapostrophic splitter (`d'l'attraper`) | Multi-level apostrophe expansion | `ud.py:684-693` |
 | French `c'est` / `l'ami` / `qu'il` preservation | Basic clitic elision | via `auxiliaries` pass |
-| Italian `ll'` / `gliel'` / `d'` / `c'` / `qual'` / `l'` | Clitic + host joining | `ud.py:410–419` |
-| Italian `le + i → lei` repair | Stanza mis-split fix | `ud.py:667–672` |
-| Portuguese `d'água` | Idiomatic MWT force | `ud.py:673–674` |
-| English apostrophe join (except `o'clock`) | Contraction handling | `ud.py:694–697` |
+| Italian `ll'` / `gliel'` / `d'` / `c'` / `qual'` / `l'` | Clitic + host joining | `ud.py:410-419` |
+| Italian `le + i → lei` repair | Stanza mis-split fix | `ud.py:667-672` |
+| Portuguese `d'água` | Idiomatic MWT force | `ud.py:673-674` |
+| English apostrophe join (except `o'clock`) | Contraction handling | `ud.py:694-697` |
 
 BA3's working assumption was that Stanza's native MWT processor
 would handle these. In practice Stanza handles some correctly
 (French `au`, Italian `dello`) but not others.
 
-### The Italian xfails — where we know BA3 is worse than BA2
+### The Italian xfails: where we know BA3 is worse than BA2
 
 `batchalign/tests/investigations/_cases/italian.py` carries 8 xfail
 cases pinned with defect slugs `stanza-it-verb-clitic-pos-split`
@@ -144,7 +144,7 @@ and `stanza-it-la-sentence-initial-split`:
 | `dell_opera_in_context` | `parla` → `par` + `la` (fake lemma), 4 UD for 3 CHAT | Joined via `auxiliaries` |
 | `parla_3sg_storia_context` | `la` → `il` + `i`, 7 UD for 6 CHAT | Handled via `le+i → lei` repair family |
 | `parla_imperative_forte` | Sentence-initial `parla` splits even with no clitic | Rejected by `auxiliaries` rules |
-| `arancione_noun_bogus_verb` | Noun `arancione` → `arancio` + `ne` (fake verb+clitic) | Wouldn't apply — `arancione` not in clitic list |
+| `arancione_noun_bogus_verb` | Noun `arancione` → `arancio` + `ne` (fake verb+clitic) | Wouldn't apply, `arancione` not in clitic list |
 | `piccolo_adj_bogus_verb` | Adjective `piccolo` → `picco` + `lo` | Same |
 | `gomitolo_noun_bogus_verb` | Noun `gomitolo` → `gomito` + `lo` | Same |
 | `divano_noun_bogus_verb` | Noun `divano` → `diva` + `no` (invalid clitic ending) | Same |
@@ -157,7 +157,7 @@ perspective is that we had a working defense and gave it up.
 Beyond the logic gap, default CI doesn't probe per-language
 tokenization at all. The investigation probe matrix
 (`batchalign/tests/investigations/_cases/`) covers French, Italian,
-Portuguese, Dutch, Spanish, German for clitic / MWT phenomena —
+Portuguese, Dutch, Spanish, German for clitic / MWT phenomena,
 but every case is `@pytest.mark.golden`, so `make test` and
 default `uv run pytest` skip them.
 
@@ -169,33 +169,33 @@ The probes exist but are on-demand.
 
 A gap investigation is underway. Summary of the phased approach:
 
-- **Phase 0 — Investigation** (complete): cataloged BA2 overrides,
+- **Phase 0, Investigation** (complete): cataloged BA2 overrides,
   BA3 ported vs absent tables, test-coverage state.
-- **Phase 1 — Book docs** (this chapter): distinguish the two
+- **Phase 1, Book docs** (this chapter): distinguish the two
   retokenizations, document the per-language gap.
-- **Phase 2 — Extend the Stanza decision-probe harness** (v2):
+- **Phase 2, Extend the Stanza decision-probe harness** (v2):
   add a token-count `Gold` and new `CandidateClass` variants for
   the absent rule families.
-- **Phase 3 — Seed probes** for every BA2 rule family across
+- **Phase 3, Seed probes** for every BA2 rule family across
   every language BA3 supports (not only BA2-covered ones).
-- **Phase 4 — Adjudicate per rule**: decide port / replace /
+- **Phase 4, Adjudicate per rule**: decide port / replace /
   drop with evidence. Use the Q-B ruling (Stanza POS >
   hand-judgment gold) as the calibration standard.
-- **Phase 5 — Implement** only the rules adjudication demands,
+- **Phase 5, Implement** only the rules adjudication demands,
   in the most principled home available (Stanza postprocessor
   extension, per-language Rust reconciler, or user lexicon).
-- **Phase 6 — Graduate** locked regression probes out of the
+- **Phase 6, Graduate** locked regression probes out of the
   `@pytest.mark.golden` tier into default CI.
 
 The program covers **all languages BA3 supports**, tiered by
 evidence strength:
 
-- Tier A: English, French, Italian, Portuguese, Japanese — where
+- Tier A: English, French, Italian, Portuguese, Japanese, where
   BA2 had explicit rules.
 - Tier B: Spanish, German, Dutch, Catalan, Polish, Romanian,
-  Greek, Russian, Turkish, Arabic, Hebrew, Chinese, etc. —
+  Greek, Russian, Turkish, Arabic, Hebrew, Chinese, etc.,
   Stanza-MWT-supported, no BA2 precedent.
-- Tier C: remaining languages with minimal Stanza support — probe
+- Tier C: remaining languages with minimal Stanza support, probe
   for minimal tokenization correctness only.
 
 ## CHAT provenance emission
@@ -226,7 +226,7 @@ forms directly without emitting annotations.
 
 Three English orthographic corrections live in the transcribe
 pipeline as narrow hooks inside the ASR post-processing stages.
-They are *not* part of morphosyntax retokenization — they run at
+They are *not* part of morphosyntax retokenization, they run at
 transcribe time, before Stage 6, and are gated on `lang == "eng"`.
 Full spec, allowlists, and probe-verdict citations live in
 [English Transcribe Corrections](english-transcribe-corrections.md).
@@ -272,7 +272,7 @@ skip `WordKind::Retrace` copies and land on the "real" first word.
   actually breaks on these counts; if so, Hebrew may need a
   per-language postprocessor override.
 
-- **Italian Defect 6/7/8 family** — *partially resolved*.
+- **Italian Defect 6/7/8 family**: *partially resolved*.
   A Rust-side reconciler ships in
   `crates/batchalign-transform/src/morphosyntax/lang_it.rs` covering two
   allowlist families:
@@ -291,16 +291,16 @@ skip `WordKind::Retrace` copies and land on the "real" first word.
 
 ## Cross-references
 
-- `reference/morphotag-retokenization.md` — primary morphosyntax
+- `reference/morphotag-retokenization.md`: primary morphosyntax
   retokenization chapter
-- `reference/mwt-handling.md` — Multi-word token mechanics
+- `reference/mwt-handling.md`: Multi-word token mechanics
   (foundation for both Preserve and Retokenize modes)
-- `reference/stanza-limitations.md` — the xfailed Italian cases
+- `reference/stanza-limitations.md`: the xfailed Italian cases
   and other pinned Stanza defects
-- `architecture/asr-token-pipeline.md` — ASR-stream retokenization
+- `architecture/asr-token-pipeline.md`: ASR-stream retokenization
   (Stage 6)
-- `architecture/preprocessing-postprocessing.md` — pipeline
+- `architecture/preprocessing-postprocessing.md`: pipeline
   orchestration
 - [Dynamic Programming](../../architecture/parser-and-grammar/dynamic-programming.md)
-  — why morphosyntax retokenize uses deterministic span-join rather
+ , why morphosyntax retokenize uses deterministic span-join rather
   than character DP (intentional simplification)

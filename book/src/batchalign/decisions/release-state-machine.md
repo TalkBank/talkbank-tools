@@ -7,7 +7,7 @@ This document defines the authoritative release-readiness states for
 TalkBank's public-facing projects. Every release claim (in PRs, docs,
 PyPI metadata, or conversations) must reference one of these states.
 Contradictory or informal readiness language ("almost ready", "basically
-done", "should be releasable") is not acceptable — use the state name.
+done", "should be releasable") is not acceptable, use the state name.
 
 ## States
 

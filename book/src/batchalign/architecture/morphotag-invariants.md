@@ -78,7 +78,7 @@ Each stage's correctness is independently testable:
   regression test that locks the mid-utterance-comma handling.
 
 When a count mismatch nevertheless surfaces at the injection boundary,
-it is **always a bug in one of those three stages** — never an
+it is **always a bug in one of those three stages**: never an
 expected divergence class to be resolved by after-the-fact alignment.
 
 ## The two legitimate non-realignment modes
@@ -91,7 +91,7 @@ they want Stanza to own tokenization:
 | **CJK retokenize** | Mandarin (`zho`/`cmn`) with `retokenize=True`; `use_retok_pipeline=True` in `morphosyntax.py` | Chinese has no whitespace word boundaries; Stanza's neural segmenter produces the correct word boundaries for Chinese, and CHAT's main tier is rewritten to match. |
 | **Generic retokenize** | Any language with `--retokenize` CLI flag; `req.retokenize=True` | The user has asked the pipeline to expand MWTs (`gonna → going + to`) and rewrite the CHAT main tier accordingly. Stanza must own tokenization for that. |
 
-In both modes, the 1-to-1 invariant is **not** violated — it simply
+In both modes, the 1-to-1 invariant is **not** violated, it simply
 operates at the Stanza-token level instead of the CHAT-word level.
 The main tier gets rewritten to match Stanza's output, and the
 resulting `%mor` count equals the rewritten word count by construction.
@@ -123,16 +123,16 @@ typed `Outcome`, not as tiers in the output CHAT. See the
 The `MisalignmentClass` classifier (best-effort) points developers at
 the most likely failing stage:
 
-- `RealignmentSkipped` — Stanza's tokenizer-realignment context was
+- `RealignmentSkipped`: Stanza's tokenizer-realignment context was
   `None` for the dispatch language; Stanza ran without boundary hints.
-- `MwtReassemblyBug` — the UD→Mor projection consumed the wrong number
+- `MwtReassemblyBug`: the UD→Mor projection consumed the wrong number
   of tokens during MWT Range expansion.
-- `TerminatorFilterBug` — `is_terminator_punct` dropped too many or too
-  few PUNCT tokens — e.g. dropping mid-utterance `cm|cm` separators
+- `TerminatorFilterBug`: `is_terminator_punct` dropped too many or too
+  few PUNCT tokens, e.g. dropping mid-utterance `cm|cm` separators
   that CHAT counts as alignable.
-- `LanguageDispatchIssue` — per-language chunk of a code-switched
+- `LanguageDispatchIssue`: per-language chunk of a code-switched
   utterance disagreed with the CHAT main-tier count.
-- `Unknown` — diagnostic alone is insufficient; developer must inspect.
+- `Unknown`: diagnostic alone is insufficient; developer must inspect.
 
 ## What this architecture explicitly does **not** do
 
@@ -148,7 +148,7 @@ the most likely failing stage:
   `mor_alignable_word_count()` to every caller. Pipeline-internal
   heuristics are banned.
 - It does **not** reduce observability on the happy path. `Aligned`
-  outcomes do not produce decision tiers by default — morphotag users
+  outcomes do not produce decision tiers by default, morphotag users
   see exactly the same output as before for every successful utterance.
 
 ## See also
@@ -156,7 +156,7 @@ the most likely failing stage:
 - `crates/batchalign-transform/src/morphosyntax/outcome.rs`: outcome types
 - `crates/batchalign-transform/src/inject.rs`: invariant check & outcome emission
 - `crates/batchalign-transform/src/morphosyntax/payload.rs`: NotApplicable classification
-- `batchalign/inference/morphosyntax.py` — realignment stage
-- `batchalign/tests/inference/test_morphosyntax_realignment_contract.py` — Stage 2 tests
-- `crates/batchalign/tests/chat_ops_mor_count_parity_reference_corpus.rs` — Stage 1 tests
+- `batchalign/inference/morphosyntax.py`: realignment stage
+- `batchalign/tests/inference/test_morphosyntax_realignment_contract.py`: Stage 2 tests
+- `crates/batchalign/tests/chat_ops_mor_count_parity_reference_corpus.rs`: Stage 1 tests
 - `talkbank-tools/../chatter/crates/talkbank-model/src/alignment/helpers/rules.rs`: `counts_for_tier`

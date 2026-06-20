@@ -70,10 +70,10 @@ transcribe also runs pre-CHAT utterance segmentation before CHAT assembly.
 
 | Module / Engine | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
-| Rust `crates/batchalign/src/revai/asr.rs` — Rev (default) | Rev.AI HTTP client only | local + remote API | negligible local memory | per-file server dispatch | No |
-| `inference/asr.py` — Whisper OAI | None (OpenAI API) | remote | N/A | N/A | No |
-| `inference/asr.py` — Whisper | `openai/whisper-large-v3` + optional BertUtteranceModel | HF Hub | ~3 GB + ~400 MB | Worker startup (immediate) | Yes |
-| `inference/asr.py` — WhisperX | `large-v2` + alignment model + optional BertUtteranceModel | HF Hub / WhisperX | ~4 GB | Worker startup (immediate) | Yes |
+| Rust `crates/batchalign/src/revai/asr.rs`: Rev (default) | Rev.AI HTTP client only | local + remote API | negligible local memory | per-file server dispatch | No |
+| `inference/asr.py`: Whisper OAI | None (OpenAI API) | remote | N/A | N/A | No |
+| `inference/asr.py`: Whisper | `openai/whisper-large-v3` + optional BertUtteranceModel | HF Hub | ~3 GB + ~400 MB | Worker startup (immediate) | Yes |
+| `inference/asr.py`: WhisperX | `large-v2` + alignment model + optional BertUtteranceModel | HF Hub / WhisperX | ~4 GB | Worker startup (immediate) | Yes |
 | Rust (disfluency) | None | local | negligible | N/A | No |
 | Rust (retrace) | None | local | negligible | N/A | No |
 
@@ -111,8 +111,8 @@ every file.
 
 | Module / Backend | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
-| `inference/translate.py` — Google (default) | None (Google Translate API) | remote | N/A | N/A | No |
-| `inference/translate.py` — Seamless | `facebook/hf-seamless-m4t-medium` | HF Hub | ~1.2 GB | Worker startup (immediate) | Yes |
+| `inference/translate.py`: Google (default) | None (Google Translate API) | remote | N/A | N/A | No |
+| `inference/translate.py`: Seamless | `facebook/hf-seamless-m4t-medium` | HF Hub | ~1.2 GB | Worker startup (immediate) | Yes |
 
 **Result caching:** SQLite utterance cache. Key = `BLAKE3(text + src_lang + tgt_lang)`.
 

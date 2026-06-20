@@ -5,8 +5,8 @@
 
 ## The rule
 
-Every per-item runtime error from a Python worker — engine failure,
-network failure, model error, protocol violation — propagates to the
+Every per-item runtime error from a Python worker, engine failure,
+network failure, model error, protocol violation, propagates to the
 caller as a **typed failure**. No code path silently drops a per-item
 error and emits an empty success-shaped response in its place.
 
@@ -16,7 +16,7 @@ This rule is system-wide. It applies to every command in batchalign3:
 
 ## Why this rule exists
 
-The opposite shape — log a warning, push an empty response, continue —
+The opposite shape, log a warning, push an empty response, continue,
 turns failures into invisible data loss. A user runs the job, the
 job exits "successfully", the output file is shorter than it should
 be, and the only signal lives in a tracing log nobody reads. We have
@@ -53,12 +53,12 @@ flowchart TD
 A per-file batch sees each item as either `Ok(R)` (engine succeeded
 and produced a typed payload) or `Err(String)` (the engine reported
 a runtime error, or the worker returned neither error nor payload).
-The driver — `run_text_batch_pipeline` in
-`crates/batchalign/src/pipeline/text_infer.rs` — groups per-item
+The driver, `run_text_batch_pipeline` in
+`crates/batchalign/src/pipeline/text_infer.rs`: groups per-item
 results back to their source file via `per_file_info` and writes one
 of two outcomes per file:
 
-- `TextBatchFileResult::ok(filename, chat_text)` — every item
+- `TextBatchFileResult::ok(filename, chat_text)`: every item
   succeeded for this file; the file's `%xtra` / `%mor` / etc. tier
   is injected and the file is serialized to the output.
 - `TextBatchFileResult::err(filename,
@@ -67,7 +67,7 @@ of two outcomes per file:
   the command label, total failure count, and up to
   `MAX_ITEM_ERROR_SAMPLES` (5) sample messages for diagnostics.
 
-Other files in the same cross-file batch are unaffected — they
+Other files in the same cross-file batch are unaffected, they
 follow their own outcome. This matches BA2's per-file isolation
 semantics (BA2 ran each file in its own future; one file failing
 did not kill its neighbors).
@@ -135,7 +135,7 @@ Two patterns look superficially like silent failure but are
    `Ok(UdResponse { sentences: vec![] })`, and downstream
    `inject_results` skips the empty UdResponse so the existing
    `L2|xxx` placeholder stays in `%mor`. This is BA2-parity behavior
-   for languages Stanza cannot analyze — the empty response is the
+   for languages Stanza cannot analyze, the empty response is the
    feature, not a missing result.
 
 2. **Dummy / empty-payload files passed through unchanged.** A file

@@ -28,7 +28,7 @@ Idempotent (already-capitalized `I` passes through unchanged).
 
 **Probe-verdict lock**: `batchalign/tests/investigations/_decision_cases/english.py::_PRONOUN_I_CASES`
 (POST_NEUTRAL × 2) and `_I_CONTRACTION_CASES` (POST_NEUTRAL × 3).
-Stanza's POS tagging is case-invariant for these surfaces — the
+Stanza's POS tagging is case-invariant for these surfaces, the
 rewrite is orthographic policy, not morphotag improvement.
 
 ### 2. Title-period strip
@@ -59,7 +59,7 @@ Stanza-POS-over-UD-EWT adjudication.
 **Closed-set design**: the allowlist explicitly excludes
 DECIMAL_CONTROL (`3.14`, `2.50`) and SENTENCE_PERIOD (utterance-
 final `.`) cases, which are locked POST_STRICTLY_WORSE in the
-probe matrix — those would corrupt the output if the rule fired.
+probe matrix, those would corrupt the output if the rule fired.
 
 **Pipeline hook position (critical)**: the period-strip fires
 early in `prepare_words_pre_expansion`, before
@@ -88,7 +88,7 @@ Implementation: `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::app
 - Untranscribed markers: `xxx`, `yyy`, `www`.
 - `&`-prefixed tokens: fillers (`&-um`), fragments (`&+go`),
   nonwords (`&~uh`).
-- Retrace copies (`WordKind::Retrace`) — the "real" word is at
+- Retrace copies (`WordKind::Retrace`), the "real" word is at
   the end of the retrace chain, so the initial cap lands on it
   rather than on a false-start repetition.
 - Empty strings and pure-punctuation tokens.
@@ -96,7 +96,7 @@ Implementation: `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::app
 Idempotent (already-capitalized first words pass through).
 
 **Probe-verdict lock**: `_UTTERANCE_INITIAL_CASES` (POST_NEUTRAL × 3)
-— `hello`, `the`, `what` all show case-invariant Stanza POS.
+, `hello`, `the`, `what` all show case-invariant Stanza POS.
 
 ## Pipeline integration
 
@@ -122,12 +122,12 @@ flowchart TD
 
 The position of each hook is deliberate:
 
-1. **Title-period strip on elements** (before stage 3) — stage 3
+1. **Title-period strip on elements** (before stage 3), stage 3
    splits on `.` and would fragment `Dr.`. Must run first.
-2. **I-cap on words** (in `finalize_words_to_chunks`) — runs
+2. **I-cap on words** (in `finalize_words_to_chunks`), runs
    after number expansion and before retokenize. Per-word
    rewrite.
-3. **Utterance-initial cap** (in `finalize_utterances`) — runs
+3. **Utterance-initial cap** (in `finalize_utterances`), runs
    after utterances are formed and after retrace detection, so
    it can skip retrace copies to find the "real" first word.
 
@@ -135,7 +135,7 @@ The position of each hook is deliberate:
 
 All three rules return immediately for `lang != "eng"`. The
 language gate is tested explicitly in
-`apply_english_transcribe_rules_skip_other_languages` — an Italian
+`apply_english_transcribe_rules_skip_other_languages`: an Italian
 fixture `ho visto i bambini .` passes through untouched (Italian
 `i` is the plural masculine article, which must NOT be uppercased
 by the English rule).
@@ -156,9 +156,9 @@ by the English rule).
 
 ## Cross-references
 
-- `_decision_cases/english.py` — probe-verdict locks authorizing
+- `_decision_cases/english.py`: probe-verdict locks authorizing
   each rule.
-- `reference/retokenization-overview.md` — how the three rules
+- `reference/retokenization-overview.md`: how the three rules
   interact with the two "retokenization" meanings (ASR-stream
   retokenize at stage 6 vs morphosyntax retokenize at morphotag
   time).

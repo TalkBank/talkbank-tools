@@ -177,7 +177,7 @@ Zero-duration utterance bullets (`•T_T•`, where start_ms == end_ms) fail E36
 validation and **perpetuate across every subsequent `align` re-run**: the FA
 postprocess clamps all word timings to the utterance range `[T, T]`, drops
 every word bullet (nothing survives the `start >= end` check), and
-`update_utterance_bullet` then has nothing to work from — so the zero-duration
+`update_utterance_bullet` then has nothing to work from, so the zero-duration
 bullet is preserved unchanged.
 
 The root cause is **Whisper's 20ms DTW grid**, which can return the same
@@ -238,7 +238,7 @@ cases. The safety net handles anything that slips through (e.g. cross-speaker
 overlap that is not marked with `+<`).
 
 **Why not just rely on the safety net?**  Because stripping a bullet destroys
-timing — the utterance goes back to untimed and must be recovered by FA.  The
+timing, the utterance goes back to untimed and must be recovered by FA.  The
 UTR-level fixes preserve timing: advancing `start_ms` to `prev.end_ms` keeps
 both utterances timed and valid.
 
@@ -256,7 +256,7 @@ Every `Bullet` carries a non-serialized `source: BulletSource` field (in
 | `Utr` | UTR pre-pass via `Bullet::utr_hint()` | **Overwrite** with FA word span |
 | `Authoritative` | Parser (hand-linked), `Bullet::new()`, or FA-derived | **Union** (never shrink) |
 
-`BulletSource` is `#[serde(skip)]` — it never appears in CHAT output and
+`BulletSource` is `#[serde(skip)]`: it never appears in CHAT output and
 doesn't change the file format.
 
 ```mermaid
@@ -291,8 +291,8 @@ for UTR hints.
 
 **Contrast with batchalign2 (jan9 baseline, commit `84ad500b`):**
 
-BA2 uses the same conceptual approach — DP alignment of ASR tokens against the
-reference transcript, utterance-level timing derived from word-level timing —
+BA2 uses the same conceptual approach, DP alignment of ASR tokens against the
+reference transcript, utterance-level timing derived from word-level timing,
 but its implementation differs in two important ways:
 
 1. **Utterance timing is derived dynamically, not stored.** `Utterance.alignment`
@@ -300,8 +300,8 @@ but its implementation differs in two important ways:
    through `word.time` to find the first and last timed word.  There is no
    explicit utterance bullet; the CHAT serializer writes it on demand.  This
    means a zero-duration utterance bullet can only arise if the first and last
-   timed words in an utterance share a timestamp — which BA2 prevents at the
-   **word level** inside `whisper_fa.py:183–224`: each word's `end_ms` is set to
+   timed words in an utterance share a timestamp, which BA2 prevents at the
+   **word level** inside `whisper_fa.py:183-224`: each word's `end_ms` is set to
    the start of the next word, and any word where `start >= end` is dropped
    (`word.time = None`).
 
@@ -315,7 +315,7 @@ but its implementation differs in two important ways:
 assignment) from FA (word-level timing), whereas BA2 derives utterance timing
 from word timing.  This means BA3 can produce utterance bullets that are valid
 on their own but conflict with each other (same `start_ms`), and the
-`enforce_monotonicity` end-clamp pass — which BA2 does not have — converts
+`enforce_monotonicity` end-clamp pass, which BA2 does not have, converts
 those into zero-duration spans.  The Layer 3 fix eliminates the conflict at the
 source before `enforce_monotonicity` ever sees it.
 
@@ -329,7 +329,7 @@ commands chained automatically.
 **When do you need `--diarize`?**
 - **Rev.AI (the default engine):** Rev.AI returns multi-speaker labels
   natively as part of its ASR response. Those labels are **always** applied
-  to the transcript — you get multi-speaker output without `--diarize`.
+  to the transcript, you get multi-speaker output without `--diarize`.
 - **Rev.AI with explicit `--diarize`:** BA3 now matches the audited Jan 9 BA2
   implementation. If you explicitly request diarization, BA3 still runs the
   separate Pyannote/NeMo post-ASR speaker stage on top of Rev output.

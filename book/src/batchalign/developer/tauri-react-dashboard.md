@@ -12,10 +12,10 @@ Batchalign3 dashboard delivery uses:
 
 The frontend serves two surfaces:
 
-- **`/process`** — End-user processing flow. Researchers pick a command, choose
+- **`/process`**: End-user processing flow. Researchers pick a command, choose
   files via native folder picker, and watch SSE-driven progress. Default landing
   page in desktop mode.
-- **`/dashboard`** — Fleet monitoring for power users. Real-time job status,
+- **`/dashboard`**: Fleet monitoring for power users. Real-time job status,
   file progress, error grouping, algorithm visualizations.
 
 The Tauri shell stays thin: a small set of custom commands for file discovery,
@@ -89,7 +89,7 @@ Or if you already have a release binary:
 ./target/release/batchalign3 serve start --foreground --port 8000
 ```
 
-The server must be on port 8000 — the Vite dev config in `frontend/vite.config.ts`
+The server must be on port 8000, the Vite dev config in `frontend/vite.config.ts`
 proxies `/jobs`, `/health`, and `/ws` to `localhost:8000`.
 
 ### Terminal 2: Start the Vite dev server
@@ -102,13 +102,13 @@ npm run dev
 
 Vite starts on `http://localhost:5173`. Open:
 
-- **`http://localhost:5173/dashboard`** — fleet monitoring (job list, workers,
+- **`http://localhost:5173/dashboard`**: fleet monitoring (job list, workers,
   memory, pipeline stages)
-- **`http://localhost:5173/dashboard/jobs/<id>`** — job detail with file-level
+- **`http://localhost:5173/dashboard/jobs/<id>`**: job detail with file-level
   progress
-- **`http://localhost:5173/dashboard/visualizations`** — algorithm trace
+- **`http://localhost:5173/dashboard/visualizations`**: algorithm trace
   visualizations (DP alignment, retokenization, FA timeline, ASR pipeline)
-- **`http://localhost:5173/process`** — end-user processing flow (desktop-oriented,
+- **`http://localhost:5173/process`**: end-user processing flow (desktop-oriented,
   but works in browser for layout testing)
 
 Changes to `frontend/src/` hot-reload instantly. Changes to Rust types require
@@ -293,10 +293,10 @@ cargo test --manifest-path apps/dashboard-desktop/src-tauri/Cargo.toml
 
 These tests intentionally cover the native shell contracts only:
 
-- `src-tauri/src/protocol.rs` — protocol identifier stability and event payload serialization
-- `src-tauri/src/main.rs` — `discover_files_in_dir()` recursion/filter/sort
-- `src-tauri/src/config.rs` — config roundtrip and Windows home-dir fallbacks
-- `src-tauri/src/server.rs` — `ServerProcess` empty/running/exited child states
+- `src-tauri/src/protocol.rs`: protocol identifier stability and event payload serialization
+- `src-tauri/src/main.rs`: `discover_files_in_dir()` recursion/filter/sort
+- `src-tauri/src/config.rs`: config roundtrip and Windows home-dir fallbacks
+- `src-tauri/src/server.rs`: `ServerProcess` empty/running/exited child states
 
 Keep new shell logic behind pure helpers or small state wrappers so this suite
 can stay fast without booting the full webview.
@@ -392,9 +392,9 @@ profile:<gpu|stanza|io>:<lang>[:<engine_overrides>] (<N> total, <M> idle|shared)
 ```
 
 Examples:
-- `profile:gpu:eng (1 total, shared)` — one shared GPU worker for English
-- `profile:stanza:eng (2 total, 1 idle)` — two Stanza workers, one currently checked out
-- `profile:io:fra:{"translate":"seamless"} (1 total, 1 idle)` — IO worker with engine override
+- `profile:gpu:eng (1 total, shared)`: one shared GPU worker for English
+- `profile:stanza:eng (2 total, 1 idle)`: two Stanza workers, one currently checked out
+- `profile:io:fra:{"translate":"seamless"} (1 total, 1 idle)`: IO worker with engine override
 
 The regex parser in `parseWorkerKey()` handles these formats. If the server
 changes the key format, the parser must be updated to match.
@@ -408,7 +408,7 @@ changes the key format, the parser must be updated to match.
 - **danger** (red): `available ≤ threshold × 2`
 
 The gate threshold marker on the gauge bar is positioned at
-`(total - threshold) / total × 100%` — the point where available memory
+`(total - threshold) / total × 100%`: the point where available memory
 equals the threshold.
 
 ## Dashboard State Boundary

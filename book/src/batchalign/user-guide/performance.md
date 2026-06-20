@@ -8,7 +8,7 @@ improve throughput.
 
 ## Cold vs warm starts
 
-The first run of any command downloads ML models and initializes them — expect
+The first run of any command downloads ML models and initializes them, expect
 5-20x longer than subsequent runs. After the first run:
 
 - **Model cache:** Stanza, Whisper, and other ML models are cached on disk
@@ -20,7 +20,7 @@ The first run of any command downloads ML models and initializes them — expect
   results (forced-alignment word timings, UTR ASR) in a local SQLite
   database keyed by content hash. Re-running `align` or `transcribe` on
   the same audio reuses these and is much faster. Text-NLP commands
-  (`morphotag`, `utseg`, `translate`, `coref`) are **not cached** — see
+  (`morphotag`, `utseg`, `translate`, `coref`) are **not cached**: see
   [Caching](caching.md).
 
 | Scenario | Relative Speed |
@@ -40,7 +40,7 @@ batchalign3 morphotag ~/corpus/ -o ~/output/ --workers 4
 ```
 
 Each worker loads its own copy of the ML models. Memory usage scales linearly
-with worker count — see the memory section below.
+with worker count, see the memory section below.
 
 ## CPU vs GPU
 
@@ -65,13 +65,13 @@ Memory usage depends on the command and number of workers:
 | `transcribe` | 2-4 GB (Whisper + diarization) |
 | `translate` | 1-2 GB (translation model) |
 | `utseg` | 1-2 GB (constituency parser) |
-| `compare` | <500 MB (no ML models — gold-vs-hypothesis WER scoring) |
+| `compare` | <500 MB (no ML models, gold-vs-hypothesis WER scoring) |
 
 With `--workers N`, total memory is roughly `N * per-worker cost`. The Rust
 runtime adds minimal overhead (~50 MB).
 
 **Lazy audio loading:** Audio files are loaded on demand and released after
-processing — memory does not grow with corpus size, only with concurrent
+processing, memory does not grow with corpus size, only with concurrent
 workers.
 
 ## Server mode for warm models
@@ -95,7 +95,7 @@ See [Server Mode](server-mode.md) for configuration details and
 ## The `bench` command
 
 Measure processing throughput on your hardware. The shape is
-`bench <command> <in_dir> <out_dir>` — both directories are required
+`bench <command> <in_dir> <out_dir>`: both directories are required
 positional arguments:
 
 ```bash

@@ -1,4 +1,4 @@
-# opensmile — Developer Reference
+# opensmile: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-02 08:18 EDT
@@ -12,10 +12,10 @@ documentation, see [User Guide: opensmile](../../user-guide/commands/opensmile.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `OpensmileArgs` | Positional input/output dirs, feature-set, lang |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `OpensmileArgs` | Positional input/output dirs, feature-set, lang |
 | Command definition | `crates/batchalign/src/commands/opensmile.rs` | `CommandDefinition` impl |
 | Audio prep | Shared media prep in `crates/batchalign/src/runner/` | Converts audio to mono PCM artifact |
-| Worker IPC | `batchalign/inference/opensmile.py` — `extract_features()` | Loads openSMILE, returns feature dict |
+| Worker IPC | `batchalign/inference/opensmile.py`: `extract_features()` | Loads openSMILE, returns feature dict |
 | CSV writer | `crates/batchalign/src/commands/opensmile.rs` | Typed feature map → row-oriented CSV via `csv` crate |
 
 ---

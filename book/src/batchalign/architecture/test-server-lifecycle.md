@@ -7,7 +7,7 @@
 
 ML integration tests (golden snapshots, audio transcription, parity checks,
 profile verification) need a running batchalign server with loaded Python ML
-workers. Each worker loads Whisper, Stanza, or pyannote models consuming 2–5 GB
+workers. Each worker loads Whisper, Stanza, or pyannote models consuming 2-5 GB
 RAM. The lifecycle of these workers during testing has caused three kernel OOM
 panics (2026-03-19, 2026-03-20) on a 64 GB developer machine.
 
@@ -17,7 +17,7 @@ Previously, each Rust integration test binary (`golden.rs`, `golden_audio.rs`,
 `golden_parity.rs`, `profile_verification.rs`, etc.) was compiled as a separate
 executable. Each binary included `mod common;` which compiled the shared fixture
 module into its own address space. The fixture uses a `static LazyLock` for the
-server backend — process-local, so 7 binaries = 7 independent worker pools.
+server backend, process-local, so 7 binaries = 7 independent worker pools.
 
 ### Implemented solution: single binary consolidation
 
@@ -54,7 +54,7 @@ The `LiveServerSession` fixture within the binary is well-designed:
 - **One `PreparedWorkers` backend** shared across all 70 tests
 - **Fresh HTTP server per session** (new port, new jobs dir, new SQLite)
 - **Semaphore-gated sessions** so tests don't collide on control-plane state
-- **Warm model cache** across tests — only the first test pays cold-start cost
+- **Warm model cache** across tests, only the first test pays cold-start cost
 
 ## Architecture overview
 
@@ -290,9 +290,9 @@ ml` invocation, with test binaries connecting as HTTP clients. The server's
 autotuner and memory gate handle scheduling. Models load once and stay warm.
 
 **Implementation options (in order of simplicity):**
-1. **nextest setup script** — `[profile.ml.scripts.setup]` starts a daemon
-2. **Test-managed daemon** — file-lock coordination in `common/mod.rs`
-3. **Always-on dev daemon** — assume a running server, skip if absent
+1. **nextest setup script**: `[profile.ml.scripts.setup]` starts a daemon
+2. **Test-managed daemon**: file-lock coordination in `common/mod.rs`
+3. **Always-on dev daemon**: assume a running server, skip if absent
 
 ## Relationship to the broader worker architecture
 

@@ -26,7 +26,7 @@ batchalign-types = { workspace = true }
 ```
 
 The PyO3 worker-runtime crate at `crates/batchalign-pyo3/Cargo.toml`
-has a narrower set of workspace deps — it does **not** consume the
+has a narrower set of workspace deps, it does **not** consume the
 runtime `batchalign` crate:
 
 ```toml

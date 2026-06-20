@@ -60,14 +60,14 @@ batchalign3 serve start --foreground --test-echo
 The server has two control-plane backends, chosen by the
 `temporal_server_url` field in `server.yaml`:
 
-- **In-process backend** — selected when `temporal_server_url` is empty
+- **In-process backend**: selected when `temporal_server_url` is empty
   or set to the sentinel `"none"`, `"local"`, or `"disabled"`. The
   control plane is hosted inside the `batchalign3` server process; no
   external service required. (Implemented by `bootstrap_test_server_backend`
-  in `crates/batchalign/src/server_backend.rs` — the name dates from when
+  in `crates/batchalign/src/server_backend.rs`: the name dates from when
   this path was integration-test-only, but it now also serves as the
   production non-Temporal backend.)
-- **Temporal backend** — selected when `temporal_server_url` is a real
+- **Temporal backend**: selected when `temporal_server_url` is a real
   URL (e.g. `http://127.0.0.1:7233`). The Batchalign server hands
   queued-job orchestration, retry timing, and durable cancellation/restart
   state to Temporal workflows and activities. Implementation:
@@ -112,7 +112,7 @@ How to read the database after a restart-with-survival:
 
 If you need to confirm a specific job's state after a restart, the
 authoritative endpoint is `http://<server>:<port>/jobs` (the SPA at
-`/dashboard/...` is just a shell — there is no `/api/jobs` route). For
+`/dashboard/...` is just a shell, there is no `/api/jobs` route). For
 deeper inspection, query `~/.batchalign3/jobs.db` directly on the server
 host.
 
@@ -237,24 +237,24 @@ server-owned daemons whose owning server is gone.
 
 Important keys:
 
-- `port` — server listen port
-- `host` — bind address (defaults to `0.0.0.0`)
-- `backend` — accepted for backward compatibility with older `server.yaml` files; not read at runtime. Backend selection is via `temporal_server_url` (empty/sentinel = in-process; URL = Temporal).
-- `max_concurrent_jobs` — `0` means auto-tune
-- `auto_daemon` — reuse or start a loopback daemon for ordinary CLI processing
-- `warmup_commands` — list of commands eligible for warmup (see [Worker Tuning](worker-tuning.md))
-- `media_roots` — local execution-host media lookup roots
-- `media_mappings` — local execution-host root mappings from corpus paths to
+- `port`: server listen port
+- `host`: bind address (defaults to `0.0.0.0`)
+- `backend`: accepted for backward compatibility with older `server.yaml` files; not read at runtime. Backend selection is via `temporal_server_url` (empty/sentinel = in-process; URL = Temporal).
+- `max_concurrent_jobs`: `0` means auto-tune
+- `auto_daemon`: reuse or start a loopback daemon for ordinary CLI processing
+- `warmup_commands`: list of commands eligible for warmup (see [Worker Tuning](worker-tuning.md))
+- `media_roots`: local execution-host media lookup roots
+- `media_mappings`: local execution-host root mappings from corpus paths to
   mounted media paths; useful when the CHAT/data clone root differs from the
   media root on the same machine
-- `temporal_server_url` — selects the Temporal backend when set to a non-empty URL; selects the in-process backend when empty / `none` / `local` / `disabled`. This is the actual backend switch.
-- `temporal_namespace` (default `"default"`) / `temporal_task_queue` (default per-host hostname-derived; the loader panics if `sysinfo::System::host_name()` returns `None`, so set explicitly to share a queue across hosts) — Temporal connection settings used when the URL field selects Temporal.
-- `temporal_heartbeat_s` (default 10) / `temporal_activity_timeout_s` (default 3600) — Temporal activity heartbeat and per-attempt timeout controls.
-- `memory_tier` — override auto-detected tier: `small`, `medium`, `large`, `fleet` (also controls task-vs-profile bootstrap mode)
-- `memory_gate_mb` — host headroom reserve in MB (default: 2048; the worker-pool admission gate enforces the same floor live on every spawn attempt)
-- `gpu_startup_mb` / `stanza_startup_mb` / `io_startup_mb` — per-profile startup reservation overrides (0 = tier default)
-- `worker_health_interval_s` — health check frequency in seconds (default: 30)
-- `job_ttl_days` — auto-delete completed jobs after this many days (default: 7)
+- `temporal_server_url`: selects the Temporal backend when set to a non-empty URL; selects the in-process backend when empty / `none` / `local` / `disabled`. This is the actual backend switch.
+- `temporal_namespace` (default `"default"`) / `temporal_task_queue` (default per-host hostname-derived; the loader panics if `sysinfo::System::host_name()` returns `None`, so set explicitly to share a queue across hosts), Temporal connection settings used when the URL field selects Temporal.
+- `temporal_heartbeat_s` (default 10) / `temporal_activity_timeout_s` (default 3600), Temporal activity heartbeat and per-attempt timeout controls.
+- `memory_tier`: override auto-detected tier: `small`, `medium`, `large`, `fleet` (also controls task-vs-profile bootstrap mode)
+- `memory_gate_mb`: host headroom reserve in MB (default: 2048; the worker-pool admission gate enforces the same floor live on every spawn attempt)
+- `gpu_startup_mb` / `stanza_startup_mb` / `io_startup_mb`: per-profile startup reservation overrides (0 = tier default)
+- `worker_health_interval_s`: health check frequency in seconds (default: 30)
+- `job_ttl_days`: auto-delete completed jobs after this many days (default: 7)
 
 OTLP tracing can be enabled by setting `BATCHALIGN_OTLP_ENDPOINT`
 (or `OTEL_EXPORTER_OTLP_ENDPOINT`) in the server environment.

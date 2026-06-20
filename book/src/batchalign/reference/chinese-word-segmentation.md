@@ -13,7 +13,7 @@ becomes a separate word on the main tier:
 *CHI:	故 事 係 好 .
 ```
 
-This makes word-level analysis (word count, POS tagging, MLU) unreliable —
+This makes word-level analysis (word count, POS tagging, MLU) unreliable,
 every character gets tagged as an independent word.
 
 All four Cantonese ASR engines (Whisper, Tencent, Aliyun, FunASR) produce
@@ -31,7 +31,7 @@ tagging. The segmentation method depends on the language:
 
 ### Cantonese Example
 
-Morphotag has no `--lang` flag — language comes from each file's
+Morphotag has no `--lang` flag, language comes from each file's
 `@Languages: yue` header.
 
 ```bash
@@ -52,7 +52,7 @@ After retokenize (word-level):
 
 ### Mandarin Example
 
-Morphotag has no `--lang` flag — language comes from each file's
+Morphotag has no `--lang` flag, language comes from each file's
 `@Languages: cmn` (or `zho`) header.
 
 ```bash
@@ -61,7 +61,7 @@ batchalign3 morphotag --retokenize corpus/ -o output/
 
 ## Default Behavior
 
-Without `--retokenize`, existing tokenization is preserved — `morphotag` never
+Without `--retokenize`, existing tokenization is preserved, `morphotag` never
 silently changes word boundaries. This is consistent across all languages.
 
 When Cantonese input appears to be per-character tokens (>80% single-CJK-character

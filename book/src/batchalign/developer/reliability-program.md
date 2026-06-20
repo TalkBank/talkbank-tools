@@ -86,7 +86,7 @@ patterns become visible and root causes are addressed systematically.
 - **Mean time to root-cause** (from report to documented root cause).
 - **Failure category distribution** over time (are ASR failures trending
   down? are infra failures trending up?).
-- **Recurrence rate** (failures in categories that already have fixes — indicates
+- **Recurrence rate** (failures in categories that already have fixes, indicates
   insufficient regression coverage).
 
 ---
@@ -124,7 +124,7 @@ on the server or on explicit request.
   `cargo test -p batchalign --test <stress-test>` directly).
 - **Not part of default CI.** Triggered manually or as part of the release
   process.
-- **Run on the server only** — these tests consume significant memory and CPU.
+- **Run on the server only**: these tests consume significant memory and CPU.
   Never run on developer machines or production workers.
 - Each stress test must have a timeout (no infinite hangs) and must clean
   up all spawned processes on completion or failure.

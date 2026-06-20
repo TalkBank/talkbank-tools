@@ -153,7 +153,7 @@ current typed options:
 **`transcribe` diarization semantics are now identical in BA2 and BA3.** Both
 systems keep `--diarize` as an opt-in path with a `False` / `auto` default.
 If you use Rev.AI (the default engine), speaker labels are already part of the
-ASR response and are always applied — you get multi-speaker output in both BA2
+ASR response and are always applied, you get multi-speaker output in both BA2
 and BA3 without `--diarize`, and BA-side utterance segmentation still runs
 separately. When `--diarize` is explicitly requested, both Jan 9 BA2 and
 current BA3 run the separate Pyannote speaker stage as post-processing on top
@@ -223,7 +223,7 @@ for the three-state framing):
     in `crates/batchalign/src/cli/dispatch/mod.rs`.) A separate sidecar
     daemon profile exists in `cli/daemon.rs` for transcribe workloads that
     need a different Python environment, but the current dispatch code does
-    not auto-route commands to it on capability mismatch — it is started
+    not auto-route commands to it on capability mismatch, it is started
     and stopped through `serve` lifecycle commands.
 
 ## 1.1) Biggest durable user-visible changes
@@ -236,7 +236,7 @@ results are:
   consistently. Multilingual files process all languages in parallel
   (semaphore-bounded cross-language dispatch, see `morphosyntax/batch.rs`
   in `crates/batchalign/`), and large single-language batches are split
-  across multiple workers (up to `DEFAULT_MAX_WORKERS_PER_KEY`) — the
+  across multiple workers (up to `DEFAULT_MAX_WORKERS_PER_KEY`), the
   observed practical effect is substantially faster wall-clock time on
   multilingual corpora, though no published benchmark anchors a specific
   multiplier.
@@ -401,7 +401,7 @@ The shared implementation consequence is:
 - Python is now a pure model server: it returns raw inference outputs and
   contains zero CHAT parsing, zero text normalization, and zero domain logic.
 - Rust owns all CHAT parsing, payload extraction, validation, reinjection,
-  and output policy — a complete inversion of BA2's Python-owns-everything
+  and output policy, a complete inversion of BA2's Python-owns-everything
   architecture, enforced by allowlist tests.
 
 That pattern is why `transcribe`, `translate`, `utseg`, and `coref` now behave
@@ -439,7 +439,7 @@ that parse this layout continue to work without modification.
    `--no-adaptive-workers`, `--pool`, `--no-pool`,
    `--adaptive-safety-factor`, `--adaptive-warmup`, `--shared-models`,
    `--no-shared-models`, `--lazy-audio`. (Per-command hidden BA2
-   aliases like `--whisper`, `--rev`, `--diarize` still work — they
+   aliases like `--whisper`, `--rev`, `--diarize` still work, they
    translate to current typed flags.)
 3. Validate your expected outputs against current golden behavior,
    especially if your corpus has overlap / retraces / repetitions.
@@ -448,9 +448,9 @@ that parse this layout continue to work without modification.
    outputs, not Jan 9 BA2 accidental ones.
 5. If you previously relied on out-of-tree Python integration code,
    port it to subprocess calls into `batchalign3`. There is no
-   public Python API in BA3 — see
+   public Python API in BA3, see
    [No Python API](../user-guide/python-api.md).
-6. (Reserved — was previously a note about opensmile CSV layout
+6. (Reserved, was previously a note about opensmile CSV layout
    changing during the rewrite. That divergence has been corrected;
    `opensmile` output now matches the BA2 `feature,value` shape and
    no script changes are required.)

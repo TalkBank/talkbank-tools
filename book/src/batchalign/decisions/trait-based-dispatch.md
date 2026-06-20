@@ -14,14 +14,14 @@ selection where simpler mechanisms already work.
 
 Batchalign3 has several dispatch dimensions:
 
-1. **Algorithm strategies** — different implementations of the same
+1. **Algorithm strategies**: different implementations of the same
    operation (e.g., global vs. per-speaker UTR alignment).
-2. **Engine selection** — choosing which ML backend to use (Whisper vs.
+2. **Engine selection**: choosing which ML backend to use (Whisper vs.
    Rev.AI for ASR, Wave2Vec vs. Whisper for FA, Pyannote vs. NeMo for
    diarization).
-3. **Language-specific processing** — per-language rules for morphosyntax,
+3. **Language-specific processing**: per-language rules for morphosyntax,
    number expansion, text normalization.
-4. **Command-level pipelines** — the top-level structure of each command
+4. **Command-level pipelines**: the top-level structure of each command
    (transcribe, align, morphotag, etc.).
 
 Each dimension has different characteristics that call for different
@@ -61,8 +61,8 @@ pub trait UtrStrategy: Send + Sync {
 }
 ```
 
-The trait surface is deliberately wide — `run()` owns the entire UTR pass,
-not just the DP step — because per-speaker UTR needs to control ASR calls
+The trait surface is deliberately wide, `run()` owns the entire UTR pass,
+not just the DP step, because per-speaker UTR needs to control ASR calls
 (per-speaker segments rather than one global call).  A narrower trait that
 only covered reference extraction and DP injection would force per-speaker
 UTR to work around the trait boundary.
@@ -96,7 +96,7 @@ the current strategies are `GlobalUtr` and `TwoPassOverlapUtr`.
   Putting all of that behind a match arm in a single function would produce
   a 1000+ line function.
 - The trait enforces that all strategies have the same contract: same inputs,
-  same output type, same error handling.  A match arm doesn't enforce this —
+  same output type, same error handling.  A match arm doesn't enforce this,
   it's easy for one branch to silently return a different result shape.
 - Strategies are independently unit-testable.  Each impl gets its own test
   module without coupling to the others.
@@ -108,9 +108,9 @@ the current strategies are `GlobalUtr` and `TwoPassOverlapUtr`.
 If we later build multiple Rust-side implementations for other operations,
 the same pattern applies.  Plausible future candidates:
 
-- **FA grouping strategies** — different ways to partition utterances into
+- **FA grouping strategies**: different ways to partition utterances into
   FA windows (current fixed-window, adaptive window, trouble-window).
-- **Monotonicity enforcement strategies** — strip timing (current), reorder
+- **Monotonicity enforcement strategies**: strip timing (current), reorder
   utterances, accept non-monotonic (if CLAN ever supports it).
 
 These are speculative.  Do not pre-build trait abstractions for them.
@@ -121,7 +121,7 @@ These are speculative.  Do not pre-build trait abstractions for them.
 
 The engine enums (`AsrBackendV2`, `FaBackendV2`, `SpeakerBackendV2`) select
 which Python worker to talk to.  The Rust side doesn't contain alternate
-implementations — it builds a request, sends it to the worker, and parses
+implementations, it builds a request, sends it to the worker, and parses
 the response.  The variation is in the request format and the Python-side
 model, not in Rust logic.
 
@@ -137,7 +137,7 @@ match backend {
 ```
 
 This is the right level of abstraction.  A `trait AsrEngine` would add
-indirection (vtable dispatch, boxed futures) for no benefit — the match arms
+indirection (vtable dispatch, boxed futures) for no benefit, the match arms
 are 5-10 lines each and the "polymorphism" is just selecting request
 parameters.
 
@@ -163,7 +163,7 @@ if lang == "yue" {
 One language has special handling.  A `trait LanguagePostProcessor` with
 methods like `normalize_asr_words()` would require a default no-op impl for
 every other language, a registry to look up the trait impl by language code,
-and a dynamic dispatch call — all to replace a one-line conditional.
+and a dynamic dispatch call, all to replace a one-line conditional.
 
 **2. Per-language modules (morphosyntax)**
 
@@ -175,7 +175,7 @@ crates/batchalign-transform/src/morphosyntax/lang_ja.rs : Japanese verb form pat
 
 Called from `if lang2(&ctx.lang) == "ja"` checks in
 `crates/batchalign-transform/src/morphosyntax/mor_word.rs` (and similar
-language gates in `features.rs`). This is already the right shape —
+language gates in `features.rs`). This is already the right shape,
 each language's rules are isolated in their own module, the dispatch
 point is obvious, and adding a new language means adding a module and
 a conditional. A trait would formalize the interface but wouldn't
@@ -205,7 +205,7 @@ interactions, and different output shapes.  They share infrastructure
 (worker dispatch, caching, progress reporting) but not control flow.
 
 A `trait Command` with a single `run()` method would be a false
-abstraction — the implementations would share nothing beyond the method
+abstraction, the implementations would share nothing beyond the method
 signature.  The current explicit pipeline functions (`run_transcribe_pipeline`,
 `run_fa_pipeline`, `infer_batched`) are clearer because each pipeline's
 structure is visible in one place.
@@ -248,7 +248,7 @@ Before introducing a new trait:
    implementation with a vague plan for a second.
 2. Confirm the implementations share the same input/output contract.  If
    the "alternate" implementation needs different inputs, it's not the same
-   trait — it's a different operation.
+   trait, it's a different operation.
 3. Prefer the simplest mechanism that works: conditional → enum match →
    module-per-variant → trait.  Escalate only when the simpler mechanism
    becomes unwieldy.

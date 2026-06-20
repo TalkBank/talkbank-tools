@@ -1,4 +1,4 @@
-# utseg — Developer Reference
+# utseg: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-19 22:58 EDT
@@ -12,11 +12,11 @@ see [User Guide: utseg](../../user-guide/commands/utseg.md).
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `UtsegArgs` | lang, num-speakers |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `UtsegArgs` | lang, num-speakers |
 | Command definition | `crates/batchalign/src/commands/utseg.rs` | `CommandDefinition` impl |
 | Utseg orchestration | `crates/batchalign/src/utseg.rs` | Cross-file batching, cache, boundary application |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Shared with morphotag and translate |
-| Worker IPC | `batchalign/inference/utseg.py` — `batch_infer_utseg()` | Loads Stanza constituency, returns raw parse trees |
+| Worker IPC | `batchalign/inference/utseg.py`: `batch_infer_utseg()` | Loads Stanza constituency, returns raw parse trees |
 | Boundary application | `crates/batchalign/src/utseg.rs` | Maps predicted boundaries back to CHAT utterance structure |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`
@@ -29,7 +29,7 @@ bytes. See [Submission Modes](../../reference/command-io.md#submission-modes-pat
 
 Text NLP tasks (`utseg`, `translate`, `morphotag`) do not use the utterance cache.
 Boundaries are computed deterministically from word sequence and language during
-each inference run — no per-utterance caching occurs. (Audio tasks like forced
+each inference run, no per-utterance caching occurs. (Audio tasks like forced
 alignment and UTR ASR do cache, because those operations are expensive per-file.)
 
 ---
@@ -63,7 +63,7 @@ The Rust `utseg.rs` library maps these back to CHAT utterance splits/merges.
 About 11 languages have Stanza constituency models. Languages without
 constituency support fall back to punctuation-based boundary detection. The
 available processors are queried at worker startup via
-`batchalign/worker/_stanza_capabilities.py` — never hardcoded.
+`batchalign/worker/_stanza_capabilities.py`: never hardcoded.
 
 ---
 

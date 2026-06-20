@@ -24,7 +24,7 @@ That is enough to treat MPS as unsafe by default.
 There is no user-space mitigation for the AGX deadlock path. You cannot:
 - Time out the operation (kernel mutex, not user-space)
 - Kill the stuck process (unkillable zombie in kernel sleep)
-- Break the compute into smaller chunks (deadlock can trigger on normal 5–30s chunks)
+- Break the compute into smaller chunks (deadlock can trigger on normal 5-30s chunks)
 - Use a subprocess watchdog (PyTorch MPS silently hangs or SIGSEGVs in forks:
   [pytorch/pytorch#178037](https://github.com/pytorch/pytorch/issues/178037))
 
@@ -40,17 +40,17 @@ No major ML project defaults to MPS:
 
 | Project | MPS status |
 |---------|-----------|
-| **OpenAI Whisper** | PR [#382](https://github.com/openai/whisper/pull/382) to enable MPS was never merged — users reported crashes, MPS slower than CPU |
+| **OpenAI Whisper** | PR [#382](https://github.com/openai/whisper/pull/382) to enable MPS was never merged, users reported crashes, MPS slower than CPU |
 | **faster-whisper** | MPS not supported at all (`ValueError: unsupported device mps`) |
 | **pyannote-audio** | MPS produces wrong timestamps ([#1337](https://github.com/pyannote/pyannote-audio/issues/1337), closed wontfix); kernel crashes on M4 ([#1886](https://github.com/pyannote/pyannote-audio/issues/1886)) |
 | **whisper.cpp** | Uses Metal API directly, bypassing PyTorch MPS entirely |
 | **PyTorch Lightning** | MPS marked "experimental" |
 
 Representative open PyTorch MPS issues:
-- [#178497](https://github.com/pytorch/pytorch/issues/178497): `sum`, `mean`, `count_nonzero` give wrong results — confirmed by PyTorch team as originating in Apple's MPS framework. Closed 2026-05-14 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12.
+- [#178497](https://github.com/pytorch/pytorch/issues/178497): `sum`, `mean`, `count_nonzero` give wrong results, confirmed by PyTorch team as originating in Apple's MPS framework. Closed 2026-05-14 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12.
 - [#179352](https://github.com/pytorch/pytorch/issues/179352): `scaled_dot_product_attention` incorrect for large batches (cosine similarity 0.49 vs CPU)
 - [#154329](https://github.com/pytorch/pytorch/issues/154329): memory leak (~1 MB/sec) confirmed on M4 Max/Studio
-- [#144634](https://github.com/pytorch/pytorch/issues/144634): `torch.mps.synchronize()` hangs on error — Apple engineer acknowledged, still open
+- [#144634](https://github.com/pytorch/pytorch/issues/144634): `torch.mps.synchronize()` hangs on error, Apple engineer acknowledged, still open
 
 Apple has not publicly acknowledged the AGXG14X kernel deadlock.
 
@@ -58,18 +58,18 @@ Apple has not publicly acknowledged the AGXG14X kernel deadlock.
 
 Two PyTorch issues carry the dual labels `module: mps` + `module: deadlock`:
 
-1. [pytorch/pytorch#144634](https://github.com/pytorch/pytorch/issues/144634) —
+1. [pytorch/pytorch#144634](https://github.com/pytorch/pytorch/issues/144634),
    `torch.mps.synchronize()` hangs on shader fault.
    Filed by PyTorch maintainer `@malfet`: "few `attempt[s]` to reproduce the same
    resulted in **system hang**." Apple engineer acknowledged, still open.
 
-2. [pytorch/pytorch#162872](https://github.com/pytorch/pytorch/issues/162872) —
+2. [pytorch/pytorch#162872](https://github.com/pytorch/pytorch/issues/162872),
    `Event.synchronize()` deadlocks before `elapsed_time()`. Reproduced on
    M4 Pro. Simple timing code hangs permanently.
 
 Additionally:
 
-- [pytorch/pytorch#178037](https://github.com/pytorch/pytorch/pull/178037) —
+- [pytorch/pytorch#178037](https://github.com/pytorch/pytorch/pull/178037),
   MPS silently hangs or SIGSEGVs in forked subprocesses. Unlike CUDA, MPS
   had no `_lazy_init()` check in forked children. This rules out the
   "watchdog subprocess" mitigation strategy.
@@ -87,17 +87,17 @@ The most insidious MPS problem is not crashes but **silently wrong results**:
 
 - A class of issues are labeled `module: mps` + `module: correctness (silent)`.
 - Reductions (`sum`, `mean`, `nansum`, `trace`, `count_nonzero`) give wrong
-  results when called in rapid succession — confirmed by PyTorch team as
+  results when called in rapid succession, confirmed by PyTorch team as
   originating in Apple's MPS framework itself, not PyTorch
   ([#178497](https://github.com/pytorch/pytorch/issues/178497))
 - `scaled_dot_product_attention` returns incorrect output for large
-  batch × sequence products — cosine similarity drops to 0.49 vs CPU
+  batch × sequence products, cosine similarity drops to 0.49 vs CPU
   ([#179352](https://github.com/pytorch/pytorch/issues/179352))
-- "Catastrophically wrong gradients" (1,000×–100,000× too large) when total
+- "Catastrophically wrong gradients" (1,000×-100,000× too large) when total
   elements exceed 32K
   ([#177116](https://github.com/pytorch/pytorch/issues/177116))
 - `torch.multinomial` crashes with SIGSEGV on MPS for larger tensors
-  ([#178579](https://github.com/pytorch/pytorch/issues/178579) — closed 2026-04-16 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12)
+  ([#178579](https://github.com/pytorch/pytorch/issues/178579), closed 2026-04-16 as completed; fix landed on `main` after the v2.12.0 branch cut, so it ships in v2.13, **not** v2.11 or v2.12)
 - `uint16/uint32/uint64` binary ops produce garbage values
 - `ComplexFloat` dtype not supported at all
 
@@ -110,7 +110,7 @@ Academic benchmarking ([arxiv:2511.05502](https://arxiv.org/abs/2511.05502))
 found that for LLM inference on Apple Silicon:
 - **MLX** achieves highest throughput (~230 tok/s)
 - **llama.cpp** excels for single-stream inference
-- **PyTorch MPS** ranked last among 5 frameworks tested (~7–9 tok/s)
+- **PyTorch MPS** ranked last among 5 frameworks tested (~7-9 tok/s)
 - PyTorch MPS "remains limited by memory constraints on large models"
 
 For Whisper specifically, OpenAI Whisper PR #382 found MPS was **slower than
@@ -149,7 +149,7 @@ GPU-profile workers previously used `ThreadPoolExecutor(gpu_thread_pool_size)`
 for concurrent inference, relying on PyTorch releasing the GIL during GPU
 kernels. On CPU, this causes thread oversubscription: each thread's PyTorch ops
 use all cores via OpenMP, so 4 threads × 24 cores = 96 threads
-fighting for 24 cores on an M3 Ultra–class CPU.
+fighting for 24 cores on an M3 Ultra-class CPU.
 
 Fix: GPU-profile workers now serve sequentially on CPU (one request at a time,
 all cores per request). `gpu_thread_pool_size` in `server.yaml` takes effect
@@ -184,7 +184,7 @@ These are hardware/framework limitations, not PyTorch bugs. No fix is expected.
 
 ## Per-Module Workarounds
 
-### ASR — Whisper (`inference/asr.py`)
+### ASR: Whisper (`inference/asr.py`)
 
 ```python
 if device.type == "mps":
@@ -197,10 +197,10 @@ assertion failures. We force `float32`. A second fallback path also forces
 at all.
 
 The HuggingFace Transformers Whisper pipeline requires
-`attn_implementation="eager"` on MPS — the SDPA attention path broke MPS in
+`attn_implementation="eager"` on MPS, the SDPA attention path broke MPS in
 transformers v4.40.0.
 
-### Forced Alignment — Whisper FA (`inference/fa.py`)
+### Forced Alignment: Whisper FA (`inference/fa.py`)
 
 ```python
 if device.type == "mps":
@@ -209,7 +209,7 @@ if device.type == "mps":
 
 Same pattern as ASR. Whisper FA uses `float16` on CUDA, `float32` on MPS/CPU.
 
-### Forced Alignment — Wave2Vec FA (`inference/fa.py`)
+### Forced Alignment: Wave2Vec FA (`inference/fa.py`)
 
 ```python
 model = bundle.get_model()
@@ -236,7 +236,7 @@ MPS is excluded from diarization because:
   ([pyannote/pyannote-audio#1337](https://github.com/pyannote/pyannote-audio/issues/1337),
   closed as wontfix). Kernel crashes also reported on M4
   ([#1886](https://github.com/pyannote/pyannote-audio/issues/1886)).
-- **NeMo** is CUDA-only by design — no MPS support at all.
+- **NeMo** is CUDA-only by design, no MPS support at all.
 
 The device selector (`_device_for_speaker_runtime`) returns `"cuda"` or
 `"cpu"`, never `"mps"`.
@@ -256,15 +256,15 @@ MPS has well-documented memory management problems:
   [#145374](https://github.com/pytorch/pytorch/issues/145374))
 - **OOM with memory available**: MPS cache doesn't release when it should
   ([pytorch/pytorch#105839](https://github.com/pytorch/pytorch/issues/105839))
-- **`sysinfo::available_memory()`** on macOS undercounts — reports
+- **`sysinfo::available_memory()`** on macOS undercounts, reports
   only free + purgeable, missing reclaimable file cache. On a
   Fleet-tier host (≥ 256 GB RAM, heavy I/O), this can underreport by
   tens of GB. No fix exists because macOS doesn't expose a
   `MemAvailable` equivalent like Linux.
 
 **Mitigations:**
-- `torch.mps.empty_cache()` — call periodically during long-running inference
-- `PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0` — disables MPS memory limit (risks
+- `torch.mps.empty_cache()`: call periodically during long-running inference
+- `PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0`: disables MPS memory limit (risks
   system instability, not recommended for production)
 - Our Rust server's memory gate uses `sysinfo::available_memory()` with a
   configurable threshold (default 2048 MB, `0` to disable). Idle worker bypass
@@ -279,7 +279,7 @@ the corresponding workaround.
 
 | Issue | Status | What to do if fixed |
 |-------|--------|-------------------|
-| [pytorch/pytorch#141864](https://github.com/pytorch/pytorch/issues/141864) | Closed (won't fix) | N/A — Metal lacks native bfloat16. Would require Apple hardware/firmware change. |
+| [pytorch/pytorch#141864](https://github.com/pytorch/pytorch/issues/141864) | Closed (won't fix) | N/A, Metal lacks native bfloat16. Would require Apple hardware/firmware change. |
 | [pytorch/pytorch#136624](https://github.com/pytorch/pytorch/issues/136624) | Closed | Specific to `torch.arange`; the broader bfloat16 gap remains. |
 | [pytorch/pytorch#104191](https://github.com/pytorch/pytorch/issues/104191) | Closed | Specific to `torch.embedding`. |
 
@@ -321,12 +321,12 @@ When adding a new inference module that loads a PyTorch model:
 
 1. **Never use MPS.** Our standard device selection is CUDA > CPU. MPS is
    permanently excluded due to kernel-level deadlocks.
-2. **Use `force_cpu_preferred()` as the first check** — respect the operator's
+2. **Use `force_cpu_preferred()` as the first check**: respect the operator's
    CPU override.
-3. **Test device selection** — add a parametrized test with
+3. **Test device selection**: add a parametrized test with
    `(force_cpu, cuda_available, mps_available)` that verifies MPS availability
    is ignored and CPU is selected when CUDA is unavailable.
-4. **Use `float16` on CUDA, `float32` on CPU** — unless the model specifically
+4. **Use `float16` on CUDA, `float32` on CPU**: unless the model specifically
    requires a different dtype.
 
 ## Test Coverage

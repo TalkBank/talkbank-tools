@@ -31,7 +31,7 @@ Both `cmn` and `zho` map to Stanza `zh` (which is `zh-hans` internally).
 ## Word Segmentation
 
 Mandarin ASR output (from Whisper or Paraformer) may contain per-character
-tokens without word boundaries — the same problem that affects Cantonese.
+tokens without word boundaries, the same problem that affects Cantonese.
 
 ### The `--retokenize` Solution
 
@@ -72,7 +72,7 @@ Verified with real Stanza `zh` model (package `gsdsimp`):
 
 | Input | Stanza Output | Correct? |
 |-------|--------------|----------|
-| 我去商店买东西 | 我 去 商店 买 东 西 | Mostly — groups 商店 but splits 东西 |
+| 我去商店买东西 | 我 去 商店 买 东 西 | Mostly, groups 商店 but splits 东西 |
 
 Stanza handles common compounds (商店 "store") correctly but may split
 ambiguous compounds where individual characters have independent meanings
@@ -112,7 +112,7 @@ both `cmn` and `zho` dispatch to `ChineseScript::Simplified`; only
 
 ## Morphosyntax
 
-Mandarin morphotag uses Stanza's Chinese `zh` path. MWT is excluded — Chinese
+Mandarin morphotag uses Stanza's Chinese `zh` path. MWT is excluded, Chinese
 has no contractions. In mixed-language files, `@s:cmn`, `@s:zho`, and bare
 `@s` resolved to Mandarin all route through the same secondary-language L2
 morphotag path rather than staying `L2|xxx`, unless the target is unresolved or
@@ -149,10 +149,10 @@ runs for `yue`. Mandarin text passes through without character normalization.
 
 ## Open Questions
 
-1. **Paraformer output format** — does Paraformer actually produce per-character
+1. **Paraformer output format**: does Paraformer actually produce per-character
    tokens for Mandarin, or does it attempt some word segmentation? (Conflicting
    reports from users.)
-2. **Child Mandarin speech** — how does Stanza's tokenizer perform on child
+2. **Child Mandarin speech**: how does Stanza's tokenizer perform on child
    language data?
 3. **Would jieba be better than Stanza for Mandarin?** jieba is a widely-used
    Chinese word segmenter; comparison with Stanza's neural tokenizer would be

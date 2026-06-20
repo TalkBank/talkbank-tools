@@ -107,14 +107,14 @@ flowchart LR
     net <--> tc
 ```
 
-**`TurmoilListener`** — wraps `turmoil::net::TcpListener`, implements
+**`TurmoilListener`**: wraps `turmoil::net::TcpListener`, implements
 `axum::serve::Listener`. turmoil's `TcpStream` implements tokio's
 `AsyncRead + AsyncWrite` directly, satisfying axum's bounds.
 
-**`TurmoilConnector`** — implements `tower::Service<Uri>`, resolves turmoil
+**`TurmoilConnector`**: implements `tower::Service<Uri>`, resolves turmoil
 hostnames via `turmoil::lookup()`, connects through the simulated network.
 
-**`TurmoilStream`** — newtype around `TokioIo<turmoil::net::TcpStream>` that
+**`TurmoilStream`**: newtype around `TokioIo<turmoil::net::TcpStream>` that
 additionally implements `hyper_util::client::legacy::connect::Connection`
 (required by hyper's legacy client API).
 
@@ -183,7 +183,7 @@ cargo nextest run -p batchalign --test turmoil_net
 cargo nextest list -p batchalign --test turmoil_net
 ```
 
-turmoil tests are part of **Tier 1 (fast tests)** — no ML models, no Python,
+turmoil tests are part of **Tier 1 (fast tests)**: no ML models, no Python,
 no GPU. They run in the default `cargo nextest run` and `make test`.
 
 ## Current test scenarios
@@ -192,7 +192,7 @@ no GPU. They run in the default `cargo nextest run` and `make test`.
 
 | Test | What it exercises | Fault injected |
 |------|---|---|
-| `health_check_basic` | Adapter correctness — server responds over simulated TCP | None (baseline) |
+| `health_check_basic` | Adapter correctness, server responds over simulated TCP | None (baseline) |
 | `health_check_under_partition` | Partition → timeout → repair → recovery | `turmoil::partition()` / `repair()` |
 | `health_check_with_message_hold` | Delayed response arrives after messages released | `turmoil::hold()` / `release()` |
 | `concurrent_clients_health_check` | 3 clients hit the server simultaneously | Concurrency (no explicit fault) |
@@ -204,10 +204,10 @@ These model specific production problems the team experienced:
 
 | Test | Real-world scenario | Fault injected |
 |------|---|---|
-| `one_way_partition_client_sends_but_no_response` | a user submits jobs but never gets progress updates — responses are dropped | `turmoil::partition_oneway()` |
+| `one_way_partition_client_sends_but_no_response` | a user submits jobs but never gets progress updates, responses are dropped | `turmoil::partition_oneway()` |
 | `rapid_reconnection_burst_after_restart` | Deploy restarts server, 5 dashboard clients (an operator, a user, fleet monitors) reconnect simultaneously | `sim.crash()` / `sim.bounce()` + concurrent clients |
-| `network_flap_rapid_partition_cycles` | Fleet machines on unstable WiFi — Tailscale connection flaps repeatedly | 5x `partition()` / `repair()` cycles |
-| `slow_response_eventually_arrives` | a user's machine on slow WiFi — responses take 10+ seconds but eventually arrive intact | `turmoil::hold()` for 10s, then `release()` |
+| `network_flap_rapid_partition_cycles` | Fleet machines on unstable WiFi, Tailscale connection flaps repeatedly | 5x `partition()` / `repair()` cycles |
+| `slow_response_eventually_arrives` | a user's machine on slow WiFi, responses take 10+ seconds but eventually arrive intact | `turmoil::hold()` for 10s, then `release()` |
 
 ### Real-app tests (require Python test-echo workers)
 
@@ -217,8 +217,8 @@ These use the actual batchalign router with `MockConnectInfo` and
 | Test | Real-world scenario | Fault injected |
 |------|---|---|
 | `real_app_submit_and_poll_job` | an operator submits a job from the dashboard, polls for completion | None (baseline lifecycle) |
-| `real_app_partition_during_job_processing` | an operator submits a job, Tailscale drops, reconnects later — job completed during outage | `turmoil::partition()` / `repair()` |
-| `real_app_sse_nonexistent_job_returns_404` | an operator bookmarks a deleted job URL — should get 404, not a hanging stream | None (error path) |
+| `real_app_partition_during_job_processing` | an operator submits a job, Tailscale drops, reconnects later, job completed during outage | `turmoil::partition()` / `repair()` |
+| `real_app_sse_nonexistent_job_returns_404` | an operator bookmarks a deleted job URL, should get 404, not a hanging stream | None (error path) |
 | `real_app_health_reports_workers` | Health endpoint must report actual worker state | None (accuracy) |
 
 ## turmoil fault injection API
@@ -243,14 +243,14 @@ sim.bounce("server");  // restart the host's future from scratch
 
 **Partition behavior:** under partition, TCP SYN packets are dropped silently.
 The client's connection attempt hangs (not "connection refused"). Use
-`tokio::time::timeout()` to detect this — the virtual clock advances
+`tokio::time::timeout()` to detect this, the virtual clock advances
 instantly so the timeout resolves without wall-clock delay.
 
 ## Known limitations
 
 ### `ConnectInfo` solved via `MockConnectInfo`
 
-axum provides `MockConnectInfo<T>` — a middleware layer that injects a
+axum provides `MockConnectInfo<T>`: a middleware layer that injects a
 default `ConnectInfo` for all requests. turmoil tests apply this to the
 router so `submit_job`'s `ConnectInfo<SocketAddr>` extractor works without
 `into_make_service_with_connect_info`:
@@ -287,15 +287,15 @@ sim.host("server", move || {
 });
 ```
 
-tokio's channels (`UnboundedSender`, `oneshot`) are runtime-agnostic — senders
+tokio's channels (`UnboundedSender`, `oneshot`) are runtime-agnostic, senders
 on turmoil's simulated runtime communicate with receivers on the real runtime's
 worker threads without issues.
 
 ### Determinism gaps
 
 turmoil intercepts `tokio::net` and `tokio::time` but does **not** intercept:
-- `std::time::Instant::now()` — dependencies using this get real wall-clock time
-- `getrandom` / `HashMap` randomization — ordering may vary across runs
+- `std::time::Instant::now()`: dependencies using this get real wall-clock time
+- `getrandom` / `HashMap` randomization, ordering may vary across runs
 - Any C library calls (rusqlite, sysinfo)
 
 For our current tests (simple request/response assertions) this is not a
@@ -307,7 +307,7 @@ symbol overrides for `clock_gettime` and `getrandom`.
 
 turmoil's TCP is not RFC-compliant. No congestion control, no segmentation,
 no RST packets. Bugs that depend on real TCP behavior (half-open connections,
-congestion backoff) will not be caught. This is acceptable — our HTTP layer
+congestion backoff) will not be caught. This is acceptable, our HTTP layer
 sits above TCP and does not interact with transport-level details.
 
 ## Future work
@@ -349,7 +349,7 @@ the maintainers' tool-evaluations index.
 
 ## Dependencies
 
-turmoil and its adapter dependencies are **dev-dependencies only** — they do
+turmoil and its adapter dependencies are **dev-dependencies only**: they do
 not appear in the release binary or affect production builds:
 
 ```toml
@@ -367,5 +367,5 @@ tower = { version = "0.5", features = ["util"] }
 - [turmoil repo](https://github.com/tokio-rs/turmoil)
 - [Announcing turmoil (Tokio blog)](https://tokio.rs/blog/2023-01-03-announcing-turmoil)
 - [Deterministic simulation testing for async Rust (S2.dev)](https://s2.dev/blog/dst)
-- `Tool evaluation: turmoil` — full
+- `Tool evaluation: turmoil`: full
   assessment including comparison to madsim and shuttle

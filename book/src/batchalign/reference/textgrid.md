@@ -112,9 +112,9 @@ let textgrid_text = chat_to_praat(&chat_file)?;
 
 ## Dependencies
 
-- **`talkbank-clan` crate** — owns the TextGrid parser, serializer,
+- **`talkbank-clan` crate**: owns the TextGrid parser, serializer,
   and converters.
-- **No Python runtime dependency** — the previous Python
+- **No Python runtime dependency**: the previous Python
   implementation (`batchalign/formats/textgrid/generator.py` and the
   `batchalign_core.extract_timed_tiers` PyO3 binding) was retired
   when the converter moved into Rust. The `praatio` package still

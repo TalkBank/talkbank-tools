@@ -1,24 +1,24 @@
-# Stanza Limitations — Observed Defects with Version Pinning
+# Stanza Limitations: Observed Defects with Version Pinning
 
-**Status:** Reference (living document — update when Stanza behavior changes)
+**Status:** Reference (living document, update when Stanza behavior changes)
 **Last updated:** 2026-06-19 18:31 EDT
 **Current Stanza pin:** `stanza[transformers]>=1.13.0,<1.14` (see `pyproject.toml`)
 **Current English MWT package:** `gum`
 
-> **2026-05-14 — Stanza 1.12.0 upgrade:** every defect below was
+> **2026-05-14, Stanza 1.12.0 upgrade:** every defect below was
 > re-evaluated against Stanza 1.12.0. Verdicts: defect 4 (Finnish
 > `<SOS>` leak) is **Fixed upstream** and its mitigation was
 > removed; defects 1, 2, 5, 6, 7, 8 are still confirmed and have
 > `1.12.0` added to their version lists; defect 3 (CJK reference-only)
 > was not re-evaluated this pass.
 
-> **2026-05-28 — Stanza 1.12.1 patch upgrade:** every defect below was
+> **2026-05-28, Stanza 1.12.1 patch upgrade:** every defect below was
 > re-evaluated against Stanza 1.12.1 via the same reproducer used for
 > 1.12.0. Verdicts: defect 4 still **Fixed upstream** (sentinel still
 > GREEN); defects 1, 2, 5, 6, 7, 8 still confirmed and have `1.12.1`
 > added to their version lists; defect 3 not re-evaluated. The new
 > `en_combined` `'s`/`her` lemma classifier in 1.12.1 does NOT fix
-> defect 1 — Stanza still mis-MWTs "the stool's going over"-style
+> defect 1, Stanza still mis-MWTs "the stool's going over"-style
 > sentences at the MWT layer, before the lemma classifier runs.
 
 > **2026-06-19, Stanza 1.13.0 upgrade:** every defect below was
@@ -38,7 +38,7 @@
 
 > **See also:**
 > [Stanza Defect Mitigation Map](../architecture/stanza-defect-mitigation-map.md)
-> — pipeline-stage view of where each defect below is patched.
+>, pipeline-stage view of where each defect below is patched.
 
 ## Purpose
 
@@ -100,7 +100,7 @@ Stanza commits to a possessive reading end-to-end:
 
 The whole sentence is parsed as the noun phrase "the sink's
 overflowing" with "overflowing" as the nominal head. This leaves the
-main clause with **no finite verb** — ungrammatical English.
+main clause with **no finite verb**: ungrammatical English.
 
 ### Correct output
 
@@ -121,10 +121,10 @@ CHAT `%mor` target: `noun|sink~aux|be-Fin-Ind-Pres-S3 verb|overflow-Part-Pres-S`
 The construction `<noun>'s <-ing>` is ambiguous in isolation:
 
 * **Copula reading** (correct in conversational CHAT): "the sink is
-  overflowing" — `<noun>` is the subject, `is` is the finite verb,
+  overflowing", `<noun>` is the subject, `is` is the finite verb,
   `-ing` is present participle in progressive aspect.
 * **Possessive reading** (rare, requires broader clausal context):
-  "the sink's overflowing `[is problematic]`" — `<noun>'s` is possessor,
+  "the sink's overflowing `[is problematic]`", `<noun>'s` is possessor,
   `-ing` is a deverbal gerund noun.
 
 In natural English conversation, the copula reading is overwhelmingly
@@ -137,9 +137,9 @@ ungrammatical fragment.
 
 Counter-examples (Stanza handles correctly, for reference):
 
-* `he's falling over` — Stanza correctly tags `'s` as AUX. The
-  pronoun `he` probably helps — `his` would be the possessive form.
-* `the stool's going over` — Stanza correctly tags `'s` as AUX.
+* `he's falling over`: Stanza correctly tags `'s` as AUX. The
+  pronoun `he` probably helps, `his` would be the possessive form.
+* `the stool's going over`: Stanza correctly tags `'s` as AUX.
   `going` gets tagged as VERB (VerbForm=Part) here, perhaps because
   "going" is more verb-like in its training than "overflowing" /
   "washing".
@@ -181,20 +181,20 @@ Hook point: `crates/batchalign-transform/src/morphosyntax/injection.rs:276`
 
 **Rust unit tests** (14 tests, all GREEN):
 `crates/batchalign-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs`
-`#[cfg(test)]` block — 2 positive rewrite tests (sink pattern A, lady
+`#[cfg(test)]` block, 2 positive rewrite tests (sink pattern A, lady
 pattern B), 10 negative no-op tests covering distinct precondition
 failure modes.
 
 **Python end-to-end tests** (new file, 2 tests, all GREEN):
 `batchalign/tests/pipelines/morphosyntax/test_preserve_mwt_end_to_end.py`
-— runs `batchalign3 morphotag` on a CHAT fixture with all four
+, runs `batchalign3 morphotag` on a CHAT fixture with all four
 copula-contraction sentences, asserts final `%mor` contains
 `~aux|be-Fin-Ind-Pres-S3` for every one and `%gra` contains the
 corresponding AUX/NSUBJ/ROOT structure.
 
 **Python observation tests** (retained as versioned documentation of
 Stanza's current output): `test_stanza_mwt_copula_observations.py`,
-`test_preserve_mwt.py` — assert what Stanza emits at the
+`test_preserve_mwt.py`: assert what Stanza emits at the
 intermediate layer (still PART/'s for sink/lady; BA3 corrects
 downstream).
 
@@ -212,7 +212,7 @@ On Stanza upgrade:
    mitigation and update the Stanza version header at the top of
    this document.
 
-### Long-term successor (Option D — fine-tune Stanza)
+### Long-term successor (Option D: fine-tune Stanza)
 
 The rewrite is a principled compromise, not the ideal solution. The
 correct long-term fix is to retrain Stanza's English POS and
@@ -222,7 +222,7 @@ present participle is labeled correctly. Work items:
 * Build a CHAT-to-UD conversion pipeline that labels MWT Range `'s`
   in copula-progressive contexts as AUX/be/Fin (and the following
   `-ing` word as VERB/VerbForm=Part).
-* Curate a training set from BA3's ~199 MB of CHAT transcripts —
+* Curate a training set from BA3's ~199 MB of CHAT transcripts,
   English Clinical and English CHILDES-NA corpora have the target
   construction in abundance.
 * Set up a Stanza continued-training job from the published
@@ -242,7 +242,7 @@ item; not scheduled.
 ## Defect 2: MWT hint tuples must be preserved through postprocessors (Stanza/Python interop gotcha)
 
 * **Stanza version:** 1.10.1, 1.11.1, 1.12.0, 1.12.1, and 1.13.0 (all confirmed; re-verified by `test_stanza_mwt_copula_observations.py` against 1.12.1 on 2026-05-28 and against 1.13.0 on 2026-06-19)
-* **Nature:** Not strictly a Stanza bug — a contract that the
+* **Nature:** Not strictly a Stanza bug, a contract that the
   `tokenize_postprocessor` API places on callers but does not document
   prominently. Easy to violate in a wrapper that flattens tuples to strings.
 
@@ -252,8 +252,8 @@ Stanza's tokenizer natively emits `(text, True)` two-element tuples for
 English contractions (and other MWT-capable languages). Its MWT processor
 honors those hints to expand the token into Range components (`don't` →
 `do` + `n't`). Any `tokenize_postprocessor` callback that discards the
-boolean — for example by extracting only `tok.text` before a downstream
-aligner runs — silently disables MWT expansion for the whole document.
+boolean, for example by extracting only `tok.text` before a downstream
+aligner runs, silently disables MWT expansion for the whole document.
 The symptom is subtle: no error, no warning, just missing Range tokens
 and therefore no `~`-joined `%mor` output for English contractions.
 
@@ -287,19 +287,19 @@ availability is decided per language).
 
 ### Re-evaluation criteria (when Stanza upgrades)
 
-Stanza is unlikely to move away from the tuple convention — it is a
+Stanza is unlikely to move away from the tuple convention, it is a
 documented API contract. The re-check on upgrade is:
 
 1. Re-run `test_stanza_mwt_copula_observations.py`. It still
    requires Stanza to emit `(text, True)` for English contractions.
 2. If a future Stanza version emits a different hint shape (e.g., a
    dedicated class instead of a tuple), update `_realign_sentence`'s
-   overlay logic to recognize the new shape. The principle — preserve
-   Stanza's hints through our wrapper — does not change.
+   overlay logic to recognize the new shape. The principle, preserve
+   Stanza's hints through our wrapper, does not change.
 
 ---
 
-## Defect 3: CJK tokenization and POS quality (reference only — existing workarounds)
+## Defect 3: CJK tokenization and POS quality (reference only: existing workarounds)
 
 * **Stanza version:** 1.10.x and 1.11.x (both)
 * **Construction:** Word segmentation and POS tagging for Chinese
@@ -307,7 +307,7 @@ documented API contract. The re-check on upgrade is:
 * **Symptom:** Stanza's accuracy on conversational CJK text is below
   what BA3 needs for CHAT-quality morphotag output, especially for
   Cantonese.
-* **BA3 mitigation:** BA3 uses dedicated engines for CJK — PyCantonese
+* **BA3 mitigation:** BA3 uses dedicated engines for CJK, PyCantonese
   for Cantonese POS, unified Stanza training on HKCanCor+UD for
   Cantonese tokenize+POS+depparse, and pretokenize+CHAT-gold
   segmentation for Japanese.
@@ -325,7 +325,7 @@ This entry is listed for completeness; it belongs in the same registry.
 
 <a id="stanza-fi-mwt-sos-leak"></a>
 
-* **Stable slug** (use this in code references — defect numbers can
+* **Stable slug** (use this in code references, defect numbers can
   renumber as entries are retired): ``stanza-fi-mwt-sos-leak``
 * **Stanza version:** 1.11.1 (confirmed); older versions not tested. **Fixed in Stanza 1.12.0, 1.12.1, and 1.13.0:** verified by `test_stanza_fi_mwt_sos_leak.py` GREEN on 2026-05-14, re-verified GREEN against 1.12.1 on 2026-05-28, and re-verified GREEN against 1.13.0 on 2026-06-19. The strip+warn mitigation was removed in the 1.12.0 upgrade commit (the associated `test_control_token_leak_propagation.py` mitigation-removal sentinel was retired alongside it); the standalone reproducer `test_stanza_fi_mwt_sos_leak.py` is retained as the regression sentinel against any future re-introduction of the leak.
 * **Nature:** Character-level language-model internal tokens (``<SOS>``,
@@ -377,7 +377,7 @@ manual's ``%mor`` grammar does not permit angle-bracket content
 inside stems, so an unguarded leak produces invalid CHAT like
 ``sconj|<sos>tos~aux|ei-Fin-Neg-S3`` that ``chatter validate``
 correctly rejects with E316. The rejection is a reliable final
-safety gate but inconvenient — the corruption ships to disk before
+safety gate but inconvenient, the corruption ships to disk before
 validation sees it.
 
 Observed impact: files in CHILDES Finnish Kirjavainen-MPI have
@@ -392,16 +392,16 @@ Empirically narrowed down from the original 8-word sentence:
 * ``tollei`` appears as a non-boundary token (3+ whitespace-separated
   tokens total; ``se tollei`` and ``tollei se`` do NOT leak)
 
-The leak is not observed for arbitrary Finnish MWT splits — it
+The leak is not observed for arbitrary Finnish MWT splits, it
 reproduces reliably on ``tollei`` but was not seen on the other
 Finnish MWTs we sampled. Likely a corner case in the character LM's
 interaction with the MWT processor on this specific surface form.
 
 ### BA3 mitigation (RETIRED in Stanza 1.12.0)
 
-The earlier mitigation — a control-token stripper at
+The earlier mitigation, a control-token stripper at
 ``batchalign/inference/_control_token_filter.py`` plus its
-integration test and unit-test suite — was removed as part of the
+integration test and unit-test suite, was removed as part of the
 2026-05-14 Stanza 1.12.0 upgrade once
 ``test_stanza_fi_mwt_sos_leak.py`` flipped GREEN against the new
 release. The standalone reproducer is kept as a regression sentinel;
@@ -411,7 +411,7 @@ no active strip-in-place code remains in the pipeline.
 
 * **Standalone upstream reproducer (kept):**
   ``batchalign/tests/pipelines/morphosyntax/test_stanza_fi_mwt_sos_leak.py``
-  — no batchalign imports; remains GREEN on Stanza 1.12.0 and is the
+ , no batchalign imports; remains GREEN on Stanza 1.12.0 and is the
   fail-loud signal if a future Stanza version reintroduces the leak.
 * The earlier
   ``batchalign/tests/inference/test_control_token_filter.py`` and
@@ -467,7 +467,7 @@ emitting a ``ready`` signal, the Rust dispatcher reports
 file in the batch is failed cleanly by the language-group failure
 aggregator. No silent corruption, but no ``%mor`` either.
 
-### History — and why this was a regression, not a new bug
+### History: and why this was a regression, not a new bug
 
 BA2-jan9 (the ``84ad500`` baseline this team uses as the migration
 oracle) already handled this correctly. The relevant excerpt from
@@ -505,7 +505,7 @@ elsewhere in BA3).
 When BA3 was built, BA2's two-armed check was flattened into a
 single hardcoded include set ``MWT_LANGS``. The runtime catalog arm
 was lost. The hardcoded include set then drifted in the opposite
-direction — listing Swedish (``sv``) for MWT even though Stanza had
+direction, listing Swedish (``sv``) for MWT even though Stanza had
 never shipped a Swedish MWT model.
 
 ### BA3 fix (ACTIVE)
@@ -580,7 +580,7 @@ real morphosyntactic structure.
 **Estonian no-op.** Stanza ships ``et`` MWT in
 ``resources.json``, so the capability table reports
 ``has_mwt=True`` and BA3 requests it. Empirically, Stanza's Estonian
-MWT model does not split anything on conversational input — including
+MWT model does not split anything on conversational input, including
 the contracted-negation forms (``pole`` = ei+ole, ``polnud`` =
 ei+olnud, ``polegi`` = ei+ole+gi) that UD Estonian-EDT does mark as
 MWT in the treebank. Probed inputs and observed Stanza output:
@@ -601,7 +601,7 @@ will surface through a test rather than as silent output drift.
 
 ### Tests
 
-* **Pure-function unit tests** (4 tests, GREEN — no Stanza required):
+* **Pure-function unit tests** (4 tests, GREEN, no Stanza required):
   ``batchalign/tests/pipelines/morphosyntax/test_stanza_loading.py::TestShouldRequestMwt``
   pins ``should_request_mwt`` against synthetic capability tables
   (Swedish-not-supported, English-supported, unknown-language,
@@ -609,13 +609,13 @@ will surface through a test rather than as silent output drift.
 * **Live-catalog regression tests** (3 tests, GREEN):
   ``batchalign/tests/pipelines/morphosyntax/test_stanza_config_parity.py::TestMwtCapabilityDriven``
   asserts the runtime decision against the actual installed Stanza
-  catalog — Swedish False, English True — and uses an AST scan to
+  catalog, Swedish False, English True, and uses an AST scan to
   forbid re-introduction of a hardcoded ``MWT_LANGS`` set.
 * **Hebrew/Greek/Estonian MWT split observation tests** (golden, real Stanza):
   ``batchalign/tests/pipelines/morphosyntax/test_stanza_he_el_et_mwt_splits.py``
   pins the linguistically-correct splits for the canonical Hebrew and
   Greek constructions listed above plus the Estonian no-op probes.
-  Standalone — no batchalign imports — safe to share with upstream
+  Standalone, no batchalign imports, safe to share with upstream
   if Stanza output drifts.
 * **CHAT end-to-end tests** (golden, integration):
   ``batchalign/tests/pipelines/morphosyntax/test_he_el_mwt_end_to_end.py``
@@ -641,7 +641,7 @@ will surface through a test rather than as silent output drift.
 BA2-jan9's hardcoded ``mwt_exclusion`` list was inherited without
 documented rationale (only Ignas's runtime-check arm had a clear
 purpose). Recreating it in BA3 would re-create the same drift bug
-in a different shape — over time, the upstream catalog moves and
+in a different shape, over time, the upstream catalog moves and
 the hardcoded list goes stale. Per the project's standing policy
 ("BA2 is known-buggy; never duplicate BA2's wrong output"), the
 correct stance is to trust the capability table and let any
@@ -656,7 +656,7 @@ next Stanza release and Swedish would gain MWT support with no BA3
 code change. Estimated effort: weeks; not currently scheduled.
 
 Routing Swedish to a sibling model (Norwegian-Bokmål) is **not** a
-viable workaround — Norwegian and Swedish are distinct languages,
+viable workaround, Norwegian and Swedish are distinct languages,
 per-word morphological features would be wrong, and the resulting
 ``%mor`` would be misleading rather than merely incomplete.
 
@@ -679,15 +679,15 @@ per-word morphological features would be wrong, and the resulting
 * **Construction:** Italian words whose last one-to-two characters
   match a clitic shape (`-la`, `-lo`, `-le`, `-li`, `-ne`, `-no`,
   `-ni`, `-mi`, `-ti`, `-ci`, `-vi`, `-si`) are wrapped by Stanza in
-  an MWT Token and analyzed as `verb stem + enclitic pronoun` —
-  with a bogus stem lemma — regardless of actual part of speech.
+  an MWT Token and analyzed as `verb stem + enclitic pronoun`,
+  with a bogus stem lemma, regardless of actual part of speech.
   The defect fires not only on verb forms like `parla` (imperative
   of `parlare`) but also on common nouns like `arancione` (orange),
   `seggiola` (chair), `gomitolo` (ball of yarn), `cavallone` (big
   horse), `cielo` (sky), `bottone` (button), on adjectives like
   `piccolo` / `piccola` (small), and on diminutive/augmentative
   baby-talk forms (`coccole`, `babbolo`, `pettole`). Most of the
-  non-verb hits are tagged with `Part Past` features — Stanza
+  non-verb hits are tagged with `Part Past` features, Stanza
   confidently treats the whole surface as a past participle plus
   clitic.
 
@@ -711,7 +711,7 @@ TalkBank CHAT corpora):
 | `bottone` (button)             | `verb\|botto~pron\|ne`                                    | `Part Past`      |
 | `cavallone` (big horse)        | `verb\|cavallo~pron\|ne`                                  | `Part Past`      |
 
-Every row has ONE `%mor` item for ONE CHAT word — the Range
+Every row has ONE `%mor` item for ONE CHAT word, the Range
 reassembly worked, the count invariant holds. Every row's content
 is wrong.
 
@@ -737,7 +737,7 @@ Stanza's tokenize stage and sees a single token `parla`. The split
 is introduced later by Stanza's POS tagger interpreting `parl-` as
 the imperative stem and producing lemma=`par` because no real
 Italian lemma exists for that fragment. No per-language MWT-override
-rule — old or new — operates after POS tagging, so this class of
+rule, old or new, operates after POS tagging, so this class of
 break is out of reach for the hook. The character-DP realigner in
 `align_tokens` also runs at tokenize, before the POS split.
 
@@ -755,7 +755,7 @@ Fixing this properly would require one of:
 2. **Stanza retrain** on conversational Italian where `parla` as
    2sg imperative is marked with its correct `parlare` lemma.
 3. **Swap Stanza for CLAN's Italian MOR** as the morphosyntax
-   engine for Italian — its lexicon handles these imperative forms
+   engine for Italian, its lexicon handles these imperative forms
    correctly.
 
 ### BA3 mitigation (ACTIVE)
@@ -775,7 +775,7 @@ the collapsed range so `build_gra_and_validate` emits a single
 test strategy (lang_it.rs unit tests + synthetic UD integration
 tests + end-to-end morphotag golden).
 
-The UD-level xfail probes below remain pinned — they measure
+The UD-level xfail probes below remain pinned, they measure
 Stanza's raw output, which the reconciler does not change. The
 reconciler operates downstream of Stanza and only affects what
 lands in the CHAT `%mor` tier.
@@ -791,14 +791,14 @@ lands in the CHAT `%mor` tier.
   Each asserts that Stanza produces as many UD words as CHAT words
   and xfails because Stanza produces one more (the spurious `par + la`
   split at UD level). These pins are **Stanza-behavior observations**,
-  NOT injection-gate failure indicators — the actual `%mor` tier emits
+  NOT injection-gate failure indicators, the actual `%mor` tier emits
   one item per CHAT word for each of these inputs because Stage 3
   collapses the MWT Range. The pins exist so a Stanza upgrade that
   fixes the UD-level anomaly (or a BA3 content-rejection rule that
   intercepts the junk before Stage 3) surfaces as XPASS.
 * **Free-tokenize twin (no postprocessor):** the matrix also runs
   each case through a plain Stanza pipeline without BA3's
-  tokenizer-postprocessor context — confirming the split is native
+  tokenizer-postprocessor context, confirming the split is native
   Stanza behavior, not an artifact of our realignment hook.
 * **Content-quality probes are NOT yet defined.** There is no
   automated assertion today that `%mor` content for `parla forte`
@@ -810,7 +810,7 @@ lands in the CHAT `%mor` tier.
 ### Re-evaluation criteria (when Stanza upgrades)
 
 1. Re-run the xfail test. If it starts passing unexpectedly, Stanza
-   has fixed the POS-layer split — remove the xfail mark and update
+   has fixed the POS-layer split, remove the xfail mark and update
    this entry to a resolved state.
 2. If the split shifts to a different surface form (e.g., stops on
    `parla` but starts on `guarda → guard+a`), extend the probe
@@ -829,7 +829,7 @@ context and the full list of examined constructions.
 An earlier corpus-wide audit of committed `%mor` content counted
 **65 Defect-6 hits across 417 Italian files and 15 distinct surface
 forms**. The top surfaces were `parla` (15), `arancione` (13),
-`piccolo` (10), `seggiola`/`piccola`/`divano`/`trottola` (3–4 each),
+`piccolo` (10), `seggiola`/`piccola`/`divano`/`trottola` (3-4 each),
 and a long tail of single-file occurrences. The audit script itself
 was a maintainer-side probe that did not survive into the current
 public source tree; re-running it for delta measurement requires
@@ -847,12 +847,12 @@ downstream:
 
 | Input | Stanza UD structure (after MWT expansion) | Actual `%mor` emitted | Linguistic correctness |
 |-------|--------------------------------------------|----------------------|------------------------|
-| `parla forte` | `par/par/VERB + la/la/PRON + forte/forte/ADJ` wrapped as Token(1,2)+Token(3,) | `verb|par-Inf-S~pron|la-Prs-S3 adj|forte-S1` | **Wrong** — fake lemma `par`, spurious clitic |
-| `parla più forte` | `par/par/VERB + la/la/PRON + più/più/ADV + forte/forte/ADJ` | `verb|par-Inf-S~pron|la-Prs-S3 adv|più adj|forte-S1` (same junk) | **Wrong** — same shape |
-| `parla dell'opera nuova` | `par/par + la/la + dell'/(di+l') + opera + nuova` | compound `verb|par-...~pron|la-...` for `parla` | **Wrong** — same shape |
-| `la storia parla di un bambino` | `la/(il+i) + storia + parla/parlare/VERB + di + un + bambino` | `det|il-Masc-Def-Art-Sing~det|il-Masc-Def-Art-Plur noun|storia-Fem verb|parlare-Fin-Ind-Pres-S3 adp|di det|uno-Masc-Ind-Art-Sing noun|bambino-Masc` | **Partially wrong** — `la` emitted as masc-sing+masc-plur clitic (Defect 7); `parla` mid-sentence correct |
-| `dammela` | `da/dare/VERB + me/me/PRON + la/la/PRON` wrapped as Token(1,3) | `verb|dare-Inf-Ind-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3` | **Correct** — imperative of `dare` with double-clitic stack |
-| `per favore dammela` | `per/ADP + favore/NOUN + dammela/dammelo/ADJ` (no MWT expansion mid-sentence) | `adp|per noun|favore-Masc adj|dammelo-S1` | **Wrong** — different Stanza defect: mid-sentence compound tagged ADJ, lemma normalized to `dammelo`, no clitic decomposition. Separate from Defect 6. |
+| `parla forte` | `par/par/VERB + la/la/PRON + forte/forte/ADJ` wrapped as Token(1,2)+Token(3,) | `verb|par-Inf-S~pron|la-Prs-S3 adj|forte-S1` | **Wrong**: fake lemma `par`, spurious clitic |
+| `parla più forte` | `par/par/VERB + la/la/PRON + più/più/ADV + forte/forte/ADJ` | `verb|par-Inf-S~pron|la-Prs-S3 adv|più adj|forte-S1` (same junk) | **Wrong**: same shape |
+| `parla dell'opera nuova` | `par/par + la/la + dell'/(di+l') + opera + nuova` | compound `verb|par-...~pron|la-...` for `parla` | **Wrong**: same shape |
+| `la storia parla di un bambino` | `la/(il+i) + storia + parla/parlare/VERB + di + un + bambino` | `det|il-Masc-Def-Art-Sing~det|il-Masc-Def-Art-Plur noun|storia-Fem verb|parlare-Fin-Ind-Pres-S3 adp|di det|uno-Masc-Ind-Art-Sing noun|bambino-Masc` | **Partially wrong**: `la` emitted as masc-sing+masc-plur clitic (Defect 7); `parla` mid-sentence correct |
+| `dammela` | `da/dare/VERB + me/me/PRON + la/la/PRON` wrapped as Token(1,3) | `verb|dare-Inf-Ind-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3` | **Correct**: imperative of `dare` with double-clitic stack |
+| `per favore dammela` | `per/ADP + favore/NOUN + dammela/dammelo/ADJ` (no MWT expansion mid-sentence) | `adp|per noun|favore-Masc adj|dammelo-S1` | **Wrong**: different Stanza defect: mid-sentence compound tagged ADJ, lemma normalized to `dammelo`, no clitic decomposition. Separate from Defect 6. |
 
 Three conclusions, all pipeline-verified:
 
@@ -861,7 +861,7 @@ Three conclusions, all pipeline-verified:
    single compound `%mor` using `~`/`+`, so every CHAT word gets
    exactly one `%mor` item. The
    `mor_count_parity_reference_corpus.rs` test still passes. **Defect 6 is not an injection-gate failure**
-   — it's a linguistic-content failure downstream of Stanza's POS
+  , it's a linguistic-content failure downstream of Stanza's POS
    layer.
 2. **`dammela` alone is handled correctly.** Stanza produces the
    right imperative+clitic analysis (`dare` lemma + `me` + `la`
@@ -872,15 +872,15 @@ Three conclusions, all pipeline-verified:
    different reason.** Stanza misclassifies the entire compound as
    ADJ with lemma `dammelo`, skipping MWT expansion entirely. This
    is a separate Italian Stanza defect (Defect 8, mitigated by a
-   single-chunk POS/lemma override — see Defect 8 below).
+   single-chunk POS/lemma override, see Defect 8 below).
 
 A discriminator between Defect-6-style junk (`parla → par+la` with
 lemma=`par`) and a legitimate clitic compound (`dammela → da+me+la`
 with lemma=`dare`) is **not needed at the `%mor` injection level**
-— the mapper already handles both correctly in terms of count.
+, the mapper already handles both correctly in terms of count.
 
 The per-language reconciler in `crates/batchalign-transform/src/morphosyntax/lang_it.rs` takes
-a different approach than lemma-equality heuristics — it uses a
+a different approach than lemma-equality heuristics, it uses a
 closed allowlist of known-defective input-token texts (`parla`,
 `arancione`, `piccolo`, `gomitolo`, `divano`, Defect 7's `la`) and
 overrides only those. The `dammela` regression guard test confirms
@@ -909,7 +909,7 @@ evidence can extend it case-by-case.
 * **Construction:** Sentence-initial feminine singular article `la`
   (as in `la storia`, `la casa`) is wrapped by Stanza in an MWT
   Token whose inner words are `il` + `i`, both tagged DET and both
-  lemmatized to `il`. This is spurious — `la` is a single-morpheme
+  lemmatized to `il`. This is spurious, `la` is a single-morpheme
   article that should be analyzed as `det|la-Fem-Def-Art-Sing`.
 
 ### Input and observed end-to-end `%mor` output
@@ -924,10 +924,10 @@ evidence can extend it case-by-case.
 
 The first `%mor` chunk is ONE item for the CHAT word `la` (Range
 collapse works), but the linguistic content is two masculine-article
-readings — neither of which matches the input's feminine-singular
+readings, neither of which matches the input's feminine-singular
 `la`. The rest of the utterance is linguistically correct
 (`parla` mid-sentence gets its proper `parlare-Fin-Ind-Pres-S3`
-analysis — unrelated to Defect 6).
+analysis, unrelated to Defect 6).
 
 ### Correct output
 
@@ -940,7 +940,7 @@ analysis — unrelated to Defect 6).
 One item per CHAT word with the right feminine-singular analysis on
 `la`. Stanza's Italian MWT model does not produce this today.
 
-### Scope — position sensitivity not yet characterized
+### Scope: position sensitivity not yet characterized
 
 The spurious expansion has only been observed at sentence-initial
 position in the current probe matrix. It is not yet known whether
@@ -970,7 +970,7 @@ Same reconciler architecture as Defect 6, different allowlist
 entry. The two defects are orthogonal at the detection level
 (Defect 6's components concatenate back to the input text;
 Defect 7's do not, e.g. `il + i ≠ la`) but the reconciler's
-range-parent-text lookup handles both uniformly — it doesn't
+range-parent-text lookup handles both uniformly, it doesn't
 need to distinguish defect families because the allowlist key
 IS the input token, not the component signature.
 
@@ -984,7 +984,7 @@ for the full allowlist.
   asserts that Stanza produces exactly 6 UD words for the 6-word CHAT
   input. It fails because Stanza produces 7 (spurious `la → il + i`
   split at UD level). The xfail is a **Stanza-behavior pin**, not an
-  injection-gate failure indicator — the actual `%mor` tier emits
+  injection-gate failure indicator, the actual `%mor` tier emits
   correctly with 6 items because Stage 3 collapses the Range. The
   pin exists so a Stanza upgrade that fixes the UD-level anomaly
   surfaces as XPASS; when that happens, `%mor` content will also
@@ -993,7 +993,7 @@ for the full allowlist.
 ### Re-evaluation criteria (when Stanza upgrades)
 
 1. Re-run the xfail test. If it flips to unexpected pass, Stanza has
-   fixed the sentence-initial expansion — remove the xfail mark and
+   fixed the sentence-initial expansion, remove the xfail mark and
    update this entry to a resolved state.
 2. If the expansion shifts to a different surface form (e.g., `le` or
    `li` also start expanding), extend the probe case list and
@@ -1024,7 +1024,7 @@ audit context.
 ### Construction
 
 Italian imperative+enclitic compounds (`dammela`, `dammelo`,
-similar) are correctly handled when they appear alone — Stanza's
+similar) are correctly handled when they appear alone, Stanza's
 MWT processor fires and emits a three-word expansion
 (`verb|dare~pron|me~pron|la`). In **mid-sentence** position
 (e.g., `per favore dammela`), Stanza's MWT processor does NOT
@@ -1058,7 +1058,7 @@ inside `map_ud_sentence`'s `UdId::Single` branch, gated on
 
 **Scope**: the mitigation emits a **single-chunk** `Mor`
 (`verb|dare-Imp-S2`) rather than decomposing the compound into
-verb + clitic post-clitics. This is a scope trade-off — a multi-
+verb + clitic post-clitics. This is a scope trade-off, a multi-
 chunk emission from a single UdWord would require extending
 `build_gra_and_validate`'s chunk-counting logic (currently
 assumes `UdId::Single` → exactly one chunk). The single-chunk
@@ -1081,7 +1081,7 @@ regression test in `morphosyntax/tests.rs`.
   `crates/batchalign-transform/src/morphosyntax/lang_it.rs`.
 - **End-to-end golden** in
   `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py::test_dammela_mid_sentence_becomes_verb`
-  — runs `batchalign3 morphotag` on a CHAT fixture whose
+ , runs `batchalign3 morphotag` on a CHAT fixture whose
   `@Languages:` header declares `ita`, content `per favore
   dammela`, and asserts the output `%mor` carries `dare`, not
   `adj|dammelo`. (Morphotag has no `--lang` flag; language

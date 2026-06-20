@@ -11,7 +11,7 @@ versus when to wait.
 
 Every processing job tracks progress at the **file level**. In server mode, the
 server reports stage transitions and optional sub-file counters (e.g.,
-"Aligning 3/7 groups") to all connected clients — the CLI, TUI, and React
+"Aligning 3/7 groups") to all connected clients, the CLI, TUI, and React
 dashboard all consume the same stream. In direct local mode, the CLI now
 projects the same file-status snapshots from the in-memory direct host, so
 local runs still show live terminal progress without requiring a dashboard.
@@ -27,9 +27,9 @@ process alive.
 
 There are two progress tiers:
 
-- **Stage labels** — every file shows a stage name ("Reading", "Aligning",
+- **Stage labels**: every file shows a stage name ("Reading", "Aligning",
   "Writing") that changes as processing advances.
-- **Sub-file counters** — some stages include a current/total counter for
+- **Sub-file counters**: some stages include a current/total counter for
   fine-grained progress within a single file.
 
 ## Per-Command Expectations
@@ -38,15 +38,15 @@ There are two progress tiers:
 
 Align processes files individually and concurrently. Each file goes through:
 
-1. **Reading** — loading the CHAT file from disk
-2. **Resolving audio** — finding and preparing the media file
-3. **Recovering utterance timing** (if needed) — re-transcribing to recover
+1. **Reading**: loading the CHAT file from disk
+2. **Resolving audio**: finding and preparing the media file
+3. **Recovering utterance timing** (if needed), re-transcribing to recover
    word timing for untimed utterances. Shows sub-progress for partial-window
    UTR (e.g., "2/5" windows). This step takes roughly as long as the
    recording itself.
-4. **Aligning** — forced alignment on utterance groups. Shows sub-progress
+4. **Aligning**: forced alignment on utterance groups. Shows sub-progress
    (e.g., "3/7" groups).
-5. **Writing** — saving the aligned output
+5. **Writing**: saving the aligned output
 
 **Timing:** Most of the time is spent in steps 3-4. A 10-minute recording
 typically takes 5-15 minutes depending on the engine and number of utterances.
@@ -69,12 +69,12 @@ audio length.
 These commands batch **all files together** into a single inference call for
 GPU efficiency. Progress stages:
 
-1. **Reading** — files are loaded one at a time; each transitions from
+1. **Reading**: files are loaded one at a time; each transitions from
    the initial stage to "Reading" during I/O.
-2. **Analyzing/Segmenting/Translating** (0/N) — the batch total is published
+2. **Analyzing/Segmenting/Translating** (0/N), the batch total is published
    before inference starts. During inference, the progress bar shows the batch
    size but individual files don't advance.
-3. **Writing** (1/N, 2/N, ...) — as each file's result is written to disk,
+3. **Writing** (1/N, 2/N, ...), as each file's result is written to disk,
    the counter ticks up.
 
 For large in-place reruns driven by `--file-list`, the batched text commands
@@ -84,7 +84,7 @@ input `.cha` files mutate on disk yet. If you want visible on-disk updates
 during a long repair pass, split the rerun into smaller invocations.
 
 **What "frozen" means:** During step 2, the progress bar won't advance because
-all files are processed as a single batch. This is normal — the model is
+all files are processed as a single batch. This is normal, the model is
 working on your entire corpus at once. The elapsed timer keeps ticking to
 confirm the app is alive.
 
@@ -97,7 +97,7 @@ morphotag, faster for translate and utseg.
 (these are genuinely long-running). The elapsed timer should always be ticking.
 
 **Investigate if:**
-- The elapsed timer stops advancing (app may have frozen — try refreshing)
+- The elapsed timer stops advancing (app may have frozen, try refreshing)
 - A file stays in "Reading" for more than 30 seconds (possible I/O issue)
 - "Resolving audio" persists for minutes (media file may be missing)
 
@@ -107,7 +107,7 @@ morphotag, faster for translate and utseg.
 - **CLI:** Press `Ctrl+C` (graceful shutdown)
 - **API:** `POST /jobs/{id}/cancel`
 
-Cancellation is cooperative — the current file finishes its in-progress work
+Cancellation is cooperative, the current file finishes its in-progress work
 before the job stops.
 
 ## Pipeline Phase Indicator
@@ -126,7 +126,7 @@ phase bar that maps the 23 internal progress stages into visual phases:
 The 23 `FileProgressStage` variants map to 5 visual phases via `phase_index()` in `crates/batchalign/src/cli/tui/ui.rs`; two variants (`Processing` generic fallback and `RetryScheduled`) deliberately do not map to a phase.
 
 The active phase pulses; completed phases are filled; future phases are gray.
-Not every command uses all phases — `morphotag` skips Transcribe and Align;
+Not every command uses all phases, `morphotag` skips Transcribe and Align;
 `align` skips Transcribe and Analyze.
 
 ## Progress Displays
@@ -144,7 +144,7 @@ The TUI shows the same information as the web dashboard in a terminal-friendly
 format:
 
 - **Header** with status breakdown (`3✓ 2⠋ 1✗ 44·`), elapsed time, and ETA.
-  Shows "Done!" or "Done — N failed" on completion.
+  Shows "Done!" or "Done, N failed" on completion.
 - **Pipeline phase dots** next to each processing file: `●●●○○` maps the 5
   phases (Read/Transcribe/Align/Analyze/Finalize) using the same grouping as
   the web dashboard. Green = completed, cyan = active, gray = future.

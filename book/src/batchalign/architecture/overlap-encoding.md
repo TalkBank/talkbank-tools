@@ -5,7 +5,7 @@
 
 ## AST Representation
 
-### `&*` — `OtherSpokenEvent`
+### `&*`: `OtherSpokenEvent`
 
 **Model (talkbank-tools):** `../chatter/crates/talkbank-model/src/model/content/other_spoken.rs`
 
@@ -18,17 +18,17 @@ pub struct OtherSpokenEvent {
 ```
 
 Appears in two enum locations:
-- `UtteranceContent::OtherSpokenEvent(OtherSpokenEvent)` — top-level content
-- `BracketedItem::OtherSpokenEvent(OtherSpokenEvent)` — inside groups
+- `UtteranceContent::OtherSpokenEvent(OtherSpokenEvent)`: top-level content
+- `BracketedItem::OtherSpokenEvent(OtherSpokenEvent)`: inside groups
 
 **Parser (talkbank-tools):**
 `../chatter/crates/talkbank-parser/src/parser/tree_parsing/main_tier/content/`
 
 The tree-sitter grammar accepts `&*` + speaker chars + `:` + non-whitespace chars.
 
-**Serialization:** `&*SPK:text` — roundtrips cleanly via `WriteChat`.
+**Serialization:** `&*SPK:text`: roundtrips cleanly via `WriteChat`.
 
-### `+<` — `Linker::LazyOverlapPrecedes`
+### `+<`: `Linker::LazyOverlapPrecedes`
 
 **Model (talkbank-tools):** `../chatter/crates/talkbank-model/src/model/content/linker.rs`
 
@@ -63,7 +63,7 @@ This means `&*` content:
 ## Two-Pass UTR Strategy
 
 When `+<` or CA overlap markers (`⌊`) are present, the alignment pipeline uses a
-two-pass UTR strategy. See [Forced Alignment — UTR](../reference/forced-alignment.md)
+two-pass UTR strategy. See [Forced Alignment, UTR](../reference/forced-alignment.md)
 for the algorithm details, and the CHAT Data Model content-walker API
 (`walk_overlap_points`) in the `chatter` project.
 

@@ -28,7 +28,7 @@ the other language.
 
 ## Prior Art
 
-### Solorio & Liu (2008) — Two Monolingual Taggers with Supervised Merger
+### Solorio & Liu (2008): Two Monolingual Taggers with Supervised Merger
 
 The foundational work on POS tagging for code-switched text. Solorio
 and Liu ran separate English and Spanish POS taggers on English-Spanish
@@ -45,16 +45,16 @@ that requires no code-switching training data at all.
 **Citation:** Solorio, T. & Liu, Y. (2008). Part-of-Speech Tagging for
 English-Spanish Code-Switched Text. *Proceedings of EMNLP 2008*.
 
-### Bhat et al. (2018) — Neural Stacking for Code-Switching Dependency Parsing
+### Bhat et al. (2018): Neural Stacking for Code-Switching Dependency Parsing
 
 Built the first Hindi-English code-switching Universal Dependencies
-treebank and proposed "neural stacking" — base monolingual parsers
+treebank and proposed "neural stacking", base monolingual parsers
 (Hindi and English) whose hidden representations are fed to a stacking
 parser trained on code-switched data. Achieved 90.5% POS accuracy and
 71.0% LAS on code-switched dependency parsing.
 
 **Relevance to our work:** The neural stacking approach is
-architecturally related to our structural merge — both use monolingual
+architecturally related to our structural merge, both use monolingual
 models as a foundation and combine their outputs. The critical
 difference: Bhat et al. require a code-switching treebank to train the
 stacking layer. Our approach requires only monolingual Stanza models
@@ -64,7 +64,7 @@ and a hand-crafted deprel-to-POS constraint table.
 (2018). Universal Dependency Parsing for Hindi-English Code-switching.
 *Proceedings of NAACL-HLT 2018*.
 
-### Soto & Hirschberg (2018) — Joint POS and Language ID Tagging
+### Soto & Hirschberg (2018): Joint POS and Language ID Tagging
 
 Demonstrated that jointly predicting language ID and POS improves both
 tasks for code-switched text. Adding language ID as a feature to the
@@ -99,7 +99,7 @@ transcript morphology rather than social media text.
 Centralized Benchmark for Linguistic Code-switching Evaluation.
 *Proceedings of LREC 2020*.
 
-### CS-ELMo (Winata et al., 2020) — Transfer Learning with Morphological Clues
+### CS-ELMo (Winata et al., 2020): Transfer Learning with Morphological Clues
 
 Extended ELMo with a position-aware attention mechanism that enhances
 morphological clues from character n-grams. The bottom layers of the
@@ -109,14 +109,14 @@ tasks.
 
 **Relevance to our work:** CS-ELMo uses subword/character-level features
 to capture cross-language morphological patterns. Our approach operates
-at the word level and doesn't exploit subword features — this is a
+at the word level and doesn't exploit subword features, this is a
 potential improvement direction.
 
 **Citation:** Winata, G.I., Cahyawijaya, S., Lin, Z., Liu, Z., & Fung,
 P. (2020). From English to Code-Switching: Transfer Learning with
 Strong Morphological Clues. *Proceedings of ACL 2020*.
 
-### "Parsing the Switch" — BiLingua Parser (2025)
+### "Parsing the Switch": BiLingua Parser (2025)
 
 Very recent work using GPT-4 with linguistically-informed prompting to
 produce UD annotations for code-switched text. The BiLingua Parser
@@ -125,7 +125,7 @@ annotations outperform conventional parsers in syntactic accuracy,
 particularly at switch points where monolingual models typically fail.
 
 **Relevance to our work:** Confirms that monolingual parsers fail at
-switch points — exactly the problem our secondary dispatch addresses.
+switch points, exactly the problem our secondary dispatch addresses.
 Their LLM-based approach is more powerful but requires API access to
 proprietary models, while our approach uses open Stanza models locally.
 
@@ -159,9 +159,9 @@ processing.
 Several code-switching treebanks exist in the Universal Dependencies
 framework, providing gold-standard annotations for evaluation:
 
-- **UD Hindi-English HIENCS** (Bhat et al., 2018) — Hindi-English
+- **UD Hindi-English HIENCS** (Bhat et al., 2018), Hindi-English
   code-switching tweets
-- **UD Turkish-German SAGT** (Cetinoglu, 2022) — Turkish-German
+- **UD Turkish-German SAGT** (Cetinoglu, 2022), Turkish-German
   conversational code-switching
 
 These could serve as evaluation resources if we wanted to quantitatively
@@ -180,7 +180,7 @@ MLF model. The primary language in batchalign3 IS the matrix language
 (providing the syntactic frame via dependency parsing). The `@s` words
 ARE embedded language elements. Our merge algorithm respects the matrix
 language's structural frame (deprel, head) while filling in the embedded
-language's morphology (lemma, features) — this is essentially a
+language's morphology (lemma, features), this is essentially a
 computational implementation of the MLF's Morpheme Order Principle.
 
 ## Situating Our Approach
@@ -252,7 +252,7 @@ computational implementation of the MLF's Morpheme Order Principle.
 ## Recommendations
 
 1. **Our approach is viable and reasonably novel.** We are not
-   reinventing the wheel — the two-model combination idea is well
+   reinventing the wheel, the two-model combination idea is well
    established (Solorio 2008). But our specific implementation (deprel
    constraint + closed-class override + zero CS training data) is a
    new combination of known principles.
@@ -268,11 +268,11 @@ computational implementation of the MLF's Morpheme Order Principle.
    code-switching annotations.
 
 4. **The Matrix Language Frame alignment** should be mentioned in any
-   publication — our architecture is a natural computational realization
+   publication, our architecture is a natural computational realization
    of the MLF model's matrix/embedded language distinction.
 
 ## Related
 
-- [Experimental L2 Morphotag](l2-morphotag.md) — design
+- [Experimental L2 Morphotag](l2-morphotag.md), design
   document for the feature
-- [L2 & Language Switching](l2-handling.md) — current behavior reference
+- [L2 & Language Switching](l2-handling.md), current behavior reference

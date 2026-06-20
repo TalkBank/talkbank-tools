@@ -96,7 +96,7 @@ _INFER_TASK_PROBES: dict[InferTask, tuple[tuple[str, ...], str]] = {
 }
 ```
 
-Capabilities are detected lazily from the first real worker spawn — there is no
+Capabilities are detected lazily from the first real worker spawn, there is no
 dedicated probe worker at startup. The capability check uses import probes, not
 loaded model state. This means capability advertisement must be based on import
 availability, never on `_state.my_model is not None`. If you gate on loaded
@@ -127,7 +127,7 @@ Add the engine's Python dependencies to the appropriate section in
 ### Cross-cutting Rust edits for a new ASR engine variant
 
 For an ASR engine specifically, a variant lives in **three Rust enums
-that must stay in sync** — a mismatch in any one silently mis-routes
+that must stay in sync**: a mismatch in any one silently mis-routes
 dispatch. The following tables enumerate every file/identifier you
 must update when adding a new variant. Use the `whisper_hub` addition
 (2026-04-22) as a worked example of every line item.
@@ -155,7 +155,7 @@ must update when adding a new variant. Use the `whisper_hub` addition
 
 Worker-side enum (matches Rust wire name one-to-one):
 
-- `AsrEngine` in `batchalign/worker/_types.py` — the Python enum the
+- `AsrEngine` in `batchalign/worker/_types.py`: the Python enum the
   worker bootstrap stores in `_state.asr_engine`.
 
 Request validation surface (optional, only for engines with
@@ -175,7 +175,7 @@ default.
 `language` and `task` into their own `generation_config`. Passing
 those again in `generate_kwargs` produces gibberish. The escape hatch
 is the `skip_language_force: bool` flag on
-`batchalign/inference/types.py::WhisperASRHandle` — when `True`,
+`batchalign/inference/types.py::WhisperASRHandle`: when `True`,
 `gen_kwargs()` returns ONLY `{"max_new_tokens": 444}` and omits
 `task`, `language`, `generation_config`, and `repetition_penalty`.
 See `batchalign/inference/whisper_hub.py` for the wiring:
@@ -208,7 +208,7 @@ tests that assert "the object the constructor returns, when exercised
 by a downstream caller, produces the right observable behavior."
 
 Concrete example. The `whisper_hub` loader was initially tested only
-by asserting that `load_whisper_asr` received `language="auto"` —
+by asserting that `load_whisper_asr` received `language="auto"`,
 a proxy for "fine-tunes won't get their language re-forced at
 `generate()` time." That assertion was true but insufficient: the
 V2 inference path (`infer_whisper_prepared_audio`) calls
@@ -252,32 +252,32 @@ through both paths, your engine-addition test must cover both.
 
 For ASR engine additions, the RED test baseline is:
 
-1. `test_<engine>_wire_roundtrip` — `AsrEngineName::<Engine>.wire_name()`
+1. `test_<engine>_wire_roundtrip`: `AsrEngineName::<Engine>.wire_name()`
    roundtrips through `try_from_wire_name`. Already a common idiom;
    add the variant to the existing test module.
-2. `test_<engine>_worker_mode_lowers_correctly` — `AsrWorkerMode`
+2. `test_<engine>_worker_mode_lowers_correctly`: `AsrWorkerMode`
    variant lowers to the right `AsrBackendV2` and back.
-3. `test_<engine>_loader_dispatch` — worker bootstrap's
+3. `test_<engine>_loader_dispatch`: worker bootstrap's
    `load_asr_engine()` routes `engine_overrides["asr"]=="<engine>"`
    to your new loader function.
-4. **`test_<engine>_handle_gen_kwargs_for_concrete_language`** —
+4. **`test_<engine>_handle_gen_kwargs_for_concrete_language`**,
    construct a handle the way your loader would, call its
    generation-kwargs method with a concrete (non-auto) language, and
    assert the output dict matches what you expect `generate()` to
    receive. This is the test that catches the fine-tune trap above.
-5. **`test_<engine>_resolves_model_id_for_seeded_language`** — if
+5. **`test_<engine>_resolves_model_id_for_seeded_language`**: if
    your engine uses per-language defaults from `resolve.py`, pin the
    seed entry with a direct assertion on `resolve("<engine>", lang)`.
-6. **`test_<engine>_raises_on_unseeded_language`** — if your engine
+6. **`test_<engine>_raises_on_unseeded_language`**: if your engine
    raises on a missing default, pin the error type and message
    fragment. Don't let the error degrade into a silent stock
    fallback.
 
 Guard-rail tests must accompany any deny-list / recommendation
-changes — if you redirect users from engine X to engine Y for some
+changes, if you redirect users from engine X to engine Y for some
 language, engine Y must itself pass validation for that language.
 
-### Rebuild the PyO3 extension — the Python worker's dispatch is Rust
+### Rebuild the PyO3 extension: the Python worker's dispatch is Rust
 
 `AsrBackendV2` exists in two Rust crates (`batchalign-types` for the
 server, and `crates/batchalign-pyo3/src/worker_asr_exec.rs` via that crate). The PyO3
@@ -288,7 +288,7 @@ variant means you must:
 
 1. Add a match arm inside `crates/batchalign-pyo3/src/worker_asr_exec.rs::run_asr` that
    routes the new variant. The compiler will catch the missing arm if
-   you let it — but only after you rebuild the PyO3 extension.
+   you let it, but only after you rebuild the PyO3 extension.
 2. Rebuild `batchalign_core`: `make batchalign-python-prepare` (which
    produces a fresh wheel via the maturin backend declared in
    `pyproject.toml` and reinstalls it into the dev environment), or run
@@ -345,7 +345,7 @@ The grep-and-rebuild ritual above is the defense; the workspace
 structure no longer is the gap.
 
 (An out-of-date doc-comment in `crates/batchalign-pyo3/Cargo.toml`
-describes the crate as "outside the root workspace by design" —
+describes the crate as "outside the root workspace by design",
 that comment predates the move into the workspace and should be
 updated when next touched.)
 
@@ -355,7 +355,7 @@ updated when next touched.)
 is one special case, `"Cantonese"` is another, and any other string
 means "force this language on `generate()`". Plus the new
 `skip_language_force` flag adds a fourth behavior. This is
-boolean-blindness dressed in string clothing — four distinct
+boolean-blindness dressed in string clothing, four distinct
 generation modes hidden in two orthogonal inputs. A future refactor
 should replace this with an enum such as `WhisperGenMode::{
 AutoDetect, FinetunePinnedByConfig, CantoneseSpecialCase,
@@ -372,18 +372,18 @@ existing command), see the detailed 8-step checklist in
 
 In addition to those Rust-side changes, update these Python-side surfaces:
 
-1. **`crates/batchalign-types/src/command_spec.rs`** — Add a `CommandSpec` entry to
+1. **`crates/batchalign-types/src/command_spec.rs`**: Add a `CommandSpec` entry to
    `COMMAND_SPECS`. Then run `cargo xtask gen-runtime-toml` to regenerate
    `batchalign/runtime_constants.toml` (the generated file is the shared
    Rust/Python source of truth; do not edit it directly).
-2. **`batchalign/worker/_handlers.py`** — Add the `InferTask` to
+2. **`batchalign/worker/_handlers.py`**: Add the `InferTask` to
    `_INFER_TASK_PROBES` (at `_handlers.py:77`) so the worker
    advertises it. This is the only Python-side probe mechanism; the
    server cross-checks advertised infer-tasks against required
    command capabilities. See
    [step 4 above](#4-wire-dispatch-and-capability-advertisement) for
    details.
-3. **`batchalign/worker/_model_loading/`** — Register the dynamic
+3. **`batchalign/worker/_model_loading/`**: Register the dynamic
    runtime host for the new task if it depends on loaded model state or
    engine-specific wiring. Reserve **`batchalign/worker/_execute_v2.py`** for
    the small task router that dispatches to those prepared hosts.

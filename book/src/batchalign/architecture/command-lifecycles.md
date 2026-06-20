@@ -78,7 +78,7 @@ transcribe and compare rather than inventing its own third orchestration style.
 
 ---
 
-## Scenario 1: align — 3 files, 2 workers
+## Scenario 1: align: 3 files, 2 workers
 
 Forced alignment is the most complex dispatch shape. Each file has its
 own audio, so files are processed sequentially. Within each file,
@@ -164,7 +164,7 @@ sequenceDiagram
 1. **CLI** discovers `.cha` files in the input directory (sorted largest-first),
    submits them as a single job via `POST /jobs`.
 2. **Server** creates the job in `Queued` state and returns immediately.
-3. The **runner** checks the memory gate — if an idle worker already exists
+3. The **runner** checks the memory gate, if an idle worker already exists
    for `(align, eng)`, the memory check is bypassed entirely.
 4. **Pre-scaling** spawns 2 worker processes to avoid sequential spawn overhead.
    Workers load the FA model (Whisper or Wave2Vec) at startup.
@@ -207,7 +207,7 @@ sequenceDiagram
 
 ---
 
-## Scenario 2: morphotag — 2 multilingual files, per-file dispatch
+## Scenario 2: morphotag: 2 multilingual files, per-file dispatch
 
 Morphotag processes files **concurrently**, bounded by `num_workers`.
 Within each file, utterances are analyzed independently (with optional
@@ -267,7 +267,7 @@ sequenceDiagram
    prevents the BA2 over-parallelism crash mode while maximizing throughput
    on multi-core hosts.
 4. For each file, the server **parses** the transcript. If the parsed
-   header declares `@Options: CA`, the file is serialized back as-is —
+   header declares `@Options: CA`, the file is serialized back as-is,
    no `%mor` / `%gra` tiers are added or removed, and no provenance
    comment is injected (mirroring `align`'s `@Options: NoAlign`
    pass-through). Otherwise the server clears any stale morphology and
@@ -287,7 +287,7 @@ sequenceDiagram
 
 ---
 
-## Scenario 2b: compare — 1 main file + 1 gold companion
+## Scenario 2b: compare: 1 main file + 1 gold companion
 
 Compare is the reference-projection shape. It pairs each primary transcript with
 a `FILE.gold.cha` companion, morphotags only the main side, and materializes one
@@ -355,7 +355,7 @@ sequenceDiagram
 
 ---
 
-## Scenario 3: transcribe — 1 file, audio to CHAT
+## Scenario 3: transcribe: 1 file, audio to CHAT
 
 Transcription creates CHAT from scratch rather than modifying existing
 files. It has the longest pipeline: ASR → post-processing → CHAT assembly
@@ -364,7 +364,7 @@ files. It has the longest pipeline: ASR → post-processing → CHAT assembly
 **Speaker label handling:** `convert_asr_response()` **always** uses speaker
 labels from the ASR engine when present (matching BA2's `process_generation()`
 which unconditionally reads `utterance["speaker"]`). The `--diarization` flag
-only controls whether a dedicated Pyannote/NeMo stage runs — it does not
+only controls whether a dedicated Pyannote/NeMo stage runs, it does not
 suppress ASR-provided labels. This means `batchalign3 transcribe` (without
 `--diarization`) still produces multi-speaker output when Rev.AI returns
 speaker-labeled monologues. When `--diarization enabled` is explicitly
@@ -474,10 +474,10 @@ sequenceDiagram
    the worker later. For English, `skip_postprocessing=true` is sent so BA3's
    own pre-CHAT utterance model handles segmentation.
    In `--lang auto` mode there are two real branches:
-   - **Language ID succeeds and maps cleanly** — BA3 collapses to a resolved
+   - **Language ID succeeds and maps cleanly**: BA3 collapses to a resolved
      language before submission. If it resolves to `eng`, the Rev request path
      is the same as explicit `--lang eng`.
-   - **Language ID fails or returns an unmapped code** — BA3 submits a true Rev
+   - **Language ID fails or returns an unmapped code**: BA3 submits a true Rev
      auto request. Downstream code may still later resolve the transcript to
      English for segmentation and CHAT headers, but provider-side options such
      as `speakers_count` and `skip_postprocessing` were not the explicit-English
@@ -489,7 +489,7 @@ sequenceDiagram
    awareness.
 2b. **Speaker label handling:** `convert_asr_response()` **always** groups tokens
    by their speaker labels when present. There is no `use_speaker_labels`
-   parameter — this matches BA2's unconditional speaker reading. The
+   parameter, this matches BA2's unconditional speaker reading. The
    `--diarization` flag only gates the dedicated Pyannote/NeMo stage (step 2c),
    not the use of ASR-provided labels.
 2c. **Dedicated diarization** (optional): If `--diarization enabled` is set, the
@@ -500,14 +500,14 @@ sequenceDiagram
    dedicated speaker result.
 3. **All post-processing happens in Rust** (`batchalign`), not Python.
    The normalization stages in `prepare_asr_chunks()` are:
-   1. *Compound merging* — joins adjacent subword tokens
-   2. *Timed word extraction* — seconds to milliseconds, filter pauses
-   3. *Multi-word splitting* — split space-separated tokens, interpolate timestamps
-   4. *Number expansion* — digits to spelled-out words (language-aware)
-   4b. *Cantonese normalization* (lang=yue only) — simplified to traditional
+   1. *Compound merging*, joins adjacent subword tokens
+   2. *Timed word extraction*, seconds to milliseconds, filter pauses
+   3. *Multi-word splitting*, split space-separated tokens, interpolate timestamps
+   4. *Number expansion*, digits to spelled-out words (language-aware)
+   4b. *Cantonese normalization* (lang=yue only), simplified to traditional
        via `ferrous-opencc` + domain replacements (pure Rust)
-   5. *Long-turn splitting* — chunk monologues at >300 words
-   5b. *Long-pause fallback splitting* — split strongly separated runs when
+   5. *Long-turn splitting*, chunk monologues at >300 words
+   5b. *Long-pause fallback splitting*, split strongly separated runs when
        provider punctuation is missing
 4. **Pre-CHAT utterance segmentation:** For supported languages (`eng`, `zho`,
    `yue`), BA3 now calls the BA2 utterance model at this seam through the V2
@@ -531,7 +531,7 @@ sequenceDiagram
 ## Scenario 4: Server Startup & Lazy Capability Detection
 
 At startup the server recovers persisted state and begins accepting jobs.
-Capability detection is **lazy** — there is no probe worker at startup.
+Capability detection is **lazy**: there is no probe worker at startup.
 Instead, capabilities are detected from the first real worker spawn for each
 profile.
 
@@ -581,21 +581,21 @@ sequenceDiagram
    `Completed` or `Failed`. The reconciled status and cleared lease metadata are
    written back to SQLite so memory and persistence agree.
 3. The server begins accepting requests immediately. Capabilities are not yet
-   known — they are populated lazily.
+   known, they are populated lazily.
 4. When the **first job** arrives, the server spawns a real worker for the
    requested command. During this first worker's startup, the server calls
    `capabilities()` which **import-probes** each `InferTask`: for each task,
    the worker tries to import the required Python packages (e.g., `stanza` for
    Morphosyntax, `torch`+`torchaudio` for FA). If imports succeed, the task is
    reported as available along with its engine version.
-5. The worker **stays in the pool** for actual job work — it is not shut down
+5. The worker **stays in the pool** for actual job work, it is not shut down
    after capability detection.
 6. **`validate_infer_capability_gate()`** derives the released command surface
    from those infer tasks. For every server-orchestrated command, the
    corresponding `InferTask` must be available with a non-empty engine version.
    Commands that fail the check are excluded with a warning.
 7. The `/health` endpoint advertises the validated capability set once it is
-   known. The CLI checks this before submitting jobs — if a required command is
+   known. The CLI checks this before submitting jobs, if a required command is
    missing, it errors immediately rather than queueing a job that will fail.
 
 ---
@@ -631,4 +631,4 @@ so model upgrades automatically invalidate stale entries.
 Workers are keyed by `(CommandName, LanguageCode3)`. The pool uses
 `Mutex<VecDeque>` for the idle queue and `tokio::sync::Semaphore` for
 availability. `CheckedOutWorker` is an RAII guard that returns the worker
-to the pool on drop — no manual checkin needed.
+to the pool on drop, no manual checkin needed.

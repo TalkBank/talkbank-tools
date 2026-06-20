@@ -4,8 +4,8 @@
 **Last updated:** 2026-05-23 09:20 EDT
 
 Add sparse coreference annotation tiers (`%xcoref`) to CHAT transcripts.
-English-only. Uses full document context — all utterances in the file are
-processed together as a single document. Text-only — no audio involved.
+English-only. Uses full document context, all utterances in the file are
+processed together as a single document. Text-only, no audio involved.
 
 ---
 
@@ -33,7 +33,7 @@ caches either (`CacheTaskName` at
 `morphotag`/`utseg`/`translate`. What's specific to `coref` is the
 *reason*: coreference chains span the entire document, so a
 per-utterance cache key would be unsound even if the infrastructure
-existed — the same utterance has different coreference in different
+existed, the same utterance has different coreference in different
 document contexts.
 
 ```mermaid
@@ -80,7 +80,7 @@ is English-only).
 
 ## What changes in the `.cha` file
 
-- `%xcoref:` tiers are added sparsely — only on utterances that contain
+- `%xcoref:` tiers are added sparsely, only on utterances that contain
   mentions participating in a coreference chain
 - All other tiers are preserved unchanged
 - No audio is involved
@@ -93,8 +93,8 @@ is English-only).
 Stanza's coreference model is only available for English.
 
 **No caching.** Re-running `coref` always calls the worker. This is
-true of every text-NLP command — `morphotag`, `utseg`, and `translate`
-also re-run from scratch each time — so this is not a coref-specific
+true of every text-NLP command, `morphotag`, `utseg`, and `translate`
+also re-run from scratch each time, so this is not a coref-specific
 slowdown vs the others. What is specific to coref is the
 document-level scope: even if a per-task text-NLP cache were added
 later, coref's cache key would have to include the entire document
@@ -116,12 +116,12 @@ carrying the engine error verbatim. A batch-level coref failure
 (worker spawn / IPC) marks every English-eligible file in the same
 batch as failed; non-eligible files (dummy or non-English) pass
 through unchanged. The output `.cha` for a failed file is **not**
-written — there is no path where the file appears successful but
+written, there is no path where the file appears successful but
 the `%xcoref` tier is silently missing.
 
 ---
 
 ## Related documentation
 
-- [Command I/O: coref](../../reference/command-io.md#7-coref) — I/O patterns and mutation behavior
-- [Command Flowcharts: coref](../../architecture/command-flowcharts.md#coref) — full architecture flowchart
+- [Command I/O: coref](../../reference/command-io.md#7-coref), I/O patterns and mutation behavior
+- [Command Flowcharts: coref](../../architecture/command-flowcharts.md#coref), full architecture flowchart

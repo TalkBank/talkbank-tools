@@ -42,7 +42,7 @@ If Stanza ships a real pipeline (the `packages` key is populated, not
 just `backward_charlm`/`forward_charlm` stubs):
 
 - Add or verify the language in `batchalign/worker/_stanza_capabilities.py`
-  — this is the runtime authority, NOT a hardcoded table.
+ , this is the runtime authority, NOT a hardcoded table.
 - Confirm MWT, POS, lemma, depparse, constituency availability via the
   capability table.
 - If MWT is present, the Stanza-induced retokenize path
@@ -89,7 +89,7 @@ What determines whether digits get spelled out:
 **Regenerating the table.** The historical codegen script
 (`scripts/codegen_num2lang.py`) is no longer in the tree; the
 table is committed as a generated artifact. The maintenance protocol
-lives in [Number Expansion](../architecture/number-expansion.md) —
+lives in [Number Expansion](../architecture/number-expansion.md),
 follow that page when adding or refreshing a language entry. When
 `num2words.CONVERTER_CLASSES` does not cover a language (e.g.
 Malayalam, Hindi, Tamil, most non-Telugu/Kannada/Bengali Indic
@@ -125,7 +125,7 @@ a representative sample:
    when domain quality demands it.
 
 Document the choice and the evidence behind it on the language's
-reference page. Do NOT silently change engine defaults — every change
+reference page. Do NOT silently change engine defaults, every change
 needs a rationale in the docs.
 
 ### 4. CHAT validator allowlist
@@ -179,19 +179,19 @@ declaring "supported":
    `%wor` tier is generated.
 
 Any failure on steps 1-3 means the language is **not yet ready** for
-user-visible support — adjust integration before merging.
+user-visible support, adjust integration before merging.
 
 ## Related documentation
 
-- `book/src/batchalign/reference/languages/overview.md` — language index
-- `book/src/batchalign/reference/revai-language-quality-strategy.md` — when to
+- `book/src/batchalign/reference/languages/overview.md`: language index
+- `book/src/batchalign/reference/revai-language-quality-strategy.md`: when to
   switch away from Rev.AI
-- `book/src/batchalign/reference/whisper-hub-asr.md` — HuggingFace fine-tune
+- `book/src/batchalign/reference/whisper-hub-asr.md`: HuggingFace fine-tune
   routing
-- `crates/batchalign/CLAUDE.md` — batchalign crate map
-- [Number Expansion](../architecture/number-expansion.md) — protocol
+- `crates/batchalign/CLAUDE.md`: batchalign crate map
+- [Number Expansion](../architecture/number-expansion.md), protocol
   for refreshing `crates/batchalign-transform/data/num2lang.json` and
   the hand-curated overlay (the historical
   `scripts/codegen_num2lang.py` script is no longer in-tree)
 - `../chatter/crates/talkbank-model/src/validation/word/language/`
-  — language-aware validators, including E220 digits
+ , language-aware validators, including E220 digits

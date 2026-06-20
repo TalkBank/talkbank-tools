@@ -42,7 +42,7 @@ utterances use proportional estimates. Both are grouped normally.
 
 ## When proportional estimation runs
 
-UTR (Utterance Timing Recovery) is the default first pass —
+UTR (Utterance Timing Recovery) is the default first pass,
 `inject_utr_timing()` sets utterance bullets from ASR tokens before
 FA grouping, so ~100% of utterances get timing from ASR.
 Proportional estimation is the fallback:
@@ -69,15 +69,15 @@ no-op for pre-timed files (Rust never hits the estimation path).
 `total_audio_ms: Option<u64>` parameter and uses a two-pass
 approach:
 
-1. **First pass** — count total alignable words across all
+1. **First pass**: count total alignable words across all
    utterances (timed and untimed). If `total_audio_ms` is `None`,
    skip untimed utterances as before.
-2. **Second pass** — for untimed utterances when `total_audio_ms`
+2. **Second pass**: for untimed utterances when `total_audio_ms`
    is `Some`, compute the proportional estimate and use it as the
    bullet.
 
 The post-processing loop handles utterances that were untimed on
-input but received timing from FA — they need
+input but received timing from FA, they need
 `postprocess_utterance_timings` and `add_wor_tier` too.
 
 The Python worker (`batchalign/inference/fa.py`) computes audio
@@ -92,17 +92,17 @@ gives duration without loading the full file.
 
 ## Why proportional, not learned
 
-- **No new dependencies** — pure arithmetic, runs in microseconds.
-- **Deterministic** — same input always produces same windows.
-- **Good enough for FA** — FA only needs an approximate window; it
+- **No new dependencies**: pure arithmetic, runs in microseconds.
+- **Deterministic**: same input always produces same windows.
+- **Good enough for FA**: FA only needs an approximate window; it
   does precise alignment within the window using the actual audio
   signal.
-- **Graceful degradation** — if the estimate is off, FA may
+- **Graceful degradation**: if the estimate is off, FA may
   produce slightly less accurate timing but won't crash or skip
   utterances.
 
 A learned window predictor would add a model dependency and
-training pipeline for marginal gain — proportional estimation is
+training pipeline for marginal gain, proportional estimation is
 already accurate enough that the FA window finds the utterance.
 
 ## Tests

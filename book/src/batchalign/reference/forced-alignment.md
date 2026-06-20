@@ -52,12 +52,12 @@ flowchart TD
 
 Before alignment can begin, two steps must succeed:
 
-1. **Media resolution** — The server locates the audio file for the CHAT
+1. **Media resolution**: The server locates the audio file for the CHAT
    file from server-visible local paths, either alongside it (paths mode),
    through a shared `source_dir`, via local `media_mappings`, or via an
    explicit `--media-dir`. See
    [Media Conversion](media-conversion.md#media-resolution).
-2. **Media conversion** — If the audio is in a container format that
+2. **Media conversion**: If the audio is in a container format that
    `soundfile` cannot read (MP4, M4A, WebM, WMA), it is automatically
    converted to 16 kHz mono WAV via ffmpeg and cached at
    `~/.batchalign3/media_cache/`. See [ensure_wav](media-conversion.md#ensure_wav--conversion-cache).
@@ -105,16 +105,16 @@ flowchart TD
 ```
 
 **Key functions:**
-- `run_utr_pass(&mut ChatFile, ...)` — mutates AST, returns `UtrResult`
-- `run_fa_from_ast(ChatFile, ...)` — accepts AST directly, returns `FaResult`
-- `process_fa(&str, ...)` — parse-then-delegate wrapper for callers that only have text (transcribe, incremental)
+- `run_utr_pass(&mut ChatFile, ...)`: mutates AST, returns `UtrResult`
+- `run_fa_from_ast(ChatFile, ...)`: accepts AST directly, returns `FaResult`
+- `process_fa(&str, ...)`: parse-then-delegate wrapper for callers that only have text (transcribe, incremental)
 
 ## Pipeline: UTR then FA
 
 Alignment runs as a two-step pipeline:
 
-1. **UTR (Utterance Timing Recovery)** — Assigns utterance-level timing boundaries.
-2. **FA (Forced Alignment)** — Assigns word-level timing within those boundaries.
+1. **UTR (Utterance Timing Recovery)**: Assigns utterance-level timing boundaries.
+2. **FA (Forced Alignment)**: Assigns word-level timing within those boundaries.
 
 ### Step 0: Cheap reuse for already word-timed files
 
@@ -165,7 +165,7 @@ flowchart TD
 ### Step 1: UTR (detect-and-skip)
 
 UTR mutates the `ChatFile` AST **in place** via `run_utr_pass(&mut ChatFile, ...)`.
-No serialization occurs — the same AST flows directly to FA. The orchestration
+No serialization occurs, the same AST flows directly to FA. The orchestration
 lives in `crates/batchalign/src/runner/dispatch/utr.rs`; the core injection
 algorithm lives in `crates/batchalign/src/chat_ops/fa/utr.rs`.
 
@@ -177,7 +177,7 @@ production CHAT files from CLAN).
 (`--utr`, the default), the `run_utr_pass()` helper:
 
 1. Checks the **ASR cache** for a prior result (key includes audio identity + lang).
-   On hit, skips inference entirely — repeat runs are instant.
+   On hit, skips inference entirely, repeat runs are instant.
 2. Chooses **partial-window** or **full-file** mode:
    - **Partial-window** (when >50% timed and audio >60s): `find_untimed_windows()`
      identifies time regions covering only the untimed utterances (with 500ms
@@ -228,7 +228,7 @@ represent the temporal crossing of overlapping speakers.
 
 **Current default:** `auto` always uses `GlobalUtr`. The experimental
 two-pass strategy is available via `--utr-strategy two-pass` but is not
-production-ready — it has not been validated on enough corpora and can
+production-ready, it has not been validated on enough corpora and can
 regress alignment on real files.
 
 The two strategies are:
@@ -269,7 +269,7 @@ in a single pass instead.
 |------|---------|--------|
 | `--utr-strategy auto\|global\|two-pass` | `auto` | Override automatic strategy selection |
 | `--utr-ca-markers enabled\|disabled` | `enabled` | Whether Pass 2 uses CA markers for window narrowing |
-| `--utr-density-threshold <0.0–1.0>` | `0.30` | Overlap fraction above which two-pass falls back to global |
+| `--utr-density-threshold <0.0-1.0>` | `0.30` | Overlap fraction above which two-pass falls back to global |
 | `--utr-tight-buffer <ms>` | `500` | Buffer around previous utterance for Pass 2 recovery window |
 | `--utr-fuzzy <threshold>` | `0.85` | Jaro-Winkler similarity threshold for fuzzy word matching |
 
@@ -313,7 +313,7 @@ at most one extra ASR call across all retries.
 utterances fall back to proportional interpolation (see
 [Proportional FA Estimation](../../architecture/alignment/proportional-fa-estimation.md)).
 
-UTR injects **utterance-level bullets only** — it does not set word-level
+UTR injects **utterance-level bullets only**: it does not set word-level
 timing. FA handles word-level alignment after UTR provides the boundaries.
 
 ### Step 2: FA
@@ -332,7 +332,7 @@ offset before injection into the AST.
 Groups are formed by `group_utterances()` (at
 `crates/batchalign/src/chat_ops/fa/grouping.rs:42`). Each group maps
 to one FA worker call.
-Grouping is driven by two independent constraints — a group is flushed and a new
+Grouping is driven by two independent constraints, a group is flushed and a new
 one started when either is exceeded:
 
 | Constraint | Default | Rationale |
@@ -342,7 +342,7 @@ one started when either is exceeded:
 
 The char-token limit exists because the time window alone is insufficient. Dense
 speech (fast talkers, long-word languages like Spanish) can accumulate hundreds
-of words — and thus thousands of characters — inside a normal 20-second window.
+of words, and thus thousands of characters, inside a normal 20-second window.
 The first time this was observed in production was on the `biling-data` corpus
 (`DiazCollazos/09.cha`, Spanish), where group 0 carried 2043 chars in 10.97
 seconds, and `DiazCollazos/01.cha` group 14 carried 2523 chars in 14.56 seconds.
@@ -370,11 +370,11 @@ flowchart TD
     more -->|"no"| final
 ```
 
-**Edge case — single utterance exceeds 448 chars:** If one utterance alone
+**Edge case, single utterance exceeds 448 chars:** If one utterance alone
 exceeds the limit, the flush guard is skipped (`!current_words.is_empty()` is
 false) and the utterance is included in its own group regardless. The worker
 will fail for that group, but the error is scoped to that group alone. The
-alternative — silently dropping the utterance — would corrupt injection by
+alternative, silently dropping the utterance, would corrupt injection by
 skewing the word-cursor alignment for every subsequent group.
 
 **Character count vs. actual tokens:** The 448-char limit is a conservative
@@ -383,7 +383,7 @@ characters that map to the CTC blank token (contributing a wildcard instead of
 themselves). In practice, the character count is a safe upper bound: the actual
 label sequence is never longer than the sum of word character lengths.
 
-**Implementation note — why the word count is computed before the split
+**Implementation note, why the word count is computed before the split
 decision:** The split must know the new utterance's char count before deciding
 whether to flush, so `collect_fa_words()` is called at the top of the loop
 (before the flush check) and the words are held in `extracted` until after the
@@ -570,15 +570,15 @@ utterances lose word-level timing.  Use the default Whisper FA engine
 
 #### RuntimeFailure errors are always group-local
 
-Any `RuntimeFailure` from the FA worker — regardless of the specific Python
-exception — is treated as a group-level skip. This is an architectural
+Any `RuntimeFailure` from the FA worker, regardless of the specific Python
+exception, is treated as a group-level skip. This is an architectural
 invariant, not a special case for known patterns.
 
 **Why:** A `RuntimeFailure` means the Python worker successfully received and
 parsed the request, then the model raised an exception while processing
 *this group's specific words and audio*. The failure is data-driven. Other
 groups have different content; they will not trigger the same exception. There
-is no value in aborting the file — the remaining groups can and should be
+is no value in aborting the file, the remaining groups can and should be
 aligned normally.
 
 **Contrast:** Infrastructure failures (`ProcessExited` = worker crash,
@@ -594,12 +594,12 @@ a `ProtocolErrorCodeV2::RuntimeFailure` response. It does not appear in
 
 **Ordering in `infer_groups_v2()`:**
 
-1. `whisper_fallback_reason()` is checked first — Wave2Vec CTC patterns still
+1. `whisper_fallback_reason()` is checked first, Wave2Vec CTC patterns still
    trigger the Whisper retry (which may produce timings). `is_fa_runtime_failure`
    is only reached when the fallback logic has already decided no retry is
    possible.
 2. `is_whisper_model_unavailable()` is checked before `is_fa_runtime_failure`
-   in the Whisper fallback path — the capability-gap path emits a more specific
+   in the Whisper fallback path, the capability-gap path emits a more specific
    warning message.
 
 **Log lines:**
@@ -622,7 +622,7 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 | Wave2Vec CTC target overflow (3 patterns) | Group | Retry with Whisper; record fallback trace | `WARN: retrying group with Whisper FA` |
 | Whisper retry succeeds | Group | Group timings resolved | — |
 | Whisper retry: `ModelUnavailable` (worker has no Whisper model) | Group | Leave words unaligned; continue | `WARN: Whisper FA unavailable … leaving group words unaligned` |
-| Worker `RuntimeFailure` (any model exception: token overflow, shape error, OOM, etc.) | Group | Leave words unaligned; continue — `is_fa_runtime_failure()` demotes to group-level | `WARN: FA group failed with model RuntimeFailure` |
+| Worker `RuntimeFailure` (any model exception: token overflow, shape error, OOM, etc.) | Group | Leave words unaligned; continue, `is_fa_runtime_failure()` demotes to group-level | `WARN: FA group failed with model RuntimeFailure` |
 | Whisper fallback also hits `RuntimeFailure` | Group | Leave words unaligned; continue | `WARN: Whisper FA fallback also failed with model RuntimeFailure` |
 | Other worker error (retryable) | File | Retry with backoff; fallback UTR if untimed | `WARN: FA error (raw)` |
 | Retry budget exhausted | File | Terminal failure with real error message | — |
@@ -641,8 +641,8 @@ or `all`). The two decision types have **different severity and different
 
 | Decision | Cause | `%xrev` written? | Action needed? |
 |----------|-------|:---:|---|
-| `end_clamped` | Utterance N's end overlapped N+1's start by a few ms — trimmed to avoid CLAN player seek regression | **No** | No — routine housekeeping, BA2 made these silently |
-| `start_stripped` | Utterance start precedes previous accepted start — full timing removed | **Yes** | Review utterance; may indicate transcript/audio reordering |
+| `end_clamped` | Utterance N's end overlapped N+1's start by a few ms, trimmed to avoid CLAN player seek regression | **No** | No, routine housekeeping, BA2 made these silently |
+| `start_stripped` | Utterance start precedes previous accepted start, full timing removed | **Yes** | Review utterance; may indicate transcript/audio reordering |
 
 ```text
 WARN monotonicity: strategy="end_clamped" speaker=PAR line_idx=59
@@ -655,13 +655,13 @@ WARN monotonicity: strategy="start_stripped" speaker=INV line_idx=23
 
 `end_clamped` is a **routine post-processing step**, not an alignment defect.
 UTR's per-utterance token-range assignment systematically produces small
-end-time overlaps between adjacent utterances (typically 500–2000 ms) because
+end-time overlaps between adjacent utterances (typically 500-2000 ms) because
 both utterances can claim the same ASR tokens at their boundary.
 `enforce_monotonicity()` trims utterance N's end to utterance N+1's start.
 BA2 (`batchalign2`) made identical adjustments silently; BA3 logs them for
 observability but does not flag them for human review.
 
-`start_stripped` is a genuine alignment concern — the utterance's start
+`start_stripped` is a genuine alignment concern, the utterance's start
 timestamp precedes the previous accepted start, which means time went backwards
 in the file. This happens when text and audio order diverge (overlapping speech,
 post-hoc transcript restructuring). The utterance's timing is completely removed
@@ -704,21 +704,21 @@ flowchart TD
 different origins with opposite desired behaviors after FA:
 
 - **Authoritative bullets** (hand-linked by the researcher, or set by a
-  previous FA run) may cover content that FA cannot align — a leading filler
+  previous FA run) may cover content that FA cannot align, a leading filler
   (`&-uh`) that FA returns `None` for, or a trailing gesture (`&=laughs`) that
   has no alignable word. Overwriting these bullets with the FA word span would
   silently shrink them and lose the hand-annotated timing context. The **union**
   ensures the bullet covers at least as much as before.
 
 - **UTR hint bullets** (`BulletSource::Utr`) are rough grouping estimates
-  derived from ASR token streams. They are provisional — their purpose is to
+  derived from ASR token streams. They are provisional, their purpose is to
   give FA a window to work in, not to define the final timing. Once FA produces
   precise per-word timings, the hint should be discarded and the bullet set
   directly from the FA word span. This is the **self-healing property**: valid
   FA word timings always produce a valid utterance bullet, independent of how
   accurate the UTR estimate was.
 
-`BulletSource` is a non-serialized field (`#[serde(skip)]`) — it never appears
+`BulletSource` is a non-serialized field (`#[serde(skip)]`), it never appears
 in CHAT output and has no effect on the file format. The distinction lives only
 in memory during the align pipeline.
 
@@ -729,7 +729,7 @@ times), producing a bullet too tight for proper end-time chaining.
 
 #### Word end times (non-pauses mode)
 
-Whisper FA returns onset times only — each token has a start time but no end
+Whisper FA returns onset times only, each token has a start time but no end
 time. In non-pauses mode (the default), the pipeline assigns end times by
 chaining: each word's end = next word's start.
 
@@ -747,13 +747,13 @@ bullet, with opposite implications for whether clamping is safe.
 
 **The two bullet sources:**
 
-- **`BulletSource::Authoritative`** — the bullet was parsed from CHAT text.
+- **`BulletSource::Authoritative`**: the bullet was parsed from CHAT text.
   After a previous FA run (or after a researcher links audio manually in CLAN),
   the bullet covers the full speech span for that utterance. Clamping FA word
   timings to it is safe and desirable: it prevents a freshly-aligned word from
   wandering outside the known boundary.
 
-- **`BulletSource::Utr`** — the bullet was injected by UTR at runtime
+- **`BulletSource::Utr`**: the bullet was injected by UTR at runtime
   (never serialized to disk). UTR's estimates are rough grouping hints, not
   confirmed boundaries. A UTR bullet may be far narrower than the actual speech.
   Rev.AI, for example, can produce a 220 ms hint for a 3-second utterance when
@@ -761,14 +761,14 @@ bullet, with opposite implications for whether clamping is safe.
   discard every correctly-aligned word beyond the first.
 
 **The `BulletSource` persistence problem.**  `BulletSource` is a runtime-only
-field — it is not serialized to CHAT text. When a file goes through the
+field, it is not serialized to CHAT text. When a file goes through the
 `transcribe` + `utseg` pipeline, UTR injects utterance bullets, those bullets
 are serialized to CHAT text, and then on the next `align` run they are parsed
 back as `BulletSource::Authoritative`. Even though they originated from UTR
 timestamps, there is no record of that fact after re-parsing.
 
 After `transcribe` + `utseg`, ASR-derived bullets may be as narrow as the ASR
-engine's first-word match — a systematic property of Rev.AI and similar engines
+engine's first-word match, a systematic property of Rev.AI and similar engines
 that emit short tokens only for the words they are confident about. If `align`
 clamped FA word timings to these narrow ASR-derived bullets, it would silently
 drop timings for every word after the first, producing output that appeared
@@ -785,12 +785,12 @@ guarantees:
 
 Clamping is therefore **only applied when BOTH conditions hold**:
 
-1. `bullet.source == BulletSource::Authoritative` — not a runtime UTR hint, AND
-2. `utterance.wor_tier().is_some()` — this is a re-alignment, not a first-time alignment.
+1. `bullet.source == BulletSource::Authoritative`: not a runtime UTR hint, AND
+2. `utterance.wor_tier().is_some()`: this is a re-alignment, not a first-time alignment.
 
 When either condition fails, FA word timings are injected as-is. The
 `update_utterance_bullet()` call that follows then overwrites the narrow bullet
-with the actual FA word span — the self-healing property described above. This
+with the actual FA word span, the self-healing property described above. This
 means valid FA timings always produce a valid utterance bullet, regardless of how
 accurate or narrow the prior estimate was.
 
@@ -801,7 +801,7 @@ subsequent `align` re-runs (e.g., after transcript editing), clamping is
 applied using the now-authoritative FA-derived bullet, preventing edited words
 from being placed outside the established audio window.
 
-**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37` —
+**Source:** `crates/batchalign/src/chat_ops/fa/postprocess.rs:37`,
 `postprocess_utterance_timings()`.
 
 ## What is fast today vs later
@@ -809,7 +809,7 @@ from being placed outside the established audio window.
 Today the implemented fast paths are:
 
 - skip FA entirely when `%wor` already provides complete reusable word timing
-- **per-utterance partial `%wor` reuse on plain reruns** — when the whole-file
+- **per-utterance partial `%wor` reuse on plain reruns**: when the whole-file
   check fails (e.g. a user edited a few utterances), detect which utterances
   still have clean `%wor`, refresh those, and only send stale FA groups through
   workers. Groups where all utterances are reusable are preserved without cache
@@ -945,7 +945,7 @@ regardless of which mode was used initially.
 FA caches raw model responses per-group (keyed by audio chunk fingerprint + text
 \+ pauses flag). The `--override-media-cache` flag bypasses this cache.
 
-Both caches use the same SQLite database (the analysis cache — see [Filesystem Paths](../reference/filesystem-paths.md#analysis-cache-sqlite)).
+Both caches use the same SQLite database (the analysis cache, see [Filesystem Paths](../reference/filesystem-paths.md#analysis-cache-sqlite)).
 
 ### What invalidates alignment cache?
 
@@ -955,9 +955,9 @@ Both caches use the same SQLite database (the analysis cache — see [Filesystem
 | Re-record audio | Re-runs (audio identity changed) | Re-runs (audio identity changed) |
 | Change `--fa-engine` | Stays cached (engine not in UTR key) | Misses (engine is part of FA key) |
 | Change `--lang` | Re-runs (lang is part of UTR key) | Re-runs (lang is part of FA key) |
-| Second run, nothing changed | Hits cache | Hits cache — instant output |
+| Second run, nothing changed | Hits cache | Hits cache, instant output |
 
-**Audio identity** is computed from the file's path, modification time, and size — not
+**Audio identity** is computed from the file's path, modification time, and size, not
 a content hash. If you move or rename the audio file, the cache will miss even if the
 content is identical. Conversely, overwriting a file in place with different content
 will miss only if the modification time or size changes (which the OS updates on write).
@@ -987,10 +987,10 @@ the trace payload if the condition is reproduced.
 
 `align` now has two useful diagnostic layers:
 
-1. **Better terminal/server errors** — per-group FA parse failures are surfaced
+1. **Better terminal/server errors**: per-group FA parse failures are surfaced
    with group index and audio window instead of being swallowed and only
    appearing later as a generic missing-timings failure.
-2. **Optional trace capture** — `--debug-dir PATH` enables `debug_traces`, which
+2. **Optional trace capture**: `--debug-dir PATH` enables `debug_traces`, which
    stores FA timeline traces including fallback events.
 
 ```mermaid
@@ -1067,7 +1067,7 @@ transcript but their timing is unknown.
 **Affected corpora:** Typically aphasia/PWA corpora where post-session
 annotation extends utterance times beyond the recorded audio.  The Croatian
 PWA corpus (APROCSA) triggered this in production (job `6795bfbe-467`,
-`1-ZH-76-1.cha`, group 62, 908154–909196 ms).
+`1-ZH-76-1.cha`, group 62, 908154-909196 ms).
 
 **Implementation:** `crates/batchalign/src/worker/artifacts_v2.rs`
 (`EmptyAudioSegment` variant), `request_builder_v2.rs` (build-error mapping),
@@ -1078,7 +1078,7 @@ PWA corpus (APROCSA) triggered this in production (job `6795bfbe-467`,
 The HuggingFace Whisper pipeline processes long audio in 25-second chunks with
 3-second overlap (`chunk_length_s=25, stride_length_s=3`). The pipeline is
 responsible for converting chunk-relative timestamps to absolute. However, this
-conversion has been unreliable in some configurations — notably when `batch_size`
+conversion has been unreliable in some configurations, notably when `batch_size`
 is passed to the pipeline constructor. The `batch_size` parameter was removed
 from the constructor to avoid this issue (inference uses `batch_size=1`
 regardless).
@@ -1101,7 +1101,7 @@ prevent output from being written.  Only file-level errors prevent output.
 
 | Log source | Message pattern | When it fires | Action needed? |
 |------------|----------------|--------------|---------------|
-| `fa_pipeline` | `untimed utterances present but no UTR engine configured` | `--no-utr` and file has untimed utterances | No — proportional interpolation runs instead |
+| `fa_pipeline` | `untimed utterances present but no UTR engine configured` | `--no-utr` and file has untimed utterances | No, proportional interpolation runs instead |
 | `crates/batchalign/src/chat_ops/fa/utr.rs` | `no timing bullet and no estimate, skipping from FA grouping` | Utterance has no bullet and no timed neighbors for interpolation | Inspect file; utterance will be left unaligned |
 | `crates/batchalign/src/chat_ops/fa/transport.rs` | `FA group has no audio (segment past end of file)` | Group's time window exceeds audio duration | Check audio file length and CHAT bullets |
 | `crates/batchalign/src/chat_ops/fa/transport.rs` | `Wave2Vec FA hit recoverable target constraint; retrying group with Whisper FA` | Wave2Vec CTC overflow on one group | Informational; Whisper retry follows automatically |
@@ -1111,8 +1111,8 @@ prevent output from being written.  Only file-level errors prevent output.
 | `crates/batchalign/src/chat_ops/fa/mod.rs` | `Failed to deserialize cached FA timings` | Cache entry written by a different schema version | Wipe FA cache: `rm ~/Library/Caches/batchalign3/cache.db*` |
 | `fa/mod.rs` | `Failed to cache FA result` | SQLite cache write error (non-fatal; inference result still used) | Check disk space |
 | `fa/mod.rs` | `Post-validation warnings` | CHAT structural issues after injection | Review `%xalign` decision tiers in output |
-| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end time trimmed to avoid CLAN seek regression; routine UTR overlap correction | No — no `%xrev` written; BA2 made these silently |
-| `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start — full timing stripped | Review utterance — `%xrev: [?]` written; may indicate text/audio reordering |
+| `fa/orchestrate.rs` | `monotonicity: strategy="end_clamped"` | Utterance end time trimmed to avoid CLAN seek regression; routine UTR overlap correction | No, no `%xrev` written; BA2 made these silently |
+| `fa/orchestrate.rs` | `monotonicity: strategy="start_stripped"` | Utterance start precedes previous accepted start, full timing stripped | Review utterance, `%xrev: [?]` written; may indicate text/audio reordering |
 | `fa_pipeline` | `FA failed with untimed utterances; attempting fallback UTR` | FA error on file that still has untimed utterances | Informational; fallback UTR retry follows |
 | `fa_pipeline` | `Fallback UTR recovered timing` | Fallback UTR succeeded before retry | Informational; timing injected, FA retry queued |
 
@@ -1133,10 +1133,10 @@ If the chosen engine failed on a group, the file failed.
 |--------|---------------|---------------|
 | Default FA engine | Whisper (cross-attention DTW) | Whisper (same) |
 | Wave2Vec available | Yes, via `--engine wave2vec_fa` | Yes, via `--fa-engine wav2vec` |
-| Both models loaded simultaneously | No — one at a time by design | No — one at a time, same reason |
-| Wave2Vec CTC overflow → fallback | **None** — file failed | Retry that group with Whisper |
+| Both models loaded simultaneously | No, one at a time by design | No, one at a time, same reason |
+| Wave2Vec CTC overflow → fallback | **None**: file failed | Retry that group with Whisper |
 | CTC overflow handling | User had to rerun with `--engine whisper_fa` | Automatic per-group retry |
-| Silent file drop on CTC overflow | No — file errored visibly | No — affected groups leave words unaligned; file completes |
+| Silent file drop on CTC overflow | No, file errored visibly | No, affected groups leave words unaligned; file completes |
 | Fallback telemetry | None | `FaFallbackEventTrace` in job traces |
 | FA result caching | Per-file Python shelve | Per-group BLAKE3 SQLite cache |
 
@@ -1149,7 +1149,7 @@ hyphenated or cross-linguistic tokens), and groups shorter than ~25 ms that
 crash Wave2Vec's convolutional feature extractor.
 
 BA3's per-group Whisper retry means a single difficult utterance no longer
-aborts an entire file — 90+% of a file that previously failed can now complete.
+aborts an entire file, 90+% of a file that previously failed can now complete.
 
 ### What BA3 regressed
 
@@ -1158,7 +1158,7 @@ available as a fallback model, but the worker loads only one FA model at
 startup.  When Wave2Vec is the primary engine and CTC overflow occurs, the
 Whisper fallback dispatch returns `ModelUnavailable`, which currently propagates
 as a file-level failure.  BA2 users who selected Wave2Vec would see an explicit
-error; BA3 users see a silent file drop — a regression in observability.
+error; BA3 users see a silent file drop, a regression in observability.
 
 `is_whisper_model_unavailable()` in `fa/transport.rs` provides the
 graceful-degradation behavior BA2 had via its explicit-error path: the affected
@@ -1227,7 +1227,7 @@ force-aligned, `enforce_monotonicity()` (at
 `crates/batchalign/src/chat_ops/fa/orchestrate.rs:213`) walks
 utterances in text order, tracking the last accepted start
 timestamp. Any utterance whose start precedes the previous accepted
-start has its timing stripped entirely — utterance bullet, inline
+start has its timing stripped entirely, utterance bullet, inline
 word bullets, and the `%wor` tier are all removed (the
 `start_stripped` decision in the `%xalign` decision tier; see the
 [Monotonicity warnings table](#monotonicity-warnings)). The
@@ -1243,8 +1243,8 @@ the post-validation walk at the end of
 `process_one_fa_file()` (in
 `crates/batchalign/src/runner/dispatch/fa_pipeline.rs`) checks the
 full output against the talkbank-model validators (including E362
-monotonicity) before serialization. The walk is warn-only — output
-is always serialized so it can be inspected — but the warnings are
+monotonicity) before serialization. The walk is warn-only, output
+is always serialized so it can be inspected, but the warnings are
 the early signal that the post-FA enforcement layer above missed
 something.
 
@@ -1278,12 +1278,12 @@ for practical guidance on identifying and working around untimed utterances.
 
 Two improvements are under consideration:
 
-1. **Backbone extraction** — stripping `&*` segments before UTR alignment and
+1. **Backbone extraction**: stripping `&*` segments before UTR alignment and
    interpolating their timing afterward.  This is cheap to implement and helps
    for moderate-overlap files, but does not solve the worst cases where
    transcript restructuring (not just `&*` markers) is the dominant divergence.
 
-2. **Per-speaker UTR** — running ASR per speaker channel and matching each
+2. **Per-speaker UTR**: running ASR per speaker channel and matching each
    speaker's utterances independently.  This is the correct solution for
    heavily restructured transcripts but requires diarization infrastructure
    and is more complex to implement.

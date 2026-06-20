@@ -20,7 +20,7 @@ goes through the shared `request_with_retry` helper. The contract is narrow on
 purpose and load-bearing for fleet-scale runs:
 
 - **Retry class:** transient `reqwest::Error::is_connect()` or `is_timeout()`
-  only. These cover the daemon's accept-gap class — the brief window
+  only. These cover the daemon's accept-gap class, the brief window
   during job finalization when the local server is restarting and a
   new submission gets `Connection refused`.
 - **No retry on HTTP 4xx/5xx.** A deterministic server rejection (413
@@ -100,12 +100,12 @@ intervals by the drain task in `infer_batched.rs`. Visible in:
 **Per-language tagger.** The drain loop in `infer_batched.rs`
 groups progress events by `event.stage`. The Python worker's
 `batchalign/worker/_protocol.py::write_progress_event` hard-codes
-`stage="stanza_processing"` regardless of language, so — before the fix —
+`stage="stanza_processing"` regardless of language, so, before the fix,
 three real language groups (eng / spa / zho ...) collapsed into a single
 BTreeMap entry keyed `"stanza_processing"`. The resulting summaries were
 nonsense (`"1/1 languages done, 453/274 utterances (165%)"`) and, critically,
 the one collapsed group showed `completed >= total`, making
-`incomplete_groups()` return `[]` — stall detection went blind.
+`incomplete_groups()` return `[]`: stall detection went blind.
 
 The fix lives in `crates/batchalign/src/morphosyntax/worker.rs::infer_batch`:
 a per-language tagger wrapper creates an inner `mpsc` channel, spawns a
@@ -145,11 +145,11 @@ Diagram verified against: `batchalign/worker/_protocol.py`,
 The observability contract for **job status** depends on which backend
 the server is running:
 
-- **Direct / embedded backends** — the local SQLite store is authoritative.
+- **Direct / embedded backends**: the local SQLite store is authoritative.
   A file or utterance transitions through `Queued → Running → Completed`
   entirely inside one daemon's runner, and the store is mutated synchronously
   with the transition. What `JobStore` reports matches what actually happened.
-- **Temporal backend** — the local store is a **cache**, not the source of
+- **Temporal backend**: the local store is a **cache**, not the source of
   truth. Temporal is authoritative. A job submitted on daemon A can be
   dispatched by Temporal to daemon B on a different fleet worker; B's activity
   completes the workflow, but A's local SQLite never hears about it through
@@ -181,7 +181,7 @@ Reasons are typed (`TemporalTerminalFailure`, `WorkflowLost`) so log queries
 and dashboards can discriminate without parsing messages. A `WorkflowLost`
 sweep requires that Temporal reports not-found AND the job is older than
 `RECONCILER_STALE_THRESHOLD_S = 300` seconds AND no runner is currently
-attached — a young or actively-running job with `None` from Temporal is
+attached, a young or actively-running job with `None` from Temporal is
 treated as a transient visibility gap, not a lost workflow.
 
 Temporal describes are fanned out **concurrently** via `FuturesUnordered`
@@ -267,7 +267,7 @@ load-bearing prerequisite for heartbeat-gap diagnostics.
 
 Each language group dispatch is wrapped in `tokio::time::timeout`
 (default: `audio_task_timeout_s`, minimum 1800s). Timed-out groups
-produce empty responses and a clear error — the batch continues with
+produce empty responses and a clear error, the batch continues with
 other languages.
 
 ### Semaphore diagnostics

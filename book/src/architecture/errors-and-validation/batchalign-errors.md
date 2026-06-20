@@ -1,4 +1,4 @@
-# Errors — Batchalign Runtime
+# Errors: Batchalign Runtime
 
 **Status:** Current
 **Last updated:** 2026-05-19 16:14 EDT
@@ -21,7 +21,7 @@ standard that applies workspace-wide, see
 Used by engines that require a valid AST to produce correct output:
 `add_morphosyntax_batched`, `extract_nlp_words`, etc.
 
-- **Rejects** on any error — raises `ValueError` in Python.
+- **Rejects** on any error, raises `ValueError` in Python.
 - Error string includes all error codes and locations:
 
 ```text
@@ -45,7 +45,7 @@ Used by engines that can tolerate partial results:
 Structured CHAT-validation errors reach Python through the typed
 boundary, not via a `ParsedChat` method surface (the legacy
 `ParsedChat` binding was removed in the 2026-03-21 PyO3 slimdown to
-worker-runtime-only — see [Python ↔ Rust Boundary](../python-rust-boundary/python-rust-boundary.md)).
+worker-runtime-only, see [Python ↔ Rust Boundary](../python-rust-boundary/python-rust-boundary.md)).
 Validation failures inside the Rust worker construct
 `BatchalignBoundaryError::ChatValidation { entries, … }` (defined at
 `crates/batchalign-pyo3/src/error.rs`); the boundary lowers that into
@@ -97,7 +97,7 @@ Pre-serialization validation failed:
   - E716: Main tier terminator "." does not match %mor terminator "?" (line 23)
 ```
 
-For full validation gates (G0–G14, validity levels L0–L2, post-serialization
+For full validation gates (G0-G14, validity levels L0-L2, post-serialization
 checks), see [validation](validation.md).
 
 ## `CHATValidationException`

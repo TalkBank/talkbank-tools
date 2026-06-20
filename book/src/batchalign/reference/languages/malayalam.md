@@ -11,7 +11,7 @@ forced alignment via Stanza are unavailable. ASR runs via the
 This page covers Malayalam concretely; the same pattern applies to
 the other Indo-Aryan / Dravidian / Austronesian languages whose
 entries in Stanza's `resources.json` are charlm/lang_name stubs
-without processor packages — see the Stanza capability table at
+without processor packages, see the Stanza capability table at
 worker startup for the authoritative current list.
 
 ## Quick Reference
@@ -19,11 +19,11 @@ worker startup for the authoritative current list.
 | Pipeline Stage | Malayalam-Specific Behavior |
 |---------------|---------------------------|
 | ASR | HuggingFace Whisper fine-tune via `--engine-overrides '{"asr":"whisper_hub"}'` |
-| Text normalization | None — Malayalam script passed through as-is |
+| Text normalization | None, Malayalam script passed through as-is |
 | Number expansion | **Rust-side `NUM2LANG` table.** Digits like `"3"` reach CHAT as `"മൂന്ന്"` and pass E220. See [Number Expansion](../../architecture/number-expansion.md) for the dispatch path; Malayalam is registered in the per-language coverage matrix on that page. |
-| Retokenize | Not applied — retokenize maps a Stanza-tokenized word list back to ASR tokens; without a Stanza pipeline there is nothing to map. |
-| Morphosyntax | **Not available** — Stanza ships no Malayalam pipeline |
-| Utseg | **Not available** — same reason |
+| Retokenize | Not applied, retokenize maps a Stanza-tokenized word list back to ASR tokens; without a Stanza pipeline there is nothing to map. |
+| Morphosyntax | **Not available**: Stanza ships no Malayalam pipeline |
+| Utseg | **Not available**: same reason |
 | Forced alignment | Stock Wave2Vec MMS works on the audio; no Malayalam-specific preprocessing |
 
 ## Running Transcribe
@@ -50,7 +50,7 @@ different checkpoint is preferred.
 ## Why no morphotag / utseg
 
 Stanza's `resources.json` contains a Malayalam entry, but only with
-`backward_charlm`, `forward_charlm`, and `lang_name` fields — no
+`backward_charlm`, `forward_charlm`, and `lang_name` fields, no
 `packages` key listing tokenizer / POS / lemma / depparse models.
 The Python worker's `UnsupportedLanguageError` preflight catches
 this before `stanza.Pipeline()` runs and the optional sub-stages
@@ -58,7 +58,7 @@ in transcribe are dropped from the plan at job submission.
 
 Adding morphotag / utseg for Malayalam would require either Stanza
 upstream shipping Malayalam pipelines, or training and integrating
-a non-Stanza tagger — neither is in scope.
+a non-Stanza tagger, neither is in scope.
 
 ## Why a fine-tune instead of stock Whisper
 
@@ -69,7 +69,7 @@ delivers. The `whisper_hub` engine exists specifically to route
 audio to such fine-tunes when the user requests it.
 
 For languages where stock Whisper is already strong (English,
-Spanish, etc.), `whisper_hub` is unnecessary — the default
+Spanish, etc.), `whisper_hub` is unnecessary, the default
 `--asr-engine whisper` is fine.
 
 ## Related languages
@@ -81,9 +81,9 @@ follow the same Malayalam pattern (transcribe via stock Whisper or
 a fine-tune; no Stanza-driven analysis).
 
 For context on Indo-Aryan / Dravidian languages that **do** have
-full Stanza support — Tamil (`tam`), Hindi (`hin`), Urdu (`urd`),
+full Stanza support, Tamil (`tam`), Hindi (`hin`), Urdu (`urd`),
 Telugu (`tel`), and Thai (`tha`) ship complete processor packages
-in current Stanza — morphotag and utseg work the standard way,
+in current Stanza, morphotag and utseg work the standard way,
 no `whisper_hub` needed. The exact set varies by Stanza version;
 the worker's capability table at startup is authoritative.
 
@@ -107,7 +107,7 @@ decades 30-90, plus 100/1000 anchor words. The per-word Rust pass
 in `crates/batchalign/src/pipeline/transcribe.rs:527::prepare_asr_chunks`
 calls `expand_number(text, "mal")` on every word, converting digits
 to their Malayalam-script word forms. The Python IPC path no longer
-exists — Malayalam expansion is end-to-end Rust. Tests at
+exists, Malayalam expansion is end-to-end Rust. Tests at
 `crates/batchalign-transform/src/asr_postprocess/num2text.rs:540`
 (`malayalam_single_digits_expand_to_script`,
 `malayalam_digits_collected_for_expansion`,

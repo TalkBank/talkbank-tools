@@ -6,7 +6,7 @@
 ## Problem
 
 Rust structs and Python Pydantic models at the worker IPC boundary are
-defined independently. Mismatches only surface at runtime — Pydantic
+defined independently. Mismatches only surface at runtime, Pydantic
 validation errors deep in the pipeline with no indication of which field
 changed. This has caused production bugs (e.g., `MorphosyntaxBatchItem.
 special_forms` serialization mismatch).
@@ -59,9 +59,9 @@ that older contract is retired together.
 
 Generated types are structurally correct but lack:
 
-- **Custom validators** — 4 types have `@model_validator` range checks
+- **Custom validators**: 4 types have `@model_validator` range checks
   (e.g., `end_s >= start_s` on `WhisperChunkSpanV2`)
-- **Custom type aliases** — `FiniteNonNegativeFloat`, `WorkerRequestIdV2`
+- **Custom type aliases**: `FiniteNonNegativeFloat`, `WorkerRequestIdV2`
 - **`extra="allow"`** on `UdWord` (allows unknown Stanza fields)
 
 The hand-written types keep these behaviors. Conformance tests verify they

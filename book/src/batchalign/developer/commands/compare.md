@@ -1,4 +1,4 @@
-# compare — Developer Reference
+# compare: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-19 22:58 EDT
@@ -12,11 +12,11 @@ documentation, see [User Guide: compare](../../user-guide/commands/compare.md).
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `CompareArgs` | lang, num-speakers |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `CompareArgs` | lang, num-speakers |
 | Command definition | `crates/batchalign/src/commands/compare.rs` | `CommandDefinition` impl, gold-file discovery |
-| Compare library | `crates/batchalign/src/compare.rs` | `compare()` — produces `ComparisonBundle` |
-| Released materializer | `crates/batchalign/src/compare.rs` — `materialize_released()` | Projects %mor/%gra/%wor from main to gold, injects `%xsrep`/`%xsmor` |
-| Benchmark materializer | `crates/batchalign/src/compare.rs` — `materialize_main_annotated()` | Annotates main transcript with `%xsrep`/`%xsmor` (internal to benchmark) |
+| Compare library | `crates/batchalign/src/compare.rs` | `compare()`: produces `ComparisonBundle` |
+| Released materializer | `crates/batchalign/src/compare.rs`: `materialize_released()` | Projects %mor/%gra/%wor from main to gold, injects `%xsrep`/`%xsmor` |
+| Benchmark materializer | `crates/batchalign/src/compare.rs`: `materialize_main_annotated()` | Annotates main transcript with `%xsrep`/`%xsmor` (internal to benchmark) |
 | CSV writer | `crates/batchalign-transform/src/compare/metrics.rs`: `format_metrics_csv()` | Typed metrics model → CSV output |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`
@@ -40,9 +40,9 @@ pub struct ComparisonBundle {
 ```
 
 Each `UtteranceComparison` contains:
-- `utterance_index` — position in file
-- `speaker` — speaker code
-- `tokens` — comparison tokens (status: Match/ExtraMain/ExtraGold, with optional POS)
+- `utterance_index`: position in file
+- `speaker`: speaker code
+- `tokens`: comparison tokens (status: Match/ExtraMain/ExtraGold, with optional POS)
 
 Each `GoldWordMatch` maps one word position in a gold utterance to one position in a main
 utterance, establishing the structural alignment used by projection.
@@ -114,6 +114,6 @@ cargo nextest run --profile ml -E 'test(compare::golden)'
 ## Related developer documentation
 
 - [Command Flowcharts: compare](../../architecture/command-flowcharts.md#compare)
-- [BA2 Compare Migration](../../migration/ba2-compare-migration.md) — how compare was re-architected from BA2
-- [Adding Commands](../adding-commands.md) — use `compare` as the reference for `ReferenceProjection`
-- [benchmark developer reference](benchmark.md) — composite command that calls compare internally
+- [BA2 Compare Migration](../../migration/ba2-compare-migration.md), how compare was re-architected from BA2
+- [Adding Commands](../adding-commands.md), use `compare` as the reference for `ReferenceProjection`
+- [benchmark developer reference](benchmark.md), composite command that calls compare internally

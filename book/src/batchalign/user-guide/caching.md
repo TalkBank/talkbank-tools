@@ -12,30 +12,30 @@ Batchalign caches **only audio-task results**:
 | Forced alignment word timings (`align`) | Yes |
 | ASR results for utterance timing recovery (`align`'s UTR pre-pass) | Yes |
 | Media conversion (`.mp4`/`.m4a` → `.wav`) | Yes |
-| Morphosyntax (`morphotag`) | **No** — always recomputed |
-| Utterance segmentation (`utseg`) | **No** — always recomputed |
-| Translation (`translate`) | **No** — always recomputed |
-| Coreference (`coref`) | **No** — always recomputed |
+| Morphosyntax (`morphotag`) | **No**: always recomputed |
+| Utterance segmentation (`utseg`) | **No**: always recomputed |
+| Translation (`translate`) | **No**: always recomputed |
+| Coreference (`coref`) | **No**: always recomputed |
 | Speaker diarization | No |
 | OpenSMILE features (`opensmile`) | No |
 | AVQI scores (`avqi`) | No |
 
 The text-NLP cache that previously covered `morphotag`, `utseg`, and
 `translate` was **removed** after a benchmark on a 15,748-file corpus
-showed it was about 25× slower than just re-inferring (6–16% hit rate;
+showed it was about 25× slower than just re-inferring (6-16% hit rate;
 2,500 ms SQLite lookup beat ~100 ms inference savings). See the
 architecture page on Caching for the detailed reasoning.
 
 In practice: a re-run of `morphotag` on the same corpus takes the
 same time as the first run. A re-run of `align` on the same audio
-is much faster — that's where the cache pays for itself.
+is much faster, that's where the cache pays for itself.
 
 ## What invalidates the cache
 
 | What changed | What re-runs | What stays cached |
 |---|---|---|
 | Edited the transcript words | FA (per-group cache key includes text) | UTR ASR (only depends on audio) |
-| Re-recorded or replaced the audio | FA, UTR ASR | (n/a — audio is the cache key) |
+| Re-recorded or replaced the audio | FA, UTR ASR | (n/a, audio is the cache key) |
 | Changed the language code | UTR ASR (key includes lang) | (other corpora's entries) |
 | Upgraded batchalign (new ASR engine version) | Stale entries auto-invalidated | Entries from unchanged engines |
 
@@ -93,13 +93,13 @@ the media conversion cache.
 Or delete the `cache.db` file and/or the media-cache directory directly.
 
 To selectively refresh without clearing everything, use
-`--override-media-cache` on specific runs instead — old entries for
+`--override-media-cache` on specific runs instead, old entries for
 other corpora remain available.
 
 ## Old text-NLP cache entries
 
 If you used batchalign before the text-NLP cache was removed, your
 `cache.db` may still contain old `morphosyntax_v*`, `utseg_v*`, and
-`translate_v*` rows. Those are dead weight — they're never read
+`translate_v*` rows. Those are dead weight, they're never read
 anymore. Run `batchalign3 cache clear --yes` (or `rm -f
 ~/Library/Caches/batchalign3/cache.db*`) to reclaim the disk space.

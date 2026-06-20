@@ -17,14 +17,14 @@ This page is the shortest path to productive work on the Rust side of Batchalign
 
 The batchalign side of the workspace is split across three crates:
 
-- `crates/batchalign-types/` — shared domain and worker-boundary types
+- `crates/batchalign-types/`: shared domain and worker-boundary types
   (worker protocol, language/domain scalars, wire-facing identifiers).
   No filesystem, no network, no model loading.
-- `crates/batchalign/` — the application: CLI, HTTP server, worker
+- `crates/batchalign/`: the application: CLI, HTTP server, worker
   pool, cache, daemon lifecycle, command dispatch. Depends on
   `batchalign-types` and on the `talkbank-*` crates for CHAT
   parsing/validation/transform.
-- `crates/batchalign-pyo3/` — the PyO3 bridge, building the
+- `crates/batchalign-pyo3/`: the PyO3 bridge, building the
   `batchalign_core` Python module that the worker processes import.
   Worker-runtime-only surface (ASR / FA / media / cantonese-asr
   adapters); no morphosyntax orchestration.

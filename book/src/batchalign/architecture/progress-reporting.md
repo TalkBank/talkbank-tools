@@ -7,7 +7,7 @@ The server reports per-file progress to all connected clients (CLI, TUI, React
 dashboard) in real time. This chapter covers the data model, data flow, and how
 to add progress reporting to new commands.
 
-**Scope.** This page covers **per-file** progress — the stage codes and
+**Scope.** This page covers **per-file** progress, the stage codes and
 sub-file counters emitted by each file's orchestrator. **Batch-level**
 progress (per-language-group utterance counters for cross-file batched
 commands like morphotag, utseg, translate, coref) is documented separately
@@ -30,7 +30,7 @@ edge:
 | `progress_current` | `Option<i64>` | Current counter (e.g. group 3) |
 | `progress_total` | `Option<i64>` | Total items (e.g. 7 groups) |
 
-The typed stage and numeric counters are **never persisted to SQLite** — they
+The typed stage and numeric counters are **never persisted to SQLite**: they
 exist only in the in-memory `JobStore` and are broadcast via WebSocket. They
 are cleared automatically when a file reaches a terminal state (Done or Error).
 `progress_label` is not stored independently; the server derives it from the
@@ -193,25 +193,25 @@ only sends typed `TuiUpdate` messages, so rendering and navigation state are
 not shared behind a mutex.
 
 **Header:** Status breakdown (`3✓ 2⠋ 1✗ 44·`), elapsed time, and ETA
-(throughput-based `~MM:SS`). On completion, shows "Done!" or "Done — N failed".
+(throughput-based `~MM:SS`). On completion, shows "Done!" or "Done, N failed".
 
-**Pipeline phase dots** — processing file rows show a 5-dot indicator
+**Pipeline phase dots**: processing file rows show a 5-dot indicator
 (`●●○○○`) using the same phase mapping as the React `PipelineStageBar`.
 Completed phases are green, the active phase is cyan, and future phases are
 gray. Dots only appear when the server reports a typed `progress_stage`.
 
-**Per-file elapsed** — processing files show a running `M:SS` timer from
+**Per-file elapsed**: processing files show a running `M:SS` timer from
 `started_at`, helping spot stuck files.
 
-**Scroll indicators** — `▲ N more above` / `▼ N more below` at group edges.
+**Scroll indicators**: `▲ N more above` / `▼ N more below` at group edges.
 
-**Auto-collapse** — non-focused all-terminal groups show condensed titles.
+**Auto-collapse**: non-focused all-terminal groups show condensed titles.
 
-**Error codes** — error panel entries include structured codes from poll data.
+**Error codes**: error panel entries include structured codes from poll data.
 
-**Gate warning** — memory gauge warns when near or below gate threshold.
+**Gate warning**: memory gauge warns when near or below gate threshold.
 
-**Health metrics** — the TUI polls `GET /health` every ~5 seconds (slower
+**Health metrics**: the TUI polls `GET /health` every ~5 seconds (slower
 than the job status poll) and renders two rows between the header gauge and
 the directory groups:
 
@@ -233,7 +233,7 @@ panels). It renders several distinct progress surfaces:
 
 In `frontend/src/components/FileTable.tsx`, each processing file row shows:
 
-- **Pipeline phase indicator** (`PipelineStageBar`) — 5 compact segments
+- **Pipeline phase indicator** (`PipelineStageBar`), 5 compact segments
   mapping the 23 `FileProgressStage` variants to visual phases:
   Read → Transcribe → Align → Analyze → Finalize. The active segment pulses
   using the existing `status-dot-pulse` CSS animation. Completed phases are
@@ -252,20 +252,20 @@ In `frontend/src/components/FileTable.tsx`, each processing file row shows:
 The main dashboard page (`/dashboard`) uses a two-column layout. The right
 column stacks three system-health panels:
 
-- **WorkerProfilePanel** (`frontend/src/components/WorkerProfilePanel.tsx`) —
+- **WorkerProfilePanel** (`frontend/src/components/WorkerProfilePanel.tsx`),
   parses `live_worker_keys` strings from the health endpoint into profile
   summaries (GPU/Stanza/IO). Shows active/idle counts, languages, engine
   overrides, and a model-sharing callout for the GPU profile. Also shows
   warmup status.
 
-- **MemoryPanel** (`frontend/src/components/MemoryPanel.tsx`) — displays system
+- **MemoryPanel** (`frontend/src/components/MemoryPanel.tsx`), displays system
   RAM usage from the health endpoint fields `system_memory_total_mb`,
   `system_memory_available_mb`, `system_memory_used_mb`. Shows a segmented
   gauge bar with the `memory_gate_threshold_mb` marked as a vertical line.
   Color-codes proximity to the gate threshold (green/amber/red) and shows
   cumulative gate rejection count.
 
-- **VitalsRow** (`frontend/src/components/VitalsRow.tsx`) — compact badges for
+- **VitalsRow** (`frontend/src/components/VitalsRow.tsx`), compact badges for
   operational counters: `worker_crashes`, `forced_terminal_errors`,
   `memory_gate_aborts`, `attempts_started`, `attempts_retried`,
   `deferred_work_units`. Only nonzero counters render. Error counters are red,
@@ -310,7 +310,7 @@ When adding progress to a new command, consider:
 
 - **Long sub-stages** (UTR, transcription): If a sub-stage takes more than a
   few seconds, pass a `ProgressSender` so it can report sub-progress. Even
-  0/1 for a single-unit operation is better than nothing — it tells the
+  0/1 for a single-unit operation is better than nothing, it tells the
   frontend which stage is active and enables stage-specific hint text.
 
 - **Stage hints**: The React dashboard shows contextual hints (e.g., "Rev.AI

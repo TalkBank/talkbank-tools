@@ -88,14 +88,14 @@ indicating which keys are needed.
 
 ### Qwen3-ASR
 
-Qwen3-ASR has no cloud credentials — it is a local HuggingFace model
+Qwen3-ASR has no cloud credentials, it is a local HuggingFace model
 downloaded on first use (~3.4 GB for the default `Qwen/Qwen3-ASR-1.7B`).
 Two `--engine-overrides` knobs are recognized:
 
-- `qwen_model` — override the HuggingFace model id. The 1.7B default
+- `qwen_model`: override the HuggingFace model id. The 1.7B default
   is the recommended-quality variant; pass `Qwen/Qwen3-ASR-0.6B` for
   faster inference at some accuracy cost.
-- `qwen_device` — `"cpu"` (default), `"cuda"`, or `"mps"`. The
+- `qwen_device`: `"cpu"` (default), `"cuda"`, or `"mps"`. The
   Apple Silicon fleet defaults to CPU because empirical testing
   found MPS inference produced degraded output on the 1.7B model
   as of 2026-05-26.
@@ -136,7 +136,7 @@ dependencies (like OpenCC) are required.
 
 ### FunASR/SenseVoice
 
-- Local model — no cloud credentials, no network required
+- Local model, no cloud credentials, no network required
 - Default model is `FunAudioLLM/SenseVoiceSmall`. Pass
   `--engine-overrides '{"asr": "funaudio", "funaudio_model": "<hf-id>"}'`
   to swap to a different FunASR model (e.g. a Paraformer variant); the
@@ -148,7 +148,7 @@ dependencies (like OpenCC) are required.
 ### Qwen3-ASR
 
 - Local model via the [`qwen-asr`](https://github.com/QwenLM/Qwen3-ASR)
-  PyPI package — no cloud credentials, no network at inference time.
+  PyPI package, no cloud credentials, no network at inference time.
 - Default model is `Qwen/Qwen3-ASR-1.7B`. The 0.6B variant is
   noticeably faster (smaller model, lighter compute) at some
   accuracy cost.
@@ -171,5 +171,5 @@ dependencies (like OpenCC) are required.
 
 ## See Also
 
-- [Cantonese and CJK — Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md) — engine architecture, normalization pipeline, segmenter selection
-- [Adding Inference Providers](../developer/adding-engines.md) — how to add new built-in engines
+- [Cantonese and CJK, Architecture](../../architecture/language-and-multilingual/cantonese-and-cjk.md), engine architecture, normalization pipeline, segmenter selection
+- [Adding Inference Providers](../developer/adding-engines.md), how to add new built-in engines

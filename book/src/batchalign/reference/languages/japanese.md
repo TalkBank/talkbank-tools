@@ -12,11 +12,11 @@ what doesn't, and what's planned.
 | Pipeline Stage | Japanese-Specific Behavior |
 |---------------|---------------------------|
 | ASR | Whisper (default), no Japanese-specific alternatives |
-| Text normalization | None — Japanese characters passed through as-is |
+| Text normalization | None, Japanese characters passed through as-is |
 | Number expansion | Chinese number system (`num2chinese` with simplified script) |
 | Retokenize | Stanza `combined` package merges/splits CJK tokens |
 | Morphosyntax | Stanza `ja` with forced `combined` package for all processors |
-| MWT | Excluded — Japanese has no contractions |
+| MWT | Excluded, Japanese has no contractions |
 | Forced alignment | Wave2Vec MMS (standard, no language-specific preprocessing) |
 
 ## Stanza Configuration

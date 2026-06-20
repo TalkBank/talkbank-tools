@@ -36,7 +36,7 @@ post-processing pipeline normalizes RTL punctuation to ASCII:
 | ، | , | U+060C Arabic Comma |
 | ؛ | ; | U+061B Arabic Semicolon |
 
-This normalization runs for all languages, not just Hebrew — it ensures CHAT
+This normalization runs for all languages, not just Hebrew, it ensures CHAT
 files contain only ASCII punctuation terminators regardless of source script.
 
 ## Morphosyntax Features
@@ -61,7 +61,7 @@ The binyan is lowercased in the suffix: `PAAL` → `paal`, `HIFIL` → `hifil`.
 
 ### HebExistential
 
-The Hebrew existential (יש/אין — "there is"/"there isn't") gets a special
+The Hebrew existential (יש/אין, "there is"/"there isn't") gets a special
 feature in Stanza:
 
 ```text
@@ -80,12 +80,12 @@ The full verb suffix format (shared across all languages):
 ```
 
 Hebrew-specific features slot into their dedicated positions. The `-irr`
-suffix (English irregular verbs) is **not applied** to Hebrew — it is
+suffix (English irregular verbs) is **not applied** to Hebrew, it is
 gated to English only.
 
 ## Implementation
 
-The feature extraction is language-agnostic in implementation — the code
+The feature extraction is language-agnostic in implementation, the code
 in `features.rs` checks for `HebBinyan` and `HebExistential` in any
 language's feature set, but only Stanza's Hebrew model actually produces
 these features:
@@ -109,7 +109,7 @@ contractions (preposition + article combinations like בַּ → ב + ה).
 
 Hebrew does not have a dedicated number expansion table in `num2lang.json`.
 Digit strings in Hebrew ASR output pass through unexpanded. This is a known
-gap — Hebrew numbers in CHAT output will appear as digits rather than
+gap, Hebrew numbers in CHAT output will appear as digits rather than
 Hebrew word forms (אחת, שתיים, שלוש, etc.).
 
 ## No Other Language-Specific Workarounds

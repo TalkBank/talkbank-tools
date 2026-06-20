@@ -83,11 +83,11 @@ a typed diagnostic before the pipeline runs. When the primary IS
 supported, non-primary content targeting an unsupported language is
 processed cleanly with an `L2|xxx` fallback:
 
-- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the utterance is
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes, the utterance is
   grouped under `UNSUPPORTEDLANG`, the worker partitions that group
   out of Stanza dispatch (`partition_groups_by_stanza_support`), and
   every word receives `L2|xxx`.
-- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+- `@s:UNSUPPORTEDLANG` per-word markers, the secondary L2 dispatch
   span is short-circuited the same way; the host primary analysis is
   preserved and the marker's slot stays `L2|xxx`.
 
@@ -107,8 +107,8 @@ continue to receive real morphology.
   `chatter debug fix-s` to normalize whole-utterance `@s` runs and append
   missing explicit languages to `@Languages` without touching already-correct
   files. The fix-s predicate verifies that **every** word-bearing item
-  on the main tier — words, fillers (`&~`/`&-`/`&+`), nonwords, AND
-  retraced material — carries an explicit language attribution
+  on the main tier, words, fillers (`&~`/`&-`/`&+`), nonwords, AND
+  retraced material, carries an explicit language attribution
   resolving to the same target, and clears bare `@s` shortcuts on
   fillers and nonwords as part of the rewrite (otherwise the new
   `[- LANG]` precode would flip their resolved language).
@@ -116,6 +116,6 @@ continue to receive real morphology.
 ## Related references
 
 - [L2 Morphotag: Per-Word Code-Switching Analysis](l2-morphotag.md)
-  — full design, merge algorithm, phrasal-verb diagram
-- [Language Routing](../../architecture/language-and-multilingual/language-routing.md) — per-utterance + per-word routing, auto-detection
+ , full design, merge algorithm, phrasal-verb diagram
+- [Language Routing](../../architecture/language-and-multilingual/language-routing.md), per-utterance + per-word routing, auto-detection
 - [Language Data Model](language-handling.md)

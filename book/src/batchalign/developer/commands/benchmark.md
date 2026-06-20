@@ -1,4 +1,4 @@
-# benchmark — Developer Reference
+# benchmark: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-19 22:58 EDT
@@ -12,10 +12,10 @@ documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `BenchmarkArgs` | asr-engine, lang, num-speakers, wor/nowor |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `BenchmarkArgs` | asr-engine, lang, num-speakers, wor/nowor |
 | Command definition | `crates/batchalign/src/commands/benchmark.rs` | `CommandDefinition` impl |
 | Benchmark pipeline | `crates/batchalign/src/runner/dispatch/benchmark_pipeline.rs` | Orchestrates transcribe → compare → materialize |
-| Benchmark composition | `crates/batchalign/src/benchmark.rs` — `process_benchmark()` | Calls process_transcribe(), then process_compare_main_annotated() |
+| Benchmark composition | `crates/batchalign/src/benchmark.rs`: `process_benchmark()` | Calls process_transcribe(), then process_compare_main_annotated() |
 
 ---
 
@@ -24,8 +24,8 @@ documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.m
 `benchmark` is the canonical `Composite` command. It calls two sub-workflows
 in sequence using their shared internal dispatch helpers:
 
-1. `transcribe_pipeline.rs` — produces the hypothesis `ChatFile`
-2. `compare.rs` — produces `ComparisonBundle` from hypothesis + gold
+1. `transcribe_pipeline.rs`: produces the hypothesis `ChatFile`
+2. `compare.rs`: produces `ComparisonBundle` from hypothesis + gold
 
 The materializer for `benchmark` is `materialize_main_annotated()` function
 (injects comparison annotations on the main/hypothesis side), which is the
@@ -57,4 +57,4 @@ cargo nextest run --profile ml -E 'test(benchmark::golden)'
 - [Command Flowcharts: benchmark](../../architecture/command-flowcharts.md#benchmark)
 - [compare developer reference](compare.md)
 - [transcribe developer reference](transcribe.md)
-- [Adding Commands](../adding-commands.md) — use `benchmark` as the reference for `Composite`
+- [Adding Commands](../adding-commands.md), use `benchmark` as the reference for `Composite`

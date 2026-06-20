@@ -15,7 +15,7 @@ the main package contract just to make 3.14t possible.
 
 The next realistic revisit point is **the first Python 3.15.x release that
 ships `torch` and `onnxruntime` wheels for cp315/cp315t on macOS arm64**.
-The current 3.15 alpha does not — torch is the gating wheel for either
+The current 3.15 alpha does not, torch is the gating wheel for either
 ABI on the new interpreter line.
 
 ## Why 3.14t is paused again
@@ -33,12 +33,12 @@ optional tier just to unblock a narrow 3.14t experiment.
 ### 2. 3.14t has a bad operational history that current soak evidence does not fully resolve
 
 Independent 75-minute soaks on CPython 3.14.4t (VM + bare metal) have
-completed cleanly — no swap activation, no monotonic VM growth, RSS
+completed cleanly, no swap activation, no monotonic VM growth, RSS
 bounded under 2 GB, per-thread sentence counts within sub-1% across
 workers (strong free-threading balance). A previous kernel-panic
 precursor pattern has not reproduced in those configurations.
 
-That's strong evidence — though still not formal proof. The soaks did
+That's strong evidence, though still not formal proof. The soaks did
 NOT exercise:
 
 - the multi-day idle that may have been load-bearing in the prior
@@ -68,7 +68,7 @@ The current wheels probe shows the coverage state on macOS arm64:
 | 3.15.0a8t | numpy built from source, **torch ✗**, stanza ✓ | ✗ |
 
 There is currently no Python ≥ 3.13 on macOS arm64 with both required wheel
-groups present. 3.14t is closest — it has core but lacks diarization. 3.15
+groups present. 3.14t is closest, it has core but lacks diarization. 3.15
 is further from usable, not closer.
 
 ## Historical finding worth preserving
@@ -127,9 +127,9 @@ Revisit no-GIL Python only when **all** of the following are true:
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| 1 | 3.15+ better ecosystem | **Worse**, not better | 3.15 alpha wheels probe — torch absent for cp315 |
+| 1 | 3.15+ better ecosystem | **Worse**, not better | 3.15 alpha wheels probe, torch absent for cp315 |
 | 2 | Diarization wheels available | **Not met** | onnxruntime + pyannote.audio fail install on cp314t and on cp315 (both ABIs) |
-| 3 | Stable ML workloads | **Strong; multiple positive data points across VM and bare metal** | 75-min 3.14.4t soaks across VM and bare metal all clean — no swap activation, RSS bounded, sub-1% thread spread; a prior production panic remains a counter-example but cannot be reproduced in current configurations |
+| 3 | Stable ML workloads | **Strong; multiple positive data points across VM and bare metal** | 75-min 3.14.4t soaks across VM and bare metal all clean, no swap activation, RSS bounded, sub-1% thread spread; a prior production panic remains a counter-example but cannot be reproduced in current configurations |
 | 4 | CI exercises it | **Not met** | Probe + JSONL trail exist, GH Actions matrix not wired |
 
 Until criterion 2 clears:

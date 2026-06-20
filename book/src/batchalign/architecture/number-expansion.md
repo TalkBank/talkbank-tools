@@ -8,7 +8,7 @@ ASR-emitted number tokens (`"3"`, `"$5"`, `"1950s"`, `"3rd"`,
 `"80%"`, `"3-star"`) into CHAT-legal main-tier text. Both the current
 implementation and the planned architectural rework live here. When
 the implementation changes, this page must be updated in the same
-patch — there is no other authoritative description.
+patch, there is no other authoritative description.
 
 ## Why number expansion exists
 
@@ -36,7 +36,7 @@ several shapes:
 | Dash range | `"5-7"`, `"5—6"` | Reading numeric ranges |
 
 Number expansion bridges these to CHAT-legal forms per the target
-language. It is **deterministic text rewriting** — no ML, no audio
+language. It is **deterministic text rewriting**: no ML, no audio
 context, no speaker inference. Pure function from `(token, lang)`
 to `String`.
 
@@ -46,7 +46,7 @@ to `String`.
 
 Number expansion lives in `stage_asr_postprocess`
 (`crates/batchalign/src/pipeline/transcribe.rs`), which is
-gated by `always_enabled` — it runs for **every** language on
+gated by `always_enabled`: it runs for **every** language on
 **every** transcribe / transcribe_s job. It is not gated on Stanza
 availability.
 
@@ -92,7 +92,7 @@ fifties"` via deterministic composition rules cross-validated against
 `num2words` at build time (fixture `data/eng_ordinal_year_fixtures.json`).
 
 **Languages other than English with ordinal or decade ASR output
-pass through unchanged.** This is an accepted limitation — empirical
+pass through unchanged.** This is an accepted limitation, empirical
 audit of fleet jobs.db shows non-English transcribe jobs have not
 needed those modes; cardinals (the common case) are covered for every
 language in the registry. Add a per-language ordinal/decade expander
@@ -109,7 +109,7 @@ declares each language's expander explicitly:
 | `Num2Chinese(Simplified)` | `zho`, `cmn` |
 | `Num2Chinese(Traditional)` | `jpn`, `yue` |
 | `LangAllowsDigits` | `cym`, `nan`, `min`, `hak`, `vie` (CHAT validator permits digits inline) |
-| `NoCoverage { tracked_in: ... }` | Languages we transcribe but have no expander — surfaces as a documented gap, not a silent fallthrough |
+| `NoCoverage { tracked_in: ... }` | Languages we transcribe but have no expander, surfaces as a documented gap, not a silent fallthrough |
 
 Lookup via `expander_for(lang)` returns `Option<NumberExpander>`.
 Unknown ISO codes return `None` so callers can fail-loud instead
@@ -128,12 +128,12 @@ and writing the result to that path. 43 languages × 0-99 + decades +
 Four languages stay hand-curated (the regeneration workflow must not
 overwrite them):
 
-- `mal` (Malayalam) — num2words has no `ml` backend
-- `ell` (Greek) — num2words has no `el` backend; hand-curated entries
+- `mal` (Malayalam), num2words has no `ml` backend
+- `ell` (Greek), num2words has no `el` backend; hand-curated entries
   preserved verbatim from pre-codegen file (known typos flagged for
   follow-up native-speaker review)
-- `eus` (Basque) — num2words has no `eu` backend
-- `hrv` (Croatian) — num2words falls back to Serbian, lower quality
+- `eus` (Basque), num2words has no `eu` backend
+- `hrv` (Croatian), num2words falls back to Serbian, lower quality
   than the existing hand-curated table
 
 The codegen tool itself is not currently committed to the repo. When
@@ -165,7 +165,7 @@ given token routes to. Update in lock-step with code changes.
 | `eng` | `"3"` | Rust NUM2LANG | `data/num2lang.json:eng` |
 | `eng` | `"3rd"` | Rust `expand_ordinal_eng` | `ordinal_year_eng.rs` |
 | `eng` | `"1950s"` | Rust `expand_decade_eng` | `ordinal_year_eng.rs` |
-| `eng` | `"1950"` (year context) | Rust NUM2LANG cardinal — year-form expansion only fires for the decade-suffixed shape; bare 4-digit numbers route as cardinals | `num2text.rs` |
+| `eng` | `"1950"` (year context) | Rust NUM2LANG cardinal, year-form expansion only fires for the decade-suffixed shape; bare 4-digit numbers route as cardinals | `num2text.rs` |
 | any | `"$5"` | Rust `try_expand_currency` | `num2text.rs` |
 | any | `"80%"` | Rust currency-style + `PERCENT_WORD_BY_LANG` | `num2text.rs` |
 | 43 codegenned langs (eng/fra/deu/spa/por/ita/nld/…) | `"3"` | Rust NUM2LANG | `data/num2lang.json` |
@@ -173,8 +173,8 @@ given token routes to. Update in lock-step with code changes.
 | `zho` / `cmn` | `"3"` | Rust `num2chinese(simplified)` | `num2text.rs` |
 | `yue` / `jpn` | `"3"` | Rust `num2chinese(traditional)` | `num2text.rs` |
 | Languages whose validator allows digits (`cym`, `nan`, `min`, `hak`, `vie`) | `"3"` | `LangAllowsDigits` (no-op; E220 wouldn't fire anyway) | `registry.rs` |
-| Non-eng `"3rd"` / `"1950s"` | passthrough | None — accepted limitation, no observed production traffic | (gap) |
-| `hin`, `tam`, `mar`, `guj`, `pan`, `ori`, most African langs | `"3"` | **Nothing** — digit reaches CHAT, E220 fires | (gap) |
+| Non-eng `"3rd"` / `"1950s"` | passthrough | None, accepted limitation, no observed production traffic | (gap) |
+| `hin`, `tam`, `mar`, `guj`, `pan`, `ori`, most African langs | `"3"` | **Nothing**: digit reaches CHAT, E220 fires | (gap) |
 
 To add a `num2words`-supported language: add the ISO 639-3 → 2-char
 mapping to `ISO3_TO_NUM2WORDS` in `scripts/codegen_num2lang.py` and
@@ -186,8 +186,8 @@ re-run the script. To add a hand-curated language: add to
 `detect_expansion` classifies a token's expansion mode (`Cardinal` /
 `Ordinal` / `Decade` / `Year`) for callers that need the decision
 without doing the expansion. After Round 2 the dispatcher does not
-use it directly — `expand_number` runs the full per-word pipeline
-unconditionally — but it is kept as a public helper for testing and
+use it directly, `expand_number` runs the full per-word pipeline
+unconditionally, but it is kept as a public helper for testing and
 future per-mode dispatch.
 
 ```mermaid
@@ -224,7 +224,7 @@ Recurses for hundreds-and-up multipliers (`1234` → `decompose(1)` +
 
 If the table can't fully decompose (e.g., a 5-digit number when the
 table only goes to 1000), `expand_number` returns the original
-digit string unchanged. This is a **silent fallthrough** — the
+digit string unchanged. This is a **silent fallthrough**: the
 validator E220 will catch it later, but at the call site there's no
 typed signal that expansion failed.
 
@@ -239,7 +239,7 @@ typed signal that expansion failed.
   percent words for the languages we actively transcribe. Anything
   not listed falls back to `"percent"`.
 
-These two tables are independent of the main `NUM2LANG` table — they
+These two tables are independent of the main `NUM2LANG` table, they
 exist because currency/percent symbols are language-orthogonal but
 the words attached to them are language-specific.
 
@@ -265,7 +265,7 @@ for number expansion. Remaining issues:
    touching every dispatch site. Layer 2 of the rework addresses this.
 3. **Indic + African coverage gaps.** Hindi, Tamil, Marathi,
    Gujarati, Punjabi, Oriya, and most African languages have no
-   expander — registry returns `None` and the digit reaches CHAT,
+   expander, registry returns `None` and the digit reaches CHAT,
    triggering E220. Add to `HAND_CURATED` in
    `scripts/codegen_num2lang.py` as the languages come online.
 4. **Hand-curated quality not native-reviewed.** Greek (`ell`),
@@ -278,7 +278,7 @@ for number expansion. Remaining issues:
    registry only surfaces at validation time as E220. The
    registry could be consulted at job submission to reject the
    request with a clearer error ("no number expansion configured
-   for language X — see book/src/architecture/number-expansion.md").
+   for language X, see book/src/architecture/number-expansion.md").
 
 ---
 
@@ -286,10 +286,10 @@ for number expansion. Remaining issues:
 
 Layer 1 (per-language registry + cardinal codegen) and Round 2
 (English ordinal/decade in Rust + Python IPC removal) **both landed
-earlier** — the relevant content moved into "Current architecture"
+earlier**: the relevant content moved into "Current architecture"
 above. Layers 2 and 3 are still proposed.
 
-### Layer 1 — Per-language registry
+### Layer 1: Per-language registry
 
 Replace the dual-pass dispatch with a single typed registry:
 
@@ -345,7 +345,7 @@ async fn expand_word(word: &mut AsrWord, lang: LanguageCode3, py: &PyClient) {
 **Properties:**
 - Single pass over words; no dual-write race.
 - Python IPC only for languages explicitly registered as
-  `Num2WordsBackend` — Malayalam et al. don't pay the roundtrip cost.
+  `Num2WordsBackend`: Malayalam et al. don't pay the roundtrip cost.
 - `NoCoverage` makes gaps a **first-class concept** with a doc
   reference, not silent fallthrough.
 - Adding a language is one registry entry. Removing is one entry.
@@ -367,7 +367,7 @@ Estimated scope: ~400 LOC change concentrated in `num2text.rs` and
 `pipeline/transcribe.rs`, plus deletion of the dual-pass
 orchestration. ~1 day with TDD.
 
-### Layer 2 — Typed `NumberToken` parser
+### Layer 2: Typed `NumberToken` parser
 
 Replace the scattered detect/try/try cascade with a single parse
 function returning a typed enum:
@@ -409,12 +409,12 @@ year-as-compound) override.
 This collapses six ad-hoc detection functions into one parse and
 makes the input space testable as a closed enum. Adding a new token
 shape (phone numbers, time, etc.) means one new variant + one new
-trait method with a sensible default — not surgery across the file.
+trait method with a sensible default, not surgery across the file.
 
 Estimated scope: parser ~200 LOC, trait + 13 impls ~600 LOC, plus
 test coverage. ~2-3 days with TDD.
 
-### Layer 3 — `LinguisticNormalizer` per language
+### Layer 3: `LinguisticNormalizer` per language
 
 Number expansion is one of several language-specific text transforms
 ASR post-processing needs. Today they're scattered:
@@ -448,7 +448,7 @@ Layer 1's registry collapses into one method on this trait. Layer 2's
 parser becomes the input pipe. The whole post-processing path becomes
 "parse token → resolve normalizer → dispatch."
 
-Estimated scope: significant — touches every per-language code path
+Estimated scope: significant, touches every per-language code path
 in `asr_postprocess/`. Right size for a multi-week project tied to
 the broader summer Malayalam expansion (rupee handling, Indian-style
 year forms, ordinal suffixes like ആം). Not standalone.
@@ -510,7 +510,7 @@ not already on the matrix):
 3. Add the row to this page's coverage matrix.
 4. Add a test in `num2text.rs::tests`.
 5. If neither path covers the language, document it explicitly:
-   add a row with "Nothing — digit reaches CHAT, E220 fires" so
+   add a row with "Nothing, digit reaches CHAT, E220 fires" so
    the gap is visible to future contributors.
 
 **When updating `num2words` (Python lib version bump):**
@@ -533,22 +533,22 @@ maintainer sign-off):
 1. Update `talkbank-tools/.../digits.rs::DIGIT_ALLOWED_LANGS`.
 2. Update the matrix's last row ("Lang allows digits") to reflect
    the new set.
-3. Audit each newly-allowed language's expander entry — if a
+3. Audit each newly-allowed language's expander entry, if a
    language was `NoCoverage` and now allows digits, change the
    variant to `LangAllowsDigits`.
 
 ## Cross-references
 
 - [Adding Language Support](../developer/adding-language-support.md)
-  — checklist for new-language work; has a "Number expansion" section
+ , checklist for new-language work; has a "Number expansion" section
   that points here.
 - [Malayalam Language Support](../reference/languages/malayalam.md)
-  — concrete example of a language using the Rust `NUM2LANG` path
+ , concrete example of a language using the Rust `NUM2LANG` path
   after the fix.
-- `crates/batchalign/CLAUDE.md` — `asr_postprocess/` module
+- `crates/batchalign/CLAUDE.md`: `asr_postprocess/` module
   map; references `num2text.rs` for number expansion specifically.
-- `crates/batchalign/CLAUDE.md` — Python boundary policy
+- `crates/batchalign/CLAUDE.md`: Python boundary policy
   ("Locked de-Pythonization target"). After Round 2, number
   expansion no longer violates this rule.
 - `talkbank-tools/../chatter/crates/talkbank-model/src/validation/word/language/digits.rs`
-  — the E220 validator and the `DIGIT_ALLOWED_LANGS` allowlist.
+ , the E220 validator and the `DIGIT_ALLOWED_LANGS` allowlist.

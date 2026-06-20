@@ -25,9 +25,9 @@ stuck", that something must surface to the UI**. Examples:
 - Loading a model from disk into RAM or GPU.
 - GPU JIT compile.
 - Audio decoding for long files.
-- External API calls (Rev.AI ASR, Anthropic, Aliyun, etc.) — at minimum a
+- External API calls (Rev.AI ASR, Anthropic, Aliyun, etc.), at minimum a
   `"Calling Rev.AI…"` event before the call returns.
-- Sleep, backoff, retry — make the wait visible, not silent.
+- Sleep, backoff, retry, make the wait visible, not silent.
 
 ## Why this matters
 
@@ -140,7 +140,7 @@ worker should emit `"Decoding audio: <filename>…"` before the decode call.
 
 ### External API calls
 
-Rev.AI ASR, Anthropic, Aliyun, OpenAI — anywhere the worker makes a
+Rev.AI ASR, Anthropic, Aliyun, OpenAI, anywhere the worker makes a
 synchronous network call that could legitimately take more than a couple
 seconds. At minimum: emit `"Calling <provider> for <task>…"` before the
 call returns. For long-running providers like Rev.AI streaming, emit
@@ -157,7 +157,7 @@ in for transport-level retries.
 
 ## Wording: what the user reads
 
-The `user_message` field — the text rendered to the user — must convey
+The `user_message` field, the text rendered to the user, must convey
 four things for any download or load:
 
 1. **What** is happening ("Downloading openai/whisper-large-v3 for ASR").
@@ -167,7 +167,7 @@ four things for any download or load:
 4. That **BA3 is not stuck**.
 
 Standardized templates live in `_progress.py`. When adding a family, copy
-an existing template; do not invent new wording from scratch — UI users
+an existing template; do not invent new wording from scratch, UI users
 get used to the shape.
 
 For loads (no download), the shape is `"Loading <model> for <task>…"` with
@@ -193,7 +193,7 @@ would also need a progress signal mid-load.
 - **Do not** suppress events on cached / fast-path runs. Emitting only
   when a download will happen is the right call (BA3's
   `emit_hf_download_if_missing` does this); but a load that genuinely
-  takes a few seconds — even from cache — still warrants a "Loading X…"
+  takes a few seconds, even from cache, still warrants a "Loading X…"
   event. Users prefer one always-shown line to a guessing game about
   whether a wait is "real".
 
@@ -206,7 +206,7 @@ would also need a progress signal mid-load.
    `calling_rev_ai_asr`, `decoding_audio`.
 3. **Choose user wording.** Use the `_progress.py` templates. Convey the
    four things above. Be specific.
-4. **Pair start with completion** when the operation is recoverable — e.g.,
+4. **Pair start with completion** when the operation is recoverable, e.g.,
    a download has both a "downloading…" event and a "ready" event.
 5. **Verify each UI surface renders the event.** CLI: run the command and
    see the line. TUI: run with `--tui` and see the dashboard label. Web:

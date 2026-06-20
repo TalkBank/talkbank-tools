@@ -1,4 +1,4 @@
-# Arena Allocators (Evaluation — Not Used)
+# Arena Allocators (Evaluation: Not Used)
 
 **Status:** Current
 > **Status: Evaluated and rejected (2026).** We evaluated `bumpalo` arenas at
@@ -8,12 +8,12 @@
 
 ## Why Not `bumpalo`
 
-1. **Lifetime rigidity** — Arena references can't escape the owning function,
+1. **Lifetime rigidity**: Arena references can't escape the owning function,
    but our processing pipelines return intermediate results across function
    boundaries.
-2. **Marginal gains** — The targeted patterns below already eliminate hot spots.
+2. **Marginal gains**: The targeted patterns below already eliminate hot spots.
    Adding `bumpalo` on top yielded < 2% additional improvement in benchmarks.
-3. **API friction** — `bumpalo::collections::Vec` and `String` are different
+3. **API friction**: `bumpalo::collections::Vec` and `String` are different
    types from `std`, requiring conversion at every boundary.
 
 ## Patterns We Use Instead
@@ -63,5 +63,5 @@ accepts `&[char]` via the `Alignable` trait.
 1. **Start with the cheapest fix.** Reuse a buffer, use a flat table, avoid
    the allocation entirely.
 2. **Don't add an arena for < 10 allocations per call.**
-3. **Benchmark with realistic inputs.** The allocator is rarely the bottleneck —
+3. **Benchmark with realistic inputs.** The allocator is rarely the bottleneck,
    I/O, parsing, and NLP inference dominate wall-clock time.

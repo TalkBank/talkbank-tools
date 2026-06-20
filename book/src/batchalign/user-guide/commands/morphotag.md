@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-23 09:20 EDT
 
 Add morphosyntactic analysis (`%mor` POS/lemma tiers and `%gra` dependency
-tiers) to existing CHAT transcripts. Text-only — no audio involved.
+tiers) to existing CHAT transcripts. Text-only, no audio involved.
 
 ---
 
@@ -14,9 +14,9 @@ Morphotag has **no `--lang` flag**. Every input file's processing language
 is read from that file's own `@Languages:` header at the start of the
 per-file pipeline (`pipeline/morphosyntax.rs::resolve_per_file_lang`).
 A single morphotag invocation can therefore process a heterogeneous
-corpus — English files routed to Stanza English, Spanish files to Stanza
+corpus, English files routed to Stanza English, Spanish files to Stanza
 Spanish, Cantonese files to Stanza Chinese with the PyCantonese POS
-overlay, etc. — all from one command. The job's wire-level language
+overlay, etc., all from one command. The job's wire-level language
 spec is `LanguageSpec::PerFile`, surfaced on the dashboard and JSON API
 as `"per-file"`. No English placeholder is ever stored.
 
@@ -44,7 +44,7 @@ batchalign3 --server http://your-server:8001 morphotag corpus/ -o out/
 ```
 
 To "override" the language, edit the file's `@Languages:` line. There is
-no CLI shortcut — and there cannot be, because a single command may span
+no CLI shortcut, and there cannot be, because a single command may span
 many languages.
 
 ---
@@ -59,7 +59,7 @@ discriminant used by the planner at
 Utterances are pooled across all files, grouped by language, and
 dispatched to a Stanza worker per language group with semaphore-bounded
 concurrency. Repeated `morphotag` runs on the same input run the full
-Stanza pipeline again — text-NLP results are not cached
+Stanza pipeline again, text-NLP results are not cached
 (`CacheTaskName` at `crates/batchalign/src/chat_ops/cache_key.rs:58`
 covers only `ForcedAlignment` and `UtrAsr`).
 
@@ -126,7 +126,7 @@ into smaller chunks and run those chunks sequentially.
 
 There is **no `--lang` flag**. Each file's processing language is read
 from its own `@Languages:` header. Passing `--lang` to morphotag is a
-clap parse error — the CLI surface deliberately rejects it. See the
+clap parse error, the CLI surface deliberately rejects it. See the
 "Language is per-file, not job-level" section above for the rationale.
 
 | Option | Default | Meaning |
@@ -143,7 +143,7 @@ clap parse error — the CLI surface deliberately rejects it. See the
 
 Files whose header declares `@Options: CA` (Conversation Analysis mode)
 are passed through morphotag unchanged. The pipeline parses the file,
-detects the option, and serializes it back as-is — no `%mor` / `%gra`
+detects the option, and serializes it back as-is, no `%mor` / `%gra`
 tiers are added, and any pre-existing `%mor` / `%gra` tiers are
 preserved verbatim. Provenance comments are not injected for these
 files.
@@ -170,13 +170,13 @@ decision.
 The language for each file is read from its `@Languages:` header (first
 declared language). Individual utterances tagged with a `[- lang]` precode
 are routed to the appropriate language-specific Stanza model regardless of
-the file-level language. There is no CLI override — see the "Language is
+the file-level language. There is no CLI override, see the "Language is
 per-file, not job-level" section at the top of this page.
 
 For Cantonese, files declared with primary `@Languages: yue` route to
 Stanza's Chinese (`zh`) pipeline with a PyCantonese POS overlay applied
 after Stanza finishes (Stanza zh scores ~50% on Cantonese vocabulary;
-PyCantonese ~94% — only `upos` is replaced; lemma and dependency parse
+PyCantonese ~94%, only `upos` is replaced; lemma and dependency parse
 from Stanza are preserved). Mandarin files (`zho` / `cmn`) use Stanza zh
 without the PyCantonese overlay. See
 [Cantonese language details](../../reference/languages/cantonese.md) and
@@ -195,7 +195,7 @@ existing `%wor` timing bullets. If the file has already been aligned, re-run
 
 If you see ``WARN Stripped N Stanza control-token leak(s) ...`` lines
 in ``~/.batchalign3/server.log``, those are working-as-designed
-signals from a known-upstream-defect workaround firing — not errors.
+signals from a known-upstream-defect workaround firing, not errors.
 See the troubleshooting page section
 [Stripped N upstream-library warnings](../troubleshooting.md#stripped-n-upstream-library-warnings-in-the-server-log)
 for the full explanation and what to do.
@@ -204,7 +204,7 @@ for the full explanation and what to do.
 
 `@s` (code-switched) words are routed to secondary-language Stanza
 models and annotated with real POS tags, lemmas, and dependency
-relations — including proper handling of contractions
+relations, including proper handling of contractions
 (`it's@s:eng` → `pron|it~aux|be`) and phrasal verbs
 (`wake@s up@s` → `verb|wake part|up` with `COMPOUND-PRT` GRA deprel).
 This is the default behavior. Mandarin-marked words (`@s:cmn` /
@@ -236,12 +236,12 @@ When the primary IS supported, **non-primary content in any language
 that Stanza does not support is processed cleanly with an `L2|xxx`
 fallback**:
 
-- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the entire utterance
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes, the entire utterance
   is grouped under `UNSUPPORTEDLANG`, the worker partition routes that
   group to the fallback bucket (no Stanza dispatch), and every word in
   the utterance receives `L2|xxx` in `%mor` with no `%gra` relation
   emitted for those positions.
-- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+- `@s:UNSUPPORTEDLANG` per-word markers, the secondary L2 dispatch
   path for that span is short-circuited the same way; the host primary
   analysis is preserved and the `@s` token's slot stays as `L2|xxx`.
 
@@ -263,7 +263,7 @@ calling Stanza.
 
 See also:
 - [L2 Morphotag: Per-Word Code-Switching Analysis](../../reference/l2-morphotag.md)
-  — full design, merge algorithm, phrasal-verb diagram
+ , full design, merge algorithm, phrasal-verb diagram
 
 ## Validation and repair for `@s` input
 
@@ -284,8 +284,8 @@ See also:
 The rewrite predicate is conservative on purpose: an incorrect
 `[- LANG]` insertion silently changes the language scope of an entire
 utterance, including fillers and nonwords. The predicate only fires
-when **every** word-bearing item in the utterance — words, fillers
-(`&~`, `&-`, `&+`), nonwords, AND retraced material — carries an
+when **every** word-bearing item in the utterance, words, fillers
+(`&~`, `&-`, `&+`), nonwords, AND retraced material, carries an
 explicit language attribution that resolves to the **same** target
 language. A single unmarked token (e.g. a filler `&~dang3` with no
 `@s:` marker) blocks the rewrite, even if every other word would
@@ -308,24 +308,24 @@ output. When the Stanza worker reports a per-utterance error (model
 runtime error, Stanza output parse failure, protocol violation), the
 affected file is marked failed with a typed `ItemErrors` message
 naming the first few offending items and the total count. Other
-files in the same batch continue normally — one bad file does not
+files in the same batch continue normally, one bad file does not
 poison the rest (BA2-parity multi-file semantics). The output `.cha`
 for a failed file is **not** written; there is no silent path where
 the job appears successful but the `%mor` tier is missing.
 
 Note: items in languages Stanza does not support (code-switches into
 `@s:<lang>` for unsupported languages) are an intentional fallback,
-not a failure — those items keep their `L2|xxx` placeholders in
+not a failure, those items keep their `L2|xxx` placeholders in
 `%mor` and the file still succeeds.
 
 ---
 
 ## Related documentation
 
-- [Morphosyntax Pipeline](../../reference/morphosyntax.md) — %mor/%gra format, Stanza model details
-- [Language Routing](../../../architecture/language-and-multilingual/language-routing.md) — `[- lang]` precodes, auto-detection, per-word routing limits
-- [L2 & Language Switching](../../reference/l2-handling.md) — `@s` annotation, code-switching
-- [Multi-Word Tokens](../../reference/mwt-handling.md) — MWT expansion and `--retokenize`
-- [Command I/O: morphotag](../../reference/command-io.md#4-morphotag) — I/O patterns and mutation behavior
-- [Command Flowcharts: morphotag](../../architecture/command-flowcharts.md#morphotag) — full architecture flowchart
-- [Incremental Processing](../../architecture/incremental-processing.md) — `--before` flag mechanics
+- [Morphosyntax Pipeline](../../reference/morphosyntax.md), %mor/%gra format, Stanza model details
+- [Language Routing](../../../architecture/language-and-multilingual/language-routing.md), `[- lang]` precodes, auto-detection, per-word routing limits
+- [L2 & Language Switching](../../reference/l2-handling.md), `@s` annotation, code-switching
+- [Multi-Word Tokens](../../reference/mwt-handling.md), MWT expansion and `--retokenize`
+- [Command I/O: morphotag](../../reference/command-io.md#4-morphotag), I/O patterns and mutation behavior
+- [Command Flowcharts: morphotag](../../architecture/command-flowcharts.md#morphotag), full architecture flowchart
+- [Incremental Processing](../../architecture/incremental-processing.md), `--before` flag mechanics

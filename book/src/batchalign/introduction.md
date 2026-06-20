@@ -79,7 +79,7 @@ This book is organized into six sections:
 If you are a new user, start with [Installation](user-guide/installation.md)
 and [Quick Start](user-guide/quick-start.md). If you are migrating from
 a previous version, start with [Migration Guide](migration/index.md).
-There is no public Python API — the supported integration path from
+There is no public Python API, the supported integration path from
 Python is `subprocess`-into-`batchalign3`. See
 [No Python API](user-guide/python-api.md) for the full statement.
 

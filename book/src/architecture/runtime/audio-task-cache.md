@@ -6,7 +6,7 @@
 Batchalign caches **audio-task results** (forced alignment, UTR ASR,
 media conversion). It does **not** cache text-NLP results
 (morphosyntax, utterance segmentation, translation). All caching is
-managed by the Rust server — Python workers are cache-unaware.
+managed by the Rust server, Python workers are cache-unaware.
 
 For the CHAT-core validation cache used by `chatter validate`, see
 [validation cache](../parser-and-grammar/validation-cache.md).
@@ -18,7 +18,7 @@ text-NLP cache was net negative:
 
 | Metric | Value |
 |---|---|
-| Cache hit rate on a 15,748-file corpus rerun | 6–16% |
+| Cache hit rate on a 15,748-file corpus rerun | 6-16% |
 | SQLite lookup time per 25-file window | 2,500 ms |
 | Inference time saved by hits | ~100 ms |
 | **Net effect** | **Cache ≈ 25× slower than re-inference** |
@@ -26,14 +26,14 @@ text-NLP cache was net negative:
 With warm Stanza workers, batched text inference runs at ~4 ms /
 sentence. Cache lookup against a multi-GB SQLite beat that by more
 than an order of magnitude. The arithmetic rules out every hit-rate
-scenario — for cache to win you'd need
+scenario, for cache to win you'd need
 `lookup < hit_rate × inference_time`, i.e. hit rate > 2,500% at the
 observed costs. Not achievable.
 
 Additional reasons:
 
 1. **Most utterances are unique across files.** Only short common
-   phrases ("thank you", "okay") repeat. The 6–16% observed hit rate
+   phrases ("thank you", "okay") repeat. The 6-16% observed hit rate
    reflects this.
 2. **Staleness is always a problem.** Model upgrades and pipeline
    changes invalidate entries; stale entries that pass the version
@@ -50,7 +50,7 @@ Every text-NLP request flows straight through to the Python worker.
 ### Difference from batchalign2
 
 Batchalign2 still has a morphotag cache (Python-side, per-utterance).
-The cache is not present in batchalign3 — the net-negative benchmark
+The cache is not present in batchalign3, the net-negative benchmark
 above is why. If you are comparing the two tools, expect batchalign2
 to be faster on exact-repeat reruns of identical input and
 batchalign3 to be faster in every other scenario because of its
@@ -60,8 +60,8 @@ every real scenario in the second bucket.
 
 ## Why audio caching helps
 
-1. **Audio inference is expensive.** Whisper ASR takes 30–120 seconds
-   per file. FA takes 10–60 seconds. Caching saves minutes, not
+1. **Audio inference is expensive.** Whisper ASR takes 30-120 seconds
+   per file. FA takes 10-60 seconds. Caching saves minutes, not
    milliseconds.
 2. **Audio rarely changes.** The same `.mp3` file produces the same
    transcription every time. The `AudioIdentity` key (path + mtime +
@@ -76,19 +76,19 @@ every real scenario in the second bucket.
 that re-processing a corpus skips utterances whose results are
 already known.
 
-- **`CacheBackend` trait** — storage contract (get, put, delete; both
+- **`CacheBackend` trait**: storage contract (get, put, delete; both
   single and batched).
-- **`TieredCacheBackend`** — production implementation; in-memory
+- **`TieredCacheBackend`**: production implementation; in-memory
   [moka](https://github.com/moka-rs/moka) hot layer wrapping a
   persistent `SqliteBackend` cold layer.
-- **`SqliteBackend`** — persistent storage via SQLite WAL mode for
+- **`SqliteBackend`**: persistent storage via SQLite WAL mode for
   concurrent read/write safety.
-- **`UtteranceCache`** — public entry point, wraps
+- **`UtteranceCache`**: public entry point, wraps
   `Box<dyn CacheBackend>`.
 
 | Layer | Implementation | Capacity | Eviction |
 |---|---|---|---|
-| **Hot** | `moka::future::Cache` | 10,000 entries (~5–20 MB) | 24h time-to-idle |
+| **Hot** | `moka::future::Cache` | 10,000 entries (~5-20 MB) | 24h time-to-idle |
 | **Cold** | `SqliteBackend` (WAL, 5-connection pool) | Unbounded (disk) | None (manual or `--override-media-cache`) |
 
 The hot layer absorbs repeated lookups and reduces SQLite round-trips
@@ -130,12 +130,12 @@ flowchart TD
     end
 ```
 
-- **Read path** — check moka → on hit, verify task + engine_version
+- **Read path**: check moka → on hit, verify task + engine_version
   match → on mismatch or miss, fall through to SQLite → promote cold
   hits to moka.
-- **Write path** — write to SQLite first (authoritative), then insert
-  into moka. Write-through, not write-back — no data loss on crash.
-- **Delete path** — invalidate moka first, then delete from SQLite.
+- **Write path**: write to SQLite first (authoritative), then insert
+  into moka. Write-through, not write-back, no data loss on crash.
+- **Delete path**: invalidate moka first, then delete from SQLite.
 
 The moka key is the bare BLAKE3 hash string. Task and engine_version
 are stored inside the hot entry and checked on read, matching the
@@ -153,7 +153,7 @@ SQLite schema where `key` is the primary key.
 Keys are **BLAKE3** content-addressed hashes (64-character hex
 strings), computed by the `CacheKey` newtype in
 `crates/batchalign/src/chat_ops/cache_key.rs`. There is no constructor from
-arbitrary strings — keys can only be created through the
+arbitrary strings, keys can only be created through the
 task-specific `cache_key()` functions, which hash input payloads
 internally.
 
@@ -184,7 +184,7 @@ Implications:
   changes the identity**, causing a cache miss.
 - **Copying a file preserves content but changes mtime**, so the
   copy gets a different identity.
-- **No content hashing is performed** — deliberate performance
+- **No content hashing is performed**: deliberate performance
   tradeoff.
 
 ### `CacheTaskName`
@@ -197,7 +197,7 @@ Audio tasks that use the cache:
 | `UtrAsr` | `utr_asr` | `runner/dispatch/fa_pipeline.rs` (UTR pre-pass) |
 
 The enum also includes `Morphosyntax`, `UtteranceSegmentation`, and
-`Translation` variants — they are kept as named constants so
+`Translation` variants, they are kept as named constants so
 `--override-media-cache-tasks morphosyntax` continues to parse
 cleanly, but no code writes or reads entries under those task names.
 
@@ -228,7 +228,7 @@ scoping at the SQLite/moka layer catches model upgrades (the entry's
 stored engine_version must match the current one).
 
 **Key insight:** UTR cache keys are audio-only (no transcript text),
-so editing the transcript does not invalidate ASR results — correct
+so editing the transcript does not invalidate ASR results, correct
 because UTR re-derives timing from the same audio. FA cache keys
 include transcript text, so only groups whose words changed need to
 re-run forced alignment.
@@ -248,7 +248,7 @@ constructing `PipelineServices`.
 The FA pipeline uses its own engine_version for both FA cache entries
 and UTR ASR cache entries. This means upgrading the FA model
 invalidates UTR ASR cache entries too, even though UTR uses the ASR
-worker — design choice to keep the FA pipeline's `PipelineServices`
+worker, design choice to keep the FA pipeline's `PipelineServices`
 consistent across its sub-stages.
 
 ## Cache Workflow in Orchestrators
@@ -258,10 +258,10 @@ Every audio orchestrator follows this pattern:
 1. **Collect payloads** (FA groups, UTR segments) from the parsed
    CHAT AST.
 2. **Compute cache keys** (BLAKE3 hash of payload content).
-3. **Batch lookup** — hit entries are injected directly.
-4. **Infer misses** — send uncached payloads to Python workers.
+3. **Batch lookup**: hit entries are injected directly.
+4. **Infer misses**: send uncached payloads to Python workers.
 5. **Inject results** into the AST.
-6. **Batch put** — persist new results for future reuse.
+6. **Batch put**: persist new results for future reuse.
 
 ## Self-Correcting Cache Purges
 
@@ -316,28 +316,28 @@ flowchart TD
     inject --> done([Continue to FA])
 ```
 
-- **Full-file mode** — caches the entire `AsrResponse` with key
+- **Full-file mode**: caches the entire `AsrResponse` with key
   `BLAKE3("utr_asr|{audio_identity}|{lang}")`. Default for
   mostly-untimed files or short audio.
-- **Partial-window mode** — activates when >50% of utterances are
+- **Partial-window mode**: activates when >50% of utterances are
   timed and the audio exceeds 60 seconds. Each untimed window is
   extracted via ffmpeg and cached independently with key
   `BLAKE3("utr_asr_segment|{audio_identity}|{start_ms}|{end_ms}|{lang}")`.
   Avoids processing already-timed regions on the first run. After
   the first run, the full-file cache makes the distinction moot.
 
-Both modes respect `CachePolicy` — `--override-media-cache` skips
+Both modes respect `CachePolicy`: `--override-media-cache` skips
 lookups but still stores results for future use.
 
 ## What Is NOT Cached
 
-- **Morphosyntax, utterance segmentation, translation** — text-NLP
+- **Morphosyntax, utterance segmentation, translation**: text-NLP
   tasks, removed from the cache for the benchmark reasons above.
-- **Speaker diarization** — depends on full audio context.
-- **Coreference** — document-level (not per-utterance); results
+- **Speaker diarization**: depends on full audio context.
+- **Coreference**: document-level (not per-utterance); results
   depend on full document context.
-- **OpenSMILE features** — fast enough to recompute.
-- **AVQI scores** — fast enough to recompute.
+- **OpenSMILE features**: fast enough to recompute.
+- **AVQI scores**: fast enough to recompute.
 
 ## Media Conversion Cache
 

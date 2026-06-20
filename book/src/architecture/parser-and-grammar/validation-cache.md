@@ -46,7 +46,7 @@ flowchart TD
 | `path_hash` | BLAKE3 hash of the resolved path (part of the lookup key) |
 | `file_path` | Resolved file path, indexed for path-based maintenance ops |
 | `content_hash` | Hash of the file content; mismatch invalidates the entry |
-| `version` | Schema/code version — mismatch invalidates the entry |
+| `version` | Schema/code version, mismatch invalidates the entry |
 | `cached_at` | Insertion timestamp |
 | `check_alignment` | Whether alignment validation was requested |
 | `is_valid` | Cached validation outcome (0/1) |
@@ -68,17 +68,17 @@ secondary index used by maintenance operations (orphan pruning, etc.).
 
 ## Invalidation
 
-- **Schema changes** — bump the `version` field; old entries become
+- **Schema changes**: bump the `version` field; old entries become
   unreachable.
-- **Time-based** — entries older than 30 days are pruned.
-- **Manual** — pass `--force` to bypass cache lookups for a
+- **Time-based**: entries older than 30 days are pruned.
+- **Manual**: pass `--force` to bypass cache lookups for a
   particular validation run.
 
 Per project policy, do not delete the cache directory without
-explicit request — see the cache-policy section of
+explicit request, see the cache-policy section of
 `talkbank-tools/CLAUDE.md`.
 
 ## See also
 
-- [Audio-task cache](../runtime/audio-task-cache.md) — Batchalign's
+- [Audio-task cache](../runtime/audio-task-cache.md), Batchalign's
   per-utterance cache for FA / UTR ASR / media conversion.

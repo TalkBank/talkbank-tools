@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-23 21:39 EDT
 
 This page documents how batchalign3 downloads, caches, and verifies ML
-models — the contributor-facing complement to the
+models, the contributor-facing complement to the
 [user-facing chapter](../user-guide/model-downloads.md). It is the
 authoritative inventory of every model load site, every cache location, and
 every download mechanism BA3 currently uses.
@@ -33,7 +33,7 @@ This contract was made explicit on 2026-05-06 after a fresh-install code
 path silently failed: BA3 swallowed Stanza's `ResourcesFileNotFoundError`,
 returned `None` from `get_cached_capability_table()`, and the Stanza
 pre-flight gate translated the silent-None into "language not supported"
-— misleading for a user whose Stanza catalog had simply never been
+, misleading for a user whose Stanza catalog had simply never been
 seeded. A single-host instance of that loop (orchestrator retry × worker
 exit-1 × full Python traceback) generated multi-GB of `server.log` spam
 per day.
@@ -116,9 +116,9 @@ happening. The shared helper lives at
 `batchalign/worker/_progress.py`:
 
 - `emit_download_event(stage, user_message, request_id=None, size_bytes_estimate=None)`
-  — generic, used for non-HF downloads (Stanza catalog, Stanza language
+ , generic, used for non-HF downloads (Stanza catalog, Stanza language
   packs, torchaudio bundles).
-- `emit_hf_download_if_missing(model_id, kind, request_id=None)` — probes
+- `emit_hf_download_if_missing(model_id, kind, request_id=None)`: probes
   the HuggingFace cache via `try_to_load_from_cache`; emits only when the
   model is genuinely about to download. Wraps every `from_pretrained()`
   call.
@@ -134,7 +134,7 @@ pipe = pipeline("automatic-speech-recognition", model="openai/whisper-large-v3",
 
 The wrapping is cheap (one cache probe), idempotent for cached models
 (probe returns hit, no event emitted), and safe under failure (probe
-exceptions log debug-level and emit anyway — a false-positive notification
+exceptions log debug-level and emit anyway, a false-positive notification
 is a much smaller UX cost than a silent multi-minute wait).
 
 User-message wording must convey four things: what's downloading, the
@@ -174,13 +174,13 @@ Cached task kinds are enumerated in
 `crates/batchalign/src/chat_ops/cache_key.rs::CacheTaskName`. Cache keys
 include:
 
-- Pipeline version (bumped on algorithm changes — see change log below)
+- Pipeline version (bumped on algorithm changes, see change log below)
 - Language code
 - Engine version
 - Relevant per-task inputs
 
 Text NLP tasks (`morphotag`, `utseg`, `translate`, `coref`) are NOT
-cached — running them twice runs the model twice.
+cached, running them twice runs the model twice.
 
 ### Cache-breaking changes log
 
@@ -188,13 +188,13 @@ When the morphosyntax pipeline changes in a way that produces
 different results for the same input, the cache namespace bumps via
 the `engine_version` + `ba_version` arguments that
 `crates/batchalign/src/cache/mod.rs` requires on every `put` /
-`put_batch` call (see lines 206–223). Old cached results miss
-automatically — no user action required.
+`put_batch` call (see lines 206-223). Old cached results miss
+automatically, no user action required.
 
 | Version | Date | Change | Impact |
 |---|---|---|---|
 | 1 | pre-2026 | Original Stanza-only pipeline | Baseline |
-| 2 | 2026-03-23 | Added PyCantonese POS override for Cantonese (`yue`) | All cached Cantonese %mor results invalidated. Re-running morphotag on Cantonese files produces corrected POS tags (佢哋→PRON instead of PROPN, etc.). Non-Cantonese cache entries unaffected but also invalidated (harmless — recomputed with same results). |
+| 2 | 2026-03-23 | Added PyCantonese POS override for Cantonese (`yue`) | All cached Cantonese %mor results invalidated. Re-running morphotag on Cantonese files produces corrected POS tags (佢哋→PRON instead of PROPN, etc.). Non-Cantonese cache entries unaffected but also invalidated (harmless, recomputed with same results). |
 
 When to bump `ba_version` (rolling the morphosyntax pipeline forward):
 - Adding or removing POS post-processing (e.g., PyCantonese override)
@@ -217,11 +217,11 @@ Bootstrap behavior under mocked filesystem and Stanza APIs lives in
 `batchalign/tests/test_stanza_capabilities.py`. The three load-bearing
 cases:
 
-- `test_bootstrap_downloads_catalog_when_missing` — `resources.json`
+- `test_bootstrap_downloads_catalog_when_missing`: `resources.json`
   absent + download succeeds → populated table returned.
-- `test_bootstrap_raises_typed_error_on_download_failure` — absent +
+- `test_bootstrap_raises_typed_error_on_download_failure`: absent +
   download fails → `StanzaCatalogDownloadError`.
-- `test_stanza_not_installed_returns_none` — `ImportError` → `None`
+- `test_stanza_not_installed_returns_none`: `ImportError` → `None`
   (unchanged silent-None path, the only legitimate one).
 
 These run in the default `pytest` profile (no `-m golden` needed); they
@@ -252,7 +252,7 @@ opt-out somewhere.
 
 On machines with < 128 GB RAM, the `conftest.py` guard forces golden tests
 to run sequentially (`-n 0`) even if the default `pytest.ini` specifies
-parallel workers. Each Stanza model instance uses 2–5 GB — parallel
+parallel workers. Each Stanza model instance uses 2-5 GB, parallel
 workers on a 64 GB machine OOM-crash. The guard cannot be bypassed; it
 fires per-test inside xdist workers via an autouse fixture.
 
@@ -265,7 +265,7 @@ PyCantonese tests run in the default suite because PyCantonese is bundled
 |---|---|---|
 | `uv run pytest` (default) | PyCantonese: 0s (bundled) | < 1s |
 | `uv run pytest -m golden` | Stanza English: ~2 min, Stanza Chinese: ~2 min | < 30 s |
-| `cargo nextest run --profile ml` | Stanza + Whisper: ~5–10 min | < 2 min |
+| `cargo nextest run --profile ml` | Stanza + Whisper: ~5-10 min | < 2 min |
 
 ## Adding a new model load site
 

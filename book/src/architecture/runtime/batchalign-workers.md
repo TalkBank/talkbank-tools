@@ -45,17 +45,17 @@ timer only ticks once a slot is granted and work is issued. See
 `developer/worker-protocol-v2.md` § "The dispatch semaphore contract"
 for the architectural rule.
 
-### Layer 1 — File parallelism (user-facing)
+### Layer 1: File parallelism (user-facing)
 
 How many files are processed concurrently within a single job.
 
-- **User control** — `--workers N` CLI flag, or `max_workers_per_job`
+- **User control**: `--workers N` CLI flag, or `max_workers_per_job`
   in `server.yaml`.
-- **Default** — GPU-heavy commands (`transcribe`, `align`,
+- **Default**: GPU-heavy commands (`transcribe`, `align`,
   `benchmark`): **1 file** (prevents OOM). CPU-only commands
   (`morphotag`, `utseg`, `translate`): auto-tuned by
   `compute_job_workers()` based on available RAM and CPU cores.
-- **Implementation** — `runner/dispatch/` uses a `JoinSet` with a
+- **Implementation**: `runner/dispatch/` uses a `JoinSet` with a
   `Semaphore(num_workers)` to cap concurrent file-processing tasks.
 
 ```mermaid
@@ -75,29 +75,29 @@ sequenceDiagram
     Runner->>Runner: Process files with bounded concurrency
 ```
 
-### Layer 2 — Worker pool (operator-facing)
+### Layer 2: Worker pool (operator-facing)
 
 How many Python worker processes exist per `(profile, language,
 engine)` key.
 
-- **User control** — `max_workers_per_key` in `server.yaml` (not a
-  CLI flag — operator concern).
-- **Default** — 8 per key. GPU profile: 1 process (concurrent via
+- **User control**: `max_workers_per_key` in `server.yaml` (not a
+  CLI flag, operator concern).
+- **Default**: 8 per key. GPU profile: 1 process (concurrent via
   threads). Stanza profile: auto-tuned. IO profile: 1 process.
-- **Implementation** — `worker/pool/mod.rs` manages worker
+- **Implementation**: `worker/pool/mod.rs` manages worker
   lifecycle. Workers are spawned lazily and cached.
 
-### Layer 3 — GPU dispatch concurrency (Rust gate + Python pool)
+### Layer 3: GPU dispatch concurrency (Rust gate + Python pool)
 
 How many `execute_v2` calls are in flight at the same time per
 shared GPU worker.
 
-- **User control** — `gpu_thread_pool_size` in `server.yaml`
+- **User control**: `gpu_thread_pool_size` in `server.yaml`
   (default 4). Single knob sets both Python
   `ThreadPoolExecutor(max_workers=K)` and Rust-side
   `dispatch_semaphore` permit count.
-- **Default** — 4. On Apple Silicon (MPS excluded for batchalign3),
-  set to 1 — there is no compute parallelism to gain, and a higher
+- **Default**: 4. On Apple Silicon (MPS excluded for batchalign3),
+  set to 1, there is no compute parallelism to gain, and a higher
   value just means CPU-bound inferences contending for cores.
 - **Implementation**
   - Rust: `worker/pool/shared_gpu/stdio.rs` and
@@ -131,20 +131,20 @@ sequenceDiagram
 ```
 
 Task 3's per-request timer only starts at the moment it acquires the
-permit — never during queue-wait. This is the contract asserted by
+permit, never during queue-wait. This is the contract asserted by
 `tests/gpu_concurrent_dispatch.rs::gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_timeout`.
 
 ### Why GPU commands default to 1 worker
 
 Each GPU-heavy inference (Whisper ASR, Whisper FA, Wave2Vec) loads
-2–5 GB of model weights into GPU/MPS memory. Multiple concurrent
+2-5 GB of model weights into GPU/MPS memory. Multiple concurrent
 files all share the same GPU memory pool.
 
 On a 64 GB developer machine with MPS:
 
-- 1 concurrent file: ~5 GB GPU memory — safe.
-- 4 concurrent files: ~20 GB GPU pressure — risky.
-- 8 concurrent files (old default): ~40 GB GPU pressure — kernel
+- 1 concurrent file: ~5 GB GPU memory, safe.
+- 4 concurrent files: ~20 GB GPU pressure, risky.
+- 8 concurrent files (old default): ~40 GB GPU pressure, kernel
   OOM crash.
 
 Setting GPU commands to default to 1 file prevents this class of
@@ -155,7 +155,7 @@ increase via `--workers N` or `server.yaml`.
 
 All memory budgets are scaled automatically based on total system
 RAM. The server detects the tier once at startup and logs it. No
-user configuration — works on machines from 16 GB laptops to 256 GB
+user configuration, works on machines from 16 GB laptops to 256 GB
 servers.
 
 ```mermaid
@@ -177,21 +177,21 @@ flowchart LR
 Medium-tier GPU uses **LazyProfile** mode: the GPU worker starts
 with only process overhead (~3 GB), loading model weights on demand
 rather than at spawn. This is what lets a 32 GB workstation admit a
-GPU worker at all — eager-loading 16 GB of Whisper weights would
+GPU worker at all, eager-loading 16 GB of Whisper weights would
 fail the headroom check.
 
 The Large and Fleet tiers reproduce the original fixed constants
-from `runtime_constants.toml` exactly — fleet machines see zero
+from `runtime_constants.toml` exactly, fleet machines see zero
 behavior change. The TOML constants remain as the Large/Fleet
 baseline; the tier system scales them down for smaller machines.
 
-**Source:** `crates/batchalign/src/types/runtime.rs` —
+**Source:** `crates/batchalign/src/types/runtime.rs`,
 `MemoryTier::from_total_mb()` (pure, testable) and
 `MemoryTier::detect()` (reads sysinfo).
 
 ### Why small machines need smaller budgets
 
-The original constants were tuned for 64–256 GB fleet machines where
+The original constants were tuned for 64-256 GB fleet machines where
 multiple concurrent workers are the norm. On a 16 GB laptop the
 fleet defaults are infeasible:
 
@@ -201,7 +201,7 @@ fleet defaults are infeasible:
 - **GPU startup 16 GB** exceeds total system RAM.
 
 The Small tier reduces these to match actual model sizes: Stanza
-uses ~2–3 GB RSS, Whisper float32 ~4–5 GB. The reduced headroom
+uses ~2-3 GB RSS, Whisper float32 ~4-5 GB. The reduced headroom
 (2 GB) still prevents OOM while allowing the single-worker model to
 function.
 
@@ -265,10 +265,10 @@ spawn.
 
 Without safeguards the failure surfaces at two layers:
 
-1. **Pool layer** — `WorkerPool::checkout` returns
+1. **Pool layer**: `WorkerPool::checkout` returns
    `Err(SpawnFailed("... cannot wait (would deadlock)"))` rather
    than freeing a slot from an idle worker of a different key.
-2. **Orchestrator layer** — the morphosyntax batch catches the
+2. **Orchestrator layer**: the morphosyntax batch catches the
    pool error, logs a warning, substitutes an empty `UdResponse`
    for every utterance in the affected group, and continues to
    injection. `clear_morphosyntax` already cleared the existing
@@ -278,7 +278,7 @@ Without safeguards the failure surfaces at two layers:
    morphosyntactic annotation. Nothing in the log names the file;
    downstream auditors see a per-file success.
 
-### Safeguard 1 — idle-eviction + bounded wait in `checkout`
+### Safeguard 1: idle-eviction + bounded wait in `checkout`
 
 `crates/batchalign/src/worker/pool/eviction.rs`,
 `/dispatch.rs`, `/checkout.rs`.
@@ -287,7 +287,7 @@ When `checkout(target, lang, overrides)` finds the pool saturated
 and this key has zero live workers, the loop does three things in
 order before returning any error:
 
-1. **Try eviction** —
+1. **Try eviction**,
    `WorkerPool::try_evict_idle_from_other_group` snapshots every
    group's idle count, picks the non-skip group with the highest
    idle count via the pure helper `select_eviction_target`,
@@ -305,7 +305,7 @@ order before returning any error:
    `Err(WorkerError::SpawnFailed("no worker available for {target}/{lang} within {secs}s — pool saturated with no idle workers to evict"))`.
    Genuine starvation case (every worker checked out and busy, no
    returns for 5 minutes); propagates to the orchestrator which
-   turns it into a per-file error — never a silent empty tier.
+   turns it into a per-file error, never a silent empty tier.
 
 ```mermaid
 flowchart TD
@@ -339,7 +339,7 @@ Invariants:
 `HashMap<K, GroupSnapshot>`. Five unit tests in
 `worker/pool/eviction.rs` cover every selector branch.
 
-### Safeguard 2 — orchestrator-level failure propagation
+### Safeguard 2: orchestrator-level failure propagation
 
 `crates/batchalign/src/morphosyntax/{mod.rs, worker.rs}`. Even
 with idle-eviction, a language group can still fail dispatch. The
@@ -350,7 +350,7 @@ Each per-language-group infer call returns
 collects these results and, on any `Err`, propagates a typed
 `ServerError::Validation` upward with a message naming the failed
 languages. The `clear` step has already reset the affected files'
-tiers in place, so failure short-circuits before injection — no file
+tiers in place, so failure short-circuits before injection, no file
 is serialized with stripped tiers.
 
 Files whose language groups all succeeded still get injected normally;
@@ -374,7 +374,7 @@ job/file-status reporting path.
 | Key | Default | Purpose |
 |---|---|---|
 | `max_workers_per_key` | per-profile, RAM-derived (`recommend_max_workers_per_key`); GPU `≈ ram_total_mb / 16 GB`, Stanza `≈ ram_total_mb / 12 GB`, IO `1` | Per-key cap; prevents one language from hogging |
-| `max_total_workers` | computed from RAM (clamped 2–32) | Global cap |
+| `max_total_workers` | computed from RAM (clamped 2-32) | Global cap |
 | `checkout_wait_timeout_s` | 300 | Bounded wait before saturation error |
 
 Raising `max_total_workers` or `max_workers_per_key` reduces how
@@ -406,7 +406,7 @@ flowchart TD
 
 What this gives:
 
-- Async runtime stays responsive during CPU work — heartbeats,
+- Async runtime stays responsive during CPU work, heartbeats,
   progress updates, health checks all work.
 - Per-file injection / serialization runs on all CPU cores. 8-core
   machine, 500-file injection: ~4 min → ~30 s.
@@ -442,4 +442,4 @@ forward-looking proposal under
 | `worker/pool/checkout.rs` / `dispatch.rs` | Checkout state machine (saturation timeout, `worker_returned` notify) |
 | `runner/util/auto_tune.rs` | `compute_job_workers()` planning |
 | `types/runtime.rs` | Re-exports `MemoryTier::from_total_mb` and `estimate_per_worker_peak_mb_with_profile` from `batchalign-types::memory` (Phase β); `command_execution_budget_mb` for legacy callers. `MemoryTier` is the sole canonical source of per-tier per-profile envelopes (Principle 1); `estimate_per_worker_peak_mb_with_profile` is the tier-aware per-command estimator (Principle 2). |
-| `batchalign/runtime_constants.toml` | Per-command base RAM (process and threaded variants), worker caps, command-to-task map. Generated from `batchalign-types/src/command_spec.rs` via `xtask gen-runtime-toml` (Phase β); do not edit directly. No longer holds per-profile worker startup envelopes — those live on `MemoryTier`. |
+| `batchalign/runtime_constants.toml` | Per-command base RAM (process and threaded variants), worker caps, command-to-task map. Generated from `batchalign-types/src/command_spec.rs` via `xtask gen-runtime-toml` (Phase β); do not edit directly. No longer holds per-profile worker startup envelopes, those live on `MemoryTier`. |

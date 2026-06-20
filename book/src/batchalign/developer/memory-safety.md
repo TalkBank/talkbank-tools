@@ -5,9 +5,9 @@
 
 ## The Problem
 
-Each Python ML worker loads 2–15 GB of models (Whisper, Stanza, etc.). When
-multiple workers spawn concurrently — from parallel test binaries, warmup, or
-job dispatch — they collectively exceed physical RAM and trigger a **kernel-level
+Each Python ML worker loads 2-15 GB of models (Whisper, Stanza, etc.). When
+multiple workers spawn concurrently, from parallel test binaries, warmup, or
+job dispatch, they collectively exceed physical RAM and trigger a **kernel-level
 OOM panic** that crashes the entire machine. This is not a process-level OOM
 kill; it is a Jetsam-triggered kernel panic that requires a hard reboot.
 
@@ -46,12 +46,12 @@ doesn't burn through the global-permit semaphore on doomed spawns.
 The gates run two distinct policies, named explicitly per
 `PoolGateState` (derived in `worker/pool/lifecycle.rs`):
 
-- **ColdStart** — first worker for a `(profile, lang, engine)`
+- **ColdStart**: first worker for a `(profile, lang, engine)`
   class. Both gates **bypass** unconditionally: back-pressure has
   nothing to push against on an empty pool, and refusing here
   leaves the pool dead-on-arrival on memory-tight hosts (the
   laptop-class failure mode that motivated the split).
-- **Warm** — N+1 worker for a class with existing workers. Both
+- **Warm**: N+1 worker for a class with existing workers. Both
   gates run their projection.
 
 | Gate | Warm predicate | Source |
@@ -68,7 +68,7 @@ admission floor.
 The `new_worker_estimate_mb` is the average RSS of same-profile
 idle peers (Mode B, `rss_observer.rs`) when peers exist; otherwise
 falls back to the canonical per-tier `MemoryTier::*_startup_mb`
-(Mode A fallback) — `tier.gpu_startup_mb`, `tier.stanza_startup_mb`,
+(Mode A fallback), `tier.gpu_startup_mb`, `tier.stanza_startup_mb`,
 `tier.io_startup_mb`. Per the spec at
 `<workspace>/docs/architecture/2026-05-10-tier-aware-memory-consolidation.md`
 (Principle 1), `MemoryTier` is the sole canonical source of these
@@ -80,7 +80,7 @@ via `memory_gate::engine_aware_startup_reservation_mb`. The IO
 baseline (`tier.io_startup_mb`: 2 GB Small/Medium, 4 GB Large/Fleet)
 is correct for engines that are thin API clients (Google Translate
 via `googletrans`) but under-reserves for engines that load large
-local models in the worker process — SeamlessM4T (~2.4 GB resident)
+local models in the worker process, SeamlessM4T (~2.4 GB resident)
 and NLLB-200-distilled-1.3B (~5 GB resident). The helper takes the
 MAX of the profile baseline and the engine's resident footprint as
 declared by `TranslateEngineName::resident_memory_mb`, so the
@@ -92,21 +92,21 @@ Admission is back-pressure, not safety (Principle 5). The
 correctness floor is `worker/memory_guard.rs` (per-spawn host-memory
 reservation + RSS observation + kill on overrun) plus the OS OOM
 killer. An over-permissive admission means a worker may die at
-spawn — bounded cost. An over-strict admission means the host
-can't run at all — unbounded cost (jobs queue forever). The bias
+spawn, bounded cost. An over-strict admission means the host
+can't run at all, unbounded cost (jobs queue forever). The bias
 is toward over-permissive; ColdStart bypass implements the bias.
 
 The eviction-side counterpart: `worker/pool/idle_eviction.rs` runs as
 a pre-pass in `run_health_check` and evicts idle workers
 largest-RSS first when `available_mb` falls at or below
 `EVICTION_PRESSURE_THRESHOLD_MB = 4096` MB (= 2× the admission
-floor). There is no `idle_timeout_s` knob — eviction is purely
+floor). There is no `idle_timeout_s` knob, eviction is purely
 pressure-driven.
 
 The host's available-memory reading is shared across all five
 sysinfo-touching paths (admission gate, eviction pre-pass, in-spawn
 guard, host-facts probes, info logs) via the TTL-cached
-`host_memory::system_memory_snapshot` — at most one
+`host_memory::system_memory_snapshot`: at most one
 `/proc/meminfo` (Linux) / `host_statistics64` (macOS) read per
 second across the whole pool.
 
@@ -181,13 +181,13 @@ derived from total system RAM:
 | Tier | Total RAM | GPU Startup | Stanza Startup | IO Startup | Headroom |
 |------|-----------|-------------|----------------|------------|----------|
 | Small | < 24 GB | 6 GB | 3 GB | 2 GB | 2 GB |
-| Medium | 24–48 GB | 3 GB (LazyProfile) | 6 GB | 3 GB | 4 GB |
-| Large | 48–128 GB | 16 GB | 12 GB | 4 GB | 8 GB |
+| Medium | 24-48 GB | 3 GB (LazyProfile) | 6 GB | 3 GB | 4 GB |
+| Large | 48-128 GB | 16 GB | 12 GB | 4 GB | 8 GB |
 | Fleet | ≥ 128 GB | 16 GB | 12 GB | 4 GB | 8 GB |
 
 These values are defined exactly once in
 `MemoryTier::from_total_mb()` in `crates/batchalign/src/types/runtime.rs`
-— the sole canonical source per Principle 1. Operator overrides
+, the sole canonical source per Principle 1. Operator overrides
 flow in via `RuntimeOverridesConfig.{gpu,stanza,io}_startup_mb`,
 which override the tier-derived values. The Medium tier uses
 **LazyProfile** for GPU: the worker starts with only process

@@ -69,7 +69,7 @@ tests that pin the formula. The current per-knob recommenders:
 `EMPIRICAL_MAX_CONCURRENT_JOBS_CAP = 4` clamp on
 `recommend_max_concurrent_jobs`. Live admission/eviction primitives
 in `worker/pool/{cpu_gate,memory_gate,rss_observer,idle_eviction}.rs`
-replaced their roles — see [Memory Safety](memory-safety.md) for the
+replaced their roles, see [Memory Safety](memory-safety.md) for the
 admission/eviction gate chain.
 
 The `RecommendedKnobs` struct bundles the host-level scalar values;
@@ -83,7 +83,7 @@ Each migrated knob is `Option<T>` in `ServerConfig`:
 | Knob | Type | Sentinel migration |
 |---|---|---|
 | `gpu_thread_pool_size` | `Option<u32>` | `0 -> None` via `zero_as_none` |
-| `force_cpu` | `Option<bool>` | no shim — `false` is meaningful |
+| `force_cpu` | `Option<bool>` | no shim, `false` is meaningful |
 | `max_total_workers` | `Option<u32>` | `0 -> None` |
 | `max_concurrent_jobs` | `Option<u32>` | `0 -> None` |
 | `max_workers_per_job` | `Option<u32>` | `0 -> None` |
@@ -115,7 +115,7 @@ field/command.
 
 Pure function `validate(cfg, facts) -> ConfigValidation`. Reads
 operator overrides directly from `ServerConfig` (NOT from
-`EffectiveConfig`, which has already merged the two — the validator
+`EffectiveConfig`, which has already merged the two, the validator
 needs to distinguish "operator explicitly set X" from "fell through
 to recommendation").
 
@@ -131,7 +131,7 @@ Today's findings:
   - `ForceCpuFalseOnNonFunctionalGpu`
 - **Errors** (fatal): override would deterministically crash. Server
   refuses to start; `doctor --check` exits non-zero. Today's variant:
-  - `MaxConcurrentJobsWouldDeterministicallyOom` — fires when
+  - `MaxConcurrentJobsWouldDeterministicallyOom`: fires when
     `configured * worst_case_per_job_peak_ram_mb(tier) > ram_total_mb`.
     The "worst case" is the heaviest worker profile for the
     detected tier: 6 GB on Small (`< 24 GB`), 6 GB on Medium
@@ -220,7 +220,7 @@ read through projection types in
 - `KnobExplanation { knob, resolved_value, source, recommendation,
   rule, facts_used }`
 
-These are the JSON wire format — adding fields is
+These are the JSON wire format, adding fields is
 backwards-compatible but renames or removals must be conscious.
 The runtime types (`HostFacts`, `EffectiveConfig`, `ConfigWarning`)
 are NOT part of the operator API; they can evolve freely as long as

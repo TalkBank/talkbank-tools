@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-19 14:18 EDT
 
 Utterance segmentation splits continuous ASR output into individual utterances
-for CHAT transcription. This is a critical step — CHAT requires one utterance
+for CHAT transcription. This is a critical step, CHAT requires one utterance
 per line, each terminated by a sentence-ending punctuation mark.
 
 One important subtlety: the segmentation language and the upstream ASR request
@@ -24,14 +24,14 @@ first branch is provider-request-equivalent to explicit `--lang eng`.
 
 batchalign3 has three utterance segmentation mechanisms:
 
-1. **Pre-CHAT utterance models** — BA2-style token-classification models that
+1. **Pre-CHAT utterance models**: BA2-style token-classification models that
    predict utterance boundaries from typed ASR word lists before CHAT exists.
    Available for 3 language families / 4 supported codes (`eng`, `cmn`, `zho`,
    `yue`).
-2. **Punctuation-based fallback** — Rust-side retokenization over typed ASR
+2. **Punctuation-based fallback**: Rust-side retokenization over typed ASR
    words. Used for unsupported languages and as cleanup after model-backed
    segmentation.
-3. **Stanza utterance segmentation (`utseg`)** — a separate text-task
+3. **Stanza utterance segmentation (`utseg`)**: a separate text-task
    refinement stage that runs on already-built CHAT text.
 
 ```mermaid
@@ -158,7 +158,7 @@ segmentation. This is handled automatically by the Stanza capability table
 (`batchalign/worker/_stanza_capabilities.py`), which reads Stanza's
 `resources.json` to discover per-language processor availability.
 
-This is a different mechanism from the pre-CHAT utterance models above — it
+This is a different mechanism from the pre-CHAT utterance models above, it
 operates on already-built CHAT text and can refine boundaries using syntactic
 structure. The user-facing surface for this path is the standalone `utseg`
 command; `transcribe` uses the pre-CHAT utterance models when available.
@@ -173,7 +173,7 @@ corpus), and Cantonese (PolyU research corpus).
 For other languages, the punctuation-based fallback produces acceptable
 results because ASR models (especially Whisper) tend to insert punctuation at
 natural utterance boundaries. The main limitation is run-on speech without
-clear sentence structure — the fallback will produce fewer, longer utterances.
+clear sentence structure, the fallback will produce fewer, longer utterances.
 
 ## Adding a New Language Model
 

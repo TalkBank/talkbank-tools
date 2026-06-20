@@ -34,9 +34,9 @@ future cleanup work:
 - keep the worker subprocess model;
 - keep Python only at direct model/SDK boundaries plus the thinnest bootstrap
   and dispatch code needed to host those calls;
-- move everything practical that is provider-independent — config ownership,
+- move everything practical that is provider-independent, config ownership,
   payload preparation, cache policy, post-processing, validation, CHAT
-  mutation, and orchestration — into Rust;
+  mutation, and orchestration, into Rust;
 - keep already-landed BA2 compatibility shims out of scope for this wave.
 
 | Bucket | Current surfaces | Direction |
@@ -44,10 +44,10 @@ future cleanup work:
 | Stays Python (for now) | `batchalign/worker/`, `batchalign/inference/`, `batchalign/models/` | host for ML model calls until Rust gains the equivalent coverage |
 | Thin worker-side glue | `batchalign/providers/` (re-exports worker IPC types), schema mirrors at the worker boundary | keep minimal; Rust owns all document semantics |
 | Already moved to Rust | config/runtime policy, payload preparation, post-processing, CHAT mutation, validation, orchestration, WER scoring | done; no backsliding |
-| Already removed | `batchalign.compat`, `batchalign.pipeline_api`, `batchalign.inference.benchmark`, `ParsedChat` | gone — no Python public API exists |
+| Already removed | `batchalign.compat`, `batchalign.pipeline_api`, `batchalign.inference.benchmark`, `ParsedChat` | gone, no Python public API exists |
 
 The detailed module inventory lives in
-[Python–Rust Boundary](../../architecture/python-rust-boundary/python-rust-boundary.md#what-stays-python).
+[Python-Rust Boundary](../../architecture/python-rust-boundary/python-rust-boundary.md#what-stays-python).
 
 ## Runtime layout
 
@@ -319,15 +319,15 @@ server for transcribe-related commands.
 
 ## Server-side inference
 
-For text-only commands, the server owns the full CHAT lifecycle — no CHAT text crosses IPC to Python workers:
+For text-only commands, the server owns the full CHAT lifecycle, no CHAT text crosses IPC to Python workers:
 
-1. **Parse** — read `.cha` files, parse into ChatFile AST
-2. **Extract** — collect payloads (words, text) from the AST
-3. **Cache check** — look up each utterance in the server-side UtteranceCache
-4. **Infer** — send cache misses to Python workers via typed `execute_v2`
+1. **Parse**: read `.cha` files, parse into ChatFile AST
+2. **Extract**: collect payloads (words, text) from the AST
+3. **Cache check**: look up each utterance in the server-side UtteranceCache
+4. **Infer**: send cache misses to Python workers via typed `execute_v2`
    requests (cross-file batching per language for text tasks)
-5. **Inject** — insert model results back into the AST
-6. **Serialize** — validate and write output `.cha` files
+5. **Inject**: insert model results back into the AST
+6. **Serialize**: validate and write output `.cha` files
 
 | Command | Dispatch Path | Worker Role |
 |---------|--------------|-------------|
@@ -350,10 +350,10 @@ GET /jobs/{job_id}/stream
 ```
 
 Returns Server-Sent Events:
-- `snapshot` — initial file statuses on connect
-- `file_update` — per-file status changes
-- `job_update` — overall job status changes
-- `complete` — job finished (stream closes)
+- `snapshot`: initial file statuses on connect
+- `file_update`: per-file status changes
+- `job_update`: overall job status changes
+- `complete`: job finished (stream closes)
 
 ## Worker protocol
 
@@ -361,7 +361,7 @@ Workers are spawned by the server pool and communicate over stdio JSON-lines.
 The key operations are:
 
 - `health`
-- `capabilities` — reports infer tasks and engine versions; Rust derives commands
+- `capabilities`: reports infer tasks and engine versions; Rust derives commands
 - `process`
 - `batch_infer` (shrinking compatibility path)
 - `execute_v2` (live typed infer path)
@@ -385,7 +385,7 @@ GPU profile workers support concurrent V2 requests via request_id multiplexing:
 
 - Rust sends multiple `execute_v2` requests to one GPU worker without waiting for responses
 - Python's `_serve_stdio_concurrent()` dispatches to a `ThreadPoolExecutor` (4 threads)
-- Responses carry `request_id` fields — Rust's background reader routes them to pending oneshot channels
+- Responses carry `request_id` fields, Rust's background reader routes them to pending oneshot channels
 - Non-V2 ops (health, capabilities, shutdown) use a separate sequential control channel
 
 ```mermaid
@@ -436,7 +436,7 @@ Capabilities are detected lazily from the first real worker spawn rather than
 from a dedicated probe worker at startup. When the first worker for any profile
 starts, it reports which infer tasks the Python environment supports via import
 probes (`importlib` checks whether each task's dependencies are installed) and
-returns a non-empty engine version for every advertised task — it does not load
+returns a non-empty engine version for every advertised task, it does not load
 full models beyond what the spawned command requires. Rust then derives the
 released command surface from that infer-task set and gates job submission on
 the derived commands only.
@@ -493,7 +493,7 @@ Two things distinguish this from a flat "every terminal looks the same"
 model:
 
 - **`Cancelled` is reserved for user gestures.** TUI cancel and HTTP
-  `POST /jobs/{id}/cancel` reach this state. Cancelled is permanent — a
+  `POST /jobs/{id}/cancel` reach this state. Cancelled is permanent, a
   Cancelled job is never auto-resumed. The user said stop; the server
   honors that.
 - **`Interrupted` is the system-initiated counterpart.** Graceful server
@@ -505,7 +505,7 @@ model:
   Temporal activity attempt picks up where the previous server left off.
 
 Writing `Cancelled` for a system event would conflate "user said stop" with
-"server bounced" — and the two require opposite responses. The 2026-04-27
+"server bounced", and the two require opposite responses. The 2026-04-27
 investigation found long-running fleet jobs perpetually labeled `cancelled`
 even though no user had pressed cancel, because the shutdown handler used
 the user-cancel transition. The fix routed shutdown through `Interrupted`
@@ -513,7 +513,7 @@ so the recovery sequence can act on it.
 
 ### Cancel-provenance audit
 
-Every cancel attempt — user or system — appends one row to the
+Every cancel attempt, user or system, appends one row to the
 `cancellations` audit table with a typed source, host, pid, reason, and
 in-flight filename. Multiple rows per job are normal (two cancel clicks an
 hour apart, one user cancel followed by a system cancel at shutdown,
@@ -527,7 +527,7 @@ etc.).
 | `Signal` | system-initiated: server-shutdown handler, Temporal activity-cancel forwarding |
 
 `CancelReason` is a free-form string. Two values are stable audit keys
-matched by the reconciler — `CancelReason::server_cancel_all()` (written
+matched by the reconciler, `CancelReason::server_cancel_all()` (written
 by the shutdown handler) and `CancelReason::temporal_activity_forwarded()`
 (written by the activity-side cancel handler when Temporal's cancel signal
 arrives). Both are factory methods on `CancelReason` so the producer and
@@ -540,7 +540,7 @@ When a server bounces mid-job, the local DB row goes through
 Temporal also saw the workflow's activity die and may report the workflow
 as `Cancelled` on the next describe. Without further care, the reconciler
 would see "store says Queued, Temporal says Cancelled" and write
-`JobStatus::Cancelled` — undoing recovery.
+`JobStatus::Cancelled`: undoing recovery.
 
 The reconciler's `reconcile_action` (`temporal_reconciler.rs`) instead
 consults the cancellations audit. If the most-recent row has
@@ -555,12 +555,12 @@ prior `MarkCancelled` behavior.
 
 Sqlx records SHA-384 of each migration's SQL bytes in
 `_sqlx_migrations.checksum` at apply time and refuses to start a binary
-whose embedded migration content hashes don't match — even comment-only
+whose embedded migration content hashes don't match, even comment-only
 edits change the hash. Without intervention, a privacy scrub or
 documentation fix on a shipped migration wedges every fleet host into a
 startup crash loop on the next deploy. `KeepAlive=true` masks the
 failure as a tight crash loop, which launchctl reports as
-"spawn scheduled, active count = 0" — easy to misdiagnose as a
+"spawn scheduled, active count = 0", easy to misdiagnose as a
 launchctl issue.
 
 The deploy runtime self-heals this. At deploy build time,

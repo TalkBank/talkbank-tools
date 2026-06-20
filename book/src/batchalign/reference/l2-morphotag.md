@@ -14,7 +14,7 @@
 
 ## Problem
 
-CHAT transcripts use `@s` markers for word-level code-switching — a word
+CHAT transcripts use `@s` markers for word-level code-switching, a word
 spoken in a different language than the utterance's primary language:
 
 ```chat
@@ -27,7 +27,7 @@ with bare `@s` (shortcut for the secondary language declared in
 `@Languages`).
 
 Historically, batchalign3 blanked all `@s` words to `L2|xxx` in the `%mor`
-tier — discarding morphological information entirely. This document starts
+tier, discarding morphological information entirely. This document starts
 from that original failure mode because it motivated the current design:
 
 ```chat
@@ -41,7 +41,7 @@ worse than admitting ignorance.
 
 But `L2|xxx` is a loss. The word `studies` is a perfectly regular English
 plural noun. If we could route it to the English Stanza model, we'd get
-`noun|study-Pl` — real, useful morphological analysis.
+`noun|study-Pl`: real, useful morphological analysis.
 
 ## Scale
 
@@ -57,27 +57,27 @@ Across TalkBank's 24 data repos:
 
 | Form | Meaning | Frequency | Example |
 |------|---------|-----------|---------|
-| `@s` | Bare shortcut — toggles to secondary language from `@Languages` | ~74% of uses | `film@s` |
+| `@s` | Bare shortcut, toggles to secondary language from `@Languages` | ~74% of uses | `film@s` |
 | `@s:CODE` | Explicit language code (ISO 639-3) | ~25% | `tienda@s:spa` |
 | `@s:CODE+CODE` | Multiple languages (code-mixing at sub-word level) | 229 files | `ripiado@s:eng+spa` |
 | `@s:CODE&CODE` | Ambiguous between languages | 290 files | `wrap_o@s:eng&cym` |
 
 ### Common Code-Switching Patterns
 
-1. **Single isolated word:** `the tienda@s:spa is close .` — one foreign
+1. **Single isolated word:** `the tienda@s:spa is close .`: one foreign
    word embedded in primary-language sentence
-2. **Contiguous span:** `los@s:spa niños@s:spa` — multi-word foreign
+2. **Contiguous span:** `los@s:spa niños@s:spa`: multi-word foreign
    phrase (a noun phrase, in this case)
-3. **Utterance-initial:** `time@s out@s , kenne ich nicht .` — English
+3. **Utterance-initial:** `time@s out@s , kenne ich nicht .`: English
    phrase at start of German utterance
 4. **Mixed secondary languages:** `ok@s:eng damelo@s:spa` in a
-   Tzutujil utterance — two different foreign languages
-5. **Morphologically integrated:** `tagueé@s:eng+spa` — English verb
+   Tzutujil utterance, two different foreign languages
+5. **Morphologically integrated:** `tagueé@s:eng+spa`: English verb
    root with Spanish past participle morphology
 
 ## Key Insight: Cross-Linguistic Information from the Primary Model
 
-The primary model's analysis of @s words is wrong *as morphology* — but
+The primary model's analysis of @s words is wrong *as morphology*, but
 it contains **structurally valid cross-linguistic information** that can
 be combined with the secondary model's language-specific knowledge.
 
@@ -134,7 +134,7 @@ flowchart LR
 ### Deprel → POS Constraint Mapping
 
 The dependency relation alone strongly constrains the part-of-speech.
-This mapping is a **pure function** — no ML involved, exhaustively
+This mapping is a **pure function**: no ML involved, exhaustively
 testable:
 
 ```text
@@ -161,7 +161,7 @@ root          → {VERB, NOUN, ADJ}            ← broad
 conj          → (inherit from conjunct head)
 ```
 
-For most UD relations, the constraint set is 1–3 POS tags. Even for the
+For most UD relations, the constraint set is 1-3 POS tags. Even for the
 broadest cases (`flat`, `root`), the secondary model's lexical knowledge
 can disambiguate within the small set.
 
@@ -175,7 +175,7 @@ A word's dependents provide additional POS evidence:
 - If a word has a `case` dependent → it is a **noun** (in an oblique/prepositional phrase)
 
 Combined with the deprel constraint, this often narrows POS to exactly
-one candidate — even when the deprel itself is broad (like `flat`).
+one candidate, even when the deprel itself is broad (like `flat`).
 
 ### Worked Example
 
@@ -187,13 +187,13 @@ Primary model (English Stanza) produces for `muy`:
 
 | Field | Value | Cross-lingually valid? |
 |-------|-------|:---------------------:|
-| UPOS | `ADJ` (wrong as English morphology) | Partly — position suggests ADV |
+| UPOS | `ADJ` (wrong as English morphology) | Partly, position suggests ADV |
 | deprel | `amod` or `advmod` | **Yes** |
 | head | 4 (`nice`) | **Yes** |
 | lemma | `muy` (identity) | No |
 | feats | — | No |
 
-**Deprel constraint:** `advmod → {ADV}` — exactly one candidate.
+**Deprel constraint:** `advmod → {ADV}`: exactly one candidate.
 
 Secondary model (Spanish Stanza) on isolated word `"muy"`:
 - UPOS: `ADV` ← matches constraint ✓
@@ -379,11 +379,11 @@ where Priority 0 is implemented. Result on German-English input:
 
 The particle's `%gra` deprel is `COMPOUND-PRT`. Test coverage for the fix:
 
-- `crates/batchalign/src/chat_ops/morphosyntax_ops/l2/tests.rs` — 4 unit
+- `crates/batchalign/src/chat_ops/morphosyntax_ops/l2/tests.rs`: 4 unit
   tests (particle promotion, head promotion, non-phrasal ADP
   regression, non-VERB-secondary safety).
 - `crates/batchalign/tests/ml_golden/morphotag/golden_l2.rs::golden_l2_morphotag_phrasal_verbs`
-  — end-to-end ML golden locking in the table above.
+ , end-to-end ML golden locking in the table above.
 
 ### Contiguous Span Grouping
 
@@ -433,8 +433,8 @@ Per-word L2 dispatch and transcript repair are intentionally separate concerns:
 
 `morphotag` requires only the **primary** `@Languages` code to be
 Stanza-supported. Non-primary content targeting an unsupported language
-— whether via `[- UNSUPPORTEDLANG]` precode or `@s:UNSUPPORTEDLANG`
-per-word marker — is partitioned out of Stanza dispatch by
+, whether via `[- UNSUPPORTEDLANG]` precode or `@s:UNSUPPORTEDLANG`
+per-word marker, is partitioned out of Stanza dispatch by
 `partition_groups_by_stanza_support` in
 `crates/batchalign/src/morphosyntax/worker.rs` and emitted as `L2|xxx`
 rather than crashing the worker. Supported-language utterances and
@@ -456,7 +456,7 @@ correct UD relation:
 | NOUN | VERB (no case dep) | `OBJ` |
 | NOUN | NOUN | `NMOD` |
 
-This upgrade is conservative — only applied when the primary deprel is
+This upgrade is conservative, only applied when the primary deprel is
 `FLAT` (indicating the model gave up). Non-FLAT deprels from the primary
 model are kept as-is, since they already carry correct structural
 information.
@@ -469,7 +469,7 @@ Send @s words to secondary model in isolation, discard all primary
 model output for those positions.
 
 **Rejected because:** Throws away the primary model's sentence-level
-structural understanding — the hardest information to recover from
+structural understanding, the hardest information to recover from
 isolated words. POS accuracy degrades significantly for ambiguous
 words without sentence context.
 
@@ -511,7 +511,7 @@ secondary model for lemma and features.
 **Partially incorporated:** The merge algorithm uses primary UPOS as
 a fallback when the secondary model's POS is outside the deprel
 constraint set. This avoids loading a secondary model when POS is all
-that's needed — but lemma and features are the main value, so the
+that's needed, but lemma and features are the main value, so the
 secondary dispatch is still necessary.
 
 ## Flag surface
@@ -524,7 +524,7 @@ batchalign3 morphotag input/ -o output/                    # L2 on (default)
 batchalign3 morphotag input/ -o output/ --no-l2-morphotag  # L2 off (legacy)
 ```
 
-Morphotag has no `--lang` flag — every file's primary language is read
+Morphotag has no `--lang` flag, every file's primary language is read
 from its own `@Languages:` header. The L2 dispatch path applies to
 secondary-language tagged words (`@s`, `@s:fra`, etc.) inside any file
 regardless of the primary.
@@ -560,7 +560,7 @@ Range token components into a single clitic MOR matching the original
    primary model. Each Stanza model adds ~200-500 MB.
 3. **Not all languages supported.** Stanza covers ~70 languages, but
    some `@s` targets (e.g., `@s:nan` Taiwanese, `@s:sun` Sundanese
-   — possibly mistagged in some corpora) have no model. In those
+  , possibly mistagged in some corpora) have no model. In those
    cases the dispatcher falls back to `L2|xxx`; there is no silent
    wrong-analysis failure mode.
 4. **GRA upgrade is heuristic.** The FLAT→correct-deprel upgrade covers
@@ -574,7 +574,7 @@ Range token components into a single clitic MOR matching the original
    honors Stanza's `compound:prt` analysis whenever the secondary
    model emits it. Stanza recognizes common English phrasal verbs
    (`wake up`, `give up`, `pick up`, `figure out`) but disagrees on
-   borderline cases (`look after`, `hang around`) — those return
+   borderline cases (`look after`, `hang around`), those return
    `advmod`, so the merge produces `verb|look adv|after` rather than
    `verb|look part|after`. Fixing these requires either a curated
    phrasal-verb lexicon or Stanza model improvements.
@@ -595,7 +595,7 @@ and triggered the ungating.
 
 ## Related
 
-- [L2 Morphotag Literature Review](l2-morphotag-literature.md) — prior art survey
-- [Transcriber `$POS` Hints](pos-hints.md) — complementary post-pass that overrides `%mor` POS with transcriber annotations (default on; opt out via `--no-pos-hints`). Attacks the same `FeaturePosMismatch` error class on embedded-language words that `$POS`-annotating transcribers have already labeled correctly.
-- [L2 & Language Switching](l2-handling.md) — current behavior reference
-- [Language Routing](../../architecture/language-and-multilingual/language-routing.md) — full per-utterance + per-word routing, auto-detection, and the per-word routing gap
+- [L2 Morphotag Literature Review](l2-morphotag-literature.md), prior art survey
+- [Transcriber `$POS` Hints](pos-hints.md), complementary post-pass that overrides `%mor` POS with transcriber annotations (default on; opt out via `--no-pos-hints`). Attacks the same `FeaturePosMismatch` error class on embedded-language words that `$POS`-annotating transcribers have already labeled correctly.
+- [L2 & Language Switching](l2-handling.md), current behavior reference
+- [Language Routing](../../architecture/language-and-multilingual/language-routing.md), full per-utterance + per-word routing, auto-detection, and the per-word routing gap

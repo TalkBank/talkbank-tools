@@ -6,7 +6,7 @@
 This page describes the per-command regression-fixture system: how it is
 laid out, how to add a new fixture when a user reports a bug, and how the
 runner verifies it. The intent is to monotonically grow batchalign3's
-real-world test surface — every bug a user reports becomes a permanent
+real-world test surface, every bug a user reports becomes a permanent
 regression that catches future drift.
 
 ## Why this exists
@@ -134,14 +134,14 @@ assertions operate on the parsed `ChatFile` directly and do not.
 | `min_distinct_main_tier_speaker_count` | Diarization regression: a fixture that requests `diarize=true` collapses back to too few distinct speaker labels. Threshold is per-fixture. |
 | `media_header_matches_input_basename` | Output-contract regression: the serialized `@Media` header stops preserving the input media basename and leaks a temporary/cached filename instead. |
 
-## When you find a bug — the workflow
+## When you find a bug: the workflow
 
 1. **Get a small, reproducible input.** For CHAT-first commands, use a
    structured CHAT/audio trim tool that preserves timing bullets, rewrites the
    `@Media` header, and rebases word timings to the trimmed audio. For
    audio-first commands such as `transcribe`, stage the minimal audio clip the
    bug needs. Do **not** hand-roll a clip with `ffmpeg`, `head`, `tail`, or
-   any other improvised pipeline — the trim helper handles CHAT header
+   any other improvised pipeline, the trim helper handles CHAT header
    preservation, timing-bullet rebasing, `@Media` rewriting, and audio
    re-encoding fallback, and reinventing any of that produces fixtures that
    look right but silently mis-time alignment.
@@ -199,7 +199,7 @@ assertions operate on the parsed `ChatFile` directly and do not.
 
 8. **Commit the test function + the assertion logic** to this public
    repo. **Do NOT commit the staged fixture files (`input.cha`,
-   `input.<ext>`, `actual.cha`, `README.md`, or `source.json`)** — those stay
+   `input.<ext>`, `actual.cha`, `README.md`, or `source.json`)**: those stay
    in the private fixture mirror. The fixture subdir is gitignored precisely
    so this cannot happen by accident.
 
@@ -234,11 +234,11 @@ The command-local `tests/ml_golden/<command>/regressions.rs` modules call
 
 1. Resolves the fixture directory in this order:
    a. `$BATCHALIGN3_PRIVATE_FIXTURES_DIR/<command>/regressions/<bug>/`
-      — the recommended path. Point this env var at your local clone
+     , the recommended path. Point this env var at your local clone
       of
       [`TalkBank/<private-fixtures>`](https://github.com/TalkBank/<private-fixtures>).
    b. `<batchalign3-repo>/test-fixtures/<command>/regressions/<bug>/`
-      — the in-tree fallback, used only for fixtures whose content is
+     , the in-tree fallback, used only for fixtures whose content is
       verifiably safe to ship in the public repo. This path is
       gitignored below the per-command README level so private
       material cannot land here by accident.

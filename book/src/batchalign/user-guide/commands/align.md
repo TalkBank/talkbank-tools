@@ -148,7 +148,7 @@ When `--utr-strategy auto` (the default), the strategy is currently
 always `GlobalUtr` regardless of file content or language. The
 previous content/language-aware auto-routing (which auto-picked
 `TwoPassOverlapUtr` for English files containing `+<` or `⌊` markers)
-was disabled 2026-03-30 — see the inline comment in the `Auto` arm of
+was disabled 2026-03-30, see the inline comment in the `Auto` arm of
 `resolve_strategy()` at
 `crates/batchalign/src/runner/dispatch/utr.rs`. Two-pass overlap-aware
 recovery is reachable only via the explicit `--utr-strategy two-pass`
@@ -293,7 +293,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--utr-strategy {auto,global,two-pass}` | `auto` | Overlap strategy: `auto` currently always returns `GlobalUtr` (the language/content-aware gate was disabled 2026-03-30; see §"UTR strategy selection" above). `two-pass` is the only way to reach `TwoPassOverlapUtr` today. |
 | `--utr-fuzzy THRESHOLD` | `0.85` | Jaro-Winkler similarity threshold for word matching. `1.0` = exact only |
 | `--utr-ca-markers {enabled,disabled}` | `enabled` | Use CA overlap markers (⌈⌉⌊⌋) to set alignment windows |
-| `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0–1.0) |
+| `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0-1.0) |
 | `--utr-tight-buffer MS` | `500` | Pass-2 tight window buffer in milliseconds |
 | `--fa-engine {wav2vec,whisper}` | `wav2vec` | Forced-alignment model |
 | `--fa-engine-custom NAME` | — | Override FA engine by name (e.g. `wav2vec_fa_canto`) |
@@ -321,7 +321,7 @@ whether this is the file's first alignment or a re-alignment.
 **First alignment (UTR → FA):**
 
 1. UTR runs first, setting a provisional timing hint on each untimed utterance.
-   These hints are rough estimates — they come from a global DP alignment of
+   These hints are rough estimates, they come from a global DP alignment of
    ASR tokens against transcript words and serve as grouping windows for the FA
    step. They are not written to the output.
 2. FA runs within those windows and aligns each word individually.
@@ -370,7 +370,7 @@ flowchart TD
 ## Gotchas
 
 **`@Media: unlinked` is not an error.** `unlinked` means the transcript
-exists but utterances have not yet been aligned to timestamps — it is the
+exists but utterances have not yet been aligned to timestamps, it is the
 normal pre-alignment state. `align` is precisely the command that creates
 those links. The audio file is still resolved and used normally.
 
@@ -392,7 +392,7 @@ server-visible path, or use the server's `media_mappings` configuration.
 `auto` routing currently always returns `GlobalUtr` (see §"UTR strategy
 selection"), passing `global` explicitly produces identical behavior.
 If you see timing regressions and want to try the two-pass overlap-aware
-mechanism, use `--utr-strategy two-pass` — that's the only way to
+mechanism, use `--utr-strategy two-pass`: that's the only way to
 reach it today.
 
 **For large re-run lists**, split the list into batches and submit
@@ -405,10 +405,10 @@ predictable.
 
 ## Related documentation
 
-- [Forced Alignment](../../reference/forced-alignment.md) — algorithm details, prerequisites, media resolution
-- [%wor Tier](../../reference/wor-tier.md) — %wor tier semantics and format
-- [Overlapping Speech](../../reference/overlap-markers.md) — CA overlap markers and `+<` encoding
-- [Command I/O: align](../../reference/command-io.md#1-align) — I/O patterns, server vs local, mutation behavior
-- [Command Flowcharts: align](../../architecture/command-flowcharts.md#align) — full architecture flowchart
-- [Dynamic Programming](../../../architecture/parser-and-grammar/dynamic-programming.md) — Hirschberg alignment algorithm
-- [Incremental Processing](../../architecture/incremental-processing.md) — `--before` flag mechanics
+- [Forced Alignment](../../reference/forced-alignment.md), algorithm details, prerequisites, media resolution
+- [%wor Tier](../../reference/wor-tier.md), %wor tier semantics and format
+- [Overlapping Speech](../../reference/overlap-markers.md), CA overlap markers and `+<` encoding
+- [Command I/O: align](../../reference/command-io.md#1-align), I/O patterns, server vs local, mutation behavior
+- [Command Flowcharts: align](../../architecture/command-flowcharts.md#align), full architecture flowchart
+- [Dynamic Programming](../../../architecture/parser-and-grammar/dynamic-programming.md), Hirschberg alignment algorithm
+- [Incremental Processing](../../architecture/incremental-processing.md), `--before` flag mechanics

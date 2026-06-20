@@ -15,17 +15,17 @@ For every `@s` word in every post-morphotag CHAT file, the command:
    so the pairing with `%mor` / `%gra` items is domain-correct (retraces,
    fragments, untranscribed placeholders do not consume positions).
 2. Classifies the splice outcome as `Spliced`, `L2Xxx` (dispatch failed
-   to `L2|xxx`), or `MissingMor` (no MOR item at the expected position —
+   to `L2|xxx`), or `MissingMor` (no MOR item at the expected position,
    should be near-zero with the AST walker).
 3. Applies rule-based suspicious-output detectors (heuristic flags):
    `PropnForFunctionWord` and `FeaturePosMismatch`. Flags are
    candidates for manual review, not confirmed errors.
 4. Writes four artifacts to `--output`:
-   - `per-word.csv` — one row per `@s` word
-   - `per-pair.csv` — one row per language pair, with dispatch rate,
+   - `per-word.csv`: one row per `@s` word
+   - `per-pair.csv`: one row per language pair, with dispatch rate,
      splice rate, heuristic-clean rate
-   - `flagged.csv` — subset of `per-word.csv` where at least one flag fired
-   - `summary.md` — human-readable report against the pre-registered gates
+   - `flagged.csv`: subset of `per-word.csv` where at least one flag fired
+   - `summary.md`: human-readable report against the pre-registered gates
 
 ```mermaid
 flowchart LR

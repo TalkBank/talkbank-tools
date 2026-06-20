@@ -14,7 +14,7 @@ the release is blocked until it is resolved.
 - [ ] `pyproject.toml` version matches target release version and stays `< 1.0.0` unless `docs/RELEASE-CONTRACT.md` + `docs/VERSIONING.md` are updated in the same patch to promote the surface
 - [ ] `batchalign/version` mirrors the target version/date/description (runtime metadata only; not the canonical policy source)
 - [ ] `crates/batchalign-*/Cargo.toml` and `crates/batchalign-pyo3/Cargo.toml` mirror the target version
-- [ ] Version-consistency check passes — confirm `pyproject.toml`,
+- [ ] Version-consistency check passes, confirm `pyproject.toml`,
   `batchalign/version`, every `crates/batchalign-*/Cargo.toml`, and
   the `batchalign3 --version` runtime string all match by hand
   (there is no dedicated `ci_checks` test binary today)

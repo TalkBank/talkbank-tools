@@ -5,7 +5,7 @@
 
 ## Overview
 
-This page documents the job lifecycle state machine — the allowed states,
+This page documents the job lifecycle state machine, the allowed states,
 transitions, and validation rules for jobs managed by the batchalign3 server.
 
 ## Current Implementation
@@ -55,7 +55,7 @@ stateDiagram-v2
 | `Completed` | Yes | No | All files succeeded |
 | `Failed` | Yes | Yes | One or more files errored |
 | `Cancelled` | Yes | Yes | User-initiated cancellation |
-| `Interrupted` | Yes | No | Server crash detected (transient — reconciled at startup) |
+| `Interrupted` | Yes | No | Server crash detected (transient, reconciled at startup) |
 | `WritebackFailed` | Yes | Yes | Remote results lost during copy-back |
 
 ## Proposed: Event-Driven Transitions (T096)
@@ -100,8 +100,8 @@ impl Job {
 
 - **Single validation point** for all transitions
 - **Explicit state machine** documented in code (match arms = transition table)
-- **Testable** — construct events, assert state changes, test invalid transitions
-- **Auditable** — `tracing::info!` on every `apply_event()` call
+- **Testable**: construct events, assert state changes, test invalid transitions
+- **Auditable**: `tracing::info!` on every `apply_event()` call
 
 ### Implementation Plan
 
@@ -118,7 +118,7 @@ impl Job {
 
 This is a 2-week focused refactor. It does NOT require full event sourcing
 (no event log table, no replay). Events are applied in-place on the mutable
-`Job` struct, same as today — the improvement is validation and single dispatch.
+`Job` struct, same as today, the improvement is validation and single dispatch.
 
 ## Runner Lifecycle
 
@@ -172,7 +172,7 @@ for job_id in queued_job_ids {
 }
 ```
 
-This handles jobs that were `Queued` when the daemon was last stopped — either
+This handles jobs that were `Queued` when the daemon was last stopped, either
 because they survived a crash, or because a requeue runner was lost when the
 process exited before the backoff timer fired.
 

@@ -3,7 +3,7 @@
 **Status:** Current
 **Last updated:** 2026-05-19 20:22 EDT
 
-All domain logic — text normalization, alignment, result injection, and error recovery — lives in Rust. Python workers are stateless ML inference endpoints. This chapter documents the preprocessing that prepares data for inference and the postprocessing that incorporates results back into the CHAT AST.
+All domain logic, text normalization, alignment, result injection, and error recovery, lives in Rust. Python workers are stateless ML inference endpoints. This chapter documents the preprocessing that prepares data for inference and the postprocessing that incorporates results back into the CHAT AST.
 
 ## The Boundary Principle
 
@@ -24,7 +24,7 @@ Rust: validate response → align with AST → inject results → serialize CHAT
 **Extract** (`talkbank-transform/morphosyntax/payload.rs::collect_payloads`):
 1. Walk content with `walk_words(domain=Mor)`
 2. Collect `cleaned_text()` for each alignable word
-3. Replace special forms (`@c` → `"xbxxx"`, `@s` → language marker) — Stanza can't handle CHAT-specific markers
+3. Replace special forms (`@c` → `"xbxxx"`, `@s` → language marker), Stanza can't handle CHAT-specific markers
 4. Build payload: `Vec<String>` of words per utterance
 
 **Payload → Python:**
@@ -32,7 +32,7 @@ Rust: validate response → align with AST → inject results → serialize CHAT
 {"words": ["I", "want", "cookie"], "lang": "eng"}
 ```
 
-**Python returns:** Raw Stanza `to_dict()` output — POS tags, lemmas, dependency parse, features.
+**Python returns:** Raw Stanza `to_dict()` output, POS tags, lemmas, dependency parse, features.
 
 **Postprocess** (`talkbank-transform/morphosyntax/injection.rs`,
 `talkbank-transform/retokenize/`, `talkbank-transform/morphosyntax/sentence_mapping.rs`):
@@ -45,7 +45,7 @@ Two injection paths diverge based on `TokenizationMode`:
 Both paths share GRA generation via `build_gra_and_validate()`.
 
 Steps:
-1. **Range token filtering** (Retokenize only): exclude `UdId::Range` parent entries from the token vector — only component words appear.
+1. **Range token filtering** (Retokenize only): exclude `UdId::Range` parent entries from the token vector, only component words appear.
 2. **Grammatical-invariant rewrites** (`apply_grammatical_invariants` at
    `talkbank-transform/morphosyntax/invariants.rs:14`,
    `talkbank-transform/morphosyntax/invariants/` for the per-rule modules):
@@ -53,11 +53,11 @@ Steps:
    primary only today, dispatched via `lang2(&ctx.lang)` in
    `talkbank-transform/morphosyntax/sentence_mapping.rs`. The only rule
    shipped so far is `finite_verb_main_clause::rescue_english_copula_progressive`
-   (at `invariants/finite_verb_main_clause.rs:9`) — detects `<noun>'s <-ing>`
+   (at `invariants/finite_verb_main_clause.rs:9`), detects `<noun>'s <-ing>`
    patterns that Stanza mis-parses as possessive-gerund and rewrites them
    into a coherent copula-progressive tree (PART → AUX `be`, root NOUN →
    VERB VerbForm=Part, governor deprel → nsubj). See
-   [Stanza Limitations — Defect 1](../reference/stanza-limitations.md) for
+   [Stanza Limitations, Defect 1](../reference/stanza-limitations.md) for
    the defect description and re-evaluation procedure.
 3. **UD → CHAT mapping:** Convert Universal Dependencies POS/features to TalkBank %mor format (category mappings, stem extraction, feature translation).
 4. **MWT handling:** In Preserve mode, multi-word tokens produce one clitic MOR (`pron|it~aux|be`). In Retokenize mode, each component gets its own MOR.
@@ -68,7 +68,7 @@ Steps:
 
 ### Forced Alignment
 
-FA preprocessing has two stages — UTR (Utterance Timing Recovery) and FA proper.
+FA preprocessing has two stages, UTR (Utterance Timing Recovery) and FA proper.
 See [Forced Alignment](../reference/forced-alignment.md) for the complete pipeline.
 
 **UTR:** Injects utterance-level timing from ASR tokens before FA runs. Supports
@@ -83,7 +83,7 @@ back into the AST.
 **Python receives:** Audio window (start_ms, end_ms) + word list.
 **Python returns:** Per-word timestamps.
 **Rust postprocessing:** Word end-time chaining, conditional word timing clamping
-(only on re-alignment runs where `%wor` already exists — see
+(only on re-alignment runs where `%wor` already exists, see
 [Word timing clamping policy](../reference/forced-alignment.md#word-timing-clamping-policy)),
 monotonicity enforcement, pause assignment, `%wor` tier generation.
 
@@ -140,7 +140,7 @@ Why each hook lives where it does:
   the raw element keeps `Dr` a single token through every subsequent stage.
 - **I-cap runs on per-word chunks, before retokenize.** At this point numbers
   are already expanded and compounds merged, but utterances have not yet
-  been carved out of the stream — the rewrite is a local surface fix.
+  been carved out of the stream, the rewrite is a local surface fix.
 - **Utterance-initial cap runs after retokenize and after retrace detection.**
   The "real" first word of an utterance is only knowable once `WordKind`
   tags are assigned; the rule walks past `xxx/yyy/www`, `&`-prefixed

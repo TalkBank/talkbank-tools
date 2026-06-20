@@ -48,7 +48,7 @@ preserve.
 ## Beta caveat
 
 The project is in beta. The CLI surface, output formats, and
-configuration files are not yet frozen — breaking changes may land
+configuration files are not yet frozen, breaking changes may land
 during the pre-1.0 stabilization period. Breaking changes will be
 documented but may land without a deprecation period while the
 project remains in beta. The public API surface will be formally
@@ -57,4 +57,4 @@ frozen at the 1.0 release.
 ## See also
 
 - [User Guide: No Python API](../user-guide/python-api.md)
-- [Python–Rust Boundary — Three-Layer Split](../../architecture/python-rust-boundary/python-rust-boundary.md#three-layer-split--internal-only)
+- [Python-Rust Boundary, Three-Layer Split](../../architecture/python-rust-boundary/python-rust-boundary.md#three-layer-split--internal-only)

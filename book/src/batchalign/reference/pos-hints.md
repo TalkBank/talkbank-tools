@@ -1,6 +1,6 @@
 # Transcriber `$POS` Hints
 
-**Status:** Reference — default on; opt out via `--no-pos-hints`
+**Status:** Reference, default on; opt out via `--no-pos-hints`
 **Last updated:** 2026-05-21 08:40 EDT
 
 CHAT main-tier words may carry a `$POS` suffix that encodes the
@@ -10,7 +10,7 @@ default the morphotag pipeline treats those hints as authoritative
 POS evidence: after Stanza produces `%mor`, each hinted word's POS
 category is compared against the transcriber's CLAN tag, and the
 `%mor` POS is overridden on disagreement. Lemma and morphological
-features from Stanza are preserved — only the POS category changes.
+features from Stanza are preserved, only the POS category changes.
 
 Pass `--no-pos-hints` on any `morphotag` invocation to suppress the
 post-pass and keep Stanza's POS decisions as-is.
@@ -18,7 +18,7 @@ post-pass and keep Stanza's POS decisions as-is.
 ## Why the feature exists
 
 Aggregate L2 eval has identified `FeaturePosMismatch` as the dominant
-structural error class — cases where a finite verb in the embedded
+structural error class, cases where a finite verb in the embedded
 language is tagged as `NOUN`, `PROPN`, or `CCONJ` because the primary
 model's deprel constrains the merge away from `VERB`. A Hindi POC
 observed the same pattern on matrix-language Hindi function words
@@ -27,7 +27,7 @@ than `part`).
 
 In both regimes, when the transcriber has bothered to annotate a
 word's POS with `$n`, `$v`, `$adv`, etc., they are encoding
-linguistic knowledge Stanza lacks — either because the word is
+linguistic knowledge Stanza lacks, either because the word is
 low-resource, domain-mismatched, or embedded in a construction the
 UD parser's deprel constraints don't cover. Honoring those hints is
 a cheap, near-zero-risk correction when hints disagree with Stanza.
@@ -74,7 +74,7 @@ For every main-tier word in every utterance, the pass asks four
 questions in order: is there a hint? does the CLAN tag map to a UD
 UPOS? is there a `%mor` item to modify? does the UPOS disagree with
 Stanza? The flow runs exactly once per word and is
-pure — no Stanza re-invocation, no network I/O.
+pure, no Stanza re-invocation, no network I/O.
 
 ```mermaid
 flowchart TD
@@ -144,7 +144,7 @@ exhaustive list):
 | `co`, `int`, `intj` | INTJ | |
 | `sym` | SYM | |
 | `punct`, `cm`, `end`, `beg` | PUNCT | |
-| anything else | None | unmapped — hint ignored |
+| anything else | None | unmapped, hint ignored |
 
 ## CLI usage
 
@@ -170,7 +170,7 @@ batchalign3 morphotag \
 ```
 
 With hints on (the default), every `$POS`-carrying word in every
-utterance is considered. The pass is idempotent — running twice on
+utterance is considered. The pass is idempotent, running twice on
 the same input produces the same output, because the second run sees
 every hint as an Agreement.
 
@@ -196,7 +196,7 @@ main-tier word has a disagreeing `$POS`.
    skipped an utterance due to MOR-vs-main count mismatch (MWT,
    comma-handling, etc.), no `%mor` exists, so no hint can apply.
    The hint pass records these as `NoMorItem` but takes no action.
-   On the Hindi POC 36% of utterances fell into this category — a
+   On the Hindi POC 36% of utterances fell into this category, a
    bigger quality issue than the hint feature addresses.
 2. **Unknown CLAN tags are silent.** The mapping is intentionally
    conservative: unknown tags return `None`, the record is logged
@@ -229,14 +229,14 @@ per-invocation relief while a fix is prepared.
 
 ## Related documentation
 
-- [L2 Morphotag design](l2-morphotag.md) — the feature the hint pass
+- [L2 Morphotag design](l2-morphotag.md), the feature the hint pass
   augments; `$POS` hints are a merge-algorithm-adjacent signal, not
   an L2-specific one.
-- [L2 Morphotag Status](l2-morphotag-status.md) — L2 feature overview.
+- [L2 Morphotag Status](l2-morphotag-status.md), L2 feature overview.
 - `talkbank-tools/../chatter/crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`
-  — the mapping source of truth.
+ , the mapping source of truth.
 - `crates/batchalign-transform/src/morphosyntax/pos_hints.rs`
-  — the applicator source.
+ , the applicator source.
 
 ## Reproducing the POC evidence
 

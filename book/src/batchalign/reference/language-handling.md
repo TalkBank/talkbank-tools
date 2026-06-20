@@ -361,11 +361,11 @@ typed diagnostic before the pipeline runs. When the primary IS
 supported, unsupported non-primary content is processed cleanly with an
 `L2|xxx` fallback rather than crashing the worker:
 
-- `[- UNSUPPORTEDLANG]` whole-utterance precodes — the utterance is
+- `[- UNSUPPORTEDLANG]` whole-utterance precodes, the utterance is
   grouped under `UNSUPPORTEDLANG`, the worker partitions that group out
   of the dispatch list (`partition_groups_by_stanza_support`), and
   every word receives `L2|xxx`.
-- `@s:UNSUPPORTEDLANG` per-word markers — the secondary L2 dispatch
+- `@s:UNSUPPORTEDLANG` per-word markers, the secondary L2 dispatch
   span is short-circuited the same way; the host primary analysis is
   preserved and the marker's slot stays `L2|xxx`.
 
@@ -383,8 +383,8 @@ languages continue to receive real morphology.
   fillers and nonwords as well as on regular words (so that the new
   `[- LANG]` precode does not flip filler resolution), and appends
   missing explicit languages to `@Languages`. The predicate only fires
-  when every word-bearing item — including fillers, nonwords, and
-  retraced material — carries an explicit language attribution
+  when every word-bearing item, including fillers, nonwords, and
+  retraced material, carries an explicit language attribution
   resolving to the same target.
 
 Current boundary:
@@ -518,7 +518,7 @@ Errors are collected during resolution and reported via the validation system.
 
 ### Python (stateless inference only)
 
-- **Inference function**: `batchalign/inference/morphosyntax.py:batch_infer_morphosyntax()` — calls Stanza `nlp()` per language, returns raw UD output
+- **Inference function**: `batchalign/inference/morphosyntax.py:batch_infer_morphosyntax()`: calls Stanza `nlp()` per language, returns raw UD output
 - **Per-utterance language routing**: Python worker receives `lang` field, groups batch items by language, routes to appropriate Stanza model
 
 ---

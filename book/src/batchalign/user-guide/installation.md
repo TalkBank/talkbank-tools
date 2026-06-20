@@ -30,7 +30,7 @@ x86).
 
 ## Install with `uv`
 
-If you don't have `uv` yet, install it first — then install Batchalign:
+If you don't have `uv` yet, install it first, then install Batchalign:
 
 ```bash
 uv tool install batchalign3
@@ -156,7 +156,7 @@ uv tool install batchalign3
 
 ## Worker Python resolution
 
-The CLI finds a Python 3.12 runtime automatically — via
+The CLI finds a Python 3.12 runtime automatically, via
 `BATCHALIGN_PYTHON`, the active virtualenv, a sibling/project `.venv`, or
 `python3.12` on PATH. Override explicitly:
 
@@ -219,7 +219,7 @@ Batchalign source now lives inside this repository; there is no separate active
 `make batchalign-python-prepare` rebuilds the wheel via the maturin backend
 declared in `pyproject.toml`, runs `uv sync --group dev --no-install-project`,
 and installs the freshly built wheel into the dev environment. The same
-target covers Cantonese providers — they are part of the base package.
+target covers Cantonese providers, they are part of the base package.
 
 `make build` runs `cargo build --workspace --release` plus the spec-tools
 build. It does not rebuild the embedded dashboard. If you also need the
@@ -227,7 +227,7 @@ React dashboard rebuilt, run `make batchalign-dashboard-build` (which
 requires Node.js + npm in addition to Rust and uv).
 
 In a source checkout, `uv run batchalign3` is still the normal way to
-invoke the console script — the maturin backend's `profile = "dev"`
+invoke the console script, the maturin backend's `profile = "dev"`
 setting means each `uv run …` triggers an incremental rebuild of the
 PyO3 extension on demand.
 

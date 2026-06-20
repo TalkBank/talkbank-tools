@@ -18,7 +18,7 @@ how the process was started.
 
 **Log location:** `~/.batchalign3/server.log` (append mode)
 
-**Default level:** `WARN` — captures pipeline timing, cache metrics,
+**Default level:** `WARN`: captures pipeline timing, cache metrics,
 heartbeat warnings, worker crashes, slow queries. Does NOT capture
 per-file progress, worker spawn/ready, or routine lifecycle events.
 
@@ -114,7 +114,7 @@ Worker stderr is captured for crash diagnostics.
 
 ## Performance
 
-The `tracing` crate's `debug!` and `trace!` macros cost **~1–5 ns** when the
+The `tracing` crate's `debug!` and `trace!` macros cost **~1-5 ns** when the
 corresponding level is filtered out (the default level is `WARN`). All
 instrumented functions are per-file or per-utterance, never per-word. There is
 no measurable performance impact during normal operation.
@@ -134,11 +134,11 @@ at which point the error is far from the root cause.
 
 ### Policy
 
-1. **Always try `DirectParser::parse_word()` first** — if the text is valid
+1. **Always try `DirectParser::parse_word()` first**: if the text is valid
    CHAT syntax, the parser returns a properly validated `Word`.
 2. **Only fall back to `new_unchecked` when the input is genuinely unparseable**
    (e.g., ASR returned non-CHAT characters). Log a `warn!` when this happens.
-3. **Never fall back to `new_unchecked` in retokenization** — if a Stanza-split
+3. **Never fall back to `new_unchecked` in retokenization**: if a Stanza-split
    token can't be parsed, keep the original CHAT word unchanged.
 
 ### Implementation
@@ -172,7 +172,7 @@ of `new_unchecked`.
 
 Before injecting MOR/GRA tiers into an utterance, the code validates
 that the number of MOR items matches the number of alignable words
-extracted from the AST. A mismatch is a bug — it means the
+extracted from the AST. A mismatch is a bug, it means the
 extraction or NLP mapping is wrong.
 
 ```rust,ignore
@@ -217,7 +217,7 @@ unparseable:
 When ASR returns text that isn't valid CHAT:
 
 1. A `warn!` is logged: `"ASR word is not valid CHAT syntax; using unchecked fallback"`.
-2. The unchecked word enters the AST — this is expected for non-CHAT characters.
+2. The unchecked word enters the AST, this is expected for non-CHAT characters.
 3. Pre-serialization validation will catch any downstream issues.
 
 ### Checking worker verbosity
@@ -336,7 +336,7 @@ something goes wrong:
 
 The utseg CHAT dump is particularly important for transcribe pipelines: if ASR
 post-processing produces CHAT that doesn't parse cleanly, the full CHAT text is
-logged so you can see exactly which token caused the parse error — without
+logged so you can see exactly which token caused the parse error, without
 needing to reproduce the run.
 
 ### Example: Diagnosing a transcribe-to-utseg failure
@@ -396,10 +396,10 @@ jq . /tmp/ba3-debug/sample_utr_tokens.json
 
 **`DebugDumper` struct** (`runner/debug_dumper.rs`):
 
-- `new(dir: Option<&Path>)` — enabled dumper or zero-cost no-op
-- `disabled()` — test helper, always no-op
-- `ensure_dir()` — lazily creates the directory on first write
-- `stem(filename)` — extracts file stem for artifact naming
+- `new(dir: Option<&Path>)`: enabled dumper or zero-cost no-op
+- `disabled()`: test helper, always no-op
+- `ensure_dir()`: lazily creates the directory on first write
+- `stem(filename)`: extracts file stem for artifact naming
 - Each dump method follows the pattern: check `ensure_dir()` → serialize →
   `fs::write()` → log on failure (never panics)
 
@@ -448,9 +448,9 @@ than propagating the bad value.
 
 ## Debugging Async Dispatch with `tokio-console`
 
-Symptoms this tool answers: the Rust dispatch chain is stuck —
+Symptoms this tool answers: the Rust dispatch chain is stuck,
 `batchalign3` is parked at 0% CPU after a `Starting ASR inference`
-log line, no progress, no errors — and the question is "which
+log line, no progress, no errors, and the question is "which
 async task is blocked, on which resource, for how long?"
 `tokio-console` shows the live state of every Tokio task plus the
 synchronization primitive each task is waiting on. It complements
@@ -497,14 +497,14 @@ The TUI has four primary views:
 | **Tasks (default `t`)** | List of all live async tasks with state (RUNNING / IDLE / SCHEDULED), `tracing::span` name, busy / idle / poll counts. Look for a task labeled with the request_id of the stuck operation. |
 | **Resources (`r`)** | Every `tokio::sync::*` primitive in use: `Mutex`, `Notify`, `Semaphore`, `oneshot::Sender/Receiver`, `mpsc`, `Barrier`. Each row shows how many tasks are waiting on it and for how long. |
 | **Task detail (`Enter` on a task)** | Backtrace of the most recent poll, which resource the task is waiting on, what woke it last. |
-| **Resource detail (`Enter` on a resource)** | Waiter list — exactly which tasks are blocked on this primitive. |
+| **Resource detail (`Enter` on a resource)** | Waiter list, exactly which tasks are blocked on this primitive. |
 
 Built-in **lints** fire automatically in the bottom pane: "task
 has been blocked on the same resource for > N seconds", "task is
 busy-polling without yielding", "many tasks waiting on a single
 `Mutex`". For the qwen dispatch hang investigation, the relevant
 lint signature was "task blocked on `oneshot::Receiver` for > 30s"
-— would fire within the first minute of any reproduction.
+, would fire within the first minute of any reproduction.
 
 ### Span naming convention
 
@@ -522,13 +522,13 @@ on the dispatch chain are annotated with `#[tracing::instrument]`:
 
 When adding new dispatch surface, add `#[instrument(skip_all,
 fields(...))]` with the same convention so the TUI labels stay
-useful. `skip_all` is important — the default `#[instrument]`
+useful. `skip_all` is important, the default `#[instrument]`
 captures every argument's `Debug` impl, which is too noisy for
 large request payloads.
 
 ### Attaching from a different host
 
-The gRPC server binds to `127.0.0.1:6669` by default — localhost
+The gRPC server binds to `127.0.0.1:6669` by default, localhost
 only. To attach from a workstation to a fleet host's batchalign3
 process, SSH-forward the port:
 
@@ -549,7 +549,7 @@ tokio-console http://127.0.0.1:6669
   / `miri` instead.
 - **Subprocess IPC bugs in isolation.** `tokio-console` sees the
   Rust side only. A bug that crosses into the Python worker also
-  needs `py-spy dump` on the worker pid — both views together
+  needs `py-spy dump` on the worker pid, both views together
   cover the dispatch chain end-to-end.
 
 ## Debugging Python workers with `py-spy`
@@ -565,5 +565,5 @@ sudo py-spy record --native --subprocesses \
 ```
 
 `py-spy dump` is the first thing to try when a Python worker is
-hung at 0% CPU — replaces the old "tail the log and guess"
+hung at 0% CPU, replaces the old "tail the log and guess"
 pattern.

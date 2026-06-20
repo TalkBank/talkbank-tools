@@ -20,7 +20,7 @@ forms before they reach validation.
 | Input token | Output (language) |
 |------------|--------------------|
 | `"3"` (eng) | `"three"` |
-| `"3"` (mal — Malayalam) | `"മൂന്ന്"` |
+| `"3"` (mal, Malayalam) | `"മൂന്ന്"` |
 | `"3"` (zho / cmn) | `"三"` |
 | `"3"` (jpn / yue) | `"三"` (traditional script) |
 | `"3rd"` (eng) | `"third"` |
@@ -32,7 +32,7 @@ forms before they reach validation.
 | `"21-22"` (eng) | `"twenty-one twenty-two"` |
 | `"3"` (cym / vie / nan / min / hak) | `"3"` (validator allows digits inline) |
 
-Expansion is fully deterministic — no ML model, no audio context.
+Expansion is fully deterministic, no ML model, no audio context.
 A bug-for-bug repeat of the same ASR output produces the same
 expanded text.
 
@@ -40,7 +40,7 @@ expanded text.
 
 The number-expansion table at
 `crates/batchalign-transform/data/num2lang.json` covers the long tail
-of European, Indic, East Asian, and Semitic languages — the active
+of European, Indic, East Asian, and Semitic languages, the active
 list is the JSON file itself; treat it as the canonical source. Most
 entries are codegenned from the Python `num2words` library at build
 time; a handful are hand-curated where `num2words` is missing the
@@ -52,7 +52,7 @@ CJK languages route through the dedicated `num2chinese` converter
 
 Languages whose CHAT validator already accepts inline digits
 (Welsh `cym`, Vietnamese `vie`, Min Nan `nan`, Minangkabau `min`,
-Hakka `hak`) skip expansion — the digit is left as-is because no
+Hakka `hak`) skip expansion, the digit is left as-is because no
 E220 violation will occur. The authoritative list lives in
 `crates/batchalign-transform/src/asr_postprocess/registry.rs` next to
 the `LangAllowsDigits` variant.
@@ -76,7 +76,7 @@ cross-validated against `num2words` output for every value in the
 covered range.
 
 Other languages with ordinal or decade ASR output (Spanish `"3º"`,
-German `"3."`, French `"1950s"`) currently pass the digit through —
+German `"3."`, French `"1950s"`) currently pass the digit through,
 no observed production traffic has needed them. File a request if
 your corpus contains them; the implementation pattern is identical
 to English.
@@ -98,9 +98,9 @@ regardless of target language:
 
 ## When expansion fails
 
-If a token genuinely cannot be expanded — language outside the
+If a token genuinely cannot be expanded, language outside the
 registry, ordinal/decade in a non-English language, table cannot
-decompose a 6-digit number — the original digit string passes
+decompose a 6-digit number, the original digit string passes
 through. Validation later emits **E220** with the file and line
 number. That is the design: silent fallthrough surfaces as a real
 validator error rather than a wrong-but-plausible word.

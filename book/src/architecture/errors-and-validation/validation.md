@@ -10,7 +10,7 @@ CHAT-core validation, and `talkbank_transform::validate`
 pre/post validation gate functions (`validate_to_level`,
 `validate_output`). This page covers validity levels, pre/post
 validation gates, severity posture, the verification-gate set
-(G0–G14), and how validation failures interact with caches and bug
+(G0-G14), and how validation failures interact with caches and bug
 reports.
 
 For error-code infrastructure (codes, sinks, severities, layers), see
@@ -40,7 +40,7 @@ processing:
 | `utseg` | `StructurallyComplete` |
 | `translate` | `StructurallyComplete` |
 | `coref` | `StructurallyComplete` |
-| `align` | `Parseable` (lenient — must handle messy real-world files) |
+| `align` | `Parseable` (lenient, must handle messy real-world files) |
 
 `validate_to_level()` checks the file against the required level and
 returns all failures found. Invalid files are rejected early with
@@ -51,16 +51,16 @@ diagnostics, before any compute is spent on inference.
 After an orchestrator injects results and serializes CHAT output, the
 server runs `validate_output()`:
 
-1. **Alignment validation** — checks that `%mor`/`%gra`/`%wor` tier
+1. **Alignment validation**: checks that `%mor`/`%gra`/`%wor` tier
    word counts match the main tier. ParseHealth-aware: utterances
    flagged as unparseable during lenient parsing are excluded.
-2. **Semantic validation** — full CHAT validation:
-   - **E362** — non-monotonic timestamps (utterance bullets must
+2. **Semantic validation**: full CHAT validation:
+   - **E362**: non-monotonic timestamps (utterance bullets must
      increase).
-   - **E701** / **E704** — temporal constraints (overlap rules,
+   - **E701** / **E704**: temporal constraints (overlap rules,
      same-speaker timing).
-   - Header correctness — required headers present and well-formed.
-   - Cross-utterance patterns — speaker code consistency.
+   - Header correctness, required headers present and well-formed.
+   - Cross-utterance patterns, speaker code consistency.
 
 Only blocks on `severity="error"`, not warnings.
 
@@ -115,7 +115,7 @@ any code or doc change ships:
 | G14 | Imported Batchalign Rust/PyO3 gate |
 
 The reference corpus at `corpus/reference/` is the sacred semantic
-target — every file must be valid CHAT, and `make verify` runs each
+target, every file must be valid CHAT, and `make verify` runs each
 gate against it.
 
 The pre-push hook (`make install-hooks`) runs the fast subset (`fmt`,
@@ -146,7 +146,7 @@ except CHATValidationException as exc:
         print(entry.code, entry.line, entry.message)
 ```
 
-See [Errors — Batchalign Runtime](batchalign-errors.md) and
+See [Errors, Batchalign Runtime](batchalign-errors.md) and
 [Python ↔ Rust errors](python-rust-errors.md) for the full boundary
 contract.
 
@@ -164,7 +164,7 @@ contract.
   legacy files may have `xxx`, fragments, or nonwords in `%wor`
   without producing alignment errors.
 - **Cross-utterance quotation validation is gated off by default**
-  (`enable_quotation_validation` flag) — the cross-utterance walker
+  (`enable_quotation_validation` flag), the cross-utterance walker
   exists but is not yet wired into the standard validation gate.
 - **Some error-spec / validator pairs are not yet implemented.**
   Tracked in `spec/errors/` files marked `Status: not_implemented`;

@@ -8,10 +8,10 @@ runtime (`batchalign_core`) and the Python ML hosting layer
 (`batchalign/...`) carry typed structure into the Python exception
 hierarchy. For the boundary itself (what crosses, capability
 discovery, executor layout) see
-[Python–Rust Boundary](../python-rust-boundary/python-rust-boundary.md).
+[Python-Rust Boundary](../python-rust-boundary/python-rust-boundary.md).
 For Batchalign-side error flow (parse modes, runtime
 classification, CLI failure summary) see
-[Errors — Batchalign Runtime](batchalign-errors.md).
+[Errors, Batchalign Runtime](batchalign-errors.md).
 
 ## Typed boundary error
 
@@ -161,7 +161,7 @@ from batchalign_core import (
 )
 ```
 
-`BatchalignError` is the typed parent — Python catch sites get one
+`BatchalignError` is the typed parent, Python catch sites get one
 ancestor for every typed exception that originates in
 `batchalign_core`:
 
@@ -173,7 +173,7 @@ except BatchalignError as exc:
     ...
 ```
 
-`SkipFileWarning` does **not** route through `Warning` — Python
+`SkipFileWarning` does **not** route through `Warning`: Python
 code raises and catches it as an exception, not a warning, to
 preserve existing call-site semantics.
 
@@ -197,7 +197,7 @@ sequenceDiagram
 ```
 
 Every error category that crosses the boundary already exists as a
-typed variant somewhere in the Rust call stack — the boundary is
+typed variant somewhere in the Rust call stack, the boundary is
 the only place where structure could get discarded, and it doesn't.
 
 ## Where the contract is enforced
@@ -218,7 +218,7 @@ construct `BatchalignBoundaryError` rather than
 | `worker_protocol.rs` | (no PyValueError sites; not converted) |
 
 `rg PyValueError crates/batchalign-pyo3/src/` returns zero matches
-in the worker-* files — the typed pathway is the only path.
+in the worker-* files, the typed pathway is the only path.
 
 ## `bug_report_id` is Python-populated for now
 
@@ -235,7 +235,7 @@ future change.
 An operator-local internals-leakage scan runs against error-construction
 sites to confirm that no internal pattern values appear in error
 messages crossing the boundary. The pattern values themselves are
-not listed here — keeping a leak-detector's needle list out of the
+not listed here, keeping a leak-detector's needle list out of the
 public repo is itself a leak-prevention rule. Operators run the scan
 from their own private patterns file.
 
@@ -264,10 +264,10 @@ from their own private patterns file.
 
 ## Related
 
-- `crates/batchalign/src/error.rs` — server-side `ServerError`
+- `crates/batchalign/src/error.rs`: server-side `ServerError`
   typed-status mapping; the `PayloadTooLarge` variant lives here.
-- [Errors — Batchalign Runtime](batchalign-errors.md) — end-to-end
+- [Errors, Batchalign Runtime](batchalign-errors.md), end-to-end
   error flow.
 - [INTERFACE_MAP.md](https://github.com/TalkBank/talkbank-tools/blob/main/INTERFACE_MAP.md)
-  — Rust ↔ Python boundary inventory.
-- `crates/batchalign/CLAUDE.md` — server-side error-handling rules.
+ , Rust ↔ Python boundary inventory.
+- `crates/batchalign/CLAUDE.md`: server-side error-handling rules.

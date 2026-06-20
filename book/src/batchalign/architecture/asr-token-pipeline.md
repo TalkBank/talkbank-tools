@@ -8,12 +8,12 @@ ASR providers through post-processing into the CHAT AST. Each stage has a
 dedicated newtype that encodes what transformations the text has undergone.
 
 > **Note on "Stage 6: retokenization" naming.** Stage 6 below is
-> *ASR-stream retokenization* — splitting a raw provider token stream
+> *ASR-stream retokenization*, splitting a raw provider token stream
 > into utterances by punctuation. It is unrelated to the *morphosyntax
 > retokenization* that runs at morphotag time to reshape CHAT words
 > against Stanza's tokenization. For the distinction, route map, and
 > per-language gap analysis, see
-> [Retokenization — Overview](../reference/retokenization-overview.md).
+> [Retokenization, Overview](../reference/retokenization-overview.md).
 
 ## Type Progression
 
@@ -67,7 +67,7 @@ for the rule contracts and probe-verdict citations.
 The `TryFrom` gate at the end is the boundary where the pipeline's
 `AsrNormalizedText` becomes the CHAT domain's `ChatWordText`.
 Construction runs the word-fragment parser (plus the language-aware
-`Word::validate`) and returns structured `ParseError`s on failure — the
+`Word::validate`) and returns structured `ParseError`s on failure, the
 pipeline surfaces them verbatim to the user instead of producing an
 invalid CHAT file. See [Construction-Time Validation](#construction-time-validation)
 below.
@@ -90,7 +90,7 @@ The functions involved are:
 | # | Stage | Function | What changes |
 |---|-------|----------|-------------|
 | 1 | Compound merging | `prepare_words_pre_expansion()` | Adjacent compound pairs joined ("air"+"plane" → "airplane") |
-| 2 | Timed word extraction + separator strip | `prepare_words_pre_expansion()` | Seconds → ms, pause markers filtered, MOR_PUNCT (`,` `„` `‡`) and RTL separators trimmed from word boundaries. **Case is preserved** — see "Casing" below. |
+| 2 | Timed word extraction + separator strip | `prepare_words_pre_expansion()` | Seconds → ms, pause markers filtered, MOR_PUNCT (`,` `„` `‡`) and RTL separators trimmed from word boundaries. **Case is preserved**: see "Casing" below. |
 | 3 | Multi-word splitting | `prepare_words_pre_expansion()` | Space-containing tokens split, timestamps interpolated, hyphens joined |
 | 3b | **Percent-suffix split** | `split_percent_suffix_words()` | `"80%"` → `"80"` + per-language percent word ("percent" for eng, 11 languages covered) with proportional timing. `%` is the CHAT dep-tier sigil and structurally illegal on the main tier in any language. Dormant for en/es (see below); fires for languages where Rev.AI applies ITN. |
 | 4 | **Number expansion** | `expand_number()` per word | Single Rust pass: cardinals via per-language `NUM2LANG` (47 langs); CJK via `num2chinese`; English ordinals/decades via `ordinal_year_eng`; currency via `try_expand_currency`; percent via per-lang table; dash-ranges split and recurse; digit-leading hyphen compounds (`"17-year-old"` → `"seventeen-year-old"` in digit-rejecting languages) via `try_expand_digit_leading_hyphen`. |
@@ -102,8 +102,8 @@ For Rev.AI in English and Spanish, BA3 sends
 `skip_postprocessing=true` (see
 `batchalign/src/revai/preflight.rs::skip_postprocessing_hint`).
 Per Rev.AI's docs this tells the service to skip Inverse Text
-Normalization (ITN): the response comes back in **spoken form** —
-`"eighty"`, `"percent"`, `"seventeen"`, `"year"`, `"old"` — rather
+Normalization (ITN): the response comes back in **spoken form**,
+`"eighty"`, `"percent"`, `"seventeen"`, `"year"`, `"old"`: rather
 than written form with digits and `%`. Stage 3b and the digit-leading
 hyphen branch of stage 4 therefore see no input to normalize on the
 en/es production path; the raw tokens they were built to handle don't
@@ -122,13 +122,13 @@ These stages remain in the pipeline for two reasons:
    handle. They cost nothing to keep and prevent silent regressions.
 
 Two layers protect the downstream CHAT build. Stage 9 (oracle-driven
-sanitization) is the first line — it rebuilds a CHAT-legal prefix for
+sanitization) is the first line, it rebuilds a CHAT-legal prefix for
 any token whose interior contains characters the grammar rejects
 (Whisper's bare `:` leaks, Tencent's `~`, exotic Unicode glued to ASCII
 letters) and drops the token entirely only when no legal prefix
 survives. The final enforcement is the `ChatWordText::try_from_lang`
-gate at the end of the pipeline (see below) — language-agnostic,
-engine-agnostic, and failure-loud — which fires only for tokens that
+gate at the end of the pipeline (see below), language-agnostic,
+engine-agnostic, and failure-loud, which fires only for tokens that
 sanitization cannot recover. Before stage 9 landed, a single
 grammar-illegal char anywhere in the transcript would fail the entire
 file at this gate; the v2 Cantonese ASR benchmark lost 6 of 18
@@ -138,15 +138,15 @@ fixtures this way.
 | 5b | Pause-based splitting | `finalize_words_to_chunks()` | Long pauses in unpunctuated runs create boundaries |
 | 6 | Retokenization | `utterances_from_prepared_chunks()` | Split into utterances by punctuation boundaries |
 | 7 | Disfluency replacement | `finalize_utterances()` | Filled pauses marked ("um" → "&-um"), orthographic replacements |
-| 8 | N-gram retrace detection | `finalize_utterances()` | Repeated n-grams marked with `WordKind::Retrace`. **Fillers (`&-` prefix) participate in matching but are never marked Retrace** — see [Retrace Detection](../reference/retrace-detection.md#fillers-do-not-produce-retrace-markers). |
+| 8 | N-gram retrace detection | `finalize_utterances()` | Repeated n-grams marked with `WordKind::Retrace`. **Fillers (`&-` prefix) participate in matching but are never marked Retrace**: see [Retrace Detection](../reference/retrace-detection.md#fillers-do-not-produce-retrace-markers). |
 | 9 | CHAT-illegal char sanitization | `finalize_utterances()` → `sanitize_chat_illegal_chars_in_utterances()` (`asr_postprocess/cleanup.rs`) | For each word whose interior fails `ChatWordText::try_from`, greedily rebuild a CHAT-legal prefix character by character (push, check via the oracle, pop on reject). Drop the word when the rebuilt string is empty. Engine-emitted noise (`:` from Whisper, `~` from Tencent, exotic glyphs) no longer destroys whole utterances. Runs after number expansion so monetary / numeric expansions are already in word form when the oracle sees them. |
 
 ## Text Newtypes at Each Stage
 
 | Type | On struct | Contains | Constructor |
 |------|-----------|----------|-------------|
-| `AsrRawText` | `AsrElement.value` | Raw provider output: digits, spaces, provider markers | `AsrRawText::new(s)` — infallible |
-| `AsrNormalizedText` | `AsrWord.text` | Compound-merged, number-expanded, disfluency-marked text | `AsrNormalizedText::new(s)` — infallible |
+| `AsrRawText` | `AsrElement.value` | Raw provider output: digits, spaces, provider markers | `AsrRawText::new(s)`: infallible |
+| `AsrNormalizedText` | `AsrWord.text` | Compound-merged, number-expanded, disfluency-marked text | `AsrNormalizedText::new(s)`: infallible |
 | `ChatWordText` | `WordDesc.text` | **A runtime-checked proof** that `s` is either a closed-set CHAT terminator / `MOR_PUNCT` separator (`.`, `?`, `!`, `+...`, `,`, `‡`, `„`), or text the tree-sitter word-fragment parser accepts as a legal main-tier word, and (for the `_lang` variants) satisfies every word-level rule `talkbank_model::Validate for Word` applies under the declared language including E220 digit policy. | **Fallible only:** `ChatWordText::try_from`, `try_from_with_parser`, `try_from_lang`, `try_from_lang_with_parser`. No infallible `new`. |
 
 The progression is **asymmetric on purpose**: `AsrRawText` and
@@ -156,7 +156,7 @@ assembly, and its constructor is the enforcement point for the
 invariant that every word in a `ChatFile` is CHAT-legal. Attempting
 to construct a `ChatWordText` from text the CHAT grammar rejects
 fails loudly at the boundary with a typed error naming the offending
-utterance, speaker, language, and token — rather than producing a
+utterance, speaker, language, and token, rather than producing a
 `ChatFile` that fails silently at a downstream parse gate.
 
 All three types use `#[serde(transparent)]`, `as_str()`, `Display`,
@@ -194,7 +194,7 @@ The two short-circuits (terminator, MOR_PUNCT) exist because the ASR
 pipeline emits each utterance's terminator as a regular `AsrWord` entry,
 and separator tokens (`,`, `‡`, `„`) appear as standalone `AsrWord`s
 after stage 2b boundary stripping. These are main-tier-legal but not
-words — `parse_word_fragment` correctly rejects them; the short-circuit
+words, `parse_word_fragment` correctly rejects them; the short-circuit
 lets them through.
 
 The `try_from_with_parser` variant skips the language-validation branch
@@ -203,7 +203,7 @@ variants take a caller-supplied `TreeSitterParser` handle; the bare
 `try_from` and `try_from_lang` use a thread-local parser (the underlying
 `TreeSitterParser` is `!Send + !Sync`).
 
-Fallible construction in isolation isn't enough — the pipeline's
+Fallible construction in isolation isn't enough, the pipeline's
 upstream normalizer stages must actually *produce* CHAT-legal text.
 That responsibility is shared with stage 3b (percent split), stage 4
 (number expansion + digit-hyphen rewrite), and stage 4.5
@@ -271,7 +271,7 @@ flowchart LR
 ```
 
 `AsrTimestampSecs` wraps the raw `f64` seconds from ASR providers on `AsrElement`.
-The internal `AsrWord` timing (`Option i64`) is deliberately NOT wrapped — these
+The internal `AsrWord` timing (`Option i64`) is deliberately NOT wrapped, these
 are pipeline-internal values that never cross a module boundary.
 
 ## Speaker Flow

@@ -16,7 +16,7 @@ natively:
 
 Italian carries no per-language BA3 MWT-override rules. All earlier
 overrides ported from BA2 (`ud.py:662-695`) were audited and removed
-— see [History](#history).
+, see [History](#history).
 
 ## What Stanza handles natively
 
@@ -31,7 +31,7 @@ invariant:
 | della / dello / degli | `parla della casa` | `di + la + casa` (MWT) |
 | l'X (common nouns) | `l'amico`, `l'opera`, `l'uomo`, `l'anno`, `l'oggetto` | 1 UD word with accented apostrophe preserved; character-DP in `align_tokens` merges any Stanza over-split back to 1 |
 | preposition+clitic | `all'amore`, `nell'anno`, `sull'ora` | 1 MWT expansion; 1 CHAT word stays 1 |
-| `lei` (3sg.f pronoun) | `dice lei`, `lei mangia` | 1 UD word — no spurious split into `le + i` |
+| `lei` (3sg.f pronoun) | `dice lei`, `lei mangia` | 1 UD word, no spurious split into `le + i` |
 
 Probes in
 `batchalign/tests/investigations/_cases/italian.py` (typed
@@ -41,22 +41,22 @@ Probes in
 ## Known Stanza limitations
 
 All three issues below are **content-quality** defects. The `%mor`
-count invariant holds — Stage 3's `assemble_mors` in
+count invariant holds, Stage 3's `assemble_mors` in
 `crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs` collapses
 Stanza's MWT Range tokens into a single compound `%mor` entry per
-CHAT word — but the emitted entry carries linguistically wrong
+CHAT word, but the emitted entry carries linguistically wrong
 content: fake lemmas, spurious features, or the wrong POS.
 
 Each row below shows the `%mor` that actually ships downstream from
 a minimal `ita` probe CHAT run through `batchalign3 morphotag`.
 
-### Defect 6 — words with clitic-shaped endings split into fake verb+clitic compounds
+### Defect 6: words with clitic-shaped endings split into fake verb+clitic compounds
 
 Italian words whose last one-to-two characters look like a clitic
 (`-la`, `-lo`, `-le`, `-li`, `-ne`, `-no`, `-ni`, `-mi`, `-ti`,
 `-ci`, `-vi`, `-si`) get wrapped by Stanza in an MWT Token and
 analyzed as `verb stem + enclitic pronoun` with a bogus stem lemma
-— regardless of actual part of speech. The defect fires on:
+, regardless of actual part of speech. The defect fires on:
 
 - **Verbs in imperative position**: `parla forte`
   → `verb|par~pron|la` (should be `verb|parlare-Imp-S2`).
@@ -71,7 +71,7 @@ analyzed as `verb stem + enclitic pronoun` with a bogus stem lemma
   `verb|picco~pron|lo` / `verb|picco~pron|la` with `Part Past`.
 - **Baby-talk diminutives**: `coccole`, `babbolo`, `pettole`.
 
-Most non-verb hits carry `Part Past` features — Stanza confidently
+Most non-verb hits carry `Part Past` features, Stanza confidently
 treats the whole surface as a past participle plus clitic.
 
 Every row ships one `%mor` item per CHAT word (Stage 3's
@@ -81,18 +81,18 @@ invariant holds. Every row's linguistic content is wrong.
 A corpus-wide audit of committed `%mor` content (pre-parsed JSON
 snapshot of the TalkBank CHAT corpora) found **65 Defect-6 hits
 across 417 Italian files and 15 distinct surface forms**. Mid-sentence
-position does protect verbs in context — `la storia parla di ...`
-gets correct `verb|parlare-Fin-Ind-Pres-S3` — but the noun/adjective
+position does protect verbs in context, `la storia parla di ...`
+gets correct `verb|parlare-Fin-Ind-Pres-S3`: but the noun/adjective
 pseudo-analyses fire independent of position.
 
 Pinned as `stanza-it-verb-clitic-pos-split` in
-[Stanza Limitations — Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds).
+[Stanza Limitations, Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds).
 Documented, not mitigated. A fix would require either a
 content-quality gate at the `%mor` emission stage (candidate signal:
 `lemma + concat(clitic_lemmas) == surface` AND `lemma != surface`),
 a Stanza retrain, or swapping Stanza for CLAN's Italian MOR.
 
-### Defect 7 — sentence-initial article `la` gets junk `il + i` MWT expansion
+### Defect 7: sentence-initial article `la` gets junk `il + i` MWT expansion
 
 **Input:**
 ```text
@@ -106,23 +106,23 @@ a Stanza retrain, or swapping Stanza for CLAN's Italian MOR.
         noun|bambino-Masc .
 ```
 
-One `%mor` item per CHAT word — count is right. But the first item
+One `%mor` item per CHAT word, count is right. But the first item
 has lemma=`il` with masc-singular + masc-plural compound features,
 for a feminine-singular article `la`. Correct would be
 `det|la-Fem-Def-Art-Sing`.
 
 `parla` mid-sentence gets its proper analysis
-(`verb|parlare-Fin-Ind-Pres-S3`) — confirms Defect 6 is
+(`verb|parlare-Fin-Ind-Pres-S3`), confirms Defect 6 is
 position-sensitive and unrelated to Defect 7. Position sensitivity
 of Defect 7 itself (whether mid-sentence `la` also gets the junk
 expansion) has not yet been characterized.
 
 Pinned as `stanza-it-la-sentence-initial-split` in
-[Stanza Limitations — Defect 7](../stanza-limitations.md#defect-7-italian-sentence-initial-article-la-gets-junk-mwt-expansion-il--i).
+[Stanza Limitations, Defect 7](../stanza-limitations.md#defect-7-italian-sentence-initial-article-la-gets-junk-mwt-expansion-il--i).
 Documented, not mitigated. Same content-quality gate shape as Defect
 6 but a different signal: `concat(inner_word_texts) != token_text`.
 
-### Defect 8 (candidate) — mid-sentence `dammela` tagged as ADJ, lemma normalized to `dammelo`
+### Defect 8 (candidate): mid-sentence `dammela` tagged as ADJ, lemma normalized to `dammelo`
 
 **Input:**
 ```text
@@ -137,8 +137,8 @@ Documented, not mitigated. Same content-quality gate shape as Defect
 One `%mor` item per CHAT word, correct count. But `dammela` in
 mid-sentence position gets tagged ADJ with lemma `dammelo` (wrong
 gender) and no clitic decomposition at all. The bare-compound case
-(`dammela` alone as a single utterance) is handled correctly —
-`verb|dare-Inf-Ind-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3` — so this is
+(`dammela` alone as a single utterance) is handled correctly,
+`verb|dare-Inf-Ind-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3`: so this is
 a context-dependent Stanza misclassification, distinct from Defect 6.
 
 Not yet pinned as a named Defect in the registry (proposed slug
@@ -147,7 +147,7 @@ Not yet pinned as a named Defect in the registry (proposed slug
 mid-sentence position would quantify prevalence and inform whether
 it warrants its own entry.
 
-### Defect 9 — Range-expansion with wrong head POS (dative `-glie-` stack)
+### Defect 9: Range-expansion with wrong head POS (dative `-glie-` stack)
 
 **Input:**
 ```text
@@ -160,7 +160,7 @@ it warrants its own entry.
 ```
 
 Stanza expands `dagliela` (2sg imperative of `dare` + 3sg.dat +
-3sg.f.acc) as a structurally-correct 3-piece MWT — but tags the head
+3sg.f.acc) as a structurally-correct 3-piece MWT, but tags the head
 component `da` with `ADP/da` instead of `VERB/dare`. The preposition
 `da` ("from, by") is homographic with the imperative verb form, and
 Stanza's POS layer prefers the preposition reading even though the
@@ -173,7 +173,7 @@ only component 0's POS/lemma/feats are wrong.
 
 Sibling forms in the same dative stack (`digliela` →
 `di/VERB/dire`, `portagliela` → `porta/VERB/portare`,
-`prendigliela` → `prendi/VERB/prendere`) are Stanza-correct —
+`prendigliela` → `prendi/VERB/prendere`) are Stanza-correct,
 verified by direct probe. The defect is specific to
 surfaces where the head clitic-stripped form is homographic with a
 non-verb word.
@@ -181,7 +181,7 @@ non-verb word.
 Pinned observation-only case in the probe matrix:
 `dagliela_mid_sentence` in `_cases/italian.py`.
 
-### Defect 10 — head-lemma-only rewrite for genuine imperative+clitic MWTs
+### Defect 10: head-lemma-only rewrite for genuine imperative+clitic MWTs
 
 **Input:**
 ```text
@@ -194,7 +194,7 @@ Pinned observation-only case in the probe matrix:
 ```
 
 Stanza expands `posala` as a 2-piece MWT (`posa/VERB + la/PRON`)
-— structurally correct: this IS a genuine imperative (2sg of
+, structurally correct: this IS a genuine imperative (2sg of
 `posare`, "put down") + accusative clitic. However the head
 component's **lemma** is `posa` (surface-echo) rather than the
 canonical infinitive `posare`.
@@ -203,7 +203,7 @@ Unlike Defect 9 (`dagliela`), the head **POS** is correct
 (`VERB`); only the lemma is wrong. The component-rewrite
 mechanism in `IT_COMPONENT_REWRITES` handles both shapes
 because rewriting a field that Stanza already got right is
-idempotent — no new allowlist or new reconciler path was
+idempotent, no new allowlist or new reconciler path was
 needed.
 
 Defect 10 is **verb-specific to `posare`**: the
@@ -220,11 +220,11 @@ A fleet JSON audit surfaced 5 singleton Defect 6
 surfaces that were **deliberately skipped** despite confirming
 as mis-splits under current Stanza:
 
-- `soffioni` (plural of `soffione`, dandelion) — obscure
-- `coccolo` — dialectal / obscure
-- `pettole` — dialectal / obscure
-- `babbolo` — likely a typo or child-speech approximation
-- `tecala` — non-standard; likely corrupted
+- `soffioni` (plural of `soffione`, dandelion), obscure
+- `coccolo`: dialectal / obscure
+- `pettole`: dialectal / obscure
+- `babbolo`: likely a typo or child-speech approximation
+- `tecala`: non-standard; likely corrupted
 
 If any of these recur in new corpus processing, promote to the
 allowlist at that point. The probe matrix records each as
@@ -245,7 +245,7 @@ rule. Pinned as counterexamples in the probe matrix:
 | `portalo` | `verb|portare-Inf-Ind-Imp-S2~pron|lo-Prs-S3 .` (confirm) | **Yes** |
 
 Any future content-quality rule for Italian must leave these
-analyses untouched — they're the correctness control group.
+analyses untouched, they're the correctness control group.
 
 ## Reconciler architecture
 
@@ -406,12 +406,12 @@ returns two parallel vectors internally: `Vec<Mor>` and
 `ChunkProvenance` per chunk of its Mor (main first, post-clitics
 after). Each `ChunkProvenance` records:
 
-1. `source_ud_ids` — which UD word ids map to this chunk (one
+1. `source_ud_ids`: which UD word ids map to this chunk (one
    for a normal Single, N for a collapsed Range, zero for a
    synthesized post-clitic).
-2. `head` — how to resolve the GRA relation's head index
+2. `head`: how to resolve the GRA relation's head index
    (`Root`, `FromUd(ud_id)`, or `OwningMorMain`).
-3. `deprel` — pre-normalized relation string.
+3. `deprel`: pre-normalized relation string.
 
 `build_gra_and_validate` is now language-neutral: it takes
 `(mors, provenance)` plus a `TerminatorPolicy` enum and emits
@@ -467,7 +467,7 @@ Invariants checked at the end of `build_gra_and_validate`:
 Violations surface as `MappingError::ChunkCountMismatch` /
 `InvalidRoot` / `InvalidHeadReference`. Because provenance is
 produced alongside the Mor at a single site, the two can't drift
-— the chunk count check is a tripwire if a new synthesis site
+, the chunk count check is a tripwire if a new synthesis site
 ever produces mismatched counts.
 
 ### Allowlist design invariants
@@ -493,7 +493,7 @@ Shared invariants across all three:
    (non-mis-classified) surfaces pass through unchanged.
 3. **Idempotent rewrite.** If Stanza already got a field right
    (e.g., POS=VERB for Defect 10), the allowlist's override
-   still specifies the "correct" value — the rewrite is
+   still specifies the "correct" value, the rewrite is
    harmless. This lets shape-9 and shape-10 entries share
    `IT_COMPONENT_REWRITES` even though their Stanza-error
    signatures differ.
@@ -511,7 +511,7 @@ Shared invariants across all three:
 
 ### Integration inside `map_ud_sentence`
 
-The reconciler is not a standalone pass — it is two targeted
+The reconciler is not a standalone pass, it is two targeted
 branches inside the UD → CHAT mapping function, each guarded by an
 allowlist lookup. The diagram below shows the two hook points
 relative to the normal Range / Single handling:
@@ -546,7 +546,7 @@ flowchart TD
 ```
 
 `reconciled_ranges: Option<HashSet<(usize, usize)>>` is allocated
-lazily — it stays `None` for utterances where neither allowlist
+lazily, it stays `None` for utterances where neither allowlist
 fires, so the common path pays no allocation cost. When set, it
 is threaded into `build_gra_and_validate` so the GRA builder
 collapses per-component relations into a single relation on the
@@ -555,14 +555,14 @@ rebuilt parent word.
 BA3 carries a **per-language reconciler hack** that collapses
 Stanza's known-bad Italian MWT mis-splits back to a single `%mor`
 entry with corrected POS / lemma / features. This is explicitly a
-hack — an allowlist of specific Stanza mis-splits we know about,
+hack, an allowlist of specific Stanza mis-splits we know about,
 not a principled morphological analyzer.
 
 **Where the hack lives.** `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
 (mirrors the pattern of `lang_en.rs` / `lang_fr.rs` /
 `lang_ja.rs`). The reconciler is called from
 `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs` inside
-`map_ud_sentence`'s `UdId::Range` branch — before the normal
+`map_ud_sentence`'s `UdId::Range` branch, before the normal
 `assemble_mors` join. When it fires, the affected Range is also
 recorded so `build_gra_and_validate` emits a single `%gra`
 relation for the collapsed word rather than one per component.
@@ -598,8 +598,8 @@ fire on the new allowlist entry without further plumbing.
 
 ### Defect 8 allowlist (separate hook)
 
-Defect 8 — mid-sentence compound imperatives mis-classified
-without MWT expansion — fires on `UdId::Single`, not `UdId::Range`,
+Defect 8, mid-sentence compound imperatives mis-classified
+without MWT expansion, fires on `UdId::Single`, not `UdId::Range`,
 so it uses a **separate allowlist** `IT_COMPOUND_IMPERATIVES`:
 
 | Surface (as Stanza sees it) | Stanza POS | Verb lemma override | Source |
@@ -620,22 +620,22 @@ All entries carry `Mood=Imp|Number=Sing|Person=2|VerbForm=Fin`.
 original Defect 8 signature was ADJ-only, but `-ire` family
 probes surfaced NOUN mis-classifications (`aprila` tagged
 `aprila/NOUN/aprila`; `aprili` tagged `aprili/NOUN/aprile`
-— the latter is Stanza homographing the form onto the month
+, the latter is Stanza homographing the form onto the month
 name April). The allowlist is still a closed curated set;
-legitimate nouns pass through unchanged — pinned by
+legitimate nouns pass through unchanged, pinned by
 `test_italian_defect8_genuine_noun_stays_noun`.
 
 The `prendere` family was surfaced by a one-off corpus scan for
 CHAT main-tier words with verb+enclitic shapes; the same scan
 identified `diglielo` (already correctly handled by Stanza) and
 `mettilo`/`mettila`/`mettili`/`mettiti` (tagged VERB but not
-decomposed — a lemma-quality issue rather than a pure Defect 8
+decomposed, a lemma-quality issue rather than a pure Defect 8
 signature; deferred to a future investigation).
 
 **Scope : multi-chunk output is now emitted.**
 Each allowlist entry specifies the post-clitic stack via
 `CliticSpec` entries, so `dammela` emits the full
-`verb|dare-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3` — matching
+`verb|dare-Imp-S2~pron|me-Prs-S1~pron|la-Prs-S3`: matching
 Stanza's own analysis for the bare-compound case. Previously
 (earlier) the reconciler emitted only the single-chunk
 main verb; that scope limit came from `map_ud_sentence`'s
@@ -646,14 +646,14 @@ emission and its corresponding GRA relations stay consistent
 with the chunk-count invariant. See "Reconciler architecture"
 above for the full story.
 
-**How to extend Defect 8**: same pattern — add a row to
+**How to extend Defect 8**: same pattern, add a row to
 `IT_COMPOUND_IMPERATIVES` plus a regression test. The ADJ-POS
 gate limits false positives to words Stanza actively
 mis-classifies.
 
 ### Defect 9 allowlist (Range component rewrite)
 
-Defect 9 — Range-expansion with wrong head POS — fires on
+Defect 9, Range-expansion with wrong head POS, fires on
 `UdId::Range`, like Defect 6, but takes a different action: instead
 of collapsing the Range into a single Mor, it **rewrites
 component 0's POS/lemma/feats in-place** and falls through to the
@@ -662,7 +662,7 @@ preserved; only the head's lexical analysis changes. Hook point
 lives right after the Defect 6 check in
 `map_ud_sentence`'s `UdId::Range` branch. Because the Range still
 produces multiple chunks, the entry is NOT recorded in
-`reconciled_ranges` — GRA reindexing proceeds as for a normal
+`reconciled_ranges`: GRA reindexing proceeds as for a normal
 multi-chunk MWT.
 
 Separate allowlist `IT_COMPONENT_REWRITES`:
@@ -674,7 +674,7 @@ Separate allowlist `IT_COMPONENT_REWRITES`:
 | `posalo` | 10 | VERB / `posa` | VERB / `posare` | family (sibling of posala) |
 
 All entries carry `Mood=Imp|Number=Sing|Person=2|VerbForm=Fin` as
-head feats. The rewrite is idempotent — if Stanza already had a
+head feats. The rewrite is idempotent, if Stanza already had a
 field right (e.g. the POS for Defect-10 entries), re-setting it
 is harmless.
 
@@ -682,11 +682,11 @@ is harmless.
 analyses correctly must stay off it, and control tests pin
 those:
 - `digliela`, `portagliela`, `prendigliela` (Defect 9 controls)
-  — Stanza analyses correctly; `test_italian_digliela_stays_correctly_merged`
+ , Stanza analyses correctly; `test_italian_digliela_stays_correctly_merged`
   guards against regression.
 - `guardala`, `toccala`, `aspettala`, `mangiala`, `chiamala`,
   `lasciala`, `cambiala`, `provala`, `giocala`, `portala`,
-  `suonala`, `chiudila` (Defect 10 controls) — all probed
+  `suonala`, `chiudila` (Defect 10 controls), all probed
   Stanza-correct. Only the `posare` paradigm
   mis-lemmatizes, hence the narrow allowlist.
 
@@ -702,12 +702,12 @@ catch overzealous entries.
   (i.e., standalone, where Stanza gets them right). Those are
   correctly merged by Stanza; the allowlists are closed sets
   gated on Stanza's mis-classification signatures.
-- It does NOT change raw Stanza output — the xfail probes in
+- It does NOT change raw Stanza output, the xfail probes in
   `_cases/italian.py` continue to document what Stanza emits
   directly.
 - It does NOT auto-detect new Defect 6 cases. Each must be
   observed in corpus data and explicitly added.
-- It does NOT fix Italian's Stanza model upstream — a future
+- It does NOT fix Italian's Stanza model upstream, a future
   Stanza release that repairs the defect will render the
   corresponding allowlist entries redundant. Periodic re-audits
   (e.g., once per Stanza major version) should retire entries
@@ -716,16 +716,16 @@ catch overzealous entries.
 **Constraints validated by tests** at three layers:
 
 - **Unit tests** in `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
-  — lookup semantics (case-insensitivity, positive and negative
+ , lookup semantics (case-insensitivity, positive and negative
   matches, exclusion of genuine compounds like `dammela`).
 - **Synthetic UD integration tests** in
   `crates/batchalign/src/chat_ops/nlp/mapping/tests/italian_defects.rs`
-  (search for `test_italian_defect6_`) — confirm the reconciler
+  (search for `test_italian_defect6_`), confirm the reconciler
   collapses known mis-split `UdSentence` shapes into the correct
   single `Mor`.
 - **End-to-end golden** in
   `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py`
-  — runs `batchalign3 morphotag` on a CHAT fixture whose
+ , runs `batchalign3 morphotag` on a CHAT fixture whose
   `@Languages:` header declares `ita`; the fixture contains all
   six allowlist words in context. Asserts no junk
   `verb|STEM~pron|CLITIC` pattern appears in the output `%mor`
@@ -739,7 +739,7 @@ The specific contracts:
   `arancione → noun|arancione`, `piccolo → adj|piccolo`,
   `gomitolo → noun|gomitolo`, `divano → noun|divano`.
 - `dammela` continues to produce its correct Stanza-native merged
-  `%mor` (`verb|dare…~pron|me…~pron|la…`) — the correctness
+  `%mor` (`verb|dare…~pron|me…~pron|la…`), the correctness
   control group.
 - Allowlist lookup is case-insensitive.
 - Non-Italian `MappingContext` sees no behavior change (explicit
@@ -757,12 +757,12 @@ an earlier pause, and landed the Defect 9 component-rewrite
 reconciler. The remaining items below are **not yet implemented**;
 pick them up when Italian is next on deck.
 
-1. **`mettere` family lemma-quality investigation** —
+1. **`mettere` family lemma-quality investigation**,
    **RESOLVED (null result).** The earlier pause
    notes hypothesized that Stanza emits surface-echo lemma
    (`mettilo` instead of `mettere`) for this family. The
-   A more recent probe — with `_token_summary` extended to emit
-   `(text, upos, lemma)` — falsified the hypothesis: Stanza
+   A more recent probe, with `_token_summary` extended to emit
+   `(text, upos, lemma)`: falsified the hypothesis: Stanza
    correctly emits `lemma='mettere'` with `upos='VERB'` for all
    four surfaces (`mettilo`/`mettila`/`mettili`/`mettiti`).
    No `IT_VERB_LEMMA_OVERRIDES` gate is needed. The corpus
@@ -782,7 +782,7 @@ pick them up when Italian is next on deck.
    single-chunk fix already captures the correct POS and verb
    lemma, which is the most important signal downstream.
 
-3. **Dative clitic stack `-glie-` compounds** —
+3. **Dative clitic stack `-glie-` compounds**,
    **RESOLVED via Defect 9 reconciler.** Probed
    `digliela`, `dagliela`, `portagliela`, `prendigliela` on
    Stanza handles three of four correctly (head
@@ -814,7 +814,7 @@ pick them up when Italian is next on deck.
 6. **Long-tail Defect 6 verbs / non-verbs.** The Defect 6
    allowlist now covers `parla` + 8 non-verb mis-splits
    (`arancione`, `piccolo`, `gomitolo`, `divano`, `pallone`,
-   `bastone`, `cappello`, `difficile`) — the last four added
+   `bastone`, `cappello`, `difficile`), the last four added
    via CHILDES-ita corpus scan + direct Stanza probe
    (244 combined occurrences). Other Italian verbs with
    clitic-shaped stem endings (e.g. `canta` → `cant + a`?,
@@ -829,8 +829,8 @@ pick them up when Italian is next on deck.
    re-evaluated when Stanza is upgraded. Manual workflow: empty
    the three allowlists in `lang_it.rs`, run the reconciler-
    dependent integration tests, classify each failure as
-   **STILL NEEDED** (test fails without the reconciler — keep
-   the entry) or **RETIRE CANDIDATE** (test passes without it —
+   **STILL NEEDED** (test fails without the reconciler, keep
+   the entry) or **RETIRE CANDIDATE** (test passes without it,
    Stanza fixed the defect upstream; remove the entry).
    Restore `lang_it.rs` from `HEAD` before committing the
    selective retirements. Run this after every Stanza
@@ -853,8 +853,8 @@ and then emptied after a paired empirical audit:
 
 | Rule | What it did | Audit finding |
 |------|-------------|---------------|
-| `MwtTaggedExact("l'") → SuppressMwt` | Flip any Stanza-tagged MWT `l'` token to non-MWT | **Dormant.** Modern Stanza Italian never emits a standalone `l'` with an MWT hint — the 15-case probe showed identical output with and without the rule. |
-| `le + i → lei` adjacent-token merge | When the aligned buffer had `le` followed by `i`, collapse them into a single `lei` token | **Harmful.** The rule corrupted legitimate adjacent CHAT words `le` (f.pl. article) and `i` (m.pl. article) — Stanza cannot reassemble a raw-text `le i` back into `lei`. Modern Stanza Italian emits `lei` as one token natively, so the merge was also redundant on its intended input. |
+| `MwtTaggedExact("l'") → SuppressMwt` | Flip any Stanza-tagged MWT `l'` token to non-MWT | **Dormant.** Modern Stanza Italian never emits a standalone `l'` with an MWT hint, the 15-case probe showed identical output with and without the rule. |
+| `le + i → lei` adjacent-token merge | When the aligned buffer had `le` followed by `i`, collapse them into a single `lei` token | **Harmful.** The rule corrupted legitimate adjacent CHAT words `le` (f.pl. article) and `i` (m.pl. article), Stanza cannot reassemble a raw-text `le i` back into `lei`. Modern Stanza Italian emits `lei` as one token natively, so the merge was also redundant on its intended input. |
 
 Both rules were dead weight or actively wrong. Both were removed in
 favor of Stanza's native MWT behavior plus the always-on
@@ -873,12 +873,12 @@ configuration.
 ## Tests
 
 * **Probe matrix cases:**
-  `batchalign/tests/investigations/_cases/italian.py` — typed
+  `batchalign/tests/investigations/_cases/italian.py`: typed
   `ProbeCase` fixtures covering `l'X`, preposition+clitic,
   `lei` variants, adjacent `le i`, and the Defect 6/7 xfails.
   **Important:** the xfails are UD-word-count observations that pin
   Stanza's POS/MWT misbehavior. They do NOT indicate `%mor`
-  injection failures — injection succeeds with junk content. See
+  injection failures, injection succeeds with junk content. See
   each case's `XfailMark.reason` for the distinction.
 * **Matrix harness:**
   `batchalign/tests/investigations/test_stanza_mwt_probe_matrix.py`
@@ -887,6 +887,6 @@ configuration.
   batchalign/tests/investigations/ -m golden`.
 ## References
 
-* [Stanza Limitations — Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds)
-* [Stanza Limitations — Defect 7](../stanza-limitations.md#defect-7-italian-sentence-initial-article-la-expanded-as-mwt-il--i)
+* [Stanza Limitations, Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds)
+* [Stanza Limitations, Defect 7](../stanza-limitations.md#defect-7-italian-sentence-initial-article-la-expanded-as-mwt-il--i)
 * [Morphotag Invariants](../../architecture/morphotag-invariants.md)

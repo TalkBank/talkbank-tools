@@ -65,9 +65,9 @@ All 3 code paths wired: batch, single-file pipeline, incremental.
 
 ### Documentation
 
-- `l2-morphotag.md` — design, architecture, Mermaid diagrams
-- `l2-morphotag-literature.md` — 11-citation literature survey
-- `l2-eval-runs/` — aggregate ungating evidence (per-pair and per-word CSVs from the evaluation suite)
+- `l2-morphotag.md`: design, architecture, Mermaid diagrams
+- `l2-morphotag-literature.md`: 11-citation literature survey
+- `l2-eval-runs/`: aggregate ungating evidence (per-pair and per-word CSVs from the evaluation suite)
 
 ### Input policy and repair tooling
 
@@ -82,11 +82,11 @@ All 3 code paths wired: batch, single-file pipeline, incremental.
 ## What's Not Done
 
 (No known open items. The phrasal-verb gap listed here previously was
-resolved — see below.)
+resolved, see below.)
 
 ## Recently Fixed
 
-### Phrasal-verb recognition — FIXED
+### Phrasal-verb recognition: FIXED
 
 Stanza returns `compound:prt` for true verb-particle constructions
 (`wake up`, `give up`, `figure out`), but the L2 merge algorithm used
@@ -130,17 +130,17 @@ the golden test cited below.
 
 **Test coverage.**
 
-- `crates/batchalign/src/chat_ops/morphosyntax_ops/l2/tests.rs` — four unit
+- `crates/batchalign/src/chat_ops/morphosyntax_ops/l2/tests.rs`: four unit
   tests exercising each merge branch (particle promotion, head
   promotion, non-phrasal ADP regression, non-VERB secondary safety).
 - `crates/batchalign/tests/ml_golden/morphotag/golden_l2.rs::golden_l2_morphotag_phrasal_verbs`
-  — end-to-end ML golden test on `wake up` / `give up` / `pick up` /
+ , end-to-end ML golden test on `wake up` / `give up` / `pick up` /
   `time out`, asserting `verb|X part|up` for the first three and
   `noun|time adp|out` for the (non-phrasal) compound noun.
 
 ## Earlier Fixes
 
-### MWT Hint Preservation Regression — FIXED
+### MWT Hint Preservation Regression: FIXED
 
 A follow-up Python regression in `batchalign/inference/_tokenizer_realign.py`
 silently stripped Stanza's `(text, True)` MWT hint tuples before the Rust
@@ -153,24 +153,24 @@ despite an earlier Rust-side fix being present.
 aligner output where lengths match and no merging happened. Applies to every
 language in `MWT_LANGS`.
 
-**Evidence — 4 L2 ML-golden tests all pass:**
+**Evidence, 4 L2 ML-golden tests all pass:**
 
-- `golden_l2_morphotag_eng_contractions` — `it's@s:eng` → `pron|it~aux|be`,
+- `golden_l2_morphotag_eng_contractions`: `it's@s:eng` → `pron|it~aux|be`,
   `don't@s:eng` → `aux|do~part|not`
-- `golden_l2_morphotag_eng_spa` — Spanish-English code-switching, ~90%
+- `golden_l2_morphotag_eng_spa`: Spanish-English code-switching, ~90%
   acceptable
-- `golden_l2_morphotag_deu_eng` — German-English, ~95% acceptable
-- `golden_l2_morphotag_off_produces_l2_xxx` — flag-off regression guard
+- `golden_l2_morphotag_deu_eng`: German-English, ~95% acceptable
+- `golden_l2_morphotag_off_produces_l2_xxx`: flag-off regression guard
 
 The prior "MWT blocker" note in this document is LIFTED.
 
 ### Interaction with the English grammatical-invariant rewrite
 
 A new Rust rewrite rule (see
-[Stanza Limitations — Defect 1](stanza-limitations.md)) runs on the
+[Stanza Limitations, Defect 1](stanza-limitations.md)) runs on the
 **primary** English UD analysis to fix Stanza's
 copula-vs-possessive failure (`the sink's overflowing`). L2
-extraction operates on the ORIGINAL `ud_responses` — captured at
+extraction operates on the ORIGINAL `ud_responses`: captured at
 `crates/batchalign/src/pipeline/morphosyntax.rs:387` (assignment),
 then read by `l2::extract_l2_deferred_positions` at `:411` before
 `std::mem::take(&mut ctx.ud_responses)` at `:426`, with L2 splice
@@ -180,7 +180,7 @@ The two features are decoupled by design.
 
 ## Earlier Fixes (MWT contraction)
 
-### MWT Contraction Expansion — FIXED
+### MWT Contraction Expansion: FIXED
 
 English contractions (`it's@s`, `don't@s`) now get proper clitic
 morphology: `pron|it~aux|be`, `aux|do~part|not`.
@@ -204,7 +204,7 @@ flipped `retokenize=false` to `true` in the L2 secondary dispatch
 **Golden test:** `golden_l2_morphotag_eng_contractions` verifies
 `it's@s:eng` → `pron|it~aux|be` and `don't@s:eng` → `aux|do~part|not`.
 
-### Primary `--retokenize` for non-CJK — FIXED
+### Primary `--retokenize` for non-CJK: FIXED
 
 The `--retokenize` flag now works for English (and all MWT languages).
 `golden_morphotag_retokenize_eng` shows expanded output matching BA2:

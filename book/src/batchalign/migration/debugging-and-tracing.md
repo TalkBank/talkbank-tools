@@ -10,7 +10,7 @@ Batchalign2 (baseline commit `84ad500b`) had no structured debugging infrastruct
 - **Tiered `-v` console logging** (~30 scattered `L.info()` /
   `baL.info()` calls, ~15 raw `print()` statements) via Python's
   `logging` module and Rich console formatting
-- **Ephemeral console-only output** — no filesystem dumps, no structured traces,
+- **Ephemeral console-only output**: no filesystem dumps, no structured traces,
   no per-stage instrumentation, no debug env vars, no timing breakdowns, no metrics
 - Debugging meant: run with `-vvv`, read console, manually inspect I/O files
 
@@ -68,7 +68,7 @@ debug-dir/
 ### Tier 2b: Always-On Error Logging
 
 Even without `--debug-dir`, certain failure modes automatically log diagnostic
-data at `WARN` level — zero cost in the happy path:
+data at `WARN` level, zero cost in the happy path:
 
 | Failure | What is logged |
 |---------|---------------|
@@ -128,7 +128,7 @@ The flag is honored only for audio tasks that have a cache:
 `utr_asr` and `forced_alignment`. Text-NLP tasks
 (`morphosyntax`, `utterance_segmentation`, `translation`) are
 accepted on the CLI for forward compatibility but are no-ops
-because BA3 does not cache text-NLP results — each run recomputes
+because BA3 does not cache text-NLP results, each run recomputes
 from scratch.
 
 The existing `--override-media-cache` flag continues to skip every

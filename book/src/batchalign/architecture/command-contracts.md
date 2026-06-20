@@ -45,7 +45,7 @@ Representative failure modes that motivated this contract:
 3. No command validates that the parts of the file it *reads* are structurally sound
    before investing compute.
 
-The fix: each command should validate exactly what it needs — no more, no less.
+The fix: each command should validate exactly what it needs, no more, no less.
 
 ---
 
@@ -105,7 +105,7 @@ This is the ideal state, but no command requires it as a precondition.
 
 ## Command Contracts
 
-### `morphotag` — Morphosyntactic Analysis
+### `morphotag`: Morphosyntactic Analysis
 
 **Input:** CHAT file with main tier utterances
 
@@ -125,7 +125,7 @@ This is the ideal state, but no command requires it as a precondition.
 
 The main tier must be fully parseable with valid word structure. Invalid words
 (e.g., malformed compound markers) produce garbage NLP input. Existing `%mor`
-and `%gra` tiers may be absent or invalid — they will be replaced.
+and `%gra` tiers may be absent or invalid, they will be replaced.
 
 **What may be invalid in the input:**
 - `%mor`, `%gra` tiers (will be overwritten)
@@ -152,7 +152,7 @@ and `%gra` tiers may be absent or invalid — they will be replaced.
 
 ---
 
-### `utseg` — Utterance Segmentation
+### `utseg`: Utterance Segmentation
 
 **Input:** CHAT file with main tier utterances (typically a single long utterance
 per speaker turn from ASR output)
@@ -191,13 +191,13 @@ dependent tiers are dropped during splitting, their validity is irrelevant.
 - Utterance order is preserved (splits are in-place)
 
 **Caveats:**
-- Splitting destroys dependent tiers — `utseg` should typically be run
+- Splitting destroys dependent tiers, `utseg` should typically be run
   *before* `morphotag` and `align`, not after
 - Original terminators on split utterances are replaced with period (`.`)
 
 ---
 
-### `translate` — Translation
+### `translate`: Translation
 
 **Input:** CHAT file with main tier utterances
 
@@ -230,7 +230,7 @@ critical since words are joined into a plain text string for the translation API
 
 ---
 
-### `coref` — Coreference Resolution
+### `coref`: Coreference Resolution
 
 **Input:** CHAT file with main tier utterances (English only)
 
@@ -239,7 +239,7 @@ critical since words are joined into a plain text string for the translation API
 - `@Languages` header (English-only gate)
 
 **Writes:**
-- `%xcoref` tier: bracket-notation coreference annotations (sparse — only
+- `%xcoref` tier: bracket-notation coreference annotations (sparse, only
   utterances with actual chains)
 - Replaces existing `%xcoref` if present
 
@@ -262,7 +262,7 @@ Only needs parseable main tier text. Non-English files pass through unchanged.
 
 ---
 
-### `align` — Forced Alignment
+### `align`: Forced Alignment
 
 **Input:** CHAT file with main tier utterances + corresponding audio file
 
@@ -316,7 +316,7 @@ present (they're used for audio window grouping).
 
 ---
 
-### `transcribe` — ASR Transcription
+### `transcribe`: ASR Transcription
 
 **Input:** Audio file (NOT a CHAT file)
 
@@ -345,7 +345,7 @@ present (they're used for audio window grouping).
 
 ---
 
-### `benchmark` — ASR Evaluation
+### `benchmark`: ASR Evaluation
 
 **Input:** Audio file (NOT a CHAT file)
 
@@ -353,7 +353,7 @@ Same contract as `transcribe` plus evaluation metrics output.
 
 ---
 
-### `opensmile` — Audio Feature Extraction
+### `opensmile`: Audio Feature Extraction
 
 **Input:** Audio file
 
@@ -364,7 +364,7 @@ No CHAT contract applies.
 
 ---
 
-### `avqi` — Acoustic Voice Quality Index
+### `avqi`: Acoustic Voice Quality Index
 
 **Input:** Paired `.cs`/`.sv` audio files
 
@@ -422,7 +422,7 @@ When a file fails pre-validation:
 
 ### Lenient vs Strict Parsing
 
-We keep `parse_lenient()` as the parsing mode — it provides better error
+We keep `parse_lenient()` as the parsing mode, it provides better error
 recovery and diagnostics than `parse_strict()` (which just fails on first
 error). The pre-validation gate inspects the parse errors and the resulting
 AST to determine if the file meets the command's minimum validity level.
@@ -459,7 +459,7 @@ input file unchanged (do not write corrupt output).
 ## Appendix: What Each Command Preserves
 
 A command's **preservation set** is every part of the CHAT file it does not
-modify. The pre-validation gate does NOT check the preservation set — those
+modify. The pre-validation gate does NOT check the preservation set, those
 parts can be invalid without affecting the command's operation.
 
 | Command | Preservation Set |

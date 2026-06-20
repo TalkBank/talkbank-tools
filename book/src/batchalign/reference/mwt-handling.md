@@ -54,8 +54,8 @@ processor still runs, but because "don't" was never split by the
 tokenizer, MWT sees it as atomic and does not expand it.
 
 **`tokenize_no_ssplit=True`** (Python master, now our approach):
-Stanza's neural tokenizer runs — it splits text into tokens, including
-splitting contractions ("don't" -> "do" + "n't") — but does not insert
+Stanza's neural tokenizer runs, it splits text into tokens, including
+splitting contractions ("don't" -> "do" + "n't"), but does not insert
 sentence boundaries.  The MWT processor then annotates these splits
 with range IDs (`id: [2, 3]`).
 
@@ -131,7 +131,7 @@ are distinct:
   Contains POS category, lemma, and features.  One `Mor` per original
   CHAT word (with MWT components joined as clitics via `~`/`$`).
 
-The Rust compiler enforces this separation — there is no function that
+The Rust compiler enforces this separation, there is no function that
 converts a `UdWord` into a `Word`.  Even if Stanza splits "ice-cream"
 into three tokens, the result is a single `Mor` node assigned to the
 original "ice-cream" `Word`.
@@ -174,7 +174,7 @@ The `inference/_tokenizer_realign.py` module implements a `tokenize_postprocesso
 callback that Stanza calls after tokenization but before POS tagging.
 
 The key insight: **Stanza's tokenizer only re-splits the same characters
-— it never reorders, adds, or removes characters.**  This means:
+, it never reorders, adds, or removes characters.**  This means:
 
 ```text
 concat(stanza_tokens, no_spaces) == concat(original_words, no_spaces)
@@ -231,7 +231,7 @@ Current batchalign3 does not use that approach for retokenization:
 | Property | DP Alignment (old) | Character-Position Map (current) |
 |----------|----------------------|------------------------------|
 | Complexity | O(n*m) with Hirschberg optimization | O(n) linear scan |
-| Ambiguity | Equal-cost alignments broken arbitrarily | Deterministic — each character has exactly one position |
+| Ambiguity | Equal-cost alignments broken arbitrarily | Deterministic, each character has exactly one position |
 | Normalization | Accepts mismatches as edit operations | Rejects immediately on any character difference |
 | Failure mode | May return wrong alignment silently | Returns tokens unchanged (safe fallback) |
 
@@ -253,7 +253,7 @@ no merging happened, so the hint survives realignment and Stanza's
 MWT processor continues to honor it. Applies to every language for
 which `should_request_mwt()` returns `True` in
 `batchalign/worker/_stanza_loading.py`. See
-[Stanza Limitations — Defect 2](stanza-limitations.md) for the full
+[Stanza Limitations, Defect 2](stanza-limitations.md) for the full
 trace and re-evaluation criteria.
 
 Stanza's MWT processor then annotates these with Range markers
@@ -330,7 +330,7 @@ contractions.  For `Claus'`, it produces two MWT components
 | Stage | Python Master | Our Approach |
 |-------|---------------|--------------|
 | Stanza output | `Claus'` MWT → `[Claus, ']` | Same |
-| Postprocessor | `("Claus'", True)` — English+apostrophe → allow MWT | Same (`_is_contraction` returns True) |
+| Postprocessor | `("Claus'", True)`: English+apostrophe → allow MWT | Same (`_is_contraction` returns True) |
 | %mor result | `propn\|Claus~punct\|'` | `propn\|Claus~punct\|'` |
 | CHAT validity | Valid | Valid |
 
@@ -349,7 +349,7 @@ future regressions (regression test
 | Stage | Python Master | Our Approach |
 |-------|---------------|--------------|
 | Stanza output | "cafe" (accent stripped) | Same |
-| Postprocessor | DP accepts mismatch as edit operation | **Bail out** — chars don't match |
+| Postprocessor | DP accepts mismatch as edit operation | **Bail out**: chars don't match |
 | %mor result | Based on "cafe" (wrong lemma) | Based on "cafe" (Stanza's analysis, not merged) |
 | Main tier | Retokenize: "cafe" leaks in | Always original "café" |
 
@@ -358,7 +358,7 @@ future regressions (regression test
 | Stage | Python Master | Our Approach |
 |-------|---------------|--------------|
 | Stanza output | Possibly NFD-decomposed (6 chars vs 5) | Same |
-| Postprocessor | DP: char count mismatch, Extra result | **Bail out** — char sequences differ |
+| Postprocessor | DP: char count mismatch, Extra result | **Bail out**: char sequences differ |
 | Main tier | Undefined behavior (breakpoint in dev) | Always original NFC form |
 
 ---
@@ -369,12 +369,12 @@ Morphosyntax processing has two distinct layers, each handling a different
 problem.  They use different languages because they interface with different
 systems.
 
-### Layer 1 — Python: Stanza Tokenizer Callback
+### Layer 1: Python: Stanza Tokenizer Callback
 
 **File**: `inference/_tokenizer_realign.py`
 **Runs**: Inside `stanza.Pipeline.__call__()`, between the neural tokenizer and
 the MWT/POS/depparse models.
-**Language**: Python — Stanza's `tokenize_postprocessor` API requires a Python
+**Language**: Python, Stanza's `tokenize_postprocessor` API requires a Python
 callable.  This cannot be implemented in Rust because Stanza is a Python/PyTorch
 library; it doesn't expose C FFI or any other non-Python hook.
 
@@ -398,21 +398,21 @@ def _is_contraction(text: str, alpha2: str) -> bool:
     return True
 ```
 
-The rule is tiny (4 lines) because the logic is simple — it's just a knob on
+The rule is tiny (4 lines) because the logic is simple, it's just a knob on
 the neural MWT model, not a grammar.
 
-### Layer 2 — Rust: UD → %mor/%gra Conversion
+### Layer 2: Rust: UD → %mor/%gra Conversion
 
 **Primary module**: `crates/batchalign-transform/src/morphosyntax/`: orchestrates the
 full UD-to-CHAT mapping pipeline. Core components:
-- `sentence_mapping.rs` — maps UD sentences to CHAT structure
-- `injection.rs` — injects mapped results into transcripts
-- `synthesis/` — synthesizes final `%mor` and `%gra` output
-- `lang_en.rs`, `lang_fr.rs`, `lang_ja.rs` — language-specific mapping rules
-- `mapping_helpers.rs` — common mapping utilities
+- `sentence_mapping.rs`: maps UD sentences to CHAT structure
+- `injection.rs`: injects mapped results into transcripts
+- `synthesis/`: synthesizes final `%mor` and `%gra` output
+- `lang_en.rs`, `lang_fr.rs`, `lang_ja.rs`: language-specific mapping rules
+- `mapping_helpers.rs`: common mapping utilities
 
 **Runs**: After Stanza has produced POS tags, lemmas, and dependency relations.
-**Language**: Rust — this layer has no Python dependency.  It reads Stanza's JSON
+**Language**: Rust, this layer has no Python dependency.  It reads Stanza's JSON
 output (a `Vec<UdWord>`) and produces `%mor/%gra` strings.
 
 **Responsibility**: All the substantive language-specific work:
@@ -453,7 +453,7 @@ UdWord JSON (Stanza's output)
 
 The Python callback (Layer 1) sits inside the Stanza call because that is the
 only point where we can influence tokenization.  Once Stanza has produced its
-UD output, the Python layer is done — Rust takes over for all language-specific
+UD output, the Python layer is done, Rust takes over for all language-specific
 morphosyntax generation.
 
 **Rule of thumb**: If the decision affects *what tokens Stanza sees*, it belongs
@@ -484,19 +484,19 @@ Input:   *CHI: I don't know .
 
 ## Code References
 
-### Layer 1 — Python (Stanza Tokenizer Callback)
+### Layer 1: Python (Stanza Tokenizer Callback)
 
 | Component | File | Description |
 |-----------|------|-------------|
-| MWT eligibility | `batchalign/worker/_stanza_loading.py:40` | `should_request_mwt(alpha2, capability_table)` — capability-driven, replaces the deleted `MWT_LANGS` static |
+| MWT eligibility | `batchalign/worker/_stanza_loading.py:40` | `should_request_mwt(alpha2, capability_table)`: capability-driven, replaces the deleted `MWT_LANGS` static |
 | Stanza capability table | `batchalign/worker/_stanza_capabilities.py` | Cached snapshot of `stanza.resources.common.load_resources_json()`; `_ISO3_OVERRIDES` at `:50` handles Stanza-specific iso3 cases |
-| Stanza config builder | `batchalign/worker/_stanza_loading.py:126` | `load_stanza_models()` — chooses tokenizer mode, wires postprocessor |
-| MWT contraction rule | `batchalign/inference/_tokenizer_realign.py:120` | `_is_contraction()` — English+apostrophe → True (replicates BA2 `ud.py:680-685`) |
-| Tokenizer realignment | `batchalign/inference/_tokenizer_realign.py:148` | `_realign_sentence()` — character-position merging; merged tokens get `(text, bool)` tuples |
-| Postprocessor factory | `batchalign/inference/_tokenizer_realign.py:67` | `make_tokenizer_postprocessor()` — creates the Stanza callback; captures `alpha2` in closure |
-| Batch callback | `batchalign/inference/morphosyntax.py:201` | `batch_infer_morphosyntax()` — sets/clears `TokenizerContext.original_words` |
+| Stanza config builder | `batchalign/worker/_stanza_loading.py:126` | `load_stanza_models()`: chooses tokenizer mode, wires postprocessor |
+| MWT contraction rule | `batchalign/inference/_tokenizer_realign.py:120` | `_is_contraction()`: English+apostrophe → True (replicates BA2 `ud.py:680-685`) |
+| Tokenizer realignment | `batchalign/inference/_tokenizer_realign.py:148` | `_realign_sentence()`: character-position merging; merged tokens get `(text, bool)` tuples |
+| Postprocessor factory | `batchalign/inference/_tokenizer_realign.py:67` | `make_tokenizer_postprocessor()`: creates the Stanza callback; captures `alpha2` in closure |
+| Batch callback | `batchalign/inference/morphosyntax.py:201` | `batch_infer_morphosyntax()`: sets/clears `TokenizerContext.original_words` |
 
-### Layer 2 — Rust (UD → %mor/%gra)
+### Layer 2: Rust (UD → %mor/%gra)
 
 All paths below are under `crates/batchalign-transform/src/morphosyntax/`.
 

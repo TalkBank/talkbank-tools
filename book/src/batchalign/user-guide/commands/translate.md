@@ -4,17 +4,17 @@
 **Last updated:** 2026-05-27 11:12 EDT
 
 Add English translations to non-English CHAT transcripts by injecting a
-`%xtra` tier after each utterance. Text-only — no audio involved.
+`%xtra` tier after each utterance. Text-only, no audio involved.
 
 ## Engine
 
 Five backends are available:
 
-- **Google Translate** (`googletrans`) — calls the public Google Translate
+- **Google Translate** (`googletrans`), calls the public Google Translate
   endpoint. Requires outbound reachability to `translate.google.com`;
   unsuitable for hosts behind the Great Firewall unless a VPN is active.
   Rate-limited to one item per 1.5 seconds inside the worker. **Default.**
-- **Tencent Cloud TMT** (`tencent`) — China-friendly cloud API. Strong
+- **Tencent Cloud TMT** (`tencent`), China-friendly cloud API. Strong
   quality on Mandarin (`zh→en`); produces correct "Hello world" for
   `你好世界` where NLLB renders it "Good day". **Does NOT support
   Cantonese** (`yue→en`); route Cantonese through `aliyun` (cloud) or
@@ -25,9 +25,9 @@ Five backends are available:
   environment variables that the Rust control plane uses to inject
   fleet-managed credentials. Free tier: 5M characters/month;
   throttled to 5 QPS in-worker (0.2 s/item).
-- **Aliyun Machine Translation** (`aliyun`) — China-friendly cloud API
+- **Aliyun Machine Translation** (`aliyun`), China-friendly cloud API
   via Alibaba Cloud's `alimt` General service. **Supports Cantonese
-  (`yue→en`)** — the canonical cloud option for HK material, where
+  (`yue→en`)**: the canonical cloud option for HK material, where
   Tencent TMT does not list Cantonese as a source language. Requires
   Aliyun access-key credentials in `~/.batchalign.ini` `[asr]` section
   (`engine.aliyun.ak_id` / `ak_secret`, shared with the Aliyun ASR
@@ -35,13 +35,13 @@ Five backends are available:
   variables. Region is pinned to `cn-hangzhou` (Aliyun MT exposes one
   global endpoint at `mt.aliyuncs.com`, so the region only affects
   request signing). Quotas and pricing per Aliyun MT service terms.
-- **Meta NLLB-200-distilled-1.3B** (`nllb`) — runs locally in the Python
+- **Meta NLLB-200-distilled-1.3B** (`nllb`), runs locally in the Python
   worker. Model downloaded from HuggingFace on first use (~5 GB) and
   cached thereafter; no outbound network at inference time. **Best
-  self-hosted fallback** — handles Cantonese first-class; for Mandarin
+  self-hosted fallback**: handles Cantonese first-class; for Mandarin
   short greetings prefer `tencent`. Long-form CJK is excellent. Runs
   unthrottled.
-- **Meta SeamlessM4T** (`seamless`) — runs locally in the Python worker.
+- **Meta SeamlessM4T** (`seamless`), runs locally in the Python worker.
   BA2-inherited fallback. Empirical 2026-05-23 comparison found
   short-CJK quality is poor and the model hallucinates on empty inputs;
   **prefer `nllb` or `tencent` for new work.** Retained for back-compat.
@@ -52,7 +52,7 @@ unreachable pass `--translate-engine tencent` (best Mandarin),
 `--translate-engine aliyun` (Cantonese-capable cloud option), or
 `--translate-engine nllb` (self-hosted, handles Cantonese, no cloud
 account required) explicitly per invocation (a shell alias is the right
-place to make that persistent for a given user) — there is no per-host
+place to make that persistent for a given user), there is no per-host
 config file knob for engine selection, by design.
 
 For symmetry with how ASR and FA engines are selected, the shared
@@ -155,12 +155,12 @@ partial output. When the worker reports a per-utterance error (engine
 network failure, GFW block on Google, rate-limit exhaustion, model
 runtime error), the affected file is marked failed with a typed
 `ItemErrors` message naming the first few offending items and the
-total count. Other files in the same batch continue normally — one
+total count. Other files in the same batch continue normally, one
 bad file does not poison the rest (BA2-parity multi-file semantics).
 
 The output `.cha` for a failed file is **not** written. There is no
 silent path where a job appears successful but produced a `.cha`
-with missing `%xtra` tiers — if a tier is missing, the job result
+with missing `%xtra` tiers, if a tier is missing, the job result
 will say so.
 
 ### Common cases
@@ -189,5 +189,5 @@ will say so.
 
 ## Related documentation
 
-- [Command I/O: translate](../../reference/command-io.md#6-translate) — I/O patterns and mutation behavior
-- [Command Flowcharts: translate](../../architecture/command-flowcharts.md#translate) — full architecture flowchart
+- [Command I/O: translate](../../reference/command-io.md#6-translate), I/O patterns and mutation behavior
+- [Command Flowcharts: translate](../../architecture/command-flowcharts.md#translate), full architecture flowchart

@@ -71,7 +71,7 @@ the `DebugDumper` writes detailed pipeline artifacts:
 | `{stem}_asr_response.json` | Transcribe | Raw ASR output | `dump_asr_response` |
 | `{stem}_post_asr.cha` | Transcribe | CHAT after ASR assembly | `dump_post_asr_chat` |
 
-These are **zero-cost when disabled** — `DebugDumper` methods return
+These are **zero-cost when disabled**: `DebugDumper` methods return
 immediately without allocation when constructed without a directory.
 
 ## Structured Diagnostics (`talkbank_transform::morphosyntax::stanza_raw::diagnose_parse_failure`)
@@ -97,7 +97,7 @@ Checks performed:
 - **Missing required fields:** `text`, `lemma`, `upos`, `deprel`
 - **Null values:** Stanza can emit `"lemma": null` when a processor fails
 - **MWT Range tokens:** `id: [start, end]` tokens are expected to lack
-  annotation fields — the diagnostics skip lemma checks for these
+  annotation fields, the diagnostics skip lemma checks for these
 - **`<pad>` sentinels:** Stanza emits `"deprel": "<pad>"` for padding tokens
 - **Type mismatches:** `id` as unexpected type, string fields as non-string
 
@@ -149,7 +149,7 @@ This is the foundation for the planned `batchalign3 replay` tool.
 Because dumps accumulate in `~/.batchalign3/debug/`, an AI can scan all
 failure dumps to identify patterns:
 - "All failures are on `fra` language items with word `au`"
-- "All failures have keys `[end_char, id, start_char, text]` — MWT range tokens"
+- "All failures have keys `[end_char, id, start_char, text]`: MWT range tokens"
 - "Failures only occur in batches >50 items"
 
 ## Auto-Fix Potential
@@ -176,8 +176,8 @@ Based on the MWT range token issue discovered on a worker machine:
 
 | Issue | Proposed Auto-Fix | Risk |
 |-------|-------------------|------|
-| Range token missing annotation fields | Insert defaults (`upos="X"`, `deprel="dep"`, `lemma=""`) | Low — range tokens are display-only in CHAT |
-| Non-Range token missing ALL annotation fields | Default all fields from surface text | Medium — may mask a deeper Stanza misconfiguration |
+| Range token missing annotation fields | Insert defaults (`upos="X"`, `deprel="dep"`, `lemma=""`) | Low, range tokens are display-only in CHAT |
+| Non-Range token missing ALL annotation fields | Default all fields from surface text | Medium, may mask a deeper Stanza misconfiguration |
 
 ### What Should NOT Be Auto-Fixed
 

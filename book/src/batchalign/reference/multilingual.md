@@ -47,8 +47,8 @@ Batchalign does not currently promise:
 
 ## Related references
 
-- [Language-Specific Processing](language-specific-processing.md) — how each pipeline stage diverges per language
-- [Language Code Resolution](language-code-resolution.md) — ISO mapping, model resolution
-- [Language Routing](../../architecture/language-and-multilingual/language-routing.md) — per-utterance routing into Stanza, per-word routing limits, auto-detection
+- [Language-Specific Processing](language-specific-processing.md), how each pipeline stage diverges per language
+- [Language Code Resolution](language-code-resolution.md), ISO mapping, model resolution
+- [Language Routing](../../architecture/language-and-multilingual/language-routing.md), per-utterance routing into Stanza, per-word routing limits, auto-detection
 - [Language Data Model](language-handling.md)
 - [L2 & Language Switching](l2-handling.md)

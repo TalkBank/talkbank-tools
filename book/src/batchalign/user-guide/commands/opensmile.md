@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-02 07:30 EDT
 
 Extract acoustic features from audio files using openSMILE. Produces
-`.opensmile.csv` output — **not CHAT**. This is the only processing command
+`.opensmile.csv` output, **not CHAT**. This is the only processing command
 that does not produce `.cha` output.
 
 Uses positional `INPUT_DIR OUTPUT_DIR` arguments (not the shared
@@ -80,5 +80,5 @@ BA2's transposed feature-per-row export.
 
 ## Related documentation
 
-- [Command I/O: opensmile](../../reference/command-io.md#10-opensmile) — I/O patterns
-- [Command Flowcharts: opensmile](../../architecture/command-flowcharts.md#opensmile) — full architecture flowchart
+- [Command I/O: opensmile](../../reference/command-io.md#10-opensmile), I/O patterns
+- [Command Flowcharts: opensmile](../../architecture/command-flowcharts.md#opensmile), full architecture flowchart

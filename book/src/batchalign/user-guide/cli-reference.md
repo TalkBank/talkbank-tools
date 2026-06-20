@@ -33,7 +33,7 @@ Global options go before the command name.
 | `--timeout SECONDS` | Inference timeout for audio tasks (default: 1800 = 30 min) |
 | `--tui` / `--no-tui` | Toggle full-screen TUI for server-backed jobs (`DirectHost` local runs stay on terminal progress bars) |
 | `--open-dashboard` / `--no-open-dashboard` | Toggle browser auto-open for submitted server job pages (macOS only, interactive TTY only) |
-| `--engine-overrides JSON` | Select built-in alternative engines via a `{string:string}` JSON object. The recognized keys are `asr`, `fa`, and `translate` (engine names). Per-engine extra parameters are also accepted — e.g. `{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B","qwen_device":"cpu"}` — and forwarded to the worker. Unknown engine *names* still error loudly (so a typo like `"wisper"` is caught), but unknown *extras* keys flow through as opaque per-engine knobs. Invalid JSON is rejected. |
+| `--engine-overrides JSON` | Select built-in alternative engines via a `{string:string}` JSON object. The recognized keys are `asr`, `fa`, and `translate` (engine names). Per-engine extra parameters are also accepted, e.g. `{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B","qwen_device":"cpu"}`: and forwarded to the worker. Unknown engine *names* still error loudly (so a typo like `"wisper"` is caught), but unknown *extras* keys flow through as opaque per-engine knobs. Invalid JSON is rejected. |
 | `--sequential` | Process files one at a time with a single worker. No memory gate, no server. Ideal for small jobs on laptops |
 | `--no-server` | Skip auto-detection of a local server; force direct in-process execution |
 
@@ -43,7 +43,7 @@ remove them.
 
 ## Sequential mode
 
-`--sequential` gives you the simplest possible execution path — similar to
+`--sequential` gives you the simplest possible execution path, similar to
 batchalign2's direct mode. One worker per task type, files processed one at a
 time, no concurrency infrastructure:
 
@@ -63,8 +63,8 @@ batchalign3 morphotag corpus/ -o output/ --sequential
 - Environments where memory auto-tuning is unwanted
 
 **When NOT to use it:**
-- Large corpus runs (50+ files) — the default parallel mode is 3-5× faster
-- Fleet machines with warm workers — use the server instead
+- Large corpus runs (50+ files), the default parallel mode is 3-5× faster
+- Fleet machines with warm workers, use the server instead
 
 `--sequential` is incompatible with `--server` (mutually exclusive).
 
@@ -130,7 +130,7 @@ chunked files (e.g. with `split -l 10 my-list.txt batch-`) and run
 `batchalign3 align --file-list <chunk>` on each chunk sequentially.
 
 `--file-list` is mutually exclusive with positional `PATHS` arguments. It
-does not accept a separate `-o/--output` directory — each path in the list
+does not accept a separate `-o/--output` directory, each path in the list
 is processed in-place (output overwrites input).
 
 For batched text-NLP commands (`morphotag`, `utseg`, `translate`, `coref`),
@@ -241,7 +241,7 @@ inspects the local job artifact directory for post-failure debugging.
 Pass `--json` for machine-readable output.
 
 The `cancellations` subcommand prints the cancellation audit history
-for a single job — every cancel attempt is recorded with `source`
+for a single job, every cancel attempt is recorded with `source`
 (tui / api / dashboard / staging / signal), `host`, `pid`, `reason`,
 and `in_flight_filename`. Use this when a user reports "I didn't
 cancel that job."

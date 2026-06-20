@@ -4,14 +4,14 @@
 **Last updated:** 2026-05-23 09:20 EDT
 
 Re-segment utterance boundaries in an existing CHAT transcript. Text-only
-— no audio involved. The model selected per language is either a trained
+, no audio involved. The model selected per language is either a trained
 BERT per-word boundary classifier (eng / cmn,zho / yue) or, for other
 languages, Stanza constituency parsing where it is available.
 
 `transcribe` already runs this same step at the end of every run
 (`with_utseg = true` is the default in the transcribe pipeline). The
-standalone `utseg` command is for already-existing corpora — files
-transcribed elsewhere, hand-typed transcripts, or older BA2 output —
+standalone `utseg` command is for already-existing corpora, files
+transcribed elsewhere, hand-typed transcripts, or older BA2 output,
 where utterances run on into long blobs and need to be split.
 
 ---
@@ -33,7 +33,7 @@ batchalign3 --server http://your-server:8001 utseg corpus/ -o out/ --lang eng
 
 ## Pipeline
 
-Each file is dispatched on its own — `dispatch_utseg_job` in
+Each file is dispatched on its own, `dispatch_utseg_job` in
 `crates/batchalign/src/execution/utseg.rs` calls
 `gateway.utseg_batch(&[one_file], lang)` per file and writes that
 file's result to disk before starting the next. (This replaced an
@@ -73,7 +73,7 @@ flowchart TD
 In-place rewrites with `--file-list` on a large corpus do appear
 file-by-file as the run progresses (each file is written to disk
 before the next file's worker call starts). This is a deliberate
-property of the per-file dispatch shape — interruption mid-run loses
+property of the per-file dispatch shape, interruption mid-run loses
 only the files currently in flight, not the entire batch. Splitting
 the file list into smaller chunks is therefore unnecessary for
 incremental visibility, though it remains useful for managing memory
@@ -91,7 +91,7 @@ or scheduling.
 
 ## What changes in the `.cha` file
 
-- Utterance boundaries (`*SPK:` lines) are recomputed — utterances may be
+- Utterance boundaries (`*SPK:` lines) are recomputed, utterances may be
   split or merged
 - Existing `%mor` and `%gra` tiers on recomputed utterances will be
   invalidated; re-run `morphotag` after `utseg` if those tiers are needed
@@ -111,7 +111,7 @@ Per-language model selection is driven by `_RESOLVER["utterance"]` in
 | `yue` (Cantonese) | `PolyU-AngelChanLab/Cantonese-Utterance-Segmentation` (BERT) | PolyU AngelChanLab |
 | any other language | refused by default; opt in via `--utseg-fallback-stanza` | Stanza |
 
-The English BERT is **not** applied cross-lingually — running `utseg
+The English BERT is **not** applied cross-lingually, running `utseg
 --lang fra` does not load `CHATUtterance-en`. For any language without
 a TalkBank BERT model in the table above, `utseg` refuses the
 substitution by default and the file passes through unchanged. To
@@ -123,7 +123,7 @@ segmenter Batchalign 2 used for unsupported languages), pass
 batchalign3 utseg corpus-fra/ --lang fra --utseg-fallback-stanza
 ```
 
-Quality varies — Stanza ships constituency models for ~11 languages
+Quality varies, Stanza ships constituency models for ~11 languages
 (en, de, es, it, pt, da, id, ja, tr, vi, zh-hans). The opt-in design
 prevents accidental quality regressions on unsupported languages.
 
@@ -150,7 +150,7 @@ for a failed file is **not** written.
 
 ## Related documentation
 
-- [Utterance Segmentation](../../reference/utterance-segmentation.md) — algorithm and model details
-- [Stanza Capability Registry](../../architecture/stanza-capability-registry.md) — which languages support constituency parsing
-- [Command I/O: utseg](../../reference/command-io.md#5-utseg) — I/O patterns and mutation behavior
-- [Command Flowcharts: utseg](../../architecture/command-flowcharts.md#utseg) — full architecture flowchart
+- [Utterance Segmentation](../../reference/utterance-segmentation.md), algorithm and model details
+- [Stanza Capability Registry](../../architecture/stanza-capability-registry.md), which languages support constituency parsing
+- [Command I/O: utseg](../../reference/command-io.md#5-utseg), I/O patterns and mutation behavior
+- [Command Flowcharts: utseg](../../architecture/command-flowcharts.md#utseg), full architecture flowchart

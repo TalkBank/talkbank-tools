@@ -9,13 +9,13 @@ Visualizations for the ASR pipeline waterfall and FA timeline are
 not yet implemented.
 
 The batchalign3 dashboard includes interactive algorithm visualizations that
-show the internal workings of key algorithms — DP alignment, ASR
+show the internal workings of key algorithms, DP alignment, ASR
 post-processing, forced alignment timing, and retokenization mapping.  Each
 visualization supports two modes:
 
-- **Static mode** — educational, with editable sample data and no server
+- **Static mode**: educational, with editable sample data and no server
   required.  TypeScript ports of the Rust algorithms run locally in the browser.
-- **Live mode** — shows actual intermediate states from a completed job,
+- **Live mode**: shows actual intermediate states from a completed job,
   fetched via the `GET /jobs/{id}/traces` REST endpoint.
 
 ## Architecture
@@ -92,7 +92,7 @@ pub struct MorphosyntaxResult {
 ```
 
 `RetokenizationInfo` is emitted by `inject_results()` in
-`batchalign` whenever Stanza retokenization occurs — it captures the
+`batchalign` whenever Stanza retokenization occurs, it captures the
 original words, Stanza tokens, and the word-to-token mapping for each affected
 utterance.
 
@@ -100,7 +100,7 @@ utterance.
 
 Previous iterations passed a `debug_traces: bool` parameter through the
 orchestrator call chain and conditionally collected trace data alongside the
-main output.  This added complexity without benefit — the intermediate data
+main output.  This added complexity without benefit, the intermediate data
 (groups, timings, retokenization mappings) was already computed as part of
 normal processing.
 
@@ -119,7 +119,7 @@ reports, regression analysis).
 - **TTL:** 1 hour per entry
 - **Location:** field on `JobStore` (accessible everywhere the store is)
 - **Concurrency:** uses moka's `and_upsert_with` for per-key atomic
-  read-modify-write — concurrent FA file completions for the same job are
+  read-modify-write, concurrent FA file completions for the same job are
   serialized without blocking unrelated jobs
 
 Traces are diagnostic-only and not persisted to SQLite.
@@ -192,7 +192,7 @@ Static mode uses TypeScript ports of the Rust algorithms located in
 | `dpAlignment.ts` | `crates/batchalign-transform/src/dp_align/` | `align_small` with step-by-step emission |
 | `retokenize.ts` | `crates/batchalign-transform/src/retokenize.rs` | Word↔token mapping |
 
-These are faithful ports — same algorithm, same cost model, same edge cases —
+These are faithful ports, same algorithm, same cost model, same edge cases,
 not approximations.
 
 ### Dual-Mode Pattern
@@ -237,7 +237,7 @@ Reusable visualization components in `frontend/src/components/visualizations/`:
 |-------------|-----------------|---------------|
 | `fa.rs` | Group boundaries, pre/post timings, violations | After `parse_fa_response()` and `apply_fa_results()` |
 | `morphosyntax.rs` | Retokenization mappings per utterance | Return value of `inject_results()` |
-| `transcribe.rs` | ASR pipeline intermediate states | Wrap `process_raw_asr()` stages — not yet wired |
+| `transcribe.rs` | ASR pipeline intermediate states | Wrap `process_raw_asr()` stages, not yet wired |
 | `dp_align.rs` | Cost matrix + traceback | Optional trace output parameter |
 
 ## What ships today

@@ -15,12 +15,12 @@ existing Python implementation has several areas where the Rust rewrite improves
    strings, sends them through Stanza for NLP analysis, then uses expensive string
    alignment (O(n*m) dynamic programming) to map Stanza's output back to the original
    transcript. This "flatten → process → realign" pipeline is the source of most
-   morphotag bugs — small tokenization differences between Stanza and CHAT cause
+   morphotag bugs, small tokenization differences between Stanza and CHAT cause
    misaligned %mor/%gra tiers.
 
 2. **60+ lines of `.replace()` calls.** Python's `annotation_clean()` function strips
    CHAT annotations character-by-character to produce "clean" text for Stanza. This
-   is destructive — it loses structural information — and every new annotation type
+   is destructive, it loses structural information, and every new annotation type
    requires adding more `.replace()` calls.
 
 3. **Retokenization is a separate ~120-line code path** that operates at the character
@@ -71,7 +71,7 @@ to neural network inference.
 | DP alignment equivalence tests | ~29 | Rust alignment matches Python alignment exactly |
 | CHAT round-trip tests | ~9 | Parse → modify → serialize produces valid CHAT |
 
-### No mocks — real test doubles
+### No mocks: real test doubles
 
 Following the project's strict no-mock policy, all tests use lightweight alternate
 implementations (e.g., `FakeStanzaNLP` that returns predetermined analyses for known
@@ -88,7 +88,7 @@ Tests can verify each side independently:
 ### Round-trip verification
 
 Every test that modifies a CHAT file also verifies the output re-parses correctly.
-The Rust parser and serializer are inverses — if the parser can't read its own
+The Rust parser and serializer are inverses, if the parser can't read its own
 serializer's output, the test fails.
 
 ### Structural correctness by construction
@@ -97,10 +97,10 @@ The AST approach eliminates entire categories of bugs:
 
 | Bug Class | Python (Text) | Rust (AST) |
 |-----------|---------------|------------|
-| Retrace confusion | Regex to detect `<...> [/]` | `UtteranceContent::Retrace` — dedicated variant, structurally distinct |
-| Special form handling | String search for `@c`, `@s` | `Word.form_type` field — parsed once, always available |
+| Retrace confusion | Regex to detect `<...> [/]` | `UtteranceContent::Retrace`: dedicated variant, structurally distinct |
+| Special form handling | String search for `@c`, `@s` | `Word.form_type` field, parsed once, always available |
 | Word boundary errors | Character-level offset tracking | Words are tree nodes; boundaries are implicit |
-| Tier count mismatch | Count words in string, count mor items in string, hope they match | Traverse same tree for extraction and injection — count is always consistent |
+| Tier count mismatch | Count words in string, count mor items in string, hope they match | Traverse same tree for extraction and injection, count is always consistent |
 | Annotation stripping | `.replace()` for each character class | AST traversal selects the right nodes; annotations are never destroyed |
 
 ---
@@ -165,13 +165,13 @@ implementation and its `_process_python()` fallback have been removed. The
 
 All follow-up steps from the original decision have been completed:
 
-1. **Production testing against large corpus** — Completed. Rust pipeline validated
+1. **Production testing against large corpus**: Completed. Rust pipeline validated
    against existing annotations.
-2. **Forced alignment migration** — Completed. FA uses the same AST + callback
+2. **Forced alignment migration**: Completed. FA uses the same AST + callback
    pattern via `inference/fa.py`.
-3. **Utterance segmentation migration** — Completed. Utseg uses the same pattern
+3. **Utterance segmentation migration**: Completed. Utseg uses the same pattern
    via `inference/utseg.py`.
-4. **Python fallback removed** — The Python `morphoanalyze()` code has been removed.
+4. **Python fallback removed**: The Python `morphoanalyze()` code has been removed.
    All morphosyntax processing goes through the Rust AST path.
 
 ---

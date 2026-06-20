@@ -9,12 +9,12 @@ and known limitations.
 ## Shipped Features
 
 The following features are **live in production** as defaults. They are not
-behind experimental flags — any `batchalign3 align` run on a file with overlaps
+behind experimental flags, any `batchalign3 align` run on a file with overlaps
 uses them automatically.
 
 | Feature | Default | CLI override |
 |---------|---------|-------------|
-| Two-pass overlap UTR | **Gated** — requires `--utr-strategy two-pass` | `--utr-strategy two-pass` to enable |
+| Two-pass overlap UTR | **Gated**: requires `--utr-strategy two-pass` | `--utr-strategy two-pass` to enable |
 | Fuzzy word matching (Jaro-Winkler) | Threshold 0.85 | `--utr-fuzzy 1.0` for exact-only |
 | CA marker window narrowing | Enabled (when two-pass active) | `--utr-ca-markers disabled` |
 | Density-aware fallback | 30% threshold | `--utr-density-threshold` |
@@ -35,7 +35,7 @@ N's end to utterance N+1's start, eliminating the systematic overlap
 that UTR's independent per-utterance token range assignment can produce.
 
 **CA %wor suppression:** `@Options: CA` files automatically skip %wor
-generation — CA prosodic notation cannot be represented in %wor.
+generation, CA prosodic notation cannot be represented in %wor.
 
 ---
 
@@ -49,7 +49,7 @@ the aligner could have gotten right but didn't becomes manual labor: a human
 must listen to the audio, locate the utterance, and fix the bullet by hand.
 For overlap-heavy corpora (aphasia protocols, conversation analysis, any
 multi-party recording), this can mean hours per file.  Even a small
-improvement in coverage — 5-10% fewer untimed utterances — translates
+improvement in coverage, 5-10% fewer untimed utterances, translates
 directly into saved human effort on the last mile of correction.
 
 This makes alignment quality a high-leverage investment.  The algorithms
@@ -89,8 +89,8 @@ assumption:
 
 1. **`&*` markers** embed one speaker's words inside another's utterance,
    creating text positions that don't match audio positions.
-2. **Transcript restructuring** — splitting run-on ASR utterances, adding
-   speakers, reattributing speech — creates a word sequence that diverges
+2. **Transcript restructuring**: splitting run-on ASR utterances, adding
+   speakers, reattributing speech, creates a word sequence that diverges
    from the ASR's word sequence in ways that go beyond `&*`.
 
 In the worst documented case (2265_T4 from APROCSA), 36.5% of utterances
@@ -113,7 +113,7 @@ Key unknowns:
 - In the 2265_T4 file, only 15 of 232 untimed utterances actually contain
   `&*` markers (6.5%).  The untimed blocks are dominated by rapid
   multi-speaker turn-taking (16 speaker transitions in 23 utterances).
-  This suggests transcript restructuring — not `&*` — is the primary cause
+  This suggests transcript restructuring, not `&*`: is the primary cause
   in this file.
 
 - We do not know whether per-speaker word order matches audio order after
@@ -144,7 +144,7 @@ ASR tokens at wrong positions, and desynchronizes subsequent matches.
 
 When a reviewer splits a run-on ASR utterance into three turns, adds new
 speakers, and reattributes speech, the resulting word sequence diverges from
-what fresh ASR produces — even with `&*` words stripped.  The DP must align
+what fresh ASR produces, even with `&*` words stripped.  The DP must align
 two genuinely different word sequences (the edited transcript vs. fresh ASR),
 and the cumulative divergence across hundreds of utterances causes sync loss
 in dense regions.
@@ -303,7 +303,7 @@ struct BackboneExtraction {
 ```
 
 The content walker (`for_each_leaf` with domain `None`) already traverses
-`OverlappingSpeech` nodes.  Stripping is a read-only partition — the AST is
+`OverlappingSpeech` nodes.  Stripping is a read-only partition, the AST is
 not modified.
 
 Interpolation for stripped segments:
@@ -378,15 +378,15 @@ improvements require empirical validation before building.**
 
 The two-pass overlap strategy and fuzzy matching are already live (see
 [Shipped Features](#shipped-features) above). The
-remaining proposals below address the harder cases — dense `&*` markers
-and heavy transcript restructuring — where two-pass alone is insufficient.
+remaining proposals below address the harder cases, dense `&*` markers
+and heavy transcript restructuring, where two-pass alone is insufficient.
 
 ### Step 0: Simulation experiment (before any further code)
 
 Run the per-speaker coverage simulation on 4+ files.  This takes hours, not
 days, and tells us whether per-speaker UTR is worth the ~500-800 line
 investment.  Also characterize the 249 Fridriksson-2 files on the no-align
-list — they may have entirely different failure patterns.
+list, they may have entirely different failure patterns.
 
 ### Step 1: Backbone extraction (only if simulation shows `&*` matters)
 
@@ -402,7 +402,7 @@ the global run, build the full per-speaker UTR pipeline.  Gate behind
 ### Step 3: Fuzzing harness (regardless)
 
 Build the alignment fuzzer to generate degradation curves.  This is valuable
-independent of which approach we build — it gives us a regression test suite
+independent of which approach we build, it gives us a regression test suite
 for any future alignment changes, and it characterizes the robustness of the
 current system.  The fuzzer can be reused to validate any future algorithm
 changes.
@@ -435,7 +435,7 @@ changes.
   initial alignment quality for overlap-heavy files; both can coexist.
 
 - **Per-speaker UTR** (the unimplemented detailed plan for Approach 2):
-  backbone extraction composes with it — strip `&*` from per-speaker
+  backbone extraction composes with it, strip `&*` from per-speaker
   references.
 
 - **`align --before`:** Already implemented. Preserves timing for

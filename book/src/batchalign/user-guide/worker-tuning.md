@@ -25,7 +25,7 @@ GPU-heavy commands (`transcribe`, `align`, `benchmark`) are capped by both
 > **CPU-only machines (Apple Silicon, no CUDA):** the host-facts
 > recommendation now sets `gpu_thread_pool_size = 1` automatically
 > when no functional GPU is detected. Leave the field absent in
-> `server.yaml` (or set it to `0` — the legacy "auto" sentinel that
+> `server.yaml` (or set it to `0`: the legacy "auto" sentinel that
 > still deserializes to "no override"). The recommendation also
 > sets `force_cpu = true` on the same hosts so workers skip GPU
 > detection entirely.
@@ -69,7 +69,7 @@ assign.
    `memory_gate_mb` as host headroom, and grants the largest safe worker count.
 4. If nothing safe fits, the job is re-queued instead of speculatively running.
 
-For a single file, the server always uses 1 worker — no parallelism needed.
+For a single file, the server always uses 1 worker, no parallelism needed.
 
 If `max_workers_per_job` is set in `server.yaml`, it overrides auto-tuning
 (still capped by file count and the category max).
@@ -78,7 +78,7 @@ If `max_workers_per_job` is set in `server.yaml`, it overrides auto-tuning
 `SharedGpuWorker` process with a thread pool. While file N's ASR runs on the
 GPU, file N+1 can do post-processing, utseg, or morphosyntax on CPU. The GPU
 itself serializes inference, but pipeline stages overlap. On a machine with
-256 GB RAM, the coordinator may grant 4–8 parallel files for transcribe.
+256 GB RAM, the coordinator may grant 4-8 parallel files for transcribe.
 
 ## Worker profiles and host bootstrap mode
 
@@ -92,7 +92,7 @@ models within a single process:
 | **IO** | `translate`, `opensmile`, `avqi` | Lightweight translation and audio analysis |
 
 On large machines, this means running `align` followed by `transcribe` reuses
-the same GPU worker process — the ASR model loaded for transcription stays in
+the same GPU worker process, the ASR model loaded for transcription stays in
 memory and the FA model for alignment lives in the same process. On a 64 GB
 machine, this saves roughly 3 GB compared to loading each model in a separate
 process.
@@ -154,7 +154,7 @@ batchalign3 serve start --warmup morphotag,align  # Both morphotag and align
 `warmup_commands` still describes which commands are *eligible* for warmup.
 However, the current production startup path stays lazy by default: real worker
 warmup is normally skipped unless you are using a test-echo or test harness
-path. That matches the current resource-first architecture — small and medium
+path. That matches the current resource-first architecture, small and medium
 machines should not speculatively preload models at process start.
 
 ### server.yaml warmup key
@@ -172,12 +172,12 @@ The `--warmup` CLI flag overrides this config key.
 
 ### Background warmup
 
-When warmup is actually enabled, it runs in the background — the HTTP port binds
+When warmup is actually enabled, it runs in the background, the HTTP port binds
 immediately. While models are loading:
 
 - The `/health` endpoint reports `"warmup_status": "in_progress"`
 - Jobs that need a model still loading will wait for the warmup to finish
-  (no duplicate worker spawns — the job reuses the in-progress warmup)
+  (no duplicate worker spawns, the job reuses the in-progress warmup)
 - Once complete, `/health` reports `"warmup_status": "complete"`
 
 Warmup still fans out across commands, but each heavy worker startup must now

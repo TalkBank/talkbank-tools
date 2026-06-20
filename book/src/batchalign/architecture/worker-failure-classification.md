@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-19 21:04 EDT
 
 This chapter is the canonical contributor reference for how a Python
-worker exception becomes — or does not become — an end-user error. It
+worker exception becomes, or does not become, an end-user error. It
 covers the wire protocol, the typed error taxonomy on both sides of the
 Rust/Python seam, the classifier that decides retry behavior, and the
 user-facing message router. Add a new bootstrap-class error? Adding a
@@ -25,7 +25,7 @@ in response to two coupled defects:
    into hundreds of GB of `server.log` spam over a single day on a
    fleet host.
 
-Both fixes are different facets of the same architectural shape — what
+Both fixes are different facets of the same architectural shape, what
 the worker can fail at, how it conveys that failure across the IPC seam,
 and what the orchestrator does with it.
 
@@ -184,7 +184,7 @@ def _serve_stdio() -> None:
         _write_json(dispatch.payload)
 ```
 
-The catch is intentionally broad (`BaseException`, not `Exception`) — we
+The catch is intentionally broad (`BaseException`, not `Exception`), we
 want every exception to produce a structured error rather than a process
 exit, including ones like `KeyboardInterrupt` that would otherwise leak
 through. The price of `BaseException` is one rule for contributors:
@@ -211,13 +211,13 @@ def _classify_dispatch_exception(exc: BaseException) -> str:
 
 The lazy imports are deliberate: a missing optional dependency must not
 crash the classifier itself. If a future ML library introduces typed
-bootstrap errors, append them to the list — the `tuple(...)` dispatch
+bootstrap errors, append them to the list, the `tuple(...)` dispatch
 handles the type fan-in cleanly.
 
 ### Why does the worker exit on bootstrap errors?
 
 A worker that hit a bootstrap failure is in a partially-initialized
-state — model loaders may have allocated GPU memory, opened file
+state, model loaders may have allocated GPU memory, opened file
 handles, or established network connections that the surviving
 `_state` does not track. Continuing to serve requests after a bootstrap
 failure invites silent data corruption (e.g., a request that needed
@@ -227,7 +227,7 @@ finished loading).
 The exit is safe because the orchestrator classifies bootstrap errors
 as **non-retryable**: the pool spawns a fresh replacement worker on the
 next request, but it does NOT re-execute the failing request that just
-errored. The user gets the typed bootstrap error verbatim — no retry
+errored. The user gets the typed bootstrap error verbatim, no retry
 storm, no log explosion.
 
 For runtime errors, by contrast, the worker stays alive. A transient
@@ -248,7 +248,7 @@ loops in `_protocol.py`:
 
 Stanza/IO-profile workers use the TCP variants (one daemon, multiple
 servers connecting). They are exactly the profiles that load Stanza
-catalogs — the incident shape this whole architecture is designed to
+catalogs, the incident shape this whole architecture is designed to
 prevent originally manifested on these workers. Every loop wraps
 `dispatch_protocol_message` in a `BaseException` catch, classifies via
 `_classify_dispatch_exception`, and emits the structured error envelope.
@@ -275,16 +275,16 @@ Each variant has a documented retryability class.
 
 | Variant | Fires when | Retryable? |
 |---|---|---|
-| `SpawnFailed(String)` | The Python child process can't start (missing python, OS resource limits) | **Terminal** — same config will fail again |
-| `ReadyTimeout { timeout_s }` | Worker started but didn't emit ready signal in time | Retryable — transient stall |
-| `ReadyParseFailed(String)` | Worker emitted invalid ready signal | **Terminal** — version mismatch |
-| `HealthCheckFailed(String)` | Periodic health probe failed | Retryable — pool replaces worker |
-| `ProcessExited { code, stderr }` | Worker died unexpectedly mid-job | Retryable — but if deterministic, replacement will die too |
-| `Protocol(String)` | IPC framing or response shape was wrong | Terminal-for-this-request — protocol desync |
-| `WorkerResponse(String)` | Worker returned `{"op":"error", "kind":"runtime"}` | Retryable — per-request failure |
-| **`Bootstrap(String)`** | Worker returned `{"op":"error", "kind":"bootstrap"}` | **Terminal** — deterministic |
-| `Io(io::Error)` | Pipe-level I/O failure (broken pipe, etc.) | Retryable — pool replaces worker |
-| `MemoryGuard(MemoryGuardError)` | Memory-guard refused to admit the worker (insufficient headroom under the configured budget) | **Not retried** by `is_retryable_worker_failure` — classified as `FailureCategory::MemoryPressure`, which is outside the retry set; the scheduler re-admits later once memory frees |
+| `SpawnFailed(String)` | The Python child process can't start (missing python, OS resource limits) | **Terminal**: same config will fail again |
+| `ReadyTimeout { timeout_s }` | Worker started but didn't emit ready signal in time | Retryable, transient stall |
+| `ReadyParseFailed(String)` | Worker emitted invalid ready signal | **Terminal**: version mismatch |
+| `HealthCheckFailed(String)` | Periodic health probe failed | Retryable, pool replaces worker |
+| `ProcessExited { code, stderr }` | Worker died unexpectedly mid-job | Retryable, but if deterministic, replacement will die too |
+| `Protocol(String)` | IPC framing or response shape was wrong | Terminal-for-this-request, protocol desync |
+| `WorkerResponse(String)` | Worker returned `{"op":"error", "kind":"runtime"}` | Retryable, per-request failure |
+| **`Bootstrap(String)`** | Worker returned `{"op":"error", "kind":"bootstrap"}` | **Terminal**: deterministic |
+| `Io(io::Error)` | Pipe-level I/O failure (broken pipe, etc.) | Retryable, pool replaces worker |
+| `MemoryGuard(MemoryGuardError)` | Memory-guard refused to admit the worker (insufficient headroom under the configured budget) | **Not retried** by `is_retryable_worker_failure`: classified as `FailureCategory::MemoryPressure`, which is outside the retry set; the scheduler re-admits later once memory frees |
 | `NoWorker { command, lang }` | Reserved variant; unused today | Terminal |
 
 The `Bootstrap` variant added 2026-05-06 is the one this chapter is
@@ -347,7 +347,7 @@ sequenceDiagram
 ```
 
 The `WorkerErrorKind::into_worker_error(message)` helper in
-`handle/protocol.rs` is the single dispatch point — every wire decoder
+`handle/protocol.rs` is the single dispatch point, every wire decoder
 goes through it. Eleven call sites in `handle/ipc.rs` and
 `tcp_handle.rs` were updated as part of the the bootstrap-retry defect fix; they all share
 this helper.
@@ -368,7 +368,7 @@ WorkerResponse::Error { error, kind } => {
 ```
 
 Why force-bootstrap regardless of the wire kind? Because `ensure_task`
-is the on-demand model-loading IPC — its sole purpose is to bootstrap a
+is the on-demand model-loading IPC, its sole purpose is to bootstrap a
 task into a worker's runtime state. A failure during that operation is
 *always* deterministic across retries, even if the worker's
 `_classify_dispatch_exception` doesn't yet know about the specific error
@@ -415,7 +415,7 @@ FailureCategory::WorkerCrash => {
 }
 ```
 
-Bootstrap errors are *not* "the processing engine crashed" — they are
+Bootstrap errors are *not* "the processing engine crashed", they are
 *"X is missing or unreachable, here's what to do"*. The verbatim
 inclusion is what makes the difference.
 
@@ -471,7 +471,7 @@ Checklist for contributors:
 1. **Define the typed error in Python.** Inherit from a sensible base
    (`RuntimeError` for general bootstrap failures,
    `ValueError`/`UnsupportedLanguageError` for input-driven ones).
-   Document that it is bootstrap-class in the docstring — the type
+   Document that it is bootstrap-class in the docstring, the type
    itself is the contract.
 
 2. **Register it in the classifier.** Add a lazy import + append to the
@@ -483,20 +483,20 @@ Checklist for contributors:
    (network / disk / auth), and what they should do.
 
 4. **Add a test.** Two patterns, both already in the codebase:
-   - `batchalign/tests/test_serve_stdio_bootstrap_error.py` — assert
+   - `batchalign/tests/test_serve_stdio_bootstrap_error.py`: assert
      the new exception type classifies as `bootstrap`.
    - A handler-level test that mocks the underlying failure and
      asserts the worker emits the right wire envelope.
 
 5. **No Rust changes required** for additional bootstrap-class types
-   on the Python side. The wire protocol is type-erased — Python just
+   on the Python side. The wire protocol is type-erased, Python just
    emits `kind: "bootstrap"`, and Rust's existing
    `WorkerError::Bootstrap` variant absorbs every such error
    uniformly.
 
 If the new error class needs different orchestrator behavior (e.g.,
 "retry after a delay even though it's deterministic"), that's a deeper
-change — discuss before implementing.
+change, discuss before implementing.
 
 ## Adding a new wire-level worker error variant
 
@@ -520,17 +520,17 @@ permission-denied" → distinct user-facing remediation):
 
 ## Cross-references
 
-- [Time transparency UX principle](time-transparency.md) — why every
+- [Time transparency UX principle](time-transparency.md), why every
   long worker operation must surface to the UI; downstream consumer of
   the same `progress_v2` channel.
 - [User-facing model-downloads chapter](../user-guide/model-downloads.md)
-  — the user-facing contract that motivates the on-demand-download path.
+ , the user-facing contract that motivates the on-demand-download path.
 - [Developer model-downloads chapter](../developer/model-downloads-and-caching.md)
-  — full inventory of every model-load site.
-- [Server architecture overview](server-architecture.md) — the broader
+ , full inventory of every model-load site.
+- [Server architecture overview](server-architecture.md), the broader
   context this chapter slots into.
-- [Server model loading](server-model-loading.md) — per-command model
+- [Server model loading](server-model-loading.md), per-command model
   inventory and lazy-load policy.
-- [Stanza capability registry](stanza-capability-registry.md) — the
+- [Stanza capability registry](stanza-capability-registry.md), the
   pre-flight gate whose silent-fail path was the proximate cause of the
   retry-classification bug this chapter documents.

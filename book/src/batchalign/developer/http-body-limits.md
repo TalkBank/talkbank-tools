@@ -31,7 +31,7 @@ This is the **intended** body-size guard.  It is configured via
 ### Layer 2: axum `Json` extractor (inner, was 2 MB)
 
 Axum's `Json<T>` extractor enforces its own body limit **independently** of any
-`RequestBodyLimitLayer`.  The default is **2 MB** — a safe-out-of-the-box
+`RequestBodyLimitLayer`.  The default is **2 MB**: a safe-out-of-the-box
 value for generic web applications, but far too low for batchalign's use case.
 
 The `POST /jobs` handler uses `Json<JobSubmission>` to deserialize the request.

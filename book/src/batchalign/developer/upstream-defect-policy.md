@@ -1,9 +1,9 @@
-# Coping with Upstream Bugs and Limitations — Policy and Workflow
+# Coping with Upstream Bugs and Limitations: Policy and Workflow
 
 **Status:** Current
 **Last updated:** 2026-05-20 01:09 EDT
 
-Batchalign integrates several third-party NLP libraries — Stanza,
+Batchalign integrates several third-party NLP libraries, Stanza,
 Whisper, PyCantonese, Pyannote/NeMo, Rev.AI, Apple MPS, OpenSMILE,
 and others. Each is a working piece of software with real bugs,
 surprising edge cases, and version-to-version behavior changes. This
@@ -24,7 +24,7 @@ This principle is how we reconcile two real constraints:
    library we use is broken" is not an acceptable excuse when the
    CHAT on disk is wrong.
 2. Every override is technical debt we carry. We don't override
-   blindly — each rewrite is narrow, registered, and has a clear
+   blindly, each rewrite is narrow, registered, and has a clear
    retirement condition.
 
 ## Three layers of defense
@@ -66,7 +66,7 @@ flowchart TD
 3. **Final validation gate.** `chatter validate` checks every file
    produced against CHAT-manual semantics. If a defect variant
    escapes our detector, validation catches the malformed output
-   at the write boundary — the file doesn't land on disk in a
+   at the write boundary, the file doesn't land on disk in a
    corrupt state without a loud signal.
 
 ## Why rewrite-and-log, not fail-hard
@@ -84,7 +84,7 @@ group on any defect detection. That approach was rejected because:
   boundary, not the rewrite layer. If our detector ever misses a
   defect variant, validation still catches the bad CHAT.
 - A loud **log** is enough observability for an operator. A loud
-  **error** mislocates the problem — the file's data quality is fine
+  **error** mislocates the problem, the file's data quality is fine
   after rewrite; the only thing "wrong" is the upstream library.
 
 The one rule from this calculus: **every rewrite MUST be logged.**
@@ -121,7 +121,7 @@ A narrow trigger is a narrow compatibility surface and is cheap to
 retire when the upstream fixes it.
 
 Example from Defect 4 (Stanza 1.11.1 Finnish `<SOS>` leak): we
-bisected from an 8-word Finnish sentence down to `"a tollei b"` —
+bisected from an 8-word Finnish sentence down to `"a tollei b"`,
 three ASCII tokens, no domain knowledge of Finnish required to
 reproduce.
 
@@ -134,7 +134,7 @@ that's the `UdSentence` layer at
 `crates/batchalign-transform/src/morphosyntax/invariants.rs` (with
 per-rule modules under `crates/batchalign-transform/src/morphosyntax/invariants/`,
 e.g. `finite_verb_main_clause.rs`). For MPS GPU deadlocks that's the
-device selection layer. Never rewrite serialized output — that's the
+device selection layer. Never rewrite serialized output, that's the
 batchalign2 anti-pattern we deliberately avoid.
 
 The workaround emits a `tracing::warn` per rewrite. The message
@@ -145,13 +145,13 @@ affected language or input so ops monitoring is useful.
 
 Three levels are the standard:
 
-- **Pure unit tests** — exercise the detector/rewriter on fabricated
+- **Pure unit tests**: exercise the detector/rewriter on fabricated
   inputs without the real library. Fast, run on every `make test`.
-- **Integration test** — runs the full handler with the real
+- **Integration test**: runs the full handler with the real
   upstream library loaded. Marked `@pytest.mark.golden` (Python) or
   gated behind the `ml_golden` nextest profile (Rust). Asserts the
   rewrite fires and the output is clean.
-- **Standalone reproducer** from step 1 — remains as the
+- **Standalone reproducer** from step 1, remains as the
   upgrade-time probe.
 
 ### 5. Register in the versioned defect doc
@@ -201,7 +201,7 @@ When an upstream library is upgraded:
 2. For each active defect entry, run the standalone reproducer.
 3. If the reproducer is GREEN on the new upstream version, the
    defect is fixed. The workaround's detector should now fire
-   zero times on normal input — confirm by re-running the
+   zero times on normal input, confirm by re-running the
    integration test. If it still passes without the workaround
    running, the workaround is retireable.
 4. Retire the workaround: delete the detect+rewrite code, remove
@@ -235,11 +235,11 @@ Things this policy explicitly rejects:
 ## See also
 
 - [`reference/stanza-limitations.md`](../reference/stanza-limitations.md)
-  — Stanza defect registry (currently 4 entries).
+ , Stanza defect registry (currently 4 entries).
 - [`developer/non-english-workarounds.md`](non-english-workarounds.md)
-  — Per-language workaround catalog.
+ , Per-language workaround catalog.
 - [`developer/apple-mps-workarounds.md`](apple-mps-workarounds.md)
-  — MPS-specific defect registry.
+ , MPS-specific defect registry.
 - `crates/batchalign-transform/src/morphosyntax/invariants.rs`: the
   Rust-side typed UD rewrite module that anchors this pattern for
   morphosyntax; per-rule sub-modules live under

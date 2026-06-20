@@ -7,7 +7,7 @@
 
 The batchalign morphosyntax pipeline (`morphotag` command) adds %mor and %gra tiers to
 CHAT transcripts.  Rust owns CHAT parsing, word extraction, UD-to-CHAT mapping, AST
-injection, and serialization.  Python's only role is ML inference — calling Stanza for
+injection, and serialization.  Python's only role is ML inference, calling Stanza for
 POS/lemma/dependency analysis.
 
 ### Per-file scoping via `@Options`
@@ -15,11 +15,11 @@ POS/lemma/dependency analysis.
 `morphotag` reads two CHAT-level directives, both with narrow,
 command-specific semantics:
 
-- **`@Options: CA`** — "the morphotag command is not to be run on
+- **`@Options: CA`**: "the morphotag command is not to be run on
   this file." CA transcripts are pass-through: existing %mor /
   %gra is preserved unchanged, no Stanza inference, no provenance
   comment.
-- **`@Options: NoAlign`** — scoped to the `align` command, NOT
+- **`@Options: NoAlign`**: scoped to the `align` command, NOT
   morphotag. NoAlign files run morphotag normally. (Pre-2026-05-07
   the pipeline incorrectly conflated NoAlign with a global skip,
   leaving NoAlign files with stale morphotag and no rerun path;
@@ -61,7 +61,7 @@ The diagram shows the two injection paths that diverge based on
 `TokenizationMode`. The L2 secondary dispatch runs after primary
 injection by default; pass `--no-l2-morphotag` to skip it.
 
-**Cache note:** Morphosyntax (a text NLP task) uses a **no-op cache** —
+**Cache note:** Morphosyntax (a text NLP task) uses a **no-op cache**,
 all utterances skip cache lookup and are always sent to Stanza inference.
 This is faster than SQLite lookups, as Stanza workers stay warm between
 utterances in the cross-file batch. Audio tasks (transcribe, align)
@@ -120,13 +120,13 @@ handle CHAT-side extraction, UD→CHAT mapping, and injection. The
 
 | File | Purpose |
 |------|---------|
-| `parse.rs` | `parse_lenient()` — top-level CHAT parsing entry point |
+| `parse.rs` | `parse_lenient()`: top-level CHAT parsing entry point |
 | `extract.rs` | `ExtractedWord` struct + word extraction from AST for morphosyntax input |
-| `inject.rs` | `inject_morphosyntax()` — primary AST injection of %mor / %gra tiers |
-| `morphosyntax/injection.rs` | `inject_results()` — orchestration helper called by the batch pipeline |
+| `inject.rs` | `inject_morphosyntax()`: primary AST injection of %mor / %gra tiers |
+| `morphosyntax/injection.rs` | `inject_results()`: orchestration helper called by the batch pipeline |
 | `morphosyntax/payload.rs` | `clear_morphosyntax()`, `collect_payloads()`, `dispatch_secondary_l2()` host adapter |
 | `morphosyntax/sentence_mapping.rs` | `map_ud_sentence()`, `map_ud_sentence_expanded()`, shared `build_gra_and_validate()` |
-| `morphosyntax/gra_validate.rs` | `validate_generated_gra()` — single-root, cycle-free, valid-heads checks |
+| `morphosyntax/gra_validate.rs` | `validate_generated_gra()`: single-root, cycle-free, valid-heads checks |
 | `morphosyntax/mapping_helpers.rs` | `assemble_mors()` (clitic merge), `is_clitic()`, `map_relation()` |
 | `morphosyntax/stanza_raw.rs` | Parse raw Stanza JSON output, supply defaults for Range token annotation fields |
 | `morphosyntax/pos_hints.rs` | `apply_pos_hints()` and the empty-placeholder sweep |
@@ -138,17 +138,17 @@ handle CHAT-side extraction, UD→CHAT mapping, and injection. The
 | `retokenize/`, `retokenize.rs` | AST retokenization (Stanza-tokens rewrite); see Section 7 |
 | `dp_align/` | Hirschberg DP alignment used by retokenize |
 
-**Rust** — `batchalign` crate (`crates/batchalign/src/`)
+**Rust**: `batchalign` crate (`crates/batchalign/src/`)
 
 The batchalign crate owns command orchestration; the morphosyntax-specific
 glue is:
 
 | File | Purpose |
 |------|---------|
-| `morphosyntax/mod.rs` | `run_morphosyntax_impl()` — top-level orchestrator called from the `morphotag` command |
-| `morphosyntax/batch.rs` | `dispatch_secondary_l2()` — async wrapper that calls into the transform-layer L2 seam for secondary @s dispatch |
+| `morphosyntax/mod.rs` | `run_morphosyntax_impl()`: top-level orchestrator called from the `morphotag` command |
+| `morphosyntax/batch.rs` | `dispatch_secondary_l2()`: async wrapper that calls into the transform-layer L2 seam for secondary @s dispatch |
 | `morphosyntax/worker.rs` | Stanza-pool dispatch, `partition_groups_by_stanza_support()` |
-| `chat_ops/nlp/mapping/mod.rs` | Re-export shim: `pub use talkbank_transform::morphosyntax::*` — historical alias kept so existing imports keep resolving. New code should import from `talkbank_transform` directly. |
+| `chat_ops/nlp/mapping/mod.rs` | Re-export shim: `pub use talkbank_transform::morphosyntax::*`: historical alias kept so existing imports keep resolving. New code should import from `talkbank_transform` directly. |
 | `chat_ops/nlp/types.rs` | FA-only raw-response types (`FaRawToken`, `FaIndexedTiming`, `FaRawResponse`); the UD/NLP type set (`UdSentence`, `UdWord`, `UdId`, etc.) lives in `talkbank_transform::morphosyntax`. |
 
 **Python** (stateless ML inference only)
@@ -158,7 +158,7 @@ glue is:
 | `inference/morphosyntax.py` | Calls Stanza `nlp()`, returns raw `to_dict()` output |
 | `worker/_infer_hosts.py` | Worker-side host wrapper invoked by `execute_v2` |
 
-Python does no orchestration, caching, or UD→CHAT mapping — all handled by Rust.
+Python does no orchestration, caching, or UD→CHAT mapping, all handled by Rust.
 
 ## 3. What Batchalign Needs from %mor
 
@@ -167,24 +167,24 @@ features into structured data for analysis.  The consumers and what they actuall
 
 | Consumer | What it accesses | Decomposes POS/lemma/features? |
 |----------|-----------------|-------------------------------|
-| **Cache** (`engine.py`) | Final %mor/%gra strings (BLAKE3 key) | No — stores/retrieves whole strings |
-| **Coreference** (`coref`) | Token boundaries in %mor tier | No — counts tokens only |
-| **WER evaluation** (`benchmark`) | Token count from %mor for word-level accuracy | No — counts only |
-| **Pre-serialization validation** (`validation.py`) | Chunk count alignment (%mor chunks vs %gra relations) | No — calls `count_chunks()` in Rust |
-| **CLAN commands** (talkbank-clan crate in talkbank-tools) | Full %mor structure (POS, lemma, suffixes for FREQ/MLU/MLT) | Yes — but via talkbank-model's Mor type |
+| **Cache** (`engine.py`) | Final %mor/%gra strings (BLAKE3 key) | No, stores/retrieves whole strings |
+| **Coreference** (`coref`) | Token boundaries in %mor tier | No, counts tokens only |
+| **WER evaluation** (`benchmark`) | Token count from %mor for word-level accuracy | No, counts only |
+| **Pre-serialization validation** (`validation.py`) | Chunk count alignment (%mor chunks vs %gra relations) | No, calls `count_chunks()` in Rust |
+| **CLAN commands** (talkbank-clan crate in talkbank-tools) | Full %mor structure (POS, lemma, suffixes for FREQ/MLU/MLT) | Yes, but via talkbank-model's Mor type |
 | **Forced alignment** | No %mor access | N/A |
 | **ASR / diarization** | No %mor access | N/A |
 
 **Key finding:** Within batchalign itself, %mor is a cached final string.  The pipeline
-generates it (via Stanza + Rust mapping), stores it, and injects it into the AST — but
+generates it (via Stanza + Rust mapping), stores it, and injects it into the AST, but
 never reads it back to extract linguistic information.  Downstream consumers that do
 decompose %mor (CLAN commands) do so through `talkbank-model`'s typed `Mor` structure, not
 through batchalign code.
 
 **Implication for the format:** The flat `POS|lemma[-Feature]*` structure that Stanza
 produces is sufficient for batchalign's needs.  Richer UD `key=value` features flow through
-the pipeline without code changes — they'd be encoded as CHAT suffixes by `mapping.rs` and
-round-tripped by the parser — but no batchalign consumer currently needs them.
+the pipeline without code changes, they'd be encoded as CHAT suffixes by `mapping.rs` and
+round-tripped by the parser, but no batchalign consumer currently needs them.
 
 ## 4. Two MOR Traditions
 
@@ -235,22 +235,22 @@ struct MorWord {
 ```
 
 Three fields per word: POS (string), lemma (string), features (ordered vector of
-strings).  This maps cleanly to what Stanza produces — `UPOS` to `pos`, `lemma` to
+strings).  This maps cleanly to what Stanza produces, `UPOS` to `pos`, `lemma` to
 `lemma`, UD feature values to `features`, MWT components to `post_clitics`.
 
 ### What's "Lost"
 
 | Structure | Legacy MOR grammar | Stanza UD | Model representation |
 |-----------|-------------------|-----------|---------------------|
-| POS subcategories | `pro:sub\|I` | `pron\|I` | POS string — subcategories preserved if present (parser accepts `pro:sub`) |
+| POS subcategories | `pro:sub\|I` | `pron\|I` | POS string, subcategories preserved if present (parser accepts `pro:sub`) |
 | Compounds | `adj\|+adj\|big+n\|bird` | Not produced | Parsed by grammar if encountered; no typed compound field |
 | Prefixes | `trans#n\|port` | Not produced | Parsed by grammar if encountered; stored in stem |
 | Morpheme segmentation | `go&PAST` vs `go-PAST` | Not produced | Both parsed; suffix carries separator character |
-| UD feature keys | N/A | `Number=Plur` | `MorFeature` has optional key field — preserved if present |
-| xpos (language-specific POS) | N/A | Available in Stanza | Discarded — only UPOS used |
+| UD feature keys | N/A | `Number=Plur` | `MorFeature` has optional key field, preserved if present |
+| xpos (language-specific POS) | N/A | Available in Stanza | Discarded, only UPOS used |
 
-The structures that the model doesn't have typed fields for — compounds, prefixes,
-morpheme boundaries — are structures that **Stanza never produces**.  The model was shaped
+The structures that the model doesn't have typed fields for, compounds, prefixes,
+morpheme boundaries, are structures that **Stanza never produces**.  The model was shaped
 to match the producer.
 
 ### Freedom from CLAN MOR Constraints
@@ -262,7 +262,7 @@ This is mostly a good thing:
 - **No manual grammar maintenance.** Stanza models are trained automatically.  Adding a
   language means training a model, not writing a grammar by hand.
 - **Better dependency analysis.** UD %gra is more accurate than what CLAN
-  produced — the Rust mapper's O(N) cycle detection catches malformed-head
+  produced, the Rust mapper's O(N) cycle detection catches malformed-head
   structures that earlier CLAN-era pipelines silently accepted.
 - **Feature transparency.** UD features like `Number=Plur` are semantically meaningful
   and machine-readable.  CLAN suffixes like `-PL` required per-grammar documentation.
@@ -271,15 +271,15 @@ This is mostly a good thing:
 
 CLAN commands (`FREQ`, `MLU`, `MLT`) access %mor through `talkbank-model`'s `Mor` type.
 For counting (MLU) and frequency (FREQ), the flat `pos + lemma + features` structure is
-sufficient.  For fine-grained morphological queries on legacy corpus data — "find all
-compound nouns", "count prefixed verbs" — you'd currently have to pattern-match on the POS
+sufficient.  For fine-grained morphological queries on legacy corpus data, "find all
+compound nouns", "count prefixed verbs", you'd currently have to pattern-match on the POS
 string (e.g., `n:prop` contains `:`) or lemma, which works but isn't ideal.
 
 Should the model grow structured compound/prefix/subcategory fields?  Not urgently.
 The flat model serves all current use cases, and enriching it would be additive (no
 breakage).  Now that batchalign shares `talkbank-model` via path dependencies (no more
 vendored copy), any such enrichment is a shared decision visible in talkbank-tools's review
-process — the right place for it to happen.
+process, the right place for it to happen.
 
 ## 5. UD-to-CHAT Mapping
 
@@ -330,7 +330,7 @@ flowchart LR
     gra --> out
 ```
 
-**`map_ud_sentence()`** — Preserve mode and L2 splice. Produces one `Mor`
+**`map_ud_sentence()`**: Preserve mode and L2 splice. Produces one `Mor`
 item per CHAT word. MWT Range tokens are merged into a single clitic MOR
 via `assemble_mors()`:
 
@@ -341,7 +341,7 @@ via `assemble_mors()`:
   Result: pron|I~aux|will (1 MOR, 2 chunks)
 ```
 
-**`map_ud_sentence_expanded()`** — Retokenize mode. Produces one `Mor`
+**`map_ud_sentence_expanded()`**: Retokenize mode. Produces one `Mor`
 per component word. Range parent tokens are skipped; each component gets
 its own MOR via `map_ud_word_to_mor()`:
 
@@ -353,7 +353,7 @@ its own MOR via `map_ud_word_to_mor()`:
 ```
 
 The expanded variant exists because the retokenize path rewrites the
-main tier with Stanza's tokens — each token needs its own MOR item.
+main tier with Stanza's tokens, each token needs its own MOR item.
 The Preserve path keeps the original main tier, so Range components
 must be merged into one clitic MOR to match the single CHAT word.
 
@@ -390,7 +390,7 @@ The mapper applies four CHAT-specific transformations, all lossless:
 
 | UD Convention | TalkBank Convention | Example |
 |--------------|--------------------|---------|
-| `head=0` for root | `head=0` (same — UD standard) | `2\|0\|ROOT` |
+| `head=0` for root | `head=0` (same, UD standard) | `2\|0\|ROOT` |
 | Subtypes with colon | Subtypes with dash | `acl:relcl` → `ACL-RELCL` |
 | Lowercase relations | Uppercase relations | `nsubj` → `NSUBJ` |
 | Multi-value features with comma | Commas preserved | `PronType=Int,Rel` → `-Int,Rel` |
@@ -432,10 +432,10 @@ shape of one of these modules.
 
 `validate_generated_gra` enforces four rules:
 
-- **Single root** — exactly one self-referential or head=0 relation (excluding terminator)
-- **No circular dependencies** — no word is its own ancestor in the head chain
-- **Valid heads** — all head references point to existing word indices or 0
-- **Sequential indices** — guaranteed by construction
+- **Single root**: exactly one self-referential or head=0 relation (excluding terminator)
+- **No circular dependencies**: no word is its own ancestor in the head chain
+- **Valid heads**: all head references point to existing word indices or 0
+- **Sequential indices**: guaranteed by construction
 
 Cycle detection uses an **O(N) White-Gray-Black DFS with memoization**: each word follows
 its head chain to the root, marking nodes IN_PROGRESS (gray) on the way down and NO_CYCLE
@@ -445,7 +445,7 @@ On failure, `validate_generated_gra` (in
 `crates/batchalign-transform/src/morphosyntax/gra_validate.rs`) returns
 `Err(MappingError)` with a detailed error message including the full
 invalid structure. The caller (morphosyntax orchestrator) logs the
-error and skips the utterance — no corrupted %gra is written to disk.
+error and skips the utterance, no corrupted %gra is written to disk.
 
 The mapper uses `HashMap<usize, usize>` to translate UD word IDs to
 CHAT chunk indices. Missing keys fall through to `unwrap_or(&0)` and
@@ -474,13 +474,13 @@ The PyO3 surface (`crates/batchalign-pyo3/src/lib.rs`) is intentionally
 narrow: it exposes only the worker-side IPC and ML-inference adapters
 (`worker_protocol`, `worker_asr_exec`, `worker_fa_exec`,
 `worker_media_exec`, `worker_text_results`, `worker_artifacts`,
-`cantonese_asr_bridge`). All morphosyntax orchestration — extract,
-map, inject, cache key derivation, secondary L2 dispatch — happens
+`cantonese_asr_bridge`). All morphosyntax orchestration, extract,
+map, inject, cache key derivation, secondary L2 dispatch, happens
 in Rust, called directly by the `run_morphosyntax_impl` orchestrator
 in the `batchalign` crate. Python participates only as a Stanza
 inference endpoint behind the worker IPC.
 
-### `extract.rs` — Word Extraction
+### `extract.rs`: Word Extraction
 
 Walks the CHAT AST using `walk_words()` (from `talkbank-model`) and collects words appropriate for a given tier domain. The walker centralizes traversal of all 24 `UtteranceContent` variants and 22 `BracketedItem` variants; `extract.rs` provides only the word-handling closures for `counts_for_tier()` filtering and `ReplacedWord` branch logic.
 
@@ -500,14 +500,14 @@ pub struct ExtractedWord {
 | Wor | Included | Use original words | Included |
 
 **Case-insensitive untranscribed detection:** The `counts_for_tier()` gate
-recognizes `xxx`, `yyy`, and `www` **case-insensitively** — uppercase variants
+recognizes `xxx`, `yyy`, and `www` **case-insensitively**: uppercase variants
 like `XXX` (illegal per E241 but common in legacy corpora) are also excluded
 from extraction. Without this, uppercase untranscribed markers would be sent to
 Stanza, which assigns them `UPOS=X`, producing a spurious `x|XXX` entry on
 %mor that breaks alignment (E706). See `Word::compute_untranscribed()` in
 `talkbank-model`.
 
-### `dp_align/` — Hirschberg Alignment
+### `dp_align/`: Hirschberg Alignment
 
 `crates/batchalign-transform/src/dp_align/` provides the linear-space
 sequence aligner used by retokenization. Properties:
@@ -525,7 +525,7 @@ dependent_tier/mor/`). Batchalign never re-parses these tiers from
 serialized strings during pipeline execution; it operates on the
 typed AST.
 
-### `inject.rs` — Morphosyntax Injection
+### `inject.rs`: Morphosyntax Injection
 
 The injection path lives in two places:
 
@@ -539,25 +539,25 @@ The injection path lives in two places:
 
 **Key invariant:** the traversal order used by `inject_morphosyntax`
 must exactly match the one used by `extract.rs`. The shared
-`walk_words()` walker in `talkbank-model` enforces this — both
+`walk_words()` walker in `talkbank-model` enforces this, both
 modules call into the same primitive and supply only their
 leaf-handling closures.
 
-### `retokenize/` — AST Retokenization
+### `retokenize/`: AST Retokenization
 
 `crates/batchalign-transform/src/retokenize.rs` declares the module;
 its implementation files live alongside in
 `crates/batchalign-transform/src/retokenize/`:
 
-- `rebuild.rs` — AST rebuilding when Stanza's tokens differ from the
+- `rebuild.rs`: AST rebuilding when Stanza's tokens differ from the
   original main tier
-- `parse_helpers.rs` — `resolve_token_text()` and word-parsing helpers
+- `parse_helpers.rs`: `resolve_token_text()` and word-parsing helpers
   used during rebuild
 
 When `retokenize=true`, Stanza uses its own UD tokenizer, which can
 change word boundaries (splits, merges, different text). The algorithm:
 
-1. **Filter Range parent tokens** from `ud_sentence.words` — only
+1. **Filter Range parent tokens** from `ud_sentence.words`: only
    component words appear in the token vector. Range parents are the
    container entry (e.g., `id=[1,2] text="gonna"`) whose components
    follow immediately. Including both would overcount tokens and break
@@ -638,7 +638,7 @@ The worker-side morphosyntax host wraps Stanza to conform to this interface:
 ### Cache orchestration
 
 There is no morphosyntax cache. Morphosyntax is a text-only NLP task,
-and the engine deliberately does not cache its outputs — see the
+and the engine deliberately does not cache its outputs, see the
 "Cache note" at the end of [Section 2](#2-architecture). Every utterance
 runs through Stanza inference on every invocation; warm Stanza
 workers make this faster than the SQLite lookup the audio caches
@@ -685,7 +685,7 @@ sequenceDiagram
    external-anchor plan).
 4. **Secondary dispatch** sends each planned span to a Stanza worker for the target
    language with `retokenize=true`. MWT contractions (`it's`, `don't`) are
-   expanded via Range tokens — `map_ud_sentence()` merges them into clitics.
+   expanded via Range tokens, `map_ud_sentence()` merges them into clitics.
 5. **Merge** combines secondary lexical output (lemma, features) with primary
    structural info (deprel, head) plus the planned host attachment using a
    6-level POS resolution priority.
@@ -707,7 +707,7 @@ The fix-s rewrite predicate verifies that **every** word-bearing item
 on the main tier (words, fillers `&~`/`&-`/`&+`, nonwords, retraced
 material) resolves to the same target language. Fillers and nonwords
 participate in the predicate AND have their `@s` shortcuts cleared
-when the rewrite fires — otherwise a bare `@s` would flip its resolved
+when the rewrite fires, otherwise a bare `@s` would flip its resolved
 language under the new `[- LANG]` precode. See
 the `chatter` CLI `fix-s` debug command
 for the full safety contract.
@@ -719,10 +719,10 @@ Stanza-supported with a typed diagnostic (no pipeline entry). When the
 primary IS supported, non-primary content targeting an unsupported
 language degrades gracefully:
 
-- `[- UNSUPPORTEDLANG]` precodes — `infer_batch` partitions language
+- `[- UNSUPPORTEDLANG]` precodes, `infer_batch` partitions language
   groups via `partition_groups_by_stanza_support`; unsupported groups
   bypass Stanza dispatch and the words receive `L2|xxx` in `%mor`.
-- `@s:UNSUPPORTEDLANG` per-word markers — the secondary dispatch path
+- `@s:UNSUPPORTEDLANG` per-word markers, the secondary dispatch path
   for that span is short-circuited the same way; the host primary
   analysis is preserved and the `@s` token's slot stays as `L2|xxx`.
 
@@ -740,7 +740,7 @@ continue to receive real morphology.
 | `morphosyntax/l2/merge.rs` | POS resolution priority, planned structural merge |
 | `morphosyntax/l2/splice.rs` | Replace L2\|xxx in ChatFile with merged MOR |
 | `morphosyntax/l2/deprel.rs` | UdDeprel newtype, deprel→POS constraint mapping |
-| `morphosyntax/batch.rs` | `dispatch_secondary_l2()` — thin worker adapter over the transform-layer L2 seam |
+| `morphosyntax/batch.rs` | `dispatch_secondary_l2()`: thin worker adapter over the transform-layer L2 seam |
 
 ### MWT Contraction Handling
 
@@ -752,7 +752,7 @@ Stanza's MWT expander for the target language. For English @s words:
 - `working@s:eng` → `noun|work-Part-Pres-S` (no contraction, regular MOR)
 
 The L2 path uses `map_ud_sentence()` (merged clitics), which is correct
-because L2 does NOT rewrite the main tier — the @s word stays as-is,
+because L2 does NOT rewrite the main tier, the @s word stays as-is,
 and its %mor slot gets the clitic form.
 
 ## 10. Gotchas

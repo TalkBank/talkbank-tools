@@ -4,7 +4,7 @@
 **Last updated:** 2026-05-01 22:47 EDT
 
 Batchalign3 does not have a public Python API. Python lives inside the
-package as a worker-side ML inference layer — strictly an internal
+package as a worker-side ML inference layer, strictly an internal
 implementation detail of the Rust runtime. As of 2026-05, only Rev.AI
 ASR is Rust-owned (driven directly from the server); every other ASR
 engine, plus all morphosyntactic / segmentation / translation / coref
@@ -38,9 +38,9 @@ subprocess.run(
 )
 ```
 
-Anything else — importing `batchalign.*` modules, calling
+Anything else, importing `batchalign.*` modules, calling
 `batchalign_core.*` symbols, depending on `batchalign.providers`,
-`batchalign.worker.*`, or any Python class or function — is unsupported
+`batchalign.worker.*`, or any Python class or function, is unsupported
 and will break without notice. There is no compatibility surface to
 build against.
 
@@ -56,7 +56,7 @@ rewrite. The CLI is the replacement for all of them:
 | `CHATFile`, `Document`, `ParsedChat` | the `chatter` CLI in talkbank-tools (`chatter to-json`, `chatter validate`, etc.) |
 | `run_pipeline()`, `LocalProviderInvoker`, `PipelineOperation` | `batchalign3 <command>` |
 | `compute_wer()` | `batchalign3 compare` |
-| `batchalign.compat` | none — its purpose was to bridge BA2 callers; rewrite around the CLI |
+| `batchalign.compat` | none, its purpose was to bridge BA2 callers; rewrite around the CLI |
 
 If you have BA2 Python integration code, port it to subprocess calls
 into `batchalign3`. The CLI's output format is the long-term stable

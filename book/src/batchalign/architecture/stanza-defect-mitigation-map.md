@@ -5,7 +5,7 @@
 
 Stanza is a third-party NLP library whose defects surface at different
 pipeline stages depending on the root cause. batchalign3's mitigation
-strategy is **patch at the stage where the defect originates** — not
+strategy is **patch at the stage where the defect originates**: not
 earlier (would mask the signal), not later (would require re-deriving
 state). This page maps every tracked Stanza defect to its patch-point
 so a contributor debugging a new Stanza quirk can find similar
@@ -95,18 +95,18 @@ them. No pipeline gate rejects junk content.
 Two stages currently carry no defect mitigations and exist in the
 diagram for completeness:
 
-- **Char-DP merge in `align_tokens`** — always-on, language-agnostic.
+- **Char-DP merge in `align_tokens`**: always-on, language-agnostic.
   The 2026-04-21 per-language MWT-override audit confirmed that the
   DP alone satisfies the morphotag 1-to-1 invariant for every
   previously patched language (French, Italian, Portuguese, Dutch).
   Per-language override tables were retired; see the
   [per-language chapters](../reference/languages/overview.md) for
   the audit records.
-- **Stanza internals (POS / MWT / lemma / depparse)** — no hook
+- **Stanza internals (POS / MWT / lemma / depparse)**: no hook
   exists. Defects originating here are either (a) mitigated
   downstream (Defect 1), (b) handled by swapping engines (Defect 3),
   (c) retired upstream when the underlying library was fixed (Defect 4
-  — fixed in Stanza 1.12.0), or (d) left as xfail-pinned UD-level
+ , fixed in Stanza 1.12.0), or (d) left as xfail-pinned UD-level
   observations with linguistically wrong `%mor` content flowing
   through unimpeded (Defects 6 and 7).
 
@@ -125,7 +125,7 @@ Use this procedure for any newly discovered Stanza defect:
    rewrite.
 3. **If no existing defect patches that stage, update this diagram
    before adding code.** Adding a stage to the diagram without a
-   patch-point node is also valid — it documents where a future
+   patch-point node is also valid, it documents where a future
    mitigation would live (e.g., "post-POS reassembly" is currently
    a named gap behind Defect 6).
 4. **Register the defect in
@@ -165,6 +165,6 @@ Italian MOR is a candidate).
 
 An ita-corpus scan surfaced 73 main-tier `parla` occurrences across
 43 files, but there is no automated `%mor`-content assertion yet.
-Building one is a prerequisite to any principled fix — candidates
+Building one is a prerequisite to any principled fix, candidates
 include a curated expected-`%mor` fixture per case, or CLAN's
 Italian MOR output as an oracle.

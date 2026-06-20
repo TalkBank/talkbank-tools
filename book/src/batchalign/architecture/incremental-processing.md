@@ -71,8 +71,8 @@ bullet timing to distinguish `Unchanged`, `TimingOnly`, and `SpeakerChanged`.
 | File | Purpose |
 |------|---------|
 | `diff/types.rs` | `UtteranceDelta` enum, `DiffSummary` |
-| `diff/classify.rs` | `diff_chat()` — DP alignment + classification |
-| `diff/preserve.rs` | `copy_dependent_tiers()` — tier transfer between files |
+| `diff/classify.rs` | `diff_chat()`: DP alignment + classification |
+| `diff/preserve.rs` | `copy_dependent_tiers()`: tier transfer between files |
 
 ### Layer 2: Selective Orchestrators (`batchalign`)
 
@@ -178,7 +178,7 @@ Helper methods:
 
 `copy_dependent_tiers()` in `diff/preserve.rs` transfers specified tiers from
 a "before" utterance to an "after" utterance using the existing
-`replace_or_add_tier()` injection function. It's idempotent — safe to call
+`replace_or_add_tier()` injection function. It's idempotent, safe to call
 multiple times.
 
 ```rust,ignore
@@ -209,7 +209,7 @@ The incremental path falls back to full processing when:
 - All utterances changed (`summary.unchanged == 0 && summary.speaker_changed == 0`)
 - The diff engine cannot establish any correspondence
 
-This ensures incremental processing is always safe — worst case, it does the
+This ensures incremental processing is always safe, worst case, it does the
 same work as batch processing, while the best common rerun case avoids both
 cache lookup misses and worker FA for stable regions.
 
@@ -229,11 +229,11 @@ cache lookup misses and worker FA for stable regions.
 The per-utterance BLAKE3 cache complements the diff engine:
 
 - **Cache hit on unchanged utterance:** Diff engine preserves tiers directly
-  from "before" — cache isn't even consulted for these.
+  from "before", cache isn't even consulted for these.
 - **Cache hit on changed utterance:** The new content might match a previous
   cache entry (e.g., fixing a typo back to the original). Cache is checked
   for all utterances that need reprocessing.
-- **Cache miss on changed utterance:** Normal path — infer and cache the result.
+- **Cache miss on changed utterance:** Normal path, infer and cache the result.
 
 The diff engine adds value beyond caching by preserving dependent tier
 *alignment* (the cache stores NLP results, but tier injection requires the

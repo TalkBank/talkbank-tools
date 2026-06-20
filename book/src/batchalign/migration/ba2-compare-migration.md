@@ -35,7 +35,7 @@ Use these as the primary files when reviewing the rewrite:
     calls `compare()` and `project_gold_structurally()` from
     talkbank-transform and writes the projected CHAT and `.compare.csv`)
   - `crates/batchalign-transform/src/compare/engine.rs`
-    (`find_best_segment`, `compare()` — the local-window search and
+    (`find_best_segment`, `compare()`: the local-window search and
     DP-alignment core)
   - `crates/batchalign-transform/src/compare/materialize.rs`
     (`project_gold_structurally`, `inject_comparison`,

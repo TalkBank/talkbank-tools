@@ -11,7 +11,7 @@ rate (WER).
 ## What is WER?
 
 Word Error Rate measures how many words the ASR system got wrong compared
-to a human-verified reference transcript. Lower is better — 0% means
+to a human-verified reference transcript. Lower is better, 0% means
 perfect, 100% means every word was wrong or missing.
 
 ```text
@@ -39,12 +39,12 @@ flowchart LR
     compare --> output_csv["Output .compare.csv\n(WER metrics)"]
 ```
 
-**Stage 1 — Transcribe:** Runs the full ASR pipeline (`process_transcribe()`)
+**Stage 1, Transcribe:** Runs the full ASR pipeline (`process_transcribe()`)
 to produce a CHAT transcript from the audio. This includes all standard
 ASR post-processing (compound merging, number expansion, disfluency
 detection).
 
-**Stage 2 — Compare:** Runs morphosyntax on the transcribed CHAT (to generate
+**Stage 2, Compare:** Runs morphosyntax on the transcribed CHAT (to generate
 `%mor`/`%gra`), then DP-aligns the transcribed words against the gold
 transcript words (Hirschberg case-insensitive alignment). Produces `%xsrep` /
 `%xsmor` tiers and CSV metrics.
@@ -78,7 +78,7 @@ morphotag pre-validation failed: [L0] File has N parse error(s); input may be ma
 ```
 
 Note that `chatter validate` (from talkbank-tools) and batchalign3 use the
-same tree-sitter grammar, but batchalign3's pre-validation is stricter —
+same tree-sitter grammar, but batchalign3's pre-validation is stricter,
 it rejects files with **any** parse errors at L0, whereas `chatter validate`
 may report these as warnings.
 
@@ -143,11 +143,11 @@ directory.
 The `--lang` flag affects ASR engine behavior:
 
 - **Rev.AI:** ISO 639-3 codes are translated to Rev.AI codes. Some languages
-  (e.g., Hakka `hak`) are not supported by Rev.AI — see
+  (e.g., Hakka `hak`) are not supported by Rev.AI, see
   [Language Code Resolution](language-code-resolution.md) for the mapping table.
 - **Whisper:** Uses `pycountry` to resolve language names. Unknown codes
   raise `ValueError`.
-- Benchmark does **not** run utterance segmentation or forced alignment — it
+- Benchmark does **not** run utterance segmentation or forced alignment, it
   only transcribes and compares.
 
 ## Implementation Details
@@ -164,6 +164,6 @@ The `--lang` flag affects ASR engine behavior:
 
 ## See also
 
-- [Command I/O Parity](command-io.md) — section 9 for full benchmark dispatch details
-- [CLI Reference](../user-guide/cli-reference.md) — benchmark entry in the CLI docs
-- [Language Code Resolution](language-code-resolution.md) — how `--lang` maps to engine codes
+- [Command I/O Parity](command-io.md), section 9 for full benchmark dispatch details
+- [CLI Reference](../user-guide/cli-reference.md), benchmark entry in the CLI docs
+- [Language Code Resolution](language-code-resolution.md), how `--lang` maps to engine codes

@@ -7,7 +7,7 @@ This chapter documents how batchalign3's four NLP pipelines (morphotag,
 utseg, coref, forced alignment) represent per-utterance decisions, how
 those decisions flow through a shared reporting surface, and how the
 eval harness reads them back post-hoc. Every pipeline now emits typed
-outcomes — a single place to add a new variant, compile-time errors for
+outcomes, a single place to add a new variant, compile-time errors for
 typos, and loud typed diagnostics when invariants break. For the
 morphotag-specific deep-dive into the 1-to-1 invariant that motivated
 this architecture, see
@@ -15,7 +15,7 @@ this architecture, see
 
 ## Motivation
 
-Every NLP pipeline has invariants a bug can silently break — Stanza
+Every NLP pipeline has invariants a bug can silently break, Stanza
 returning fewer tokens than the CHAT main tier contained, a worker
 responding with the wrong number of assignments, a retokenize pass
 losing a clitic. When one of those invariants is expressed as a raw
@@ -121,8 +121,8 @@ classDiagram
 
 `NotApplicable` is the common correct-by-construction case (filler-only
 utterances, untranscribed, all-retraced). `Aligned` is the happy path.
-`MisalignmentBug` is **always** a pipeline bug — never an expected
-divergence — because the 1-to-1 invariant is deterministic by
+`MisalignmentBug` is **always** a pipeline bug, never an expected
+divergence, because the 1-to-1 invariant is deterministic by
 construction when extraction, Stanza realignment, and MWT reassembly
 cooperate. The `MisalignmentClass` classifier points a developer at
 the most likely failing stage; see
@@ -195,8 +195,8 @@ classDiagram
 
 `NoChainsForSentence` is **named explicitly** so eval reports don't
 misread a sparse-but-correct run as a high-anomaly run.
-`SentenceIndexOutOfBounds` is the worker-contract violation —
-always a real bug — and `InjectionFailed` covers CHAT validation
+`SentenceIndexOutOfBounds` is the worker-contract violation,
+always a real bug, and `InjectionFailed` covers CHAT validation
 failures during `%xcoref` tier construction.
 
 ### Forced alignment
@@ -229,7 +229,7 @@ flowchart TD
     Rep -->|"words timing dropped"| FD7["DecisionRecord<br/>Fa::WordsTimingDropped"]
 ```
 
-`FaAlignmentError` is a typed error (not a decision record — it's
+`FaAlignmentError` is a typed error (not a decision record, it's
 returned up the call stack). All other FA events are emitted as
 `DecisionRecord`s with typed `DecisionStrategy` tags. See
 ``fa/outcome.rs``
@@ -366,7 +366,7 @@ sequenceDiagram
     D->>T: inject_decision_tiers(&[record], review_level)
 ```
 
-Aligned outcomes produce `None` from `to_decision_record()` — the happy
+Aligned outcomes produce `None` from `to_decision_record()`: the happy
 path does not flood the `%xalign` tier. NotApplicable and
 MisalignmentBug both produce records, with `needs_review=false` and
 `true` respectively.
@@ -378,7 +378,7 @@ external-observation variant
 (``UtteranceOutcome``)
 that reads a post-morphotag CHAT file and classifies every utterance
 without access to the pipeline's internal `MorOutcome`. This is
-deliberately asymmetric — the eval sees only what's written to the
+deliberately asymmetric, the eval sees only what's written to the
 file:
 
 ```mermaid
@@ -412,14 +412,14 @@ than `usize` so that a refactor cannot accidentally swap
 "Mor-alignable CHAT word count" and "`%mor` item count":
 
 - ``MorAlignableWordCount``
-  — what `Utterance::mor_alignable_word_count()` returns.
+ , what `Utterance::mor_alignable_word_count()` returns.
 - ``MorItemCount``
-  — what `mor_tier.items.len()` measures.
+ , what `mor_tier.items.len()` measures.
 
 Both live in `talkbank-model::alignment::helpers::count` alongside the
 existing `count_tier_positions` walker. The canonical N lives on
 `Utterance` itself so every caller (morphotag injector, eval harness,
-CHAT validators) consults the same source — enforced by an integration
+CHAT validators) consults the same source, enforced by an integration
 test that walks the full 98-file reference corpus and asserts
 agreement between the method and the `extract::collect_utterance_content`
 walker.
@@ -430,42 +430,42 @@ Core outcome types:
 
 - `crates/batchalign-transform/src/morphosyntax/outcome.rs`: `MorOutcome`,
   `MisalignmentDiagnostic`, `classify_not_applicable`
-- `crates/batchalign/src/utseg.rs` — `UtsegOutcome`,
+- `crates/batchalign/src/utseg.rs`: `UtsegOutcome`,
   `validate_utseg_response`
-- `crates/batchalign/src/coref.rs` — `CorefOutcome`,
+- `crates/batchalign/src/coref.rs`: `CorefOutcome`,
   `apply_coref_results_with_outcomes`
-- `crates/batchalign/src/fa/outcome.rs` — FA decision
+- `crates/batchalign/src/fa/outcome.rs`: FA decision
   vocabulary (re-exports)
-- `crates/batchalign/src/fa/alignment.rs` — `FaAlignmentError`
+- `crates/batchalign/src/fa/alignment.rs`: `FaAlignmentError`
   (typed error for FA response parsing)
-- `crates/batchalign/src/decisions.rs` — `DecisionRecord`,
+- `crates/batchalign/src/decisions.rs`: `DecisionRecord`,
   `DecisionStrategy`, all per-module strategy enums
 
 Invariant enforcement:
 
-- `crates/batchalign/src/inject.rs` —
+- `crates/batchalign/src/inject.rs`,
   `inject_morphosyntax` (returns `Result<(), MisalignmentDiagnostic>`)
-- `batchalign/inference/morphosyntax.py` —
+- `batchalign/inference/morphosyntax.py`,
   realignment-skipped WARN at the Python boundary
 - `talkbank-tools/../chatter/crates/talkbank-model/src/alignment/helpers/count.rs`
-  — `MorAlignableWordCount` / `MorItemCount` newtypes and
+ , `MorAlignableWordCount` / `MorItemCount` newtypes and
   `count_tier_positions` walker
 
 Tests that pin the architecture:
 
 - `crates/batchalign/tests/mor_count_parity_reference_corpus.rs`
-  — cross-walker count parity across the 98-file reference corpus
+ , cross-walker count parity across the 98-file reference corpus
 - `batchalign/tests/inference/test_morphosyntax_realignment_contract.py`
-  — Python contract test pinning `tok_ctx.original_words` sequencing
+ , Python contract test pinning `tok_ctx.original_words` sequencing
 - `crates/batchalign-transform/src/morphosyntax/outcome.rs`
-  `#[cfg(test)]` — per-variant classification tests
+  `#[cfg(test)]`: per-variant classification tests
 - `crates/batchalign/src/eval_cmd/l2_morphotag/tests.rs`
-  — `UtteranceOutcome` classifier truth table
+ , `UtteranceOutcome` classifier truth table
 
 Deep-dive pages:
 
 - [`Morphotag Reconciliation Invariants`](morphotag-invariants.md)
-  — the 1-to-1 invariant in full: what `counts_for_tier` defines as
+ , the 1-to-1 invariant in full: what `counts_for_tier` defines as
   alignable, and why the three stages produce it by construction.
 
 ## How to investigate a `%xalign: misalignment_bug`
@@ -479,9 +479,9 @@ morphosyntax:misalignment_bug`, the flow for a developer is:
    stage.
 2. **Compare `chat_words` and `stanza_tokens_after_mapping`** also in
    the `reason`. The word/token sequences usually show where they
-   diverged — e.g. a comma dropped, an MWT split wrongly reassembled.
+   diverged, e.g. a comma dropped, an MWT split wrongly reassembled.
 3. **Check the Python worker log** for a realignment-skipped WARN for
-   the same file/language — if present, the dispatch-side context
+   the same file/language, if present, the dispatch-side context
    wasn't set and the `RealignmentSkipped` class is concrete.
 4. **Rerun with review tiers enabled** to see the `%xalign` tier on
    every utterance (aligned or not), giving a positional sense of

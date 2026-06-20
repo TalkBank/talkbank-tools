@@ -3,11 +3,11 @@
 **Status:** Current
 **Last updated:** 2026-05-27 21:27 EDT
 
-User reference for Cantonese (`yue`) processing in batchalign3 — ASR engine
+User reference for Cantonese (`yue`) processing in batchalign3, ASR engine
 options, credentials, retokenize usage, and what to expect from each
 pipeline stage. For the architecture and rationale (engine dispatch,
 normalization pipeline, segmenter selection, source-file map), see
-[Cantonese and CJK — Architecture](../../../architecture/language-and-multilingual/cantonese-and-cjk.md).
+[Cantonese and CJK, Architecture](../../../architecture/language-and-multilingual/cantonese-and-cjk.md).
 
 ## Quick Reference
 
@@ -20,12 +20,12 @@ normalization pipeline, segmenter selection, source-file map), see
 | Word segmentation | PyCantonese `segment()` via `--retokenize` |
 | Utterance segmentation | PolyU BERT model (`PolyU-AngelChanLab/Cantonese-Utterance-Segmentation`) in standalone `utseg` and transcribe pre-CHAT segmentation; falls back to punctuation |
 | Morphosyntax (POS) | PyCantonese override (~95% on core vocab) layered on Stanza Chinese (`zh`) |
-| Morphosyntax (depparse) | Stanza Chinese (`zh`) — Mandarin-trained, but better than nothing |
+| Morphosyntax (depparse) | Stanza Chinese (`zh`), Mandarin-trained, but better than nothing |
 | Forced alignment | Jyutping romanization (PyCantonese) → Wave2Vec MMS |
 
 ## ASR Engine Options
 
-**The default for `yue` is FunASR/SenseVoice** — a local model that
+**The default for `yue` is FunASR/SenseVoice**: a local model that
 empirically outperforms vanilla Whisper-large-v3 by a wide margin
 on Cantonese child speech (42.8% CER vs 81.9% CER on TalkBank Tier
 3 fixtures; see the 2026-05-26 Cantonese ASR benchmark). The
@@ -40,7 +40,7 @@ are activated via `--engine-overrides`.
 | Tencent Cloud | Cloud | Required | Per-character | Speaker diarization, strong on clean adult speech |
 | Aliyun NLS | Cloud | Required | Per-character | Real-time streaming |
 | Qwen3-ASR | Local | None | Per-character | Alibaba open-weight ASR; competitive on per-utterance Cantonese child speech in external evaluations (unverified on TalkBank's longer-form fixtures) |
-| Whisper | Local | None | Per-character | General-purpose multilingual; **worst measured on TalkBank Cantonese** — not recommended unless other engines are unavailable |
+| Whisper | Local | None | Per-character | General-purpose multilingual; **worst measured on TalkBank Cantonese**: not recommended unless other engines are unavailable |
 
 ### Usage
 
@@ -102,7 +102,7 @@ speaker attribution. Automatic COS cleanup after job completes.
 streaming with real-time callbacks. Automatic token refresh (23-hour TTL).
 WAV format required (16 kHz mono).
 
-**FunASR/SenseVoice.** Local model — no cloud credentials, no network.
+**FunASR/SenseVoice.** Local model, no cloud credentials, no network.
 Auto model selection: Paraformer or SenseVoice based on availability.
 VAD built in. Per-character timestamp alignment. Wired as the
 per-language default for `yue` via `_LANG_DEFAULTS` in
@@ -112,7 +112,7 @@ through to Whisper.
 
 **Qwen3-ASR.** Alibaba's open-weight Cantonese-capable ASR
 (`qwen-asr` Python package, model downloaded from HuggingFace on
-first use). Two variants are publicly released — 1.7B (default,
+first use). Two variants are publicly released, 1.7B (default,
 heavier) and 0.6B (lighter, smaller download). Select the 0.6B
 variant via `--engine-overrides '{"asr": "qwen", "qwen_model":
 "Qwen/Qwen3-ASR-0.6B"}'`; per-engine extras like `qwen_model` and
@@ -153,10 +153,10 @@ Full example: `你真系好吵呀` → `你真係好嘈啊`.
 
 The replacement table was originally written by Chuqiao Song in
 batchalign2's `replace_cantonese_words()` (Python + OpenCC C++). Rebuilt
-in Rust for batchalign3 — no C++ dependency, always available, correct
+in Rust for batchalign3, no C++ dependency, always available, correct
 overlapping pattern handling.
 
-## Word Segmentation — `--retokenize`
+## Word Segmentation: `--retokenize`
 
 FunASR/SenseVoice and Whisper output per-character tokens for Cantonese:
 each character becomes a separate word on the main tier. This makes word
@@ -170,7 +170,7 @@ batchalign3 morphotag --retokenize corpus/ -o output/
 
 This uses PyCantonese's `segment()` to group per-character tokens into
 words before Stanza POS tagging. Cantonese files are detected from each
-file's `@Languages: yue` header — there is no morphotag `--lang` flag.
+file's `@Languages: yue` header, there is no morphotag `--lang` flag.
 
 **Before** (per-character):
 
@@ -197,8 +197,8 @@ warn: Cantonese input appears to be per-character tokens (42/50 single-CJK words
 ### Validation across all 9 TalkBank Cantonese corpora
 
 Word segmentation was tested against all 9 Cantonese corpora in TalkBank
-(over 737,000 utterances). Multi-character preservation 84–90%,
-vocabulary coverage 98–100% across MOST, LeeWongLeung, CHCC, EACMC, HKU
+(over 737,000 utterances). Multi-character preservation 84-90%,
+vocabulary coverage 98-100% across MOST, LeeWongLeung, CHCC, EACMC, HKU
 (CHILDES), MAIN, GlobalTales, and Aphasia HKU. Test:
 `batchalign/tests/languages/cantonese/morphosyntax/test_cantonese_all_corpora.py`.
 
@@ -230,7 +230,7 @@ other supported languages. Successful secondary dispatch produces real
 ## Known limitations
 
 - **POS tagging on Cantonese vocabulary.** Stanza's `zh` model is
-  Mandarin-trained — `佢/佢哋` (he/they) → `PROPN`, `嘢` (thing) →
+  Mandarin-trained, `佢/佢哋` (he/they) → `PROPN`, `嘢` (thing) →
   `PUNCT`, `唔` (not) → `VERB`, `係` (is) → `VERB`. PyCantonese POS
   override fixes core vocabulary as post-processing but has dictionary
   gaps on compound nouns, some SFPs, and resultative verbs. See the
@@ -238,11 +238,11 @@ other supported languages. Successful secondary dispatch produces real
   Cantonese model.
 - **Word segmentation depends on PyCantonese dictionary.** Words not in
   the dictionary won't be grouped.
-- **All four ASR engines produce per-character output for Cantonese** —
+- **All four ASR engines produce per-character output for Cantonese**,
   `--retokenize` is needed for all Cantonese morphotag.
-- **FunASR CER varies with speech clarity** — increases with
+- **FunASR CER varies with speech clarity**: increases with
   overlapping/soft/child speech.
-- **Per-character warning threshold (80%) is empirical-without-basis** —
+- **Per-character warning threshold (80%) is empirical-without-basis**,
   not yet validated against real corpus data.
 - **Daemon warning visibility.** The `tracing::warn!` for per-character
   input fires in the daemon process, not the CLI. Users may not see it

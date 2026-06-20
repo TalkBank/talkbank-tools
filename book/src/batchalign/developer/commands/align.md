@@ -1,4 +1,4 @@
-# align — Developer Reference
+# align: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-21 15:15 EDT
@@ -12,18 +12,18 @@ see [User Guide: align](../../user-guide/commands/align.md).
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `AlignArgs` | UTR/FA engine flags, strategy, fuzzy, buffer params |
-| Options builder | `crates/batchalign/src/cli/args/options.rs:130–194` (inline dispatch) | Maps `AlignArgs` → `CommandOptions::Align(AlignOptions)` |
-| Command definition | `crates/batchalign/src/commands/align.rs` — `AlignCommand` | `CommandDefinition` impl, pre-validation gate |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `AlignArgs` | UTR/FA engine flags, strategy, fuzzy, buffer params |
+| Options builder | `crates/batchalign/src/cli/args/options.rs:130-194` (inline dispatch) | Maps `AlignArgs` → `CommandOptions::Align(AlignOptions)` |
+| Command definition | `crates/batchalign/src/commands/align.rs`: `AlignCommand` | `CommandDefinition` impl, pre-validation gate |
 | FA pipeline | `crates/batchalign/src/runner/dispatch/fa_pipeline.rs` | Per-file FA orchestration: UTR → grouping → FA → injection |
 | UTR dispatch | `crates/batchalign/src/runner/dispatch/utr.rs` | `resolve_strategy()`, language-aware strategy gate |
 | UTR library | `crates/batchalign/src/chat_ops/fa/utr.rs` | `run_utr_pass()`, `inject_utr_timing()`, partial-window logic |
 | FA library | `crates/batchalign/src/chat_ops/fa/` | Grouping, extraction, DP alignment, injection, postprocessing |
-| Worker IPC | `batchalign/inference/fa.py` — `batch_infer_fa()` | Loads Whisper/Wave2Vec, returns token timestamps |
+| Worker IPC | `batchalign/inference/fa.py`: `batch_infer_fa()` | Loads Whisper/Wave2Vec, returns token timestamps |
 
 ---
 
-## `@Options: NoAlign` — strict pass-through
+## `@Options: NoAlign`: strict pass-through
 
 Files containing `@Options: NoAlign` are **returned completely unchanged**.
 The pipeline performs zero modifications: no timestamps are added, removed,
@@ -32,7 +32,7 @@ or adjusted, no `%wor` tier is generated or updated, and no decision tiers
 
 The rationale is that a researcher who sets `@Options: NoAlign` has explicitly
 opted this file out of all alignment processing.  Batchalign must respect that
-decision unconditionally — including for cleanup passes that might seem benign
+decision unconditionally, including for cleanup passes that might seem benign
 (such as monotonicity enforcement).  Any existing timestamps, even backward
 ones from a previous run, are the researcher's responsibility.
 
@@ -90,7 +90,7 @@ path and requires no worker inference.
 **Tier 2: Cache hit**  
 If Tier 1 doesn't apply, check the shared result cache by the group's cache key.
 A cache hit means the exact same audio + word sequence was previously processed
-on this engine version — reuse the timings without worker dispatch.
+on this engine version, reuse the timings without worker dispatch.
 
 **Tier 3: Cache miss**  
 Send the group to the FA worker for inference. After the worker returns timings,
@@ -100,7 +100,7 @@ will use Tier 2.
 This three-level hierarchy is logged during FA execution as `"FA partition
 (reused from %wor / cache hits / misses)"` so operators can track reuse efficiency.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:345–391`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:345-391`.
 
 ---
 
@@ -131,14 +131,14 @@ alignment (`dp_align.rs`) to map FA tokens back to CHAT transcript words.
 
 ## UTR strategy resolution
 
-`resolve_strategy()` in `crates/batchalign/src/runner/dispatch/utr.rs:80–114`:
+`resolve_strategy()` in `crates/batchalign/src/runner/dispatch/utr.rs:80-114`:
 
 **Auto strategy (default):** Always returns `GlobalUtr` regardless of language or overlap markers.
 
 The previous auto-detection logic (which selected `TwoPassOverlapUtr` for English
 files with `+<` or CA overlap markers) was **disabled 2026-03-30** due to:
 1. Operator-reported alignment regressions on real files
-2. End-time overlap bug in `enforce_monotonicity()` — it only corrects start-time
+2. End-time overlap bug in `enforce_monotonicity()`: it only corrects start-time
    violations, not end-time overlaps, so overlapping utterance bullets go uncorrected
 3. Two-pass algorithm was only tuned on 4 corpora, not broadly validated
 
@@ -171,13 +171,13 @@ See [Incremental Processing](../../architecture/incremental-processing.md).
 `group_utterances()` enforces two independent split constraints. A group is
 flushed when either is exceeded by adding the next utterance:
 
-- **Time window** — configured via `AlignOptions.max_group_ms` (default 20 000 ms)
-- **Character-token limit** — `WHISPER_FA_MAX_LABEL_TOKENS = 448` (constant in
+- **Time window**: configured via `AlignOptions.max_group_ms` (default 20 000 ms)
+- **Character-token limit**: `WHISPER_FA_MAX_LABEL_TOKENS = 448` (constant in
   `grouping.rs`). Whisper's CTC FA counts every character of every word as one
   label token. Exceeding 448 raises a hard Python `ValueError`. Dense languages
   (Spanish, any long-word corpus) can hit this inside a normal time window.
 
-The flush guard is skipped only when the current group is empty — if one
+The flush guard is skipped only when the current group is empty, if one
 utterance alone exceeds 448 chars it is sent as its own group (fail gracefully
 rather than drop silently).
 
@@ -199,7 +199,7 @@ audio window to find the actual speech. After FA finishes, `update_utterance_bul
 overwrites the rescued range with the FA word span (tighter), so the rescue is
 self-healing and auditable.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:247–267`. Decisions (which utterances
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:247-267`. Decisions (which utterances
 were rescued) are recorded and later injected as `%xalign` tiers for audit trail.
 
 **Edge filler expansion** (enabled always)  
@@ -207,14 +207,14 @@ UTR-assigned bullets may be too narrow to include trailing or leading fillers wh
 audio lives in inter-utterance gaps. This step expands utterance bullets to cover
 those edge fillers, ensuring they are included in the FA group.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:269–272`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:269-272`.
 
 ## Compound filler splitting
 
 CHAT underscore-joined fillers (`&-you_know`, `&-sort_of`) are split at
 underscores before being sent to the FA engine because ASR models return them
 as separate words. After alignment, the N timings are merged back into one span.
-Only `WordCategory::Filler` words are split — regular compounds (`ice_cream`)
+Only `WordCategory::Filler` words are split, regular compounds (`ice_cream`)
 are unchanged.
 
 See `crates/batchalign/src/chat_ops/fa/COMPOUND_FILLER_ALIGNMENT.md`.
@@ -228,16 +228,16 @@ bullets, %wor generation, monotonicity repairs, etc.) in `%xalign` and `%xrev`
 tiers for complete auditability.
 
 **Decision sources** (in order):
-1. **Narrow bullet rescue** — utterances whose bullets were pre-expanded before
+1. **Narrow bullet rescue**: utterances whose bullets were pre-expanded before
    grouping (see "Pre-grouping preparation steps")
-2. **FA word timing injection** — word boundaries, timing drops, speech gaps
-3. **Experimental bullet repair** — only if `--bullet-repair` flag is enabled
-4. **Monotonicity enforcement** — start-time regressions stripped, end-time overlaps clamped
+2. **FA word timing injection**: word boundaries, timing drops, speech gaps
+3. **Experimental bullet repair**: only if `--bullet-repair` flag is enabled
+4. **Monotonicity enforcement**: start-time regressions stripped, end-time overlaps clamped
 
 All previous `%xalign`/`%xrev` tiers are stripped before injection (even on clean
 re-runs with no new decisions) to prevent stale decision duplication across reruns.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506–537`. The injection layer is in
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506-537`. The injection layer is in
 `crates/batchalign-transform/src/decisions/`.
 
 ---
@@ -246,11 +246,11 @@ Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506–537`. The inject
 
 After FA finishes, the CHAT file is validated at Level 2 (output gate equivalent to
 [Command Contracts: align post-validation](../../architecture/command-contracts.md#align-post-validation)).
-Validation errors are **warnings only** — cross-speaker overlap is normal in
+Validation errors are **warnings only**: cross-speaker overlap is normal in
 conversation data and non-fatal. If critical errors appear (e.g., invalid tier
 codes), they are logged but do not fail the job.
 
-Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:539–554`.
+Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:539-554`.
 
 ---
 
@@ -268,17 +268,17 @@ cargo nextest run -p batchalign --test incremental
 ```
 
 Key test locations:
-- `crates/batchalign/src/chat_ops/fa/` — unit tests for grouping, injection, UTR
-- `crates/batchalign/tests/` — integration tests for the FA pipeline
+- `crates/batchalign/src/chat_ops/fa/`: unit tests for grouping, injection, UTR
+- `crates/batchalign/tests/`: integration tests for the FA pipeline
 
 ---
 
 ## Related developer documentation
 
-- [Command Flowcharts: align](../../architecture/command-flowcharts.md#align) — detailed runtime flowchart with 3 diagrams
-- [Forced Alignment](../../reference/forced-alignment.md) — algorithm design, prerequisites
-- [Dynamic Programming](../../../architecture/parser-and-grammar/dynamic-programming.md) — Hirschberg aligner
-- [Incremental Processing](../../architecture/incremental-processing.md) — `--before` mechanics
-- [Overlap Encoding](../../architecture/overlap-encoding.md) — `+<` and CA marker handling
-- [Command Contracts](../../architecture/command-contracts.md) — pre/post validation gates
-- [Adding Commands](../adding-commands.md) — use `align` as the reference implementation for `PerFileTransform`
+- [Command Flowcharts: align](../../architecture/command-flowcharts.md#align), detailed runtime flowchart with 3 diagrams
+- [Forced Alignment](../../reference/forced-alignment.md), algorithm design, prerequisites
+- [Dynamic Programming](../../../architecture/parser-and-grammar/dynamic-programming.md), Hirschberg aligner
+- [Incremental Processing](../../architecture/incremental-processing.md), `--before` mechanics
+- [Overlap Encoding](../../architecture/overlap-encoding.md), `+<` and CA marker handling
+- [Command Contracts](../../architecture/command-contracts.md), pre/post validation gates
+- [Adding Commands](../adding-commands.md), use `align` as the reference implementation for `PerFileTransform`

@@ -24,7 +24,7 @@ that no new runtime DP appears outside the allowlisted call sites.
 
 ## Classification
 
-### Intrinsic — DP is the algorithm
+### Intrinsic: DP is the algorithm
 
 - **WER evaluation / compare command.** Comparing two independent
   word sequences is exactly edit-distance territory.
@@ -33,19 +33,19 @@ that no new runtime DP appears outside the allowlisted call sites.
 - **Whisper DTW path.** If cross-attention DTW is the chosen
   alignment method, DP is part of the method.
 
-### Architecturally avoidable — removed from runtime
+### Architecturally avoidable: removed from runtime
 
 - **FA word/token remapping.** Removed; indexed or deterministic
   stitching only.
 - **Retokenize char-level DP.** Removed; deterministic span-join
   with length-aware monotonic fallback.
 
-### Correctness-critical — DP retained on purpose
+### Correctness-critical: DP retained on purpose
 
 - **UTR global ASR → transcript DP.** UTR has to align two
   independent full-document word sequences (transcript words and
   ASR tokens). A local/windowed matcher can starve later
-  utterances of tokens that earlier utterances consumed — exactly
+  utterances of tokens that earlier utterances consumed, exactly
   what happened in the 407-style hand-edited transcript regression.
   UTR uses a single global Hirschberg alignment for this reason.
   Same category as WER/compare, not the avoidable-runtime-remap
@@ -76,8 +76,8 @@ two optimizations beyond the textbook algorithm:
 
 - **Prefix/suffix stripping.** Before entering the O(mn) DP core,
   `align()` strips matching prefixes and suffixes in O(n). For the
-  primary use case (WER / transcript comparison, 80–95% accuracy),
-  reduces effective DP problem size 10–100×. Only the differing
+  primary use case (WER / transcript comparison, 80-95% accuracy),
+  reduces effective DP problem size 10-100×. Only the differing
   middle portion enters Hirschberg recursion.
 - **Generic `Alignable` trait.** Both `String` (word-level) and
   `char` (character-level) entry points share one generic
@@ -122,7 +122,7 @@ penalize length differences as harshly.
 
 Without fuzzy matching, a single ASR substitution ("gonna" vs
 "gona") forces the DP to treat it as a gap (cost 2) rather than a
-match (cost 0). This can cascade — the mismatched word shifts
+match (cost 0). This can cascade, the mismatched word shifts
 subsequent alignments, potentially leaving entire utterances
 unmatched. With fuzzy matching, the substitution is recognized as
 a match, keeping the alignment anchored.
@@ -210,7 +210,7 @@ flowchart LR
 
 Narrows the pass-2 search window from the full predecessor range
 (~3 seconds in this example) to ~1 second around the estimated
-onset — roughly a 3× reduction in search space.
+onset, roughly a 3× reduction in search space.
 
 ## Known DP Failure Modes
 
@@ -231,15 +231,15 @@ onset — roughly a 3× reduction in search space.
 
 ### Mitigations in code
 
-- **Monotonicity enforcement (E362)** — `enforce_monotonicity()`
+- **Monotonicity enforcement (E362)**: `enforce_monotonicity()`
   strips timing from regressions after FA.
-- **Same-speaker overlap enforcement (E704)** —
+- **Same-speaker overlap enforcement (E704)**,
   `strip_e704_same_speaker_overlaps()` strips earlier conflicting
   timing.
-- **Untimed fallback windows** — proportional boundary estimates
+- **Untimed fallback windows**: proportional boundary estimates
   keep FA from skipping all untimed utterances. See
   [Proportional FA Estimation](../alignment/proportional-fa-estimation.md).
-- **Retokenize diagnostics + safe fallback** — invalid token
+- **Retokenize diagnostics + safe fallback**: invalid token
   mappings keep original words and mark parse taint.
 
 ## Allowlist Policy

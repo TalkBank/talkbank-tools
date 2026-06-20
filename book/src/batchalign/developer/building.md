@@ -99,7 +99,7 @@ make batchalign-python-prepare    # depends on batchalign-build-wheel; reinstall
 ```
 
 The PyO3 crate (`crates/batchalign-pyo3/`) has no feature gates beyond
-`extension-module` — no heavy CLI or Rev.AI dependencies. In a source
+`extension-module`: no heavy CLI or Rev.AI dependencies. In a source
 checkout, `batchalign/_cli.py` falls back to
 `target/{debug,release}/batchalign3` when the packaged binary isn't
 present, so most contributors do not need to install the wheel
@@ -115,24 +115,24 @@ batchalign-python-prepare`; the maturin `include` directive in
 
 batchalign3 ships two native artifacts in its wheel:
 
-1. **`batchalign_core.so`** — the PyO3 extension (gives Python access to Rust
+1. **`batchalign_core.so`**: the PyO3 extension (gives Python access to Rust
    CHAT parsing, alignment, etc.)
-2. **`batchalign/_bin/batchalign3`** — the standalone Rust CLI binary (the
+2. **`batchalign/_bin/batchalign3`**: the standalone Rust CLI binary (the
    server, job runner, and all commands)
 
 The Python entry point (`batchalign/_cli.py`) locates and execs the native CLI
 binary. It searches three locations in order:
 
-1. **Packaged binary** at `batchalign/_bin/batchalign3` — this is what PyPI
+1. **Packaged binary** at `batchalign/_bin/batchalign3`: this is what PyPI
    users get. The binary is bundled inside the wheel.
-2. **Dev checkout** at `target/{debug,release}/batchalign3` — for developers
+2. **Dev checkout** at `target/{debug,release}/batchalign3`: for developers
    who built the CLI with `cargo build`.
-3. **Cargo fallback** — execs `cargo run -p batchalign` to compile on the
+3. **Cargo fallback**: execs `cargo run -p batchalign` to compile on the
    fly.
 
 ### Why `_bin/` is gitignored
 
-The binary is a 50+ MB platform-specific build artifact — it must not be
+The binary is a 50+ MB platform-specific build artifact, it must not be
 tracked in git. Instead:
 
 - **Locally:** copy `target/release/batchalign3` (or `target/debug/batchalign3`)
@@ -158,7 +158,7 @@ include = [
 ]
 ```
 
-If the binary doesn't exist at build time, maturin silently skips it — the
+If the binary doesn't exist at build time, maturin silently skips it, the
 wheel still builds but `batchalign3 --help` will fail at runtime with
 "CLI binary not found." This is why CI must build and copy the binary
 **before** running `uv build --wheel`.

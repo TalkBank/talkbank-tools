@@ -112,10 +112,10 @@ giving up (default 120; see `default_memory_gate_timeout_s` in
 
 **Common causes:**
 
-1. Too many concurrent workers — reduce `max_workers_per_job` or
+1. Too many concurrent workers, reduce `max_workers_per_job` or
    `max_concurrent_jobs` in `~/.batchalign3/server.yaml`
 2. Other processes consuming RAM
-3. Idle workers holding loaded models — the pool evicts idle workers
+3. Idle workers holding loaded models, the pool evicts idle workers
    automatically when host memory pressure rises; if eviction isn't
    firing fast enough, restart the server
 
@@ -147,7 +147,7 @@ mounted there. If the corpus root and media root differ on that host, configure
 local `media_mappings` or pass a server-visible `--media-dir`. See
 [Media Resolution](../reference/media-conversion.md#media-resolution).
 
-**Media conversion failed — ffmpeg not found:** MP4 (and M4A, WebM, WMA)
+**Media conversion failed, ffmpeg not found:** MP4 (and M4A, WebM, WMA)
 files require ffmpeg for conversion to WAV. Install ffmpeg:
 
 ```bash
@@ -162,7 +162,7 @@ sudo apt install ffmpeg
 
 After installing, restart the server (`batchalign3 serve stop && serve start`).
 
-**Media conversion failed — ffmpeg error:** The ffmpeg conversion itself
+**Media conversion failed, ffmpeg error:** The ffmpeg conversion itself
 failed. Check that the source media file is not corrupted. The error
 message includes ffmpeg's stderr output for diagnosis.
 
@@ -209,11 +209,11 @@ curl http://SERVER:8001/jobs/JOB_ID/traces | python3 -m json.tool
 
 What to look for in the trace payload:
 
-- `fa_timeline.fallback_events[]` — confirms a Wave2Vec group retried with
+- `fa_timeline.fallback_events[]`: confirms a Wave2Vec group retried with
   Whisper FA
-- empty `fallback_events` on a successful rerun — often means the run was served
+- empty `fallback_events` on a successful rerun, often means the run was served
   from FA cache rather than reproducing the failure
-- group index + `audio_start_ms` / `audio_end_ms` — the exact failing window to
+- group index + `audio_start_ms` / `audio_end_ms`: the exact failing window to
   reproduce offline
 
 If you are debugging direct mode instead of `--server`, the same `--debug-dir`
@@ -310,7 +310,7 @@ curl http://localhost:8000/health | python3 -m json.tool
 Look at the `capabilities` list. If the command you need is missing:
 
 1. **Check the server log** for lines containing "excluding from server
-   capabilities" — these show which commands failed the capability gate and why.
+   capabilities", these show which commands failed the capability gate and why.
 
 2. **Verify the Python environment** has the required packages installed. All
    core commands work out of the box with a standard install (`uv tool install
@@ -326,7 +326,7 @@ Look at the `capabilities` list. If the command you need is missing:
    All of these are included in the base `batchalign3` package, including the
    Cantonese providers.
 
-3. **Restart the server** after installing missing packages — capabilities are
+3. **Restart the server** after installing missing packages, capabilities are
    detected once at startup:
 
    ```bash
@@ -358,14 +358,14 @@ depends entirely on the control-plane backend, which is selected by the
 `temporal_server_url` field in `~/.batchalign3/server.yaml`:
 
 - **In-process backend** (`temporal_server_url` empty / `"none"` /
-  `"local"` / `"disabled"`, or the field omitted) — the job is gone.
+  `"local"` / `"disabled"`, or the field omitted), the job is gone.
   The control plane lives inside this server process.
-- **Temporal backend** (`temporal_server_url` set to a real URL) —
+- **Temporal backend** (`temporal_server_url` set to a real URL),
   the job almost certainly survived. The Temporal workflow re-leases
   the activity to a worker after the server reconnects.
 
 Confirm by querying `http://<server>:<port>/jobs` (the public JSON
-endpoint — `/api/jobs` is **404**, that's the SPA shell route prefix).
+endpoint, `/api/jobs` is **404**, that's the SPA shell route prefix).
 A surviving Temporal job will show `status: running` again with
 `completed_files` advancing, even if `completed_at` is stamped.
 
@@ -415,7 +415,7 @@ for the selection rule.
    entirely (path lists instead of file contents). This is the simplest
    fix when a fleet machine keeps the corpus on shared storage.
 
-The CLI does **not** retry 413 — a deterministic rejection indicates the
+The CLI does **not** retry 413, a deterministic rejection indicates the
 payload itself is too large, and re-sending would waste work. See
 [Submit-path retries](../architecture/observability.md#submit-path-retries)
 for the full retry contract.
@@ -433,7 +433,7 @@ treated submission errors as terminal silently skipped the chunk.
 **Remediation.** The CLI retries transient connect/timeout failures
 automatically (`RETRY_ATTEMPTS = 3`, exponential backoff). Use a current
 `batchalign3` build. A non-CLI client talking directly to the REST API
-must implement its own retry on connect/timeout — but must not retry
+must implement its own retry on connect/timeout, but must not retry
 HTTP 4xx/5xx.
 
 ## External service timeouts
@@ -476,12 +476,12 @@ What to do:
 
 - **If your output CHAT looks correct** (check with
   `chatter validate path/to/output.cha`): nothing. The workaround
-  did its job. The warning is informational — it tells you "we
+  did its job. The warning is informational, it tells you "we
   applied a known upstream-defect workaround N times on this job."
 - **If `chatter validate` reports errors on the output**: the
   workaround may have missed a new variant of the defect. Please
   file a bug with the input file, the warning log excerpt, and the
-  validation error — we will extend the workaround vocabulary.
+  validation error, we will extend the workaround vocabulary.
 
 The comprehensive list of known upstream defects and their registered
 workarounds is maintained at

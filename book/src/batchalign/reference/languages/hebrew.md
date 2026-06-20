@@ -13,7 +13,7 @@ features (HebBinyan, HebExistential).
 |---------------|--------------------------|
 | ASR | `openai/whisper-large-v3` via `--asr-engine whisper` (no per-language fine-tune wired today) |
 | Text normalization | RTL punctuation → ASCII (؟→?, ۔→., ،→,) |
-| Number expansion | **Not supported** — digits pass through unexpanded |
+| Number expansion | **Not supported**: digits pass through unexpanded |
 | Morphosyntax | MWT enabled (preposition+article contractions), HebBinyan/HebExistential features |
 | Forced alignment | Wave2Vec MMS (standard) |
 
@@ -53,7 +53,7 @@ Hebrew uses Stanza's MWT processor for preposition+article contractions
 `should_request_mwt(alpha2, get_cached_capability_table())` at
 `batchalign/worker/_stanza_loading.py:40` consults the cached Stanza
 catalog and reports `has_mwt=True` for `he`. The earlier hardcoded
-`MWT_LANGS` / `_MWT_EXCLUSION` sets were deleted —
+`MWT_LANGS` / `_MWT_EXCLUSION` sets were deleted,
 [Stanza Limitations Defect 5](../stanza-limitations.md) has the
 rewrite rationale.
 
@@ -76,14 +76,14 @@ mapped to `%mor` suffix `-true`.
 ### No Other Workarounds
 
 Unlike English, French, Japanese, Italian, Portuguese, and Dutch, Hebrew has
-**no Stanza workarounds** — the HebBinyan/HebExistential mapping is standard
+**no Stanza workarounds**: the HebBinyan/HebExistential mapping is standard
 UD feature processing.
 
 ## Known Limitations
 
 ### No Hebrew number expansion
 Hebrew digits pass through unexpanded. CHAT output will show `5` instead of
-`חמש`. This is a known gap — a Hebrew number table for `num2lang.json` has
+`חמש`. This is a known gap, a Hebrew number table for `num2lang.json` has
 not been created.
 
 ### RTL text layout
@@ -101,9 +101,9 @@ editors depends on the editor's BiDi support.
 
 ## Open Questions
 
-1. **Hebrew number expansion** — should we add a Hebrew number table? What
+1. **Hebrew number expansion**: should we add a Hebrew number table? What
    are the conventions for Hebrew CHAT transcripts (digits vs word forms)?
-2. **Hebrew-specific ASR errors** — are there systematic Stanza POS/dep
+2. **Hebrew-specific ASR errors**: are there systematic Stanza POS/dep
    errors for Hebrew that need workaround rules (like English/French/Japanese)?
 
 ## Source Files

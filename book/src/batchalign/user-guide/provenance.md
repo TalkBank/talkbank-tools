@@ -20,10 +20,10 @@ brackets:
 
 The format is: `[ba3 <command> | <key>=<value> ; ... | <timestamp>]`
 
-- **`ba3`** — identifies this as a batchalign3 provenance comment
-- **command** — which operation was performed
-- **key=value pairs** — engine versions and options that affect output
-- **timestamp** — ISO 8601 with timezone, when processing occurred
+- **`ba3`**: identifies this as a batchalign3 provenance comment
+- **command**: which operation was performed
+- **key=value pairs**: engine versions and options that affect output
+- **timestamp**: ISO 8601 with timezone, when processing occurred
 
 ## Example: Multiple Commands
 
@@ -47,7 +47,7 @@ accumulate:
 ## Re-running a command
 
 If you re-run morphotag on a file that already has a morphotag provenance
-comment, the old comment is **replaced** — not duplicated. Comments from
+comment, the old comment is **replaced**: not duplicated. Comments from
 other commands (align, transcribe, etc.) are preserved.
 
 ## What each command records

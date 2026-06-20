@@ -7,7 +7,7 @@
 
 The `batchalign_core` Python extension is built by **maturin** from `crates/batchalign-pyo3/Cargo.toml`.
 The crate has exactly one feature gate: `extension-module` (required by PyO3 for
-cdylib linking). No other features exist — the extension is always slim.
+cdylib linking). No other features exist, the extension is always slim.
 
 ## Dependency Graph
 
@@ -28,18 +28,18 @@ Rev.AI, no talkbank-model, no talkbank-parser.
 
 | Crate | Used by pyo3 for | Could be removed? |
 |-------|-------------------|-------------------|
-| `batchalign-types` | Domain newtypes, worker IPC types (`ExecuteRequestV2`, etc.) | No — core shared types |
-| `talkbank-transform` | Cantonese ASR projection, Cantonese normalization, tokenizer realignment, coref types, text result normalization, morphosyntax sentence mapping (post-crate-split home of all the formerly-`batchalign`-side worker logic) | No — worker-side Rust logic |
-| `pyo3` / `numpy` | PyO3 bridge, NumPy array handling for audio | No — fundamental |
-| `serde` / `serde_json` | JSON serialization for IPC | No — fundamental |
-| `tracing` / `tracing-subscriber` | Worker-process logging (env-filtered) | No — required for diagnostics |
+| `batchalign-types` | Domain newtypes, worker IPC types (`ExecuteRequestV2`, etc.) | No, core shared types |
+| `talkbank-transform` | Cantonese ASR projection, Cantonese normalization, tokenizer realignment, coref types, text result normalization, morphosyntax sentence mapping (post-crate-split home of all the formerly-`batchalign`-side worker logic) | No, worker-side Rust logic |
+| `pyo3` / `numpy` | PyO3 bridge, NumPy array handling for audio | No, fundamental |
+| `serde` / `serde_json` | JSON serialization for IPC | No, fundamental |
+| `tracing` / `tracing-subscriber` | Worker-process logging (env-filtered) | No, required for diagnostics |
 
 ### What was removed
 
 | Removed dep | Why |
 |-------------|-----|
 | `batchalign` (+ transitive `batchalign`) | CLI binary shipped as package data instead of compiled into .so |
-| `batchalign-revai` | Dead code — server uses Rev.AI directly |
+| `batchalign-revai` | Dead code, server uses Rev.AI directly |
 | `talkbank-model` | Only used by deleted ParsedChat class |
 | `talkbank-parser` | Only used by deleted parse helpers |
 | `indexmap`, `thiserror` | Only used by deleted standalone functions |
@@ -61,9 +61,9 @@ This eliminates the old `cli-entry` feature gate that dragged 741 extra crates
 The wrapper is intentionally thin, but it does carry two load-bearing runtime
 handoffs into the Rust binary:
 
-- `BATCHALIGN_PYTHON` — preserve the interpreter/venv that owns the installed
+- `BATCHALIGN_PYTHON`: preserve the interpreter/venv that owns the installed
   worker package
-- `BATCHALIGN_SELF_EXE` — preserve the actual packaged Rust binary path so
+- `BATCHALIGN_SELF_EXE`: preserve the actual packaged Rust binary path so
   server/daemon re-exec paths do not have to infer it from the Python
   console-script launcher
 
@@ -92,7 +92,7 @@ cargo check --manifest-path crates/batchalign-pyo3/Cargo.toml
 
 - **Do not add server deps to pyo3.** The extension is for the worker process.
   If the server needs Rust functionality, use `batchalign` or
-  `batchalign` directly — not through pyo3.
+  `batchalign` directly, not through pyo3.
 
 - **Do not vendor types.** Use path dependencies. `batchalign-types` is the
   single source of truth for domain newtypes and worker IPC types.

@@ -122,8 +122,8 @@ flowchart TD
 `transcribe` always does utterance splitting before CHAT output is written.
 There are two paths:
 
-- `eng`, `cmn`, `zho`, `yue` — dedicated pre-CHAT utterance models
-- all other languages — punctuation-based splitting in Rust
+- `eng`, `cmn`, `zho`, `yue`: dedicated pre-CHAT utterance models
+- all other languages, punctuation-based splitting in Rust
 
 Standalone `utseg` is the follow-up command for re-segmenting already-built
 CHAT transcripts.
@@ -161,7 +161,7 @@ CHAT transcripts.
 This is the most common source of confusion with `transcribe`.
 
 **Rev.AI (default engine):** Rev.AI returns speaker labels as part of its ASR
-response. These labels are **always** applied — you get multi-speaker output
+response. These labels are **always** applied, you get multi-speaker output
 without passing `--diarization enabled`. Passing `--diarization enabled`
 explicitly runs an additional Pyannote post-ASR relabeling stage on top of the
 Rev labels, matching BA2's audited `transcribe_s` pipeline behavior.
@@ -174,7 +174,7 @@ identities.
 
 **`--diarization auto`** (the default) = disabled dedicated stage. Equivalent
 to BA2's `--nodiarize`. The BA2 help text claiming Rev.AI ignored `--diarize`
-was stale — the actual BA2 `transcribe_s` pipeline wiring ran the dedicated
+was stale, the actual BA2 `transcribe_s` pipeline wiring ran the dedicated
 stage.
 
 ---
@@ -184,7 +184,7 @@ stage.
 With `--asr-engine whisper`, `--lang auto` omits the language parameter from
 Whisper's generation kwargs, letting the model detect the spoken language from
 the audio. The multilingual `openai/whisper-large-v3` model is always used
-with `auto` — language-specific fine-tuned models are bypassed because they
+with `auto`: language-specific fine-tuned models are bypassed because they
 are trained for a single language.
 
 With Rev.AI, `--lang auto` submits a true auto-language request to the Rev.AI
@@ -227,7 +227,7 @@ spoken-form normalization.
 resolves audio paths on its own filesystem. Paths valid on your machine must
 also be reachable from the server, or you must use a shared media mount.
 
-**Memory on developer machines.** Each Whisper model instance uses 2–15 GB.
+**Memory on developer machines.** Each Whisper model instance uses 2-15 GB.
 For large corpus runs (more than a handful of files or >1 GB audio total),
 prefer a dedicated server with substantial RAM (via `--server`) over a
 developer laptop, and always pass `--workers 1` for local smoke tests.
@@ -236,9 +236,9 @@ developer laptop, and always pass `--workers 1` for local smoke tests.
 
 ## Related documentation
 
-- [Rev.AI Integration](../rev-ai.md) — API key setup, engine behavior
-- [Cantonese Engines](../cantonese-processing.md) — Tencent, Aliyun, FunASR engines
-- [Utterance Segmentation](../../reference/utterance-segmentation.md) — post-ASR BERT utseg
-- [Command I/O: transcribe](../../reference/command-io.md#2-transcribe) — I/O patterns and mutation behavior
-- [Command Flowcharts: transcribe](../../architecture/command-flowcharts.md#transcribe) — full architecture flowchart
-- [ASR Token Pipeline](../../architecture/asr-token-pipeline.md) — ASR post-processing details
+- [Rev.AI Integration](../rev-ai.md), API key setup, engine behavior
+- [Cantonese Engines](../cantonese-processing.md), Tencent, Aliyun, FunASR engines
+- [Utterance Segmentation](../../reference/utterance-segmentation.md), post-ASR BERT utseg
+- [Command I/O: transcribe](../../reference/command-io.md#2-transcribe), I/O patterns and mutation behavior
+- [Command Flowcharts: transcribe](../../architecture/command-flowcharts.md#transcribe), full architecture flowchart
+- [ASR Token Pipeline](../../architecture/asr-token-pipeline.md), ASR post-processing details

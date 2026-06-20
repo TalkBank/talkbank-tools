@@ -63,7 +63,7 @@ does not rewrite the media input.
 Every command eventually reaches the server via `POST /jobs`. The CLI's
 `BatchalignClient::submit_job` retries transient connect/timeout failures
 with exponential backoff (3 attempts, starting at 2.0 s with jitter) and
-**never retries HTTP 4xx/5xx responses** — those are deterministic server
+**never retries HTTP 4xx/5xx responses**: those are deterministic server
 rejections (validation error, conflict, payload too large, panic). This
 retry contract is shared by every command in the tables below; it is not
 command-specific. See
@@ -132,10 +132,10 @@ before CHAT assembly; for other languages, BA3 uses the later `utseg` stage.
 explicit `--lang eng`, even when the final transcript is treated as English.
 There are two internal paths:
 
-1. **Language ID succeeds before transcript submission** — BA3 resolves the
+1. **Language ID succeeds before transcript submission**: BA3 resolves the
    request to English up front, and the Rev request path matches explicit
    `--lang eng`.
-2. **Language ID fails or returns an unmapped code** — BA3 submits a true Rev
+2. **Language ID fails or returns an unmapped code**: BA3 submits a true Rev
    auto request. Later stages may still resolve the resulting transcript to
    English for segmentation and CHAT headers, but provider-side request options
    differ from explicit English.
@@ -152,7 +152,7 @@ should prefer `--diarization` and `--asr-engine`.
 Identical to `transcribe` above, except the pipeline may run a dedicated
 Pyannote speaker diarization stage when separate diarization is needed. Output
 `.cha` files have multiple `@Participants` and speaker-attributed utterances.
-Not a separate CLI command — triggered by `batchalign3 transcribe --diarize`.
+Not a separate CLI command, triggered by `batchalign3 transcribe --diarize`.
 
 **When to use:** This path is primarily for Whisper-based transcription
 (`--asr-engine whisper`, `whisperx`, `whisper-oai`), where the ASR engine does
@@ -258,7 +258,7 @@ word error rate (WER) and inject per-utterance comparison annotations.
 | **Input files** | `.cha` files in `IN_DIR` | `.cha` content sent as text |
 | **Gold files** | `FILE.gold.cha` in same directory as `FILE.cha` | Gold files sent alongside main files, or read from server filesystem in paths mode |
 | **Extensions filter** | `["cha"]` | Same |
-| **Output** | `.cha` with `%xsrep` / `%xsmor` tiers + `.compare.csv` metrics | Same — client writes both files to `OUT_DIR` |
+| **Output** | `.cha` with `%xsrep` / `%xsmor` tiers + `.compare.csv` metrics | Same, client writes both files to `OUT_DIR` |
 | **Mutation** | If `OUT_DIR = IN_DIR`: **overwrites original `.cha` in place**. Gold files are never modified. | Same |
 | **Key options** | `--lang`, `--merge-abbrev`, `--override-media-cache` | All passed through typed command options |
 
@@ -295,7 +295,7 @@ comparison bundle. The released command now emits the projected reference view.
 Benchmark-style flows can still materialize a main-annotated view internally.
 The projection path works over the CHAT AST: exact structural matches can copy
 `%mor` / `%gra` / `%wor`, while partial matches stay conservative instead of
-reconstructing tiers from strings. Compare parity is semantic — the workflow
+reconstructing tiers from strings. Compare parity is semantic, the workflow
 matches BA2 behavior without copying BA2's string/document shell.
 
 **No media involved.** This is a text-only operation.
@@ -314,7 +314,7 @@ matches BA2 behavior without copying BA2's string/document shell.
 | **Mutation** | **Never mutates input.** Creates new `.cha` files. | Same |
 | **Key options** | `--asr-engine`, `--asr-engine-custom`, `--lang`, `-n`, `--wor/--nowor` | All passed |
 
-**Same I/O pattern as transcribe** — creates new `.cha` files with audio
+**Same I/O pattern as transcribe**: creates new `.cha` files with audio
 extension renamed. Additionally includes evaluation metrics from comparing
 ASR output against reference transcripts.
 
@@ -482,10 +482,10 @@ entry [`server returned 413: length limit exceeded`](../user-guide/troubleshooti
 
 | Direction | `paths_mode=true` (local daemon) | `paths_mode=false` (remote `--server`) |
 |-----------|----------------------------------|----------------------------------------|
-| **Request body** | `JobSubmission { paths_mode: true, source_paths, output_paths, before_paths, display_names, ... }` — path lists only (~KB) | `JobSubmission { paths_mode: false, files: [FilePayload { filename, content }], ... }` — full file bytes inline (can be 100+ MB) |
+| **Request body** | `JobSubmission { paths_mode: true, source_paths, output_paths, before_paths, display_names, ... }`: path lists only (~KB) | `JobSubmission { paths_mode: false, files: [FilePayload { filename, content }], ... }`: full file bytes inline (can be 100+ MB) |
 | **Server read** | Runner opens each `source_paths[i]` directly via `tokio::fs::read_to_string` (see `crates/batchalign/src/runner/dispatch/infer_batched.rs:112-141`) | Runner reads the staged copy from `staging_dir/input/<filename>` that the POST handler wrote before returning 202 |
 | **Server write** | Runner writes outputs directly to `output_paths[i]` on the shared filesystem | Runner writes to `staging_dir/output/`; the CLI polls `/jobs/{id}/results/<filename>` and saves each file locally |
-| **Body limit (`max_body_bytes_mb`)** | Not a factor — body is a path list | Structural ceiling; operators raise `max_body_bytes_mb` for large remote payloads |
+| **Body limit (`max_body_bytes_mb`)** | Not a factor, body is a path list | Structural ceiling; operators raise `max_body_bytes_mb` for large remote payloads |
 | **Where `DirectHost` fits in** | `DirectHost` is a further optimization used when the CLI falls back to inline in-process execution (no HTTP). It uses the same `source_paths` / `output_paths` convention the local daemon uses, just without the HTTP hop | n/a |
 
 ### Request/response sequence
@@ -541,10 +541,10 @@ Diagram verified against:
 When the CLI cannot reach or start any daemon, it falls back to inline
 in-process execution via `DirectHost`. `DirectHost` reuses the same
 `source_paths` / `output_paths` convention that `paths_mode=true` uses on
-the wire — canonical filesystem paths are prepared once and handed to the
+the wire, canonical filesystem paths are prepared once and handed to the
 direct host. No HTTP hop, no staging directory, no body limit.
 
-**Media resolution:** Same as local CLI — the direct host resolves
+**Media resolution:** Same as local CLI, the direct host resolves
 `@Media:` headers against its filesystem (same machine, same paths).
 
 ---

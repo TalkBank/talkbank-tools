@@ -41,7 +41,7 @@ only trustworthy while three things hold:
 2. The main tiers have not been manually edited since that run.
 3. The align algorithm has not changed since that run.
 
-If any of these breaks, the tiers are **stale** — the `%xalign` reasoning
+If any of these breaks, the tiers are **stale**: the `%xalign` reasoning
 may reference decisions the current algorithm would no longer make, or
 point to utterances whose content has shifted. A reviewer who works through
 stale tiers is wasting their own time.
@@ -179,13 +179,13 @@ flowchart TD
 ```
 
 Source files verified against:
-`crates/batchalign/src/chat_ops/fa/review_tiers.rs` (writer side —
+`crates/batchalign/src/chat_ops/fa/review_tiers.rs` (writer side,
 `inject_review_tiers` builds the `%xalign`/`%xrev` dependent tiers),
 `crates/batchalign-transform/src/decisions.rs` (typed `DecisionStrategy`
 enum, `xalign_content` rendering, and `strip_decision_tiers` cleanup
 helper), and `docs/pipeline-decision-metadata-design.md` (design doc).
 
-The `finalize` and `harvest_reviews` stages are currently **roadmap** —
+The `finalize` and `harvest_reviews` stages are currently **roadmap**,
 they are not yet shipped. Today, reviewers clean a file by re-running with
 `--review-level=none` (or by deleting the tiers in an editor). See
 *Publishing a clean copy* below.
@@ -248,7 +248,7 @@ per-file archive.
 **Harvest before finalize.** Once the harvest tool ships, run it on the
 reviewed file to capture ratings into the training CSV, then run finalize
 to strip the tiers. If you finalize without harvesting, the ratings are
-lost — that's intentional; stale ratings are worthless, so the tooling
+lost, that's intentional; stale ratings are worthless, so the tooling
 refuses to let you preserve them into an ambiguous future.
 
 ## Patterns worth attention
@@ -322,7 +322,7 @@ harvests it soon after.
 Probably not. Check the `@Comment: [ba3 align | ... | <timestamp>]` line
 and compare it against the file's last modification time. If the file has
 been edited since align ran, or the algorithm has been bumped since then,
-the tiers are **stale** — the `%xalign` reasoning no longer reflects what
+the tiers are **stale**: the `%xalign` reasoning no longer reflects what
 the current pipeline would do. **Rerun align before reviewing.** Stale
 tiers are misleading, not helpful.
 
@@ -331,7 +331,7 @@ tiers are misleading, not helpful.
 The ratings are probably no longer usable because the algorithm has
 changed. Rerun align (which strips the old tiers and emits fresh ones),
 re-review, and harvest promptly this time. Old ratings against an old
-algorithm are not rescuable — they don't describe decisions the current
+algorithm are not rescuable, they don't describe decisions the current
 pipeline makes.
 
 **What's the difference between `[wrong]` and `[corrected]`?**
@@ -352,8 +352,8 @@ the split is worth the extra tier noise.
 
 ## Related
 
-- [Processing Provenance](./provenance.md) — `@Comment` headers that record
+- [Processing Provenance](./provenance.md), `@Comment` headers that record
   which commands were run on a file.
-- [Developer: Decision Provenance](../developer/decision-provenance.md) —
+- [Developer: Decision Provenance](../developer/decision-provenance.md),
   internals of the `DecisionRecord` pipeline that produces `%xalign`
   content.

@@ -11,13 +11,13 @@ pipelines, and processing behavior.
 batchalign3 **never silently substitutes a different language** when the
 requested language is unsupported. Every engine boundary must either:
 
-1. **Succeed** — map the code correctly and proceed, or
-2. **Fail explicitly** — return a clear error naming the unsupported language,
+1. **Succeed**: map the code correctly and proceed, or
+2. **Fail explicitly**: return a clear error naming the unsupported language,
    the engine that rejected it, and suggested alternatives
 
 Silent fallbacks (e.g., defaulting to English when a language is unknown)
 produce output that looks plausible but is completely wrong. A clear error
-is always better — users can recover from "language not supported" but
+is always better, users can recover from "language not supported" but
 cannot recover from a transcript in the wrong language.
 
 This policy applies to all engine boundaries: Rev.AI, Whisper, Stanza,
@@ -47,11 +47,11 @@ argument to `stanza.Pipeline`. The conversion lives in
 `batchalign/worker/_stanza_loading.py::iso3_to_alpha2()` and resolves
 in three layers:
 
-1. **Stanza-specific overrides** — `_ISO3_OVERRIDES` in
+1. **Stanza-specific overrides**: `_ISO3_OVERRIDES` in
    `_stanza_capabilities.py`. The single source of truth for codes
    where the standard ISO-1 mapping does **not** correspond to a
    Stanza catalog key. `iso3_to_alpha2()` imports this dict (it does
-   not redefine its own copy — see "Drift hazard" below).
+   not redefine its own copy, see "Drift hazard" below).
 
    | ISO-639-3 | Stanza key | Why not the standard alpha-2 |
    |-----------|------------|------------------------------|
@@ -61,12 +61,12 @@ in three layers:
    | `nor`     | `nb`       | Norwegian. pycountry says `no`; Stanza ships `nb` (Bokmål) only. |
    | `msa`     | `ms`       | Malay. pinned for stability. |
 
-2. **`pycountry`** — for every other code with a standard ISO-639-3 ↔
+2. **`pycountry`**: for every other code with a standard ISO-639-3 ↔
    ISO-639-1 counterpart (`mar` → `mr`, `swa` → `sw`, `eng` → `en`,
    etc.). This must be the fallback rather than a duplicate hardcoded
-   dict — see "Drift hazard."
+   dict, see "Drift hazard."
 
-3. **Pass-through with warning** — for codes that have no standard
+3. **Pass-through with warning**: for codes that have no standard
    alpha-2 (genuinely missing from pycountry). Length-2 codes are
    assumed to already be alpha-2 and pass through silently; everything
    else logs a warning before being handed to Stanza.
@@ -77,7 +77,7 @@ A previous version of this function had its own hardcoded mapping
 dict instead of using `pycountry`. That dict was missing many codes
 (notably Marathi `mar` → `mr`). The capability table built via
 pycountry correctly recognized `mar` as supported, but `iso3_to_alpha2`
-returned `"mar"` verbatim — and `stanza.Pipeline(lang="mar", ...)`
+returned `"mar"` verbatim, and `stanza.Pipeline(lang="mar", ...)`
 crashed with "Language mar is currently unsupported" because Stanza's
 catalog is keyed by alpha-2.
 
@@ -98,7 +98,7 @@ For full architecture and incident history see
 ## Model Resolution (ASR)
 
 The default HuggingFace Whisper engine (`--asr-engine whisper`) loads
-`openai/whisper-large-v3` across every language — see
+`openai/whisper-large-v3` across every language, see
 `batchalign/inference/asr.py::_infer_whisper` and the default in
 `batchalign/inference/asr.py:120`. There is no per-language fine-tune
 table on this engine.
@@ -106,7 +106,7 @@ table on this engine.
 Per-language fine-tunes are opt-in via the separate `--asr-engine
 whisper_hub` engine, whose resolver lives at
 `batchalign/models/resolve.py::_RESOLVER["whisper_hub"]`. The resolver
-is seeded reactively from empirical evaluation — entries are added one
+is seeded reactively from empirical evaluation, entries are added one
 at a time with dated provenance, not speculatively. As of this writing
 the only seeded entry is `mal → thennal/whisper-medium-ml`; absent
 languages raise `WhisperHubModelNotFoundError` directing the user to
@@ -132,7 +132,7 @@ backends). Each engine carries its own model identity:
 | `--utr-engine rev` | Rev.AI cloud API |
 | `--utr-engine-custom tencent_utr` | Tencent Cloud UTR backend |
 
-There is no per-language UTR-model resolver — `--utr-engine whisper`
+There is no per-language UTR-model resolver, `--utr-engine whisper`
 loads the same checkpoint regardless of `--lang`. See
 [Whisper ASR](whisper-asr.md) §"Utterance Timing Recovery" for the
 full picture.
@@ -181,7 +181,7 @@ consults the Stanza catalog table built at worker startup from
 `stanza.resources.common.load_resources_json()` (see
 `batchalign/worker/_stanza_capabilities.py`) and requests the `mwt`
 processor only when that table reports `has_mwt=True` for the
-language. The earlier hardcoded `MWT_LANGS` set was deleted — see
+language. The earlier hardcoded `MWT_LANGS` set was deleted, see
 [Stanza Limitations Defect 5](stanza-limitations.md) for the full
 rewrite rationale, and `test_stanza_config_parity.py:82` for the AST
 scan that prevents reintroduction.
@@ -198,7 +198,7 @@ The translation now uses ~75 explicit entries in `try_revai_language_hint()`
 with a fallback to `"auto"` (Rev.AI auto-detection) + warning log for
 unknown codes. See `crates/batchalign/src/revai/preflight.rs`.
 
-### Truncation fallback — not used
+### Truncation fallback: not used
 
 A truncation fallback (`&other[..2]`) for unknown ISO 639-3 codes is
 not used; it produces wrong codes for many languages (e.g., `pol` → `po`
@@ -261,15 +261,15 @@ English transcriptions because Whisper didn't know their language.
 ### The Problem
 
 When a user passes `--lang hak` (Hakka), errors surface at different
-points depending on the engine — all too late:
+points depending on the engine, all too late:
 
 | Engine | When error surfaces | Error message | User impact |
 |---|---|---|---|
-| Rev.AI | **At job submission** | Clear error with alternatives | None — user redirected to Whisper/Tencent |
+| Rev.AI | **At job submission** | Clear error with alternatives | None, user redirected to Whisper/Tencent |
 | Whisper | At inference time | `ValueError: Unrecognized ISO 639-3 code` | Clear error, no silent fallback |
-| Stanza | **At job submission** | Clear error listing all 55 supported codes | None — immediate feedback |
-| Tencent | **At job submission** | Clear error with alternatives | None — user redirected to Whisper/Rev.AI |
-| Aliyun | **At job submission** | Clear error: Cantonese only | None — user redirected |
+| Stanza | **At job submission** | Clear error listing all 55 supported codes | None, immediate feedback |
+| Tencent | **At job submission** | Clear error with alternatives | None, user redirected to Whisper/Rev.AI |
+| Aliyun | **At job submission** | Clear error: Cantonese only | None, user redirected |
 
 ### Required Behavior
 
@@ -288,7 +288,7 @@ Error: Language 'hak' (Hakka) is not supported by Rev.AI ASR.
 ### Per-Engine Language Support: Can We Query at Runtime?
 
 **No engine provides a runtime "what languages do you support?" API.**
-All language support is determined by static tables — either hardcoded in
+All language support is determined by static tables, either hardcoded in
 our mapping code or documented on vendor websites. This means we must
 maintain our own validation tables.
 
@@ -333,7 +333,7 @@ maintain our own validation tables.
   `batchalign/worker/_stanza_loading.py:63`, with Stanza-specific
   overrides in `_ISO3_OVERRIDES` (`_stanza_capabilities.py:50`).
 - **Validation approach:** Check the cached capability table before
-  attempting to load the pipeline — the same path that drives
+  attempting to load the pipeline, the same path that drives
   `should_request_mwt()` and the rest of per-processor availability.
 
 #### Tencent (cloud Chinese ASR)
@@ -341,23 +341,23 @@ maintain our own validation tables.
 - **No API endpoint**; hardcoded to Chinese variants only
 - Our validation: `_CHINESE_CODES = {"zho", "yue", "wuu", "nan", "hak"}`
   in `batchalign/inference/languages/cantonese/_tencent_api.py:24`
-- Already raises `ValueError` for non-Chinese — this is good, but happens
+- Already raises `ValueError` for non-Chinese, this is good, but happens
   at worker load time rather than job submission time
 
 #### Aliyun (cloud Cantonese ASR)
 
 - **No API endpoint**; hardcoded to Cantonese only
-- Already raises `ValueError` if `lang != "yue"` — same timing issue
+- Already raises `ValueError` if `lang != "yue"`: same timing issue
 
 #### Google Translate / SeamlessM4T
 
 - Google supports ~130 languages; SeamlessM4T ~96 languages
-- **No pre-validation in batchalign3** — language is passed through directly
+- **No pre-validation in batchalign3**: language is passed through directly
 - Both have online documentation of supported languages but no programmatic query
 
 #### NeMo / Pyannote (speaker diarization)
 
-- **Language-independent** — diarization works on any language
+- **Language-independent**: diarization works on any language
 - No validation needed
 
 ### Cached Language Support Table
@@ -414,7 +414,7 @@ A `validate_language_support(lang, command, engines)` function should:
 1. Check each engine the command will use against its supported language set
 2. Return a structured diagnostic listing which engines support the language
    and which don't, with suggested alternatives
-3. Be called at job submission time (Rust server) — before any processing
+3. Be called at job submission time (Rust server), before any processing
 4. Optionally be callable from the CLI for `batchalign3 setup --check-lang hak`
 
 This is tracked as a future improvement. The Rev.AI mapping table
@@ -424,26 +424,26 @@ This is tracked as a future improvement. The Rev.AI mapping table
 
 To add language-specific behavior for a new language:
 
-1. **Stanza mapping** — Add to `_ISO3_OVERRIDES` in
+1. **Stanza mapping**: Add to `_ISO3_OVERRIDES` in
    `batchalign/worker/_stanza_capabilities.py` only when the standard
    alpha-2 mapping does not match Stanza's catalog key.
-2. **Rev.AI mapping** — Add an explicit entry in
+2. **Rev.AI mapping**: Add an explicit entry in
    `crates/batchalign/src/revai/preflight.rs::try_revai_language_hint`
    (do NOT rely on the truncation fallback).
-3. **ASR model** — Optionally add a fine-tune to
+3. **ASR model**: Optionally add a fine-tune to
    `batchalign/models/resolve.py::_RESOLVER["whisper_hub"]` with a
    dated provenance comment; users select it via `--asr-engine
    whisper_hub`.
-4. **Number expansion** — Add an entry to
+4. **Number expansion**: Add an entry to
    `crates/batchalign-transform/data/num2lang.json`, or handle the
    language in `crates/batchalign-transform/src/asr_postprocess/num2text.rs`.
-5. **Utterance segmentation** — Optionally train a BERT boundary
+5. **Utterance segmentation**: Optionally train a BERT boundary
    model and add it to `batchalign/models/resolve.py::_RESOLVER["utterance"]`.
-6. **Morphosyntax workarounds** — Add a
+6. **Morphosyntax workarounds**: Add a
    `crates/batchalign-transform/src/morphosyntax/lang_XX.rs` file if
    Stanza produces systematic errors for this language (see existing
    `lang_en.rs`, `lang_fr.rs`, `lang_it.rs`, `lang_ja.rs`).
-7. **MWT dispatch** — No code change required; capability-driven
+7. **MWT dispatch**: No code change required; capability-driven
    `should_request_mwt()` picks up Stanza's catalog automatically.
-8. **Test with `benchmark`** — Verify the language code is accepted by
+8. **Test with `benchmark`**: Verify the language code is accepted by
    all engines in the pipeline (ASR, morphotag, compare).

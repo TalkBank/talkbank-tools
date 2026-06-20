@@ -28,12 +28,12 @@ flowchart LR
 
 The module provides:
 
-- **`ProvenanceComment`** — typed builder for provenance metadata
-- **`inject_provenance(&mut ChatFile, &ProvenanceComment)`** — AST-level
+- **`ProvenanceComment`**: typed builder for provenance metadata
+- **`inject_provenance(&mut ChatFile, &ProvenanceComment)`**: AST-level
   injection that adds/replaces `@Comment` headers
-- **`inject_provenance_into_text(&str, &ProvenanceComment) -> String`** —
+- **`inject_provenance_into_text(&str, &ProvenanceComment) -> String`**,
   convenience wrapper for pipelines working with serialized text
-- **Per-command builders** — `morphotag_provenance()`,
+- **Per-command builders**: `morphotag_provenance()`,
   `align_provenance()`, `transcribe_provenance()`, etc.
 
 ### Comment Format
@@ -78,16 +78,16 @@ Each pipeline injects provenance right before serialization:
 
 | Command | File | Injection site |
 |---------|------|---------------|
-| morphotag | `pipeline/morphosyntax.rs` | `stage_serialize()` — injects into `&mut ChatFile` before `to_chat_string()` |
-| utseg | `pipeline/text_infer.rs` | `run_cached_text_pipeline()` — after `apply()`, before `to_chat_string()` |
+| morphotag | `pipeline/morphosyntax.rs` | `stage_serialize()`: injects into `&mut ChatFile` before `to_chat_string()` |
+| utseg | `pipeline/text_infer.rs` | `run_cached_text_pipeline()`: after `apply()`, before `to_chat_string()` |
 | translate | `pipeline/text_infer.rs` | Same as utseg (shared generic pipeline) |
-| coref | `coref.rs` | `run_coref_impl()` — after injection, before serialize |
-| align | `runner/dispatch/fa_pipeline.rs` | `process_one_fa_file()` — after FA result, uses `inject_provenance_into_text()` |
-| transcribe | `pipeline/transcribe.rs` | `run_transcribe_pipeline()` — replaces legacy `insert_transcribe_comment()` |
+| coref | `coref.rs` | `run_coref_impl()`: after injection, before serialize |
+| align | `runner/dispatch/fa_pipeline.rs` | `process_one_fa_file()`: after FA result, uses `inject_provenance_into_text()` |
+| transcribe | `pipeline/transcribe.rs` | `run_transcribe_pipeline()`: replaces legacy `insert_transcribe_comment()` |
 
 ## Engine Version Source
 
-Engine versions come from `WorkerCapabilities.engine_versions` — a
+Engine versions come from `WorkerCapabilities.engine_versions`: a
 `BTreeMap<String, String>` reported by each Python worker at spawn time.
 This is live detection, not hardcoded constants.
 

@@ -78,8 +78,8 @@ failed.
 
 ## What gets created
 
-- `FILE.cha` — hypothesis transcript produced by ASR
-- `FILE.compare.csv` — WER metrics: aggregate row plus per-POS breakdown
+- `FILE.cha`: hypothesis transcript produced by ASR
+- `FILE.compare.csv`: WER metrics: aggregate row plus per-POS breakdown
 
 The hypothesis `.cha` contains a main-annotated view (unlike `compare`, which
 outputs the projected reference). The `%xsrep` and `%xsmor` tiers are
@@ -101,8 +101,8 @@ alongside the audio.
 
 ## Related documentation
 
-- [Benchmarks](../../reference/benchmarks.md) — WER metrics and evaluation methodology
-- [compare](compare.md) — standalone transcript comparison
-- [transcribe](transcribe.md) — ASR transcription pipeline
-- [Command I/O: benchmark](../../reference/command-io.md#9-benchmark) — I/O patterns
-- [Command Flowcharts: benchmark](../../architecture/command-flowcharts.md#benchmark) — full architecture flowchart
+- [Benchmarks](../../reference/benchmarks.md), WER metrics and evaluation methodology
+- [compare](compare.md), standalone transcript comparison
+- [transcribe](transcribe.md), ASR transcription pipeline
+- [Command I/O: benchmark](../../reference/command-io.md#9-benchmark), I/O patterns
+- [Command Flowcharts: benchmark](../../architecture/command-flowcharts.md#benchmark), full architecture flowchart

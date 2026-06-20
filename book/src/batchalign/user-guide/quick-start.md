@@ -17,7 +17,7 @@ For the full command surface, see the [CLI Reference](cli-reference.md).
 ## Before you start
 
 **Model downloads:** The first time you run a processing command, Batchalign
-downloads ML models (~2 GB). This is a one-time cost — subsequent runs use
+downloads ML models (~2 GB). This is a one-time cost, subsequent runs use
 cached models from disk.
 
 **Caching:** Batchalign caches **audio-bound** intermediate results
@@ -134,7 +134,7 @@ analysis commands (`morphotag`, `align`, `compare`, etc.) honor explicit
 
 ## Next steps
 
-- [Batchalign Desktop (Experimental)](desktop-app.md) — in-repo GUI shell status and scope
+- [Batchalign Desktop (Experimental)](desktop-app.md), in-repo GUI shell status and scope
 - [CLI Reference](cli-reference.md)
 - [Performance](performance.md)
 - [Server Mode](server-mode.md)

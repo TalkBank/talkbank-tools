@@ -33,8 +33,8 @@ stderr.
 ### Drift incident history
 
 The bug pattern keeps recurring. Each entry below is a real incident
-where the registry's invariant — *"every lookup of language capability
-goes through the same authority"* — was violated.
+where the registry's invariant, *"every lookup of language capability
+goes through the same authority"*, was violated.
 
 | Date | What drifted | Symptom | Root cause |
 |------|--------------|---------|------------|
@@ -160,10 +160,10 @@ available:
 
 **ISO-639-3 mapping** is built in two passes:
 
-1. **`_ISO3_OVERRIDES`** — a small dict of codes where pycountry is wrong or
+1. **`_ISO3_OVERRIDES`**: a small dict of codes where pycountry is wrong or
    Stanza uses non-standard identifiers (e.g., `nor→nb`, `yue→zh-hans`,
    `cmn→zh-hans`, `zho→zh-hans`, `msa→ms`).
-2. **`pycountry.languages`** — for all remaining standard mappings.
+2. **`pycountry.languages`**: for all remaining standard mappings.
 
 The result is a `StanzaCapabilityTable` with `languages` keyed by ISO-639-3
 code and `iso3_to_alpha2` for the code mapping. This is cached with
@@ -264,7 +264,7 @@ the live table (with chat-ops fallback if the registry is unavailable).
 
 The Python worker also runs a typed `UnsupportedLanguageError`
 preflight in `_stanza_loading.py::load_stanza_models` that consults
-the live capability table — this is the authoritative drift safety
+the live capability table, this is the authoritative drift safety
 net regardless of how stale the Rust fallback gets.
 
 ## Key Source Files

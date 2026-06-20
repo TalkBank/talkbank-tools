@@ -34,7 +34,7 @@ dashboard is the supported public surface; the Tauri shell is a
 desktop wrapper around the same React code with a
 researcher-friendly processing flow.
 
-The Tauri side is intentionally thin — plugins + one custom
+The Tauri side is intentionally thin, plugins + one custom
 command. All UI logic lives in React. Reasons:
 
 - One UI codebase across web and desktop.
@@ -75,7 +75,7 @@ construction.
   terminals.
 - The Tauri side stays thin (plugins + one custom command); all UI
   logic lives in React.
-- Rust-only end-to-end UI stacks are not pursued — adding
+- Rust-only end-to-end UI stacks are not pursued, adding
   Node/TypeScript toolchain ownership is the conscious tradeoff
   for ecosystem maturity.
 

@@ -9,8 +9,8 @@ Batchalign commands that process audio (`align`, `transcribe`, `opensmile`,
 `avqi`, `benchmark`) must resolve a media file for each input. Depending on the
 command, Rust then either prepares typed PCM artifacts for worker-protocol V2
 execution or passes through a normalized media path to a provider-specific
-engine. Container formats that downstream audio libraries cannot read —
-primarily **MP4** — must first be converted to WAV via ffmpeg.
+engine. Container formats that downstream audio libraries cannot read,
+primarily **MP4**: must first be converted to WAV via ffmpeg.
 
 This conversion is automatic, cached, and transparent to the user.
 
@@ -106,7 +106,7 @@ batchalign3 [--server http://<your-server>:8001] align input/ output/ --lang eng
   └─ CLI: poll /jobs/{id}/results → write output files
 ```
 
-## ensure_wav — Conversion Cache
+## ensure_wav: Conversion Cache
 
 **Module:** `crates/batchalign/src/ensure_wav.rs`
 
@@ -114,19 +114,19 @@ Implements content-fingerprinted WAV conversion with file-locking and atomic wri
 
 ### Algorithm
 
-1. **Check extension** — if `.wav`/`.mp3`/`.flac`/`.ogg`, return unchanged.
-2. **Check ffmpeg** — if not on PATH, return a clear error with install hint.
-3. **Fingerprint** — `BLAKE3(file_size_be_bytes ++ first_64KB ++ last_64KB)`
+1. **Check extension**: if `.wav`/`.mp3`/`.flac`/`.ogg`, return unchanged.
+2. **Check ffmpeg**: if not on PATH, return a clear error with install hint.
+3. **Fingerprint**: `BLAKE3(file_size_be_bytes ++ first_64KB ++ last_64KB)`
    truncated to 24 hex chars. Reads at most ~128 KB regardless of file size.
-4. **Cache lookup** — check the media cache directory for
+4. **Cache lookup**: check the media cache directory for
    `{fingerprint}.wav`. If it exists, return immediately (cache hit).
-5. **Lock** — acquire exclusive `fs2` file lock on `{fingerprint}.wav.lock`
+5. **Lock**: acquire exclusive `fs2` file lock on `{fingerprint}.wav.lock`
    to prevent concurrent ffmpeg invocations for the same source file. This
    is important for parallel FA processing where multiple groups reference
    the same audio.
-6. **Re-check** — another task may have completed conversion while we waited.
-7. **Convert** — `ffmpeg -y -i source -acodec pcm_s16le -ar 16000 -ac 1 tmp.wav`
-8. **Atomic rename** — `rename(tmp.wav, {fingerprint}.wav)`.
+6. **Re-check**: another task may have completed conversion while we waited.
+7. **Convert**: `ffmpeg -y -i source -acodec pcm_s16le -ar 16000 -ac 1 tmp.wav`
+8. **Atomic rename**: `rename(tmp.wav, {fingerprint}.wav)`.
 
 ### ffmpeg Arguments
 
@@ -181,7 +181,7 @@ Media conversion failed for example.cha: ffmpeg conversion failed
 for /path/to/media/example.mp4: [stderr]
 ```
 
-The job continues processing remaining files — one conversion failure
+The job continues processing remaining files, one conversion failure
 does not abort the entire job.
 
 ## Media Resolution
@@ -204,8 +204,8 @@ The CLI no longer asks the server to infer remote media from client-specific
 path mappings. For audio commands, explicit `--server` submits filesystem paths
 via `paths_mode`:
 
-- `source_paths` — absolute input paths the server must be able to read
-- `output_paths` — absolute output paths the server must be able to write
+- `source_paths`: absolute input paths the server must be able to read
+- `output_paths`: absolute output paths the server must be able to write
 
 This means the clean operational model is:
 
@@ -263,7 +263,7 @@ Total: **16,739 MP4 files** across all volumes.
   those formats fail with a clear error. WAV/MP3/FLAC/OGG work without
   ffmpeg.
 - **ffprobe** (bundled with ffmpeg) is used for audio duration probing in
-  the FA pipeline. Optional — if unavailable, proportional estimation
+  the FA pipeline. Optional, if unavailable, proportional estimation
   uses a fallback.
 - **blake3** crate for content fingerprinting.
 - **fs2** crate for cross-platform file locking.

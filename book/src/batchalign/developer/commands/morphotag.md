@@ -1,4 +1,4 @@
-# morphotag — Developer Reference
+# morphotag: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-19 22:58 EDT
@@ -12,15 +12,15 @@ documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.m
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `MorphotagArgs` | lang, retokenize, skipmultilang, lexicon, no-l2-morphotag, pos-hints |
-| Options builder | `crates/batchalign/src/cli/args/options.rs:248–255` (inline dispatch) | Maps `MorphotagArgs` → `CommandOptions::Morphotag(MorphotagOptions)` |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `MorphotagArgs` | lang, retokenize, skipmultilang, lexicon, no-l2-morphotag, pos-hints |
+| Options builder | `crates/batchalign/src/cli/args/options.rs:248-255` (inline dispatch) | Maps `MorphotagArgs` → `CommandOptions::Morphotag(MorphotagOptions)` |
 | Command definition | `crates/batchalign/src/commands/morphotag.rs` | `CommandDefinition` impl, pre-validation gate |
 | Morphosyntax orchestration | `crates/batchalign/src/morphosyntax/` | Cross-file batching, cache lookup, worker dispatch, result injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Pools all files into a single ML call |
 | Injection | `crates/batchalign-transform/src/morphosyntax/injection.rs` | `inject_results()`: writes `%mor`/`%gra` from typed UD annotations |
 | Retokenization | `crates/batchalign/src/retokenize/` | Character-level DP for Stanza word splits/merges |
 | Payload collection & injection | `crates/batchalign-transform/src/morphosyntax/`: `collect_payloads()`, `clear_morphosyntax()`, `inject_results()`, `remove_empty_morphosyntax_placeholders()` | Cross-crate: domain logic lives in talkbank-transform model layer |
-| Worker IPC | `batchalign/inference/morphosyntax.py` — `batch_infer_morphosyntax()` | Loads Stanza, returns raw `to_dict()` UD annotations |
+| Worker IPC | `batchalign/inference/morphosyntax.py`: `batch_infer_morphosyntax()` | Loads Stanza, returns raw `to_dict()` UD annotations |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`:
 the CLI posts source/output path lists instead of CHAT bytes. See
@@ -107,18 +107,18 @@ variant escapes the filter's vocabulary.
 
 Code + tests:
 
-- `batchalign/inference/_control_token_filter.py` — pure stripper + regex
-- `batchalign/inference/morphosyntax.py` — call site inside
+- `batchalign/inference/_control_token_filter.py`: pure stripper + regex
+- `batchalign/inference/morphosyntax.py`: call site inside
   `batch_infer_morphosyntax` after `doc.to_dict()`
-- `batchalign/tests/inference/test_control_token_filter.py` —
+- `batchalign/tests/inference/test_control_token_filter.py`,
   34 pure-function tests (regex vocabulary, strip contract, MWT safety)
 - `batchalign/tests/pipelines/morphosyntax/test_stanza_fi_mwt_sos_leak.py`
-  — standalone upstream reproducer
+ , standalone upstream reproducer
 - `batchalign/tests/pipelines/morphosyntax/test_control_token_leak_propagation.py`
-  — integration test through `batch_infer_morphosyntax`
+ , integration test through `batch_infer_morphosyntax`
 
 The five-step workflow that produced this filter is the same one any
-future upstream defect should follow — see
+future upstream defect should follow, see
 [Upstream Defect Policy](../upstream-defect-policy.md).
 
 ### Language-group failure propagation (Rust side)
@@ -148,7 +148,7 @@ for fake-pool tests),
 `crates/batchalign/src/morphosyntax/saturation_tests.rs` (3
 end-to-end corruption-regression tests).
 
-See also: [Batchalign Workers — Saturation Safeguards](../../../architecture/runtime/batchalign-workers.md#worker-pool-saturation-safeguards).
+See also: [Batchalign Workers, Saturation Safeguards](../../../architecture/runtime/batchalign-workers.md#worker-pool-saturation-safeguards).
 
 ---
 
@@ -186,7 +186,7 @@ Diagram verified against: `crates/batchalign/src/morphosyntax/batch.rs` (orchest
 tiers outright. `inject_results` then called the old "remove-then-add"
 pattern at the end of `dependent_tiers`, so regenerated tiers were
 displaced to the tail of the list. On files whose source layout put
-`%wor` last — very common — the round trip `parse → clear → infer →
+`%wor` last, very common, the round trip `parse → clear → infer →
 inject → serialize` produced a large, spurious tier-order diff.
 
 The current pattern:
@@ -206,7 +206,7 @@ The current pattern:
 
 - `clear_then_reinject_preserves_tier_order_mor_gra_wor` (line 1185)
 - `add_wor_tier_preserves_tier_order_wor_mor_gra` (line 1258)
-- `collect_payloads_treats_empty_mor_placeholder_as_unprocessed` (line 1302) — tier-order test covering the empty-placeholder sweep
+- `collect_payloads_treats_empty_mor_placeholder_as_unprocessed` (line 1302), tier-order test covering the empty-placeholder sweep
 
 ### `collect_payloads` empty-placeholder fix
 
@@ -220,7 +220,7 @@ Net effect before the fix: `collect_payloads` returned zero payloads
 after clearing, the worker was never called, and `%mor` / `%gra` were
 silently stripped from the entire file.
 
-`has_mor` now requires the Mor tier to be **non-empty** — it returns
+`has_mor` now requires the Mor tier to be **non-empty**: it returns
 false for an empty placeholder. Regression test:
 `collect_payloads_treats_empty_mor_placeholder_as_unprocessed`.
 
@@ -243,7 +243,7 @@ morphosyntax assignments.
 
 Multilingual CHAT files produce batch items with different per-item languages.
 Each language group must be dispatched to a worker loaded with the correct Stanza
-model — sending French text to an English MWT pipeline produces corrupt Range tokens.
+model, sending French text to an English MWT pipeline produces corrupt Range tokens.
 
 Language groups are dispatched **concurrently** using a semaphore to prevent deadlock:
 each language group acquires a semaphore permit before accessing the worker pool.
@@ -251,11 +251,11 @@ This ensures that we never try to start more language groups simultaneously than
 the worker pool can support (`max_total_workers / max_workers_per_key`).
 
 When a language group finishes and releases its permit, the next waiting group
-acquires it and starts — no deadlock, full utilization, all groups eventually
+acquires it and starts, no deadlock, full utilization, all groups eventually
 complete. This is the same concurrency pattern the FA pipeline uses for per-file
 parallelism.
 
-Implementation: `crates/batchalign/src/morphosyntax/batch.rs:288–312`.
+Implementation: `crates/batchalign/src/morphosyntax/batch.rs:288-312`.
 
 ---
 
@@ -371,14 +371,14 @@ Only the POS category (UPOS → CLAN notation) is checked and potentially overri
 Lemma and features from Stanza remain intact.
 
 The outcome tracks 5 categories:
-- `hints_considered` — total `$POS` annotations found
-- `hints_agreed` — transcriber POS matched Stanza output (no change needed)
-- `hints_overridden` — Stanza POS overridden by transcriber annotation
-- `hints_unmapped` — transcriber POS code not in the CLAN↔UPOS mapping table
-- `hints_skipped_no_mor` — utterance had no `%mor` tier to override
+- `hints_considered`: total `$POS` annotations found
+- `hints_agreed`: transcriber POS matched Stanza output (no change needed)
+- `hints_overridden`: Stanza POS overridden by transcriber annotation
+- `hints_unmapped`: transcriber POS code not in the CLAN↔UPOS mapping table
+- `hints_skipped_no_mor`: utterance had no `%mor` tier to override
 
 Implementation: `crates/batchalign/src/chat_ops/morphosyntax_ops/pos_hints.rs`,
-`batchalign/src/morphosyntax/batch.rs:509–521`.
+`batchalign/src/morphosyntax/batch.rs:509-521`.
 
 ---
 
@@ -417,8 +417,8 @@ cargo nextest run -p batchalign -E 'test(retokenize::)'
 
 ## Related developer documentation
 
-- [Command Flowcharts: morphotag](../../architecture/command-flowcharts.md#morphotag) — detailed runtime flowchart
-- [Morphosyntax Pipeline](../../reference/morphosyntax.md) — %mor/%gra format
+- [Command Flowcharts: morphotag](../../architecture/command-flowcharts.md#morphotag), detailed runtime flowchart
+- [Morphosyntax Pipeline](../../reference/morphosyntax.md), %mor/%gra format
 - [Stanza Capability Registry](../../architecture/stanza-capability-registry.md)
-- [Incremental Processing](../../architecture/incremental-processing.md) — `--before` flag
-- [Adding Commands](../adding-commands.md) — use `morphotag` as the reference for `CrossFileBatchTransform`
+- [Incremental Processing](../../architecture/incremental-processing.md), `--before` flag
+- [Adding Commands](../adding-commands.md), use `morphotag` as the reference for `CrossFileBatchTransform`

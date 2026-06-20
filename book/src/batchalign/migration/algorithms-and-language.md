@@ -57,7 +57,7 @@ That directly changes user-visible correctness:
 
 This is a fundamental redesign, not incremental cleanup: ad-hoc string
 manipulation and parallel-array patching are replaced by principled typed
-structure with explicit provenance — and that structural shift is what drives
+structure with explicit provenance, and that structural shift is what drives
 both the correctness and efficiency gains throughout the migration.
 
 That pattern shows up repeatedly across the migration:
@@ -87,7 +87,7 @@ For migration purposes, separate:
 - Retokenize char-level DP fallback mapping path was removed, replaced by
   deterministic interval/index mapping with length-aware monotonic fallback.
 - FA response handling uses indexed word timings or deterministic token
-  stitching in `fa/alignment.rs` — no DP.
+  stitching in `fa/alignment.rs`: no DP.
 
 For FA, the precise current claim is narrower:
 
@@ -187,7 +187,7 @@ via `--utr-fuzzy 1.0`.
 
 #### Two-pass overlap-aware UTR (BA3 mechanism, currently opt-in only)
 
-BA2 had no overlap awareness in UTR — overlap markers (`+<`, `&*`)
+BA2 had no overlap awareness in UTR, overlap markers (`+<`, `&*`)
 were treated the same as regular words. BA3 ships a two-pass strategy
 for conversation-analysis data:
 
@@ -196,14 +196,14 @@ for conversation-analysis data:
    they don't consume ASR tokens that belong to the primary speaker.
 
 2. **Pass 2 (targeted):** For each unresolved overlap utterance, search
-   for its ASR timing using index-aware onset matching — multiple `⌊`
+   for its ASR timing using index-aware onset matching, multiple `⌊`
    respondents match the correct `⌈` by overlap index with
    speaker-aware fallback.
 
 The two-pass mechanism currently runs only when the user explicitly
 passes `--utr-strategy two-pass`. The default (`--utr-strategy auto`)
 unconditionally returns `GlobalUtr` since the auto-routing was disabled
-on 2026-03-30 — see `resolve_strategy()` in
+on 2026-03-30, see `resolve_strategy()` in
 `crates/batchalign/src/runner/dispatch/utr.rs`. The library function
 `select_strategy()` in `crates/batchalign/src/chat_ops/fa/utr.rs`
 (language-agnostic content inspection that picks `TwoPassOverlapUtr`
@@ -218,7 +218,7 @@ than 30% of utterances carry overlap markers (dense CA data like
 Jefferson NB at 47% overlap), excluding all overlap words from pass-1
 would starve the aligner of context, so two-pass falls back to global
 alignment for that file. The threshold lives on `TwoPassConfig` as the
-`max_exclusion_density` field (default `0.30`) — see
+`max_exclusion_density` field (default `0.30`), see
 `crates/batchalign/src/chat_ops/fa/utr/two_pass.rs`.
 
 Empirical result on Jefferson NB during the original tuning: pass-1
@@ -242,7 +242,7 @@ description of current default behavior.
 #### `@Options: CA` handling
 
 BA3 detects `@Options: CA` at FA entry and **suppresses `%wor`
-generation** for that file — see `crates/batchalign/src/fa/mod.rs::run`
+generation** for that file, see `crates/batchalign/src/fa/mod.rs::run`
 where the option is consulted and `info!("@Options: CA detected —
 suppressing %wor generation")` fires. The motivation is that CA
 transcripts use prosodic notation (`⌈⌉⌊⌋`, arrows, lengthening marks)
@@ -479,30 +479,30 @@ This is an improvement over both BA2 and early BA3:
 | Unknown code → Whisper | `pycountry` crash | Silent English fallback (`return "english"`) | Hard `ValueError` with message |
 | Unsupported Rev.AI language | HTTP 400 deep in pipeline | HTTP 400 deep in pipeline | Rejected at submission: "use `--asr-engine whisper`" |
 
-BA2's behavior was accidentally strict — it crashed because nobody added a
+BA2's behavior was accidentally strict, it crashed because nobody added a
 None check, not because someone designed early validation. BA3's initial
 migration introduced two regressions by trying to be "helpful":
 
-1. **Rev.AI truncation fallback** — `&other[..2]` silently produced wrong
+1. **Rev.AI truncation fallback**: `&other[..2]` silently produced wrong
    codes (e.g., `hak` → `ha`, `pol` → `po`). Replaced with a ~78-entry
    explicit mapping table (`revai/preflight.rs::try_revai_language_hint`)
    + `"auto"` fallback with `tracing::warn`.
 
-2. **Whisper English fallback** — `return "english"` when `pycountry` found
+2. **Whisper English fallback**: `return "english"` when `pycountry` found
    no match. This meant unknown languages were silently transcribed in
-   English — the worst possible outcome, since the user gets output that
+   English, the worst possible outcome, since the user gets output that
    looks plausible but is completely wrong. Replaced with
    `raise ValueError(...)`.
 
 **Design principle:** A clear error message is always better than silently
-wrong results. Users can recover from "language not supported — try
+wrong results. Users can recover from "language not supported, try
 `--asr-engine whisper`" but cannot recover from a transcript that looks
 English but should have been Welsh.
 
 ### Per-file `@Languages:` resolution (morphotag, translate, coref)
 
-For text-NLP commands that operate on existing CHAT files —
-`morphotag`, `translate`, `coref` — the processing language is
+For text-NLP commands that operate on existing CHAT files,
+`morphotag`, `translate`, `coref`: the processing language is
 **read per-file from each file's own `@Languages:` header**. None of
 these commands accept a `--lang` flag at the CLI; the wire-level
 `LanguageSpec` is `PerFile`, distinct from `Auto`.
@@ -512,7 +512,7 @@ these commands accept a `--lang` flag at the CLI; the wire-level
 | Missing `@Languages:` header | Silent `["eng"]` default applied to non-English files | Hard error: file is recorded as failed in the job's `file_statuses` with a typed message asking the operator to fix the header and re-run. No silent eng fallback. |
 | Malformed `@Languages:` (non-ISO code) | First entry passed through to Stanza, which then crashed deep in inference | Hard error at parse with the offending value quoted in the diagnostic. |
 | Bilingual file (`@Languages: spa, eng`) | Primary language used | Primary language used (unchanged). Secondary languages routed per-utterance via `[- xxx]` precodes; `@s` words routed to L2 dispatch by default. |
-| Job-level `--lang` flag | Sentinel that silently overrode per-file headers — the 2026-05-03 morphotag incident: every Czech/Spanish/Polish/French file in a heterogeneous corpus was tagged with English Stanza and stamped with `lang=eng` provenance | Removed. The CLI surface rejects `--lang` for these commands. The job record carries `lang=per-file` and the dashboard displays it as such. |
+| Job-level `--lang` flag | Sentinel that silently overrode per-file headers, the 2026-05-03 morphotag incident: every Czech/Spanish/Polish/French file in a heterogeneous corpus was tagged with English Stanza and stamped with `lang=eng` provenance | Removed. The CLI surface rejects `--lang` for these commands. The job record carries `lang=per-file` and the dashboard displays it as such. |
 
 **BA2 source for the silent `["eng"]` default:**
 
@@ -524,7 +524,7 @@ lang = doc.langs[0] if doc.langs else "eng"
 primary_lang = doc.langs[0] if doc.langs else "eng"
 ```
 
-The pattern was repeated at ten-plus sites across BA2 — every text-NLP
+The pattern was repeated at ten-plus sites across BA2, every text-NLP
 pipeline carried its own `if doc.langs else "eng"` clause. BA3 inherited
 it as parity scaffolding (`CommandProfile.lang = "eng"` for the three
 no-`--lang` commands) until 2026-05-06, when the placeholder was killed
@@ -535,8 +535,8 @@ fallible.
 predates the project's broader push toward strict CHAT validation; the eng
 default is consistent with a "produce some output rather than fail"
 stance that was reasonable when the corpus was overwhelmingly English
-CHILDES data. With heterogeneous data — Cantonese, Polish, Czech,
-Spanish, Hong Kong bilingual — the default is unsafe: it falsifies the
+CHILDES data. With heterogeneous data, Cantonese, Polish, Czech,
+Spanish, Hong Kong bilingual, the default is unsafe: it falsifies the
 output's `@Languages:` provenance and tags the wrong morphology onto
 the wrong text. BA3 deliberately diverges.
 
@@ -547,15 +547,15 @@ The UTR (Utterance Timing Recovery) overlap strategy options are
 
 **Current behavior** (`runner/dispatch/utr.rs::resolve_strategy`):
 
-- `--utr-strategy auto` (default) — always uses `GlobalUtr`. The
+- `--utr-strategy auto` (default), always uses `GlobalUtr`. The
   language-aware / overlap-inspecting branch was disabled
   2026-03-30 after operator-reported alignment regressions on real
   files, uncorrected end-time overlap
   (`enforce_monotonicity` only checks start times), and insufficient
   broad validation of the two-pass algorithm beyond the original four
   corpora.
-- `--utr-strategy global` — `GlobalUtr` (explicit; same as auto today).
-- `--utr-strategy two-pass` — `TwoPassOverlapUtr` (experimental;
+- `--utr-strategy global`: `GlobalUtr` (explicit; same as auto today).
+- `--utr-strategy two-pass`: `TwoPassOverlapUtr` (experimental;
   opt-in). The lower-level `select_strategy()` in
   `chat_ops/fa/utr.rs` inspects the file for `+<` linkers or `⌊` CA
   markers and returns `TwoPassOverlapUtr` if either is present, but
@@ -594,7 +594,7 @@ pipeline, `[- spa]` to Spanish, etc. The full chain:
    large batches into chunks across up to `max_workers_per_key` (default 4)
    workers of the same language, also via `join_all`.
 4. **Python worker**: receives one chunk, runs Stanza on it, returns raw UD
-   annotations — Python has zero language-routing logic.
+   annotations, Python has zero language-routing logic.
 
 Language grouping and dispatch are entirely Rust-owned. Python workers are
 stateless single-language inference endpoints.
@@ -608,7 +608,7 @@ stateless single-language inference endpoints.
 | `@s:lang` per-word routing | No | **Yes** (L2 dispatch, default-on; opt out via `--no-l2-morphotag`) |
 
 BA2 parsed the `[- lang]` precode into `override_lang` but **never used it
-for routing** — it always called `nlp(line_cut)` with the single primary
+for routing**: it always called `nlp(line_cut)` with the single primary
 pipeline, and `parse_sentence(..., lang[0])` always used the first
 declared language. When `skipmultilang=True`, BA2 skipped non-primary
 utterances entirely; when `False` (default), it processed them with the
@@ -646,14 +646,14 @@ files with secondary languages like Quechua (`que`), Jamaican Creole
 
 | Behavior | BA2 | BA3 |
 |---|---|---|
-| Unsupported secondary language | **Silently processed with wrong model** (MultilingualPipeline falls back to primary language) | **Detected at preflight, skipped with warning** — utterances get empty `%mor`/`%gra` |
+| Unsupported secondary language | **Silently processed with wrong model** (MultilingualPipeline falls back to primary language) | **Detected at preflight, skipped with warning**: utterances get empty `%mor`/`%gra` |
 | Worker crash on unsupported code | Never (MultilingualPipeline absorbs it) | Never (Rust filters before dispatch) |
 | POS accuracy for unsupported langs | **Wrong** (primary-language model applied to foreign text) | **Honest** (empty rather than wrong) |
 
 BA2's `stanza.MultilingualPipeline` was convenient but dishonest: it
 silently applied the wrong language model to unsupported languages,
 producing POS tags and dependency parses that looked plausible but were
-linguistically invalid. BA3's approach is to fail honestly — an empty
+linguistically invalid. BA3's approach is to fail honestly, an empty
 `%mor` tier is better than a wrong one, because it signals to the user
 that the language needs attention rather than hiding the problem behind
 plausible-looking garbage.
@@ -694,12 +694,12 @@ selection).
 
 BA3 adds full `--lang auto` support for `transcribe` with two-stage language
 detection and automatic code-switching precode generation. This is entirely
-new functionality — BA2 had no equivalent.
+new functionality, BA2 had no equivalent.
 
 | Capability | BA2 Jan 9 | BA3 |
 |---|---|---|
 | `--lang auto` CLI flag | Not explicitly supported; Whisper auto-detect worked implicitly by omitting the `language` kwarg | Fully supported with Rev.AI Language ID pre-pass |
-| Primary language detection | None — always used user-specified language | Rev.AI Language ID API (audio-based, ~5-30s, high accuracy); whatlang trigram fallback for Whisper |
+| Primary language detection | None, always used user-specified language | Rev.AI Language ID API (audio-based, ~5-30s, high accuracy); whatlang trigram fallback for Whisper |
 | `[- lang]` code-switching precodes | **Never generated during transcribe** | Generated per-utterance via whatlang trigram detection |
 | Multi-language `@Languages` header | Single language only | Multiple languages, frequency-ordered, primary first |
 | Rev.AI Language Identification API | Not used | Used as pre-pass to detect dominant language from audio features before transcription |
@@ -743,7 +743,7 @@ spa-eng samples), the two backends behave differently:
 - Per-utterance `[- eng]` precode coverage is much lower than
   ground-truth in either backend, because trigram detection requires
   `MIN_CHARS_FOR_DETECTION` (= 40 alphabetic chars) and
-  `UTTERANCE_CONFIDENCE_THRESHOLD` (= 0.5) to fire — short or
+  `UTTERANCE_CONFIDENCE_THRESHOLD` (= 0.5) to fire, short or
   code-mixed utterances fall below those thresholds. Quantitative
   per-corpus numbers depend on input characteristics; see the
   [language-routing limitations](../../architecture/language-and-multilingual/language-routing.md#known-limitations)
@@ -771,7 +771,7 @@ newtypes that prevent mixing text at different pipeline stages:
 |---|---|---|
 | Compound merging | Python, wordlist-driven merge (`compounds` list, O(n) `in` membership) | Rust, 3,584 pairs in `LazyLock<HashSet<(&str, &str)>>` (O(1) lookup) |
 | Multi-word splitting | Python, timestamp interpolation | Rust, same algorithm |
-| Number expansion | Python, 12 language tables (`deu, ell, eng, eus, fra, hrv, ind, jpn, nld, por, spa, tha`) | Rust, same 12 tables + Malayalam (`mal`) added 2026-04-26 for the Whisper-Hub digit-emission bug — 13 total |
+| Number expansion | Python, 12 language tables (`deu, ell, eng, eus, fra, hrv, ind, jpn, nld, por, spa, tha`) | Rust, same 12 tables + Malayalam (`mal`) added 2026-04-26 for the Whisper-Hub digit-emission bug, 13 total |
 | Cantonese normalization | Python (OpenCC dependency) | Rust (`ferrous-opencc` crate, no Python OpenCC needed) |
 | Long-turn splitting | Python, 300-word threshold | Rust, same threshold |
 | Retokenization | Python, punctuation-based | Rust, same algorithm |
@@ -786,13 +786,13 @@ in proper CHAT `<...> [/]` AST nodes (`AnnotatedWord` / `AnnotatedGroup`).
 
 | Operation | BA2 | BA3 | Rationale |
 |-----------|-----|-----|-----------|
-| Pre-Stanza paren stripping | `line_cut.replace("(","")` / `replace(")","")` strips parens from input before Stanza | No pre-Stanza stripping; `Word::cleaned_text()` handles CHAT notation at extraction time | BA2 silently dropped bare paren words, causing word count mismatches. BA3 still strips parens from MOR lemma output (`mor_word.rs:119`), same operation as BA2's lemma post-processing — different stage. |
+| Pre-Stanza paren stripping | `line_cut.replace("(","")` / `replace(")","")` strips parens from input before Stanza | No pre-Stanza stripping; `Word::cleaned_text()` handles CHAT notation at extraction time | BA2 silently dropped bare paren words, causing word count mismatches. BA3 still strips parens from MOR lemma output (`mor_word.rs:119`), same operation as BA2's lemma post-processing, different stage. |
 | MOR lemma hyphen normalization (post-Stanza) | Strip leading/trailing dash, collapse `--`→`-`, replace `-`→`–` (en-dash) on Stanza lemma output | **Same operations**, ported line-by-line in `mor_word.rs:107-129` | Not a real BA2-vs-BA3 divergence — BA3 preserves the BA2 lemma-cleanup logic by design. The cleaned MOR is the migration contract. |
 | Cantonese word segmentation | None | PyCantonese `segment()` via `--retokenize` | BA2 had no word segmentation for CJK per-character ASR output. |
-| Cantonese POS accuracy on core vocabulary | Stanza `zh` (Mandarin model) — internal benchmarks scored ~50% on core Cantonese; ~63% Mandarin baseline on the UD held-out test set | PyCantonese POS override scores ~95% on core Cantonese vocabulary; a trained Cantonese Stanza model on UD held-out reaches 93.5% (not yet deployed) | BA2 used the same Mandarin model. The exact baseline number depends on the test set used; see [Cantonese / CJK Architecture: POS limitations](../../architecture/language-and-multilingual/cantonese-and-cjk.md#known-limitations) for the cross-test-set picture. |
+| Cantonese POS accuracy on core vocabulary | Stanza `zh` (Mandarin model), internal benchmarks scored ~50% on core Cantonese; ~63% Mandarin baseline on the UD held-out test set | PyCantonese POS override scores ~95% on core Cantonese vocabulary; a trained Cantonese Stanza model on UD held-out reaches 93.5% (not yet deployed) | BA2 used the same Mandarin model. The exact baseline number depends on the test set used; see [Cantonese / CJK Architecture: POS limitations](../../architecture/language-and-multilingual/cantonese-and-cjk.md#known-limitations) for the cross-test-set picture. |
 
 These divergences mean BA3 morphotag output for Cantonese will differ from
-BA2 output. The differences are improvements — BA2's text stripping was lossy
+BA2 output. The differences are improvements, BA2's text stripping was lossy
 and its POS model was wrong for Cantonese.
 BA2 did string-level wrapping that could produce malformed CHAT when
 retraces crossed word boundaries or contained special characters.
@@ -904,9 +904,9 @@ Tested on a user's `17-3.cha` (`<corpus>/<group>`):
 
 | Utterance | BA2 / BA3 pre-fix | BA3 post-fix |
 |-----------|-------------------|-------------|
-| `... her &-you_know .` (trailing) | `you_know` — no timing | `you_know 459652_459835` ✓ |
+| `... her &-you_know .` (trailing) | `you_know`: no timing | `you_know 459652_459835` ✓ |
 | `&-you_know well , ...` (leading) | `you_know 454055_454130` (75ms) | `you_know 453680_454127` (447ms) ✓ |
 | `... about &-you_know having ...` (mid) | `you_know 382349_382989` ✓ | `you_know 382349_382989` ✓ (unchanged) |
 
-Mid-utterance fillers were already handled correctly — only edge fillers
+Mid-utterance fillers were already handled correctly, only edge fillers
 needed the fix.

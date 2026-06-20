@@ -20,7 +20,7 @@ nested structure.
 
 ## Correspondence to the Main Tier
 
-`%wor` is a **timing-annotation tier** — it records word-level start/end
+`%wor` is a **timing-annotation tier**: it records word-level start/end
 timestamps for tokens with a known phoneme sequence. It is NOT a structural
 1-to-1 mirror of all main-tier content.
 
@@ -34,7 +34,7 @@ no external semantics beyond tracking which word received which timing.
 
 ## What Text Appears in %wor
 
-The %wor tier uses each word's **`cleaned_text`** as display text — the
+The %wor tier uses each word's **`cleaned_text`** as display text, the
 spoken slot remains the original main-tier word, but the rendered token has
 CHAT-specific prosodic markup removed:
 
@@ -45,10 +45,10 @@ CHAT-specific prosodic markup removed:
 | `som(e)thing` | `something` | Shortening expanded |
 | `°softer°` | `softer` | CA delimiters removed |
 | `⌈word⌉` | `word` | Overlap points removed |
-| `&-uh` | `uh` | Category prefix `&-` stripped (filler — included) |
-| `&+fr` | (excluded) | Fragment — excluded from `%wor` |
-| `&~um` | (excluded) | Nonword — excluded from `%wor` |
-| `xxx` | (excluded) | Untranscribed — no phoneme sequence to align |
+| `&-uh` | `uh` | Category prefix `&-` stripped (filler, included) |
+| `&+fr` | (excluded) | Fragment, excluded from `%wor` |
+| `&~um` | (excluded) | Nonword, excluded from `%wor` |
+| `xxx` | (excluded) | Untranscribed, no phoneme sequence to align |
 | `ice+cream` | `icecream` | Compound marker `+` removed |
 
 ## Inclusion Rules
@@ -184,7 +184,7 @@ Example raw encoding:
 %wor:    hello \u00150_500\u0015 world \u0015500_1000\u0015 .
 ```
 
-Words CAN lack timing bullets — this means timing is unknown, NOT an error.
+Words CAN lack timing bullets, this means timing is unknown, NOT an error.
 
 ## Tier-Level Structure
 
@@ -216,7 +216,7 @@ A complete %wor tier has:
    bullet range. Clamping only applies when BOTH conditions hold: the bullet is
    `BulletSource::Authoritative` (not a runtime UTR hint) AND a `%wor` tier
    already exists (indicating this is a re-alignment, not a first-time run).
-   On first-time alignment — e.g., after `transcribe` + `utseg` — no clamping
+   On first-time alignment, e.g., after `transcribe` + `utseg`: no clamping
    occurs, because the utterance bullet came from narrow ASR-derived timestamps
    that may not cover the full speech span. See
    [Word timing clamping policy](forced-alignment.md#word-timing-clamping-policy)
@@ -228,7 +228,7 @@ A complete %wor tier has:
 
 Steps 1 and 5 both use the same `%wor` membership rules (`TierDomain::Wor`),
 guaranteeing identical traversal order. The `%wor` word count equals the
-number of Wor-domain words (regular words and fillers) — NOT a count of
+number of Wor-domain words (regular words and fillers), NOT a count of
 all main-tier tokens. Fragments, nonwords, and untranscribed placeholders
 are not counted.
 
@@ -248,30 +248,30 @@ are not counted.
 
 ## Source Code References
 
-- **Content walker**: `talkbank-model/src/alignment/helpers/walk/` —
+- **Content walker**: `talkbank-model/src/alignment/helpers/walk/`,
   `walk_words()`, `walk_words_mut()`, `WordItem`, `WordItemMut`.
   Centralizes recursive traversal of `UtteranceContent` and `BracketedItem`;
   used by %wor generation, FA extraction, FA injection, and FA postprocessing.
-- **Alignability rules**: `talkbank-model/src/alignment/helpers/rules.rs` —
+- **Alignability rules**: `talkbank-model/src/alignment/helpers/rules.rs`,
   `counts_for_tier()`, `should_skip_group()`,
   `should_align_replaced_word_in_pho_sin()`
-- **%wor tier model**: `talkbank-model/src/model/dependent_tier/wor.rs` —
+- **%wor tier model**: `talkbank-model/src/model/dependent_tier/wor.rs`,
   `WorWord`, `WorTier`, serialization
 - **%wor generation from AST**:
-  `talkbank-model/src/model/content/main_tier.rs` —
+  `talkbank-model/src/model/content/main_tier.rs`,
   `generate_wor_tier()`, `collect_wor_items_content()` (uses `walk_words`)
-- **FA word extraction**: `crates/batchalign/src/chat_ops/fa/extraction.rs` —
+- **FA word extraction**: `crates/batchalign/src/chat_ops/fa/extraction.rs`,
   `collect_fa_words()` (uses `walk_words`)
-- **Timing injection**: `crates/batchalign/src/chat_ops/fa/injection.rs` —
+- **Timing injection**: `crates/batchalign/src/chat_ops/fa/injection.rs`,
   `inject_timings_for_utterance()` (uses `walk_words_mut`)
-- **Timing postprocessing**: `crates/batchalign/src/chat_ops/fa/postprocess.rs` —
+- **Timing postprocessing**: `crates/batchalign/src/chat_ops/fa/postprocess.rs`,
   `postprocess_utterance_timings()` (uses both `walk_words` and `walk_words_mut`)
 - **Word categories**:
-  `talkbank-model/src/model/content/word/category.rs` —
+  `talkbank-model/src/model/content/word/category.rs`,
   `WordCategory` enum
 - **Untranscribed status**:
-  `talkbank-model/src/model/content/word/untranscribed.rs` —
+  `talkbank-model/src/model/content/word/untranscribed.rs`,
   `UntranscribedStatus` enum
 - **Tier domains**:
-  `talkbank-model/src/alignment/helpers/domain.rs` —
+  `talkbank-model/src/alignment/helpers/domain.rs`,
   `TierDomain` enum

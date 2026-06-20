@@ -15,7 +15,7 @@ Dutch is a Germanic language with a relatively simple MWT profile:
 * Occasional reduced-vowel contractions such as `het's` (dialectal)
 
 Dutch carries no per-language BA3 MWT-override rules as of
-2026-04-21. The single BA2-ported rule was audited and removed —
+2026-04-21. The single BA2-ported rule was audited and removed,
 see [History](#history).
 
 ## What Stanza handles natively
@@ -46,7 +46,7 @@ No Dutch-specific Stanza defects are tracked.
 ### Rule that existed and was removed
 | Rule | What it did | Audit finding |
 |------|-------------|---------------|
-| `EndsWith("'s") → SuppressMwt` | For any Dutch token ending in `'s`, flip the MWT hint to False to prevent expansion | **Dormant.** Modern Stanza Dutch does not emit `'s`-suffix tokens with MWT hints today — the 13-case probe showed identical output with and without the rule active. The rule was also worryingly broad: it would fire on any `'s`-suffix form (possessives, contractions, idioms), with no per-pattern scoping. |
+| `EndsWith("'s") → SuppressMwt` | For any Dutch token ending in `'s`, flip the MWT hint to False to prevent expansion | **Dormant.** Modern Stanza Dutch does not emit `'s`-suffix tokens with MWT hints today, the 13-case probe showed identical output with and without the rule active. The rule was also worryingly broad: it would fire on any `'s`-suffix form (possessives, contractions, idioms), with no per-pattern scoping. |
 
 Removed in the audit. Dutch now runs through the default
 tokenizer-postprocessor path with no per-language overrides.
@@ -61,7 +61,7 @@ inherits this behavior for free.
 ## Tests
 
 * **Probe matrix cases:**
-  `batchalign/tests/investigations/_cases/dutch.py` — typed
+  `batchalign/tests/investigations/_cases/dutch.py`: typed
   `ProbeCase` fixtures covering possessives, contractions, time
   idioms, and control nouns (`grep -c ProbeCase` against the file
   is the live count).

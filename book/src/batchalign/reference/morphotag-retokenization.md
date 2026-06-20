@@ -15,13 +15,13 @@ them.
 
 For deeper detail:
 
-- [`reference/mwt-handling.md`](./mwt-handling.md) — MWT mechanics in full.
-- [`reference/stanza-limitations.md`](./stanza-limitations.md) — Defect 2
+- [`reference/mwt-handling.md`](./mwt-handling.md), MWT mechanics in full.
+- [`reference/stanza-limitations.md`](./stanza-limitations.md), Defect 2
   (MWT hint preservation) is the root cause of the Preserve-mode MWT
   regression discussed below.
-- [`reference/l2-morphotag-status.md`](./l2-morphotag-status.md) — L2 uses
+- [`reference/l2-morphotag-status.md`](./l2-morphotag-status.md), L2 uses
   `retokenize=true` for secondary Stanza dispatch.
-- [`developer/commands/morphotag.md`](../developer/commands/morphotag.md) —
+- [`developer/commands/morphotag.md`](../developer/commands/morphotag.md),
   CLI wiring and dispatch sketch.
 
 ## The problem: CHAT tokenization vs UD tokenization don't match
@@ -34,7 +34,7 @@ word boundaries. A transcriber writes one token per word they heard:
 
 - **Underscore-joined fillers.** `&-you_know`, `&-sort_of`, `&-I_mean`.
 - **Hyphenated compounds.** `daddy-o`, `ice-cream`. Still one token.
-- **Contractions kept whole.** `don't`, `gonna`, `it's` — one CHAT word each.
+- **Contractions kept whole.** `don't`, `gonna`, `it's`: one CHAT word each.
 - **`@s` words.** `hola@s:spa` tags an utterance-internal language switch
   without splitting the token.
 - **Special forms.** `xxx`, `yyy`, `www`, `&+`, `&~` all carry semantics that
@@ -93,8 +93,8 @@ each UD word is its own CHAT word, and each UD word gets its own MOR item.
   tier rewrite (with `parse_helpers.rs` and `rebuild.rs` as siblings
   under `crates/batchalign-transform/src/retokenize/`).
 
-We chose this split because the two goals — "preserve the transcript" and
-"produce UD-shaped morphology" — are legitimate for different downstream
+We chose this split because the two goals, "preserve the transcript" and
+"produce UD-shaped morphology", are legitimate for different downstream
 tasks. CLAN-style workflows want Preserve; UD-trained parsers and treebank
 comparisons want Retokenize. Neither is a default "for everyone."
 
@@ -158,7 +158,7 @@ postprocessor). The Python wrapper supplies two extra things:
    tuples into plain strings to hand them to the Rust char-DP aligner, that
    hint is temporarily erased. `_realign_sentence()` re-overlays the
    original tuples onto the aligner's output when lengths match and no
-   merging happened — so the downstream Stanza MWT processor can still see
+   merging happened, so the downstream Stanza MWT processor can still see
    the hint and fire. See Defect 2 in
    [`stanza-limitations.md`](./stanza-limitations.md) for the full story.
 
@@ -244,7 +244,7 @@ reading `~/batchalign2-master/batchalign/pipelines/morphosyntax/ud.py`.
 | MWT contraction fix | Inline regex on emitted %mor string at line 826: `re.sub(r"~part\|s verb\|(\w+)-Ger-S", r"~aux|is verb|\1-Part-Pres-S", mor)`. | MWT handling is type-level, not textual: `UdId::Range` parent tokens are detected in `map_ud_sentence()` / `map_ud_sentence_expanded()` and mapped at the AST layer. |
 | Character-DP aligner | Internal `align()` function from `batchalign.utils.dp` operating on `PayloadTarget`/`ReferenceTarget` lists, called at line 872. | Rust `align_tokens()` exposed via `batchalign_core`, called from the Python `_tokenizer_realign.py` postprocessor. Hirschberg divide-and-conquer (`crates/batchalign-transform/src/dp_align/`). |
 | Main-tier rewrite | Text surgery: 14+ chained `.replace()` and `re.sub()` calls at lines 925-942, then a sanity-check reparse of the result. | AST rewrite: `rebuild_content()` walks the parsed `UtteranceContent` and splices Stanza tokens in place (`retokenize/rebuild.rs`), re-using the tree-sitter fragment parser. No string surgery. |
-| `%wor` preservation | Not handled — BA2 had no `%wor` tier concept at this layer. | Retokenize-mode invalidates `%wor` bullets; FA must be re-run. See the Known Limitations section. |
+| `%wor` preservation | Not handled, BA2 had no `%wor` tier concept at this layer. | Retokenize-mode invalidates `%wor` bullets; FA must be re-run. See the Known Limitations section. |
 | Cross-language routing | `MultilingualPipeline` with all lang alpha-2 codes (line 1058). | Per-language pipelines, with per-utterance `lang_code` dispatch in `batch_infer_morphosyntax()`. |
 
 ```mermaid
@@ -309,7 +309,7 @@ What BA3 got wrong that BA2 got right (or at least, did simply):
 | `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs` | `map_ud_sentence()` (merge, `:81`) and `map_ud_sentence_expanded()` (per-component, `:24`) |
 | `crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs` | `assemble_mors()` (`:60`): clitic-join MOR construction |
 | `batchalign/inference/_tokenizer_realign.py` | `TokenizerContext`, `make_tokenizer_postprocessor`, `_realign_sentence`, `_conform` |
-| `batchalign/inference/morphosyntax.py` | `batch_infer_morphosyntax()` — dispatches Stanza per language, sets `original_words` |
+| `batchalign/inference/morphosyntax.py` | `batch_infer_morphosyntax()`: dispatches Stanza per language, sets `original_words` |
 | `batchalign/worker/_stanza_loading.py` | Per-language Stanza pipeline construction (pretokenized vs postprocessor) |
 
 ## Known limitations
@@ -350,18 +350,18 @@ Rust unit tests (inline `#[cfg(test)]` blocks):
 Rust ML golden tests:
 
 - `crates/batchalign/tests/ml_golden/morphotag/golden.rs:158::golden_morphotag_retokenize_eng`
-  — end-to-end Stanza call + retokenize on an English fixture;
+ , end-to-end Stanza call + retokenize on an English fixture;
   asserts specific MOR items.
 - `crates/batchalign/tests/ml_golden/morphotag/golden_l2.rs:121::golden_l2_morphotag_eng_contractions`
-  — L2 secondary dispatch with contractions; load-bearing for the
+ , L2 secondary dispatch with contractions; load-bearing for the
   MWT-hint preservation fix.
 
 Python tests:
 
-- `batchalign/tests/pipelines/morphosyntax/test_tokenizer_realign.py` — 25
+- `batchalign/tests/pipelines/morphosyntax/test_tokenizer_realign.py`: 25
   tests covering `_conform`, `_is_contraction`, `_realign_sentence`, and
   the MWT-hint overlay.
-- `batchalign/tests/pipelines/morphosyntax/test_preserve_mwt.py` — 3 tests
+- `batchalign/tests/pipelines/morphosyntax/test_preserve_mwt.py`: 3 tests
   pinning the Preserve-mode MWT contract end to end.
 - Adjacent files `test_preserve_mwt_end_to_end.py`, `test_retokenize_mwt.py`,
   `test_retokenize_retrace_e2e.py`, `test_retokenize_retrace_regression.py`,
@@ -391,15 +391,15 @@ following source files, read during authoring:
   `crates/batchalign-transform/src/retokenize/{parse_helpers,rebuild}.rs`.
 - `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`:
   `map_ud_sentence` (`:81`) and `map_ud_sentence_expanded` (`:24`).
-- `batchalign/inference/_tokenizer_realign.py` — `_conform`,
+- `batchalign/inference/_tokenizer_realign.py`: `_conform`,
   `_is_contraction` (`:120`), `_realign_sentence` (`:148`), and the
   MWT-hint overlay block.
-- `batchalign/inference/morphosyntax.py` — `batch_infer_morphosyntax`
+- `batchalign/inference/morphosyntax.py`: `batch_infer_morphosyntax`
   (`:201`) and the `ctx.original_words` dispatcher around it.
-- `batchalign/worker/_stanza_loading.py` — per-language Stanza pipeline
+- `batchalign/worker/_stanza_loading.py`: per-language Stanza pipeline
   construction; `should_request_mwt` at `:40`; `load_stanza_models` at `:126`.
 - `crates/batchalign/tests/ml_golden/morphotag/golden.rs:158` and
-  `crates/batchalign/tests/ml_golden/morphotag/golden_l2.rs:121` —
+  `crates/batchalign/tests/ml_golden/morphotag/golden_l2.rs:121`,
   retokenize and L2 contractions golden tests respectively.
 - BA2 comparison points (`morphoanalyze`, retokenize branch, text-surgery
   block, `%mor` regex patch, `_build_nlp`, tokenizer_processor rules) were

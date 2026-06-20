@@ -19,14 +19,14 @@ flowchart TD
     pygolden -->|"opt-in only\n(PyO3 changes)"| safe
 ```
 
-1. **Fast tests** — unit tests, protocol tests, test-echo integration tests.
+1. **Fast tests**: unit tests, protocol tests, test-echo integration tests.
    No ML models, no GPU, no multi-GB processes. These run in seconds, fully
    parallel, on every edit. This is the inner development loop. It must stay
-   fast and safe — a `cargo nextest run` should never crash your machine.
+   fast and safe, a `cargo nextest run` should never crash your machine.
 
-2. **ML tests** — golden snapshots, audio transcription, parity checks,
+2. **ML tests**: golden snapshots, audio transcription, parity checks,
    profile verification. These spawn real Python workers that load Whisper,
-   Stanza, pyannote, etc. Each worker consumes 2–5 GB RAM. They are slow,
+   Stanza, pyannote, etc. Each worker consumes 2-5 GB RAM. They are slow,
    expensive, and dangerous on developer machines.
 
 **ML tests are excluded by default.** You must opt in explicitly, and only
@@ -91,7 +91,7 @@ The `LiveServerSession` fixture within the binary is well-designed:
 - **One `PreparedWorkers` backend** shared across all 70 tests
 - **Fresh HTTP server per session** (new port, new jobs dir, new SQLite)
 - **Semaphore-gated sessions** so tests don't collide on control-plane state
-- **Warm model cache** across tests — only the first test pays cold-start
+- **Warm model cache** across tests, only the first test pays cold-start
 
 ### Defense-in-depth layers
 
@@ -143,7 +143,7 @@ default.
 
 **ML profile (`--profile ml`):** the profile's `default-filter` selects
 only `binary(ml_golden)`, and the profile sets `test-threads = 1` so the
-suite runs serially — preventing concurrent model loading and the OOMs
+suite runs serially, preventing concurrent model loading and the OOMs
 that follow.
 
 **Override the default filter for one run:**
@@ -239,7 +239,7 @@ so the Rust and Python schema models stay aligned.
 
 ### Cross-language contract tests
 
-Several test pairs look redundant but exist **intentionally** — Rust and Python
+Several test pairs look redundant but exist **intentionally**: Rust and Python
 must independently verify the shared wire format. If only one side is tested, a
 serialization change in the other language could silently break IPC.
 
@@ -294,7 +294,7 @@ Model-gated tests use `require_live_server(InferTask::Xxx, "message")`:
 Python uses `@pytest.mark.skipif` or `pytest.skip()` for similar gating.
 
 Even under `--profile ml`, tests skip gracefully if models are not
-installed. You won't get false failures — just silent skips.
+installed. You won't get false failures, just silent skips.
 
 ## Worker process safety
 
@@ -304,7 +304,7 @@ Several safeguards prevent runaway resource consumption:
 **Global worker cap:** The `WorkerPool` enforces a hard ceiling on total
 workers across all `(profile, lang, engine)` keys. The production
 formula `ram_total_mb / 6GB`, clamped to `[2, 32]` (with a fallback
-of 4 if `sysinfo` reports 0 — e.g. macOS undercounts), lives in
+of 4 if `sysinfo` reports 0, e.g. macOS undercounts), lives in
 `recommend_max_total_workers()` at
 `crates/batchalign/src/host_facts/recommendations.rs:244`. The
 runtime value is exposed via `EffectiveConfig::max_total_workers`

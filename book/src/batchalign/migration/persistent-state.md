@@ -11,7 +11,7 @@ lives, and how it differs from BA2's stateless model.
 
 **BA2:** Every invocation was a fresh Python process. Models loaded from
 scratch, results computed from scratch, nothing persisted between runs. This
-was simple but slow — re-processing the same file paid the full cost every
+was simple but slow, re-processing the same file paid the full cost every
 time.
 
 **BA3:** The Rust CLI manages persistent state across runs: a local daemon
@@ -50,7 +50,7 @@ default cache directories:
 ## Analysis cache
 
 The analysis cache is the largest behavioral difference from BA2. BA3
-caches **audio inference results only** — UTR ASR (`utr_asr`) and
+caches **audio inference results only**: UTR ASR (`utr_asr`) and
 forced alignment (`forced_alignment`). Text-NLP commands (`morphotag`,
 `translate`, `utseg`, `coref`) deliberately do not cache; each run
 recomputes from scratch so that model or pipeline changes always take
@@ -63,13 +63,13 @@ model.
 
 **When this matters:**
 
-- Re-running `align` on the same media is near-instant — both the ASR
+- Re-running `align` on the same media is near-instant, both the ASR
   pass (UTR) and the forced alignment pass are cached.
 - Editing a file invalidates its cache entry (different content hash).
 - Changing audio-task parameters that affect the cache key (e.g.
   `--utr-fuzzy`) invalidates the relevant entries.
 - `morphotag`, `translate`, `utseg`, and `coref` are never returned
-  from cache — they re-run every invocation.
+  from cache, they re-run every invocation.
 
 **Managing the cache:**
 
@@ -129,19 +129,19 @@ Created by `batchalign3 setup`. This is the same format as BA2.
 There is no public Python API in BA3; the supported integration path
 from Python is `subprocess`-into-`batchalign3`. The Python `compat`
 shim (`batchalign.compat.BatchalignPipeline`, etc.) has been removed
-along with the rest of the BA2 Python API — see
+along with the rest of the BA2 Python API, see
 [Developer Architecture Migration](developer-migration.md#7-python-api-migration).
 
 For scripts that drive `batchalign3` via subprocess, the persistent-state
 points still matter:
 
-1. **The first call may be slow** — models download and daemon starts.
-2. **The daemon persists** — after your driver process exits, the daemon
+1. **The first call may be slow**: models download and daemon starts.
+2. **The daemon persists**: after your driver process exits, the daemon
    continues running. Stop it explicitly with `batchalign3 serve stop`
    if you don't want it.
-3. **Audio-task results are cached** — re-aligning identical media is
+3. **Audio-task results are cached**: re-aligning identical media is
    near-instant; text-NLP results recompute every run.
-4. **Memory usage** — the daemon holds ML models in memory (~2-4 GB)
+4. **Memory usage**: the daemon holds ML models in memory (~2-4 GB)
    until you stop it.
 
 To disable the audio cache for a specific run (BA2-like always-recompute

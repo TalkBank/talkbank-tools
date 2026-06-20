@@ -59,7 +59,7 @@ to `84ad500...`.
 - Python-centric runtime and pipeline composition.
 - CHAT parsing/manipulation through ad-hoc string transforms and parallel arrays.
 - Every command flattened structured data to strings for engine calls, then
-  attempted to reconstruct structure from engine output — an architecturally
+  attempted to reconstruct structure from engine output, an architecturally
   lossy round-trip that produced silent drift whenever tokenizers disagreed.
 
 ### current batchalign3 mental model
@@ -97,7 +97,7 @@ contracts, and CHAT ownership into Rust.
 ### batchalign2 model
 
 **Jan 9 baseline (`84ad500b`):** Purely sequential. `dispatch.py` (196 lines)
-processes files one at a time in a simple for-loop — no `ProcessPoolExecutor`,
+processes files one at a time in a simple for-loop, no `ProcessPoolExecutor`,
 no `ThreadPoolExecutor`, no adaptive workers, no file sorting, no shared-models
 mode. The pipeline is created once and called on each file sequentially.
 
@@ -122,18 +122,18 @@ flowchart TD
     process --> file2
 ```
 
-Key characteristics (Feb 9 only — none of these exist in Jan 9):
+Key characteristics (Feb 9 only, none of these exist in Jan 9):
 
-- **Pool-safe engines** (Rev.AI, Google Translate): `ThreadPoolExecutor` — one
+- **Pool-safe engines** (Rev.AI, Google Translate): `ThreadPoolExecutor`: one
   pipeline loaded in the main process, threads share models via a mutex.
   Memory-efficient but limited to API-backed or thread-safe engines.
 - **Pool-unsafe engines** (Whisper, Wave2Vec, Stanza, Pyannote): `ProcessPoolExecutor`
-  — each worker is a forked subprocess with its own model copies. N workers = N×
+ , each worker is a forked subprocess with its own model copies. N workers = N×
   model memory.
 - **Adaptive worker capping**: monitors RSS peaks and throttles new submissions
   when available memory drops below a reserve (10% of system RAM).
 - **File sorting**: largest files dispatched first to prevent straggler effects.
-- **No persistent workers**: executors are job-scoped — all workers die after
+- **No persistent workers**: executors are job-scoped, all workers die after
   each job completes. Next job reloads models from scratch.
 - **Optional shared-models mode** (`--shared-models`): uses `fork()` to inherit
   parent's loaded models. Linux-only, disabled on macOS+MPS, crash-prone.
@@ -142,8 +142,8 @@ Memory characteristics (from Feb 9 BA2 benchmarks):
 
 | Workload | Per-worker peak | Workers | Total |
 |----------|----------------|---------|-------|
-| `align` (Whisper+Wave2Vec) | 3.0–4.2 GB | 4 | ~16 GB |
-| `morphotag` (Stanza) | 1.1–2.5 GB | 4 | ~10 GB |
+| `align` (Whisper+Wave2Vec) | 3.0-4.2 GB | 4 | ~16 GB |
+| `morphotag` (Stanza) | 1.1-2.5 GB | 4 | ~10 GB |
 
 ### batchalign3 model
 
@@ -185,7 +185,7 @@ Key differences from BA2:
 | **Warmup** | None (cold start every job) | Concurrent background warmup at server start |
 | **File ordering** | Largest-first sorting | Submission order (largest-first planned) |
 
-Memory comparison (mixed English workload — align + morphotag):
+Memory comparison (mixed English workload, align + morphotag):
 
 | System | GPU workers | Stanza workers | Total |
 |--------|------------|----------------|-------|
@@ -406,15 +406,15 @@ Migration-era quality now depends on layered tests:
 
 - golden tests for edge corpora (repeat/retrace/overlap/multilingual),
 - no-DP-runtime allowlist tests
-  (`batchalign/tests/test_dp_allowlist.py` — Rust PyO3 call sites, chat-ops
+  (`batchalign/tests/test_dp_allowlist.py`: Rust PyO3 call sites, chat-ops
   call sites, Python inference zero-DP),
 - Stanza configuration parity checks
-  (`batchalign/tests/pipelines/morphosyntax/test_stanza_config_parity.py` —
+  (`batchalign/tests/pipelines/morphosyntax/test_stanza_config_parity.py`,
   MWT exclusion parity, Japanese processor parity, English gum package parity).
 
 ## 7) Python API migration
 
-### BA2 Python API — all removed
+### BA2 Python API: all removed
 
 BA2 exposed a rich Python API: `Document`, `CHATFile`, `BatchalignPipeline`,
 and 23+ individual engine classes (`WhisperEngine`, `StanzaEngine`, etc.).
@@ -445,7 +445,7 @@ subprocess.run(["batchalign3", "morphotag", "input/", "-o", "output/"])
 ```
 
 **Reading CHAT files:** Use standard file I/O. BA3 does not provide a Python
-CHAT parser — use the CLI for processing.
+CHAT parser, use the CLI for processing.
 
 **Validation:** Use `batchalign3 validate input/` or the `chatter` TUI.
 

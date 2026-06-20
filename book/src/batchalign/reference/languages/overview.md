@@ -78,15 +78,15 @@ matrix at [Number Expansion](../number-expansion.md).
 |--------|----------|
 | 43 codegenned via `num2words` | English, Spanish, French, German, Italian, Portuguese, Dutch, Scandinavian languages, Russian, Polish, Czech, Turkish, Thai, Telugu, Bengali, Kannada, Indonesian, … |
 | 4 hand-curated | Malayalam, Greek, Basque, Croatian |
-| Chinese (Simplified) | `num2chinese` (一万) — Mandarin |
-| Chinese (Traditional) | `num2chinese` (一萬) — Cantonese, Japanese |
+| Chinese (Simplified) | `num2chinese` (一万), Mandarin |
+| Chinese (Traditional) | `num2chinese` (一萬), Cantonese, Japanese |
 | English-only | Ordinals (`13th` → "thirteenth"), decades (`1950s` → "nineteen fifties"), years |
-| Validator-permits-digits | Welsh, Vietnamese, Min Nan, Hakka — no expansion needed |
+| Validator-permits-digits | Welsh, Vietnamese, Min Nan, Hakka, no expansion needed |
 
 All other languages pass digits through and trip E220 at validation.
 
 ## See Also
 
-- [Language-Specific Processing](../language-specific-processing.md) — pipeline-stage-level overview
-- [Language Code Resolution](../language-code-resolution.md) — ISO 639-3 to Stanza mapping
-- [Language Data Model](../language-handling.md) — `@Languages` header and per-file language routing
+- [Language-Specific Processing](../language-specific-processing.md), pipeline-stage-level overview
+- [Language Code Resolution](../language-code-resolution.md), ISO 639-3 to Stanza mapping
+- [Language Data Model](../language-handling.md), `@Languages` header and per-file language routing

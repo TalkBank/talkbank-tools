@@ -9,11 +9,11 @@ the command first looks for a `FILE.gold.cha` companion in the same directory.
 If that is absent, it falls back to `template.gold.cha` in the same directory.
 
 Outputs two files per input:
-1. A projected reference `.cha` — the gold transcript with `%xsrep` /
+1. A projected reference `.cha`: the gold transcript with `%xsrep` /
    `%xsmor` annotation tiers showing substitutions, insertions, and deletions
 2. A `.compare.csv` sidecar with aggregate and per-POS metrics
 
-Text-only — no audio involved.
+Text-only, no audio involved.
 
 ---
 
@@ -102,9 +102,9 @@ gold file is found, the file is reported as failed.
 ## Output: `%xsrep` and `%xsmor` tiers
 
 The projected reference `.cha` output uses:
-- `%xsrep:` — word-level comparison: unchanged words, `+word` insertions in
+- `%xsrep:`: word-level comparison: unchanged words, `+word` insertions in
   gold, `-word` deletions from hypothesis
-- `%xsmor:` — same alignment with POS tags (`NOUN`, `+ADJ`, `-?`)
+- `%xsmor:`: same alignment with POS tags (`NOUN`, `+ADJ`, `-?`)
 
 The output is the **projected reference transcript**, not the main hypothesis.
 The gold transcript's structure is preserved; morphosyntactic information from
@@ -134,6 +134,6 @@ command materializes the projected-reference view. The main-annotated view
 
 ## Related documentation
 
-- [Command I/O: compare](../../reference/command-io.md#8-compare) — I/O patterns, gold file convention, output shapes
-- [Command Flowcharts: compare](../../architecture/command-flowcharts.md#compare) — full architecture flowchart
-- [Benchmarks](../../reference/benchmarks.md) — WER metrics and evaluation methodology
+- [Command I/O: compare](../../reference/command-io.md#8-compare), I/O patterns, gold file convention, output shapes
+- [Command Flowcharts: compare](../../architecture/command-flowcharts.md#compare), full architecture flowchart
+- [Benchmarks](../../reference/benchmarks.md), WER metrics and evaluation methodology

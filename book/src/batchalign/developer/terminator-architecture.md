@@ -167,8 +167,8 @@ arrows (`→ ↗ ⇗ ↘ ⇘`) are **separators**, not utterance enders, and
 the current `Terminator::CaRisingToHigh / CaRisingToMid / CaLevel /
 CaFallingToMid / CaFallingToLow` variants are the misclassification.
 The corrective direction is to remove those five variants from the
-model and grammar — keeping the arrows in the `separator` rule where
-they belong — and to fix the double-bullet symptom downstream: bullets
+model and grammar, keeping the arrows in the `separator` rule where
+they belong, and to fix the double-bullet symptom downstream: bullets
 positioned after an arrow on a CA tier should remain a single terminal
 `TierContent.bullet`, not split into `InternalBullet` + terminal.
 Tracked as BUG-009.
@@ -290,7 +290,7 @@ may be wrong.
 ## Single-Parse Pipeline (eliminates serialize→re-parse)
 
 The align pipeline previously serialized the `ChatFile` to text after UTR and
-re-parsed it before FA — creating 3 parses and 2 serializations per file. The
+re-parsed it before FA, creating 3 parses and 2 serializations per file. The
 re-parse was the mechanism that turned UTR-injected terminal bullets into
 `InternalBullet` content items (when CA arrows prevented correct terminal
 placement).
@@ -298,8 +298,8 @@ placement).
 As of 2026-03-30, the pipeline uses a **single-parse architecture**:
 
 1. `fa_pipeline.rs` parses CHAT text once → `ChatFile`
-2. `run_utr_pass(&mut ChatFile, ...)` mutates the AST in place — no serialization
-3. `run_fa_from_ast(ChatFile, ...)` receives the AST directly — no re-parse
+2. `run_utr_pass(&mut ChatFile, ...)` mutates the AST in place, no serialization
+3. `run_fa_from_ast(ChatFile, ...)` receives the AST directly, no re-parse
 4. Final serialization happens once at the end
 
 This eliminates the serialize→re-parse cycle entirely. Combined with the

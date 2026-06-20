@@ -3,7 +3,7 @@
 **Status:** Current
 **Last updated:** 2026-05-19 22:52 EDT
 
-batchalign3 uses Stanza as an oracle for investigation tests —
+batchalign3 uses Stanza as an oracle for investigation tests,
 small, per-case probes that pin Stanza's current behavior so a
 future upgrade or regression surfaces as a test failure. This
 page is the developer reference for the two probe harnesses,
@@ -13,7 +13,7 @@ how verdicts get locked.
 ## Why probes, not assertions?
 
 Traditional unit tests assert what code *should* do. Probe tests
-assert what an external library (Stanza) *does* — the probe's
+assert what an external library (Stanza) *does*, the probe's
 job is to bind our pipeline's expectations to the library's
 current behavior. If Stanza changes, probes fail in a way that
 surfaces the change for re-review.
@@ -22,7 +22,7 @@ This pattern matters for batchalign3 because:
 
 1. Stanza's MWT expansion varies per language, per token, per
    version. Hardcoding "Stanza will produce 2 UD words for
-   `don't`" in a normal test is fragile — and wrong for
+   `don't`" in a normal test is fragile, and wrong for
    languages where Stanza's MWT model doesn't fire.
 2. Author-written expected POS / count values are biased. The
    author writes the test mirroring their expectation; the test
@@ -52,14 +52,14 @@ flowchart TD
 
 Lives at:
 
-- `batchalign/tests/investigations/_probe_types.py` — types
+- `batchalign/tests/investigations/_probe_types.py`: types
   (`ProbeCase`, `Phenomenon`, `XfailMark`).
-- `batchalign/tests/investigations/_cases/<lang>.py` — per-language
+- `batchalign/tests/investigations/_cases/<lang>.py`: per-language
   case tables.
-- `batchalign/tests/investigations/_cases/__init__.py` — the
+- `batchalign/tests/investigations/_cases/__init__.py`: the
   `LANGUAGE_MATRIX` registry.
 - `batchalign/tests/investigations/test_stanza_mwt_probe_matrix.py`
-  — runner, paired (free-tokenize, with-postprocessor) per case.
+ , runner, paired (free-tokenize, with-postprocessor) per case.
 
 **Use when**: you need to know "how many UD words does Stanza
 produce for this input token sequence?" Typical questions:
@@ -86,14 +86,14 @@ ProbeCase(
 
 Lives at:
 
-- `batchalign/tests/investigations/_decision_probe_types.py` —
+- `batchalign/tests/investigations/_decision_probe_types.py`,
   types (`DecisionProbeCase`, `Gold`, `TokenMapping`,
   `DecisionOutcome`, `CandidateClass`, `StanzaTokenOutput`,
   `compare_stanza_outputs`).
-- `batchalign/tests/investigations/_decision_cases/<lang>.py` —
+- `batchalign/tests/investigations/_decision_cases/<lang>.py`,
   per-language case tables (1 file today: `english.py`).
 - `batchalign/tests/investigations/test_stanza_decision_probe_matrix.py`
-  — runner.
+ , runner.
 
 **Use when**: you need to compare Stanza's output on a
 *pre-normalization* form against its output on a
@@ -101,11 +101,11 @@ Lives at:
 helps, hurts, or is neutral. Typical questions:
 
 - Does capitalizing bare `i` → `I` change Stanza's POS for that
-  word? (Answer: no — both tag as PRON.)
+  word? (Answer: no, both tag as PRON.)
 - Does stripping the period from `Dr.` → `Dr` produce a
-  different POS? (Answer: no — both tag as PROPN.)
+  different POS? (Answer: no, both tag as PROPN.)
 - Does stripping the period from `3.14` → `3` change the
-  text? (Answer: yes — catches the decimal semantic loss.)
+  text? (Answer: yes, catches the decimal semantic loss.)
 
 Case shape (v2):
 
@@ -153,7 +153,7 @@ default CI. Sub-markers allow fine-grained selection:
 
 | Command | Runs |
 |---------|------|
-| `uv run pytest` | Fast tests only — no probes |
+| `uv run pytest` | Fast tests only, no probes |
 | `uv run pytest -m "golden and mwt_probe"` | All MWT probes (~45s on a development machine) |
 | `uv run pytest -m "golden and decision_probe"` | All decision probes (~4s) |
 | `uv run pytest -m "golden and mwt_probe" -k "fra or ita"` | French + Italian MWT only |
@@ -189,7 +189,7 @@ Five mechanical steps:
    fixture-name dict.
 
 4. **Write `_cases/<lang>.py`** with a tuple of `ProbeCase`. Start
-   with observe-only (no `expected_post_mwt_count`) — the golden
+   with observe-only (no `expected_post_mwt_count`), the golden
    run tells you what Stanza produces; lock afterwards.
 
 5. **Register the language in `LANGUAGE_MATRIX`** in
@@ -246,7 +246,7 @@ Pattern:
 4. Run the golden matrix. Observe per-rule outcomes.
 5. Classify each rule: **full parity**, **parity via alternative
    mechanism**, **rule retired with evidence** (reference rule
-   is obsolete — new system handles natively), or **active gap**
+   is obsolete, new system handles natively), or **active gap**
    (reference handled; new system doesn't).
 
 The retokenization parity audit applies this pattern across the
@@ -255,12 +255,12 @@ sentinels. All probed rules achieve parity except one active gap
 (Italian Defect 6 family), documented separately.
 
 Use this pattern whenever you need to convince yourself that a
-rewrite preserves semantics — don't rely on reading both codebases
+rewrite preserves semantics, don't rely on reading both codebases
 side-by-side; probe them both and compare.
 
 ## Relation to production
 
-Probe harnesses test **raw Stanza output** — what Stanza's Python
+Probe harnesses test **raw Stanza output**: what Stanza's Python
 pipeline produces when called directly. Production batchalign3
 has additional layers downstream (Rust-side Range reassembly,
 `map_ud_sentence` merging MWT components into single `%mor`
@@ -272,7 +272,7 @@ This means:
   emits 2 UD words, not that the final CHAT %mor has 2 entries.
   (Final CHAT has 1 entry: `verb|do~part|not`.)
 - Probe-level regression does not necessarily mean user-visible
-  regression — the downstream layers may absorb the change. But
+  regression, the downstream layers may absorb the change. But
   probe-level regression signals that *something* at the Stanza
   boundary shifted, which warrants investigation.
 
@@ -341,9 +341,9 @@ node.
 
 ## Related docs
 
-- `reference/stanza-limitations.md` — pinned Stanza defects
+- `reference/stanza-limitations.md`: pinned Stanza defects
   (Defect 6, 7, etc.) cross-referenced from probe xfails.
-- `reference/retokenization-overview.md` — per-language
+- `reference/retokenization-overview.md`: per-language
   retokenization behavior summary; probe findings drive this doc.
-- `reference/languages/<lang>.md` — per-language special
+- `reference/languages/<lang>.md`: per-language special
   treatment, with probe citations.

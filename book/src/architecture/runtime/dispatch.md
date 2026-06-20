@@ -8,7 +8,7 @@ dispatch targets, the workflow families that organize commands, the
 per-command lifecycle, and the recipe-driven execution kernel that's
 gradually replacing per-command dispatch functions.
 
-## CLI Dispatch — Four Targets
+## CLI Dispatch: Four Targets
 
 The CLI never owns the ML runtime directly. It routes processing
 commands to one of four targets: explicit remote server, managed local
@@ -46,7 +46,7 @@ fan-out is not part of the documented release surface.
 
 If `auto_daemon` is enabled, the CLI first tries to reuse or start a
 managed loopback daemon. This keeps warm workers alive across
-commands. HTTP over loopback only — no remote network. The important
+commands. HTTP over loopback only, no remote network. The important
 performance path for repeated Apple CPU-only `align` / `transcribe` /
 `benchmark` runs because it preserves loaded worker processes and
 shared models.
@@ -87,7 +87,7 @@ bridge. HTTP is not used between the Rust server and Python workers.
 ## Workflow Families
 
 Commands are organized by workflow family. Each family shares an
-internal stage sequence, but the families share the same end state —
+internal stage sequence, but the families share the same end state,
 typed materialization plus validation.
 
 ```mermaid
@@ -137,21 +137,21 @@ queueing, and shared dispatch machinery.
 
 Every CHAT-mutating command follows this pattern:
 
-1. **Parse** — `parse_lenient()` produces a `ChatFile` AST.
-2. **Pre-validate** — check input quality against a command-specific
+1. **Parse**: `parse_lenient()` produces a `ChatFile` AST.
+2. **Pre-validate**: check input quality against a command-specific
    `ValidityLevel` (e.g., `MainTierValid` for `morphotag`).
-3. **Collect payloads** — extract per-utterance data from the AST
+3. **Collect payloads**: extract per-utterance data from the AST
    (word lists, text, language metadata).
-4. **Cache check** — hash payloads with BLAKE3, partition into hits
+4. **Cache check**: hash payloads with BLAKE3, partition into hits
    and misses.
-5. **Infer** — send misses to Python workers via typed worker IPC
+5. **Infer**: send misses to Python workers via typed worker IPC
    (`execute_v2` on the live infer surfaces). Workers return raw ML
    output.
-6. **Inject** — insert results (cache hits + infer results) into the
+6. **Inject**: insert results (cache hits + infer results) into the
    AST.
-7. **Cache put** — persist new results for future reuse.
-8. **Post-validate** — alignment checks + semantic validation.
-9. **Serialize** — `to_chat_string()` produces final CHAT output.
+7. **Cache put**: persist new results for future reuse.
+8. **Post-validate**: alignment checks + semantic validation.
+9. **Serialize**: `to_chat_string()` produces final CHAT output.
 
 Generation commands (`transcribe`) replace step 1 with ASR inference
 followed by `build_chat()` to construct the initial AST.
@@ -171,18 +171,18 @@ For per-command request/response JSON shapes and per-command server
 orchestration steps, see
 [Command Lifecycles](../../batchalign/architecture/command-lifecycles.md).
 For the boundary contract itself, see
-[Python–Rust Boundary](../python-rust-boundary/python-rust-boundary.md).
+[Python-Rust Boundary](../python-rust-boundary/python-rust-boundary.md).
 
 ### Pre-serialization validation
 
 The server runs three validation gates before writing CHAT output:
 
-1. **Pre-validation** — rejects malformed input early based on the
+1. **Pre-validation**: rejects malformed input early based on the
    command's required `ValidityLevel`.
-2. **Alignment validation** — checks tier word counts (`%mor`/`%gra`/`%wor`
+2. **Alignment validation**: checks tier word counts (`%mor`/`%gra`/`%wor`
    must match the main tier). ParseHealth-aware: utterances flagged
    as unparseable are excluded.
-3. **Semantic validation** — full CHAT validation (E362 monotonicity,
+3. **Semantic validation**: full CHAT validation (E362 monotonicity,
    E701/E704 temporal, header correctness). Only blocks on errors,
    not warnings.
 
@@ -202,9 +202,9 @@ companion per file.
 
 The morphosyntax orchestrator uses three phases for cache interaction:
 
-1. `collect_payloads()` — extract per-utterance payloads with positions.
-2. `inject_from_cache()` — inject cached `%mor`/`%gra` strings.
-3. `inject_results()` — inject freshly inferred results.
+1. `collect_payloads()`: extract per-utterance payloads with positions.
+2. `inject_from_cache()`: inject cached `%mor`/`%gra` strings.
+3. `inject_results()`: inject freshly inferred results.
 
 All cache logic is in Rust. Python workers receive only structured NLP
 payloads and return raw model output.
@@ -219,7 +219,7 @@ ASR inference → post-processing → CHAT assembly → utseg → morphosyntax
 
 Each step is a separate workflow call (`process_transcribe` →
 `process_utseg` → `process_morphosyntax`). Between steps, CHAT text
-is serialized and re-parsed — each step operates on a different
+is serialized and re-parsed, each step operates on a different
 version of the file. `benchmark` follows the same composition style
 at the workflow level by chaining `transcribe` then `compare`, while
 `compare` itself remains a reference-projection workflow with gold-
@@ -251,7 +251,7 @@ flowchart TD
     Legacy --> Output
 ```
 
-### `command_model/` — authoritative command registry
+### `command_model/`: authoritative command registry
 
 `crates/batchalign/src/command_model/`. Single source of truth for
 released command metadata. Replaces per-command macro files
@@ -281,7 +281,7 @@ Derived helpers in `catalog.rs`:
 | `execution_shape_for(family)` | Per-family dispatch routing |
 | `runner_dispatch_kind_for(command)` | Runner dispatch shape selection |
 
-### `planning/` — immutable job plans
+### `planning/`: immutable job plans
 
 `crates/batchalign/src/planning/`. Builds typed, immutable execution
 plans from runner snapshots. Centralizes work-unit planning, artifact
@@ -301,7 +301,7 @@ pub fn build_job_plan(snapshot: RunnerJobSnapshot) -> Result<JobPlan, PlanError>
 Calls `command_model::command_spec()` internally and delegates
 work-unit enumeration to `recipe_runner::planner`.
 
-### `execution/` — recipe-driven execution kernel
+### `execution/`: recipe-driven execution kernel
 
 `crates/batchalign/src/execution/`. Replaces per-command dispatch
 functions with a pluggable stage executor that walks recipe stages in
@@ -332,7 +332,7 @@ Module map:
 
 | File | Purpose |
 |---|---|
-| `kernel.rs` | `ExecutionKernel` — runs stages, manages state transitions |
+| `kernel.rs` | `ExecutionKernel`: runs stages, manages state transitions |
 | `morphotag/` | Morphotag execution: input prep, window policy, progress, writeback |
 | `coref.rs` | Coreference execution stage |
 | `translate.rs` | Translation execution stage |
@@ -341,7 +341,7 @@ Module map:
 | `text_io.rs` | CHAT file read/write for text-based commands |
 | `worker_gateway.rs` | `WorkerGateway` trait + live implementation over the worker pool |
 
-### Compare — first migrated command
+### Compare: first migrated command
 
 ```rust,ignore
 pub fn dispatch_compare_job(job, plan: JobPlan) -> Result<...> {
@@ -371,7 +371,7 @@ complete.
 ## Worker Concurrency
 
 Worker parallelism is capped based on available memory, not scaled
-linearly. Each worker loads ~4–12 GB of ML models. The server
+linearly. Each worker loads ~4-12 GB of ML models. The server
 combines:
 
 - `HostExecutionPolicy` for tier-aware bootstrap mode and
@@ -391,5 +391,5 @@ for pool structure, warmup behavior, and host-policy details.
 - **Language codes** use 3-letter ISO 639-3 (`"eng"`, `"spa"`, `"jpn"`).
 - **Files are sorted largest-first** before dispatch to avoid
   stragglers.
-- **Heavy imports** (`stanza`, `torch`) are lazy — CLI startup must
+- **Heavy imports** (`stanza`, `torch`) are lazy, CLI startup must
   stay fast.

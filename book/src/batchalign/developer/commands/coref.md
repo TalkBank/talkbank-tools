@@ -1,4 +1,4 @@
-# coref — Developer Reference
+# coref: Developer Reference
 
 **Status:** Current
 **Last updated:** 2026-05-02 08:18 EDT
@@ -12,11 +12,11 @@ see [User Guide: coref](../../user-guide/commands/coref.md).
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| CLI args | `crates/batchalign/src/cli/args/commands.rs` — `CorefArgs` | lang override |
+| CLI args | `crates/batchalign/src/cli/args/commands.rs`: `CorefArgs` | lang override |
 | Command definition | `crates/batchalign/src/commands/coref.rs` | `CommandDefinition` impl |
 | Coref orchestration | `crates/batchalign/src/coref.rs` | Full-document context assembly, worker dispatch, sparse injection |
 | Injection | `crates/batchalign/src/coref.rs` | Writes sparse `%xcoref:` tiers |
-| Worker IPC | `batchalign/inference/coref.py` — `batch_infer_coref()` | Loads Stanza coref model, returns chain structures |
+| Worker IPC | `batchalign/inference/coref.py`: `batch_infer_coref()` | Loads Stanza coref model, returns chain structures |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`
 as of 2026-04-14: the CLI posts source/output path lists instead of CHAT
@@ -27,7 +27,7 @@ bytes. See [Submission Modes](../../reference/command-io.md#submission-modes-pat
 ## No caching
 
 `coref` intentionally bypasses the utterance cache. Coreference chains span
-the entire document — the same utterance has different coreference in different
+the entire document, the same utterance has different coreference in different
 document contexts, making per-utterance BLAKE3 keys meaningless. Every `coref`
 invocation always calls the worker.
 
@@ -40,7 +40,7 @@ the `coref.rs` orchestration module.
 
 `%xcoref:` tiers are only written on utterances that contain at least one
 mention participating in a coreference chain. Most utterances in a file are
-untouched. This makes `coref` output stable under incremental edits — adding
+untouched. This makes `coref` output stable under incremental edits, adding
 or removing utterances that don't participate in chains doesn't disturb the
 existing annotations.
 
