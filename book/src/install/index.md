@@ -1,11 +1,10 @@
 # Install
 
 **Status:** Current
-**Last updated:** 2026-04-30 21:05 EDT
+**Last updated:** 2026-06-19
 
-Installation paths for each surface of the TalkBank toolchain. Pick
-the one that matches what you want to do.
+Installation for Batchalign3, the audio and ML pipeline for CHAT.
 
-- **chatter (CHAT-first CLI):** [Installation](../chatter/user-guide/installation.md)
 - **Batchalign3 (audio + ML):** [Installation](../batchalign/user-guide/installation.md)
-- **CLAN command reference:** [Getting Started](../clan-reference/getting-started/installation.md)
+
+For CHAT validation, normalization, or conversion without audio or ML (and for the CLAN command reference), use the separate `chatter` project, which has its own installation guide.

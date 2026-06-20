@@ -64,8 +64,8 @@ This means `&*` content:
 
 When `+<` or CA overlap markers (`⌊`) are present, the alignment pipeline uses a
 two-pass UTR strategy. See [Forced Alignment — UTR](../reference/forced-alignment.md)
-for the algorithm details and [CHAT Data Model — Content Walkers](../../architecture/chat-model/chat-model.md#walk_overlap_points--overlap-marker-iterator)
-for the `walk_overlap_points` API.
+for the algorithm details, and the CHAT Data Model content-walker API
+(`walk_overlap_points`) in the `chatter` project.
 
 Key points:
 - Pass 1 excludes overlap utterances from the global DP alignment

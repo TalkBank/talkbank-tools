@@ -709,7 +709,7 @@ material) resolves to the same target language. Fillers and nonwords
 participate in the predicate AND have their `@s` shortcuts cleared
 when the rewrite fires — otherwise a bare `@s` would flip its resolved
 language under the new `[- LANG]` precode. See
-[`chatter` CLI reference: `fix-s`](../../chatter/user-guide/cli-reference.md#debug)
+the `chatter` CLI `fix-s` debug command
 for the full safety contract.
 
 ### Unsupported non-primary languages

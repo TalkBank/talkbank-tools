@@ -7,8 +7,8 @@ This page documents how `batchalign3` handles CHAT replacement
 annotations (`[: ...]`) end-to-end. For the canonical CHAT-format
 definition of what a replacement *is* (syntax, scope, AST shape,
 per-domain alignment rule), see
-[`talkbank-tools/book/src/chat-format/replacements.md`](https://github.com/TalkBank/talkbank-tools/blob/main/book/src/chat-format/replacements.md).
-That doc is the source of truth; this doc is the pipeline-specific
+the CHAT-format replacements reference in the `chatter` project.
+That reference is the source of truth; this doc is the pipeline-specific
 companion.
 
 ## TL;DR
@@ -210,16 +210,15 @@ use cases, `[%]` is the working candidate, not `[:]`.
 | `%mor` injection (count check) | `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results` |
 | Retokenize preserves `ReplacedWord` | `crates/batchalign-transform/src/retokenize/rebuild.rs` |
 | Read-only consumption test | `crates/batchalign/src/chat_ops/fa/tests/grouping_and_wor.rs::test_wor_policy_replacements_use_original_surface` |
-| CHAT-format canonical reference | [`talkbank-tools/book/src/chat-format/replacements.md`](https://github.com/TalkBank/talkbank-tools/blob/main/book/src/chat-format/replacements.md) |
+| CHAT-format canonical reference | the CHAT-format replacements reference in the `chatter` project |
 
 ## See Also
 
-- [CHAT Data Model](../../architecture/chat-model/chat-model.md) —
-  how `UtteranceContent` variants (including `ReplacedWord`) flow
-  through the pipeline; `walk_words`, `WordItem`, and per-domain
-  extraction primitives.
+- CHAT Data Model (in the `chatter` project): how `UtteranceContent`
+  variants (including `ReplacedWord`) flow through the pipeline;
+  `walk_words`, `WordItem`, and per-domain extraction primitives.
 - [ASR Token Pipeline](./asr-token-pipeline.md) — the disfluency /
   normalization rules that mutate `AsrWord.text` (a different
   mechanism from replacements).
-- [The %mor Tier](https://github.com/TalkBank/talkbank-tools/blob/main/book/src/chat-format/mor-tier.md)
-  in talkbank-tools — for what `%mor` represents and how it aligns.
+- The %mor Tier (in the `chatter` project): for what `%mor` represents
+  and how it aligns.
