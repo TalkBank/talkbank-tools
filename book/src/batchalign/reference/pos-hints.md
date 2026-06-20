@@ -65,8 +65,8 @@ Source verified:
 (orchestration entry) and
 `crates/batchalign/src/morphosyntax/batch.rs:31::dispatch_secondary_l2`
 (L2 dispatch);
-`crates/talkbank-transform/src/morphosyntax/pos_hints.rs:36::apply_pos_hints`;
-`crates/talkbank-transform/src/morphosyntax/l2/splice.rs:405::splice_l2_into_chat`.
+`crates/batchalign-transform/src/morphosyntax/pos_hints.rs:36::apply_pos_hints`;
+`crates/batchalign-transform/src/morphosyntax/l2/splice.rs:405::splice_l2_into_chat`.
 
 ## Per-hint decision flow
 
@@ -91,7 +91,7 @@ flowchart TD
     Compare -->|differ| Override["mor.override_main_pos(hinted.to_chat_pos_name())\n(features, lemma preserved)\nrecord: Overridden"]
 ```
 
-Source verified: `crates/talkbank-transform/src/morphosyntax/pos_hints.rs`
+Source verified: `crates/batchalign-transform/src/morphosyntax/pos_hints.rs`
 (`apply_pos_hints`, `resolve_hint` internal helper uses `UniversalPos::from_pos_name` and `UniversalPos::to_chat_pos_name`).
 
 ## The CLAN → UD UPOS table
@@ -119,7 +119,7 @@ classDiagram
     clan_to_ud_upos --> UD_UPOS : output (or None)
 ```
 
-Source verified: `talkbank-tools/crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`.
+Source verified: `talkbank-tools/../chatter/crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`.
 
 Coverage (see the `#[test]` suite in `clan_ud_mapping.rs` for the
 exhaustive list):
@@ -233,9 +233,9 @@ per-invocation relief while a fix is prepared.
   augments; `$POS` hints are a merge-algorithm-adjacent signal, not
   an L2-specific one.
 - [L2 Morphotag Status](l2-morphotag-status.md) — L2 feature overview.
-- `talkbank-tools/crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`
+- `talkbank-tools/../chatter/crates/talkbank-model/src/model/dependent_tier/mor/analysis/clan_ud_mapping.rs`
   — the mapping source of truth.
-- `crates/talkbank-transform/src/morphosyntax/pos_hints.rs`
+- `crates/batchalign-transform/src/morphosyntax/pos_hints.rs`
   — the applicator source.
 
 ## Reproducing the POC evidence

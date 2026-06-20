@@ -428,7 +428,7 @@ walker.
 
 Core outcome types:
 
-- `crates/talkbank-transform/src/morphosyntax/outcome.rs` — `MorOutcome`,
+- `crates/batchalign-transform/src/morphosyntax/outcome.rs`: `MorOutcome`,
   `MisalignmentDiagnostic`, `classify_not_applicable`
 - `crates/batchalign/src/utseg.rs` — `UtsegOutcome`,
   `validate_utseg_response`
@@ -447,7 +447,7 @@ Invariant enforcement:
   `inject_morphosyntax` (returns `Result<(), MisalignmentDiagnostic>`)
 - `batchalign/inference/morphosyntax.py` —
   realignment-skipped WARN at the Python boundary
-- `talkbank-tools/crates/talkbank-model/src/alignment/helpers/count.rs`
+- `talkbank-tools/../chatter/crates/talkbank-model/src/alignment/helpers/count.rs`
   — `MorAlignableWordCount` / `MorItemCount` newtypes and
   `count_tier_positions` walker
 
@@ -457,7 +457,7 @@ Tests that pin the architecture:
   — cross-walker count parity across the 98-file reference corpus
 - `batchalign/tests/inference/test_morphosyntax_realignment_contract.py`
   — Python contract test pinning `tok_ctx.original_words` sequencing
-- `crates/talkbank-transform/src/morphosyntax/outcome.rs`
+- `crates/batchalign-transform/src/morphosyntax/outcome.rs`
   `#[cfg(test)]` — per-variant classification tests
 - `crates/batchalign/src/eval_cmd/l2_morphotag/tests.rs`
   — `UtteranceOutcome` classifier truth table

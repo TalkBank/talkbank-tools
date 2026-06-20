@@ -21,7 +21,7 @@ significant special treatment. This page indexes all language-specific behavior.
 | **Japanese** | `jpn` | [Japanese](japanese.md) | Stanza `combined` package, retokenize merge/split |
 | **Hebrew** | `heb` | [Hebrew](hebrew.md) | Fine-tuned Whisper, RTL punctuation, HebBinyan/HebExistential features |
 | **French** | `fra` | [French](french.md) | Native Stanza MWT + char-DP realign (BA2 elision/multi-clitic hacks removed) |
-| **Italian** | `ita` | [Italian](italian.md) | Native Stanza MWT + char-DP realign; `%mor` injection count invariant holds; Defect 6 (clitic-shaped words mis-analyzed as verb+clitic — `parla`, `arancione`, `piccolo`, `gomitolo`, `divano`) and Defect 7 (`la → il + i`) **mitigated** by the per-language allowlist reconciler in `crates/talkbank-transform/src/morphosyntax/lang_it.rs` — see Italian page §"Reconciler for Defect 6 / 7" |
+| **Italian** | `ita` | [Italian](italian.md) | Native Stanza MWT + char-DP realign; `%mor` injection count invariant holds; Defect 6 (clitic-shaped words mis-analyzed as verb+clitic: `parla`, `arancione`, `piccolo`, `gomitolo`, `divano`) and Defect 7 (`la → il + i`) **mitigated** by the per-language allowlist reconciler in `crates/batchalign-transform/src/morphosyntax/lang_it.rs`: see Italian page §"Reconciler for Defect 6 / 7" |
 | **Portuguese** | `por` | [Portuguese](portuguese.md) | Native Stanza MWT + char-DP realign (`d'água` ForceMwt hack removed) |
 | **Dutch** | `nld` | [Dutch](dutch.md) | Native Stanza tokenization (`'s`-suffix SuppressMwt hack removed as dormant) |
 | **Malayalam** | `mal` | [Malayalam](malayalam.md) | No Stanza pipeline; transcribe-only via HuggingFace Whisper fine-tunes (`whisper_hub` engine). Same pattern applies to other Stanza-stub languages. |

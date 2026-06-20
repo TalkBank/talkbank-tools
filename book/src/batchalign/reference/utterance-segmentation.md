@@ -111,7 +111,7 @@ for both pre-CHAT segmentation and later CHAT-level refinement.
 ## Punctuation-Based Fallback
 
 For languages without a dedicated utterance model, utterances are split by
-punctuation in Rust (`crates/talkbank-transform/src/asr_postprocess/mod.rs`).
+punctuation in Rust (`crates/batchalign-transform/src/asr_postprocess/mod.rs`).
 
 ### CHAT-Legal Sentence Terminators
 
@@ -191,7 +191,7 @@ To add utterance segmentation for a new language:
 
 | File | Purpose |
 |------|---------|
-| `crates/talkbank-transform/src/asr_postprocess/mod.rs` | Typed ASR normalization + punctuation retokenization |
+| `crates/batchalign-transform/src/asr_postprocess/mod.rs` | Typed ASR normalization + punctuation retokenization |
 | `batchalign/models/utterance/infer.py` | BA2-style utterance model runtime |
 | `batchalign/worker/_model_loading/utterance.py` | Utterance model bootstrap |
 | `batchalign/inference/utseg.py` | Worker-side utseg dispatch (typed assignments or Stanza trees) |

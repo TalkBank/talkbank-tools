@@ -154,7 +154,7 @@ their scale:
 **1. Single conditional (ASR post-processing)**
 
 ```text
-// crates/talkbank-transform/src/asr_postprocess/mod.rs — one branch for Cantonese
+// crates/batchalign-transform/src/asr_postprocess/mod.rs: one branch for Cantonese
 if lang == "yue" {
     words = normalize_cantonese_words(words);
 }
@@ -168,13 +168,13 @@ and a dynamic dispatch call — all to replace a one-line conditional.
 **2. Per-language modules (morphosyntax)**
 
 ```text
-crates/talkbank-transform/src/morphosyntax/lang_en.rs  — English irregular verbs
-crates/talkbank-transform/src/morphosyntax/lang_fr.rs  — French-specific rules
-crates/talkbank-transform/src/morphosyntax/lang_ja.rs  — Japanese verb form patterns
+crates/batchalign-transform/src/morphosyntax/lang_en.rs : English irregular verbs
+crates/batchalign-transform/src/morphosyntax/lang_fr.rs : French-specific rules
+crates/batchalign-transform/src/morphosyntax/lang_ja.rs : Japanese verb form patterns
 ```
 
 Called from `if lang2(&ctx.lang) == "ja"` checks in
-`crates/talkbank-transform/src/morphosyntax/mor_word.rs` (and similar
+`crates/batchalign-transform/src/morphosyntax/mor_word.rs` (and similar
 language gates in `features.rs`). This is already the right shape —
 each language's rules are isolated in their own module, the dispatch
 point is obvious, and adding a new language means adding a module and
@@ -184,7 +184,7 @@ reduce code or improve safety.
 **3. Table-driven lookup (number expansion)**
 
 ```text
-// crates/talkbank-transform/src/asr_postprocess/num2text.rs — codegenned + hand-curated language tables
+// crates/batchalign-transform/src/asr_postprocess/num2text.rs: codegenned + hand-curated language tables
 static NUM2LANG: LazyLock<BTreeMap<String, BTreeMap<String, String>>> = ...;
 ```
 

@@ -91,7 +91,7 @@ language's feature set, but only Stanza's Hebrew model actually produces
 these features:
 
 ```rust,ignore
-// crates/talkbank-transform/src/morphosyntax/features.rs (lines 43, 46)
+// crates/batchalign-transform/src/morphosyntax/features.rs (lines 43, 46)
 if let Some(v) = feats.get("HebBinyan") {
     parts.push(v.to_lowercase());
 }
@@ -119,7 +119,7 @@ Unlike English, French, Japanese, Italian, Portuguese, and Dutch, Hebrew has
 feature mapping is standard UD feature processing, not a bug workaround.
 
 If systematic Stanza errors are discovered for Hebrew, a
-`crates/talkbank-transform/src/morphosyntax/lang_he.rs` file should
+`crates/batchalign-transform/src/morphosyntax/lang_he.rs` file should
 be created following the pattern of existing language files
 (`lang_en.rs`, `lang_fr.rs`, `lang_it.rs`, `lang_ja.rs`).
 
@@ -127,8 +127,8 @@ be created following the pattern of existing language files
 
 | File | What |
 |------|------|
-| `crates/talkbank-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
-| `crates/talkbank-transform/src/morphosyntax/types.rs:38` | `heb` → `he` code mapping (Rust ISO-3 → Stanza ISO-1) |
+| `crates/batchalign-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
+| `crates/batchalign-transform/src/morphosyntax/types.rs:38` | `heb` → `he` code mapping (Rust ISO-3 → Stanza ISO-1) |
 | `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` | Core mapping module that consumes the extracted features |
 | `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs` | Hebrew integration tests |
 | `batchalign/worker/_stanza_loading.py` | Stanza pipeline configuration for Hebrew |

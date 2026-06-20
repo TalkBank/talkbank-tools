@@ -42,7 +42,7 @@ Probes in
 
 All three issues below are **content-quality** defects. The `%mor`
 count invariant holds — Stage 3's `assemble_mors` in
-`crates/talkbank-transform/src/morphosyntax/mapping_helpers.rs` collapses
+`crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs` collapses
 Stanza's MWT Range tokens into a single compound `%mor` entry per
 CHAT word — but the emitted entry carries linguistically wrong
 content: fake lemmas, spurious features, or the wrong POS.
@@ -322,8 +322,8 @@ flowchart TD
     SingleMisPOS -->|"no defect"| NormalSingle
 ```
 
-*Verified against: `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
-(allowlist definitions), `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`
+*Verified against: `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
+(allowlist definitions), `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`
 (dispatch), `_cases/italian.py` probe observations (defect
 signatures).*
 
@@ -382,9 +382,9 @@ flowchart LR
     BuildGra --> Gras
 ```
 
-*Verified against: `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
-(three allowlists + helpers), `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`
-(orchestration), `crates/talkbank-transform/src/morphosyntax/mapping_helpers.rs::assemble_mors`
+*Verified against: `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
+(three allowlists + helpers), `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`
+(orchestration), `crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs::assemble_mors`
 (Range reassembly), `talkbank-model::model::dependent_tier::mor::Mor::with_post_clitic`
 (clitic stacking).*
 
@@ -451,7 +451,7 @@ sequenceDiagram
 reconciler branch), `map_ud_sentence_expanded` (uniform
 `push_ud` helper), `build_gra_and_validate`
 (language-neutral in
-`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`,
+`crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`,
 re-exported through `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs`),
 `provenance.rs` (data types), `helpers.rs` (normalize_deprel +
 assemble_mors + provenance_for_ud_word), `apply_compound_imperative_override`
@@ -506,8 +506,8 @@ Shared invariants across all three:
 ## Reconciler for Defect 6 / 7 / 8 / 9 / 10 / 12 / 13
 
 **Implementation at**
-`crates/talkbank-transform/src/morphosyntax/lang_it.rs`; plumbed into
-`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`.
+`crates/batchalign-transform/src/morphosyntax/lang_it.rs`; plumbed into
+`crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs::map_ud_sentence`.
 
 ### Integration inside `map_ud_sentence`
 
@@ -558,10 +558,10 @@ entry with corrected POS / lemma / features. This is explicitly a
 hack — an allowlist of specific Stanza mis-splits we know about,
 not a principled morphological analyzer.
 
-**Where the hack lives.** `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
+**Where the hack lives.** `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
 (mirrors the pattern of `lang_en.rs` / `lang_fr.rs` /
 `lang_ja.rs`). The reconciler is called from
-`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` inside
+`crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs` inside
 `map_ud_sentence`'s `UdId::Range` branch — before the normal
 `assemble_mors` join. When it fires, the affected Range is also
 recorded so `build_gra_and_validate` emits a single `%gra`
@@ -715,7 +715,7 @@ catch overzealous entries.
 
 **Constraints validated by tests** at three layers:
 
-- **Unit tests** in `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
+- **Unit tests** in `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
   — lookup semantics (case-insensitivity, positive and negative
   matches, exclusion of genuine compounds like `dammela`).
 - **Synthetic UD integration tests** in
@@ -838,7 +838,7 @@ pick them up when Italian is next on deck.
 
 None of these are blockers for user-facing Italian work. They
 are concrete, scoped extensions with clear next steps documented
-in the commit history of `crates/talkbank-transform/src/morphosyntax/lang_it.rs`.
+in the commit history of `crates/batchalign-transform/src/morphosyntax/lang_it.rs`.
 
 ## History
 
@@ -846,7 +846,7 @@ in the commit history of `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
 
 BA2 carried two per-language hacks for Italian in
 `ud.py:662-695`, ported into BA3's
-`crates/talkbank-transform/src/tokenizer_realign.rs` (the
+`crates/batchalign-transform/src/tokenizer_realign.rs` (the
 historical `mwt_overrides.rs` sub-module has since been
 consolidated into the single `tokenizer_realign.rs` file)
 and then emptied after a paired empirical audit:

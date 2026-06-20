@@ -112,7 +112,7 @@ Rust entry point: `crates/batchalign/src/morphosyntax/mod.rs::run_morphosyntax_i
 
 ### Module Inventory
 
-**Rust** — `talkbank-transform` crate (`crates/talkbank-transform/src/`)
+**Rust:** `batchalign-transform` crate (`crates/batchalign-transform/src/`)
 
 The core morphosyntax pipeline logic lives in `talkbank-transform`. Most files
 handle CHAT-side extraction, UD→CHAT mapping, and injection. The
@@ -284,7 +284,7 @@ process — the right place for it to happen.
 ## 5. UD-to-CHAT Mapping
 
 Absorbed from the former `mor-gra-generation.md`.  The mapping lives in
-`crates/talkbank-transform/src/morphosyntax/`, with the main entry point being
+`crates/batchalign-transform/src/morphosyntax/`, with the main entry point being
 `sentence_mapping.rs::map_ud_sentence`.
 
 ### Pipeline
@@ -418,7 +418,7 @@ POS categories use lowercased UPOS tags:
 | SCONJ | `sconj\|` | (none) |
 
 Language-specific rules live in dedicated modules under
-`crates/talkbank-transform/src/morphosyntax/`: `lang_en.rs` (English
+`crates/batchalign-transform/src/morphosyntax/`: `lang_en.rs` (English
 irregular-verb table and irrealis annotations), `lang_fr.rs` (French
 pronoun case and APM handling), `lang_ja.rs` (Japanese verb-form
 overrides), `lang_it.rs` (Italian). Add a language by mirroring the
@@ -442,7 +442,7 @@ its head chain to the root, marking nodes IN_PROGRESS (gray) on the way down and
 (black) on the way back.  Encountering a gray node means a cycle.
 
 On failure, `validate_generated_gra` (in
-`crates/talkbank-transform/src/morphosyntax/gra_validate.rs`) returns
+`crates/batchalign-transform/src/morphosyntax/gra_validate.rs`) returns
 `Err(MappingError)` with a detailed error message including the full
 invalid structure. The caller (morphosyntax orchestrator) logs the
 error and skips the utterance — no corrupted %gra is written to disk.
@@ -509,7 +509,7 @@ Stanza, which assigns them `UPOS=X`, producing a spurious `x|XXX` entry on
 
 ### `dp_align/` — Hirschberg Alignment
 
-`crates/talkbank-transform/src/dp_align/` provides the linear-space
+`crates/batchalign-transform/src/dp_align/` provides the linear-space
 sequence aligner used by retokenization. Properties:
 
 - **Cost model:** match=0, substitution=2, gap=1
@@ -519,8 +519,8 @@ sequence aligner used by retokenization. Properties:
 ### `%mor` / `%gra` parsing
 
 `%mor` and `%gra` lines are parsed through the canonical fragment
-parsers in `crates/talkbank-parser/` into typed `Mor` and
-`GrammaticalRelation` values (`crates/talkbank-model/src/model/
+parsers in `../chatter/crates/talkbank-parser/` into typed `Mor` and
+`GrammaticalRelation` values (`../chatter/crates/talkbank-model/src/model/
 dependent_tier/mor/`). Batchalign never re-parses these tiers from
 serialized strings during pipeline execution; it operates on the
 typed AST.
@@ -529,11 +529,11 @@ typed AST.
 
 The injection path lives in two places:
 
-- `crates/talkbank-transform/src/inject.rs::inject_morphosyntax` —
+- `crates/batchalign-transform/src/inject.rs::inject_morphosyntax`:
   the top-level entry point that walks the AST using the same
   traversal order as `extract.rs` and assigns `Mor` items to
   alignable `Word` nodes.
-- `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` —
+- `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results`:
   the helper called by the batched orchestrator after
   `map_ud_sentence` returns.
 
@@ -545,9 +545,9 @@ leaf-handling closures.
 
 ### `retokenize/` — AST Retokenization
 
-`crates/talkbank-transform/src/retokenize.rs` declares the module;
+`crates/batchalign-transform/src/retokenize.rs` declares the module;
 its implementation files live alongside in
-`crates/talkbank-transform/src/retokenize/`:
+`crates/batchalign-transform/src/retokenize/`:
 
 - `rebuild.rs` — AST rebuilding when Stanza's tokens differ from the
   original main tier
@@ -577,7 +577,7 @@ change word boundaries (splits, merges, different text). The algorithm:
 
 The implementation of `map_ud_sentence()` and
 `map_ud_sentence_expanded()` lives in
-`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`. The
+`crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`. The
 older `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` is a
 re-export shim (`pub use talkbank_transform::morphosyntax::*`) kept so
 existing imports continue to resolve; new consumers should import

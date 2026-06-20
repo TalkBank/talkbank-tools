@@ -189,10 +189,10 @@ morphology: `pron|it~aux|be`, `aux|do~part|not`.
 1. `"en"` missing from `MWT_LANGS` → English pipeline loaded without
    MWT processor (dead English-specific branch in `_stanza_loading.py`)
 2. The Rust injection layer at
-   `crates/talkbank-transform/src/morphosyntax/injection.rs`
+   `crates/batchalign-transform/src/morphosyntax/injection.rs`
    included Range parent tokens in the token vector → MOR count
    mismatch → `retokenize_utterance()` (at
-   `crates/talkbank-transform/src/retokenize.rs:195`) failed
+   `crates/batchalign-transform/src/retokenize.rs:195`) failed
 3. `map_ud_sentence()` merged Range components into clitics, wrong for
    the Retokenize path where each component needs its own MOR item
 

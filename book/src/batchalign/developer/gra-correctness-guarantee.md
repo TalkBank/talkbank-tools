@@ -24,9 +24,9 @@ successful `%gra` is linguistically correct. The safeguard is structural.
 
 Current implementation (post crate-split):
 
-- `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` —
+- `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`:
   `map_ud_sentence()` at line 81 builds `%mor` and `%gra`.
-- `crates/talkbank-transform/src/morphosyntax/gra_validate.rs` —
+- `crates/batchalign-transform/src/morphosyntax/gra_validate.rs`:
   `validate_generated_gra(&gras)?` at line 20 runs before the mapping
   is returned.
 - The chunk-count alignment check happens in the same module before

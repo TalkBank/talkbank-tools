@@ -501,16 +501,16 @@ Errors are collected during resolution and reported via the validation system.
 
 ### Rust (talkbank-model)
 
-- **Language syntax markers**: `crates/talkbank-model/src/model/content/word/language.rs` — `WordLanguageMarker` enum (Shortcut, Explicit, Multiple, Ambiguous)
-- **Resolution logic**: `crates/talkbank-model/src/validation/word/language/resolve.rs` — `resolve_word_language()` function
-- **Header language list**: `crates/talkbank-model/src/model/header/header_enum/header.rs` — `Header::Languages { codes }`
-- **Tier language directive**: `crates/talkbank-model/src/model/content/main_tier.rs` — `MainTierContent.language_code` field
+- **Language syntax markers**: `../chatter/crates/talkbank-model/src/model/content/word/language.rs`: `WordLanguageMarker` enum (Shortcut, Explicit, Multiple, Ambiguous)
+- **Resolution logic**: `../chatter/crates/talkbank-model/src/validation/word/language/resolve.rs`: `resolve_word_language()` function
+- **Header language list**: `../chatter/crates/talkbank-model/src/model/header/header_enum/header.rs`: `Header::Languages { codes }`
+- **Tier language directive**: `../chatter/crates/talkbank-model/src/model/content/main_tier.rs`: `MainTierContent.language_code` field
 
 ### Rust (talkbank-transform - payload & injection)
 
-- **Batch payload definition**: `crates/talkbank-transform/src/morphosyntax/payload.rs:29-55` — `MorphosyntaxBatchItem` struct (words, terminator, special_forms, lang)
-- **L2|xxx placeholder for unresolved words**: `crates/talkbank-transform/src/morphosyntax/injection.rs` — replaces pos with `PosCategory::new("L2")` when word has language marker but isn't routed
-- **L2 splice logic**: `crates/talkbank-transform/src/morphosyntax/l2/splice.rs` — replaces L2|xxx with real morphology after secondary dispatch
+- **Batch payload definition**: `crates/batchalign-transform/src/morphosyntax/payload.rs:29-55`: `MorphosyntaxBatchItem` struct (words, terminator, special_forms, lang)
+- **L2|xxx placeholder for unresolved words**: `crates/batchalign-transform/src/morphosyntax/injection.rs`: replaces pos with `PosCategory::new("L2")` when word has language marker but isn't routed
+- **L2 splice logic**: `crates/batchalign-transform/src/morphosyntax/l2/splice.rs`: replaces L2|xxx with real morphology after secondary dispatch
 
 ### Rust (batchalign - orchestration)
 

@@ -53,8 +53,8 @@ enough to ingest historical corpora that contain invalid dependency trees.
 
 Current parser-side checks (all four codes are defined as
 `Severity::Error` in
-`crates/talkbank-model/src/errors/codes/error_code.rs:566-578` and
-emitted from `crates/talkbank-model/src/model/dependent_tier/gra/tier.rs`):
+`../chatter/crates/talkbank-model/src/errors/codes/error_code.rs:566-578` and
+emitted from `../chatter/crates/talkbank-model/src/model/dependent_tier/gra/tier.rs`):
 
 - `E721` (`GraNonSequentialIndex`): indices must be sequential (`1..N`)
 - `E722` (`GraNoRoot`): no `ROOT` relation
@@ -72,7 +72,7 @@ error code.
 
 When `batchalign3 morphotag` generates new `%gra`, validation is stricter. The
 current implementation in
-`crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs::build_gra_and_validate` validates:
+`crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs::build_gra_and_validate` validates:
 
 1. sequential indices
 2. exactly one non-terminator root (`head=0` or `head=self`)

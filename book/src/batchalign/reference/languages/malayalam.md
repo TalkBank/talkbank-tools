@@ -96,19 +96,19 @@ HuggingFace Whisper fine-tunes for Malayalam (including
 digits ("3", "100") rather than Malayalam script. Pre-fix, CHAT
 validation rejected these with E220 because `mal` is not in the
 digit-allowed language allowlist
-(`talkbank-tools/crates/talkbank-model/src/validation/word/language/digits.rs`,
+(`talkbank-tools/../chatter/crates/talkbank-model/src/validation/word/language/digits.rs`,
 which permits digits only for `zho`, `cym`, `vie`, `tha`, `nan`,
 `yue`, `min`, `hak`), and the Python `num2words` library has no
 Malayalam backend.
 
 **Fix:** added a Malayalam entry to `NUM2LANG` in
-`crates/talkbank-transform/data/num2lang.json` covering 0-20,
+`crates/batchalign-transform/data/num2lang.json` covering 0-20,
 decades 30-90, plus 100/1000 anchor words. The per-word Rust pass
 in `crates/batchalign/src/pipeline/transcribe.rs:527::prepare_asr_chunks`
 calls `expand_number(text, "mal")` on every word, converting digits
 to their Malayalam-script word forms. The Python IPC path no longer
 exists — Malayalam expansion is end-to-end Rust. Tests at
-`crates/talkbank-transform/src/asr_postprocess/num2text.rs:540`
+`crates/batchalign-transform/src/asr_postprocess/num2text.rs:540`
 (`malayalam_single_digits_expand_to_script`,
 `malayalam_digits_collected_for_expansion`,
 `malayalam_anchor_decades_and_hundreds`) lock in the expected

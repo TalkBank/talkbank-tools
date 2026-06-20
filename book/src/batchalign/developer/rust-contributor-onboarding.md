@@ -56,7 +56,7 @@ Rebuild rule of thumb while iterating:
 - CLI flags, args parsing, cache, daemon, dispatch: `crates/batchalign/src/cli/`, `crates/batchalign/src/cache/`, `crates/batchalign/src/daemon.rs`
 - Server routes, jobs, persistence, OpenAPI: `crates/batchalign/src/server.rs`, `crates/batchalign/src/routes/`, `crates/batchalign/src/openapi.rs`
 - Worker pool, IPC, daemon spawn: `crates/batchalign/src/worker/`
-- Shared CHAT transformations and morphosyntax / FA / UTR / mapping logic: `crates/talkbank-transform/` (and `crates/batchalign/src/chat_ops/` for the batchalign-side adapters that route through it)
+- Shared CHAT transformations and morphosyntax / FA / UTR / mapping logic: `crates/batchalign-transform/` (and `crates/batchalign/src/chat_ops/` for the batchalign-side adapters that route through it)
 - Worker-boundary types and wire-facing scalars: `crates/batchalign-types/`
 - Python extension boundary: `crates/batchalign-pyo3/`
 

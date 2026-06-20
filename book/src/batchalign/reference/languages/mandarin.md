@@ -101,7 +101,7 @@ path for already-built CHAT text.
 ## Number Expansion
 
 Mandarin uses the Chinese number expansion system. Per
-`crates/talkbank-transform/src/asr_postprocess/num2text.rs:243-247`,
+`crates/batchalign-transform/src/asr_postprocess/num2text.rs:243-247`,
 both `cmn` and `zho` dispatch to `ChineseScript::Simplified`; only
 `yue` and `jpn` use `ChineseScript::Traditional`:
 
@@ -164,5 +164,5 @@ runs for `yue`. Mandarin text passes through without character normalization.
 |------|------|
 | `batchalign/worker/_stanza_loading.py` | `load_stanza_retokenize_model()` for lazy `zh` retok pipeline (`:251`) |
 | `batchalign/inference/morphosyntax.py` | Mandarin retokenize path in `batch_infer_morphosyntax()` |
-| `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs` | Chinese number expansion |
-| `crates/talkbank-transform/src/retokenize.rs` + `crates/talkbank-transform/src/retokenize/` | AST rewrite (language-agnostic) |
+| `crates/batchalign-transform/src/asr_postprocess/num2chinese.rs` | Chinese number expansion |
+| `crates/batchalign-transform/src/retokenize.rs` + `crates/batchalign-transform/src/retokenize/` | AST rewrite (language-agnostic) |

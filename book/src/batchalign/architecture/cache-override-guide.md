@@ -28,12 +28,12 @@ post-processing). The rule is simple:
 
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
-| Word extraction from CHAT AST | Outside (pre-cache) | `crates/talkbank-transform/src/extract.rs` |
+| Word extraction from CHAT AST | Outside (pre-cache) | `../chatter/crates/talkbank-transform/src/extract.rs` |
 | Cache key: `BLAKE3(words \| lang \| MWT lexicon)` | — | task-specific `cache_key()` helpers under `chat_ops/{fa,nlp}/`, hashed via the shared `CacheKey::from_content` newtype in `chat_ops/cache_key.rs` |
 | Stanza inference → raw %mor/%gra JSON | **Inside** | Python `morphosyntax.py` |
-| Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `crates/talkbank-transform/src/retokenize.rs` + `retokenize/` |
+| Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `crates/batchalign-transform/src/retokenize.rs` + `retokenize/` |
 | Deserialize cached JSON | Outside | `crates/batchalign/src/morphosyntax/` |
-| Patch MorTier terminator + Validate MOR/GRA chunk count + Inject %mor/%gra into AST | Outside | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` (same path regardless of cache hit vs miss) |
+| Patch MorTier terminator + Validate MOR/GRA chunk count + Inject %mor/%gra into AST | Outside | `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results` (same path regardless of cache hit vs miss) |
 
 ### Utterance Segmentation (utseg)
 

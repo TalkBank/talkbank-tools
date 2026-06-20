@@ -17,7 +17,7 @@ documentation, see [User Guide: compare](../../user-guide/commands/compare.md).
 | Compare library | `crates/batchalign/src/compare.rs` | `compare()` — produces `ComparisonBundle` |
 | Released materializer | `crates/batchalign/src/compare.rs` — `materialize_released()` | Projects %mor/%gra/%wor from main to gold, injects `%xsrep`/`%xsmor` |
 | Benchmark materializer | `crates/batchalign/src/compare.rs` — `materialize_main_annotated()` | Annotates main transcript with `%xsrep`/`%xsmor` (internal to benchmark) |
-| CSV writer | `crates/talkbank-transform/src/compare/metrics.rs` — `format_metrics_csv()` | Typed metrics model → CSV output |
+| CSV writer | `crates/batchalign-transform/src/compare/metrics.rs`: `format_metrics_csv()` | Typed metrics model → CSV output |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`
 as of 2026-04-14: the CLI posts source/output path lists instead of CHAT

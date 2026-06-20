@@ -91,7 +91,7 @@ monotonicity enforcement, pause assignment, `%wor` tier generation.
 
 ASR preprocessing is the most complex because raw ASR output needs extensive normalization before it becomes CHAT:
 
-**ASR postprocessing pipeline** (`crates/talkbank-transform/src/asr_postprocess/`):
+**ASR postprocessing pipeline** (`crates/batchalign-transform/src/asr_postprocess/`):
 
 | Stage | Module | What it does |
 |-------|--------|-------------|
@@ -105,7 +105,7 @@ ASR preprocessing is the most complex because raw ASR output needs extensive nor
 | 6. Retokenization | `mod.rs` | Split into utterances by punctuation boundaries |
 
 All module filenames in the table above are under
-`crates/talkbank-transform/src/asr_postprocess/`.
+`crates/batchalign-transform/src/asr_postprocess/`.
 
 **Retokenization** (step 6) is particularly important: ASR produces one long stream of text, but CHAT needs it segmented into utterances. The retokenizer uses punctuation (`.`, `?`, `!`) as utterance boundaries and assigns timing from the ASR tokens.
 

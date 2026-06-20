@@ -114,7 +114,7 @@ flowchart TD
     pyc["PyCantonese segment()\n(inference/morphosyntax.py)"]
     stanza_retok["Stanza neural tokenizer\n(_stanza_loading.py:retok)"]
     stanza_pretok["Stanza pretokenized\n(standard pipeline)"]
-    rust_retok["Rust retokenize module\n(crates/talkbank-transform/src/retokenize.rs\n+ retokenize/{rebuild,parse_helpers}.rs)"]
+    rust_retok["Rust retokenize module\n(crates/batchalign-transform/src/retokenize.rs\n+ retokenize/{rebuild,parse_helpers}.rs)"]
     chat_word["CHAT output\n(word-level tokens + %mor/%gra)"]
     chat_char["CHAT output\n(per-char tokens + %mor/%gra)"]
     warn["warn: Consider\n--retokenize"]

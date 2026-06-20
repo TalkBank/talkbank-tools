@@ -34,13 +34,13 @@ Use these as the primary files when reviewing the rewrite:
   - `crates/batchalign/src/compare.rs` (orchestration entry: the runner
     calls `compare()` and `project_gold_structurally()` from
     talkbank-transform and writes the projected CHAT and `.compare.csv`)
-  - `crates/talkbank-transform/src/compare/engine.rs`
+  - `crates/batchalign-transform/src/compare/engine.rs`
     (`find_best_segment`, `compare()` — the local-window search and
     DP-alignment core)
-  - `crates/talkbank-transform/src/compare/materialize.rs`
+  - `crates/batchalign-transform/src/compare/materialize.rs`
     (`project_gold_structurally`, `inject_comparison`,
     `clear_comparison`)
-  - `crates/talkbank-transform/src/compare/metrics.rs`
+  - `crates/batchalign-transform/src/compare/metrics.rs`
     (`CompareMetricsCsvTable`, `format_metrics_csv`)
   - `crates/batchalign/src/execution/` (recipe-driven dispatch;
     replaces old `compare_pipeline.rs`)

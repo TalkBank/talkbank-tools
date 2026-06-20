@@ -48,10 +48,10 @@ With `--retokenize`, Stanza's neural tokenizer may:
 - **Split** one CHAT word into sub-tokens
 
 The Rust retokenize module at
-`crates/talkbank-transform/src/retokenize.rs:195::retokenize_utterance`
+`crates/batchalign-transform/src/retokenize.rs:195::retokenize_utterance`
 handles the AST rewrite using the same character-level span mapping
 used for English contractions and CJK word segmentation. Sibling
-helpers live under `crates/talkbank-transform/src/retokenize/`
+helpers live under `crates/batchalign-transform/src/retokenize/`
 (`parse_helpers.rs`, `rebuild.rs`).
 
 ## Known Limitations
@@ -77,7 +77,7 @@ detailed whitespace handling documentation.
 ## Verified Behavior
 
 - Retokenize split-and-merge: covered by inline `#[cfg(test)]` tests
-  in `crates/talkbank-transform/src/retokenize.rs` (e.g.,
+  in `crates/batchalign-transform/src/retokenize.rs` (e.g.,
   `deterministic_mapping_succeeds_for_split_and_merge` at `:287`).
 - Stanza `combined` package loads correctly for `ja`
   (`batchalign/worker/_stanza_loading.py:196-207`).
@@ -107,5 +107,5 @@ overrides, and whitespace artifact handling, see:
 |------|------|
 | `batchalign/worker/_stanza_loading.py` | Japanese `combined` package selection (`:196-207`); MWT eligibility via `should_request_mwt()` |
 | `batchalign/inference/morphosyntax.py` | Stanza inference (shared with all languages) |
-| `crates/talkbank-transform/src/retokenize.rs` + `crates/talkbank-transform/src/retokenize/{parse_helpers,rebuild}.rs` | AST rewrite for merged/split tokens |
-| `crates/talkbank-transform/src/morphosyntax/lang_ja.rs` | POS mapping with Japanese-specific rules |
+| `crates/batchalign-transform/src/retokenize.rs` + `crates/batchalign-transform/src/retokenize/{parse_helpers,rebuild}.rs` | AST rewrite for merged/split tokens |
+| `crates/batchalign-transform/src/morphosyntax/lang_ja.rs` | POS mapping with Japanese-specific rules |

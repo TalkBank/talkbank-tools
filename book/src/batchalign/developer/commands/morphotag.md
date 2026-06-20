@@ -17,9 +17,9 @@ documentation, see [User Guide: morphotag](../../user-guide/commands/morphotag.m
 | Command definition | `crates/batchalign/src/commands/morphotag.rs` | `CommandDefinition` impl, pre-validation gate |
 | Morphosyntax orchestration | `crates/batchalign/src/morphosyntax/` | Cross-file batching, cache lookup, worker dispatch, result injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Pools all files into a single ML call |
-| Injection | `crates/talkbank-transform/src/morphosyntax/injection.rs` | `inject_results()` — writes `%mor`/`%gra` from typed UD annotations |
+| Injection | `crates/batchalign-transform/src/morphosyntax/injection.rs` | `inject_results()`: writes `%mor`/`%gra` from typed UD annotations |
 | Retokenization | `crates/batchalign/src/retokenize/` | Character-level DP for Stanza word splits/merges |
-| Payload collection & injection | `crates/talkbank-transform/src/morphosyntax/` — `collect_payloads()`, `clear_morphosyntax()`, `inject_results()`, `remove_empty_morphosyntax_placeholders()` | Cross-crate: domain logic lives in talkbank-transform model layer |
+| Payload collection & injection | `crates/batchalign-transform/src/morphosyntax/`: `collect_payloads()`, `clear_morphosyntax()`, `inject_results()`, `remove_empty_morphosyntax_placeholders()` | Cross-crate: domain logic lives in talkbank-transform model layer |
 | Worker IPC | `batchalign/inference/morphosyntax.py` — `batch_infer_morphosyntax()` | Loads Stanza, returns raw `to_dict()` UD annotations |
 
 Local submissions (auto-daemon or loopback `--server`) use `paths_mode=true`:
@@ -176,8 +176,8 @@ flowchart TD
 ```
 
 Diagram verified against: `crates/batchalign/src/morphosyntax/batch.rs` (orchestration),
-`crates/talkbank-transform/src/morphosyntax/injection.rs` (inject_results),
-`crates/talkbank-transform/src/morphosyntax/payload.rs` (clear/collect/sweep),
+`crates/batchalign-transform/src/morphosyntax/injection.rs` (inject_results),
+`crates/batchalign-transform/src/morphosyntax/payload.rs` (clear/collect/sweep),
 `crates/batchalign/src/chat_ops/morphosyntax_ops/tests.rs` (tier-order regression tests).
 
 ### Tier-order preservation
@@ -319,7 +319,7 @@ sequenceDiagram
     Splice-->>Orch: SpliceOutcome<br/>(spliced / fallback / gra_upgraded)
 ```
 
-**Module layout** (`crates/talkbank-transform/src/morphosyntax/l2/`):
+**Module layout** (`crates/batchalign-transform/src/morphosyntax/l2/`):
 
 | Module | Responsibility |
 |--------|----------------|
@@ -396,7 +396,7 @@ exists to catch corruption from upstream defects (e.g., Stanza control-token
 leaks) that escape the ingress filter.
 
 Implementation: post-injection alignment validation lives in
-`crates/talkbank-transform/src/morphosyntax/injection.rs` (the module
+`crates/batchalign-transform/src/morphosyntax/injection.rs` (the module
 top comment names the responsibility, and the typed
 `MisalignmentBug` / `MisalignmentDiagnostic` paths fire at the result
 sites in that file). The batchalign-side `morphosyntax/worker.rs`

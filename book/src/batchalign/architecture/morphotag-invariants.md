@@ -40,7 +40,7 @@ post-hoc alignment.
 ```mermaid
 flowchart TD
     U["Utterance U<br/>(main tier)"] --> E
-    E["Stage 1: Extract<br/>collect_utterance_content(Mor)<br/>(crates/talkbank-transform/src/extract.rs)"] --> Nlabel
+    E["Stage 1: Extract<br/>collect_utterance_content(Mor)<br/>(../chatter/crates/talkbank-transform/src/extract.rs)"] --> Nlabel
     Nlabel{{"N Mor-alignable words<br/>(counts_for_tier rule)"}}
 
     Nlabel -->|"N == 0"| NA["MorOutcome::NotApplicable<br/>no %mor produced (correct)"]
@@ -49,7 +49,7 @@ flowchart TD
     D["Stage 2: Dispatch<br/>tok_ctx.original_words = word_lists<br/>(batchalign/inference/morphosyntax.py:375)"] --> S
     S["Stanza neural tokenizer<br/>re-tokenizes text, realigning<br/>to word_lists boundaries"] --> P
 
-    P["Stage 3: Project<br/>map_ud_sentence + MWT Range reassembly<br/>(crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs)"] --> M
+    P["Stage 3: Project<br/>map_ud_sentence + MWT Range reassembly<br/>(crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs)"] --> M
     M{{"|mors| =?= N"}}
 
     M -->|"yes"| OK["MorOutcome::Aligned<br/>inject %mor + %gra"]
@@ -96,8 +96,8 @@ operates at the Stanza-token level instead of the CHAT-word level.
 The main tier gets rewritten to match Stanza's output, and the
 resulting `%mor` count equals the rewritten word count by construction.
 (The current implementation of this rewrite lives in
-`crates/talkbank-transform/src/retokenize.rs` plus the
-`crates/talkbank-transform/src/retokenize/` sub-modules.)
+`crates/batchalign-transform/src/retokenize.rs` plus the
+`crates/batchalign-transform/src/retokenize/` sub-modules.)
 
 ## MorOutcome: the typed outcome vocabulary
 
@@ -153,10 +153,10 @@ the most likely failing stage:
 
 ## See also
 
-- `crates/talkbank-transform/src/morphosyntax/outcome.rs` — outcome types
-- `crates/talkbank-transform/src/inject.rs` — invariant check & outcome emission
-- `crates/talkbank-transform/src/morphosyntax/payload.rs` — NotApplicable classification
+- `crates/batchalign-transform/src/morphosyntax/outcome.rs`: outcome types
+- `crates/batchalign-transform/src/inject.rs`: invariant check & outcome emission
+- `crates/batchalign-transform/src/morphosyntax/payload.rs`: NotApplicable classification
 - `batchalign/inference/morphosyntax.py` — realignment stage
 - `batchalign/tests/inference/test_morphosyntax_realignment_contract.py` — Stage 2 tests
 - `crates/batchalign/tests/chat_ops_mor_count_parity_reference_corpus.rs` — Stage 1 tests
-- `talkbank-tools/crates/talkbank-model/src/alignment/helpers/rules.rs` — `counts_for_tier`
+- `talkbank-tools/../chatter/crates/talkbank-model/src/alignment/helpers/rules.rs`: `counts_for_tier`

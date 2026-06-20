@@ -12,7 +12,7 @@ This determines which parse mode is used at pipeline entry.
   file on ANY parse error. Used when the input is expected to be valid
   — i.e., output from a previous pipeline stage.
 - **Lenient** (`talkbank_transform::parse::parse_lenient` at
-  `crates/talkbank-transform/src/parse.rs:17`): Error recovery —
+  `../chatter/crates/talkbank-transform/src/parse.rs:17`): Error recovery:
   keeps parseable content and drops broken tiers. Used at pipeline
   entry because input may have malformed dependent tiers from legacy
   CLAN runs or previous batchalign versions.
@@ -39,12 +39,12 @@ This determines which parse mode is used at pipeline entry.
 ## Why morphotag clears before processing
 
 The Rust `collect_payloads()` function
-(`crates/talkbank-transform/src/morphosyntax/payload.rs:135`) skips
+(`crates/batchalign-transform/src/morphosyntax/payload.rs:135`) skips
 utterances that already have a `%mor` tier (optimization for cache
 injection). Without clearing first, files with existing `%mor` would
 be silently round-tripped unchanged. Calling the Rust function
 `clear_morphosyntax`
-(`crates/talkbank-transform/src/morphosyntax/payload.rs:333`) at the
+(`crates/batchalign-transform/src/morphosyntax/payload.rs:333`) at the
 top of `process_morphosyntax()`
 (`crates/batchalign/src/morphosyntax/mod.rs:64`) ensures all
 utterances are reprocessed. Cache hits still work — the cache lookup

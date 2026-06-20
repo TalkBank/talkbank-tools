@@ -213,10 +213,10 @@ what broke.
 
 | File | Role |
 |------|------|
-| `crates/talkbank-model/src/pipeline.rs` | `ValidityLevel` enum |
-| `crates/talkbank-transform/src/validate.rs` | `validate_to_level()`, `validate_output()` |
+| `../chatter/crates/talkbank-model/src/pipeline.rs` | `ValidityLevel` enum |
+| `../chatter/crates/talkbank-transform/src/validate.rs` | `validate_to_level()`, `validate_output()` |
 | `crates/batchalign/src/pipeline/text_infer.rs` | Single-file cached text pipeline with pre/post gates |
-| `crates/talkbank-transform/src/utseg.rs` | Batch utseg path with pre-validation + CHAT dump |
+| `crates/batchalign-transform/src/utseg.rs` | Batch utseg path with pre-validation + CHAT dump |
 | `crates/batchalign/src/pipeline/transcribe.rs` | Transcribe pipeline stages (ASR → utseg → morphosyntax) |
 | `crates/batchalign/src/runner/debug_dumper.rs` | `DebugDumper` — zero-cost artifact writer |
 | `batchalign/inference/asr.py` | Whisper timestamp clamping |

@@ -58,7 +58,7 @@ disagree.
 
 `morphotag` exposes the tension as a user choice, controlled by the
 `--retokenize` CLI flag and the `TokenizationMode` enum defined in
-`crates/talkbank-transform/src/morphosyntax/types.rs`:
+`crates/batchalign-transform/src/morphosyntax/types.rs`:
 
 ```rust
 pub enum TokenizationMode {
@@ -78,7 +78,7 @@ and `%mor` stay 1:1.
 - `%mor` emits a single clitic-joined item:
   `aux|do-Fin-Ind-Pres-S3~part|not`
 - Mapped by `map_ud_sentence()` in
-  `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` (line 77).
+  `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs` (line 77).
 
 ### Retokenize mode (`--retokenize`)
 
@@ -89,9 +89,9 @@ each UD word is its own CHAT word, and each UD word gets its own MOR item.
 - `%mor` emits two items: `pro:sub|I aux|do-Fin-Ind-Pres-S3 part|not v|know .`
 - Driven by `map_ud_sentence_expanded()` (same file, line 24) for the MOR
   side, and by `retokenize_utterance()` in
-  `crates/talkbank-transform/src/retokenize.rs:195` for the main
+  `crates/batchalign-transform/src/retokenize.rs:195` for the main
   tier rewrite (with `parse_helpers.rs` and `rebuild.rs` as siblings
-  under `crates/talkbank-transform/src/retokenize/`).
+  under `crates/batchalign-transform/src/retokenize/`).
 
 We chose this split because the two goals — "preserve the transcript" and
 "produce UD-shaped morphology" — are legitimate for different downstream
@@ -208,15 +208,15 @@ followed by their components) into `Vec<Mor>`.
 flowchart LR
     UD["UdSentence\nwith Range + components"] --> Branch{"TokenizationMode?"}
 
-    Branch -->|"Preserve"| Merge["map_ud_sentence()\n(crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs:77)"]
-    Merge --> Assemble["assemble_mors()\n(crates/talkbank-transform/src/morphosyntax/mapping_helpers.rs)"]
+    Branch -->|"Preserve"| Merge["map_ud_sentence()\n(crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs:77)"]
+    Merge --> Assemble["assemble_mors()\n(crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs)"]
     Assemble --> OneMor["One Mor per CHAT word\naux|do~part|not"]
 
-    Branch -->|"StanzaRetokenize"| Expand["map_ud_sentence_expanded()\n(crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs:24)"]
+    Branch -->|"StanzaRetokenize"| Expand["map_ud_sentence_expanded()\n(crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs:24)"]
     Expand --> PerComp["One Mor per UD component\n(skip Range parent)\naux|do + part|not"]
-    PerComp --> Rewrite["retokenize_utterance()\n(crates/talkbank-transform/src/retokenize.rs:195)\nrewrites main tier"]
+    PerComp --> Rewrite["retokenize_utterance()\n(crates/batchalign-transform/src/retokenize.rs:195)\nrewrites main tier"]
 
-    OneMor --> Inject["inject_morphosyntax()\n(crates/talkbank-transform/src/inject.rs:119)"]
+    OneMor --> Inject["inject_morphosyntax()\n(crates/batchalign-transform/src/inject.rs:119)"]
     Rewrite --> Inject
 ```
 
@@ -242,7 +242,7 @@ reading `~/batchalign2-master/batchalign/pipelines/morphosyntax/ud.py`.
 | Stanza mode | `tokenize_no_ssplit=True`, free tokenizer (NOT pretokenized). Config built in `_build_nlp()` at line 1004. | Mixed: `tokenize_pretokenized=True` for non-MWT languages and Japanese; free tokenizer with `tokenize_postprocessor` for English and other MWT languages. Config in `batchalign/worker/_stanza_loading.py` line 102-140. |
 | Preserve vs retokenize branch | Single `morphoanalyze()` function at line 713 branches on the `retokenize` boolean parameter at line 833. | Typed `TokenizationMode` enum in `morphosyntax/mod.rs`; dispatch branch in `morphosyntax/inject.rs` at line 158. |
 | MWT contraction fix | Inline regex on emitted %mor string at line 826: `re.sub(r"~part\|s verb\|(\w+)-Ger-S", r"~aux|is verb|\1-Part-Pres-S", mor)`. | MWT handling is type-level, not textual: `UdId::Range` parent tokens are detected in `map_ud_sentence()` / `map_ud_sentence_expanded()` and mapped at the AST layer. |
-| Character-DP aligner | Internal `align()` function from `batchalign.utils.dp` operating on `PayloadTarget`/`ReferenceTarget` lists, called at line 872. | Rust `align_tokens()` exposed via `batchalign_core`, called from the Python `_tokenizer_realign.py` postprocessor. Hirschberg divide-and-conquer (`crates/talkbank-transform/src/dp_align/`). |
+| Character-DP aligner | Internal `align()` function from `batchalign.utils.dp` operating on `PayloadTarget`/`ReferenceTarget` lists, called at line 872. | Rust `align_tokens()` exposed via `batchalign_core`, called from the Python `_tokenizer_realign.py` postprocessor. Hirschberg divide-and-conquer (`crates/batchalign-transform/src/dp_align/`). |
 | Main-tier rewrite | Text surgery: 14+ chained `.replace()` and `re.sub()` calls at lines 925-942, then a sanity-check reparse of the result. | AST rewrite: `rebuild_content()` walks the parsed `UtteranceContent` and splices Stanza tokens in place (`retokenize/rebuild.rs`), re-using the tree-sitter fragment parser. No string surgery. |
 | `%wor` preservation | Not handled — BA2 had no `%wor` tier concept at this layer. | Retokenize-mode invalidates `%wor` bullets; FA must be re-run. See the Known Limitations section. |
 | Cross-language routing | `MultilingualPipeline` with all lang alpha-2 codes (line 1058). | Per-language pipelines, with per-utterance `lang_code` dispatch in `batch_infer_morphosyntax()`. |
@@ -263,16 +263,16 @@ flowchart TD
     end
 
     subgraph BA3 ["BA3 (Rust + thin Python)"]
-        R_In["Utterance AST\n(talkbank-model::Utterance)"] --> R_Extract["extract_words()\n(crates/talkbank-transform/src/extract.rs)"]
+        R_In["Utterance AST\n(talkbank-model::Utterance)"] --> R_Extract["extract_words()\n(../chatter/crates/talkbank-transform/src/extract.rs)"]
         R_Extract --> R_Worker["Python worker\n(infer_morphosyntax)"]
         R_Worker --> R_Stanza["stanza.Pipeline\npretokenized or postprocessor"]
         R_Stanza --> R_Map{"TokenizationMode"}
-        R_Map -->|"Preserve"| R_Merge["map_ud_sentence()\n(crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs:77)"]
-        R_Map -->|"StanzaRetokenize"| R_Exp["map_ud_sentence_expanded()\n(crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs:24)"]
-        R_Exp --> R_Retok["retokenize_utterance()\n(crates/talkbank-transform/src/retokenize.rs)"]
-        R_Merge --> R_Inject["inject_morphosyntax()\n(crates/talkbank-transform/src/inject.rs)"]
+        R_Map -->|"Preserve"| R_Merge["map_ud_sentence()\n(crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs:77)"]
+        R_Map -->|"StanzaRetokenize"| R_Exp["map_ud_sentence_expanded()\n(crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs:24)"]
+        R_Exp --> R_Retok["retokenize_utterance()\n(crates/batchalign-transform/src/retokenize.rs)"]
+        R_Merge --> R_Inject["inject_morphosyntax()\n(crates/batchalign-transform/src/inject.rs)"]
         R_Retok --> R_Inject
-        R_Inject --> R_Ser["to_chat_string()\n(crates/talkbank-transform/src/serialize.rs)"]
+        R_Inject --> R_Ser["to_chat_string()\n(../chatter/crates/talkbank-transform/src/serialize.rs)"]
     end
 ```
 
@@ -300,14 +300,14 @@ What BA3 got wrong that BA2 got right (or at least, did simply):
 
 | File | Role |
 |---|---|
-| `crates/talkbank-transform/src/morphosyntax/types.rs` | `TokenizationMode` enum (`:106`); top-level morphosyntax types |
-| `crates/talkbank-transform/src/inject.rs` | Top-level `inject_morphosyntax()` — tier insertion, shared by both modes |
-| `crates/talkbank-transform/src/morphosyntax/payload.rs` | Per-utterance payload collection sent to Python |
-| `crates/talkbank-transform/src/retokenize.rs` | `retokenize_utterance()` entry point (`:195`); `build_word_token_mapping()` (`:67`); inline `#[cfg(test)]` tests |
-| `crates/talkbank-transform/src/retokenize/rebuild.rs` | `rebuild_content()` (`:47`) — AST walk that splices Stanza tokens into the `UtteranceContent` |
-| `crates/talkbank-transform/src/retokenize/parse_helpers.rs` | Fragment-parser helpers (re-uses tree-sitter fragment parsing) |
-| `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` | `map_ud_sentence()` (merge, `:81`) and `map_ud_sentence_expanded()` (per-component, `:24`) |
-| `crates/talkbank-transform/src/morphosyntax/mapping_helpers.rs` | `assemble_mors()` (`:60`) — clitic-join MOR construction |
+| `crates/batchalign-transform/src/morphosyntax/types.rs` | `TokenizationMode` enum (`:106`); top-level morphosyntax types |
+| `crates/batchalign-transform/src/inject.rs` | Top-level `inject_morphosyntax()`: tier insertion, shared by both modes |
+| `crates/batchalign-transform/src/morphosyntax/payload.rs` | Per-utterance payload collection sent to Python |
+| `crates/batchalign-transform/src/retokenize.rs` | `retokenize_utterance()` entry point (`:195`); `build_word_token_mapping()` (`:67`); inline `#[cfg(test)]` tests |
+| `crates/batchalign-transform/src/retokenize/rebuild.rs` | `rebuild_content()` (`:47`): AST walk that splices Stanza tokens into the `UtteranceContent` |
+| `crates/batchalign-transform/src/retokenize/parse_helpers.rs` | Fragment-parser helpers (re-uses tree-sitter fragment parsing) |
+| `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs` | `map_ud_sentence()` (merge, `:81`) and `map_ud_sentence_expanded()` (per-component, `:24`) |
+| `crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs` | `assemble_mors()` (`:60`): clitic-join MOR construction |
 | `batchalign/inference/_tokenizer_realign.py` | `TokenizerContext`, `make_tokenizer_postprocessor`, `_realign_sentence`, `_conform` |
 | `batchalign/inference/morphosyntax.py` | `batch_infer_morphosyntax()` — dispatches Stanza per language, sets `original_words` |
 | `batchalign/worker/_stanza_loading.py` | Per-language Stanza pipeline construction (pretokenized vs postprocessor) |
@@ -324,7 +324,7 @@ What BA3 got wrong that BA2 got right (or at least, did simply):
 - **Phrasal-verb MWTs.** Cases like `wake@s up@s` produce
   `verb|wake part|up` with `COMPOUND-PRT` GRA deprel via the L2
   merge's Priority 0 check
-  (`crates/talkbank-transform/src/morphosyntax/l2/merge.rs::resolve_merged_pos_with_context`).
+  (`crates/batchalign-transform/src/morphosyntax/l2/merge.rs::resolve_merged_pos_with_context`).
   See [L2 Morphotag: Phrasal-verb recognition](l2-morphotag.md#phrasal-verb-recognition)
   for the mechanism.
 - **Pretokenized-mode languages never run the postprocessor.** For
@@ -342,7 +342,7 @@ What BA3 got wrong that BA2 got right (or at least, did simply):
 
 Rust unit tests (inline `#[cfg(test)]` blocks):
 
-- `crates/talkbank-transform/src/retokenize.rs` — mapping
+- `crates/batchalign-transform/src/retokenize.rs`: mapping
   deterministic / fallback / mixed cases (e.g.
   `deterministic_mapping_succeeds_for_split_and_merge` at `:287`),
   rebuild walk, diagnostics, and taint marking on mismatch.
@@ -382,14 +382,14 @@ Large/Fleet-tier host (≥ 256 GB RAM). See
 The diagrams and function references on this page were verified against the
 following source files, read during authoring:
 
-- `crates/talkbank-transform/src/morphosyntax/types.rs:106` — `TokenizationMode`
+- `crates/batchalign-transform/src/morphosyntax/types.rs:106`: `TokenizationMode`
   enum definition.
-- `crates/talkbank-transform/src/inject.rs` — top-level
+- `crates/batchalign-transform/src/inject.rs`: top-level
   `inject_morphosyntax()` shared by both modes.
-- `crates/talkbank-transform/src/retokenize.rs:195` — `retokenize_utterance`
+- `crates/batchalign-transform/src/retokenize.rs:195`: `retokenize_utterance`
   entry point; sibling helpers under
-  `crates/talkbank-transform/src/retokenize/{parse_helpers,rebuild}.rs`.
-- `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs` —
+  `crates/batchalign-transform/src/retokenize/{parse_helpers,rebuild}.rs`.
+- `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`:
   `map_ud_sentence` (`:81`) and `map_ud_sentence_expanded` (`:24`).
 - `batchalign/inference/_tokenizer_realign.py` — `_conform`,
   `_is_contraction` (`:120`), `_realign_sentence` (`:148`), and the

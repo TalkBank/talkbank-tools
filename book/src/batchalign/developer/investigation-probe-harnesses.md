@@ -277,7 +277,7 @@ This means:
   boundary shifted, which warrants investigation.
 
 For end-to-end production behavior, see the `%mor` integration
-tests under `crates/talkbank-transform/src/morphosyntax/tests.rs`
+tests under `crates/batchalign-transform/src/morphosyntax/tests.rs`
 and the ML golden tests under `batchalign/tests/golden/`. Those
 exercise the full pipeline including reassembly.
 
@@ -326,7 +326,7 @@ Two concrete instances of this loop:
   surfaced `parla → par + la`, `arancione → arancio + ne`, and
   the compound-imperative family (`dammela`, `prendilo`, …). The
   adjudication routed to a Rust-side reconciler in
-  `crates/talkbank-transform/src/morphosyntax/lang_it.rs`
+  `crates/batchalign-transform/src/morphosyntax/lang_it.rs`
   (two allowlists + `map_ud_sentence` plumbing), with synthetic-UD
   tests in `crates/batchalign/src/chat_ops/nlp/mapping/mod.rs` and
   end-to-end golden coverage in

@@ -170,9 +170,9 @@ Handles two sub-patterns:
   word is promoted to root, the former root is demoted to `obj`,
   subject and punctuation are reattached.
 
-Implementation: `crates/talkbank-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs::rescue_english_copula_progressive`.
-Dispatcher: `crates/talkbank-transform/src/morphosyntax/invariants.rs::apply_grammatical_invariants`.
-Hook point: `crates/talkbank-transform/src/morphosyntax/injection.rs:276`
+Implementation: `crates/batchalign-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs::rescue_english_copula_progressive`.
+Dispatcher: `crates/batchalign-transform/src/morphosyntax/invariants.rs::apply_grammatical_invariants`.
+Hook point: `crates/batchalign-transform/src/morphosyntax/injection.rs:276`
 (`apply_grammatical_invariants(ud_sentence, &ctx)`; the subsequent
 `map_ud_sentence`/`map_ud_sentence_expanded` calls land at `:287` and
 `:289` respectively).
@@ -180,7 +180,7 @@ Hook point: `crates/talkbank-transform/src/morphosyntax/injection.rs:276`
 ### Tests
 
 **Rust unit tests** (14 tests, all GREEN):
-`crates/talkbank-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs`
+`crates/batchalign-transform/src/morphosyntax/invariants/finite_verb_main_clause.rs`
 `#[cfg(test)]` block — 2 positive rewrite tests (sink pattern A, lady
 pattern B), 10 negative no-op tests covering distinct precondition
 failure modes.
@@ -671,7 +671,7 @@ per-word morphological features would be wrong, and the resulting
 * **MWT package:** Italian default
 * **Failure class:** linguistic-content quality. Stage 3's MWT Range
   reassembly
-  (`crates/talkbank-transform/src/morphosyntax/mapping_helpers.rs::assemble_mors`)
+  (`crates/batchalign-transform/src/morphosyntax/mapping_helpers.rs::assemble_mors`)
   collapses Stanza's 2-word expansion into a single compound `%mor`
   entry per CHAT word using `~` / `+`, so the count invariant holds.
   The content of that `%mor` entry is what's wrong: a fake verb
@@ -761,7 +761,7 @@ Fixing this properly would require one of:
 ### BA3 mitigation (ACTIVE)
 
 BA3 carries a per-language reconciler
-in `crates/talkbank-transform/src/morphosyntax/lang_it.rs` that collapses
+in `crates/batchalign-transform/src/morphosyntax/lang_it.rs` that collapses
 the known Defect 6 mis-splits back to a single `%mor` entry with
 overridden POS/lemma/features. The `IT_MIS_SPLIT_OVERRIDES`
 allowlist covers `parla → verb|parlare`,
@@ -879,7 +879,7 @@ lemma=`par`) and a legitimate clitic compound (`dammela → da+me+la`
 with lemma=`dare`) is **not needed at the `%mor` injection level**
 — the mapper already handles both correctly in terms of count.
 
-The per-language reconciler in `crates/talkbank-transform/src/morphosyntax/lang_it.rs` takes
+The per-language reconciler in `crates/batchalign-transform/src/morphosyntax/lang_it.rs` takes
 a different approach than lemma-equality heuristics — it uses a
 closed allowlist of known-defective input-token texts (`parla`,
 `arancione`, `piccolo`, `gomitolo`, `divano`, Defect 7's `la`) and
@@ -960,7 +960,7 @@ block the downstream MWT rule from firing.
 
 The per-language reconciler introduced for Defect 6 also handles this
 case. The `la` entry in `IT_MIS_SPLIT_OVERRIDES` in
-`crates/talkbank-transform/src/morphosyntax/lang_it.rs` catches the
+`crates/batchalign-transform/src/morphosyntax/lang_it.rs` catches the
 Range parent whose text is `la`, regardless of the specific
 component texts Stanza emits. The reconciler replaces the junk
 `det|il-Masc-Def-Art-Sing~det|il-Masc-Def-Art-Plur` with a
@@ -1048,7 +1048,7 @@ Stanza UD output (mid-sentence): [
 
 ### BA3 mitigation (ACTIVE)
 
-`crates/talkbank-transform/src/morphosyntax/lang_it.rs` carries a second
+`crates/batchalign-transform/src/morphosyntax/lang_it.rs` carries a second
 allowlist `IT_COMPOUND_IMPERATIVES` separate from the
 Defect-6/7 `IT_MIS_SPLIT_OVERRIDES`. Entries name the surface
 form, the correct verb lemma, and the correct feats. Current
@@ -1078,7 +1078,7 @@ regression test in `morphosyntax/tests.rs`.
   - `test_italian_defect8_dammelo_mid_sentence_becomes_verb`
   - `test_italian_defect8_genuine_adj_stays_adj` (control)
 - **Allowlist unit tests** in
-  `crates/talkbank-transform/src/morphosyntax/lang_it.rs`.
+  `crates/batchalign-transform/src/morphosyntax/lang_it.rs`.
 - **End-to-end golden** in
   `batchalign/tests/pipelines/morphosyntax/test_italian_defect6_end_to_end.py::test_dammela_mid_sentence_becomes_verb`
   — runs `batchalign3 morphotag` on a CHAT fixture whose

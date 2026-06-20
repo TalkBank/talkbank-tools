@@ -45,7 +45,7 @@ the tracing event and the record creation in one call.
 
 ## DecisionRecord
 
-**Source:** `crates/talkbank-transform/src/decisions.rs` —
+**Source:** `crates/batchalign-transform/src/decisions.rs`:
 `DecisionRecord` at :281, `DecisionModule` at :38, `new_and_trace`
 at :344, `inject_decision_tiers` at :380.
 
@@ -145,7 +145,7 @@ Repair decisions from `crates/batchalign/src/chat_ops/fa/repair.rs:58`
 | `injection_failed` | yes | MOR word count mismatch (e.g., MWT expansion). No %mor/%gra produced. |
 | `nlp_no_sentences` | yes | Stanza returned an empty response for this utterance. No %mor/%gra produced. |
 
-**Source:** `crates/talkbank-transform/src/morphosyntax/injection.rs`
+**Source:** `crates/batchalign-transform/src/morphosyntax/injection.rs`
 (consumed by `crates/batchalign/src/morphosyntax/worker.rs` on the
 mapping/retokenization/injection error paths).
 
@@ -158,14 +158,14 @@ These decisions are logged via `tracing` but not yet tracked as
 |----------|------|:--------:|
 | FA grouping skip (no timing/estimate) | `crates/batchalign/src/chat_ops/fa/grouping.rs` | Medium |
 | Token stitching partial | `crates/batchalign/src/chat_ops/fa/alignment.rs` | Medium |
-| Hardcoded period terminator | `crates/talkbank-transform/src/build_chat/` (directory) | Low |
-| Default language (eng) | `crates/talkbank-transform/src/build_chat/` | Low |
-| Cantonese normalization | `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` | Low |
-| Compound merging | `crates/talkbank-transform/src/asr_postprocess/compounds.rs` | Low |
-| Number expansion | `crates/talkbank-transform/src/asr_postprocess/num2text.rs` | Low |
-| Retrace detection | `crates/talkbank-transform/src/asr_postprocess/mod.rs` | Low |
-| Stanza terminator mismatch | `crates/talkbank-transform/src/retokenize/parse_helpers.rs` | Low |
-| Retokenization fallback | `crates/talkbank-transform/src/morphosyntax/injection.rs` | Medium |
+| Hardcoded period terminator | `crates/batchalign-transform/src/build_chat/` (directory) | Low |
+| Default language (eng) | `crates/batchalign-transform/src/build_chat/` | Low |
+| Cantonese normalization | `crates/batchalign-transform/src/asr_postprocess/cantonese.rs` | Low |
+| Compound merging | `crates/batchalign-transform/src/asr_postprocess/compounds.rs` | Low |
+| Number expansion | `crates/batchalign-transform/src/asr_postprocess/num2text.rs` | Low |
+| Retrace detection | `crates/batchalign-transform/src/asr_postprocess/mod.rs` | Low |
+| Stanza terminator mismatch | `crates/batchalign-transform/src/retokenize/parse_helpers.rs` | Low |
+| Retokenization fallback | `crates/batchalign-transform/src/morphosyntax/injection.rs` | Medium |
 
 ## Integration with existing %xalign/%xrev
 
@@ -181,4 +181,4 @@ The FA orchestrator (`crates/batchalign/src/chat_ops/fa/mod.rs` +
 `chat_ops/fa/orchestrate.rs`) now collects decisions from all stages
 (FA postprocessing, bullet repair, monotonicity enforcement) and
 injects them in a single pass via `inject_decision_tiers()` (defined
-at `crates/talkbank-transform/src/decisions.rs:380`).
+at `crates/batchalign-transform/src/decisions.rs:380`).

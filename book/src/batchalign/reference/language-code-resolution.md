@@ -435,12 +435,12 @@ To add language-specific behavior for a new language:
    dated provenance comment; users select it via `--asr-engine
    whisper_hub`.
 4. **Number expansion** — Add an entry to
-   `crates/talkbank-transform/data/num2lang.json`, or handle the
-   language in `crates/talkbank-transform/src/asr_postprocess/num2text.rs`.
+   `crates/batchalign-transform/data/num2lang.json`, or handle the
+   language in `crates/batchalign-transform/src/asr_postprocess/num2text.rs`.
 5. **Utterance segmentation** — Optionally train a BERT boundary
    model and add it to `batchalign/models/resolve.py::_RESOLVER["utterance"]`.
 6. **Morphosyntax workarounds** — Add a
-   `crates/talkbank-transform/src/morphosyntax/lang_XX.rs` file if
+   `crates/batchalign-transform/src/morphosyntax/lang_XX.rs` file if
    Stanza produces systematic errors for this language (see existing
    `lang_en.rs`, `lang_fr.rs`, `lang_it.rs`, `lang_ja.rs`).
 7. **MWT dispatch** — No code change required; capability-driven

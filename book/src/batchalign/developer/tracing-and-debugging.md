@@ -146,7 +146,7 @@ at which point the error is far from the root cause.
 Three categories of `new_unchecked` usage have been addressed:
 
 **A. ASR transcript construction**
-(`crates/talkbank-transform/src/build_chat/`):
+(`crates/batchalign-transform/src/build_chat/`):
 ASR engines return raw text that must become CHAT words. The code
 tries `DirectParser::parse_word()` first and only falls back to
 `new_unchecked` with a `warn!` if parsing fails. Entry points:
@@ -154,21 +154,21 @@ tries `DirectParser::parse_word()` first and only falls back to
 in `build_chat/bridge.rs:10`.
 
 **B. Retokenization fallback**
-(`crates/talkbank-transform/src/retokenize/`):
+(`crates/batchalign-transform/src/retokenize/`):
 When Stanza splits a CHAT word into MWT sub-tokens, each sub-token
 must be parsed back into a CHAT `Word`. `try_parse_token_as_word()`
-at `crates/talkbank-transform/src/retokenize/parse_helpers.rs:108`
+at `crates/batchalign-transform/src/retokenize/parse_helpers.rs:108`
 returns `Option<Word>` instead of always succeeding. On parse
 failure, the original word is preserved (no invalid content enters
 the AST).
 
 **C. Temporary scaffolding**: a temporary word is used only as input
 to `resolve_word_language()`
-(`crates/talkbank-model/src/validation/word/language/resolve.rs:137`)
+(`../chatter/crates/talkbank-model/src/validation/word/language/resolve.rs:137`)
 and never injected into the AST. This is a documented acceptable use
 of `new_unchecked`.
 
-### Injection-time alignment check (`crates/talkbank-transform/src/morphosyntax/injection.rs`)
+### Injection-time alignment check (`crates/batchalign-transform/src/morphosyntax/injection.rs`)
 
 Before injecting MOR/GRA tiers into an utterance, the code validates
 that the number of MOR items matches the number of alignable words
@@ -176,7 +176,7 @@ extracted from the AST. A mismatch is a bug — it means the
 extraction or NLP mapping is wrong.
 
 ```rust,ignore
-// crates/talkbank-transform/src/morphosyntax/injection.rs — count alignment check
+// crates/batchalign-transform/src/morphosyntax/injection.rs: count alignment check
 let word_count = extracted.len();
 let mor_count = mors.len();
 if word_count != mor_count {

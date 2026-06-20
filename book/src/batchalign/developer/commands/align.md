@@ -238,7 +238,7 @@ All previous `%xalign`/`%xrev` tiers are stripped before injection (even on clea
 re-runs with no new decisions) to prevent stale decision duplication across reruns.
 
 Implementation: `crates/batchalign/src/chat_ops/fa/mod.rs:506–537`. The injection layer is in
-`crates/talkbank-transform/src/decisions/`.
+`crates/batchalign-transform/src/decisions/`.
 
 ---
 

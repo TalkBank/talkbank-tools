@@ -43,7 +43,7 @@ replacement annotations.** A reader skimming the pipeline for
 ## Per-Domain Extraction Policy
 
 Domain-aware word extraction in
-`crates/talkbank-transform/src/extract.rs::collect_replaced_word`
+`../chatter/crates/talkbank-transform/src/extract.rs::collect_replaced_word`
 (line 129) is the central seam. When the
 walker encounters a `ReplacedWord` leaf, it picks one side of the pair
 based on the requested `TierDomain`:
@@ -122,9 +122,9 @@ it here so future readers can find it:
 
 | Site | File:line | What it does |
 |------|-----------|--------------|
-| Extraction | `crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) | Sends the *replacement* words to Stanza |
+| Extraction | `../chatter/crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) | Sends the *replacement* words to Stanza |
 | Count | `model.utterance.mor_alignable_word_count()` (delegated to talkbank-model) | Counts replacement-word count, not 1 |
-| Injection | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` | Asserts injected `%mor` item count == count, then injects |
+| Injection | `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results` | Asserts injected `%mor` item count == count, then injects |
 
 The reason this invariant has stayed implicit: extract/count/inject
 all delegate to `talkbank-model`'s domain-aware rules
@@ -170,13 +170,13 @@ Listing them here so a contributor doesn't reach for the wrong tool.
   "Each Replacement Word Is Validated".)
 - **Generate replacements during retokenization.** When Stanza
   re-tokenizes a word, the retokenize module rebuilds the AST in place
-  (`crates/talkbank-transform/src/retokenize/rebuild.rs`). It
+  (`crates/batchalign-transform/src/retokenize/rebuild.rs`). It
   preserves existing `ReplacedWord` nodes during reconstruction but
   does not create new ones.
 - **Generate replacements during ASR retrace detection.** Detected
   retraces produce `WordKind::Retrace` plus structural retrace nodes
   (`Retrace`, `<...> [/]`), which are a different mechanism. See
-  `crates/talkbank-transform/src/build_chat/utterances.rs::build_word_utterance`
+  `crates/batchalign-transform/src/build_chat/utterances.rs::build_word_utterance`
   for how retraces are emitted; `WordKind::Replacement` does not exist.
 
 ## When to Reach for `[%]`, `[=]`, or `[*]` Instead
@@ -202,13 +202,13 @@ use cases, `[%]` is the working candidate, not `[:]`.
 
 | Concern | File:line |
 |---------|-----------|
-| Replacement extraction (per-domain branch) | `crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) |
+| Replacement extraction (per-domain branch) | `../chatter/crates/talkbank-transform/src/extract.rs:129` (`collect_replaced_word`) |
 | FA extraction (uses original) | `crates/batchalign/src/chat_ops/fa/extraction.rs` |
 | FA count | `crates/batchalign/src/chat_ops/fa/mod.rs` |
 | FA injection | `crates/batchalign/src/chat_ops/fa/injection.rs` |
 | FA preservation | `crates/batchalign/src/chat_ops/fa/mod.rs` |
-| `%mor` injection (count check) | `crates/talkbank-transform/src/morphosyntax/injection.rs::inject_results` |
-| Retokenize preserves `ReplacedWord` | `crates/talkbank-transform/src/retokenize/rebuild.rs` |
+| `%mor` injection (count check) | `crates/batchalign-transform/src/morphosyntax/injection.rs::inject_results` |
+| Retokenize preserves `ReplacedWord` | `crates/batchalign-transform/src/retokenize/rebuild.rs` |
 | Read-only consumption test | `crates/batchalign/src/chat_ops/fa/tests/grouping_and_wor.rs::test_wor_policy_replacements_use_original_surface` |
 | CHAT-format canonical reference | [`talkbank-tools/book/src/chat-format/replacements.md`](https://github.com/TalkBank/talkbank-tools/blob/main/book/src/chat-format/replacements.md) |
 

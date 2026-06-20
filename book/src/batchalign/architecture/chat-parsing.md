@@ -59,7 +59,7 @@ structures (`ChatFile`, `MainTier`, `WorTier`, `Terminator`, etc.).
 ### NLP Word Extraction
 
 `extract_words()`
-(`crates/talkbank-transform/src/extract.rs:48`) walks the AST and
+(`../chatter/crates/talkbank-transform/src/extract.rs:48`) walks the AST and
 produces an ordered list of "NLP-clean" words with node indices.  It
 skips retraces, events, CA markers, overlap points, and other
 non-lexical content based on the requested `TierDomain`.  The node
@@ -88,7 +88,7 @@ morphosyntax).
 ### Serialization
 
 The `WriteChat` trait
-(`crates/talkbank-model/src/model/write_chat.rs:41`) produces valid
+(`../chatter/crates/talkbank-model/src/model/write_chat.rs:41`) produces valid
 CHAT text from the AST.  It handles all formatting concerns:
 continuation lines, escaping, bullet timestamp encoding, tier
 alignment, and header ordering. Rust callers invoke `chat_file.to_chat_string()`;
@@ -98,7 +98,7 @@ binding was retired in the 2026-03-21 pyo3 slimdown).
 ### Validation
 
 Server-side validation runs through `validate_to_level` and
-`validate_output` in `crates/talkbank-transform/src/validate.rs`,
+`validate_output` in `../chatter/crates/talkbank-transform/src/validate.rs`,
 covering the full suite of CHAT validation checks (E362 monotonicity,
 E701/E704 temporal, tier alignment, header correctness). These return
 typed error lists used by the pre-serialization validation gate. On

@@ -24,7 +24,7 @@ These entries mix three kinds of behavior:
 - architectural requirements such as code mapping or Cantonese FA romanization
 
 **All workarounds were ported from batchalign2** and now live entirely in Rust
-(`crates/talkbank-transform/src/morphosyntax/lang_*.rs`). Python workers only
+(`crates/batchalign-transform/src/morphosyntax/lang_*.rs`). Python workers only
 call Stanza and return raw output — all workaround logic is applied
 server-side.
 
@@ -91,7 +91,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/morphosyntax/lang_en.rs` |
+| **File** | `crates/batchalign-transform/src/morphosyntax/lang_en.rs` |
 | **Size** | Irregular-form entries (see the file for the active list) |
 | **What** | Static lookup of irregular past tense / participle forms (be→was/been, go→went/gone, etc.). Used by `verb_features()` to emit `-PAST` or `-PASTP` suffixes. |
 | **Why** | Stanza's lemmatizer doesn't reliably map inflected forms back to base forms for irregular verbs. The lookup confirms whether a surface form is indeed a known irregular conjugation of its lemma. |
@@ -103,7 +103,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | Tokens with apostrophes (don't, can't, 've, 'll, etc.) are marked as `(text, true)` MWT hints for Stanza expansion. Exception: "o'clock" and "o'er" (prefix "o" before apostrophe). |
 | **Why** | Stanza's neural tokenizer sometimes fails to split contractions. Explicit MWT hints ensure consistent expansion. |
 | **Origin** | `batchalign2/ud.py:680-685` |
@@ -129,7 +129,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/morphosyntax/lang_fr.rs` |
+| **File** | `crates/batchalign-transform/src/morphosyntax/lang_fr.rs` |
 | **Size** | Pronoun-case lookup (Nominative + Accusative entries; see the file) |
 | **What** | Hardcoded table mapping French pronouns to case (Nom/Acc) by surface form. Applied when UD word has POS=PRON. Handles apostrophes (e.g., "qu'" → check "qu"). |
 | **Why** | Stanza's French model often omits or misassigns the `Case` feature on pronouns. The lookup provides correct case for CHAT %mor output. |
@@ -141,7 +141,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/morphosyntax/lang_fr.rs` |
+| **File** | `crates/batchalign-transform/src/morphosyntax/lang_fr.rs` |
 | **Size** | Noun form list (see the file for the active set) |
 | **What** | List of French nouns that undergo auditory plural marking (e.g., "cheval"/"chevaux"). Used by `noun_features()` to correctly emit plural suffixes in %mor. |
 | **Why** | Stanza may not distinguish between regular and APM plurals. CHILDES/CHAT convention requires explicit plural marking for these nouns. |
@@ -153,7 +153,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | Three explicit patches plus elision/multi-clitic logic: |
 | | **"aujourd'hui"** → plain text (prevent MWT expansion) |
 | | **"au"** → force MWT (à + le contraction) |
@@ -172,7 +172,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/morphosyntax/lang_ja.rs` |
+| **File** | `crates/batchalign-transform/src/morphosyntax/lang_ja.rs` |
 | **Size** | Order-dependent override chain (see the file) |
 | **What** | If/elif chain matching substrings in Japanese word text. Can override both POS and lemma. Examples: |
 | | "ちゃ" → sconj/"ば", "なきゃ" → sconj/"なきゃ", "れる" → aux/"られる", "はい" → intj/"はい" |
@@ -197,7 +197,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/morphosyntax/mor_word.rs` |
+| **File** | `crates/batchalign-transform/src/morphosyntax/mor_word.rs` |
 | **What** | Japanese PUNCT tokens are remapped to `cm` POS. Japanese commas ("、", ",") specifically get lemma "cm". |
 | **Why** | CHAT uses "cm\|cm" for comma punctuation, but Stanza tags these as regular PUNCT. |
 | **Origin** | Python master Japanese handling |
@@ -212,7 +212,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | When Stanza tags "l'" as MWT `(l', true)`, suppress the expansion hint. |
 | **Why** | Stanza aggressively expands "l'" which should not always be split. |
 | **Origin** | `batchalign2/ud.py:662-668` |
@@ -223,7 +223,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | If Stanza splits "lei" into "le" + "i", merge them back. |
 | **Why** | Known Stanza bug splitting the pronoun "lei" (she/her). |
 | **Origin** | `batchalign2/ud.py:668` |
@@ -238,7 +238,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | Force MWT expansion on "d'água" (de + água). |
 | **Why** | Stanza may not recognize this as a contraction. |
 | **Origin** | `batchalign2/ud.py:669-670` |
@@ -253,7 +253,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/tokenizer_realign.rs` |
+| **File** | `crates/batchalign-transform/src/tokenizer_realign.rs` |
 | **What** | Tokens ending with "'s" (e.g., "vader's") get `(text, false)` hint to prevent MWT expansion. |
 | **Why** | Dutch possessive 's is not a contraction and should not be split. |
 | **Origin** | `batchalign2/ud.py:694-695` |
@@ -268,7 +268,7 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` |
+| **File** | `crates/batchalign-transform/src/asr_postprocess/cantonese.rs` |
 | **Size** | `ferrous-opencc` `s2hk` conversion + a domain replacement table (see the file for the active entries) |
 | **What** | Two-stage normalization: Simplified→Traditional via `ferrous-opencc`, then a domain replacement table (multi-char first to prevent partial matches). |
 | **Why** | Cantonese ASR output uses simplified or colloquial forms that need normalization to standard written Cantonese. |
@@ -319,8 +319,8 @@ For each workaround, the recommended verification test is:
 
 | | |
 |---|---|
-| **File** | `crates/talkbank-transform/src/asr_postprocess/num2text.rs`, `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs` |
-| **Size** | Language-specific lookup tables (the authoritative list lives at `crates/talkbank-transform/data/num2lang.json`) plus a Chinese-script converter |
+| **File** | `crates/batchalign-transform/src/asr_postprocess/num2text.rs`, `crates/batchalign-transform/src/asr_postprocess/num2chinese.rs` |
+| **Size** | Language-specific lookup tables (the authoritative list lives at `crates/batchalign-transform/data/num2lang.json`) plus a Chinese-script converter |
 | **What** | Converts digit strings to word forms (5→"five", 5→"五") during ASR post-processing. |
 | **Why** | ASR output digit strings need language-appropriate word forms for CHAT transcription. |
 | **Origin** | `batchalign2/pipelines/asr/utils.py` |

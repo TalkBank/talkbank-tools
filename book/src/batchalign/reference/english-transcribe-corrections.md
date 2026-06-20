@@ -23,7 +23,7 @@ uppercase `I`:
 | `i've` | `I've` |
 | `i'd` | `I'd` |
 
-Implementation: `crates/talkbank-transform/src/asr_postprocess/cleanup.rs::EN_I_CAP_REWRITES`.
+Implementation: `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::EN_I_CAP_REWRITES`.
 Idempotent (already-capitalized `I` passes through unchanged).
 
 **Probe-verdict lock**: `batchalign/tests/investigations/_decision_cases/english.py::_PRONOUN_I_CASES`
@@ -45,7 +45,7 @@ surfaces are stripped:
 | Degree | `Ph.D.`, `M.D.` |
 | Technical | `etc.`, `e.g.`, `i.e.` |
 
-Implementation: `crates/talkbank-transform/src/asr_postprocess/cleanup.rs::EN_TITLE_PERIOD_SURFACES`.
+Implementation: `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::EN_TITLE_PERIOD_SURFACES`.
 Matching is case-insensitive; the non-period characters preserve
 their original casing (`DR.` → `DR`, `dr.` → `dr`, `Mr.` → `Mr`).
 
@@ -81,7 +81,7 @@ English utterance has its initial letter uppercased:
 | `&-um &+go &~uh hello .` | `&-um &+go &~uh Hello .` |
 | `a [/] a [/] a .` | `a [/] a [/] A .` (retrace chain) |
 
-Implementation: `crates/talkbank-transform/src/asr_postprocess/cleanup.rs::apply_utterance_initial_capitalization`.
+Implementation: `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::apply_utterance_initial_capitalization`.
 
 **Exclusions** (walked past to find the first "real" word):
 
@@ -142,14 +142,14 @@ by the English rule).
 
 ## Tests
 
-- **Unit tests** in `crates/talkbank-transform/src/asr_postprocess/cleanup.rs::tests`
+- **Unit tests** in `crates/batchalign-transform/src/asr_postprocess/cleanup.rs::tests`
   cover each rule's contract and combined-rule interactions.
 - **Pipeline integration tests** in the same module
   (`period_strip_prevents_retokenize_mid_utterance_split`,
   `combined_rules_fire_per_utterance`) verify the per-stage hook
   positions.
 - **End-to-end transcribe tests** in
-  `crates/talkbank-transform/src/build_chat/tests.rs`
+  `crates/batchalign-transform/src/build_chat/tests.rs`
   (`english_transcribe_rules_fire_end_to_end`,
   `english_transcribe_rules_skip_other_languages`) exercise the
   full in-process pipeline from `AsrOutput` through `build_chat`.

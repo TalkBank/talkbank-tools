@@ -144,7 +144,7 @@ Same engines as `transcribe` plus a Rust-side WER step:
 
 | Module | Model | Source | Size | Loaded When | HF Hub |
 |--------|-------|--------|------|-------------|--------|
-| `crates/talkbank-transform/src/benchmark.rs` | None (Rust Hirschberg DP alignment via the allowlisted `dp_align::align` call site) | local | negligible | N/A | No |
+| `crates/batchalign-transform/src/benchmark.rs` | None (Rust Hirschberg DP alignment via the allowlisted `dp_align::align` call site) | local | negligible | N/A | No |
 
 ---
 

@@ -39,7 +39,7 @@ expanded text.
 ## Coverage
 
 The number-expansion table at
-`crates/talkbank-transform/data/num2lang.json` covers the long tail
+`crates/batchalign-transform/data/num2lang.json` covers the long tail
 of European, Indic, East Asian, and Semitic languages — the active
 list is the JSON file itself; treat it as the canonical source. Most
 entries are codegenned from the Python `num2words` library at build
@@ -54,7 +54,7 @@ Languages whose CHAT validator already accepts inline digits
 (Welsh `cym`, Vietnamese `vie`, Min Nan `nan`, Minangkabau `min`,
 Hakka `hak`) skip expansion — the digit is left as-is because no
 E220 violation will occur. The authoritative list lives in
-`crates/talkbank-transform/src/asr_postprocess/registry.rs` next to
+`crates/batchalign-transform/src/asr_postprocess/registry.rs` next to
 the `LangAllowsDigits` variant.
 
 Languages outside this set hit the validator as E220. To add one,

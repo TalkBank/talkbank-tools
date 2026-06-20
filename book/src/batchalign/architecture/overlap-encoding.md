@@ -7,7 +7,7 @@
 
 ### `&*` — `OtherSpokenEvent`
 
-**Model (talkbank-tools):** `crates/talkbank-model/src/model/content/other_spoken.rs`
+**Model (talkbank-tools):** `../chatter/crates/talkbank-model/src/model/content/other_spoken.rs`
 
 ```rust,ignore
 pub struct OtherSpokenEvent {
@@ -22,7 +22,7 @@ Appears in two enum locations:
 - `BracketedItem::OtherSpokenEvent(OtherSpokenEvent)` — inside groups
 
 **Parser (talkbank-tools):**
-`crates/talkbank-parser/src/parser/tree_parsing/main_tier/content/`
+`../chatter/crates/talkbank-parser/src/parser/tree_parsing/main_tier/content/`
 
 The tree-sitter grammar accepts `&*` + speaker chars + `:` + non-whitespace chars.
 
@@ -30,7 +30,7 @@ The tree-sitter grammar accepts `&*` + speaker chars + `:` + non-whitespace char
 
 ### `+<` — `Linker::LazyOverlapPrecedes`
 
-**Model (talkbank-tools):** `crates/talkbank-model/src/model/content/linker.rs`
+**Model (talkbank-tools):** `../chatter/crates/talkbank-model/src/model/content/linker.rs`
 
 ```rust
 pub enum Linker {

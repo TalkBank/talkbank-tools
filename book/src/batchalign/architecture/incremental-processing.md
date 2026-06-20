@@ -47,7 +47,7 @@ diff_chat(before, after) → Vec<UtteranceDelta>
    └── Deleted      → absent from output
 ```
 
-### Layer 1: Diff Engine (`crates/talkbank-transform/src/diff/`)
+### Layer 1: Diff Engine (`crates/batchalign-transform/src/diff/`)
 
 The diff engine lives in `talkbank-transform` and has no server
 dependencies. It operates purely on `ChatFile` ASTs.

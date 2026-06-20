@@ -25,11 +25,11 @@ need a "not available for X" line.
 |------------|--------------|---------|
 | **ISO 639-3 code** | `pycountry`, `talkbank-types::LanguageCode3` | Everything downstream |
 | **Stanza pipeline?** | `python -c "import stanza; print('XXX' in stanza.resources.common.load_resources_json())"` AND check the entry has a `packages` key (not just charlm stubs) | morphotag, utseg, retokenize gating |
-| **`num2words` backend?** (build-time only) | `python -c "import num2words; print('XX' in num2words.CONVERTER_CLASSES)"` (use ISO 639-1 2-char code). The Rust `NUM2LANG` table at `crates/talkbank-transform/data/num2lang.json` is the codegenned output of an offline `num2words` sweep; runtime uses Rust only. (No in-tree codegen script today — see [Number Expansion](../architecture/number-expansion.md) for the regeneration protocol.) | Number expansion (E220 risk) |
+| **`num2words` backend?** (build-time only) | `python -c "import num2words; print('XX' in num2words.CONVERTER_CLASSES)"` (use ISO 639-1 2-char code). The Rust `NUM2LANG` table at `crates/batchalign-transform/data/num2lang.json` is the codegenned output of an offline `num2words` sweep; runtime uses Rust only. (No in-tree codegen script today: see [Number Expansion](../architecture/number-expansion.md) for the regeneration protocol.) | Number expansion (E220 risk) |
 | **Rev.AI quality?** | Submit a sample to Rev.AI; check for hallucinations, script confusion, repetition. Document result in `book/src/batchalign/reference/revai-language-quality-strategy.md` | Default ASR engine choice |
 | **Stock Whisper quality?** | Same: run a representative sample, evaluate | Fallback ASR engine choice |
 | **HuggingFace fine-tune available?** | Search HF Hub for `whisper-*-{lang}` checkpoints | `whisper_hub` engine routing in `batchalign/models/resolve.py` |
-| **CHAT digit-validator allows digits?** | `rg "{lang}" talkbank-tools/crates/talkbank-model/src/validation/word/language/digits.rs` | Whether E220 fires on Whisper digit emissions |
+| **CHAT digit-validator allows digits?** | `rg "{lang}" talkbank-tools/../chatter/crates/talkbank-model/src/validation/word/language/digits.rs` | Whether E220 fires on Whisper digit emissions |
 | **PyCantonese / language-specific tools?** | Per-language: relevant for CJK, possibly others | Special-case wiring |
 
 ## The five integration points
@@ -46,11 +46,11 @@ just `backward_charlm`/`forward_charlm` stubs):
 - Confirm MWT, POS, lemma, depparse, constituency availability via the
   capability table.
 - If MWT is present, the Stanza-induced retokenize path
-  (`crates/talkbank-transform/src/retokenize.rs` and
-  `crates/talkbank-transform/src/retokenize/{rebuild,parse_helpers}.rs`)
+  (`crates/batchalign-transform/src/retokenize.rs` and
+  `crates/batchalign-transform/src/retokenize/{rebuild,parse_helpers}.rs`)
   automatically applies.
 - Per-language analysis quirks (clitics, compounds, elision) may need a
-  `crates/talkbank-transform/src/morphosyntax/lang_<code>.rs` module —
+  `crates/batchalign-transform/src/morphosyntax/lang_<code>.rs` module:
   see Italian (`lang_it.rs`) and French (`lang_fr.rs`) as references.
 
 If Stanza ships only stubs (no `packages`): the language is
@@ -77,12 +77,12 @@ pipeline is Rust-only (no Python IPC) and is NOT Stanza-gated.
 What determines whether digits get spelled out:
 
 - **CJK (`zho`/`cmn`/`jpn`/`yue`)**: handled in Rust by `num2chinese`
-  in `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs`.
+  in `crates/batchalign-transform/src/asr_postprocess/num2chinese.rs`.
 - **English ordinals/years/decades**: handled by
-  `crates/talkbank-transform/src/asr_postprocess/ordinal_year_eng.rs`
+  `crates/batchalign-transform/src/asr_postprocess/ordinal_year_eng.rs`
   via deterministic composition rules.
 - **All other cases**: per-language `NUM2LANG` table at
-  `crates/talkbank-transform/data/num2lang.json`. The table is the
+  `crates/batchalign-transform/data/num2lang.json`. The table is the
   offline-codegenned output of a `num2words` sweep; runtime is
   Rust-only.
 
@@ -99,9 +99,9 @@ languages), either:
    you need) following the procedure in the number-expansion page.
 2. Add the language to the digit-allowed list via
    `language_allows_numbers` in
-   `crates/talkbank-model/src/validation/context.rs:34` (consulted by
+   `../chatter/crates/talkbank-model/src/validation/context.rs:34` (consulted by
    the validator through `mixed_language_allows_numbers` in
-   `crates/talkbank-model/src/validation/word/language/helpers.rs:57`,
+   `../chatter/crates/talkbank-model/src/validation/word/language/helpers.rs:57`,
    which gates `digits.rs`). Lossy but unblocks transcribe runs.
 
 Pick option 1 unless the user community explicitly accepts digits in
@@ -133,7 +133,7 @@ needs a rationale in the docs.
 Several validators have per-language carve-outs. Check at least:
 
 - `digits.rs` (E220): which languages may have Arabic digits
-- Other validators in `talkbank-tools/crates/talkbank-model/src/validation/word/language/`
+- Other validators in `talkbank-tools/../chatter/crates/talkbank-model/src/validation/word/language/`
 
 If the language is missing from a relevant allowlist AND the upstream
 ASR / transcription convention produces output that triggers the
@@ -190,8 +190,8 @@ user-visible support — adjust integration before merging.
   routing
 - `crates/batchalign/CLAUDE.md` — batchalign crate map
 - [Number Expansion](../architecture/number-expansion.md) — protocol
-  for refreshing `crates/talkbank-transform/data/num2lang.json` and
+  for refreshing `crates/batchalign-transform/data/num2lang.json` and
   the hand-curated overlay (the historical
   `scripts/codegen_num2lang.py` script is no longer in-tree)
-- `crates/talkbank-model/src/validation/word/language/`
+- `../chatter/crates/talkbank-model/src/validation/word/language/`
   — language-aware validators, including E220 digits

@@ -108,7 +108,7 @@ case (see the `407 trimmed fixture` regression test in
 `crates/batchalign/src/chat_ops/fa/utr.rs`): transcript words and ASR
 tokens are two independent full-document sequences, so the matcher must
 reason globally rather than utterance by utterance. The Rust Hirschberg
-implementation in `crates/talkbank-transform/src/dp_align/mod.rs` is
+implementation in `crates/batchalign-transform/src/dp_align/mod.rs` is
 O(mn) time and linear space (`min(m,n)` working memory). No published
 benchmark currently anchors a specific speedup multiplier against the
 old Python implementation; the practical effect is fast enough that UTR
@@ -396,7 +396,7 @@ regression if the main path presents only a few giant tokens to the scorer.
 
 ### Japanese verb-form and POS overrides
 
-`crates/talkbank-transform/src/morphosyntax/lang_ja.rs` (~440 lines,
+`crates/batchalign-transform/src/morphosyntax/lang_ja.rs` (~440 lines,
 ported from BA2's Python `ja/verbforms.py`) applies 50+ ordered override
 rules that run before UD→CHAT POS mapping. These correct Stanza outputs
 for colloquial Japanese forms that the model frequently misclassifies:
@@ -456,7 +456,7 @@ Algorithmic migrations are now defended by:
   explicit allowlist so unintended DP-on-runtime regressions are caught
   in CI,
 - tracing instrumentation for mapping-mode divergence: the `warn!` at
-  `crates/talkbank-transform/src/retokenize.rs:75` (`"retokenize text
+  `crates/batchalign-transform/src/retokenize.rs:75` (`"retokenize text
   diverged; using length-aware monotonic fallback without DP"`) fires
   whenever `build_word_token_mapping()` cannot use a deterministic
   word-token mapping and falls back to length-aware monotonic.
@@ -615,7 +615,7 @@ utterances entirely; when `False` (default), it processed them with the
 wrong language model.
 
 BA3's `@s:lang` per-word routing (L2 dispatch) is implemented in
-`crates/talkbank-transform/src/morphosyntax/l2/`: the L2 extractor
+`crates/batchalign-transform/src/morphosyntax/l2/`: the L2 extractor
 identifies `@s`-marked words, groups them into per-utterance
 `DispatchSpan`s by target language, dispatches each span to its
 secondary-language Stanza model, and merges the secondary lexical
@@ -659,7 +659,7 @@ that the language needs attention rather than hiding the problem behind
 plausible-looking garbage.
 
 The supported language set is maintained in
-`crates/talkbank-transform/src/morphosyntax/pos_hints.rs::is_stanza_supported`
+`crates/batchalign-transform/src/morphosyntax/pos_hints.rs::is_stanza_supported`
 (Rust-side gate, called before dispatch in `crates/batchalign/src/morphosyntax/batch.rs`)
 and `batchalign/worker/_stanza_loading.py` (Python-side mapping). Both
 must stay in sync.
@@ -727,7 +727,7 @@ When `--lang auto` is passed with the Rev.AI ASR backend (production path):
    listed first; secondary languages are added if they appear in
    `MIN_UTTERANCES_FOR_SECONDARY` (= 3) or more utterances, in
    descending-frequency order. The constant lives in
-   `crates/talkbank-transform/src/asr_postprocess/lang_detect.rs`.
+   `crates/batchalign-transform/src/asr_postprocess/lang_detect.rs`.
 
 #### Accuracy on bilingual audio
 

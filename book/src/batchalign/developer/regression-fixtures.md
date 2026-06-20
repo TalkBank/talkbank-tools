@@ -256,7 +256,7 @@ The command-local `tests/ml_golden/<command>/regressions.rs` modules call
    command type.
 6. Parses the output CHAT via
    `talkbank_transform::parse::parse_lenient`
-   (at `crates/talkbank-transform/src/parse.rs:17`) into a typed
+   (at `../chatter/crates/talkbank-transform/src/parse.rs:17`) into a typed
    `ChatFile` AST. Asserts no parse errors.
 7. Walks every assertion in the manifest, running each one against the
    typed AST. Some assertions target one main-tier utterance; others

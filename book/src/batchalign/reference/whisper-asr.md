@@ -216,16 +216,16 @@ Two UTR engines exist:
 ## Post-Processing Pipeline
 
 All ASR engines normalize their output through the Rust post-processing pipeline
-in `crates/talkbank-transform/src/asr_postprocess/`:
+in `crates/batchalign-transform/src/asr_postprocess/`:
 
 1. **Compound word merging** -- joins words like `["ice", "cream"]` into
-   `"icecream"` using a known compound list (`crates/talkbank-transform/data/compounds.json`;
+   `"icecream"` using a known compound list (`crates/batchalign-transform/data/compounds.json`;
    3,660 raw entries → 3,584 unique pairs after dedup, asserted at
-   `crates/talkbank-transform/src/asr_postprocess/compounds.rs:84`)
+   `crates/batchalign-transform/src/asr_postprocess/compounds.rs:84`)
 2. **Number-to-words** -- converts digits to words using language-specific
-   lookup tables (`crates/talkbank-transform/data/num2lang.json`; 46 languages today)
+   lookup tables (`crates/batchalign-transform/data/num2lang.json`; 46 languages today)
    plus Chinese/Japanese via
-   `crates/talkbank-transform/src/asr_postprocess/num2chinese.rs`
+   `crates/batchalign-transform/src/asr_postprocess/num2chinese.rs`
 3. **Retokenization** into utterances:
    - With utterance engine (English, Chinese, Cantonese): uses a BERT model
      to predict utterance boundaries
@@ -291,5 +291,5 @@ use, not at CLI startup.
 ### What would not change
 
 - **Rev.AI engine**: Already fully Rust (`crates/batchalign/src/revai/`, called directly by the server).
-- **Post-processing pipeline**: Already Rust (`crates/talkbank-transform/src/asr_postprocess/`).
+- **Post-processing pipeline**: Already Rust (`crates/batchalign-transform/src/asr_postprocess/`).
 - **CHAT generation**: Already Rust (`batchalign`).

@@ -74,8 +74,8 @@ Digit strings in ASR output are converted to language-appropriate word forms.
 | All others | Pass-through (no expansion) | 42 → "42" |
 
 The table-driven languages are enumerated in
-`crates/talkbank-transform/data/num2lang.json` (46 entries today;
-re-derive via `python3 -c "import json; print(sorted(json.load(open('crates/talkbank-transform/data/num2lang.json'))))"`
+`crates/batchalign-transform/data/num2lang.json` (46 entries today;
+re-derive via `python3 -c "import json; print(sorted(json.load(open('crates/batchalign-transform/data/num2lang.json'))))"`
 rather than maintaining a parallel list here).
 
 See [Number Expansion](number-expansion.md) for details on the Chinese

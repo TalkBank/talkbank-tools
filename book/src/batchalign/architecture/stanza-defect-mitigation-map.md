@@ -30,7 +30,7 @@ flowchart TD
     construct --> tokenize
 
     subgraph tokenize["2. Tokenize (tokenize_postprocessor hook)"]
-        dp["align_tokens char-DP merge\n(crates/talkbank-transform/src/tokenizer_realign.rs\n— always on, no defects patched here)"]
+        dp["align_tokens char-DP merge\n(crates/batchalign-transform/src/tokenizer_realign.rs\nalways on, no defects patched here)"]
         d2["Defect 2: MWT hint-tuple overlay\n(batchalign/inference/_tokenizer_realign.py\n::_realign_sentence)"]
     end
 
@@ -43,7 +43,7 @@ flowchart TD
     pos --> postdep
 
     subgraph postdep["4. Post-depparse, pre-map-UD"]
-        d1["Defect 1: finite-verb-main-clause rewrite\n(crates/talkbank-transform/src/morphosyntax/invariants/\nfinite_verb_main_clause.rs)"]
+        d1["Defect 1: finite-verb-main-clause rewrite\n(crates/batchalign-transform/src/morphosyntax/invariants/\nfinite_verb_main_clause.rs)"]
     end
 
     postdep --> ingress
@@ -120,7 +120,7 @@ Use this procedure for any newly discovered Stanza defect:
    Patch at the origin, not earlier or later.
 2. **If an existing defect already patches that stage, extend its
    module.** Prefer coalescing over sprawl: the
-   `crates/talkbank-transform/src/morphosyntax/invariants/` directory
+   `crates/batchalign-transform/src/morphosyntax/invariants/` directory
    is the natural home for any future post-depparse UD-invariant
    rewrite.
 3. **If no existing defect patches that stage, update this diagram

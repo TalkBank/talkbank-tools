@@ -119,7 +119,7 @@ FA pipeline via `inject_review_tiers` in
 `crates/batchalign/src/chat_ops/fa/orchestrate.rs`; `utr:` strategies
 are constructed in `crates/batchalign/src/chat_ops/fa/utr.rs`. The
 generalized cross-pipeline writer `inject_decision_tiers`
-(`crates/talkbank-transform/src/decisions.rs`) is also called by
+(`crates/batchalign-transform/src/decisions.rs`) is also called by
 morphotag's incremental path (`morphosyntax/mod.rs`), which is how
 `morphosyntax:` decisions reach the `%xalign` tier. All call sites take a
 `ReviewLevel`, which defaults to `None`, so nothing is written unless a
@@ -140,7 +140,7 @@ the `review_level` field in the submitted job options. Both default to
 | `low-confidence` | `%xalign` + `%xrev: [?]` only on uncertain decisions. |
 | `all` | `%xalign` on every bulleted utterance plus `%xrev: [?]` on uncertain ones. |
 
-Source: `ReviewLevel` in `crates/talkbank-transform/src/decisions.rs` and
+Source: `ReviewLevel` in `crates/batchalign-transform/src/decisions.rs` and
 `CliReviewLevel` in `crates/batchalign/src/cli/args/commands.rs`. Both
 enums default to `None`.
 
@@ -181,7 +181,7 @@ flowchart TD
 Source files verified against:
 `crates/batchalign/src/chat_ops/fa/review_tiers.rs` (writer side —
 `inject_review_tiers` builds the `%xalign`/`%xrev` dependent tiers),
-`crates/talkbank-transform/src/decisions.rs` (typed `DecisionStrategy`
+`crates/batchalign-transform/src/decisions.rs` (typed `DecisionStrategy`
 enum, `xalign_content` rendering, and `strip_decision_tiers` cleanup
 helper), and `docs/pipeline-decision-metadata-design.md` (design doc).
 
@@ -269,7 +269,7 @@ for them first.
 ### Morphotag (`morphotag`): incremental path, opt-in only
 
 The strategy enum (`MorphosyntaxStrategy` in
-`crates/talkbank-transform/src/decisions.rs`) defines these variants, and
+`crates/batchalign-transform/src/decisions.rs`) defines these variants, and
 `DecisionRecord`s for them are constructed during morphotag injection.
 They reach the `%xalign` tier only on morphotag's **incremental
 reprocessing path** (`process_morphosyntax_incremental`) and only when
@@ -293,7 +293,7 @@ injectors return early at `None`). When you do opt in
 (`--review-level low-confidence|all` for `align`, or the `review_level`
 option for `morphotag`'s incremental path), the run strips any existing
 review tiers it manages and emits a fresh set (`strip_decision_tiers()` in
-`crates/talkbank-transform/src/decisions.rs`, called from
+`crates/batchalign-transform/src/decisions.rs`, called from
 `inject_review_tiers` / `inject_decision_tiers`). The ratings you entered
 are discarded on such a re-run, so save a copy first if you want to keep
 them.

@@ -281,12 +281,12 @@ boundary.
 
 | BA2 Python (`compare.py`) | BA3 Rust | File |
 |---------------------------|----------|------|
-| `_find_best_segment()` — bag-of-words window search | `talkbank_transform::compare::find_best_segment` | `crates/talkbank-transform/src/compare/engine.rs:72` |
-| `CompareEngine.process()` — local window alignment + token status | `talkbank_transform::compare::compare()` | `crates/talkbank-transform/src/compare/engine.rs:173` |
-| `CompareAnalysisEngine.analyze()` — metrics CSV | `CompareMetricsCsvTable` / `CompareMetricsCsvRow` | `crates/talkbank-transform/src/compare/metrics.rs:8,103` |
-| gold document projection | `project_gold_structurally()` | `crates/talkbank-transform/src/compare/materialize.rs:209` |
-| compare data model (bundle, utterances, metrics, word matches) | `ComparisonBundle` / `UtteranceComparison` / `CompareMetrics` / `GoldWordMatch` | `crates/talkbank-transform/src/compare/model.rs:75,27,38,92` |
-| tier serialization models | `XsrepTierContent` / `XsmorTierContent` | `crates/talkbank-transform/src/compare/serialize.rs:186,228` |
+| `_find_best_segment()`: bag-of-words window search | `talkbank_transform::compare::find_best_segment` | `crates/batchalign-transform/src/compare/engine.rs:72` |
+| `CompareEngine.process()`: local window alignment + token status | `talkbank_transform::compare::compare()` | `crates/batchalign-transform/src/compare/engine.rs:173` |
+| `CompareAnalysisEngine.analyze()`: metrics CSV | `CompareMetricsCsvTable` / `CompareMetricsCsvRow` | `crates/batchalign-transform/src/compare/metrics.rs:8,103` |
+| gold document projection | `project_gold_structurally()` | `crates/batchalign-transform/src/compare/materialize.rs:209` |
+| compare data model (bundle, utterances, metrics, word matches) | `ComparisonBundle` / `UtteranceComparison` / `CompareMetrics` / `GoldWordMatch` | `crates/batchalign-transform/src/compare/model.rs:75,27,38,92` |
+| tier serialization models | `XsrepTierContent` / `XsmorTierContent` | `crates/batchalign-transform/src/compare/serialize.rs:186,228` |
 | `Document` / `Utterance` / `Form` model | `ChatFile` AST + dependent tiers | `talkbank-model` |
 | CLI dispatch `morphosyntax -> compare -> compare_analysis` | `build_comparison_artifacts()` + released/main-annotated materializers | `crates/batchalign/src/compare.rs` (orchestrator) |
 
@@ -355,7 +355,7 @@ extract words → conform → find windows → DP align → annotate gold → se
 
 BA3 splits this into layers:
 
-1. **`talkbank_transform::compare`** (`crates/talkbank-transform/src/compare/`) — pure functions, no ML, no IO:
+1. **`talkbank_transform::compare`** (`crates/batchalign-transform/src/compare/`): pure functions, no ML, no IO:
    - `find_best_segment()` (`engine.rs:72`) — same local-window idea as BA2
    - `compare(&main, &gold)` (`engine.rs:173`) → `ComparisonBundle` with main/gold compare views,
      structural word matches, and metrics
@@ -381,7 +381,7 @@ BA3 splits this into layers:
 The gold materializer is no longer a stub. Extend it by working with typed data:
 
 1. Edit `project_gold_structurally()` in
-   `crates/talkbank-transform/src/compare/materialize.rs:209` (the
+   `crates/batchalign-transform/src/compare/materialize.rs:209` (the
    actual implementation; `crates/batchalign/src/compare.rs:27,140`
    only re-exports and calls it).
 2. Use `ComparisonBundle.gold_word_matches` and AST accessors, not `%xsrep` /
@@ -405,7 +405,7 @@ types before you add serializer code.
 
 ### Files to read (in order)
 
-1. `crates/talkbank-transform/src/compare/` — compare core (engine.rs, model.rs, materialize.rs, serialize.rs, metrics.rs)
+1. `crates/batchalign-transform/src/compare/`: compare core (engine.rs, model.rs, materialize.rs, serialize.rs, metrics.rs)
 2. `crates/batchalign/src/compare.rs` — orchestration + materializers
 3. `crates/batchalign/src/execution/` — recipe-driven dispatch (replaces old `compare_pipeline.rs`)
 4. `crates/batchalign/src/planning/` — `build_job_plan()` for typed execution plans

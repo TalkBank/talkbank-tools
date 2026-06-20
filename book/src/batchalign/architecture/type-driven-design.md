@@ -52,8 +52,8 @@ All generated types use `#[serde(transparent)]` — the wire format stays as bar
 | `DurationMs` | `u64` | `crates/batchalign-types/src/domain.rs` | Duration in milliseconds |
 | `MemoryMb` | `u64` | `crates/batchalign-types/src/domain.rs` | Memory amount in megabytes |
 | `WorkerPid` | `u32` | `crates/batchalign-types/src/worker.rs` | OS process ID |
-| `AsrTimestampSecs` | `f64` | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` | Raw ASR provider timestamp (seconds) |
-| `SpeakerIndex` | `usize` | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` | Zero-based speaker index in a recording |
+| `AsrTimestampSecs` | `f64` | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` | Raw ASR provider timestamp (seconds) |
+| `SpeakerIndex` | `usize` | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` | Zero-based speaker index in a recording |
 
 **When to use:** Any `String` or number that identifies a domain concept. If a parameter name is needed to understand what the type represents, it should be a newtype.
 
@@ -118,12 +118,12 @@ pub struct ChatCleanedText(String);
 
 | Type | Source | Lives in |
 |------|--------|----------|
-| `ChatRawText` | `Word::raw_text()` | `crates/talkbank-model/src/text_types.rs` (CHAT direction) |
-| `ChatCleanedText` | `Word::cleaned_text()` | `crates/talkbank-model/src/text_types.rs` (CHAT direction) |
-| `SpeakerCode` | `Utterance.speaker` | `crates/talkbank-model/src/model/header/codes/speaker.rs` (CHAT direction) |
-| `AsrRawText` | ASR provider output | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
-| `AsrNormalizedText` | After 8-stage pipeline | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
-| `ChatWordText` | ASR-to-CHAT boundary | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
+| `ChatRawText` | `Word::raw_text()` | `../chatter/crates/talkbank-model/src/text_types.rs` (CHAT direction) |
+| `ChatCleanedText` | `Word::cleaned_text()` | `../chatter/crates/talkbank-model/src/text_types.rs` (CHAT direction) |
+| `SpeakerCode` | `Utterance.speaker` | `../chatter/crates/talkbank-model/src/model/header/codes/speaker.rs` (CHAT direction) |
+| `AsrRawText` | ASR provider output | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
+| `AsrNormalizedText` | After 8-stage pipeline | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
+| `ChatWordText` | ASR-to-CHAT boundary | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` (ASR direction) |
 
 **Attributes:**
 - `#[repr(transparent)]` — zero runtime cost, identical layout to inner `String`.
@@ -349,7 +349,7 @@ serde attribute changes the wire format, the snapshot diff will catch it.
 
 | Date | Change | Pattern | Rationale |
 |------|--------|---------|-----------|
-| 2026-02 | Text provenance newtypes | Provenance | Bugs from mixing raw/cleaned text; CHAT-direction types now in `crates/talkbank-model/src/text_types.rs`, ASR-direction types in `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` |
+| 2026-02 | Text provenance newtypes | Provenance | Bugs from mixing raw/cleaned text; CHAT-direction types now in `../chatter/crates/talkbank-model/src/text_types.rs`, ASR-direction types in `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` |
 | 2026-02 | `JobStatus` / `FileStatusKind` enums | State machine | Replaced stringly-typed status fields; commit `cbe0f873` |
 | 2026-02 | Flattened command option groups | Struct composition | Reduced duplication while keeping flat JSON across command request types |
 | 2026-03 | `string_id!` / `numeric_id!` macros | Domain identifier | Eliminated primitive obsession across server codebase; 13 newtypes |

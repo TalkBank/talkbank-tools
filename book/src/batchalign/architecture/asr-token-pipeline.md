@@ -252,9 +252,9 @@ flowchart LR
 ```
 
 Verified against source: `strip_separator_words` in
-`crates/talkbank-transform/src/asr_postprocess/mod.rs`;
+`crates/batchalign-transform/src/asr_postprocess/mod.rs`;
 `apply_disfluency_replacements` and `apply_retrace_detection` in
-`crates/talkbank-transform/src/asr_postprocess/cleanup.rs`.
+`crates/batchalign-transform/src/asr_postprocess/cleanup.rs`.
 
 ## Timing Flow
 
@@ -362,11 +362,11 @@ These types are documented in
 
 | Component | File |
 |-----------|------|
-| ASR types and newtypes | `crates/talkbank-transform/src/asr_postprocess/asr_types.rs` |
-| Pipeline orchestrator | `crates/talkbank-transform/src/asr_postprocess/mod.rs` |
-| Compound merging | `crates/talkbank-transform/src/asr_postprocess/compounds.rs` |
-| Disfluency and retrace | `crates/talkbank-transform/src/asr_postprocess/cleanup.rs` |
-| Number expansion | `crates/talkbank-transform/src/asr_postprocess/num2text.rs` |
-| Cantonese normalization | `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` |
-| CHAT assembly | `crates/talkbank-transform/src/build_chat/` (directory) |
-| CHAT-direction newtypes | `crates/talkbank-model/src/text_types.rs` |
+| ASR types and newtypes | `crates/batchalign-transform/src/asr_postprocess/asr_types.rs` |
+| Pipeline orchestrator | `crates/batchalign-transform/src/asr_postprocess/mod.rs` |
+| Compound merging | `crates/batchalign-transform/src/asr_postprocess/compounds.rs` |
+| Disfluency and retrace | `crates/batchalign-transform/src/asr_postprocess/cleanup.rs` |
+| Number expansion | `crates/batchalign-transform/src/asr_postprocess/num2text.rs` |
+| Cantonese normalization | `crates/batchalign-transform/src/asr_postprocess/cantonese.rs` |
+| CHAT assembly | `crates/batchalign-transform/src/build_chat/` (directory) |
+| CHAT-direction newtypes | `../chatter/crates/talkbank-model/src/text_types.rs` |

@@ -217,11 +217,11 @@ information through every stage. It is discarded only at injection time.
 
 ```mermaid
 flowchart TD
-    A["ExtractedWord.lang\n(crates/talkbank-transform/extract.rs)"] -->|"resolve_word_language()"| B["LanguageResolution\n(crates/talkbank-model/validation/word/language/resolve.rs)"]
-    B --> C["special_forms[i].1\n(MorphosyntaxBatchItem\ncrates/talkbank-transform/morphosyntax/payload.rs)"]
+    A["ExtractedWord.lang\n(../chatter/crates/talkbank-transform/src/extract.rs)"] -->|"resolve_word_language()"| B["LanguageResolution\n(../chatter/crates/talkbank-model/validation/word/language/resolve.rs)"]
+    B --> C["special_forms[i].1\n(MorphosyntaxBatchItem\ncrates/batchalign-transform/src/morphosyntax/payload.rs)"]
     C --> D["Grouping by utterance lang\n(crates/batchalign/src/morphosyntax/batch.rs)"]
     D --> E["Primary Stanza worker\n(worker dispatch)"]
-    E --> F["inject_results()\n(crates/talkbank-transform/morphosyntax/injection.rs)"]
+    E --> F["inject_results()\n(crates/batchalign-transform/src/morphosyntax/injection.rs)"]
     F -->|"resolved_lang.is_some()"| G["L2|xxx\n(information discarded)"]
 
     style G fill:#f88,stroke:#a00
@@ -239,7 +239,7 @@ flowchart TD
     A["Primary model processes\nfull utterance"] --> B["For @s words: extract\ndeprel, head, UPOS,\ndependents"]
     B --> C["Infer POS constraint\nfrom deprel\n(deprel_to_pos_constraint)"]
     A --> D["Defer L2 blanking\n(keep primary UD output)"]
-    D --> E["Plan contiguous @s spans\nplus host attachment\n(crates/talkbank-transform/morphosyntax/l2/plan.rs)"]
+    D --> E["Plan contiguous @s spans\nplus host attachment\n(crates/batchalign-transform/src/morphosyntax/l2/plan.rs)"]
     E --> F{"Stanza model\navailable?"}
     F -->|"yes"| G["Dispatch spans to\nsecondary Stanza workers"]
     F -->|"no"| H["Fall back to L2|xxx"]
@@ -367,7 +367,7 @@ and could not see that structural evidence, so:
 
 The fix threads the full secondary UD sentence into
 `merge_primary_secondary_with_context()`
-(`crates/talkbank-transform/src/morphosyntax/l2/merge.rs:542`), which
+(`crates/batchalign-transform/src/morphosyntax/l2/merge.rs:542`), which
 delegates to the inner `resolve_merged_pos_with_context()` at `:152`
 where Priority 0 is implemented. Result on German-English input:
 

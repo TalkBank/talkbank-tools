@@ -199,7 +199,7 @@ automatically — no user action required.
 When to bump `ba_version` (rolling the morphosyntax pipeline forward):
 - Adding or removing POS post-processing (e.g., PyCantonese override)
 - Changing UD→CHAT mapping rules in
-  `crates/talkbank-transform/src/morphosyntax/` (or the parallel
+  `crates/batchalign-transform/src/morphosyntax/` (or the parallel
   `crates/batchalign/src/chat_ops/nlp/mapping/`)
 - Changing Stanza model selection for a language
 - Fixing a bug that changes %mor / %gra output for existing inputs

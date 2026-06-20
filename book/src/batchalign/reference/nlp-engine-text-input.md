@@ -22,7 +22,7 @@ all CHAT markers at parse time.
 
 ### The `cleaned_text()` Contract
 
-`Word::cleaned_text()` (defined in `crates/talkbank-model/src/model/content/word/word_type.rs:190`)
+`Word::cleaned_text()` (defined in `../chatter/crates/talkbank-model/src/model/content/word/word_type.rs:190`)
 concatenates only two `WordContent` variants:
 
 - `WordContent::Text` -- base graphemes
@@ -72,9 +72,9 @@ is converted from ISO 639-3 to a Whisper language name via
 through a multi-stage Rust pipeline before becoming CHAT:
 
 1. Compound merging (3,584 known compound pairs after dedup; see
-   `crates/talkbank-transform/src/asr_postprocess/compounds.rs`)
+   `crates/batchalign-transform/src/asr_postprocess/compounds.rs`)
 2. Multi-word splitting (space-separated tokens get timestamp interpolation)
-3. Number expansion via `crates/talkbank-transform/data/num2lang.json`
+3. Number expansion via `crates/batchalign-transform/data/num2lang.json`
    (46 languages today) plus `num2chinese.rs` for CJK
 4. Cantonese normalization (simplified to traditional + domain replacements, `lang=yue` only)
 5. Long turn splitting (>300 words)
@@ -92,7 +92,7 @@ contains Unicode text for all supported languages.
 **Source files:**
 - `batchalign/inference/asr.py` (Python: `infer_whisper_prepared_audio()`, `_infer_whisper()`)
 - `crates/batchalign/src/runner/dispatch/transcribe_pipeline.rs` (Rust: orchestration)
-- `crates/talkbank-transform/src/asr_postprocess/` (Rust: post-processing pipeline)
+- `crates/batchalign-transform/src/asr_postprocess/` (Rust: post-processing pipeline)
 
 ---
 
@@ -231,8 +231,8 @@ hardcoded `MWT_LANGS` allowlist was deleted.
 - `batchalign/inference/morphosyntax.py` (Python: `batch_infer_morphosyntax()`)
 - `batchalign/inference/_tokenizer_realign.py` (Python: MWT realignment)
 - `batchalign/worker/_stanza_loading.py` (Python: pipeline configuration)
-- `crates/talkbank-transform/src/morphosyntax/payload.rs` (Rust: payload collection)
-- `crates/talkbank-transform/src/extract.rs` (Rust: word extraction)
+- `crates/batchalign-transform/src/morphosyntax/payload.rs` (Rust: payload collection)
+- `../chatter/crates/talkbank-transform/src/extract.rs` (Rust: word extraction)
 
 ---
 
@@ -384,7 +384,7 @@ Rust's `cantonese.rs` module applies:
 **Source files:**
 - `batchalign/inference/languages/cantonese/_tencent_asr.py` (Python: transport)
 - `batchalign/inference/languages/cantonese/_tencent_api.py` (Python: Tencent SDK wrapper)
-- `crates/talkbank-transform/src/asr_postprocess/cantonese.rs` (Rust: normalization)
+- `crates/batchalign-transform/src/asr_postprocess/cantonese.rs` (Rust: normalization)
 
 ---
 

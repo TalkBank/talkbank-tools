@@ -449,7 +449,7 @@ Call sites: `crates/batchalign/src/coref.rs:193`, `:371`;
 `crates/batchalign/src/pipeline/morphosyntax.rs:461`;
 `crates/batchalign/src/morphosyntax/mod.rs:208`. The underlying
 functions (`validate_to_level`, `validate_output`) live in
-`crates/talkbank-transform/src/validate.rs`.
+`../chatter/crates/talkbank-transform/src/validate.rs`.
 
 On failure: file a bug report, mark the file as error, return the original
 input file unchanged (do not write corrupt output).

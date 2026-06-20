@@ -189,8 +189,8 @@ Static mode uses TypeScript ports of the Rust algorithms located in
 
 | Engine file | Rust source | What it ports |
 |-------------|------------|--------------|
-| `dpAlignment.ts` | `crates/talkbank-transform/src/dp_align/` | `align_small` with step-by-step emission |
-| `retokenize.ts` | `crates/talkbank-transform/src/retokenize.rs` | Word↔token mapping |
+| `dpAlignment.ts` | `crates/batchalign-transform/src/dp_align/` | `align_small` with step-by-step emission |
+| `retokenize.ts` | `crates/batchalign-transform/src/retokenize.rs` | Word↔token mapping |
 
 These are faithful ports — same algorithm, same cost model, same edge cases —
 not approximations.

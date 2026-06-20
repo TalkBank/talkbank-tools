@@ -79,7 +79,7 @@ immediately without allocation when constructed without a directory.
 Instead of relying on raw serde deserialization errors ("missing field
 `lemma`"), the diagnostics function scans Stanza's raw `to_dict()`
 output and produces structured, actionable reports. Source:
-`crates/talkbank-transform/src/morphosyntax/stanza_raw.rs:50` for the
+`crates/batchalign-transform/src/morphosyntax/stanza_raw.rs:50` for the
 `StanzaWordDiagnostic` struct, `:76` for `diagnose_parse_failure`,
 `:217` for `normalize_word_dict`. Consumed by the batchalign-side
 worker at `crates/batchalign/src/morphosyntax/worker.rs:15,358`.
@@ -223,7 +223,7 @@ diagnostics into a `MorphosyntaxTrace` that the dashboard can display.
 
 | File | What |
 |------|------|
-| `crates/talkbank-transform/src/morphosyntax/stanza_raw.rs` | `normalize_word_dict()`, `diagnose_parse_failure()`, `StanzaWordDiagnostic` |
+| `crates/batchalign-transform/src/morphosyntax/stanza_raw.rs` | `normalize_word_dict()`, `diagnose_parse_failure()`, `StanzaWordDiagnostic` |
 | `crates/batchalign/src/morphosyntax/worker.rs` | Enriched error path with diagnostics (imports `diagnose_parse_failure` from `talkbank_transform::morphosyntax`) |
 | `crates/batchalign/src/morphosyntax/batch.rs` | Error-path batch handling |
 | `crates/batchalign/src/runner/debug_dumper.rs` | `DebugDumper` and per-artifact dump methods (see Layer 3 table) |

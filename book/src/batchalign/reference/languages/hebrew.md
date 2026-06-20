@@ -110,7 +110,7 @@ editors depends on the editor's BiDi support.
 
 | File | Role |
 |------|------|
-| `crates/talkbank-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
-| `crates/talkbank-transform/src/morphosyntax/types.rs:38` | `heb` → `he` Stanza alpha-2 mapping |
+| `crates/batchalign-transform/src/morphosyntax/features.rs:43,46` | HebBinyan/HebExistential extraction |
+| `crates/batchalign-transform/src/morphosyntax/types.rs:38` | `heb` → `he` Stanza alpha-2 mapping |
 | `crates/batchalign/src/chat_ops/nlp/mapping/tests/lang_de_es_he.rs` | Hebrew integration tests (`:15`, `:45`, `:268`) |
 | `batchalign/worker/_stanza_loading.py` | Stanza pipeline config; MWT eligibility driven by `should_request_mwt()` |

@@ -22,7 +22,7 @@ chapter for each, and then documents the per-language coverage gap.
   Whisper, etc.) with timestamps.
 - **Output shape:** speaker-attributed utterances ready for CHAT
   assembly.
-- **Source:** `crates/talkbank-transform/src/asr_postprocess/mod.rs`
+- **Source:** `crates/batchalign-transform/src/asr_postprocess/mod.rs`
   function `retokenize()` (around line 872).
 - **Always on:** every transcribe run goes through this stage.
 - **Reference:** `architecture/asr-token-pipeline.md` §Stage 6.
@@ -38,7 +38,7 @@ chapter for each, and then documents the per-language coverage gap.
   MWT + UD annotations).
 - **Output shape:** mutated `Utterance` with new word boundaries
   and injected morphosyntax tiers.
-- **Source:** `crates/talkbank-transform/src/retokenize/` module
+- **Source:** `crates/batchalign-transform/src/retokenize/` module
   (entry point `retokenize_utterance()` in `mod.rs`).
 - **Gated:** opt-in via `--retokenize` CLI flag.
 - **Reference:** `reference/morphotag-retokenization.md` (primary),
@@ -84,7 +84,7 @@ competence from three sources, in order of leverage:
    languages Stanza supports have an MWT processor.
 2. **BA3's Rust per-language overrides** — morphology-level patches
    on Stanza's UD output (POS/lemma corrections, case features).
-   Live in `crates/talkbank-transform/src/morphosyntax/lang_{en,fr,it,ja}.rs`.
+   Live in `crates/batchalign-transform/src/morphosyntax/lang_{en,fr,it,ja}.rs`.
 3. **BA3's Python tokenizer realignment postprocessor** —
    `batchalign/inference/_tokenizer_realign.py`, a character-DP
    realigner that forces Stanza to respect BA3's pre-tokenized
@@ -254,7 +254,7 @@ skip `WordKind::Retrace` copies and land on the "real" first word.
 
 - **ReplacedWord / AnnotatedWord splits**: today retokenize cannot
   split inside a replacement (1:1 text replacement only; see
-  `crates/talkbank-transform/src/retokenize/rebuild.rs`). A future
+  `crates/batchalign-transform/src/retokenize/rebuild.rs`). A future
   per-language fix that needs to split inside an annotation must
   first lift this constraint.
 
@@ -274,7 +274,7 @@ skip `WordKind::Retrace` copies and land on the "real" first word.
 
 - **Italian Defect 6/7/8 family** — *partially resolved*.
   A Rust-side reconciler ships in
-  `crates/talkbank-transform/src/morphosyntax/lang_it.rs` covering two
+  `crates/batchalign-transform/src/morphosyntax/lang_it.rs` covering two
   allowlist families:
   `IT_MIS_SPLIT_OVERRIDES` (`parla`, `arancione`, `piccolo`,
   `gomitolo`, `divano`, `la`) collapses Stanza's bogus

@@ -243,7 +243,7 @@ arrive as a **tuple** (Stanza's internal MWT marker), not plain strings.
 The postprocessor treats tuples as MWT and returns them unchanged.
 
 **Python-side hint preservation.** Rust handles MWT correctly in
-`crates/talkbank-transform/src/morphosyntax/injection.rs`. On the
+`crates/batchalign-transform/src/morphosyntax/injection.rs`. On the
 Python side, if `_tokenizer_realign.py::_realign_sentence` flattened
 the `(text, True)` tuples to plain strings via `_conform(tok)` before
 the Rust char-DP aligner ran, MWT would silently skip Range-token
@@ -337,7 +337,7 @@ contractions.  For `Claus'`, it produces two MWT components
 **`clean_lemma` defensive fix**: When `'` is isolated as a PUNCT MWT component,
 Stanza's lemma is also `'`.  The old `clean_lemma` stripped the apostrophe,
 producing an empty string → `punct|` (empty stem) → E342 parse failure.
-`crates/talkbank-transform/src/morphosyntax/mor_word.rs:81::clean_lemma`
+`crates/batchalign-transform/src/morphosyntax/mor_word.rs:81::clean_lemma`
 now falls back to the surface text when stripping produces empty:
 `clean_lemma("'", "'")` returns `("'", false)`, producing `punct|'`
 (valid). A `debug_assert!` at `MorStem` construction time catches any
@@ -403,7 +403,7 @@ the neural MWT model, not a grammar.
 
 ### Layer 2 — Rust: UD → %mor/%gra Conversion
 
-**Primary module**: `crates/talkbank-transform/src/morphosyntax/` — orchestrates the
+**Primary module**: `crates/batchalign-transform/src/morphosyntax/`: orchestrates the
 full UD-to-CHAT mapping pipeline. Core components:
 - `sentence_mapping.rs` — maps UD sentences to CHAT structure
 - `injection.rs` — injects mapped results into transcripts
@@ -498,7 +498,7 @@ Input:   *CHI: I don't know .
 
 ### Layer 2 — Rust (UD → %mor/%gra)
 
-All paths below are under `crates/talkbank-transform/src/morphosyntax/`.
+All paths below are under `crates/batchalign-transform/src/morphosyntax/`.
 
 | Component | File | Description |
 |-----------|------|-------------|

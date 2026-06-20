@@ -17,9 +17,9 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 | Command definition | `crates/batchalign/src/commands/transcribe.rs` | `CommandDefinition` impl |
 | Pipeline orchestration | `crates/batchalign/src/pipeline/transcribe.rs` — `run_transcribe_pipeline()` | 7-stage sequencer: ASR → post-process → (opt) diarization → build CHAT → (opt) utseg → (opt) morphotag → serialize |
 | Per-file dispatch | `crates/batchalign/src/runner/dispatch/transcribe_pipeline.rs` | Concurrent file orchestration bounded by semaphore |
-| ASR post-processing | `crates/talkbank-transform/src/asr_postprocess/mod.rs` | 8 stages: compound merge, MWT split, number expand, Cantonese norm, long-turn split, retokenization, disfluency, retrace detection |
+| ASR post-processing | `crates/batchalign-transform/src/asr_postprocess/mod.rs` | 8 stages: compound merge, MWT split, number expand, Cantonese norm, long-turn split, retokenization, disfluency, retrace detection |
 | Pre-CHAT utterance segmentation | `crates/batchalign/src/pipeline/transcribe.rs:421–457` — `process_asr_with_prechat_segmentation()` | Runs for eng/cmn/zho/yue: BERT utseg applied to prepared chunks BEFORE build_chat |
-| CHAT assembly | `crates/talkbank-transform/src/build_chat/mod.rs:41` — `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
+| CHAT assembly | `crates/batchalign-transform/src/build_chat/mod.rs:41`: `build_chat()` | Assembles `ChatFile` AST from `TranscriptDescription` (typed bridge) |
 | Speaker reassignment | `crates/batchalign/src/chat_ops/speaker.rs:32` — `reassign_speakers()` | Rewrites speaker codes + headers from diarization segments (runs post-build_chat) |
 | ASR worker IPC | `batchalign/inference/asr.py` | Whisper/Rev.AI ASR, returns raw tokens |
 | Speaker worker IPC | `batchalign/inference/speaker.py` — `batch_infer_speaker()` | Pyannote/NeMo diarization, returns speaker segments |
@@ -28,7 +28,7 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 
 ## ASR post-processing chain
 
-All ASR post-processing runs in Rust (`crates/talkbank-transform/src/asr_postprocess/`). The pipeline is deterministic and language-aware.
+All ASR post-processing runs in Rust (`crates/batchalign-transform/src/asr_postprocess/`). The pipeline is deterministic and language-aware.
 
 ### 8-stage pipeline
 

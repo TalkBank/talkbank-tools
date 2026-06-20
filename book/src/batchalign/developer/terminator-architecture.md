@@ -188,7 +188,7 @@ and their linker forms are mapped.
 
 ### 2. ASR post-processing
 
-**File:** `crates/talkbank-transform/src/asr_postprocess/mod.rs`
+**File:** `crates/batchalign-transform/src/asr_postprocess/mod.rs`
 
 When `retokenize()` flushes remaining words without explicit punctuation, it
 unconditionally appends a period:
@@ -202,7 +202,7 @@ created from ASR will have periods that should not exist.
 
 ### 3. Utterance segmentation (utseg)
 
-**File:** `crates/talkbank-transform/src/utseg.rs`
+**File:** `crates/batchalign-transform/src/utseg.rs`
 
 When splitting an utterance into multiple, every split gets a hardcoded Period:
 
@@ -215,7 +215,7 @@ terminator-less structure.
 
 ### 4. CHAT building from ASR
 
-**File:** `crates/talkbank-transform/src/build_chat/mod.rs`
+**File:** `crates/batchalign-transform/src/build_chat/mod.rs`
 
 Infers terminator from the last word text. Default is Period:
 
@@ -229,7 +229,7 @@ _ => Terminator::Period { span: Span::DUMMY }
 
 ### Morphosyntax payload collection
 
-**File:** `crates/talkbank-transform/src/morphosyntax/payload.rs`
+**File:** `crates/batchalign-transform/src/morphosyntax/payload.rs`
 
 ```text
 .unwrap_or_else(|| ".".to_string())
@@ -241,7 +241,7 @@ sentence-type features.
 
 ### MOR tier injection terminator handling
 
-**File:** `crates/talkbank-transform/src/morphosyntax/injection.rs`
+**File:** `crates/batchalign-transform/src/morphosyntax/injection.rs`
 
 The injection layer copies the utterance's terminator into the rebuilt
 MOR tier. When the terminator is `None`, the MOR tier gets an empty
@@ -252,7 +252,7 @@ from (text NLP runs use a no-op cache).
 
 ### Pre-command validation (CA-aware)
 
-**File:** `crates/talkbank-transform/src/validate.rs`
+**File:** `../chatter/crates/talkbank-transform/src/validate.rs`
 
 ```rust,ignore
 let is_ca = file.options.iter().any(|f| matches!(f, ChatOptionFlag::Ca));
@@ -263,7 +263,7 @@ Correctly exempts CA files from the missing-terminator check.
 
 ### Post-command validation (NOT CA-aware)
 
-**File:** `crates/talkbank-transform/src/validate.rs`
+**File:** `../chatter/crates/talkbank-transform/src/validate.rs`
 
 ```text
 if utt.main.content.terminator.is_none() { /* warning */ }
@@ -275,7 +275,7 @@ terminator, but post-validation doesn't know that.
 
 ### NLP mapping assumptions
 
-**File:** `crates/talkbank-transform/src/morphosyntax/sentence_mapping.rs`
+**File:** `crates/batchalign-transform/src/morphosyntax/sentence_mapping.rs`
 
 The MOR/GRA coordination code assumes every utterance has a terminator that
 maps to a PUNCT relation in GRA:
