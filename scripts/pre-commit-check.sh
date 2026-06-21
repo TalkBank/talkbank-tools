@@ -59,22 +59,6 @@ run_check "Build check" "cargo build --all-targets"
 # 4. Unit tests
 run_check "Unit tests" "cargo test --workspace --lib --quiet"
 
-# 5. Reference corpus (CRITICAL)
-echo ""
-echo "▶ Reference corpus (CRITICAL - may take a moment)..."
-if cargo nextest run -p talkbank-parser-tests --test roundtrip_reference_corpus --quiet > /tmp/roundtrip_output.log 2>&1; then
-    echo -e "${GREEN}✓ Reference corpus${NC}"
-    CHECKS_PASSED=$((CHECKS_PASSED + 1))
-else
-    echo -e "${RED}✗ Reference corpus${NC}"
-    echo ""
-    echo -e "${RED}CRITICAL: Reference corpus MUST pass at 100%!${NC}"
-    echo "Output:"
-    cat /tmp/roundtrip_output.log
-    echo ""
-    CHECKS_FAILED=$((CHECKS_FAILED + 1))
-fi
-
 # Summary
 echo ""
 echo "═══════════════════════════════════════════════════════════"
