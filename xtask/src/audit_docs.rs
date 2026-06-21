@@ -275,7 +275,7 @@ fn walk_markdown(root: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     // SKIP_DIRS applies only at depth > 0 so the walker enters its own
     // root even when the root's last path component matches a skip-name
-    // (e.g. walking `/Users/chen/talkbank/talkbank-tools`).
+    // (e.g. walking a checkout whose directory is named `talkbank-tools`).
     let walker = WalkDir::new(root).into_iter().filter_entry(|e| {
         if e.depth() == 0 {
             return true;
