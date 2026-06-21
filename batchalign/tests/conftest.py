@@ -56,8 +56,11 @@ def _apply_interactive_pytest_defaults(config: pytest.Config) -> None:
     """
     if _is_ci():
         return
-    # Inspect raw argv because argparse collapses "user passed --maxfail=0"
-    # and "default is 0" into the same config.option.maxfail value.
+    # Inspect raw argv rather than config.option.maxfail: the parsed value
+    # cannot reveal user intent in a version-stable way. "-x"/"--exitfirst"
+    # never surface in maxfail at all, and the "no limit" default sentinel
+    # differs across pytest versions (0 on pytest <= 8, None on pytest >= 9),
+    # so the raw invocation argv is the only reliable signal.
     argv = getattr(config, "invocation_params", None)
     argv_list = list(argv.args) if argv is not None else []
     if not _user_passed_any(argv_list, _FAIL_FAST_CLI_FLAGS):

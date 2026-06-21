@@ -30,8 +30,12 @@ def test_interactive_or_ci_defaults_match_environment(pytestconfig) -> None:
     user_forced_fail_fast = _user_passed_any(argv, _FAIL_FAST_CLI_FLAGS)
 
     if _is_ci():
-        # CI must not auto-enable fail-fast.
-        assert pytestconfig.option.maxfail == 0, (
+        # CI must not auto-enable fail-fast. The conftest hook returns early
+        # under CI and never assigns maxfail, so it stays at pytest's "no
+        # limit" default. That sentinel changed from 0 (pytest <= 8) to None
+        # (pytest >= 9), so assert the invariant (no positive limit) rather
+        # than a version-specific literal; both 0 and None are falsy.
+        assert not pytestconfig.option.maxfail, (
             f"CI must not auto-enable fail-fast; got maxfail={pytestconfig.option.maxfail}"
         )
         assert not pytestconfig.option.failedfirst, (
