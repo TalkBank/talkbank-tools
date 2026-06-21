@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Tauri desktop shell for the Batchalign3 React dashboard (experimental, not yet released)"
 publish = false
 edition = "2021"
+license = "BSD-3-Clause"
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
