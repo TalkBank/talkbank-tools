@@ -76,12 +76,14 @@ jobs:
     needs: build-cli
     runs-on: ubuntu-latest
     strategy:
-      # Push events build only the canonical Python (3.12). workflow_dispatch
-      # exercises the full 3.12/3.13/3.14 matrix for cross-version compat
-      # verification on release tags or manual reruns. Wall-time win on push:
-      # ~20 min (two fat-LTO release builds skipped).
+      # Build a wheel for every officially supported Python on every push and
+      # dispatch: 3.12 (deployment target) plus 3.13 and 3.14. All supported
+      # versions are continuously gated; talkbank-tools is public, so the extra
+      # matrix legs cost no Actions minutes. fail-fast off so one version's
+      # failure still reports the others.
+      fail-fast: false
       matrix:
-        python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.2.0
@@ -126,10 +128,12 @@ jobs:
     needs: build-wheel
     runs-on: ubuntu-latest
     strategy:
-      # See build-wheel for the matrix-gating rationale: push runs 3.12
-      # only; workflow_dispatch runs all three.
+      # Test every officially supported Python (3.12/3.13/3.14) on every push
+      # and dispatch; see build-wheel for the rationale. fail-fast off so one
+      # version's failure still reports the others.
+      fail-fast: false
       matrix:
-        python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["3.12","3.13","3.14"]' || '["3.12"]') }}
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.2.0
