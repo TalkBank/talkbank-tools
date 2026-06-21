@@ -1,48 +1,52 @@
 # talkbank-tools
 
 **Status:** Current
-**Last updated:** 2026-04-30 19:55 EDT
+**Last updated:** 2026-06-21 19:53 EDT
 
 [![CI](https://github.com/TalkBank/talkbank-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/ci.yml)
 [![Batchalign Python](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 
-The unified home for the [TalkBank](https://talkbank.org/) toolchain.
-Three user-facing products ship from this repo, all centered on the
-CHAT transcript format:
+This repository is the home of **Batchalign3**: the [TalkBank](https://talkbank.org/)
+audio and ML pipeline that produces and enriches CHAT transcripts
+(transcription, forced alignment, neural morphotagging, translation, and
+utterance segmentation). The `batchalign3` command-line tool, its Python
+package, the PyO3 bridge, the dashboard web UI, and the experimental desktop
+shell all live here.
 
-- **Batchalign3**: audio/ML pipeline that produces and enriches CHAT
-  (transcribe, align, morphotag, translate, segment).
-- **`chatter`**: CHAT-first command-line tool for validation,
-  normalization, conversion, and CLAN-compatible analysis.
-- **CLAN command reference**: a Rust reimplementation of CLAN's
-  analysis, transform, and converter commands, accessible through
-  `chatter clan ...`.
+The CHAT format itself (grammar, spec, tree-sitter parser, data model,
+validation, the `chatter` CLI, and the CLAN command reference) lives in the
+separate [`chatter`](https://github.com/TalkBank/chatter) repository.
+talkbank-tools **consumes** chatter's published crates; it is no longer a
+CHAT-format toolchain.
 
-Plus the supporting library surface: the public Rust crates for
-parsing/validation/transform, the `tree-sitter-talkbank` grammar,
-the Batchalign Python package, the PyO3 bridge, and the experimental
-Batchalign dashboard desktop app.
+## Install the `batchalign3` CLI
 
-## Start here
+```bash
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
+```
 
-Pick the row that matches what you want to do today.
+```powershell
+# Windows (PowerShell)
+irm https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.ps1 | iex
+```
 
-| I want to... | Start here |
-|---|---|
-| Transcribe, align, morphotag, translate, or segment media/transcripts | [Batchalign3 Quickstart](book/src/quickstart/index.md), [Batchalign3 Installation](book/src/batchalign/user-guide/installation.md), [Batchalign3 CLI Reference](book/src/batchalign/user-guide/cli-reference.md) |
-| Validate, normalize, convert, or analyze CHAT from the command line | [`chatter` Installation](book/src/chatter/user-guide/installation.md), [`chatter` CLI Reference](book/src/chatter/user-guide/cli-reference.md), [Migrating from CLAN](book/src/chatter/user-guide/migrating-from-clan.md) |
-| Look up a specific CLAN command (FREQ, MLU, KIDEVAL, …) | [CLAN command reference](book/src/clan-reference/introduction.md) |
-| Work with the typed Rust APIs directly | [Library Usage](book/src/chatter/integrating/library-usage.md) |
-| Understand the CHAT grammar/spec/parser pipeline | [chatter Architecture](book/src/architecture/overview.md), [`grammar/`](grammar/), [`spec/`](spec/) |
-| Contribute to the repo | [CONTRIBUTING.md](CONTRIBUTING.md) + [Contributing Setup](book/src/contributing/setup.md) |
+The installer bootstraps [`uv`](https://docs.astral.sh/uv/) if it is not already
+present, installs `batchalign3` into an isolated environment with a uv-managed
+Python (3.12 by default; override with `BATCHALIGN3_PYTHON`), and re-running it
+upgrades to the latest release. The first install downloads large ML
+dependencies (PyTorch, Stanza, Whisper, and others).
 
-## Main products
+Distribution is via GitHub releases only; there is no PyPI package. If you
+prefer a download-and-double-click path, the macOS `.command` and Windows `.bat`
+helpers under [`installers/`](installers/README.md) run the same installer.
 
-### Batchalign3 — audio + ML CHAT pipeline
+See the [Installation guide](book/src/batchalign/user-guide/installation.md) and
+[Quick start](book/src/batchalign/user-guide/quick-start.md) for first-run
+details (including `batchalign3 setup`).
 
-The audio/ML-facing CLI for transcription, forced alignment,
-morphotagging, utterance segmentation, translation, and benchmarking.
+## Usage
 
 ```bash
 batchalign3 transcribe recordings/ -o transcripts/ --lang eng
@@ -50,124 +54,68 @@ batchalign3 align corpus/ -o aligned/
 batchalign3 morphotag corpus/ -o tagged/
 ```
 
-Public preview product line on the `0.1.x` release. The canonical
-public install path is PyPI via `uv`:
+Full command reference:
+[CLI reference](book/src/batchalign/user-guide/cli-reference.md).
 
-```bash
-uv tool install batchalign3
-```
+## Supported platforms and Python
 
-See the [Batchalign3 Installation guide](book/src/batchalign/user-guide/installation.md)
-and [Quickstart](book/src/batchalign/user-guide/quick-start.md) for
-first-run details.
-
-### `chatter` — CHAT-first CLI
-
-The command-line tool for everything CHAT-text:
-
-- validation
-- normalization / linting
-- CHAT ↔ JSON conversion
-- CLAN-compatible analysis, transforms, and format converters
-
-```bash
-chatter validate transcript.cha
-chatter clan freq corpus/
-chatter to-json transcript.cha -o transcript.json
-```
-
-See the [`chatter` Installation guide](book/src/chatter/user-guide/installation.md),
-[CLI reference](book/src/chatter/user-guide/cli-reference.md), and
-[CLAN command reference](book/src/clan-reference/introduction.md).
-
-## Surface status at a glance
-
-| Surface | What first-time users should assume today |
+| Requirement | Details |
 |---|---|
-| Batchalign3 CLI / server / dashboard | Public preview Batchalign product surface for audio/ML workflows |
-| `chatter` CLI | Stable public CHAT-first command-line surface; strongest current support story |
-| Public Rust core crates | Stable public source-level integration surface for CHAT parsing/validation |
-| `tree-sitter-talkbank` grammar | Public preview reusable grammar surface |
-| `apps/dashboard-desktop/` (Batchalign Desktop) | Experimental Batchalign GUI shell only; not a supported release surface |
+| Operating systems | macOS (Apple Silicon + Intel), Linux (x86_64 + aarch64), Windows (x86_64) |
+| Python | 3.12, 3.13, 3.14 (the installer uses a uv-managed Python, 3.12 by default) |
+| Disk | Several GB for ML models, downloaded on first use |
+| RAM | 8 GB minimum, 16 GB recommended |
+| FFmpeg | Needed only for some media formats |
 
 ## Documentation
 
-All user, developer, and architecture docs live in **one** mdBook:
-[`book/`](book/): the **TalkBank Toolchain** book. It absorbs the
-previously-separate sub-books (chatter, Batchalign3, CLAN command
-reference) into one tree organized by audience-first sections under
-`book/src/`.
+User, developer, and architecture docs live in the mdBook under
+[`book/`](book/):
 
-| Section | What lives there | Entry point |
-|---|---|---|
-| Front matter | What is this, install hub, choose-your-path quickstart | [Introduction](book/src/introduction.md), [Install](book/src/install/index.md), [Quickstart](book/src/quickstart/index.md) |
-| `book/src/batchalign/` | Batchalign3: migration from BA2, user guide, architecture, technical reference, developer guide, design decisions | [Batchalign3 introduction](book/src/batchalign/introduction.md) |
-| `book/src/chatter/` | `chatter` CLI: user guide, integration | [`chatter` introduction (book root)](book/src/introduction.md) |
-| `book/src/chat-format/` | The CHAT format reference: headers, utterances, retraces, replacements, dependent tiers, symbols | [CHAT format overview](book/src/chat-format/overview.md) |
-| `book/src/clan-reference/` | CLAN command reference: per-command pages for the analysis, transform, and converter families | [CLAN command reference introduction](book/src/clan-reference/introduction.md) |
-| `book/src/architecture/` | Architecture and parser/grammar/data-model design | [Architecture overview](book/src/architecture/overview.md) |
-| `book/src/contributing/` | Contributor workflows, testing, coding standards, dev checks | [Contributing Setup](book/src/contributing/setup.md) |
+| Section | Entry point |
+|---|---|
+| Install hub and quickstart | [Install](book/src/install/index.md), [Quickstart](book/src/quickstart/index.md) |
+| Batchalign3 user guide, architecture, developer guide | [Batchalign3 introduction](book/src/batchalign/introduction.md) |
+| Architecture and design | [Architecture overview](book/src/architecture/overview.md) |
 
 Build the book locally:
 
 ```bash
 make book
-make book-serve   # opens http://localhost:3000
+make book-serve   # serves http://localhost:3000
 ```
-
-Repo-level release-contract policy documents live at
-[`docs/`](docs/) (entry point: [docs/README.md](docs/README.md)) —
-platform support matrix, release contract, versioning policy, and
-the auto-generated error catalog under `docs/errors/`.
 
 ## Repository map
 
 | Path | What lives there |
 |---|---|
-| `book/` | The unified TalkBank Toolchain mdBook (all product surfaces, CHAT format, architecture, contributing) |
-| `crates/` | Rust crates: parser, model, transform, CLAN, CLI, plus the `batchalign-*` crates |
-| `batchalign/` | Python package for `batchalign3` |
-| `crates/batchalign-pyo3/` | PyO3 bridge and wheel build surface |
-| `frontend/` | Shared Batchalign web UI |
-| `apps/dashboard-desktop/` | Tauri shell for the Batchalign dashboard (experimental) |
-| `grammar/` | Tree-sitter grammar |
-| `spec/` | Spec source of truth and generators |
-| `schema/` | JSON Schema and XML-related artifacts |
-| `docs/` | Repo-level reference and archival notes |
+| `batchalign/` | Python package for the `batchalign3` CLI |
+| `crates/batchalign` | Batchalign pipeline (ASR, FA, morphotag, jobs/runner, store, temporal, dashboard API) |
+| `crates/batchalign-transform` | Batchalign-specific CHAT transforms layered over chatter's generic transform |
+| `crates/batchalign-pyo3` | PyO3 bridge and wheel build surface |
+| `crates/batchalign-types` | Shared types |
+| `frontend/` | React dashboard web UI |
+| `apps/dashboard-desktop/` | Tauri desktop shell (experimental) |
+| `installers/` | GitHub-release install scripts and double-click wrappers |
+| `book/` | The mdBook (user, developer, architecture docs) |
+| `docs/` | Repo-level reference and release-contract notes |
 
-## Installing and building
+The CHAT core crates (`talkbank-model`, `talkbank-parser`,
+`talkbank-parser-re2c`, `talkbank-transform`) are consumed from the public
+`chatter` repository via git-tag dependencies; see `Cargo.toml`.
 
-### Install `chatter` from source
-
-```bash
-cargo install --path crates/talkbank-cli
-```
-
-### Install `batchalign3`
+## Building and developing
 
 ```bash
-uv tool install batchalign3
-```
-
-Repo-hosted `.command`/`.bat` helper scripts under
-[`installers/`](installers/README.md) wrap the same `uv tool install
-batchalign3` flow; they are not a separate signed installer channel.
-
-### Common developer commands
-
-```bash
-make help                  # overview of repo-native tasks
-make check                 # core compile checks
-make test                  # core Rust tests + doctests + spec tools
-make verify                # canonical core pre-merge gate
-make batchalign-check      # imported Batchalign compile checks
-make batchalign-test-rust  # imported Batchalign Rust library suites
-make batchalign-test-integration
-make batchalign-dashboard-build
-make batchalign-build-wheel
-make book                  # build the unified TalkBank Toolchain mdBook
-make ci-local              # fast local CI approximation
-make ci-full               # stricter local CI approximation
+make help                   # overview of repo-native tasks
+make check                  # workspace compile check
+make test                   # Rust workspace tests + doctests
+make verify                 # canonical pre-merge gate (compile + batchalign + book)
+make batchalign-ci-rust     # batchalign Rust / PyO3 gate
+make batchalign-ci-python   # batchalign wheel / pytest / typecheck gate
+make book                   # build the mdBook
+make ci-local               # fast local CI approximation
+make ci-full                # stricter local CI approximation
 ```
 
 For lower-level build helpers:

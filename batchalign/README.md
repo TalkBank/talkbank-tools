@@ -1,70 +1,57 @@
 # Batchalign3
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:24 EDT
+**Last updated:** 2026-06-21 19:53 EDT
 
 [![CI](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml)
-[![PyPI](https://img.shields.io/pypi/v/batchalign3)](https://pypi.org/project/batchalign3/)
 
 Turn audio recordings into fully annotated [CHAT](https://talkbank.org/0info/manuals/CHAT.html)
-transcripts — or enrich existing transcripts — from the command line.
+transcripts, or enrich existing transcripts, from the command line.
 
-- **Transcribe** — speech-to-text from audio (Whisper, Rev.AI)
-- **Morphotag** — morphosyntactic analysis (%mor and %gra tiers)
-- **Align** — forced alignment of words to audio timestamps
-- **Translate** — add translation tiers (%xtra)
-- **Segment** — utterance boundary detection
-- **Benchmark** — WER scoring against gold transcripts
+- **Transcribe**: speech-to-text from audio (Whisper, Rev.AI)
+- **Morphotag**: morphosyntactic analysis (%mor and %gra tiers)
+- **Align**: forced alignment of words to audio timestamps
+- **Translate**: add translation tiers (%xtra)
+- **Segment**: utterance boundary detection
+- **Benchmark**: WER scoring against gold transcripts
 
 Part of the [TalkBank](https://talkbank.org/) project. Runs on macOS,
 Windows, and Linux.
 
 ## Get Started
 
-`batchalign3` is a **public preview** product line on the `0.1.x` release
-line. The canonical public install path today is:
-
-```bash
-uv tool install batchalign3
-```
-
-This installs the preview wheel from PyPI. The repo-hosted helper scripts in
-[`installers/`](../installers/README.md) run this same `uv` flow for users who
-want a download-and-double-click wrapper, but they are not a separate signed
-installer or release channel.
-
-### Install with `uv`
-
-Install the `uv` package manager if needed, then install Batchalign:
+Install the `batchalign3` CLI from the latest GitHub release. The installer
+bootstraps [`uv`](https://docs.astral.sh/uv/) if needed, installs into an
+isolated environment with a uv-managed Python (3.12 by default), and re-running
+it upgrades to the latest release. There is no PyPI package.
 
 **macOS / Linux:**
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://astral.sh/uv/install.ps1 | iex
+irm https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.ps1 | iex
 ```
 
-Close and reopen your terminal, then run:
-
-```bash
-uv tool install batchalign3
-```
+Open a new terminal, then run `batchalign3 --help`. The repo-hosted
+[`installers/`](../installers/README.md) directory also has macOS `.command` and
+Windows `.bat` double-click wrappers that run the same installer.
 
 ### System requirements
 
-- **Python:** 3.12 (installed automatically by `uv`)
-- **Disk:** ~2 GB for ML models (downloaded on first use)
+- **Python:** 3.12, 3.13, or 3.14 (a uv-managed 3.12 is used by default)
+- **Disk:** several GB for ML models (downloaded on first use)
 - **RAM:** 8 GB minimum, 16 GB recommended
-- **FFmpeg:** only needed for MP4 media files
-- **Platforms:** macOS (ARM + Intel), Windows (x86), Linux (x86 + ARM)
+- **FFmpeg:** only needed for some media formats
+- **Platforms:** macOS (Apple Silicon + Intel), Windows (x86_64), Linux (x86_64 + aarch64)
 
-See [Installation guide](../book/src/batchalign/user-guide/installation.md) for helper-script
-details, offline install, worker Python resolution, and development setup.
+See the [Installation guide](../book/src/batchalign/user-guide/installation.md) for
+double-click helpers, offline install, worker Python resolution, and development
+setup.
 
 ### First run
 
@@ -82,25 +69,20 @@ batchalign3 setup --non-interactive --engine whisper
 batchalign3 setup --non-interactive --engine rev --rev-key <KEY>
 ```
 
-The first time you run a processing command (e.g. `morphotag`), ML models will
-be downloaded automatically — this is a one-time cost of ~2 GB and may take a
-few minutes depending on your connection.
+The first time you run a processing command (for example `morphotag`), ML models
+are downloaded automatically. This is a one-time cost of several GB and may take
+a few minutes depending on your connection.
 
 See [Quick start](../book/src/batchalign/user-guide/quick-start.md) for a full first-run
 walkthrough.
 
 ### Updating
 
-Upgrade to the latest version:
+Re-run the installer one-liner to upgrade in place:
 
 ```bash
-uv tool upgrade batchalign3
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
 ```
-
-If you installed via one of the repo-hosted helper scripts, re-running the same
-script upgrades the same `uv`-managed installation.
-
-The CLI will print a notice when a newer version is available on PyPI.
 
 ## Usage
 
@@ -127,7 +109,7 @@ batchalign3 utseg ~/corpus/ -o ~/output/
 batchalign3 benchmark ~/corpus/
 ```
 
-The `-o` flag is optional — two positional arguments are treated as
+The `-o` flag is optional: two positional arguments are treated as
 `input/ output/`:
 
 ```bash
@@ -174,12 +156,12 @@ batchalign3 logs --last                             # most recent run
 ### Server mode
 
 By default, a local server starts automatically and stays running so ML
-models only load once. If you have a more powerful machine (e.g. one with a
-GPU), you can run the server there and connect to it from your desktop or
-laptop:
+models only load once. If you have a more powerful machine (for example one
+with a GPU), you can run the server there and connect to it from your desktop
+or laptop:
 
 ```bash
-# On the server (e.g. a GPU workstation called myserver):
+# On the server (for example a GPU workstation called myserver):
 batchalign3 serve start --port 9000      # default port is 8000
 
 # From any other machine on the network (use the same port):
@@ -193,25 +175,25 @@ the remote/local tradeoffs.
 
 ### For users
 
-- [Installation guide](../book/src/batchalign/user-guide/installation.md) — system requirements, offline install, updating
-- [Quick start](../book/src/batchalign/user-guide/quick-start.md) — first run walkthrough
-- [CLI reference](../book/src/batchalign/user-guide/cli-reference.md) — all commands and flags
-- [Server mode](../book/src/batchalign/user-guide/server-mode.md) — remote dispatch, daemon management
-- [Performance tips](../book/src/batchalign/user-guide/performance.md) — large corpus processing
-- [Migrating from Batchalign2](../book/src/batchalign/migration/index.md) — upgrade path
-- [TalkBank CHAT manual](https://talkbank.org/0info/manuals/CHAT.html) — CHAT format reference
+- [Installation guide](../book/src/batchalign/user-guide/installation.md): system requirements, offline install, updating
+- [Quick start](../book/src/batchalign/user-guide/quick-start.md): first run walkthrough
+- [CLI reference](../book/src/batchalign/user-guide/cli-reference.md): all commands and flags
+- [Server mode](../book/src/batchalign/user-guide/server-mode.md): remote dispatch, daemon management
+- [Performance tips](../book/src/batchalign/user-guide/performance.md): large corpus processing
+- [Migrating from Batchalign2](../book/src/batchalign/migration/index.md): upgrade path
+- [TalkBank CHAT manual](https://talkbank.org/0info/manuals/CHAT.html): CHAT format reference
 
 ### For developers
 
-- [Python API](../book/src/batchalign/user-guide/python-api.md) — CLI-first usage, removed legacy APIs
-- [Building & Development](../book/src/batchalign/developer/building.md) — Rust toolchain, dev rebuilds, test matrix
+- [Python API](../book/src/batchalign/user-guide/python-api.md): CLI-first usage, removed legacy APIs
+- [Building & Development](../book/src/batchalign/developer/building.md): Rust toolchain, dev rebuilds, test matrix
 
 ## Development
 
 Requires a Rust toolchain and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-make sync && make build
+make batchalign-python-prepare && make build
 ./target/debug/batchalign3 --help
 ```
 

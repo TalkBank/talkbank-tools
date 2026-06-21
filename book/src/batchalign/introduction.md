@@ -21,9 +21,11 @@ experimental and should not be described as the supported first-time-user entry
 point. For current platform details, see [Platform Support](reference/platform-support.md)
 and the repo-root `docs/RELEASE-CONTRACT.md`.
 
-The canonical public install path for this preview line is
-`uv tool install batchalign3`. Repo-hosted `.command` / `.bat` helper scripts
-wrap that same flow; they are not a separate signed installer channel.
+batchalign3 is installed from GitHub releases (there is no PyPI package): run
+the installer one-liner from the
+[Installation guide](user-guide/installation.md), which bootstraps `uv` and
+installs the CLI with a uv-managed Python. Repo-hosted `.command` / `.bat`
+double-click wrappers run the same installer.
 
 ## Who is Batchalign for?
 

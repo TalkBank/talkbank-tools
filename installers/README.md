@@ -1,82 +1,84 @@
-# Batchalign install helper scripts
+# Batchalign install scripts
 
 **Status:** Current
-**Last updated:** 2026-04-29 10:24 EDT
+**Last updated:** 2026-06-21 19:53 EDT
 
-These scripts are convenience wrappers around the canonical public install
-command:
+The canonical way to install the `batchalign3` CLI is the release-hosted
+installer script. It bootstraps [`uv`](https://docs.astral.sh/uv/) if needed,
+detects the platform, installs the matching abi3 wheel from the latest GitHub
+release into an isolated uv tool environment using a uv-managed Python (3.12 by
+default), and re-running it upgrades in place.
 
 ```bash
-uv tool install batchalign3
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
 ```
 
-They help users who already trust the repo download/checkout and want a
-double-click path to the same preview PyPI package. They are **not** a separate
-signed/native installer channel, and release docs should not present them as
-the primary public install story.
+```powershell
+# Windows (PowerShell)
+irm https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.ps1 | iex
+```
 
-## macOS
+There is no PyPI package; distribution is via GitHub releases only. The
+`batchalign3` PyPI name is reserved for the upstream fork. batchalign3's own
+dependencies still resolve from PyPI, so the first install downloads large ML
+dependencies.
 
-**File:** `macos/install-batchalign3.command`
+## Files
 
-1. Download the file.
+| File | Purpose |
+|---|---|
+| `install-batchalign3.sh` | Canonical macOS/Linux installer (attached to every release). |
+| `install-batchalign3.ps1` | Canonical Windows installer (attached to every release). |
+| `macos/install-batchalign3.command` | Double-click wrapper that runs `install-batchalign3.sh`. |
+| `windows/install-batchalign3.bat` | Double-click wrapper that runs `install-batchalign3.ps1`. |
+| `test-github-release.sh` | End-to-end test of the GitHub-release install path. |
+
+## Double-click helpers
+
+For users who prefer not to use a terminal, the `.command` (macOS) and `.bat`
+(Windows) files run the same canonical installer.
+
+### macOS
+
+1. Download `macos/install-batchalign3.command`.
 2. Double-click it in Finder.
-3. If macOS Gatekeeper blocks it:
-   - Right-click the file > **Open** > **Open** in the dialog.
-   - Or: System Settings > Privacy & Security > scroll down > **Open Anyway**.
-4. A Terminal window will open showing installation progress.
+3. If macOS Gatekeeper blocks it (the file is not code-signed):
+   - Right-click the file > **Open** > **Open** in the dialog, or
+   - System Settings > Privacy & Security > scroll down > **Open Anyway**.
+4. A Terminal window opens showing installation progress.
 5. When done, open a **new** Terminal window and run `batchalign3 --help`.
 
-The script installs `uv` (if not present) and then installs `batchalign3`
-via `uv tool install`. Re-running the script upgrades an existing installation.
+### Windows
 
-## Windows
-
-**File:** `windows/install-batchalign3.bat`
-
-1. Download the file.
+1. Download `windows/install-batchalign3.bat`.
 2. Double-click it in Explorer.
 3. If Windows SmartScreen blocks it: click **More info** > **Run anyway**.
-4. A Command Prompt window will open showing installation progress.
+4. A terminal window opens showing installation progress.
 5. When done, open a **new** PowerShell or Command Prompt and run
    `batchalign3 --help`.
 
-The script installs `uv` (if not present) via PowerShell and then installs
-`batchalign3` via `uv tool install`. Re-running the script upgrades an
-existing installation.
+## Choosing the Python version
 
-## Release-channel status
+The installers use a uv-managed Python 3.12 by default. Set `BATCHALIGN3_PYTHON`
+(for example `3.13`) before running to install against another supported
+version (3.12, 3.13, or 3.14). One abi3 wheel per platform serves all of them.
 
-| Channel | What it is | Status today |
-|---|---|---|
-| `uv tool install batchalign3` | Canonical public install path for the `0.1.x` preview line | Allowed |
-| PyPI wheel/sdist | Package payload used by the `uv` install flow | Allowed |
-| Optional GitHub Release wheel/sdist attachments | Alternate download for the same package when published by the release workflow | Allowed, but secondary to the `uv` path |
-| This directory's `.command` / `.bat` files | Convenience wrappers that install `uv` if needed and then run `uv tool install batchalign3` | Helper-only; not a separate signed installer tier |
-| Native installers (`.pkg`, `.dmg`, `.exe`, `.msi`) | OS-level installer surfaces | Blocked until signing/notarization automation exists |
+## Native installers
 
-Use **public preview** wording consistently. `batchalign3` is intentionally
-pre-1.0, and these scripts should be described as wrappers around the preview
-CLI install flow, not as a promoted native-installer story.
+OS-level installer surfaces (`.pkg`, `.dmg`, `.exe`, `.msi`) are not provided;
+they are blocked until signing/notarization automation exists. The release
+assets are the per-platform wheels, the installer scripts, and a `sha256.sum`.
 
 ## Testing
 
-Both scripts support `BATCHALIGN_PACKAGE` (override package spec) and `CI=true`
-(skip interactive prompts) environment variables for automated testing.
+`test-github-release.sh` proves the full path end-to-end: it builds the wheel,
+creates a throwaway draft pre-release, runs the installer against it, verifies
+the CLI works, and deletes the draft on cleanup. It installs into an isolated
+temp directory (`UV_TOOL_DIR` / `UV_TOOL_BIN_DIR`), so it does not touch your
+real tool installations.
 
 ```bash
-# Test the macOS installer (builds wheel, isolated sandbox, cleanup)
-bash installers/test.sh
-
-# Reuse an existing wheel in dist/
-bash installers/test.sh --no-build
-
-# Test the full GitHub Release flow (creates draft release, downloads, installs)
-bash installers/test-github-release.sh
-bash installers/test-github-release.sh --no-build
+bash installers/test-github-release.sh              # build wheel + full test
+bash installers/test-github-release.sh --no-build   # reuse an existing wheel in dist/
 ```
-
-Both test scripts use `UV_TOOL_DIR`/`UV_TOOL_BIN_DIR` to install into an
-isolated temp directory — they do not affect the developer's real tool
-installations. The GitHub Release test creates a draft pre-release, verifies
-the download + install path, then deletes the draft on cleanup.
