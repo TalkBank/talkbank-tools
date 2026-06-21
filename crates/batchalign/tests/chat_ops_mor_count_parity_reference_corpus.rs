@@ -28,10 +28,10 @@
 
 use std::path::PathBuf;
 
+use batchalign_transform::extract;
 use talkbank_model::alignment::helpers::TierDomain;
 use talkbank_model::model::{ChatFile, Line};
 use talkbank_parser::TreeSitterParser;
-use batchalign_transform::extract;
 use walkdir::WalkDir;
 
 fn reference_corpus_root() -> PathBuf {

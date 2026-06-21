@@ -104,7 +104,8 @@ mod tests {
 @End
 ";
         let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
+        let (mut chat_file, _errors) =
+            batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let decisions = vec![RepairDecision {
             line_idx: 5, // first utterance line
@@ -149,7 +150,8 @@ mod tests {
 @End
 ";
         let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
+        let (mut chat_file, _errors) =
+            batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let decisions = vec![RepairDecision {
             line_idx: 5,

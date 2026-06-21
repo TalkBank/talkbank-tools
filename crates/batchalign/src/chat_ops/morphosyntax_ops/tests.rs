@@ -8,8 +8,8 @@ fn ud_response_from_words(words_json: &str) -> crate::chat_ops::nlp::UdResponse 
 
 #[test]
 fn test_clear_morphosyntax() {
-    use talkbank_model::model::Line;
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
+    use talkbank_model::model::Line;
 
     let parser = TreeSitterParser::new().unwrap();
     // Minimal CHAT with %mor and %gra tiers
@@ -67,8 +67,8 @@ fn test_clear_morphosyntax() {
 
 #[test]
 fn test_clear_morphosyntax_preserves_other_tiers() {
-    use talkbank_model::model::Line;
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
+    use talkbank_model::model::Line;
 
     let parser = TreeSitterParser::new().unwrap();
     // CHAT with %mor, %gra, and %act -- only %mor/%gra should be removed
@@ -104,8 +104,8 @@ fn test_clear_morphosyntax_preserves_other_tiers() {
 
 #[test]
 fn test_clear_morphosyntax_no_tiers() {
-    use talkbank_model::model::Line;
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
+    use talkbank_model::model::Line;
 
     let parser = TreeSitterParser::new().unwrap();
     // CHAT without any dependent tiers -- clear should be a no-op
@@ -686,14 +686,14 @@ fn collect_payloads_identifies_contiguous_at_s_span() {
 /// 6. splice the merged secondary morphology back into the host file
 #[test]
 fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
-    use talkbank_model::ParseValidateOptions;
-    use talkbank_model::model::Line;
     use batchalign_transform::morphosyntax::l2::{
         extract_l2_deferred_positions, merge_planned_secondary_span, plan_secondary_dispatch,
         splice_l2_into_chat,
     };
     use batchalign_transform::morphosyntax::{UdId, UdPunctable, UdSentence, UdWord, UniversalPos};
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
+    use talkbank_model::ParseValidateOptions;
+    use talkbank_model::model::Line;
 
     let parser = TreeSitterParser::new().unwrap();
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
@@ -1365,11 +1365,11 @@ fn collect_payloads_bare_at_s_shortcut_resolution() {
 /// empty placeholders and the subsequent replace finds the variant match.
 #[test]
 fn clear_then_reinject_preserves_tier_order_mor_gra_wor() {
+    use batchalign_transform::inject::replace_or_add_tier;
+    use batchalign_transform::parse::parse_lenient;
     use talkbank_model::model::DependentTier;
     use talkbank_model::model::dependent_tier::{GraTier, MorTier, WorTier};
     use talkbank_parser::TreeSitterParser;
-    use batchalign_transform::inject::replace_or_add_tier;
-    use batchalign_transform::parse::parse_lenient;
 
     let text = concat!(
         "@UTF8\n",
@@ -1444,8 +1444,8 @@ fn clear_then_reinject_preserves_tier_order_mor_gra_wor() {
 #[test]
 fn add_wor_tier_preserves_tier_order_wor_mor_gra() {
     use crate::chat_ops::fa::add_wor_tier;
-    use talkbank_parser::TreeSitterParser;
     use batchalign_transform::parse::parse_lenient;
+    use talkbank_parser::TreeSitterParser;
 
     let text = concat!(
         "@UTF8\n",
@@ -1487,9 +1487,9 @@ fn add_wor_tier_preserves_tier_order_wor_mor_gra() {
 /// `remove_empty_morphosyntax_placeholders` ran at serialize time.
 #[test]
 fn collect_payloads_treats_empty_mor_placeholder_as_unprocessed() {
+    use batchalign_transform::parse::parse_lenient;
     use talkbank_model::model::LanguageCode;
     use talkbank_parser::TreeSitterParser;
-    use batchalign_transform::parse::parse_lenient;
 
     let text = concat!(
         "@UTF8\n",

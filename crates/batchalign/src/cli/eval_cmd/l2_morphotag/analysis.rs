@@ -18,6 +18,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 use talkbank_model::alignment::TierDomain;
 use talkbank_model::alignment::helpers::{
     MorAlignableWordCount, MorItemCount, WordItem, counts_for_tier, walk_words,
@@ -26,7 +27,6 @@ use talkbank_model::model::{
     ChatFile, GrammaticalRelationType, LanguageCode, Line, MorFeature, PosCategory,
     content::word::WordLanguageMarker,
 };
-use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
 use super::types::{
     AtSAnalysis, AtSOccurrence, FeatureSet, FileAnalysis, GraItemText, LanguageMarkerKind,

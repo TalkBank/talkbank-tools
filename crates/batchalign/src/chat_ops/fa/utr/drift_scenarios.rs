@@ -44,9 +44,9 @@
 //! | `anchor_sparse_stopword_heavy`  | none              | 500  | transcript is ALL <4-char tokens  |
 
 use crate::chat_ops::fa::utr::{AsrTimingToken, UtrResult, inject_utr_timing, overlap_markers};
+use batchalign_transform::parse::parse_lenient;
 use talkbank_model::model::{ChatFile, Line, Linker};
 use talkbank_parser::TreeSitterParser;
-use batchalign_transform::parse::parse_lenient;
 
 /// Ground-truth audio window for an utterance, recovered from the synthetic
 /// cadence used by [`build_scenario`]. Drift detection compares the UTR-

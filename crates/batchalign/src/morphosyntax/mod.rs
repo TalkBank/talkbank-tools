@@ -114,7 +114,9 @@ pub(crate) async fn process_morphosyntax_incremental(
     params: &MorphosyntaxParams<'_>,
 ) -> Result<String, ServerError> {
     use batchalign_transform::diff::preserve::TierKind;
-    use batchalign_transform::diff::{DiffSummary, UtteranceDelta, copy_dependent_tiers, diff_chat};
+    use batchalign_transform::diff::{
+        DiffSummary, UtteranceDelta, copy_dependent_tiers, diff_chat,
+    };
 
     let primary_lang = LanguageCode::new(params.lang.as_ref());
     let parser = crate::chat_parser();

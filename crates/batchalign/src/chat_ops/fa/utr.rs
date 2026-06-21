@@ -320,19 +320,19 @@ pub(super) fn run_global_utr(
                         result
                             .decisions
                             .push(batchalign_transform::decisions::DecisionRecord {
-                                line_idx,
-                                speaker: utt.main.speaker.as_str().to_string(),
-                                strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
-                                    batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
-                                ),
-                                reason: format!(
-                                    "words={} asr_range=[{min_asr},{max_asr}] \
+                            line_idx,
+                            speaker: utt.main.speaker.as_str().to_string(),
+                            strategy: batchalign_transform::decisions::DecisionStrategy::Utr(
+                                batchalign_transform::decisions::UtrStrategy::ZeroDurationSkipped,
+                            ),
+                            reason: format!(
+                                "words={} asr_range=[{min_asr},{max_asr}] \
                                      start_ms={start_ms} end_ms={end_ms} \
                                      reason=zero_or_negative_duration",
-                                    info.words.len()
-                                ),
-                                needs_review: false,
-                            });
+                                info.words.len()
+                            ),
+                            needs_review: false,
+                        });
                     }
                 }
             }

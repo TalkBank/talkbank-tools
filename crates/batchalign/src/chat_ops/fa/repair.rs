@@ -489,7 +489,8 @@ mod tests {
 @End
 ";
         let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
-        let (mut chat_file, _errors) = batchalign_transform::parse::parse_lenient(&parser, chat_text);
+        let (mut chat_file, _errors) =
+            batchalign_transform::parse::parse_lenient(&parser, chat_text);
 
         let result = repair_bullets(&mut chat_file, false);
         assert_eq!(result.stats.boundary_averaged, 0);

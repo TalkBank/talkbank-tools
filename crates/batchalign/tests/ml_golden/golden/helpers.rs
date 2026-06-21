@@ -5,8 +5,8 @@ use batchalign::api::{FilePayload, FileResult, JobInfo, ReleasedCommand};
 use batchalign::chat_ops::{ChatFile, DependentTier};
 use batchalign::options::CommandOptions;
 use batchalign::worker::InferTask;
-use std::sync::atomic::{AtomicU64, Ordering};
 use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 static LIVE_NAME_COUNTER: AtomicU64 = AtomicU64::new(0);
 

@@ -37,13 +37,13 @@
 //! BUG-011 (mor/gra count mismatch) is the same architectural class
 //! and faces the same reproducer issue — see the test stub below.
 
-use talkbank_model::ParseValidateOptions;
-use talkbank_model::model::LanguageCode;
-use talkbank_parser::TreeSitterParser;
 use batchalign_transform::morphosyntax::{
     MappingContext, MultilingualPolicy, UdId, UdPunctable, UdSentence, UdWord, UniversalPos,
     collect_payloads, declared_languages, map_ud_sentence,
 };
+use talkbank_model::ParseValidateOptions;
+use talkbank_model::model::LanguageCode;
+use talkbank_parser::TreeSitterParser;
 
 /// Helper: parse a one-utterance CHAT fragment using the canonical
 /// tree-sitter parser. Mirrors the helper used in

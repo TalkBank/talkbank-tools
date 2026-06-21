@@ -2,8 +2,8 @@
 
 use crate::api::{DurationSeconds, LanguageCode3, LanguageSpec, RevAiJobId};
 use crate::types::worker_v2::{AsrBackendV2, SpeakerBackendV2};
-use serde::{Deserialize, Serialize};
 use batchalign_transform::asr_postprocess::AsrMonologue;
+use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // ASR response types (match Python inference/asr.py models)

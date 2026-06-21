@@ -4,6 +4,7 @@
 //! - Python caller: `batchalign/worker/_text_v2.py`
 //! - Full Rust/Python responsibility split and input/output contracts.
 
+use batchalign_transform::coref::CorefRawResponse;
 use batchalign_types::worker::{BatchInferResponse, InferResponse};
 use batchalign_types::worker_v2::{
     CorefAnnotationV2, CorefChainRefV2, CorefItemResultV2, CorefResultV2, MorphosyntaxItemResultV2,
@@ -11,7 +12,6 @@ use batchalign_types::worker_v2::{
     UtsegResultV2,
 };
 use pyo3::prelude::*;
-use batchalign_transform::coref::CorefRawResponse;
 
 use crate::error::BatchalignBoundaryError;
 use crate::py_json_bridge::py_to_json_value;
@@ -325,8 +325,8 @@ pub(crate) fn align_tokens(
     stanza_tokens: Vec<String>,
     alpha2: String,
 ) -> PyResult<Py<pyo3::types::PyList>> {
-    use pyo3::types::{PyBool, PyList, PyString, PyTuple};
     use batchalign_transform::tokenizer_realign::{self, PatchedToken};
+    use pyo3::types::{PyBool, PyList, PyString, PyTuple};
 
     let patched =
         py.detach(|| tokenizer_realign::align_tokens(&original_words, &stanza_tokens, &alpha2));
