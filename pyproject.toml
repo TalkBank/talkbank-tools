@@ -70,7 +70,7 @@ dependencies = [
     "aliyun-python-sdk-alimt>=3.2.0",
     "alibabacloud-nls-python-sdk>=1.0.0",
     "funasr",
-    # Qwen3-ASR — Alibaba's open-weight Cantonese-capable ASR. Local
+    # Qwen3-ASR: Alibaba's open-weight Cantonese-capable ASR. Local
     # model (~3.4 GB fp16) downloaded from HuggingFace on first use.
     # Recommended default for ``yue`` per Lee et al. (2026).
     "qwen-asr",
@@ -103,7 +103,7 @@ Issues = "https://github.com/TalkBank/talkbank-tools/issues"
 manifest-path = "crates/batchalign-pyo3/Cargo.toml"
 python-source = "."
 python-packages = ["batchalign"]
-features = ["pyo3/extension-module"]
+features = ["pyo3/extension-module", "pyo3/abi3-py312"]
 # Use the debug profile for editable installs so `uv run <anything>` rebuilds
 # the extension in seconds rather than minutes. Release wheels for distribution
 # are built explicitly via `maturin build --release` in the deploy script,
