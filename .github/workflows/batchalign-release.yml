@@ -1,30 +1,32 @@
-# Preview release line for the public `batchalign3` Python package and embedded
-# CLI wheels. This does not release internal crates or the experimental desktop
-# surfaces. Set both publish toggles false for a dry-run packaging validation.
-name: Batchalign Package Release (Preview)
+# Release the public batchalign3 Python package and embedded CLI wheels to a
+# GitHub Release (no PyPI). One abi3 wheel per platform plus the installer
+# scripts and a checksum file are attached. Triggered by a v* tag push, or
+# manually via workflow_dispatch with an existing tag. This does not release
+# internal crates or the experimental desktop surfaces. For a dry-run packaging
+# validation use installers/test-github-release.sh (a throwaway draft release).
+name: Batchalign Release
 
-run-name: Batchalign preview ${{ inputs.tag }}
+run-name: batchalign3 ${{ inputs.tag || github.ref_name }}
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Git tag to publish for the preview package (e.g. v0.1.0)"
+        description: "Existing git tag to (re)publish (e.g. v0.1.0)"
         required: true
-      publish_pypi:
-        description: "Publish preview package to PyPI"
+      dry_run:
+        description: "Build and smoke-test only; do not create the GitHub Release"
         type: boolean
-        default: true
-      publish_github:
-        description: "Create GitHub Release with wheels and sdist"
-        type: boolean
-        default: true
+        default: false
 
 env:
-  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 concurrency:
-  group: batchalign-package-release-${{ inputs.tag }}
+  group: batchalign-package-release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -36,7 +38,7 @@ jobs:
     name: Preflight
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -84,7 +86,7 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -96,7 +98,7 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -104,8 +106,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build CLI binary (macOS / Windows — native)
+      - name: Build CLI binary (macOS / Windows, native)
         if: runner.os != 'Linux'
+        shell: bash
         run: |
           cargo build --release -p batchalign --target ${{ matrix.target }}
           mkdir -p batchalign/_bin
@@ -114,7 +117,8 @@ jobs:
         run: cp target/${{ matrix.target }}/release/batchalign3 batchalign/_bin/batchalign3
       - name: Stage CLI binary (Windows)
         if: runner.os == 'Windows'
-        run: copy target\${{ matrix.target }}\release\batchalign3.exe batchalign\_bin\batchalign3.exe
+        shell: bash
+        run: cp "target/${{ matrix.target }}/release/batchalign3.exe" batchalign/_bin/batchalign3.exe
 
       - name: Build wheel
         uses: PyO3/maturin-action@v1
@@ -205,7 +209,7 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -217,35 +221,30 @@ jobs:
           path: dist/
 
   github-release:
-    if: inputs.publish_github
     needs: [preflight, build, sdist, wheel-smoke]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           pattern: "{wheel-*,sdist}"
           merge-multiple: true
           path: dist/
+      - name: Stage installer scripts
+        run: |
+          cp installers/install-batchalign3.sh dist/
+          cp installers/install-batchalign3.ps1 dist/
+      - name: Checksums
+        working-directory: dist
+        run: shasum -a 256 ./*.whl ./*.tar.gz install-batchalign3.sh install-batchalign3.ps1 > sha256.sum
       - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "${{ env.RELEASE_TAG }}" \
+          gh release create "$RELEASE_TAG" \
             --verify-tag \
-            --title "Batchalign Preview ${{ env.RELEASE_TAG }}" \
+            --title "batchalign3 $RELEASE_TAG" \
             --generate-notes \
             dist/*
-
-  publish-pypi:
-    if: inputs.publish_pypi
-    needs: [preflight, build, sdist, wheel-smoke]
-    runs-on: ubuntu-latest
-    environment: pypi
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: "{wheel-*,sdist}"
-          merge-multiple: true
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
