@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-06-18 16:43 EDT
+**Last modified:** 2026-06-21 17:11 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -25,10 +25,25 @@ chatter on 2026-06-18 (meta-repo memory
 
 `[workspace.dependencies]` in `Cargo.toml` points `talkbank-model`,
 `talkbank-parser`, `talkbank-parser-re2c`, `talkbank-parser-tests`, and
-`talkbank-transform` at `../chatter/crates/...` (local path deps; these become
-crates.io version deps once chatter publishes). **Do NOT re-introduce copies of
-those crates here** , chatter owns them. New CHAT-format / grammar / spec /
-parser / validation / CLAN work goes in chatter, not here.
+`talkbank-transform` at the published, public chatter via git deps pinned to a
+release tag: `{ git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }`.
+A plain checkout builds with no `../chatter` sibling. Adopt a newer chatter by
+bumping the tag (then `cargo update`). **Do NOT re-introduce copies of those
+crates here**; chatter owns them. New CHAT-format / grammar / spec / parser /
+validation / CLAN work goes in chatter, not here.
+
+To co-develop chatter+batchalign locally, add an UNCOMMITTED `[patch]` that
+points the git deps at your local checkout (never commit it; committed builds
+stay self-contained):
+
+```toml
+[patch."https://github.com/TalkBank/chatter"]
+talkbank-model = { path = "../chatter/crates/talkbank-model" }
+talkbank-parser = { path = "../chatter/crates/talkbank-parser" }
+talkbank-parser-re2c = { path = "../chatter/crates/talkbank-parser-re2c" }
+talkbank-parser-tests = { path = "../chatter/crates/talkbank-parser-tests" }
+talkbank-transform = { path = "../chatter/crates/talkbank-transform" }
+```
 
 ## Crates in this workspace
 
