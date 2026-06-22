@@ -47,12 +47,23 @@ case "$os" in
     *) die "unsupported OS: $os (on Windows use install-batchalign3.ps1)" ;;
 esac
 
-# 3. Resolve the abi3 wheel asset URL from the latest release.
+# 3. Resolve the abi3 wheel asset URL from the latest release. For testing,
+# BATCHALIGN3_RELEASE_JSON_FILE supplies the release API JSON directly (so the
+# resolution logic can be exercised offline), and BATCHALIGN3_RESOLVE_ONLY
+# prints the resolved URL and exits before installing.
 api="https://api.github.com/repos/${REPO}/releases/latest"
-wheel_url="$(curl --proto '=https' --tlsv1.2 -fsSL "$api" \
-    | grep -o "https://[^\"]*-abi3-${plat}\\.whl" \
-    | head -1)"
+if [ -n "${BATCHALIGN3_RELEASE_JSON_FILE:-}" ]; then
+    release_json="$(cat "$BATCHALIGN3_RELEASE_JSON_FILE")"
+else
+    release_json="$(curl --proto '=https' --tlsv1.2 -fsSL "$api")"
+fi
+wheel_url="$(printf '%s' "$release_json" | grep -o "https://[^\"]*-abi3-${plat}\\.whl" | head -1)"
 [ -n "$wheel_url" ] || die "no abi3 wheel for platform ${plat} in the latest ${REPO} release"
+
+if [ -n "${BATCHALIGN3_RESOLVE_ONLY:-}" ]; then
+    printf '%s\n' "$wheel_url"
+    exit 0
+fi
 
 # 4. Install or upgrade with a uv-managed Python.
 info "installing ${wheel_url##*/} (Python ${PYTHON_VERSION})"

@@ -1,10 +1,11 @@
 #!/bin/bash
-# installers/test-github-release.sh — Test the GitHub Release install path.
+# installers/test-github-release.sh: test the GitHub Release install path.
 #
-# Creates a draft pre-release on GitHub, uploads a locally-built wheel,
-# downloads it back, installs via uv, verifies the CLI works, then
-# cleans up the draft release. Proves the full GitHub Release distribution
-# path end-to-end without touching PyPI.
+# Builds the abi3 wheel, creates a draft pre-release, uploads the wheel,
+# downloads it back, installs via uv into an isolated sandbox, verifies the CLI
+# works and upgrades, and checks that install-batchalign3.sh resolves the right
+# abi3 wheel URL from the release JSON. Cleans up the draft release on exit.
+# Proves the GitHub Release distribution path without touching PyPI.
 #
 # Prerequisites:
 #   - gh CLI authenticated with repo access (`gh auth status`)
@@ -108,7 +109,7 @@ echo "=== Test 1: Create draft GitHub Release ==="
 gh release create "$TAG" \
     --repo "$REPO" \
     --title "Installer Test (delete me)" \
-    --notes "Automated test release — safe to delete." \
+    --notes "Automated test release, safe to delete." \
     --draft \
     --prerelease \
     "$WHEEL"
@@ -165,6 +166,26 @@ echo "[OK] Upgrade (--force) succeeded"
 
 batchalign3 --help >/dev/null
 echo "[OK] batchalign3 --help exits 0 after upgrade"
+
+# ── Test installer resolution logic (offline, against the draft JSON) ────────
+
+echo ""
+# A draft release has no git tag, so the API releases/tags endpoint 404s.
+# Synthesize a release JSON from the real built wheel name: this still checks
+# that the installer's platform string matches maturin's actual wheel tag and
+# that its grep extracts the abi3 wheel URL.
+echo "=== Test 7: install-batchalign3.sh resolves the abi3 wheel URL ==="
+WHEEL_NAME="$(basename "$DOWNLOADED_WHEEL")"
+RELEASE_JSON="$SANDBOX/release.json"
+printf '{"assets":[{"browser_download_url":"https://github.com/%s/releases/download/%s/%s"}]}\n' \
+    "$REPO" "$TAG" "$WHEEL_NAME" > "$RELEASE_JSON"
+RESOLVED="$(BATCHALIGN3_RELEASE_JSON_FILE="$RELEASE_JSON" BATCHALIGN3_RESOLVE_ONLY=1 \
+    bash "$SCRIPT_DIR/install-batchalign3.sh")"
+echo "Resolved URL: $RESOLVED"
+case "$RESOLVED" in
+    *-abi3-*.whl) echo "[OK] installer resolved an abi3 wheel for this platform" ;;
+    *) echo "FAIL: installer did not resolve an abi3 wheel URL"; exit 1 ;;
+esac
 
 # ── Done ────────────────────────────────────────────────────────────────────
 
