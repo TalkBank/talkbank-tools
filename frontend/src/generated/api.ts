@@ -861,6 +861,13 @@ export interface components {
             control_plane?: null | components["schemas"]["JobControlPlaneInfo"];
             duration_s?: null | components["schemas"]["DurationSeconds"];
             /**
+             * @description Job-level error message when the job failed (the aggregated per-file
+             *     failure reason). Surfaces the cause in the `/jobs` list and the live
+             *     dashboard/TUI feed instead of a bare "failed". `None` for non-failed
+             *     jobs. Distinct from per-file errors and from the `error_files` count.
+             */
+            error?: string | null;
+            /**
              * Format: int64
              * @description Number of files that ended in `Error` status.
              */

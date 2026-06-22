@@ -929,6 +929,13 @@
               }
             ]
           },
+          "error": {
+            "description": "Job-level error message when the job failed (the aggregated per-file\nfailure reason). Surfaces the cause in the `/jobs` list and the live\ndashboard/TUI feed instead of a bare \"failed\". `None` for non-failed\njobs. Distinct from per-file errors and from the `error_files` count.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "error_files": {
             "description": "Number of files that ended in `Error` status.",
             "format": "int64",
