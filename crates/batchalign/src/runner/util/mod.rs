@@ -155,26 +155,48 @@ mod tests {
         // MPS excluded, hosts without CUDA, operator-set CPU mode),
         // GPU-tagged commands like Transcribe execute on CPU workers.
         // There is no shared GPU model to contend on, so
-        // `gpu_thread_pool_size` must NOT clamp the operator's
-        // explicit `max_workers_per_job`. The integration test
-        // `tests/serve_start_workers_persisted.rs` pins the same
-        // invariant at the CLI subprocess seam; this unit test guards
-        // it at the planner level.
-        let config = ServerConfig {
+        // `gpu_thread_pool_size` must NOT clamp the worker count. The
+        // integration test `tests/serve_start_workers_persisted.rs` pins
+        // the same invariant at the CLI subprocess seam; this unit test
+        // guards it at the planner level.
+        //
+        // The absolute worker count is host-derived (`compute_job_workers`
+        // clamps by `available_parallelism()` and the resolved memory
+        // tier, both small on CI runners), so asserting `>= 2` baked in a
+        // many-core dev-box assumption that fails on a small runner.
+        // Assert the host-INDEPENDENT invariant instead: under force_cpu,
+        // `gpu_thread_pool_size` has no effect at all. With the force_cpu
+        // guard removed, a GPU command with a tiny pool would clamp to the
+        // pool size while a large pool would not, so the two results would
+        // diverge; this equality catches that regression on any core count.
+        let small_pool = ServerConfig {
             max_workers_per_job: Some(4),
-            // `gpu_thread_pool_size=1` is what
-            // `recommend_gpu_thread_pool_size` returns when the GPU is
-            // not functional; set explicitly so the test does not
-            // depend on the host's GPU state.
             gpu_thread_pool_size: Some(1),
             force_cpu: Some(true),
             ..Default::default()
         };
-        let effective = effective_for_test(&config);
-        let result = compute_job_workers(ReleasedCommand::Transcribe, 6, &effective, &config);
-        assert!(
-            *result >= 2,
-            "Under force_cpu, --workers 4 must not be clamped by gpu_thread_pool_size=1, got {result}"
+        let large_pool = ServerConfig {
+            max_workers_per_job: Some(4),
+            gpu_thread_pool_size: Some(64),
+            force_cpu: Some(true),
+            ..Default::default()
+        };
+        let small = compute_job_workers(
+            ReleasedCommand::Transcribe,
+            6,
+            &effective_for_test(&small_pool),
+            &small_pool,
+        );
+        let large = compute_job_workers(
+            ReleasedCommand::Transcribe,
+            6,
+            &effective_for_test(&large_pool),
+            &large_pool,
+        );
+        assert_eq!(
+            small, large,
+            "under force_cpu, gpu_thread_pool_size must not affect the worker \
+             count (gpu_pool=1 gave {small:?}, gpu_pool=64 gave {large:?})"
         );
     }
 
