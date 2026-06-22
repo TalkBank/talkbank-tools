@@ -1,7 +1,7 @@
 # Validation
 
 **Status:** Current
-**Last updated:** 2026-05-19 16:14 EDT
+**Last updated:** 2026-06-21 23:23 EDT
 
 CHAT validation runs at multiple points in the processing pipeline.
 All validation logic is in Rust: `talkbank-model::validation` owns
@@ -13,10 +13,11 @@ validation gates, severity posture, the verification-gate set
 (G0-G14), and how validation failures interact with caches and bug
 reports.
 
-For error-code infrastructure (codes, sinks, severities, layers), see
-[talkbank-tools-errors](talkbank-tools-errors.md). For the
-diagnostic UX standard, see
-[error-diagnostics-ux](error-diagnostics-ux.md).
+For the CHAT-core error-code infrastructure (codes, sinks, severities,
+layers), now owned by chatter, see
+[chat-core-errors](https://talkbank.github.io/chatter/architecture/errors-and-validation/chat-core-errors.html).
+For the diagnostic UX standard, see
+[error-diagnostics-ux](https://talkbank.github.io/chatter/architecture/errors-and-validation/error-diagnostics-ux.html).
 
 ## Validity Levels
 

@@ -1,18 +1,18 @@
 # Errors: Batchalign Runtime
 
 **Status:** Current
-**Last updated:** 2026-05-19 16:14 EDT
+**Last updated:** 2026-06-21 23:23 EDT
 
 How Batchalign produces, propagates, and surfaces errors specific to
 the ML runtime: parse modes, ML/IPC failures, network errors,
 ASR-API errors, worker-crash recovery, the Python-facing exception
 hierarchy, and the CLI failure summary. For the CHAT-core error
-infrastructure (codes, sinks, severities) see
-[talkbank-tools-errors](talkbank-tools-errors.md). For the typed
-boundary between Python and Rust workers see
+infrastructure (codes, sinks, severities), now owned by chatter, see
+[chat-core-errors](https://talkbank.github.io/chatter/architecture/errors-and-validation/chat-core-errors.html).
+For the typed boundary between Python and Rust workers see
 [python-rust-errors](python-rust-errors.md). For the diagnostic UX
 standard that applies workspace-wide, see
-[error-diagnostics-ux](error-diagnostics-ux.md).
+[error-diagnostics-ux](https://talkbank.github.io/chatter/architecture/errors-and-validation/error-diagnostics-ux.html).
 
 ## Two Parse Modes
 

@@ -1,14 +1,14 @@
 # Batchalign Workers
 
 **Status:** Current
-**Last updated:** 2026-05-19 17:38 EDT
+**Last updated:** 2026-06-21 23:23 EDT
 
 Per-app worker concerns specific to the Batchalign runtime: pool
 sizing, RAM-tier-aware memory budgets, model loading per worker,
-saturation safeguards, and the three-layer parallelism model. For
-shared concurrency primitives (Tokio runtime, the
-`Semaphore + RAII` pool pattern, channels, lock ordering, mutex
-policy), see [Concurrency](concurrency.md).
+saturation safeguards, and the three-layer parallelism model. These
+build on the workspace's shared concurrency primitives: the Tokio
+runtime, the `Semaphore + RAII` pool pattern, channels, lock ordering,
+and the no-`Mutex` policy.
 
 > **Implementation note.** Tier scaling is wired (b4189037).
 > `estimate_per_worker_peak_mb_with_profile` (Phase β, `batchalign-types::memory`)
