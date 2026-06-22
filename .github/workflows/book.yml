@@ -18,7 +18,7 @@ jobs:
     name: Build TalkBank Toolchain mdBook
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       # Book toolchain. mdBook + mdbook-mermaid are pinned to the 0.4.x era:
       # the mermaid preprocessor is protocol-sensitive to mdBook's wire format
