@@ -13,7 +13,6 @@
     clippy::todo,
     clippy::unimplemented
 )]
-
 #![allow(dead_code)]
 
 use std::ffi::OsStr;

@@ -29,7 +29,6 @@
     clippy::todo,
     clippy::unimplemented
 )]
-
 #![allow(dead_code)]
 
 use std::collections::HashMap;

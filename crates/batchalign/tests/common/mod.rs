@@ -16,7 +16,6 @@
     clippy::todo,
     clippy::unimplemented
 )]
-
 #![allow(dead_code)]
 
 mod audio_fixtures;

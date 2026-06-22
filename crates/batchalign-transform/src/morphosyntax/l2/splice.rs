@@ -443,13 +443,9 @@ pub fn splice_l2_into_chat(
             for k in span_indices {
                 match merged_results[k].as_ref() {
                     None => outcome.fallback += 1,
-                    Some(merged) => splice_one_position(
-                        chat_file,
-                        deferred,
-                        &deferred[k],
-                        merged,
-                        &mut outcome,
-                    ),
+                    Some(merged) => {
+                        splice_one_position(chat_file, deferred, &deferred[k], merged, &mut outcome)
+                    }
                 }
             }
             continue;

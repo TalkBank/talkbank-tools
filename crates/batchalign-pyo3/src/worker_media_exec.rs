@@ -58,9 +58,7 @@ fn extract_opensmile_request(
     }
 }
 
-fn extract_avqi_request(
-    request: &ExecuteRequestV2,
-) -> Result<&AvqiRequestV2, MediaExecuteFailure> {
+fn extract_avqi_request(request: &ExecuteRequestV2) -> Result<&AvqiRequestV2, MediaExecuteFailure> {
     if request.task != InferenceTaskV2::Avqi {
         return Err(MediaExecuteFailure::InvalidPayload(format!(
             "expected avqi task, got {:?}",
