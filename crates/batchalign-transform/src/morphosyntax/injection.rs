@@ -110,9 +110,7 @@ fn synthesize_all_special_form_utterance(
     line_idx: usize,
     item: &super::payload::MorphosyntaxBatchItem,
     words: &[crate::extract::ExtractedWord],
-    root_label: &str,
-    dep_label: &str,
-    punct_label: &str,
+    labels: &SyntheticGraLabels<'_>,
     decisions: &mut Vec<DecisionRecord>,
 ) -> bool {
     use super::synthesis::synthesize_special_form_mor;
@@ -128,39 +126,36 @@ fn synthesize_all_special_form_utterance(
         return false;
     }
 
-    let synth_mors: Vec<Mor> = item
-        .special_forms
-        .iter()
-        .zip(words.iter())
-        .map(|((form_type, resolved_lang), word)| {
-            // Code-switched first: an `@s` word can carry both a
-            // form_type and a resolved_lang in theory, and the L2
-            // splice path (which fills in the placeholder later)
-            // wins by precedent.
-            if resolved_lang.is_some() {
-                Mor::new(MorWord::l2_placeholder())
-            } else if let Some(ft) = form_type {
-                synthesize_special_form_mor(ft, word.text.as_str())
-            } else {
-                unreachable!(
-                    "all_synthesizable invariant violated: word has \
-                     neither form_type nor resolved_lang"
-                )
-            }
-        })
-        .collect();
+    let mut synth_mors: Vec<Mor> = Vec::with_capacity(item.special_forms.len());
+    for ((form_type, resolved_lang), word) in item.special_forms.iter().zip(words.iter()) {
+        // Code-switched first: an `@s` word can carry both a form_type and a
+        // resolved_lang in theory, and the L2 splice path (which fills in the
+        // placeholder later) wins by precedent.
+        let mor = if resolved_lang.is_some() {
+            Mor::new(MorWord::l2_placeholder())
+        } else if let Some(ft) = form_type {
+            synthesize_special_form_mor(ft, word.text.as_str())
+        } else {
+            // `all_synthesizable` above guarantees each special form has a
+            // form_type or a resolved_lang, so this arm is unreachable for real
+            // input. If that invariant is ever broken, bail safely (skip this
+            // utterance's synthesis) rather than panic.
+            return false;
+        };
+        synth_mors.push(mor);
+    }
 
     let chunk_count: usize = synth_mors.iter().map(Mor::count_chunks).sum();
     let mut synth_gras: Vec<GrammaticalRelation> = Vec::with_capacity(chunk_count + 1);
     for chunk_idx in 1..=chunk_count {
         let (head, label) = if chunk_idx == 1 {
-            (0_usize, root_label)
+            (0_usize, labels.root)
         } else {
-            (1_usize, dep_label)
+            (1_usize, labels.dep)
         };
         synth_gras.push(GrammaticalRelation::new(chunk_idx, head, label));
     }
-    synth_gras.push(GrammaticalRelation::new(chunk_count + 1, 1, punct_label));
+    synth_gras.push(GrammaticalRelation::new(chunk_count + 1, 1, labels.punct));
 
     let utt = match &mut chat_file.lines[line_idx] {
         Line::Utterance(u) => u,
@@ -181,6 +176,16 @@ fn synthesize_all_special_form_utterance(
         }
     }
     true
+}
+
+/// The three `%gra` deprel labels [`synthesize_all_special_form_utterance`]
+/// writes into a synthesized utterance: the root relation (Stanza `head=0`), a
+/// dependent form-marker relation (`head!=0`), and the terminator's punct
+/// relation.
+struct SyntheticGraLabels<'a> {
+    root: &'a str,
+    dep: &'a str,
+    punct: &'a str,
 }
 
 /// Inject UD NLP results back into utterances.
@@ -243,9 +248,11 @@ pub fn inject_results(
             line_idx,
             &item,
             &words,
-            ROOT_RELATION_LABEL,
-            DEP_RELATION_LABEL,
-            PUNCT_RELATION_LABEL,
+            &SyntheticGraLabels {
+                root: ROOT_RELATION_LABEL,
+                dep: DEP_RELATION_LABEL,
+                punct: PUNCT_RELATION_LABEL,
+            },
             &mut decisions,
         ) {
             continue;

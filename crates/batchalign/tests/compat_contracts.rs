@@ -3,6 +3,17 @@
 //! These tests intentionally exercise the public clap parser and typed-option
 //! builder so we preserve representative BA2 aliases, precedence rules, and
 //! downstream dispatch invariants without requiring real ML runs.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 mod cli_common;
 

@@ -9,6 +9,12 @@ use serde::Deserialize;
 type DynError = Box<dyn Error>;
 type Result<T> = std::result::Result<T, DynError>;
 
+/// Map from a workspace package name to its directory relative to the repo root.
+type PackageDirs = HashMap<String, PathBuf>;
+/// Map from a workspace package name to the set of package names that depend on
+/// it (the reverse-dependency edges used to compute impacted-package closures).
+type ReverseDeps = HashMap<String, HashSet<String>>;
+
 const FULL_WORKSPACE_PATHS: &[&str] = &["Cargo.toml", "Cargo.lock"];
 const FULL_WORKSPACE_PREFIXES: &[&str] = &[".github/"];
 const DOC_PREFIXES: &[&str] = &["book/", "docs/"];
@@ -209,6 +215,16 @@ fn run_affected_rust(mode: AffectedMode) -> Result<()> {
 }
 
 fn repo_root() -> &'static Path {
+    // `CARGO_MANIFEST_DIR` is the absolute path of the xtask crate, baked in at
+    // compile time as `<repo-root>/xtask`. Its parent (the repo root) therefore
+    // always exists; `None` is structurally impossible for this constant. This
+    // helper returns a borrowed `&'static Path` consumed by 13 call sites, most
+    // in non-fallible positions (`current_dir`, `join`), so threading a `Result`
+    // through would not buy real error handling here.
+    #[expect(
+        clippy::expect_used,
+        reason = "CARGO_MANIFEST_DIR is `<repo>/xtask`; its parent is a compile-time invariant"
+    )]
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("xtask crate must live under repo root")
@@ -327,7 +343,7 @@ fn load_workspace_metadata() -> Result<Metadata> {
     Ok(serde_json::from_str(&stdout)?)
 }
 
-fn package_graph() -> Result<(HashMap<String, PathBuf>, HashMap<String, HashSet<String>>)> {
+fn package_graph() -> Result<(PackageDirs, ReverseDeps)> {
     let metadata = load_workspace_metadata()?;
     let workspace_names: HashSet<String> = metadata
         .packages
@@ -335,8 +351,8 @@ fn package_graph() -> Result<(HashMap<String, PathBuf>, HashMap<String, HashSet<
         .map(|pkg| pkg.name.clone())
         .collect();
 
-    let mut package_dirs = HashMap::new();
-    let mut reverse: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut package_dirs: PackageDirs = HashMap::new();
+    let mut reverse: ReverseDeps = HashMap::new();
 
     for package in &metadata.packages {
         let relative_manifest = package
@@ -387,7 +403,7 @@ fn special_targets_for_path(path: &Path) -> BTreeSet<String> {
         .collect()
 }
 
-fn package_for_path(path: &Path, package_dirs: &HashMap<String, PathBuf>) -> Option<String> {
+fn package_for_path(path: &Path, package_dirs: &PackageDirs) -> Option<String> {
     let path_str = path_text(path);
     let mut root_fallback: Option<String> = None;
     let mut best_match: Option<(usize, String)> = None;
@@ -421,10 +437,7 @@ fn package_for_path(path: &Path, package_dirs: &HashMap<String, PathBuf>) -> Opt
     best_match.map(|(_, name)| name).or(root_fallback)
 }
 
-fn reverse_dependent_closure(
-    start: &HashSet<String>,
-    reverse: &HashMap<String, HashSet<String>>,
-) -> Vec<String> {
+fn reverse_dependent_closure(start: &HashSet<String>, reverse: &ReverseDeps) -> Vec<String> {
     let mut impacted = start.clone();
     let mut queue: Vec<String> = start.iter().cloned().collect();
 

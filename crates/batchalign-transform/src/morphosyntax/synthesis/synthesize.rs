@@ -128,8 +128,8 @@ mod tests {
     ///
     /// Operational evidence (2026-05-01 push of childes-other-data):
     /// `Japanese/MiiPro/Nanami/31112.cha` lines 2468 and 5326 contain
-    /// `*CHI:	ie-@u …` which the synthesis layer turned into
-    /// `%mor:	uni|ie- …`, blocking the push via E316 on
+    /// `*CHI: ie-@u …` which the synthesis layer turned into
+    /// `%mor: uni|ie- …`, blocking the push via E316 on
     /// `chatter validate`.
     ///
     /// Expectation: SHOULD FAIL TODAY.

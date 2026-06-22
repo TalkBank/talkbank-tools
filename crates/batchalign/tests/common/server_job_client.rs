@@ -1,3 +1,15 @@
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
+
 use super::{poll_job_done, submission_lang};
 use batchalign::api::{
     FilePayload, JobInfo, JobResultResponse, JobStatus, JobSubmission, LanguageSpec, NumSpeakers,

@@ -459,12 +459,13 @@ mod tests {
     }
 
     #[test]
-    fn media_mapping_key_serde_roundtrip() {
+    fn media_mapping_key_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let key = MediaMappingKey::new("slabank-data");
-        let json = serde_json::to_string(&key).unwrap();
+        let json = serde_json::to_string(&key)?;
         assert_eq!(json, "\"slabank-data\"");
-        let back: MediaMappingKey = serde_json::from_str(&json).unwrap();
+        let back: MediaMappingKey = serde_json::from_str(&json)?;
         assert_eq!(back, key);
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -472,7 +473,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn infer_media_mapping_from_client_path() {
+    fn infer_media_mapping_from_client_path() -> Result<(), Box<dyn std::error::Error>> {
         let client_dir =
             ClientPath::new("/Users/operator/chat-data/slabank-data/French/Newcastle/Photos");
         let mut mappings = BTreeMap::new();
@@ -481,13 +482,12 @@ mod tests {
             ServerPath::new("/Volumes/Other/slabank"),
         );
 
-        let result = infer_media_mapping(&client_dir, &mappings);
-        assert!(result.is_some(), "Should infer slabank-data from path");
-
-        let (key, root, subdir) = result.unwrap();
+        let (key, root, subdir) = infer_media_mapping(&client_dir, &mappings)
+            .ok_or("Should infer slabank-data from path")?;
         assert_eq!(key.as_str(), "slabank-data");
         assert_eq!(root.as_path(), Path::new("/Volumes/Other/slabank"));
         assert_eq!(subdir.as_str(), "French/Newcastle/Photos");
+        Ok(())
     }
 
     #[test]
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn infer_media_mapping_multiple_keys() {
+    fn infer_media_mapping_multiple_keys() -> Result<(), Box<dyn std::error::Error>> {
         let client_dir =
             ClientPath::new("/Users/operator/chat-data/childes-eng-na-data/MacWhinney/01");
         let mut mappings = BTreeMap::new();
@@ -516,10 +516,12 @@ mod tests {
             ServerPath::new("/Volumes/CHILDES/CHILDES"),
         );
 
-        let (key, root, subdir) = infer_media_mapping(&client_dir, &mappings).unwrap();
+        let (key, root, subdir) = infer_media_mapping(&client_dir, &mappings)
+            .ok_or("Should infer childes-eng-na-data from path")?;
         assert_eq!(key.as_str(), "childes-eng-na-data");
         assert_eq!(root.as_path(), Path::new("/Volumes/CHILDES/CHILDES"));
         assert_eq!(subdir.as_str(), "MacWhinney/01");
+        Ok(())
     }
 
     /// Regression: when the client's source_dir IS the repo root (ends with the
@@ -540,7 +542,8 @@ mod tests {
     }
 
     #[test]
-    fn infer_media_mapping_when_source_dir_is_repo_root() {
+    fn infer_media_mapping_when_source_dir_is_repo_root() -> Result<(), Box<dyn std::error::Error>>
+    {
         // Regression: source_dir at the repo root (e.g.
         // /Users/operator/chat-data/aphasia-data). Previously
         // infer_media_mapping returned None here, causing
@@ -553,13 +556,8 @@ mod tests {
             ServerPath::new("/Users/operator/media/aphasia"),
         );
 
-        let result = infer_media_mapping(&client_dir, &mappings);
-        assert!(
-            result.is_some(),
-            "should match even when client dir is the repo root"
-        );
-
-        let (key, root, subdir) = result.unwrap();
+        let (key, root, subdir) = infer_media_mapping(&client_dir, &mappings)
+            .ok_or("should match even when client dir is the repo root")?;
         assert_eq!(key.as_str(), "aphasia-data");
         assert_eq!(root.as_path(), Path::new("/Users/operator/media/aphasia"));
         assert_eq!(
@@ -578,10 +576,11 @@ mod tests {
             search_dir.as_path(),
             Path::new("/Users/operator/media/aphasia/Cantonese/Protocol/HKU/PWA")
         );
+        Ok(())
     }
 
     #[test]
-    fn full_media_resolution_brians_scenario() {
+    fn full_media_resolution_brians_scenario() -> Result<(), Box<dyn std::error::Error>> {
         // Simulate: client_dir = .../slabank-data/French/Newcastle/Photos
         // filename = 13/p08aul13.cha → stem = p08aul13, file_subdir = 13
         // media mapping: slabank-data → /Volumes/Other/slabank
@@ -596,7 +595,8 @@ mod tests {
             ServerPath::new("/Volumes/Other/slabank"),
         );
 
-        let (_, root, repo_subdir) = infer_media_mapping(&client_dir, &mappings).unwrap();
+        let (_, root, repo_subdir) = infer_media_mapping(&client_dir, &mappings)
+            .ok_or("slabank-data should be inferred from the client dir")?;
 
         // File-level subdir from the filename's parent
         let file_subdir = "13";
@@ -608,6 +608,7 @@ mod tests {
             search_dir.as_path(),
             Path::new("/Volumes/Other/slabank/French/Newcastle/Photos/13")
         );
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -654,7 +655,8 @@ mod tests {
     /// before inference.  The result still stays a `ClientPath` (safe —
     /// no I/O), but the repo key is now visible to `infer_media_mapping`.
     #[test]
-    fn infer_media_mapping_content_mode_top_level_data_root() {
+    fn infer_media_mapping_content_mode_top_level_data_root()
+    -> Result<(), Box<dyn std::error::Error>> {
         let source_dir = ClientPath::new("/Volumes/data-drive/talkbank-data");
         let filename = "aphasia-data/English/Protocol/APROCSA/2256_T4.cha";
 
@@ -667,17 +669,15 @@ mod tests {
         let file_parent = Path::new(filename)
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
-            .unwrap();
+            .ok_or("filename must have a non-empty parent directory")?;
         let infer_client = source_dir.join(file_parent);
         assert_eq!(
             infer_client.as_str(),
             "/Volumes/data-drive/talkbank-data/aphasia-data/English/Protocol/APROCSA"
         );
 
-        let result = infer_media_mapping(&infer_client, &mappings);
-        assert!(result.is_some(), "repo key must be found after join");
-
-        let (key, root, repo_subdir) = result.unwrap();
+        let (key, root, repo_subdir) = infer_media_mapping(&infer_client, &mappings)
+            .ok_or("repo key must be found after join")?;
         assert_eq!(key.as_str(), "aphasia-data");
         assert_eq!(root.as_path(), Path::new("/Users/operator/media/aphasia"));
         // repo_subdir is the correct path within the media volume — no further
@@ -689,13 +689,15 @@ mod tests {
             search_dir.as_path(),
             Path::new("/Users/operator/media/aphasia/English/Protocol/APROCSA")
         );
+        Ok(())
     }
 
     /// Variant of the content-mode regression: file at repo root (no subdir).
     /// e.g. source_dir="/Volumes/data-drive/talkbank-data",
     ///      filename="aphasia-data/A023.cha"
     #[test]
-    fn infer_media_mapping_content_mode_file_directly_in_repo() {
+    fn infer_media_mapping_content_mode_file_directly_in_repo()
+    -> Result<(), Box<dyn std::error::Error>> {
         let source_dir = ClientPath::new("/Volumes/data-drive/talkbank-data");
         let filename = "aphasia-data/A023.cha";
 
@@ -708,7 +710,7 @@ mod tests {
         let file_parent = Path::new(filename)
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
-            .unwrap(); // parent = "aphasia-data"
+            .ok_or("filename must have a non-empty parent directory")?; // parent = "aphasia-data"
 
         let infer_client = source_dir.join(file_parent);
         // infer_client ends with "aphasia-data" — suffix_after_component returns ""
@@ -717,9 +719,8 @@ mod tests {
             "/Volumes/data-drive/talkbank-data/aphasia-data"
         );
 
-        let result = infer_media_mapping(&infer_client, &mappings);
-        assert!(result.is_some());
-        let (_, root, repo_subdir) = result.unwrap();
+        let (_, root, repo_subdir) = infer_media_mapping(&infer_client, &mappings)
+            .ok_or("aphasia-data should be inferred from the joined client path")?;
         // repo_subdir is "" — file is at the root of the media volume
         assert_eq!(repo_subdir.as_str(), "");
         let search_dir = repo_subdir.resolve_on_server(&root);
@@ -727,13 +728,14 @@ mod tests {
             search_dir.as_path(),
             Path::new("/Users/operator/media/aphasia")
         );
+        Ok(())
     }
 
     /// Ensure an operator's existing scenario still works with the fixed join-first
     /// approach: source_dir already embeds the full subdir, filename has a
     /// shallow dir component.
     #[test]
-    fn infer_media_mapping_brians_scenario_join_first() {
+    fn infer_media_mapping_brians_scenario_join_first() -> Result<(), Box<dyn std::error::Error>> {
         let source_dir =
             ClientPath::new("/Users/operator/chat-data/slabank-data/French/Newcastle/Photos");
         let filename = "13/p08aul13.cha";
@@ -747,14 +749,13 @@ mod tests {
         let file_parent = Path::new(filename)
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
-            .unwrap(); // "13"
+            .ok_or("filename must have a non-empty parent directory")?; // "13"
 
         let infer_client = source_dir.join(file_parent);
         // → ".../slabank-data/French/Newcastle/Photos/13"
 
-        let result = infer_media_mapping(&infer_client, &mappings);
-        assert!(result.is_some());
-        let (key, root, repo_subdir) = result.unwrap();
+        let (key, root, repo_subdir) = infer_media_mapping(&infer_client, &mappings)
+            .ok_or("slabank-data should be inferred from the joined client path")?;
         assert_eq!(key.as_str(), "slabank-data");
         assert_eq!(root.as_path(), Path::new("/Volumes/Other/slabank"));
         assert_eq!(repo_subdir.as_str(), "French/Newcastle/Photos/13");
@@ -764,5 +765,6 @@ mod tests {
             search_dir.as_path(),
             Path::new("/Volumes/Other/slabank/French/Newcastle/Photos/13")
         );
+        Ok(())
     }
 }

@@ -264,16 +264,16 @@ pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode
 /// separate flag) — that is a legitimate "morphotag not applicable to
 /// this transcript convention" case, not a typo to surface.
 pub(crate) fn unsupported_primary_language_error(chat_file: &ChatFile) -> Option<String> {
-    if let Some(primary) = chat_file.languages.0.first() {
-        if !crate::chat_ops::morphosyntax_ops::is_stanza_supported(primary) {
-            return Some(format!(
-                "morphotag: primary @Languages '{}' is not supported by Stanza. \
-                 Fix the @Languages header to use a supported ISO-639-3 code and re-run. \
-                 Supported codes: {}.",
-                primary,
-                batchalign_transform::morphosyntax::supported_iso3_codes().join(", ")
-            ));
-        }
+    if let Some(primary) = chat_file.languages.0.first()
+        && !crate::chat_ops::morphosyntax_ops::is_stanza_supported(primary)
+    {
+        return Some(format!(
+            "morphotag: primary @Languages '{}' is not supported by Stanza. \
+             Fix the @Languages header to use a supported ISO-639-3 code and re-run. \
+             Supported codes: {}.",
+            primary,
+            batchalign_transform::morphosyntax::supported_iso3_codes().join(", ")
+        ));
     }
     None
 }
@@ -294,11 +294,11 @@ fn stage_parse<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
         // See field doc.
         ctx.is_no_align = is_no_align(&chat_file);
 
-        if !ctx.is_ca {
-            if let Some(error_msg) = unsupported_primary_language_error(&chat_file) {
-                warn!(reason = %error_msg, "Morphotag rejected unsupported primary language");
-                return Err(ServerError::Validation(error_msg));
-            }
+        if !ctx.is_ca
+            && let Some(error_msg) = unsupported_primary_language_error(&chat_file)
+        {
+            warn!(reason = %error_msg, "Morphotag rejected unsupported primary language");
+            return Err(ServerError::Validation(error_msg));
         }
 
         // Resolve the per-file language from the parsed `@Languages:` header.

@@ -5,6 +5,17 @@
 //!
 //! Requirements: Python 3 with batchalign installed.
 //! Tests skip gracefully if unavailable.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 mod cli_common;
 mod common;
@@ -38,8 +49,8 @@ async fn e2e_single_file_roundtrip() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -74,8 +85,8 @@ async fn e2e_multiple_files() {
         .collect();
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -107,8 +118,8 @@ async fn e2e_nested_path_preserved() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -182,8 +193,8 @@ async fn e2e_output_is_valid_chat() {
     }];
 
     let (_info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -221,8 +232,8 @@ async fn e2e_dummy_file_passthrough() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -252,8 +263,8 @@ async fn e2e_noalign_file_passthrough() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -299,8 +310,8 @@ async fn e2e_override_media_cache_option() {
     }];
 
     let (info, _results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -336,8 +347,8 @@ async fn e2e_retokenize_option() {
     }];
 
     let (info, _results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -367,8 +378,8 @@ async fn e2e_transcribe_command() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -395,8 +406,8 @@ async fn e2e_transcribe_s_command() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::TranscribeS,
         "eng",
         files,
@@ -466,8 +477,8 @@ async fn e2e_malformed_chat_still_completes() {
     }];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -500,8 +511,8 @@ async fn e2e_lang_propagates() {
     }];
 
     let (info, _results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "spa",
         files,
@@ -537,8 +548,8 @@ async fn e2e_content_fidelity() {
     }];
 
     let (_info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -578,8 +589,8 @@ async fn e2e_mixed_dummy_and_normal() {
     ];
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -623,8 +634,8 @@ async fn e2e_parallel_processing() {
         .collect();
 
     let (info, results) = run_job_to_completion(
-        &client,
-        &base_url,
+        client,
+        base_url,
         ReleasedCommand::Transcribe,
         "eng",
         files,
@@ -700,7 +711,7 @@ async fn e2e_cancel_job() {
         cancel_resp.status()
     );
 
-    let final_info = poll_job_done(&client, &base_url, &info.job_id).await;
+    let final_info = poll_job_done(client, base_url, &info.job_id).await;
     assert!(
         matches!(
             final_info.status,
@@ -766,7 +777,7 @@ async fn e2e_job_status_lifecycle() {
     );
 
     // Wait for completion
-    let final_info = poll_job_done(&client, &base_url, &info.job_id).await;
+    let final_info = poll_job_done(client, base_url, &info.job_id).await;
     assert_eq!(final_info.status, JobStatus::Completed);
     assert!(
         final_info.completed_at.is_some(),

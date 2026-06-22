@@ -55,10 +55,10 @@ fn git_state_paths() -> Vec<String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
 
-    if !head_ref.is_empty() {
-        if let Some(path) = git_path(&head_ref) {
-            paths.push(path);
-        }
+    if !head_ref.is_empty()
+        && let Some(path) = git_path(&head_ref)
+    {
+        paths.push(path);
     }
 
     paths

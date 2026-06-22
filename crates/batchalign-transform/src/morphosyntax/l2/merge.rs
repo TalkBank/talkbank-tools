@@ -426,10 +426,10 @@ fn merge_primary_secondary_with_attachment(
             primary.head_upos,
             primary.has_case_dependent(),
         );
-        if let Some(ref d) = det {
-            if let Some(rel) = gras.get_mut(0) {
-                rel.relation = d.to_chat_gra().into();
-            }
+        if let Some(ref d) = det
+            && let Some(rel) = gras.get_mut(0)
+        {
+            rel.relation = d.to_chat_gra();
         }
         det
     } else {

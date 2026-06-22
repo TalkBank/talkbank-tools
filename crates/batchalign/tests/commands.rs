@@ -6,6 +6,17 @@
 //!
 //! Requirements: Python 3 with batchalign installed.
 //! Tests skip gracefully if unavailable.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 mod cli_common;
 mod common;
@@ -122,7 +133,7 @@ async fn jobs_inspect_single() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id.clone();
 
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     let args = JobsArgs {
         action: None,
@@ -172,17 +183,17 @@ async fn client_submit_poll_fetch() {
     }]);
 
     let info = client
-        .submit_job(&base_url, &submission)
+        .submit_job(base_url, &submission)
         .await
         .expect("submit should succeed");
     assert_eq!(info.total_files, 1);
 
     let http = reqwest::Client::new();
-    let final_info = poll_job_done(&http, &base_url, &info.job_id).await;
+    let final_info = poll_job_done(&http, base_url, &info.job_id).await;
     assert_eq!(final_info.status, batchalign::api::JobStatus::Completed);
 
     let result = client
-        .get_file_result(&base_url, &info.job_id, &"e2e.cha".into())
+        .get_file_result(base_url, &info.job_id, &"e2e.cha".into())
         .await
         .expect("get_file_result should succeed");
     assert!(result.error.is_none());
@@ -206,17 +217,17 @@ async fn client_submit_multiple_files() {
     let submission = test_submission(files);
 
     let info = client
-        .submit_job(&base_url, &submission)
+        .submit_job(base_url, &submission)
         .await
         .expect("submit should succeed");
     assert_eq!(info.total_files, 3);
 
     let http = reqwest::Client::new();
-    let final_info = poll_job_done(&http, &base_url, &info.job_id).await;
+    let final_info = poll_job_done(&http, base_url, &info.job_id).await;
     assert_eq!(final_info.completed_files, 3);
 
     let results = client
-        .get_all_results(&base_url, &info.job_id)
+        .get_all_results(base_url, &info.job_id)
         .await
         .expect("get_all_results should succeed");
     assert_eq!(results.files.len(), 3);

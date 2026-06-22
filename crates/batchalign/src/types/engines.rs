@@ -876,7 +876,7 @@ mod tests {
                 "{cloud:?} should match the cloud HTTP-client baseline"
             );
         }
-        assert!(HTTP_CLIENT_BASELINE_RSS_MB < WHISPER_LARGE_V3_RSS_MB);
+        const _: () = assert!(HTTP_CLIENT_BASELINE_RSS_MB < WHISPER_LARGE_V3_RSS_MB);
     }
 
     #[test]
@@ -928,7 +928,7 @@ mod tests {
             FaEngineName::Wav2vecCanto.resident_memory_mb(),
             WAVE2VEC_FA_RSS_MB
         );
-        assert!(WAVE2VEC_FA_RSS_MB < WHISPER_LARGE_V3_RSS_MB);
+        const _: () = assert!(WAVE2VEC_FA_RSS_MB < WHISPER_LARGE_V3_RSS_MB);
     }
 
     #[test]

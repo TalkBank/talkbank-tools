@@ -413,6 +413,18 @@ fn strip_utterance_timing(utt: &mut Utterance) {
         .retain(|tier| !matches!(tier, talkbank_model::model::DependentTier::Wor { .. }));
 }
 
+impl From<&RepairDecision> for batchalign_transform::decisions::DecisionRecord {
+    fn from(d: &RepairDecision) -> Self {
+        Self {
+            line_idx: d.line_idx,
+            speaker: d.speaker.clone(),
+            strategy: batchalign_transform::decisions::DecisionStrategy::Fa(d.strategy),
+            reason: d.reason.clone(),
+            needs_review: d.needs_review,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -531,17 +543,5 @@ mod tests {
         let values: Vec<u64> = vec![];
         let lis = longest_increasing_subsequence(&values);
         assert!(lis.is_empty());
-    }
-}
-
-impl From<&RepairDecision> for batchalign_transform::decisions::DecisionRecord {
-    fn from(d: &RepairDecision) -> Self {
-        Self {
-            line_idx: d.line_idx,
-            speaker: d.speaker.clone(),
-            strategy: batchalign_transform::decisions::DecisionStrategy::Fa(d.strategy),
-            reason: d.reason.clone(),
-            needs_review: d.needs_review,
-        }
     }
 }

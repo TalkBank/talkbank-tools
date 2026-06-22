@@ -25,7 +25,7 @@ fn bare_quote_element_is_stripped_at_stage_2c() {
     let words = prepare_words_pre_expansion(&elements, "eng");
     let texts: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
     assert!(
-        !texts.iter().any(|t| *t == "\""),
+        !texts.contains(&"\""),
         "bare `\"` element should not survive Stage 2c, got: {texts:?}"
     );
 }
@@ -41,7 +41,7 @@ fn embedded_quote_in_multi_word_element_is_stripped_at_stage_3c() {
     let words = prepare_words_pre_expansion(&elements, "eng");
     let texts: Vec<&str> = words.iter().map(|w| w.text.as_str()).collect();
     assert!(
-        !texts.iter().any(|t| *t == "\""),
+        !texts.contains(&"\""),
         "post-split `\"` part should not survive Stage 3c, got: {texts:?}"
     );
 }

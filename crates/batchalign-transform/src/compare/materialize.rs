@@ -36,7 +36,7 @@ fn collect_mor_items(chat_file: &ChatFile) -> Vec<Vec<Mor>> {
         if let Line::Utterance(utt) = line {
             let mor_items = utt
                 .mor_tier()
-                .map(|mor| mor.items().iter().cloned().collect())
+                .map(|mor| mor.items().to_vec())
                 .unwrap_or_default();
             utterance_items.push(mor_items);
         }

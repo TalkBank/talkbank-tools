@@ -178,12 +178,12 @@ mod tests {
     /// the new GENERATED header). Drift here means the codegen has
     /// a bug, not the TOML.
     #[test]
-    fn generate_runtime_toml_matches_committed_file() {
+    fn generate_runtime_toml_matches_committed_file()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let regenerated = generate_runtime_toml();
         let committed_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../batchalign/runtime_constants.toml");
-        let committed =
-            std::fs::read_to_string(&committed_path).expect("runtime_constants.toml must exist");
+        let committed = std::fs::read_to_string(&committed_path)?;
         // Trim is generous — we don't want a trailing-newline mismatch
         // to fail this test. The byte-equality on per-command content
         // is what matters.
@@ -194,5 +194,6 @@ mod tests {
              If you changed CommandSpec, run \
              `cargo run -p xtask -- gen-runtime-toml` and commit the result."
         );
+        Ok(())
     }
 }

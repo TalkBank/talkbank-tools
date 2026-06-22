@@ -131,7 +131,7 @@ async fn submit_and_get_job() {
     let job_id = info.job_id.clone();
 
     // Poll until the job finishes (test-echo is fast)
-    let info = poll_job_done(&client, &base_url, &job_id).await;
+    let info = poll_job_done(&client, base_url, &job_id).await;
     assert!(
         matches!(info.status, JobStatus::Completed),
         "Expected Completed, got {:?}",
@@ -235,7 +235,7 @@ async fn submit_and_get_results() {
     let job_id = info.job_id;
 
     // Wait for completion
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Get results
     let resp = client
@@ -279,7 +279,7 @@ async fn get_single_result() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id;
 
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Get single file result
     let resp = client
@@ -322,7 +322,7 @@ async fn get_single_result_with_slashes_in_filename() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id;
 
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Fetch using the slashed filename — this was returning 404 before the fix.
     let resp = client
@@ -741,7 +741,7 @@ async fn delete_completed_job() {
     let job_id = info.job_id;
 
     // Wait for completion
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Delete
     let resp = client
@@ -939,7 +939,7 @@ async fn restart_failed_job() {
     let job_id = info.job_id;
 
     // Wait for completion
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Cancel it first (so it's in a restartable state)
     // Actually, completed jobs can't be restarted — only cancelled/failed.
@@ -988,7 +988,7 @@ async fn restart_failed_job() {
         assert_eq!(restarted.status, JobStatus::Queued);
 
         // Wait for re-completion
-        let final_info = poll_job_done(&client, &base_url, &job_id2).await;
+        let final_info = poll_job_done(&client, base_url, &job_id2).await;
         assert_eq!(final_info.status, JobStatus::Completed);
     }
     // If it completed before we could cancel, that's fine — test-echo is fast
@@ -1017,7 +1017,7 @@ async fn restart_completed_job_returns_409() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id;
 
-    poll_job_done(&client, &base_url, &job_id).await;
+    poll_job_done(&client, base_url, &job_id).await;
 
     // Try to restart a completed job — should be 409
     let resp = client
@@ -1089,7 +1089,7 @@ async fn paths_mode_job() {
     let job_id = info.job_id;
 
     // Wait for completion
-    let final_info = poll_job_done(&client, &base_url, &job_id).await;
+    let final_info = poll_job_done(&client, base_url, &job_id).await;
     assert_eq!(final_info.status, JobStatus::Completed);
     assert_eq!(
         final_info
@@ -1137,7 +1137,7 @@ async fn multiple_files_in_one_job() {
     assert_eq!(info.total_files, 3);
     let job_id = info.job_id;
 
-    let final_info = poll_job_done(&client, &base_url, &job_id).await;
+    let final_info = poll_job_done(&client, base_url, &job_id).await;
     assert_eq!(final_info.status, JobStatus::Completed);
     assert_eq!(final_info.completed_files, 3);
 }
@@ -1182,7 +1182,7 @@ async fn multi_file_job_uses_parallel_workers() {
     let job_id = info.job_id;
 
     // Wait for completion
-    let final_info = poll_job_done(&client, &base_url, &job_id).await;
+    let final_info = poll_job_done(&client, base_url, &job_id).await;
     assert_eq!(final_info.status, JobStatus::Completed);
     assert_eq!(final_info.completed_files, 5);
 
@@ -1389,9 +1389,9 @@ async fn concurrent_jobs_complete() {
 
     // Poll all 3 concurrently
     let (r1, r2, r3) = tokio::join!(
-        poll_job_done(&client, &base_url, &job_ids[0]),
-        poll_job_done(&client, &base_url, &job_ids[1]),
-        poll_job_done(&client, &base_url, &job_ids[2]),
+        poll_job_done(&client, base_url, &job_ids[0]),
+        poll_job_done(&client, base_url, &job_ids[1]),
+        poll_job_done(&client, base_url, &job_ids[2]),
     );
 
     assert_eq!(r1.status, JobStatus::Completed, "Job 0 should complete");

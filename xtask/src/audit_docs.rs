@@ -203,7 +203,7 @@ pub async fn run(args: Args) -> Result<()> {
         // reconciliation atomic and amortizes the WAL fsync.
         let mut tx = sqlx::Connection::begin(&mut conn).await?;
         let (doc_id, outcome) = upsert_doc(
-            &mut *tx,
+            &mut tx,
             &rel_str,
             &audience,
             priority,
@@ -223,7 +223,7 @@ pub async fn run(args: Args) -> Result<()> {
 
         let sections = parse_sections(&content);
         total_sections += sections.len() as u64;
-        sync_sections(&mut *tx, doc_id, &sections).await?;
+        sync_sections(&mut tx, doc_id, &sections).await?;
         tx.commit().await?;
     }
 
@@ -329,16 +329,16 @@ fn parse_sections(content: &str) -> Vec<ParsedSection> {
                 fence_marker = Some("~~~");
                 continue;
             }
-            if let Some((level, heading)) = parse_heading(line) {
-                if level == 2 || level == 3 {
-                    heads.push((idx, level, heading));
-                }
+            if let Some((level, heading)) = parse_heading(line)
+                && (level == 2 || level == 3)
+            {
+                heads.push((idx, level, heading));
             }
-        } else if let Some(marker) = fence_marker {
-            if trimmed.starts_with(marker) {
-                in_code_fence = false;
-                fence_marker = None;
-            }
+        } else if let Some(marker) = fence_marker
+            && trimmed.starts_with(marker)
+        {
+            in_code_fence = false;
+            fence_marker = None;
         }
     }
 
@@ -444,10 +444,10 @@ fn parse_meta_headers(content: &str) -> (Option<String>, Option<String>) {
     let mut status = None;
     let mut last_modified = None;
     for line in content.lines().take(30) {
-        if status.is_none() {
-            if let Some(v) = extract_field(line, "Status") {
-                status = Some(v);
-            }
+        if status.is_none()
+            && let Some(v) = extract_field(line, "Status")
+        {
+            status = Some(v);
         }
         if last_modified.is_none() {
             if let Some(v) = extract_field(line, "Last updated") {
@@ -1142,8 +1142,7 @@ pub async fn run_flag_staleness(args: Args) -> Result<()> {
             continue;
         }
 
-        for body_idx in body_start..body_end {
-            let line = &lines[body_idx];
+        for (body_idx, line) in lines.iter().enumerate().take(body_end).skip(body_start) {
             for (i, regex) in &regexes {
                 let pat = &FLAG_PATTERNS[*i];
                 if let Some(m) = regex.find(line) {

@@ -94,7 +94,7 @@ enum SpliceValidationResult {
 /// Position descriptor for a splice fallback's `tracing::warn!`
 /// payload. Single-position spans report `word_idx`; multi-position
 /// contiguous spans report the inclusive word-index range start
-/// + size, matching the shape of `splice_range_coordinated`'s
+/// and size, matching the shape of `splice_range_coordinated`'s
 /// `item_range` argument.
 #[derive(Debug, Clone, Copy)]
 enum SplicePositionDescriptor {
@@ -320,10 +320,11 @@ fn apply_safe_root_rewrites(
     root_rewrites: &[(usize, crate::morphosyntax::l2::deprel::UdDeprel)],
 ) {
     for (local_idx, deprel) in root_rewrites {
-        if let Some(rel) = gra.relations_mut().get_mut(chunk_offset + local_idx) {
-            if rel.head != 0 && rel.head != rel.index {
-                rel.relation = deprel.to_chat_gra().into();
-            }
+        if let Some(rel) = gra.relations_mut().get_mut(chunk_offset + local_idx)
+            && rel.head != 0
+            && rel.head != rel.index
+        {
+            rel.relation = deprel.to_chat_gra();
         }
     }
 }
@@ -440,16 +441,15 @@ pub fn splice_l2_into_chat(
 
         if !all_present {
             for k in span_indices {
-                if merged_results[k].is_none() {
-                    outcome.fallback += 1;
-                } else {
-                    splice_one_position(
+                match merged_results[k].as_ref() {
+                    None => outcome.fallback += 1,
+                    Some(merged) => splice_one_position(
                         chat_file,
                         deferred,
                         &deferred[k],
-                        merged_results[k].as_ref().expect("checked Some"),
+                        merged,
                         &mut outcome,
-                    );
+                    ),
                 }
             }
             continue;
@@ -459,13 +459,13 @@ pub fn splice_l2_into_chat(
         let span_size = span_indices.end - span_indices.start;
         if span_size == 1 {
             let k = span_indices.start;
-            splice_one_position(
-                chat_file,
-                deferred,
-                &deferred[k],
-                merged_results[k].as_ref().expect("checked Some above"),
-                &mut outcome,
-            );
+            // `all_present` above guarantees this is Some; the None arm is a
+            // safe no-op fallback rather than a panic.
+            if let Some(merged) = merged_results[k].as_ref() {
+                splice_one_position(chat_file, deferred, &deferred[k], merged, &mut outcome);
+            } else {
+                outcome.fallback += 1;
+            }
             continue;
         }
 
@@ -510,7 +510,11 @@ pub fn splice_l2_into_chat(
         let mut any_corrected_deprel = false;
         let mut local_chunk_offset = 0usize;
         for k in span_indices.clone() {
-            let merged = merged_results[k].as_ref().expect("all_present checked");
+            // `all_present` above guarantees every position is Some; skip
+            // safely rather than panic if that invariant is ever broken.
+            let Some(merged) = merged_results[k].as_ref() else {
+                continue;
+            };
             new_mors.push(merged.mor.clone());
             new_gras.extend(merged.gras.iter().cloned());
             if merged.corrected_deprel.is_some() {
@@ -772,6 +776,31 @@ fn splice_one_position(
         }
     } else {
         outcome.fallback += 1;
+    }
+}
+
+/// Apply L2|xxx fallback to deferred positions that have no merged result.
+pub fn apply_l2_fallback(
+    chat_file: &mut talkbank_model::model::ChatFile,
+    deferred: &[L2DeferredPosition],
+) {
+    use talkbank_model::model::DependentTier;
+    use talkbank_model::model::Line;
+
+    for def in deferred {
+        let utt = match &mut chat_file.lines[def.line_idx] {
+            Line::Utterance(u) => u,
+            _ => continue,
+        };
+        let mor_tier = utt.dependent_tiers.iter_mut().find_map(|t| match t {
+            DependentTier::Mor(m) => Some(m),
+            _ => None,
+        });
+        if let Some(mor) = mor_tier
+            && let Some(mor_item) = mor.items_mut().get_mut(def.word_idx)
+        {
+            mor_item.main.reset_to_l2_placeholder();
+        }
     }
 }
 
@@ -2631,49 +2660,26 @@ mod cardinality_tests {
             "Test 4 — cycle in secondary, repaired via cycle-detection pass",
         );
     }
-}
 
-#[cfg(test)]
-fn host_attachment(source_deferred_index: usize, deprel: &str) -> L2Attachment {
-    L2Attachment::ExternalRoot {
-        host_deprel: crate::morphosyntax::l2::deprel::UdDeprel::new(deprel),
-        root_anchor: L2RootAnchor::HostGovernor {
-            source_deferred_index,
-        },
+    /// Test helper: build an `ExternalRoot` attachment anchored to a host
+    /// governor at `source_deferred_index` carrying `deprel`.
+    fn host_attachment(source_deferred_index: usize, deprel: &str) -> L2Attachment {
+        L2Attachment::ExternalRoot {
+            host_deprel: crate::morphosyntax::l2::deprel::UdDeprel::new(deprel),
+            root_anchor: L2RootAnchor::HostGovernor {
+                source_deferred_index,
+            },
+        }
     }
-}
 
-#[cfg(test)]
-fn utterance_root_attachment(source_deferred_index: usize) -> L2Attachment {
-    L2Attachment::ExternalRoot {
-        host_deprel: crate::morphosyntax::l2::deprel::UdDeprel::new("root"),
-        root_anchor: L2RootAnchor::UtteranceRoot {
-            source_deferred_index,
-        },
-    }
-}
-
-/// Apply L2|xxx fallback to deferred positions that have no merged result.
-pub fn apply_l2_fallback(
-    chat_file: &mut talkbank_model::model::ChatFile,
-    deferred: &[L2DeferredPosition],
-) {
-    use talkbank_model::model::DependentTier;
-    use talkbank_model::model::Line;
-
-    for def in deferred {
-        let utt = match &mut chat_file.lines[def.line_idx] {
-            Line::Utterance(u) => u,
-            _ => continue,
-        };
-        let mor_tier = utt.dependent_tiers.iter_mut().find_map(|t| match t {
-            DependentTier::Mor(m) => Some(m),
-            _ => None,
-        });
-        if let Some(mor) = mor_tier
-            && let Some(mor_item) = mor.items_mut().get_mut(def.word_idx)
-        {
-            mor_item.main.reset_to_l2_placeholder();
+    /// Test helper: build an `ExternalRoot` attachment anchored to the
+    /// utterance root at `source_deferred_index`.
+    fn utterance_root_attachment(source_deferred_index: usize) -> L2Attachment {
+        L2Attachment::ExternalRoot {
+            host_deprel: crate::morphosyntax::l2::deprel::UdDeprel::new("root"),
+            root_anchor: L2RootAnchor::UtteranceRoot {
+                source_deferred_index,
+            },
         }
     }
 }

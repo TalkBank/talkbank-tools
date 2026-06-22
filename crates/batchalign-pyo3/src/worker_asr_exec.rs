@@ -80,9 +80,9 @@ fn decode_f32le_audio(raw: Vec<u8>) -> Vec<f32> {
         .collect()
 }
 
-fn extract_asr_request<'a>(
-    request: &'a ExecuteRequestV2,
-) -> Result<&'a AsrRequestV2, AsrExecuteFailure> {
+fn extract_asr_request(
+    request: &ExecuteRequestV2,
+) -> Result<&AsrRequestV2, AsrExecuteFailure> {
     if request.task != InferenceTaskV2::Asr {
         return Err(AsrExecuteFailure::InvalidPayload(format!(
             "expected asr task, got {:?}",
@@ -190,13 +190,12 @@ fn parse_provider_result(
             if let Some(end_s) = element.end_ts {
                 validate_non_negative("ASR element end_s", end_s)?;
             }
-            if let (Some(start_s), Some(end_s)) = (element.ts, element.end_ts) {
-                if end_s < start_s {
+            if let (Some(start_s), Some(end_s)) = (element.ts, element.end_ts)
+                && end_s < start_s {
                     return Err(AsrExecuteFailure::Runtime(
                         "invalid ASR host output: ASR element end_s must be >= start_s".to_owned(),
                     ));
                 }
-            }
 
             let kind = if element.type_name == "punctuation" {
                 AsrElementKindV2::Punctuation

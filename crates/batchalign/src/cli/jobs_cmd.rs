@@ -336,6 +336,10 @@ mod tests {
         CallerHost, CallerPid, CancelReason, CancelSource, DisplayPath, JobId, UnixTimestamp,
     };
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "test fixture builder mirroring CancellationRecord's fields"
+    )]
     fn cancel_record(
         id: i64,
         ts: f64,
@@ -355,7 +359,7 @@ mod tests {
             pid: pid.map(CallerPid),
             reason: reason.map(|s| CancelReason::from(s.to_string())),
             correlation_id: None,
-            in_flight_filename: in_flight.map(|s| DisplayPath::from(s)),
+            in_flight_filename: in_flight.map(DisplayPath::from),
             accepted,
         }
     }

@@ -1119,8 +1119,10 @@ mod tests {
         use crate::host_facts::recommend_max_total_workers;
         let facts = apple_silicon_64gb();
         let recommended_total = recommend_max_total_workers(&facts);
-        let mut cfg = ServerConfig::default();
-        cfg.max_total_workers = Some(recommended_total);
+        let cfg = ServerConfig {
+            max_total_workers: Some(recommended_total),
+            ..Default::default()
+        };
         let overrides = ConfigOverrides::from(&cfg);
         let effective = EffectiveConfig::resolve(&overrides, &facts);
         let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);
@@ -1145,8 +1147,10 @@ mod tests {
         let custom = recommended_total
             .checked_add(1)
             .expect("recommended max never saturates u32");
-        let mut cfg = ServerConfig::default();
-        cfg.max_total_workers = Some(custom);
+        let cfg = ServerConfig {
+            max_total_workers: Some(custom),
+            ..Default::default()
+        };
         let overrides = ConfigOverrides::from(&cfg);
         let effective = EffectiveConfig::resolve(&overrides, &facts);
         let summary = EffectiveConfigSummary::from_effective(&effective, &cfg, &facts);

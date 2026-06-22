@@ -153,7 +153,7 @@ pub(crate) async fn infer_batch_per_item(
             progress_tx,
         )
         .await?;
-        for (original_idx, response) in group.indices.into_iter().zip(responses.into_iter()) {
+        for (original_idx, response) in group.indices.into_iter().zip(responses) {
             merged[original_idx] = Some(response);
         }
     }

@@ -274,7 +274,7 @@ fn check_legacy_terms(root: &Path) -> std::result::Result<(), String> {
     for path in scan_files(root) {
         let rel = path
             .strip_prefix(root)
-            .unwrap()
+            .map_err(|err| format!("scan path {} is not under root: {err}", path.display()))?
             .to_str()
             .unwrap_or("")
             .to_string();
@@ -598,7 +598,8 @@ mod tests {
     use super::check_batchalign_release_health_smoke_text;
 
     #[test]
-    fn batchalign_release_requires_health_smoke() {
+    fn batchalign_release_requires_health_smoke()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let workflow = r#"
 jobs:
   wheel-smoke:
@@ -607,7 +608,12 @@ jobs:
         run: batchalign3 --help
 "#;
 
-        let err = check_batchalign_release_health_smoke_text(workflow).unwrap_err();
+        // A workflow that smokes only `--help` (never `/health`) must be
+        // rejected; an `Ok` here means the hygiene check missed the gap.
+        let Err(err) = check_batchalign_release_health_smoke_text(workflow) else {
+            return Err("expected /health smoke-check to be required, but check passed".into());
+        };
         assert!(err.contains("/health"), "{err}");
+        Ok(())
     }
 }

@@ -177,71 +177,77 @@ mod tests {
     }
 
     #[test]
-    fn clean_tree_passes() {
+    fn clean_tree_passes() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![
             doc("README.md", "# Hello\n\nNothing stale here.\n"),
             doc("book/src/foo.md", "Some prose about batchalign.\n"),
         ];
-        let v = scan_docs(&docs).unwrap();
+        let v = scan_docs(&docs)?;
         assert!(v.is_empty(), "expected no violations, got {v:?}");
+        Ok(())
     }
 
     #[test]
-    fn deleted_crate_in_current_doc_is_flagged() {
+    fn deleted_crate_in_current_doc_is_flagged() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![doc(
             "book/src/arch.md",
             "We use `batchalign-app` for the server.\n",
         )];
-        let v = scan_docs(&docs).unwrap();
+        let v = scan_docs(&docs)?;
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].pattern_name, "deleted-crate-batchalign-app");
         assert_eq!(v[0].line, 1);
         assert_eq!(v[0].path, "book/src/arch.md");
+        Ok(())
     }
 
     #[test]
-    fn allow_listed_surface_is_silent() {
+    fn allow_listed_surface_is_silent() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![doc(
             "book/src/batchalign/developer/maturin-pyo3-surface.md",
             "| `batchalign-revai` | Dead code — server uses Rev.AI directly |\n",
         )];
-        let v = scan_docs(&docs).unwrap();
+        let v = scan_docs(&docs)?;
         assert!(v.is_empty(), "expected allow-list to suppress, got {v:?}");
+        Ok(())
     }
 
     #[test]
-    fn allow_list_is_scoped_to_specific_pattern() {
+    fn allow_list_is_scoped_to_specific_pattern() -> Result<(), Box<dyn std::error::Error>> {
         // The maturin-pyo3-surface allow-list entry covers batchalign-revai
         // ONLY — a hit for batchalign-app on the same path must still fail.
         let docs = vec![doc(
             "book/src/batchalign/developer/maturin-pyo3-surface.md",
             "Used to depend on `batchalign-app`.\n",
         )];
-        let v = scan_docs(&docs).unwrap();
+        let v = scan_docs(&docs)?;
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].pattern_name, "deleted-crate-batchalign-app");
+        Ok(())
     }
 
     #[test]
-    fn same_line_counted_once() {
+    fn same_line_counted_once() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![doc(
             "book/src/x.md",
             "## Parent\n\nbatchalign-app exists here\n\n### Child\n\nUnrelated\n",
         )];
-        let v: Vec<Violation> = scan_docs(&docs).unwrap();
+        let v: Vec<Violation> = scan_docs(&docs)?;
         assert_eq!(v.len(), 1, "got {v:?}");
         assert_eq!(v[0].line, 3);
+        Ok(())
     }
 
     #[test]
-    fn multiple_files_report_in_sorted_order() {
+    fn multiple_files_report_in_sorted_order() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![
             doc("z/last.md", "batchalign-app\n"),
             doc("a/first.md", "batchalign-revai\n"),
         ];
-        let v = scan_docs(&docs).unwrap();
+        let v = scan_docs(&docs)?;
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].path, "a/first.md");
         assert_eq!(v[1].path, "z/last.md");
+        Ok(())
     }
 }

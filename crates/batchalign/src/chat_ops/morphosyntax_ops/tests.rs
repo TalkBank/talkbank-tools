@@ -2246,7 +2246,7 @@ fn assert_utterances_preserved_one_to_one(label: &str, before: &[String], after:
             duplicated.push((id, n_in, n_out));
         }
     }
-    for (id, _) in &after_counts {
+    for id in after_counts.keys() {
         if !before_counts.contains_key(id) {
             introduced.push(id);
         }

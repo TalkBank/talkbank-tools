@@ -80,11 +80,7 @@ pub fn run(root: &Path) -> Result<()> {
     let mut failures = Vec::new();
 
     for path in scan_files(root) {
-        let rel = path
-            .strip_prefix(root)
-            .unwrap()
-            .to_string_lossy()
-            .into_owned();
+        let rel = path.strip_prefix(root)?.to_string_lossy().into_owned();
         let text = match std::fs::read_to_string(&path) {
             Ok(text) => text,
             Err(_) => continue,

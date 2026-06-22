@@ -25,6 +25,17 @@
 //! strongest gate we have on the two walkers agreeing; new variants or
 //! new edge cases added to either side should add a reference fixture
 //! that exercises them.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 use std::path::PathBuf;
 

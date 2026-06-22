@@ -323,11 +323,14 @@ where
             }
 
             // All items succeeded for this file — extract owned
-            // responses and apply them. The unwrap is safe because we
-            // just filtered out any Err above.
+            // responses and apply them. Any Err was already filtered
+            // above (the loop `continue`d when `item_errors` was
+            // non-empty), so `filter_map(.ok())` collects every response
+            // here without panicking.
             let file_responses: Vec<Response> = file_item_results
                 .iter()
-                .map(|r| r.as_ref().expect("checked above").clone())
+                .filter_map(|r| r.as_ref().ok())
+                .cloned()
                 .collect();
             (hooks.apply)(chat_file, file_items, &file_responses);
         }

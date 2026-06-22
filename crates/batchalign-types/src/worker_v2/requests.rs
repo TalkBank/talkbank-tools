@@ -652,26 +652,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn morphosyntax_request_v2_retokenize_round_trips() {
+    fn morphosyntax_request_v2_retokenize_round_trips() -> Result<(), Box<dyn std::error::Error>> {
         let req = MorphosyntaxRequestV2 {
             lang: LanguageCode3::yue(),
             payload_ref_id: WorkerArtifactIdV2::from("payload-1"),
             item_count: 3,
             retokenize: true,
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: MorphosyntaxRequestV2 = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req)?;
+        let deserialized: MorphosyntaxRequestV2 = serde_json::from_str(&json)?;
         assert!(deserialized.retokenize);
         assert_eq!(deserialized.lang.as_ref(), "yue");
+        Ok(())
     }
 
     #[test]
-    fn morphosyntax_request_v2_retokenize_defaults_false() {
+    fn morphosyntax_request_v2_retokenize_defaults_false() -> Result<(), Box<dyn std::error::Error>>
+    {
         let json = r#"{"lang":"eng","payload_ref_id":"p1","item_count":1}"#;
-        let req: MorphosyntaxRequestV2 = serde_json::from_str(json).unwrap();
+        let req: MorphosyntaxRequestV2 = serde_json::from_str(json)?;
         assert!(
             !req.retokenize,
             "retokenize must default to false for backward compat"
         );
+        Ok(())
     }
 }

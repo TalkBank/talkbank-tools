@@ -257,7 +257,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn worker_health_roundtrip() {
+    fn worker_health_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let health = WorkerHealthResponse {
             status: WorkerHealthStatus::Ok,
             command: "infer:morphosyntax".into(),
@@ -265,13 +265,14 @@ mod tests {
             pid: WorkerPid(12345),
             uptime_s: DurationSeconds(120.5),
         };
-        let json = serde_json::to_string(&health).unwrap();
-        let back: WorkerHealthResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health)?;
+        let back: WorkerHealthResponse = serde_json::from_str(&json)?;
         assert_eq!(health, back);
+        Ok(())
     }
 
     #[test]
-    fn worker_capabilities_roundtrip() {
+    fn worker_capabilities_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let caps = WorkerCapabilities {
             commands: vec!["morphotag".into(), "align".into(), "opensmile".into()],
             free_threaded: true,
@@ -279,13 +280,14 @@ mod tests {
             engine_versions: BTreeMap::new(),
             stanza_capabilities: BTreeMap::new(),
         };
-        let json = serde_json::to_string(&caps).unwrap();
-        let back: WorkerCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&caps)?;
+        let back: WorkerCapabilities = serde_json::from_str(&json)?;
         assert_eq!(caps, back);
+        Ok(())
     }
 
     #[test]
-    fn worker_capabilities_with_infer_fields() {
+    fn worker_capabilities_with_infer_fields() -> Result<(), Box<dyn std::error::Error>> {
         let caps = WorkerCapabilities {
             commands: vec!["morphotag".into()],
             free_threaded: false,
@@ -296,20 +298,34 @@ mod tests {
             ]),
             stanza_capabilities: BTreeMap::new(),
         };
-        let json = serde_json::to_string(&caps).unwrap();
-        let back: WorkerCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&caps)?;
+        let back: WorkerCapabilities = serde_json::from_str(&json)?;
         assert_eq!(caps, back);
+        Ok(())
     }
 
     #[test]
-    fn worker_capabilities_missing_infer_fields_is_rejected() {
+    fn worker_capabilities_missing_infer_fields_is_rejected()
+    -> Result<(), Box<dyn std::error::Error>> {
         let json = r#"{"commands":["morphotag"],"free_threaded":false}"#;
-        let err = serde_json::from_str::<WorkerCapabilities>(json).unwrap_err();
-        assert!(err.to_string().contains("infer_tasks"));
+        // The infer_* fields are mandatory: deserialization must fail, and the
+        // error must name the missing `infer_tasks` field. Matching the error
+        // arm directly (rather than `unwrap_err()`) keeps the test panic-free;
+        // an unexpected success is reported as a propagated error.
+        match serde_json::from_str::<WorkerCapabilities>(json) {
+            Ok(caps) => Err(format!("expected deserialization to fail, got {caps:?}").into()),
+            Err(err) => {
+                assert!(
+                    err.to_string().contains("infer_tasks"),
+                    "rejection must name the missing infer_tasks field, got: {err}"
+                );
+                Ok(())
+            }
+        }
     }
 
     #[test]
-    fn infer_request_roundtrip() {
+    fn infer_request_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let req = InferRequest {
             task: InferTask::Morphosyntax,
             lang: LanguageCode3::eng(),
@@ -319,13 +335,14 @@ mod tests {
                 "special_forms": []
             }),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let back: InferRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req)?;
+        let back: InferRequest = serde_json::from_str(&json)?;
         assert_eq!(req, back);
+        Ok(())
     }
 
     #[test]
-    fn infer_response_success() {
+    fn infer_response_success() -> Result<(), Box<dyn std::error::Error>> {
         let resp = InferResponse {
             result: Some(
                 serde_json::json!({"mor": "det|the n|dog v|run-3S", "gra": "1|2|DET 2|3|SUBJ 3|0|ROOT"}),
@@ -333,26 +350,28 @@ mod tests {
             error: None,
             elapsed_s: DurationSeconds(0.042),
         };
-        let json = serde_json::to_string(&resp).unwrap();
+        let json = serde_json::to_string(&resp)?;
         assert!(!json.contains("error")); // None fields skipped
-        let back: InferResponse = serde_json::from_str(&json).unwrap();
+        let back: InferResponse = serde_json::from_str(&json)?;
         assert_eq!(resp, back);
+        Ok(())
     }
 
     #[test]
-    fn infer_response_error() {
+    fn infer_response_error() -> Result<(), Box<dyn std::error::Error>> {
         let resp = InferResponse {
             result: None,
             error: Some("model not loaded".into()),
             elapsed_s: DurationSeconds(0.001),
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let back: InferResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp)?;
+        let back: InferResponse = serde_json::from_str(&json)?;
         assert_eq!(resp, back);
+        Ok(())
     }
 
     #[test]
-    fn batch_infer_request_roundtrip() {
+    fn batch_infer_request_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let req = BatchInferRequest {
             task: InferTask::Morphosyntax,
             lang: LanguageCode3::eng(),
@@ -363,15 +382,16 @@ mod tests {
             mwt: BTreeMap::new(),
             allow_stanza_fallback: false,
         };
-        let json = serde_json::to_string(&req).unwrap();
+        let json = serde_json::to_string(&req)?;
         // Empty mwt should be omitted from JSON
         assert!(!json.contains("\"mwt\""));
-        let back: BatchInferRequest = serde_json::from_str(&json).unwrap();
+        let back: BatchInferRequest = serde_json::from_str(&json)?;
         assert_eq!(req, back);
+        Ok(())
     }
 
     #[test]
-    fn batch_infer_request_with_mwt_roundtrip() {
+    fn batch_infer_request_with_mwt_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let req = BatchInferRequest {
             task: InferTask::Morphosyntax,
             lang: LanguageCode3::eng(),
@@ -379,22 +399,25 @@ mod tests {
             mwt: BTreeMap::from([("gonna".into(), vec!["going".into(), "to".into()])]),
             allow_stanza_fallback: false,
         };
-        let json = serde_json::to_string(&req).unwrap();
+        let json = serde_json::to_string(&req)?;
         assert!(json.contains("\"mwt\""));
-        let back: BatchInferRequest = serde_json::from_str(&json).unwrap();
+        let back: BatchInferRequest = serde_json::from_str(&json)?;
         assert_eq!(req, back);
+        Ok(())
     }
 
     #[test]
-    fn batch_infer_request_backward_compat_no_mwt_field() {
+    fn batch_infer_request_backward_compat_no_mwt_field() -> Result<(), Box<dyn std::error::Error>>
+    {
         // Old workers/servers that don't send "mwt" should still deserialize
         let json = r#"{"task":"morphosyntax","lang":"eng","items":[]}"#;
-        let req: BatchInferRequest = serde_json::from_str(json).unwrap();
+        let req: BatchInferRequest = serde_json::from_str(json)?;
         assert!(req.mwt.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn infer_task_wire_format_is_snake_case_string() {
+    fn infer_task_wire_format_is_snake_case_string() -> Result<(), Box<dyn std::error::Error>> {
         let req = BatchInferRequest {
             task: InferTask::Translate,
             lang: LanguageCode3::eng(),
@@ -402,12 +425,13 @@ mod tests {
             mwt: BTreeMap::new(),
             allow_stanza_fallback: false,
         };
-        let json = serde_json::to_string(&req).unwrap();
+        let json = serde_json::to_string(&req)?;
         assert!(json.contains("\"task\":\"translate\""));
+        Ok(())
     }
 
     #[test]
-    fn batch_infer_response_roundtrip() {
+    fn batch_infer_response_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let resp = BatchInferResponse {
             results: vec![
                 InferResponse {
@@ -422,8 +446,9 @@ mod tests {
                 },
             ],
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let back: BatchInferResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp)?;
+        let back: BatchInferResponse = serde_json::from_str(&json)?;
         assert_eq!(resp, back);
+        Ok(())
     }
 }

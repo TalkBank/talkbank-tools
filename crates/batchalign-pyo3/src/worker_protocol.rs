@@ -112,6 +112,11 @@ fn validate_request_model<'py>(
     execute_v2_request_model,
     validation_error_type,
 ))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "thin PyO3 IPC dispatch boundary: threads the worker's Python \
+              callback and request-model handles through to per-task handlers"
+)]
 pub(crate) fn dispatch_protocol_message(
     py: Python<'_>,
     message: &Bound<'_, PyAny>,

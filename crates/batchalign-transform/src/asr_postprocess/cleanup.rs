@@ -159,7 +159,7 @@ pub fn strip_boundary_quotes(words: Vec<AsrWord>) -> Vec<AsrWord> {
 pub fn sanitize_chat_illegal_word_chars(words: Vec<AsrWord>) -> Vec<AsrWord> {
     words
         .into_iter()
-        .filter_map(|word| sanitize_chat_illegal_word(word))
+        .filter_map(sanitize_chat_illegal_word)
         .collect()
 }
 

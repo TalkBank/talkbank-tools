@@ -51,9 +51,9 @@ fn decode_f32le_audio(raw: Vec<u8>) -> Vec<f32> {
         .collect()
 }
 
-fn extract_fa_request<'a>(
-    request: &'a ExecuteRequestV2,
-) -> Result<&'a ForcedAlignmentRequestV2, FaExecuteFailure> {
+fn extract_fa_request(
+    request: &ExecuteRequestV2,
+) -> Result<&ForcedAlignmentRequestV2, FaExecuteFailure> {
     if request.task != InferenceTaskV2::ForcedAlignment {
         return Err(FaExecuteFailure::InvalidPayload(format!(
             "expected forced_alignment task, got {:?}",

@@ -41,9 +41,9 @@ fn decode_f32le_audio(raw: Vec<u8>) -> Vec<f32> {
         .collect()
 }
 
-fn extract_opensmile_request<'a>(
-    request: &'a ExecuteRequestV2,
-) -> Result<&'a OpenSmileRequestV2, MediaExecuteFailure> {
+fn extract_opensmile_request(
+    request: &ExecuteRequestV2,
+) -> Result<&OpenSmileRequestV2, MediaExecuteFailure> {
     if request.task != InferenceTaskV2::Opensmile {
         return Err(MediaExecuteFailure::InvalidPayload(format!(
             "expected opensmile task, got {:?}",
@@ -58,9 +58,9 @@ fn extract_opensmile_request<'a>(
     }
 }
 
-fn extract_avqi_request<'a>(
-    request: &'a ExecuteRequestV2,
-) -> Result<&'a AvqiRequestV2, MediaExecuteFailure> {
+fn extract_avqi_request(
+    request: &ExecuteRequestV2,
+) -> Result<&AvqiRequestV2, MediaExecuteFailure> {
     if request.task != InferenceTaskV2::Avqi {
         return Err(MediaExecuteFailure::InvalidPayload(format!(
             "expected avqi task, got {:?}",
@@ -75,9 +75,9 @@ fn extract_avqi_request<'a>(
     }
 }
 
-fn extract_speaker_request<'a>(
-    request: &'a ExecuteRequestV2,
-) -> Result<&'a SpeakerRequestV2, MediaExecuteFailure> {
+fn extract_speaker_request(
+    request: &ExecuteRequestV2,
+) -> Result<&SpeakerRequestV2, MediaExecuteFailure> {
     if request.task != InferenceTaskV2::Speaker {
         return Err(MediaExecuteFailure::InvalidPayload(format!(
             "expected speaker task, got {:?}",

@@ -509,7 +509,6 @@ mod tests {
         };
         assert_eq!(constrained.threshold_mb, u64::MAX);
         assert_eq!(constrained.reservation_mb, 0);
-        assert!(constrained.available_mb <= u64::MAX);
     }
 
     /// Reservation of `u64::MAX` with floor=0 also forces refusal:

@@ -169,7 +169,7 @@ impl WorkerGateway for PooledWorkerGateway {
             lang,
             tokenization_mode: options.tokenization_mode,
             multilingual_policy: options.multilingual_policy,
-            mwt: &*options.mwt,
+            mwt: &options.mwt,
             l2_morphotag: options.l2_morphotag,
             respect_pos_hints: options.respect_pos_hints,
             review_level: options.review_level,

@@ -18,6 +18,17 @@
 //!
 //! Unlike the live ML fixture, sessions here are NOT singleton —
 //! tests may run concurrently against the same warmed pool.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 #![allow(dead_code)]
 
@@ -114,7 +125,10 @@ enum FixtureCommand {
     Acquire {
         /// Optional override of [`ServerConfig`] for this session. When
         /// `None`, the fixture's canned test-echo config is used.
-        config_override: Option<ServerConfig>,
+        ///
+        /// Boxed because `ServerConfig` is large (~560 bytes); keeping it
+        /// inline made `FixtureCommand` lopsided (clippy::large_enum_variant).
+        config_override: Box<Option<ServerConfig>>,
         reply: oneshot::Sender<Result<(SessionId, SessionSnapshot), String>>,
     },
     Release {
@@ -221,7 +235,7 @@ async fn acquire_session_inner(config_override: Option<ServerConfig>) -> Option<
     if bridge
         .commands
         .send(FixtureCommand::Acquire {
-            config_override,
+            config_override: Box::new(config_override),
             reply: reply_tx,
         })
         .is_err()
@@ -323,7 +337,7 @@ fn run_fixture_thread(receiver: mpsc::Receiver<FixtureCommand>, bridge: Arc<Fixt
 
                 let id = SessionId(next_session_id);
                 next_session_id += 1;
-                match runtime.block_on(start_session(backend, config_override)) {
+                match runtime.block_on(start_session(backend, *config_override)) {
                     Ok((session, snapshot)) => {
                         active_sessions.insert(id, session);
                         let _ = reply.send(Ok((id, snapshot)));

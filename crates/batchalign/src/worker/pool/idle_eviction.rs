@@ -65,7 +65,7 @@ pub(super) fn select_pressure_evictions(
         return Vec::new();
     }
     let mut sorted = samples;
-    sorted.sort_by(|a, b| b.rss_mb.cmp(&a.rss_mb));
+    sorted.sort_by_key(|w| std::cmp::Reverse(w.rss_mb));
 
     let mut evictions = Vec::new();
     let mut freed_mb: u64 = 0;

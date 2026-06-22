@@ -173,7 +173,7 @@ async fn smoke_morphotag() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Morphotag,
         CommandOptions::Morphotag(MorphotagOptions {
             common: CommonOptions::default(),
@@ -201,7 +201,7 @@ async fn smoke_utseg() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Utseg,
         CommandOptions::Utseg(UtsegOptions {
             common: CommonOptions::default(),
@@ -228,7 +228,7 @@ async fn smoke_translate() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Translate,
         CommandOptions::Translate(TranslateOptions {
             common: CommonOptions::default(),
@@ -255,7 +255,7 @@ async fn smoke_coref() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Coref,
         CommandOptions::Coref(CorefOptions {
             common: CommonOptions::default(),
@@ -282,7 +282,7 @@ async fn smoke_transcribe() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Transcribe,
         CommandOptions::Transcribe(TranscribeOptions {
             common: CommonOptions::default(),
@@ -315,7 +315,7 @@ async fn smoke_align() {
 
     let results = submit_and_verify(
         &client,
-        &base_url,
+        base_url,
         ReleasedCommand::Align,
         CommandOptions::Align(AlignOptions::default()),
     )

@@ -58,7 +58,7 @@ async fn direct_morphotag_strips_ca_segment_repetition_before_tagging() {
     let content = minimal_chat("nld", "CHI", "↫sch↫schaap");
     let files = vec![FilePayload {
         filename: "ca_segment_repetition.cha".into(),
-        content: content.into(),
+        content,
     }];
 
     // morphotag is a per-file-language command, so `submit_and_complete_direct`

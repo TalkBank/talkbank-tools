@@ -2,6 +2,17 @@
 //!
 //! Reuses the pattern from `batchalign-server/tests/integration.rs`:
 //! resolve Python, spin up a test server, poll for job completion.
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
+// (see docs/panic-audit/).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
 
 #![allow(dead_code)]
 

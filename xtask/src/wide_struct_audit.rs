@@ -557,18 +557,14 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
     },
 ];
 
-fn scan_named_structs(root: &Path) -> Vec<NamedStructInfo> {
+fn scan_named_structs(root: &Path) -> Result<Vec<NamedStructInfo>> {
     let mut structs = Vec::new();
     for base in rust_scan_roots(root) {
         if !base.exists() {
             continue;
         }
         for path in walkdir(&base) {
-            let relative = path
-                .strip_prefix(root)
-                .expect("scan path should be inside repo")
-                .to_string_lossy()
-                .into_owned();
+            let relative = path.strip_prefix(root)?.to_string_lossy().into_owned();
             let text = match std::fs::read_to_string(&path) {
                 Ok(text) => text,
                 Err(_) => continue,
@@ -581,7 +577,7 @@ fn scan_named_structs(root: &Path) -> Vec<NamedStructInfo> {
             .cmp(&right.path)
             .then(left.struct_name.cmp(&right.struct_name))
     });
-    structs
+    Ok(structs)
 }
 
 fn parse_named_structs_in_file(relative_path: &str, text: &str) -> Vec<NamedStructInfo> {
@@ -657,7 +653,7 @@ fn field_type(line: &str) -> Option<&str> {
 }
 
 pub fn run(root: &Path) -> Result<()> {
-    let wide_structs: Vec<NamedStructInfo> = scan_named_structs(root)
+    let wide_structs: Vec<NamedStructInfo> = scan_named_structs(root)?
         .into_iter()
         .filter(|info| info.field_count >= WIDE_STRUCT_THRESHOLD)
         .collect();

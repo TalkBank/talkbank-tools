@@ -45,11 +45,19 @@ use talkbank_model::ParseValidateOptions;
 use talkbank_model::model::LanguageCode;
 use talkbank_parser::TreeSitterParser;
 
+/// Shared error type for these boundary tests: any failure (parser init,
+/// parse, or a missing-fixture assertion) is propagated out of the test
+/// via `?` so the harness reports it instead of panicking.
+type TestResult = Result<(), Box<dyn std::error::Error>>;
+
 /// Helper: parse a one-utterance CHAT fragment using the canonical
 /// tree-sitter parser. Mirrors the helper used in
 /// `crates/talkbank-transform/src/morphosyntax/tests.rs` so a future
-/// reader can find one consistent idiom.
-fn parse_one_utterance(main_tier: &str) -> talkbank_model::model::ChatFile {
+/// reader can find one consistent idiom. Errors from parser init or
+/// parsing propagate to the caller instead of panicking.
+fn parse_one_utterance(
+    main_tier: &str,
+) -> Result<talkbank_model::model::ChatFile, Box<dyn std::error::Error>> {
     let chat = format!(
         "@UTF8\n\
          @Begin\n\
@@ -59,8 +67,8 @@ fn parse_one_utterance(main_tier: &str) -> talkbank_model::model::ChatFile {
          *CHI:\t{main_tier}\n\
          @End\n"
     );
-    let parser = TreeSitterParser::new().expect("parser init");
-    parser.parse_chat_file(&chat).expect("parse")
+    let parser = TreeSitterParser::new()?;
+    Ok(parser.parse_chat_file(&chat)?)
 }
 
 // =====================================================================
@@ -95,8 +103,8 @@ fn parse_one_utterance(main_tier: &str) -> talkbank_model::model::ChatFile {
 /// (no terminator, separator at end-of-utterance). This is the
 /// original BUG-009 trigger from the 2026-05-01 postmortem.
 #[test]
-fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() {
-    let chat_file = parse_one_utterance("Yes→");
+fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() -> TestResult {
+    let chat_file = parse_one_utterance("Yes→")?;
 
     let primary = LanguageCode::new("eng");
     let langs = declared_languages(&chat_file, &primary);
@@ -143,6 +151,7 @@ fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() {
          walk; got {:?}",
         actual_strs
     );
+    Ok(())
 }
 
 /// Forward-regression gate (currently GREEN — empirical 2026-05-01):
@@ -152,9 +161,9 @@ fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() {
 ///     *PAT: I think you could use new clothes→ 0_2633
 /// The `→` and the bullet must NOT appear as Stanza-payload words.
 #[test]
-fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
+fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -> TestResult {
     let chat_file =
-        parse_one_utterance("I think you could use new clothes→ \u{0015}0_2633\u{0015}");
+        parse_one_utterance("I think you could use new clothes→ \u{0015}0_2633\u{0015}")?;
     let primary = LanguageCode::new("eng");
     let langs = declared_languages(&chat_file, &primary);
     let collected = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll);
@@ -184,6 +193,7 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
              CST and must not reach the Stanza payload."
         );
     }
+    Ok(())
 }
 
 // =====================================================================
@@ -234,9 +244,9 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
 /// What's wrong in the pipeline output (verbatim):
 ///
 /// ```text
-/// *PAR:	la meua dona↑@s (...) éramos xxx [=! looks at MUJ] .
-/// %mor:	det|el-Fem-Def-Art-Sing det|meu-Fem-Def-Art noun|do-Fin-Imp-S~intj|na noun|éram .
-/// %gra:	1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT
+/// *PAR: la meua dona↑@s (...) éramos xxx [=! looks at MUJ] .
+/// %mor: det|el-Fem-Def-Art-Sing det|meu-Fem-Def-Art noun|do-Fin-Imp-S~intj|na noun|éram .
+/// %gra: 1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT
 /// ```
 ///
 /// `%mor` has 6 alignable chunks (the MWT host
@@ -265,7 +275,7 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() {
 /// `%mor` and `%gra` will align 1:1 and this test passes.
 #[test]
 #[ignore = "historical bad-output fixture only; current executable contract lives in inject::tests::inject_morphosyntax_gra_count_mismatch_returns_err, which rejects misaligned %mor/%gra instead of silently emitting them"]
-fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
+fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() -> TestResult {
     // Verbatim pre-patch pipeline output. The headers are minimized
     // around the affected utterance so the test fixture is self-
     // contained; the utterance itself is byte-faithful to commit
@@ -281,8 +291,8 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
                 %gra:\t1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT\n\
                 @End\n";
 
-    let parser = TreeSitterParser::new().expect("parser init");
-    let chat_file = parser.parse_chat_file(chat).expect("parse");
+    let parser = TreeSitterParser::new()?;
+    let chat_file = parser.parse_chat_file(chat)?;
 
     let mut checked_utterances = 0;
     for utt in chat_file.utterances() {
@@ -311,6 +321,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
         "fixture must contain at least one utterance with both %mor and \
          %gra tiers; the test setup is broken if this fires"
     );
+    Ok(())
 }
 
 /// RED reproducer (level 2, narrower): the morphotag pipeline drops
@@ -325,9 +336,9 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
 /// Captured output:
 ///
 /// ```text
-/// %mor:	det|el-... det|meu-... noun|do-Fin-Imp-S~intj|na noun|éram .
+/// %mor: det|el-... det|meu-... noun|do-Fin-Imp-S~intj|na noun|éram .
 ///         (chunks 1, 2, 3+4 MWT, 5, 6=terminator)
-/// %gra:	1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT
+/// %gra: 1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT
 ///         (entries for indices 1-5; chunk 6 has no entry)
 /// ```
 ///
@@ -345,7 +356,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() {
 /// `%gra` entry (some `N|root|PUNCT` form) and this passes.
 #[test]
 #[ignore = "historical bad-output fixture only; current executable contract lives in inject::tests::inject_morphosyntax_gra_count_mismatch_returns_err, which rejects misaligned %mor/%gra instead of silently emitting them"]
-fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() {
+fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() -> TestResult {
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\tcat, spa\n\
@@ -356,8 +367,8 @@ fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() {
                 %gra:\t1|3|DET 2|3|DET 3|0|ROOT 4|3|PUNCT 5|3|PUNCT\n\
                 @End\n";
 
-    let parser = TreeSitterParser::new().expect("parser init");
-    let chat_file = parser.parse_chat_file(chat).expect("parse");
+    let parser = TreeSitterParser::new()?;
+    let chat_file = parser.parse_chat_file(chat)?;
 
     for utt in chat_file.utterances() {
         let Some(mor) = utt.mor_tier() else { continue };
@@ -379,6 +390,7 @@ fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() {
              gra append at the same seam."
         );
     }
+    Ok(())
 }
 
 /// Forward-regression placeholder kept for the original BUG-011 entry
@@ -410,10 +422,10 @@ fn bug_011_mor_gra_chunk_counts_must_match() {
 // whack-a-mole corpus rerun.
 // =====================================================================
 
-fn gra_content(chat: &str) -> &str {
+fn gra_content(chat: &str) -> Result<&str, Box<dyn std::error::Error>> {
     chat.lines()
         .find_map(|line| line.strip_prefix("%gra:\t"))
-        .expect("fixture must contain exactly one %gra line")
+        .ok_or_else(|| "fixture must contain exactly one %gra line".into())
 }
 
 fn assert_current_gra_matches_adjudicated_gold(
@@ -421,8 +433,8 @@ fn assert_current_gra_matches_adjudicated_gold(
     expected_gold: &str,
     source_label: &str,
     family: &str,
-) {
-    let actual = gra_content(chat);
+) -> TestResult {
+    let actual = gra_content(chat)?;
     assert_eq!(
         actual, expected_gold,
         "corpus-derived RED %gra spec failed for {source_label} ({family}).\n\
@@ -430,10 +442,11 @@ fn assert_current_gra_matches_adjudicated_gold(
          but the adjudicated gold %gra is:\n  {expected_gold}\n\
          This test is intentionally RED until the emitting/injection path is fixed."
     );
+    Ok(())
 }
 
 #[test]
-fn current_e316_compound_prt_surface_must_use_chat_relation_label() {
+fn current_e316_compound_prt_surface_must_use_chat_relation_label() -> TestResult {
     let sentence = UdSentence {
         words: vec![
             UdWord {
@@ -478,7 +491,7 @@ fn current_e316_compound_prt_surface_must_use_chat_relation_label() {
         lang: LanguageCode::new("eng"),
     };
 
-    let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map ordinary UD sentence");
+    let (_mors, gras) = map_ud_sentence(&sentence, &ctx)?;
     let actual: Vec<String> = gras.iter().map(ToString::to_string).collect();
     assert_eq!(
         actual,
@@ -490,11 +503,12 @@ fn current_e316_compound_prt_surface_must_use_chat_relation_label() {
         "E316 contract: ordinary UD->CHAT mapping must serialize `compound:prt` \
          using CHAT `%gra` label form `COMPOUND-PRT`, not the raw UD label."
     );
+    Ok(())
 }
 
 #[test]
 #[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
-fn current_e713_out_of_bounds_head_must_attach_cd_player_to_predicate() {
+fn current_e713_out_of_bounds_head_must_attach_cd_player_to_predicate() -> TestResult {
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\thrv\n\
@@ -510,12 +524,12 @@ fn current_e713_out_of_bounds_head_must_attach_cd_player_to_predicate() {
         "1|2|ADVMOD 2|0|ROOT 3|2|OBJ 4|2|PUNCT",
         "Croatian cd-player sample",
         "E713",
-    );
+    )
 }
 
 #[test]
 #[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
-fn current_e722_e724_cycle_must_promote_adult_to_single_root() {
+fn current_e722_e724_cycle_must_promote_adult_to_single_root() -> TestResult {
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\teng, spa\n\
@@ -531,12 +545,12 @@ fn current_e722_e724_cycle_must_promote_adult_to_single_root() {
         "1|4|DISCOURSE 2|1|FIXED 3|4|ADVMOD 4|0|ROOT 5|4|PUNCT",
         "Bangor Miami ay-si-too-adult sample",
         "E722 + E724",
-    );
+    )
 }
 
 #[test]
 #[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
-fn current_e723_self_headed_relation_must_not_count_as_second_root() {
+fn current_e723_self_headed_relation_must_not_count_as_second_root() -> TestResult {
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\teng, yue\n\
@@ -552,12 +566,12 @@ fn current_e723_self_headed_relation_must_not_count_as_second_root() {
         "1|0|ROOT 2|1|DEP 3|2|NMOD 4|1|PUNCT 5|1|PUNCT",
         "EACMC color-ge-go-le sample",
         "E723",
-    );
+    )
 }
 
 #[test]
 #[ignore = "documentary corpus symptom fixture only; executable structural coverage belongs at the typed L2 splice seam in crates/talkbank-transform/src/morphosyntax/l2/splice.rs"]
-fn current_e724_genitive_cycle_must_attach_case_marker_under_year() {
+fn current_e724_genitive_cycle_must_attach_case_marker_under_year() -> TestResult {
     let chat = "@UTF8\n\
                 @Begin\n\
                 @Languages:\tdeu, eng\n\
@@ -573,5 +587,5 @@ fn current_e724_genitive_cycle_must_attach_case_marker_under_year() {
         "1|4|AMOD 2|4|NMOD 3|2|CASE 4|9|OBJ 5|6|CASE 6|7|OBL 7|9|XCOMP 8|7|AUX 9|0|ROOT 10|9|AUX 11|12|CASE 12|9|OBL 13|9|PUNCT",
         "CallHome German New-Year-s-Abend sample",
         "E724",
-    );
+    )
 }

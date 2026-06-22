@@ -327,7 +327,7 @@ mod tests {
         chat_punct_chars()
     }
 
-    fn punct_refs<'a>(strs: &'a [String]) -> Vec<&'a str> {
+    fn punct_refs(strs: &[String]) -> Vec<&str> {
         strs.iter().map(|s| s.as_str()).collect()
     }
 

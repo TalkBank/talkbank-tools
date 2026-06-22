@@ -1013,10 +1013,11 @@ mod tests {
     // ---- LanguageCode3 validation ----
 
     #[test]
-    fn language_code3_valid() {
-        assert_eq!(LanguageCode3::try_new("eng").unwrap().0, "eng");
-        assert_eq!(LanguageCode3::try_new("SPA").unwrap().0, "spa");
-        assert_eq!(LanguageCode3::try_new("Zho").unwrap().0, "zho");
+    fn language_code3_valid() -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(LanguageCode3::try_new("eng")?.0, "eng");
+        assert_eq!(LanguageCode3::try_new("SPA")?.0, "spa");
+        assert_eq!(LanguageCode3::try_new("Zho")?.0, "zho");
+        Ok(())
     }
 
     #[test]
@@ -1045,12 +1046,13 @@ mod tests {
     }
 
     #[test]
-    fn language_code3_serde_roundtrip() {
+    fn language_code3_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let code = LanguageCode3::eng();
-        let json = serde_json::to_string(&code).unwrap();
+        let json = serde_json::to_string(&code)?;
         assert_eq!(json, "\"eng\"");
-        let back: LanguageCode3 = serde_json::from_str(&json).unwrap();
+        let back: LanguageCode3 = serde_json::from_str(&json)?;
         assert_eq!(back, code);
+        Ok(())
     }
 
     #[test]
@@ -1072,19 +1074,21 @@ mod tests {
     // ---- WorkerLanguage ----
 
     #[test]
-    fn worker_language_parses_resolved_auto_and_unspecified() {
+    fn worker_language_parses_resolved_auto_and_unspecified()
+    -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            WorkerLanguage::parse_untrusted("eng").unwrap(),
+            WorkerLanguage::parse_untrusted("eng")?,
             WorkerLanguage::Resolved(LanguageCode3::eng())
         );
         assert_eq!(
-            WorkerLanguage::parse_untrusted("AUTO").unwrap(),
+            WorkerLanguage::parse_untrusted("AUTO")?,
             WorkerLanguage::Auto
         );
         assert_eq!(
-            WorkerLanguage::parse_untrusted("").unwrap(),
+            WorkerLanguage::parse_untrusted("")?,
             WorkerLanguage::Unspecified
         );
+        Ok(())
     }
 
     #[test]
@@ -1094,65 +1098,74 @@ mod tests {
     }
 
     #[test]
-    fn worker_language_serde_roundtrip() {
+    fn worker_language_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let auto = WorkerLanguage::Auto;
-        assert_eq!(serde_json::to_string(&auto).unwrap(), "\"auto\"");
+        assert_eq!(serde_json::to_string(&auto)?, "\"auto\"");
         assert_eq!(
-            serde_json::from_str::<WorkerLanguage>("\"\"").unwrap(),
+            serde_json::from_str::<WorkerLanguage>("\"\"")?,
             WorkerLanguage::Unspecified
         );
         assert_eq!(
-            serde_json::from_str::<WorkerLanguage>("\"yue\"").unwrap(),
+            serde_json::from_str::<WorkerLanguage>("\"yue\"")?,
             WorkerLanguage::Resolved(LanguageCode3::yue())
         );
+        Ok(())
     }
 
     // ---- LanguageSpec ----
 
     #[test]
-    fn language_spec_deserializes_auto() {
-        let spec: LanguageSpec = serde_json::from_str("\"auto\"").unwrap();
+    fn language_spec_deserializes_auto() -> Result<(), Box<dyn std::error::Error>> {
+        let spec: LanguageSpec = serde_json::from_str("\"auto\"")?;
         assert_eq!(spec, LanguageSpec::Auto);
+        Ok(())
     }
 
     #[test]
-    fn language_spec_deserializes_auto_case_insensitive() {
-        let spec: LanguageSpec = serde_json::from_str("\"AUTO\"").unwrap();
+    fn language_spec_deserializes_auto_case_insensitive() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let spec: LanguageSpec = serde_json::from_str("\"AUTO\"")?;
         assert_eq!(spec, LanguageSpec::Auto);
+        Ok(())
     }
 
     #[test]
-    fn language_spec_deserializes_resolved() {
-        let spec: LanguageSpec = serde_json::from_str("\"eng\"").unwrap();
+    fn language_spec_deserializes_resolved() -> Result<(), Box<dyn std::error::Error>> {
+        let spec: LanguageSpec = serde_json::from_str("\"eng\"")?;
         assert_eq!(spec, LanguageSpec::Resolved(LanguageCode3::eng()));
+        Ok(())
     }
 
     #[test]
-    fn language_spec_serializes_auto() {
-        let json = serde_json::to_string(&LanguageSpec::Auto).unwrap();
+    fn language_spec_serializes_auto() -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&LanguageSpec::Auto)?;
         assert_eq!(json, "\"auto\"");
+        Ok(())
     }
 
     #[test]
-    fn language_spec_serializes_resolved() {
-        let json = serde_json::to_string(&LanguageSpec::Resolved(LanguageCode3::spa())).unwrap();
+    fn language_spec_serializes_resolved() -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&LanguageSpec::Resolved(LanguageCode3::spa()))?;
         assert_eq!(json, "\"spa\"");
+        Ok(())
     }
 
     #[test]
-    fn language_spec_roundtrip_auto() {
+    fn language_spec_roundtrip_auto() -> Result<(), Box<dyn std::error::Error>> {
         let spec = LanguageSpec::Auto;
-        let json = serde_json::to_string(&spec).unwrap();
-        let back: LanguageSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec)?;
+        let back: LanguageSpec = serde_json::from_str(&json)?;
         assert_eq!(spec, back);
+        Ok(())
     }
 
     #[test]
-    fn language_spec_roundtrip_resolved() {
+    fn language_spec_roundtrip_resolved() -> Result<(), Box<dyn std::error::Error>> {
         let spec = LanguageSpec::Resolved(LanguageCode3::fra());
-        let json = serde_json::to_string(&spec).unwrap();
-        let back: LanguageSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec)?;
+        let back: LanguageSpec = serde_json::from_str(&json)?;
         assert_eq!(spec, back);
+        Ok(())
     }
 
     #[test]
@@ -1162,16 +1175,18 @@ mod tests {
     }
 
     #[test]
-    fn language_spec_try_from_str_auto() {
-        assert_eq!(LanguageSpec::try_from("auto").unwrap(), LanguageSpec::Auto);
+    fn language_spec_try_from_str_auto() -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(LanguageSpec::try_from("auto")?, LanguageSpec::Auto);
+        Ok(())
     }
 
     #[test]
-    fn language_spec_try_from_str_resolved() {
+    fn language_spec_try_from_str_resolved() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            LanguageSpec::try_from("eng").unwrap(),
+            LanguageSpec::try_from("eng")?,
             LanguageSpec::Resolved(LanguageCode3::eng())
         );
+        Ok(())
     }
 
     #[test]
@@ -1249,17 +1264,20 @@ mod tests {
     }
 
     #[test]
-    fn language_spec_per_file_serializes_as_per_file_string() {
-        let json = serde_json::to_string(&LanguageSpec::PerFile).unwrap();
+    fn language_spec_per_file_serializes_as_per_file_string()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&LanguageSpec::PerFile)?;
         assert_eq!(json, "\"per-file\"");
+        Ok(())
     }
 
     #[test]
-    fn language_spec_per_file_round_trips_json() {
+    fn language_spec_per_file_round_trips_json() -> Result<(), Box<dyn std::error::Error>> {
         let spec = LanguageSpec::PerFile;
-        let json = serde_json::to_string(&spec).unwrap();
-        let back: LanguageSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec)?;
+        let back: LanguageSpec = serde_json::from_str(&json)?;
         assert_eq!(back, spec);
+        Ok(())
     }
 
     #[test]
@@ -1270,11 +1288,9 @@ mod tests {
     }
 
     #[test]
-    fn language_spec_per_file_try_from_str() {
-        assert_eq!(
-            LanguageSpec::try_from("per-file").unwrap(),
-            LanguageSpec::PerFile
-        );
+    fn language_spec_per_file_try_from_str() -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(LanguageSpec::try_from("per-file")?, LanguageSpec::PerFile);
+        Ok(())
     }
 
     #[test]
@@ -1297,15 +1313,17 @@ mod tests {
     // ---- DisplayPath ----
 
     #[test]
-    fn display_path_accepts_bare_basename() {
-        let p = DisplayPath::try_new("sample.cha").unwrap();
+    fn display_path_accepts_bare_basename() -> Result<(), Box<dyn std::error::Error>> {
+        let p = DisplayPath::try_new("sample.cha")?;
         assert_eq!(&*p, "sample.cha");
+        Ok(())
     }
 
     #[test]
-    fn display_path_accepts_relative_path() {
-        let p = DisplayPath::try_new("PWA/TYO_a1.cha").unwrap();
+    fn display_path_accepts_relative_path() -> Result<(), Box<dyn std::error::Error>> {
+        let p = DisplayPath::try_new("PWA/TYO_a1.cha")?;
         assert_eq!(&*p, "PWA/TYO_a1.cha");
+        Ok(())
     }
 
     #[test]
@@ -1320,11 +1338,12 @@ mod tests {
     }
 
     #[test]
-    fn display_path_serde_roundtrip() {
-        let p = DisplayPath::try_new("sub/dir/file.cha").unwrap();
-        let json = serde_json::to_string(&p).unwrap();
-        let back: DisplayPath = serde_json::from_str(&json).unwrap();
+    fn display_path_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
+        let p = DisplayPath::try_new("sub/dir/file.cha")?;
+        let json = serde_json::to_string(&p)?;
+        let back: DisplayPath = serde_json::from_str(&json)?;
         assert_eq!(p, back);
+        Ok(())
     }
 
     #[test]
@@ -1334,8 +1353,9 @@ mod tests {
     }
 
     #[test]
-    fn display_path_deserialize_normalizes_backslash() {
-        let p: DisplayPath = serde_json::from_str("\"PWA\\\\TYO.cha\"").unwrap();
+    fn display_path_deserialize_normalizes_backslash() -> Result<(), Box<dyn std::error::Error>> {
+        let p: DisplayPath = serde_json::from_str("\"PWA\\\\TYO.cha\"")?;
         assert_eq!(&*p, "PWA/TYO.cha");
+        Ok(())
     }
 }
