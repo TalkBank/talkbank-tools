@@ -44,7 +44,7 @@ The simplest setup: one server, multiple clients.
 ### 1. Install batchalign3 on the server
 
 ```bash
-uv tool install batchalign3
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
 ```
 
 ### 2. Install Temporal (job queue)

@@ -165,7 +165,7 @@ as expected.
 ## Troubleshooting
 
 **"batchalign3 not found"**: the app can't find the CLI binary. Make sure
-you've installed Batchalign (`uv tool install batchalign3`) and that your
+you've installed Batchalign (see the [Installation guide](installation.md)) and that your
 terminal's PATH is available to GUI apps. On macOS, you may need to restart
 after installing.
 

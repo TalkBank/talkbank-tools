@@ -115,7 +115,7 @@ Add the engine's Python dependencies to the appropriate section in
 
 - **Core engines** (expected to work out of the box): add to `dependencies`.
   All standard commands (align, transcribe, translate, morphotag, etc.) have
-  their dependencies in `dependencies` so that `uv tool install batchalign3`
+  their dependencies in `dependencies` so that a standard install
   gives users everything.
 
 - **Built-in engines with extra runtime dependencies**: add them to

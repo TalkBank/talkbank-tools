@@ -19,11 +19,8 @@ the base package.
 
 ## Installation
 
-The standard install already includes these engines:
-
-```bash
-uv tool install batchalign3
-```
+The standard install (see the [Installation guide](installation.md))
+already includes these engines.
 
 For a source checkout, the standard build (`cargo build -p batchalign`
 plus `uv run maturin develop` for the PyO3 bridge) already includes

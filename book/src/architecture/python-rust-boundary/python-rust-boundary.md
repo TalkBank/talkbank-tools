@@ -393,9 +393,8 @@ local model package?".
 > critical because the worker that reports capabilities may only load
 > models for one command, but Rust still needs enough information to
 > derive the released command surface. All dependencies in the table
-> are part of the base `batchalign3` package, a standard
-> `uv tool install batchalign3` gives you every built-in engine
-> family. The import probes exist as a safety net for environments
+> are part of the base `batchalign3` package, so any standard
+> install gives you every built-in engine family. The import probes exist as a safety net for environments
 > where a dependency failed to install or was removed.
 
 `speaker` is a worker infer task, not a standalone CLI command. The

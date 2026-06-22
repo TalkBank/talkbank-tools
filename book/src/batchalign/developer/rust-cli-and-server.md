@@ -253,8 +253,8 @@ happening too early.
 
 ### Packaging before a backend spike
 
-Do **not** split the default installation into `uv tool install batchalign3`
-plus `uv tool install batchalign3-server` yet.
+Do **not** split the default installation into a base package plus a
+separate `batchalign3-server` package yet.
 
 For now the right default is still one install:
 

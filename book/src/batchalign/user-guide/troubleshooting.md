@@ -45,10 +45,10 @@ Python you expect Batchalign to discover.
 
 ## `batchalign3: command not found`
 
-Install the package:
+Install (or reinstall) batchalign3:
 
 ```bash
-uv tool install batchalign3
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
 ```
 
 If `uv` installed the tool but your shell still cannot find it, ensure the uv
