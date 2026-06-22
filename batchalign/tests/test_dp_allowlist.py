@@ -1,4 +1,4 @@
-# affects: crates/batchalign/src/**
+# affects: crates/batchalign/src/**, crates/batchalign-transform/src/**
 from __future__ import annotations
 
 import re
@@ -26,16 +26,19 @@ def _scan_paths(paths: list[Path], pattern: str) -> list[tuple[str, int, str]]:
 
 
 def test_chat_ops_dp_calls_are_allowlisted() -> None:
+    # Batchalign-specific transforms moved from talkbank-transform (now in
+    # chatter) into the local batchalign-transform crate during the
+    # 2026-06-18 CHAT-core dedup; scan that crate, not the gone path.
     dp_call_roots = [
         ROOT / "crates" / "batchalign" / "src",
-        ROOT / "crates" / "talkbank-transform" / "src",
+        ROOT / "crates" / "batchalign-transform" / "src",
     ]
     dp_call_src = sorted(path for root in dp_call_roots for path in root.rglob("*.rs"))
     align_hits = _scan_paths(dp_call_src, r"\bdp_align::align\s*\(")
     align_chars_hits = _scan_paths(dp_call_src, r"\bdp_align::align_chars\s*\(")
     # Allowlisted dp_align::align call sites:
-    # - talkbank-transform/benchmark.rs: WER evaluation
-    # - talkbank-transform/compare.rs: transcript comparison
+    # - batchalign-transform/benchmark.rs: WER evaluation
+    # - batchalign-transform/compare/engine.rs: transcript comparison
     #   (2 calls: window alignment + rotation)
     # - batchalign/chat_ops/fa/utr.rs: UTR global alignment
     #   (correctness-critical, not avoidable)
@@ -45,7 +48,7 @@ def test_chat_ops_dp_calls_are_allowlisted() -> None:
     assert {rel for rel, _, _ in align_hits} == {
         "crates/batchalign/src/chat_ops/fa/utr.rs",
         "crates/batchalign/src/chat_ops/fa/utr/two_pass.rs",
-        "crates/talkbank-transform/src/benchmark.rs",
-        "crates/talkbank-transform/src/compare/engine.rs",
+        "crates/batchalign-transform/src/benchmark.rs",
+        "crates/batchalign-transform/src/compare/engine.rs",
     }
     assert not align_chars_hits
