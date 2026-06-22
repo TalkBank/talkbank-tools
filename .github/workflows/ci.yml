@@ -50,9 +50,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Pin shellcheck to the current latest release instead of the
+      # distro-shipped one. ubuntu-latest's apt shellcheck lags, and its
+      # older SC2317 ("unreachable command") logic false-positives on
+      # indirectly invoked functions (e.g. scripts/temporal-stress-test.sh)
+      # that current shellcheck no longer flags. Per the CI policy, use the
+      # latest tool. Latest: https://github.com/koalaman/shellcheck/releases
+      - name: Install shellcheck (pinned latest)
+        env:
+          SHELLCHECK_VERSION: v0.11.0
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" -o shellcheck.tar.xz
+          tar -xJf shellcheck.tar.xz
+          sudo install "shellcheck-${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version
+
       # Every tracked shell script must pass shellcheck at its default
-      # (strictest) severity. ubuntu-latest ships shellcheck; the runner finds
-      # every *.sh plus shebang scripts via git ls-files. See CLAUDE.md.
+      # (strictest) severity. The runner finds every *.sh plus shebang
+      # scripts via git ls-files. See CLAUDE.md.
       - name: shellcheck all shell scripts
         run: bash scripts/lint/shellcheck-all.sh
 
