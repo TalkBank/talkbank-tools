@@ -1,13 +1,23 @@
 # batchalign — HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
-**Last modified:** 2026-05-11 08:29 EDT
+**Last modified:** 2026-06-22 08:47 EDT
 
 ## Overview
 
 Axum-based REST server managing job lifecycle, Python worker dispatch, and server-side
 CHAT orchestration (CHAT ownership boundary — server owns parse/cache/inject/serialize,
 Python workers provide stateless NLP inference only).
+
+## Versioning (BUILD_HASH)
+
+`build.rs` stamps `BUILD_HASH = <CARGO_PKG_VERSION>-<git describe --always --dirty>-<epoch>`
+at compile time; `batchalign3 version` and the `/health` route report it. The epoch changes
+every rebuild (stale-binary detection in dev), so two builds of the same commit differ. The
+describe carries git's `-g<hex>` commit sentinel once a `vX.Y.Z` tag is reachable, and a bare
+commit otherwise; consumers that parse the build string (the deploy verifier) must key on
+`-g<hex>` with a bare-commit fallback, never split on `-` by field position. Full
+release/version story: the repo-root `CLAUDE.md`.
 
 ## Module Map
 

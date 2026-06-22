@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-06-21 17:11 EDT
+**Last modified:** 2026-06-22 08:47 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -85,6 +85,26 @@ CHAT-format verification (parser-equivalence, generated artifacts, fuzz, corpus
 roundtrip, grammar) is chatter's job now. CI workflows: `ci.yml` (cross-cutting
 dependency-audit + shellcheck), `batchalign-rust.yml`, `batchalign-python.yml`,
 `batchalign-desktop.yml`, `book.yml`.
+
+## Releases and Versioning
+
+`batchalign3 version` reports `batchalign3 <pkg> (build <pkg>-<git-describe>-<epoch>)`,
+assembled in `crates/batchalign/build.rs` as `BUILD_HASH` (`git describe --always
+--dirty`). The epoch changes on every rebuild, so a stale binary is detectable in
+development. With no reachable tag the describe is a bare commit; once an annotated
+`vX.Y.Z` tag is reachable it reads `vX.Y.Z-<n>-g<commit>`. No release semver is baked
+into the binary; the build hash is the identity. When matching the commit, key on git's
+`-g<hex>` describe sentinel (bare-commit fallback); never split the string by `-`
+position.
+
+Releases are GitHub Releases, **not PyPI**. `.github/workflows/batchalign-release.yml`
+is triggered by a `v*` tag push (or `workflow_dispatch`, which offers a `dry_run` that
+builds and smoke-tests without publishing); it attaches the installer scripts, abi3
+wheels, and a checksum file. End users install from the GitHub Release via a uv-bootstrap
+installer pulling those wheels, never from a package index.
+
+The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.1.0"`
+git dep shown above); adopt a newer chatter by bumping that tag and running `cargo update`.
 
 ## Cross-Cutting Design Rules
 
