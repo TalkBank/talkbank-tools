@@ -106,6 +106,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The batchalign crate's default features include `embed-dashboard`,
+      # which `include_dir!`s frontend/dist at compile time and panics if it
+      # is absent. Build the dashboard (static, arch-independent assets) on
+      # the host before the CLI binary. For the Linux target the manylinux
+      # container sees these files through the mounted workspace, so the
+      # before-script-linux cargo build picks them up too.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build dashboard frontend
+        shell: bash
+        run: cd frontend && npm ci && npm run build
+
       # The bundled batchalign3 CLI binary pulls in prost / tonic, which need
       # protoc at build time. The wheel itself (batchalign-pyo3) does not, so
       # protoc is installed only for the native CLI-binary build below (macOS
