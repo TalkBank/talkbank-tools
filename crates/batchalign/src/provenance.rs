@@ -68,10 +68,43 @@ impl ProvenanceComment {
     }
 }
 
+/// Find the index at which a new changeable header (such as a provenance
+/// `@Comment`) should be inserted: immediately after the last header that must
+/// precede changeable headers, i.e. the last `@ID` or constant participant
+/// header (`@Birth of` / `@Birthplace of` / `@L1 of`).
+///
+/// Per the CHAT format the constant participant headers must immediately follow
+/// the `@ID` block. Inserting after the last `@ID` *only* (ignoring the
+/// constant headers) displaces `@Birth of` and produces CLAN CHECK error 127,
+/// so we scan for the last of all four header kinds.
+fn insert_pos_after_constant_headers(file: &ChatFile) -> usize {
+    file.lines
+        .0
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(i, line)| {
+            if let Line::Header { header, .. } = line
+                && matches!(
+                    header.as_ref(),
+                    Header::ID(_)
+                        | Header::Birth { .. }
+                        | Header::Birthplace { .. }
+                        | Header::L1Of { .. }
+                )
+            {
+                return Some(i + 1);
+            }
+            None
+        })
+        .unwrap_or(0)
+}
+
 /// Inject a provenance comment into a CHAT file's AST.
 ///
 /// Replaces any existing `[ba3 <command> |` comment for the same command.
-/// New comments are placed after the last `@ID` header.
+/// New comments are placed immediately after the constant participant headers
+/// (the last `@ID` / `@Birth of` / `@Birthplace of` / `@L1 of`).
 pub fn inject_provenance(file: &mut ChatFile, comment: &ProvenanceComment) {
     let prefix = comment.match_prefix();
     let new_content = comment.format();
@@ -87,22 +120,9 @@ pub fn inject_provenance(file: &mut ChatFile, comment: &ProvenanceComment) {
         true
     });
 
-    // Find insertion point: after the last @ID header.
-    let insert_pos = file
-        .lines
-        .0
-        .iter()
-        .enumerate()
-        .rev()
-        .find_map(|(i, line)| {
-            if let Line::Header { header, .. } = line
-                && matches!(header.as_ref(), Header::ID(_))
-            {
-                return Some(i + 1);
-            }
-            None
-        })
-        .unwrap_or(0);
+    // Insert after the constant participant headers (not merely after the last
+    // @ID), so @Birth of / @Birthplace of / @L1 of stay adjacent to @ID.
+    let insert_pos = insert_pos_after_constant_headers(file);
 
     let bullet_content = crate::chat_ops::BulletContent::from_text(new_content);
 
@@ -204,22 +224,9 @@ pub fn inject_unchecked_warning(file: &mut ChatFile, asr_engine: &str) {
         true
     });
 
-    // Insert after the last @ID header (same position as provenance).
-    let insert_pos = file
-        .lines
-        .0
-        .iter()
-        .enumerate()
-        .rev()
-        .find_map(|(i, line)| {
-            if let Line::Header { header, .. } = line
-                && matches!(header.as_ref(), Header::ID(_))
-            {
-                return Some(i + 1);
-            }
-            None
-        })
-        .unwrap_or(0);
+    // Insert after the constant participant headers (same position as
+    // provenance), so @Birth of / @Birthplace of / @L1 of stay adjacent to @ID.
+    let insert_pos = insert_pos_after_constant_headers(file);
 
     let bullet_content = crate::chat_ops::BulletContent::from_text(warning_text);
 
@@ -322,10 +329,10 @@ fn next_non_provenance_line<'a>(
 ) -> Option<&'a str> {
     for chunk in lines.by_ref() {
         let trimmed = chunk.trim_start();
-        if let Some(rest) = trimmed.strip_prefix("@Comment:") {
-            if rest.trim_start().starts_with(prefix) {
-                continue;
-            }
+        if let Some(rest) = trimmed.strip_prefix("@Comment:")
+            && rest.trim_start().starts_with(prefix)
+        {
+            continue;
         }
         return Some(chunk);
     }
@@ -473,6 +480,72 @@ mod tests {
         assert!(result.contains("[ba3 transcribe"));
         // Morphotag comment should be added
         assert!(result.contains("[ba3 morphotag"));
+    }
+
+    /// The provenance `@Comment` must land AFTER the constant participant
+    /// headers (`@Birth of` / `@Birthplace of` / `@L1 of`), not between the
+    /// `@ID` block and `@Birth of`. Inserting it right after the last `@ID`
+    /// displaces `@Birth of`, which CLAN CHECK flags as error 127.
+    #[test]
+    fn inject_provenance_lands_after_constant_headers() {
+        let chat = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Birth of PAR:\t15-DEC-1970
+*PAR:\thello .
+@End
+";
+        let comment = ProvenanceComment::new("morphotag")
+            .field("engine", "stanza-1.11.1")
+            .field("lang", "eng");
+
+        let result = inject_provenance_into_text(chat, &comment);
+
+        let birth_pos = result
+            .find("@Birth of")
+            .expect("@Birth of header must be present");
+        let stamp_pos = result
+            .find("[ba3 morphotag")
+            .expect("provenance comment must be present");
+        assert!(
+            birth_pos < stamp_pos,
+            "provenance @Comment must follow @Birth of (constant headers must \
+             immediately follow @ID); got:\n{result}"
+        );
+    }
+
+    /// The unchecked-ASR warning shares the same insertion logic and must also
+    /// land after the constant participant headers.
+    #[test]
+    fn inject_unchecked_warning_lands_after_constant_headers() {
+        let chat = "\
+@UTF8
+@Begin
+@Languages:\teng
+@Participants:\tPAR Participant
+@ID:\teng|test|PAR|||||Participant|||
+@Birth of PAR:\t15-DEC-1970
+*PAR:\thello .
+@End
+";
+        let parser = crate::chat_parser();
+        let (mut file, _) = parse_lenient(&parser, chat);
+        inject_unchecked_warning(&mut file, "whisper");
+        let result = to_chat_string(&file);
+
+        let birth_pos = result
+            .find("@Birth of")
+            .expect("@Birth of header must be present");
+        let warning_pos = result
+            .find("Unchecked output of ASR model")
+            .expect("unchecked warning must be present");
+        assert!(
+            birth_pos < warning_pos,
+            "unchecked warning must follow @Birth of; got:\n{result}"
+        );
     }
 
     #[test]
