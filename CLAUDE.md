@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-06-22 08:47 EDT
+**Last modified:** 2026-06-24 10:44 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -26,7 +26,7 @@ chatter on 2026-06-18 (meta-repo memory
 `[workspace.dependencies]` in `Cargo.toml` points `talkbank-model`,
 `talkbank-parser`, `talkbank-parser-re2c`, `talkbank-parser-tests`, and
 `talkbank-transform` at the published, public chatter via git deps pinned to a
-release tag: `{ git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }`.
+release tag: `{ git = "https://github.com/TalkBank/chatter", tag = "v0.2.1" }`.
 A plain checkout builds with no `../chatter` sibling. Adopt a newer chatter by
 bumping the tag (then `cargo update`). **Do NOT re-introduce copies of those
 crates here**; chatter owns them. New CHAT-format / grammar / spec / parser /
@@ -103,7 +103,7 @@ builds and smoke-tests without publishing); it attaches the installer scripts, a
 wheels, and a checksum file. End users install from the GitHub Release via a uv-bootstrap
 installer pulling those wheels, never from a package index.
 
-The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.1.0"`
+The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.2.1"`
 git dep shown above); adopt a newer chatter by bumping that tag and running `cargo update`.
 
 ## Cross-Cutting Design Rules
