@@ -131,12 +131,12 @@ batchalign-transform = { path = "crates/batchalign-transform" }
 # ../chatter/crates/...; never commit a path override here. Adopt a newer chatter
 # by bumping the tag. talkbank-transform is the GENERIC transform;
 # batchalign-transform (above) holds the ML accretion.
-talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }
+talkbank-transform = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.0" }
 # Stage 1 dedup: talkbank-tools no longer carries its own copies of these.
-talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }
-talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }
-talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }
-talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.1.0" }
+talkbank-model = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.0" }
+talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.0" }
+talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.0" }
+talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.0" }
 
 phf = { version = "0.13", features = ["macros"] }
 phf_codegen = "0.13"
