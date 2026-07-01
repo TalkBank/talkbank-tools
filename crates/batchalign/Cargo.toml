@@ -7,11 +7,6 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-# futures-util is used via the #[workflow_methods] proc-macro (boxed_local) with
-# no explicit `use`, so cargo-machete cannot see the usage. Keep it ignored.
-[package.metadata.cargo-machete]
-ignored = ["futures-util"]
-
 [features]
 default = ["server", "binary-entry", "embed-dashboard"]
 
@@ -24,19 +19,13 @@ binary-entry = [
     "dep:tracing-opentelemetry",
 ]
 
-# HTTP server, Temporal backend, SQLite job persistence, OpenAPI schema.
-# Disable this feature for direct-mode-only builds that do not need axum,
-# temporal, or the route/DB layer.
+# HTTP server, SQLite job persistence, OpenAPI schema.
+# Disable this feature for direct-mode-only builds that do not need axum
+# or the route/DB layer.
 server = [
-    "dep:anyhow",
     "dep:axum",
     "dep:tower-http",
     "dep:utoipa",
-    "dep:temporalio-client",
-    "dep:temporalio-common",
-    "dep:temporalio-macros",
-    "dep:temporalio-sdk",
-    "dep:temporalio-sdk-core",
 ]
 
 # Embed the React dashboard (frontend/dist/) into the binary at compile time.
@@ -69,7 +58,6 @@ talkbank-parser = { workspace = true }
 batchalign-transform = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-futures-util = { workspace = true }  # used via #[workflow_methods] macro (see machete ignore)
 libc = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
@@ -117,19 +105,9 @@ opentelemetry-otlp = { workspace = true, optional = true }
 console-subscriber = { version = "0.5", optional = true }
 
 # ── Server-only (optional, behind "server" feature) ──────────────────
-# anyhow is required by the temporalio v0.4 `#[workflow_methods]` macro
-# expansion and by `ApplicationFailure::non_retryable(anyhow!(...))` at
-# the temporal-activity error sites in `temporal_backend.rs`. Gated
-# under `server` because it is only reachable when temporalio deps are.
-anyhow = { workspace = true, optional = true }
 axum = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
-temporalio-client = { workspace = true, optional = true }
-temporalio-common = { workspace = true, optional = true }
-temporalio-macros = { workspace = true, optional = true }
-temporalio-sdk = { workspace = true, optional = true }
-temporalio-sdk-core = { workspace = true, optional = true }
 
 # ── Embed dashboard (optional) ───────────────────────────────────────
 include_dir = { workspace = true, optional = true }

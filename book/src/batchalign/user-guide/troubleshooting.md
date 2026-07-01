@@ -352,26 +352,17 @@ batchalign3 --server http://yourserver:8000 morphotag corpus/ -o output/
 
 ## "Did my long-running job die when the server restarted?"
 
-If you redeployed or restarted `batchalign3 serve` while a multi-hour
-`align` or `transcribe` batch was in progress, whether it survived
-depends entirely on the control-plane backend, which is selected by the
-`temporal_server_url` field in `~/.batchalign3/server.yaml`:
+Yes, the old in-flight process is gone. Batchalign now has a single local
+in-process control plane, so restarting `batchalign3 serve` interrupts running
+work on that server.
 
-- **In-process backend** (`temporal_server_url` empty / `"none"` /
-  `"local"` / `"disabled"`, or the field omitted), the job is gone.
-  The control plane lives inside this server process.
-- **Temporal backend** (`temporal_server_url` set to a real URL),
-  the job almost certainly survived. The Temporal workflow re-leases
-  the activity to a worker after the server reconnects.
+What survives is the persisted SQLite job state. On the next startup, recovery
+reloads queued/interrupted jobs and re-dispatches resumable work. Confirm by
+querying `http://<server>:<port>/jobs` (the public JSON endpoint; `/api/jobs`
+is **404**, that path belongs to the SPA shell).
 
-Confirm by querying `http://<server>:<port>/jobs` (the public JSON
-endpoint, `/api/jobs` is **404**, that's the SPA shell route prefix).
-A surviving Temporal job will show `status: running` again with
-`completed_files` advancing, even if `completed_at` is stamped.
-
-Full survival semantics, including how to read `last_cancelled_source`
-and `last_cancelled_reason` columns in `~/.batchalign3/jobs.db`:
-[Server Mode → What happens to in-flight jobs when the server restarts](server-mode.md#what-happens-to-in-flight-jobs-when-the-server-restarts).
+If a job was far enough along to have durable partial state, you should see it
+return as queued/running after restart rather than disappearing permanently.
 
 ## Submission errors
 

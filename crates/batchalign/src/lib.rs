@@ -194,7 +194,7 @@ pub mod ws;
 
 pub mod db;
 
-// ── Server modules (require "server" feature: axum, temporal, utoipa) ─
+// ── Server modules (require "server" feature: axum, utoipa) ───────────
 #[cfg(feature = "server")]
 pub mod hostname;
 #[cfg(feature = "server")]
@@ -210,10 +210,6 @@ pub mod server_backend;
 #[cfg(feature = "server")]
 pub mod state;
 #[cfg(feature = "server")]
-pub(crate) mod temporal_backend;
-#[cfg(feature = "server")]
-pub(crate) mod temporal_reconciler;
-#[cfg(feature = "server")]
 pub(crate) mod websocket;
 
 // Re-export primary API surface from submodules.
@@ -225,7 +221,7 @@ pub use worker_setup::{
     prepare_workers_background,
 };
 
-// Server-level exports (require axum, sqlx, temporal).
+// Server-level exports (require axum and sqlx).
 #[cfg(feature = "server")]
 pub use server::{
     create_app, create_app_with_prepared_workers, create_app_with_runtime, create_test_app,

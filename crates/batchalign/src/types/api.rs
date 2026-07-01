@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn job_control_plane_roundtrip() {
         let info = JobInfo {
-            job_id: "job-temporal".into(),
+            job_id: "job-local".into(),
             status: JobStatus::Running,
             command: ReleasedCommand::Morphotag,
             options: crate::options::CommandOptions::Morphotag(crate::options::MorphotagOptions {
@@ -99,16 +99,7 @@ mod tests {
             num_workers: None,
             active_lease: None,
             batch_progress: None,
-            control_plane: Some(JobControlPlaneInfo::temporal_with_execution(
-                TemporalWorkflowExecutionInfo {
-                    workflow_id: "job-temporal".into(),
-                    run_id: Some("run-123".into()),
-                    status: Some("running".into()),
-                    task_queue: Some("batchalign3-server".into()),
-                    history_length: Some(12),
-                    describe_error: None,
-                },
-            )),
+            control_plane: Some(JobControlPlaneInfo::local()),
             execution_plan: None,
             last_cancelled_at: None,
             last_cancelled_source: None,

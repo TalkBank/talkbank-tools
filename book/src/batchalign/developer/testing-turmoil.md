@@ -1,7 +1,7 @@
 # Deterministic Simulation Testing with turmoil
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:58 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 ## Why we need this
 
@@ -14,7 +14,7 @@ crashes and restarts? When multiple clients race against each other?
 These gaps are not hypothetical. Several production incidents trace to
 network-adjacent behavior:
 
-- Temporal workers that appeared connected but never executed activities
+- Experimental orchestration workers that appeared connected but never executed work
   (a fleet-wide hang)
 - Stale batchalign3 processes surviving across deploys because the restart
   sequence didn't verify the new process was actually serving

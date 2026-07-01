@@ -1,7 +1,7 @@
 # Forced Alignment Design
 
 **Status:** Current
-**Last updated:** 2026-06-15 13:21 EDT
+**Last updated:** 2026-07-01 10:18 EDT
 
 ## Overview
 
@@ -1163,6 +1163,38 @@ error; BA3 users see a silent file drop, a regression in observability.
 `is_whisper_model_unavailable()` in `fa/transport.rs` provides the
 graceful-degradation behavior BA2 had via its explicit-error path: the affected
 utterances lose word-level timing, but the file completes.
+
+### Default engine drift and correction (2026-07-01)
+
+The "Default FA engine" row above has claimed Whisper for both BA2 and BA3
+since this table was written, but the code did not actually match it: `FaEngine`'s
+`#[default]` (`crates/batchalign/src/cli/args/commands.rs`) and
+`default_fa_engine()` (`crates/batchalign/src/types/options.rs`) both defaulted
+to Wave2Vec. This was a real doc/code drift, not a documentation error: the
+table described the intended, BA2-matching behavior; the code had drifted from
+it, undetected until now.
+
+Empirical investigation (overnight IISRP alignment run plus a sweep of 322
+already-delivered UMICH files, 2026-07-01) found the Wave2Vec CTC-overflow
+fallback described above firing on **effectively every FA group** in both
+corpora, not an occasional edge case, but the near-universal outcome on real
+speech data. Defaulting to Wave2Vec was therefore paying for a doomed attempt
+(worker dispatch + model inference + failure) on every single group, for zero
+behavioral difference from defaulting straight to Whisper. BA2's authors had
+already hit this exact Wave2Vec/CTC limitation years earlier (see
+`test_fa_short_segments.py` in the BA2 codebase) and chose to default to
+Whisper directly rather than build fallback machinery around it; the BA3
+fallback mechanism is a real, well-engineered improvement in graceful
+degradation, but it doesn't change which engine should run *first* by default.
+
+The default was corrected to Whisper 2026-07-01, restoring what this table
+already claimed. Wave2Vec remains available as an explicit opt-in via
+`--fa-engine wav2vec`, for content where it might not hit the CTC ceiling.
+The same investigation also found and fixed a second, adjacent bug: the
+hidden `--wav2vec` BA2-compat boolean flag (`cli/args/commands.rs`) was never
+actually consulted when resolving the effective FA engine; it "worked"
+purely by coincidence, because the (wrong) default it was meant to force
+already matched. Fixed alongside the default correction.
 
 ## Design Rationale
 

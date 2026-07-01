@@ -148,11 +148,21 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
         Commands::Align(a) => {
             let fa_engine = if let Some(engine) = a.fa_engine_custom.as_deref() {
                 FaEngineName::from_wire_name(engine).ok()?
-            } else if a.whisper_fa {
-                // BA2 compat alias
-                FaEngineName::Whisper
             } else {
-                match a.fa_engine {
+                // BA2 compat aliases take precedence over --fa-engine.
+                // `wav2vec` was previously dead: this flag was never
+                // consulted, so `--wav2vec` silently fell through to
+                // whatever `--fa-engine`'s default happened to be. Only
+                // masked (not caught) while the default itself was Wave2Vec;
+                // exposed once the default changed to Whisper 2026-07-01.
+                let effective = if a.whisper_fa {
+                    FaEngine::Whisper
+                } else if a.wav2vec {
+                    FaEngine::Wav2vec
+                } else {
+                    a.fa_engine
+                };
+                match effective {
                     FaEngine::Wav2vec => FaEngineName::Wave2Vec,
                     FaEngine::Whisper => FaEngineName::Whisper,
                 }

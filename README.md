@@ -1,7 +1,7 @@
 # talkbank-tools
 
 **Status:** Current
-**Last updated:** 2026-06-21 19:53 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 [![CI](https://github.com/TalkBank/talkbank-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/ci.yml)
 [![Batchalign Python](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml/badge.svg)](https://github.com/TalkBank/talkbank-tools/actions/workflows/batchalign-python.yml)
@@ -90,7 +90,7 @@ make book-serve   # serves http://localhost:3000
 | Path | What lives there |
 |---|---|
 | `batchalign/` | Python package for the `batchalign3` CLI |
-| `crates/batchalign` | Batchalign pipeline (ASR, FA, morphotag, jobs/runner, store, temporal, dashboard API) |
+| `crates/batchalign` | Batchalign pipeline (ASR, FA, morphotag, jobs/runner, store, local server control plane, dashboard API) |
 | `crates/batchalign-transform` | Batchalign-specific CHAT transforms layered over chatter's generic transform |
 | `crates/batchalign-pyo3` | PyO3 bridge and wheel build surface |
 | `crates/batchalign-types` | Shared types |

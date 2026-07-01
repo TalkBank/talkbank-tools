@@ -138,13 +138,10 @@ mod tests {
         assert_eq!(conflicts[0].job_id.as_ref(), "active");
     }
 
-    /// `find_conflicts` trusts the store HashMap it receives. Reconciliation
-    /// of stale `Queued`/`Running` entries against Temporal is an upstream
-    /// responsibility of `TemporalServerBackend::submit_job` (via
-    /// `TemporalReconciler::reconcile_submitter`); this layer intentionally
-    /// returns a conflict for any non-terminal store entry. End-to-end
-    /// invariants for the reconciliation path live in
-    /// `crate::temporal_reconciler::reconciler_loop_tests`.
+    /// `find_conflicts` trusts the store HashMap it receives. This layer is
+    /// intentionally pure over current store state: any non-terminal entry is
+    /// treated as a conflict until normal shutdown/recovery transitions move it
+    /// forward.
     #[test]
     fn find_conflicts_trusts_store_state_and_does_not_reconcile() {
         let mut abandoned = sample_job("abandoned-job", &["020724a.mp3"]);
@@ -161,9 +158,9 @@ mod tests {
         assert_eq!(
             conflicts.len(),
             1,
-            "find_conflicts is pure over the store HashMap. Reconciliation \
-             of stale Temporal-backed jobs happens upstream in \
-             `TemporalServerBackend::submit_job` via `TemporalReconciler`."
+            "find_conflicts is pure over the current store HashMap. Cleanup \
+             of stale jobs happens through normal shutdown/recovery paths, not \
+             inside conflict detection."
         );
     }
 

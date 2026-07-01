@@ -11,6 +11,7 @@
 
 use std::future::Future;
 use std::pin::Pin;
+#[cfg(test)]
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -22,6 +23,7 @@ use tokio::task::JoinSet;
 type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 /// Outcome of a spawned job task.
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpawnedTaskOutcome {
     /// The task ran to completion on the main runtime.
@@ -38,8 +40,10 @@ pub enum SpawnedTaskOutcome {
 /// Implements `Future<Output = SpawnedTaskOutcome>` so callers can `.await`
 /// it directly. For fire-and-forget dispatch, use
 /// [`RuntimeSupervisor::spawn_detached`] instead.
+#[cfg(test)]
 pub struct TaskCompletion(TaskCompletionInner);
 
+#[cfg(test)]
 enum TaskCompletionInner {
     /// Task was spawned; the receiver signals when it completes.
     Live(oneshot::Receiver<()>),
@@ -47,6 +51,7 @@ enum TaskCompletionInner {
     Failed,
 }
 
+#[cfg(test)]
 impl Future for TaskCompletion {
     type Output = SpawnedTaskOutcome;
 
@@ -118,11 +123,7 @@ impl RuntimeSupervisor {
 
     /// Spawn one tracked per-job background task, returning a
     /// [`TaskCompletion`] future that resolves when the task finishes.
-    ///
-    /// The completion future is the **only** reliable cross-runtime
-    /// notification mechanism. The Temporal activity handler uses it instead
-    /// of polling the `JobStore` from a separate tokio runtime where actor
-    /// reply channels are unreliable.
+    #[cfg(test)]
     pub fn spawn_job<F>(&self, task: F) -> TaskCompletion
     where
         F: Future<Output = ()> + Send + 'static,
@@ -282,7 +283,7 @@ mod tests {
     }
 
     /// Tasks dispatched from a separate OS thread with its own `current_thread`
-    /// + `LocalSet` runtime (the exact pattern used by the Temporal worker)
+    /// + `LocalSet` runtime
     /// must execute on the main runtime where the supervisor actor lives.
     #[tokio::test]
     async fn spawn_job_from_separate_current_thread_runtime() {

@@ -38,8 +38,21 @@ fn default_batch_window() -> usize {
 }
 
 /// Default forced-alignment engine for serialized command options.
+///
+/// Whisper, not Wave2Vec (changed 2026-07-01). Wave2Vec's CTC decoder has a
+/// real length constraint ("targets length is too long for CTC") that
+/// empirically fires on essentially every FA group on real speech data
+/// (verified against 322 delivered UMICH files and a full IISRP alignment
+/// run): every group falls back to Whisper anyway via
+/// `whisper_fallback_reason()` in `fa/transport.rs`, so defaulting to
+/// Wave2Vec paid for a doomed attempt (worker dispatch + model inference +
+/// failure) on every group for zero behavioral difference. BA2 already knew
+/// about this limitation (its `test_fa_short_segments.py` regression test
+/// predates BA3) and defaulted to Whisper directly; this restores that
+/// default. Wave2Vec remains available via `--fa-engine wav2vec` for
+/// content where it might not hit the CTC ceiling.
 fn default_fa_engine() -> FaEngineName {
-    FaEngineName::Wave2Vec
+    FaEngineName::Whisper
 }
 
 /// Default ASR engine for serialized command options.

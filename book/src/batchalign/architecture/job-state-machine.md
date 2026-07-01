@@ -1,7 +1,7 @@
 # Job State Machine
 
 **Status:** Current
-**Last updated:** 2026-05-11 14:36 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 ## Overview
 
@@ -162,7 +162,7 @@ cancel.
 
 ### 3. Bootstrap path
 
-When the daemon starts, `bootstrap_test_server_backend` calls
+When the daemon starts, `bootstrap_local_server_backend` calls
 `store.queued_job_ids()` after `load_from_db()` and spawns `job_task` for each
 recovered `Queued` job:
 

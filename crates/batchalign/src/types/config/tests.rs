@@ -14,13 +14,6 @@ fn default_config() {
     assert_eq!(cfg.default_lang, "eng"); // PartialEq<&str>
     assert_eq!(cfg.job_ttl_days, 7);
     assert!(cfg.auto_daemon);
-    assert_eq!(cfg.temporal_server_url, "");
-    assert_eq!(cfg.temporal_namespace, "default");
-    // Default task queue is per-host (`batchalign3-{hostname}`); see
-    // `default_task_queue_is_per_hostname` below for the invariant check.
-    assert!(cfg.temporal_task_queue.starts_with("batchalign3-"));
-    assert_eq!(cfg.temporal_heartbeat_s, 10);
-    assert_eq!(cfg.temporal_activity_timeout_s, 86_400);
     assert_eq!(cfg.worker_health_interval_s, 30);
     // `memory_gate_mb` defaults to `None`. The fallback value is
     // delivered by `resolved_memory_gate_mb()`, which now resolves
@@ -48,27 +41,6 @@ fn default_config() {
     assert_eq!(cfg.local_lease_ttl_s, 300);
     assert_eq!(cfg.audio_task_timeout_s, 0);
     assert_eq!(cfg.analysis_task_timeout_s, 0);
-    assert!(
-        !cfg.use_temporal(),
-        "empty temporal_server_url means local backend"
-    );
-}
-
-#[test]
-fn use_temporal_recognizes_sentinel_values() {
-    let mut cfg = ServerConfig::default();
-    assert!(!cfg.use_temporal());
-
-    cfg.temporal_server_url = "http://temporal-host:7233".to_string();
-    assert!(cfg.use_temporal());
-
-    for sentinel in ["", "none", "local", "disabled", "  ", " none "] {
-        cfg.temporal_server_url = sentinel.to_string();
-        assert!(
-            !cfg.use_temporal(),
-            "'{sentinel}' should mean local backend"
-        );
-    }
 }
 
 #[test]
@@ -81,7 +53,6 @@ media_mappings:
   childes-data: /nfs/childes
 default_lang: spa
 port: 9000
-backend: temporal
 max_concurrent_jobs: 4
 warmup_commands:
   - morphotag
@@ -119,74 +90,6 @@ warmup: false
     assert!(
         error.to_string().contains("unknown field `warmup`"),
         "unexpected error: {error}"
-    );
-}
-
-#[test]
-fn validate_clamps_too_short_temporal_activity_timeout() {
-    // Pin the defense-in-depth clamp: any value below
-    // `MIN_TEMPORAL_ACTIVITY_TIMEOUT_S` must be raised to the default
-    // with a warning. 3600 is the value that triggered the 2026-04-28
-    // cancel cascade; see
-    // `docs/postmortems/2026-04-28-temporal-activity-timeout-cancel-cascade.md`.
-    let mut cfg = ServerConfig {
-        temporal_activity_timeout_s: 3_600,
-        ..Default::default()
-    };
-    let warnings = cfg.validate();
-    assert_eq!(
-        cfg.temporal_activity_timeout_s, 86_400,
-        "1-hour timeout must be clamped up to the 24-hour default to avoid \
-         the cancel-cascade pattern; see 2026-04-28 postmortem"
-    );
-    assert!(
-        warnings
-            .iter()
-            .any(|w| w.contains("temporal_activity_timeout_s")),
-        "validator must emit a warning when clamping a too-short timeout; \
-         got warnings: {warnings:?}"
-    );
-}
-
-#[test]
-fn validate_clamps_zero_temporal_heartbeat_to_default() {
-    // 0 is treated as "not set" — restore to default rather than clamp
-    // to the minimum, since 0 is more likely a forgotten field than an
-    // intentional minimum.
-    let mut cfg = ServerConfig {
-        temporal_heartbeat_s: 0,
-        ..Default::default()
-    };
-    let warnings = cfg.validate();
-    assert_eq!(cfg.temporal_heartbeat_s, default_temporal_heartbeat_s());
-    let warning = warnings
-        .iter()
-        .find(|w| w.contains("temporal_heartbeat_s"))
-        .expect("validator must warn when restoring zero heartbeat to default");
-    assert!(
-        warning.contains("0"),
-        "warning should include the offending value; got {warning:?}"
-    );
-}
-
-#[test]
-fn validate_clamps_too_large_temporal_heartbeat_to_max() {
-    // Values above the max clamp DOWN to the max (not to the default),
-    // since a too-large value is more likely a deliberate "I want a
-    // long heartbeat" intent than a forgotten field.
-    let mut cfg = ServerConfig {
-        temporal_heartbeat_s: 120,
-        ..Default::default()
-    };
-    let warnings = cfg.validate();
-    assert_eq!(cfg.temporal_heartbeat_s, MAX_TEMPORAL_HEARTBEAT_S);
-    let warning = warnings
-        .iter()
-        .find(|w| w.contains("temporal_heartbeat_s"))
-        .expect("validator must warn when clamping over-large heartbeat");
-    assert!(
-        warning.contains("120"),
-        "warning should include the offending value; got {warning:?}"
     );
 }
 
@@ -837,17 +740,4 @@ fn explicit_memory_gate_overrides_tier_default() {
         ..Default::default()
     };
     assert_eq!(cfg.resolved_memory_gate_mb().0, 9_999);
-}
-
-/// The default Temporal task queue must encode the system hostname so
-/// each server polls a unique queue. Shared literals (`batchalign3-fleet`,
-/// `batchalign3-server`) must never be the default.
-#[test]
-fn default_task_queue_is_per_hostname() {
-    let queue = crate::types::config::server::default_temporal_task_queue();
-    let expected_hostname = sysinfo::System::host_name().expect("hostname must resolve in tests");
-    assert!(queue.starts_with("batchalign3-"), "got {queue:?}");
-    assert!(queue.ends_with(&expected_hostname), "got {queue:?}");
-    assert_ne!(queue.as_ref() as &str, "batchalign3-fleet");
-    assert_ne!(queue.as_ref() as &str, "batchalign3-server");
 }

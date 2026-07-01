@@ -17,11 +17,6 @@ expression: cfg
     "transcribe"
   ],
   "auto_daemon": true,
-  "temporal_server_url": "",
-  "temporal_namespace": "default",
-  "temporal_task_queue": "batchalign3-testhost",
-  "temporal_heartbeat_s": 10,
-  "temporal_activity_timeout_s": 86400,
   "worker_health_interval_s": 30,
   "max_concurrent_worker_startups": 1,
   "worker_ready_timeout_s": 300,

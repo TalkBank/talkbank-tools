@@ -1,7 +1,7 @@
 # align
 
 **Status:** Current
-**Last updated:** 2026-06-15 13:21 EDT
+**Last updated:** 2026-07-01 10:18 EDT
 
 Add word-level and utterance-level timestamps to an existing CHAT transcript
 by running forced alignment against the corresponding audio file.
@@ -295,7 +295,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--utr-ca-markers {enabled,disabled}` | `enabled` | Use CA overlap markers (⌈⌉⌊⌋) to set alignment windows |
 | `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0-1.0) |
 | `--utr-tight-buffer MS` | `500` | Pass-2 tight window buffer in milliseconds |
-| `--fa-engine {wav2vec,whisper}` | `wav2vec` | Forced-alignment model |
+| `--fa-engine {wav2vec,whisper}` | `whisper` (since 2026-07-01; see §"Forced alignment reference") | Forced-alignment model |
 | `--fa-engine-custom NAME` | — | Override FA engine by name (e.g. `wav2vec_fa_canto`) |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Group words into pause-separated chunks (Whisper FA only) |

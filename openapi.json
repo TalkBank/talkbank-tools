@@ -642,8 +642,7 @@
       "JobControlPlaneBackendKind": {
         "description": "Control-plane backend that currently owns orchestration for a server job.",
         "enum": [
-          "temporal",
-          "test"
+          "local"
         ],
         "type": "string"
       },
@@ -653,17 +652,6 @@
           "backend": {
             "$ref": "#/components/schemas/JobControlPlaneBackendKind",
             "description": "Control-plane backend that produced this projection."
-          },
-          "temporal": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/TemporalWorkflowExecutionInfo",
-                "description": "Temporal workflow execution metadata when `backend == temporal`."
-              }
-            ]
           }
         },
         "required": [
@@ -1308,55 +1296,6 @@
         "required": [
           "status",
           "message"
-        ],
-        "type": "object"
-      },
-      "TemporalWorkflowExecutionInfo": {
-        "description": "Temporal workflow execution metadata attached to a server job projection.",
-        "properties": {
-          "describe_error": {
-            "description": "Error surfaced when the server could not describe the workflow.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "history_length": {
-            "description": "Temporal history length when description succeeded.",
-            "format": "int64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "run_id": {
-            "description": "Current Temporal run ID when one is known.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "status": {
-            "description": "Current Temporal workflow status, normalized for Batchalign clients.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "task_queue": {
-            "description": "Temporal task queue serving this workflow when known.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "workflow_id": {
-            "description": "Stable Temporal workflow ID used for this job.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "workflow_id"
         ],
         "type": "object"
       },

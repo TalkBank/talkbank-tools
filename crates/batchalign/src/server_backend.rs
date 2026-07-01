@@ -4,17 +4,8 @@
 //! directly on a specific orchestration backend. The [`ServerBackend`] trait
 //! is the single interface that route handlers and lifecycle code consume.
 //!
-//! Two implementations exist, both production-supported:
-//! - [`TemporalServerBackend`](crate::temporal_backend::TemporalServerBackend) —
-//!   external-orchestrator backend backed by Temporal workflows and activities.
-//!   Selected when `server.yaml` `temporal_server_url` is a non-empty URL.
-//! - [`TestServerBackend`] — in-process backend that spawns inline runner tasks
-//!   without external dependencies. Selected when `temporal_server_url` is
-//!   empty / `"none"` / `"local"` / `"disabled"` (or omitted). Despite the
-//!   `Test`-prefixed name (which dates from when this path was integration-test-only),
-//!   this is the production non-Temporal backend; the fleet currently runs
-//!   here on hosts that don't enable the `temporal_enabled` / `temporal_worker`
-//!   host flags.
+//! The production implementation is an in-process local backend that spawns
+//! inline runner tasks without external orchestration dependencies.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,8 +14,8 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use crate::api::{
-    CancellationRequest, JobControlPlaneBackendKind, JobControlPlaneInfo, JobId, JobInfo,
-    JobListItem, JobStatus, NodeId, NumWorkers, UnixTimestamp,
+    CancellationRequest, JobControlPlaneInfo, JobId, JobInfo, JobListItem, JobStatus, NodeId,
+    NumWorkers, UnixTimestamp,
 };
 use crate::db::JobDB;
 use crate::error::ServerError;
@@ -152,27 +143,20 @@ pub(crate) struct ServerBackendBootstrap {
 }
 
 // ---------------------------------------------------------------------------
-// TestServerBackend — in-process control-plane backend
+// LocalServerBackend: in-process control-plane backend
 //
-// Despite the `Test`-prefixed name (which dates from when this path was
-// integration-test-only), this is the production non-Temporal backend:
-// `create_app_with_prepared_workers` selects it whenever
-// `temporal_server_url` is empty / `"none"` / `"local"` / `"disabled"`.
-// `create_test_app{,_with_prepared_workers}` also routes through it for
-// integration tests that don't want a Temporal dependency.
+// This is the production local backend used by both normal server startup
+// and test fixtures.
 // ---------------------------------------------------------------------------
 
-/// Queued-job orchestrator paired with [`TestServerBackend`].
+/// Queued-job orchestrator paired with [`LocalServerBackend`].
 ///
 /// Handles memory-gate rejections by re-queueing with a backoff policy.
-/// Both this and the Temporal orchestrator implement the same
-/// [`QueuedJobOrchestrator`] trait so behavior stays consistent across
-/// the two backends.
-struct TestJobOrchestrator {
+struct LocalJobOrchestrator {
     memory_gate_retry_policy: RetryPolicy,
 }
 
-impl TestJobOrchestrator {
+impl LocalJobOrchestrator {
     fn new() -> Self {
         Self {
             memory_gate_retry_policy: RetryPolicy {
@@ -186,7 +170,7 @@ impl TestJobOrchestrator {
 }
 
 #[async_trait]
-impl QueuedJobOrchestrator for TestJobOrchestrator {
+impl QueuedJobOrchestrator for LocalJobOrchestrator {
     async fn handle_memory_gate_rejection(
         &self,
         sink: &Arc<dyn RunnerEventSink>,
@@ -203,20 +187,12 @@ impl QueuedJobOrchestrator for TestJobOrchestrator {
     }
 }
 
-/// In-process server control-plane backend.
+/// In-process local server control-plane backend.
 ///
-/// Selected by [`create_app_with_prepared_workers`](crate::server::create_app_with_prepared_workers)
-/// when `temporal_server_url` resolves to [`TemporalBackend::Disabled`](crate::config::TemporalBackend::Disabled),
-/// and unconditionally by [`create_test_app_with_prepared_workers`](crate::server::create_test_app_with_prepared_workers).
 /// Spawns inline runner tasks via `tokio::spawn` and requires no external
 /// service. Each submitted job is persisted to the store and immediately
 /// dispatched on the local Tokio runtime.
-///
-/// Trade-off vs the Temporal backend: in-flight jobs do **not** survive a
-/// `batchalign3` server restart here, because the control plane lives
-/// inside this process. For deploy-tolerant in-flight execution use the
-/// Temporal backend ([`TemporalServerBackend`](crate::temporal_backend::TemporalServerBackend)).
-pub(crate) struct TestServerBackend {
+pub(crate) struct LocalServerBackend {
     store: Arc<JobStore>,
     host: ServerExecutionHost,
     runtime: RuntimeSupervisor,
@@ -227,15 +203,12 @@ pub(crate) struct TestServerBackend {
     hostname: String,
 }
 
-fn test_control_plane_info() -> JobControlPlaneInfo {
-    JobControlPlaneInfo {
-        backend: JobControlPlaneBackendKind::Test,
-        temporal: None,
-    }
+fn local_control_plane_info() -> JobControlPlaneInfo {
+    JobControlPlaneInfo::local()
 }
 
 #[async_trait]
-impl ServerBackend for TestServerBackend {
+impl ServerBackend for LocalServerBackend {
     async fn submit_job(&self, job: Job) -> Result<(), ServerError> {
         let job_id = job.identity.job_id.clone();
 
@@ -321,7 +294,7 @@ impl ServerBackend for TestServerBackend {
             .list_all()
             .await
             .into_iter()
-            .map(|job| job.with_control_plane(test_control_plane_info()))
+            .map(|job| job.with_control_plane(local_control_plane_info()))
             .collect()
     }
 
@@ -329,7 +302,7 @@ impl ServerBackend for TestServerBackend {
         self.store
             .get(job_id)
             .await
-            .map(|job| job.with_control_plane(test_control_plane_info()))
+            .map(|job| job.with_control_plane(local_control_plane_info()))
     }
 
     async fn get_job_detail(&self, job_id: &JobId) -> Option<JobDetail> {
@@ -380,7 +353,7 @@ impl ServerBackend for TestServerBackend {
         let host = self.host.clone();
         let restart_job_id = job_id.clone();
         self.runtime.spawn_detached(job_task(restart_job_id, host));
-        Ok(info.with_control_plane(test_control_plane_info()))
+        Ok(info.with_control_plane(local_control_plane_info()))
     }
 
     async fn interrupt_all_for_shutdown(&self) -> usize {
@@ -404,23 +377,16 @@ impl ServerBackend for TestServerBackend {
     }
 }
 
-/// Build and start the in-process server control plane.
+/// Build and start the in-process local server control plane.
 ///
-/// Used by both production (via
-/// [`create_app_with_prepared_workers`](crate::server::create_app_with_prepared_workers)
-/// when `temporal_server_url` resolves to
-/// [`TemporalBackend::Disabled`](crate::config::TemporalBackend::Disabled))
-/// and by integration tests (via
-/// [`create_test_app_with_prepared_workers`](crate::server::create_test_app_with_prepared_workers)).
-/// Unlike [`bootstrap_temporal_server_backend`](crate::temporal_backend::bootstrap_temporal_server_backend),
-/// this requires no external services: queued-job orchestration runs as
-/// inline `tokio::spawn` runner tasks against the local [`JobStore`].
+/// Used by both production and integration tests. Queued-job orchestration
+/// runs as inline `tokio::spawn` runner tasks against the local [`JobStore`].
 ///
-/// Performs the same startup recovery contract as the Temporal path:
+/// Performs startup recovery by
 /// loads jobs from the SQLite store, identifies any `Queued` rows whose
 /// runner died with the previous server process, and spawns a fresh
 /// `job_task` for each so they don't stall indefinitely.
-pub(crate) async fn bootstrap_test_server_backend(
+pub(crate) async fn bootstrap_local_server_backend(
     config: crate::config::ServerConfig,
     db: Arc<JobDB>,
     engine: ExecutionEngine,
@@ -436,16 +402,16 @@ pub(crate) async fn bootstrap_test_server_backend(
     let queued_job_ids = store.queued_job_ids().await;
     let queued_jobs = queued_job_ids.len();
 
-    let orchestrator = Arc::new(TestJobOrchestrator::new());
+    let orchestrator = Arc::new(LocalJobOrchestrator::new());
     let runtime = RuntimeSupervisor::new();
     let host = ServerExecutionHost::new(store.clone(), engine, orchestrator);
 
-    // Clone before the move into TestServerBackend so we can dispatch queued jobs below.
+    // Clone before the move into LocalServerBackend so we can dispatch queued jobs below.
     let runtime_for_resume = runtime.clone();
     let host_for_resume = host.clone();
 
     let hostname = sysinfo::System::host_name().unwrap_or_else(|| "unknown".to_string());
-    let backend: Arc<dyn ServerBackend> = Arc::new(TestServerBackend {
+    let backend: Arc<dyn ServerBackend> = Arc::new(LocalServerBackend {
         store,
         host,
         runtime,
@@ -621,20 +587,20 @@ mod tests {
             true,
         ));
 
-        let bootstrap = bootstrap_test_server_backend(
+        let bootstrap = bootstrap_local_server_backend(
             crate::config::ServerConfig::default(),
             db,
             engine,
             tempdir.path().join("jobs"),
         )
         .await
-        .expect("bootstrap test backend");
+        .expect("bootstrap local backend");
 
         bootstrap
             .backend
             .submit_job(sample_job("job-test-dispatch"))
             .await
-            .expect("test backend should submit the job");
+            .expect("local backend should submit the job");
 
         // Verify the job exists in the store.
         assert!(
@@ -643,7 +609,7 @@ mod tests {
                 .get_job(&JobId::from("job-test-dispatch"))
                 .await
                 .is_some(),
-            "test backend should expose submitted job state"
+            "local backend should expose submitted job state"
         );
 
         bootstrap

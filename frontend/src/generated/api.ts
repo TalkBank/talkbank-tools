@@ -740,12 +740,11 @@ export interface components {
          * @description Control-plane backend that currently owns orchestration for a server job.
          * @enum {string}
          */
-        JobControlPlaneBackendKind: "temporal" | "test";
+        JobControlPlaneBackendKind: "local";
         /** @description Backend-owned orchestration metadata for a job projection. */
         JobControlPlaneInfo: {
             /** @description Control-plane backend that produced this projection. */
             backend: components["schemas"]["JobControlPlaneBackendKind"];
-            temporal?: null | components["schemas"]["TemporalWorkflowExecutionInfo"];
         };
         /** @description Server-assigned identifier for a job (non-empty). */
         JobId: string;
@@ -1095,24 +1094,6 @@ export interface components {
              *     `"restarted"`). Suitable for switch/match in client code.
              */
             status: string;
-        };
-        /** @description Temporal workflow execution metadata attached to a server job projection. */
-        TemporalWorkflowExecutionInfo: {
-            /** @description Error surfaced when the server could not describe the workflow. */
-            describe_error?: string | null;
-            /**
-             * Format: int64
-             * @description Temporal history length when description succeeded.
-             */
-            history_length?: number | null;
-            /** @description Current Temporal run ID when one is known. */
-            run_id?: string | null;
-            /** @description Current Temporal workflow status, normalized for Batchalign clients. */
-            status?: string | null;
-            /** @description Temporal task queue serving this workflow when known. */
-            task_queue?: string | null;
-            /** @description Stable Temporal workflow ID used for this job. */
-            workflow_id: string;
         };
         /**
          * Format: double

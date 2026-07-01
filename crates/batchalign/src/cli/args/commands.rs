@@ -77,13 +77,21 @@ pub enum CliReviewLevel {
 }
 
 /// Forced-alignment engine for the `align` command.
+///
+/// Whisper is the default (matching BA2's long-standing default; see
+/// `default_fa_engine()` in `types/options.rs` for the full rationale).
+/// Wav2Vec's CTC decoder has a real length constraint ("targets length is
+/// too long for CTC") that empirically fires on essentially every FA group
+/// on real speech data, so defaulting to it buys nothing while paying for a
+/// doomed attempt before the automatic Whisper retry. Wav2Vec remains
+/// available as an explicit opt-in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum FaEngine {
-    /// Use Wav2Vec forced alignment (default).
+    /// Use Whisper for forced alignment (default).
     #[default]
-    Wav2vec,
-    /// Use Whisper for forced alignment.
     Whisper,
+    /// Use Wav2Vec forced alignment.
+    Wav2vec,
 }
 
 /// ASR engine for the `transcribe` command.
@@ -189,7 +197,7 @@ pub struct AlignArgs {
     #[arg(long)]
     pub utr_engine_custom: Option<String>,
 
-    /// Forced-alignment engine: wav2vec (default) or whisper.
+    /// Forced-alignment engine: whisper (default) or wav2vec.
     #[arg(long, value_enum, default_value_t)]
     pub fa_engine: FaEngine,
 

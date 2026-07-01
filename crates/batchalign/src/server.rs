@@ -1,6 +1,6 @@
 //! App factory and server lifecycle (create, serve, shutdown).
 //!
-//! Server-specific code that depends on axum, sqlx (db), and temporal.
+//! Server-specific code that depends on axum and sqlx (db).
 //! The shared worker-preparation logic lives in [`crate::worker_setup`].
 
 use std::net::SocketAddr;
@@ -15,11 +15,10 @@ use crate::db::JobDB;
 use crate::error;
 use crate::host_facts::HostFactsSource;
 use crate::media::MediaResolver;
-use crate::server_backend::{ServerBackendBootstrap, bootstrap_test_server_backend};
+use crate::server_backend::{ServerBackendBootstrap, bootstrap_local_server_backend};
 use crate::state::{
     AppBuildInfo, AppControlPlane, AppEnvironment, AppPaths, AppState, WorkerSubsystem,
 };
-use crate::temporal_backend::bootstrap_temporal_server_backend;
 use crate::worker::pool::PoolConfig;
 use crate::worker_setup::prepare_workers_background;
 
@@ -67,10 +66,10 @@ pub async fn create_app_with_runtime(
 }
 
 /// Create the application with test-echo workers and the lightweight
-/// [`TestServerBackend`](crate::server_backend::TestServerBackend).
+/// [`LocalServerBackend`](crate::server_backend::LocalServerBackend).
 ///
-/// This bypasses Temporal entirely. Use for integration tests that need a
-/// real HTTP server with working job dispatch but no external dependencies.
+/// Use for integration tests that need a real HTTP server with working job
+/// dispatch but no external dependencies.
 pub async fn create_test_app(
     config: ServerConfig,
     pool_config: PoolConfig,
@@ -127,22 +126,14 @@ pub async fn create_app_with_prepared_workers(
     );
     let db = Arc::new(db);
     let execution_runtime = workers.resolve_execution_runtime(cache.clone())?;
-    let backend_bootstrap: ServerBackendBootstrap = match config.temporal_backend() {
-        crate::types::config::TemporalBackend::Server { .. } => {
-            info!("Backend: temporal");
-            bootstrap_temporal_server_backend(config.clone(), db, execution_runtime.engine).await?
-        }
-        crate::types::config::TemporalBackend::Disabled => {
-            info!("Backend: local (Temporal disabled)");
-            bootstrap_test_server_backend(
-                config.clone(),
-                db,
-                execution_runtime.engine,
-                std::path::PathBuf::from(&jobs_dir),
-            )
-            .await?
-        }
-    };
+    info!("Backend: local");
+    let backend_bootstrap: ServerBackendBootstrap = bootstrap_local_server_backend(
+        config.clone(),
+        db,
+        execution_runtime.engine,
+        std::path::PathBuf::from(&jobs_dir),
+    )
+    .await?;
     if backend_bootstrap.loaded_jobs > 0 {
         info!(
             loaded = backend_bootstrap.loaded_jobs,
@@ -196,10 +187,10 @@ pub async fn create_app_with_prepared_workers(
 }
 
 /// Create the application with prepared workers and the lightweight
-/// [`TestServerBackend`](crate::server_backend::TestServerBackend).
+/// [`LocalServerBackend`](crate::server_backend::LocalServerBackend).
 ///
-/// Same lifecycle as [`create_app_with_prepared_workers`] but uses the
-/// in-process test backend instead of Temporal.
+/// Same lifecycle as [`create_app_with_prepared_workers`] but with test-echo
+/// workers for integration tests.
 pub async fn create_test_app_with_prepared_workers(
     config: ServerConfig,
     layout: RuntimeLayout,
@@ -229,7 +220,7 @@ pub async fn create_test_app_with_prepared_workers(
     );
     let db = Arc::new(db);
     let execution_runtime = workers.resolve_execution_runtime(cache.clone())?;
-    let backend_bootstrap: ServerBackendBootstrap = bootstrap_test_server_backend(
+    let backend_bootstrap: ServerBackendBootstrap = bootstrap_local_server_backend(
         config.clone(),
         db,
         execution_runtime.engine,
@@ -240,7 +231,7 @@ pub async fn create_test_app_with_prepared_workers(
     if backend_bootstrap.loaded_jobs > 0 {
         info!(
             loaded = backend_bootstrap.loaded_jobs,
-            "Jobs loaded from DB (test backend)"
+            "Jobs loaded from DB (local backend)"
         );
     }
     let capability_snapshot = execution_runtime.capability_snapshot;

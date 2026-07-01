@@ -118,42 +118,16 @@ pub struct FileStatusEntry {
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum JobControlPlaneBackendKind {
-    /// The Temporal-backed control plane (production).
-    Temporal,
-    /// Lightweight in-process backend for integration tests.
-    Test,
+    /// In-process local control plane.
+    Local,
 }
 
 impl std::fmt::Display for JobControlPlaneBackendKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Temporal => f.write_str("temporal"),
-            Self::Test => f.write_str("test"),
+            Self::Local => f.write_str("local"),
         }
     }
-}
-
-/// Temporal workflow execution metadata attached to a server job projection.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
-pub struct TemporalWorkflowExecutionInfo {
-    /// Stable Temporal workflow ID used for this job.
-    pub workflow_id: String,
-    /// Current Temporal run ID when one is known.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub run_id: Option<String>,
-    /// Current Temporal workflow status, normalized for Batchalign clients.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
-    /// Temporal task queue serving this workflow when known.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub task_queue: Option<String>,
-    /// Temporal history length when description succeeded.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub history_length: Option<i64>,
-    /// Error surfaced when the server could not describe the workflow.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub describe_error: Option<String>,
 }
 
 /// Backend-owned orchestration metadata for a job projection.
@@ -162,25 +136,13 @@ pub struct TemporalWorkflowExecutionInfo {
 pub struct JobControlPlaneInfo {
     /// Control-plane backend that produced this projection.
     pub backend: JobControlPlaneBackendKind,
-    /// Temporal workflow execution metadata when `backend == temporal`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub temporal: Option<TemporalWorkflowExecutionInfo>,
 }
 
 impl JobControlPlaneInfo {
-    /// Minimal Temporal control-plane marker without an execution describe.
-    pub fn temporal() -> Self {
+    /// Local control-plane marker.
+    pub fn local() -> Self {
         Self {
-            backend: JobControlPlaneBackendKind::Temporal,
-            temporal: None,
-        }
-    }
-
-    /// Temporal control-plane metadata with one workflow execution projection.
-    pub fn temporal_with_execution(temporal: TemporalWorkflowExecutionInfo) -> Self {
-        Self {
-            backend: JobControlPlaneBackendKind::Temporal,
-            temporal: Some(temporal),
+            backend: JobControlPlaneBackendKind::Local,
         }
     }
 }

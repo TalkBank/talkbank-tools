@@ -1,12 +1,12 @@
 # Observability Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 ## Overview
 
 The batchalign3 server processes jobs through a unified runner shared by
-direct mode, embedded server, and Temporal. All three modes produce the
+direct mode and the embedded/local server. Both modes produce the
 same `FileStatus` records, use the same error classification, and persist
 to the same SQLite store. Fixing observability in the runner fixes it for
 all modes.
@@ -140,109 +140,20 @@ Diagram verified against: `batchalign/worker/_protocol.py`,
 `crates/batchalign/src/runner/dispatch/infer_batched.rs`,
 `crates/batchalign/src/runner/util/batch_progress.rs`.
 
-### Job status authority: local store vs Temporal
+### Job status authority: the local store
 
-The observability contract for **job status** depends on which backend
-the server is running:
+The observability contract for **job status** is now simpler: the local
+SQLite store is authoritative for the local server control plane.
 
-- **Direct / embedded backends**: the local SQLite store is authoritative.
-  A file or utterance transitions through `Queued → Running → Completed`
-  entirely inside one daemon's runner, and the store is mutated synchronously
-  with the transition. What `JobStore` reports matches what actually happened.
-- **Temporal backend**: the local store is a **cache**, not the source of
-  truth. Temporal is authoritative. A job submitted on daemon A can be
-  dispatched by Temporal to daemon B on a different fleet worker; B's activity
-  completes the workflow, but A's local SQLite never hears about it through
-  the runner path, because A never ran the job. Without explicit reconciliation
-  A's store drifts: the job stays `Queued`/`Running` forever, even though
-  Temporal knows it's `Completed`.
+A file or utterance transitions through `Queued → Running → Completed`
+inside one daemon's runner, and the store is mutated synchronously with the
+transition. Conflict detection on resubmission reads that same store, so
+status freshness depends on normal shutdown/recovery behavior rather than on a
+second orchestration system.
 
-The drift matters beyond cosmetics. Conflict detection on resubmission reads
-from the local store (`store/queries/mod.rs`). A submitter retrying the same
-input files would hit a 409 Conflict against a ghost `Queued` job whose
-workflow actually finished minutes ago on a peer.
-
-**Fix:** a Temporal reconciler
-(`crates/batchalign/src/temporal_reconciler.rs`) that pushes Temporal's
-verdict back into the local store on two schedules:
-
-1. A periodic background tick every `RECONCILER_TICK_S = 30` seconds
-   (`temporal_backend.rs::bootstrap_temporal_server_backend`), sweeping
-   every non-terminal local job.
-2. An opportunistic scoped reconcile on every `submit_job`
-   (`temporal_backend.rs::TemporalServerBackend::submit_job`), narrowed to
-   the submitter via `reconcile_submitter(&submitted_by)`, and called
-   **before** `store.submit(job)` so conflict detection sees fresh state.
-
-The reconciler's decision is pure: given the local status, submission age,
-runner-active hint, and Temporal's verdict, `reconcile_action()` returns
-one of `NoChange`, `MarkCompleted`, `MarkCancelled`, or `MarkFailed { reason }`.
-Reasons are typed (`TemporalTerminalFailure`, `WorkflowLost`) so log queries
-and dashboards can discriminate without parsing messages. A `WorkflowLost`
-sweep requires that Temporal reports not-found AND the job is older than
-`RECONCILER_STALE_THRESHOLD_S = 300` seconds AND no runner is currently
-attached, a young or actively-running job with `None` from Temporal is
-treated as a transient visibility gap, not a lost workflow.
-
-Temporal describes are fanned out **concurrently** via `FuturesUnordered`
-(bound `MAX_CONCURRENT_DESCRIBES = 16`), because each describe is
-network-bound and independent. Without this, a submitter with K stale jobs
-would pay K × RTT synchronously inside the `submit_job` hot path.
-
-The reconciler is *best-effort*: Temporal describe failures bump
-`ReconcileReport.errored` and leave the job alone until the next tick. A
-reconcile pass never blocks job progress; it converges store state toward
-truth asynchronously.
-
-The following sequence shows a completion propagating from a remote worker
-back into the submitting daemon's local cache:
-
-```mermaid
-sequenceDiagram
-    participant Remote as "Remote worker activity\n(temporal_backend.rs::BatchalignTemporalActivities)"
-    participant TS as "Temporal server\n(&lt;temporal-host&gt;:7233)"
-    participant Recon as "TemporalReconciler\n(temporal_reconciler.rs)"
-    participant Query as "TemporalClientStateQuery\n(temporal_backend.rs)"
-    participant Store as "JobStore\n(store/queries/mod.rs)"
-    participant WS as "WebSocket broadcast\n(ws.rs)"
-
-    Remote->>TS: activity completes\nworkflow result recorded
-    Note over Recon: tokio::time::interval tick\n(RECONCILER_TICK_S = 30)
-    Recon->>Store: reconcilable_snapshot(None)
-    Store-->>Recon: Vec&lt;ReconcilableJobSnapshot&gt;
-    Recon->>Query: query_workflow_outcome(job_id)\n(FuturesUnordered fan-out)
-    Query->>TS: describe_workflow(workflow_id = job_id)
-    alt Temporal reachable
-        TS-->>Query: WorkflowExecutionStatus::Completed
-        Query-->>Recon: Some(TemporalWorkflowOutcome::Completed)
-        Recon->>Recon: reconcile_action(...) = MarkCompleted
-        Recon->>Store: update_job_status(job_id, Completed, None)
-        Store->>WS: emit status change
-    else Temporal describe fails
-        TS--xQuery: transport error
-        Query-->>Recon: Err(ServerError)
-        Recon->>Recon: report.errored += 1\n(leave job alone this tick)
-    else Workflow not found, job young
-        TS-->>Query: NotFound
-        Query-->>Recon: Ok(None)
-        Recon->>Recon: age &lt; stale_threshold_s\n=&gt; NoChange
-    else Workflow not found, job stale, no runner
-        TS-->>Query: NotFound
-        Query-->>Recon: Ok(None)
-        Recon->>Recon: age &gt; 300s AND !runner_active\n=&gt; MarkFailed{WorkflowLost}
-        Recon->>Store: update_job_status(job_id, Failed, reason.message())
-    end
-```
-
-Diagram verified against:
-`crates/batchalign/src/temporal_reconciler.rs`,
-`crates/batchalign/src/temporal_backend.rs`,
-`crates/batchalign/src/store/queries/mod.rs`.
-
-The opportunistic path on `submit_job` uses the same mechanism with
-`reconcile_submitter(&submitted_by)` instead of `reconcile_all_active()`,
-so the snapshot is narrower (same submitter only) and the reconcile fires
-before conflict detection rather than on a fixed tick.
+When the server restarts mid-job, persisted rows can move through
+`Running → Interrupted → Queued` during recovery. That state machine is the
+observable source of truth for whether work should resume.
 
 ### Worker crash diagnostics
 
@@ -255,7 +166,7 @@ Python traceback tail). Persisted to `FileStatus.error` in SQLite.
 
 The drain task warns if no progress heartbeat arrives for 120 seconds,
 naming the stalled language groups. This catches stuck workers without
-needing Temporal.
+needing external orchestration.
 
 Stall naming depends on the per-language tagger described above: without
 the rewrite from `event.stage = "stanza_processing"` to the real language
@@ -341,6 +252,3 @@ parsers is the right approach.
 | `worker/error.rs` | `ProcessExited { code, stderr }` |
 | `runner/util/error_classification.rs` | Error → user-facing message translation |
 | `store/queries/file_state.rs` | Store methods for progress + WS broadcast |
-| `temporal_reconciler.rs` | `reconcile_action()`, `TemporalReconciler`, `TemporalStateQuery`, `ReconcileAction`, `ReconcileFailureReason`, `ReconcileReport` |
-| `temporal_backend.rs` | `TemporalClientStateQuery`, `map_temporal_status_to_outcome()`, `RECONCILER_TICK_S`/`RECONCILER_STALE_THRESHOLD_S`, opportunistic reconcile in `submit_job`, periodic tick in `bootstrap_temporal_server_backend` |
-| `store/queries/mod.rs` | `ReconcilableJobSnapshot`, `JobStore::reconcilable_snapshot(submitted_by_filter)` |

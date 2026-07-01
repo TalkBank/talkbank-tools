@@ -24,11 +24,6 @@ expression: cfg
     "align"
   ],
   "auto_daemon": true,
-  "temporal_server_url": "",
-  "temporal_namespace": "default",
-  "temporal_task_queue": "batchalign3-testhost",
-  "temporal_heartbeat_s": 10,
-  "temporal_activity_timeout_s": 86400,
   "memory_gate_mb": 2048,
   "worker_health_interval_s": 15,
   "max_concurrent_worker_startups": 1,

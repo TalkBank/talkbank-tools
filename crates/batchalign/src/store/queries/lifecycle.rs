@@ -120,13 +120,11 @@ impl JobStore {
     /// saw this job as active and genuinely interrupted it" from "user
     /// pressed Cancel against an already-finished job."
     ///
-    /// Used by the shutdown path (Temporal backend) to leave a forensic
-    /// record in the `cancellations` table BEFORE flipping the lifecycle
-    /// bit to `Interrupted` via `interrupt_all_for_shutdown`. Keeping
-    /// audit and lifecycle as two separate operations is what lets the
-    /// startup recovery flow distinguish system-initiated shutdown
-    /// cancels from user gestures (see
-    /// `temporal_reconciler::is_system_initiated_shutdown_cancel`).
+    /// Used by the shutdown path to leave a forensic record in the
+    /// `cancellations` table BEFORE flipping the lifecycle bit to
+    /// `Interrupted` via `interrupt_all_for_shutdown`. Keeping audit and
+    /// lifecycle as two separate operations lets recovery distinguish
+    /// system-initiated shutdown cancels from user gestures.
     pub async fn record_cancellation_audit(
         &self,
         job_id: &JobId,
@@ -309,17 +307,16 @@ mod tests {
         );
     }
 
-    /// The Temporal-backend shutdown path must:
+    /// The shutdown path must:
     ///   (a) write a `cancellations` audit row with source=Signal,
     ///       reason="server-cancel-all" for every active job, AND
     ///   (b) leave every active job in `JobStatus::Interrupted`
     ///       (recovery-eligible), NOT `JobStatus::Cancelled` (terminal).
     ///
-    /// This test exercises the store-level primitives (`record_cancellation_audit`
-    /// + `interrupt_all_for_shutdown`) that the Temporal backend's rewritten body
-    /// calls.  Constructing a live `TemporalServerBackend` would require a real
-    /// Temporal server; testing via the store proves both invariants without that
-    /// dependency.
+    /// This test exercises the store-level primitives
+    /// (`record_cancellation_audit` + `interrupt_all_for_shutdown`) that the
+    /// local shutdown path uses, proving both invariants without needing a full
+    /// server lifecycle harness.
     #[tokio::test]
     async fn interrupt_all_for_shutdown_writes_interrupted_status_with_signal_audit() {
         // Use a DB-backed store so `list_cancellations` can read the persisted rows.
@@ -348,7 +345,7 @@ mod tests {
         store.mark_job_running(&JobId::from("shutdown-sig-a")).await;
         store.mark_job_running(&JobId::from("shutdown-sig-b")).await;
 
-        // Snapshot the active job IDs (mirrors what the Temporal backend does).
+        // Snapshot the active job IDs before shutdown processing.
         let active_ids: Vec<JobId> = store
             .list_all()
             .await
@@ -362,8 +359,8 @@ mod tests {
             "both jobs should be active before shutdown"
         );
 
-        // Step 1: write audit rows (the new Temporal-backend body does this before
-        // flipping lifecycle, so the DB row exists regardless of ordering race).
+        // Step 1: write audit rows before flipping lifecycle, so the DB row
+        // exists regardless of ordering race.
         let provenance = CancellationRequest {
             source: Some(CancelSource::Signal),
             reason: Some(CancelReason::server_cancel_all()),

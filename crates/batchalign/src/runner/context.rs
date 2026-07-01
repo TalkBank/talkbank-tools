@@ -169,12 +169,6 @@ impl ServerExecutionHost {
         }
     }
 
-    /// Access the shared job store for cross-module coordination (e.g.,
-    /// Temporal activity cancel forwarding dispatched to the main runtime).
-    pub(crate) fn store(&self) -> &Arc<JobStore> {
-        &self.store
-    }
-
     /// Access the underlying worker pool. Backends call this from
     /// `cancel_job` to invoke `pool.shutdown_workers_for_job`, which
     /// SIGTERMs every in-flight worker registered to the cancelled job

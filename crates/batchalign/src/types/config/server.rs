@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::api::{LanguageCode3, MemoryMb, TemporalTaskQueue};
+use crate::api::{LanguageCode3, MemoryMb};
 use crate::host_facts::serde_helpers::zero_as_none;
 
 /// Minimal warmup preset — morphotag only.
@@ -78,15 +78,6 @@ pub struct ServerConfig {
     /// Bind address for the HTTP server.  Default: `"0.0.0.0"` (all interfaces).
     #[serde(default = "default_host")]
     pub host: String,
-    /// Accepted for YAML backward compatibility (`backend: temporal` in old
-    /// configs). Not read at runtime: backend selection is driven by
-    /// [`Self::temporal_server_url`] via [`Self::temporal_backend`] in
-    /// `resolve.rs`. Empty / `"none"` / `"local"` / `"disabled"` URL selects
-    /// the in-process backend (`bootstrap_test_server_backend`); a real URL
-    /// selects the Temporal backend (`bootstrap_temporal_server_backend`).
-    /// Both backends are supported production paths.
-    #[serde(default, rename = "backend", skip_serializing)]
-    pub backend_compat: Option<String>,
 
     /// Operator override for the worker-side "skip GPU detection,
     /// force CPU-only inference" mode. `None` (the canonical post-
@@ -132,27 +123,6 @@ pub struct ServerConfig {
     /// `--server` is configured. Default: `true`.
     #[serde(default = "default_true")]
     pub auto_daemon: bool,
-    /// Temporal service URL used when `backend: temporal`.
-    #[serde(default = "default_temporal_server_url")]
-    pub temporal_server_url: String,
-    /// Temporal namespace used when `backend: temporal`.
-    #[serde(default = "default_temporal_namespace")]
-    pub temporal_namespace: String,
-    /// Temporal task queue used when `backend: temporal`. **Must be unique
-    /// per fleet machine** — each batchalign3 server owns a local
-    /// `JobStore`, so a workflow's activities can only be executed by the
-    /// server whose store persisted the job. The default derives from the
-    /// system hostname (`batchalign3-{hostname}`); any override in
-    /// `server.yaml` must preserve the per-host uniqueness invariant. See
-    /// the `architecture/temporal-fleet-topology.md` book page.
-    #[serde(default = "default_temporal_task_queue")]
-    pub temporal_task_queue: TemporalTaskQueue,
-    /// Activity heartbeat interval in seconds for the Temporal backend.
-    #[serde(default = "default_temporal_heartbeat_s")]
-    pub temporal_heartbeat_s: u64,
-    /// Per-attempt activity timeout in seconds for the Temporal backend.
-    #[serde(default = "default_temporal_activity_timeout_s")]
-    pub temporal_activity_timeout_s: u64,
     /// Operator override for the host-memory headroom (MB) the
     /// coordinator keeps free after worker-start and job-execution
     /// reservations. `None` (the canonical post-migration form) means
@@ -364,60 +334,6 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
-pub(crate) fn default_temporal_server_url() -> String {
-    // Default to empty so the server uses the local backend when
-    // no temporal_server_url is set in server.yaml.
-    String::new()
-}
-
-pub(crate) fn default_temporal_namespace() -> String {
-    "default".to_string()
-}
-
-pub(crate) fn default_temporal_task_queue() -> TemporalTaskQueue {
-    // Startup-only. Panic (not a shared `batchalign3-unknown` fallback) is
-    // deliberate: multiple hosts without stable hostnames would otherwise
-    // collapse into a shared queue and violate the per-host invariant.
-    // The expect rationale is documented at the user-visible level (the
-    // panic message itself names the operator override).
-    #[allow(clippy::expect_used)]
-    let hostname = sysinfo::System::host_name().expect(
-        "sysinfo::System::host_name() returned None — set `temporal_task_queue` \
-         explicitly in server.yaml to override.",
-    );
-    TemporalTaskQueue::from(format!("batchalign3-{hostname}"))
-}
-
-pub(crate) fn default_temporal_heartbeat_s() -> u64 {
-    10
-}
-
-/// Minimum acceptable value for `temporal_heartbeat_s`. A value of 0 is
-/// not a valid heartbeat interval; the validator treats it as "field
-/// forgotten" and restores the default.
-pub(crate) const MIN_TEMPORAL_HEARTBEAT_S: u64 = 1;
-
-/// Maximum acceptable value for `temporal_heartbeat_s`. Temporal worker
-/// liveness detection becomes lossy past about a minute; values above
-/// this clamp down to the max so the worker stays observable.
-pub(crate) const MAX_TEMPORAL_HEARTBEAT_S: u64 = 60;
-
-pub(crate) fn default_temporal_activity_timeout_s() -> u64 {
-    60 * 60 * 24
-}
-
-/// Minimum acceptable value for `temporal_activity_timeout_s`.
-///
-/// Values below this are clamped up to the default with a warning, on the
-/// principle that a single-activity Temporal workflow shorter than the
-/// natural duration of a real align/transcribe batch is structurally
-/// guaranteed to cancel-cascade. 6 hours is well below any real overnight
-/// job (typical operator workloads run 12+ hours) and well above the
-/// cascade window observed in production (1 hour). The clamp is
-/// defense-in-depth against a future deploy bug, hand-edit, or operator
-/// override that drops the value back to a too-short number.
-pub(crate) const MIN_TEMPORAL_ACTIVITY_TIMEOUT_S: u64 = 6 * 60 * 60;
-
 pub(crate) fn default_warmup_commands() -> Vec<String> {
     WARMUP_PRESET_FULL
         .iter()
@@ -476,17 +392,11 @@ impl Default for ServerConfig {
             max_concurrent_jobs: None,
             port: 8000,
             host: "0.0.0.0".to_string(),
-            backend_compat: None,
             force_cpu: None,
             max_workers_per_job: None,
             job_ttl_days: 7,
             warmup_commands: default_warmup_commands(),
             auto_daemon: true,
-            temporal_server_url: default_temporal_server_url(),
-            temporal_namespace: default_temporal_namespace(),
-            temporal_task_queue: default_temporal_task_queue(),
-            temporal_heartbeat_s: default_temporal_heartbeat_s(),
-            temporal_activity_timeout_s: default_temporal_activity_timeout_s(),
             memory_gate_mb: None,
             worker_health_interval_s: default_worker_health_interval_s(),
             max_concurrent_worker_startups: default_max_concurrent_worker_startups(),

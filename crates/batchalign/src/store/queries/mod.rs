@@ -15,16 +15,6 @@ pub(crate) use dispatch::LeaseRenewalOutcome;
 
 use crate::api::{CancellationRequest, JobId, JobInfo, JobListItem, JobStatus, UnixTimestamp};
 
-/// Snapshot of a job's reconciliation-relevant state, used by the
-/// Temporal reconciler to decide whether to mutate the local store.
-/// See `crate::temporal_reconciler::reconcile_action`.
-#[derive(Debug, Clone)]
-pub(crate) struct ReconcilableJobSnapshot {
-    pub job_id: JobId,
-    pub status: JobStatus,
-    pub submitted_at: UnixTimestamp,
-    pub runner_active: bool,
-}
 use tracing::warn;
 
 use super::{JobDetail, JobStore, OperationalCounters, unix_now};
@@ -51,41 +41,6 @@ impl JobStore {
     /// Look up a job by ID.
     pub async fn get(&self, job_id: &JobId) -> Option<JobInfo> {
         self.registry.job_info(job_id).await
-    }
-
-    /// Snapshot every non-terminal job's status + liveness signals for
-    /// Temporal reconciliation.
-    ///
-    /// Returns the minimum fields `temporal_reconciler::reconcile_action`
-    /// needs: job id, current store status, submission timestamp, and
-    /// whether a runner is currently attached. Only the non-terminal
-    /// jobs are included — terminal ones never need reconciliation.
-    ///
-    /// Optionally filter by `submitted_by` to produce a narrow snapshot
-    /// for opportunistic reconciliation on a new submission (we only
-    /// need to check jobs from the same submitter for conflict-detection
-    /// freshness).
-    pub(crate) async fn reconcilable_snapshot(
-        &self,
-        submitted_by_filter: Option<String>,
-    ) -> Vec<ReconcilableJobSnapshot> {
-        self.registry
-            .inspect_all(move |jobs| {
-                jobs.values()
-                    .filter(|job| !job.execution.status.is_terminal())
-                    .filter(|job| match submitted_by_filter.as_deref() {
-                        Some(sb) => job.source.submitted_by == sb,
-                        None => true,
-                    })
-                    .map(|job| ReconcilableJobSnapshot {
-                        job_id: job.identity.job_id.clone(),
-                        status: job.execution.status,
-                        submitted_at: job.schedule.submitted_at,
-                        runner_active: job.runtime.runner_active,
-                    })
-                    .collect()
-            })
-            .await
     }
 
     /// Return all jobs (newest first).

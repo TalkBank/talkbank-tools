@@ -82,14 +82,7 @@ pub async fn start(
         let tier = cfg.resolved_memory_tier();
         let host_policy = HostExecutionPolicy::from_server_config(&cfg);
         eprintln!("\nStarting server on {}:{}...", cfg.host, cfg.port);
-        eprintln!(
-            "Backend: {}",
-            if cfg.use_temporal() {
-                "temporal"
-            } else {
-                "local"
-            }
-        );
+        eprintln!("Backend: local");
         eprintln!(
             "Memory tier: {}{} (total: {} GB, headroom: {} GB, stanza: {} GB, gpu: {} GB, bootstrap: {:?})\n",
             tier.kind,

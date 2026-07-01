@@ -157,10 +157,9 @@ async fn run_hosted_job(
     let sink = host_context.sink().clone();
 
     let Some(job) = store.runner_snapshot(job_id).await else {
-        // Per-host Temporal task queues make this branch unreachable in a
-        // correctly configured fleet. Surface a typed error (not silent
-        // `Ok(Completed)`) so a shared-queue misconfiguration or concurrent
-        // store truncation fails loudly through Temporal's activity handler.
+        // This should be unreachable in normal local execution. Surface a
+        // typed error (not silent `Ok(Completed)`) so local store drift or
+        // concurrent truncation fails loudly.
         return Err(crate::error::ServerError::JobNotInLocalStore(
             job_id.clone(),
         ));
@@ -650,11 +649,9 @@ mod tests {
         ServerExecutionHost::new(store, engine, Arc::new(UnreachableOrchestrator))
     }
 
-    /// A foreign job — one not persisted in this server's `JobStore` — must
-    /// never produce a silent `Ok(HostedJobRunOutcome::Completed)` from
-    /// `run_server_job_attempt`. Per-host Temporal task queues make this
-    /// architecturally impossible in production; the test guards against a
-    /// regression that reintroduces a shared queue.
+    /// A missing local job must never produce a silent
+    /// `Ok(HostedJobRunOutcome::Completed)` from `run_server_job_attempt`.
+    /// The test guards against a regression that hides local store drift.
     #[tokio::test]
     async fn run_server_job_attempt_does_not_silently_complete_foreign_job() {
         let tempdir = tempfile::tempdir().expect("tempdir");

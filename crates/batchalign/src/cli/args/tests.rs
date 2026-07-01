@@ -854,7 +854,9 @@ fn build_options_align_defaults() {
     let opts = build_typed_options(&cli.command, &cli.global).unwrap();
     match opts {
         CommandOptions::Align(a) => {
-            assert_eq!(a.fa_engine, FaEngineName::Wave2Vec);
+            // Whisper, not Wave2Vec, since 2026-07-01; see
+            // `default_fa_engine()` in `types/options.rs` for the rationale.
+            assert_eq!(a.fa_engine, FaEngineName::Whisper);
             assert_eq!(a.utr_engine, Some(AppUtrEngine::RevAi));
             assert!(!a.pauses);
             assert!(a.wor.should_write());

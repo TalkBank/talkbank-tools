@@ -1,7 +1,7 @@
 # batchalign — HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
-**Last modified:** 2026-06-22 08:47 EDT
+**Last modified:** 2026-06-30 13:55 EDT
 
 ## Overview
 
@@ -110,7 +110,7 @@ blocks all future submissions of the same files (409 conflict).
 
 **Bootstrap invariant** — queued jobs loaded from the DB at startup:
 
-`bootstrap_test_server_backend` calls `store.queued_job_ids()` immediately
+`bootstrap_local_server_backend` calls `store.queued_job_ids()` immediately
 after `load_from_db()` and spawns `job_task` for each recovered `Queued` job
 via `runtime.spawn_detached(job_task(job_id, host.clone()))`. This fulfills
 the recovery path when the daemon is restarted after a crash or a memory-gate
@@ -137,26 +137,16 @@ orphaned `Queued` jobs.
 DELETE/cancel). It is permanent — a Cancelled job is never auto-resumed.
 
 `JobStatus::Interrupted` is the system-initiated counterpart. The graceful
-shutdown handler in `temporal_backend::interrupt_all_for_shutdown` writes
-`Interrupted` (not `Cancelled`) for in-flight jobs, with an audit row in the
-`cancellations` table tagged `source=signal, reason=server-cancel-all`. On
-the next server start, the recovery sequence above transitions any
-Interrupted job whose file work is not yet complete back to `Queued`.
-
-The Temporal reconciler also consults the audit table on restart: when
-Temporal reports a workflow as `Cancelled` but the most-recent local audit
-row is `signal/server-cancel-all` or `signal/temporal-activity-forwarded`,
-the reconciler returns `NoChange` rather than `MarkCancelled` so the Queued
-state survived from recovery is not overwritten.
+shutdown path writes `Interrupted` (not `Cancelled`) for in-flight jobs, with
+an audit row in the `cancellations` table tagged `source=signal,
+reason=server-cancel-all`. On the next server start, the recovery sequence
+above transitions any Interrupted job whose file work is not yet complete back
+to `Queued`.
 
 This matters because a server bounce mid-job (deploy, OS restart, crash)
-would otherwise be indistinguishable from a user cancel in the local DB —
-and the user's dashboard would show the job as "cancelled" even though no
-user pressed cancel. See `temporal_reconciler::is_system_initiated_shutdown_cancel`
-for the predicate, and the matching reason strings at
-`temporal_backend::interrupt_all_for_shutdown` (the body, not the trait
-method) and `temporal_backend.rs:287-308` (the activity-side cancel
-forwarder).
+would otherwise be indistinguishable from a user cancel in the local DB, and
+the user's dashboard would show the job as "cancelled" even though no user
+pressed cancel.
 
 ## Dispatch Routing (runner/)
 

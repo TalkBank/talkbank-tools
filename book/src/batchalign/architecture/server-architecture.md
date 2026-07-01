@@ -1,7 +1,7 @@
 # Server Dispatch Architecture
 
 **Status:** Current
-**Last updated:** 2026-05-21 15:00 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 This page describes the implemented `batchalign3` runtime:
 
@@ -497,12 +497,11 @@ model:
   Cancelled job is never auto-resumed. The user said stop; the server
   honors that.
 - **`Interrupted` is the system-initiated counterpart.** Graceful server
-  shutdown (`temporal_backend::interrupt_all_for_shutdown`) and crash
-  recovery (`db.recover_interrupted` SQL migration) both write
-  `JobStatus::Interrupted`. Although `JobStatus::is_terminal()` returns
-  `true` for it, the recovery sequence above is special-cased to
-  transition resumable Interrupted rows back to `Queued` so the next
-  Temporal activity attempt picks up where the previous server left off.
+  shutdown and crash recovery (`db.recover_interrupted` SQL migration)
+  both write `JobStatus::Interrupted`. Although `JobStatus::is_terminal()`
+  returns `true` for it, the recovery sequence above is special-cased to
+  transition resumable Interrupted rows back to `Queued` so the next local
+  runner attempt picks up where the previous server left off.
 
 Writing `Cancelled` for a system event would conflate "user said stop" with
 "server bounced", and the two require opposite responses. The 2026-04-27
@@ -524,32 +523,11 @@ etc.).
 | `Tui` | TUI cancel keystroke |
 | `Api` | HTTP `POST /jobs/{id}/cancel` |
 | `Cli` / `Dashboard` / `Staging` | other user-facing entry points |
-| `Signal` | system-initiated: server-shutdown handler, Temporal activity-cancel forwarding |
+| `Signal` | system-initiated: server-shutdown handler |
 
-`CancelReason` is a free-form string. Two values are stable audit keys
-matched by the reconciler, `CancelReason::server_cancel_all()` (written
-by the shutdown handler) and `CancelReason::temporal_activity_forwarded()`
-(written by the activity-side cancel handler when Temporal's cancel signal
-arrives). Both are factory methods on `CancelReason` so the producer and
-consumer can't drift via typo.
-
-### Temporal reconciler interaction
-
-When a server bounces mid-job, the local DB row goes through
-`Running → Interrupted → Queued` via the recovery sequence above. But
-Temporal also saw the workflow's activity die and may report the workflow
-as `Cancelled` on the next describe. Without further care, the reconciler
-would see "store says Queued, Temporal says Cancelled" and write
-`JobStatus::Cancelled`: undoing recovery.
-
-The reconciler's `reconcile_action` (`temporal_reconciler.rs`) instead
-consults the cancellations audit. If the most-recent row has
-`source = Signal` AND `reason ∈ {server_cancel_all,
-temporal_activity_forwarded}`, the reconciler returns `NoChange` rather
-than `MarkCancelled`. The local recovery has already done the right
-thing; the reconciler must not undo it. User-initiated cancels
-(`source ∈ {Tui, Api, …}`) and audit-row-missing cases preserve the
-prior `MarkCancelled` behavior.
+`CancelReason` is a free-form string. `CancelReason::server_cancel_all()`
+is the stable reason emitted by the shutdown path so audit readers can tell a
+system interrupt from a user cancel without parsing ad hoc strings.
 
 ### Migration-hash drift (deploy hardening)
 

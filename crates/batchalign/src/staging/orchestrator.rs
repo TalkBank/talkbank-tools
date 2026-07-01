@@ -30,7 +30,7 @@ use super::rsync::{copy_back_results, stage_inputs};
 /// Run a staged remote job from start to finish.
 ///
 /// This function is the async task body spawned by
-/// `RuntimeSupervisor::spawn_job()`. It:
+/// `RuntimeSupervisor::spawn_detached()`. It:
 ///
 /// 1. Prepares a local staging directory (CHAT + media)
 /// 2. Rsyncs it to the remote host
@@ -42,7 +42,7 @@ use super::rsync::{copy_back_results, stage_inputs};
 /// On cancellation, sends a cancel request to the remote server.
 ///
 /// `#[allow(clippy::too_many_arguments)]` — pure spawn shim for
-/// `RuntimeSupervisor::spawn_job()`. Every argument is owned context
+/// `RuntimeSupervisor::spawn_detached()`. Every argument is owned context
 /// that `run_inner` needs by reference; bundling into a struct would
 /// only restate the same list at a new name.
 #[allow(clippy::too_many_arguments)]

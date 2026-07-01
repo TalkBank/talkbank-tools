@@ -167,11 +167,9 @@ impl JobDB {
 
     /// Fetch the most recent cancellation audit row for a job, if any.
     ///
-    /// Used by the Temporal reconciler to disambiguate user-initiated
+    /// Used by shutdown/recovery code to disambiguate user-initiated
     /// cancels (`source = tui` / `api`) from system-initiated ones
-    /// (`source = signal`, e.g. server shutdown), so a stale Temporal
-    /// `Cancelled` outcome doesn't undo the local recovery flow that has
-    /// already moved the job from `Interrupted` back to `Queued`.
+    /// (`source = signal`, e.g. server shutdown).
     ///
     /// Returns `Ok(None)` if the job has no cancellation audit rows.
     pub async fn last_cancellation_for(

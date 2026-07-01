@@ -8,7 +8,6 @@ import { useState } from "react";
 import { Layout } from "./Layout";
 import { ProgressBar } from "./ProgressBar";
 import { ActionButtons } from "./ActionButtons";
-import { TemporalPanel } from "./TemporalPanel";
 import { BatchProgressPanel } from "./BatchProgressPanel";
 import { StatusSummaryStrip } from "./StatusSummaryStrip";
 import { ErrorPanel } from "./ErrorPanel";
@@ -383,9 +382,6 @@ export function JobDetailPageView({
           {hasOptions && (
             <OptionsSection options={detail.options} rawJson={commandArgsJson} />
           )}
-
-          {/* Temporal workflow metadata (only when backend is temporal). */}
-          <TemporalPanel controlPlane={detail.control_plane} />
         </div>
 
         {/* Progress is only meaningful for active jobs. */}

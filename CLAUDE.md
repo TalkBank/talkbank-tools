@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-06-24 10:44 EDT
+**Last modified:** 2026-07-01 09:19 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -49,7 +49,7 @@ talkbank-transform = { path = "../chatter/crates/talkbank-transform" }
 
 | Crate | Purpose |
 |-------|---------|
-| `batchalign` | The Batchalign pipeline: ASR, FA, morphotag, jobs/runner, store, temporal, dashboard API |
+| `batchalign` | The Batchalign pipeline: ASR, FA, morphotag, jobs/runner, store, dashboard API |
 | `batchalign-transform` | Batchalign-specific CHAT transforms (`asr_postprocess`, `morphosyntax`, `utseg`, FA `decisions`, `compare`, `build_chat`, `dp_align`, ...) layered over chatter's generic `talkbank-transform`, which it re-exports via a facade (`pub use talkbank_transform::*`) |
 | `batchalign-pyo3` | PyO3 bridge for the Python package |
 | `batchalign-types` | Shared types |

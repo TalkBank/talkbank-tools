@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-05-20 00:48 EDT
+**Last updated:** 2026-07-01 09:19 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
@@ -79,9 +79,9 @@ On the app side, the current execution split is now:
 - `ServerExecutionHost`: queue/store/server-owned lifecycle behavior
 - `DirectHost` / `DirectExecutionHost`: inline local execution without queueing
   or registry discovery
-- `ServerBackend` / `EmbeddedServerBackend` / `TemporalServerBackend`,
-  route-facing server control-plane seam over persisted jobs, orchestration,
-  event subscription, traces, and runtime shutdown
+- `ServerBackend` / `LocalServerBackend`, route-facing server control-plane
+  seam over persisted jobs, orchestration, event subscription, traces, and
+  runtime shutdown
 - `prepare_workers*()` vs `prepare_direct_workers()`: explicit separation
   between server worker bootstrap and direct local worker bootstrap
 
@@ -197,144 +197,23 @@ That keeps the architectural split honest:
 - `ServerBackend` becomes the place where embedded-vs-durable server behavior
   can differ without teaching commands about server internals.
 
-For now the embedded backend should remain the default for local and single-host
-installs. If managed/fleet mode eventually needs a durable external backend,
-Temporal is the most plausible serious candidate. Python task queues such as
-Celery or Dramatiq are a poor primary fit because they would drag the
-orchestration boundary back into Python or create awkward split-brain control
-plane semantics.
+For local and single-host installs, the in-process local backend is the
+implemented server architecture.
 
-Suggested migration order:
-
-1. keep the embedded backend as the only real backend while more queue claims,
-   retries, recovery, and runtime-supervision behavior moves behind
-   `ServerBackend`
-2. keep direct mode and the shared `ExecutionEngine` unchanged during that move
-3. only after the backend boundary is genuinely load-bearing, evaluate one
-   optional durable backend for managed/fleet deployments
-4. keep local `uv tool install` and BA2-style direct/local CLI behavior as the
-   non-negotiable default throughout
-
-That migration is now one step deeper than the first route-facing extraction:
-the server factory no longer hand-assembles the embedded queue backend, runtime
-supervisor, broadcast bus, and queue dispatcher itself. That bootstrap now lives
-behind `bootstrap_embedded_server_backend()`, so `server.rs` asks for one
-embedded control plane instead of learning how the in-process backend is wired.
-
-The embedded backend is also now split into a thinner app-facing
-`EmbeddedServerBackend` wrapper over a named `EmbeddedJobOrchestrator`. That is
-the stronger internal seam where embedded-only queue wakeups, runtime shutdown,
-store projections, and future retry/recovery policy can accumulate without
-re-expanding the route layer or the server factory.
-
-The shared runner also no longer hardcodes embedded queue wakeups or local
-retry-backoff math for host-memory rejection. Queued server execution now asks a
-host-owned orchestrator seam to decide what to do when capacity is rejected,
-which is the minimum contract a durable backend spike needs in order to replace
-embedded requeue behavior cleanly.
-
-### Pre-spike backend contract
-
-Before any Temporal or other durable-backend spike, the architecture contract
-should be treated as:
+Current backend contract:
 
 - `ExecutionEngine` owns canonical command execution only.
-- `DirectHost` remains fully outside durable orchestration.
+- `DirectHost` remains the direct/local execution path.
 - `ServerBackend` owns app-facing job submission, inspection, cancellation,
   traces, event subscription, and runtime shutdown.
-- `EmbeddedJobOrchestrator` owns embedded server-only queue wakeups, requeue
-  policy, runtime supervision, and other queued-job orchestration details.
-- The shared runner may report failures and progress, but it should not know how
-  an embedded queue is woken or how a durable backend persists retries.
+- `LocalServerBackend` owns queued-job orchestration, restart/recovery,
+  runtime supervision, and store-backed lifecycle behavior.
+- The shared runner may report failures and progress, but it does not own
+  higher-level server policy.
 
-If a candidate backend cannot satisfy that contract without pulling queue/store
-details back into routes, startup glue, or the shared runner, the spike is
-happening too early.
-
-### Packaging before a backend spike
-
-Do **not** split the default installation into a base package plus a
-separate `batchalign3-server` package yet.
-
-For now the right default is still one install:
-
-- BA2-style local/direct use stays simple.
-- The CLI and server still share too much runtime and orchestration code to
-  justify separate distributions.
-- A packaging split now would confound backend-spike results with a second
-  variable: product/distribution layout.
-
-If a future durable backend creates a real dependency/lifecycle divergence, then
-an optional dedicated `batchalign3-server` package can be reconsidered. It is
-not the right preparatory step before the spike.
-
-### Temporal assessment
-
-Temporal is still the strongest-looking durable backend candidate, and the first
-real spike now exists behind `batchalign3 serve start --backend temporal`.
-That spike is intentionally experimental: direct mode remains the trusted
-product path, embedded remains the default server backend, and compatibility
-with the old embedded server behavior is not the goal.
-
-Current Temporal spike shape:
-
-- one Temporal workflow per Batchalign job (`workflow_id = job_id`)
-- one Temporal activity that bridges back into the shared
-  `run_server_job_attempt()` engine path
-- Temporal-owned retry delay / durable cancellation orchestration
-- route-facing reuse of the existing `ServerBackend` seam where that simplifies
-  validation
-- a dedicated in-process worker thread/runtime for the Temporal SDK worker loop,
-  because the current Rust SDK worker is not `Send` and does not fit cleanly
-  into the embedded `RuntimeSupervisor`
-- `GET /jobs/{id}` and `batchalign3 jobs --server ... <JOB_ID>` now expose a
-  Batchalign-owned `control_plane` field that carries Temporal workflow ID, run
-  ID, workflow status, task queue, and history length without leaking raw
-  Temporal types through the rest of the app
-- restart now uses explicit Temporal workflow-ID conflict replacement semantics,
-  so a restarted job gets a fresh Temporal run instead of relying on a previous
-  run to disappear "soon enough"
-- delete now terminates any matching Temporal workflow handle before dropping
-  the local store projection
-
-Why it fits:
-
-- Temporal's durable workflow/event-history model matches the parts of the
-  current embedded control plane that are genuinely painful: queued-job
-  ownership, retries, recovery, long-running execution, and cancellation.
-- The Rust client and SDK already expose workflow start/list/cancel/signal/query
-  /update semantics, which map naturally to job submission, cancellation,
-  inspection, and server-side progress APIs.
-- Temporal itself recommends a local dev server (`temporal server start-dev`)
-  for development and testing, so it is plausible to spike without standing up a
-  full production cluster first.
-- The current spike already compiles, boots, answers `/health`, exposes
-  Temporal workflow metadata through remote job inspection, and returns a fresh
-  Temporal run ID on restart.
-
-Why it is **not** the default answer:
-
-- The Rust client/SDK are still explicitly **prerelease**, so this is not a
-  strong foundation for making Temporal mandatory for all users.
-- Self-hosting Temporal is still a real operational dependency. That is a poor
-  trade for BA2-style local work or for the default `uv tool install` path.
-- `DirectHost` should remain outside Temporal. BA2-style local/direct execution
-  is valuable precisely because it avoids durable orchestration overhead.
-- Host-memory gating and Python worker subprocess ownership are host-local
-  concerns. Temporal can coordinate durable job state, but it does not remove
-  the need for local machine-level policy around model startup and RAM pressure.
-- Progress broadcasts and algorithm traces should remain host-local server
-  surfaces. Temporal may own durable orchestration, but it should not become the
-  dashboard/event bus for every transient file-progress tick.
-
-So the current recommendation is:
-
-- **keep embedded as the local/default backend**
-- **treat Temporal as an optional experimental managed/fleet backend**
-- **keep using the current spike to learn what wants to become
-  Temporal-native, rather than forcing compatibility with the embedded queue**
-- **do not move the shared engine, direct mode, or Python worker packaging
-  boundary just to accommodate Temporal**
+The important current design point is that direct mode stays simple while the
+server control plane remains local, explicit, and fully owned by the Rust
+runtime in this repository.
 
 Validated so far:
 
@@ -343,7 +222,7 @@ cargo check -p batchalign -p batchalign
 cargo test -p batchalign --lib -q
 cargo test -p batchalign --test json_compat -q
 cargo test -p batchalign --lib -q
-batchalign3 serve start --foreground --backend temporal --test-echo --warmup off
+batchalign3 serve start --foreground --test-echo --warmup off
 batchalign3 jobs --server http://127.0.0.1:8111 <JOB_ID>
 curl -X POST http://127.0.0.1:8111/jobs/<JOB_ID>/restart
 curl -X DELETE http://127.0.0.1:8111/jobs/<JOB_ID>

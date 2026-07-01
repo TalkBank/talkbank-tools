@@ -48,7 +48,6 @@ unimplemented = "warn"
 
 [workspace.dependencies]
 aho-corasick = "1.1"
-anyhow = "1.0"
 async-trait = "0.1"
 assert_cmd = "2.2"
 atty = "0.2"
@@ -68,7 +67,6 @@ ctrlc = "3.5"
 dashmap = "6.2"
 csv = "1"
 futures = "0.3"
-futures-util = "0.3"
 
 # Utilities
 dirs = "6.0"
@@ -93,7 +91,7 @@ proptest = "1.11.0"
 # pyo3 moves in lockstep with the numpy crate (pyo3-ffi's `links = "python"`
 # forbids two pyo3 versions in one graph); see crates/batchalign-pyo3/Cargo.toml.
 pyo3 = "0.29"
-quick-xml = "0.40"
+quick-xml = "0.41"
 quote = "1.0"
 rand = "0.10"
 ratatui = { version = "0.30", features = ["serde"] }
@@ -138,8 +136,8 @@ talkbank-parser = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.1" 
 talkbank-parser-re2c = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.1" }
 talkbank-parser-tests = { git = "https://github.com/TalkBank/chatter", tag = "v0.2.1" }
 
-phf = { version = "0.13", features = ["macros"] }
-phf_codegen = "0.13"
+phf = { version = "0.14", features = ["macros"] }
+phf_codegen = "0.14"
 tempfile = "3.27"
 text-size = "1.1"
 thiserror = "^2.0.18"
@@ -154,11 +152,6 @@ tower-lsp = "0.20"
 opentelemetry = { version = "0.32", features = ["trace"] }
 opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-client"] }
-temporalio-client = "0.4"
-temporalio-common = "0.4"
-temporalio-macros = "0.4"
-temporalio-sdk = "0.4"
-temporalio-sdk-core = "0.4"
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 whatlang = "0.18"
@@ -192,7 +185,7 @@ debug = "line-tables-only"          # Less debug info -> faster linking
 # which optimized every third-party dependency in dev / `cargo check`
 # builds. After the 2026-04-28 batchalign3 fold roughly tripled the
 # third-party dep set (axum, async-trait, tokio's full feature surface,
-# pyo3, sqlx via temporal-sdk, …), `opt-level = 1` for `*` made
+# pyo3, sqlx, …), `opt-level = 1` for `*` made
 # `cargo check` 5+ minutes cold. The setting is now scoped to
 # `[profile.test.package."*"]` only, so test runtime stays fast while
 # `cargo check` and non-test `cargo build` cycles get back the speed

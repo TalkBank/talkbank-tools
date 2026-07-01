@@ -303,16 +303,7 @@ fn snapshot_health_response() {
 
 #[test]
 fn snapshot_server_config_default() {
-    // The default task queue is derived from `sysinfo::System::host_name()`,
-    // which makes the value host-dependent and also leaks a fleet hostname
-    // into a snapshot that is checked into a public repo. Override to a
-    // stable placeholder so the snapshot is deterministic across machines.
-    let cfg = ServerConfig {
-        temporal_task_queue: batchalign::api::TemporalTaskQueue::from(
-            "batchalign3-testhost".to_string(),
-        ),
-        ..Default::default()
-    };
+    let cfg = ServerConfig::default();
     insta::assert_json_snapshot!("server_config_default", cfg);
 }
 
@@ -345,9 +336,6 @@ fn snapshot_server_config_full() {
         auto_daemon: true,
         memory_gate_mb: Some(MemoryMb(2048)),
         worker_health_interval_s: 15,
-        temporal_task_queue: batchalign::api::TemporalTaskQueue::from(
-            "batchalign3-testhost".to_string(),
-        ),
         ..Default::default()
     };
     insta::assert_json_snapshot!("server_config_full", cfg);

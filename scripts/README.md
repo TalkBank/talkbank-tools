@@ -1,7 +1,7 @@
 # scripts/
 
 **Status:** Current
-**Last updated:** 2026-06-21 18:28 EDT
+**Last updated:** 2026-06-30 13:55 EDT
 
 This directory is a shared toolbox for the batchalign3 workspace: generated
 artifact refreshes, drift checks, targeted smoke tests, diagnostics, and fixture
@@ -61,7 +61,6 @@ corpus-age fixers) were removed when this workspace became batchalign3-only.
 | `test-affected.py` | Computes a test subset from changed files and `affects:` annotations. | Direct script for targeted local testing |
 | `choose-test-concurrency.sh` | Picks a safer test parallelism based on memory. | Support helper for local test workflows |
 | `test_lazy_profile_e2e.sh` | Focused E2E check for LazyProfile worker behavior. | Direct script |
-| `temporal-stress-test.sh` | Stress harness for the Temporal workflow path. | Specialized; currently marked dormant in-script |
 | `compare_stock_batchalign.py` + `stock_batchalign_harness.py` | Compares this workspace's output against a stock Batchalign baseline. | Direct diagnostics for output regressions |
 
 ### Fixture prep

@@ -842,22 +842,6 @@ validated_string_id!(
     pub RevAiJobId
 );
 
-validated_string_id!(
-    /// Name of a Temporal task queue used by a batchalign3 server.
-    ///
-    /// **Architectural invariant:** this value must be unique per fleet
-    /// machine. Each batchalign3 server owns a local SQLite `JobStore`, so a
-    /// workflow's activities can only be executed by the server whose store
-    /// persisted the job. Sharing a task queue across servers causes silent
-    /// no-op completions when a non-submitter worker wins the poll race (see
-    /// 2026-04-15 postmortem).
-    ///
-    /// The built-in default is derived from the system hostname
-    /// (`batchalign3-{hostname}`); operators may override in `server.yaml`
-    /// but must ensure the override is unique per host.
-    pub TemporalTaskQueue
-);
-
 /// Engine category that supports backend overrides.
 ///
 /// Currently only ASR and FA have multiple engine backends.
@@ -964,19 +948,9 @@ string_id!(
 
 impl CancelReason {
     /// The reason recorded when a `cancel_all` runs as part of graceful
-    /// server shutdown (i.e. not a user gesture). Matched by the Temporal
-    /// reconciler to distinguish stale system-initiated cancels from real
-    /// user cancels on restart.
+    /// server shutdown (i.e. not a user gesture).
     pub fn server_cancel_all() -> Self {
         Self::from("server-cancel-all")
-    }
-
-    /// The reason recorded inside a Temporal activity when its context
-    /// reports cancellation — typically because Temporal's workflow-cancel
-    /// signal was forwarded into a running activity at shutdown. Treated
-    /// the same as `server_cancel_all` by the reconciler.
-    pub fn temporal_activity_forwarded() -> Self {
-        Self::from("temporal-activity-forwarded")
     }
 }
 

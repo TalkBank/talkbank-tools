@@ -162,17 +162,14 @@ pub enum ServerError {
     /// The runner was asked to execute a job that is not present in this
     /// server's local `JobStore`.
     ///
-    /// **HTTP 500 — internal consistency error, not a 404.** This is
-    /// architecturally impossible under the per-host Temporal task-queue
-    /// topology (each server's task queue is unique, so only the submitting
-    /// server's worker ever polls its own activities). Surfacing this error
-    /// indicates either (a) a misconfigured shared task queue — a regression
-    /// of the 2026-04-15 fleet-worker bug — or (b) the store was concurrently
-    /// truncated while a workflow was in-flight. Either case must fail
-    /// loudly; silently reporting success would mask a real correctness bug.
+    /// **HTTP 500: internal consistency error, not a 404.** The local
+    /// server runner was asked to execute a job that its own `JobStore` does
+    /// not contain. Surfacing this error means local state drifted or was
+    /// concurrently truncated while execution was being scheduled. Either case
+    /// must fail loudly; silently reporting success would mask a real
+    /// correctness bug.
     #[error(
-        "job {0} is not in this server's local JobStore — activity may have \
-         been routed to the wrong server (check task-queue configuration)"
+        "job {0} is not in this server's local JobStore; local execution state is inconsistent"
     )]
     JobNotInLocalStore(JobId),
 }
@@ -196,9 +193,8 @@ impl ServerError {
             // EmptyFaAudioSegment is an internal skip signal, never returned as HTTP.
             Self::EmptyFaAudioSegment { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             // JobNotInLocalStore is an internal consistency error, not a
-            // user-facing 404. It only surfaces during Temporal activity
-            // dispatch and propagates through the activity handler as a
-            // non-retryable error, so HTTP mapping is defensive but rare.
+            // user-facing 404. It only surfaces during local runner dispatch,
+            // so HTTP mapping is defensive but rare.
             Self::JobNotInLocalStore(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -261,14 +257,12 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
-    /// `JobNotInLocalStore` is an internal consistency error (Temporal
-    /// activity landed on the wrong server), NOT a user-facing missing
-    /// resource. It must map to 500, not 404 — a 404 would signal to a
-    /// caller that the job was pruned or never existed, when in fact it
-    /// exists on a different server. The message must also explicitly
-    /// point operators at task-queue configuration.
+    /// `JobNotInLocalStore` is an internal consistency error, NOT a
+    /// user-facing missing resource. It must map to 500, not 404; a 404
+    /// would suggest the job was pruned or never existed, when in fact the
+    /// local runner lost sync with its own store.
     #[test]
-    fn job_not_in_local_store_is_500_and_mentions_task_queue() {
+    fn job_not_in_local_store_is_500_and_mentions_local_state() {
         let err = ServerError::JobNotInLocalStore(JobId::from("abc123"));
         assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
         let rendered = err.to_string();
@@ -277,8 +271,8 @@ mod tests {
             "error message should include the job id: {rendered}"
         );
         assert!(
-            rendered.contains("task-queue"),
-            "error message should direct operators at task-queue config: {rendered}"
+            rendered.contains("local execution state"),
+            "error message should describe local execution-state drift: {rendered}"
         );
     }
 }

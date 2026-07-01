@@ -140,7 +140,7 @@ async fn submit_and_get_job() {
     assert_eq!(info.completed_files, 1);
     assert_eq!(
         info.control_plane.as_ref().map(|control| control.backend),
-        Some(JobControlPlaneBackendKind::Test)
+        Some(JobControlPlaneBackendKind::Local)
     );
 }
 
@@ -407,17 +407,15 @@ async fn cancel_job() {
         .expect("POST cancel");
     assert_eq!(resp.status(), 200);
 
-    // Verify status is cancelled (or possibly already completed if echo was faster)
-    let resp = client
-        .get(format!("{base_url}/jobs/{job_id}"))
-        .send()
-        .await
-        .expect("GET job");
-    let info: JobInfo = resp.json().await.expect("parse");
-    assert!(matches!(
-        info.status,
-        JobStatus::Cancelled | JobStatus::Completed
-    ));
+    // Cancellation is asynchronous: the POST returns 200 once the request is
+    // accepted, but the job's state transition happens on the runner. Poll to
+    // a terminal state instead of reading once and racing the transition.
+    let info = poll_job_done(&client, base_url, &job_id).await;
+    assert!(
+        matches!(info.status, JobStatus::Cancelled | JobStatus::Completed),
+        "cancelled job should settle Cancelled (or Completed if echo finished first), got {:?}",
+        info.status
+    );
 }
 
 /// RED test (Phase 1, RED 1.1) — provenance is captured on cancel.
@@ -1096,7 +1094,7 @@ async fn paths_mode_job() {
             .control_plane
             .as_ref()
             .map(|control| control.backend),
-        Some(JobControlPlaneBackendKind::Test)
+        Some(JobControlPlaneBackendKind::Local)
     );
     assert!(
         !requested_output_path.exists(),
