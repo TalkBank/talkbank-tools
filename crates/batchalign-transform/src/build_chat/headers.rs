@@ -7,14 +7,17 @@ use talkbank_model::model::{
 
 use super::TranscriptDescription;
 
-pub(super) fn build_header_lines(desc: &TranscriptDescription, langs: &[String]) -> Vec<Line> {
+pub(super) fn build_header_lines(
+    desc: &TranscriptDescription,
+    langs: &[LanguageCode],
+) -> Vec<Line> {
     let participant_entries = build_participant_entries(desc);
     let id_headers = build_id_headers(desc, langs);
     let mut lines: Vec<Line> = vec![
         Line::header(Header::Utf8),
         Line::header(Header::Begin),
         Line::header(Header::Languages {
-            codes: LanguageCodes::new(langs.iter().map(LanguageCode::new).collect()),
+            codes: LanguageCodes::new(langs.to_vec()),
         }),
         Line::header(Header::Participants {
             entries: ParticipantEntries::new(participant_entries),
@@ -43,8 +46,12 @@ fn build_participant_entries(desc: &TranscriptDescription) -> Vec<ParticipantEnt
         .collect()
 }
 
-fn build_id_headers(desc: &TranscriptDescription, langs: &[String]) -> Vec<IDHeader> {
-    let lang_code = langs.first().map(String::as_str).unwrap_or("eng");
+fn build_id_headers(desc: &TranscriptDescription, langs: &[LanguageCode]) -> Vec<IDHeader> {
+    // BuildChatContext guarantees a non-empty, already-validated list;
+    // @ID headers carry the primary (first) language.
+    let Some(lang_code) = langs.first() else {
+        return Vec::new();
+    };
 
     desc.participants
         .iter()
@@ -55,7 +62,7 @@ fn build_id_headers(desc: &TranscriptDescription, langs: &[String]) -> Vec<IDHea
                 participant.corpus.as_str()
             };
             IDHeader::new(
-                lang_code,
+                lang_code.clone(),
                 participant.id.as_str(),
                 participant.role.as_str(),
             )

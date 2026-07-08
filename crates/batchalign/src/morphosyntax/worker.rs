@@ -459,7 +459,8 @@ mod tests {
                 words: Vec::new(),
                 terminator: Terminator::Period { span: Span::DUMMY },
                 special_forms: Vec::new(),
-                lang: talkbank_model::model::LanguageCode::new(lang),
+                lang: talkbank_model::model::LanguageCode::new(lang)
+                    .expect("valid test language code"),
             },
             Vec::new(),
         )

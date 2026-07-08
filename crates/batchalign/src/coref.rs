@@ -44,10 +44,20 @@ use crate::text_batch::{
 /// removed for BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py:276`
 /// has no `--lang` for coref); see the 2026-05-03 incident for why a
 /// job-level lang sentinel is unsafe.
-fn file_has_english(chat_file: &crate::chat_ops::ChatFile) -> bool {
-    let fallback = LanguageCode::new(LanguageCode3::eng().as_ref());
+///
+/// Fallible only because `LanguageCode` construction became fallible in
+/// chatter 0.3.0; the fallback here is the constant `eng`, so the error
+/// arm is unreachable in practice but propagated rather than panicked on.
+/// The error is stringified because chatter v0.3.0 does not re-export
+/// `LanguageCodeError` (upstream defect, reported).
+fn file_has_english(chat_file: &crate::chat_ops::ChatFile) -> Result<bool, ServerError> {
+    let fallback = LanguageCode::new(LanguageCode3::eng().as_ref()).map_err(|e| {
+        ServerError::Validation(format!(
+            "coref: failed to construct the 'eng' fallback language code: {e}"
+        ))
+    })?;
     let langs = declared_languages(chat_file, &fallback);
-    langs.iter().any(|l| l.as_str() == "eng")
+    Ok(langs.iter().any(|l| l.as_str() == "eng"))
 }
 
 /// Typed workflow operation for coref.
@@ -144,7 +154,7 @@ async fn run_coref_impl(
     }
 
     // 2. English-only gate (per-file @Languages, not job-level lang)
-    if !file_has_english(&chat_file) {
+    if !file_has_english(&chat_file)? {
         return Ok(to_chat_string(&chat_file));
     }
 
@@ -294,9 +304,17 @@ async fn run_coref_batch_impl(
             continue;
         }
 
-        // Per-file English-only gate — non-English files pass through unchanged
-        if !file_has_english(parsed_file) {
-            continue;
+        // Per-file English-only gate: non-English files pass through unchanged.
+        // A gate failure (unreachable in practice: the fallback code is the
+        // constant `eng`) is recorded as a per-file error, mirroring the
+        // pre-validation gate above, rather than silently skipping the file.
+        match file_has_english(parsed_file) {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(e) => {
+                validation_errors[file_idx] = Some(e.to_string());
+                continue;
+            }
         }
 
         let collected = collect_coref_payloads(parsed_file);
@@ -522,7 +540,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../test-fixtures/eng_hello_world.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file));
+        assert!(file_has_english(&chat_file).expect("eng fallback code must construct"));
     }
 
     #[test]
@@ -530,7 +548,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../test-fixtures/spa_chi_hola_mundo.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(!file_has_english(&chat_file));
+        assert!(!file_has_english(&chat_file).expect("eng fallback code must construct"));
     }
 
     #[test]
@@ -541,7 +559,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../test-fixtures/eng_hello_world_no_languages.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file));
+        assert!(file_has_english(&chat_file).expect("eng fallback code must construct"));
     }
 
     #[test]
@@ -550,6 +568,6 @@ mod tests {
         // File declares both eng and spa — should be considered English
         let chat = include_str!("../../../test-fixtures/eng_spa_bilingual_hello_world.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        assert!(file_has_english(&chat_file));
+        assert!(file_has_english(&chat_file).expect("eng fallback code must construct"));
     }
 }

@@ -15,7 +15,7 @@ use talkbank_model::model::dependent_tier::mor::Mor;
 fn test_hebrew_verb_hebbinyan() {
     // ba2: Hebrew HebBinyan feature → lowercased suffix
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("he"),
+        lang: talkbank_model::model::LanguageCode::new("he").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -45,7 +45,7 @@ fn test_hebrew_verb_hebbinyan() {
 fn test_hebrew_verb_hebexistential() {
     // ba2: Hebrew HebExistential feature → lowercased suffix
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("he"),
+        lang: talkbank_model::model::LanguageCode::new("he").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -73,7 +73,7 @@ fn test_hebrew_verb_hebexistential() {
 fn test_german_mwt_contraction_im() {
     // ba2: German "im" → "in" + "dem" via MWT Range
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("de"),
+        lang: talkbank_model::model::LanguageCode::new("de").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -143,7 +143,7 @@ fn test_german_mwt_contraction_im() {
 fn test_german_verb_no_irr_suffix() {
     // German verbs must never get -irr (English-only feature)
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("de"),
+        lang: talkbank_model::model::LanguageCode::new("de").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -171,7 +171,7 @@ fn test_german_verb_no_irr_suffix() {
 fn test_spanish_mwt_contraction_del() {
     // ba2: Spanish "del" → "de" + "el" via MWT Range
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("es"),
+        lang: talkbank_model::model::LanguageCode::new("es").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -240,7 +240,7 @@ fn test_spanish_mwt_contraction_del() {
 fn test_spanish_verb_person0_becomes_4() {
     // ba2: Person=0 → "4" in NumberPerson string (all languages)
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("es"),
+        lang: talkbank_model::model::LanguageCode::new("es").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -268,7 +268,7 @@ fn test_spanish_verb_person0_becomes_4() {
 fn test_hebrew_3letter_code_works() {
     // Real-world: "heb" not "he"
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("heb"),
+        lang: talkbank_model::model::LanguageCode::new("heb").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),

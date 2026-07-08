@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 
 use talkbank_model::model::{
-    ChatFile, Header, IDHeader, Line, ParticipantEntries, ParticipantEntry, ParticipantName,
-    ParticipantRole, SpeakerCode,
+    ChatFile, Header, IDHeader, LanguageCode, Line, ParticipantEntries, ParticipantEntry,
+    ParticipantName, ParticipantRole, SpeakerCode,
 };
 
 /// One raw diarization segment to apply to utterance bullets.
@@ -32,7 +32,7 @@ pub struct SpeakerSegment {
 pub fn reassign_speakers(
     chat_file: &mut ChatFile,
     segments: &[SpeakerSegment],
-    lang: &str,
+    lang: &LanguageCode,
     participant_ids: &[String],
 ) {
     if segments.is_empty() {
@@ -112,7 +112,7 @@ pub fn reassign_speakers(
                 .get(index)
                 .cloned()
                 .unwrap_or_else(|| format!("SP{index}"));
-            IDHeader::new(lang, code.as_str(), "Participant").with_corpus("corpus_name")
+            IDHeader::new(lang.clone(), code.as_str(), "Participant").with_corpus("corpus_name")
         })
         .collect();
 
@@ -178,7 +178,7 @@ mod tests {
         reassign_speakers(
             &mut chat_file,
             &segments,
-            "eng",
+            &LanguageCode::new("eng").expect("valid test language code"),
             &["PAR".to_string(), "INV".to_string()],
         );
 
@@ -212,7 +212,12 @@ mod tests {
         let mut chat_file = parse_strict(&parser, input).expect("chat should parse");
         let before = to_chat_string(&chat_file);
 
-        reassign_speakers(&mut chat_file, &[], "eng", &["PAR".to_string()]);
+        reassign_speakers(
+            &mut chat_file,
+            &[],
+            &LanguageCode::new("eng").expect("valid test language code"),
+            &["PAR".to_string()],
+        );
 
         assert_eq!(to_chat_string(&chat_file), before);
     }

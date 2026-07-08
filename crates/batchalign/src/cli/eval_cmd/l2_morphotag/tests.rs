@@ -30,7 +30,10 @@ use super::types::{
 // ---------------------------------------------------------------------------
 
 fn langs(codes: &[&str]) -> Vec<LanguageCode> {
-    codes.iter().map(|c| LanguageCode::new(*c)).collect()
+    codes
+        .iter()
+        .map(|c| LanguageCode::new(*c).expect("valid test language code"))
+        .collect()
 }
 
 fn write_fixture(contents: &str) -> (tempfile::TempDir, PathBuf) {
@@ -52,7 +55,7 @@ fn make_analysis(
         file: PathBuf::from("test.cha"),
         pair_key: PairKey::new(format!("{effective_lang},eng")),
         marker: LanguageMarkerKind::Bare,
-        effective_lang: LanguageCode::new(effective_lang),
+        effective_lang: LanguageCode::new(effective_lang).expect("valid test language code"),
         surface: SurfaceWord::new(surface),
         mor_position: 0,
         mor_item: mor_item.map(MorItemText::new),
@@ -78,7 +81,7 @@ fn bare_marker_resolves_to_secondary_language_in_bilingual_header() {
     let marker = LanguageMarkerKind::Bare;
     assert_eq!(
         marker.effective_language(&langs(&["deu", "eng"])),
-        Some(LanguageCode::new("eng"))
+        Some(LanguageCode::new("eng").expect("valid test language code"))
     );
 }
 
@@ -87,7 +90,7 @@ fn bare_marker_falls_back_to_primary_in_monolingual() {
     let marker = LanguageMarkerKind::Bare;
     assert_eq!(
         marker.effective_language(&langs(&["eng"])),
-        Some(LanguageCode::new("eng"))
+        Some(LanguageCode::new("eng").expect("valid test language code"))
     );
 }
 
@@ -102,7 +105,7 @@ fn explicit_marker_overrides_header() {
     let marker = LanguageMarkerKind::Explicit(langs(&["spa"]));
     assert_eq!(
         marker.effective_language(&langs(&["deu", "eng"])),
-        Some(LanguageCode::new("spa"))
+        Some(LanguageCode::new("spa").expect("valid test language code"))
     );
 }
 
@@ -111,7 +114,7 @@ fn multi_code_explicit_marker_takes_first_code() {
     let marker = LanguageMarkerKind::Explicit(langs(&["eng", "fra"]));
     assert_eq!(
         marker.effective_language(&langs(&["deu", "eng"])),
-        Some(LanguageCode::new("eng"))
+        Some(LanguageCode::new("eng").expect("valid test language code"))
     );
 }
 

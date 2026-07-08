@@ -12,8 +12,8 @@ use super::{TranscriptDescription, WordDesc};
 pub(super) fn build_utterance_lines(
     desc: &TranscriptDescription,
     parser: &TreeSitterParser,
-    langs: &[String],
-    primary_lang: &str,
+    langs: &[LanguageCode],
+    primary_lang: &LanguageCode,
 ) -> Result<Vec<Line>, String> {
     let mut lines = Vec::with_capacity(desc.utterances.len());
 
@@ -42,7 +42,7 @@ pub(super) fn build_utterance_lines(
                     &mut line,
                     utterance.lang.as_deref(),
                     primary_lang,
-                );
+                )?;
             }
             lines.push(line);
         }
@@ -54,14 +54,17 @@ pub(super) fn build_utterance_lines(
 fn apply_utterance_language_override(
     line: &mut Line,
     utterance_lang: Option<&str>,
-    primary_lang: &str,
-) {
+    primary_lang: &LanguageCode,
+) -> Result<(), String> {
     if let Some(utterance_lang) = utterance_lang
-        && utterance_lang != primary_lang
+        && utterance_lang != primary_lang.as_str()
         && let Line::Utterance(utterance) = line
     {
-        utterance.main.content.language_code = Some(LanguageCode::new(utterance_lang));
+        let code = LanguageCode::new(utterance_lang)
+            .map_err(|e| format!("invalid utterance language code {utterance_lang:?}: {e}"))?;
+        utterance.main.content.language_code = Some(code);
     }
+    Ok(())
 }
 
 /// If `text` is a tag-marker separator (comma, tag marker, vocative marker),
@@ -94,7 +97,7 @@ fn build_text_utterance(
     text: &str,
     start_ms: Option<u64>,
     end_ms: Option<u64>,
-    langs: &[String],
+    langs: &[LanguageCode],
 ) -> Result<Option<Line>, String> {
     let text = text.trim();
     if text.is_empty() {
@@ -106,7 +109,7 @@ fn build_text_utterance(
         _ => String::new(),
     };
 
-    let lang_code = langs.first().map(String::as_str).unwrap_or("eng");
+    let lang_code = langs.first().map(LanguageCode::as_str).unwrap_or("eng");
     let mini_chat = format!(
         "@UTF8\n@Begin\n@Languages:\t{lang}\n@Participants:\t{speaker} Participant Participant\n\
          @ID:\t{lang}|corpus_name|{speaker}|||||Participant|||\n*{speaker}:\t{text}{bullet}\n@End\n",

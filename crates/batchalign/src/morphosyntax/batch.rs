@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn secondary_dispatch_requires_runtime_registry() {
-        let lang = crate::chat_ops::LanguageCode::new("eng");
+        let lang = crate::chat_ops::LanguageCode::new("eng").expect("valid test language code");
         assert!(
             !secondary_dispatch_supported(None, &lang),
             "without runtime Stanza capabilities, L2 dispatch must skip conservatively"
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn secondary_dispatch_rejects_partial_processor_language() {
         let registry = registry_with_caps();
-        let lang = crate::chat_ops::LanguageCode::new("pan");
+        let lang = crate::chat_ops::LanguageCode::new("pan").expect("valid test language code");
         assert!(
             !secondary_dispatch_supported(Some(&registry), &lang),
             "tokenize-only languages must not reach L2 morphotag worker bootstrap"
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn secondary_dispatch_accepts_full_morphosyntax_language() {
         let registry = registry_with_caps();
-        let lang = crate::chat_ops::LanguageCode::new("eng");
+        let lang = crate::chat_ops::LanguageCode::new("eng").expect("valid test language code");
         assert!(secondary_dispatch_supported(Some(&registry), &lang));
     }
 }

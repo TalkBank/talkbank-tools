@@ -365,7 +365,16 @@ fn stage_collect_payloads<'a, 'ctx>(
         if ctx.should_skip_inference() {
             return Ok(());
         }
-        let primary_lang = LanguageCode::new(ctx.require_resolved_lang()?.as_ref());
+        // `LanguageCode` construction is fallible in chatter 0.3.0; the error
+        // is stringified because `LanguageCodeError` is not re-exported
+        // (upstream defect, reported).
+        let resolved = ctx.require_resolved_lang()?;
+        let primary_lang = LanguageCode::new(resolved.as_ref()).map_err(|e| {
+            ServerError::Validation(format!(
+                "morphotag: invalid resolved language code {:?}: {e}",
+                resolved.as_ref()
+            ))
+        })?;
         let chat_file = ctx.chat_file.as_ref().ok_or_else(|| {
             ServerError::Validation("Parsed chat missing before payload collection".into())
         })?;
@@ -414,10 +423,17 @@ fn stage_apply_results<'a, 'ctx>(
         };
 
         let resolved_lang = ctx.require_resolved_lang()?.clone();
+        // Fallible in chatter 0.3.0; stringified error (`LanguageCodeError`
+        // not re-exported upstream).
+        let lang_code = LanguageCode::new(resolved_lang.as_ref()).map_err(|e| {
+            ServerError::Validation(format!(
+                "morphotag: invalid resolved language code {:?}: {e}",
+                resolved_lang.as_ref()
+            ))
+        })?;
         let chat_file = ctx.chat_file.as_mut().ok_or_else(|| {
             ServerError::Validation("Parsed chat missing before result injection".into())
         })?;
-        let lang_code = LanguageCode::new(resolved_lang.as_ref());
         let parser = crate::chat_parser();
         let _injection_result = inject_results(
             &parser,

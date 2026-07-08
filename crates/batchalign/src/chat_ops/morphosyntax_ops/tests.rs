@@ -175,7 +175,7 @@ fn snapshot_morphosyntax_batch_item() {
             span: talkbank_model::Span::DUMMY,
         },
         special_forms: vec![(None, None), (None, None), (None, None)],
-        lang: talkbank_model::model::LanguageCode::new("eng"),
+        lang: talkbank_model::model::LanguageCode::new("eng").expect("valid test language code"),
     };
     insta::assert_json_snapshot!("morphosyntax_batch_item", item);
 }
@@ -247,7 +247,8 @@ fn snapshot_collected_payloads() {
     let chat = include_str!("../../../../../test-fixtures/eng_the_dog_runs.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let collected = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll);
     let items = collected.batch_items;
@@ -281,7 +282,8 @@ fn collect_payloads_uses_file_language_not_batch_default_spa() {
     let (chat_file, _) = parse_lenient(&parser, chat);
 
     // Simulate the batch-level default: primary_lang = "eng"
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -307,7 +309,8 @@ fn collect_payloads_uses_file_language_not_batch_default_rus() {
     let chat = include_str!("../../../../../test-fixtures/rus_vot_istoriya.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -331,7 +334,8 @@ fn collect_payloads_uses_file_language_not_batch_default_zho() {
     let chat = include_str!("../../../../../test-fixtures/zho_hao_qing_zhong.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -355,7 +359,8 @@ fn collect_payloads_uses_file_language_not_batch_default_fra() {
     let chat = include_str!("../../../../../test-fixtures/fra_lescargot_dort.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -380,7 +385,8 @@ fn collect_payloads_lang_correct_when_primary_matches_header() {
     let chat = include_str!("../../../../../test-fixtures/eng_hello_world_male.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -403,7 +409,8 @@ fn collect_payloads_uses_first_declared_language_for_multilingual() {
     let (chat_file, _) = parse_lenient(&parser, chat);
 
     // Batch default is "eng" but file says "spa" first
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -439,7 +446,8 @@ fn test_inject_results_retokenize_cantonese_retrace() {
     let chat = include_str!("../../../../../test-fixtures/retok_yue_retrace.cha");
     let (mut chat_file, _errors) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("yue");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("yue").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
 
     let batch_items = collect_payloads(
@@ -541,7 +549,8 @@ fn test_french_elision_in_quoted_context() {
     let chat = include_str!("../../../../../test-fixtures/fra_french_elision_quotes.cha");
     let (chat_file, _) = batchalign_transform::parse::parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("fra");
+    let primary =
+        talkbank_model::model::LanguageCode::new("fra").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -585,7 +594,8 @@ fn collect_payloads_identifies_at_s_positions_single() {
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_single.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -640,7 +650,8 @@ fn collect_payloads_identifies_contiguous_at_s_span() {
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = talkbank_model::model::LanguageCode::new("eng");
+    let primary =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -699,7 +710,8 @@ fn l2_pipeline_contiguous_span_replaces_placeholders_and_preserves_valid_gra() {
     let chat = include_str!("../../../../../test-fixtures/eng_spa_at_s_contiguous.cha");
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -891,7 +903,8 @@ fn inject_results_retokenize_mwt_range_tokens_no_failure() {
 ";
     let (mut chat_file, _errors) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1052,7 +1065,8 @@ fn inject_results_preserve_coraal_units_keeps_mor_gra() {
     let chat = include_str!("../../../../../test-fixtures/eng_morph_coraal_units.cha");
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1136,7 +1150,8 @@ fn inject_results_preserve_minga_because_keeps_mor_gra() {
     let chat = include_str!("../../../../../test-fixtures/eng_morph_minga_because.cha");
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1210,7 +1225,8 @@ fn inject_results_preserve_kings_continuation_keeps_mor_gra() {
     let chat = include_str!("../../../../../test-fixtures/eng_morph_kings_continuation.cha");
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1304,7 +1320,8 @@ fn collect_payloads_bare_at_s_shortcut_resolution() {
     let (chat_file, _) = parse_lenient(&parser, chat);
 
     // Primary is German, secondary is English (from @Languages: deu, eng)
-    let primary = talkbank_model::model::LanguageCode::new("deu");
+    let primary =
+        talkbank_model::model::LanguageCode::new("deu").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -1505,7 +1522,7 @@ fn collect_payloads_treats_empty_mor_placeholder_as_unprocessed() {
     let parser = TreeSitterParser::new().unwrap();
     let (mut chat, _errors) = parse_lenient(&parser, text);
 
-    let primary_lang = LanguageCode::new("eng");
+    let primary_lang = LanguageCode::new("eng").expect("valid test language code");
     let langs = vec![primary_lang.clone()];
 
     // Before clearing: the utterance already has populated %mor, so
@@ -1606,7 +1623,8 @@ fn inject_results_count_mismatch_propagates_error() {
 ";
     let (mut chat_file, _errors) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1686,7 +1704,8 @@ fn mid_utterance_comma_end_to_end_injects_cm_mor() {
 @End
 ";
     let (mut chat_file, _errors) = parse_lenient(&parser, chat);
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1833,7 +1852,8 @@ fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
     let chat = include_str!("../../../../../test-fixtures/eng_at_o_single_word_red.cha");
     let (mut chat_file, _diags) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -1925,7 +1945,8 @@ fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
     let chat = include_str!("../../../../../test-fixtures/eng_at_si_all_signed_red.cha");
     let (mut chat_file, _diags) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2004,7 +2025,8 @@ fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
     let chat = include_str!("../../../../../test-fixtures/eng_at_o_root_with_modifier_red.cha");
     let (mut chat_file, _diags) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2101,7 +2123,8 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
                 @End\n";
     let (mut chat_file, _diags) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2309,7 +2332,8 @@ fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
 ";
 
     let (mut chat_file, _diags) = parse_lenient(&parser, chat);
-    let primary_lang = talkbank_model::model::LanguageCode::new("cym");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("cym").expect("valid test language code");
 
     let before = collect_utterance_identities(&chat_file);
     assert_eq!(
@@ -2465,7 +2489,8 @@ fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
     let chat = include_str!("../../../../../test-fixtures/eng_at_s_unsupported.cha");
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2538,7 +2563,8 @@ fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2601,7 +2627,8 @@ fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2672,7 +2699,8 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2777,7 +2805,8 @@ fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2878,7 +2907,8 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -2984,7 +3014,8 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -3075,7 +3106,8 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 ";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -3180,7 +3212,8 @@ fn run_synthesis_root_invariant_check(form_marker: &str, surface: &str, expected
     );
     let (mut chat_file, _) = parse_lenient(&parser, &chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -3380,7 +3413,8 @@ fn assert_empty_stanza_synthesizes_root(form_marker: &str, surface: &str, expect
     );
     let (mut chat_file, _) = parse_lenient(&parser, &chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -3488,7 +3522,8 @@ fn synthesis_stanza_tokenizes_xbxxx_into_two_at_q_root_keeps_root_deprel() {
                 @End\n";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,
@@ -3568,7 +3603,8 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
                 @End\n";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let payloads = collect_payloads(
         &chat_file,
@@ -3698,7 +3734,8 @@ fn no_stanza_response_through_inject_should_produce_observed_failure_shape() {
                     @End\n";
         let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-        let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+        let primary_lang =
+            talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
         let langs = declared_languages(&chat_file, &primary_lang);
         let batch_items = collect_payloads(
             &chat_file,
@@ -3777,7 +3814,8 @@ fn synthesis_production_fixture_at_q_with_timestamp() {
                 @End\n";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let payloads = collect_payloads(
         &chat_file,
@@ -3858,7 +3896,8 @@ fn synthesis_at_n_non_root_position_uses_dep_deprel() {
                 @End\n";
     let (mut chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary_lang = talkbank_model::model::LanguageCode::new("eng");
+    let primary_lang =
+        talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary_lang);
     let batch_items = collect_payloads(
         &chat_file,

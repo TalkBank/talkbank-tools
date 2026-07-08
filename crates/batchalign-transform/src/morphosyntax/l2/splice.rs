@@ -862,7 +862,7 @@ mod cardinality_tests {
         let deferred = vec![L2DeferredPosition {
             line_idx,
             word_idx: 1,
-            target_lang: LanguageCode::new("ara"),
+            target_lang: LanguageCode::new("ara").expect("valid test language code"),
             primary: PrimaryStructuralInfo {
                 deprel: crate::morphosyntax::l2::deprel::UdDeprel::new("root"),
                 upos: None,
@@ -955,7 +955,7 @@ mod cardinality_tests {
         L2DeferredPosition {
             line_idx,
             word_idx,
-            target_lang: LanguageCode::new(target_lang),
+            target_lang: LanguageCode::new(target_lang).expect("valid test language code"),
             primary: PrimaryStructuralInfo {
                 deprel: crate::morphosyntax::l2::deprel::UdDeprel::new(primary_deprel),
                 upos: None,

@@ -449,19 +449,22 @@ mod tests {
 
     #[test]
     fn test_preprocess_chinese() {
-        let lang = talkbank_model::model::LanguageCode::new("zho");
+        let lang =
+            talkbank_model::model::LanguageCode::new("zho").expect("valid test language code");
         assert_eq!(preprocess_for_translate("你 好 。", &lang), "你好\u{3002}");
     }
 
     #[test]
     fn test_preprocess_cantonese() {
-        let lang = talkbank_model::model::LanguageCode::new("yue");
+        let lang =
+            talkbank_model::model::LanguageCode::new("yue").expect("valid test language code");
         assert_eq!(preprocess_for_translate("你 好.", &lang), "你好\u{3002}");
     }
 
     #[test]
     fn test_preprocess_non_chinese() {
-        let lang = talkbank_model::model::LanguageCode::new("eng");
+        let lang =
+            talkbank_model::model::LanguageCode::new("eng").expect("valid test language code");
         assert_eq!(
             preprocess_for_translate("hello world", &lang),
             "hello world"

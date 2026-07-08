@@ -14,7 +14,7 @@ use talkbank_model::model::dependent_tier::mor::Mor;
 #[test]
 fn test_simple_noun_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -39,7 +39,7 @@ fn test_simple_noun_mapping() {
 #[test]
 fn test_sanitization_prevents_corruption() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -69,7 +69,7 @@ fn test_sanitization_prevents_corruption() {
 #[test]
 fn test_mwt_assembly_english_dont() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -125,7 +125,7 @@ fn test_mwt_assembly_english_dont() {
 #[test]
 fn test_gra_index_shifting_with_mwt() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -210,7 +210,7 @@ fn test_gra_index_shifting_with_mwt() {
 #[test]
 fn test_feature_mapping_plural() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -235,7 +235,7 @@ fn test_feature_mapping_plural() {
 #[test]
 fn test_feature_mapping_past_tense() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -260,7 +260,7 @@ fn test_feature_mapping_past_tense() {
 #[test]
 fn test_english_gerund_fix() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -449,7 +449,7 @@ fn test_validate_generated_gra_accepts_head_zero() {
 #[test]
 fn test_gra_talkbank_conventions() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![

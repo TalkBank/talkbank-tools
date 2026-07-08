@@ -118,7 +118,16 @@ pub(crate) async fn process_morphosyntax_incremental(
         DiffSummary, UtteranceDelta, copy_dependent_tiers, diff_chat,
     };
 
-    let primary_lang = LanguageCode::new(params.lang.as_ref());
+    // Parse the job-level language ONCE at this boundary (chatter 0.3.0 made
+    // `LanguageCode` construction fallible); downstream code threads the
+    // typed value. The error is stringified because chatter v0.3.0 does not
+    // re-export `LanguageCodeError` (upstream defect, reported).
+    let primary_lang = LanguageCode::new(params.lang.as_ref()).map_err(|e| {
+        ServerError::Validation(format!(
+            "morphotag: invalid language code {:?}: {e}",
+            params.lang.as_ref()
+        ))
+    })?;
     let parser = crate::chat_parser();
     let (before_file, _) = parse_lenient(&parser, before_text);
     let (mut after_file, parse_errors) = parse_lenient(&parser, after_text);
@@ -364,7 +373,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../../test-fixtures/eng_hello_male.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        let primary = LanguageCode::new("eng");
+        let primary = LanguageCode::new("eng").expect("valid test language code");
         let langs = declared_languages(&chat_file, &primary);
         assert!(!langs.is_empty());
     }
@@ -375,7 +384,7 @@ mod tests {
         // File with @Languages: eng, spa and a [- spa] code-switched utterance
         let chat = include_str!("../../../../test-fixtures/eng_spa_bilingual_code_switch.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        let primary = LanguageCode::new("eng");
+        let primary = LanguageCode::new("eng").expect("valid test language code");
         let langs = declared_languages(&chat_file, &primary);
 
         // With SkipNonPrimary, the Spanish utterance should be skipped
@@ -406,7 +415,7 @@ mod tests {
         let parser = TreeSitterParser::new().unwrap();
         let chat = include_str!("../../../../test-fixtures/eng_spa_bilingual_code_switch.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
-        let primary = LanguageCode::new("eng");
+        let primary = LanguageCode::new("eng").expect("valid test language code");
         let langs = declared_languages(&chat_file, &primary);
 
         let items = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll)
@@ -423,7 +432,7 @@ mod tests {
         assert!(is_dummy(&chat_file), "@Options: dummy should be detected");
 
         // Collect payloads should return items for non-dummy file
-        let primary = LanguageCode::new("eng");
+        let primary = LanguageCode::new("eng").expect("valid test language code");
         let langs = declared_languages(&chat_file, &primary);
         let items = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll)
             .batch_items;

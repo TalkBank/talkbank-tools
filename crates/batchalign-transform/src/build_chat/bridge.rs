@@ -50,6 +50,21 @@ pub enum TranscriptBuildError {
         /// [`ChatWordText::try_from_lang`].
         parse_errors: Vec<talkbank_model::ParseError>,
     },
+
+    /// A language code supplied to the bridge (transcript-level or
+    /// per-utterance) is not a valid CHAT language code. chatter 0.3.0
+    /// made [`LanguageCode`] construction fallible; the bridge parses
+    /// every code at this boundary so downstream code only sees typed
+    /// values. The underlying error is carried as text because chatter
+    /// v0.3.0 does not re-export `LanguageCodeError` (upstream defect,
+    /// reported; switch to a typed `#[source]` once a release names it).
+    #[error("invalid language code {lang:?}: {reason}")]
+    InvalidLanguageCode {
+        /// The offending raw code as supplied by the caller.
+        lang: String,
+        /// Display form of the upstream construction error.
+        reason: String,
+    },
 }
 
 /// Convert post-processed ASR utterances into a pre-serialization
@@ -79,16 +94,26 @@ pub fn transcript_from_asr_utterances(
     }
 
     let participants = build_asr_participants(utterances, participant_ids);
-    let primary_lang_code = LanguageCode::from(langs.first().map(String::as_str).unwrap_or("eng"));
+    let primary_lang_raw = langs.first().map(String::as_str).unwrap_or("eng");
+    let primary_lang_code = LanguageCode::new(primary_lang_raw).map_err(|e| {
+        TranscriptBuildError::InvalidLanguageCode {
+            lang: primary_lang_raw.to_string(),
+            reason: e.to_string(),
+        }
+    })?;
 
     let mut utterance_descs = Vec::with_capacity(utterances.len());
     for (utt_idx, utterance) in utterances.iter().enumerate() {
         let speaker_id = resolve_speaker_id(utterance.speaker, participant_ids);
-        let utterance_lang = utterance
-            .lang
-            .as_deref()
-            .map(LanguageCode::from)
-            .unwrap_or_else(|| primary_lang_code.clone());
+        let utterance_lang = match utterance.lang.as_deref() {
+            Some(raw) => {
+                LanguageCode::new(raw).map_err(|e| TranscriptBuildError::InvalidLanguageCode {
+                    lang: raw.to_string(),
+                    reason: e.to_string(),
+                })?
+            }
+            None => primary_lang_code.clone(),
+        };
 
         let words = utterance
             .words

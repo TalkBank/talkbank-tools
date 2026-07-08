@@ -256,7 +256,7 @@ impl JobSubmission {
                 | CommandOptions::Coref(_)
                 | CommandOptions::Compare(_)
         );
-        if uses_stanza && !is_stanza_supported_language(lang) {
+        if uses_stanza && !is_stanza_supported_language(lang)? {
             return Err(ValidationError(format!(
                 "Language '{}' is not supported by Stanza. Supported languages:\n\
                  {}",
@@ -351,9 +351,22 @@ pub struct ValidationError(pub String);
 /// truth ultimately lives in the Python capability table built from
 /// Stanza's installed `resources.json`; this Rust function is a fast
 /// preflight that uses the most-recently-audited approximation.
-fn is_stanza_supported_language(lang: &LanguageCode3) -> bool {
-    let code = crate::chat_ops::LanguageCode::new(lang.as_ref());
-    crate::chat_ops::morphosyntax_ops::is_stanza_supported(&code)
+///
+/// Fallible only because `LanguageCode` construction became fallible in
+/// chatter 0.3.0 (rejects empty input); `LanguageCode3` guarantees three
+/// ASCII letters, so the error arm is unreachable in practice but
+/// propagated rather than panicked on. The error is stringified because
+/// chatter v0.3.0 does not re-export `LanguageCodeError` (upstream
+/// defect, reported).
+fn is_stanza_supported_language(lang: &LanguageCode3) -> Result<bool, ValidationError> {
+    let code = crate::chat_ops::LanguageCode::new(lang.as_ref()).map_err(|e| {
+        ValidationError(format!(
+            "Language '{lang}' is not a usable language code: {e}"
+        ))
+    })?;
+    Ok(crate::chat_ops::morphosyntax_ops::is_stanza_supported(
+        &code,
+    ))
 }
 
 /// Format a help string listing supported Stanza languages for error messages.

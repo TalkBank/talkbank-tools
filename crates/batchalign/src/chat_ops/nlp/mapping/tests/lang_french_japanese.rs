@@ -14,7 +14,7 @@ use talkbank_model::model::dependent_tier::mor::Mor;
 #[test]
 fn test_japanese_punctuation_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -38,7 +38,7 @@ fn test_japanese_punctuation_mapping() {
 #[test]
 fn test_mwt_assembly_french_elision() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -79,7 +79,7 @@ fn test_mwt_assembly_french_elision() {
 #[test]
 fn test_french_pron_case() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -104,7 +104,7 @@ fn test_french_pron_case() {
 fn test_french_det_singular_gender_default_masc() {
     // ba2: DET gender defaults to "Masc" for French singular
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -129,7 +129,7 @@ fn test_french_det_singular_gender_default_masc() {
 fn test_french_det_plural_no_gender_default() {
     // ba2: DET gender default is "" for French plural (no Masc default)
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -153,7 +153,7 @@ fn test_french_det_plural_no_gender_default() {
 #[test]
 fn test_french_det_explicit_fem_gender() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -177,7 +177,7 @@ fn test_french_det_explicit_fem_gender() {
 fn test_french_noun_apm_plural() {
     // ba2: French plural nouns with auditory plural marking get -Apm suffix
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -202,7 +202,7 @@ fn test_french_noun_apm_plural() {
 fn test_french_noun_non_apm_plural() {
     // Regular French plural noun: no -Apm suffix
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -226,7 +226,7 @@ fn test_french_noun_non_apm_plural() {
 fn test_french_pron_accusative() {
     // ba2: French "me" gets Case=Acc from word-level lookup
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -250,7 +250,7 @@ fn test_french_pron_accusative() {
 fn test_french_pron_no_case_lookup() {
     // ba2: French "nous" has no entry in case lookup → no Case suffix
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -275,7 +275,7 @@ fn test_french_pron_no_case_lookup() {
 fn test_french_mwt_contraction_du() {
     // ba2: French "du" → "de" + "le" via MWT Range
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fr"),
+        lang: talkbank_model::model::LanguageCode::new("fr").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -350,7 +350,7 @@ fn test_french_mwt_contraction_du() {
 fn test_japanese_verb_override_full_output() {
     // ba2: Japanese "食べちゃう" matches "ちゃ" → sconj|ば
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -375,7 +375,7 @@ fn test_japanese_verb_override_full_output() {
 fn test_japanese_intj_override_hai() {
     // ba2: Japanese "はい" overridden to intj regardless of Stanza's POS
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -406,7 +406,7 @@ fn test_japanese_intj_override_hai() {
 fn test_japanese_aux_override_nai() {
     // ba2: target containing "無い" → aux|ない
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -436,7 +436,7 @@ fn test_japanese_comma_lemma_becomes_cm() {
     // The Japanese comma is NOT in the early-return punct list (which only
     // has ASCII ","), so it goes through the normal path: POS→"cm", stem→"、"
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -460,7 +460,7 @@ fn test_japanese_comma_lemma_becomes_cm() {
 fn test_japanese_all_punct_is_cm() {
     // ba2: ALL Japanese PUNCT tokens (not just comma) → cm|X
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -488,7 +488,7 @@ fn test_japanese_all_punct_is_cm() {
 fn test_japanese_verb_no_irr_suffix() {
     // ba2: -irr suffix is English-only. Japanese verbs must never get it.
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ja"),
+        lang: talkbank_model::model::LanguageCode::new("ja").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -515,7 +515,7 @@ fn test_japanese_verb_no_irr_suffix() {
 fn test_french_3letter_code_works() {
     // Real-world: language codes come as "fra" not "fr"
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("fra"),
+        lang: talkbank_model::model::LanguageCode::new("fra").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -540,7 +540,7 @@ fn test_french_3letter_code_works() {
 fn test_japanese_3letter_code_works() {
     // Real-world: "jpn" not "ja"
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("jpn"),
+        lang: talkbank_model::model::LanguageCode::new("jpn").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),

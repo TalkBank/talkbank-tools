@@ -71,7 +71,7 @@ fn test_mwt_gra_per_component_alignment() {
     };
 
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("eng"),
+        lang: talkbank_model::model::LanguageCode::new("eng").expect("valid test language code"),
     };
     let (mors, gras) = map_ud_sentence(&sentence, &ctx).unwrap();
 
@@ -164,7 +164,7 @@ fn test_mwt_gra_dont_contraction() {
     };
 
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("eng"),
+        lang: talkbank_model::model::LanguageCode::new("eng").expect("valid test language code"),
     };
     let (mors, gras) = map_ud_sentence(&sentence, &ctx).unwrap();
 
@@ -199,7 +199,7 @@ fn test_map_ud_word_apostrophe_no_empty_stem() {
     // map_ud_word_to_mor with an apostrophe-only PUNCT token must produce
     // "punct|'" (non-empty stem), not "punct|" (E342).
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(2),
@@ -228,7 +228,7 @@ fn test_map_ud_word_rejects_empty_stem() {
     // If clean_lemma and sanitize_mor_text both produce an empty string,
     // map_ud_word_to_mor must return Err(EmptyStem), not silently pass.
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     // Craft a UD word whose lemma sanitizes to empty (all reserved chars).
     let ud = UdWord {
@@ -257,7 +257,7 @@ fn test_unmapped_head_reference() {
     // A word's head points to a decimal ID (not in chunk index map).
     // Should return Err(InvalidHeadReference), not silently fall back to 0.
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -313,7 +313,7 @@ fn test_no_root_in_ud_parse() {
     // All words have non-zero heads forming a chain — no root.
     // Should return Err(InvalidRoot), not silently use root_chunk_idx=0.
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![

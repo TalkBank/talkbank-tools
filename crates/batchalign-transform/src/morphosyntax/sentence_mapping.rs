@@ -349,7 +349,7 @@ mod tests {
             ],
         };
         let ctx = MappingContext {
-            lang: LanguageCode::new("eng"),
+            lang: LanguageCode::new("eng").expect("valid test language code"),
         };
 
         let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");
@@ -374,7 +374,7 @@ mod tests {
             ],
         };
         let ctx = MappingContext {
-            lang: LanguageCode::new("eng"),
+            lang: LanguageCode::new("eng").expect("valid test language code"),
         };
 
         let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");
@@ -395,7 +395,7 @@ mod tests {
             ],
         };
         let ctx = MappingContext {
-            lang: LanguageCode::new("eng"),
+            lang: LanguageCode::new("eng").expect("valid test language code"),
         };
 
         let (_mors, gras) = map_ud_sentence(&sentence, &ctx).expect("map UD sentence");

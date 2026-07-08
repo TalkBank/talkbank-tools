@@ -127,7 +127,14 @@ pub(crate) async fn run_transcribe_pipeline(
             if let Some(reg) = services.pool.stanza_registry() {
                 reg.supports_morphosyntax(code.as_ref())
             } else {
-                let chat_lang = crate::chat_ops::LanguageCode::new(code.as_ref());
+                // Fallible in chatter 0.3.0; stringified error
+                // (`LanguageCodeError` not re-exported upstream).
+                let chat_lang = crate::chat_ops::LanguageCode::new(code.as_ref()).map_err(|e| {
+                    ServerError::Validation(format!(
+                        "transcribe: invalid language code {:?}: {e}",
+                        code.as_ref()
+                    ))
+                })?;
                 crate::chat_ops::morphosyntax_ops::is_stanza_supported(&chat_lang)
             }
         }
@@ -751,10 +758,22 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
                     speaker: segment.speaker.clone(),
                 })
                 .collect();
+            // Parse the resolved language ONCE at this boundary into the
+            // typed `LanguageCode` that speaker reassignment threads into
+            // `@ID` headers. Fallible in chatter 0.3.0; stringified error
+            // (`LanguageCodeError` not re-exported upstream).
+            let id_header_lang = crate::chat_ops::LanguageCode::new(resolved_lang.as_ref())
+                .map_err(|e| {
+                    ServerError::Validation(format!(
+                        "transcribe: invalid resolved language code {:?} \
+                         for speaker reassignment: {e}",
+                        resolved_lang.as_ref()
+                    ))
+                })?;
             reassign_speakers(
                 &mut chat_file,
                 &diarization_segments,
-                &resolved_lang,
+                &id_header_lang,
                 &participant_ids,
             );
         }

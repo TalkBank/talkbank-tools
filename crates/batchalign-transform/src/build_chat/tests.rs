@@ -1315,3 +1315,29 @@ fn english_transcribe_rules_skip_other_languages() {
         "Italian `i` must not be uppercased: {output}"
     );
 }
+
+/// An invalid transcript-level language code must surface as a build
+/// error naming the offending code, never a panic and never a silently
+/// wrong @Languages header. (chatter 0.3.0 made LanguageCode
+/// construction fallible; this pins our boundary handling of it.)
+#[test]
+fn test_build_chat_invalid_language_code_is_a_build_error() {
+    let desc = TranscriptDescription {
+        langs: vec![String::new()],
+        participants: vec![ParticipantDesc {
+            id: "PAR".to_string(),
+            name: None,
+            role: "Participant".to_string(),
+            corpus: String::new(),
+        }],
+        media_name: None,
+        media_type: None,
+        utterances: vec![],
+        write_wor: false,
+    };
+    let err = build_chat(&desc).expect_err("empty language code must be rejected");
+    assert!(
+        err.contains("language"),
+        "error must name the language problem, got: {err}"
+    );
+}

@@ -617,7 +617,7 @@ mod tests {
             &primary,
             secondary_mor,
             secondary_gras,
-            &LanguageCode::new("eng"),
+            &LanguageCode::new("eng").expect("valid test language code"),
             L2Attachment::ExternalRoot {
                 host_deprel: UdDeprel::new("advmod"),
                 root_anchor: crate::morphosyntax::l2::plan::L2RootAnchor::HostGovernor {
@@ -640,7 +640,7 @@ mod tests {
         let span = L2SpanPlan {
             deferred_indices: vec![0],
             line_idx: 3,
-            target_lang: LanguageCode::new("spa"),
+            target_lang: LanguageCode::new("spa").expect("valid test language code"),
             words: vec![talkbank_model::ChatCleanedText::test_unchecked(
                 "extranjero",
             )],
@@ -654,7 +654,7 @@ mod tests {
         let deferred = vec![super::super::extract::L2DeferredPosition {
             line_idx: 3,
             word_idx: 1,
-            target_lang: LanguageCode::new("spa"),
+            target_lang: LanguageCode::new("spa").expect("valid test language code"),
             primary: make_primary("obj", 1),
         }];
         let sentence = UdSentence {

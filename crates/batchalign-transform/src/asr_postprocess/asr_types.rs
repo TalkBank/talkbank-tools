@@ -529,7 +529,8 @@ mod tests {
     /// round-trip through the same structural check, which means
     /// `rejects_digits_for_eng` stays RED — by design.
     fn try_chat_word_for_lang(s: &str, lang: &str) -> Result<ChatWordText, String> {
-        let code = talkbank_model::model::LanguageCode::from(lang);
+        let code = talkbank_model::model::LanguageCode::new(lang)
+            .map_err(|e| format!("invalid test language code {lang:?}: {e}"))?;
         ChatWordText::try_from_lang(s, &code).map_err(|errs| {
             errs.iter()
                 .map(|e| e.message.clone())

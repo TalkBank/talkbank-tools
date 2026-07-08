@@ -206,15 +206,25 @@ fn universal_pos_accepts_case_insensitive_names() {
 #[test]
 fn stanza_language_support_matches_expected_examples() {
     for code in ["eng", "spa", "fra", "deu", "zho", "jpn", "rus", "ara"] {
-        assert!(is_stanza_supported(&LanguageCode::new(code)));
+        assert!(is_stanza_supported(
+            &LanguageCode::new(code).expect("valid test language code")
+        ));
     }
     for code in ["que", "jam", "nan", "taq", "und", "xmm", "jav", "wuu"] {
-        assert!(!is_stanza_supported(&LanguageCode::new(code)));
+        assert!(!is_stanza_supported(
+            &LanguageCode::new(code).expect("valid test language code")
+        ));
     }
-    assert!(is_stanza_supported(&LanguageCode::new("yue")));
-    assert!(is_stanza_supported(&LanguageCode::new("cmn")));
+    assert!(is_stanza_supported(
+        &LanguageCode::new("yue").expect("valid test language code")
+    ));
+    assert!(is_stanza_supported(
+        &LanguageCode::new("cmn").expect("valid test language code")
+    ));
     for code in ["ben", "kan", "mal", "msa", "tgl", "ltz"] {
-        assert!(!is_stanza_supported(&LanguageCode::new(code)));
+        assert!(!is_stanza_supported(
+            &LanguageCode::new(code).expect("valid test language code")
+        ));
     }
 }
 
@@ -368,7 +378,7 @@ fn ca_arrow_terminator_must_normalize_to_period_in_morphotag_payload() {
                 @End\n";
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = LanguageCode::new("eng");
+    let primary = LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;
@@ -407,7 +417,7 @@ fn collect_payloads_resolves_at_s_against_file_languages_not_batch_default() {
     let chat = include_str!("../../../../test-fixtures/cat_spa_dona_at_s.cha");
     let (chat_file, _) = parse_lenient(&parser, chat);
 
-    let primary = LanguageCode::new("eng"); // simulated batch default
+    let primary = LanguageCode::new("eng").expect("valid test language code"); // simulated batch default
     let langs = declared_languages(&chat_file, &primary);
     let items =
         collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll).batch_items;

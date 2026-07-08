@@ -15,7 +15,7 @@ use talkbank_model::model::dependent_tier::mor::Mor;
 fn test_italian_mwt_contraction_della() {
     // ba2: Italian "della" → "di" + "la" via MWT Range
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("it"),
+        lang: talkbank_model::model::LanguageCode::new("it").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -85,7 +85,7 @@ fn test_verb_default_verbform_inf() {
     // ba2: VerbForm defaults to "Inf" when not present (ALL languages)
     for lang in ["fr", "de", "es", "it", "pt", "ja", "ko", "he"] {
         let ctx = MappingContext {
-            lang: talkbank_model::model::LanguageCode::new(lang),
+            lang: talkbank_model::model::LanguageCode::new(lang).expect("valid test language code"),
         };
         let ud = UdWord {
             id: UdId::Single(1),
@@ -114,7 +114,7 @@ fn test_verb_default_number_sing() {
     // ba2: Number defaults to "Sing" (→ "S") for verbs (ALL languages)
     for lang in ["fr", "de", "es", "it"] {
         let ctx = MappingContext {
-            lang: talkbank_model::model::LanguageCode::new(lang),
+            lang: talkbank_model::model::LanguageCode::new(lang).expect("valid test language code"),
         };
         let ud = UdWord {
             id: UdId::Single(1),
@@ -142,7 +142,7 @@ fn test_verb_default_number_sing() {
 fn test_garbage_deprel_rejected() {
     // A deprel with garbage characters should be rejected, not silently fixed.
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -262,7 +262,7 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
 #[test]
 fn mid_utterance_comma_produces_cm_mor_item() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -325,7 +325,7 @@ fn mid_utterance_comma_produces_cm_mor_item() {
 #[test]
 fn sentence_terminator_is_dropped_from_mor_output() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let sentence = UdSentence {
         words: vec![
@@ -365,7 +365,7 @@ fn sentence_terminator_is_dropped_from_mor_output() {
 #[test]
 fn comma_kept_terminator_dropped_together() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let mk = |id: usize, text: &str, upos: UniversalPos, head: usize, deprel: &str| UdWord {
         id: UdId::Single(id),

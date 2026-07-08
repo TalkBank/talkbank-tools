@@ -227,10 +227,12 @@ mod tests {
     #[test]
     fn is_clitic_dispatches_by_language() {
         let en = MappingContext {
-            lang: talkbank_model::model::LanguageCode::new("eng"),
+            lang: talkbank_model::model::LanguageCode::new("eng")
+                .expect("valid test language code"),
         };
         let fr = MappingContext {
-            lang: talkbank_model::model::LanguageCode::new("fra"),
+            lang: talkbank_model::model::LanguageCode::new("fra")
+                .expect("valid test language code"),
         };
         assert!(is_clitic("n't", &en));
         assert!(is_clitic("l'", &fr));

@@ -15,7 +15,7 @@ use talkbank_model::model::dependent_tier::mor::Mor;
 fn test_pron_mapping_no_subcategory() {
     // Python uses "pron|lemma" with feature suffixes, NOT xpos-based subcategories
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -40,7 +40,7 @@ fn test_pron_mapping_no_subcategory() {
 #[test]
 fn test_pos_adp_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -64,7 +64,7 @@ fn test_pos_adp_mapping() {
 #[test]
 fn test_pos_intj_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -88,7 +88,7 @@ fn test_pos_intj_mapping() {
 #[test]
 fn test_pos_cconj_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -112,7 +112,7 @@ fn test_pos_cconj_mapping() {
 #[test]
 fn test_pos_sconj_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -135,7 +135,7 @@ fn test_pos_sconj_mapping() {
 #[test]
 fn test_pos_propn_mapping() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -159,7 +159,7 @@ fn test_pos_propn_mapping() {
 #[test]
 fn test_verb_full_features() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -183,7 +183,7 @@ fn test_verb_full_features() {
 #[test]
 fn test_verb_irregular_past() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -207,7 +207,7 @@ fn test_verb_irregular_past() {
 #[test]
 fn test_pron_with_features() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -230,7 +230,7 @@ fn test_pron_with_features() {
 #[test]
 fn test_pron_that_no_number() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -254,7 +254,7 @@ fn test_pron_that_no_number() {
 #[test]
 fn test_det_default_definite() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -278,7 +278,7 @@ fn test_det_default_definite() {
 #[test]
 fn test_det_with_article() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -301,7 +301,7 @@ fn test_det_with_article() {
 #[test]
 fn test_adj_default_degree() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -325,7 +325,7 @@ fn test_adj_default_degree() {
 #[test]
 fn test_adj_comparative() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -348,7 +348,7 @@ fn test_adj_comparative() {
 #[test]
 fn test_noun_obj_accusative() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -372,7 +372,7 @@ fn test_noun_obj_accusative() {
 #[test]
 fn test_comma_lemma_early_return() {
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("en"),
+        lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -428,7 +428,7 @@ fn test_lang2_normalization() {
 fn test_irr_suffix_with_3letter_code() {
     // Ensure the -irr suffix works when lang is "eng" (3-letter, the real-world case)
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("eng"),
+        lang: talkbank_model::model::LanguageCode::new("eng").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),
@@ -456,7 +456,7 @@ fn test_irr_suffix_with_3letter_code() {
 fn test_multivalue_ud_features_preserve_commas() {
     // Croatian: PronType=Int,Rel should preserve the comma per UD conventions
     let ctx = MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("hr"),
+        lang: talkbank_model::model::LanguageCode::new("hr").expect("valid test language code"),
     };
     let ud = UdWord {
         id: UdId::Single(1),

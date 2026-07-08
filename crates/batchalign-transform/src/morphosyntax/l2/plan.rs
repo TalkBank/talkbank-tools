@@ -340,7 +340,7 @@ mod tests {
         L2DeferredPosition {
             line_idx,
             word_idx,
-            target_lang: LanguageCode::new(lang),
+            target_lang: LanguageCode::new(lang).expect("valid test language code"),
             primary: PrimaryStructuralInfo {
                 deprel: UdDeprel::new(deprel),
                 upos: Some(UniversalPos::Noun),

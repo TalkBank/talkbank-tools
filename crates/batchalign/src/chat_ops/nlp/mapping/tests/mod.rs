@@ -73,7 +73,7 @@ pub(super) fn it_word(
 
 pub(super) fn it_ctx() -> MappingContext {
     MappingContext {
-        lang: talkbank_model::model::LanguageCode::new("ita"),
+        lang: talkbank_model::model::LanguageCode::new("ita").expect("valid test language code"),
     }
 }
 

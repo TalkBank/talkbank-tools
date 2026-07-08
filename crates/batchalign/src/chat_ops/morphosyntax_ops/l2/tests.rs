@@ -16,7 +16,11 @@ fn make_special_forms(
     specs
         .iter()
         .map(|spec| {
-            let lang_res = spec.map(|code| LanguageResolution::Single(LanguageCode::new(code)));
+            let lang_res = spec.map(|code| {
+                LanguageResolution::Single(
+                    LanguageCode::new(code).expect("valid test language code"),
+                )
+            });
             (None, lang_res)
         })
         .collect()
@@ -88,7 +92,7 @@ fn make_deferred(line_idx: usize, word_idx: usize, lang: &str) -> L2DeferredPosi
     L2DeferredPosition {
         line_idx,
         word_idx,
-        target_lang: LanguageCode::new(lang),
+        target_lang: LanguageCode::new(lang).expect("valid test language code"),
         primary: PrimaryStructuralInfo {
             deprel: UdDeprel::new("flat"),
             upos: Some(UniversalPos::Noun),
@@ -394,8 +398,8 @@ fn multiple_lang_uses_first() {
     let sf = vec![(
         None,
         Some(LanguageResolution::Multiple(vec![
-            LanguageCode::new("eng"),
-            LanguageCode::new("spa"),
+            LanguageCode::new("eng").expect("valid test language code"),
+            LanguageCode::new("spa").expect("valid test language code"),
         ])),
     )];
     let words = make_words(&["ripiado"]);
@@ -409,8 +413,8 @@ fn ambiguous_lang_uses_first() {
     let sf = vec![(
         None,
         Some(LanguageResolution::Ambiguous(vec![
-            LanguageCode::new("eng"),
-            LanguageCode::new("spa"),
+            LanguageCode::new("eng").expect("valid test language code"),
+            LanguageCode::new("spa").expect("valid test language code"),
         ])),
     )];
     let words = make_words(&["bajo"]);
@@ -493,7 +497,7 @@ fn merge_upgrades_flat_deprel() {
         &primary,
         mor,
         Vec::new(),
-        &LanguageCode::new("spa"),
+        &LanguageCode::new("spa").expect("valid test language code"),
         L2Attachment::InternalRoot,
     );
     assert_eq!(result.mor.main.pos.as_str(), "adv");
@@ -508,7 +512,7 @@ fn merge_does_not_upgrade_non_flat() {
         &primary,
         mor,
         Vec::new(),
-        &LanguageCode::new("spa"),
+        &LanguageCode::new("spa").expect("valid test language code"),
         L2Attachment::InternalRoot,
     );
     assert_eq!(result.corrected_deprel, None);
@@ -528,7 +532,7 @@ fn merge_flat_to_obj_noun_head_verb() {
         &primary,
         mor,
         Vec::new(),
-        &LanguageCode::new("spa"),
+        &LanguageCode::new("spa").expect("valid test language code"),
         L2Attachment::InternalRoot,
     );
     assert_eq!(result.mor.main.pos.as_str(), "noun");
@@ -550,7 +554,7 @@ fn merge_flat_to_obl_noun_head_verb_with_case() {
         &primary,
         mor,
         Vec::new(),
-        &LanguageCode::new("spa"),
+        &LanguageCode::new("spa").expect("valid test language code"),
         L2Attachment::InternalRoot,
     );
     assert_eq!(result.corrected_deprel, Some(UdDeprel::new("obl")));
@@ -836,7 +840,7 @@ fn phrasal_verb_particle_merge_sets_compound_prt_deprel() {
         &primary,
         mor,
         Vec::new(),
-        &LanguageCode::new("eng"),
+        &LanguageCode::new("eng").expect("valid test language code"),
         L2Attachment::InternalRoot,
         Some(&ctx),
     );

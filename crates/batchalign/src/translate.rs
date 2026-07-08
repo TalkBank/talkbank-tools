@@ -210,7 +210,14 @@ async fn infer_batch(
     items: &[(usize, TranslateBatchItem)],
     lang: &LanguageCode3,
 ) -> Result<Vec<Result<TranslateResponse, String>>, ServerError> {
-    let src_lang_code = LanguageCode::new(lang.as_ref());
+    // Fallible in chatter 0.3.0; stringified error (`LanguageCodeError` not
+    // re-exported upstream).
+    let src_lang_code = LanguageCode::new(lang.as_ref()).map_err(|e| {
+        ServerError::Validation(format!(
+            "translate: invalid source language code {:?}: {e}",
+            lang.as_ref()
+        ))
+    })?;
 
     // Pre-process text before sending to Python
     let preprocessed_items: Vec<TranslateBatchItem> = items

@@ -106,7 +106,7 @@ fn parse_one_utterance(
 fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() -> TestResult {
     let chat_file = parse_one_utterance("Yes→")?;
 
-    let primary = LanguageCode::new("eng");
+    let primary = LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let collected = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll);
 
@@ -164,7 +164,7 @@ fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() ->
 fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -> TestResult {
     let chat_file =
         parse_one_utterance("I think you could use new clothes→ \u{0015}0_2633\u{0015}")?;
-    let primary = LanguageCode::new("eng");
+    let primary = LanguageCode::new("eng").expect("valid test language code");
     let langs = declared_languages(&chat_file, &primary);
     let collected = collect_payloads(&chat_file, &primary, &langs, MultilingualPolicy::ProcessAll);
 
@@ -488,7 +488,7 @@ fn current_e316_compound_prt_surface_must_use_chat_relation_label() -> TestResul
         ],
     };
     let ctx = MappingContext {
-        lang: LanguageCode::new("eng"),
+        lang: LanguageCode::new("eng").expect("valid test language code"),
     };
 
     let (_mors, gras) = map_ud_sentence(&sentence, &ctx)?;
