@@ -260,19 +260,30 @@ jobs:
         with:
           enable-cache: true
       - name: Python audit
-        # Two transformers 4.x advisories (PYSEC-2025-217, CVE-2026-1839)
-        # have no stable fix: pip-audit reports the only fixed version as
-        # 5.0.0rc3, a breaking-major pre-release. Batchalign deliberately
-        # pins transformers 4.x and loads only trusted first-party models
-        # (Whisper / Stanza from known sources), not arbitrary user-supplied
-        # models, so we allowlist these two by ID pending a stable
-        # transformers 5.0. Re-evaluate (drop the ignores, bump the pin)
-        # when 5.0 ships stable.
+        # Allowlisted advisories, each with rationale. Batchalign loads only
+        # trusted first-party models (Whisper / Stanza from known sources)
+        # and hardcoded nltk resource names; no attacker-controlled model or
+        # resource paths reach the vulnerable APIs.
+        #
+        # - PYSEC-2025-217, CVE-2026-1839 (transformers 4.x): no stable fix
+        #   existed when allowlisted (only 5.0.0rc3, breaking-major).
+        # - CVE-2026-4372 (transformers, RCE via untrusted model loading;
+        #   fixed in 5.3.0): the fix is an untested 4.x -> 5.x major bump.
+        #   This codebase is in its handover window (successor batchalign
+        #   replaces it fleet-wide; decided 2026-07-07), so revalidating the
+        #   whole ML pipeline against transformers 5 buys nothing. EXPIRY:
+        #   if the handover has not completed by 2026-09-01, do the bump
+        #   properly instead of extending this ignore.
+        # - PYSEC-2026-597 (nltk percent-encoded path traversal in
+        #   nltk.data.load()): NO fixed release exists; resource names here
+        #   are hardcoded, never user input. Re-check for a fix opportunistically.
         run: |
           uv export --no-hashes --no-dev --no-emit-project > requirements-audit.txt
           uvx pip-audit -r requirements-audit.txt \
             --ignore-vuln PYSEC-2025-217 \
-            --ignore-vuln CVE-2026-1839
+            --ignore-vuln CVE-2026-1839 \
+            --ignore-vuln CVE-2026-4372 \
+            --ignore-vuln PYSEC-2026-597
       - uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
