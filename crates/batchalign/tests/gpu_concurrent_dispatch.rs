@@ -874,7 +874,12 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // dispatch task has been polled by the tokio runtime.
     let mut waited = Duration::ZERO;
     let poll_step = Duration::from_millis(50);
-    let max_wait = Duration::from_secs(3);
+    // Generous by design: this bound only distinguishes "wiring broken"
+    // (never registers) from "registered slowly". Under full-suite load
+    // on a busy machine the previous 3s bound flaked repeatedly
+    // (2026-07-08, passing in isolation each time); registration
+    // latency is not what this test pins, so the bound errs long.
+    let max_wait = Duration::from_secs(30);
     loop {
         if !pool.workers_for_job(&job_id).is_empty() {
             break;
