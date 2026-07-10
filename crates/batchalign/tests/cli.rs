@@ -1115,3 +1115,58 @@ fn bare_relative_input_does_not_fail_pathless() {
         );
     }
 }
+
+/// Contract: the `diarize` subcommand exists and describes its job.
+///
+/// V1 scope (workflow-level wiring): media in, speaker-turns JSON out,
+/// consumable by `chatter rediarize --turns`. The in-crate composition
+/// (applying the turns to a transcript in the same command) waits on
+/// the next chatter release carrying the rediarize transform.
+#[test]
+fn diarize_help_describes_speaker_turns() {
+    let harness = CliHarness::new();
+    let result = harness
+        .cmd()
+        .args(["diarize", "--help"])
+        .timeout(std::time::Duration::from_secs(30))
+        .output()
+        .unwrap();
+
+    assert!(
+        result.status.success(),
+        "diarize --help must exist and exit 0. stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&result.stdout).to_lowercase();
+    assert!(
+        stdout.contains("diarization") && stdout.contains("turns"),
+        "help must say what the command produces. stdout: {stdout}"
+    );
+}
+
+/// Contract: a missing media input fails with an error naming the path,
+/// never a pathless io error (same family as the align contract above).
+#[test]
+fn diarize_missing_media_error_names_the_path() {
+    let harness = CliHarness::new();
+    let result = harness
+        .cmd()
+        .args(["diarize", "/nonexistent/dir/absent.wav"])
+        .timeout(std::time::Duration::from_secs(60))
+        .output()
+        .unwrap();
+
+    assert!(
+        !result.status.success(),
+        "diarizing a missing file must fail"
+    );
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("absent.wav"),
+        "failure must name the missing media path. stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("unrecognized subcommand"),
+        "diarize must be a real subcommand. stderr: {stderr}"
+    );
+}

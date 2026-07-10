@@ -499,6 +499,19 @@ pub struct OpensmileOptions {
     pub feature_set: String,
 }
 
+/// Options for the `diarize` command (standalone speaker diarization).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiarizeOptions {
+    /// Shared options.
+    #[serde(flatten)]
+    pub common: CommonOptions,
+
+    /// Expected speaker count when the caller knows it; `None` lets the
+    /// diarizer auto-detect (the normal mode, and pyannote's strength).
+    #[serde(default)]
+    pub expected_speakers: Option<crate::api::NumSpeakers>,
+}
+
 /// Options for the `compare` command.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompareOptions {
@@ -554,6 +567,8 @@ pub enum CommandOptions {
     Compare(CompareOptions),
     /// `avqi` — voice quality index.
     Avqi(AvqiOptions),
+    /// `diarize`: standalone speaker diarization to turns JSON.
+    Diarize(DiarizeOptions),
 }
 
 impl CommandOptions {
@@ -570,6 +585,7 @@ impl CommandOptions {
             Self::Opensmile(o) => &o.common,
             Self::Compare(o) => &o.common,
             Self::Avqi(o) => &o.common,
+            Self::Diarize(o) => &o.common,
         }
     }
 
@@ -586,6 +602,7 @@ impl CommandOptions {
             Self::Opensmile(o) => &mut o.common,
             Self::Compare(o) => &mut o.common,
             Self::Avqi(o) => &mut o.common,
+            Self::Diarize(o) => &mut o.common,
         }
     }
 
@@ -602,7 +619,7 @@ impl CommandOptions {
             Self::Utseg(o) => o.merge_abbrev,
             Self::Benchmark(o) => o.merge_abbrev,
             Self::Compare(o) => o.merge_abbrev,
-            Self::Opensmile(_) | Self::Avqi(_) => MergeAbbrevPolicy::Keep,
+            Self::Opensmile(_) | Self::Avqi(_) | Self::Diarize(_) => MergeAbbrevPolicy::Keep,
         }
     }
 
@@ -691,6 +708,7 @@ impl CommandOptions {
             Self::Opensmile(_) => "opensmile",
             Self::Compare(_) => "compare",
             Self::Avqi(_) => "avqi",
+            Self::Diarize(_) => "diarize",
         }
     }
 }

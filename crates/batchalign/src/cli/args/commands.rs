@@ -673,6 +673,23 @@ pub struct OpensmileArgs {
     pub subdir: Option<String>,
 }
 
+/// Arguments for the `diarize` command.
+#[derive(Args, Debug, Clone)]
+pub struct DiarizeArgs {
+    /// Shared file-I/O options (input media paths, output directory).
+    #[command(flatten)]
+    pub common: CommonOpts,
+
+    /// Expected number of speakers. Omit to auto-detect (recommended).
+    #[arg(short = 'n', long)]
+    pub num_speakers: Option<u32>,
+
+    /// Language (3-letter ISO code). Worker-pool selection only;
+    /// diarization itself is language-independent.
+    #[arg(long, default_value = "eng")]
+    pub lang: String,
+}
+
 /// Arguments for the `avqi` command.
 #[derive(Args, Debug, Clone)]
 pub struct AvqiArgs {

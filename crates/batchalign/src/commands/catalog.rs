@@ -17,6 +17,7 @@ const RELEASED_COMMAND_ORDER: &[ReleasedCommand] = &[
     ReleasedCommand::Benchmark,
     ReleasedCommand::Opensmile,
     ReleasedCommand::Avqi,
+    ReleasedCommand::Diarize,
 ];
 
 /// Return the canonical authored definition for one released command.
@@ -53,6 +54,20 @@ mod tests {
         BatchingPolicy, CommandExecutionShape, ConstrainedHostPolicy, SchedulingPolicy,
         WarmupPolicy,
     };
+
+    #[test]
+    fn command_order_covers_every_released_command() {
+        // RELEASED_COMMAND_ORDER is hand-maintained; a released command
+        // missing from it silently vanishes from capability advertisement
+        // ("Unknown command" at dispatch despite a working CLI subcommand,
+        // the 2026-07-10 diarize field failure). Pin full coverage.
+        for command in ReleasedCommand::ALL {
+            assert!(
+                super::RELEASED_COMMAND_ORDER.contains(&command),
+                "released command {command} missing from RELEASED_COMMAND_ORDER"
+            );
+        }
+    }
 
     #[test]
     fn command_definitions_have_unique_names() {

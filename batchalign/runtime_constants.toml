@@ -19,6 +19,7 @@ benchmark = "asr,eval"
 opensmile = "opensmile"
 compare = "morphosyntax"
 avqi = "avqi"
+diarize = "speaker"
 
 [worker_caps]
 max_gpu_workers = 8
@@ -31,7 +32,7 @@ mb_per_file_mb = 25
 loading_overhead = 1.5
 
 [gpu_heavy_commands]
-commands = ["align", "transcribe", "transcribe_s", "benchmark"]
+commands = ["align", "transcribe", "transcribe_s", "benchmark", "diarize"]
 
 [process_commands]
 # Non-free-threaded: CPU-bound commands needing process isolation.
@@ -52,6 +53,7 @@ benchmark = 1500
 opensmile = 500
 compare = 8000
 avqi = 1500
+diarize = 2500
 
 # Per-command base memory (MB) for thread workers (free-threaded, shared models).
 [command_base_mb.threaded]
@@ -66,6 +68,7 @@ benchmark = 1500
 opensmile = 500
 compare = 2000
 avqi = 1500
+diarize = 2500
 
 [known_engine_keys]
 keys = ["asr", "batch_size", "fa", "feature_set", "utr"]

@@ -7,7 +7,7 @@ use crate::chat_ops::CacheTaskName;
 use crate::chat_ops::fa::CaMarkerPolicy as AppCaMarkerPolicy;
 use crate::options::{
     AlignOptions, AsrEngineName, AvqiOptions, BenchmarkOptions, CommandOptions, CommonOptions,
-    CompareOptions, CorefOptions, EngineOverrides, FaEngineName, MorphotagOptions,
+    CompareOptions, CorefOptions, DiarizeOptions, EngineOverrides, FaEngineName, MorphotagOptions,
     OpensmileOptions, TranscribeOptions, TranslateEngineName, TranslateOptions,
     UtrEngine as AppUtrEngine, UtrOverlapStrategy as AppUtrOverlapStrategy, UtsegOptions,
 };
@@ -333,6 +333,10 @@ pub fn build_typed_options(cmd: &Commands, global: &GlobalOpts) -> Option<Comman
             merge_abbrev: resolve_merge_abbrev_policy(a.merge_abbrev, a.no_merge_abbrev),
         })),
         Commands::Avqi(_) => Some(CommandOptions::Avqi(AvqiOptions { common })),
+        Commands::Diarize(a) => Some(CommandOptions::Diarize(DiarizeOptions {
+            common,
+            expected_speakers: a.num_speakers.map(crate::api::NumSpeakers),
+        })),
         _ => None,
     }
 }
@@ -348,6 +352,7 @@ pub fn common_opts(cmd: &Commands) -> Option<&CommonOpts> {
         Commands::Utseg(a) => Some(&a.common),
         Commands::Benchmark(a) => Some(&a.common),
         Commands::Compare(a) => Some(&a.common),
+        Commands::Diarize(a) => Some(&a.common),
         _ => None,
     }
 }

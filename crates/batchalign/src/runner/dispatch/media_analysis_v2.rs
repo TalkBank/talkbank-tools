@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{error, warn};
 
+use crate::api::NumSpeakers;
 use crate::ensure_wav;
 use crate::recipe_runner::runtime::{
     ChatOutputTarget, result_display_path_for_command, write_text_output_artifact,
@@ -18,7 +19,9 @@ use crate::runner::util::{
 };
 use crate::scheduling::{FailureCategory, RetryPolicy, WorkUnitKind};
 use crate::store::{PendingJobFile, RunnerJobSnapshot, unix_now};
-use crate::types::worker_v2::{AvqiResultV2, ExecuteOutcomeV2, OpenSmileResultV2, TaskResultV2};
+use crate::types::worker_v2::{
+    AvqiResultV2, ExecuteOutcomeV2, OpenSmileResultV2, SpeakerBackendV2, TaskResultV2,
+};
 use crate::worker::artifacts_v2::PreparedArtifactRuntimeV2;
 use crate::worker::avqi_request_v2::{
     AvqiBuildInputV2, PreparedAvqiRequestIdsV2, build_avqi_request_v2,
@@ -27,6 +30,12 @@ use crate::worker::opensmile_request_v2::{
     OpenSmileBuildInputV2, PreparedOpenSmileRequestIdsV2, build_opensmile_request_v2,
 };
 use crate::worker::pool::WorkerPool;
+use crate::worker::speaker_request_v2::{
+    PreparedSpeakerRequestIdsV2, SpeakerBuildInputV2, build_speaker_request_v2,
+};
+use crate::worker::speaker_result_v2::parse_speaker_result_v2;
+
+use super::diarize_turns::format_turns_json;
 
 use crate::api::{ContentType, NumWorkers};
 
@@ -51,7 +60,10 @@ pub(crate) async fn dispatch_media_analysis_v2(
     let sink = host.sink().clone();
     let file_parallelism_hint = match &plan {
         MediaAnalysisDispatchPlan::Opensmile { kernel_plan, .. }
-        | MediaAnalysisDispatchPlan::Avqi { kernel_plan } => kernel_plan.file_parallelism_hint,
+        | MediaAnalysisDispatchPlan::Avqi { kernel_plan }
+        | MediaAnalysisDispatchPlan::Diarize { kernel_plan, .. } => {
+            kernel_plan.file_parallelism_hint
+        }
     };
     let file_parallelism = runtime
         .num_workers
@@ -251,6 +263,10 @@ async fn dispatch_one_media_analysis_attempt(
         MediaAnalysisDispatchPlan::Avqi { kernel_plan: _ } => {
             dispatch_avqi_attempt(job, pool, file_index, filename, &audio_path).await
         }
+        MediaAnalysisDispatchPlan::Diarize {
+            kernel_plan: _,
+            expected_speakers,
+        } => dispatch_diarize_attempt(job, pool, filename, &audio_path, *expected_speakers).await,
     }
 }
 
@@ -536,6 +552,82 @@ fn format_avqi_report(result: &AvqiResultV2, language: &str) -> String {
     lines.push(format!("SV File: {}", result.sv_file));
     lines.push(format!("Language: {language}"));
     lines.join("\n") + "\n"
+}
+
+async fn dispatch_diarize_attempt(
+    job: &RunnerJobSnapshot,
+    pool: &Arc<WorkerPool>,
+    filename: &str,
+    audio_path: &Path,
+    expected_speakers: Option<NumSpeakers>,
+) -> Result<(String, String, ContentType), DispatchFailure> {
+    let artifacts = PreparedArtifactRuntimeV2::new("diarize_v2").map_err(|error| {
+        DispatchFailure::Terminal(
+            format!("failed to create diarize V2 artifact runtime: {error}"),
+            FailureCategory::Validation,
+        )
+    })?;
+
+    // `fresh()` ids: diarize files run concurrently under one shared GPU
+    // worker, and pending-request routing is keyed by request id.
+    let request = build_speaker_request_v2(
+        artifacts.store(),
+        SpeakerBuildInputV2 {
+            ids: &PreparedSpeakerRequestIdsV2::fresh(),
+            audio_path,
+            // V1 backend is fixed: pyannote is the only declared speaker
+            // dependency (NeMo imports lazily and is not shipped). An
+            // `--engine` seam waits on `EngineOverrides` growing a typed
+            // speaker field.
+            backend: SpeakerBackendV2::Pyannote,
+            expected_speakers,
+        },
+    )
+    .await
+    .map_err(|error| {
+        DispatchFailure::Terminal(
+            format!("failed to build diarize V2 request: {error}"),
+            FailureCategory::Validation,
+        )
+    })?;
+
+    // Diarization is not language-aware, but `dispatch_execute_v2` still
+    // needs a concrete worker-pool key (same contract as opensmile/avqi).
+    let pool_key = job.dispatch.lang.as_resolved().cloned().ok_or_else(|| {
+        DispatchFailure::Terminal(
+            format!(
+                "media analysis requires `--lang <iso3>`; got '{}'.",
+                job.dispatch.lang
+            ),
+            FailureCategory::Validation,
+        )
+    })?;
+    let response = pool
+        .dispatch_execute_v2(&pool_key, &request)
+        .await
+        .map_err(|error| {
+            DispatchFailure::RetryableWorker(error.to_string(), classify_worker_error(&error))
+        })?;
+
+    let result = parse_speaker_result_v2(&response)
+        .map_err(|error| DispatchFailure::Terminal(error, FailureCategory::ProviderTerminal))?;
+
+    let turns_json = format_turns_json(&result.segments).map_err(|error| {
+        DispatchFailure::Terminal(
+            format!("diarize output for {filename} is defective: {error}"),
+            FailureCategory::ProviderTerminal,
+        )
+    })?;
+
+    Ok((
+        diarize_result_filename(filename),
+        turns_json,
+        ContentType::Json,
+    ))
+}
+
+fn diarize_result_filename(filename: &str) -> String {
+    result_display_path_for_command(crate::api::ReleasedCommand::Diarize, filename).to_string()
 }
 
 fn opensmile_result_filename(filename: &str) -> String {

@@ -340,6 +340,7 @@ fn command_prefers_local_daemon(command: ReleasedCommand) -> bool {
             | ReleasedCommand::TranscribeS
             | ReleasedCommand::Benchmark
             | ReleasedCommand::Avqi
+            | ReleasedCommand::Diarize
     )
 }
 

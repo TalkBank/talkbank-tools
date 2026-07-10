@@ -39,6 +39,7 @@ mod asr_media;
 mod audio_output;
 mod audio_task;
 mod benchmark_pipeline;
+mod diarize_turns;
 mod fa_pipeline;
 mod infer_batched;
 mod media_analysis_v2;

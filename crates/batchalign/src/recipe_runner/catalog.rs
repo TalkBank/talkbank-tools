@@ -21,6 +21,7 @@ const COREF_TASKS: &[InferTask] = &[InferTask::Coref];
 const FA_TASKS: &[InferTask] = &[InferTask::Fa];
 const OPENSMILE_TASKS: &[InferTask] = &[InferTask::Opensmile];
 const AVQI_TASKS: &[InferTask] = &[InferTask::Avqi];
+const DIARIZE_TASKS: &[InferTask] = &[InferTask::Speaker];
 const BENCHMARK_TASKS: &[InferTask] = &[InferTask::Asr, InferTask::Morphosyntax];
 
 const NO_SIDECARS: &[SidecarPolicy] = &[];
@@ -526,6 +527,40 @@ const OPENSMILE_RECIPE: Recipe = Recipe {
     ],
 };
 
+const DIARIZE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MediaAnalysis,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Processing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::MediaAnalysis],
+        ),
+    ],
+};
+
 const AVQI_RECIPE: Recipe = Recipe {
     mode: ExecutionMode::SequentialPerUnit,
     stages: &[
@@ -744,6 +779,28 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
             sidecars: NO_SIDECARS,
         },
         recipe: &AVQI_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::Diarize,
+        family: CommandFamily::MediaAnalysis,
+        planner: PlannerKind::MediaAnalysisInputs,
+        execution_mode: ExecutionMode::SequentialPerUnit,
+        capabilities: CapabilityPlan {
+            infer_tasks: DIARIZE_TASKS,
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            // `CWS-032-1.mp3` -> `CWS-032-1.turns.json`, the artifact
+            // name `chatter rediarize --turns-dir` conventions expect.
+            primary: FileNamingPolicy::RewriteStem(StemRewrite {
+                strip_suffix: None,
+                append_suffix: ".turns",
+                extension: "json",
+            }),
+            primary_content_type: ContentType::Json,
+            sidecars: NO_SIDECARS,
+        },
+        recipe: &DIARIZE_RECIPE,
     },
 ];
 

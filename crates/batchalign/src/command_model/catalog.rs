@@ -82,7 +82,8 @@ fn io_profile_for(command: ReleasedCommand) -> CommandIoProfile {
         | ReleasedCommand::TranscribeS
         | ReleasedCommand::Benchmark
         | ReleasedCommand::Opensmile
-        | ReleasedCommand::Avqi => CommandIoProfile::PathsModeAudio,
+        | ReleasedCommand::Avqi
+        | ReleasedCommand::Diarize => CommandIoProfile::PathsModeAudio,
         _ => CommandIoProfile::PathsModeText,
     }
 }
@@ -103,7 +104,9 @@ fn runner_dispatch_kind_for(command: ReleasedCommand) -> RunnerDispatchKind {
             RunnerDispatchKind::TranscribeAudioInfer
         }
         ReleasedCommand::Benchmark => RunnerDispatchKind::BenchmarkAudioInfer,
-        ReleasedCommand::Opensmile | ReleasedCommand::Avqi => RunnerDispatchKind::MediaAnalysisV2,
+        ReleasedCommand::Opensmile | ReleasedCommand::Avqi | ReleasedCommand::Diarize => {
+            RunnerDispatchKind::MediaAnalysisV2
+        }
         _ => RunnerDispatchKind::BatchedTextInfer,
     }
 }

@@ -245,6 +245,18 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         base_mb_threaded: MemoryMb(1_500),
         loading_overhead: LoadingOverhead::new_unchecked(1.5),
     },
+    CommandSpec {
+        name: ReleasedCommand::Diarize,
+        tasks: &[InferTask::Speaker],
+        task_label: "speaker",
+        profile: WorkerProfile::Gpu,
+        // GPU workers handle process isolation; GIL does not apply
+        // (same footing as the transcribe_s speaker stage).
+        gil_process_need: GilProcessNeed::Never,
+        base_mb_process: MemoryMb(2_500),
+        base_mb_threaded: MemoryMb(2_500),
+        loading_overhead: LoadingOverhead::new_unchecked(1.5),
+    },
 ];
 
 // ---------------------------------------------------------------------------

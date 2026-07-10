@@ -45,6 +45,7 @@ pub enum ReleasedCommand {
     Opensmile,
     Compare,
     Avqi,
+    Diarize,
 }
 
 /// Error returned when one string is not a released command name.
@@ -54,7 +55,7 @@ pub struct InvalidReleasedCommand(pub String);
 
 impl ReleasedCommand {
     /// All released commands in a stable contributor-facing order.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Align,
         Self::Transcribe,
         Self::TranscribeS,
@@ -66,6 +67,7 @@ impl ReleasedCommand {
         Self::Opensmile,
         Self::Compare,
         Self::Avqi,
+        Self::Diarize,
     ];
 
     /// Parse one untrusted released-command token.
@@ -87,6 +89,7 @@ impl ReleasedCommand {
             Self::Opensmile => "opensmile",
             Self::Compare => "compare",
             Self::Avqi => "avqi",
+            Self::Diarize => "diarize",
         }
     }
 
@@ -99,7 +102,7 @@ impl ReleasedCommand {
     pub const fn uses_local_audio(self) -> bool {
         matches!(
             self,
-            Self::Transcribe | Self::TranscribeS | Self::Benchmark | Self::Avqi
+            Self::Transcribe | Self::TranscribeS | Self::Benchmark | Self::Avqi | Self::Diarize
         )
     }
 }
@@ -138,6 +141,7 @@ impl TryFrom<&str> for ReleasedCommand {
             "opensmile" => Ok(Self::Opensmile),
             "compare" => Ok(Self::Compare),
             "avqi" => Ok(Self::Avqi),
+            "diarize" => Ok(Self::Diarize),
             other => Err(InvalidReleasedCommand(other.to_owned())),
         }
     }
@@ -858,6 +862,8 @@ pub enum ContentType {
     Csv,
     /// Plain text output (e.g. AVQI voice quality reports).
     Text,
+    /// JSON document output (e.g. diarization speaker-turns files).
+    Json,
 }
 
 impl std::fmt::Display for ContentType {
@@ -866,6 +872,7 @@ impl std::fmt::Display for ContentType {
             Self::Chat => write!(f, "chat"),
             Self::Csv => write!(f, "csv"),
             Self::Text => write!(f, "text"),
+            Self::Json => write!(f, "json"),
         }
     }
 }

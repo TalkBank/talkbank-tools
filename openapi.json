@@ -127,7 +127,8 @@
         "enum": [
           "chat",
           "csv",
-          "text"
+          "text",
+          "json"
         ],
         "type": "string"
       },
@@ -1273,7 +1274,8 @@
           "benchmark",
           "opensmile",
           "compare",
-          "avqi"
+          "avqi",
+          "diarize"
         ],
         "type": "string"
       },

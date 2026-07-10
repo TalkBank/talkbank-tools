@@ -142,6 +142,8 @@ impl WorkerProfile {
             ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS => InferTask::Asr,
             ReleasedCommand::Opensmile => InferTask::Opensmile,
             ReleasedCommand::Avqi => InferTask::Avqi,
+            // Diarize: standalone speaker diarization (pyannote), GPU-profile.
+            ReleasedCommand::Diarize => InferTask::Speaker,
             // Compare: primary infer task is Morphosyntax (MORPHOSYNTAX_TASKS[0]).
             ReleasedCommand::Compare => InferTask::Morphosyntax,
             // Benchmark: primary infer task is Asr (BENCHMARK_TASKS[0]).

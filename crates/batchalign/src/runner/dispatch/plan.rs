@@ -231,6 +231,13 @@ pub(crate) enum MediaAnalysisDispatchPlan {
         /// Resource-aware execution profile for the command's remaining workload.
         kernel_plan: CommandKernelPlan,
     },
+    /// Standalone speaker diarization to a turns JSON artifact.
+    Diarize {
+        /// Resource-aware execution profile for the command's remaining workload.
+        kernel_plan: CommandKernelPlan,
+        /// Expected speaker count; `None` lets the diarizer auto-detect.
+        expected_speakers: Option<crate::api::NumSpeakers>,
+    },
 }
 
 impl MediaAnalysisDispatchPlan {
@@ -248,6 +255,20 @@ impl MediaAnalysisDispatchPlan {
             ReleasedCommand::Avqi => Some(Self::Avqi {
                 kernel_plan: kernel_plan_for_job(job, config),
             }),
+            ReleasedCommand::Diarize => {
+                // A diarize job snapshot must carry diarize options; any
+                // other variant means the persisted options row is corrupt.
+                // Returning `None` fails plan construction visibly (same
+                // contract as the opensmile params extractor above) instead
+                // of silently proceeding with default settings.
+                let crate::options::CommandOptions::Diarize(options) = &job.dispatch.options else {
+                    return None;
+                };
+                Some(Self::Diarize {
+                    kernel_plan: kernel_plan_for_job(job, config),
+                    expected_speakers: options.expected_speakers,
+                })
+            }
             _ => None,
         }
     }

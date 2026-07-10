@@ -368,7 +368,7 @@ export interface components {
          *     MIME-like content discriminator for file results.
          * @enum {string}
          */
-        ContentType: "chat" | "csv" | "text";
+        ContentType: "chat" | "csv" | "text" | "json";
         /**
          * @description Correlation ID for tracing a job across log entries (non-empty).
          *
@@ -1068,7 +1068,7 @@ export interface components {
          *     rejected at deserialization boundaries (HTTP 422, DB recovery skip).
          * @enum {string}
          */
-        ReleasedCommand: "align" | "transcribe" | "transcribe_s" | "translate" | "morphotag" | "coref" | "utseg" | "benchmark" | "opensmile" | "compare" | "avqi";
+        ReleasedCommand: "align" | "transcribe" | "transcribe_s" | "translate" | "morphotag" | "coref" | "utseg" | "benchmark" | "opensmile" | "compare" | "avqi" | "diarize";
         /**
          * @description A path relative to a data repo root (e.g. `"French/Newcastle/Photos/13"`).
          *

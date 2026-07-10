@@ -99,6 +99,11 @@ pub enum Commands {
     Compare(CompareArgs),
     /// Calculate AVQI from paired .cs/.sv audio files.
     Avqi(AvqiArgs),
+    /// Detect speaker turns in audio (speaker diarization).
+    ///
+    /// Writes one speaker-turns JSON file per input, in the schema
+    /// consumed by `chatter rediarize --turns`.
+    Diarize(DiarizeArgs),
     /// Initialize ~/.batchalign.ini (ASR defaults / Rev.ai key).
     Setup(SetupArgs),
     /// Manage the processing server.
@@ -270,6 +275,15 @@ impl CommonOpts {
                 command: ReleasedCommand::Avqi,
                 lang: &a.lang,
                 num_speakers: 1,
+                extensions: &["mp3", "mp4", "wav"],
+            },
+            Commands::Diarize(a) => CommandProfile {
+                command: ReleasedCommand::Diarize,
+                lang: &a.lang,
+                // Display-only in the job record; the real auto-detect
+                // signal is `DiarizeOptions::expected_speakers` (None =
+                // auto), carried through the typed options channel.
+                num_speakers: a.num_speakers.unwrap_or(1),
                 extensions: &["mp3", "mp4", "wav"],
             },
             // Caller-contract invariant: this method is only called
