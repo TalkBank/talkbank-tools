@@ -52,7 +52,12 @@ pub(super) fn prepare_paths_submission(
         .iter()
         .map(|f| {
             std::fs::canonicalize(f)
-                .map_err(CliError::Io)
+                .map_err(|e| {
+                    CliError::Io(std::io::Error::new(
+                        e.kind(),
+                        format!("cannot resolve input path {}: {e}", f.display()),
+                    ))
+                })
                 .map(|p| p.to_string_lossy().to_string())
         })
         .collect::<Result<_, _>>()?;
@@ -65,8 +70,28 @@ pub(super) fn prepare_paths_submission(
                     format!("output path has no parent directory: {}", f.display()),
                 ))
             })?;
-            std::fs::create_dir_all(parent).map_err(CliError::Io)?;
-            let canonical_parent = std::fs::canonicalize(parent).map_err(CliError::Io)?;
+            // A bare relative filename ("session.cha") has the EMPTY path as
+            // its parent; create_dir_all("") and canonicalize("") both fail
+            // ENOENT with a pathless io error (2026-07-10 field failure:
+            // `align session.cha` from the file's own directory died with a
+            // bare "No such file or directory"). Normalize to ".".
+            let parent = if parent.as_os_str().is_empty() {
+                Path::new(".")
+            } else {
+                parent
+            };
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CliError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("cannot create output directory {}: {e}", parent.display()),
+                ))
+            })?;
+            let canonical_parent = std::fs::canonicalize(parent).map_err(|e| {
+                CliError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("cannot resolve output directory {}: {e}", parent.display()),
+                ))
+            })?;
             let file_name = f.file_name().ok_or_else(|| {
                 CliError::Io(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,

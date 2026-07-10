@@ -1047,3 +1047,71 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
         "CLI stderr should describe the failed job. stderr: {stderr}"
     );
 }
+
+/// Helpful-error contract: a bad input path must be NAMED in the error.
+///
+/// Regression guard for the 2026-07-10 field failure: `align` with a
+/// path that failed client-side resolution printed a bare
+/// "No such file or directory (os error 2)" with no path and no hint
+/// (std's `canonicalize` errors are pathless, and `CliError::Io`
+/// displayed them raw), leaving the operator to bisect by hand.
+#[test]
+fn missing_input_path_error_names_the_path() {
+    let harness = CliHarness::new();
+    let tmp = tempfile::TempDir::new().unwrap();
+
+    let result = harness
+        .cmd()
+        .current_dir(tmp.path())
+        .args(["align", "no-such-file.cha"])
+        .timeout(std::time::Duration::from_secs(30))
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        !result.status.success(),
+        "align on a missing file must fail. stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("no-such-file.cha"),
+        "the error must NAME the offending path, not print a bare io error. stderr: {stderr}"
+    );
+}
+
+/// The 2026-07-10 field failure, exactly: an EXISTING bare relative
+/// filename (no `./`, cwd elsewhere) in in-place output mode. The
+/// output-parent derivation yields the empty path, and
+/// `create_dir_all("")` fails ENOENT client-side, printed pathless.
+/// Contract: this must either work (treat empty parent as `.`) or
+/// fail naming the path; a bare "No such file or directory" is a bug.
+#[test]
+fn bare_relative_input_does_not_fail_pathless() {
+    let harness = CliHarness::new();
+    let tmp = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        tmp.path().join("session.cha"),
+        "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|corpus|CHI|||||Target_Child|||\n*CHI:\thello .\n@End\n",
+    )
+    .unwrap();
+
+    let result = harness
+        .cmd()
+        .current_dir(tmp.path())
+        .args(["align", "session.cha"])
+        .timeout(std::time::Duration::from_secs(60))
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    if !result.status.success() {
+        assert!(
+            stderr.contains("session.cha") || stderr.contains("media") || stderr.contains("daemon"),
+            "failure must name the path or a real cause, never a bare io error. stderr: {stderr}"
+        );
+        assert!(
+            !stderr.contains("(os error 2)") || stderr.contains("session.cha"),
+            "pathless ENOENT reached the user. stderr: {stderr}"
+        );
+    }
+}
