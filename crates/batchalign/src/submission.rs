@@ -198,6 +198,7 @@ pub(crate) async fn materialize_submission_job(
         runtime: JobRuntimeControl {
             cancel_token: CancellationToken::new(),
             runner_active: false,
+            run_generation: crate::store::RunGeneration::FIRST,
         },
         execution_plan: None,
     })

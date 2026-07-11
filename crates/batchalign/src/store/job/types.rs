@@ -180,12 +180,54 @@ pub struct JobLastCancelInfo {
     pub reason: Option<String>,
 }
 
+/// Monotonic per-job run generation.
+///
+/// Every restart (`Job::prepare_for_restart`) increments it, so a runner
+/// that began under an earlier generation can be recognized as STALE and
+/// barred from finalizing the job or force-failing files that now belong
+/// to the restarted run (2026-07-10 field failure: a stale runner
+/// finalized a restarted 345-file job as `failed` with 317 bogus
+/// "did not reach terminal status" file errors).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RunGeneration(u64);
+
+impl RunGeneration {
+    /// Generation of a job's first run, before any restart.
+    pub(crate) const FIRST: Self = Self(0);
+
+    /// The next generation (used by restart).
+    pub(crate) fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
+impl std::fmt::Display for RunGeneration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "g{}", self.0)
+    }
+}
+
+/// Outcome of a runner's attempt to claim exclusive execution of a job.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BeginRunnerOutcome {
+    /// The claim succeeded; the runner owns the job at this generation.
+    Started(RunGeneration),
+    /// Another runner still owns the job (e.g. a restarted job whose
+    /// previous runner is mid-teardown). The caller must wait and retry.
+    RunnerStillLive,
+}
+
 /// In-memory runtime controls for one job.
 pub struct JobRuntimeControl {
     /// Cancellation token checked between files by the runner.
     pub cancel_token: CancellationToken,
-    /// Whether the local queue dispatcher already spawned a runner task.
+    /// Whether a runner task currently owns this job. Set by
+    /// `JobRegistry::begin_runner` and cleared only when that runner
+    /// releases its claim; restart does NOT clear it (the old runner is
+    /// still alive during handoff).
     pub runner_active: bool,
+    /// Current run generation (bumped by every restart).
+    pub run_generation: RunGeneration,
 }
 
 /// One file that still requires runner work.
@@ -312,6 +354,9 @@ pub struct RunnerJobSnapshot {
     pub cancel_token: CancellationToken,
     /// Files that still need processing.
     pub pending_files: Vec<PendingJobFile>,
+    /// Run generation this snapshot belongs to; finalization is refused
+    /// when the job has since moved to a newer generation.
+    pub run_generation: RunGeneration,
 }
 
 /// Result of recovering a persisted interrupted/running job on startup.

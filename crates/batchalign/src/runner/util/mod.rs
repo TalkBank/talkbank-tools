@@ -593,6 +593,7 @@ mod tests {
         std::fs::write(&wav_path, b"RIFF").unwrap();
 
         let job = RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("job-1"),
                 correlation_id: "corr-1".into(),

@@ -347,6 +347,7 @@ mod tests {
         before_paths: Vec<&str>,
     ) -> RunnerJobSnapshot {
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("job-runtime"),
                 correlation_id: CorrelationId::from("corr-runtime"),

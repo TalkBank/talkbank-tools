@@ -16,12 +16,21 @@ pub(super) async fn dispatch_test_echo_files(
     job: &RunnerJobSnapshot,
     sink: &dyn RunnerEventSink,
     file_list: &[crate::store::PendingJobFile],
+    test_delay_ms: u64,
 ) {
     let job_id = &job.identity.job_id;
 
     for file in file_list {
         if job.cancel_token.is_cancelled() {
             break;
+        }
+
+        // Honor the pool's test-only pacing knob (`PoolConfig::test_delay_ms`)
+        // even though echo mode never reaches a worker: integration tests
+        // use it to keep a job observably mid-run (e.g. the restart-handoff
+        // race) where instant echo would close the window.
+        if test_delay_ms > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(test_delay_ms)).await;
         }
 
         let filename = file.filename.as_ref();

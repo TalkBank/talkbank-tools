@@ -112,6 +112,7 @@ mod tests {
 
     fn compare_snapshot(paths_mode: bool) -> RunnerJobSnapshot {
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("job-plan"),
                 correlation_id: CorrelationId::from("corr-plan"),

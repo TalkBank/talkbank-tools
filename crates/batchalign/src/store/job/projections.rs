@@ -181,6 +181,7 @@ impl Job {
             },
             cancel_token: self.runtime.cancel_token.clone(),
             pending_files: self.pending_files(),
+            run_generation: self.runtime.run_generation,
         }
     }
 }

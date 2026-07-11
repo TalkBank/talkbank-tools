@@ -571,6 +571,15 @@ pub struct PoolMetrics {
 }
 
 impl WorkerPool {
+    /// Test-only artificial per-response delay configured for this pool.
+    ///
+    /// Exposed so the test-echo dispatch path (which bypasses workers
+    /// entirely) can honor the same pacing knob integration tests use to
+    /// hold race windows open.
+    pub(crate) fn test_delay_ms(&self) -> u64 {
+        self.config.test_delay_ms
+    }
+
     /// The host-chosen bootstrap mode for local workers.
     pub fn bootstrap_mode(&self) -> WorkerBootstrapMode {
         self.config.runtime.bootstrap_mode

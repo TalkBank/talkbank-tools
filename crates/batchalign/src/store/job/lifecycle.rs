@@ -248,7 +248,13 @@ impl Job {
         self.schedule.next_eligible_at = None;
         self.clear_lease();
         self.runtime.cancel_token = CancellationToken::new();
-        self.runtime.runner_active = false;
+        // A restarted job moves to a NEW run generation: the previous
+        // runner (possibly still tearing down its in-flight file) becomes
+        // stale and is refused finalization. `runner_active` is left
+        // untouched here: it reflects the truth that the old runner is
+        // still alive; the restarted runner waits on it via
+        // `begin_runner` before taking over.
+        self.runtime.run_generation = self.runtime.run_generation.next();
         self.execution.completed_files = self
             .execution
             .file_statuses

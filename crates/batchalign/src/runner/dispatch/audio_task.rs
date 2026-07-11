@@ -325,6 +325,7 @@ mod tests {
         async fn finalize_job(
             &self,
             _job_id: &JobId,
+            _expected_generation: crate::store::RunGeneration,
             _final_status: crate::api::JobStatus,
             _completed_at: UnixTimestamp,
         ) -> Option<String> {
@@ -373,6 +374,7 @@ mod tests {
 
     fn fake_job(tmp: &tempfile::TempDir) -> RunnerJobSnapshot {
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("audio-shell"),
                 correlation_id: CorrelationId::from("corr-audio-shell"),

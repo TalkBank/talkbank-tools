@@ -105,6 +105,7 @@ mod tests {
             runtime: JobRuntimeControl {
                 cancel_token: CancellationToken::new(),
                 runner_active: false,
+                run_generation: crate::store::RunGeneration::FIRST,
             },
             execution_plan: None,
         }
@@ -211,7 +212,15 @@ mod tests {
         assert!(job.schedule.completed_at.is_none());
         assert!(job.schedule.next_eligible_at.is_none());
         assert!(job.schedule.lease.leased_by_node.is_none());
-        assert!(!job.runtime.runner_active);
+        // Restart must NOT pretend the old runner is gone: the claim is
+        // released only by the runner itself, and the restarted runner
+        // waits on it (begin_runner). What restart does do is move the
+        // job to a new run generation, making the old runner stale.
+        assert!(job.runtime.runner_active);
+        assert_eq!(
+            job.runtime.run_generation,
+            crate::store::RunGeneration::FIRST.next()
+        );
     }
 
     /// Recovery re-queues interrupted jobs when resumable file work remains.

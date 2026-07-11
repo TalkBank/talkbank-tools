@@ -148,6 +148,7 @@ impl RunnerEventSink for RecordingSink {
     async fn finalize_job(
         &self,
         _job_id: &JobId,
+        _expected_generation: crate::store::RunGeneration,
         _final_status: JobStatus,
         _completed_at: UnixTimestamp,
     ) -> Option<String> {
@@ -226,6 +227,7 @@ fn make_job(id: &str) -> Job {
         runtime: JobRuntimeControl {
             cancel_token: CancellationToken::new(),
             runner_active: false,
+            run_generation: crate::store::RunGeneration::FIRST,
         },
         execution_plan: None,
     }

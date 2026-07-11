@@ -66,11 +66,28 @@ pub(crate) fn job_task(
             .map(|snapshot| snapshot.identity.correlation_id)
             .unwrap_or_else(|| job_id.to_string().into());
         let lease_task = tokio::spawn(async move {
+            // A job whose files have not moved in this long, while its
+            // runner claims to be alive, is stalled: say so loudly instead
+            // of letting it sit "running" for a day (2026-07-09 field
+            // incident: 24h at 24/345 with zero log output). Detection
+            // only; the operator decides whether to cancel/restart.
+            const STALL_ALARM_S: f64 = 1800.0;
             let interval = std::time::Duration::from_secs(JobStore::LOCAL_LEASE_HEARTBEAT_S);
             loop {
                 tokio::time::sleep(interval).await;
                 if lease_store.renew_job_lease(&lease_job_id).await == LeaseRenewalOutcome::Stop {
                     break;
+                }
+                if let Some(last_activity) = lease_store.last_file_activity_at(&lease_job_id).await
+                {
+                    let idle_s = unix_now().0 - last_activity.0;
+                    if idle_s > STALL_ALARM_S {
+                        error!(
+                            job_id = %lease_job_id,
+                            idle_minutes = (idle_s / 60.0) as u64,
+                            "job appears STALLED: no file activity while the runner is live"
+                        );
+                    }
                 }
             }
         });
@@ -131,14 +148,17 @@ pub(crate) async fn run_direct_job(
     job_id: &JobId,
     host: &DirectExecutionHost,
 ) -> Result<(), crate::error::ServerError> {
-    match run_hosted_job(
+    let outcome = run_hosted_job(
         job_id,
         &host.store,
         &host.engine,
         MemoryGateFailurePolicy::FailJob,
     )
-    .await?
-    {
+    .await;
+    // Symmetric to job_task's tail: the exclusive-runner claim taken in
+    // run_hosted_job must be released on every exit path.
+    host.store.release_runner_claim(job_id).await;
+    match outcome? {
         HostedJobRunOutcome::Completed => Ok(()),
         HostedJobRunOutcome::Requeued { retry_at } => Err(crate::error::ServerError::Persistence(
             format!("direct execution unexpectedly requeued job {job_id} until {retry_at}"),
@@ -155,6 +175,46 @@ async fn run_hosted_job(
     let pool = &engine.context.pool;
     let host_context = DispatchHostContext::from_store(store.clone());
     let sink = host_context.sink().clone();
+
+    // Exclusive-runner claim. Exactly one live runner may own a job: a
+    // restarted job's new runner arrives here while the cancelled one is
+    // still tearing down its in-flight file, and must WAIT for the release
+    // rather than run concurrently (two runners produced the 2026-07-10
+    // bogus-failed / double-counted field state). The claim also returns
+    // the run generation this runner belongs to; every privileged
+    // finalization below is checked against it.
+    let run_generation = {
+        const CLAIM_POLL_INTERVAL_MS: u64 = 250;
+        const CLAIM_WARN_EVERY_TICKS: u64 = 240; // one warning per minute
+        let mut wait_ticks: u64 = 0;
+        loop {
+            match store.begin_runner(job_id).await {
+                None => {
+                    return Err(crate::error::ServerError::JobNotInLocalStore(
+                        job_id.clone(),
+                    ));
+                }
+                Some(crate::store::BeginRunnerOutcome::Started(generation)) => {
+                    break generation;
+                }
+                Some(crate::store::BeginRunnerOutcome::RunnerStillLive) => {
+                    // Warn once a minute; the previous runner releases as
+                    // soon as its in-flight file finishes, which for a
+                    // long ASR file can legitimately take minutes.
+                    if wait_ticks > 0 && wait_ticks.is_multiple_of(CLAIM_WARN_EVERY_TICKS) {
+                        warn!(
+                            job_id = %job_id,
+                            waited_s = wait_ticks * CLAIM_POLL_INTERVAL_MS / 1000,
+                            "waiting for the previous runner to release this job"
+                        );
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(CLAIM_POLL_INTERVAL_MS))
+                        .await;
+                    wait_ticks += 1;
+                }
+            }
+        }
+    };
 
     let Some(job) = store.runner_snapshot(job_id).await else {
         // This should be unreachable in normal local execution. Surface a
@@ -370,6 +430,23 @@ async fn run_hosted_job(
         return Err(error);
     }
 
+    // Stale-runner guard: if a restart moved the job to a new run
+    // generation while this runner was mid-flight, the re-queued files
+    // and the final status belong to the NEW runner; sweeping them into
+    // forced errors here is exactly the 2026-07-10 field corruption.
+    if !store
+        .runner_generation_current(job_id, run_generation)
+        .await
+    {
+        info!(
+            job_id = %job_id,
+            correlation_id = %correlation_id,
+            generation = %run_generation,
+            "job was restarted during this run; leaving finalization to the new runner"
+        );
+        return Ok(HostedJobRunOutcome::Completed);
+    }
+
     // Force unfinished files to terminal status
     let forced_errors = force_terminal_file_states(sink.as_ref(), job_id).await;
 
@@ -381,7 +458,9 @@ async fn run_hosted_job(
     let completed_at = unix_now();
     let final_status = finalize_status(&completion, forced_errors);
 
-    let failure_reason = sink.finalize_job(job_id, final_status, completed_at).await;
+    let failure_reason = sink
+        .finalize_job(job_id, run_generation, final_status, completed_at)
+        .await;
 
     // A failed job logs its aggregated reason at ERROR so the cause is visible
     // in server.log, not just in jobs.db / the CLI response (the 2026-06

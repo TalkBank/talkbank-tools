@@ -95,6 +95,7 @@ pub(crate) fn running_job_fixture() -> Job {
         runtime: JobRuntimeControl {
             cancel_token: CancellationToken::new(),
             runner_active: true,
+            run_generation: crate::store::RunGeneration::FIRST,
         },
         execution_plan: None,
     }

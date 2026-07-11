@@ -365,6 +365,7 @@ mod tests {
         runtime_state: BTreeMap<String, serde_json::Value>,
     ) -> RunnerJobSnapshot {
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("job-plan"),
                 correlation_id: "test-correlation".into(),

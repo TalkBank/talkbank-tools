@@ -605,6 +605,7 @@ mod tests {
 
     fn compare_snapshot(staging_dir: &std::path::Path) -> RunnerJobSnapshot {
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: RunnerJobIdentity {
                 job_id: JobId::from("job-compare-kernel"),
                 correlation_id: CorrelationId::from("corr-compare-kernel"),

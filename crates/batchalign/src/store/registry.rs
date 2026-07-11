@@ -493,14 +493,97 @@ impl JobRegistry {
     pub(crate) async fn finalize_job(
         &self,
         job_id: &JobId,
+        expected_generation: crate::store::RunGeneration,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
     ) -> Option<JobListItem> {
         self.update_job(job_id.clone(), move |job| {
+            // Stale-runner guard: a restart moves the job to a new run
+            // generation; a runner still finishing under the old one must
+            // not clobber the restarted job's state (2026-07-10 field
+            // failure: bogus `failed` over a healthy restarted run).
+            if job.runtime.run_generation != expected_generation {
+                tracing::warn!(
+                    job_id = %job.identity.job_id,
+                    stale = %expected_generation,
+                    current = %job.runtime.run_generation,
+                    "refusing finalization from a stale runner generation"
+                );
+                return None;
+            }
             job.finalize(final_status, completed_at);
-            job.to_list_item()
+            Some(job.to_list_item())
         })
         .await
+        .flatten()
+    }
+
+    /// Claim exclusive runner ownership of one job.
+    ///
+    /// Exactly one live runner may own a job at a time; a second claim
+    /// (e.g. a restarted runner arriving while the cancelled one is still
+    /// tearing down) reports [`BeginRunnerOutcome::RunnerStillLive`] and
+    /// must wait. Returns the claimed run generation on success so every
+    /// later privileged mutation can be checked for staleness.
+    pub(crate) async fn begin_runner(
+        &self,
+        job_id: &JobId,
+        node_id: &NodeId,
+        now: UnixTimestamp,
+        lease_ttl_s: f64,
+    ) -> Option<crate::store::BeginRunnerOutcome> {
+        use crate::store::BeginRunnerOutcome;
+        let node_id = node_id.clone();
+        self.update_job(job_id.clone(), move |job| {
+            if job.runtime.runner_active {
+                BeginRunnerOutcome::RunnerStillLive
+            } else {
+                job.runtime.runner_active = true;
+                // Establish the queue lease at claim time so the runner's
+                // heartbeat loop has something to renew; before this,
+                // production runners never held a lease and the heartbeat
+                // loop silently stopped on its first tick.
+                job.schedule.lease.leased_by_node = Some(node_id.clone());
+                job.schedule.lease.heartbeat_at = Some(now);
+                job.schedule.lease.expires_at = Some(UnixTimestamp(now.0 + lease_ttl_s));
+                BeginRunnerOutcome::Started(job.runtime.run_generation)
+            }
+        })
+        .await
+    }
+
+    /// Return the most recent file-activity timestamp for one job: the
+    /// latest per-file attempt start/finish, falling back to submission
+    /// time when no file has moved yet. Drives the runner's stall alarm.
+    pub(crate) async fn last_file_activity_at(&self, job_id: &JobId) -> Option<UnixTimestamp> {
+        self.project_job(job_id.clone(), |job| {
+            job.execution
+                .file_statuses
+                .values()
+                .flat_map(|file_status| {
+                    file_status
+                        .started_at
+                        .into_iter()
+                        .chain(file_status.finished_at)
+                })
+                .chain(std::iter::once(job.schedule.submitted_at))
+                .max_by(|a, b| a.0.total_cmp(&b.0))
+        })
+        .await
+        .flatten()
+    }
+
+    /// Return whether `generation` is still the job's current run generation.
+    pub(crate) async fn runner_generation_current(
+        &self,
+        job_id: &JobId,
+        generation: crate::store::RunGeneration,
+    ) -> bool {
+        self.project_job(job_id.clone(), move |job| {
+            job.runtime.run_generation == generation
+        })
+        .await
+        .unwrap_or(false)
     }
 
     /// Project the download-facing detail view for one job.

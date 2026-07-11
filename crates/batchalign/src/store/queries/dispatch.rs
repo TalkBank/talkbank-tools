@@ -51,6 +51,54 @@ impl JobStore {
         claimed.poll
     }
 
+    /// Claim exclusive runner ownership of one job (see
+    /// [`JobRegistry::begin_runner`]). `None` means the job vanished.
+    pub(crate) async fn begin_runner(
+        &self,
+        job_id: &JobId,
+    ) -> Option<crate::store::BeginRunnerOutcome> {
+        let now = unix_now();
+        let outcome = self
+            .registry
+            .begin_runner(job_id, self.node_id(), now, self.local_lease_ttl_s())
+            .await;
+
+        if matches!(outcome, Some(crate::store::BeginRunnerOutcome::Started(_)))
+            && let Some(db) = &self.db
+            && let Err(e) = db
+                .update_job_lease(
+                    job_id,
+                    Some(self.node_id().as_ref()),
+                    Some(now.0 + self.local_lease_ttl_s()),
+                    Some(now.0),
+                )
+                .await
+        {
+            warn!(job_id = %job_id, error = %e, "DB update_job_lease failed on runner claim");
+        }
+
+        outcome
+    }
+
+    /// Most recent file activity for one job (stall-alarm input).
+    pub(crate) async fn last_file_activity_at(
+        &self,
+        job_id: &JobId,
+    ) -> Option<crate::api::UnixTimestamp> {
+        self.registry.last_file_activity_at(job_id).await
+    }
+
+    /// Return whether `generation` is still the job's current run generation.
+    pub(crate) async fn runner_generation_current(
+        &self,
+        job_id: &JobId,
+        generation: crate::store::RunGeneration,
+    ) -> bool {
+        self.registry
+            .runner_generation_current(job_id, generation)
+            .await
+    }
+
     /// Release the runner claim so a queued job may be re-dispatched later.
     pub(crate) async fn release_runner_claim(&self, job_id: &JobId) {
         if !self.registry.release_runner_claim(job_id).await {

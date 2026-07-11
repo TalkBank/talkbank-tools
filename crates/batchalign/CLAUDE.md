@@ -1,7 +1,7 @@
 # batchalign — HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
-**Last modified:** 2026-06-30 13:55 EDT
+**Last modified:** 2026-07-10 17:28 EDT
 
 ## Overview
 
@@ -89,6 +89,20 @@ cargo clippy -p batchalign -- -D warnings
 
 Every submitted job gets a `job_task` runner — a self-contained async task
 that owns the full lifecycle from semaphore acquire through finalization.
+
+**Exclusive-runner invariant (2026-07-10).** Before executing, every runner
+claims exclusive ownership via `store.begin_runner()`; a second runner for
+the same job (typically a restart racing the cancelled runner's teardown)
+WAITS on that claim instead of running concurrently. The claim also
+establishes the queue lease, so the per-job heartbeat loop genuinely renews
+it (and doubles as a stall alarm: ERROR log when a live runner shows no
+file activity for 30 minutes). Every restart bumps the job's
+`RunGeneration`; `finalize_job` and the force-terminal sweep refuse to act
+from a stale generation, so a mid-teardown runner cannot clobber a
+restarted job (the failure mode was: restart re-queues files, the stale
+runner force-fails them as "did not reach terminal status" and finalizes
+the job `failed` over the healthy new run). Contract test:
+`tests/restart_handoff.rs`.
 
 `job_task` is a **non-recursive function returning `Pin<Box<dyn Future>>`**
 (not `async fn`). This is deliberate: the `Requeued` branch spawns a fresh

@@ -126,6 +126,7 @@ mod tests {
         std::fs::write(input_dir.join("a.cha"), text).unwrap();
         std::fs::write(input_dir.join("b.cha"), text).unwrap();
         RunnerJobSnapshot {
+            run_generation: crate::store::RunGeneration::FIRST,
             identity: crate::store::RunnerJobIdentity {
                 job_id: JobId::from("job-coref"),
                 correlation_id: CorrelationId::from("corr-coref"),

@@ -89,6 +89,7 @@ pub(crate) trait RunnerEventSink: Send + Sync {
     async fn finalize_job(
         &self,
         job_id: &JobId,
+        expected_generation: crate::store::RunGeneration,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
     ) -> Option<String>;
@@ -287,11 +288,12 @@ impl RunnerEventSink for StoreRunnerEventSink {
     async fn finalize_job(
         &self,
         job_id: &JobId,
+        expected_generation: crate::store::RunGeneration,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
     ) -> Option<String> {
         self.store
-            .finalize_job(job_id, final_status, completed_at)
+            .finalize_job(job_id, expected_generation, final_status, completed_at)
             .await
     }
 }

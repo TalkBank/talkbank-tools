@@ -116,12 +116,13 @@ impl JobStore {
     pub(crate) async fn finalize_job(
         &self,
         job_id: &JobId,
+        expected_generation: crate::store::RunGeneration,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
     ) -> Option<String> {
         let job_update = self
             .registry
-            .finalize_job(job_id, final_status, completed_at)
+            .finalize_job(job_id, expected_generation, final_status, completed_at)
             .await?;
         let job_error = job_update.error.clone();
         self.notify_job_item(job_update);
@@ -192,6 +193,7 @@ mod tests {
         store
             .finalize_job(
                 &JobId::from("job-1"),
+                crate::store::RunGeneration::FIRST,
                 JobStatus::Completed,
                 UnixTimestamp(500.0),
             )
@@ -246,7 +248,12 @@ mod tests {
         store.mark_file_error(&job_id, "b.cha", &failure).await;
 
         let failure_reason = store
-            .finalize_job(&job_id, JobStatus::Failed, UnixTimestamp(500.0))
+            .finalize_job(
+                &job_id,
+                crate::store::RunGeneration::FIRST,
+                JobStatus::Failed,
+                UnixTimestamp(500.0),
+            )
             .await;
 
         // (0) finalize_job returns the aggregated reason so the runner can log

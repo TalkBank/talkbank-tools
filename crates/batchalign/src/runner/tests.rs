@@ -89,6 +89,7 @@ fn make_media_job(job_id: &str, source_path: &str) -> Job {
         runtime: JobRuntimeControl {
             cancel_token: CancellationToken::new(),
             runner_active: false,
+            run_generation: crate::store::RunGeneration::FIRST,
         },
         execution_plan: None,
     }

@@ -129,7 +129,7 @@ pub(super) async fn dispatch_job_with_execution_context(
     ) && infer_task.is_some_and(|task| infer_tasks.contains(&task));
 
     if test_echo_mode {
-        dispatch_test_echo_files(&job, sink.as_ref(), &file_list).await;
+        dispatch_test_echo_files(&job, sink.as_ref(), &file_list, pool.test_delay_ms()).await;
     } else if use_transcribe_infer {
         let engine_version = EngineVersion::from(
             engine_versions
