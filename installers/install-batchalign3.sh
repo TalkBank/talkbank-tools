@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install-batchalign3.sh: install or update the batchalign3 CLI from the latest
 # GitHub release. Bootstraps uv if absent and installs into an isolated uv tool
-# environment using a uv-managed Python (default 3.12).
+# environment using a uv-managed Python (default 3.13).
 #
 #   curl --proto '=https' --tlsv1.2 -LsSf \
 #     https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.sh | sh
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO="TalkBank/talkbank-tools"
-PYTHON_VERSION="${BATCHALIGN3_PYTHON:-3.12}"
+PYTHON_VERSION="${BATCHALIGN3_PYTHON:-3.13}"
 
 die() { printf 'install-batchalign3: %s\n' "$1" >&2; exit 1; }
 info() { printf 'install-batchalign3: %s\n' "$1" >&2; }

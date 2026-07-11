@@ -13,7 +13,7 @@ CODEGEN="uvx --from datamodel-code-generator datamodel-codegen"
 COMMON_OPTS=(
     --input-file-type jsonschema
     --output-model-type pydantic_v2.BaseModel
-    --target-python-version 3.12
+    --target-python-version 3.13
     --use-annotated
     --field-constraints
     --collapse-root-models

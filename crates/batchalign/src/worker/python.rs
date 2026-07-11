@@ -2,10 +2,10 @@
 //!
 //! Resolution order:
 //! 1. `BATCHALIGN_PYTHON` (explicit override)
-//! 2. `VIRTUAL_ENV` interpreter (preferring Python 3.12 names where available)
+//! 2. `VIRTUAL_ENV` interpreter (preferring Python 3.13 names where available)
 //! 3. Sibling python in the same directory as the binary (pip-installed case)
 //! 4. Walk up from the binary looking for a `.venv` that has batchalign
-//! 5. `python3.12` on Unix-like systems, or `python` on Windows
+//! 5. `python3.13` on Unix-like systems, or `python` on Windows
 
 use std::path::{Path, PathBuf};
 
@@ -76,6 +76,7 @@ fn venv_python_candidates(venv_dir: &Path) -> Vec<PathBuf> {
     } else {
         let bin = venv_dir.join("bin");
         vec![
+            bin.join("python3.13"),
             bin.join("python3.12"),
             bin.join("python3"),
             bin.join("python"),
@@ -101,7 +102,7 @@ fn sibling_python_names() -> &'static [&'static str] {
     if cfg!(windows) {
         &["python.exe"]
     } else {
-        &["python3.12", "python3", "python"]
+        &["python3.13", "python3.12", "python3", "python"]
     }
 }
 
@@ -109,7 +110,7 @@ fn default_python_command() -> &'static str {
     if cfg!(windows) {
         "python"
     } else {
-        "python3.12"
+        "python3.13"
     }
 }
 
@@ -117,7 +118,7 @@ fn default_python_command() -> &'static str {
 ///
 /// When the binary is installed into a venv via `pip install` (e.g.
 /// `.venv/bin/batchalign3`), the venv's Python sits right next to it at
-/// `.venv/bin/python3.12` (or another preferred sibling name). This handles
+/// `.venv/bin/python3.13` (or another preferred sibling name). This handles
 /// the common case where `VIRTUAL_ENV`
 /// is not set (venv not activated).
 fn discover_sibling_python(current_exe: Option<&Path>) -> Option<String> {
@@ -193,7 +194,7 @@ mod tests {
         if cfg!(windows) {
             assert_eq!(got, "python");
         } else {
-            assert_eq!(got, "python3.12");
+            assert_eq!(got, "python3.13");
         }
     }
 }

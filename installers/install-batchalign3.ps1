@@ -1,6 +1,6 @@
 # install-batchalign3.ps1: install or update the batchalign3 CLI from the latest
 # GitHub release on Windows. Bootstraps uv if absent and installs into an
-# isolated uv tool environment using a uv-managed Python (default 3.12).
+# isolated uv tool environment using a uv-managed Python (default 3.13).
 #
 #   irm https://github.com/TalkBank/talkbank-tools/releases/latest/download/install-batchalign3.ps1 | iex
 #
@@ -9,7 +9,7 @@
 # PyPI package; distribution is via GitHub releases.
 $ErrorActionPreference = "Stop"
 $Repo = "TalkBank/talkbank-tools"
-$PythonVersion = if ($env:BATCHALIGN3_PYTHON) { $env:BATCHALIGN3_PYTHON } else { "3.12" }
+$PythonVersion = if ($env:BATCHALIGN3_PYTHON) { $env:BATCHALIGN3_PYTHON } else { "3.13" }
 
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "install-batchalign3: uv not found; installing uv"

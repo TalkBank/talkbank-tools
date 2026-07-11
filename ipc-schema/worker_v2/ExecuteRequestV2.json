@@ -107,6 +107,11 @@
           "const": "hk_funaudio"
         },
         {
+          "description": "Qwen3-ASR Cantonese provider (local model via qwen-asr package).",
+          "type": "string",
+          "const": "hk_qwen"
+        },
+        {
           "description": "Rev.AI provider.",
           "type": "string",
           "const": "revai"
@@ -167,6 +172,13 @@
         "backend": {
           "description": "Backend selected by Rust.",
           "$ref": "#/$defs/AsrBackendV2"
+        },
+        "extras": {
+          "description": "Per-engine configuration extras (e.g. `qwen_model`,\n`qwen_device`, `funaudio_model`). Opaque string-keyed map carried\nverbatim from the user's `--engine-overrides` JSON through every\ndispatch layer down to the worker spawn argv and the Python\nengine-load function. Empty when no per-engine knob is set.\n\nWhy this lives on the typed V2 request rather than only on\n`EngineOverrides`: a CLI override like\n`{\"asr\":\"qwen\",\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\"}` would otherwise\nbe silently truncated to `{\"asr\":\"qwen\"}` at this typed boundary,\nand the worker would default to the 1.7B model regardless of what\nthe user asked for — the bug fixed 2026-05-27. The `#[serde(default)]`\nkeeps older daemons that don't emit the field forward-compatible.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "input": {
           "description": "Backend-specific input transport.",
@@ -841,6 +853,10 @@
       "description": "V2 utterance-segmentation request payload.",
       "type": "object",
       "properties": {
+        "allow_stanza_fallback": {
+          "description": "Operator opt-in to the legacy Stanza constituency-parser\nfallback for unsupported languages. Set by the\n`--utseg-fallback-stanza` CLI flag. Defaults to `false` so\nolder clients (and any non-CLI caller) refuse silent\nsubstitution by default.",
+          "type": "boolean"
+        },
         "item_count": {
           "description": "Number of utterance items frozen into the prepared batch payload.",
           "type": "integer",

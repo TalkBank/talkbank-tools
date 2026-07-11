@@ -260,6 +260,13 @@ class AsrRequestV2(BaseModel):
     lang: LanguageCode
     backend: AsrBackendV2
     input: AsrInputV2
+    # Per-engine configuration extras (qwen_model, funaudio_model, ...),
+    # carried verbatim from --engine-overrides. Rust omits the field from
+    # the wire when empty (serde skip_serializing_if), so None here means
+    # "absent", matching the schema-generated model. Python engines
+    # currently read these knobs from the worker spawn argv; the field
+    # exists for wire conformance, not dispatch.
+    extras: dict[str, str] | None = None
 
 
 class ForcedAlignmentRequestV2(BaseModel):

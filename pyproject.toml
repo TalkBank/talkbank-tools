@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Transcription, alignment, and language-sample analysis for TalkBank CHAT transcripts"
 readme = "batchalign/README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [
     { name = "Brian MacWhinney", email = "macw@cmu.edu" },
     { name = "Houjun Liu", email = "houjun@cmu.edu" },
@@ -24,7 +24,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing :: Linguistic",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Rust",
@@ -103,7 +102,7 @@ Issues = "https://github.com/TalkBank/talkbank-tools/issues"
 manifest-path = "crates/batchalign-pyo3/Cargo.toml"
 python-source = "."
 python-packages = ["batchalign"]
-features = ["pyo3/extension-module", "pyo3/abi3-py312"]
+features = ["pyo3/extension-module", "pyo3/abi3-py313"]
 # Use the debug profile for editable installs so `uv run <anything>` rebuilds
 # the extension in seconds rather than minutes. Release wheels for distribution
 # are built explicitly via `maturin build --release` in the deploy script,

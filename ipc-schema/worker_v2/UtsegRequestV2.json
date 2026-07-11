@@ -4,6 +4,10 @@
   "description": "V2 utterance-segmentation request payload.",
   "type": "object",
   "properties": {
+    "allow_stanza_fallback": {
+      "description": "Operator opt-in to the legacy Stanza constituency-parser\nfallback for unsupported languages. Set by the\n`--utseg-fallback-stanza` CLI flag. Defaults to `false` so\nolder clients (and any non-CLI caller) refuse silent\nsubstitution by default.",
+      "type": "boolean"
+    },
     "item_count": {
       "description": "Number of utterance items frozen into the prepared batch payload.",
       "type": "integer",

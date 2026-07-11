@@ -401,8 +401,30 @@ pub struct AsrRequestV2 {
     /// and the worker would default to the 1.7B model regardless of what
     /// the user asked for — the bug fixed 2026-05-27. The `#[serde(default)]`
     /// keeps older daemons that don't emit the field forward-compatible.
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty_string_map",
+        skip_serializing_if = "std::collections::BTreeMap::is_empty"
+    )]
     pub extras: std::collections::BTreeMap<String, String>,
+}
+
+/// Deserialize an optional string map where JSON `null` means "empty".
+///
+/// The schemars output for a `default + skip_serializing_if` map field is
+/// an OPTIONAL field, and the Python models generated from that schema
+/// spell "absent" as `None`, which crosses the PyO3 JSON bridge as
+/// explicit `null`. Plain `#[serde(default)]` only covers the MISSING
+/// case, so `null` used to fail with "invalid type: null, expected a
+/// map"; both spellings must mean "no extras".
+fn null_as_empty_string_map<'de, D>(
+    deserializer: D,
+) -> Result<std::collections::BTreeMap<String, String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<std::collections::BTreeMap<String, String>>::deserialize(deserializer)?;
+    Ok(value.unwrap_or_default())
 }
 
 /// V2 forced-alignment request payload.
@@ -649,6 +671,21 @@ pub struct WhisperChunkSpanV2 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn asr_request_extras_accepts_null_missing_and_map() {
+        // Python spells "no extras" as explicit null (Optional field in
+        // the schema-generated models); Rust must treat null, missing,
+        // and {} identically as the empty map.
+        for extras_json in ["\"extras\": null,", "\"extras\": {},", ""] {
+            let json = format!(
+                "{{ {extras_json} \"kind\": \"asr\", \"lang\": \"eng\",                  \"backend\": \"local_whisper\",                  \"input\": {{\"kind\": \"prepared_audio\", \"audio_ref_id\": \"a-1\"}} }}"
+            );
+            let request: super::AsrRequestV2 = serde_json::from_str(&json)
+                .unwrap_or_else(|error| panic!("extras form {extras_json:?} rejected: {error}"));
+            assert!(request.extras.is_empty());
+        }
+    }
+
     use super::*;
 
     #[test]

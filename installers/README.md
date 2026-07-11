@@ -6,7 +6,7 @@
 The canonical way to install the `batchalign3` CLI is the release-hosted
 installer script. It bootstraps [`uv`](https://docs.astral.sh/uv/) if needed,
 detects the platform, installs the matching abi3 wheel from the latest GitHub
-release into an isolated uv tool environment using a uv-managed Python (3.12 by
+release into an isolated uv tool environment using a uv-managed Python (3.13 by
 default), and re-running it upgrades in place.
 
 ```bash
@@ -60,9 +60,9 @@ For users who prefer not to use a terminal, the `.command` (macOS) and `.bat`
 
 ## Choosing the Python version
 
-The installers use a uv-managed Python 3.12 by default. Set `BATCHALIGN3_PYTHON`
+The installers use a uv-managed Python 3.13 by default. Set `BATCHALIGN3_PYTHON`
 (for example `3.13`) before running to install against another supported
-version (3.12, 3.13, or 3.14). One abi3 wheel per platform serves all of them.
+version (3.13 or 3.14). One abi3 wheel per platform serves all of them.
 
 ## Native installers
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "MorphosyntaxBatchItem",
-  "description": "Batch item for NLP processing.\n\n`special_forms` carries typed enums internally (for Rust-side injection)\nbut serializes to `(Option<String>, Option<String>)` for the Python V2\nwire protocol, where Pydantic expects `list[list[str | None]]`.",
+  "description": "Batch item for morphosyntax NLP processing.",
   "type": "object",
   "properties": {
     "lang": {
@@ -9,7 +9,7 @@
       "type": "string"
     },
     "special_forms": {
-      "description": "Special form and language per word: (form_type, resolved_language).\n\nSerializes form_type via `FormType::write_chat()` and language via\n`LanguageResolution::as_language_code()` so the JSON wire format is\n`[string|null, string|null]` — matching the Python Pydantic model.",
+      "description": "Special form and language per word: (form_type, resolved_language).",
       "type": "array",
       "items": {
         "type": "array",
@@ -32,11 +32,11 @@
       }
     },
     "terminator": {
-      "description": "Utterance terminator string.",
+      "description": "Utterance terminator. Typed; serializes to its CHAT surface form\n(`.`, `?`, `!`, etc.) over the IPC boundary so the Stanza worker\ncontinues to receive a plain string.",
       "type": "string"
     },
     "words": {
-      "description": "Word texts for NLP processing.",
+      "description": "Word texts for NLP processing. Each word is provenance-sealed\n`ChatCleanedText` derived from a parsed `Word` or `Separator` —\nor, for non-`@s` special-form positions, the blessed\n`ChatCleanedText::stanza_placeholder()` constant.",
       "type": "array",
       "items": {
         "type": "string"

@@ -77,13 +77,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       # Build a wheel for every officially supported Python on every push and
-      # dispatch: 3.12 (deployment target) plus 3.13 and 3.14. All supported
+      # dispatch: 3.13 (deployment target) plus 3.14. All supported
       # versions are continuously gated; talkbank-tools is public, so the extra
       # matrix legs cost no Actions minutes. fail-fast off so one version's
       # failure still reports the others.
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
@@ -128,12 +128,12 @@ jobs:
     needs: build-wheel
     runs-on: ubuntu-latest
     strategy:
-      # Test every officially supported Python (3.12/3.13/3.14) on every push
+      # Test every officially supported Python (3.13/3.14) on every push
       # and dispatch; see build-wheel for the rationale. fail-fast off so one
       # version's failure still reports the others.
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
@@ -159,10 +159,10 @@ jobs:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.12
+          name: wheel-3.13
           path: dist/
       - name: Install wheel in clean environment
         run: uv tool install --from dist/*.whl batchalign3
@@ -185,7 +185,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -194,7 +194,7 @@ jobs:
           shared-key: rust-workspace
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.12
+          name: wheel-3.13
           path: dist/
       - uses: actions/download-artifact@v8
         with:
@@ -318,7 +318,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -332,7 +332,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.12
+          name: wheel-3.13
           path: dist/
       - uses: actions/download-artifact@v8
         with:
@@ -386,7 +386,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
@@ -399,7 +399,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.12
+          name: wheel-3.13
           path: dist/
       - name: Install from pre-built wheel
         run: |
@@ -455,7 +455,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: dtolnay/rust-toolchain@stable
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -464,7 +464,7 @@ jobs:
           shared-key: dashboard-release
       - uses: actions/download-artifact@v8
         with:
-          name: wheel-3.12
+          name: wheel-3.13
           path: dist/
       - uses: actions/download-artifact@v8
         with:

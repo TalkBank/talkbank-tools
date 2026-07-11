@@ -29,6 +29,11 @@
       "const": "hk_funaudio"
     },
     {
+      "description": "Qwen3-ASR Cantonese provider (local model via qwen-asr package).",
+      "type": "string",
+      "const": "hk_qwen"
+    },
+    {
       "description": "Rev.AI provider.",
       "type": "string",
       "const": "revai"
