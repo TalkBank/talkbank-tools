@@ -41,6 +41,22 @@ embed-dashboard = ["dep:include_dir"]
 # Then attach with `tokio-console http://127.0.0.1:6669`.
 debug-runtime = ["dep:console-subscriber"]
 
+# Rust-native Whisper ASR (whisper.cpp via whisper-rs), replacing the Python
+# worker for the `whisper_rs` engine. NON-default: whisper.cpp is a C/C++ build,
+# so it is opted in only for builds/deploys that want the native path. Audio
+# decode/resample (symphonia + rubato) rides the same feature.
+whisper-rs-backend = [
+    "dep:whisper-rs",
+    "dep:symphonia",
+    "dep:rubato",
+    "dep:audioadapter-buffers",
+]
+# CoreML acceleration on Apple Silicon (requires a sibling <model>-encoder.mlmodelc
+# bundle at runtime). CUDA acceleration on Linux/Windows (requires the CUDA
+# toolkit at build time). Both are additive on top of whisper-rs-backend.
+whisper-rs-coreml = ["whisper-rs?/coreml"]
+whisper-rs-cuda = ["whisper-rs?/cuda"]
+
 [[bin]]
 # The artifact name `batchalign3` is load-bearing: fleet deploys
 # (`deploy/scripts/deploy_batchalign3.sh`) pick up
@@ -111,6 +127,21 @@ utoipa = { workspace = true, optional = true }
 
 # ── Embed dashboard (optional) ───────────────────────────────────────
 include_dir = { workspace = true, optional = true }
+
+# ── Rust-native Whisper ASR (optional, behind "whisper-rs-backend") ───
+# whisper-rs itself is declared per-platform below (macOS enables Metal).
+symphonia = { workspace = true, optional = true }
+rubato = { workspace = true, optional = true }
+audioadapter-buffers = { workspace = true, optional = true }
+
+# whisper-rs compiles whisper.cpp (C/C++). On macOS the Metal backend is always
+# built; CoreML/CUDA are additive opt-ins via the whisper-rs-coreml/-cuda
+# features. Kept optional so non-native builds skip the C toolchain entirely.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { workspace = true, features = ["metal"], optional = true }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+whisper-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

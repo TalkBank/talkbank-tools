@@ -102,6 +102,7 @@ pub(crate) async fn infer_asr(
             )
             .await
         }
+        AsrBackend::RustWhisperRs => infer_whisper_rs_asr(params.audio_path, params.lang).await,
         AsrBackend::Worker(worker_mode) => {
             infer_asr_via_worker_v2(
                 pool,
@@ -113,6 +114,55 @@ pub(crate) async fn infer_asr(
             .await
         }
     }
+}
+
+/// Rust-native Whisper ASR (whisper.cpp via whisper-rs), run in-process,
+/// bypassing the Python worker.
+///
+/// Reads the model path from `BATCHALIGN_WHISPER_RS_MODEL`, requires a resolved
+/// language (whisper.cpp language auto-detect is not wired here yet, so `Auto`
+/// is a clear validation error rather than a silent default), runs the sync
+/// whisper.cpp inference on a `spawn_blocking` thread (mirroring the Rev.AI
+/// path), and lowers the chunk result through the shared converter so its
+/// `AsrResponse` is identical to the Python Whisper worker path's.
+///
+/// When the `whisper-rs-backend` feature is not compiled in,
+/// `whisper_native::transcribe` returns `FeatureDisabled`, surfaced here as a
+/// validation error.
+async fn infer_whisper_rs_asr(
+    audio_path: &Path,
+    lang: &LanguageSpec,
+) -> Result<AsrResponse, ServerError> {
+    let resolved = lang.as_resolved().cloned().ok_or_else(|| {
+        ServerError::Validation(
+            "whisper_rs ASR backend requires a resolved language; language \
+             auto-detection is not supported on this path. Use Rev.AI for \
+             auto-detect, or specify the language explicitly."
+                .to_string(),
+        )
+    })?;
+
+    let cfg = crate::whisper_native::WhisperNativeConfig::from_env().ok_or_else(|| {
+        ServerError::Validation(
+            "whisper_rs ASR backend selected but BATCHALIGN_WHISPER_RS_MODEL is \
+             not set (point it at a ggml `.bin` model file)."
+                .to_string(),
+        )
+    })?;
+
+    let audio_path = audio_path.to_path_buf();
+    let lang_for_call = resolved.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        crate::whisper_native::transcribe(&audio_path, lang_for_call, &cfg)
+    })
+    .await
+    .map_err(|error| ServerError::Validation(format!("whisper_rs ASR task join failed: {error}")))?
+    .map_err(|error| ServerError::Validation(format!("whisper_rs ASR failed: {error}")))?;
+
+    crate::worker::asr_result_v2::whisper_chunk_result_to_asr_response(&result, Some(&resolved))
+        .map_err(|error| {
+            ServerError::Validation(format!("whisper_rs ASR response lowering failed: {error}"))
+        })
 }
 
 /// Call the live V2 Python worker path for ASR inference on a single audio
@@ -221,4 +271,28 @@ pub(crate) async fn infer_speaker(
         .map_err(|error| {
             ServerError::Validation(format!("speaker V2 response parse failed: {error}"))
         })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// The native whisper-rs path is Rust-owned and, unlike Rev.AI, does not
+    /// wire whisper.cpp language auto-detection yet. `Auto` must surface a
+    /// typed validation error at the dispatch seam rather than silently
+    /// defaulting to a language. This exercises `infer_whisper_rs_asr` (the
+    /// `AsrBackend::RustWhisperRs` dispatch target) directly, before any
+    /// model/env/feature dependency is reached.
+    #[tokio::test]
+    async fn whisper_rs_dispatch_rejects_auto_language() {
+        let err = infer_whisper_rs_asr(Path::new("/nonexistent.wav"), &LanguageSpec::Auto)
+            .await
+            .expect_err("Auto language must be rejected on the native whisper path");
+        assert!(
+            matches!(err, ServerError::Validation(_)),
+            "expected a validation error, got {err:?}"
+        );
+    }
 }

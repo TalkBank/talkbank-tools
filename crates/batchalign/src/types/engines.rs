@@ -234,6 +234,12 @@ pub enum AsrEngineName {
     WhisperX,
     /// OpenAI Whisper API backend.
     WhisperOai,
+    /// Rust-native Whisper backend (whisper.cpp via whisper-rs), run
+    /// in-process instead of through the Python worker. Rust-owned; requires
+    /// the `whisper-rs-backend` Cargo feature and a ggml model at
+    /// ``BATCHALIGN_WHISPER_RS_MODEL``. See
+    /// ``book/src/reference/whisper-asr.md``.
+    WhisperRs,
     /// Tencent Cloud ASR (HK/Cantonese).
     HkTencent,
     /// Aliyun ASR (HK/Cantonese).
@@ -255,6 +261,7 @@ impl EngineBackend for AsrEngineName {
             Self::WhisperHub => "whisper_hub",
             Self::WhisperX => "whisperx",
             Self::WhisperOai => "whisper_oai",
+            Self::WhisperRs => "whisper_rs",
             Self::HkTencent => "tencent",
             Self::HkAliyun => "aliyun",
             Self::HkFunaudio => "funaudio",
@@ -263,7 +270,7 @@ impl EngineBackend for AsrEngineName {
     }
 
     fn is_rust_owned(&self) -> bool {
-        matches!(self, Self::RevAi)
+        matches!(self, Self::RevAi | Self::WhisperRs)
     }
 
     fn try_from_wire_name(name: &str) -> Option<Self> {
@@ -273,6 +280,7 @@ impl EngineBackend for AsrEngineName {
             "whisper_hub" => Some(Self::WhisperHub),
             "whisperx" => Some(Self::WhisperX),
             "whisper_oai" => Some(Self::WhisperOai),
+            "whisper_rs" => Some(Self::WhisperRs),
             "tencent" => Some(Self::HkTencent),
             "aliyun" => Some(Self::HkAliyun),
             "funaudio" => Some(Self::HkFunaudio),
@@ -295,7 +303,9 @@ impl AsrEngineName {
             Self::HkAliyun => Some("aliyun"),
             Self::HkFunaudio => Some("funaudio"),
             Self::HkQwen => Some("qwen"),
-            Self::RevAi | Self::WhisperX | Self::WhisperOai => None,
+            // Rust-owned in-process paths (no pool-managed Python worker):
+            // Rev.AI and WhisperRs; plus the cloud HTTP engines.
+            Self::RevAi | Self::WhisperX | Self::WhisperOai | Self::WhisperRs => None,
         }
     }
 
@@ -327,6 +337,11 @@ impl AsrEngineName {
             // (it doesn't get a pool-managed Python worker), so the
             // admission gate never observes this value in production.
             Self::Whisper | Self::WhisperHub | Self::WhisperX => WHISPER_LARGE_V3_RSS_MB,
+            // whisper.cpp large-v3 loaded in-process (Rust). Same RSS class as
+            // the Python Whisper worker. Runs in the main process (no pool
+            // worker), so the worker-admission gate never observes this value;
+            // classified here for symmetry.
+            Self::WhisperRs => WHISPER_LARGE_V3_RSS_MB,
             // Local model — Qwen3-ASR-1.7B weights (~3.4 GB fp16 /
             // ~7 GB fp32) + tokenizer + Python runtime. Same RSS
             // class as Whisper-large-v3; pinned via the
@@ -737,10 +752,28 @@ mod tests {
     }
 
     #[test]
+    fn whisper_rs_wire_roundtrip() {
+        assert_eq!(AsrEngineName::WhisperRs.wire_name(), "whisper_rs");
+        assert_eq!(
+            AsrEngineName::try_from_wire_name("whisper_rs"),
+            Some(AsrEngineName::WhisperRs),
+        );
+    }
+
+    #[test]
+    fn whisper_rs_is_rust_owned_but_not_revai() {
+        // The native whisper.cpp path runs in-process (Rust-owned), like
+        // Rev.AI, so it has no pool-managed Python worker.
+        assert!(AsrEngineName::WhisperRs.is_rust_owned());
+        assert!(!AsrEngineName::WhisperRs.is_revai());
+        assert_eq!(AsrEngineName::WhisperRs.dispatch_override_name(), None);
+    }
+
+    #[test]
     fn whisper_hub_is_not_rust_owned() {
-        // Rust-owned engines talk to providers directly from the server
-        // (only Rev.AI today). whisper_hub runs in a Python worker like
-        // stock Whisper / WhisperX / HK engines.
+        // Rust-owned engines run inference from the server process directly
+        // (Rev.AI and the native whisper-rs path today). whisper_hub runs in
+        // a Python worker like stock Whisper / WhisperX / HK engines.
         assert!(!AsrEngineName::WhisperHub.is_rust_owned());
         assert!(!AsrEngineName::WhisperHub.is_revai());
     }

@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-05-27 12:00 EDT
+**Last updated:** 2026-07-14 10:18 EDT
 
 ## Overview
 
@@ -18,8 +18,10 @@ Whisper models may be loaded simultaneously (FA + UTR).
 
 ## ASR Engines
 
-There are four ASR engines.  **Rev.AI is the production default** -- the three
+There are five ASR engines.  **Rev.AI is the production default** -- the four
 Whisper variants are local alternatives for when a commercial API is not wanted.
+One of those variants, `whisper_rs`, is Rust-native (whisper.cpp, in-process);
+the other three run in a Python worker.
 
 ### Rev.AI (default)
 
@@ -76,6 +78,37 @@ batchalign3 transcribe input/ -o output/ --asr-engine whisperx --lang=eng
 - Loads both a transcription model and an alignment model
 - Chunked processing with fallback: 60s -> 30s -> 15s
 - CUDA-only for `float16`; falls back to `float32` on CPU
+
+### Native Whisper (`--asr-engine whisper_rs`)
+
+```bash
+BATCHALIGN_WHISPER_RS_MODEL=/path/to/ggml-large-v3.bin \
+  batchalign3 transcribe input/ -o output/ --asr-engine whisper_rs --lang=eng
+```
+
+Rust-native Whisper via whisper.cpp (the `whisper-rs` bindings), run
+**in-process** in the server rather than through a Python worker. It is the
+first non-Rev.AI ASR engine that is Rust-owned (`is_rust_owned`).
+
+- **Build-gated.** Requires the `whisper-rs-backend` Cargo feature at compile
+  time; it is NOT built by default because whisper.cpp is a C/C++ build.
+  Selecting `whisper_rs` in a build without the feature returns a clear
+  "native Whisper path is not available in this build" error.
+- **Model.** Point `BATCHALIGN_WHISPER_RS_MODEL` at a ggml `.bin` model
+  (for example from `ggerganov/whisper.cpp`). One model per process: the loaded
+  `WhisperContext` is cached process-wide, so changing models needs a restart
+  (a second model path returns `ModelPathChanged` rather than reloading).
+- **Acceleration.** macOS builds always enable Metal; CoreML
+  (`whisper-rs-coreml`, needs a sibling `<model>-encoder.mlmodelc` bundle) and
+  CUDA (`whisper-rs-cuda`) are additive opt-in features.
+- **Language.** Requires a resolved `--lang`; whisper.cpp language
+  auto-detection is not wired on this path yet, so `--lang auto` returns a
+  validation error. Use Rev.AI (or a resolved language) for auto-detect.
+- **Output parity.** The chunk output is lowered to the shared `AsrResponse`
+  domain through the same converter the Python Whisper worker uses, so identical
+  chunks produce identical downstream CHAT.
+- Because it is Rust-owned with no pool-managed Python worker, it does not
+  appear in worker-admission accounting; the model loads in the server process.
 
 ## Per-language defaults
 

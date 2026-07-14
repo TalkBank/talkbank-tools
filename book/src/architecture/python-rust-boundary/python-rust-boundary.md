@@ -1,7 +1,7 @@
 # Python-Rust Boundary
 
 **Status:** Current
-**Last updated:** 2026-05-19 17:38 EDT
+**Last updated:** 2026-07-14 10:18 EDT
 
 The talkbank-tools workspace has two architectural layers: the **CHAT
 core** (entirely Rust, no Python) and the **Batchalign runtime** (Rust
@@ -180,7 +180,9 @@ Aliyun, etc.). They receive typed task payloads from the Rust dispatch
 layer and return typed task results. They do not parse `.cha` files
 and do not mutate CHAT directly. Long-term intent: push as much of
 this layer into Rust as Rust gains coverage of the underlying ML
-pieces (Whisper-in-Rust is already gated and shipping).
+pieces (a Rust-native Whisper path, `whisper_rs`, exists behind the opt-in
+`whisper-rs-backend` Cargo feature; the default build still routes Whisper
+through the Python worker).
 
 ### 3. Pipeline operations (Rust)
 

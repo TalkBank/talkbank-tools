@@ -780,6 +780,7 @@ fn stage_build_chat<'a, 'ctx>(ctx: &'a mut TranscribePipelineContext<'ctx>) -> S
         // Inject processing provenance comment.
         let asr_engine = match ctx.opts.backend {
             crate::transcribe::types::AsrBackend::RustRevAi => "rev",
+            crate::transcribe::types::AsrBackend::RustWhisperRs => "whisper_rs",
             crate::transcribe::types::AsrBackend::Worker(_) => "whisper",
         };
         let provenance = crate::provenance::transcribe_provenance(

@@ -7,7 +7,7 @@
 use crate::api::LanguageCode3;
 use crate::transcribe::{AsrResponse, AsrToken};
 use crate::types::worker_v2::{
-    AsrElementKindV2, ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2,
+    AsrElementKindV2, ExecuteOutcomeV2, ExecuteResponseV2, TaskResultV2, WhisperChunkResultV2,
 };
 use batchalign_transform::asr_postprocess::{
     AsrElement, AsrElementKind, AsrMonologue, AsrOutput, AsrRawText, AsrTimestampSecs, SpeakerIndex,
@@ -39,28 +39,9 @@ pub fn parse_asr_response_v2(
     };
 
     match result {
-        TaskResultV2::WhisperChunkResult(result) => Ok(AsrResponse {
-            lang: resolve_worker_lang(&result.lang, fallback_lang)?,
-            tokens: result
-                .chunks
-                .iter()
-                .filter_map(|chunk| {
-                    let text = chunk.text.trim();
-                    if text.is_empty() {
-                        return None;
-                    }
-
-                    Some(AsrToken {
-                        text: text.to_string(),
-                        start_s: Some(chunk.start_s),
-                        end_s: Some(chunk.end_s),
-                        speaker: None,
-                        confidence: None,
-                    })
-                })
-                .collect(),
-            source_monologues: None,
-        }),
+        TaskResultV2::WhisperChunkResult(result) => {
+            whisper_chunk_result_to_asr_response(result, fallback_lang)
+        }
         TaskResultV2::MonologueAsrResult(result) => Ok(AsrResponse {
             lang: resolve_worker_lang(&result.lang, fallback_lang)?,
             tokens: result
@@ -177,6 +158,41 @@ pub fn parse_asr_response_v2(
 
 /// Resolve a worker-provided language against the control-plane fallback.
 ///
+/// Lower a raw Whisper chunk result into the established `AsrResponse` domain.
+///
+/// Shared by the Python-worker V2 path (`parse_asr_response_v2`) and the
+/// Rust-native whisper.cpp path (`transcribe::infer::infer_whisper_rs_asr`) so
+/// both engines emit an identical `AsrResponse` from identical chunks. Each
+/// non-empty chunk becomes one timed `AsrToken`; there is no speaker or
+/// confidence at the chunk granularity.
+pub(crate) fn whisper_chunk_result_to_asr_response(
+    result: &WhisperChunkResultV2,
+    fallback_lang: Option<&LanguageCode3>,
+) -> Result<AsrResponse, String> {
+    Ok(AsrResponse {
+        lang: resolve_worker_lang(&result.lang, fallback_lang)?,
+        tokens: result
+            .chunks
+            .iter()
+            .filter_map(|chunk| {
+                let text = chunk.text.trim();
+                if text.is_empty() {
+                    return None;
+                }
+
+                Some(AsrToken {
+                    text: text.to_string(),
+                    start_s: Some(chunk.start_s),
+                    end_s: Some(chunk.end_s),
+                    speaker: None,
+                    confidence: None,
+                })
+            })
+            .collect(),
+        source_monologues: None,
+    })
+}
+
 /// When the worker's response carries an empty language string, fall
 /// back to `fallback_lang` if the caller supplied one. If the caller
 /// supplied `None` (an `Auto` job with no resolved language yet) and

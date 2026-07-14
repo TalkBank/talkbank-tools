@@ -1,7 +1,7 @@
 # No Python API
 
 **Status:** Current
-**Last updated:** 2026-05-01 22:47 EDT
+**Last updated:** 2026-07-14 10:18 EDT
 
 Batchalign3 does not have a public Python API. Python lives inside the
 package as a worker-side ML inference layer, strictly an internal
@@ -10,7 +10,9 @@ ASR is Rust-owned (driven directly from the server); every other ASR
 engine, plus all morphosyntactic / segmentation / translation / coref
 pipelines, runs through a Python worker. The long-term direction is to
 keep narrowing the Python layer as Rust gains coverage of more ML
-pieces, but no Whisper-in-Rust path is shipping today.
+pieces. A Rust-native Whisper path (`whisper_rs`, whisper.cpp via `whisper-rs`)
+now exists behind the opt-in `whisper-rs-backend` Cargo feature, though the
+default build still routes Whisper through the Python worker.
 
 ## The CLI is the entry point
 

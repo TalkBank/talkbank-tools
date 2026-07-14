@@ -7,6 +7,7 @@ members = [
     "crates/batchalign-transform",
     "apps/dashboard-desktop/src-tauri",
     "crates/batchalign-pyo3",
+    "crates/batchalign-whisper-pilot",
 ]
 # talkbank-tools is now a virtual workspace: the batchalign3 codebase. The CHAT
 # core (model, parser, transform, spec, grammar) lives in the chatter repo; the
@@ -176,6 +177,31 @@ walkdir = "^2.5"
 # replaced by sqlx (with a small tokio runtime in xtask) so the
 # workspace links a single libsqlite3-sys version, and sqlx tracks
 # the latest patched version automatically.
+
+# Rust-native Whisper inference (consumed by batchalign-whisper-pilot and the
+# whisper_native production path). Independent of the Python ASR worker.
+# candle is pure-Rust (CPU); whisper-rs wraps whisper.cpp (C/C++, compiled at
+# build time; Metal on macOS). Versions are the current latest as of the
+# re-port (candle 0.11, whisper-rs 0.16, hf-hub 1.0, rubato 4.0, symphonia 0.6).
+candle-core = "0.11"
+candle-nn = "0.11"
+candle-transformers = "0.11"
+whisper-rs = "0.16"
+# hf-hub 1.0 is a full rewrite (HFClientSync builder API); default features are
+# empty, so the blocking runtime and a TLS backend are opted in explicitly.
+hf-hub = { version = "1.0", features = ["blocking", "rustls-tls"] }
+tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
+# Codecs limited to the actual audio workload (WAV/PCM, MP3, M4A/MP4 AAC, FLAC)
+# to trim build time and binary size.
+symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav", "isomp4", "aac", "pcm", "flac"] }
+# rubato 4.0's synchronous FFT resampler (Fft) is behind the fft_resampler
+# feature; its buffer adapters come from the companion audioadapter_buffers crate.
+rubato = { version = "4.0", features = ["fft_resampler"] }
+audioadapter-buffers = "4.0"
+byteorder = "1.5"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
 
 [profile.dev]
 split-debuginfo = "unpacked"

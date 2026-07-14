@@ -49,6 +49,9 @@ fn default_lang() -> LanguageCode3 {
 pub(crate) enum AsrBackend {
     /// Use the Rust-owned Rev.AI client directly from the server.
     RustRevAi,
+    /// Use the Rust-owned native Whisper path (whisper.cpp via whisper-rs),
+    /// run in-process, bypassing the Python worker.
+    RustWhisperRs,
     /// Use a Python worker path selected by a typed worker-mode value.
     Worker(AsrWorkerMode),
 }
@@ -104,10 +107,10 @@ impl AsrWorkerMode {
 impl AsrBackend {
     /// Select the runtime boundary from the configured ASR engine string.
     pub(crate) fn from_engine_name(engine_name: &str) -> Self {
-        if engine_name == "rev" {
-            Self::RustRevAi
-        } else {
-            Self::Worker(AsrWorkerMode::from_engine_name(engine_name))
+        match engine_name {
+            "rev" => Self::RustRevAi,
+            "whisper_rs" => Self::RustWhisperRs,
+            other => Self::Worker(AsrWorkerMode::from_engine_name(other)),
         }
     }
 }
@@ -117,6 +120,7 @@ impl AsrBackend {
     pub(super) fn comment_engine_name(self) -> &'static str {
         match self {
             Self::RustRevAi => "rev",
+            Self::RustWhisperRs => "whisper_rs",
             Self::Worker(AsrWorkerMode::LocalWhisperV2) => "whisper",
             Self::Worker(AsrWorkerMode::WhisperHubV2) => "whisper_hub",
             Self::Worker(AsrWorkerMode::HkTencentV2) => "tencent",
@@ -205,5 +209,20 @@ mod tests {
             AsrBackend::from_engine_name("whisper_hub"),
             AsrBackend::Worker(AsrWorkerMode::WhisperHubV2),
         );
+    }
+
+    #[test]
+    fn asr_backend_from_whisper_rs_is_rust_native_path() {
+        // ``whisper_rs`` is Rust-owned (in-process whisper.cpp), so it must
+        // route to the dedicated native backend, never the Python worker.
+        assert_eq!(
+            AsrBackend::from_engine_name("whisper_rs"),
+            AsrBackend::RustWhisperRs,
+        );
+    }
+
+    #[test]
+    fn asr_backend_from_rev_is_rust_revai_path() {
+        assert_eq!(AsrBackend::from_engine_name("rev"), AsrBackend::RustRevAi);
     }
 }
