@@ -59,7 +59,7 @@ chrono = "0.4"
 
 # CLI and tools
 clap = { version = "4.6", features = ["derive", "env"] }
-comrak = "0.53.0"
+comrak = "0.54.0"
 
 # Concurrency
 crossbeam-channel = "0.5"
@@ -79,7 +79,7 @@ indicatif = "0.18"
 
 # Testing
 insta = { version = "1.48", features = ["json", "yaml"] }
-jsonschema = { version = "0.46", default-features = false, features = ["resolve-file"] }
+jsonschema = { version = "0.47", default-features = false, features = ["resolve-file"] }
 miette = { version = "7.6.0", features = ["derive"] }
 notify = "8.2"
 num_cpus = "1.17"
@@ -97,7 +97,7 @@ quote = "1.0"
 rand = "0.10"
 ratatui = { version = "0.30", features = ["serde"] }
 rayon = "1.12"
-regex = "1.12"
+regex = "1.13"
 reqwest = { version = "0.13", features = ["multipart", "json", "blocking"] }
 rstest = "0.26.1"
 schemars = { version = "1.2", features = ["indexmap2", "smol_str03"] }
@@ -247,3 +247,4 @@ debug = "line-tables-only"
 # with `cargo nextest run --release -p <crate>`. The default test
 # profile now uses opt-level 0 for everything — fast to build, slower
 # to execute, which is the right trade in iterative dev.
+
