@@ -440,6 +440,25 @@ static EN_TITLE_PERIOD_SURFACES: LazyLock<HashSet<&'static str>> = LazyLock::new
     .collect()
 });
 
+/// English I-cap surface-form rewrite table. Lower-case key, upper-
+/// case replacement. Handles bare pronoun `i` plus the four most
+/// frequent I-contractions.
+///
+/// The locked probe cases for these (ENGLISH_PRONOUN_I and
+/// I_CONTRACTION in `_decision_cases/english.py`) all show
+/// POST_NEUTRAL — Stanza's POS tagging is invariant under case for
+/// these surfaces, so the rewrite is orthographic policy, not a
+/// morphotag fix.
+static EN_I_CAP_REWRITES: LazyLock<&'static [(&'static str, &'static str)]> = LazyLock::new(|| {
+    &[
+        ("i", "I"),
+        ("i'll", "I'll"),
+        ("i'm", "I'm"),
+        ("i've", "I've"),
+        ("i'd", "I'd"),
+    ]
+});
+
 /// Strip trailing period(s) from allowlisted English title /
 /// abbreviation surfaces **on raw ASR elements**, before stage 2
 /// word extraction.
@@ -515,11 +534,12 @@ pub fn apply_english_transcribe_rules_post_retokenize(utterances: &mut [Utteranc
 /// (POST_NEUTRAL) and `_I_CONTRACTION_CASES` (POST_NEUTRAL).
 fn apply_i_capitalization_to_words(words: &mut [AsrWord]) {
     for word in words.iter_mut() {
-        // Shared with chatter's model-level capitalizer: identical pronoun-"I"
-        // rewrite table.
-        if let Some(dst) = talkbank_transform::capitalize::capitalized_pronoun_i(word.text.as_str())
-        {
-            word.text = AsrNormalizedText::new(dst);
+        let lower = word.text.to_lowercase();
+        for &(src, dst) in EN_I_CAP_REWRITES.iter() {
+            if lower == src {
+                word.text = AsrNormalizedText::new(dst);
+                break;
+            }
         }
     }
 }
@@ -576,12 +596,23 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
             if !is_capitalizable_initial(text) {
                 continue;
             }
-            // First real word: capitalize it via the shared helper (a no-op if
-            // it already starts with an uppercase or non-letter character), then
-            // stop: one capitalization per utterance.
-            let capitalized = talkbank_transform::capitalize::capitalize_first(text);
-            word.text = AsrNormalizedText::new(capitalized);
-            break;
+            // is_capitalizable_initial returned true above, which
+            // requires a non-empty first character.
+            #[allow(clippy::unwrap_used)]
+            let first = text.chars().next().unwrap();
+            if first.is_uppercase() {
+                break; // already capitalized, idempotent
+            }
+            if !first.is_lowercase() {
+                break; // starts with non-letter content; don't rewrite
+            }
+            let mut chars = text.chars();
+            // Same is_capitalizable_initial guarantee.
+            #[allow(clippy::unwrap_used)]
+            let head = chars.next().unwrap().to_uppercase().to_string();
+            let tail: String = chars.collect();
+            word.text = AsrNormalizedText::new(head + &tail);
+            break; // done once we hit a real word
         }
     }
 }
