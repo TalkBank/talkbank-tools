@@ -37,6 +37,17 @@
 //! BUG-011 (mor/gra count mismatch) is the same architectural class
 //! and faces the same reproducer issue — see the test stub below.
 
+// Integration tests are exempt from the crate's deny-level panic lints,
+// matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented
+)]
+
 use batchalign_transform::morphosyntax::{
     MappingContext, MultilingualPolicy, UdId, UdPunctable, UdSentence, UdWord, UniversalPos,
     collect_payloads, declared_languages, map_ud_sentence,

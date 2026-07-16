@@ -170,6 +170,7 @@ pub mod host_memory;
 pub mod host_policy;
 mod infer_retry;
 pub mod media;
+pub mod merge_verify;
 pub mod morphosyntax;
 mod pipeline;
 pub(crate) mod planning;

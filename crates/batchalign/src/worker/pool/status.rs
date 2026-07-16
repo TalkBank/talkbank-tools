@@ -109,7 +109,7 @@ impl WorkerPool {
 
         {
             let gpu_workers = self.gpu_workers.lock().await;
-            for ((target, lang, engine_overrides), _worker) in gpu_workers.iter() {
+            for (target, lang, engine_overrides) in gpu_workers.keys() {
                 let suffix = if engine_overrides.is_empty() {
                     String::new()
                 } else {
@@ -124,7 +124,7 @@ impl WorkerPool {
 
         {
             let tcp_gpu_workers = self.gpu_tcp_workers.lock().await;
-            for ((target, lang, engine_overrides), _worker) in tcp_gpu_workers.iter() {
+            for (target, lang, engine_overrides) in tcp_gpu_workers.keys() {
                 let suffix = if engine_overrides.is_empty() {
                     String::new()
                 } else {

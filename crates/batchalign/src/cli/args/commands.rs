@@ -1272,3 +1272,27 @@ pub struct L2MorphotagEvalArgs {
     #[arg(long, value_name = "DIR")]
     pub output: std::path::PathBuf,
 }
+
+/// Arguments for the `merge-verify` command.
+#[derive(Args, Debug, Clone)]
+pub struct MergeVerifyArgs {
+    /// Merged draft directory (one `<session>.cha` per session named in
+    /// the verdicts document).
+    #[arg(long)]
+    pub draft: std::path::PathBuf,
+
+    /// Engine-verdicts JSON (per-line category, FA score, pitch band,
+    /// machine-ear answer), produced by the verify engines or replayed
+    /// from a cache.
+    #[arg(long)]
+    pub verdicts: std::path::PathBuf,
+
+    /// Output directory for rewritten drafts and `review-queue.json`.
+    #[arg(long)]
+    pub out: std::path::PathBuf,
+
+    /// Prefix identifying verify flags among `%com` tiers. The corpus
+    /// seam owns the vocabulary; this pass only needs the prefix.
+    #[arg(long, default_value = "verify")]
+    pub flag_prefix: String,
+}

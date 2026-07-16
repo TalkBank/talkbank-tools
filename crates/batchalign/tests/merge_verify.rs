@@ -162,10 +162,7 @@ fn review_and_hold_flags_unchanged_and_queue_is_exact() {
     let fx = fixture();
     run_merge_verify(&fx).success();
     let out = std::fs::read_to_string(fx.out.join("S1.cha")).expect("read output");
-    let coms: Vec<&str> = out
-        .lines()
-        .filter(|l| l.starts_with("%com:"))
-        .collect();
+    let coms: Vec<&str> = out.lines().filter(|l| l.starts_with("%com:")).collect();
     assert!(
         coms.iter()
             .any(|l| l.contains("verify: placement (diarization mislabel)")),

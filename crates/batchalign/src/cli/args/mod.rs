@@ -104,6 +104,13 @@ pub enum Commands {
     /// Writes one speaker-turns JSON file per input, in the schema
     /// consumed by `chatter rediarize --turns`.
     Diarize(DiarizeArgs),
+    /// Tier flagged merge placements from engine verdicts: promote
+    /// verified lines to provenance notes, queue the rest for review.
+    ///
+    /// Offline transform over CHAT drafts; needs no daemon, audio, or
+    /// models. Verdicts come from the verify engines or a replay cache.
+    #[command(name = "merge-verify")]
+    MergeVerify(MergeVerifyArgs),
     /// Initialize ~/.batchalign.ini (ASR defaults / Rev.ai key).
     Setup(SetupArgs),
     /// Manage the processing server.

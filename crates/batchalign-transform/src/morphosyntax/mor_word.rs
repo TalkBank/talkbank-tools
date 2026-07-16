@@ -41,7 +41,7 @@ pub fn map_ud_word_to_mor(ud: &UdWord, ctx: &MappingContext) -> Result<Mor, Mapp
         return Err(MappingError::EmptyStem {
             word: ud.text.clone(),
             lemma: ud.lemma.clone(),
-            upos: format!("{:?}", &ud.upos),
+            upos: format!("{:?}", ud.upos),
         });
     }
 

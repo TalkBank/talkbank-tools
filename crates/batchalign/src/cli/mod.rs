@@ -323,6 +323,21 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
             }
             Ok(())
         }
+        Commands::MergeVerify(a) => {
+            let summary = crate::merge_verify::run(&a.draft, &a.verdicts, &a.out, &a.flag_prefix)
+                .map_err(|e| {
+                error::CliError::Server(crate::error::ServerError::Validation(e.to_string()))
+            })?;
+            eprintln!(
+                "merge-verify: {} session(s): {} auto-trusted, {} queued for review, {} held, {} demoted",
+                summary.sessions,
+                summary.auto_trusted,
+                summary.reviewed,
+                summary.held,
+                summary.demoted
+            );
+            Ok(())
+        }
         Commands::Cache(a) => cache_cmd::run(a).await,
         Commands::Worker(a) => worker_cmd::run(a, cli.global.verbose).await,
         Commands::Doctor(a) => doctor_cmd::run(a).await,

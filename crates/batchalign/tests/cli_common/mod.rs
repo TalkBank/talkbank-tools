@@ -76,6 +76,17 @@ impl CliHarness {
         std::fs::write(&config_path, "[asr]\nengine = whisper\n")
             .expect("write test .batchalign.ini");
 
+        // Isolation default: NO auto-daemon. Without this, any test that
+        // exercises a processing command under the config default would
+        // auto-spawn a real daemon on the DEFAULT port 8000 with no
+        // teardown; the leaked daemon then poisons every later
+        // offline-dispatch test in the run ("no server available"
+        // assertions see a live server). Tests that exercise the
+        // auto-daemon path overwrite this via `write_server_config`
+        // with an ephemeral port and stop the daemon themselves.
+        std::fs::write(state_dir.join("server.yaml"), "auto_daemon: false\n")
+            .expect("write isolation server.yaml");
+
         Self {
             _scratch: scratch,
             home_dir,
