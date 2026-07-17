@@ -93,6 +93,13 @@ pub struct ServerConfig {
     /// (the validator may warn).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub force_cpu: Option<bool>,
+
+    /// Explicit Apple-GPU opt-in. `Some(true)` lets engines use MPS
+    /// (still CUDA > MPS > CPU, still fp32 dtypes, never the speaker
+    /// stage). `None`/`Some(false)` keep the safe CPU default: MPS
+    /// failures proved rare but catastrophic (Apr 2026 kernel
+    /// deadlock), so bravery is opt-in per operator.
+    pub allow_mps: Option<bool>,
     /// Operator override for the per-job worker-process cap. `None`
     /// (the canonical post-migration form) means "let
     /// `EffectiveConfig::max_workers_per_job(command)` derive the
@@ -393,6 +400,7 @@ impl Default for ServerConfig {
             port: 8000,
             host: "0.0.0.0".to_string(),
             force_cpu: None,
+            allow_mps: None,
             max_workers_per_job: None,
             job_ttl_days: 7,
             warmup_commands: default_warmup_commands(),

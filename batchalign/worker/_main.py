@@ -101,6 +101,11 @@ def build_arg_parser():
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--allow-mps",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--gpu-thread-pool-size",
         type=int,
         default=4,
@@ -162,7 +167,7 @@ def build_worker_bootstrap_runtime(
         engine_overrides=engine_overrides,
         test_echo=args.test_echo,
         verbose=args.verbose,
-        device_policy=DevicePolicy(force_cpu=args.force_cpu),
+        device_policy=DevicePolicy(force_cpu=args.force_cpu, allow_mps=args.allow_mps),
         revai_api_key=resolve_injected_revai_api_key(env),
     )
 

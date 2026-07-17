@@ -42,6 +42,13 @@ pub struct GlobalOpts {
     #[arg(long, global = true)]
     pub force_cpu: bool,
 
+    /// Allow engines to use the Apple GPU (MPS). Off by default: MPS
+    /// failures are rare but can hard-stall the machine (Apple driver
+    /// deadlock, Apr 2026). Model dtypes stay float32 on MPS, and the
+    /// speaker (diarization) stage never uses MPS regardless.
+    #[arg(long, global = true, conflicts_with = "force_cpu")]
+    pub allow_mps: bool,
+
     /// Remote server URL (or set BATCHALIGN_SERVER env var).
     #[arg(long, env = "BATCHALIGN_SERVER", global = true)]
     pub server: Option<String>,

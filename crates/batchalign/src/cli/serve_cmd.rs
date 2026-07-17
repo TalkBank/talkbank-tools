@@ -36,6 +36,7 @@ pub async fn start(
     args: &ServeStartArgs,
     verbose: u8,
     force_cpu: bool,
+    allow_mps: bool,
     engine_overrides: Option<&str>,
 ) -> Result<(), CliError> {
     let layout = RuntimeLayout::from_env();
@@ -107,6 +108,9 @@ pub async fn start(
         if force_cpu {
             cfg.force_cpu = Some(true);
         }
+        if allow_mps {
+            cfg.allow_mps = Some(true);
+        }
         // Resolve operator overrides against the live host-facts
         // snapshot. The runtime forms below remain concrete `u32` /
         // `usize` values because every downstream consumer (worker
@@ -116,6 +120,7 @@ pub async fn start(
         let effective = EffectiveConfig::resolve_from_server_config(&cfg);
         let worker_runtime = WorkerRuntimeConfig {
             force_cpu: effective.force_cpu,
+            allow_mps: effective.allow_mps,
             gpu_thread_pool_size: effective.gpu_thread_pool_size,
             host_memory: HostMemoryRuntimeConfig::from_server_config(&cfg),
             memory_tier: tier,
@@ -204,6 +209,9 @@ pub async fn start(
         }
         if force_cpu {
             cmd.arg("--force-cpu");
+        }
+        if allow_mps {
+            cmd.arg("--allow-mps");
         }
         // Forward verbosity to the background server process.
         for _ in 0..verbose {

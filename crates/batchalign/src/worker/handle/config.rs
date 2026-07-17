@@ -12,6 +12,13 @@ use crate::worker::{InferTask, WorkerBootstrapMode, WorkerProfile, WorkerTarget}
 pub struct WorkerRuntimeConfig {
     /// Whether the worker should force CPU-only model/device selection.
     pub force_cpu: bool,
+    /// Explicit Apple-GPU opt-in (`--allow-mps`). MPS failures proved
+    /// rare but catastrophic (Apr 2026 kernel deadlock), so CPU stays
+    /// the safe default and MPS engages only on this flag; the Python
+    /// side additionally keeps fp32 dtypes on MPS and never gives MPS
+    /// to the speaker stage (Pyannote wrong-timestamps, upstream
+    /// wontfix).
+    pub allow_mps: bool,
     /// Optional Rev.AI key already resolved by the Rust control plane.
     pub revai_api_key: Option<String>,
     /// Maximum concurrent requests served inside one GPU worker process.
@@ -45,6 +52,7 @@ impl Default for WorkerRuntimeConfig {
         const LEGACY_DEFAULT_GPU_THREAD_POOL_SIZE: u32 = 4;
         Self::from_sources(
             false,
+            false,
             load_revai_api_key()
                 .ok()
                 .map(|key| key.as_str().to_string()),
@@ -59,6 +67,7 @@ impl WorkerRuntimeConfig {
     /// Build worker runtime inputs from explicit sources.
     pub fn from_sources(
         force_cpu: bool,
+        allow_mps: bool,
         revai_api_key: Option<String>,
         gpu_thread_pool_size: u32,
         host_memory: HostMemoryRuntimeConfig,
@@ -66,6 +75,7 @@ impl WorkerRuntimeConfig {
     ) -> Self {
         Self {
             force_cpu,
+            allow_mps,
             revai_api_key: revai_api_key
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
@@ -173,6 +183,7 @@ mod tests {
     #[test]
     fn startup_reservation_uses_runtime_memory_tier() {
         let runtime = WorkerRuntimeConfig::from_sources(
+            false,
             false,
             None,
             4,

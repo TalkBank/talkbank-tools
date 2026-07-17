@@ -279,6 +279,7 @@ async fn dispatch_no_server() {
         use_tui: false,
         open_dashboard: false,
         force_cpu: false,
+        allow_mps: false,
         no_server: false,
         before: None,
         workers: None,

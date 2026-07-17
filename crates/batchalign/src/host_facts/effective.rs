@@ -52,6 +52,10 @@ pub struct ConfigOverrides {
     /// requests GPU even on hosts where it's not functional (validator
     /// will warn). `None` recommends.
     pub force_cpu: Option<bool>,
+    /// Override for `allow_mps`. There is no host recommendation:
+    /// the default is always `false` (safe CPU) unless the operator
+    /// opts in.
+    pub allow_mps: Option<bool>,
     /// Override for `max_total_workers`. `None` recommends.
     pub max_total_workers: Option<u32>,
     /// Override for `max_concurrent_jobs`. `None` recommends.
@@ -88,6 +92,7 @@ impl From<&ServerConfig> for ConfigOverrides {
         Self {
             gpu_thread_pool_size: cfg.gpu_thread_pool_size,
             force_cpu: cfg.force_cpu,
+            allow_mps: cfg.allow_mps,
             max_total_workers: cfg.max_total_workers,
             max_workers_per_job: cfg.max_workers_per_job,
             max_concurrent_jobs: cfg.max_concurrent_jobs,
@@ -128,6 +133,8 @@ pub struct EffectiveConfig {
     pub gpu_thread_pool_size: u32,
     /// Resolved `force_cpu`.
     pub force_cpu: bool,
+    /// Resolved `allow_mps` (no recommendation; defaults false).
+    pub allow_mps: bool,
     /// Resolved `max_total_workers`.
     pub max_total_workers: u32,
     /// Resolved `max_concurrent_jobs`.
@@ -182,6 +189,7 @@ impl EffectiveConfig {
                 .gpu_thread_pool_size
                 .unwrap_or(r.gpu_thread_pool_size),
             force_cpu: overrides.force_cpu.unwrap_or(r.force_cpu),
+            allow_mps: overrides.allow_mps.unwrap_or(false),
             max_total_workers: overrides.max_total_workers.unwrap_or(r.max_total_workers),
             max_concurrent_jobs: overrides
                 .max_concurrent_jobs

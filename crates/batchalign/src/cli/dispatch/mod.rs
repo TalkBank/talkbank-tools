@@ -68,6 +68,8 @@ pub struct DispatchRequest<'a> {
     pub open_dashboard: bool,
     /// Whether to force CPU execution for local worker processes.
     pub force_cpu: bool,
+    /// Explicit Apple-GPU opt-in (`--allow-mps`), threaded to workers.
+    pub allow_mps: bool,
     /// Skip auto-detection of a local server (force direct mode).
     pub no_server: bool,
     /// Optional before-path input for incremental workflows.
@@ -123,6 +125,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
         use_tui,
         open_dashboard,
         force_cpu,
+        allow_mps,
         no_server,
         before,
         workers,
@@ -204,7 +207,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
     // for both command families that require local audio access and for the
     // general "no explicit server" case.
     let local_daemon_url = if !no_server && cfg.auto_daemon {
-        daemon::ensure_daemon(force_cpu, workers, timeout).await?
+        daemon::ensure_daemon(force_cpu, allow_mps, workers, timeout).await?
     } else {
         None
     };
@@ -326,6 +329,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
         lexicon,
         before,
         force_cpu,
+        allow_mps,
         workers,
         timeout,
         sequential,
@@ -369,6 +373,7 @@ async fn dispatch_direct_mode(
     lexicon: Option<&str>,
     before: Option<&std::path::Path>,
     force_cpu: bool,
+    allow_mps: bool,
     workers: Option<usize>,
     timeout: Option<u64>,
     sequential: bool,
@@ -410,9 +415,10 @@ async fn dispatch_direct_mode(
     eprintln!("Found {} file(s) to process.\n", prepared.total_files);
     eprintln!("Running locally (direct mode)...\n");
 
-    let direct_workers = prepare_direct_workers(&cfg, build_direct_pool_config(&cfg, force_cpu))
-        .await
-        .map_err(CliError::from)?;
+    let direct_workers =
+        prepare_direct_workers(&cfg, build_direct_pool_config(&cfg, force_cpu, allow_mps))
+            .await
+            .map_err(CliError::from)?;
     let host = DirectHost::new(cfg, layout, None, None, &direct_workers)
         .await
         .map_err(CliError::from)?;
@@ -497,7 +503,7 @@ async fn dispatch_direct_mode(
     )
 }
 
-fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool) -> PoolConfig {
+fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool, allow_mps: bool) -> PoolConfig {
     let tier = cfg.resolved_memory_tier();
     let host_policy = HostExecutionPolicy::from_server_config(cfg);
     // Same boundary conversion as `serve_cmd::start`: CLI
@@ -507,9 +513,13 @@ fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool) -> PoolConfig {
     if force_cpu {
         cfg_for_resolve.force_cpu = Some(true);
     }
+    if allow_mps {
+        cfg_for_resolve.allow_mps = Some(true);
+    }
     let effective = EffectiveConfig::resolve_from_server_config(&cfg_for_resolve);
     let worker_runtime = WorkerRuntimeConfig {
         force_cpu: effective.force_cpu,
+        allow_mps: effective.allow_mps,
         gpu_thread_pool_size: effective.gpu_thread_pool_size,
         host_memory: HostMemoryRuntimeConfig::from_server_config(cfg),
         memory_tier: tier,
@@ -702,6 +712,7 @@ mod tests {
             use_tui: false,
             open_dashboard: false,
             force_cpu: false,
+            allow_mps: false,
             no_server: false,
             before: None,
             workers: None,

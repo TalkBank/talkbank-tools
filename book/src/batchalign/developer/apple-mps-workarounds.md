@@ -247,18 +247,26 @@ The `BATCHALIGN_FORCE_CPU` environment variable (or `DevicePolicy(force_cpu=True
 forces all model loaders onto CPU. This is the escape hatch when MPS causes
 problems that dtype coercion alone can't fix.
 
-### The MPS opt-in (`BATCHALIGN_ALLOW_MPS=1`, added 2026-07-17)
+### The MPS opt-in (`--allow-mps`, added 2026-07-17)
 
 MPS is excluded by default (the April 2026 AGX kernel deadlock hard-stalled
 machines, with no known driver fix), but the failure proved RARE in a year of
-fleet use, so the brave can opt in per process:
+fleet use, so the brave can opt in with a real CLI flag:
 
 ```bash
-BATCHALIGN_ALLOW_MPS=1 batchalign3 align ...
+batchalign3 --allow-mps align ...
 ```
 
-Selection order becomes CUDA > MPS > CPU; `BATCHALIGN_FORCE_CPU=1` still
-overrides everything. What the opt-in does and does not change:
+The flag threads end to end exactly like `--force-cpu`: CLI to dispatch to
+the daemon (whose daemon.json records the resolved value, so a running
+daemon restarts when the flag changes) to each worker's own `--allow-mps`
+argument to the typed `DevicePolicy`. `allow_mps: true` in `server.yaml`
+sets it for a standing server. (The `BATCHALIGN_ALLOW_MPS=1` environment
+variable exists only as the library-level seam for embedding callers; the
+flag is the interface.)
+
+Selection order becomes CUDA > MPS > CPU; `--force-cpu` conflicts with and
+overrides it. What the opt-in does and does not change:
 
 - Model dtypes stay **float32** on MPS (every loader's non-CUDA branch):
   fp16-on-MPS caused the Feb/Mar 2026 corruption incidents and remains off.

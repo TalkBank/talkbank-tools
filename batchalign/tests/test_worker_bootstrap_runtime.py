@@ -39,3 +39,21 @@ def test_worker_bootstrap_runtime_resolves_boundary_inputs() -> None:
     assert bootstrap.engine_overrides == {"asr": "whisper"}
     assert bootstrap.device_policy.force_cpu is True
     assert bootstrap.revai_api_key == "from-rust"
+
+
+def test_allow_mps_flag_reaches_device_policy() -> None:
+    """--allow-mps must land in the typed DevicePolicy (the MPS opt-in
+    travels as a real CLI flag end to end, never an env hack)."""
+    args = parse_worker_args(
+        ["--task", "asr", "--lang", "eng", "--allow-mps"]
+    )
+    runtime = build_worker_bootstrap_runtime(args, environ={})
+    assert runtime.device_policy.allow_mps is True
+    assert runtime.device_policy.force_cpu is False
+
+
+def test_allow_mps_defaults_off() -> None:
+    args = parse_worker_args(["--task", "asr", "--lang", "eng"])
+    runtime = build_worker_bootstrap_runtime(args, environ={})
+    assert runtime.device_policy.allow_mps is False
+

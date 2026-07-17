@@ -260,6 +260,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
                     start_args,
                     cli.global.verbose,
                     cli.global.force_cpu,
+                    cli.global.allow_mps,
                     cli.global.engine_overrides.as_deref(),
                 )
                 .await
@@ -425,6 +426,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
                 use_tui: cli.global.use_tui(),
                 open_dashboard: cli.global.use_open_dashboard(),
                 force_cpu: cli.global.force_cpu,
+                allow_mps: cli.global.allow_mps,
                 no_server: cli.global.no_server,
                 before,
                 workers: cli.global.workers,

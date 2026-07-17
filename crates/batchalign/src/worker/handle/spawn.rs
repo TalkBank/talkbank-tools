@@ -66,6 +66,10 @@ pub(super) fn build_worker_command(config: &WorkerConfig) -> StdCommand {
         cmd.arg("--force-cpu");
     }
 
+    if config.runtime.allow_mps {
+        cmd.arg("--allow-mps");
+    }
+
     if config.verbose > 0 {
         cmd.arg("--verbose").arg(config.verbose.to_string());
     }
@@ -169,6 +173,10 @@ pub async fn spawn_tcp_daemon(config: &WorkerConfig, port: u16) -> Result<(u32, 
 
     if config.runtime.force_cpu {
         cmd.arg("--force-cpu");
+    }
+
+    if config.runtime.allow_mps {
+        cmd.arg("--allow-mps");
     }
 
     if config.verbose > 0 {

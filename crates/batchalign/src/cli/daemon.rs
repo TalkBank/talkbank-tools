@@ -179,6 +179,13 @@ pub struct DaemonInfo {
     /// resolved=true and the next invocation kicks the daemon over.
     #[serde(default)]
     pub force_cpu: bool,
+    /// The daemon's resolved `allow_mps` value (the explicit Apple-GPU
+    /// opt-in), captured at spawn time, compared by `runtime_mismatch`
+    /// the same way as `force_cpu`. `#[serde(default)]` keeps older
+    /// daemon.json files readable (they resolve to `false`, matching
+    /// the pre-flag behavior, so no spurious restart).
+    #[serde(default)]
+    pub allow_mps: bool,
     /// The `--workers` value the daemon was started with, if any.
     /// `None` means either the operator didn't pass `--workers` at
     /// startup (so the daemon resolved its own per-job parallelism
@@ -204,19 +211,28 @@ pub struct DaemonInfo {
 /// Return the main daemon URL or `None` if the daemon cannot be started.
 pub async fn ensure_daemon(
     force_cpu: bool,
+    allow_mps: bool,
     workers: Option<usize>,
     timeout: Option<u64>,
 ) -> Result<Option<String>, CliError> {
-    ensure_daemon_for(DaemonProfile::Main, force_cpu, workers, timeout).await
+    ensure_daemon_for(DaemonProfile::Main, force_cpu, allow_mps, workers, timeout).await
 }
 
 /// Return the sidecar daemon URL or `None` if the daemon cannot be started.
 pub async fn ensure_sidecar_daemon(
     force_cpu: bool,
+    allow_mps: bool,
     workers: Option<usize>,
     timeout: Option<u64>,
 ) -> Result<Option<String>, CliError> {
-    ensure_daemon_for(DaemonProfile::Sidecar, force_cpu, workers, timeout).await
+    ensure_daemon_for(
+        DaemonProfile::Sidecar,
+        force_cpu,
+        allow_mps,
+        workers,
+        timeout,
+    )
+    .await
 }
 
 /// Stop the main daemon. Returns `true` if a process was killed.
@@ -242,6 +258,7 @@ pub fn read_daemon_info() -> Option<DaemonInfo> {
 async fn ensure_daemon_for(
     profile: DaemonProfile,
     force_cpu: bool,
+    allow_mps: bool,
     workers: Option<usize>,
     timeout: Option<u64>,
 ) -> Result<Option<String>, CliError> {
@@ -264,7 +281,8 @@ async fn ensure_daemon_for(
         }
     }
 
-    let result = ensure_daemon_locked(profile, &layout, force_cpu, workers, timeout).await;
+    let result =
+        ensure_daemon_locked(profile, &layout, force_cpu, allow_mps, workers, timeout).await;
     drop(lock_file);
     result
 }
@@ -295,8 +313,8 @@ fn is_stale(info: &DaemonInfo) -> bool {
     info.version != current_version()
 }
 
-fn runtime_mismatch(info: &DaemonInfo, resolved_force_cpu: bool) -> bool {
-    info.force_cpu != resolved_force_cpu
+fn runtime_mismatch(info: &DaemonInfo, flags: DaemonDeviceFlags) -> bool {
+    info.force_cpu != flags.resolved_force_cpu || info.allow_mps != flags.resolved_allow_mps
 }
 
 /// True when the operator passed a CLI flag whose value differs from
@@ -315,6 +333,23 @@ fn flag_shadows_daemon<T: PartialEq>(requested: Option<T>, persisted: Option<T>)
     }
 }
 
+/// The operator's device flags as given on the CLI plus their
+/// host-resolved values, computed once per invocation so the restart
+/// decision and the persisted `DaemonInfo` stay consistent (and so the
+/// spawn/persist plumbing threads one named value instead of a parade
+/// of positional bools).
+#[derive(Clone, Copy, Debug)]
+struct DaemonDeviceFlags {
+    /// Raw `--force-cpu` switch (drives the spawned subprocess arg).
+    cli_force_cpu: bool,
+    /// Raw `--allow-mps` switch (drives the spawned subprocess arg).
+    cli_allow_mps: bool,
+    /// `force_cpu` merged with the host-facts recommendation.
+    resolved_force_cpu: bool,
+    /// `allow_mps` resolved (no recommendation; operator opt-in only).
+    resolved_allow_mps: bool,
+}
+
 /// Resolve the daemon's effective `force_cpu` value given the CLI
 /// flag plus the host's deployed `server.yaml` and detected facts.
 ///
@@ -329,18 +364,32 @@ fn flag_shadows_daemon<T: PartialEq>(requested: Option<T>, persisted: Option<T>)
 /// `ServerConfig::default()` — the same behavior `serve_cmd::start`
 /// has, so the resolved value computed here matches what the daemon
 /// process will see when it boots.
-fn resolve_force_cpu_for_daemon(layout: &RuntimeLayout, cli_force_cpu: bool) -> bool {
+fn resolve_device_flags_for_daemon(
+    layout: &RuntimeLayout,
+    cli_force_cpu: bool,
+    cli_allow_mps: bool,
+) -> DaemonDeviceFlags {
     let mut cfg = crate::config::load_config_from_layout(layout, None).unwrap_or_default();
     if cli_force_cpu {
         cfg.force_cpu = Some(true);
     }
-    crate::host_facts::EffectiveConfig::resolve_from_server_config(&cfg).force_cpu
+    if cli_allow_mps {
+        cfg.allow_mps = Some(true);
+    }
+    let effective = crate::host_facts::EffectiveConfig::resolve_from_server_config(&cfg);
+    DaemonDeviceFlags {
+        cli_force_cpu,
+        cli_allow_mps,
+        resolved_force_cpu: effective.force_cpu,
+        resolved_allow_mps: effective.allow_mps,
+    }
 }
 
 async fn ensure_daemon_locked(
     profile: DaemonProfile,
     layout: &RuntimeLayout,
     force_cpu: bool,
+    allow_mps: bool,
     workers: Option<usize>,
     timeout: Option<u64>,
 ) -> Result<Option<String>, CliError> {
@@ -352,11 +401,11 @@ async fn ensure_daemon_locked(
     }
 
     let port = config_port(layout)?;
-    // Compute the resolved force_cpu once: it drives both the
-    // restart decision (vs. stored DaemonInfo) and the value persisted
+    // Compute the resolved device flags once: they drive both the
+    // restart decision (vs. stored DaemonInfo) and the values persisted
     // when start_daemon writes a new DaemonInfo. Resolving here keeps
     // both consistent.
-    let resolved_force_cpu = resolve_force_cpu_for_daemon(layout, force_cpu);
+    let device_flags = resolve_device_flags_for_daemon(layout, force_cpu, allow_mps);
 
     if let Some(info) = read_daemon_info_for(profile, dir) {
         if is_process_alive(info.pid) {
@@ -373,37 +422,21 @@ async fn ensure_daemon_locked(
                 );
                 kill_process(info.pid);
                 cleanup_state_file_for(profile, dir);
-                return start_daemon(
-                    profile,
-                    layout,
-                    port,
-                    force_cpu,
-                    resolved_force_cpu,
-                    workers,
-                    timeout,
-                )
-                .await;
+                return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
             }
 
-            if runtime_mismatch(&info, resolved_force_cpu) {
+            if runtime_mismatch(&info, device_flags) {
                 eprintln!(
-                    "Restarting {} daemon (resolved force_cpu {} -> {})...",
+                    "Restarting {} daemon (resolved force_cpu {} -> {}, allow_mps {} -> {})...",
                     profile.label(),
                     info.force_cpu,
-                    resolved_force_cpu,
+                    device_flags.resolved_force_cpu,
+                    info.allow_mps,
+                    device_flags.resolved_allow_mps,
                 );
                 kill_process(info.pid);
                 cleanup_state_file_for(profile, dir);
-                return start_daemon(
-                    profile,
-                    layout,
-                    port,
-                    force_cpu,
-                    resolved_force_cpu,
-                    workers,
-                    timeout,
-                )
-                .await;
+                return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
             }
 
             if health_check(info.port).await {
@@ -459,16 +492,7 @@ async fn ensure_daemon_locked(
 
             kill_process(info.pid);
             cleanup_state_file_for(profile, dir);
-            return start_daemon(
-                profile,
-                layout,
-                port,
-                force_cpu,
-                resolved_force_cpu,
-                workers,
-                timeout,
-            )
-            .await;
+            return start_daemon(profile, layout, port, device_flags, workers, timeout).await;
         }
         // Process is dead but state file exists -- stale PID file.
         debug!(
@@ -479,16 +503,7 @@ async fn ensure_daemon_locked(
         cleanup_state_file_for(profile, dir);
     }
 
-    start_daemon(
-        profile,
-        layout,
-        port,
-        force_cpu,
-        resolved_force_cpu,
-        workers,
-        timeout,
-    )
-    .await
+    start_daemon(profile, layout, port, device_flags, workers, timeout).await
 }
 
 async fn detect_manual_server(layout: &RuntimeLayout) -> Result<Option<String>, CliError> {
@@ -551,18 +566,15 @@ async fn check_manual_server_staleness(port: u16) {
     }
 }
 
-/// `cli_force_cpu` is the raw `--force-cpu` switch and controls
-/// whether the spawned subprocess gets the `--force-cpu` argument
-/// (operator intent). `resolved_force_cpu` is the pre-computed
-/// merge of operator intent with the host-facts recommendation,
-/// persisted to `DaemonInfo` so later `runtime_mismatch` calls
-/// compare apples to apples.
+/// `flags` carries the raw CLI switches (which control the spawned
+/// subprocess's arguments: operator intent verbatim) and the resolved
+/// values (persisted to `DaemonInfo` so later `runtime_mismatch`
+/// calls compare apples to apples).
 async fn start_daemon(
     profile: DaemonProfile,
     layout: &RuntimeLayout,
     port: u16,
-    cli_force_cpu: bool,
-    resolved_force_cpu: bool,
+    flags: DaemonDeviceFlags,
     workers: Option<usize>,
     timeout: Option<u64>,
 ) -> Result<Option<String>, CliError> {
@@ -617,8 +629,11 @@ async fn start_daemon(
         // Deployments with explicit server.yaml keep their configured policy.
         cmd.args(["--warmup", "off"]);
     }
-    if cli_force_cpu {
+    if flags.cli_force_cpu {
         cmd.arg("--force-cpu");
+    }
+    if flags.cli_allow_mps {
+        cmd.arg("--allow-mps");
     }
     if let Some(n) = workers {
         cmd.args(["--workers", &n.to_string()]);
@@ -681,15 +696,7 @@ async fn start_daemon(
     // captured raw so the warm-reuse warning can name the exact value
     // the daemon was started with.
     let persisted_workers = workers.map(|n| n as u32);
-    write_daemon_info_for(
-        profile,
-        dir,
-        pid,
-        port,
-        resolved_force_cpu,
-        persisted_workers,
-        timeout,
-    )?;
+    write_daemon_info_for(profile, dir, pid, port, flags, persisted_workers, timeout)?;
 
     if wait_for_health(pid, port).await {
         eprintln!(
@@ -805,7 +812,7 @@ fn write_daemon_info_for(
     dir: &Path,
     pid: u32,
     port: u16,
-    force_cpu: bool,
+    flags: DaemonDeviceFlags,
     workers: Option<u32>,
     audio_task_timeout_s: Option<u64>,
 ) -> Result<(), CliError> {
@@ -823,7 +830,8 @@ fn write_daemon_info_for(
         version: current_version(),
         started_at,
         build_hash: crate::cli::build_hash().to_string(),
-        force_cpu,
+        force_cpu: flags.resolved_force_cpu,
+        allow_mps: flags.resolved_allow_mps,
         workers,
         audio_task_timeout_s,
     };
@@ -899,6 +907,24 @@ fn current_version() -> String {
 mod tests {
     use super::*;
 
+    /// All-off device flags for tests that do not exercise them.
+    const NO_DEVICE_FLAGS: DaemonDeviceFlags = DaemonDeviceFlags {
+        cli_force_cpu: false,
+        cli_allow_mps: false,
+        resolved_force_cpu: false,
+        resolved_allow_mps: false,
+    };
+
+    /// Resolved-only flags helper for mismatch tests.
+    const fn resolved_flags(force_cpu: bool, allow_mps: bool) -> DaemonDeviceFlags {
+        DaemonDeviceFlags {
+            cli_force_cpu: false,
+            cli_allow_mps: false,
+            resolved_force_cpu: force_cpu,
+            resolved_allow_mps: allow_mps,
+        }
+    }
+
     /// Build a `DaemonInfo` with all the unrelated fields filled in,
     /// so each test can name only what it actually exercises. Keeps the
     /// individual tests focused on the field they pin.
@@ -916,6 +942,7 @@ mod tests {
             started_at: 0.0,
             build_hash,
             force_cpu,
+            allow_mps: false,
             workers,
             audio_task_timeout_s,
         }
@@ -930,6 +957,7 @@ mod tests {
             started_at: 1700000000.0,
             build_hash: "1.0.0-abc1234-1700000000".to_string(),
             force_cpu: true,
+            allow_mps: false,
             workers: Some(4),
             audio_task_timeout_s: Some(3600),
         };
@@ -1024,8 +1052,21 @@ mod tests {
     fn write_read_daemon_info_roundtrip() {
         for profile in [DaemonProfile::Main, DaemonProfile::Sidecar] {
             let dir = tempfile::tempdir().unwrap();
-            write_daemon_info_for(profile, dir.path(), 42, 9999, true, Some(6), Some(1800))
-                .unwrap();
+            write_daemon_info_for(
+                profile,
+                dir.path(),
+                42,
+                9999,
+                DaemonDeviceFlags {
+                    cli_force_cpu: true,
+                    cli_allow_mps: false,
+                    resolved_force_cpu: true,
+                    resolved_allow_mps: false,
+                },
+                Some(6),
+                Some(1800),
+            )
+            .unwrap();
             let info = read_daemon_info_for(profile, dir.path()).unwrap();
             assert_eq!(info.pid, 42);
             assert_eq!(info.port, 9999);
@@ -1042,7 +1083,16 @@ mod tests {
         // Daemon started without --workers or --timeout (the common
         // server-mode case where host facts pick the parallelism).
         let dir = tempfile::tempdir().unwrap();
-        write_daemon_info_for(DaemonProfile::Main, dir.path(), 7, 8001, false, None, None).unwrap();
+        write_daemon_info_for(
+            DaemonProfile::Main,
+            dir.path(),
+            7,
+            8001,
+            NO_DEVICE_FLAGS,
+            None,
+            None,
+        )
+        .unwrap();
         let info = read_daemon_info_for(DaemonProfile::Main, dir.path()).unwrap();
         assert_eq!(info.workers, None);
         assert_eq!(info.audio_task_timeout_s, None);
@@ -1051,7 +1101,16 @@ mod tests {
     #[test]
     fn cleanup_state_file_removes() {
         let dir = tempfile::tempdir().unwrap();
-        write_daemon_info_for(DaemonProfile::Main, dir.path(), 1, 8000, false, None, None).unwrap();
+        write_daemon_info_for(
+            DaemonProfile::Main,
+            dir.path(),
+            1,
+            8000,
+            NO_DEVICE_FLAGS,
+            None,
+            None,
+        )
+        .unwrap();
         assert!(read_daemon_info_for(DaemonProfile::Main, dir.path()).is_some());
         cleanup_state_file_for(DaemonProfile::Main, dir.path());
         assert!(read_daemon_info_for(DaemonProfile::Main, dir.path()).is_none());
@@ -1066,8 +1125,8 @@ mod tests {
             None,
             None,
         );
-        assert!(runtime_mismatch(&info, true));
-        assert!(!runtime_mismatch(&info, false));
+        assert!(runtime_mismatch(&info, resolved_flags(true, false)));
+        assert!(!runtime_mismatch(&info, resolved_flags(false, false)));
     }
 
     #[test]
@@ -1113,10 +1172,14 @@ mod tests {
         std::fs::create_dir_all(layout.state_dir()).unwrap();
         // Empty server.yaml -> ServerConfig::default() -> force_cpu = None.
         // CLI flag = true should still resolve to true on every host.
-        let resolved = resolve_force_cpu_for_daemon(&layout, true);
+        let resolved = resolve_device_flags_for_daemon(&layout, true, false);
         assert!(
-            resolved,
+            resolved.resolved_force_cpu,
             "CLI --force-cpu must resolve to true regardless of host facts"
+        );
+        assert!(
+            !resolved.resolved_allow_mps,
+            "allow_mps stays false unless the operator opts in"
         );
     }
 

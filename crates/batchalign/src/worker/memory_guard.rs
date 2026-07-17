@@ -292,6 +292,7 @@ mod tests {
             lang: WorkerLanguage::from(LanguageCode3::eng()),
             runtime: crate::worker::handle::WorkerRuntimeConfig::from_sources(
                 false,
+                false,
                 None,
                 1,
                 HostMemoryRuntimeConfig::from_sources(

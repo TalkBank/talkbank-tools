@@ -268,6 +268,7 @@ mod tests {
             verbose: 0,
             runtime: WorkerRuntimeConfig::from_sources(
                 true,
+                false,
                 None,
                 4,
                 HostMemoryRuntimeConfig::default(),
@@ -277,6 +278,32 @@ mod tests {
         });
 
         assert!(args.iter().any(|arg| arg == "--force-cpu"));
+    }
+
+    #[test]
+    fn worker_command_forwards_runtime_allow_mps() {
+        let args = command_args(&WorkerConfig {
+            python_path: "python3".to_string(),
+            profile: WorkerProfile::Gpu,
+            lang: WorkerLanguage::from(LanguageCode3::eng()),
+            num_speakers: NumSpeakers(1),
+            engine_overrides: String::new(),
+            test_echo: false,
+            ready_timeout_s: 300,
+            verbose: 0,
+            runtime: WorkerRuntimeConfig::from_sources(
+                false,
+                true,
+                None,
+                4,
+                HostMemoryRuntimeConfig::default(),
+                crate::types::runtime::MemoryTier::detect(),
+            ),
+            ..Default::default()
+        });
+
+        assert!(args.iter().any(|arg| arg == "--allow-mps"));
+        assert!(!args.iter().any(|arg| arg == "--force-cpu"));
     }
 
     #[test]
@@ -301,6 +328,7 @@ mod tests {
             python_path: "python3".to_string(),
             profile: WorkerProfile::Gpu,
             runtime: WorkerRuntimeConfig::from_sources(
+                false,
                 false,
                 None,
                 7,
@@ -329,6 +357,7 @@ mod tests {
             verbose: 0,
             runtime: WorkerRuntimeConfig::from_sources(
                 false,
+                false,
                 Some("  injected-key  ".to_string()),
                 4,
                 HostMemoryRuntimeConfig::default(),
@@ -356,6 +385,7 @@ mod tests {
                 ready_timeout_s: 300,
                 verbose: 0,
                 runtime: WorkerRuntimeConfig::from_sources(
+                    false,
                     false,
                     None,
                     4,

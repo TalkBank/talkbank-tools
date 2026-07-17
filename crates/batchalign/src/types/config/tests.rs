@@ -232,6 +232,18 @@ fn force_cpu_explicit_true_preserves_some_true() {
 }
 
 #[test]
+fn allow_mps_field_absent_yields_none() {
+    let cfg: ServerConfig = serde_yaml::from_str("port: 8001\n").unwrap();
+    assert_eq!(cfg.allow_mps, None);
+}
+
+#[test]
+fn allow_mps_explicit_true_preserves_some_true() {
+    let cfg: ServerConfig = serde_yaml::from_str("allow_mps: true\n").unwrap();
+    assert_eq!(cfg.allow_mps, Some(true));
+}
+
+#[test]
 fn force_cpu_explicit_false_preserves_some_false() {
     let cfg: ServerConfig = serde_yaml::from_str("force_cpu: false\n").unwrap();
     assert_eq!(cfg.force_cpu, Some(false));
