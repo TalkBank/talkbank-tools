@@ -38,6 +38,7 @@ dependencies = [
     "stanza[transformers]>=1.13.0,<1.14",
     "pycountry>=22.3",
     "soundfile>=0.12.0",
+    "librosa>=0.11",
     # ASR
     "openai-whisper",
     "numba>=0.61.0",
