@@ -179,12 +179,19 @@ def _temporary_conv_scale_weights_override(msdd_module: object):
 def _device_for_speaker_runtime(device_policy=None) -> str:
     """Resolve the concrete runtime device for diarization backends.
 
-    MPS is explicitly excluded: Pyannote produces wrong timestamps on MPS
-    (pyannote/pyannote-audio#1337, closed wontfix) and NeMo is CUDA-only.
-    Delegates to the shared ``resolve_inference_device`` which encodes the
-    CUDA > CPU selection with the MPS permanent exclusion.
+    MPS is excluded HERE UNCONDITIONALLY, even under the global
+    ``BATCHALIGN_ALLOW_MPS`` opt-in: Pyannote produces wrong timestamps
+    on MPS (pyannote/pyannote-audio#1337, closed wontfix) and NeMo is
+    CUDA-only. That is a correctness bug, not a stability risk, so no
+    amount of bravery unlocks it. The opt-in is stripped from the policy
+    before delegating to the shared ``resolve_inference_device``.
     """
-    from batchalign.device import resolve_inference_device
+    from dataclasses import replace
+
+    from batchalign.device import DevicePolicy, resolve_inference_device
+
+    resolved = device_policy or DevicePolicy.from_environ()
+    device_policy = replace(resolved, allow_mps=False)
 
     return resolve_inference_device(device_policy).type
 

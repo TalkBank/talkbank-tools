@@ -68,3 +68,55 @@ class TestResolveInferenceDevice:
         monkeypatch.setenv("BATCHALIGN_FORCE_CPU", "1")
         device = resolve_inference_device(None)
         assert device == torch.device("cpu")
+
+class TestMpsOptIn:
+    """The explicit MPS opt-in (BATCHALIGN_ALLOW_MPS=1, 2026-07-17).
+
+    MPS crashes proved RARE but catastrophic (Apr 2026 kernel deadlock);
+    the safe default stays CPU, and the brave opt in per process. The
+    speaker engine never gets MPS regardless (Pyannote emits wrong
+    timestamps on MPS, upstream wontfix): correctness, not bravery.
+    """
+
+    def test_default_policy_does_not_allow_mps(self) -> None:
+        assert DevicePolicy.from_environ({}).allow_mps is False
+
+    def test_env_opt_in_sets_allow_mps(self) -> None:
+        policy = DevicePolicy.from_environ({"BATCHALIGN_ALLOW_MPS": "1"})
+        assert policy.allow_mps is True
+
+    def test_opt_in_selects_mps_when_available(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+        device = resolve_inference_device(DevicePolicy(allow_mps=True))
+        assert device == torch.device("mps")
+
+    def test_no_opt_in_never_selects_mps(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+        device = resolve_inference_device(DevicePolicy(allow_mps=False))
+        assert device == torch.device("cpu")
+
+    def test_cuda_still_beats_mps(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+        device = resolve_inference_device(DevicePolicy(allow_mps=True))
+        assert device == torch.device("cuda")
+
+    def test_force_cpu_beats_opt_in(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+        device = resolve_inference_device(
+            DevicePolicy(force_cpu=True, allow_mps=True)
+        )
+        assert device == torch.device("cpu")
+
+    def test_speaker_runtime_never_uses_mps_even_opted_in(
+        self, monkeypatch
+    ) -> None:
+        """Seam test at the speaker engine's device resolver."""
+        from batchalign.inference.speaker import _device_for_speaker_runtime
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+        assert _device_for_speaker_runtime(DevicePolicy(allow_mps=True)) == "cpu"
+

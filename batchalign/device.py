@@ -24,15 +24,30 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class DevicePolicy:
-    """Typed device preference resolved once at the runtime boundary."""
+    """Typed device preference resolved once at the runtime boundary.
+
+    ``allow_mps`` is the explicit Apple-GPU opt-in
+    (``BATCHALIGN_ALLOW_MPS=1``). MPS failures proved RARE but
+    catastrophic in production (the 2026-04-05 AGX kernel deadlock hard-
+    stalled machines; fp16 corruption incidents in Feb/Mar 2026), so
+    CPU remains the safe default and MPS is never selected implicitly.
+    Opting in gets fp32 model dtypes on every loader (the non-CUDA
+    branches) and never affects engines with MPS correctness bugs (the
+    speaker stage's Pyannote emits wrong timestamps on MPS, upstream
+    wontfix).
+    """
 
     force_cpu: bool = False
+    allow_mps: bool = False
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str] | None = None) -> DevicePolicy:
         """Build a policy from an environment mapping."""
         env = environ if environ is not None else os.environ
-        return cls(force_cpu=env.get("BATCHALIGN_FORCE_CPU") == "1")
+        return cls(
+            force_cpu=env.get("BATCHALIGN_FORCE_CPU") == "1",
+            allow_mps=env.get("BATCHALIGN_ALLOW_MPS") == "1",
+        )
 
 
 def apply_force_cpu(environ: MutableMapping[str, str] | None = None) -> DevicePolicy:
@@ -68,8 +83,10 @@ def resolve_inference_device(
 ) -> _torch.device:
     """Resolve the concrete PyTorch device for ML model loading.
 
-    The selection order is: CUDA > CPU. MPS is currently excluded, so model
-    loading resolves to either CUDA or CPU only.
+    The selection order is: CUDA > MPS (explicit opt-in only) > CPU.
+    Without ``allow_mps``, MPS is excluded and model loading resolves to
+    either CUDA or CPU; see ``DevicePolicy`` for the opt-in rationale
+    and history.
 
     Parameters
     ----------
@@ -80,10 +97,41 @@ def resolve_inference_device(
     Returns
     -------
     torch.device
-        Either ``torch.device("cuda")`` or ``torch.device("cpu")``.
+        ``torch.device("cuda")``, ``torch.device("mps")`` (opt-in only),
+        or ``torch.device("cpu")``.
     """
     import torch
 
-    if force_cpu_preferred(device_policy):
+    resolved_policy = device_policy or DevicePolicy.from_environ()
+    if resolved_policy.force_cpu:
         return torch.device("cpu")
-    return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if resolved_policy.allow_mps and torch.backends.mps.is_available():
+        _warn_mps_engaged()
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+_MPS_WARNING_EMITTED = False
+
+
+def _warn_mps_engaged() -> None:
+    """One warning per process when the MPS opt-in actually engages.
+
+    Honest-risk surface (time-transparency sibling): the user chose the
+    fast path; remind them what the rare failure looks like so a
+    machine stall is not a mystery.
+    """
+    global _MPS_WARNING_EMITTED
+    if _MPS_WARNING_EMITTED:
+        return
+    _MPS_WARNING_EMITTED = True
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "BATCHALIGN_ALLOW_MPS=1: using the Apple GPU. Rare Apple driver "
+        "deadlocks have hard-stalled machines under sustained GPU load "
+        "(Apr 2026); CPU remains the safe default. Model dtypes stay "
+        "float32 on MPS."
+    )

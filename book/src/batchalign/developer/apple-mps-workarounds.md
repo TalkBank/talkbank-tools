@@ -1,7 +1,7 @@
 # Apple MPS Workarounds
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:36 EDT
+**Last updated:** 2026-07-17 09:12 EDT
 
 ## MPS Exclusion Policy
 
@@ -246,6 +246,30 @@ The device selector (`_device_for_speaker_runtime`) returns `"cuda"` or
 The `BATCHALIGN_FORCE_CPU` environment variable (or `DevicePolicy(force_cpu=True)`)
 forces all model loaders onto CPU. This is the escape hatch when MPS causes
 problems that dtype coercion alone can't fix.
+
+### The MPS opt-in (`BATCHALIGN_ALLOW_MPS=1`, added 2026-07-17)
+
+MPS is excluded by default (the April 2026 AGX kernel deadlock hard-stalled
+machines, with no known driver fix), but the failure proved RARE in a year of
+fleet use, so the brave can opt in per process:
+
+```bash
+BATCHALIGN_ALLOW_MPS=1 batchalign3 align ...
+```
+
+Selection order becomes CUDA > MPS > CPU; `BATCHALIGN_FORCE_CPU=1` still
+overrides everything. What the opt-in does and does not change:
+
+- Model dtypes stay **float32** on MPS (every loader's non-CUDA branch):
+  fp16-on-MPS caused the Feb/Mar 2026 corruption incidents and remains off.
+- The **speaker (diarization) stage never uses MPS**, opt-in or not:
+  Pyannote emits wrong timestamps on MPS (upstream wontfix), which is a
+  correctness bug, not a stability trade.
+- A one-per-process warning is logged when MPS actually engages, naming the
+  rare-stall risk, so a wedged machine is not a mystery.
+- The flag is per-process and inherited by spawned workers, same as
+  `BATCHALIGN_FORCE_CPU`. Do not set it on unattended fleet servers; it is
+  for interactive/supervised runs where a reboot is cheap.
 
 ## Memory Issues on MPS
 
