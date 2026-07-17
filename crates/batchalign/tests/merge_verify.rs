@@ -56,6 +56,8 @@ const DRAFT_CHA: &str = "\
 *CHI:\tmaybe . \u{15}5000_6000\u{15}
 %com:\tverify: placement (interpolated)
 *PAR:\tsure . \u{15}7000_8000\u{15}
+*CHI:\tthis long utterance wraps onto a continuation line and keeps
+\tgoing before it ends . \u{15}9000_9900\u{15}
 @End
 ";
 
@@ -217,17 +219,34 @@ fn demotion_adds_review_flag_without_moving_text() {
     );
 }
 
-/// Preservation invariant: every main-tier line is byte-identical
-/// between input and output.
+/// Preservation invariant: every LOGICAL main tier (continuation
+/// lines joined) is identical between input and output. The fixture
+/// includes a wrapped utterance so re-wrapping is exercised.
 #[test]
-fn main_tiers_are_byte_identical() {
+fn main_tiers_are_logically_identical() {
     let fx = fixture();
     run_merge_verify(&fx).success();
     let out = std::fs::read_to_string(fx.out.join("S1.cha")).expect("read output");
-    let mains_in: Vec<&str> = DRAFT_CHA.lines().filter(|l| l.starts_with('*')).collect();
-    let mains_out: Vec<&str> = out.lines().filter(|l| l.starts_with('*')).collect();
+    let logical = |chat: &str| -> Vec<String> {
+        let mut acc: Vec<String> = Vec::new();
+        let mut in_main = false;
+        for line in chat.lines() {
+            if line.starts_with('*') {
+                acc.push(line.to_owned());
+                in_main = true;
+            } else if in_main && line.starts_with('\t') {
+                let current = acc.last_mut().expect("continuation follows a main tier");
+                current.push(' ');
+                current.push_str(line.trim_start_matches('\t'));
+            } else {
+                in_main = false;
+            }
+        }
+        acc
+    };
     assert_eq!(
-        mains_in, mains_out,
-        "main tiers must be byte-identical through merge-verify"
+        logical(DRAFT_CHA),
+        logical(&out),
+        "logical main tiers must be identical through merge-verify"
     );
 }

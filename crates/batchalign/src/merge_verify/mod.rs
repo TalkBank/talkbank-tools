@@ -439,9 +439,30 @@ fn queue_entry(session: &str, verdict: &LineVerdict, tier: TierOutcome) -> Queue
     }
 }
 
-/// Main-tier lines of a CHAT text, for the preservation check.
-fn main_tier_lines(chat: &str) -> Vec<&str> {
-    chat.lines().filter(|line| line.starts_with('*')).collect()
+/// LOGICAL main-tier lines of a CHAT text, for the preservation check.
+///
+/// CHAT wraps long tiers onto tab-indented continuation lines and the
+/// serializer may re-wrap differently (typically unwrapping), so the
+/// invariant compares logical content: each `*` line with its
+/// continuations joined by single spaces. Caught on real merged drafts
+/// where wrapped utterances round-tripped to single lines.
+fn main_tier_lines(chat: &str) -> Vec<String> {
+    let mut logical: Vec<String> = Vec::new();
+    let mut in_main = false;
+    for line in chat.lines() {
+        if line.starts_with('*') {
+            logical.push(line.to_owned());
+            in_main = true;
+        } else if in_main && line.starts_with('\t') {
+            if let Some(current) = logical.last_mut() {
+                current.push(' ');
+                current.push_str(line.trim_start_matches('\t'));
+            }
+        } else {
+            in_main = false;
+        }
+    }
+    logical
 }
 
 /// Run the pass: read every session named in the verdicts document from
