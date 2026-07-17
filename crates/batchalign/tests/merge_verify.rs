@@ -60,6 +60,8 @@ const DRAFT_CHA: &str = "\
 \tgoing before it ends . \u{15}9000_9900\u{15}
 *CHI:\tokay . \u{15}10000_11000\u{15}
 %com:\tGONNA HAD ONE SYLLABLE . ; verify: placement (medium-confidence anchor)
+*CHI:\tthis very long utterance could never fit inside its collapsed span . \u{15}12000_12001\u{15}
+%com:\tverify: placement (diarization mislabel)
 @End
 ";
 
@@ -79,7 +81,9 @@ const VERDICTS_JSON: &str = r#"{
     {"utterance_index": 3, "category": "confident",
      "fa_mean_score": 0.05, "pitch": "adult", "ear": "no"},
     {"utterance_index": 5, "category": "medium",
-     "fa_mean_score": 0.61, "pitch": "child", "ear": "yes"}
+     "fa_mean_score": 0.61, "pitch": "child", "ear": "yes"},
+    {"utterance_index": 6, "category": "other",
+     "fa_mean_score": null, "pitch": "child", "ear": "yes"}
    ]
   }
  ]
@@ -183,6 +187,26 @@ fn human_prefixed_flag_rewritten_and_note_preserved() {
     assert!(
         !mixed.contains("verify:"),
         "promoted flag segment must be rewritten, got: {mixed}"
+    );
+}
+
+/// An UNSCORABLE line (FA could not align: fa_mean_score is null in
+/// the verdicts) still promotes on the composed rule (FA is
+/// ordering-only, never a gate) and its provenance note says fa=n/a
+/// rather than fabricating a number.
+#[test]
+fn unscorable_fa_line_promotes_with_na_note() {
+    let fx = fixture();
+    run_merge_verify(&fx).success();
+    let out = std::fs::read_to_string(fx.out.join("S1.cha")).expect("read output");
+    let line = out
+        .lines()
+        .filter(|l| l.starts_with("%com:"))
+        .find(|l| l.contains("fa=n/a"))
+        .expect("unscorable line's provenance note with fa=n/a present");
+    assert!(
+        line.contains("machine-verified") && line.contains("ear=yes"),
+        "unscorable line must still promote on pitch+ear: {line}"
     );
 }
 

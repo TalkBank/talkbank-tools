@@ -110,7 +110,11 @@ pub struct LineVerdict {
     /// Calibrated flag category (mapped at the corpus seam).
     pub category: VerifyCategory,
     /// Mean per-word forced-alignment confidence for the placed text.
-    pub fa_mean_score: f64,
+    /// None = UNSCORABLE: the token sequence exceeded what the audio
+    /// window could hold, so CTC alignment was impossible. FA is
+    /// ordering-only (never a promote/demote gate), so an unscorable
+    /// line is tiered by its category, pitch, and ear alone.
+    pub fa_mean_score: Option<f64>,
     /// Pitch band of the placed span.
     pub pitch: PitchBand,
     /// Machine-ear answer for the placed text.
@@ -197,8 +201,8 @@ pub struct QueueEntry {
     pub category: VerifyCategory,
     /// Why the line queued (REVIEW gate failure or demotion).
     pub tier: TierOutcome,
-    /// Mean per-word forced-alignment confidence.
-    pub fa_mean_score: f64,
+    /// Mean per-word forced-alignment confidence (None = unscorable).
+    pub fa_mean_score: Option<f64>,
     /// Pitch band of the placed span.
     pub pitch: PitchBand,
     /// Machine-ear answer.
@@ -336,11 +340,20 @@ fn ear_label(ear: EarVerdict) -> &'static str {
 /// The machine-verified provenance note replacing a promoted flag.
 /// Carries the three signals and the known residual failure mode
 /// (whispered adult speech defeats the pitch leg; ~2.5% measured).
+/// Render the FA leg for a note: a number, or an honest n/a for an
+/// unscorable line (never a fabricated value).
+fn fa_label(score: Option<f64>) -> String {
+    match score {
+        Some(value) => format!("{value:.2}"),
+        None => "n/a".to_owned(),
+    }
+}
+
 fn provenance_note(verdict: &LineVerdict) -> String {
     format!(
-        "machine-verified placement (fa={:.2}, pitch={}, ear={}); \
+        "machine-verified placement (fa={}, pitch={}, ear={}); \
          residual risk: whispered adult speech (~2.5% measured)",
-        verdict.fa_mean_score,
+        fa_label(verdict.fa_mean_score),
         pitch_label(verdict.pitch),
         ear_label(verdict.ear),
     )
@@ -349,8 +362,8 @@ fn provenance_note(verdict: &LineVerdict) -> String {
 /// The review flag added to a demoted (previously confident) line.
 fn demotion_note(verdict: &LineVerdict) -> String {
     format!(
-        "review: machine-demoted placement (fa={:.2}, pitch={}, ear={})",
-        verdict.fa_mean_score,
+        "review: machine-demoted placement (fa={}, pitch={}, ear={})",
+        fa_label(verdict.fa_mean_score),
         pitch_label(verdict.pitch),
         ear_label(verdict.ear),
     )
