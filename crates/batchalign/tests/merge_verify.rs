@@ -62,6 +62,7 @@ const DRAFT_CHA: &str = "\
 %com:\tGONNA HAD ONE SYLLABLE . ; verify: placement (medium-confidence anchor)
 *CHI:\tthis very long utterance could never fit inside its collapsed span . \u{15}12000_12001\u{15}
 %com:\tverify: placement (diarization mislabel)
+*CHI:\tI know how, see ? \u{15}13000_14000\u{15}
 @End
 ";
 
@@ -208,6 +209,38 @@ fn unscorable_fa_line_promotes_with_na_note() {
         line.contains("machine-verified") && line.contains("ear=yes"),
         "unscorable line must still promote on pitch+ear: {line}"
     );
+}
+
+/// The pass is SURGICAL: every byte outside the %com tiers it edits
+/// is preserved verbatim, including constructs the model writer would
+/// canonicalize (an attached comma "how, see" must NOT become
+/// "how , see"). Regression: the corpus run failed its own invariant
+/// on exactly this (2026-07-17); the fix is line splicing into the
+/// original text, never whole-file reserialization.
+#[test]
+fn untouched_text_is_byte_identical_including_attached_comma() {
+    let fx = fixture();
+    run_merge_verify(&fx).success();
+    let out = std::fs::read_to_string(fx.out.join("S1.cha")).expect("read output");
+    assert!(
+        out.contains("I know how, see ?"),
+        "attached comma must survive byte-identically, got: {}",
+        out.lines()
+            .find(|l| l.contains("I know how"))
+            .unwrap_or("<line missing>")
+    );
+    // Stronger: every line not carrying an edited flag is verbatim.
+    let input_lines: Vec<&str> = DRAFT_CHA.lines().collect();
+    let output_lines: Vec<&str> = out.lines().collect();
+    for line in &input_lines {
+        if line.starts_with("%com:") {
+            continue; // the pass may rewrite these
+        }
+        assert!(
+            output_lines.contains(line),
+            "non-%com input line missing verbatim from output: {line:?}"
+        );
+    }
 }
 
 /// REVIEW and HOLD flags pass through unchanged; the review queue

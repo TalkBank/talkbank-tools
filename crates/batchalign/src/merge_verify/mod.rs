@@ -284,7 +284,7 @@ pub enum MergeVerifyError {
     /// The preservation invariant broke: a main tier changed.
     #[error(
         "preservation invariant violated in session '{session}': main tier \
-         {ordinal:?} changed through the pass"
+         {ordinal:?} changed through the pass\n  before: {before}\n  after:  {after}"
     )]
     MainTierChanged {
         /// Session where the invariant broke.
@@ -292,6 +292,26 @@ pub enum MergeVerifyError {
         /// Ordinal of the changed main tier (usize::MAX sentinel is
         /// never used; a count mismatch reports the first divergence).
         ordinal: UtteranceOrdinal,
+        /// The logical tier text before the pass (evidence, not prose:
+        /// a fail-closed guard must say WHAT changed).
+        before: String,
+        /// The logical tier text after the pass.
+        after: String,
+    },
+    /// A planned %com edit found no matching tier line in the original
+    /// text (the typed model and the line splice disagree about the
+    /// utterance's tiers): fail loud, never write a partial edit.
+    #[error(
+        "no %com tier matching the planned edit in session '{session}' \
+         utterance {ordinal:?}: expected tier text {expected:?}"
+    )]
+    ComTierNotFound {
+        /// Session where the splice failed.
+        session: String,
+        /// Utterance whose planned edit found no matching tier.
+        ordinal: UtteranceOrdinal,
+        /// The tier text the plan expected to find.
+        expected: String,
     },
     /// The review queue could not be serialized.
     #[error("review queue at {path} failed to serialize: {source}")]
@@ -388,25 +408,52 @@ fn rewrite_flag_text(text: &str, flag_prefix: &str, verdict: &LineVerdict) -> Op
     ))
 }
 
-/// Apply the tier pass to one parsed draft in place. Returns the queue
-/// entries contributed by this session.
-fn apply_to_file(
-    file: &mut ChatFile,
+/// One planned edit to an utterance's %com tiers, applied later by the
+/// line splice. The pass NEVER reserializes the file: every byte outside
+/// these edits is preserved verbatim (the serializer canonicalizes
+/// constructs like attached commas, which must not churn hand-edited
+/// corpus text; found on the 2026-07-17 corpus run).
+#[derive(Clone, Debug)]
+enum TierEdit {
+    /// Replace the %com tier whose (unwrapped) text equals `old` with a
+    /// single tier line carrying `new`.
+    RewriteCom {
+        /// The tier text to find (the typed model's view of the tier).
+        old: String,
+        /// The replacement tier text.
+        new: String,
+    },
+    /// Append a new %com tier at the end of the utterance block.
+    AppendCom {
+        /// The new tier text.
+        text: String,
+    },
+}
+
+/// The per-utterance %com edit plan, keyed by main-tier ordinal.
+type EditPlan = BTreeMap<usize, Vec<TierEdit>>;
+
+/// Decide every tier outcome for one parsed draft. Returns the queue
+/// entries plus the per-utterance %com edit plan; the draft itself is
+/// only read, never mutated.
+fn plan_edits(
+    file: &ChatFile,
     session: &str,
     verdicts: &[LineVerdict],
     flag_prefix: &str,
     summary: &mut VerifySummary,
-) -> Result<Vec<QueueEntry>, MergeVerifyError> {
+) -> Result<(Vec<QueueEntry>, EditPlan), MergeVerifyError> {
     let by_ordinal: BTreeMap<UtteranceOrdinal, &LineVerdict> = verdicts
         .iter()
         .map(|verdict| (verdict.utterance_index, verdict))
         .collect();
 
     let mut queue = Vec::new();
+    let mut edits = EditPlan::new();
     let mut ordinal = 0usize;
     let mut utterance_count = 0usize;
 
-    for line in file.lines.iter_mut() {
+    for line in file.lines.iter() {
         let Line::Utterance(utterance) = line else {
             continue;
         };
@@ -420,12 +467,15 @@ fn apply_to_file(
         match outcome {
             TierOutcome::AutoTrust => {
                 summary.auto_trusted += 1;
-                for tier in utterance.dependent_tiers.iter_mut() {
-                    if let DependentTier::Com(com) = tier
-                        && let Some(rewritten) =
-                            rewrite_flag_text(&com_text(com), flag_prefix, verdict)
-                    {
-                        *com = ComTier::from_text(rewritten);
+                for tier in utterance.dependent_tiers.iter() {
+                    if let DependentTier::Com(com) = tier {
+                        let old = com_text(com);
+                        if let Some(new) = rewrite_flag_text(&old, flag_prefix, verdict) {
+                            edits
+                                .entry(current.0)
+                                .or_default()
+                                .push(TierEdit::RewriteCom { old, new });
+                        }
                     }
                 }
             }
@@ -438,11 +488,12 @@ fn apply_to_file(
             }
             TierOutcome::Demote => {
                 summary.demoted += 1;
-                utterance
-                    .dependent_tiers
-                    .push(DependentTier::Com(ComTier::from_text(demotion_note(
-                        verdict,
-                    ))));
+                edits
+                    .entry(current.0)
+                    .or_default()
+                    .push(TierEdit::AppendCom {
+                        text: demotion_note(verdict),
+                    });
                 queue.push(queue_entry(session, verdict, outcome));
             }
             TierOutcome::Untouched => {}
@@ -457,7 +508,105 @@ fn apply_to_file(
         });
     }
 
-    Ok(queue)
+    Ok((queue, edits))
+}
+
+/// Apply the edit plan to the ORIGINAL text by line splicing: only the
+/// planned %com tier lines change; every other byte passes through
+/// verbatim. A `%com` logical line is the `%com:` line plus its
+/// tab-indented continuations, unwrapped with single spaces (the same
+/// convention the typed model uses for tier text), so the plan's
+/// old-text match is exact whether or not the tier was wrapped.
+fn splice_edits(
+    original: &str,
+    session: &str,
+    edits: &EditPlan,
+) -> Result<String, MergeVerifyError> {
+    let lines: Vec<&str> = original.split('\n').collect();
+    let mut output: Vec<String> = Vec::with_capacity(lines.len());
+    let mut ordinal: Option<usize> = None;
+    let mut index = 0usize;
+
+    while index < lines.len() {
+        let line = lines[index];
+        if !line.starts_with('*') {
+            output.push(line.to_owned());
+            index += 1;
+            continue;
+        }
+        ordinal = Some(ordinal.map_or(0, |o| o + 1));
+        let current = ordinal.unwrap_or(0);
+
+        // Collect this utterance block: the main line, its continuations,
+        // and every dependent tier (with continuations) until the next
+        // main line or header.
+        let block_start = index;
+        index += 1;
+        while index < lines.len() {
+            let candidate = lines[index];
+            if candidate.starts_with('*') || candidate.starts_with('@') {
+                break;
+            }
+            if candidate.is_empty() && index + 1 == lines.len() {
+                // Trailing empty piece from the final newline: not part
+                // of the block.
+                break;
+            }
+            index += 1;
+        }
+        let mut block: Vec<String> = lines[block_start..index]
+            .iter()
+            .map(|piece| (*piece).to_owned())
+            .collect();
+
+        if let Some(block_edits) = edits.get(&current) {
+            for edit in block_edits {
+                match edit {
+                    TierEdit::RewriteCom { old, new } => {
+                        let found = find_com_logical_line(&block, old);
+                        let Some((tier_start, tier_end)) = found else {
+                            return Err(MergeVerifyError::ComTierNotFound {
+                                session: session.to_owned(),
+                                ordinal: UtteranceOrdinal(current),
+                                expected: old.clone(),
+                            });
+                        };
+                        block.splice(tier_start..tier_end, [format!("%com:\t{new}")]);
+                    }
+                    TierEdit::AppendCom { text } => {
+                        block.push(format!("%com:\t{text}"));
+                    }
+                }
+            }
+        }
+        output.extend(block);
+    }
+
+    Ok(output.join("\n"))
+}
+
+/// Locate the `%com` logical line (start..end line range) within an
+/// utterance block whose unwrapped text equals `expected`.
+fn find_com_logical_line(block: &[String], expected: &str) -> Option<(usize, usize)> {
+    let mut i = 0usize;
+    while i < block.len() {
+        if let Some(first) = block[i].strip_prefix("%com:") {
+            let mut text = first.trim_start_matches('\t').to_owned();
+            let mut end = i + 1;
+            while end < block.len() && block[end].starts_with('\t') {
+                text.push(' ');
+                text.push_str(block[end].trim_start_matches('\t'));
+                end += 1;
+            }
+            if text == expected {
+                return Some((i, end));
+            }
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    None
 }
 
 fn queue_entry(session: &str, verdict: &LineVerdict, tier: TierOutcome) -> QueueEntry {
@@ -541,7 +690,7 @@ pub fn run(
             path: in_path.clone(),
             source,
         })?;
-        let (mut file, parse_errors) = batchalign_transform::parse::parse_lenient(&parser, &before);
+        let (file, parse_errors) = batchalign_transform::parse::parse_lenient(&parser, &before);
         if !parse_errors.is_empty() {
             return Err(MergeVerifyError::DraftParse {
                 path: in_path,
@@ -553,16 +702,17 @@ pub fn run(
             });
         }
 
-        queue.entries.extend(apply_to_file(
-            &mut file,
+        let (session_queue, edits) = plan_edits(
+            &file,
             &session.session,
             &session.lines,
             flag_prefix,
             &mut summary,
-        )?);
+        )?;
+        queue.entries.extend(session_queue);
         summary.sessions += 1;
 
-        let after = batchalign_transform::serialize::to_chat_string(&file);
+        let after = splice_edits(&before, &session.session, &edits)?;
         let mains_before = main_tier_lines(&before);
         let mains_after = main_tier_lines(&after);
         if let Some(changed) = mains_before
@@ -571,9 +721,17 @@ pub fn run(
             .position(|(before_line, after_line)| before_line != after_line)
             .or_else(|| (mains_before.len() != mains_after.len()).then_some(usize::MAX))
         {
+            let show = |mains: &[String]| {
+                mains
+                    .get(changed)
+                    .cloned()
+                    .unwrap_or_else(|| format!("<no tier at ordinal; count {}>", mains.len()))
+            };
             return Err(MergeVerifyError::MainTierChanged {
                 session: session.session.clone(),
                 ordinal: UtteranceOrdinal(changed),
+                before: show(&mains_before),
+                after: show(&mains_after),
             });
         }
 
