@@ -26,7 +26,7 @@ chatter on 2026-06-18 (meta-repo memory
 `[workspace.dependencies]` in `Cargo.toml` points `talkbank-model`,
 `talkbank-parser`, `talkbank-parser-re2c`, `talkbank-parser-tests`, and
 `talkbank-transform` at the published, public chatter via git deps pinned to a
-release tag: `{ git = "https://github.com/TalkBank/chatter", tag = "v0.2.1" }`.
+release tag (see `Cargo.toml` for the current tag; e.g. `{ git = "https://github.com/TalkBank/chatter", tag = "v0.3.5" }`).
 A plain checkout builds with no `../chatter` sibling. Adopt a newer chatter by
 bumping the tag (then `cargo update`). **Do NOT re-introduce copies of those
 crates here**; chatter owns them. New CHAT-format / grammar / spec / parser /
@@ -53,7 +53,6 @@ talkbank-transform = { path = "../chatter/crates/talkbank-transform" }
 | `batchalign-transform` | Batchalign-specific CHAT transforms (`asr_postprocess`, `morphosyntax`, `utseg`, FA `decisions`, `compare`, `build_chat`, `dp_align`, ...) layered over chatter's generic `talkbank-transform`, which it re-exports via a facade (`pub use talkbank_transform::*`) |
 | `batchalign-pyo3` | PyO3 bridge for the Python package |
 | `batchalign-types` | Shared types |
-| `send2clan-sys` | CLAN-app FFI; currently **orphaned** (no consumer) , candidate for removal |
 
 Plus `apps/dashboard-desktop` (Tauri shell, experimental, excluded from CI
 gates), `frontend/` (React dashboard), the `batchalign` / `batchalign_core`
@@ -103,7 +102,7 @@ builds and smoke-tests without publishing); it attaches the installer scripts, a
 wheels, and a checksum file. End users install from the GitHub Release via a uv-bootstrap
 installer pulling those wheels, never from a package index.
 
-The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.2.1"`
+The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.3.5"`
 git dep shown above); adopt a newer chatter by bumping that tag and running `cargo update`.
 
 ## Cross-Cutting Design Rules
