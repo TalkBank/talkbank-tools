@@ -58,6 +58,8 @@ const DRAFT_CHA: &str = "\
 *PAR:\tsure . \u{15}7000_8000\u{15}
 *CHI:\tthis long utterance wraps onto a continuation line and keeps
 \tgoing before it ends . \u{15}9000_9900\u{15}
+*CHI:\tokay . \u{15}10000_11000\u{15}
+%com:\tGONNA HAD ONE SYLLABLE . ; verify: placement (medium-confidence anchor)
 @End
 ";
 
@@ -75,7 +77,9 @@ const VERDICTS_JSON: &str = r#"{
     {"utterance_index": 2, "category": "clock",
      "fa_mean_score": 0.10, "pitch": "ambiguous", "ear": "no"},
     {"utterance_index": 3, "category": "confident",
-     "fa_mean_score": 0.05, "pitch": "adult", "ear": "no"}
+     "fa_mean_score": 0.05, "pitch": "adult", "ear": "no"},
+    {"utterance_index": 5, "category": "medium",
+     "fa_mean_score": 0.61, "pitch": "child", "ear": "yes"}
    ]
   }
  ]
@@ -154,6 +158,31 @@ fn auto_trust_rewrites_flag_to_provenance_note() {
     assert!(
         !first_com.contains("verify:"),
         "promoted line must not still read as a verify flag: {first_com}"
+    );
+}
+
+/// A %com tier carrying a human transcriber note BEFORE the flag (the
+/// merge writer appends its flag to an existing comment as
+/// "<human> ; <prefix>: <flag>") still gets its flag rewritten on
+/// AUTO_TRUST, and the human note survives verbatim. Regression: four
+/// bundle utterances with exactly this shape were silently skipped by
+/// a starts-with predicate (found 2026-07-17).
+#[test]
+fn human_prefixed_flag_rewritten_and_note_preserved() {
+    let fx = fixture();
+    run_merge_verify(&fx).success();
+    let out = std::fs::read_to_string(fx.out.join("S1.cha")).expect("read output");
+    let mixed = out
+        .lines()
+        .find(|l| l.contains("GONNA HAD ONE SYLLABLE"))
+        .expect("human-prefixed %com present");
+    assert!(
+        mixed.contains("GONNA HAD ONE SYLLABLE . ; machine-verified"),
+        "human note must survive verbatim ahead of the provenance note, got: {mixed}"
+    );
+    assert!(
+        !mixed.contains("verify:"),
+        "promoted flag segment must be rewritten, got: {mixed}"
     );
 }
 

@@ -356,6 +356,25 @@ fn demotion_note(verdict: &LineVerdict) -> String {
     )
 }
 
+/// Rewrite the flag segment of a %com tier's text into the provenance
+/// note, preserving any human transcriber note ahead of it verbatim.
+///
+/// The merge writer appends its flag to a pre-existing human comment as
+/// `<human note> ; <prefix>: <flag>`, so the flag is not always at the
+/// start of the tier; it always runs from the `<prefix>:` marker to the
+/// end. Returns None when the tier carries no flag (a plain human
+/// comment is never touched). A bare `starts_with` predicate here
+/// silently skipped four human-prefixed bundle flags (2026-07-17).
+fn rewrite_flag_text(text: &str, flag_prefix: &str, verdict: &LineVerdict) -> Option<String> {
+    let marker = format!("{flag_prefix}:");
+    let flag_start = text.find(&marker)?;
+    Some(format!(
+        "{}{}",
+        &text[..flag_start],
+        provenance_note(verdict)
+    ))
+}
+
 /// Apply the tier pass to one parsed draft in place. Returns the queue
 /// entries contributed by this session.
 fn apply_to_file(
@@ -390,9 +409,10 @@ fn apply_to_file(
                 summary.auto_trusted += 1;
                 for tier in utterance.dependent_tiers.iter_mut() {
                     if let DependentTier::Com(com) = tier
-                        && com_text(com).starts_with(flag_prefix)
+                        && let Some(rewritten) =
+                            rewrite_flag_text(&com_text(com), flag_prefix, verdict)
                     {
-                        *com = ComTier::from_text(provenance_note(verdict));
+                        *com = ComTier::from_text(rewritten);
                     }
                 }
             }
