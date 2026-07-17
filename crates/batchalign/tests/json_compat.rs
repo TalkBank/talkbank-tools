@@ -336,6 +336,7 @@ fn snapshot_server_config_full() {
         auto_daemon: true,
         memory_gate_mb: Some(MemoryMb(2048)),
         worker_health_interval_s: 15,
+        allow_mps: Some(true),
         ..Default::default()
     };
     insta::assert_json_snapshot!("server_config_full", cfg);

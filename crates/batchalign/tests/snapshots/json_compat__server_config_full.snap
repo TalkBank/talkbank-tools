@@ -1,6 +1,5 @@
 ---
 source: crates/batchalign/tests/json_compat.rs
-assertion_line: 352
 expression: cfg
 ---
 {
@@ -17,6 +16,7 @@ expression: cfg
   "max_concurrent_jobs": 4,
   "port": 9000,
   "host": "0.0.0.0",
+  "allow_mps": true,
   "max_workers_per_job": 2,
   "job_ttl_days": 14,
   "warmup_commands": [

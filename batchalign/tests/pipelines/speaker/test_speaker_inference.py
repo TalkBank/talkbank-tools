@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 
+from batchalign.device import DevicePolicy
 from batchalign.inference.speaker import (
     SpeakerSegment,
     _conv_scale_weights,
@@ -215,14 +216,10 @@ def test_device_for_speaker_runtime_selects_expected_backend(
 ) -> None:
     """Speaker runtime device choice should respect force-CPU and hardware availability."""
 
-    monkeypatch.setattr(
-        "batchalign.device.force_cpu_preferred",
-        lambda _device_policy: force_cpu,
-    )
     monkeypatch.setattr("torch.cuda.is_available", lambda: cuda_available)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
 
-    assert _device_for_speaker_runtime("policy") == expected
+    assert _device_for_speaker_runtime(DevicePolicy(force_cpu=force_cpu)) == expected
 
 
 def test_get_pyannote_pipeline_caches_loaded_pipeline(monkeypatch) -> None:

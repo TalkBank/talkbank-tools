@@ -73,6 +73,7 @@ def _make_main_args(
     profile: str = "gpu",
     transport: str = "stdio",
     force_cpu: bool = False,
+    allow_mps: bool = False,
     gpu_thread_pool_size: int = 4,
 ) -> SimpleNamespace:
     """Build a fake argparse namespace matching ``build_arg_parser()``."""
@@ -86,6 +87,7 @@ def _make_main_args(
         verbose=0,
         profile=profile,
         force_cpu=force_cpu,
+        allow_mps=allow_mps,
         gpu_thread_pool_size=gpu_thread_pool_size,
         transport=transport,
         host="127.0.0.1",

@@ -1,6 +1,5 @@
 ---
 source: crates/batchalign/tests/json_compat.rs
-assertion_line: 315
 expression: cfg
 ---
 {
@@ -10,6 +9,7 @@ expression: cfg
   "default_lang": "eng",
   "port": 8000,
   "host": "0.0.0.0",
+  "allow_mps": null,
   "job_ttl_days": 7,
   "warmup_commands": [
     "morphotag",

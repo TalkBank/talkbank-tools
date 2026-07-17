@@ -62,22 +62,6 @@ def apply_force_cpu(environ: MutableMapping[str, str] | None = None) -> DevicePo
     return DevicePolicy(force_cpu=True)
 
 
-def force_cpu_preferred(
-    policy: DevicePolicy | None = None,
-    *,
-    environ: Mapping[str, str] | None = None,
-) -> bool:
-    """Check whether CPU-only mode has been requested.
-
-    Returns
-    -------
-    bool
-        ``True`` if the resolved device policy prefers CPU-only execution.
-    """
-    resolved_policy = policy or DevicePolicy.from_environ(environ)
-    return resolved_policy.force_cpu
-
-
 def resolve_inference_device(
     device_policy: DevicePolicy | None = None,
 ) -> _torch.device:

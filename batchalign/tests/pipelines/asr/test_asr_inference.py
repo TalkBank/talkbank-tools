@@ -14,6 +14,7 @@ import sys
 import numpy as np
 import torch
 
+from batchalign.device import DevicePolicy
 from batchalign.inference.asr import (
     AsrBatchItem,
     AsrElement,
@@ -357,10 +358,6 @@ class TestWhisperLoader:
             "batchalign.inference.audio.bind_whisper_token_timestamp_extractor",
             lambda model: bind_calls.append(model),
         )
-        monkeypatch.setattr(
-            "batchalign.device.force_cpu_preferred",
-            lambda _policy=None: False,
-        )
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
         monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
 
@@ -369,7 +366,7 @@ class TestWhisperLoader:
             base="cuda-base",
             language="english",
             target_sample_rate=44100,
-            device_policy="policy",
+            device_policy=DevicePolicy(),
         )
 
         assert handle.lang == "english"
@@ -412,10 +409,6 @@ class TestWhisperLoader:
             "batchalign.inference.audio.bind_whisper_token_timestamp_extractor",
             lambda _model: None,
         )
-        monkeypatch.setattr(
-            "batchalign.device.force_cpu_preferred",
-            lambda _policy=None: False,
-        )
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
 
@@ -424,7 +417,7 @@ class TestWhisperLoader:
             base="mps-base",
             language="Cantonese",
             target_sample_rate=22050,
-            device_policy="policy",
+            device_policy=DevicePolicy(),
         )
 
         assert handle.config.no_timestamps_token_id == 50363
@@ -454,14 +447,10 @@ class TestWhisperLoader:
             "batchalign.inference.audio.bind_whisper_token_timestamp_extractor",
             lambda _model: None,
         )
-        monkeypatch.setattr(
-            "batchalign.device.force_cpu_preferred",
-            lambda _policy=None: False,
-        )
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
 
-        handle = load_whisper_asr(device_policy="policy")
+        handle = load_whisper_asr(device_policy=DevicePolicy())
 
         assert handle.lang == "english"
         assert pipeline_calls[0][1]["device"] == torch.device("cpu")

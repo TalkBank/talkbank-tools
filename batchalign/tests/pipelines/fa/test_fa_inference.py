@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 import torch
 
+from batchalign.device import DevicePolicy
 from batchalign.inference.fa import (
     FaInferItem,
     FaRawToken,
@@ -266,10 +267,6 @@ def test_load_whisper_fa_selects_device_and_dtype(
     monkeypatch.setattr("torch.cuda.is_available", lambda: cuda_available)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
     monkeypatch.setattr(
-        "batchalign.device.force_cpu_preferred",
-        lambda _device_policy: force_cpu,
-    )
-    monkeypatch.setattr(
         "batchalign.inference.audio.bind_whisper_token_timestamp_extractor",
         lambda model: captured.setdefault("bound_model", model),
     )
@@ -284,7 +281,7 @@ def test_load_whisper_fa_selects_device_and_dtype(
 
     from batchalign.inference.fa import load_whisper_fa
 
-    handle = load_whisper_fa(model="openai/fake-whisper", target_sample_rate=22050, device_policy="policy")
+    handle = load_whisper_fa(model="openai/fake-whisper", target_sample_rate=22050, device_policy=DevicePolicy(force_cpu=force_cpu))
 
     assert handle.sample_rate == 22050
     assert handle.processor.name == "openai/fake-whisper"
@@ -337,17 +334,13 @@ def test_load_wave2vec_fa_selects_expected_device(
     monkeypatch.setattr("torch.cuda.is_available", lambda: cuda_available)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
     monkeypatch.setattr(
-        "batchalign.device.force_cpu_preferred",
-        lambda _device_policy: force_cpu,
-    )
-    monkeypatch.setattr(
         "batchalign.inference.types.Wave2VecFAHandle",
         lambda model, sample_rate: SimpleNamespace(model=model, sample_rate=sample_rate),
     )
 
     from batchalign.inference.fa import load_wave2vec_fa
 
-    handle = load_wave2vec_fa(target_sample_rate=8000, device_policy="policy")
+    handle = load_wave2vec_fa(target_sample_rate=8000, device_policy=DevicePolicy(force_cpu=force_cpu))
 
     assert handle.sample_rate == 8000
     assert captured["bundle_get_model"] is True
@@ -359,7 +352,7 @@ def test_load_wave2vec_fa_selects_expected_device(
     [
         (True, False, False, "cpu", False),
         (False, True, False, "cuda", False),
-        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock) — the loader
+        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock); the loader
         # never reaches MPS, so the MPS-specific .float() cast is not exercised.
         (False, False, True, "cpu", False),
         (False, False, False, "cpu", False),
@@ -409,17 +402,13 @@ def test_load_wave2vec_fa_forces_float32_on_mps(
     monkeypatch.setattr("torch.cuda.is_available", lambda: cuda_available)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: mps_available)
     monkeypatch.setattr(
-        "batchalign.device.force_cpu_preferred",
-        lambda _device_policy: force_cpu,
-    )
-    monkeypatch.setattr(
         "batchalign.inference.types.Wave2VecFAHandle",
         lambda model, sample_rate: SimpleNamespace(model=model, sample_rate=sample_rate),
     )
 
     from batchalign.inference.fa import load_wave2vec_fa
 
-    handle = load_wave2vec_fa(target_sample_rate=16000, device_policy="policy")
+    handle = load_wave2vec_fa(target_sample_rate=16000, device_policy=DevicePolicy(force_cpu=force_cpu))
 
     assert captured["device"].type == expected_device
     if expect_float32_cast:
