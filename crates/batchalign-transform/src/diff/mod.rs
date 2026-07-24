@@ -10,7 +10,7 @@
 //!
 //! ```rust,no_run
 //! use talkbank_parser::TreeSitterParser;
-//! use talkbank_transform::diff::{DiffSummary, diff_chat};
+//! use batchalign_transform::diff::{DiffSummary, diff_chat};
 //!
 //! let parser = TreeSitterParser::new().unwrap();
 //! let before_text = std::fs::read_to_string("before.cha").unwrap();
