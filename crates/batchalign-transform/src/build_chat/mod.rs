@@ -33,7 +33,7 @@ pub use bridge::{TranscriptBuildError, build_chat_from_json, transcript_from_asr
 pub use schema::{ParticipantDesc, TranscriptDescription, UtteranceDesc, WordDesc};
 pub use utterances::tag_marker_separator;
 
-use headers::build_header_lines;
+use headers::{build_header_lines, build_participant_map};
 use parser::BuildChatContext;
 use utterances::build_utterance_lines;
 
@@ -53,5 +53,9 @@ pub fn build_chat(desc: &TranscriptDescription) -> Result<ChatFile, String> {
     )?);
     lines.push(Line::header(Header::End));
 
-    Ok(ChatFile::new(lines))
+    // Programmatically assembled CHAT carries the same typed participant
+    // metadata as parsed CHAT; `ChatFile::new`'s empty map is for parser
+    // intermediates only (see `build_participant_map`).
+    let participants = build_participant_map(desc, context.langs());
+    Ok(ChatFile::with_participants(lines, participants))
 }

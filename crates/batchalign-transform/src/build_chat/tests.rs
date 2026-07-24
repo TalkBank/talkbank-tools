@@ -1341,3 +1341,61 @@ fn test_build_chat_invalid_language_code_is_a_build_error() {
         "error must name the language problem, got: {err}"
     );
 }
+
+/// Programmatically assembled CHAT must carry the same typed participant
+/// metadata as parsed CHAT: `ChatFile::new` deliberately leaves the
+/// derived participant map empty (parser-intermediate semantics), so
+/// `build_chat` must populate it itself. Downstream consumers that
+/// consult `chat_file.participants` instead of re-parsing header lines
+/// would otherwise see an empty roster on ASR-built files.
+#[test]
+fn built_chat_file_carries_typed_participant_map() {
+    let utterances = vec![
+        asr_postprocess::Utterance {
+            speaker: asr_postprocess::SpeakerIndex(0),
+            words: vec![
+                asr_postprocess::AsrWord::new("hello", Some(100), Some(400)),
+                asr_postprocess::AsrWord::new(".", None, None),
+            ],
+            lang: None,
+        },
+        asr_postprocess::Utterance {
+            speaker: asr_postprocess::SpeakerIndex(1),
+            words: vec![
+                asr_postprocess::AsrWord::new("hi", Some(500), Some(800)),
+                asr_postprocess::AsrWord::new(".", None, None),
+            ],
+            lang: None,
+        },
+    ];
+    let ids = vec!["PAR".to_string(), "INV".to_string()];
+    let desc = transcript_from_asr_utterances(
+        &utterances,
+        &ids,
+        &["eng".to_string()],
+        Some("test.mp3"),
+        false,
+    )
+    .expect("test: transcript_from_asr_utterances should succeed");
+
+    let chat_file = build_chat(&desc).unwrap();
+
+    assert_eq!(
+        chat_file.participants.len(),
+        2,
+        "built ChatFile must populate its typed participant map"
+    );
+    let par = chat_file
+        .participants
+        .values()
+        .find(|p| p.code.as_str() == "PAR")
+        .expect("PAR participant present");
+    assert_eq!(par.role.as_str(), "Participant");
+    assert!(
+        chat_file
+            .participants
+            .values()
+            .any(|p| p.code.as_str() == "INV"),
+        "INV participant present"
+    );
+}
