@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-07-25 22:20 EDT
+**Last modified:** 2026-07-25 22:45 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -67,42 +67,21 @@ here; otherwise it belongs in chatter.
 
 ## Build, Test, Lint
 
-```bash
-make verify              # pre-merge gate: workspace compile + batchalign check/tests + mdBook
-make batchalign-ci-rust  # batchalign Rust gate (check + lib tests + integration + pyo3 build)
-cargo check --workspace --all-targets
-cargo nextest run -p batchalign --lib
-cargo nextest run -p batchalign-transform
-cargo fmt
-cargo clippy --all-targets -- -D warnings
-bash scripts/lint/shellcheck-all.sh   # every tracked shell script, strictest severity
-```
-
-`make verify` and the pre-push hook verify the **batchalign layer only**;
-CHAT-format verification (parser-equivalence, generated artifacts, fuzz, corpus
-roundtrip, grammar) is chatter's job now. CI workflows: `ci.yml` (cross-cutting
-dependency-audit + shellcheck), `batchalign-rust.yml`, `batchalign-python.yml`,
-`batchalign-desktop.yml`, `book.yml`.
+`make help` lists the targets; CI workflows live in
+`.github/workflows/`. Shell scripts pass `shellcheck` at default
+severity (`scripts/lint/shellcheck-all.sh`; wired into the ci-report
+gate). Rust tests: prefer scoped `cargo nextest run -p <crate>`.
+Developer procedure pages: `book/src/batchalign/developer/`.
 
 ## Releases and Versioning
 
-`batchalign3 version` reports `batchalign3 <pkg> (build <pkg>-<git-describe>-<epoch>)`,
-assembled in `crates/batchalign/build.rs` as `BUILD_HASH` (`git describe --always
---dirty`). The epoch changes on every rebuild, so a stale binary is detectable in
-development. With no reachable tag the describe is a bare commit; once an annotated
-`vX.Y.Z` tag is reachable it reads `vX.Y.Z-<n>-g<commit>`. No release semver is baked
-into the binary; the build hash is the identity. When matching the commit, key on git's
-`-g<hex>` describe sentinel (bare-commit fallback); never split the string by `-`
-position.
-
-Releases are GitHub Releases, **not PyPI**. `.github/workflows/batchalign-release.yml`
-is triggered by a `v*` tag push (or `workflow_dispatch`, which offers a `dry_run` that
-builds and smoke-tests without publishing); it attaches the installer scripts, abi3
-wheels, and a checksum file. End users install from the GitHub Release via a uv-bootstrap
-installer pulling those wheels, never from a package index.
-
-The CHAT core is consumed from chatter at a pinned **release tag** (the `tag = "v0.3.5"`
-git dep shown above); adopt a newer chatter by bumping that tag and running `cargo update`.
+No release semver is baked in: `batchalign3 version` reports a
+`git describe`-based BUILD identity assembled in
+`crates/batchalign/build.rs`; staleness is judged by build identity,
+never semver. Releases are GitHub Releases (uv-bootstrap installer +
+abi3 wheels), **never PyPI**. Release workflow:
+`.github/workflows/batchalign-release.yml` (tag push or
+workflow_dispatch with dry_run).
 
 ## Cross-Cutting Design Rules
 
@@ -166,34 +145,11 @@ pairs; `BTreeMap` for deterministic JSON in tests; `LazyLock<Regex>` for constan
 patterns; files <= ~400 lines (hard limit 800); no global mutable state, inject
 dependencies for test control.
 
-## Debugging Recipes (Python workers, async runtime)
+## Debugging Recipes
 
-**py-spy , Python CPU profiler / hung-worker triage.** Reads a running Python
-process by PID without restarting it. First thing to try when a worker is hung at
-0% CPU. `brew install py-spy` or `uv pip install py-spy`.
-
-```bash
-sudo py-spy dump --pid <worker-pid>                      # one-shot stack dump
-sudo py-spy top  --pid <worker-pid>                      # live per-function CPU
-sudo py-spy record -o profile.svg --pid $(pgrep -f batchalign3) --native --subprocesses
-```
-
-`--native` sees PyTorch / Stanza / Whisper internals; `--subprocesses` follows
-forked children. `sudo` is required on macOS to read another process's memory.
-
-**tokio-console , async runtime debugger for the Rust side.** Live TUI of every
-async task, what it waits on and for how long. Use when Rust dispatch is parked on
-a `oneshot::Receiver` / `Mutex` / `Semaphore`. Build behind the `debug-runtime`
-feature (zero production impact); needs `--cfg tokio_unstable`.
-
-```bash
-RUSTFLAGS="--cfg tokio_unstable" cargo build -p batchalign --bin batchalign3 --features debug-runtime
-./target/debug/batchalign3 transcribe input/ -o out/   # spawns gRPC server on 127.0.0.1:6669
-tokio-console http://127.0.0.1:6669                     # in another terminal
-```
-
-Full guides: `book/src/batchalign/developer/tracing-and-debugging.md` and
-`cpu-profiling.md`.
+Canonical: `book/src/batchalign/developer/tracing-and-debugging.md`
+(py-spy over workers) and `cpu-profiling.md` (tokio-console,
+`debug-runtime` feature). Do not restate the recipes here.
 
 ## %mor / morphotag note
 

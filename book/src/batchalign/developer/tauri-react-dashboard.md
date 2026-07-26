@@ -31,7 +31,7 @@ and the Tauri backend IPC boundary.
 ```mermaid
 flowchart TD
     subgraph "React Frontend (frontend/src/)"
-        subgraph "/dashboard — Fleet Monitoring"
+        subgraph "/dashboard: Fleet Monitoring"
             dash["DashboardPage"]
             dash --> joblist["JobList"] & workers["WorkerProfilePanel"] & mem["MemoryPanel"] & vitals["VitalsRow"]
             joblist --> jobcard["JobCard\n(status badge, progress)"]
@@ -40,7 +40,7 @@ flowchart TD
             detail --> filetable["FileTable\n(directory-grouped rows)"] & errors["ErrorPanel\n(error groups by code)"] & stage["PipelineStageBar\n(5 phases)"]
         end
 
-        subgraph "/process — End-User Processing"
+        subgraph "/process: End-User Processing"
             process["ProcessPage"]
             process --> cmdpicker["CommandPicker\n(2x3 grid)"]
             process --> folder["FolderPicker\n(native dialog)"]
@@ -79,7 +79,7 @@ dev server.
 ### Terminal 1: Start the Rust server
 
 ```bash
-# Debug build (faster compile, slower runtime — fine for dashboard dev)
+# Debug build (faster compile, slower runtime: fine for dashboard dev)
 cargo run -p batchalign -- serve start --foreground --port 8000
 ```
 
@@ -452,3 +452,100 @@ Run real-server dashboard E2E:
 ```bash
 BATCHALIGN_REAL_SERVER_E2E=1 scripts/run_react_dashboard_smoke.sh
 ```
+
+## E2E Testing Entry Points
+
+The dashboard has a unified e2e testing strategy across local development and CI. All paths
+route through the same Playwright test files under `frontend/e2e/tests/`.
+
+### Test Modes
+
+| Mode | Entry Point | Use Case | Requirements |
+|------|---|---|---|
+| **Mock server** | `npm run test:e2e` (default) | Fast local iteration, no deps | None (mock server built-in) |
+| **Real server** | `make batchalign-dashboard-e2e-real` | Full integration, real Batchalign binary | Rust binary, Python installation |
+| **CI canonical** | `dashboard-e2e` job in `batchalign-python.yml` | Pre-merge gate | Same as real-server |
+| **Desktop app** | `npm run test:e2e` from `apps/dashboard-desktop/` | Tauri webview integration | Tauri + all deps |
+
+### Local Development
+
+**Quick smoke test (no build, no binary required):**
+```bash
+cd frontend
+npm ci && npm run test:e2e
+```
+
+**Full integration with real Batchalign (optional, slow):**
+```bash
+make batchalign-dashboard-e2e-real
+```
+
+**Headed mode (watch tests in browser):**
+```bash
+cd frontend
+npm run test:e2e:headed
+```
+
+### CI Workflow
+
+The `dashboard-e2e` job in `.github/workflows/batchalign-python.yml`:
+1. Builds the wheel from the Batchalign Rust/Python stack
+2. Sets `BATCHALIGN_REAL_SERVER_E2E=1` and `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1`
+3. Runs `bash scripts/run_react_dashboard_smoke.sh` which orchestrates:
+   - API type generation
+   - Frontend build
+   - E2E environment setup (Playwright browsers + dependencies)
+   - Playwright tests against a real `batchalign3` server instance
+
+This job only runs on main and manual workflow_dispatch (not on all PRs due to performance).
+
+### Orchestration Scripts
+
+**`scripts/run_react_dashboard_smoke.sh`**: canonical orchestration script:
+- Generates dashboard API types from Rust OpenAPI spec
+- Builds frontend bundle
+- Sets up Playwright environment
+- Runs tests in mock or real server mode (via `BATCHALIGN_REAL_SERVER_E2E` env var)
+- Used by both local developers and CI
+
+**`scripts/build_react_dashboard.sh`**: deployment script:
+- Generates API types
+- Builds frontend
+- Copies built artifacts to target directory (default: `~/.batchalign3/dashboard`)
+
+**`scripts/check_dashboard_api_drift.sh`**: validation gate:
+- Ensures `openapi.json` and `frontend/src/generated/api.ts` are in sync
+- Fails if generated artifacts are stale
+- Part of both Makefile and CI gates
+
+## Data Flow
+
+### Dashboard (fleet monitoring)
+
+1. **Init**: Resolve the server URL from runtime config
+2. **WebSocket**: Connect to the server and receive snapshot + real-time updates
+3. **REST**: React Query fetches job lists and details
+4. **State**: Zustand store tracks dashboard and connection state
+5. **Updates**: WebSocket patches store + query cache in real time
+
+Detail pages follow the same split:
+
+- `pages/JobPage.tsx` is the route shell
+- `hooks/useJobPageController.ts` owns job lookup, server resolution, and store sync
+- `components/JobDetailPageView.tsx` owns detail presentation and file filters
+
+### Process flow (desktop)
+
+1. **Setup**: `App` checks `useDesktopConfig().isFirstLaunch()` and shows
+   `SetupWizard` before routes load
+2. **Server**: `useServerLifecycle` reads `useDesktopServer().serverStatus()`,
+   subscribes to `desktop://server-status-changed`, and auto-starts via
+   `useDesktopServer().startServer()`
+3. **Health**: `useServerHealth` polls `GET /health` on a fixed interval
+4. **Command**: User picks from the command card grid
+5. **Files**: `useDesktopFiles().pickFolder()` → native dialog →
+   `useDesktopFiles().discoverFiles()` → file list
+6. **Submit**: `useSubmitJob` sends `POST /jobs` with `paths_mode: true`
+7. **Progress**: `useJobStream` opens SSE to `/jobs/{id}/stream` for live updates
+8. **Complete**: `useDesktopFiles().openPath()` reveals the output folder in
+   Finder/Explorer
