@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Last modified:** 2026-07-01 09:19 EDT
+**Last modified:** 2026-07-25 22:20 EDT
 
 Guidance for Claude Code (claude.ai/code) when working in the `talkbank-tools`
 repository.
@@ -18,8 +18,7 @@ crates.
 
 History: chatter was extracted from talkbank-tools in 2026-05/06; the duplicate
 CHAT core was then removed from talkbank-tools and batchalign repointed at
-chatter on 2026-06-18 (meta-repo memory
-`feedback_atomic_repo_partition_migrations`).
+chatter on 2026-06-18.
 
 ### How the CHAT core is consumed
 
@@ -52,7 +51,7 @@ talkbank-transform = { path = "../chatter/crates/talkbank-transform" }
 | `batchalign` | The Batchalign pipeline: ASR, FA, morphotag, jobs/runner, store, dashboard API |
 | `batchalign-transform` | Batchalign-specific CHAT transforms (`asr_postprocess`, `morphosyntax`, `utseg`, FA `decisions`, `compare`, `build_chat`, `dp_align`, ...) layered over chatter's generic `talkbank-transform`, which it re-exports via a facade (`pub use talkbank_transform::*`) |
 | `batchalign-pyo3` | PyO3 bridge for the Python package |
-| `batchalign-types` | Shared types |
+| `batchalign-types`, `batchalign-whisper-pilot` (experimental) | Shared types |
 
 Plus `apps/dashboard-desktop` (Tauri shell, experimental, excluded from CI
 gates), `frontend/` (React dashboard), the `batchalign` / `batchalign_core`
@@ -146,10 +145,10 @@ lives at. Unit tests on helpers are additional guards, never substitutes.
 | CLI argument parsing | `subprocess.run(["batchalign3", ...])` |
 | CHAT transform over the model | a real CHAT fragment through `batchalign_transform::...` (generic surface comes from chatter) |
 
-Rationale: the 2026-05-26 Cantonese ASR ship had three show-stoppers (schema
-rejected `qwen_model` overrides; benchmark discarded runs on one bad token; `yue`
-defaulted to the worst engine) that every unit test passed because none exercised
-the actual seams. Unit-only TDD = false green.
+Rationale: a past release shipped multiple show-stopper defects that every
+unit test passed, because none of the tests exercised the real seams
+(CLI subprocess, engine loading, end-to-end pipeline). Unit-only
+TDD = false green.
 
 ## Critical policy: fix root causes, never symptoms
 
@@ -159,8 +158,8 @@ fix the architecture.
 
 ## Rust Coding Standards
 
-Rust **2024 edition**. Follow the cross-repo charter in the meta-repo
-`docs/coding-standards.md`. High-frequency points: typed errors over panics; no
+Rust **2024 edition**. Follow the project's cross-repo coding charter
+(operator-maintained). High-frequency points: typed errors over panics; no
 silent swallowing (`.ok()`/`.unwrap_or_default()` that hides bugs); newtypes over
 primitives at boundaries; enums (with `clap::ValueEnum`) over `--flag`/`--no-flag`
 pairs; `BTreeMap` for deterministic JSON in tests; `LazyLock<Regex>` for constant

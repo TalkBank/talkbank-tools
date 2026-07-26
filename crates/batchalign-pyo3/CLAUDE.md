@@ -1,7 +1,7 @@
 # batchalign-core — Rust Worker Runtime
 
 **Status:** Current
-**Last modified:** 2026-05-01 09:47 EDT
+**Last modified:** 2026-07-25 22:22 EDT
 
 ## Overview
 
@@ -26,7 +26,7 @@ runs its tests like any other crate.
 ```
 crates/batchalign-pyo3/src/
 ├── lib.rs                  # Module registration
-├── cli_entry.rs            # PyPI console_scripts entry point
+├── error.rs                # Typed error surface for the bridge
 ├── worker_protocol.rs      # IPC message dispatch
 ├── worker_asr_exec.rs      # ASR execution (Whisper, Cantonese providers)
 ├── worker_fa_exec.rs       # Forced alignment execution
@@ -40,9 +40,9 @@ crates/batchalign-pyo3/src/
 ## Key Commands
 
 ```bash
-cargo nextest run --manifest-path pyo3/Cargo.toml
-cargo build --manifest-path pyo3/Cargo.toml
-cd /path/to/batchalign3 && uv run maturin develop
+cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo build --manifest-path crates/batchalign-pyo3/Cargo.toml
+cd /path/to/talkbank-tools && uv run maturin develop
 ```
 
 ## Rust Coding Standards

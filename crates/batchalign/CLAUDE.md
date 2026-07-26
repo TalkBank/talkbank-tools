@@ -1,7 +1,7 @@
 # batchalign — HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
-**Last modified:** 2026-07-10 17:28 EDT
+**Last modified:** 2026-07-25 22:20 EDT
 
 ## Overview
 
@@ -40,7 +40,6 @@ release/version story: the repo-root `CLAUDE.md`.
 | `translate.rs` | Translation orchestrator (injects `%xtra`) |
 | `coref.rs` | Coreference resolution (document-level, sparse, English-only) |
 | `fa/` | Forced alignment orchestrator (per-file, multi-group, audio-aware, DP alignment, incremental FA) |
-| `workflow/` | Workflow-family registry, typed descriptors, traits, and per-command implementations |
 | `worker/` | Worker pool, IPC handle, V2 request builders and result types |
 | `media.rs` | Media file resolution with walk cache |
 | `ws.rs` | WebSocket broadcast event types |
@@ -168,7 +167,7 @@ Dispatch shapes (driven by `command_model/` specs):
 1. **Batched text infer** (`runner/dispatch/infer_batched.rs`) — morphotag, translate, coref: pool all utterances from all files, group by language, dispatch language groups with **semaphore-bounded concurrency** (`morphosyntax/batch.rs`, `max_total_workers / max_workers_per_key` concurrent groups), and within each group split into chunks across multiple workers (`morphosyntax/worker.rs`, up to `max_workers_per_key`). Unsupported languages filtered at preflight (`stanza_languages.rs`). Per-language processor availability (MWT, constituency) determined by the **Stanza capability table** (`batchalign/worker/_stanza_capabilities.py`), which reads Stanza's `resources.json` — not hardcoded.
 1a. **Per-file utseg** (`execution/utseg.rs::dispatch_utseg_job`) — utseg specifically does NOT go through the batched-text-infer pool. Each file gets its own `gateway.utseg_batch(&[one_file], lang)` call, run sequentially with per-file writeback before the next file starts. Trade-offs: incremental output, file-level failure isolation, daemon-redeploy resilience (each completed file is durable on disk before the next starts). Cost: no cross-file batching for GPU efficiency. The trade is right because utseg's BERT inference is single-thread CPU-bound on macOS (no MPS), and the batched pattern was empirically fragile to interruption — a daemon redeploy mid-run lost hours of work on a long batched run. morphotag/translate/coref retain the batched dispatch (they may legitimately benefit from cross-file batching when GPU is back).
 2. **Per-file FA** (`runner/dispatch/fa_pipeline.rs`) — align: files processed concurrently via `JoinSet` + `Semaphore(num_workers)`. UTR pre-pass runs before FA grouping with ASR result caching. Fallback UTR retries timing recovery after FA failures. For mostly-timed files (with sufficient existing timing coverage and audio length), partial-window ASR runs only on untimed regions.
-3. **Per-file transcribe** (`runner/dispatch/transcribe_pipeline.rs`) — transcribe, transcribe_s: per-file audio processing with optional diarization, utseg, and morphosyntax. ASR post-processing uses a single Rust per-word expansion pass via `prepare_asr_chunks()` in `pipeline/transcribe.rs` (no Python `num2words` IPC; see `book/src/architecture/number-expansion.md`).
+3. **Per-file transcribe** (`runner/dispatch/transcribe_pipeline.rs`): transcribe, transcribe_s: per-file audio processing with optional diarization, utseg, and morphosyntax. ASR post-processing uses a single Rust per-word expansion pass via `prepare_asr_chunks()` in `pipeline/transcribe.rs` (no Python `num2words` IPC; see `book/src/batchalign/architecture/number-expansion.md`).
 4. **Per-file benchmark** (`runner/dispatch/benchmark_pipeline.rs`) — composite transcribe + compare.
 5. **Recipe-driven compare** (`execution/`) — gold-anchored comparison via `ExecutionKernel` + `CompareStageExecutor`. First command migrated from legacy dispatch to the recipe execution model.
 6. **Per-file media analysis** (`runner/dispatch/media_analysis_v2.rs`) — opensmile, avqi: concurrent files via `JoinSet` + `Semaphore(num_workers)`, worker `execute_v2`.
@@ -185,15 +184,15 @@ Domain newtypes are defined in `batchalign-types` using `string_id!` and `numeri
 - **`types/params.rs`** — `CachePolicy`, `WorTierPolicy` enums; `MorphosyntaxParams`, `FaParams`, `AudioContext` structs
 - **`pipeline/mod.rs`** — `PipelineServices` (shared infrastructure refs: pool, cache, engine_version)
 
-**Boundary patterns:** Raw `String` from HTTP → `JobId::from()` at handler entry. `&Path` in domain code → `to_string_lossy()` at IPC/JSON. `bool` from CLI → `CachePolicy::from()` at dispatch. See `book/src/architecture/type-driven-design.md`.
+**Boundary patterns:** Raw `String` from HTTP → `JobId::from()` at handler entry. `&Path` in domain code → `to_string_lossy()` at IPC/JSON. `bool` from CLI → `CachePolicy::from()` at dispatch. See `book/src/batchalign/architecture/type-driven-design.md`.
 
 ## Admission and Eviction Gates
 
 Three admission contexts, each with its own explicit policy
 (`worker/pool/lifecycle.rs` derives `PoolGateState` per spawn
-attempt). Per the spec at
-`<workspace>/docs/architecture/2026-05-10-tier-aware-memory-consolidation.md`
-(Principle 4), each context is named at the call site rather than
+attempt). Per the tier-aware
+memory-consolidation design (operator-maintained; Principle 4), each
+context is named at the call site rather than
 inferred:
 
 | Context | Where | Policy |
@@ -242,4 +241,4 @@ CORS → body limit (`max_body_bytes_mb`, configurable) → panic catching → t
 
 Axum's built-in `Json` extractor limit is disabled on job routes so the
 outer `RequestBodyLimitLayer` is the sole body-size guard.  See
-`book/src/developer/http-body-limits.md` for the full story.
+`book/src/batchalign/developer/http-body-limits.md` for the full story.
