@@ -446,7 +446,7 @@ async fn gpu_repeated_execute_v2_through_pool() {
 // ---------------------------------------------------------------------------
 
 /// After a GPU worker process is killed, the pool should handle the next
-/// dispatch gracefully — either by reconnecting to a new worker or returning
+/// dispatch gracefully: either by reconnecting to a new worker or returning
 /// a clear error.
 #[tokio::test]
 async fn gpu_dispatch_after_warmup_shutdown_spawns_fallback() {
@@ -487,7 +487,7 @@ async fn gpu_dispatch_after_warmup_shutdown_spawns_fallback() {
         result.is_ok(),
         "dispatch after shutdown must not hang (timed out after 30s)"
     );
-    // Whether the inner result is Ok or Err, both are acceptable — the point
+    // Whether the inner result is Ok or Err, both are acceptable; the point
     // is that the pool responded within the timeout instead of hanging.
 }
 
@@ -554,7 +554,7 @@ async fn gpu_request_with_short_timeout_fails_cleanly() {
         ..Default::default()
     });
 
-    // Warmup with delay — worker will sleep 5s before each response.
+    // Warmup with delay: worker will sleep 5s before each response.
     // We need to set the delay on the WorkerConfig used during warmup.
     // Since warmup uses the pool's config, we need a different approach:
     // spawn the worker manually with the delay, then dispatch to it.
@@ -675,14 +675,14 @@ async fn stanza_sequential_dispatch_reuses_worker() {
 /// Architectural contract: when N callers dispatch `execute_v2` concurrently
 /// to a single shared GPU worker that processes requests serially, each
 /// caller's per-request timeout must govern the *work-time* of its own
-/// request — never the queue-wait while earlier requests are being served.
+/// request; never the queue-wait while earlier requests are being served.
 ///
 /// Reproduces an operator's hung Malayalam corpus job (`04a11009-1d0`, 2026-04-25)
 /// at unit-test scale. With `gpu_thread_pool_size = 1` the Python worker's
 /// `ThreadPoolExecutor` strictly serializes execute_v2; with
 /// `test_delay_ms = 200` each response takes ~200 ms; with N=8 callers the
 /// last response arrives around t = 1.6 s. With `audio_task_timeout_s = 1`
-/// the per-request timeout is 1 s — well above any single response's
+/// the per-request timeout is 1 s; well above any single response's
 /// work-time but below the *queue-wait + work-time* the late callers see
 /// today, because the timer is started at `pending.insert()` (before
 /// `stdin.lock()`), not at the moment the worker actually begins the work.
@@ -694,7 +694,7 @@ async fn stanza_sequential_dispatch_reuses_worker() {
 /// It will go GREEN after the fix in `SharedGpuWorker::execute_v2` that
 /// serializes the entire (registration + write + await) cycle around a
 /// per-worker `tokio::sync::Mutex`, so each caller's timer only ticks
-/// during its own work — which is the only honest representation of "one
+/// during its own work; which is the only honest representation of "one
 /// shared GPU worker process can perform one execute_v2 at a time."
 #[tokio::test]
 async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_timeout() {
@@ -702,7 +702,7 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
 
     // Force strict serialization on the Python side and a generous-by-itself,
     // tight-when-summed per-request timeout. With 1 thread × 200 ms ×
-    // 8 callers the last response arrives ~1.6 s after dispatch — ahead of
+    // 8 callers the last response arrives ~1.6 s after dispatch; ahead of
     // any individual request's work-time but past the per-request 1 s
     // budget if (and only if) queue-wait is being charged against it.
     let pool = WorkerPool::new(PoolConfig {
@@ -776,11 +776,21 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
         succeeded, n,
         "all {n} concurrent execute_v2 calls must succeed; observed {succeeded} success, \
          {timed_out} timeout. Per-request timeout is being charged against queue-wait \
-         instead of work-time — see SharedGpuWorker::execute_v2 in \
+         instead of work-time; see SharedGpuWorker::execute_v2 in \
          worker/pool/shared_gpu/stdio.rs (registration + write + await are not \
          serialized around the single-Python-process unit of concurrency)."
     );
 }
+
+/// How long a worker response takes if nothing interrupts it.
+const WORKER_NATURAL_COMPLETION: Duration = Duration::from_secs(60);
+
+/// How long the dispatch may take to unwind after a cancel-driven kill.
+///
+/// Half of `WORKER_NATURAL_COMPLETION`, so exceeding it can only mean the
+/// dispatch is waiting for the call to finish naturally, never that the box
+/// was merely busy.
+const CANCEL_UNWIND_BOUND: Duration = Duration::from_secs(30);
 
 /// End-to-end regression test for the 2026-04-26 net incident's
 /// 28-minute cancel latency.
@@ -788,7 +798,7 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
 /// **Scenario:** a Whisper-CPU pass on a long Malayalam audio file
 /// took 8-25 minutes per file. The user cancelled at 14:34 EDT but
 /// the in-flight dispatch awaited the worker's natural completion
-/// until 15:01 — the cancel signal didn't propagate to the worker
+/// until 15:01; the cancel signal didn't propagate to the worker
 /// process. PID 15650 then survived as a 5.6 GB zombie for 10+ hours.
 ///
 /// **What this test proves:** when a job is cancelled while a worker
@@ -805,7 +815,7 @@ async fn gpu_concurrent_dispatch_does_not_charge_queue_wait_against_per_request_
 ///
 /// **Assertions:**
 ///   1. The dispatch errors out within ~5 seconds (well under the 8s
-///      worker delay — proves the kill interrupted in-flight work).
+///      worker delay; proves the kill interrupted in-flight work).
 ///   2. The worker process is dead within a few seconds of the kill.
 ///
 /// Without the fix, the dispatch would wait the full 8 seconds and
@@ -816,14 +826,24 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
 
     let python = require_python!();
 
-    // 8-second per-response delay so we can clearly distinguish "kill
-    // interrupted the call" from "natural completion."
+    // 60-second per-response delay so "kill interrupted the call" and
+    // "natural completion" are separated by a margin no amount of machine
+    // load can close.
+    //
+    // This was 8s against a 6s assertion: a 2s margin, which a loaded box
+    // erases even when the kill propagated perfectly. It failed on
+    // 2026-07-28 at 25.1s while passing in isolation, i.e. it reported a
+    // cancellation regression that did not exist. Widening the ASSERTION
+    // alone would have been wrong: the bound is the property, and inflating
+    // it toward the natural-completion time is what destroys the test's
+    // ability to catch the real 2026-04-26 regression. Widening the MARGIN
+    // instead keeps the property sharp and makes it load-tolerant.
     let pool = std::sync::Arc::new(WorkerPool::new(PoolConfig {
         python_path: python,
         health_check_interval_s: 600,
         ready_timeout_s: 30,
         test_echo: true,
-        test_delay_ms: 8000,
+        test_delay_ms: 60_000,
         max_workers_per_key: PerProfile::uniform(1),
         verbose: 0,
         engine_overrides: String::new(),
@@ -846,7 +866,7 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     let request = gpu_execute_request("slow-call");
 
     // Capture the worker PID by snapshotting the pool BEFORE the
-    // dispatch starts — there's exactly one warmed-up worker.
+    // dispatch starts; there's exactly one warmed-up worker.
     let pre_dispatch_workers = pool.worker_summary_entries().await;
     assert!(
         !pre_dispatch_workers.is_empty(),
@@ -867,7 +887,7 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
         .await
     });
 
-    // Wait until the dispatch commits — the TrackerGuard registers
+    // Wait until the dispatch commits; the TrackerGuard registers
     // the (job, pid) pair right after checkout, so we poll the
     // tracker until we see at least one registered worker for this
     // job. This avoids the race where the kill fires before the
@@ -886,8 +906,8 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
         }
         if waited >= max_wait {
             panic!(
-                "dispatch did not register a worker for job {job_id} within {max_wait:?} \
-                 — TrackerGuard wiring is broken or dispatch path doesn't hit it"
+                "dispatch did not register a worker for job {job_id} within {max_wait:?}; \
+                 TrackerGuard wiring is broken or dispatch path doesn't hit it"
             );
         }
         tokio::time::sleep(poll_step).await;
@@ -904,12 +924,16 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // ~28 minutes for an 8-25 minute ASR pass to finish on its own.
     // Here the worker delay is 8s; anything close to 8s means the kill
     // didn't actually interrupt the call.
-    let dispatch_result = tokio::time::timeout(Duration::from_secs(6), dispatch_handle)
+    // 30s bound against a 60s natural completion: still unambiguous (half the
+    // time the call needs to finish on its own) while tolerating a saturated
+    // machine. The 2026-04-26 symptom was a cancel waiting ~28 MINUTES, so
+    // any regression of that class is orders of magnitude outside this bound.
+    let dispatch_result = tokio::time::timeout(CANCEL_UNWIND_BOUND, dispatch_handle)
         .await
         .expect(
-            "dispatch must return within 6s after worker kill — \
-                 hitting this timeout means the kill didn't propagate and \
-                 we're back to waiting for natural completion",
+            "dispatch must return well before natural completion after worker \
+                 kill; hitting this timeout means the kill didn't propagate \
+                 and we're back to waiting for the call to finish on its own",
         )
         .expect("dispatch task panicked");
     let dispatch_elapsed = dispatch_start.elapsed();
@@ -918,9 +942,10 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
         "dispatch should fail (worker terminated mid-call); got Ok: {dispatch_result:?}"
     );
     assert!(
-        dispatch_elapsed < Duration::from_secs(6),
-        "dispatch should unwind in <6s after kill (worker delay is 8s); \
-         took {dispatch_elapsed:?} — the kill is not interrupting in-flight work"
+        dispatch_elapsed < CANCEL_UNWIND_BOUND,
+        "dispatch should unwind in <{CANCEL_UNWIND_BOUND:?} after kill (worker \
+         delay is {WORKER_NATURAL_COMPLETION:?}); took {dispatch_elapsed:?}, so \
+         the kill is not interrupting in-flight work"
     );
 
     // Tracker drained: a subsequent kill is a no-op against the

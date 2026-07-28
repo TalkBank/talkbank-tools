@@ -1,7 +1,7 @@
 //! Binary subprocess tests for `batchalign3`.
 //!
 //! Uses `assert_cmd` to run the binary and verify exit codes, stdout, stderr.
-//! No server is required — these tests exercise the CLI argument parsing,
+//! No server is required: these tests exercise the CLI argument parsing,
 //! help output, hidden command redirects, and utility commands against a
 //! HOME-isolated tempdir.
 // Integration tests are exempt from the crate's deny-level panic lints,
@@ -647,7 +647,7 @@ fn cli_transcribe_explicit_server_falls_back_to_local_daemon() {
     );
     assert!(
         stderr.contains(
-            "warning: transcribe uses local audio — ignoring --server and using local daemon."
+            "warning: transcribe uses local audio, ignoring --server and using local daemon."
         ),
         "CLI should explain the fallback. stderr: {stderr}"
     );
@@ -1022,7 +1022,15 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
             in_dir.to_str().unwrap(),
             out_dir.to_str().unwrap(),
         ])
-        .timeout(std::time::Duration::from_secs(120))
+        // 300s, not 120s. This bound is a HARNESS SAFETY NET, not the property
+        // under test: the assertion below is about the exit CODE a failed
+        // auto-daemon job maps to, and no timeout value makes that assertion
+        // weaker. At 120s it fired under parallel load on 2026-07-28 while the
+        // test passed in 35.7s alone, and a harness kill surfaces as
+        // `status.code() == None`, which reads as a baffling `None != Some(5)`
+        // rather than "we ran out of time". Raising the net costs nothing;
+        // the explicit None check below makes the distinction legible.
+        .timeout(std::time::Duration::from_secs(300))
         .output()
         .expect("spawn CLI");
 
@@ -1037,6 +1045,16 @@ fn cli_compare_failed_auto_daemon_job_returns_server_exit_code() {
     let stdout = String::from_utf8_lossy(&cli_result.stdout);
     eprintln!("CLI stdout: {stdout}");
     eprintln!("CLI stderr: {stderr}");
+    // Distinguish "killed by the harness timeout" from "wrong exit code".
+    // Without this, a slow machine reports the same failure text as a genuine
+    // exit-code regression, which is how this test spent time being diagnosed
+    // as a cancellation bug it never was.
+    assert!(
+        cli_result.status.code().is_some(),
+        "CLI was terminated by a signal rather than exiting, almost certainly \
+         the harness timeout on a loaded machine. This is NOT an exit-code \
+         regression. stdout: {stdout}\nstderr: {stderr}"
+    );
     assert_eq!(
         cli_result.status.code(),
         Some(5),
