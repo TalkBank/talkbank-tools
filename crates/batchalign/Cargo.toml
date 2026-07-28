@@ -10,6 +10,18 @@ publish = false
 [features]
 default = ["server", "binary-entry", "embed-dashboard"]
 
+# Gate for the heavy ML golden suite (real Rev.AI keys, network, multi-GB
+# models). Declared as a feature so the `ml_golden` test target below is
+# skipped by a plain `cargo test`, replacing the exclusion that used to live
+# ONLY in `.config/nextest.toml` as `default-filter = 'not binary(ml_golden)'`.
+# That made correctness depend on which runner you used: with nextest removed
+# on 2026-07-27, `cargo test` would have started pulling models and calling
+# Rev.AI. The exclusion now lives in the code, where it belongs.
+#
+# Run the suite explicitly with:
+#   cargo test -p batchalign --features ml-golden --test ml_golden
+ml-golden = []
+
 # Binary entrypoint: tracing-OTLP exporter and pre-main initialization
 # for the `batchalign3` CLI binary. The library does not require this.
 binary-entry = [
@@ -180,3 +192,10 @@ panic         = "deny"
 unreachable   = "deny"
 todo          = "deny"
 unimplemented = "deny"
+
+# Auto-discovered from tests/ml_golden.rs; declared explicitly only to attach
+# the required-features gate above. Without this block cargo would build and
+# run it on every `cargo test`.
+[[test]]
+name = "ml_golden"
+required-features = ["ml-golden"]
