@@ -38,6 +38,11 @@ import threading
 from collections.abc import Callable
 from typing import TypeAlias
 
+from batchalign.inference._italian_mwt import (
+    is_closed_class_italian_mwt,
+    is_single_word_utterance,
+)
+
 L = logging.getLogger("batchalign")
 
 
@@ -95,9 +100,11 @@ def make_tokenizer_postprocessor(
         result: list[list[TokenizerToken]] = []
         for sent_idx, sent_tokens in enumerate(tokenized_batch):
             if sent_idx < len(ctx.original_words):
-                result.append(
-                    _realign_sentence(sent_tokens, ctx.original_words[sent_idx], alpha2)
-                )
+                original = ctx.original_words[sent_idx]
+                aligned = _realign_sentence(sent_tokens, original, alpha2)
+                if alpha2 == "it":
+                    aligned = _apply_italian_single_word_mwt_policy(aligned, original)
+                result.append(aligned)
             else:
                 result.append(sent_tokens)
         return result
@@ -230,3 +237,34 @@ def _realign_sentence(
         return merged
 
     return restored
+
+
+def _apply_italian_single_word_mwt_policy(
+    tokens: list[TokenizerToken],
+    original_words: list[str],
+) -> list[TokenizerToken]:
+    """Suppress Italian MWT expansion on single-word utterances.
+
+    Stanza's Italian MWT splits isolated words wrongly about a third of the
+    time, inventing verbs (``attenzione`` -> *attenzi* + *ne*,
+    ``cavallo`` -> *cava* + *lo*). The same words parse correctly in sentence
+    context, so this applies ONLY where the damage occurs. Full evidence and
+    the measured before/after live in
+    ``batchalign/inference/_italian_mwt.py`` and the Stanza limitations page.
+
+    Emitting ``(text, False)`` is Stanza's documented way to say "do not
+    expand this token". Words in Italian's closed MWT classes (preposition +
+    article, ``ecco`` + clitic) are left as plain strings so they still expand.
+    """
+    if not is_single_word_utterance(original_words):
+        return tokens
+
+    adjusted: list[TokenizerToken] = []
+    for token in tokens:
+        text = _conform(token)
+        if is_closed_class_italian_mwt(text):
+            # Genuine MWT: leave the hint alone so expansion still fires.
+            adjusted.append(token)
+        else:
+            adjusted.append((text, False))
+    return adjusted

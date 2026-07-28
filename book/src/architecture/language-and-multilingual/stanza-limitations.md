@@ -1,7 +1,7 @@
 # Stanza Limitations and Their Workarounds
 
 **Status:** Current
-**Last updated:** 2026-07-28 08:31 EDT
+**Last updated:** 2026-07-28 09:07 EDT
 
 Stanza is the morphosyntax engine behind `batchalign3 morphotag`. It does not
 guarantee Universal Dependencies conformance, and several of its language
@@ -88,11 +88,37 @@ utterances bites CHILDES hardest. The damage is not limited to the relation
 label: `%mor` records `verb|attenzare` for the noun *attenzione*, inventing a
 verb that does not exist in Italian.
 
-**Status: NOT yet worked around.** Relation-label normalization (limitation 1)
-repairs `iob` -> `iobj` but cannot repair the underlying mis-analysis; the
-token is still wrongly a verb plus a clitic. Fixing it needs MWT suppression,
-and the existing `mwt_lexicon` hook only FORCES expansions (`gonna` ->
-`going to`), it cannot suppress them. See "Open work" below.
+**Status: FIXED 2026-07-28**, in `batchalign/inference/_italian_mwt.py`.
+
+Italian multi-word tokens are very nearly a CLOSED class, unlike Stanza's
+treatment of them: preposition+article contractions and `ecco`+enclitic are
+both fully enumerable; only verb+enclitic is genuinely open. So for
+single-word utterances, where the damage occurs, expansion is suppressed
+(Stanza's documented `(text, False)` hint) EXCEPT for the closed classes,
+which still expand.
+
+Measured before and after on the real corpus words, via the full pipeline:
+
+| utterance | before | after |
+|---|---|---|
+| `attenzione` | `verb\|attenzare-Inf-Ind-Imp-S2~pron\|ne` | `noun\|attenzione-Fem` |
+| `macchine` | `verb\|maccare-Part-Past-P~pron\|ne` | `noun\|macchina-Fem-Plur` |
+| `gallina` | `galli` + `na` | `noun\|gallina-Fem` |
+| `cavallo` | `cava` + `lo` | `noun\|cavallo-Masc` |
+| `mucche` | `mu` + `cce` + `he` | `noun\|mucca-Fem-Plur` |
+| `persone` | `perso` + `ne` | `noun\|persona-Fem-Plur` |
+| `eccolo` | `ecco` + `lo` | `adv\|ecco~pron\|lo` (PRESERVED) |
+
+10 of 10 correct, including plural lemmas (*macchine* -> *macchina*) that the
+split had destroyed. Multi-word utterances are untouched, since the same nouns
+were already analyzed correctly there.
+
+The accepted cost: a one-word verb+enclitic imperative (`dammi`,
+`portarmelo`) will no longer split, because verb+enclitic is an open class and
+admitting it by surface pattern would also readmit `cavallo` -> *cava*+*lo*
+and `attenzione` -> *attenzi*+*ne*, whose bases are equally verb-shaped.
+Losing a split leaves a real word coarsely analyzed; a false split invents a
+verb. The asymmetry decides it.
 
 ## Limitation 3: Italian MWT mis-splits common function words
 
