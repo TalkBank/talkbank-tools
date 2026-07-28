@@ -45,7 +45,7 @@
 
 use crate::chat_ops::fa::utr::{AsrTimingToken, UtrResult, inject_utr_timing, overlap_markers};
 use batchalign_transform::parse::parse_lenient;
-use talkbank_model::model::{ChatFile, Line, Linker};
+use talkbank_model::model::{ChatFile, Line};
 use talkbank_parser::TreeSitterParser;
 
 /// Ground-truth audio window for an utterance, recovered from the synthetic
@@ -672,7 +672,8 @@ fn check_utterance_monotonicity(chat: &ChatFile, violations: &mut Vec<String>) {
             .content
             .linkers
             .0
-            .contains(&Linker::LazyOverlapPrecedes)
+            .iter()
+            .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
             || overlap_markers::extract_overlap_info(&utt.main.content.content.0)
                 .has_bottom_overlap();
         if is_overlap {

@@ -468,7 +468,7 @@ fn plan_edits(
             TierOutcome::AutoTrust => {
                 summary.auto_trusted += 1;
                 for tier in utterance.dependent_tiers.iter() {
-                    if let DependentTier::Com(com) = tier {
+                    if let DependentTier::Com(com) = &tier.tier {
                         let old = com_text(com);
                         if let Some(new) = rewrite_flag_text(&old, flag_prefix, verdict) {
                             edits

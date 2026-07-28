@@ -530,7 +530,7 @@ pub fn clear_coref(chat_file: &mut ChatFile) {
         if let Line::Utterance(utt) = line {
             utt.dependent_tiers.retain(|tier| {
                 !matches!(
-                    tier,
+                    &tier.tier,
                     DependentTier::UserDefined(ud) if ud.label.as_ref() == "xcoref"
                 )
             });

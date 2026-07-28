@@ -478,7 +478,7 @@ pub fn splice_l2_into_chat(
         let mut mor_tier_ref = None;
         let mut gra_tier_ref = None;
         for tier in &mut utt.dependent_tiers {
-            match tier {
+            match &mut tier.tier {
                 DependentTier::Mor(m) => mor_tier_ref = Some(m),
                 DependentTier::Gra(g) => gra_tier_ref = Some(g),
                 _ => {}
@@ -675,7 +675,7 @@ fn splice_one_position(
     let mut mor_tier = None;
     let mut gra_tier = None;
     for tier in &mut utt.dependent_tiers {
-        match tier {
+        match &mut tier.tier {
             DependentTier::Mor(m) => mor_tier = Some(m),
             DependentTier::Gra(g) => gra_tier = Some(g),
             _ => {}
@@ -788,7 +788,7 @@ pub fn apply_l2_fallback(
             Line::Utterance(u) => u,
             _ => continue,
         };
-        let mor_tier = utt.dependent_tiers.iter_mut().find_map(|t| match t {
+        let mor_tier = utt.dependent_tiers.iter_mut().find_map(|t| match &mut t.tier {
             DependentTier::Mor(m) => Some(m),
             _ => None,
         });
@@ -1105,7 +1105,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1226,7 +1226,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1282,7 +1282,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1336,7 +1336,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1390,7 +1390,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1444,7 +1444,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1506,7 +1506,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1578,7 +1578,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1646,7 +1646,7 @@ mod cardinality_tests {
         let gra_tier = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -1918,7 +1918,7 @@ mod cardinality_tests {
             for line in &chat.lines {
                 if let talkbank_model::model::Line::Utterance(u) = line {
                     for tier in &u.dependent_tiers {
-                        if let talkbank_model::model::DependentTier::Gra(g) = tier {
+                        if let talkbank_model::model::DependentTier::Gra(g) = &tier.tier {
                             gra_summary.push_str(&join_relations(g.relations()));
                             gra_summary.push_str(" | ");
                         }
@@ -2352,7 +2352,7 @@ mod cardinality_tests {
         let gra = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -2429,7 +2429,7 @@ mod cardinality_tests {
         let gra = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })
@@ -2592,7 +2592,7 @@ mod cardinality_tests {
         let gra = utt
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 talkbank_model::model::DependentTier::Gra(g) => Some(g),
                 _ => None,
             })

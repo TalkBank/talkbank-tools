@@ -643,7 +643,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     let partitioned_wor: Option<Vec<WorTier>> = utt
         .dependent_tiers
         .iter()
-        .find_map(|tier| match tier {
+        .find_map(|tier| match &tier.tier {
             DependentTier::Wor(wor) => {
                 let main_groups = wor_eligible_word_groups(content_items, &content_item_group);
                 Some(partition_wor_tier(wor, &main_groups, num_groups))
@@ -709,7 +709,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     let parent_dep_tiers = utt.dependent_tiers.clone();
     let mut wor_index: Option<usize> = None;
     for (i, tier) in parent_dep_tiers.iter().enumerate() {
-        if matches!(tier, DependentTier::Wor(_)) {
+        if matches!(tier.tier, DependentTier::Wor(_)) {
             wor_index = Some(i);
             break;
         }
@@ -726,14 +726,14 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
             {
                 child
                     .dependent_tiers
-                    .push(DependentTier::Wor(child_wor.clone()));
+                    .push(DependentTier::Wor(child_wor.clone()).into());
             }
         }
     }
 
     if let Some((_, first_child)) = result.first_mut() {
         for tier in &parent_dep_tiers {
-            if matches!(policy_for_tier(tier), TierSplitPolicy::AttachFirst) {
+            if matches!(policy_for_tier(&tier.tier), TierSplitPolicy::AttachFirst) {
                 first_child.dependent_tiers.push(tier.clone());
             }
         }
@@ -1094,7 +1094,7 @@ mod tests {
         let parent_wor = parent
             .dependent_tiers
             .iter()
-            .find_map(|t| match t {
+            .find_map(|t| match &t.tier {
                 DependentTier::Wor(w) => Some(w),
                 _ => None,
             })
@@ -1105,7 +1105,7 @@ mod tests {
         assert_eq!(result.len(), 2);
 
         let wor_of = |u: &Utterance| -> Option<WorTier> {
-            u.dependent_tiers.iter().find_map(|t| match t {
+            u.dependent_tiers.iter().find_map(|t| match &t.tier {
                 DependentTier::Wor(w) => Some(w.clone()),
                 _ => None,
             })
@@ -1147,7 +1147,7 @@ mod tests {
             let has_wor = child
                 .dependent_tiers
                 .iter()
-                .any(|t| matches!(t, DependentTier::Wor(_)));
+                .any(|t| matches!(t.tier, DependentTier::Wor(_)));
             assert!(
                 !has_wor,
                 "child {i} should not carry %wor when parent counts mismatched (graceful drop)"
@@ -1176,7 +1176,7 @@ mod tests {
         for (i, child) in result.iter().enumerate() {
             for tier in &child.dependent_tiers {
                 assert!(
-                    !matches!(tier, DependentTier::Mor(_) | DependentTier::Gra(_)),
+                    !matches!(tier.tier, DependentTier::Mor(_) | DependentTier::Gra(_)),
                     "child {i} should not carry %mor or %gra after split (dropped by policy)"
                 );
             }
@@ -1202,11 +1202,11 @@ mod tests {
         let first_has_com = result[0]
             .dependent_tiers
             .iter()
-            .any(|t| matches!(t, DependentTier::Com(_)));
+            .any(|t| matches!(t.tier, DependentTier::Com(_)));
         let second_has_com = result[1]
             .dependent_tiers
             .iter()
-            .any(|t| matches!(t, DependentTier::Com(_)));
+            .any(|t| matches!(t.tier, DependentTier::Com(_)));
         assert!(first_has_com, "first child must inherit the %com");
         assert!(!second_has_com, "second child must not carry %com");
     }

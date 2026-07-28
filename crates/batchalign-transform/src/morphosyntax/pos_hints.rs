@@ -65,7 +65,7 @@ pub fn apply_pos_hints(chat_file: &mut talkbank_model::model::ChatFile) -> HintO
     }
 
     fn mor_tier_mut(utt: &mut Utterance) -> Option<&mut MorTier> {
-        utt.dependent_tiers.iter_mut().find_map(|t| match t {
+        utt.dependent_tiers.iter_mut().find_map(|t| match &mut t.tier {
             DependentTier::Mor(m) => Some(m),
             _ => None,
         })

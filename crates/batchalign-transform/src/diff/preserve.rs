@@ -53,8 +53,12 @@ pub fn copy_dependent_tiers(
             if let Line::Utterance(utt) = line {
                 if utt_count == before_idx.raw() {
                     for tier in utt.dependent_tiers.iter() {
-                        if tier_matches(tier, kinds) {
-                            result.push(tier.clone());
+                        if tier_matches(&tier.tier, kinds) {
+                            // Copy the tier itself, not the entry: separator is
+                            // provenance of the SOURCE file's line, and the destination's
+                            // own spacing governs there (replace keeps the destination's,
+                            // append is CLEAN).
+                            result.push(tier.tier.clone());
                         }
                     }
                     break;

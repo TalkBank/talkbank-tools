@@ -508,7 +508,7 @@ fn collect_mor_pos_labels(chat_file: &ChatFile) -> Vec<Vec<Option<String>>> {
             let mor_positions = utt
                 .dependent_tiers
                 .iter()
-                .find_map(|tier| match tier {
+                .find_map(|tier| match &tier.tier {
                     DependentTier::Mor(mor) => Some(
                         mor.items()
                             .iter()

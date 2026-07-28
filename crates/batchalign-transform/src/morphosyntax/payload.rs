@@ -173,7 +173,7 @@ pub fn collect_payloads(
             && utt.main.content.language_code.is_some()
             && utt.main.content.language_code.as_ref() != Some(primary_lang);
 
-        let has_mor = utt.dependent_tiers.iter().any(|t| match t {
+        let has_mor = utt.dependent_tiers.iter().any(|t| match &t.tier {
             talkbank_model::model::DependentTier::Mor(m) => !m.items().is_empty(),
             _ => false,
         });
@@ -338,20 +338,23 @@ fn reset_mor_gra_in_place(utterance: &mut talkbank_model::model::Utterance) {
     // Position-preserving so subsequent `replace_or_add_tier` finds
     // the same variant slot; a `retain`-removal would append the
     // re-injected tier at the end and reorder dependent tiers.
-    for tier in utterance.dependent_tiers.iter_mut() {
-        match tier {
-            DependentTier::Mor(_) => {
-                *tier = DependentTier::Mor(MorTier::new_mor(
-                    Vec::new(),
-                    Terminator::Period {
-                        span: talkbank_model::Span::DUMMY,
-                    },
-                ));
-            }
-            DependentTier::Gra(_) => {
-                *tier = DependentTier::Gra(GraTier::new_gra(Vec::new()));
-            }
-            _ => {}
+    for entry in utterance.dependent_tiers.iter_mut() {
+        // Computed before assigning so the discriminant read and the write do
+        // not overlap as borrows. Assigning `entry.tier` rather than the whole
+        // entry also keeps the line's separator provenance, which is what
+        // "position-preserving" now means for a DependentTierEntry.
+        let emptied = match &entry.tier {
+            DependentTier::Mor(_) => Some(DependentTier::Mor(MorTier::new_mor(
+                Vec::new(),
+                Terminator::Period {
+                    span: talkbank_model::Span::DUMMY,
+                },
+            ))),
+            DependentTier::Gra(_) => Some(DependentTier::Gra(GraTier::new_gra(Vec::new()))),
+            _ => None,
+        };
+        if let Some(tier) = emptied {
+            entry.tier = tier;
         }
     }
 }
@@ -362,7 +365,7 @@ pub fn remove_empty_morphosyntax_placeholders(chat_file: &mut talkbank_model::mo
 
     for line in chat_file.lines.iter_mut() {
         if let Line::Utterance(utt) = line {
-            utt.dependent_tiers.retain(|tier| match tier {
+            utt.dependent_tiers.retain(|tier| match &tier.tier {
                 DependentTier::Mor(m) => !m.items().is_empty(),
                 DependentTier::Gra(g) => !g.relations().is_empty(),
                 _ => true,
@@ -403,7 +406,7 @@ pub fn validate_mor_alignment(
             _ => continue,
         };
 
-        let mor_tier = utt.dependent_tiers.iter().find_map(|t| match t {
+        let mor_tier = utt.dependent_tiers.iter().find_map(|t| match &t.tier {
             DependentTier::Mor(m) => Some(m),
             _ => None,
         });

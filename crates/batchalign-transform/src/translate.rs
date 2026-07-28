@@ -172,7 +172,7 @@ pub fn extract_translation_strings(
         };
 
         for tier in &utt.dependent_tiers {
-            if let DependentTier::UserDefined(ud) = tier
+            if let DependentTier::UserDefined(ud) = &tier.tier
                 && ud.label.as_ref() == "xtra"
             {
                 results.push(TranslationStringsEntry {

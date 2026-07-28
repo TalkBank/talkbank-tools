@@ -159,7 +159,7 @@ fn strip_mor_gra_tiers(chat_file: &mut crate::chat_ops::ChatFile) {
         if let Line::Utterance(utterance) = line {
             utterance
                 .dependent_tiers
-                .retain(|tier| !matches!(tier, DependentTier::Mor(_) | DependentTier::Gra(_)));
+                .retain(|tier| !matches!(tier.tier, DependentTier::Mor(_) | DependentTier::Gra(_)));
         }
     }
 }

@@ -115,7 +115,6 @@ pub fn check_no_monotonicity_rescue_emitted(parsed: &ChatFile) -> Result<(), Str
 /// against). Detection mirrors `batchalign::chat_ops::fa::utr::select_strategy`
 /// — the canonical overlap-aware pattern.
 pub fn check_utterance_bullet_monotonicity_preserved(parsed: &ChatFile) -> Result<(), String> {
-    use batchalign::chat_ops::Linker;
     use batchalign::chat_ops::fa::utr::overlap_markers;
     let mut prev_start: Option<u64> = None;
     let mut prev_index: usize = 0;
@@ -128,7 +127,8 @@ pub fn check_utterance_bullet_monotonicity_preserved(parsed: &ChatFile) -> Resul
             .content
             .linkers
             .0
-            .contains(&Linker::LazyOverlapPrecedes)
+            .iter()
+            .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
             || overlap_markers::extract_overlap_info(&utt.main.content.content.0)
                 .has_bottom_overlap();
         if is_overlap_continuation {
@@ -195,7 +195,7 @@ fn user_defined_tiers_with_label<'a>(
     utt: &'a Utterance,
     label: &'a str,
 ) -> impl Iterator<Item = &'a UserDefinedDependentTier> + 'a {
-    utt.dependent_tiers.iter().filter_map(move |t| match t {
+    utt.dependent_tiers.iter().filter_map(move |t| match &t.tier {
         DependentTier::UserDefined(u) | DependentTier::Unsupported(u)
             if u.label.as_str() == label =>
         {

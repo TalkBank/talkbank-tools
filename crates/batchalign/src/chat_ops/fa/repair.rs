@@ -410,7 +410,7 @@ fn strip_utterance_timing(utt: &mut Utterance) {
 
     // Remove %wor tier.
     utt.dependent_tiers
-        .retain(|tier| !matches!(tier, talkbank_model::model::DependentTier::Wor { .. }));
+        .retain(|tier| !matches!(tier.tier, talkbank_model::model::DependentTier::Wor { .. }));
 }
 
 impl From<&RepairDecision> for batchalign_transform::decisions::DecisionRecord {

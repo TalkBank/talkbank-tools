@@ -584,7 +584,7 @@ fn test_fast_path_strips_backward_wor_timestamps_and_removes_stale_wor_tier() {
     let utt1_has_wor = utt1
         .dependent_tiers
         .iter()
-        .any(|t| matches!(t, DependentTier::Wor(_)));
+        .any(|t| matches!(t.tier, DependentTier::Wor(_)));
     assert!(
         !utt1_has_wor,
         "backward %wor tier must be removed from utt1 after bullet is stripped; \

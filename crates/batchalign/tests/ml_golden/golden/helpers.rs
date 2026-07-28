@@ -84,7 +84,7 @@ pub(crate) fn has_mor_tier(file: &ChatFile) -> bool {
         if let batchalign::chat_ops::Line::Utterance(utt) = line {
             utt.dependent_tiers
                 .iter()
-                .any(|t| matches!(t, DependentTier::Mor(_)))
+                .any(|t| matches!(t.tier, DependentTier::Mor(_)))
         } else {
             false
         }
@@ -96,7 +96,7 @@ pub(crate) fn has_gra_tier(file: &ChatFile) -> bool {
         if let batchalign::chat_ops::Line::Utterance(utt) = line {
             utt.dependent_tiers
                 .iter()
-                .any(|t| matches!(t, DependentTier::Gra(_)))
+                .any(|t| matches!(t.tier, DependentTier::Gra(_)))
         } else {
             false
         }
@@ -106,7 +106,7 @@ pub(crate) fn has_gra_tier(file: &ChatFile) -> bool {
 pub(crate) fn has_user_defined_tier(file: &ChatFile, label: &str) -> bool {
     file.lines.iter().any(|line| {
         if let batchalign::chat_ops::Line::Utterance(utt) = line {
-            utt.dependent_tiers.iter().any(|t| match t {
+            utt.dependent_tiers.iter().any(|t| match &t.tier {
                 DependentTier::UserDefined(ud) => ud.label.as_ref() == label,
                 _ => false,
             })

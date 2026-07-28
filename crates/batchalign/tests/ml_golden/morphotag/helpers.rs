@@ -50,7 +50,7 @@ pub(super) fn has_mor_tier(file: &ChatFile) -> bool {
         if let batchalign::chat_ops::Line::Utterance(utt) = line {
             utt.dependent_tiers
                 .iter()
-                .any(|t| matches!(t, DependentTier::Mor(_)))
+                .any(|t| matches!(t.tier, DependentTier::Mor(_)))
         } else {
             false
         }
@@ -64,7 +64,7 @@ pub(super) fn count_ast_mor_tiers(file: &ChatFile) -> usize {
             if let batchalign::chat_ops::Line::Utterance(utt) = line {
                 utt.dependent_tiers
                     .iter()
-                    .any(|t| matches!(t, DependentTier::Mor(_)))
+                    .any(|t| matches!(t.tier, DependentTier::Mor(_)))
             } else {
                 false
             }

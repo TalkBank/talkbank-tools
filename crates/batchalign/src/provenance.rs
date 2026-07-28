@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use crate::api::ReleasedCommand;
-use crate::chat_ops::{ChatFile, Header, Line, Span};
+use crate::chat_ops::{ChatFile, Header, Line};
 use batchalign_transform::parse::parse_lenient;
 use batchalign_transform::serialize::to_chat_string;
 
@@ -128,12 +128,9 @@ pub fn inject_provenance(file: &mut ChatFile, comment: &ProvenanceComment) {
 
     file.lines.0.insert(
         insert_pos,
-        Line::Header {
-            header: Box::new(Header::Comment {
-                content: bullet_content,
-            }),
-            span: Span::default(),
-        },
+        Line::header(Header::Comment {
+            content: bullet_content,
+        }),
     );
 }
 
@@ -232,12 +229,9 @@ pub fn inject_unchecked_warning(file: &mut ChatFile, asr_engine: &str) {
 
     file.lines.0.insert(
         insert_pos,
-        Line::Header {
-            header: Box::new(Header::Comment {
-                content: bullet_content,
-            }),
-            span: Span::default(),
-        },
+        Line::header(Header::Comment {
+            content: bullet_content,
+        }),
     );
 }
 

@@ -228,7 +228,7 @@ impl FaEngineType {
 pub fn remove_wor_tier(utterance: &mut Utterance) {
     utterance
         .dependent_tiers
-        .retain(|t| !matches!(t, DependentTier::Wor(_)));
+        .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));
 }
 
 /// Add a `%wor` tier generated from the inline bullets on words.

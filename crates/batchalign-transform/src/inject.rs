@@ -310,7 +310,7 @@ mod tests {
         assert_eq!(tiers.len(), 1); // replaced, not appended
 
         // Verify content was replaced
-        if let DependentTier::UserDefined(ud) = &tiers[0] {
+        if let DependentTier::UserDefined(ud) = &tiers[0].tier {
             assert_eq!(ud.content.as_ref(), "second");
         } else {
             panic!("Expected UserDefined tier");
@@ -330,7 +330,9 @@ mod tests {
     fn test_replace_or_add_tier_replaces_existing_wor() {
         use talkbank_model::model::WorTier;
 
-        let mut tiers = smallvec::smallvec![DependentTier::Wor(WorTier::default())];
+        let mut tiers = smallvec::smallvec![talkbank_model::model::DependentTierEntry::new(
+            DependentTier::Wor(WorTier::default())
+        )];
         let replacement = DependentTier::Wor(WorTier::from_words(vec![
             talkbank_model::model::Word::simple("hello"),
         ]));
@@ -338,7 +340,7 @@ mod tests {
         replace_or_add_tier(&mut tiers, replacement);
 
         assert_eq!(tiers.len(), 1);
-        let DependentTier::Wor(wor) = &tiers[0] else {
+        let DependentTier::Wor(wor) = &tiers[0].tier else {
             panic!("expected %wor tier");
         };
         assert_eq!(wor.words().count(), 1);

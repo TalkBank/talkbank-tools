@@ -56,10 +56,10 @@ pub fn inject_review_tiers(
             // This utterance had repair decisions — always add %xalign + %xrev.
             for decision in decisions_for_utt {
                 utt.dependent_tiers
-                    .push(make_user_tier("xalign", &decision.reason));
+                    .push(make_user_tier("xalign", &decision.reason).into());
 
                 if decision.needs_review {
-                    utt.dependent_tiers.push(make_user_tier("xrev", "[?]"));
+                    utt.dependent_tiers.push(make_user_tier("xrev", "[?]").into());
                 }
             }
         } else if review_level == ReviewLevel::All {
@@ -67,7 +67,7 @@ pub fn inject_review_tiers(
             let has_bullet = utt.main.content.bullet.is_some();
             if has_bullet {
                 utt.dependent_tiers
-                    .push(make_user_tier("xalign", "fa_aligned no_repair_needed"));
+                    .push(make_user_tier("xalign", "fa_aligned no_repair_needed").into());
             }
         }
     }

@@ -605,5 +605,5 @@ pub(super) fn strip_utterance_timing(utt: &mut Utterance) {
     strip_timing_from_content(&mut utt.main.content.content.0);
     // Remove %wor tiers.
     utt.dependent_tiers
-        .retain(|t| !matches!(t, DependentTier::Wor(_)));
+        .retain(|t| !matches!(t.tier, DependentTier::Wor(_)));
 }

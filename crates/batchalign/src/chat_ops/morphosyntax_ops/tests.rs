@@ -28,13 +28,13 @@ fn test_clear_morphosyntax() {
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
         "should have %mor before clear"
     );
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Gra(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Gra(_))),
         "should have %gra before clear"
     );
 
@@ -54,13 +54,13 @@ fn test_clear_morphosyntax() {
     assert!(
         !utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
         "should NOT have %mor after clear+sweep"
     );
     assert!(
         !utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Gra(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Gra(_))),
         "should NOT have %gra after clear+sweep"
     );
 }
@@ -94,7 +94,7 @@ fn test_clear_morphosyntax_preserves_other_tiers() {
     // But no %mor or %gra
     assert!(
         !utt.dependent_tiers.iter().any(|t| matches!(
-            t,
+            t.tier,
             talkbank_model::model::DependentTier::Mor(_)
                 | talkbank_model::model::DependentTier::Gra(_)
         )),
@@ -1051,7 +1051,7 @@ fn inject_results_retokenize_mwt_range_tokens_no_failure() {
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
         "Output should have a %mor tier after retokenize injection with MWT"
     );
 }
@@ -1130,13 +1130,13 @@ fn inject_results_preserve_coraal_units_keeps_mor_gra() {
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
         "preserve injection should write %mor for the units case"
     );
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Gra(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Gra(_))),
         "preserve injection should write %gra for the units case"
     );
 }
@@ -1211,7 +1211,7 @@ fn inject_results_preserve_minga_because_keeps_mor_gra() {
     assert!(
         utt.dependent_tiers
             .iter()
-            .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+            .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
         "preserve injection should write %mor for the because case"
     );
 }
@@ -1298,13 +1298,13 @@ fn inject_results_preserve_kings_continuation_keeps_mor_gra() {
         assert!(
             utt.dependent_tiers
                 .iter()
-                .any(|t| matches!(t, talkbank_model::model::DependentTier::Mor(_))),
+                .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Mor(_))),
             "continuation utterances should keep %mor"
         );
         assert!(
             utt.dependent_tiers
                 .iter()
-                .any(|t| matches!(t, talkbank_model::model::DependentTier::Gra(_))),
+                .any(|t| matches!(t.tier, talkbank_model::model::DependentTier::Gra(_))),
             "continuation utterances should keep %gra"
         );
     }
@@ -1570,7 +1570,7 @@ fn dep_tier_kinds(chat: &talkbank_model::model::ChatFile) -> Vec<&'static str> {
             return u
                 .dependent_tiers
                 .iter()
-                .map(|t| match t {
+                .map(|t| match &t.tier {
                     DependentTier::Mor(_) => "Mor",
                     DependentTier::Gra(_) => "Gra",
                     DependentTier::Wor(_) => "Wor",
@@ -1750,7 +1750,7 @@ fn mid_utterance_comma_end_to_end_injects_cm_mor() {
         })
         .expect("should have an utterance");
 
-    let mor_tier = utt.dependent_tiers.iter().find_map(|t| match t {
+    let mor_tier = utt.dependent_tiers.iter().find_map(|t| match &t.tier {
         talkbank_model::model::DependentTier::Mor(m) => Some(m),
         _ => None,
     });
@@ -1811,7 +1811,7 @@ fn first_utt_gra_relations(
     let gra = utt
         .dependent_tiers
         .iter()
-        .find_map(|t| match t {
+        .find_map(|t| match &t.tier {
             talkbank_model::model::DependentTier::Gra(g) => Some(g),
             _ => None,
         })

@@ -424,18 +424,18 @@ pub fn inject_decision_tiers(
                 .collect::<Vec<_>>()
                 .join("; ");
             utt.dependent_tiers
-                .push(make_user_tier("xalign", &merged_content));
+                .push(make_user_tier("xalign", &merged_content).into());
 
             // One %xrev: [?] if ANY decision needs review.
             let any_needs_review = decisions_for_utt.iter().any(|d| d.needs_review);
             if any_needs_review {
-                utt.dependent_tiers.push(make_user_tier("xrev", "[?]"));
+                utt.dependent_tiers.push(make_user_tier("xrev", "[?]").into());
             }
         } else if review_level == ReviewLevel::All {
             // Informational: no decisions were made for this utterance.
             if utt.main.content.bullet.is_some() {
                 utt.dependent_tiers
-                    .push(make_user_tier("xalign", "no_decisions"));
+                    .push(make_user_tier("xalign", "no_decisions").into());
             }
         }
     }
@@ -453,7 +453,7 @@ pub fn strip_decision_tiers(chat_file: &mut ChatFile) {
         };
         utt.dependent_tiers.retain(|tier| {
             !matches!(
-                tier,
+                &tier.tier,
                 DependentTier::UserDefined(t)
                     if t.label.as_str() == "xalign" || t.label.as_str() == "xrev"
             )

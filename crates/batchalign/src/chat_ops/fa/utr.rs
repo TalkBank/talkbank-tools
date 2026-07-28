@@ -24,7 +24,7 @@
 //! non-monotonic, so dense overlap / text-audio reordering cases can still
 //! remain unmatched.
 
-use talkbank_model::model::{Bullet, ChatFile, Line, Linker};
+use talkbank_model::model::{Bullet, ChatFile, Line};
 
 use batchalign_transform::dp_align::{self, MatchMode};
 
@@ -125,7 +125,8 @@ pub fn select_strategy(
                 .content
                 .linkers
                 .0
-                .contains(&Linker::LazyOverlapPrecedes)
+                .iter()
+                .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes)
             {
                 return true;
             }
@@ -452,7 +453,8 @@ pub(super) fn collect_utr_utterance_info(chat_file: &ChatFile) -> Vec<UtrUtteran
                 .content
                 .linkers
                 .0
-                .contains(&Linker::LazyOverlapPrecedes);
+                .iter()
+                .any(|l| l.kind == talkbank_model::model::LinkerKind::LazyOverlapPrecedes);
             let overlap_info = overlap_markers::extract_overlap_info(&utt.main.content.content.0);
 
             // Collect bottom region indices for index-aware matching.
