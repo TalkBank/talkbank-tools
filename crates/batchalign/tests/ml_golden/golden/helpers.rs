@@ -48,13 +48,41 @@ impl DirectGoldenSession {
     }
 }
 
+/// Acquire a warmed live session, or FAIL LOUDLY.
+///
+/// This deliberately panics rather than skipping. Building this crate with
+/// `--features ml-golden` is an explicit request to run the ML golden suite,
+/// so a session that cannot be acquired means the request could not be
+/// honoured, and reporting `ok` for a test that never executed is a false
+/// green of exactly the kind this suite exists to prevent.
+///
+/// Found 2026-07-28: two newly added Italian golden tests reported `ok` in
+/// 7.23s having produced no output at all. Only a mutation (replacing an
+/// assertion with a deliberate lie and watching it still pass) would have
+/// distinguished "passed" from "never ran". The suite had also been
+/// unreachable for some time, with no Makefile or CI entry point and only
+/// nextest's retired `--profile ml` to invoke it, so nobody noticed.
+///
+/// If the environment genuinely cannot host these tests (no Python worker, no
+/// model weights, no credentials), do not run the suite: it is feature-gated
+/// precisely so a plain `cargo test` never reaches it.
 pub(crate) async fn require_direct_session_warmed(
     task: InferTask,
     command: ReleasedCommand,
     lang: &str,
     skip_message: &str,
 ) -> Option<DirectGoldenSession> {
-    let session = require_live_direct_warmed(task, command, lang, skip_message).await?;
+    let session = require_live_direct_warmed(task, command, lang, skip_message)
+        .await
+        .unwrap_or_else(|| {
+            panic!(
+                "ml-golden requested but no live session for {command:?}/{lang} \
+                 ({task:?}): {skip_message}. The suite is feature-gated, so \
+                 reaching here means the environment cannot honour an explicit \
+                 request; a silent skip would report a pass for a test that \
+                 never ran."
+            )
+        });
     Some(DirectGoldenSession { session })
 }
 

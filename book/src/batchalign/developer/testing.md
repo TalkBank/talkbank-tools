@@ -10,8 +10,8 @@ the tiers, their resource requirements, and how to invoke each.
 
 ```mermaid
 flowchart TD
-    fast["Tier 1: Fast Tests\n(make test / cargo nextest run)\nUnit + protocol + test-echo integration\nNo models, no GPU\n~5s, safe, fully parallel"]
-    ml["Tier 2: ML Golden Tests\n(cargo nextest run --profile ml)\nReal Whisper + Stanza + pyannote\nSerialized (profile test-threads=1)\n~5min, 8-12 GB peak RAM"]
+    fast["Tier 1: Fast Tests\n(make test / cargo test)\nUnit + protocol + test-echo integration\nNo models, no GPU\n~5s, safe, fully parallel"]
+    ml["Tier 2: ML Golden Tests\n(make batchalign-test-ml-golden)\nReal Whisper + Stanza + pyannote\nSkips are FAILURES, not passes\nSerialized (profile test-threads=1)\n~5min, 8-12 GB peak RAM"]
     pygolden["Tier 3: Python Golden\n(uv run pytest -m golden)\nbatchalign_core extension\n~10-30s, 1-2 GB"]
 
     fast -->|"routine dev loop\n(every edit)"| safe(["Safe on any machine"])
@@ -22,7 +22,7 @@ flowchart TD
 1. **Fast tests**: unit tests, protocol tests, test-echo integration tests.
    No ML models, no GPU, no multi-GB processes. These run in seconds, fully
    parallel, on every edit. This is the inner development loop. It must stay
-   fast and safe, a `cargo nextest run` should never crash your machine.
+   fast and safe, a `cargo test` should never crash your machine.
 
 2. **ML tests**: golden snapshots, audio transcription, parity checks,
    profile verification. These spawn real Python workers that load Whisper,
@@ -45,8 +45,8 @@ For command-workflow edits, the shortest useful loop is usually:
 cargo xtask affected-rust packages
 make batchalign-python-prepare
 cargo build -p batchalign
-cargo nextest run -p batchalign --test workflow_helpers
-cargo nextest run -p batchalign --test cli
+cargo test -p batchalign --test workflow_helpers
+cargo test -p batchalign --test cli
 uv run batchalign3 --help
 ```
 
@@ -67,7 +67,7 @@ running anything expensive.
 ### Why this matters
 
 Kernel OOM panics have been caused by ML test binaries spawning
-concurrent Whisper workers during `cargo nextest run`. Each golden test
+concurrent Whisper workers during `cargo test`. Each golden test
 binary was a separate process that started its own server with its own
 worker pool. Running them in parallel exhausted machine memory.
 
@@ -99,31 +99,31 @@ These remain as additional safety nets:
 
 | Layer | What | Catches |
 |-------|------|---------|
-| **nextest default-filter** | `ml_golden` excluded from `cargo nextest run` | Routine dev runs |
-| **`ml` nextest profile** | ML tests serialized via profile `test-threads = 1` | Explicit opt-in |
+| **`ml-golden` cargo feature** | `ml_golden` carries `required-features`, so a plain `cargo test` cannot build it | Routine dev runs |
+| **`make batchalign-test-ml-golden`** | ML tests serialized via `--test-threads=1` | Explicit opt-in |
 | **Global worker cap** | `max_total_workers` (RAM / 6GB, clamped to `[2, 32]`) | Multi-key pool explosion |
 | **`WorkerPool::Drop`** | Kills idle workers when pool is dropped | Test cleanup on panic/exit |
 | **PID file reaper** | `~/.batchalign3/worker-pids/` scanned on startup | Orphans from crashed servers |
 | **pytest OOM guard (configure)** | Forces `-n 0` when `-m golden` on < 128 GB machine | Standard golden invocation |
 | **pytest OOM guard (collection)** | Aborts if golden tests collected with `-n > 0` on < 128 GB | Overridden addopts |
 | **pytest OOM guard (fixture)** | Per-test `_guard_golden_oom` autouse fixture fails in xdist workers on < 128 GB | Belt-and-suspenders; cannot be bypassed |
-| **Claude Code guard hook** | Blocks `cargo test`/`cargo nextest` if workers detected | AI assistant sessions |
+| **Claude Code guard hooks** | Block workspace `cargo test` under memory pressure, and any cargo run concurrent with another in the same workspace | AI assistant sessions |
 
 ## Quick reference
 
 ```bash
 # Fast tests only (default — safe, parallel, no models)
-cargo nextest run --workspace
+cargo test --workspace
 make test
 
 # ML tests only (serialized, one at a time)
-cargo nextest run --profile ml
+make batchalign-test-ml-golden
 
 # Specific ML test (filter by submodule name)
-cargo nextest run --profile ml -E 'binary_id(batchalign::ml_golden) & test(golden::)'
+cargo test -p batchalign --features ml-golden --test ml_golden golden:: -- --test-threads=1
 
 # Everything (fast + ML)
-cargo nextest run --profile ml
+make batchalign-test-ml-golden
 
 # Python (fast only by default)
 uv run pytest
@@ -135,10 +135,63 @@ uv run pytest -m integration
 
 ## Nextest configuration
 
-The nextest config lives in `.config/nextest.toml`.
+### The ML golden suite is substantially broken (2026-07-28)
+
+First honest run of the whole suite after giving it an entry point:
+**104 passed, 86 failed, 191 total, 625 s.**
+
+None of the 86 is the skip panic described below; every test acquired a live
+session and then failed on its own merits. Observed causes, from the run log
+(archived at `ml-golden-baseline-2026-07-28.log`):
+
+- Worker death mid-job: `worker process exited unexpectedly (exit code: None)`,
+  `GPU worker reader loop exited, worker process is dead`.
+- Runtime teardown racing the job: `A Tokio 1.x context was found, but it is
+  being shutdown`.
+- Jobs returning `Failed` where `Completed` was asserted (~30).
+- HTTP 400 on content-job submission (~10).
+- Snapshot drift on the `compare` and `coref` goldens.
+- A rejection-message assertion now stale: the test expects an
+  unsupported-language message, but morphotag now rejects job-level `--lang`
+  outright (the 2026-05-03 incident), so the message no longer matches.
+
+**Do not read this as a regression introduced on 2026-07-28.** The suite had no
+Makefile or CI entry point and was reachable only through nextest's
+`--profile ml`, retired with nextest itself, so there is no recent green
+baseline to regress from. The failures are accumulated rot that nothing was
+positioned to notice.
+
+Treat the numbers above as the BASELINE to drive down, not as a gate. Until it
+is green, `make batchalign-test-ml-golden` is a diagnostic, and adding it to
+`make verify` would only train people to ignore a red gate.
+
+### ML golden tests fail rather than skip
+
+`require_direct_session_warmed` in the ml_golden suite **panics** when a live
+session cannot be acquired. It used to return `None`, and every call site did
+`else { return; }`, so a test that never executed reported `ok`.
+
+That is not hypothetical. On 2026-07-28 two newly written Italian golden tests
+reported `ok` in 7.23 s having produced no output; only replacing an assertion
+with a deliberate lie and watching it still pass would have told them apart.
+The suite had also had NO entry point in the Makefile or CI, reachable only
+through nextest's `--profile ml`, so its silence went unnoticed after nextest
+was retired.
+
+Building with `--features ml-golden` is an explicit request to run these tests.
+If the environment cannot host them (no Python worker, no model weights, no
+credentials), do not run the suite; the feature gate exists so a plain
+`cargo test` never reaches it.
+
+nextest was removed on 2026-07-27 (it wedged macOS `syspolicyd` by
+exec'ing every test binary up front to enumerate tests). The ML exclusion
+that used to live in `.config/nextest.toml` as a `default-filter` now lives
+in the code as `required-features = ["ml-golden"]`, so correctness no longer
+depends on which runner you use.
 
 **Default profile:** applies a `default-filter` that excludes all ML test
-binaries. `cargo nextest run` runs only fast tests. This is the safe
+binaries. `cargo test` runs only fast tests, because `ml_golden` requires the
+`ml-golden` feature to build at all. This is the safe
 default.
 
 **ML profile (`--profile ml`):** the profile's `default-filter` selects
@@ -148,7 +201,7 @@ that follow.
 
 **Override the default filter for one run:**
 ```bash
-cargo nextest run --ignore-default-filter -E 'binary_id(batchalign::ml_golden)'
+cargo test -p batchalign --features ml-golden --test ml_golden -- --test-threads=1
 ```
 
 All ML tests live in one binary (`ml_golden`) with submodules:
@@ -167,15 +220,15 @@ All ML tests live in one binary (`ml_golden`) with submodules:
 
 | Category | Tool | Command | Models | Runtime | Default |
 |----------|------|---------|--------|---------|---------|
-| Rust unit tests | cargo | `cargo nextest run --workspace` | None | ~5s | Yes |
-| PyO3 unit tests | cargo | `cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml` | None | ~3s | Yes |
+| Rust unit tests | cargo | `cargo test --workspace` | None | ~5s | Yes |
+| PyO3 unit tests | cargo | `cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml` | None | ~3s | Yes |
 | Python unit tests | pytest | `uv run pytest` | None | ~2s | Yes |
-| Worker protocol | cargo | `cargo nextest run --test worker_protocol_matrix` | None (test-echo) | ~5s | Yes |
-| Server integration | cargo | `cargo nextest run --test integration` | None (test-echo) | ~5s | Yes |
-| Network fault (turmoil) | cargo | `cargo nextest run --test turmoil_net` | None | <1s | Yes |
-| Workflow helpers | cargo | `cargo nextest run -p batchalign --test workflow_helpers` | None | ~2s | Yes |
-| JSON compat | cargo | `cargo nextest run --test json_compat` | None | ~1s | Yes |
-| ML tests (all) | cargo | `cargo nextest run --profile ml` | Mixed | ~5min | **No** |
+| Worker protocol | cargo | `cargo test --test worker_protocol_matrix` | None (test-echo) | ~5s | Yes |
+| Server integration | cargo | `cargo test --test integration` | None (test-echo) | ~5s | Yes |
+| Network fault (turmoil) | cargo | `cargo test --test turmoil_net` | None | <1s | Yes |
+| Workflow helpers | cargo | `cargo test -p batchalign --test workflow_helpers` | None | ~2s | Yes |
+| JSON compat | cargo | `cargo test --test json_compat` | None | ~1s | Yes |
+| ML tests (all) | cargo | `make batchalign-test-ml-golden` | Mixed | ~5min | **No** |
 | Python golden | pytest | `uv run pytest -m golden` | batchalign_core | ~10s | **No** |
 | Python integration | pytest | `uv run pytest -m integration` | Worker | ~5s | **No** |
 | Cantonese ASR engines | pytest | `uv run pytest batchalign/tests/languages/cantonese/` | FunASR+ | ~2min | **No** |
@@ -229,9 +282,9 @@ whether the production boundary wants a typed injected dependency instead.
 uv run pytest batchalign/tests/test_worker_protocol_v2_types.py -q
 uv run pytest batchalign/tests/test_worker_protocol_v2_artifacts.py -q
 uv run pytest batchalign/tests/test_worker_fa_v2.py -q
-cargo nextest run -p batchalign --test worker_protocol_v2_compat
-cargo nextest run -p batchalign -E 'test(fa_result_v2)'
-cargo nextest run -p batchalign --test worker_v2_fa_roundtrip
+cargo test -p batchalign --test worker_protocol_v2_compat
+cargo test -p batchalign -E 'test(fa_result_v2)'
+cargo test -p batchalign --test worker_v2_fa_roundtrip
 ```
 
 These tests read fixture files under `tests/fixtures/worker_protocol_v2/`
@@ -256,19 +309,19 @@ side deserializes correctly, and vice versa.
 
 ```bash
 # PyO3 extension
-cargo nextest run --manifest-path crates/batchalign-pyo3/Cargo.toml
+cargo test --manifest-path crates/batchalign-pyo3/Cargo.toml
 
 # Root workspace (fast tests only)
-cargo nextest run --workspace
+cargo test --workspace
 
 # Workflow layer
-cargo nextest run -p batchalign --test workflow_helpers
+cargo test -p batchalign --test workflow_helpers
 
 # Focused suites
-cargo nextest run -p batchalign --test cli
-cargo nextest run -p batchalign --test e2e
-cargo nextest run -p batchalign --test integration
-cargo nextest run -p batchalign --test json_compat
+cargo test -p batchalign --test cli
+cargo test -p batchalign --test e2e
+cargo test -p batchalign --test integration
+cargo test -p batchalign --test json_compat
 ```
 
 ### Profile verification tests
@@ -281,7 +334,7 @@ correctness), these tests verify resource usage:
 - **Stanza profile grouping**: morphotag and utseg share one Stanza worker
 - **Label regression guard**: all worker keys use `profile:*` prefix
 
-Run with `cargo nextest run --profile ml`.
+Run with `make batchalign-test-ml-golden`.
 
 ### ML test skip behavior
 
@@ -373,9 +426,9 @@ uv run --no-sync pytest -n0 --cov=batchalign --cov-report=term \
   --disable-pytest-warnings -m 'not integration' -q batchalign/tests
 
 # Rust coverage
-cargo llvm-cov nextest --manifest-path crates/batchalign-pyo3/Cargo.toml \
+cargo llvm-cov --manifest-path crates/batchalign-pyo3/Cargo.toml \
   --lcov --output-path lcov-rust.info
-cargo llvm-cov nextest --workspace \
+cargo llvm-cov --workspace \
   --lcov --output-path lcov-rust-workspace.info
 ```
 
@@ -390,7 +443,7 @@ cargo xtask lint-ci-hygiene       # Version sync, legacy terms, retired packages
 ```
 
 Both are included in `make ci-local`. Thin test proxies in
-`crates/batchalign/tests/` invoke them so `cargo nextest run` still catches
+`crates/batchalign/tests/` invoke them so `cargo test` still catches
 regressions.
 
 ## Deterministic simulation testing (turmoil)
@@ -403,7 +456,7 @@ See [Deterministic Simulation (turmoil)](testing-turmoil.md) for architecture,
 adapter details, and the full test catalog.
 
 ```bash
-cargo nextest run -p batchalign --test turmoil_net
+cargo test -p batchalign --test turmoil_net
 ```
 
 ## Known gaps
@@ -436,7 +489,7 @@ notification on completion. The developer keeps working; failures
 ping loudly, successes ping quietly (or silently with `--quiet`).
 
 ```bash
-scripts/test-bg.sh -- cargo nextest run --workspace
+scripts/test-bg.sh -- cargo test --workspace
 scripts/test-bg.sh -- uv run pytest -m 'golden and mwt_probe' -k fra
 ```
 

@@ -1,4 +1,4 @@
-.PHONY: help hooks-check test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
+.PHONY: help hooks-check test test-affected batchalign-check batchalign-test-rust batchalign-test-integration batchalign-test-ml-golden batchalign-build-pyo3 batchalign-build-wheel batchalign-python-prepare batchalign-test-python batchalign-typecheck-python batchalign-ci-python batchalign-runtime-check batchalign-dashboard-api-check batchalign-dashboard-build batchalign-dashboard-e2e batchalign-dashboard-e2e-real batchalign-ci-rust build clean check check-affected lint-affected verify book-check book book-serve smoke ci-local ci-full install-hooks _batchalign-test-python _batchalign-typecheck-python audit-status audit-streak audit-scan audit-flag-staleness audit-prose-references
 
 help:
 	@echo "talkbank-tools task index (batchalign3 workspace)"
@@ -67,6 +67,23 @@ batchalign-test-rust:
 	cargo test -p batchalign-transform --lib -q
 	@echo "==> Testing imported batchalign..."
 	cargo test -p batchalign --lib -q
+
+# The ML golden suite: real engines, real model weights, real network.
+#
+# Deliberately NOT part of `make test` or `make verify`. It needs multi-GB
+# model downloads, live credentials for the hosted ASR engines, and minutes of
+# wall clock, so it is opt-in and feature-gated: a plain `cargo test` cannot
+# reach it (see `required-features = ["ml-golden"]` on the target).
+#
+# WHY THIS TARGET EXISTS. Until 2026-07-28 the suite had NO entry point at all
+# in the Makefile or CI, and was reachable only through nextest's
+# `--profile ml`, which was retired with nextest itself. It had therefore
+# become unrunnable, and its tests additionally SKIPPED SILENTLY when a live
+# session could not be acquired, so they could report `ok` without executing.
+# Both are fixed: the skip now panics, and this is the entry point.
+batchalign-test-ml-golden:
+	@echo "==> ML golden suite (real engines; multi-GB models; needs credentials)"
+	cargo test -p batchalign --features ml-golden --test ml_golden -- --test-threads=1
 
 batchalign-test-integration:
 	@echo "==> Running imported Batchalign CI hygiene..."
