@@ -30,6 +30,48 @@ pub(crate) const SPA_SIMPLE: &str = "\
 @End
 ";
 
+// Italian single-word utterances that stanza's MWT destroyed before the
+// 2026-07-28 fix: each was split into a nonexistent verb plus a clitic
+// (attenzione -> attenzi + ne, cavallo -> cava + lo, gallina -> galli + na),
+// which also corrupted %mor with invented verbs. `eccolo` is the control: it
+// is a GENUINE ecco+clitic multi-word token and must still split.
+pub(crate) const ITA_SINGLE_WORD_UTTERANCES: &str = "\
+@UTF8
+@Begin
+@Languages:\tita
+@Participants:\tCHI Target_Child, MOT Mother
+@ID:\tita|test|CHI|||||Target_Child|||
+@ID:\tita|test|MOT|||||Mother|||
+*CHI:\tattenzione .
+*CHI:\tmacchine .
+*CHI:\tgallina .
+*CHI:\tcavallo .
+*CHI:\tmucche .
+*CHI:\tpersone .
+*MOT:\teccolo .
+@End
+";
+
+// Italian multi-word utterances covering the genuine multi-word tokens that
+// MUST keep expanding (alla -> a + il, della -> di + il, dai -> da + il in its
+// contraction reading) alongside the pro-drop 2sg verb forms that must NOT be
+// split (hai, dai as a verb). Italian is pro-drop, so subjectless 2sg is the
+// normal spoken form and the case most likely to be mis-analyzed.
+pub(crate) const ITA_MULTI_WORD_UTTERANCES: &str = "\
+@UTF8
+@Begin
+@Languages:\tita
+@Participants:\tMOT Mother
+@ID:\tita|test|MOT|||||Mother|||
+*MOT:\tvado alla stazione della citta .
+*MOT:\thai ragione .
+*MOT:\tdai il libro a me .
+*MOT:\tvieni dai bambini .
+*MOT:\tguarda le macchine .
+*MOT:\tci sono molte persone qui .
+@End
+";
+
 pub(crate) const COMPARE_MAIN: &str = "\
 @UTF8
 @Begin

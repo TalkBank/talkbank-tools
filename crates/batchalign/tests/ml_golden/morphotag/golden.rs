@@ -4,7 +4,8 @@ use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
 
 use crate::ml_golden::golden::fixtures::{
-    ENG_DISFLUENCY_PARITY, ENG_MULTI_UTT, ENG_RETOKENIZE, ENG_SIMPLE, SPA_SIMPLE,
+    ENG_DISFLUENCY_PARITY, ENG_MULTI_UTT, ENG_RETOKENIZE, ENG_SIMPLE,
+    ITA_MULTI_WORD_UTTERANCES, ITA_SINGLE_WORD_UTTERANCES, SPA_SIMPLE,
 };
 use crate::ml_golden::golden::helpers::{
     assert_golden_snapshot, find_mor_line_for, has_gra_tier, has_mor_tier, parse_output,
@@ -275,4 +276,147 @@ async fn golden_morphotag_cache_is_faster() {
     if elapsed1.as_secs_f64() > 1.0 {
         assert!(elapsed2 < elapsed1);
     }
+}
+
+/// Italian single-word utterances must not be shredded into invented verbs.
+///
+/// Stanza's Italian MWT treats multi-word tokens as an open class and, on
+/// utterances with no syntactic context, split roughly a third of real corpus
+/// words into a nonexistent verb plus a clitic: `attenzione` -> *attenzi* +
+/// *ne*, `cavallo` -> *cava* + *lo*, `gallina` -> *galli* + *na* (where "na"
+/// is not even a clitic), `mucche` -> *mu* + *cce* + *he*. That corrupted
+/// `%mor` with verbs that do not exist in Italian, not merely the `%gra`
+/// relation, and it destroyed plural lemmas along the way.
+///
+/// Measured 2026-07-28 on stanza 1.13.0 against real single-word utterances
+/// pulled from the CHILDES Italian corpora. Fixed by suppressing MWT expansion
+/// on single-word utterances outside Italian's closed MWT classes; see
+/// `batchalign/inference/_italian_mwt.py`.
+///
+/// `eccolo` is the deliberate control: `ecco`+clitic IS a closed-class Italian
+/// multi-word token, so it must STILL split. A fix that silenced it too would
+/// pass a naive "no invented verbs" assertion while quietly losing real
+/// analysis.
+#[tokio::test]
+async fn golden_morphotag_ita_single_word_utterances_are_not_split() {
+    let Some(jobs) = require_direct_session_warmed(
+        InferTask::Morphosyntax,
+        ReleasedCommand::Morphotag,
+        "ita",
+        "Direct session does not support morphosyntax infer",
+    )
+    .await
+    else {
+        return;
+    };
+
+    let (info, results) = jobs
+        .submit_content_job(
+            ReleasedCommand::Morphotag,
+            "ita",
+            "ita_single_word.cha",
+            ITA_SINGLE_WORD_UTTERANCES,
+            morphotag_options(true, false),
+        )
+        .await;
+
+    assert_completed_without_errors("morphotag_ita_single_word", &info, &results);
+    let output = &results[0].content;
+    let file = parse_output(output, "morphotag_ita_single_word");
+    assert!(has_mor_tier(&file));
+    assert!(has_gra_tier(&file));
+
+    // Each noun must be tagged as a noun, with no clitic split.
+    for (utterance, expected_lemma) in [
+        ("attenzione", "attenzione"),
+        ("macchine", "macchina"),
+        ("gallina", "gallina"),
+        ("cavallo", "cavallo"),
+        ("mucche", "mucca"),
+        ("persone", "persona"),
+    ] {
+        let mor = find_mor_line_for(output, utterance)
+            .unwrap_or_else(|| panic!("no %mor tier for {utterance:?}"));
+        assert!(
+            mor.contains("noun|"),
+            "{utterance:?} must be tagged a noun, got {mor:?}"
+        );
+        assert!(
+            !mor.contains('~'),
+            "{utterance:?} must not be split into a multi-word token, got {mor:?}"
+        );
+        assert!(
+            mor.contains(expected_lemma),
+            "{utterance:?} should carry lemma {expected_lemma:?} (the split \
+             destroyed plural lemmas), got {mor:?}"
+        );
+    }
+
+    // Control: a genuine closed-class MWT must still expand.
+    let ecco = find_mor_line_for(output, "eccolo").expect("no %mor tier for eccolo");
+    assert!(
+        ecco.contains('~'),
+        "eccolo is a real ecco+clitic multi-word token and must still split, got {ecco:?}"
+    );
+}
+
+/// Italian multi-word utterances: genuine MWTs expand, verb forms do not.
+///
+/// The single-word suppression must not leak into multi-word context, where
+/// stanza analyzes these same nouns correctly and where preposition+article
+/// contractions carry real linguistic information.
+///
+/// `dai` appears twice on purpose, in both of its readings: as the 2sg verb
+/// *dare* ("dai il libro a me") and as the contraction *da* + *il* ("vieni dai
+/// bambini"). `hai` is subjectless because Italian is pro-drop, which is the
+/// normal spoken form and the context where a mis-analysis is most likely.
+#[tokio::test]
+async fn golden_morphotag_ita_multi_word_keeps_genuine_mwts() {
+    let Some(jobs) = require_direct_session_warmed(
+        InferTask::Morphosyntax,
+        ReleasedCommand::Morphotag,
+        "ita",
+        "Direct session does not support morphosyntax infer",
+    )
+    .await
+    else {
+        return;
+    };
+
+    let (info, results) = jobs
+        .submit_content_job(
+            ReleasedCommand::Morphotag,
+            "ita",
+            "ita_multi_word.cha",
+            ITA_MULTI_WORD_UTTERANCES,
+            morphotag_options(true, false),
+        )
+        .await;
+
+    assert_completed_without_errors("morphotag_ita_multi_word", &info, &results);
+    let output = &results[0].content;
+    // Parsed for its side effect: parse_output asserts the output is valid CHAT.
+    let _file = parse_output(output, "morphotag_ita_multi_word");
+
+    // Preposition + article contractions must still expand.
+    let contractions = find_mor_line_for(output, "vado")
+        .expect("no %mor tier for the contraction utterance");
+    assert!(
+        contractions.matches('~').count() >= 2,
+        "alla and della are genuine contractions and must both expand, got {contractions:?}"
+    );
+
+    // Pro-drop 2sg `hai` is never a contraction in Italian: no `ha` + `i`.
+    let hai = find_mor_line_for(output, "hai").expect("no %mor tier for hai");
+    assert!(
+        hai.contains("avere"),
+        "hai is 2sg of avere and must not be split into ha + i, got {hai:?}"
+    );
+
+    // Nouns in context keep their correct lemmas.
+    let persone = find_mor_line_for(output, "sono").expect("no %mor tier for persone");
+    assert!(
+        persone.contains("persona"),
+        "persone should lemmatize to persona in context, got {persone:?}"
+    );
 }
