@@ -1,7 +1,7 @@
 # Italian
 
 **Status:** Current
-**Last updated:** 2026-05-19 14:18 EDT
+**Last updated:** 2026-07-28 13:27 EDT
 
 ## Scope
 
@@ -14,9 +14,66 @@ natively:
 * Clitic-article elisions: `l'amico → l' + amico`, `dell'opera → di +
   l'opera`, `all'amore → a + l'amore`
 
-Italian carries no per-language BA3 MWT-override rules. All earlier
-overrides ported from BA2 (`ud.py:662-695`) were audited and removed
-, see [History](#history).
+All BA2-inherited per-language MWT-override rules were audited and
+removed in 2026-04 (see [History](#history)). Since 2026-07-28 Italian
+has a principled tokenize-stage MWT POLICY (not an override table):
+every split Stanza proposes is validated against the four multi-word
+patterns Italian actually has, and splits it wrongly withholds are
+forced. Design and evidence:
+[Stanza Limitations](../../../architecture/language-and-multilingual/stanza-limitations.md).
+
+## Intervention status: the complete arc (as of 2026-07-28)
+
+Italian has had three generations of intervention, each subsuming part
+of its predecessor. All three are documented on this page; this section
+is the authoritative summary of what is CURRENT.
+
+**Generation 1, BA2-inherited tokenize overrides: REMOVED (2026-04-21).**
+The per-language string-manipulation rules ported from BA2 were audited
+with paired probes and deleted (dormant, redundant, or harmful on modern
+Stanza). See [History](#history).
+
+**Generation 2, the downstream `%mor` reconciler (2026-04/05):
+per-surface allowlists.** Hand-curated tables in
+`crates/batchalign-transform/src/morphosyntax/lang_it.rs` repairing
+specific observed damage after Stanza produced it: `IT_MIS_SPLIT_OVERRIDES`
+(Defects 6/7, 23 entries), `IT_COMPOUND_IMPERATIVES` (Defect 8, 11
+entries), `IT_COMPONENT_REWRITES` (Defects 9/10, 3 entries). Grown one
+production incident at a time; each entry documented below.
+
+**Generation 3, the tokenize-stage MWT policy (2026-07-28): validate
+every split, both directions.** Implemented in
+`batchalign/inference/_italian_mwt.py` and applied in the tokenizer
+postprocessor, BEFORE Stanza's MWT processor runs. Italian has exactly
+four legitimate multi-word patterns (preposition+article,
+`ecco`+enclitic, clitic cluster, verb+enclitic); a forced probe
+previews Stanza's split for every candidate, the four patterns judge
+it, and the pipeline is told to suppress an illegitimate split or force
+a withheld genuine one. Full design, structural guards, and the
+measured evidence:
+[Stanza Limitations](../../../architecture/language-and-multilingual/stanza-limitations.md).
+
+### Per-defect status
+
+| Defect | Shape | Handled now by | Notes |
+|---|---|---|---|
+| 6 (`parla`/`arancione` -> fake verb+clitic) | spurious split | **policy: suppressed at source** | reconciler table retained as dormant backstop; no Range reaches it |
+| 7 (`la` -> `il+i`) | spurious split | **policy: suppressed at source** | same |
+| 8 (`dammela` mid-sentence, no expansion) | withheld split | **policy: forced at source** | arrives as a Range and gets full decomposition natively; allowlist dormant backstop |
+| 9 (`dagliela` head `ADP/da`) | wrong head POS on a real Range | **reconciler rewrite, STILL ACTIVE** | the policy validates split SHAPE, not component analyses |
+| 10 (`posala` head lemma `posa`) | wrong head lemma on a real Range | **reconciler rewrite, STILL ACTIVE** | `posare`-specific |
+| 12/13 (`aprilo` -> `verb|aprilare`) | withheld split, fabricated lemma | **policy: forced at source** | open verb+enclitic class covered generally, not per surface |
+| Singleton skips (`soffioni`, `pettole`, `babbolo`) | spurious split, unlisted | **policy: suppressed at source** | correct without listing; verified whole with real lemmas |
+| non-UD `iob` relation | `%gra` content | `validate_ud_words` on the production path (2026-07-28) | was unit-tested but uncalled for months |
+
+### Corpus repair status
+
+Measured 2026-07-28 with a language-resolving Rust audit over the typed
+CHAT AST (all 106,158 corpus files): 657 Italian-primary files; 1,608
+Italian-resolved single-word utterances across 338 files carry
+verb+enclitic `%mor` (committed damage plus genuine imperatives).
+Regeneration of all Italian-primary files with the fixed pipeline is
+the repair step; outputs are diffed before entering the data repos.
 
 ## What Stanza handles natively
 
@@ -87,10 +144,10 @@ pseudo-analyses fire independent of position.
 
 Pinned as `stanza-it-verb-clitic-pos-split` in
 [Stanza Limitations, Defect 6](../stanza-limitations.md#defect-6-italian-pos-layer-splits-words-with-clitic-shaped-endings-into-fake-verbclitic-compounds).
-Documented, not mitigated. A fix would require either a
-content-quality gate at the `%mor` emission stage (candidate signal:
-`lemma + concat(clitic_lemmas) == surface` AND `lemma != surface`),
-a Stanza retrain, or swapping Stanza for CLAN's Italian MOR.
+**Prevented at source since 2026-07-28** by the tokenize-stage MWT
+policy (the spurious split is suppressed, so Stanza analyzes the whole
+word); the `IT_MIS_SPLIT_OVERRIDES` reconciler entries remain as a
+dormant backstop.
 
 ### Defect 7: sentence-initial article `la` gets junk `il + i` MWT expansion
 
@@ -119,8 +176,10 @@ expansion) has not yet been characterized.
 
 Pinned as `stanza-it-la-sentence-initial-split` in
 [Stanza Limitations, Defect 7](../stanza-limitations.md#defect-7-italian-sentence-initial-article-la-gets-junk-mwt-expansion-il--i).
-Documented, not mitigated. Same content-quality gate shape as Defect
-6 but a different signal: `concat(inner_word_texts) != token_text`.
+**Prevented at source since 2026-07-28**: the policy rejects `il + i`
+because it is not a genuine preposition+article fusion (no preposition
+in the base and `la` is not in the contracted paradigm), so the split
+never happens.
 
 ### Defect 8 (candidate): mid-sentence `dammela` tagged as ADJ, lemma normalized to `dammelo`
 
@@ -748,97 +807,76 @@ The specific contracts:
   directly (`check_italian_mis_split` for positive and negative
   inputs).
 
-## Open work
+## Future work
 
-The Italian reconciler covers the concretely-evidenced Defect 6,
-7, 8, and 9 cases. A more recent session extended the probe
-harness to emit lemma alongside POS, resolved items 1 and 3 from
-an earlier pause, and landed the Defect 9 component-rewrite
-reconciler. The remaining items below are **not yet implemented**;
-pick them up when Italian is next on deck.
+The tokenize-stage policy changed what remains open. Items from the
+reconciler era that the policy resolved outright: multi-chunk Defect 8
+decomposition (the split now arrives as a Range and decomposes natively),
+per-surface allowlist expansion for Defects 6/8 (items that proposed
+scanning for more surfaces to list are OBSOLETE: the open verb+enclitic
+class is covered generally, including 2pl forms like `prendetelo`,
+which need no listing). What is genuinely left:
 
-1. **`mettere` family lemma-quality investigation**,
-   **RESOLVED (null result).** The earlier pause
-   notes hypothesized that Stanza emits surface-echo lemma
-   (`mettilo` instead of `mettere`) for this family. The
-   A more recent probe, with `_token_summary` extended to emit
-   `(text, upos, lemma)`: falsified the hypothesis: Stanza
-   correctly emits `lemma='mettere'` with `upos='VERB'` for all
-   four surfaces (`mettilo`/`mettila`/`mettili`/`mettiti`).
-   No `IT_VERB_LEMMA_OVERRIDES` gate is needed. The corpus
-   %mor output for these forms is already well-formed. The
-   probe cases stay in `_cases/italian.py` as Stanza-drift
-   sentinels in case a future Stanza release regresses.
+1. **Regeneration-diff adjudication.** The corpus regeneration diff is
+   the corpus-scale verification instrument for the whole policy; any
+   surprise it surfaces becomes the next item on this list.
+2. **In-context committed-damage signature scan.** The language-resolved
+   audit enumerates the single-word signature; committed in-context
+   damage (`det|il~det|il` for `la`, verb+enclitic items on multi-word
+   utterances) needs its own signature in `lang_audit` for exact
+   enumeration. Regenerating all Italian-primary files cures it
+   regardless.
+3. **Reconciler allowlist retirement.** `IT_MIS_SPLIT_OVERRIDES` (23
+   entries, Defects 6/7) and `IT_COMPOUND_IMPERATIVES` (11 entries,
+   Defect 8) are shadowed by the source-level policy and now no-op;
+   removal needs per-entry verification (empty the table, run the
+   dependent integration tests, retire entries whose tests still pass).
+   The Defect 9/10 component rewrites (`IT_COMPONENT_REWRITES`) remain
+   LOAD-BEARING and must not be retired.
+4. **Defect 9 breadth.** The policy validates split SHAPE, not component
+   analyses, so head mis-POS on a legitimate Range (`dagliela` ->
+   `ADP/da`) is still repaired by a 1-entry rewrite. Whether more
+   homograph heads mis-POS is unmeasured; a components-level audit over
+   regenerated output would bound it.
+5. **Stanza-upgrade re-audit.** On every Stanza upgrade: the lexicon
+   extraction seam is pinned by `test_italian_mwt_lexicon.py` (a moved
+   private attribute fails CI, not silently); the probe matrix and the
+   Italian ml_golden tests re-verify policy behavior; the reconciler
+   retirement workflow above re-classifies remaining entries.
 
-2. **Multi-chunk Defect 8 decomposition.** Current Defect 8
-   reconciler emits a single-chunk `%mor` (`verb|dare-Imp-S2`)
-   because `map_ud_sentence`'s `UdId::Single` branch assumes one
-   chunk per UD word. The target would be the full decomposition
-   `verb|dare-Imp-S2~pron|me~pron|la` matching the standalone
-   `dammela` output. Requires extending
-   `build_gra_and_validate` to walk `mors` alongside `sentence.words`
-   and use `Mor::count_chunks()` per UD word instead of assuming
-   1-per-Single. Non-trivial architectural change; the
-   single-chunk fix already captures the correct POS and verb
-   lemma, which is the most important signal downstream.
+## Known limitations and flaws
 
-3. **Dative clitic stack `-glie-` compounds**,
-   **RESOLVED via Defect 9 reconciler.** Probed
-   `digliela`, `dagliela`, `portagliela`, `prendigliela` on
-   Stanza handles three of four correctly (head
-   tagged VERB with correct lemma). `dagliela` alone mis-POSs
-   its head as ADP (homographic preposition `da`); this was
-   characterized as a new defect family (Defect 9) and landed
-   as a single-entry component-rewrite allowlist in
-   `IT_COMPONENT_REWRITES`. See "Defect 9 allowlist" subsection
-   above. Adding new entries to Defect 9 follows the same
-   scan-probe-allowlist loop as Defects 6 and 8.
+Stated plainly, so nobody rediscovers them as surprises:
 
-4. **Imperative 2pl forms.** `prendetelo`, `mettetela`,
-   `dategliela`, etc. Different ending pattern (`-tel[oaie]`
-   prefix on a 2pl stem). The current scan's tail list doesn't
-   explicitly cover these; add `telo/tela/teli/tele` stacked-tail
-   entries plus probe observations. If Stanza mis-classifies 2pl
-   forms similarly to 2sg, extend the allowlist.
-
-5. **Broader verb paradigm coverage.** The Defect 8 allowlist
-   has entries from exactly two verb paradigms: `dare` and
-   `prendere`. Italian's full imperative+clitic surface space
-   spans dozens of verbs (`guardare`/`guardala`,
-   `scusare`/`scusalo`, `sentire`/`sentilo`,
-   `aspettare`/`aspettala`, `ascoltare`/`ascoltami`, etc.). A
-   broader corpus scan + probe pass would identify the
-   next-frequency tranche. Priority is low until a user reports
-   junk `%mor` content on a new surface.
-
-6. **Long-tail Defect 6 verbs / non-verbs.** The Defect 6
-   allowlist now covers `parla` + 8 non-verb mis-splits
-   (`arancione`, `piccolo`, `gomitolo`, `divano`, `pallone`,
-   `bastone`, `cappello`, `difficile`), the last four added
-   via CHILDES-ita corpus scan + direct Stanza probe
-   (244 combined occurrences). Other Italian verbs with
-   clitic-shaped stem endings (e.g. `canta` → `cant + a`?,
-   `balla` → `ball + a`?) may also mis-split in specific
-   sentence-initial contexts. A future corpus sweep over the
-   pre-parsed JSON mirror (built via `tb parse`) can surface
-   the remaining long tail by querying for committed
-   `verb|STEM~pron|CLITIC` patterns where `STEM + CLITIC ==
-   surface` and `STEM` isn't a real Italian lemma.
-
-7. **Stanza-upgrade re-audit.** Each reconciler entry should be
-   re-evaluated when Stanza is upgraded. Manual workflow: empty
-   the three allowlists in `lang_it.rs`, run the reconciler-
-   dependent integration tests, classify each failure as
-   **STILL NEEDED** (test fails without the reconciler, keep
-   the entry) or **RETIRE CANDIDATE** (test passes without it,
-   Stanza fixed the defect upstream; remove the entry).
-   Restore `lang_it.rs` from `HEAD` before committing the
-   selective retirements. Run this after every Stanza
-   major-version bump.
-
-None of these are blockers for user-facing Italian work. They
-are concrete, scoped extensions with clear next steps documented
-in the commit history of `crates/batchalign-transform/src/morphosyntax/lang_it.rs`.
+- **Lexicon-gap over-splits.** A form satisfying all four tests that is
+  absent from Stanza's lexicon is wrongly split (`pentolo` -> *pento* +
+  *lo*: exact reconstruction, real clitic, attested verb base, not a
+  dictionary entry). Invisible to every test the rule has; a real
+  morphological analyzer is the only principled cure.
+- **Reflexive-imperative under-splits.** Forms Stanza's lexicon lists as
+  words in their own right are not split (`svegliati`, `vestiti`), which
+  is genuinely ambiguous context-free (`vestiti` = "get dressed!" or
+  "clothes"). The policy deliberately under-splits when it must guess:
+  a lost split leaves a word coarsely analyzed, a false split invents a
+  verb.
+- **Lemma quality is out of scope.** The policy fixes tokenization, not
+  the lemmatizer: an unsplit unknown word can still receive a fabricated
+  lemma (`tecala` -> `tecalare`), and a correct split can carry a wrong
+  lemma (`finila` -> *fini* + *la* lemmatizes to `fine`, not `finire`).
+- **The lexicon is a private Stanza attribute.** Deliberate trade
+  (hand-maintained tables drift; Stanza's own lexicon tracks its model),
+  isolated at one loudly-failing seam and pinned by tests, but a Stanza
+  refactor will require re-plumbing it.
+- **Probe cost.** One extra `tokenize,mwt` pipeline pass per batch, on
+  candidates only (Stanza-marked tokens plus lexical-pre-filter hits).
+  Lazily loaded; negligible against model inference, but nonzero.
+- **Residual RATES are not stated.** The regeneration diff is the
+  measuring instrument; per-form rates before it would be guesses.
+- **Language routing is trusted, not audited.** The policy assumes the
+  words reaching the Italian pipeline are Italian-attributed. The
+  corpus data is properly marked (language-resolved audit, 2026-07-28:
+  zero unresolved words); whether the L2 routing layer honors every
+  marker end-to-end has not been separately audited.
 
 ## History
 

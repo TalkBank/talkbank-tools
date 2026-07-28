@@ -1,7 +1,7 @@
 # Stanza Limitations and Their Workarounds
 
 **Status:** Current
-**Last updated:** 2026-07-28 09:07 EDT
+**Last updated:** 2026-07-28 13:18 EDT
 
 Stanza is the morphosyntax engine behind `batchalign3 morphotag`. It does not
 guarantee Universal Dependencies conformance, and several of its language
@@ -88,14 +88,70 @@ utterances bites CHILDES hardest. The damage is not limited to the relation
 label: `%mor` records `verb|attenzare` for the noun *attenzione*, inventing a
 verb that does not exist in Italian.
 
+**Corpus impact** (measured 2026-07-28 over all 106,158 corpus files with a
+Rust tool on the typed CHAT AST, resolving language per WORD via the canonical
+resolver: `@Languages` primary vs secondary, `[- lang]` precodes, `@s`
+markers). 657 files are Italian-PRIMARY, carrying 809,264 MOR-domain words of
+which 806,133 resolve to Italian; a further 428 files declare Italian only as
+a SECONDARY language and their words default elsewhere. Across both, **1,608
+Italian-resolved single-word utterances in 338 files carry a verb+enclitic
+`%mor` analysis**: the superset containing all committed mis-split damage plus
+the genuine `dammelo`-class imperatives, which regeneration with the fixed
+pipeline distinguishes. Word-language resolution left ZERO words unresolved,
+and explicitly marked code-switching in Italian-primary files is small (793
+`@s`-marked words, 2,279 precoded utterances, top other languages nld/deu).
+
 **Status: FIXED 2026-07-28**, in `batchalign/inference/_italian_mwt.py`.
 
-Italian multi-word tokens are very nearly a CLOSED class, unlike Stanza's
-treatment of them: preposition+article contractions and `ecco`+enclitic are
-both fully enumerable; only verb+enclitic is genuinely open. So for
-single-word utterances, where the damage occurs, expansion is suppressed
-(Stanza's documented `(text, False)` hint) EXCEPT for the closed classes,
-which still expand.
+### Two fixes that do not work
+
+Both are worth recording, because both look right and both were measured wrong.
+
+**A closed-class allowlist.** Italian's preposition+article contractions and
+`ecco`+enclitic forms are enumerable, so expansion can be suppressed outside
+those sets. This passes every noun assertion and destroys every genuine
+imperative, because verb+enclitic is an OPEN class and no surface pattern
+separates `giralo` (turn it) from `cavallo` (horse). Worse, it does not even
+fail safe: suppressed, `diglielo` comes back as `verb|diglielare`, an invented
+verb, so the fix reproduces the exact defect it was written to remove.
+
+**A part-of-speech probe.** Analyze the unsplit form with MWT disabled and allow
+the split only when it tags VERB. Scored 29/39 on a discrimination set: it
+suppresses `giralo` (NOUN), `aprila` (NOUN) and `eccolo` (ADJ), and it allows
+`dondolo`, `viola`, `scivola`, `disegna` and `cancello`, which are ordinary
+words. Note also that `tokenize_pretokenized=True` disables MWT expansion
+outright, so a probe built that way answers "never splits" for every word: a
+result that reads as clean and is a measurement that never ran.
+
+### The fix: validate the split Stanza proposes
+
+The decision is made in the tokenizer postprocessor, which Stanza runs BEFORE
+the MWT processor, so the split being judged does not exist yet. A minimal
+`tokenize,mwt` probe pipeline (worker-state key `{lang}:mwtprobe`, loaded
+lazily, one batched call per batch) previews it. The proposal is then checked
+against four facts, and the split is allowed only if all four hold:
+
+| # | Test | Source | Rejects |
+|---|---|---|---|
+| 0 | the split accounts for every character of the word | structural invariant | `pentolone` -> *pento*+*lo* (drops `ne`), `hallo`, `tagliatelle`, `cavalla` |
+| 1 | every non-initial piece is an Italian enclitic | closed class of the language | `gallina` -> *galli*+*na*, `disegna` -> *di*+*se*+*gna* |
+| 2 | the base is an attested verb, or `ecco` | Stanza's own shipped lexicon | `bello` -> *ib*+*lo*, `pello` -> *ip*+*lo*, `spaghetti`, `cielo` |
+| 3 | the whole form is not itself a dictionary word | Stanza's own shipped lexicon | `cavallo` -> *cava*+*lo*, `pentola`, `cavolo` |
+
+Each is load-bearing; `test_each_of_the_four_tests_is_load_bearing` fails if any
+is removed. Test 0 allows the one regular departure from plain concatenation:
+only the apocopated monosyllabic imperatives `da'/di'/fa'/sta'/va'` double the
+following clitic (`da` + `me` + `lo` = `dammelo`), and `gli` never doubles.
+Test 2 restores the elided `e` of an apocopated infinitive, since *caricare* +
+*lo* surfaces as `caricar` + `lo`.
+
+The two lexical tests read Stanza's own Italian word list (about 50k surface
+forms and 13k verb forms) rather than a table we maintain. That is deliberate:
+the April 2026 MWT audit retired five hand-maintained per-language tables
+precisely because they had drifted from what the models do. The list lives
+behind a private Stanza attribute, so access is isolated in
+`extract_stanza_lexicon` and fails loudly; `test_italian_mwt_lexicon.py` pins
+its shape so a Stanza upgrade breaks CI instead of a corpus.
 
 Measured before and after on the real corpus words, via the full pipeline:
 
@@ -105,52 +161,190 @@ Measured before and after on the real corpus words, via the full pipeline:
 | `macchine` | `verb\|maccare-Part-Past-P~pron\|ne` | `noun\|macchina-Fem-Plur` |
 | `gallina` | `galli` + `na` | `noun\|gallina-Fem` |
 | `cavallo` | `cava` + `lo` | `noun\|cavallo-Masc` |
+| `bello` | `ib` + `lo` | `adj\|bello` |
 | `mucche` | `mu` + `cce` + `he` | `noun\|mucca-Fem-Plur` |
-| `persone` | `perso` + `ne` | `noun\|persona-Fem-Plur` |
 | `eccolo` | `ecco` + `lo` | `adv\|ecco~pron\|lo` (PRESERVED) |
+| `dammelo` | `da` + `me` + `lo` | PRESERVED |
+| `diglielo` | `di` + `glie` + `lo` | PRESERVED |
+| `giralo` | `gira` + `lo` | PRESERVED |
 
-10 of 10 correct, including plural lemmas (*macchine* -> *macchina*) that the
-split had destroyed. Multi-word utterances are untouched, since the same nouns
-were already analyzed correctly there.
+### Residual error, known shapes
 
-The accepted cost: a one-word verb+enclitic imperative (`dammi`,
-`portarmelo`) will no longer split, because verb+enclitic is an open class and
-admitting it by surface pattern would also readmit `cavallo` -> *cava*+*lo*
-and `attenzione` -> *attenzi*+*ne*, whose bases are equally verb-shaped.
-Losing a split leaves a real word coarsely analyzed; a false split invents a
-verb. The asymmetry decides it.
+Two under-generation shapes are known and accepted. Forms like `pentolo` that
+reconstruct, carry real clitics and a plausible base, and are absent from the
+lexicon are invisible to every test the rule has; catching them needs a real
+morphological analyzer. And reflexive imperatives that Stanza's lexicon lists
+as words in their own right (`svegliati`, `vestiti`) are not split, which is
+defensible: `vestiti` really is both "get dressed!" and "clothes", and
+context-free it is genuinely ambiguous.
 
-## Limitation 3: Italian MWT mis-splits common function words
+Where the rule must guess, it prefers to under-split. Losing a split leaves a
+real word coarsely analyzed; a false split invents a verb that does not exist in
+Italian, which is the defect this page is about. The asymmetry decides it.
 
-**Symptom.** Observed in the same 2026-07-28 run, in full sentences:
+Residual RATES await the language-resolved corpus measurement.
+
+## Limitation 3: Italian MWT over-splits IN CONTEXT
+
+**Symptom.** The same over-splitting as limitation 2, but surviving in full
+sentences where no single-word gate can reach it:
 
 ```
-la stazione e molto grande .        -> "il i stazione e molto grande ."
-secondo la mia opinione hai ragione . -> "... ha i ragione ."
+la stazione e molto grande .          -> la  = il + i        (DET/DET)
+secondo la mia opinione hai ragione . -> hai = ha + i        (VERB/DET)
+questa e la mozzarella .              -> mozzarella = mozzar + la
+mangiamo le tagliatelle stasera .     -> tagliatelle = tagliate + le
+prendi il pennarello rosso .          -> pennarello  = pennar + lo
 ```
 
-`la` becomes `il` + `i`, and `hai` (2sg of *avere*) becomes `ha` + `i`.
+**Corpus impact: not separately quantified.** The language-resolved audit
+measures the single-word signature (limitation 2); committed in-context damage
+has a different `%mor` shape and awaits its own signature scan. The mechanism
+is certain: the five example sentences above are monolingual Italian and
+reproduce through the real pipeline, asserted in
+`golden_morphotag_ita_multi_word_keeps_genuine_mwts`, and `parla` -> *par* +
+*la* is independently attested by the Defect 6 record in the Italian language
+page.
 
-**Status: NOT investigated.** Found while measuring limitation 2; scope,
-frequency, and corpus impact are all unmeasured. Do not assume it is rare.
+**Status: FIXED 2026-07-28**, by the same rule as limitation 2.
+
+### Why one rule covers both
+
+The rule validates the split Stanza proposes against facts about Italian, none
+of which mention context, so it answers identically wherever the word appears.
+Candidates are exactly the tokens Stanza itself marks `(text, True)` in the
+tokenizer postprocessor, which is its documented "expand this" hint. Reading
+that marker instead of guessing which words might be multi-word tokens is what
+makes the pass cover every context AND cost less: a typical sentence marks two
+tokens out of eleven.
+
+Italian has exactly FOUR legitimate multi-word patterns, three of them closed:
+
+| pattern | example | test |
+|---|---|---|
+| preposition + article | `alla` = *a* + *la* | surface is in the contracted paradigm AND the split is ADP + DET |
+| `ecco` + enclitic | `eccolo` = *ecco* + *lo* | reconstruction + real clitics + the presentative host |
+| clitic cluster | `glielo` = *glie* + *lo* | reconstruction + every piece is an enclitic |
+| verb + enclitic | `giralo` = *gira* + *lo* | reconstruction + real clitics + attested verb base + the whole form is not a dictionary word |
+
+Anything matching none of the four is suppressed.
+
+**The preposition+article test needs BOTH halves.** Validating only the
+analysis (is this ADP + DET?) would accept ANY pair the tagger labels that way,
+including mangles of non-paradigm surfaces (verified against raw Stanza:
+English `well` -> *In* + *l* passes the structural test alone). Validating only
+the surface would admit nothing useful, since `la` -> *il* + *i* has to be
+rejected on its analysis. The contracted paradigm is a closed, centuries-stable
+set, so requiring the surface to belong to it costs nothing and closes the
+structural hole. Whether non-Italian material ever reaches the Italian pipeline
+in production is a separate, unanswered question about language routing; the
+rule is safe either way.
+
+**The probe must see the same context as the pipeline.** This is the one thing
+that does not generalize for free, and it cost a full RED-GREEN cycle to find:
+`hai` in isolation is left whole, but in `secondo la mia opinione hai ragione .`
+it becomes *ha* + *i*. A probe over isolated words therefore reports no split to
+judge, and every in-context over-split passes through while the single-word
+cases are still caught, which looks like a working fix. The probe runs over
+whole utterances for exactly this reason.
+
+## Limitation 4: Italian MWT FAILS to split genuine imperatives (Defects 12/13)
+
+**Symptom.** The mirror image. Stanza declines to expand a real
+imperative+enclitic and invents a verb for the whole surface:
+
+```
+aprilo  -> verb|aprilare      leggila -> verb|leggilare
+aprila  -> verb|aprilare      finila  -> verb|finilare
+```
+
+None of those verbs exist. Milder variants lose the clitic without inventing
+anything (`dimmi` comes back as bare `verb|dire`) or leave the surface
+unanalyzed (`buttalo` lemmatizes to `buttalo`).
+
+**Prior mitigation and its limit.** `IT_COMPOUND_IMPERATIVES` in `lang_it.rs`
+repairs eleven forms downstream: `dammela, dammelo, prendilo, prendila,
+prendili, prendile, aprila, aprili, finila, aprilo, leggila`. Verb+enclitic is
+an open class, so an eleven-entry list cannot be complete by construction, and
+forms outside it (`dimmi`, `buttalo`, `mettilo`, `lascialo` among those
+verified through the pipeline) received no repair.
+
+**Status: FIXED 2026-07-28**, by making the same rule bidirectional.
+
+Suppression cannot help here: there is nothing to suppress. But Stanza's
+tokenizer hint protocol runs both ways, and its MWT processor OBEYS `(text,
+True)`: hinted, `aprilo` yields *apri* + *lo* with the real lemma *aprire*.
+
+So the policy now judges two kinds of candidate with the same four tests:
+
+- tokens Stanza marked `(text, True)`, which may be over-splits;
+- tokens it left whole that a cheap lexical pre-filter (`could_be_enclisis`)
+  says might be enclisis: peel a maximal enclitic sequence off the end and ask
+  whether the remainder can host it. Known dictionary words are excluded up
+  front so `cavallo` is not probed on every batch only to be rejected later.
+
+Every candidate is force-hinted in ONE probe pass. That is free for tokens
+Stanza was already going to expand, since the hint is what it emitted itself,
+and it is the only way to see a split it declines to make. The four tests then
+decide, and the real pipeline is told `(text, True)` to force or `(text, False)`
+to suppress. A candidate whose forced probe yields no split is left exactly as
+Stanza left it, never asserted into an expansion with no proposed shape.
+
+### The constraint that makes forcing safe
+
+Forcing is the dangerous direction: a wrong forced split fabricates structure
+instead of merely losing it. The guard is a fact of Italian morphology. The
+`e`-form clitics (`me, te, se, ce, ve, glie`) exist ONLY before another clitic:
+`mi` becomes `me` in `dammelo` (*me* + *lo*), `ci` becomes `ce` in `metticelo`.
+Italian has no word ending in a bare enclitic `me`/`ce`/`ve`, so a split whose
+LAST piece is one of them is not a possible Italian word, and a candidate whose
+peeled tail ends that way is rejected. Verified against raw Stanza that without
+this guard, surfaces like English `face` (-> *fa* + *ce*) would force-split;
+with it they cannot, regardless of whether such material ever reaches the
+Italian pipeline in production. `ne` is deliberately excluded from the
+restriction: it IS a real final clitic (`dammene`, `scegline`).
+
+Verified through the real pipeline after the change (asserted in the golden
+tests): `dimmi` -> *dim* + *mi* (dire/mi) and `buttalo` -> *butta* + *lo*
+(buttare/lo) recover their analyses, while `la`, `mozzarella` and the nouns
+stay whole and `alla` and `dammelo` keep splitting.
+
+## Consequence: the Rust mis-split allowlist is now largely redundant
+
+`IT_MIS_SPLIT_OVERRIDES` in
+`crates/batchalign-transform/src/morphosyntax/lang_it.rs` is a 23-entry
+hand-curated table that repairs specific known mis-splits downstream, one row
+added per production incident (Defects 6 and 7 in the Italian language page).
+The rule above prevents that damage at the source, generally, so those Ranges
+mostly no longer reach the reconciler.
+
+Verified 2026-07-28: suppressing the split yields the correct analysis directly
+for essentially every form in that table, including the ones it hardcodes,
+`parla` -> `VERB/parlare`, `coccole` -> `NOUN/coccola` (with the correct plural
+lemma), `piccola` -> `ADJ/piccolo`, `cielo` -> `NOUN/cielo`.
+
+**Not removed.** The reconciler fires only on Ranges, so with no Range it simply
+no-ops and nothing conflicts; deleting the table is a separate change needing
+per-entry verification. Recorded here so the redundancy is known rather than
+rediscovered.
 
 ## Open work
 
-1. **Measure limitations 2 and 3 across the corpora** before designing a fix.
-   The right question is how many utterances carry a bogus verb+clitic
-   analysis, not how many carry `IOB`; the label was only the visible tip.
-2. **Design MWT suppression.** The tokenizer postprocessor
-   (`batchalign/inference/_tokenizer_realign.py`) already speaks Stanza's
-   `(text, bool)` MWT-hint protocol, where `False` suppresses expansion, so
-   the mechanism exists. What is missing is the policy for when to emit it.
-   Note that CHAT input is ALREADY tokenized by transcription convention, so
-   "do not re-tokenize a CHAT word unless it is a known contraction" is a
-   defensible default; it is also a broad behavioral change and must be
-   corpus-measured before adoption.
-3. **Re-generate affected corpus files** once a fix lands. Re-running
-   morphotag BEFORE fixing the generator reproduces the defect: verified
-   2026-07-28, which is why the tempting "just rerun BA3 on the bad files"
-   would have wasted a full corpus pass.
+1. **Re-generate affected corpus files**, scoped by the language-resolved
+   audit (338 files with Italian single-word verb+enclitic `%mor`).
+   Re-running morphotag BEFORE fixing the generator reproduces the defect
+   (verified 2026-07-28), so regeneration follows the fix, and outputs are
+   diffed before anything is written into the data repos.
+2. **Extend the audit with an in-context damage signature** for limitation 3
+   (e.g. `det|il~det|il` and verb+enclitic items on multi-word utterances), so
+   in-context committed damage is enumerated the same way.
+3. **Characterize what the Italian pipeline actually receives in bilingual
+   files**, from the language-resolved data plus the L2 routing code. Whether
+   any foreign material reaches the Italian model in production is currently
+   unknown; nothing on this page assumes an answer.
+4. **Revisit the residual under-splits** only if a better lexical source turns
+   up; catching lexicon-invisible forms needs a real morphological analyzer,
+   not another heuristic layered on this one.
 
 ## Related
 

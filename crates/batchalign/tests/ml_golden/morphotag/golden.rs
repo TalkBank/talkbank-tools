@@ -293,10 +293,22 @@ async fn golden_morphotag_cache_is_faster() {
 /// on single-word utterances outside Italian's closed MWT classes; see
 /// `batchalign/inference/_italian_mwt.py`.
 ///
-/// `eccolo` is the deliberate control: `ecco`+clitic IS a closed-class Italian
-/// multi-word token, so it must STILL split. A fix that silenced it too would
-/// pass a naive "no invented verbs" assertion while quietly losing real
-/// analysis.
+/// The controls are the point of this test, not an afterthought. Suppressing
+/// every single-word expansion trivially satisfies "no invented verbs" while
+/// destroying real analysis, so the fixture also carries genuine multi-word
+/// tokens that MUST still split:
+///
+/// * `dammelo`, `diglielo`, `giralo`, `prendilo`, `guardalo` are verb+enclitic
+///   imperatives, an OPEN class. No surface pattern separates `giralo` (turn it)
+///   from `cavallo` (horse): both are a verb-shaped base plus a real clitic. A
+///   closed-class allowlist therefore cannot admit them, and one shipped briefly
+///   that destroyed roughly 55 such utterances across the corpora.
+/// * `eccolo` is `ecco`+clitic, a genuinely CLOSED class. It is also the form on
+///   which a naive part-of-speech probe fails: stanza tags the unsplit `eccolo`
+///   ADJ rather than VERB.
+///
+/// Between them these controls fail BOTH tempting cheap fixes, which is why they
+/// are here.
 #[tokio::test]
 async fn golden_morphotag_ita_single_word_utterances_are_not_split() {
     let Some(jobs) = require_direct_session_warmed(
@@ -326,20 +338,21 @@ async fn golden_morphotag_ita_single_word_utterances_are_not_split() {
     assert!(has_mor_tier(&file));
     assert!(has_gra_tier(&file));
 
-    // Each noun must be tagged as a noun, with no clitic split.
-    for (utterance, expected_lemma) in [
-        ("attenzione", "attenzione"),
-        ("macchine", "macchina"),
-        ("gallina", "gallina"),
-        ("cavallo", "cavallo"),
-        ("mucche", "mucca"),
-        ("persone", "persona"),
+    // Each lexical word must keep its own part of speech, with no clitic split.
+    for (utterance, expected_pos, expected_lemma) in [
+        ("attenzione", "noun|", "attenzione"),
+        ("macchine", "noun|", "macchina"),
+        ("gallina", "noun|", "gallina"),
+        ("cavallo", "noun|", "cavallo"),
+        ("mucche", "noun|", "mucca"),
+        ("persone", "noun|", "persona"),
+        ("bello", "adj|", "bello"),
     ] {
         let mor = find_mor_line_for(output, utterance)
             .unwrap_or_else(|| panic!("no %mor tier for {utterance:?}"));
         assert!(
-            mor.contains("noun|"),
-            "{utterance:?} must be tagged a noun, got {mor:?}"
+            mor.contains(expected_pos),
+            "{utterance:?} must be tagged {expected_pos:?}, got {mor:?}"
         );
         assert!(
             !mor.contains('~'),
@@ -352,12 +365,17 @@ async fn golden_morphotag_ita_single_word_utterances_are_not_split() {
         );
     }
 
-    // Control: a genuine closed-class MWT must still expand.
-    let ecco = find_mor_line_for(output, "eccolo").expect("no %mor tier for eccolo");
-    assert!(
-        ecco.contains('~'),
-        "eccolo is a real ecco+clitic multi-word token and must still split, got {ecco:?}"
-    );
+    // Controls: genuine multi-word tokens must STILL expand. These are the
+    // assertions a closed-class allowlist cannot satisfy, and `eccolo` is the
+    // one a bare part-of-speech probe cannot satisfy either.
+    for utterance in ["dammelo", "diglielo", "giralo", "prendilo", "guardalo", "eccolo"] {
+        let mor = find_mor_line_for(output, utterance)
+            .unwrap_or_else(|| panic!("no %mor tier for {utterance:?}"));
+        assert!(
+            mor.contains('~'),
+            "{utterance:?} is a genuine multi-word token and must still split, got {mor:?}"
+        );
+    }
 }
 
 /// Italian multi-word utterances: genuine MWTs expand, verb forms do not.
@@ -407,7 +425,7 @@ async fn golden_morphotag_ita_multi_word_keeps_genuine_mwts() {
     );
 
     // Pro-drop 2sg `hai` is never a contraction in Italian: no `ha` + `i`.
-    let hai = find_mor_line_for(output, "hai").expect("no %mor tier for hai");
+    let hai = find_mor_line_for(output, "opinione").expect("no %mor tier for hai");
     assert!(
         hai.contains("avere"),
         "hai is 2sg of avere and must not be split into ha + i, got {hai:?}"
@@ -419,4 +437,75 @@ async fn golden_morphotag_ita_multi_word_keeps_genuine_mwts() {
         persone.contains("persona"),
         "persone should lemmatize to persona in context, got {persone:?}"
     );
+
+    // Limitation 3: over-splitting that survives IN context. Italian has exactly
+    // three legitimate multi-word patterns (preposition+article, `ecco`+enclitic,
+    // verb+enclitic); none of these lines contains one, so any `~` on them is a
+    // multi-word token stanza invented. Each context was verified to trigger the
+    // defect on stanza 1.13.0, so these assertions are real gates and not
+    // decoration.
+    for (anchor, what) in [
+        ("grande", "la must stay the article `la`, never il + i"),
+        ("opinione", "hai must stay 2sg of avere, never ha + i"),
+        ("mozzarella", "mozzarella is a noun, never mozzar + la"),
+        ("tagliatelle", "tagliatelle is a noun, never tagliate + le"),
+        ("pennarello", "pennarello is a noun, never pennar + lo"),
+    ] {
+        let mor = find_mor_line_for(output, anchor)
+            .unwrap_or_else(|| panic!("no %mor tier for the {anchor:?} utterance"));
+        assert!(
+            !mor.contains('~'),
+            "{what}; this utterance carries no genuine multi-word token, got {mor:?}"
+        );
+    }
+
+    // Defects 12 and 13: the OPPOSITE failure. Stanza declines to split a
+    // genuine imperative+enclitic and invents a verb for the whole surface;
+    // raw stanza 1.13.0 gives `aprilo` -> `verb|aprilare` and `leggila` ->
+    // `verb|leggilare`, neither of which is an Italian verb.
+    //
+    // These two are repaired downstream by `IT_COMPOUND_IMPERATIVES` in
+    // `lang_it.rs`, an 11-entry hand-curated allowlist, so what they pin is
+    // that the existing repair keeps working. The uncovered forms, which is
+    // where the defect still bites, are asserted separately below.
+    for (anchor, expected_lemma, fabricated) in [
+        ("aprilo", "aprire", "aprilare"),
+        ("leggila", "leggere", "leggilare"),
+    ] {
+        let mor = find_mor_line_for(output, anchor)
+            .unwrap_or_else(|| panic!("no %mor tier for {anchor:?}"));
+        assert!(
+            !mor.contains(fabricated),
+            "{anchor:?} must not be labelled with the invented verb \
+             {fabricated:?}, got {mor:?}"
+        );
+        assert!(
+            mor.contains('~'),
+            "{anchor:?} is a real imperative+enclitic and must split, got {mor:?}"
+        );
+        assert!(
+            mor.contains(expected_lemma),
+            "{anchor:?} should carry lemma {expected_lemma:?}, got {mor:?}"
+        );
+    }
+
+    // The uncovered half of the same defect: genuine imperative+enclitic forms
+    // that are NOT in the 11-entry allowlist, so nothing repaired them. Raw
+    // stanza 1.13.0 leaves `dimmi` whole (losing the clitic entirely) and gives
+    // `buttalo` the unanalyzed lemma `buttalo`. Verb+enclitic is an open class,
+    // so no finite allowlist can cover it, which is why the fix has to be
+    // general rather than another row in a table.
+    for (anchor, expected_lemma) in [("verita", "dire"), ("buttalo", "buttare")] {
+        let mor = find_mor_line_for(output, anchor)
+            .unwrap_or_else(|| panic!("no %mor tier for the {anchor:?} utterance"));
+        assert!(
+            mor.contains('~'),
+            "the {anchor:?} utterance carries an imperative+enclitic that must \
+             split, got {mor:?}"
+        );
+        assert!(
+            mor.contains(expected_lemma),
+            "expected lemma {expected_lemma:?} in the {anchor:?} utterance, got {mor:?}"
+        );
+    }
 }
