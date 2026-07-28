@@ -155,3 +155,57 @@ def test_validate_ud_words_fills_all_sentences() -> None:
     # Sentence 2: missing lemma and upos
     assert sents[1][0]["lemma"] == "oui"
     assert sents[1][0]["upos"] == "X"
+
+
+def test_udword_iob_deprel_normalized_to_iobj() -> None:
+    """Stanza's Italian model emits `iob`, which is not a UD relation.
+
+    Reproduced live on stanza 1.13.0, 2026-07-28, running the Italian
+    pipeline directly on "attenzione ."::
+
+        id=1 text='attenzi' upos=VERB head=0 deprel='root'
+        id=2 text='ne'      upos=PRON head=1 deprel='iob'
+        id=3 text='.'       upos=PUNCT head=1 deprel='punct'
+
+    Universal Dependencies defines `iobj`, never `iob`. Passing it through
+    put `2|1|IOB` into `%gra` across the published corpora, where it sat
+    undetected until chatter's E761 relation-vocabulary rule shipped in
+    v0.4.0. CLAN CHECK never flagged it.
+    """
+    w = UdWord.model_validate({
+        "id": 2, "text": "ne", "lemma": "ne",
+        "upos": "PRON", "head": 1, "deprel": "iob",
+    })
+    assert w.deprel == "iobj"
+
+
+def test_udword_unknown_deprel_falls_back_to_dep() -> None:
+    """A deprel outside the UD closed set must not reach `%gra` verbatim.
+
+    The failure mode this prevents is silent pass-through: `iob` reached the
+    corpora precisely because nothing validated the label against UD. An
+    unrecognised relation degrades to `dep`, which is a real UD relation, and
+    warns.
+    """
+    w = UdWord.model_validate({
+        "id": 1, "text": "foo", "lemma": "foo",
+        "upos": "NOUN", "head": 0, "deprel": "notarelation",
+    })
+    assert w.deprel == "dep"
+
+
+def test_udword_valid_ud_relations_pass_through_untouched() -> None:
+    """Legitimate relations, including subtypes, must be preserved exactly.
+
+    The corpora use many language-specific subtypes (`nmod:poss`,
+    `acl:relcl`, ...). UD defines subtypes as open and language-specific, so
+    only the HEAD is a closed set; over-eager normalisation here would
+    corrupt far more data than the bug it fixes.
+    """
+    for deprel in ("iobj", "nsubj", "root", "punct", "expl", "discourse",
+                   "nmod:poss", "acl:relcl", "flat:foreign"):
+        w = UdWord.model_validate({
+            "id": 1, "text": "foo", "lemma": "foo",
+            "upos": "NOUN", "head": 0, "deprel": deprel,
+        })
+        assert w.deprel == deprel, f"{deprel!r} must survive untouched"

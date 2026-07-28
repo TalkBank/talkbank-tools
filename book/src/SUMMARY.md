@@ -75,6 +75,7 @@
 - [Dashboard Architecture](architecture/runtime/dashboard-architecture.md)
 - [Batchalign Workers](architecture/runtime/batchalign-workers.md)
 - [Cantonese and CJK, Architecture](architecture/language-and-multilingual/cantonese-and-cjk.md)
+- [Stanza Limitations and Their Workarounds](architecture/language-and-multilingual/stanza-limitations.md)
 - [Audio-Task Cache](architecture/runtime/audio-task-cache.md)
 - [Validation Cache](architecture/parser-and-grammar/validation-cache.md)
 - [Cache Override Guide](batchalign/architecture/cache-override-guide.md)

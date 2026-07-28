@@ -44,6 +44,26 @@ class MorphosyntaxBatchItem(BaseModel):
     lang: LanguageCode = ""
 
 
+# The 37 Universal Dependencies relation heads (UD v2). Subtypes after a
+# colon are open and language-specific, so only the head is checked. This
+# mirrors the closed set chatter's E761 enforces on the reading side; the two
+# must not drift apart.
+UD_RELATIONS: frozenset[str] = frozenset({
+    "acl", "advcl", "advmod", "amod", "appos", "aux", "case", "cc", "ccomp",
+    "clf", "compound", "conj", "cop", "csubj", "dep", "det", "discourse",
+    "dislocated", "expl", "fixed", "flat", "goeswith", "iobj", "list", "mark",
+    "nmod", "nsubj", "nummod", "obj", "obl", "orphan", "parataxis", "punct",
+    "reparandum", "root", "vocative", "xcomp",
+})
+
+# Known non-UD labels observed from Stanza, mapped to their UD equivalent.
+# `iob` is emitted by the Italian model for clitic pronouns and is
+# unambiguously `iobj`; it is the defect that put IOB into the corpora.
+UD_DEPREL_ALIASES: dict[str, str] = {
+    "iob": "iobj",
+}
+
+
 class UdWord(BaseModel, extra="allow"):
     """A single UD word/token — mirrors Rust ``UdWord`` in types.rs."""
 
@@ -73,6 +93,53 @@ class UdWord(BaseModel, extra="allow"):
                 self.text,
             )
             self.deprel = "dep"
+        return self
+
+    @model_validator(mode="after")
+    def _normalize_deprel_to_ud(self) -> UdWord:
+        """Force the relation HEAD into the Universal Dependencies closed set.
+
+        Stanza does not guarantee UD-conformant labels. Its Italian model
+        emits ``iob`` (verified against stanza 1.13.0 on "attenzione ."),
+        which is not a UD relation; UD defines ``iobj``. Passing it through
+        wrote ``2|1|IOB`` into ``%gra`` across the published corpora, where it
+        went undetected for months because nothing on either side validated
+        the label: CLAN CHECK does not check relations at all, and chatter
+        only gained the rule (E761) in v0.4.0.
+
+        Only the HEAD is closed. UD defines SUBTYPES as open and
+        language-specific, and the corpora legitimately use many
+        (``nmod:poss``, ``acl:relcl``, ``flat:foreign``), so the subtype is
+        preserved verbatim and never validated.
+
+        An unrecognised head degrades to ``dep``, a real UD relation, rather
+        than reaching the transcript. Silent pass-through is exactly how the
+        original defect escaped.
+        """
+        head, sep, subtype = self.deprel.partition(":")
+        lowered = head.lower()
+        if lowered in UD_RELATIONS:
+            if head != lowered:
+                self.deprel = lowered + sep + subtype
+            return self
+
+        replacement = UD_DEPREL_ALIASES.get(lowered)
+        if replacement is not None:
+            L.warning(
+                "Stanza emitted non-UD deprel=%r for word %r — normalizing to %r",
+                self.deprel,
+                self.text,
+                replacement,
+            )
+            self.deprel = replacement + sep + subtype
+            return self
+
+        L.warning(
+            "Stanza emitted unrecognized deprel=%r for word %r — replacing with 'dep'",
+            self.deprel,
+            self.text,
+        )
+        self.deprel = "dep"
         return self
 
 
@@ -375,6 +442,16 @@ def batch_infer_morphosyntax(
                     tok_ctx.original_words = []
 
             sents = doc.to_dict()
+
+            # Validate and normalize BEFORE anything consumes the result.
+            #
+            # This call is the whole point of the validators above, and its
+            # absence is why they were dead code: `validate_ud_words` and its
+            # `<PAD>` sanitizer were unit-tested for months while `PAD` and
+            # `IOB` flowed into the published corpora, because `doc.to_dict()`
+            # went straight into the response. Stanza does not promise
+            # UD-conformant labels, so nothing downstream may assume it.
+            validate_ud_words(sents)
 
             if len(sents) != len(indices):
                 L.warning(

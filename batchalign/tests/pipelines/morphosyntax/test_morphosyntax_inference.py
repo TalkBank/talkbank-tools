@@ -63,7 +63,19 @@ class _RecordingNlp:
 
 
 def _raw_sentence(words: list[str]) -> list[dict[str, Any]]:
-    """Build one minimal raw-Stanza-like sentence."""
+    """Build one raw-Stanza-like sentence AS IT LEAVES THE PIPELINE.
+
+    Includes the optional fields as explicit ``None``. Stanza itself omits
+    them, but every sentence now passes through ``validate_ud_words``, whose
+    ``UdWord.model_dump()`` materializes the full model. Rust's ``UdWord``
+    declares ``xpos``/``feats``/``deps``/``misc`` as ``Option``, so explicit
+    nulls deserialize identically to absent keys.
+
+    Before 2026-07-28 that validation was never invoked on the production
+    path, so responses carried Stanza's raw dict verbatim and this helper
+    matched it. Wiring the validator in (which is what stops non-UD deprels
+    like ``iob`` reaching ``%gra``) also normalizes the shape.
+    """
 
     rows = []
     for i, word in enumerate(words, start=1):
@@ -73,8 +85,12 @@ def _raw_sentence(words: list[str]) -> list[dict[str, Any]]:
                 "text": word,
                 "lemma": word.lower(),
                 "upos": "NOUN",
+                "xpos": None,
+                "feats": None,
                 "head": 0 if i == 1 else 1,
                 "deprel": "root" if i == 1 else "obj",
+                "deps": None,
+                "misc": None,
             }
         )
     return rows
@@ -271,3 +287,53 @@ def test_batch_infer_morphosyntax_returns_early_when_no_nonempty_items(monkeypat
     assert response.results[0].result == {"sentences": []}
     assert response.results[0].elapsed_s == 0.0
     assert response.results[1].error == "Invalid batch item"
+
+
+def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() -> None:
+    """The PRODUCTION path must validate Stanza's output, not just the tests.
+
+    `validate_ud_words` and its `<PAD>` sanitizer existed and were unit-tested
+    for months, yet `PAD` and `IOB` both reached the published corpora. The
+    reason: nothing on the live path ever called them. `batch_infer_morphosyntax`
+    took `doc.to_dict()` straight into the response, so every validator in this
+    module was dead code the moment real data flowed.
+
+    This test drives the real entrypoint with a Stanza double that emits
+    `iob` (which Stanza's Italian model genuinely produces for clitics, and
+    which is not a UD relation) and asserts the response carries a valid UD
+    relation. A unit test on `UdWord` cannot catch the wiring gap; only a test
+    at this seam can.
+    """
+    lock = _RecordingLock()
+    ctx = SimpleNamespace(original_words=[])
+    nlp = _RecordingNlp(
+        ctx,
+        [[
+            {"id": 1, "text": "attenzi", "lemma": "attenzare", "upos": "VERB",
+             "head": 0, "deprel": "root"},
+            {"id": 2, "text": "ne", "lemma": "ne", "upos": "PRON",
+             "head": 1, "deprel": "iob"},
+            {"id": 3, "text": ".", "lemma": ".", "upos": "PUNCT",
+             "head": 1, "deprel": "punct"},
+        ]],
+    )
+
+    resp = batch_infer_morphosyntax(
+        BatchInferRequest(
+            task="morphosyntax",
+            lang="ita",
+            items=[{"words": ["attenzione", "."]}],
+        ),
+        {"ita": nlp},
+        {"ita": ctx},
+        lock,
+        free_threaded=False,
+    )
+
+    sentence = resp.results[0].result["raw_sentences"][0]
+    deprels = [w["deprel"] for w in sentence]
+    assert "iob" not in deprels, (
+        f"non-UD deprel reached the response: {deprels!r} — "
+        "the production path is not validating Stanza output"
+    )
+    assert deprels[1] == "iobj", f"expected iob normalized to iobj, got {deprels!r}"
