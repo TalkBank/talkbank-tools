@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [features]
-# whisper-rs-backend is DEFAULT (Franklin, 2026-07-28): the engine must
+# whisper-rs-backend is DEFAULT (maintainer ruling, 2026-07-28): the engine must
 # never silently vanish from a build again (the non-default gate cost us
 # the local install when later rebuilds forgot the flag). The price is
 # that every build needs the C/C++ toolchain for whisper.cpp; that is
