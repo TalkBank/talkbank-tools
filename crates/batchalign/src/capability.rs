@@ -12,8 +12,8 @@ use std::collections::BTreeMap;
 
 use tracing::warn;
 
+use crate::command_model::CommandCapabilityKind;
 use crate::commands::released_command_definitions;
-use crate::commands::spec::CommandCapabilityKind;
 use crate::error;
 use crate::worker::target::task_name as infer_task_capability_name;
 use crate::worker::{InferTask, WorkerCapabilities};

@@ -1,11 +1,10 @@
 use crate::ReleasedCommand;
-use crate::commands::spec::{
-    CommandCapabilityKind, CommandDefinition, CommandIoProfile, CommandWorkflowDescriptor,
-    RunnerDispatchKind,
-};
+use crate::commands::spec::{CommandDefinition, CommandWorkflowDescriptor};
 use crate::recipe_runner::catalog::recipe_command_catalog;
 use crate::worker::InferTask;
 
+#[cfg(test)]
+use super::{CommandCapabilityKind, CommandIoProfile, RunnerDispatchKind};
 use super::{CatalogEntry, CommandFamily};
 
 /// Return the authoritative command spec for one released command.
@@ -46,9 +45,13 @@ pub(crate) fn legacy_command_descriptor(command: ReleasedCommand) -> CommandWork
         command: spec.command,
         family: execution_shape_for(spec.family).workflow_family(),
         infer_task: primary_infer_task(spec),
-        capability_kind: capability_kind_for(spec.command),
-        io_profile: io_profile_for(spec.command),
-        runner_dispatch_kind: runner_dispatch_kind_for(spec.command),
+        // Read straight off the declaration, not recomputed. Until 2026-07-29
+        // these three came from `match` arms here, each ending in a catch-all
+        // `_ =>` default, so a newly released command inherited an answer
+        // nobody had chosen for it.
+        capability_kind: spec.capability_kind,
+        io_profile: spec.io_profile,
+        runner_dispatch_kind: spec.runner_dispatch_kind,
     }
 }
 
@@ -63,42 +66,6 @@ fn primary_infer_task(spec: &CatalogEntry) -> InferTask {
         .first()
         .copied()
         .expect("released command must advertise at least one infer task")
-}
-
-fn capability_kind_for(command: ReleasedCommand) -> CommandCapabilityKind {
-    match command {
-        ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS | ReleasedCommand::Benchmark => {
-            CommandCapabilityKind::ServerComposed
-        }
-        _ => CommandCapabilityKind::DirectInfer,
-    }
-}
-
-fn io_profile_for(command: ReleasedCommand) -> CommandIoProfile {
-    match command {
-        ReleasedCommand::Align
-        | ReleasedCommand::Transcribe
-        | ReleasedCommand::TranscribeS
-        | ReleasedCommand::Benchmark
-        | ReleasedCommand::Opensmile
-        | ReleasedCommand::Avqi
-        | ReleasedCommand::Diarize => CommandIoProfile::PathsModeAudio,
-        _ => CommandIoProfile::PathsModeText,
-    }
-}
-
-fn runner_dispatch_kind_for(command: ReleasedCommand) -> RunnerDispatchKind {
-    match command {
-        ReleasedCommand::Align => RunnerDispatchKind::ForcedAlignment,
-        ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS => {
-            RunnerDispatchKind::TranscribeAudioInfer
-        }
-        ReleasedCommand::Benchmark => RunnerDispatchKind::BenchmarkAudioInfer,
-        ReleasedCommand::Opensmile | ReleasedCommand::Avqi | ReleasedCommand::Diarize => {
-            RunnerDispatchKind::MediaAnalysisV2
-        }
-        _ => RunnerDispatchKind::BatchedTextInfer,
-    }
 }
 
 fn execution_shape_for(family: CommandFamily) -> crate::commands::spec::CommandExecutionShape {

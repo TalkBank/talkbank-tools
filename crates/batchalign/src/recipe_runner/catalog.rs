@@ -8,7 +8,8 @@ use crate::api::{ContentType, ReleasedCommand};
 use crate::worker::InferTask;
 
 use super::command_spec::{
-    CapabilityPlan, CapabilitySurface, CatalogEntry, CommandFamily, PlannerKind,
+    CapabilityPlan, CapabilitySurface, CatalogEntry, CommandCapabilityKind, CommandFamily,
+    CommandIoProfile, PlannerKind, RunnerDispatchKind,
 };
 use super::materialize::{FileNamingPolicy, OutputPolicy, SidecarPolicy, StemRewrite};
 use super::recipe::ExecutionMode;
@@ -42,6 +43,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::ReferenceProjection,
         planner: PlannerKind::ComparePairs,
         execution_mode: ExecutionMode::ReferenceProjection,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
             infer_tasks: MORPHOSYNTAX_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -58,6 +62,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::Composite,
         planner: PlannerKind::BenchmarkPairs,
         execution_mode: ExecutionMode::Composite,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::BenchmarkAudioInfer,
         capabilities: CapabilityPlan {
             infer_tasks: BENCHMARK_TASKS,
             surface: CapabilitySurface::Composite,
@@ -74,6 +81,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::AudioSequential,
         planner: PlannerKind::AudioInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
         capabilities: CapabilityPlan {
             infer_tasks: ASR_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -90,6 +100,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::AudioSequential,
         planner: PlannerKind::AudioInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
         capabilities: CapabilityPlan {
             infer_tasks: ASR_AND_SPEAKER_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -106,6 +119,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::AudioSequential,
         planner: PlannerKind::AudioInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::ForcedAlignment,
         capabilities: CapabilityPlan {
             infer_tasks: FA_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -122,6 +138,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::BatchedText,
         planner: PlannerKind::TextInputs,
         execution_mode: ExecutionMode::BatchedStage,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
             infer_tasks: MORPHOSYNTAX_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -138,6 +157,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::BatchedText,
         planner: PlannerKind::TextInputs,
         execution_mode: ExecutionMode::BatchedStage,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
             infer_tasks: UTSEG_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -154,6 +176,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::BatchedText,
         planner: PlannerKind::TextInputs,
         execution_mode: ExecutionMode::BatchedStage,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
             infer_tasks: TRANSLATE_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -170,6 +195,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::BatchedText,
         planner: PlannerKind::TextInputs,
         execution_mode: ExecutionMode::BatchedStage,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
             infer_tasks: COREF_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -186,6 +214,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::MediaAnalysis,
         planner: PlannerKind::MediaAnalysisInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
             infer_tasks: OPENSMILE_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -206,6 +237,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::MediaAnalysis,
         planner: PlannerKind::MediaAnalysisInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
             infer_tasks: AVQI_TASKS,
             surface: CapabilitySurface::RecipeOwned,
@@ -226,6 +260,9 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         family: CommandFamily::MediaAnalysis,
         planner: PlannerKind::MediaAnalysisInputs,
         execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
             infer_tasks: DIARIZE_TASKS,
             surface: CapabilitySurface::RecipeOwned,

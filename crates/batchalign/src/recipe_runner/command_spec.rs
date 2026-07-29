@@ -61,7 +61,76 @@ pub(crate) struct CapabilityPlan {
     pub surface: CapabilitySurface,
 }
 
+/// How one released command is surfaced relative to the worker infer-task layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CommandCapabilityKind {
+    /// Command is advertised directly from one infer task.
+    DirectInfer,
+    /// Command is synthesized by Rust from lower-level infer capability.
+    ServerComposed,
+}
+
+/// Which server-side runtime path currently owns one released command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RunnerDispatchKind {
+    /// Text-only commands pooled through the batched infer path.
+    BatchedTextInfer,
+    /// Forced alignment with per-file audio/media resolution.
+    ForcedAlignment,
+    /// Transcribe audio through the Rust-owned ASR orchestration path.
+    TranscribeAudioInfer,
+    /// Benchmark audio through the composite benchmark orchestrator.
+    BenchmarkAudioInfer,
+    /// Media-analysis V2 path for commands like openSMILE and AVQI.
+    MediaAnalysisV2,
+}
+
+/// How the CLI should ship inputs to the server for this command.
+///
+/// Makes the content/paths-mode superset structural: a command either
+/// uploads file bodies over HTTP, sends paths for CHAT-only inputs, or
+/// sends paths plus requires shared-filesystem audio access. The illegal
+/// combination "needs local audio but cannot use paths mode" is
+/// unrepresentable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CommandIoProfile {
+    /// CLI uploads full file bodies over HTTP; server never reads client paths.
+    ///
+    /// Unconstructed today. Kept because it is the only way to express a
+    /// command that cannot use paths mode at all, the correct shape for a
+    /// REMOTE daemon (paths mode needs a shared filesystem). Its absence is
+    /// why `supports_paths_mode()` is currently true for every released
+    /// command.
+    #[allow(dead_code, reason = "expresses remote-daemon-only commands; see above")]
+    ContentOnly,
+    /// CLI sends filesystem paths for text inputs; server reads CHAT directly.
+    PathsModeText,
+    /// CLI sends filesystem paths and the command also needs client-local
+    /// audio on the shared filesystem (only valid for a local daemon).
+    PathsModeAudio,
+}
+
+impl CommandIoProfile {
+    /// Whether the server-side runner needs shared-filesystem audio access.
+    pub const fn uses_local_audio(self) -> bool {
+        matches!(self, Self::PathsModeAudio)
+    }
+
+    /// Whether the CLI may send paths instead of inlined content to a local daemon.
+    pub const fn supports_paths_mode(self) -> bool {
+        matches!(self, Self::PathsModeText | Self::PathsModeAudio)
+    }
+}
+
 /// Static command metadata for the recipe-runner catalog.
+///
+/// Every field is DECLARED per command in `catalog.rs`; nothing here is
+/// inferred from the command's name or position. Three of these fields
+/// (`capability_kind`, `io_profile`, `runner_dispatch_kind`) were until
+/// 2026-07-29 computed by `match` arms with a catch-all `_ =>` default, so a
+/// newly released command silently inherited whatever the default happened to
+/// be. Stating them here means a new entry cannot compile until each question
+/// has an answer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CatalogEntry {
     /// Stable released command identity.
@@ -72,6 +141,13 @@ pub(crate) struct CatalogEntry {
     pub planner: PlannerKind,
     /// Execution mode surfaced to the runtime.
     pub execution_mode: ExecutionMode,
+    /// Whether the command is advertised straight from one infer task or
+    /// synthesized by the server from lower-level capability.
+    pub capability_kind: CommandCapabilityKind,
+    /// How the CLI ships inputs and whether paths mode is eligible.
+    pub io_profile: CommandIoProfile,
+    /// Which server-side runtime path currently owns this command.
+    pub runner_dispatch_kind: RunnerDispatchKind,
     /// Worker capability requirements.
     pub capabilities: CapabilityPlan,
     /// Output naming and sidecar policy.

@@ -8,7 +8,8 @@ mod catalog;
 
 #[allow(unused_imports)]
 pub(crate) use crate::recipe_runner::command_spec::{
-    CapabilityPlan, CapabilitySurface, CatalogEntry, CommandFamily, PlannerKind,
+    CapabilityPlan, CapabilitySurface, CatalogEntry, CommandCapabilityKind, CommandFamily,
+    CommandIoProfile, PlannerKind, RunnerDispatchKind,
 };
 #[allow(unused_imports)]
 pub(crate) use crate::recipe_runner::materialize::{

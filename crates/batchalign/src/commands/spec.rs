@@ -2,31 +2,13 @@
 
 use crate::ReleasedCommand;
 use crate::command_family::WorkflowFamily;
+// These three are declared fields of `CatalogEntry` and live with it; the
+// compatibility descriptor below only carries them through to consumers that
+// have not yet been pointed at the catalog directly.
+use crate::recipe_runner::command_spec::{
+    CommandCapabilityKind, CommandIoProfile, RunnerDispatchKind,
+};
 use crate::worker::InferTask;
-
-/// How one released command is surfaced relative to the worker infer-task layer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CommandCapabilityKind {
-    /// Command is advertised directly from one infer task.
-    DirectInfer,
-    /// Command is synthesized by Rust from lower-level infer capability.
-    ServerComposed,
-}
-
-/// Which server-side runtime path currently owns one released command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RunnerDispatchKind {
-    /// Text-only commands pooled through the batched infer path.
-    BatchedTextInfer,
-    /// Forced alignment with per-file audio/media resolution.
-    ForcedAlignment,
-    /// Transcribe audio through the Rust-owned ASR orchestration path.
-    TranscribeAudioInfer,
-    /// Benchmark audio through the composite benchmark orchestrator.
-    BenchmarkAudioInfer,
-    /// Media-analysis V2 path for commands like openSMILE and AVQI.
-    MediaAnalysisV2,
-}
 
 /// High-level scheduling shape the command expects from the shared kernel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,43 +90,6 @@ pub(crate) enum ResourceLane {
     IoBound,
     /// Mixed pipelines touching both CPU and GPU stages.
     Mixed,
-}
-
-/// How the CLI should ship inputs to the server for this command.
-///
-/// Makes the content/paths-mode superset structural: a command either
-/// uploads file bodies over HTTP, sends paths for CHAT-only inputs, or
-/// sends paths plus requires shared-filesystem audio access. The illegal
-/// combination "needs local audio but cannot use paths mode" is
-/// unrepresentable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CommandIoProfile {
-    /// CLI uploads full file bodies over HTTP; server never reads client paths.
-    ///
-    /// Unconstructed today. Kept because it is the only way to express a
-    /// command that cannot use paths mode at all, the correct shape for a
-    /// REMOTE daemon (paths mode needs a shared filesystem). Its absence is
-    /// why `supports_paths_mode()` is currently true for every released
-    /// command.
-    #[allow(dead_code, reason = "expresses remote-daemon-only commands; see above")]
-    ContentOnly,
-    /// CLI sends filesystem paths for text inputs; server reads CHAT directly.
-    PathsModeText,
-    /// CLI sends filesystem paths and the command also needs client-local
-    /// audio on the shared filesystem (only valid for a local daemon).
-    PathsModeAudio,
-}
-
-impl CommandIoProfile {
-    /// Whether the server-side runner needs shared-filesystem audio access.
-    pub const fn uses_local_audio(self) -> bool {
-        matches!(self, Self::PathsModeAudio)
-    }
-
-    /// Whether the CLI may send paths instead of inlined content to a local daemon.
-    pub const fn supports_paths_mode(self) -> bool {
-        matches!(self, Self::PathsModeText | Self::PathsModeAudio)
-    }
 }
 
 /// Typed descriptor for one released command.

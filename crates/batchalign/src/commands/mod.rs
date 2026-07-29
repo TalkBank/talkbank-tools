@@ -10,8 +10,8 @@ pub(crate) use catalog::{
     command_workflow_descriptor, released_command_definition, released_command_definitions,
     released_command_descriptor,
 };
+pub(crate) use crate::command_model::RunnerDispatchKind;
 pub(crate) use kernel::CommandKernelPlan;
-pub(crate) use spec::RunnerDispatchKind;
 
 /// Return whether one closed released command requires shared-filesystem audio access.
 pub fn released_command_uses_local_audio(command: ReleasedCommand) -> bool {
