@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-07-14 10:18 EDT
+**Last updated:** 2026-07-28 22:13 EDT
 
 ## Overview
 
@@ -307,17 +307,37 @@ use, not at CLI startup.
   quantization.  Direct replacement for the OpenAI Whisper and HuggingFace Whisper engines.
 - **UTR**: Same encoder architecture, same word-level timestamps.
 
+### Landed 2026-07-28 (fully-supported-and-default directive)
+
+- `whisper-rs-backend` is a DEFAULT Cargo feature: every build carries
+  the `whisper_rs` engine (the non-default gate had silently dropped the
+  engine from rebuilt binaries).
+- Model auto-resolution: `BATCHALIGN_WHISPER_RS_MODEL` still overrides,
+  but without it the default `ggml-large-v3.bin` is fetched once from
+  `ggerganov/whisper.cpp` via hf-hub and cached.
+- Language auto-detect: `Auto` no longer errors; whisper.cpp's own
+  detection runs and the detected code is mapped back through the same
+  closed language table used for explicit input.
+
 ### What would require work
 
 - **Fine-tuned models**: any HuggingFace fine-tune seeded into
   `_RESOLVER["whisper_hub"]` (today only `thennal/whisper-medium-ml`)
   would need conversion to GGML format and quality validation before
   whisper.cpp could load it.
-- **Forced alignment**: whisper.cpp does not expose cross-attention alignment
-  heads the way HuggingFace Transformers does.  The DTW-based alignment in
-  the Whisper FA model would need a different approach -- likely using whisper.cpp's
-  built-in token-level timestamps (which use a simpler method than our
-  custom DTW pipeline).
+- **Forced alignment**: IN PROGRESS (Franklin's 2026-07-28 directive:
+  Rust Whisper fully supported and default). whisper.cpp cannot
+  teacher-force an arbitrary transcript, so the FA port goes through the
+  CANDLE arm instead, reproducing the HF algorithm exactly: one
+  teacher-forced forward pass with the known text as decoder input,
+  cross-attentions from the model's `alignment_heads`, per-head
+  standardization, median filter, head-mean cost matrix, DTW, token jump
+  times at the 20 ms frame rate. The dependency-free numeric core
+  (median filter + DTW, `whisper_native/fa_dtw.rs`) is landed with unit
+  tests; the remaining work is the candle forward pass with attention
+  capture (vendoring the candle-transformers whisper model to expose
+  cross-attentions) and the `FaInferItem`-shaped dispatch so the Rust
+  path is a drop-in for the Python worker's `infer_whisper_fa`.
 - **Utterance segmentation BERT models**: Unrelated to Whisper, would remain
   in Python regardless.
 

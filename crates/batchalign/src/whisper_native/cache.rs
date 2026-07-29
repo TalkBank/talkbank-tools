@@ -19,17 +19,22 @@
 //! per host (set via `BATCHALIGN_WHISPER_RS_MODEL`); a path change at
 //! runtime is a bug, not a feature.
 //!
-//! ## Race window
+//! ## Shutdown (why this is an `RwLock`, not a `OnceLock`)
 //!
-//! `OnceLock::set` is atomic. If two threads call `get_or_load` before
-//! either has initialized, both will run the loader and one will lose the
-//! `set` race. The loser drops its `Arc<WhisperContext>` and gets the
-//! winner's instead. Cost: one wasted load on cold concurrent start.
-//! Avoiding it would require a `Mutex` (which this code deliberately avoids)
-//! or `OnceLock::get_or_try_init` (unstable as of Rust 1.83).
+//! A `WhisperContext` owns Metal buffers. A Rust `static` never drops,
+//! so a `OnceLock`-held context outlives ggml's own C++ static
+//! destructors, which assert at process exit that every Metal resource
+//! was deallocated (`ggml_metal_rsets_free`: "you haven't deallocated
+//! all Metal resources before exiting", observed as a SIGABRT after a
+//! fully successful transcription, 2026-07-29). `shutdown()` drops the
+//! cached context before exit; the binary's epilogue calls it. The
+//! read path stays cheap (uncontended `RwLock::read`), and the loader
+//! runs OUTSIDE the lock, preserving the no-lock-during-3s-load
+//! property; the OnceLock race-window note below still applies in
+//! spirit (two cold concurrent loads, one winner).
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, RwLock};
 
 use super::error::WhisperNativeError;
 
@@ -44,14 +49,25 @@ use super::error::WhisperNativeError;
 /// type exercised.
 #[allow(dead_code)]
 pub(super) struct PathKeyedCache<T> {
-    cell: OnceLock<(PathBuf, Arc<T>)>,
+    cell: RwLock<Option<(PathBuf, Arc<T>)>>,
 }
 
 #[allow(dead_code)]
 impl<T> PathKeyedCache<T> {
     pub(super) const fn new() -> Self {
         Self {
-            cell: OnceLock::new(),
+            cell: RwLock::new(None),
+        }
+    }
+
+    /// Drop the cached value (if any), releasing the loaded resource
+    /// while the process can still tear it down cleanly. Returns whether
+    /// something was dropped. A poisoned lock is treated as "nothing to
+    /// drop": at shutdown there is no better recovery than proceeding.
+    pub(super) fn shutdown(&self) -> bool {
+        match self.cell.write() {
+            Ok(mut guard) => guard.take().is_some(),
+            Err(_) => false,
         }
     }
 
@@ -66,42 +82,40 @@ impl<T> PathKeyedCache<T> {
     where
         L: FnOnce(&Path) -> Result<Arc<T>, WhisperNativeError>,
     {
-        if let Some((cached_path, value)) = self.cell.get() {
-            if cached_path == requested_path {
-                return Ok(Arc::clone(value));
-            }
-            return Err(WhisperNativeError::ModelPathChanged {
-                cached: cached_path.clone(),
-                requested: requested_path.to_path_buf(),
-            });
-        }
-        let value = loader(requested_path)?;
-        match self
-            .cell
-            .set((requested_path.to_path_buf(), Arc::clone(&value)))
         {
-            // We won the race: return the value we just loaded directly.
-            Ok(()) => Ok(value),
-            // A concurrent caller won `set` first; the cell is now populated.
-            // Drop our load and return the winner's `Arc` (functionally
-            // equivalent when the paths match).
-            Err(_) => match self.cell.get() {
-                Some((cached_path, winner)) if cached_path == requested_path => {
-                    Ok(Arc::clone(winner))
+            let guard = self.cell.read().map_err(|_| {
+                WhisperNativeError::CacheInvariant("cache lock poisoned".to_string())
+            })?;
+            if let Some((cached_path, value)) = guard.as_ref() {
+                if cached_path == requested_path {
+                    return Ok(Arc::clone(value));
                 }
-                // A concurrent caller raced us with a *different* path and
-                // won. Unusual but well-defined; surface it as the same error.
-                Some((cached_path, _)) => Err(WhisperNativeError::ModelPathChanged {
+                return Err(WhisperNativeError::ModelPathChanged {
                     cached: cached_path.clone(),
                     requested: requested_path.to_path_buf(),
-                }),
-                // Unreachable in practice (the cell is `Some` after any `set`
-                // resolves); a typed error rather than a panic because this
-                // crate denies `unreachable!`.
-                None => Err(WhisperNativeError::CacheInvariant(
-                    "OnceLock returned None after a resolved set".to_string(),
-                )),
-            },
+                });
+            }
+        }
+        // Load OUTSIDE the lock: the 3 s / 3 GB model load must not hold
+        // the cache closed. Two cold concurrent callers may both load;
+        // the loser's copy is dropped below (same trade as the old
+        // OnceLock race window).
+        let value = loader(requested_path)?;
+        let mut guard = self.cell.write().map_err(|_| {
+            WhisperNativeError::CacheInvariant("cache lock poisoned".to_string())
+        })?;
+        match guard.as_ref() {
+            None => {
+                *guard = Some((requested_path.to_path_buf(), Arc::clone(&value)));
+                Ok(value)
+            }
+            Some((cached_path, winner)) if cached_path == requested_path => {
+                Ok(Arc::clone(winner))
+            }
+            Some((cached_path, _)) => Err(WhisperNativeError::ModelPathChanged {
+                cached: cached_path.clone(),
+                requested: requested_path.to_path_buf(),
+            }),
         }
     }
 }
@@ -173,5 +187,26 @@ mod tests {
             .get_or_load(Path::new("/m.bin"), |_| Ok(Arc::new(99u32)))
             .unwrap();
         assert_eq!(*v, 99);
+    }
+
+    #[test]
+    fn shutdown_drops_the_cached_value_and_allows_reload() {
+        let cache: PathKeyedCache<u32> = PathKeyedCache::new();
+        let calls = AtomicUsize::new(0);
+        let load = |_: &Path| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok(Arc::new(9u32))
+        };
+        let a = cache.get_or_load(Path::new("/m.bin"), load).unwrap();
+        assert_eq!(Arc::strong_count(&a), 2);
+        assert!(cache.shutdown());
+        // The cache's reference is gone; ours is the only one left.
+        assert_eq!(Arc::strong_count(&a), 1);
+        // Nothing cached: shutdown again is a no-op...
+        assert!(!cache.shutdown());
+        // ...and a reload (even under a NEW path) is permitted.
+        let b = cache.get_or_load(Path::new("/other.bin"), load).unwrap();
+        assert_eq!(*b, 9);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
     }
 }

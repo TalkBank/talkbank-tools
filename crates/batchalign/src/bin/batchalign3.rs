@@ -112,6 +112,12 @@ async fn main() {
         eprintln!("warning: telemetry shutdown failed: {err}");
     }
 
+    // Release the native-Whisper context (Metal buffers) BEFORE exit:
+    // ggml's C++ static destructors assert every Metal resource was
+    // deallocated, and a never-dropped Rust static would trip that
+    // assert into a SIGABRT after otherwise-successful runs.
+    batchalign::whisper_native::shutdown();
+
     if exit_code != 0 {
         std::process::exit(exit_code);
     }
@@ -121,7 +127,7 @@ async fn main() {
 ///
 /// When `server_log_dir` is provided, tracing output is written to a
 /// daily-rotating log file (like Nginx) in addition to stderr. The
-/// returned guard MUST be held for the lifetime of the process — dropping
+/// returned guard MUST be held for the lifetime of the process, dropping
 /// it flushes and closes the non-blocking writer.
 fn init_tracing(
     verbose: u8,

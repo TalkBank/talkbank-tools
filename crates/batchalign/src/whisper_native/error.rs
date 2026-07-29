@@ -57,6 +57,27 @@ pub enum WhisperNativeError {
     #[error("language `{0}` is not supported by this Whisper model")]
     UnsupportedLanguage(String),
 
+    /// Auto-detection ran but whisper.cpp returned a language id with no
+    /// known ISO 639-1 token.
+    #[error("language auto-detection returned unknown whisper.cpp lang id {lang_id}")]
+    LanguageDetectionFailed {
+        /// The raw whisper.cpp language id.
+        lang_id: i32,
+    },
+
+    /// Auto-detection produced a language outside the supported set (the
+    /// same closed table `lang_to_iso2` enforces on explicit input).
+    #[error("auto-detected language `{0}` is outside the supported set")]
+    UnsupportedDetectedLanguage(String),
+
+    /// Default-model resolution failed (download or cache error from
+    /// hf-hub when no explicit model path was configured).
+    #[error("default whisper-rs model resolution failed: {reason}")]
+    ModelResolution {
+        /// Human-readable detail from hf-hub.
+        reason: String,
+    },
+
     /// Token segment text was not valid UTF-8; should be impossible in
     /// practice with Whisper's vocab but kept as a strict guard.
     #[error("segment text was not valid UTF-8: {reason}")]

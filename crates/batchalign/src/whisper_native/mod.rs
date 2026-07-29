@@ -25,6 +25,27 @@ mod audio;
 mod cache;
 mod config;
 mod error;
+// Numeric FA core (median filter + DTW): dependency-free, so it is
+// unconditionally available; the model-facing FA integration will gate
+// on the backend feature.
+pub mod fa_dtw;
+
+/// Release the process-wide native-Whisper resources (the cached
+/// `WhisperContext` and its Metal buffers). MUST run before process
+/// exit on macOS: ggml's C++ static destructors assert that every Metal
+/// resource was deallocated, and a Rust `static` cache would otherwise
+/// outlive them (observed as SIGABRT-after-success, 2026-07-29).
+/// Returns whether anything was released; safe to call repeatedly.
+pub fn shutdown() -> bool {
+    #[cfg(feature = "whisper-rs-backend")]
+    {
+        backend::shutdown_context_cache()
+    }
+    #[cfg(not(feature = "whisper-rs-backend"))]
+    {
+        false
+    }
+}
 
 pub use config::WhisperNativeConfig;
 pub use error::WhisperNativeError;
@@ -41,7 +62,7 @@ use std::path::Path;
 /// `whisper-rs-backend` Cargo feature is not enabled at build time.
 pub fn transcribe(
     audio_path: &Path,
-    lang: LanguageCode3,
+    lang: Option<LanguageCode3>,
     cfg: &WhisperNativeConfig,
 ) -> Result<WhisperChunkResultV2, WhisperNativeError> {
     #[cfg(feature = "whisper-rs-backend")]
@@ -65,7 +86,7 @@ mod tests {
         let cfg = WhisperNativeConfig::for_model(std::path::PathBuf::from("dummy.bin"));
         let err = transcribe(
             std::path::Path::new("nonexistent.wav"),
-            LanguageCode3::eng(),
+            Some(LanguageCode3::eng()),
             &cfg,
         )
         .unwrap_err();

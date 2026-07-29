@@ -21,6 +21,13 @@ use super::error::WhisperNativeError;
 /// and creates a per-job `WhisperState`.
 static CONTEXT_CACHE: PathKeyedCache<WhisperContext> = PathKeyedCache::new();
 
+/// Drop the process-wide cached `WhisperContext` (releasing its Metal
+/// buffers) so ggml's own exit-time destructors find nothing resident.
+/// Called from the binary's epilogue; a no-op when nothing was loaded.
+pub(super) fn shutdown_context_cache() -> bool {
+    CONTEXT_CACHE.shutdown()
+}
+
 /// Load `WhisperContext` from disk. Cold-load only; routed through
 /// `CONTEXT_CACHE` so it runs once per process (per model path).
 fn load_whisper_context(model_path: &Path) -> Result<Arc<WhisperContext>, WhisperNativeError> {
@@ -51,13 +58,13 @@ fn load_whisper_context(model_path: &Path) -> Result<Arc<WhisperContext>, Whispe
 /// minutes per call.
 pub(super) fn transcribe_impl(
     audio_path: &Path,
-    lang: LanguageCode3,
+    lang: Option<LanguageCode3>,
     cfg: &WhisperNativeConfig,
 ) -> Result<WhisperChunkResultV2, WhisperNativeError> {
     tracing::info!(
         model = %cfg.model_path.display(),
         audio = %audio_path.display(),
-        lang = %lang,
+        lang = lang.as_deref().unwrap_or("auto"),
         "whisper-native: starting"
     );
 
@@ -76,7 +83,12 @@ pub(super) fn transcribe_impl(
     let mut state = ctx.create_state()?;
 
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    let lang_iso2 = lang_to_iso2(&lang)?;
+    // `None` engages whisper.cpp's language auto-detection ("auto" token);
+    // the detected id is read back after the run.
+    let lang_iso2 = match &lang {
+        Some(code) => lang_to_iso2(code)?,
+        None => "auto",
+    };
     params.set_language(Some(lang_iso2));
     params.set_print_special(false);
     params.set_print_progress(false);
@@ -121,9 +133,23 @@ pub(super) fn transcribe_impl(
         .collect::<Vec<_>>()
         .join(" ");
 
+    // Resolve the result language: the caller's, or the one whisper.cpp
+    // detected during the run (auto mode).
+    let lang = match lang {
+        Some(code) => code,
+        None => {
+            let id = state.full_lang_id_from_state();
+            let iso2 = whisper_rs::get_lang_str(id).ok_or(
+                WhisperNativeError::LanguageDetectionFailed { lang_id: id },
+            )?;
+            iso2_to_lang(iso2)?
+        }
+    };
+
     tracing::info!(
         chunks = chunks.len(),
         chars = text.len(),
+        lang = %lang,
         "whisper-native: done"
     );
 
@@ -169,6 +195,45 @@ fn lang_to_iso2(lang: &LanguageCode3) -> Result<&'static str, WhisperNativeError
         other => return Err(WhisperNativeError::UnsupportedLanguage(other.to_owned())),
     };
     Ok(iso)
+}
+
+/// Map whisper.cpp's detected ISO 639-1 token back to TalkBank's ISO
+/// 639-3 canonical code: the reverse of `lang_to_iso2`, restricted to
+/// the same supported set so detection cannot smuggle in a language the
+/// rest of the pipeline has no support for.
+fn iso2_to_lang(iso2: &str) -> Result<LanguageCode3, WhisperNativeError> {
+    let code = match iso2 {
+        "en" => "eng",
+        "yue" => "yue",
+        "zh" => "cmn",
+        "fr" => "fra",
+        "de" => "deu",
+        "es" => "spa",
+        "it" => "ita",
+        "ja" => "jpn",
+        "ko" => "kor",
+        "nl" => "nld",
+        "pt" => "por",
+        "ru" => "rus",
+        "tr" => "tur",
+        "sv" => "swe",
+        "no" => "nor",
+        "da" => "dan",
+        "fi" => "fin",
+        "pl" => "pol",
+        "el" => "ell",
+        "hu" => "hun",
+        "he" => "heb",
+        "ar" => "ara",
+        other => {
+            return Err(WhisperNativeError::UnsupportedDetectedLanguage(
+                other.to_owned(),
+            ));
+        }
+    };
+    LanguageCode3::try_from(code.to_owned()).map_err(|_| {
+        WhisperNativeError::UnsupportedDetectedLanguage(iso2.to_owned())
+    })
 }
 
 #[cfg(test)]

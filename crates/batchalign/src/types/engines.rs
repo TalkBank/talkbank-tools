@@ -1,7 +1,7 @@
 //! Engine backend types and traits.
 //!
 //! Closed enum sets for ASR, FA, and UTR engine selection.
-//! No external plugin system — all engines are built-in.
+//! No external plugin system, all engines are built-in.
 //! The [`EngineBackend`] trait provides a common interface.
 
 use serde::{Deserialize, Serialize};
@@ -235,10 +235,11 @@ pub enum AsrEngineName {
     /// OpenAI Whisper API backend.
     WhisperOai,
     /// Rust-native Whisper backend (whisper.cpp via whisper-rs), run
-    /// in-process instead of through the Python worker. Rust-owned; requires
-    /// the `whisper-rs-backend` Cargo feature and a ggml model at
-    /// ``BATCHALIGN_WHISPER_RS_MODEL``. See
-    /// ``book/src/reference/whisper-asr.md``.
+    /// in-process instead of through the Python worker. Rust-owned; the
+    /// `whisper-rs-backend` Cargo feature is DEFAULT since 2026-07-28, the
+    /// model auto-resolves (``BATCHALIGN_WHISPER_RS_MODEL`` override, else
+    /// ggml-large-v3 fetched once via hf-hub), and language `Auto` engages
+    /// whisper.cpp's own detection. See ``book/src/reference/whisper-asr.md``.
     WhisperRs,
     /// Tencent Cloud ASR (HK/Cantonese).
     HkTencent,
@@ -342,7 +343,7 @@ impl AsrEngineName {
             // worker), so the worker-admission gate never observes this value;
             // classified here for symmetry.
             Self::WhisperRs => WHISPER_LARGE_V3_RSS_MB,
-            // Local model — Qwen3-ASR-1.7B weights (~3.4 GB fp16 /
+            // Local model: Qwen3-ASR-1.7B weights (~3.4 GB fp16 /
             // ~7 GB fp32) + tokenizer + Python runtime. Same RSS
             // class as Whisper-large-v3; pinned via the
             // ``asr_engine_qwen_resident_memory_matches_local_model_footprint``
@@ -399,7 +400,7 @@ impl<'de> Deserialize<'de> for AsrEngineName {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TranslateEngineName {
     /// Public Google Translate via the ``googletrans`` library. Requires
-    /// outbound reachability to ``translate.google.com`` — unsuitable
+    /// outbound reachability to ``translate.google.com``, unsuitable
     /// behind the Great Firewall without a VPN.
     Google,
     /// Local Meta SeamlessM4T model, loaded from HuggingFace and run
@@ -412,16 +413,16 @@ pub enum TranslateEngineName {
     /// No outbound network at inference time. Self-hosted fallback
     /// that handles Cantonese first-class (Tencent does not).
     Nllb,
-    /// Tencent Cloud TMT (Text Translation) — cloud-API engine.
+    /// Tencent Cloud TMT (Text Translation), cloud-API engine.
     /// Strong quality on Mandarin (``zh→en``); does NOT support
     /// Cantonese (``yue``). Requires CAM credentials with
     /// ``tmt:TextTranslate`` permission in ``~/.batchalign.ini``
     /// or via ``BATCHALIGN_TENCENT_{ID,KEY,REGION}`` environment
     /// variables. Free tier 5M chars/month.
     Tencent,
-    /// Aliyun (Alibaba Cloud) Machine Translation — cloud-API engine.
+    /// Aliyun (Alibaba Cloud) Machine Translation, cloud-API engine.
     /// Supports Cantonese (``yue``) as a source language, which Tencent
-    /// TMT does not — the canonical cloud translate option for HK
+    /// TMT does not: the canonical cloud translate option for HK
     /// Cantonese material. Requires access-key credentials in
     /// ``~/.batchalign.ini`` ``[asr]`` section
     /// (``engine.aliyun.id``/``key``/``region``, shared with the Aliyun
@@ -463,7 +464,7 @@ impl EngineBackend for TranslateEngineName {
 impl TranslateEngineName {
     /// The override name used in worker pool keys for dispatch.
     ///
-    /// Identical to ``wire_name`` — translate has no legacy alias
+    /// Identical to ``wire_name``: translate has no legacy alias
     /// divergence between dispatch and wire today. Provided for
     /// shape-parity with ``AsrEngineName`` and ``FaEngineName``.
     pub fn dispatch_override_name(&self) -> &'static str {
@@ -503,7 +504,7 @@ impl TranslateEngineName {
     pub fn resident_memory_mb(&self) -> u64 {
         match self {
             // googletrans + Tencent TMT + Aliyun MT are all thin
-            // HTTP-client engines with no local model loaded — same
+            // HTTP-client engines with no local model loaded, same
             // baseline. The Aliyun MT REST client and ``googletrans``
             // both wrap ``requests``/``aiohttp``-style transports;
             // there is no per-process model state to account for.
@@ -515,7 +516,7 @@ impl TranslateEngineName {
 }
 
 /// Resident memory estimate for any worker that runs a thin HTTP-client
-/// engine with no local model loaded — googletrans for translate, and
+/// engine with no local model loaded, googletrans for translate, and
 /// the cloud ASR engines (Rev.AI, WhisperOai, HkTencent, HkAliyun,
 /// HkFunaudio). Baseline Python + worker scaffolding only.
 pub(crate) const HTTP_CLIENT_BASELINE_RSS_MB: u64 = 200;
@@ -560,7 +561,7 @@ impl<'de> Deserialize<'de> for TranslateEngineName {
 }
 
 // ---------------------------------------------------------------------------
-// EngineOverrides — typed engine override selection
+// EngineOverrides: typed engine override selection
 // ---------------------------------------------------------------------------
 
 /// Typed engine overrides for one job or worker spawn.
@@ -572,11 +573,11 @@ impl<'de> Deserialize<'de> for TranslateEngineName {
 /// because they pick *which* engine runs. Any other key is preserved
 /// as an opaque per-engine configuration extra in [`Self::extras`].
 /// This is how the Python worker receives per-engine knobs such as
-/// ``qwen_model``, ``qwen_device``, ``funaudio_*``, etc. — adding a
+/// ``qwen_model``, ``qwen_device``, ``funaudio_*``, etc., adding a
 /// new engine knob does NOT require a Rust schema change, but a typo
 /// in a knob name will reach Python where the engine loader chooses
-/// whether to use a default or error. (A future engine registry —
-/// task #66 / Phase 5c — replaces this string-keyed map with typed
+/// whether to use a default or error. (A future engine registry
+/// task #66 / Phase 5c, replaces this string-keyed map with typed
 /// per-engine payload structs.)
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct EngineOverrides {
@@ -859,8 +860,8 @@ mod tests {
 
     #[test]
     fn translate_engine_resident_memory_ordering() {
-        // Pins the physical ordering — Google (HTTP client) <
-        // Seamless (~2.4 GB) < NLLB (~5 GB) — that the admission-gate
+        // Pins the physical ordering, Google (HTTP client) <
+        // Seamless (~2.4 GB) < NLLB (~5 GB), that the admission-gate
         // engine-aware reservation
         // (``worker::pool::memory_gate::engine_aware_startup_reservation_mb``)
         // relies on. A typo here would silently re-introduce under-
@@ -931,7 +932,7 @@ mod tests {
         // Qwen3-ASR-1.7B is a local model, not a cloud HTTP client.
         // Its resident footprint must reserve enough headroom for the
         // weights + tokenizer + Python runtime. We pin it to the same
-        // class as Whisper-large-v3 — both are local ~1.5-3 GB
+        // class as Whisper-large-v3, both are local ~1.5-3 GB
         // models with similar Python-side overhead. Wrong-side
         // partitioning (treating Qwen as a cloud HTTP client) would
         // under-reserve memory and trigger admission-gate OOM kills
@@ -966,8 +967,8 @@ mod tests {
 
     #[test]
     fn translate_engine_tencent_matches_http_client_baseline() {
-        // Tencent TMT is a thin HTTP-client engine — no local model
-        // loaded — so its resident footprint is the same as Google's
+        // Tencent TMT is a thin HTTP-client engine, no local model
+        // loaded, so its resident footprint is the same as Google's
         // and Seamless's lightweight baseline. Pinned to prevent
         // accidental inflation (which would over-reserve memory and
         // refuse spawns on hosts that can comfortably run Tencent
@@ -984,7 +985,7 @@ mod tests {
 
     #[test]
     fn translate_engine_no_variant_is_rust_owned() {
-        // All backends run in the Python worker — none talk to a
+        // All backends run in the Python worker, none talk to a
         // provider directly from the Rust server.
         assert!(!TranslateEngineName::Google.is_rust_owned());
         assert!(!TranslateEngineName::Seamless.is_rust_owned());
@@ -1087,7 +1088,7 @@ mod tests {
     fn engine_overrides_extras_only_is_not_empty() {
         // An override payload of just per-engine knobs (no explicit
         // engine selection) is still a meaningful payload that must
-        // reach the worker — ``is_empty`` must reflect that or the
+        // reach the worker: ``is_empty`` must reflect that or the
         // ``--engine-overrides`` flag drops out before reaching the
         // worker spawn arg (see ``worker/handle/spawn.rs:61``).
         let parsed: EngineOverrides =
@@ -1099,7 +1100,7 @@ mod tests {
     #[test]
     fn engine_overrides_known_engine_validation_still_fires() {
         // Unknown values for KNOWN keys (asr/fa/translate) still
-        // error — Fix 1 relaxed schema strictness only for unknown
+        // error: Fix 1 relaxed schema strictness only for unknown
         // KEYS. A typo in an engine name is still loud.
         let err = serde_json::from_str::<EngineOverrides>(r#"{"asr":"wisper"}"#).unwrap_err();
         assert!(

@@ -48,4 +48,52 @@ impl WhisperNativeConfig {
     pub fn from_env() -> Option<Self> {
         std::env::var_os("BATCHALIGN_WHISPER_RS_MODEL").map(|p| Self::for_model(PathBuf::from(p)))
     }
+
+    /// Resolve a usable config unconditionally: the env override when
+    /// set, otherwise the DEFAULT model (`ggml-large-v3.bin` from the
+    /// upstream `ggerganov/whisper.cpp` conversions), fetched once via
+    /// hf-hub into its cache and reused from there on every later call.
+    ///
+    /// This is what makes `whisper_rs` usable out of the box (Franklin,
+    /// 2026-07-28: "fully supported and default"): a fresh machine needs
+    /// no env var, just network on first use. Without the
+    /// `whisper-rs-backend` feature there is no hf-hub dependency, so
+    /// only the env override can succeed.
+    pub fn resolve() -> Result<Self, super::WhisperNativeError> {
+        if let Some(cfg) = Self::from_env() {
+            return Ok(cfg);
+        }
+        #[cfg(feature = "whisper-rs-backend")]
+        {
+            let client = hf_hub::HFClientSync::new().map_err(|e| {
+                super::WhisperNativeError::ModelResolution {
+                    reason: format!("hf-hub client init failed: {e}"),
+                }
+            })?;
+            let (owner, name) = (DEFAULT_MODEL_REPO_OWNER, DEFAULT_MODEL_REPO_NAME);
+            let path = client
+                .model(owner, name)
+                .download_file()
+                .filename(DEFAULT_MODEL_FILE.to_owned())
+                .send()
+                .map_err(|e| super::WhisperNativeError::ModelResolution {
+                    reason: format!(
+                        "download of {owner}/{name}/{DEFAULT_MODEL_FILE} failed: {e}"
+                    ),
+                })?;
+            Ok(Self::for_model(path))
+        }
+        #[cfg(not(feature = "whisper-rs-backend"))]
+        {
+            Err(super::WhisperNativeError::ModelPathMissing)
+        }
+    }
 }
+
+/// Upstream repo carrying whisper.cpp's official ggml conversions.
+pub const DEFAULT_MODEL_REPO_OWNER: &str = "ggerganov";
+/// Repo name half of the default-model coordinates.
+pub const DEFAULT_MODEL_REPO_NAME: &str = "whisper.cpp";
+/// Default model file: large-v3, matching the quality tier the Python
+/// whisper paths default to.
+pub const DEFAULT_MODEL_FILE: &str = "ggml-large-v3.bin";

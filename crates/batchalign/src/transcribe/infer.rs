@@ -28,7 +28,7 @@ pub(crate) struct AsrInferParams<'a> {
     pub backend: AsrBackend,
     /// Audio file to transcribe.
     pub audio_path: &'a Path,
-    /// Language specification for ASR dispatch. May be `Auto` — the GPU
+    /// Language specification for ASR dispatch. May be `Auto`, the GPU
     /// worker and ASR engine handle auto-detect internally.
     pub lang: &'a LanguageSpec,
     /// Expected number of speakers for diarization.
@@ -38,7 +38,7 @@ pub(crate) struct AsrInferParams<'a> {
     /// Per-engine configuration extras (e.g. `qwen_model`,
     /// `qwen_device`) drawn from `CommonOptions.engine_overrides.extras`.
     /// Plumbed through to the worker spawn argv so the engine's load
-    /// function sees what the user actually requested — the `backend`
+    /// function sees what the user actually requested, the `backend`
     /// enum only encodes WHICH engine, not its configuration.
     pub extras: &'a std::collections::BTreeMap<String, String>,
 }
@@ -59,7 +59,7 @@ pub(crate) struct SpeakerInferParams<'a> {
 /// language" hint used by `parse_asr_response_v2` when the ASR response
 /// does not carry a usable detected language of its own.
 ///
-/// For `Resolved(code)` jobs, both values are derived from `code` — the
+/// For `Resolved(code)` jobs, both values are derived from `code`, the
 /// CHAT header will reflect what the user explicitly asked for. For
 /// `Auto` jobs there is no concrete hint, and the parse helper must
 /// drive the language from the response itself; we return `None` so
@@ -77,7 +77,7 @@ pub(super) fn asr_worker_languages(
         LanguageSpec::PerFile => Err(ServerError::Validation(
             "transcribe pipeline received LanguageSpec::PerFile, which is reserved for \
              morphotag/translate/coref. Submission validation should have rejected \
-             this — please file a bug report."
+             this: please file a bug report."
                 .into(),
         )),
     }
@@ -119,12 +119,13 @@ pub(crate) async fn infer_asr(
 /// Rust-native Whisper ASR (whisper.cpp via whisper-rs), run in-process,
 /// bypassing the Python worker.
 ///
-/// Reads the model path from `BATCHALIGN_WHISPER_RS_MODEL`, requires a resolved
-/// language (whisper.cpp language auto-detect is not wired here yet, so `Auto`
-/// is a clear validation error rather than a silent default), runs the sync
-/// whisper.cpp inference on a `spawn_blocking` thread (mirroring the Rev.AI
-/// path), and lowers the chunk result through the shared converter so its
-/// `AsrResponse` is identical to the Python Whisper worker path's.
+/// The model resolves via `WhisperNativeConfig::resolve()` (env override,
+/// else the default ggml-large-v3 fetched once through hf-hub), language
+/// `Auto` engages whisper.cpp's own auto-detection (the detected code
+/// comes back on the chunk result), the sync whisper.cpp inference runs
+/// on a `spawn_blocking` thread (mirroring the Rev.AI path), and the
+/// chunk result lowers through the shared converter so its `AsrResponse`
+/// is identical to the Python Whisper worker path's.
 ///
 /// When the `whisper-rs-backend` feature is not compiled in,
 /// `whisper_native::transcribe` returns `FeatureDisabled`, surfaced here as a
@@ -133,25 +134,14 @@ async fn infer_whisper_rs_asr(
     audio_path: &Path,
     lang: &LanguageSpec,
 ) -> Result<AsrResponse, ServerError> {
-    let resolved = lang.as_resolved().cloned().ok_or_else(|| {
-        ServerError::Validation(
-            "whisper_rs ASR backend requires a resolved language; language \
-             auto-detection is not supported on this path. Use Rev.AI for \
-             auto-detect, or specify the language explicitly."
-                .to_string(),
-        )
-    })?;
+    let requested = lang.as_resolved().cloned();
 
-    let cfg = crate::whisper_native::WhisperNativeConfig::from_env().ok_or_else(|| {
-        ServerError::Validation(
-            "whisper_rs ASR backend selected but BATCHALIGN_WHISPER_RS_MODEL is \
-             not set (point it at a ggml `.bin` model file)."
-                .to_string(),
-        )
+    let cfg = crate::whisper_native::WhisperNativeConfig::resolve().map_err(|error| {
+        ServerError::Validation(format!("whisper_rs model resolution failed: {error}"))
     })?;
 
     let audio_path = audio_path.to_path_buf();
-    let lang_for_call = resolved.clone();
+    let lang_for_call = requested.clone();
     let result = tokio::task::spawn_blocking(move || {
         crate::whisper_native::transcribe(&audio_path, lang_for_call, &cfg)
     })
@@ -159,7 +149,10 @@ async fn infer_whisper_rs_asr(
     .map_err(|error| ServerError::Validation(format!("whisper_rs ASR task join failed: {error}")))?
     .map_err(|error| ServerError::Validation(format!("whisper_rs ASR failed: {error}")))?;
 
-    crate::worker::asr_result_v2::whisper_chunk_result_to_asr_response(&result, Some(&resolved))
+    // The result language is authoritative: the caller's when resolved,
+    // whisper.cpp's detection when `Auto`.
+    let result_lang = result.lang.clone();
+    crate::worker::asr_result_v2::whisper_chunk_result_to_asr_response(&result, Some(&result_lang))
         .map_err(|error| {
             ServerError::Validation(format!("whisper_rs ASR response lowering failed: {error}"))
         })
@@ -249,7 +242,7 @@ pub(crate) async fn infer_speaker(
         ))
     })?;
 
-    // Speaker diarization runs after ASR has resolved the language —
+    // Speaker diarization runs after ASR has resolved the language
     // `params.lang` should always be `Resolved(_)` by the time we reach
     // here. No silent eng fallback: surface a typed validation error if
     // the invariant is broken.

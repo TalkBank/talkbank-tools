@@ -8,7 +8,12 @@ repository.workspace = true
 publish = false
 
 [features]
-default = ["server", "binary-entry", "embed-dashboard"]
+# whisper-rs-backend is DEFAULT (Franklin, 2026-07-28): the engine must
+# never silently vanish from a build again (the non-default gate cost us
+# the local install when later rebuilds forgot the flag). The price is
+# that every build needs the C/C++ toolchain for whisper.cpp; that is
+# accepted.
+default = ["server", "binary-entry", "embed-dashboard", "whisper-rs-backend"]
 
 # Gate for the heavy ML golden suite (real Rev.AI keys, network, multi-GB
 # models). Declared as a feature so the `ml_golden` test target below is
@@ -46,7 +51,7 @@ server = [
 embed-dashboard = ["dep:include_dir"]
 
 # Dev-time async runtime debugger (tokio-console). Production binaries
-# MUST NOT enable this feature — it requires `--cfg tokio_unstable` at
+# MUST NOT enable this feature, it requires `--cfg tokio_unstable` at
 # build time (couples to non-stable Tokio APIs) and pulls in the
 # tonic/prost gRPC server dep tree. Build with:
 #   RUSTFLAGS="--cfg tokio_unstable" cargo build --features debug-runtime
@@ -54,14 +59,15 @@ embed-dashboard = ["dep:include_dir"]
 debug-runtime = ["dep:console-subscriber"]
 
 # Rust-native Whisper ASR (whisper.cpp via whisper-rs), replacing the Python
-# worker for the `whisper_rs` engine. NON-default: whisper.cpp is a C/C++ build,
-# so it is opted in only for builds/deploys that want the native path. Audio
+# worker for the `whisper_rs` engine. DEFAULT since 2026-07-28: every build
+# carries the native path (see the note on `default` above). Audio
 # decode/resample (symphonia + rubato) rides the same feature.
 whisper-rs-backend = [
     "dep:whisper-rs",
     "dep:symphonia",
     "dep:rubato",
     "dep:audioadapter-buffers",
+    "dep:hf-hub",
 ]
 # CoreML acceleration on Apple Silicon (requires a sibling <model>-encoder.mlmodelc
 # bundle at runtime). CUDA acceleration on Linux/Windows (requires the CUDA
@@ -145,6 +151,8 @@ include_dir = { workspace = true, optional = true }
 symphonia = { workspace = true, optional = true }
 rubato = { workspace = true, optional = true }
 audioadapter-buffers = { workspace = true, optional = true }
+# Default-model auto-fetch (ggml-large-v3 from ggerganov/whisper.cpp).
+hf-hub = { workspace = true, optional = true }
 
 # whisper-rs compiles whisper.cpp (C/C++). On macOS the Metal backend is always
 # built; CoreML/CUDA are additive opt-ins via the whisper-rs-coreml/-cuda
