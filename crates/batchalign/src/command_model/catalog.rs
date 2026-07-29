@@ -1,6 +1,6 @@
 use crate::ReleasedCommand;
 use crate::commands::spec::{
-    CommandCapabilityKind, CommandDefinition, CommandIoProfile, CommandOutputPathKind,
+    CommandCapabilityKind, CommandDefinition, CommandIoProfile,
     CommandWorkflowDescriptor, RunnerDispatchKind,
 };
 use crate::recipe_runner::catalog::recipe_command_catalog;
@@ -14,7 +14,7 @@ pub(crate) fn command_spec(command: ReleasedCommand) -> &'static CatalogEntry {
     // matching `CommandSpec` in `recipe_command_catalog()`. Adding a
     // new released command without its spec is a compile-time-visible
     // omission caught by the catalog test in
-    // `crates/batchalign-app/src/recipe_runner/catalog.rs`.
+    // `crates/batchalign/src/recipe_runner/catalog.rs`.
     #[allow(clippy::expect_used)]
     command_specs()
         .iter()
@@ -48,7 +48,6 @@ pub(crate) fn legacy_command_descriptor(command: ReleasedCommand) -> CommandWork
         infer_task: primary_infer_task(spec),
         capability_kind: capability_kind_for(spec.command),
         io_profile: io_profile_for(spec.command),
-        output_path_kind: output_path_kind_for(spec.command),
         runner_dispatch_kind: runner_dispatch_kind_for(spec.command),
     }
 }
@@ -57,7 +56,7 @@ fn primary_infer_task(spec: &CatalogEntry) -> InferTask {
     // Catalog invariant: every spec carries a non-empty
     // `infer_tasks` list. Empty `infer_tasks` would mean the command
     // doesn't dispatch to any inference task, which is invalid by
-    // construction — the catalog test rejects it.
+    // construction, and the catalog test rejects it.
     #[allow(clippy::expect_used)]
     spec.capabilities
         .infer_tasks
@@ -85,15 +84,6 @@ fn io_profile_for(command: ReleasedCommand) -> CommandIoProfile {
         | ReleasedCommand::Avqi
         | ReleasedCommand::Diarize => CommandIoProfile::PathsModeAudio,
         _ => CommandIoProfile::PathsModeText,
-    }
-}
-
-fn output_path_kind_for(command: ReleasedCommand) -> CommandOutputPathKind {
-    match command {
-        ReleasedCommand::Transcribe | ReleasedCommand::TranscribeS => {
-            CommandOutputPathKind::ReplaceExtension("cha")
-        }
-        _ => CommandOutputPathKind::PreserveInputName,
     }
 }
 
@@ -129,6 +119,63 @@ fn execution_shape_for(family: CommandFamily) -> crate::commands::spec::CommandE
 mod tests {
     use super::*;
     use crate::commands::spec::{BatchingPolicy, SchedulingPolicy};
+    use crate::recipe_runner::materialize::{FileNamingPolicy, StemRewrite};
+
+    /// Output filenames are a user-visible contract, and after the 2026-07-28
+    /// cleanup there is exactly ONE representation of them: the `output_policy`
+    /// declared per `CatalogEntry`.
+    ///
+    /// There used to be a second, `CommandOutputPathKind`, derived by matching
+    /// on the command name with a catch-all `_ => PreserveInputName`. It was
+    /// read by nothing in production and it contradicted the declared policy for
+    /// four commands (benchmark, opensmile, avqi, diarize). Worse, it could not
+    /// express `RewriteStem` at all, so for diarize (`X.turns.json`) it was
+    /// structurally incapable of stating the truth. It was deleted rather than
+    /// synchronised. This test pins the survivor so the contract cannot drift
+    /// silently.
+    #[test]
+    fn declared_output_naming_is_stable() {
+        // Matched on the ENUM, not on the stringified name, and with no
+        // catch-all arm: adding a `ReleasedCommand` fails to compile here until
+        // its output naming is stated. A `_ =>` default in this very test would
+        // reintroduce, in miniature, exactly the silent-default hazard the
+        // deleted `output_path_kind_for` embodied. (It did, briefly: the first
+        // draft matched strings and let `transcribe_s` fall through.)
+        for command in ReleasedCommand::ALL {
+            let expected = match command {
+                ReleasedCommand::Transcribe
+                | ReleasedCommand::TranscribeS
+                | ReleasedCommand::Benchmark => FileNamingPolicy::ReplaceExtension("cha"),
+                ReleasedCommand::Opensmile => FileNamingPolicy::RewriteStem(StemRewrite {
+                    strip_suffix: None,
+                    append_suffix: ".opensmile",
+                    extension: "csv",
+                }),
+                ReleasedCommand::Avqi => FileNamingPolicy::RewriteStem(StemRewrite {
+                    strip_suffix: Some(".cs"),
+                    append_suffix: ".avqi",
+                    extension: "txt",
+                }),
+                ReleasedCommand::Diarize => FileNamingPolicy::RewriteStem(StemRewrite {
+                    strip_suffix: None,
+                    append_suffix: ".turns",
+                    extension: "json",
+                }),
+                // The CHAT transforms all rewrite their input in place.
+                ReleasedCommand::Morphotag
+                | ReleasedCommand::Utseg
+                | ReleasedCommand::Translate
+                | ReleasedCommand::Coref
+                | ReleasedCommand::Align
+                | ReleasedCommand::Compare => FileNamingPolicy::PreserveInput,
+            };
+            assert_eq!(
+                command_spec(command).output_policy.primary,
+                expected,
+                "output naming changed for {command}"
+            );
+        }
+    }
 
     #[test]
     fn command_specs_are_unique() {

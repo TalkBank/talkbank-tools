@@ -13,15 +13,6 @@ pub(crate) enum CommandCapabilityKind {
     ServerComposed,
 }
 
-/// How one released command maps an input filename to its primary output filename.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CommandOutputPathKind {
-    /// Keep the incoming relative path and extension unchanged.
-    PreserveInputName,
-    /// Replace the input extension with a fixed output extension.
-    ReplaceExtension(&'static str),
-}
-
 /// Which server-side runtime path currently owns one released command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RunnerDispatchKind {
@@ -129,6 +120,16 @@ pub(crate) enum ResourceLane {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CommandIoProfile {
     /// CLI uploads full file bodies over HTTP; server never reads client paths.
+    ///
+    /// No released command currently selects this, which the compiler now says
+    /// out loud since the module-wide `allow(dead_code)` was removed on
+    /// 2026-07-28. It is kept rather than deleted because it is the only way to
+    /// express a command that cannot use paths mode at all, which is the
+    /// correct shape for a REMOTE daemon (paths mode requires a shared
+    /// filesystem). Its absence is why `supports_paths_mode()` is presently
+    /// true for every released command; that is a fact worth knowing, not a
+    /// reason to drop the distinction.
+    #[allow(dead_code, reason = "expresses remote-daemon-only commands; see above")]
     ContentOnly,
     /// CLI sends filesystem paths for text inputs; server reads CHAT directly.
     PathsModeText,
@@ -162,8 +163,6 @@ pub(crate) struct CommandWorkflowDescriptor {
     pub capability_kind: CommandCapabilityKind,
     /// How the CLI ships inputs and whether paths mode is eligible.
     pub io_profile: CommandIoProfile,
-    /// How this command derives its primary output path.
-    pub output_path_kind: CommandOutputPathKind,
     /// Which server-side runtime path currently owns this command.
     pub runner_dispatch_kind: RunnerDispatchKind,
 }
@@ -297,114 +296,6 @@ pub(crate) struct CommandDefinition {
 }
 
 impl CommandDefinition {
-    const fn new(
-        command: ReleasedCommand,
-        infer_task: InferTask,
-        capability_kind: CommandCapabilityKind,
-        io_profile: CommandIoProfile,
-        output_path_kind: CommandOutputPathKind,
-        runner_dispatch_kind: RunnerDispatchKind,
-        execution_shape: CommandExecutionShape,
-    ) -> Self {
-        Self {
-            descriptor: CommandWorkflowDescriptor {
-                command,
-                family: execution_shape.workflow_family(),
-                infer_task,
-                capability_kind,
-                io_profile,
-                output_path_kind,
-                runner_dispatch_kind,
-            },
-            execution_shape,
-        }
-    }
-
-    /// Author-facing constructor for a text-first direct infer command.
-    pub(crate) const fn batched_text(command: ReleasedCommand, infer_task: InferTask) -> Self {
-        Self::new(
-            command,
-            infer_task,
-            CommandCapabilityKind::DirectInfer,
-            CommandIoProfile::PathsModeText,
-            CommandOutputPathKind::PreserveInputName,
-            RunnerDispatchKind::BatchedTextInfer,
-            CommandExecutionShape::BatchedText,
-        )
-    }
-
-    /// Author-facing constructor for a reference-projection command.
-    pub(crate) const fn reference_projection(
-        command: ReleasedCommand,
-        infer_task: InferTask,
-    ) -> Self {
-        Self::new(
-            command,
-            infer_task,
-            CommandCapabilityKind::DirectInfer,
-            CommandIoProfile::PathsModeText,
-            CommandOutputPathKind::PreserveInputName,
-            RunnerDispatchKind::BatchedTextInfer,
-            CommandExecutionShape::ReferenceProjection,
-        )
-    }
-
-    /// Author-facing constructor for the current forced-alignment family.
-    pub(crate) const fn forced_alignment(command: ReleasedCommand) -> Self {
-        Self::new(
-            command,
-            InferTask::Fa,
-            CommandCapabilityKind::DirectInfer,
-            CommandIoProfile::PathsModeAudio,
-            CommandOutputPathKind::PreserveInputName,
-            RunnerDispatchKind::ForcedAlignment,
-            CommandExecutionShape::AudioSequential,
-        )
-    }
-
-    /// Author-facing constructor for the current ASR transcription family.
-    pub(crate) const fn transcription(command: ReleasedCommand) -> Self {
-        Self::new(
-            command,
-            InferTask::Asr,
-            CommandCapabilityKind::ServerComposed,
-            CommandIoProfile::PathsModeAudio,
-            CommandOutputPathKind::ReplaceExtension("cha"),
-            RunnerDispatchKind::TranscribeAudioInfer,
-            CommandExecutionShape::AudioSequential,
-        )
-    }
-
-    /// Author-facing constructor for the current benchmark orchestration family.
-    pub(crate) const fn benchmark(command: ReleasedCommand) -> Self {
-        Self::new(
-            command,
-            InferTask::Asr,
-            CommandCapabilityKind::ServerComposed,
-            CommandIoProfile::PathsModeAudio,
-            CommandOutputPathKind::PreserveInputName,
-            RunnerDispatchKind::BenchmarkAudioInfer,
-            CommandExecutionShape::Composite,
-        )
-    }
-
-    /// Author-facing constructor for the current media-analysis family.
-    pub(crate) const fn media_analysis(
-        command: ReleasedCommand,
-        infer_task: InferTask,
-        io_profile: CommandIoProfile,
-    ) -> Self {
-        Self::new(
-            command,
-            infer_task,
-            CommandCapabilityKind::DirectInfer,
-            io_profile,
-            CommandOutputPathKind::PreserveInputName,
-            RunnerDispatchKind::MediaAnalysisV2,
-            CommandExecutionShape::MediaAnalysis,
-        )
-    }
-
     /// High-level scheduling shape derived from the authored execution shape.
     pub(crate) const fn scheduling_policy(self) -> SchedulingPolicy {
         self.execution_shape.scheduling_policy()
@@ -446,151 +337,12 @@ impl CommandDefinition {
     }
 }
 
-/// Type-level authoring seam for ordinary batched-text commands.
-pub(crate) trait BatchedTextCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Worker infer task for this text family command.
-    const INFER_TASK: InferTask;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition =
-        CommandDefinition::batched_text(Self::COMMAND, Self::INFER_TASK);
-}
-
-/// Type-level authoring seam for reference-projection commands.
-pub(crate) trait ReferenceProjectionCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Worker infer task for the projection pass.
-    const INFER_TASK: InferTask;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition =
-        CommandDefinition::reference_projection(Self::COMMAND, Self::INFER_TASK);
-}
-
-/// Type-level authoring seam for forced-alignment commands.
-pub(crate) trait ForcedAlignmentCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition = CommandDefinition::forced_alignment(Self::COMMAND);
-}
-
-/// Type-level authoring seam for transcription commands.
-pub(crate) trait TranscriptionCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition = CommandDefinition::transcription(Self::COMMAND);
-}
-
-/// Type-level authoring seam for benchmark commands.
-pub(crate) trait BenchmarkCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition = CommandDefinition::benchmark(Self::COMMAND);
-}
-
-/// Type-level authoring seam for media-analysis commands.
-pub(crate) trait MediaAnalysisCommand {
-    /// Stable released command name.
-    const COMMAND: ReleasedCommand;
-    /// Worker infer task for this media-analysis command.
-    const INFER_TASK: InferTask;
-    /// How the CLI ships inputs for this media-analysis command.
-    const IO_PROFILE: CommandIoProfile;
-    /// Generated canonical command definition.
-    const DEFINITION: CommandDefinition =
-        CommandDefinition::media_analysis(Self::COMMAND, Self::INFER_TASK, Self::IO_PROFILE);
-}
-
-macro_rules! declare_batched_text_command {
-    ($marker:ident, $definition:ident, $command:expr, $infer_task:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::BatchedTextCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-            const INFER_TASK: $crate::worker::InferTask = $infer_task;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::BatchedTextCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_batched_text_command;
-
-macro_rules! declare_reference_projection_command {
-    ($marker:ident, $definition:ident, $command:expr, $infer_task:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::ReferenceProjectionCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-            const INFER_TASK: $crate::worker::InferTask = $infer_task;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::ReferenceProjectionCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_reference_projection_command;
-
-macro_rules! declare_forced_alignment_command {
-    ($marker:ident, $definition:ident, $command:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::ForcedAlignmentCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::ForcedAlignmentCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_forced_alignment_command;
-
-macro_rules! declare_transcription_command {
-    ($marker:ident, $definition:ident, $command:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::TranscriptionCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::TranscriptionCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_transcription_command;
-
-macro_rules! declare_benchmark_command {
-    ($marker:ident, $definition:ident, $command:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::BenchmarkCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::BenchmarkCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_benchmark_command;
-
-macro_rules! declare_media_analysis_command {
-    ($marker:ident, $definition:ident, $command:expr, $infer_task:expr, $io_profile:expr $(,)?) => {
-        pub(crate) struct $marker;
-        impl $crate::commands::spec::MediaAnalysisCommand for $marker {
-            const COMMAND: $crate::ReleasedCommand = $command;
-            const INFER_TASK: $crate::worker::InferTask = $infer_task;
-            const IO_PROFILE: $crate::commands::spec::CommandIoProfile = $io_profile;
-        }
-        pub(crate) const $definition: $crate::commands::spec::CommandDefinition =
-            <$marker as $crate::commands::spec::MediaAnalysisCommand>::DEFINITION;
-    };
-}
-pub(crate) use declare_media_analysis_command;
-
 #[cfg(test)]
 mod tests {
     use super::{
-        BatchedTextCommand, BatchingPolicy, CommandCapabilityKind, CommandDefinition,
-        CommandExecutionShape, CommandIoProfile, CommandOutputPathKind, ConstrainedHostPolicy,
-        MediaAnalysisCommand, RunnerDispatchKind, SchedulingPolicy, TranscriptionCommand,
+        BatchingPolicy, CommandExecutionShape, ConstrainedHostPolicy, SchedulingPolicy,
         WarmupPolicy,
     };
-    use crate::ReleasedCommand;
-    use crate::worker::InferTask;
 
     #[test]
     fn batched_text_shape_keeps_cross_file_batch_contract() {
@@ -626,110 +378,5 @@ mod tests {
             ConstrainedHostPolicy::DelegatedToSubcommands
         );
         assert_eq!(shape.warmup_policy(), WarmupPolicy::DelegatedToSubcommands);
-    }
-
-    #[test]
-    fn batched_text_constructor_keeps_author_surface_direct_first() {
-        let definition =
-            CommandDefinition::batched_text(ReleasedCommand::Morphotag, InferTask::Morphosyntax);
-        assert_eq!(
-            definition.descriptor.family,
-            definition.execution_shape.workflow_family()
-        );
-        assert_eq!(
-            definition.descriptor.capability_kind,
-            CommandCapabilityKind::DirectInfer
-        );
-        assert_eq!(
-            definition.descriptor.runner_dispatch_kind,
-            RunnerDispatchKind::BatchedTextInfer
-        );
-        assert_eq!(
-            definition.descriptor.output_path_kind,
-            CommandOutputPathKind::PreserveInputName
-        );
-    }
-
-    #[test]
-    fn transcription_constructor_hides_server_composed_defaults() {
-        let definition = CommandDefinition::transcription(ReleasedCommand::Transcribe);
-        assert_eq!(
-            definition.descriptor.family,
-            definition.execution_shape.workflow_family()
-        );
-        assert_eq!(
-            definition.descriptor.capability_kind,
-            CommandCapabilityKind::ServerComposed
-        );
-        assert!(definition.descriptor.io_profile.uses_local_audio());
-        assert_eq!(
-            definition.descriptor.runner_dispatch_kind,
-            RunnerDispatchKind::TranscribeAudioInfer
-        );
-        assert_eq!(
-            definition.descriptor.output_path_kind,
-            CommandOutputPathKind::ReplaceExtension("cha")
-        );
-    }
-
-    struct GeneratedMorphotagCommand;
-    impl BatchedTextCommand for GeneratedMorphotagCommand {
-        const COMMAND: ReleasedCommand = ReleasedCommand::Morphotag;
-        const INFER_TASK: InferTask = InferTask::Morphosyntax;
-    }
-
-    struct GeneratedAvqiCommand;
-    impl MediaAnalysisCommand for GeneratedAvqiCommand {
-        const COMMAND: ReleasedCommand = ReleasedCommand::Avqi;
-        const INFER_TASK: InferTask = InferTask::Avqi;
-        const IO_PROFILE: CommandIoProfile = CommandIoProfile::PathsModeAudio;
-    }
-
-    struct GeneratedTranscribeCommand;
-    impl TranscriptionCommand for GeneratedTranscribeCommand {
-        const COMMAND: ReleasedCommand = ReleasedCommand::Transcribe;
-    }
-
-    declare_batched_text_command!(
-        GeneratedTranslateCommand,
-        GENERATED_TRANSLATE_DEFINITION,
-        ReleasedCommand::Translate,
-        InferTask::Translate,
-    );
-
-    #[test]
-    fn batched_text_trait_generates_same_definition_as_constructor() {
-        assert_eq!(
-            <GeneratedMorphotagCommand as BatchedTextCommand>::DEFINITION,
-            CommandDefinition::batched_text(ReleasedCommand::Morphotag, InferTask::Morphosyntax)
-        );
-    }
-
-    #[test]
-    fn media_analysis_trait_generates_same_definition_as_constructor() {
-        assert_eq!(
-            <GeneratedAvqiCommand as MediaAnalysisCommand>::DEFINITION,
-            CommandDefinition::media_analysis(
-                ReleasedCommand::Avqi,
-                InferTask::Avqi,
-                CommandIoProfile::PathsModeAudio,
-            )
-        );
-    }
-
-    #[test]
-    fn transcription_trait_generates_same_definition_as_constructor() {
-        assert_eq!(
-            <GeneratedTranscribeCommand as TranscriptionCommand>::DEFINITION,
-            CommandDefinition::transcription(ReleasedCommand::Transcribe)
-        );
-    }
-
-    #[test]
-    fn declaration_macro_generates_batched_text_definition() {
-        assert_eq!(
-            GENERATED_TRANSLATE_DEFINITION,
-            CommandDefinition::batched_text(ReleasedCommand::Translate, InferTask::Translate)
-        );
     }
 }

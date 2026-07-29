@@ -1,21 +1,10 @@
 //! Command-owned catalog and derived runtime metadata.
-#![allow(dead_code)]
 
 use crate::ReleasedCommand;
 
-pub(crate) mod align;
-pub(crate) mod avqi;
-pub(crate) mod benchmark;
 mod catalog;
-pub(crate) mod compare;
-pub(crate) mod coref;
 mod kernel;
-pub(crate) mod morphotag;
-pub(crate) mod opensmile;
 pub(crate) mod spec;
-pub(crate) mod transcribe;
-pub(crate) mod translate;
-pub(crate) mod utseg;
 
 pub(crate) use catalog::{
     command_workflow_descriptor, released_command_definition, released_command_definitions,
@@ -39,7 +28,7 @@ pub fn command_uses_local_audio(command: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Return whether a command may use `paths_mode` — i.e. have the CLI
+/// Return whether a command may use `paths_mode`: that is, have the CLI
 /// send filesystem paths instead of file content when submitting to a
 /// local daemon. A superset of `released_command_uses_local_audio`:
 /// every audio command supports paths_mode, and text commands
