@@ -559,7 +559,14 @@ mod tests {
         file.status = FileStatusKind::Error;
         file.error = None;
 
-        job.finalize(JobStatus::Failed, UnixTimestamp(1_778_518_060.0));
+        // Assert the transition was APPLIED rather than discarding the result.
+        // `finalize` is `#[must_use]` precisely because a refused transition
+        // leaves the job in its prior status, and every assertion below would
+        // then be checking the fixture's own state instead of finalize's work.
+        assert!(
+            job.finalize(JobStatus::Failed, UnixTimestamp(1_778_518_060.0)),
+            "Running -> Failed under StatusChange::Finalize must be applied"
+        );
 
         assert_eq!(job.execution.status, JobStatus::Failed);
         let reason = job.execution.error.as_deref().expect(
