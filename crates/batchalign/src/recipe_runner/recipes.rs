@@ -1,0 +1,577 @@
+//! The ordered stage recipes for every released command.
+//!
+//! Split out of `catalog.rs` on 2026-07-29: that file had grown past this
+//! repo's 800-line hard limit while holding two unrelated things, the stage
+//! recipes (here) and the `CatalogEntry` table that points at them (there).
+//! The recipes are pure declared data; nothing in this file computes.
+
+use crate::runner::util::FileStage;
+
+use super::recipe::{
+    ExecutionMode, Recipe, RecipeStage, RecipeStageId, RecipeStagePresence, StageExecutionKind,
+};
+
+pub(super) const TRANSCRIBE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::AsrInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Transcribing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SpeakerDiarization,
+            RecipeStagePresence::Optional,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::PostProcessing,
+            &[RecipeStageId::AsrInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::AsrPostprocess,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::PostProcessing,
+            &[RecipeStageId::AsrInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BuildChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::BuildingChat,
+            &[RecipeStageId::AsrPostprocess],
+        ),
+        RecipeStage::new(
+            RecipeStageId::UtteranceSegmentation,
+            RecipeStagePresence::Optional,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::SegmentingUtterances,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::Morphosyntax,
+            RecipeStagePresence::Optional,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::AnalyzingMorphosyntax,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const TRANSCRIBE_S_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::AsrInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Transcribing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SpeakerDiarization,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::PostProcessing,
+            &[RecipeStageId::AsrInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::AsrPostprocess,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::PostProcessing,
+            &[RecipeStageId::SpeakerDiarization],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BuildChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::BuildingChat,
+            &[RecipeStageId::AsrPostprocess],
+        ),
+        RecipeStage::new(
+            RecipeStageId::UtteranceSegmentation,
+            RecipeStagePresence::Optional,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::SegmentingUtterances,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::Morphosyntax,
+            RecipeStagePresence::Optional,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::AnalyzingMorphosyntax,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BuildChat],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const ALIGN_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ForcedAlignment,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Aligning,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::ForcedAlignment],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const COMPARE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::ReferenceProjection,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadChatInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadReferenceInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::Morphosyntax,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::AnalyzingMorphosyntax,
+            &[RecipeStageId::ReadChatInputs],
+        ),
+        RecipeStage::new(
+            RecipeStageId::CompareAlign,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Comparing,
+            &[
+                RecipeStageId::Morphosyntax,
+                RecipeStageId::ReadReferenceInputs,
+            ],
+        ),
+        RecipeStage::new(
+            RecipeStageId::CompareMetrics,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Comparing,
+            &[RecipeStageId::CompareAlign],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::CompareAlign],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat, RecipeStageId::CompareMetrics],
+        ),
+    ],
+};
+
+pub(super) const BENCHMARK_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::Composite,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::RunTranscribeRecipe,
+            RecipeStagePresence::Required,
+            StageExecutionKind::CompositeSubrecipe,
+            FileStage::Benchmarking,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::RunCompareRecipe,
+            RecipeStagePresence::Required,
+            StageExecutionKind::CompositeSubrecipe,
+            FileStage::Benchmarking,
+            &[RecipeStageId::RunTranscribeRecipe],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::RunCompareRecipe],
+        ),
+    ],
+};
+
+pub(super) const MORPHOTAG_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::BatchedStage,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadChatInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BatchInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::BatchedAcrossWorkUnits,
+            FileStage::Analyzing,
+            &[RecipeStageId::ReadChatInputs],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BatchInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const UTSEG_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::BatchedStage,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadChatInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BatchInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::BatchedAcrossWorkUnits,
+            FileStage::Segmenting,
+            &[RecipeStageId::ReadChatInputs],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BatchInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const TRANSLATE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::BatchedStage,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadChatInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BatchInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::BatchedAcrossWorkUnits,
+            FileStage::Translating,
+            &[RecipeStageId::ReadChatInputs],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BatchInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const COREF_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::BatchedStage,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ReadChatInputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::BatchInfer,
+            RecipeStagePresence::Required,
+            StageExecutionKind::BatchedAcrossWorkUnits,
+            FileStage::ResolvingCoreference,
+            &[RecipeStageId::ReadChatInputs],
+        ),
+        RecipeStage::new(
+            RecipeStageId::SerializeChat,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Finalizing,
+            &[RecipeStageId::BatchInfer],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::SerializeChat],
+        ),
+    ],
+};
+
+pub(super) const OPENSMILE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MediaAnalysis,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Processing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::MediaAnalysis],
+        ),
+    ],
+};
+
+pub(super) const DIARIZE_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MediaAnalysis,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Processing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::MediaAnalysis],
+        ),
+    ],
+};
+
+pub(super) const AVQI_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::SequentialPerUnit,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        RecipeStage::new(
+            RecipeStageId::ResolveAudio,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::ResolvingAudio,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MediaAnalysis,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Processing,
+            &[RecipeStageId::ResolveAudio],
+        ),
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::MediaAnalysis],
+        ),
+    ],
+};
