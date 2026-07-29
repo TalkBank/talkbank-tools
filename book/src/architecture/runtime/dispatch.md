@@ -1,7 +1,7 @@
 # Dispatch and Execution
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:41 EDT
+**Last updated:** 2026-07-29 18:27 EDT
 
 How a job moves from the CLI to a running command: the four CLI
 dispatch targets, the workflow families that organize commands, the

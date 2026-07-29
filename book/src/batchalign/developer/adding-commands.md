@@ -1,7 +1,7 @@
 # Adding a New Command
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:41 EDT
+**Last updated:** 2026-07-29 18:27 EDT
 
 This guide walks through adding a new batchalign3 command end-to-end.
 

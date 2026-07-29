@@ -1,7 +1,7 @@
 # benchmark: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:41 EDT
+**Last updated:** 2026-07-29 18:27 EDT
 
 Implementation guide for the `benchmark` command. For user-facing
 documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.md).

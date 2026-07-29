@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-07-29 18:41 EDT
+**Last updated:** 2026-07-29 18:27 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
