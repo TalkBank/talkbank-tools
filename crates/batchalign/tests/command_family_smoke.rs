@@ -16,7 +16,7 @@
 //! present. This proves the dispatch routing, job store persistence, and
 //! result retrieval work end-to-end for every command.
 //!
-//! These are Tier 1 (fast) tests — no real inference, safe to run on any machine.
+//! These are Tier 1 (fast) tests, no real inference, safe to run on any machine.
 
 mod common;
 
@@ -68,7 +68,7 @@ fn minimal_chat() -> String {
     "@UTF8\n@Languages:\teng\n@Begin\n*CHI:\thello world .\n@End\n".into()
 }
 
-/// Pick the legal `LanguageSpec` for each command — morphotag,
+/// Pick the legal `LanguageSpec` for each command, morphotag,
 /// translate, and coref require `PerFile` (per the submission validator
 /// at `crates/batchalign/src/types/request.rs::validate_lang_command_pairing`,
 /// codified after the 2026-05-03 morphotag incident); every other

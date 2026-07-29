@@ -123,7 +123,7 @@ def main() -> int:
             indent = match.group(1)
             new_line = f"{indent}```{args.target}\n"
             if old == new_line:
-                # already at target — idempotent skip
+                # already at target: idempotent skip
                 continue
             modified[one_based - 1] = new_line
             rewrites_here += 1

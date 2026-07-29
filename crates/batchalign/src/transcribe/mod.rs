@@ -5,9 +5,9 @@
 //! → optional utseg → optional morphosyntax.
 //!
 //! Split into submodules:
-//! - [`types`] — ASR response types, backend selection, transcribe options
-//! - [`infer`] — ASR and speaker inference dispatch to worker backends
-//! - [`asr_output`] — ASR response conversion, participant IDs, CHAT helpers
+//! - [`types`]: ASR response types, backend selection, transcribe options
+//! - [`infer`]: ASR and speaker inference dispatch to worker backends
+//! - [`asr_output`]: ASR response conversion, participant IDs, CHAT helpers
 
 mod asr_output;
 mod infer;
@@ -35,11 +35,11 @@ use crate::runner::util::ProgressSender;
 ///
 /// # Pipeline stages
 ///
-/// 1. **ASR inference** — invoke the selected ASR backend, get raw tokens
-/// 2. **Post-processing** — compound merging, number expansion, retokenization
-/// 3. **CHAT assembly** — build `ChatFile` AST from utterances
-/// 4. **Utterance segmentation** (optional) — BERT-based re-segmentation
-/// 5. **Morphosyntax** (optional) — POS/dependency tagging
+/// 1. **ASR inference**: invoke the selected ASR backend, get raw tokens
+/// 2. **Post-processing**: compound merging, number expansion, retokenization
+/// 3. **CHAT assembly**: build `ChatFile` AST from utterances
+/// 4. **Utterance segmentation** (optional), BERT-based re-segmentation
+/// 5. **Morphosyntax** (optional): POS/dependency tagging
 pub(crate) async fn process_transcribe(
     audio_path: &Path,
     services: PipelineServices<'_>,
@@ -85,7 +85,7 @@ mod tests {
 
     /// `Auto` jobs reach the ASR worker with no resolved fallback. The
     /// downstream parser must surface a typed error if the worker
-    /// returns no language either — no silent eng fallback.
+    /// returns no language either, no silent eng fallback.
     #[test]
     fn asr_auto_uses_auto_worker_language_with_no_fallback() {
         let (worker_lang, fallback_lang) =
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(worker_lang, WorkerLanguage::Auto);
         assert!(
             fallback_lang.is_none(),
-            "Auto must have no concrete fallback — Stanza header must be \
+            "Auto must have no concrete fallback, Stanza header must be \
              driven by the ASR response, not silently substituted with eng",
         );
     }
@@ -434,7 +434,7 @@ mod tests {
     //   → generate_participant_ids() → transcript_from_asr_utterances()
     //   → build_chat() → to_chat_string()
     //
-    // These catch bugs that unit tests on individual stages miss — the same
+    // These catch bugs that unit tests on individual stages miss, the same
     // class of bugs that echo-worker integration tests failed to expose.
     // -----------------------------------------------------------------------
 
@@ -443,7 +443,7 @@ mod tests {
     fn canned_revai_two_speaker_response() -> AsrResponse {
         AsrResponse {
             tokens: vec![
-                // Speaker 0 — first turn
+                // Speaker 0: first turn
                 AsrToken {
                     text: "so".into(),
                     start_s: Some(DurationSeconds(0.24)),
@@ -507,7 +507,7 @@ mod tests {
                     speaker: Some("0".into()),
                     confidence: Some(0.95),
                 },
-                // Speaker 1 — response
+                // Speaker 1: response
                 AsrToken {
                     text: "well".into(),
                     start_s: Some(DurationSeconds(3.00)),
@@ -585,7 +585,7 @@ mod tests {
                     speaker: Some("1".into()),
                     confidence: Some(0.96),
                 },
-                // Speaker 0 — follow-up
+                // Speaker 0: follow-up
                 AsrToken {
                     text: "that".into(),
                     start_s: Some(DurationSeconds(6.00)),
@@ -607,7 +607,7 @@ mod tests {
                     speaker: Some("0".into()),
                     confidence: Some(0.99),
                 },
-                // Speaker 1 — closing
+                // Speaker 1: closing
                 AsrToken {
                     text: "yeah".into(),
                     start_s: Some(DurationSeconds(7.00)),
@@ -908,12 +908,12 @@ mod tests {
     }
 
     /// Whisper response (no speaker labels) should produce single-speaker
-    /// output even when num_speakers > 1 — without dedicated diarization,
+    /// output even when num_speakers > 1, without dedicated diarization,
     /// Whisper tokens all default to speaker 0.
     #[test]
     fn canned_whisper_no_labels_stays_single_speaker_even_with_high_num_speakers() {
         let response = canned_whisper_no_speaker_response();
-        // Pass num_speakers=3 — but since there are no labels, all tokens
+        // Pass num_speakers=3, but since there are no labels, all tokens
         // map to speaker 0 and only PAR appears in the output.
         let chat = run_canned_response_to_chat(&response, 3, None);
 

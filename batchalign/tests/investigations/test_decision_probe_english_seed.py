@@ -2,7 +2,7 @@
 
 Phase 3 populates the decision matrix with observe-only English
 cases covering every :class:`CandidateClass`. The tests here verify
-the *shape* of the seed — coverage across candidate classes and
+the *shape* of the seed, coverage across candidate classes and
 internal consistency of every case. They do not run Stanza and do
 not assert any linguistic verdict; Stanza-driven verdicts enter in
 Phase 3 step 3 (adjudication) once the golden matrix has run on a
@@ -13,7 +13,7 @@ Why this is structural-only
 The whole point of Stanza-driven probes is to discover outcomes
 empirically rather than asserting them from the author's
 expectation. An author-written outcome assertion before running
-Stanza would simply encode author bias — exactly what
+Stanza would simply encode author bias, exactly what
 ``feedback_empirical_before_assertions`` warns against. So Phase 3
 ships the *cases* here; the *verdicts* (non-``OBSERVE_ONLY``
 expected outcomes) are set in a follow-up commit after the golden

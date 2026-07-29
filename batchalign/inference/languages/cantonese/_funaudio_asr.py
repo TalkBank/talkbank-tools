@@ -58,11 +58,11 @@ def load_funaudio_asr(lang: LanguageCode, engine_overrides: EngineOverrides | No
         (``model="FunAudioLLM/SenseVoiceSmall"``, ``device="cpu"``).
         Two keys are recognized:
 
-        * ``"funaudio_model"`` — Hugging Face model id of the FunASR
+        * ``"funaudio_model"``: Hugging Face model id of the FunASR
           checkpoint to load (e.g. a Paraformer variant). The
           downstream :class:`FunAudioRecognizer` branches on whether
           the chosen name contains ``"paraformer"``.
-        * ``"funaudio_device"`` — torch device string passed through
+        * ``"funaudio_device"``: torch device string passed through
           to the recognizer (e.g. ``"cuda"`` or ``"mps"``).
 
         Other keys in the dict are ignored.
@@ -107,7 +107,7 @@ def infer_funaudio_asr(req: BatchInferRequest) -> BatchInferResponse:
     if _recognizer is None:
         return BatchInferResponse(
             results=[
-                InferResponse(error="FunAudio ASR not loaded — call load_funaudio_asr first", elapsed_s=0.0)
+                InferResponse(error="FunAudio ASR not loaded: call load_funaudio_asr first", elapsed_s=0.0)
                 for _ in req.items
             ]
         )

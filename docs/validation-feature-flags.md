@@ -1,4 +1,4 @@
-# Validation Feature Flags — Future Design
+# Validation Feature Flags: Future Design
 
 **Status:** Draft
 **Last updated:** 2026-05-01 09:47 EDT
@@ -10,11 +10,11 @@ customization is `--suppress E###` which suppresses specific error codes
 from the output (they still run, just hidden).
 
 `chatter clan check` accepts CLAN-compatible flags:
-- `--bullets N` / `+cN` — bullet consistency mode (0=full, 1=missing only)
-- `--check-target` / `+g2` — require CHI Target_Child
-- `--check-unused` / `+g5` — flag unused speakers
-- `--check-ud` / `+u` — validate UD features on %mor
-- `--check-id` / `+g4` — require @ID tiers (on by default)
+- `--bullets N` / `+cN`, bullet consistency mode (0=full, 1=missing only)
+- `--check-target` / `+g2`: require CHI Target_Child
+- `--check-unused` / `+g5`: flag unused speakers
+- `--check-ud` / `+u`: validate UD features on %mor
+- `--check-id` / `+g4`: require @ID tiers (on by default)
 
 ## Problem
 
@@ -74,7 +74,7 @@ principled long-term solution.
 
 The validation pipeline already has `ValidationContext` with flags like
 `bullets_mode`, `ca_mode`, `enable_quotation_validation`. Adding more
-flags is mechanical — the architecture supports it.
+flags is mechanical: the architecture supports it.
 
 The work is:
 1. Add flags to `ValidationContext` / `SharedValidationConfig`

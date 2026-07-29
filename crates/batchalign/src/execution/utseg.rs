@@ -18,7 +18,7 @@ const DEFAULT_UTSEG_FILE_PARALLELISM: usize = 4;
 /// Per-file utseg dispatch with bounded parallelism.
 ///
 /// Replaces the prior "pool everything, batch through worker, write at
-/// end" pattern that was structurally fragile to any interruption — a
+/// end" pattern that was structurally fragile to any interruption, a
 /// daemon redeploy mid-batch could vaporize the entire run's work.
 /// Each file gets its own `gateway.utseg_batch` call with a single-file
 /// vec and writes its result to disk before joining; an interruption at
@@ -26,7 +26,7 @@ const DEFAULT_UTSEG_FILE_PARALLELISM: usize = 4;
 /// the whole batch.
 ///
 /// Bounded by `plan.kernel_plan.file_parallelism_hint` (clamped to ≥1)
-/// — same heuristic as `fa_pipeline.rs`. On macOS without MPS the
+///, same heuristic as `fa_pipeline.rs`. On macOS without MPS the
 /// underlying BERT inference is single-thread CPU-bound so the cap
 /// effectively limits how many files share that single thread, but
 /// when worker pools grow or GPU comes back the same code scales
@@ -57,7 +57,7 @@ pub(crate) async fn dispatch_utseg_job(
             .await;
     }
 
-    // No silent eng fallback. Utseg requires a concrete ISO language —
+    // No silent eng fallback. Utseg requires a concrete ISO language
     // submission validation accepts `Resolved(_)`; if anything else slipped
     // through, surface a typed error rather than tag every output with
     // English.
@@ -97,7 +97,7 @@ pub(crate) async fn dispatch_utseg_job(
         let permit = match semaphore.clone().acquire_owned().await {
             Ok(permit) => permit,
             Err(_) => {
-                // Semaphore closed during shutdown — abandon further
+                // Semaphore closed during shutdown, abandon further
                 // submissions but await tasks already spawned.
                 break;
             }
@@ -355,6 +355,6 @@ mod tests {
     // incremental-writeback property is now verified empirically on
     // real corpus runs (see operational workspace's
     // `utseg-most-fullrun-attempt` follow-up: 9 output files were on
-    // disk while the worker was still processing 876 more — a
+    // disk while the worker was still processing 876 more, a
     // property impossible under the prior batched dispatch).
 }

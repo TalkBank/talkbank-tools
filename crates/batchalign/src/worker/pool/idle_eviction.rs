@@ -33,7 +33,7 @@ pub(super) struct IdleWorkerSample {
     /// race where the group might otherwise be reaped from the map
     /// between phases.
     pub(super) group: Arc<WorkerGroup>,
-    /// Worker process PID — stable across the snapshot/commit
+    /// Worker process PID: stable across the snapshot/commit
     /// boundary as long as the process is alive.
     pub(super) pid: WorkerPid,
     /// Resident memory in MB at sample time.
@@ -54,7 +54,7 @@ pub(super) struct IdleWorkerSample {
 /// is added to a running "would-be-freed" accumulator. The function
 /// stops as soon as `available_mb + freed_mb > threshold_mb`. This
 /// over-evicts by at most one worker (the one that crosses the
-/// threshold) — acceptable because the alternative (perfect
+/// threshold): acceptable because the alternative (perfect
 /// minimum-set) requires more bookkeeping for marginal benefit.
 pub(super) fn select_pressure_evictions(
     samples: Vec<IdleWorkerSample>,
@@ -188,7 +188,7 @@ mod tests {
         // available=1 GB, threshold=8 GB → need to free at least
         // 7 GB to exceed threshold. Largest is 4 GB; pick that
         // (still 5 GB total < 8); pick next 2 GB (now 7 GB total ==
-        // 8 GB available — still not > threshold); pick last 1 GB
+        // 8 GB available: still not > threshold); pick last 1 GB
         // (now 8 GB total == 9 GB available > 8 threshold). Evict
         // all three, in descending order.
         let result = select_pressure_evictions(samples, 1_000, 8_000);

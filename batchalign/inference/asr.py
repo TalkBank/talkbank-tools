@@ -1,6 +1,6 @@
 """ASR inference: audio -> raw tokens with timestamps.
 
-Pure inference — returns raw engine-shaped ASR payloads for Rust post-processing.
+Pure inference: returns raw engine-shaped ASR payloads for Rust post-processing.
 No CHAT assembly, no number expansion, no retokenization.
 """
 
@@ -94,7 +94,7 @@ def iso3_to_language_name(iso3: LanguageCode) -> str:
 
     Raises ``ValueError`` if the code is not recognized by pycountry.
     Previously this silently fell back to ``"english"``, which caused
-    wrong-language transcription with no warning — a regression from
+    wrong-language transcription with no warning, a regression from
     batchalign2 which used the same pycountry lookup but in a context
     where unrecognized codes would surface earlier.
     """
@@ -105,7 +105,7 @@ def iso3_to_language_name(iso3: LanguageCode) -> str:
     if lang_obj is not None:
         return str(lang_obj.name).lower()
     raise ValueError(
-        f"Unrecognized ISO 639-3 language code '{iso3}' — pycountry has no "
+        f"Unrecognized ISO 639-3 language code '{iso3}', pycountry has no "
         f"entry for this code. Whisper cannot determine the target language. "
         f"Check that the --lang value is a valid ISO 639-3 code."
     )

@@ -61,7 +61,7 @@ function categorize(category: FailureCategory | null | undefined): ErrorInfo {
         explanation:
           "The ML model encountered an unexpected error while processing this file.",
         suggestions: [
-          "Try processing the file again — transient crashes often resolve on retry",
+          "Try processing the file again, transient crashes often resolve on retry",
           "If it keeps failing, the file may have unusual content that triggers a bug",
           "Check that your machine has enough free memory",
         ],
@@ -72,7 +72,7 @@ function categorize(category: FailureCategory | null | undefined): ErrorInfo {
         explanation:
           "The file took too long to process and was stopped.",
         suggestions: [
-          "Large audio files may need more time — try again with fewer files",
+          "Large audio files may need more time, try again with fewer files",
           "Make sure your machine isn't running low on memory or CPU",
           "For very long recordings, consider splitting them into shorter segments",
         ],
@@ -84,7 +84,7 @@ function categorize(category: FailureCategory | null | undefined): ErrorInfo {
           "The processing engine sent an unexpected response.",
         suggestions: [
           "Try restarting the server and processing again",
-          "This is likely a bug — please report it if it persists",
+          "This is likely a bug, please report it if it persists",
         ],
       };
     case "provider_transient":
@@ -93,7 +93,7 @@ function categorize(category: FailureCategory | null | undefined): ErrorInfo {
         explanation:
           "The cloud ASR service (Rev.AI) returned a temporary error.",
         suggestions: [
-          "Wait a moment and try again — the service may be briefly overloaded",
+          "Wait a moment and try again, the service may be briefly overloaded",
           "Check your internet connection",
           "If using Rev.AI, verify your API key is still valid",
         ],
@@ -181,7 +181,7 @@ export function ErrorRecovery({ errorFiles }: ErrorRecoveryProps) {
                 <div key={f.filename} className="text-xs text-red-700">
                   <span className="font-mono">{f.filename}</span>
                   {f.error && (
-                    <span className="text-red-500 ml-1">— {f.error}</span>
+                    <span className="text-red-500 ml-1">: {f.error}</span>
                   )}
                   {f.error_codes && f.error_codes.length > 0 && (
                     <span className="text-red-400 ml-1">

@@ -1,4 +1,4 @@
-//! Doc-to-code provenance audit — talkbank-tools doc audit.
+//! Doc-to-code provenance audit: talkbank-tools doc audit.
 //!
 //! Catalogs every markdown file in talkbank-tools into a SQLite
 //! database; the per-section `vet_state` machine tracks whether a
@@ -11,23 +11,23 @@
 //! talkbank-tools source exclusively.
 //!
 //! Buckets:
-//!   - **A** — must-vet: user-facing public surface (book user-guide
+//!   - **A**: must-vet: user-facing public surface (book user-guide
 //!     chapters, top-level READMEs, CLAN reference). Vetting Bucket A
 //!     to completion is the release-readiness signal.
-//!   - **B** — should-vet: dev-facing public surface (architecture,
+//!   - **B**: should-vet: dev-facing public surface (architecture,
 //!     contributing, developer chapters). Sample-vetted; not
 //!     release-blocking.
-//!   - **C** — won't-vet: internal docs (postmortems, handoffs,
+//!   - **C**: won't-vet: internal docs (postmortems, handoffs,
 //!     contributor CLAUDE.md, etc.). One-time Status-header sweep
 //!     ensures readers know the doc is historical or reference;
 //!     no claim verification.
 //!
 //! Subcommands:
-//!   - `scan` — populate / refresh `docs` and `sections`.
-//!   - `flag-staleness` — re-run regex surface-scan into `staleness_flags`.
-//!   - `status` — print queue head + streak + Bucket A progress.
-//!   - `vet` — mark a section's verdict.
-//!   - `streak` — print the daily-cadence streak count.
+//!   - `scan`: populate / refresh `docs` and `sections`.
+//!   - `flag-staleness`: re-run regex surface-scan into `staleness_flags`.
+//!   - `status`: print queue head + streak + Bucket A progress.
+//!   - `vet`: mark a section's verdict.
+//!   - `streak`: print the daily-cadence streak count.
 
 use std::collections::{BTreeSet, HashMap};
 use std::env;
@@ -66,7 +66,7 @@ const SKIP_DIRS: &[&str] = &[
     "node_modules",
     "target",
     // SwiftPM / Cargo dependency-checkout cache (grammar/.build/ on
-    // macOS hosts) — every checked-out dep's own .md files would
+    // macOS hosts): every checked-out dep's own .md files would
     // otherwise pollute the catalog with hundreds of unrelated entries.
     ".build",
     // Serena MCP local cache.
@@ -89,7 +89,7 @@ const SKIP_DIRS: &[&str] = &[
 /// carries this string.
 const REPO_TALKBANK_TOOLS: &str = "talkbank-tools";
 
-/// Bucket assignment — deterministic function of file path. Recomputed
+/// Bucket assignment: deterministic function of file path. Recomputed
 /// on every scan; never hand-edited. See classify_bucket().
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Bucket {
@@ -154,7 +154,7 @@ pub async fn run(args: Args) -> Result<()> {
     let mut conn = open_catalog(&args.db).await?;
     // WAL + relaxed sync makes the per-doc transaction commits far
     // cheaper without giving up crash-safety against the OS losing
-    // the last few writes (which we don't care about — the next scan
+    // the last few writes (which we don't care about, the next scan
     // re-derives identical state from source).
     sqlx::raw_sql(
         "PRAGMA foreign_keys = ON;
@@ -573,14 +573,14 @@ fn is_clan_path(rel: &str) -> bool {
 /// Bucket assignment, deterministic from path. Recomputed every
 /// scan; never hand-edited.
 ///
-/// **Bucket A — must-vet, user-facing public surface.** Every section
+/// **Bucket A: must-vet, user-facing public surface.** Every section
 /// here gets a verdict before the public release. This is the
 /// release-readiness gate.
 ///
-/// **Bucket B — should-vet, dev-facing public surface.** Sample-vetted
+/// **Bucket B: should-vet, dev-facing public surface.** Sample-vetted
 /// opportunistically. Not release-blocking.
 ///
-/// **Bucket C — won't-vet, internal-only.** One-time Status-header
+/// **Bucket C: won't-vet, internal-only.** One-time Status-header
 /// sweep ensures readers know the doc is historical or reference;
 /// no claim verification.
 fn classify_bucket(rel: &str) -> Bucket {
@@ -624,7 +624,7 @@ fn classify_bucket(rel: &str) -> Bucket {
         return Bucket::A;
     }
 
-    // Bucket B: dev-facing public surface — visible on GitHub / mdBook
+    // Bucket B: dev-facing public surface, visible on GitHub / mdBook
     // but written for contributors and integrators.
     if rel.starts_with("book/src/architecture/")
         || rel.starts_with("book/src/contributing/")
@@ -982,17 +982,17 @@ async fn apply_migrations(conn: &mut SqliteConnection) -> Result<()> {
 
 async fn column_exists(conn: &mut SqliteConnection, table: &str, column: &str) -> Result<bool> {
     // pragma_table_info is a SQLite table-valued function that does not
-    // accept normal parameter binding — sqlx 0.8.x's prepared-statement
+    // accept normal parameter binding, sqlx 0.8.x's prepared-statement
     // pipeline returns spurious matches when the table-name is bound
     // via `?`. Inline the table name (validated against an allowlist
-    // by the caller's flow — apply_migrations only passes literals)
+    // by the caller's flow, apply_migrations only passes literals)
     // and bind only the column name.
     if !table.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         return Err(format!("column_exists: refusing non-identifier table name '{table}'").into());
     }
     let sql = format!("SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?");
     // sqlx 0.9 tightened `query_scalar` to require `impl SqlSafeStr`,
-    // which is only implemented for `&'static str` by default — runtime-
+    // which is only implemented for `&'static str` by default, runtime-
     // built strings must be wrapped in `AssertSqlSafe` to certify they
     // were manually audited for injection safety. `table` here is
     // restricted to `[A-Za-z0-9_]` by the validation immediately above,
@@ -1098,7 +1098,7 @@ pub async fn run_flag_staleness(args: Args) -> Result<()> {
         .map(|(i, p)| Ok((i, Regex::new(p.pattern)?)))
         .collect::<Result<Vec<_>>>()?;
 
-    // Wipe and rebuild — patterns can change between runs and
+    // Wipe and rebuild: patterns can change between runs and
     // ambiguous "what was here last run?" semantics aren't worth
     // keeping. Cheap operation against an indexed table.
     sqlx::query("DELETE FROM staleness_flags")
@@ -1355,7 +1355,7 @@ async fn run_status(db: &Path) -> Result<()> {
     .fetch_all(&mut conn)
     .await?;
     if queue.is_empty() {
-        println!("  (none — Bucket A is empty; release-readiness gate is open)");
+        println!("  (none: Bucket A is empty; release-readiness gate is open)");
     } else {
         for (id, path, heading, flags) in queue {
             let flag_marker = if flags > 0 {
@@ -1452,7 +1452,7 @@ async fn run_vet(
 /// Count consecutive days with ≥1 vet (transition out of 'unvetted'
 /// recorded in `reviewed_at`). Walks backward from `today`; stops at
 /// the first day with no vet activity. Today counts whether or not
-/// the day already has a vet — a fresh morning still has the prior
+/// the day already has a vet, a fresh morning still has the prior
 /// day's streak intact, encouraging "do today's section now."
 ///
 /// `today` is injected (rather than read from `chrono::Local::now()`
@@ -1508,9 +1508,9 @@ async fn compute_streak(conn: &mut SqliteConnection, today: NaiveDate) -> Result
 /// staleness and is no longer evidence.
 ///
 /// Required env vars (each overridable by the matching `--flag`):
-///   TB_AUDIT_DB       — path to the SQLite catalog (e.g.
+///   TB_AUDIT_DB: path to the SQLite catalog (e.g.
 ///                       `<workspace>/docs/release-doc-audit/audit.db`)
-///   TB_AUDIT_TT_ROOT  — path to the talkbank-tools clone being audited
+///   TB_AUDIT_TT_ROOT: path to the talkbank-tools clone being audited
 ///
 /// The `vet` and `streak` subcommands need only `TB_AUDIT_DB`;
 /// `scan` and `flag-staleness` also need `TB_AUDIT_TT_ROOT`. `status`
@@ -1622,7 +1622,7 @@ mod tests {
     /// `reviewed_at` is stored as a local-time-with-offset string
     /// (e.g. `"2026-05-11 20:39 -04:00"`). SQLite's `DATE()` on such a
     /// string normalizes the moment to UTC and returns the **UTC** date
-    /// — so an evening EDT vet shows up under tomorrow's UTC date and
+    ///, so an evening EDT vet shows up under tomorrow's UTC date and
     /// the streak walk fails to match `today` (local).
     ///
     /// This test pins the process TZ to `America/New_York`, inserts one
@@ -1673,7 +1673,7 @@ mod tests {
         conn.execute("CREATE TABLE sections (id INTEGER PRIMARY KEY, reviewed_at TEXT);")
             .await?;
         // Operator vetted at 2026-05-11 20:39 EDT, which iso_now() writes
-        // as "2026-05-11 20:39 -04:00" — the exact format observed in the
+        // as "2026-05-11 20:39 -04:00", the exact format observed in the
         // live catalog. Without 'localtime', SQLite's DATE() returns
         // '2026-05-12' (UTC) for this moment.
         conn.execute(

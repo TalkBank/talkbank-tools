@@ -33,7 +33,7 @@ impl LoadingOverhead {
 /// Whether a command needs a process-isolated worker.
 ///
 /// Trinary because the historical TOML's `process_commands.gil` and
-/// `process_commands.free_threaded` lists are NOT mutually exclusive —
+/// `process_commands.free_threaded` lists are NOT mutually exclusive
 /// some commands (`opensmile`, `avqi`, `compare`) appear in both,
 /// indicating "needs a process worker in both runtime modes."
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,7 +79,7 @@ pub struct CommandSpec {
     /// `runtime_constants.toml::cmd2task` for Python's import-time
     /// dict. Most commands' label equals their first `tasks` element's
     /// snake_case name; `utseg` (label `"utterance"`) and `benchmark`
-    /// (label `"asr,eval"`) diverge — see the table in the Phase β
+    /// (label `"asr,eval"`) diverge: see the table in the Phase β
     /// plan, Step 4.1.
     pub task_label: &'static str,
     /// Worker profile classification (Gpu / Stanza / Io).
@@ -216,7 +216,7 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         tasks: &[InferTask::Opensmile],
         task_label: "opensmile",
         profile: WorkerProfile::Io,
-        // In both process_commands.gil and process_commands.free_threaded —
+        // In both process_commands.gil and process_commands.free_threaded
         // needs process isolation regardless of runtime.
         gil_process_need: GilProcessNeed::Always,
         base_mb_process: MemoryMb(500),
@@ -263,14 +263,14 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
 // Lookup
 // ---------------------------------------------------------------------------
 
-/// Lookup helper. Panics if the registry is missing an entry —
+/// Lookup helper. Panics if the registry is missing an entry
 /// the exhaustive-coverage test catches that at test time.
 #[allow(clippy::expect_used)]
 pub fn command_spec_for(name: ReleasedCommand) -> &'static CommandSpec {
     COMMAND_SPECS
         .iter()
         .find(|s| s.name == name)
-        .expect("released command missing from COMMAND_SPECS — see exhaustive-coverage test")
+        .expect("released command missing from COMMAND_SPECS, see exhaustive-coverage test")
 }
 
 // ---------------------------------------------------------------------------

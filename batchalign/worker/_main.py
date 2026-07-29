@@ -93,7 +93,7 @@ def build_arg_parser():
     parser.add_argument(
         "--profile",
         default="",
-        help="Worker profile (gpu, stanza, io) — groups related tasks into one process",
+        help="Worker profile (gpu, stanza, io), groups related tasks into one process",
     )
     parser.add_argument(
         "--force-cpu",
@@ -234,7 +234,7 @@ def main() -> None:
     #
     # GPU profile workers use concurrent serving (ThreadPoolExecutor) ONLY
     # when CUDA is available, because PyTorch releases the GIL during CUDA
-    # kernels — enabling real parallelism across threads sharing one model.
+    # kernels: enabling real parallelism across threads sharing one model.
     #
     # On CPU (Apple Silicon fleet with MPS excluded, or any non-CUDA machine),
     # concurrent serving causes thread oversubscription: each thread's PyTorch
@@ -246,7 +246,7 @@ def main() -> None:
     # Stanza (morphotag/utseg) workers also use concurrent serving on
     # free-threaded Python 3.14t, because:
     # - Multiple threads share ONE loaded Stanza model (77% memory reduction vs
-    #   per-process copies — see python-versioning.md benchmarks, 2026-02-19)
+    #   per-process copies: see python-versioning.md benchmarks, 2026-02-19)
     # - Stanza's C extensions release the GIL during neural inference, so
     #   thread-level concurrency does not cause OpenMP oversubscription
     # On GIL=1, Stanza workers use sequential serving (one process per slot).

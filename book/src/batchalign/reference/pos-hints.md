@@ -154,7 +154,7 @@ file's header declares the appropriate language (e.g. `@Languages: hin`
 for Hindi).
 
 ```bash
-# Default behavior — hints respected automatically.
+# Default behavior: hints respected automatically.
 batchalign3 morphotag input.cha --output out/
 
 # Opt out for a single job:
@@ -247,7 +247,7 @@ Reproduce by routing language per-file from the `@Languages:` header
 `crates/batchalign/src/cli/args/commands.rs:365-370`):
 
 ```bash
-# 1. Stock run (hints disabled — the old pre-default behavior).
+# 1. Stock run (hints disabled, the old pre-default behavior).
 #    The sample-100-devanagari.cha @Languages: header drives routing.
 batchalign3 morphotag --no-pos-hints sample-100-devanagari.cha \
     --output stock/ --sequential --workers 1

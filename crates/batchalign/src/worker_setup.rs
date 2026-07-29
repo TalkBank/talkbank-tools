@@ -147,7 +147,7 @@ pub async fn prepare_workers(
 /// Like [`prepare_workers`] but warmup runs as a background `tokio::spawn`
 /// task.  The HTTP server can bind its port immediately while models load.
 ///
-/// The returned [`PreparedWorkers`] is ready for use — jobs that arrive
+/// The returned [`PreparedWorkers`] is ready for use, jobs that arrive
 /// before warmup finishes will block on checkout until their required worker
 /// spawns, which is correct (no duplicate spawns).
 pub async fn prepare_workers_background(
@@ -256,10 +256,10 @@ async fn probe_workers(
         (caps, all_tasks, BTreeMap::new())
     };
 
-    // No warmup targets — workers spawn on demand.
+    // No warmup targets: workers spawn on demand.
     let warmup_cmds = config.resolved_warmup_commands();
     let targets = if warmup_cmds.is_empty() {
-        // Skip warmup in production — workers spawn lazily.
+        // Skip warmup in production, workers spawn lazily.
         // Test-echo mode can still warmup if configured.
         Vec::new()
     } else {
@@ -301,7 +301,7 @@ async fn probe_workers(
     ))
 }
 
-/// All released commands — used as the optimistic capability set before
+/// All released commands: used as the optimistic capability set before
 /// the first real worker spawn confirms what's actually installed.
 fn optimistic_capabilities() -> Vec<String> {
     released_command_definitions()

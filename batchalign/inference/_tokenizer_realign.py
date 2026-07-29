@@ -10,9 +10,9 @@ MWT hints (True/False tuples)
 ------------------------------
 Stanza's ``tokenize_postprocessor`` uses a tuple convention::
 
-    (text, True)   — MWT: let the MWT processor expand (e.g. "don't" → do + n't)
-    (text, False)  — NOT an MWT: suppress expansion (e.g. merged "ice-cream")
-    plain string   — let Stanza's model decide (equivalent to model's own choice)
+    (text, True): MWT: let the MWT processor expand (e.g. "don't" → do + n't)
+    (text, False), NOT an MWT: suppress expansion (e.g. merged "ice-cream")
+    plain string: let Stanza's model decide (equivalent to model's own choice)
 
 This module replicates Python master's ``tokenizer_processor`` logic:
 
@@ -22,7 +22,7 @@ This module replicates Python master's ``tokenizer_processor`` logic:
   prefix before the first ``'`` is ``"o"`` (e.g. o'clock, o'er) → ``(text, True)``
   Allows "don't", "Claus'" etc. to be handled by Stanza's MWT model.
 
-This matches the Python master rules (``ud.py`` lines 680–685) exactly.
+This matches the Python master rules (``ud.py`` lines 680-685) exactly.
 
 Thread safety: :class:`TokenizerContext` uses ``threading.local()`` to store
 ``original_words`` per-thread.  On free-threaded Python (3.14t+), multiple
@@ -55,7 +55,7 @@ class TokenizerContext:
     """Thread-safe context shared between the batch callback and the postprocessor.
 
     Uses ``threading.local()`` so each thread's ``original_words`` is
-    independent — required for free-threaded Python where multiple threads
+    independent: required for free-threaded Python where multiple threads
     call ``nlp()`` concurrently on the same Pipeline.
     """
 
@@ -139,7 +139,7 @@ def _is_contraction(text: str, alpha2: str) -> bool:
     """Return True if *text* should be flagged as an MWT contraction.
 
     Replicates Python master's ``tokenizer_processor`` English contraction rule
-    (``ud.py`` lines 680–685)::
+    (``ud.py`` lines 680-685)::
 
         (("en" in lang) and matches_in(i, "'") and
          not (len(conform(i).split("'")) > 1 and
@@ -172,7 +172,7 @@ def _realign_sentence(
 
     Delegates to ``batchalign_core.align_tokens()`` (Rust) for the
     character-position mapping algorithm. Per-language MWT override rules
-    were retired on 2026-04-21 after a paired empirical audit — the
+    were retired on 2026-04-21 after a paired empirical audit, the
     character-DP alone satisfies the morphotag 1-to-1 invariant for all
     previously-patched languages.
 
@@ -192,7 +192,7 @@ def _realign_sentence(
     mapping between Stanza tokens and the aligner's output), we overlay
     Stanza's original tuples back onto the aligned output so MWT
     expansion still fires downstream. Without this overlay, Stanza's MWT
-    processor sees only plain strings and silently skips expansion — the
+    processor sees only plain strings and silently skips expansion, the
     direct cause of the 2026-04-13 Preserve-mode regression.
     """
     if not stanza_tokens or not original_words:

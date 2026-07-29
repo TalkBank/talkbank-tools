@@ -1,4 +1,4 @@
-/** Workers & Memory panel — profile-aware worker status display.
+/** Workers & Memory panel, profile-aware worker status display.
  *
  * Shows active worker profiles, model sharing status, and warmup progress.
  * The key insight this panel communicates: GPU profile workers share loaded
@@ -197,7 +197,7 @@ function ProfileRow({ summary }: { summary: ProfileSummary }) {
               />
             </svg>
             <span className="text-xs text-amber-700 font-medium">
-              Models shared — align + transcribe reuse one process
+              Models shared: align + transcribe reuse one process
             </span>
           </div>
         )}

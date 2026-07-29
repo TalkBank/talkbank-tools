@@ -313,7 +313,7 @@ fn copy_nonmatching_in_place_skips() {
 
     // in_dir == out_dir → nothing copied (early return)
     copy_nonmatching(dir.path(), dir.path(), &["cha"], ReleasedCommand::Morphotag).unwrap();
-    // No error, no crash — just a no-op
+    // No error, no crash, just a no-op
 }
 
 #[test]

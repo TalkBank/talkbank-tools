@@ -1,4 +1,4 @@
-//! Python runtime resolution — re-exports from the worker crate.
+//! Python runtime resolution: re-exports from the worker crate.
 //!
 //! The canonical implementation lives in `crate::worker::python`.
 

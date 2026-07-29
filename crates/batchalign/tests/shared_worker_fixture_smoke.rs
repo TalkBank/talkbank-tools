@@ -18,7 +18,7 @@
 //! - Two checkouts with `WorkerConfig`s that differ in any Python-observed
 //!   field spawn distinct workers (distinct pids).
 //! - `WorkerConfig` fields the Python child does NOT observe at startup
-//!   (e.g. `ready_timeout_s`) do not partition the pool — checkouts that
+//!   (e.g. `ready_timeout_s`) do not partition the pool, checkouts that
 //!   differ only in such a field still share a worker.
 
 mod common;

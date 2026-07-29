@@ -63,14 +63,14 @@ def test_fresh_install_bootstraps_catalog_on_first_call(
 
     1. Set ``STANZA_RESOURCES_DIR`` to a fresh, empty temp directory
        (already done by the fixture).
-    2. Call ``get_cached_capability_table()`` — the same path the worker
+    2. Call ``get_cached_capability_table()``: the same path the worker
        takes when it first needs Stanza.
     3. Assert: the call returns a populated ``StanzaCapabilityTable``
        (not ``None``, not raising).
     4. Assert: ``resources.json`` now exists on disk at the expected
        sub-path under ``DEFAULT_MODEL_DIR``.
 
-    A failure here means the on-demand contract is broken — a user with
+    A failure here means the on-demand contract is broken, a user with
     no Stanza cache cannot run ``batchalign3 morphotag`` without manual
     seeding. That is precisely the bug the bootstrap rewrite of
     2026-05-06 was meant to prevent.
@@ -88,7 +88,7 @@ def test_fresh_install_bootstraps_catalog_on_first_call(
         f"our STANZA_RESOURCES_DIR={isolated_stanza_resources_dir!r}; the "
         "test cannot exercise the fresh-install path. This usually means "
         "Stanza was already imported with a different env value earlier "
-        "in the test session — investigate test isolation."
+        "in the test session: investigate test isolation."
     )
 
     from batchalign.worker._stanza_capabilities import (
@@ -128,7 +128,7 @@ def test_fresh_install_bootstraps_catalog_on_first_call(
         assert str(path).startswith(str(isolated_stanza_resources_dir)), (
             f"Stanza wrote {path} OUTSIDE the test's "
             f"STANZA_RESOURCES_DIR={isolated_stanza_resources_dir}. The "
-            "env-var override is not being honored — this is a deployment "
+            "env-var override is not being honored; this is a deployment "
             "regression in Stanza or in our use of it."
         )
 
@@ -142,7 +142,7 @@ def test_fresh_install_emits_user_visible_download_event(
 
     Time-transparency principle: the user must always know what BA3 is
     doing during a long wait. The catalog download is short (~1 MB) but
-    must still be surfaced — silent waits are UX bugs.
+    must still be surfaced: silent waits are UX bugs.
     """
     import importlib
     import json
@@ -178,6 +178,6 @@ def test_fresh_install_emits_user_visible_download_event(
     assert catalog_events, (
         "progress_v2 events were emitted but none mention "
         "downloading_stanza_catalog. The bootstrap-specific stage "
-        "identifier is missing — the UI will fall back to a generic "
+        "identifier is missing: the UI will fall back to a generic "
         "label and the user won't know what's downloading."
     )

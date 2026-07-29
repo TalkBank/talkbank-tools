@@ -96,7 +96,7 @@ pub(in crate::compare) fn find_best_segment(
     let gold_counts = token_counts(gold_tokens);
 
     // Comparing `overlap` is equivalent to BA2's float `score = overlap /
-    // gold_len` because `gold_len` is constant within the call — and lets us
+    // gold_len` because `gold_len` is constant within the call, and lets us
     // collapse all four tiebreaker axes into one tuple comparison. `Reverse`
     // flips the lower-is-better waste axis.
     let mut best_window = (0usize, std::cmp::min(main_len, gold_len));
@@ -140,7 +140,7 @@ pub(in crate::compare) fn find_best_segment(
 /// Mirrors BA2's `Counter(window_utts).most_common(1)` followed by
 /// leading/trailing non-majority-token trim. Tiebreaker for the majority
 /// itself is **first-seen** (matches Python's `Counter`, which is
-/// insertion-ordered — `Iterator::max_by_key` would pick last-seen, the
+/// insertion-ordered: `Iterator::max_by_key` would pick last-seen, the
 /// opposite). Returns `None` if the projected window is empty.
 fn majority_project(main_utts: &[usize], start: usize, end: usize) -> Option<(usize, usize)> {
     if start >= end {
@@ -326,7 +326,7 @@ pub fn compare(main_file: &ChatFile, gold_file: &ChatFile) -> ComparisonBundle {
                     let gold_word = &gold_info[orig_gold_idx];
 
                     // BA2 (compare.py:540-550) attributes the gold form's
-                    // POS to every Match — the gold standard is what the
+                    // POS to every Match, the gold standard is what the
                     // reviewer needs to see, not the transcriber's tag.
                     let token = CompareToken {
                         text: key,

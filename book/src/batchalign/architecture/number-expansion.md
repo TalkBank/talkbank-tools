@@ -33,7 +33,7 @@ several shapes:
 | Percent | `"80%"` | Symbol-suffixed |
 | Digit-leading hyphen | `"3-star"`, `"17-year-old"` | Compound modifiers |
 | CJK numerals | `"三"`, `"百"` | Tencent / FunASR / CJK-tuned Whisper |
-| Dash range | `"5-7"`, `"5—6"` | Reading numeric ranges |
+| Dash range | `"5-7"`, `"5-6"` | Reading numeric ranges |
 
 Number expansion bridges these to CHAT-legal forms per the target
 language. It is **deterministic text rewriting**: no ML, no audio
@@ -380,7 +380,7 @@ pub enum NumberToken<'a> {
     DigitLeadingHyphen(i64, &'a str),             // "3-star", "17-year-old"
     Currency(CurrencySymbol, i64),                // "$5", "€3"
     Percent(i64),                                 // "80%"
-    DashRange(i64, i64, DashKind),                // "5-7", "5—6"
+    DashRange(i64, i64, DashKind),                // "5-7", "5-6"
     PassThrough(&'a str),                         // not a number
 }
 

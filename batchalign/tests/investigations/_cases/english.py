@@ -10,12 +10,12 @@ apostrophe-contraction rule (``ud.py:694-697``):
   would surface.
 * Possessives (``John's``, ``dog's``). Stanza treats possessive
   ``'s`` as a separate UD word via MWT expansion.
-* ``o'clock`` — BA2's explicit control. The apostrophe rule did
+* ``o'clock``: BA2's explicit control. The apostrophe rule did
   NOT fire on ``o'`` + word, so ``o'clock`` stayed unsplit.
   Probe asserts Stanza produces 1 UD word.
-* ``gonna`` — Stanza's English MWT expands this to ``gon + na``
+* ``gonna``: Stanza's English MWT expands this to ``gon + na``
   (or similar) even without an apostrophe. Assert 2 UD words.
-* Native MWT baselines — short controls to confirm the English
+* Native MWT baselines: short controls to confirm the English
   pipeline is otherwise healthy.
 
 BA2 rule origin
@@ -142,7 +142,7 @@ CASES: tuple[ProbeCase, ...] = (
         phenomenon=Phenomenon.CONTRACTION,
         expected_post_mwt_count=5,
     ),
-    # ── o'clock control (BA2 explicitly excluded — must NOT expand) ─
+    # ── o'clock control (BA2 explicitly excluded, must NOT expand) ─
     ProbeCase(
         label="oclock_alone",
         words=("o'clock",),

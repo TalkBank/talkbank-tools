@@ -23,7 +23,7 @@ use crate::audit_docs::FLAG_PATTERNS;
 /// Only add an entry here when the doc's subject is *the removed
 /// dependency itself* (e.g. a "What was removed" section, a release
 /// changelog, a panic-audit snapshot). Never allow-list a current-state
-/// doc that happens to lag a rename — fix that doc instead.
+/// doc that happens to lag a rename, fix that doc instead.
 struct AllowEntry {
     /// Repo-relative path to a single markdown file, forward slashes.
     path: &'static str,
@@ -69,7 +69,7 @@ pub fn run(repo_root: &Path) -> crate::Result<()> {
     }
 
     eprintln!(
-        "xtask audit-prose-references: {} violation(s) — prose names a deleted crate or moved book path",
+        "xtask audit-prose-references: {} violation(s): prose names a deleted crate or moved book path",
         violations.len()
     );
     for v in &violations {
@@ -80,8 +80,8 @@ pub fn run(repo_root: &Path) -> crate::Result<()> {
     }
     eprintln!();
     eprintln!(
-        "Fix the prose to match current code, or — if the doc legitimately \
-         describes historical state — add an entry to ALLOW_LIST in \
+        "Fix the prose to match current code, or, if the doc legitimately \
+         describes historical state: add an entry to ALLOW_LIST in \
          xtask/src/audit_prose_references.rs with a rationale."
     );
 
@@ -205,7 +205,7 @@ mod tests {
     fn allow_listed_surface_is_silent() -> Result<(), Box<dyn std::error::Error>> {
         let docs = vec![doc(
             "book/src/batchalign/developer/maturin-pyo3-surface.md",
-            "| `batchalign-revai` | Dead code — server uses Rev.AI directly |\n",
+            "| `batchalign-revai` | Dead code, server uses Rev.AI directly |\n",
         )];
         let v = scan_docs(&docs)?;
         assert!(v.is_empty(), "expected allow-list to suppress, got {v:?}");
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn allow_list_is_scoped_to_specific_pattern() -> Result<(), Box<dyn std::error::Error>> {
         // The maturin-pyo3-surface allow-list entry covers batchalign-revai
-        // ONLY — a hit for batchalign-app on the same path must still fail.
+        // ONLY: a hit for batchalign-app on the same path must still fail.
         let docs = vec![doc(
             "book/src/batchalign/developer/maturin-pyo3-surface.md",
             "Used to depend on `batchalign-app`.\n",

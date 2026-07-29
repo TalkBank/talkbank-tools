@@ -783,9 +783,9 @@ test("dashboard groups errors, paginates files, and filters failed job details",
     await validationGroup.click();
     await expect(page.getByRole("button", { name: "sample-42.cha", exact: true })).toBeVisible();
 
-    await expect(page.getByText("Showing 1–50 of 60")).toBeVisible();
+    await expect(page.getByText("Showing 1-50 of 60")).toBeVisible();
     await page.getByRole("button", { name: "Next" }).first().click();
-    await expect(page.getByText("Showing 51–60 of 60")).toBeVisible();
+    await expect(page.getByText("Showing 51-60 of 60")).toBeVisible();
     await expect(page.getByText("sample-58.cha")).toBeVisible();
 
     const search = page.getByPlaceholder("Search files...");
@@ -796,7 +796,7 @@ test("dashboard groups errors, paginates files, and filters failed job details",
     await search.fill("");
     // Wait for the full file list to re-render after clearing the search
     // filter, so the Errors tab count is non-zero and the button is enabled.
-    await expect(page.getByText("Showing 1–50 of 60")).toBeVisible();
+    await expect(page.getByText("Showing 1-50 of 60")).toBeVisible();
     await page.getByRole("tab", { name: /Errors/ }).click();
     await expect(page.getByText("sample-03.cha")).toHaveCount(0);
     await expect(page.getByRole("cell", { name: "sample-52.cha", exact: true })).toBeVisible();

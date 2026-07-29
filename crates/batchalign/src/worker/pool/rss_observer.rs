@@ -8,7 +8,7 @@
 //! by design: it covers the *startup peak* during model load, not
 //! the steady-state RSS after the worker settles into idle. On
 //! long-running daemons whose workers have settled, reservation
-//! over-estimates by 2–3× (e.g., a Stanza worker's 12 GB reservation
+//! over-estimates by 2-3× (e.g., a Stanza worker's 12 GB reservation
 //! vs ~4 GB steady RSS).
 //!
 //! Mode B replaces the static reservation with a *measured* estimate
@@ -20,7 +20,7 @@
 //! # Why idle workers, not all live workers
 //!
 //! `WorkerGroup.idle` holds workers that have completed model load
-//! and returned to the pool — settled steady-state. Checked-out
+//! and returned to the pool, settled steady-state. Checked-out
 //! workers are mid-inference and may carry transient request data
 //! that overstates steady-state RSS. Workers loading their model
 //! aren't in `idle` yet (they're held inside `try_spawn_into_group`
@@ -31,7 +31,7 @@
 //!
 //! When no idle peers exist (first spawn of the profile after pool
 //! startup, or all peers currently checked out), the caller falls
-//! back to the static reservation — same as Mode A. This means Mode
+//! back to the static reservation, same as Mode A. This means Mode
 //! B is strictly an *opt-in* improvement over Mode A: when peer
 //! observation is unavailable, behavior matches Mode A exactly.
 //!
@@ -57,7 +57,7 @@ use super::{GroupsMap, WorkerGroup, lock_recovered};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum EstimateSource {
     /// No same-profile idle peers were available. Fell back to the
-    /// static `startup_reservation_mb_for_tier` value — Mode A
+    /// static `startup_reservation_mb_for_tier` value: Mode A
     /// behavior.
     Reservation,
     /// Same-profile idle peers were sampled; the average of their
@@ -70,7 +70,7 @@ pub(super) enum EstimateSource {
 /// must fall back to reservation).
 ///
 /// The walk holds each `WorkerGroup.idle` mutex briefly to snapshot
-/// PIDs, then releases it before the sysinfo refresh — sysinfo's
+/// PIDs, then releases it before the sysinfo refresh, sysinfo's
 /// `refresh_processes_specifics` can be tens of ms in the worst
 /// case, and holding the idle mutex across that would block
 /// `checkout()` and `push_back()` callers unnecessarily.
@@ -157,7 +157,7 @@ mod tests {
 
     /// Sampling an empty PID list returns `None` so the caller falls
     /// back to reservation. This pins the invariant that callers can
-    /// trust `None` to mean "no peers — use reservation."
+    /// trust `None` to mean "no peers, use reservation."
     #[test]
     fn empty_pid_list_returns_none() {
         let result = sample_avg_rss_mb_for_pids(&[]);

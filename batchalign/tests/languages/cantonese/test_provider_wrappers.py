@@ -112,7 +112,7 @@ def test_infer_funaudio_asr_requires_loaded_recognizer(monkeypatch) -> None:
 
     response = funaudio_asr.infer_funaudio_asr(_valid_request())
 
-    assert response.results[0].error == "FunAudio ASR not loaded — call load_funaudio_asr first"
+    assert response.results[0].error == "FunAudio ASR not loaded, call load_funaudio_asr first"
 
 
 def test_infer_funaudio_asr_rejects_invalid_items(monkeypatch) -> None:

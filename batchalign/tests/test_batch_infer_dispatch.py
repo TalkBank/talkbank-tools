@@ -59,7 +59,7 @@ class TestBatchItemValidation:
         assert item.sv_file == "/tmp/sv.wav"
 
 # ---------------------------------------------------------------------------
-# Dispatch routing (test-echo disabled — hits real dispatch)
+# Dispatch routing (test-echo disabled, hits real dispatch)
 # ---------------------------------------------------------------------------
 
 
@@ -184,7 +184,7 @@ class TestCapabilitiesAdvertisement:
             assert InferTask.UTSEG in caps.infer_tasks
             assert InferTask.COREF in caps.infer_tasks
             # Tasks gated on optional deps: only present if installed
-            # (no assertion on OPENSMILE, AVQI, SPEAKER, ASR — may or may not be installed)
+            # (no assertion on OPENSMILE, AVQI, SPEAKER, ASR, may or may not be installed)
         finally:
             _state.test_echo = old_test_echo
             _state.ready = old_ready

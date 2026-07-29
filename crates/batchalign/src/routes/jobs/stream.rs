@@ -72,7 +72,7 @@ fn async_stream(
     });
     let snapshot_event: Result<Event, Infallible> = Ok(build_json_event("snapshot", snapshot_data));
 
-    // Check if the job is already terminal — if so, send snapshot + complete and close.
+    // Check if the job is already terminal, if so, send snapshot + complete and close.
     let already_terminal = initial_info.status.is_terminal();
 
     let initial = tokio_stream::once(snapshot_event);

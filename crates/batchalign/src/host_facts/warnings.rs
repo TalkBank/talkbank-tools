@@ -1,14 +1,14 @@
 //! Non-fatal probe warnings.
 //!
 //! `DetectionWarning` carries information about probes that did not
-//! succeed but did not block detection — e.g., `nvidia-smi` returned a
+//! succeed but did not block detection, e.g., `nvidia-smi` returned a
 //! non-zero exit, the Stanza resources file was unreadable, the Python
 //! interpreter could not be located. The point is to surface these in
 //! `batchalign3 doctor` output so an operator can see *why* a host
 //! fact is missing, without crashing the server at startup.
 //!
 //! Errors that genuinely block detection (e.g., the OS itself is
-//! unidentifiable) belong elsewhere — `HostFacts::detect()` returns a
+//! unidentifiable) belong elsewhere: `HostFacts::detect()` returns a
 //! struct, not a `Result`. Any failure deep enough that we cannot fill
 //! out a sensible `HostFacts` would indicate a much larger problem.
 

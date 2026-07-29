@@ -62,7 +62,7 @@ pub struct JobIdentity {
 pub struct JobDispatchConfig {
     /// The batchalign command to run.
     pub command: ReleasedCommand,
-    /// Language specification — may be `Auto` (for ASR auto-detection) or
+    /// Language specification: may be `Auto` (for ASR auto-detection) or
     /// a resolved ISO 639-3 code.
     pub lang: LanguageSpec,
     /// Expected number of speakers in the audio workflow.
@@ -302,7 +302,7 @@ pub struct RunnerJobIdentity {
 pub struct RunnerDispatchConfig {
     /// Command being executed.
     pub command: ReleasedCommand,
-    /// Language specification — may be `Auto` for ASR auto-detection.
+    /// Language specification: may be `Auto` for ASR auto-detection.
     pub lang: LanguageSpec,
     /// Speaker-count hint for audio workflows.
     pub num_speakers: NumSpeakers,

@@ -9,7 +9,7 @@
 //! `gra_tier.relations`.
 //!
 //! This eliminates the ~2% `missing_mor` noise that the regex analyzer
-//! produced under CHAT retrace markers (`[/]`, `[//]`, `<foo bar> [//]`) —
+//! produced under CHAT retrace markers (`[/]`, `[//]`, `<foo bar> [//]`)
 //! the walker recurses into plain groups but short-circuits at
 //! `UtteranceContent::Retrace` when the domain is `Mor`, which is exactly
 //! the semantics `%mor`'s position count uses.
@@ -41,7 +41,7 @@ use super::types::{
 ///
 /// `Io` covers missing/unreadable files. `Parse` covers parser-init failure
 /// and fatal parse errors. `UnresolvedLanguage` signals a malformed
-/// `@Languages` header that cannot yield an effective language — the
+/// `@Languages` header that cannot yield an effective language, the
 /// analyzer cannot produce a `pair_key`-labelled record without one.
 #[derive(thiserror::Error, Debug)]
 pub enum AnalysisError {
@@ -109,13 +109,13 @@ pub fn analyze_chat_file(chat: &ChatFile, path: PathBuf, pair_key: PairKey) -> F
 
         // Walker collects (mor_position, surface, language_marker) for each
         // word-like item in MOR-domain order. Not every word-like item
-        // counts toward the MOR position stream — nonwords (`&~`),
+        // counts toward the MOR position stream, nonwords (`&~`),
         // phonological fragments (`&+`), and untranscribed placeholders
         // (`xxx`/`yyy`/`www`) are excluded from `%mor` by the alignment
         // rules. We apply `counts_for_tier(TierDomain::Mor)` to each
         // `Word` so the counter stays in lockstep with `mor_tier.items`.
         //
-        // Separators (commas, tag markers, vocatives) always count — they
+        // Separators (commas, tag markers, vocatives) always count, they
         // carry `cm|cm`/`beg|beg`/`end|end` %mor items.
         //
         // ReplacedWords contribute their replacement's surface to MOR.
@@ -128,7 +128,7 @@ pub fn analyze_chat_file(chat: &ChatFile, path: PathBuf, pair_key: PairKey) -> F
                 let (surface, marker) = match item {
                     WordItem::Word(w) => {
                         if !counts_for_tier(w, TierDomain::Mor) {
-                            // Nonword / fragment / untranscribed — skipped
+                            // Nonword / fragment / untranscribed, skipped
                             // by %mor alignment; do NOT advance counter.
                             return;
                         }
@@ -138,7 +138,7 @@ pub fn analyze_chat_file(chat: &ChatFile, path: PathBuf, pair_key: PairKey) -> F
                         // The original word is what the transcriber wrote,
                         // but %mor operates on the replacement. For MOR-
                         // domain counting, the replacement(s) are what
-                        // take MOR positions. Check the replacement —
+                        // take MOR positions. Check the replacement
                         // if it's a non-linguistic token, skip.
                         // For a typical `foo [: bar]`, `bar` counts as
                         // one MOR item; `foo [: bar baz]` counts as two.
@@ -276,7 +276,7 @@ pub fn classify_utterance_outcome(
 // ---------------------------------------------------------------------------
 
 /// Attach heuristic flags to an analysis. Free function because the
-/// decision is a pure derivation of the analysis's typed fields — it has
+/// decision is a pure derivation of the analysis's typed fields; it has
 /// no state of its own and does not own any invariants.
 fn apply_flags(mut analysis: AtSAnalysis) -> AtSAnalysis {
     analysis.flags = super::heuristics::flags_for(&analysis);
@@ -286,7 +286,7 @@ fn apply_flags(mut analysis: AtSAnalysis) -> AtSAnalysis {
 /// Serialize a `Mor` item to CHAT text (`POS|lemma-Feat-Feat`).
 ///
 /// Uses `WriteChat` semantics via the talkbank-model method so the output
-/// matches what a CHAT serializer would produce — no string hacking.
+/// matches what a CHAT serializer would produce, no string hacking.
 fn mor_item_to_text(mor: &talkbank_model::model::dependent_tier::mor::Mor) -> MorItemText {
     use std::fmt::Write as _;
     let mut out = String::new();
@@ -351,7 +351,7 @@ fn features_to_set(features: &[MorFeature]) -> FeatureSet {
 // POS / feature helpers used by heuristics and external callers
 // ---------------------------------------------------------------------------
 
-/// Lowercase view of a POS category — CHAT POS tags are lowercase but the
+/// Lowercase view of a POS category, CHAT POS tags are lowercase but the
 /// typed `PosCategory` preserves whatever casing was in the file. Heuristics
 /// compare against `"noun"`, `"propn"`, `"verb"`; always lowercase first.
 pub fn pos_as_lowercase(pos: &PosCategory) -> String {

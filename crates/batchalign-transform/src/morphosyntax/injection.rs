@@ -13,7 +13,7 @@ use crate::decisions::{DecisionRecord, DecisionStrategy, MorphosyntaxStrategy};
 /// Context supplied by the caller to [`enrich_diagnostic`] so the
 /// suspected misalignment class can be inferred more precisely.
 enum RetokenizationContext {
-    /// Non-retokenize path — Stanza was told to realign to CHAT
+    /// Non-retokenize path: Stanza was told to realign to CHAT
     /// boundaries. A mismatch here means realignment did not hold.
     Preserve,
     /// `StanzaRetokenize` mode was used; CHAT was rewritten to match
@@ -35,8 +35,8 @@ fn enrich_diagnostic(
     }
 
     // Infer the suspected class when the inner validator left it
-    // `Unknown`. This is a heuristic — the real diagnosis requires a
-    // developer looking at the logs — but it points them at the right
+    // `Unknown`. This is a heuristic, the real diagnosis requires a
+    // developer looking at the logs, but it points them at the right
     // stage to investigate first.
     if matches!(diag.suspected_class, MisalignmentClass::Unknown) {
         diag.suspected_class = match context {
@@ -213,7 +213,7 @@ pub fn inject_results(
     /// Deprel label written to `%gra` for non-analyzable special-form
     /// positions whose Stanza-side head is non-zero (i.e. the form-marker
     /// token is a dependent of some other chunk). UD `dep` = "no specific
-    /// role applies." The head=0 case must keep `ROOT` instead — see the
+    /// role applies." The head=0 case must keep `ROOT` instead, see the
     /// joint invariant `(head == 0) ⟺ (deprel == "ROOT")` enforced by
     /// the validator (E722/E723).
     const DEP_RELATION_LABEL: &str = "DEP";
@@ -235,13 +235,13 @@ pub fn inject_results(
         // Pre-flight: utterances whose every word is a special-form
         // or code-switch placeholder don't need Stanza. Stanza's
         // analysis of `xbxxx`-only input is fundamentally untrustworthy
-        // — its English tokenizer may split `xbxxx` into `xb`+`xxx`,
+        //: its English tokenizer may split `xbxxx` into `xb`+`xxx`,
         // which then trips the count-mismatch check in
         // `inject_morphosyntax` and leaves the utterance with no
         // tiers (preserving any pre-existing buggy %gra). Per the
         // 2026-05-07 reproducer in
         // `synthesis_stanza_tokenizes_xbxxx_into_two_at_q_root_keeps_root_deprel`,
-        // the morphology is fully determined by FormType — synthesize
+        // the morphology is fully determined by FormType, synthesize
         // it directly and skip the Stanza-derived path entirely.
         if synthesize_all_special_form_utterance(
             chat_file,
@@ -479,7 +479,7 @@ pub fn inject_results(
             ) {
                 // Per-utterance injection failure: the 1-to-1 invariant
                 // (CHAT alignable-word count == Mor count after mapping)
-                // was violated. This is always a bug — the pipeline was
+                // was violated. This is always a bug, the pipeline was
                 // supposed to produce exactly as many Mors as there were
                 // CHAT words, and did not. File-level absorption: log
                 // loudly via DecisionRecord, continue with the next
@@ -503,7 +503,7 @@ pub fn inject_results(
             // Stanza returned empty for an utterance that's NOT
             // all-synthesizable (the all-synthesizable case was
             // handled at the top of the iteration). This is a
-            // genuine "Stanza had nothing to say" — record the
+            // genuine "Stanza had nothing to say", record the
             // decision and leave the utterance untouched.
             decisions.push(DecisionRecord::new_and_trace(
                 line_idx,

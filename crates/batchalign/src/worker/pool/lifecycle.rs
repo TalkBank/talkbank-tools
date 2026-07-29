@@ -23,7 +23,7 @@ use super::{GroupsMap, WorkerGroup, WorkerKey, WorkerPool};
 /// (per-key rejection means "wait for someone to return a worker for
 /// THIS key"; global rejection means "wait for ANY worker anywhere
 /// to exit"; CPU saturation and memory pressure mean "wait for the
-/// host to become less loaded — no permit wait will help"). The
+/// host to become less loaded, no permit wait will help"). The
 /// dispatch slow path uses the variant to choose between
 /// `group.available.acquire()`, `pool.spawn_permits.acquire()`, and
 /// a time-based retry.
@@ -35,14 +35,14 @@ pub(super) enum AdmissionRejection {
     /// Per-key cap (`max_workers_per_key.get(group.profile)`)
     /// reached. The CAS loop returns this without holding the
     /// global permit (the guard auto-drops). Increments
-    /// `spawn_rejections_total` — currently the per-key counter.
+    /// `spawn_rejections_total`: currently the per-key counter.
     PerKeyCap,
     /// 1-minute CPU load average is at or above the host's logical
     /// CPU count. Adding another worker would oversubscribe; the
     /// admission seam refuses until live load drops. Increments
     /// `cpu_saturation_rejections_total`. Unlike `GlobalCap` and
     /// `PerKeyCap`, this rejection isn't unblocked by a worker
-    /// returning — only by the host itself becoming less busy.
+    /// returning, only by the host itself becoming less busy.
     CpuSaturated,
     /// Host's currently-available memory is at or below the
     /// hardcoded minimum-free floor (`memory_gate::MIN_FREE_MEMORY_MB`).
@@ -50,7 +50,7 @@ pub(super) enum AdmissionRejection {
     /// permit accounting can prevent; the admission seam refuses
     /// until live free memory rises. Increments
     /// `memory_constrained_rejections_total`. Like `CpuSaturated`,
-    /// this rejection isn't unblocked by a worker returning — only
+    /// this rejection isn't unblocked by a worker returning, only
     /// by the host itself freeing memory (other processes exiting,
     /// caches reclaiming, etc.).
     MemoryConstrained,
@@ -171,7 +171,7 @@ impl WorkerPool {
         let max = self.config.max_workers_per_key.get(group.profile);
 
         // Pressure gates (CPU loadavg, memory headroom) implement
-        // BACK-PRESSURE — they slow new spawns when existing workers
+        // BACK-PRESSURE: they slow new spawns when existing workers
         // are pressuring the host. Cold-start (no workers in this
         // group) has nothing to back-pressure against; refusing here
         // leaves the pool dead-on-arrival with no recovery path.
@@ -235,10 +235,10 @@ impl WorkerPool {
         // back to the static `startup_reservation_mb_for_tier` value
         // (Mode A) when no peers are available. The fallback ensures
         // that pre-warmup admission decisions match Mode A behavior
-        // exactly — Mode B is strictly an improvement, never worse.
+        // exactly: Mode B is strictly an improvement, never worse.
         //
         // No env var, no PoolConfig field, no operator override.
-        // Tier-scaled floor — the 2048 MB hardcode the rearch shipped
+        // Tier-scaled floor: the 2048 MB hardcode the rearch shipped
         // was right for Medium workstations and wrong on every other
         // tier. See `host_min_free_mb_threshold_for_tier`.
         let mem_threshold =
@@ -305,7 +305,7 @@ impl WorkerPool {
         // Layer 2: per-key cap CAS. The permit guard is held across
         // the loop; on per-key failure it drops here and refunds the
         // permit so other groups can use it. The CAS retry path
-        // re-uses the same guard — we already paid for the global
+        // re-uses the same guard, we already paid for the global
         // slot, just need to win the per-key race.
         loop {
             let current = group.total.load(Ordering::Relaxed);
@@ -465,7 +465,7 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
         for _ in 0..restart_count {
             // Try to claim a global-cap permit for the restart. If
             // every permit has been grabbed by concurrent admissions
-            // since the reaper refunded them, skip — a future
+            // since the reaper refunded them, skip, a future
             // admission will spawn this worker on demand.
             let Some(restart_guard) =
                 super::permit::SpawnPermitGuard::try_acquire_or_skip(&group.spawn_permits, || {
@@ -553,7 +553,7 @@ pub(super) async fn run_health_check(groups_ref: &GroupsMap, pool_config: &super
 /// `group.total.fetch_sub` → `SpawnPermitGuard::release_n`).
 ///
 /// Workers that were idle at snapshot time but checked out before
-/// the eviction commits are silently skipped — that's not a bug,
+/// the eviction commits are silently skipped, that's not a bug,
 /// just a TOCTOU race where the worker is now busy serving a
 /// request and the next eviction round will reconsider it if
 /// pressure persists.
@@ -587,7 +587,7 @@ async fn pressure_evict_idle_workers_if_needed(groups_ref: &GroupsMap) {
         let removed = {
             let mut idle = super::lock_recovered(&group.idle);
             let Some(pos) = idle.iter().position(|h| h.pid() == sample.pid) else {
-                // Worker checked out since snapshot — leave it for
+                // Worker checked out since snapshot, leave it for
                 // the next eviction round if pressure persists.
                 continue;
             };
@@ -630,7 +630,7 @@ mod saturation_log_tests {
 
     /// A 30-minute saturation window in development captured 664,937
     /// rejection events (BUG-028). With logarithmic gating, the same
-    /// window emits at most one WARN per power of two — about 20
+    /// window emits at most one WARN per power of two, about 20
     /// events, not 664k. This test pins the schedule.
     #[test]
     fn logs_at_one_two_four_and_powers_of_two() {

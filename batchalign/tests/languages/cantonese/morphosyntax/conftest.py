@@ -22,7 +22,7 @@ def pytest_collection_modifyitems(items):
 
     Pytest invokes every conftest's ``pytest_collection_modifyitems`` with
     the same global items list, so this hook must filter to its own
-    directory itself — otherwise every collected test in the session
+    directory itself: otherwise every collected test in the session
     would be marked ``cantonese_integration`` and the addopts filter
     ``-m "not cantonese_integration"`` would deselect the entire suite.
     """

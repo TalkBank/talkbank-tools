@@ -386,7 +386,7 @@ fn test_italian_defect9_dagliela_head_rewritten_to_verb_dare() {
         "Defect 9: head must not stay ADP, got {:?}",
         items[0]
     );
-    // The clitic decomposition must be preserved — this is what
+    // The clitic decomposition must be preserved; this is what
     // distinguishes Defect 9 from Defect 6 (which collapses to a
     // single chunk).
     assert!(

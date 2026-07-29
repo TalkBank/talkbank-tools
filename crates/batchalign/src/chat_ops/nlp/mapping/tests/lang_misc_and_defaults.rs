@@ -207,7 +207,7 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
         );
     }
 
-    // Content punctuation MUST NOT be classified as a terminator —
+    // Content punctuation MUST NOT be classified as a terminator
     // these flow through to `map_ud_word_to_mor` to produce Mor items
     // (`cm|cm`, `end|end`, `beg|beg`, etc.). The CA-prosody arrows
     // (`⇗ ↗ → ↘ ⇘ ≋ ≈`) belong here too: per CHECK they are
@@ -215,12 +215,12 @@ fn is_terminator_punct_matches_only_sentence_terminators() {
     // `Terminator::CaRisingToHigh` and friends remain as model variants
     // pending the full reclassification pass, but `try_from_chat_str`
     // does NOT construct them, so `is_terminator_punct` returns false
-    // for the codepoints — which is the correct behavior.
+    // for the codepoints, which is the correct behavior.
     for t in [
         ",",
         ";",
         ":",
-        "—",
+        "\u{2014}",
         "(",
         ")",
         "\"",

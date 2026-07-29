@@ -59,7 +59,7 @@ fn language_groups_for_items(
 ///
 /// When the batch is large enough and the pool allows multiple workers per
 /// language key, the items are split into chunks and dispatched concurrently
-/// to separate workers.  This is transparent to callers — the returned
+/// to separate workers.  This is transparent to callers, the returned
 /// `Vec<UdResponse>` is always parallel to the input `items` slice.
 pub(crate) async fn infer_batch(
     pool: &WorkerPool,
@@ -80,7 +80,7 @@ pub(crate) async fn infer_batch(
 /// failures into a single typed error.
 ///
 /// Used by call sites that need per-file (or per-item) attribution of
-/// engine failures — for example the cross-file batch driver, which
+/// engine failures, for example the cross-file batch driver, which
 /// marks only the file that contributed a failing item as failed
 /// while letting the other files in the batch continue.
 pub(crate) async fn infer_batch_per_item(
@@ -105,7 +105,7 @@ pub(crate) async fn infer_batch_per_item(
 
     if !needs_grouping {
         // Single homogeneous supported group matching the caller's
-        // fallback lang — the simple fast path.
+        // fallback lang: the simple fast path.
         return infer_batch_homogeneous(pool, items, lang, mwt, retokenize, progress_tx).await;
     }
 
@@ -122,7 +122,7 @@ pub(crate) async fn infer_batch_per_item(
     // Fill items in unsupported-language groups with INTENTIONAL empty
     // ``Ok(UdResponse)`` values (not Err). Downstream ``inject_results``
     // skips items whose response has no sentences, leaving the
-    // existing ``L2|xxx`` placeholder in ``%mor`` — matching the
+    // existing ``L2|xxx`` placeholder in ``%mor``, matching the
     // pre-BA3 fallback semantics for code-switches into languages
     // Stanza cannot analyze. This is a feature, not a failure.
     for (group_lang, indices) in fallback {
@@ -378,7 +378,7 @@ async fn infer_batch_single(
                     // without a replay, then surface as a per-item Err
                     // so the cross-file driver can attribute the
                     // failure back to the file that contributed this
-                    // item — matches the BA2 "one bad utterance
+                    // item: matches the BA2 "one bad utterance
                     // abandons the file" semantics.
                     let words_sent = &payload_items[i].words;
                     let diagnostics = diagnose_parse_failure(raw_sentences);
@@ -399,7 +399,7 @@ async fn infer_batch_single(
                         diagnostics = %diag_str,
                         raw_stanza_output = %raw_json,
                         %error,
-                        "Stanza output parse failure — full diagnostics logged"
+                        "Stanza output parse failure: full diagnostics logged"
                     );
                     ud_responses.push(Err(format!(
                         "Failed to parse raw Stanza output for item {i} \
@@ -410,7 +410,7 @@ async fn infer_batch_single(
             continue;
         }
 
-        // Protocol violation — worker returned neither error nor
+        // Protocol violation: worker returned neither error nor
         // raw_sentences. Treat as per-item failure so the affected
         // file fails rather than silently producing empty %mor tiers.
         ud_responses.push(Err(
@@ -518,7 +518,7 @@ mod tests {
     }
 
     /// Regression test for the worker-bootstrap crash on unsupported
-    /// secondary languages (e.g. `@Languages: cym, eng, nep` —
+    /// secondary languages (e.g. `@Languages: cym, eng, nep`
     /// pre-fix, the morphotag pipeline tried to spawn a Stanza nep
     /// worker for `[- nep]`-precoded utterances and crashed during
     /// bootstrap with `UnsupportedLanguageError`, leaving the file's
@@ -526,7 +526,7 @@ mod tests {
     ///
     /// The new partition function splits groups by Stanza support so
     /// unsupported-language items can be filled with empty
-    /// `UdResponse`s downstream — semantically equivalent to BA2's
+    /// `UdResponse`s downstream: semantically equivalent to BA2's
     /// `L2|xxx` fallback for code-switches into unanalyzable
     /// languages.
     fn registry_supporting(langs: &[&str]) -> crate::stanza_registry::StanzaRegistry {

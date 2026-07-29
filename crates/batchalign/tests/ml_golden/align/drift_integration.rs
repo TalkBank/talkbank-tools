@@ -9,13 +9,13 @@
 //! directory.
 //!
 //! Staging layout (each subdir contains `<stem>.cha` plus an adjacent media
-//! file — symlinked to NFS is fine):
+//! file: symlinked to NFS is fine):
 //!
 //! ```text
 //! $BATCHALIGN3_DRIFT_CORPUS_DIR/
 //!   micase/   { adv700ju047.cha + .mp3, ... 8 files }
 //!   samtale/  { seiden2.cha, seiden2.mp4 }
-//!   biling/   { 28.cha, 28.mp3 }         (MLE-MPF/28 — fra/eng bilingual,
+//!   biling/   { 28.cha, 28.mp3 }         (MLE-MPF/28, fra/eng bilingual,
 //!                                         62% +< density, chosen because
 //!                                         Koge has no NFS media)
 //!   rhd/      { minga044.cha, minga044.<ext> }
@@ -34,13 +34,13 @@
 //!
 //! ## Module layout
 //!
-//! - [`crate::common::drift_staging`] — filesystem plumbing
+//! - [`crate::common::drift_staging`]: filesystem plumbing
 //!   (`require_drift_corpus_dir`, `StagedDriftFile`, `enumerate_staged_files`,
 //!   `locate_adjacent_media`, `CorpusFileName`).
-//! - [`crate::ml_golden::align::drift_runner`] — align-pipeline driver and
+//! - [`crate::ml_golden::align::drift_runner`]: align-pipeline driver and
 //!   outcome aggregator (`FileOutcome`, `run_one_file`,
 //!   `assert_all_files_pass`, `skip_if_empty`).
-//! - This file — test bodies only.
+//! - This file: test bodies only.
 
 use batchalign::worker::InferTask;
 
@@ -149,10 +149,10 @@ async fn drift_samtale_seiden2() {
 
 #[tokio::test]
 async fn drift_biling_mle_mpf_28() {
-    // MLE-MPF/28.cha — 855 `+<` markers across 1369 utterances (62% density).
+    // MLE-MPF/28.cha-855 `+<` markers across 1369 utterances (62% density).
     // Chosen over biling-data/Koge/danish-group/306a-gs.cha (also 62% density)
     // because Koge has no matching media on NFS, while MLE-MPF/28.mp3 does.
-    // Languages declared in the CHAT header: `fra, eng` — we pass `fra` to
+    // Languages declared in the CHAT header: `fra, eng`, we pass `fra` to
     // the Rev.AI engine, which supports French.
     let Some(root) = require_drift_corpus_dir() else {
         return;

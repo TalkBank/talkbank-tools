@@ -1,4 +1,4 @@
-//! `batchalign3 eval l2-morphotag` — port of the Python analyzer at
+//! `batchalign3 eval l2-morphotag`: port of the Python analyzer at
 //! `scripts/l2-eval/analyze.py` to a proper Rust Clap subcommand.
 //!
 //! The Python analyzer uses regexes over serialized CHAT to walk `@s` words
@@ -19,7 +19,7 @@
 //! |--------|------|
 //! | [`types`] | All newtypes (`PairKey`, `SurfaceWord`, `MorItemText`, `GraItemText`, `FeatureSet`) and domain enums (`AtSStatus`, `HeuristicFlag`, `LanguageMarkerKind`) plus the per-word and file records |
 //! | [`analysis`] | CHAT-AST walker: `analyze_file` / `analyze_chat_file`, plus serialized-form helpers `extract_pos_lemma_features` / `extract_gra_deprel` for test convenience |
-//! | [`heuristics`] | `flags_for(&AtSAnalysis)` — the rule-based suspicious-output detectors |
+//! | [`heuristics`] | `flags_for(&AtSAnalysis)`, the rule-based suspicious-output detectors |
 //! | [`report`] | Aggregation (`aggregate_by_pair`) and CSV / Markdown writers (`write_per_word`, `write_per_pair`, `write_flagged`, `write_summary`) |
 
 pub mod analysis;
@@ -153,7 +153,7 @@ fn load_eval_set_basenames(path: &Path) -> Result<BTreeMap<String, PairKey>, Eva
 // Command entry point
 // ---------------------------------------------------------------------------
 
-/// Run the `eval l2-morphotag` subcommand — the public seam invoked by
+/// Run the `eval l2-morphotag` subcommand, the public seam invoked by
 /// `run_command` in `lib.rs`.
 pub fn run(args: &L2MorphotagEvalArgs) -> Result<(), CliError> {
     run_impl(args).map_err(Into::into)

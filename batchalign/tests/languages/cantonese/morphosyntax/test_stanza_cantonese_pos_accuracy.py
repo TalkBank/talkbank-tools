@@ -2,7 +2,7 @@
 
 This test measures how well Stanza's Mandarin-trained zh model handles
 Cantonese-specific vocabulary when used for morphotag. This affects ALL
-Cantonese morphotag output — not just the new --retokenize feature.
+Cantonese morphotag output, not just the new --retokenize feature.
 
 batchalign3 (inherited from batchalign2) maps Cantonese (yue) to Stanza's
 Chinese (zh) model, which is trained on the Chinese Treebank (Mandarin
@@ -26,7 +26,7 @@ import pytest
 class TestStanzaCantonesePos:
     """Measure Stanza zh model POS accuracy on Cantonese vocabulary.
 
-    Uses real Stanza model inference — not fakes. Marked golden because
+    Uses real Stanza model inference, not fakes. Marked golden because
     it loads the Stanza Chinese model (~200 MB).
     """
 
@@ -74,7 +74,7 @@ class TestStanzaCantonesePos:
         nlp = self._load_stanza()
         pos = self._get_pos_map(nlp, "你 知 唔 知道")
         assert pos["唔"] != "ADV", (
-            f"唔 was correctly classified as ADV — Stanza may have improved. "
+            f"唔 was correctly classified as ADV, Stanza may have improved. "
             f"Got {pos['唔']}."
         )
 
@@ -87,7 +87,7 @@ class TestStanzaCantonesePos:
         nlp = self._load_stanza()
         pos = self._get_pos_map(nlp, "佢哋 好 鍾意 食 嘢")
         assert pos["嘢"] != "NOUN", (
-            f"嘢 was correctly classified as NOUN — Stanza may have improved. "
+            f"嘢 was correctly classified as NOUN, Stanza may have improved. "
             f"Got {pos['嘢']}."
         )
 

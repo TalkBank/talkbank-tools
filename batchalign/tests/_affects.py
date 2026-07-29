@@ -15,9 +15,9 @@ Rust::
 
 Patterns are gitignore-style (``**`` supported) and matched via
 ``pathspec``. A test file with no ``affects:`` lines is treated as
-"runs always" — backward compatible, gradual adoption.
+"runs always": backward compatible, gradual adoption.
 
-Design note — the opposite convention (a central file mapping dir →
+Design note: the opposite convention (a central file mapping dir →
 test subset) was considered in the research plan. It was rejected
 in the Plan-agent critique (2026-04-23): a central TOML rots
 silently when new test files or code paths land, and the drift
@@ -38,7 +38,7 @@ import pathspec
 # Matches both Python (``#``) and Rust (``//``) header-style comments.
 # Anchored to start-of-line with optional leading whitespace so that
 # declarations inside prose (e.g., rendered in a backtick code span in
-# a docstring) don't count — comments start at column 0 or after
+# a docstring) don't count, comments start at column 0 or after
 # whitespace only.
 _AFFECTS_RE = re.compile(r"(?m)^\s*(?:#|//)\s*affects:\s*(.+?)\s*$")
 
@@ -76,7 +76,7 @@ def parse_affects(test_file: Path, content: str | None = None) -> AffectsDeclara
     """Extract every ``affects:`` declaration from ``test_file``.
 
     Pass ``content`` to avoid re-reading a file the caller already has.
-    Returns an empty patterns tuple when no declarations are found —
+    Returns an empty patterns tuple when no declarations are found
     the test file will be treated as "runs always" by
     :func:`select_tests`.
     """
@@ -92,7 +92,7 @@ def diff_matches_declaration(
     """True iff any ``changed_paths`` entry matches any ``decl.patterns``.
 
     Used to decide whether a test file is relevant to a given diff.
-    Returns False when either side is empty — an undeclared test file
+    Returns False when either side is empty, an undeclared test file
     (empty patterns) should be handled as "runs always" by the caller,
     not as "does not match anything".
     """
@@ -107,9 +107,9 @@ def select_tests(
 ) -> tuple[list[Path], list[Path]]:
     """Partition ``test_files`` into ``(selected, run_always)``.
 
-    * **selected** — file has ``affects:`` declarations AND at least
+    * **selected**: file has ``affects:`` declarations AND at least
       one pattern matches ``changed_paths``.
-    * **run_always** — file has NO ``affects:`` declarations; it opts
+    * **run_always**: file has NO ``affects:`` declarations; it opts
       out of change-aware selection and always runs.
 
     Files with declarations but no matches are implicitly "skip for
@@ -117,7 +117,7 @@ def select_tests(
     ``test_files`` is preserved within each bucket to keep downstream
     command construction deterministic.
 
-    Materialize ``changed_paths`` exactly once — we consume it
+    Materialize ``changed_paths`` exactly once: we consume it
     multiple times below (once per test file), so an iterator would
     silently drop matches after the first test.
     """

@@ -62,7 +62,7 @@ impl<'a> UtrPassContext<'a> {
 /// Resolve the UTR overlap strategy for a specific CHAT file.
 ///
 /// `Auto` currently always returns `GlobalUtr` regardless of file content
-/// or language — the previous content/language-aware selection (which
+/// or language: the previous content/language-aware selection (which
 /// auto-picked `TwoPassOverlapUtr` for English files containing `+<` or
 /// `⌊` markers) was disabled 2026-03-30 after operator-reported alignment
 /// regressions and the discovery that `enforce_monotonicity()` only checks
@@ -121,7 +121,7 @@ fn resolve_strategy(
 /// When `progress` is provided, per-window updates are sent during partial UTR
 /// so frontends can show "Recovering utterance timing 2/5" etc.
 ///
-/// Mutates `chat_file` in place — no serialize/re-parse cycle. The caller owns
+/// Mutates `chat_file` in place, no serialize/re-parse cycle. The caller owns
 /// the AST and can pass it directly to FA without a round-trip through text.
 pub(in crate::runner) async fn run_utr_pass(
     chat_file: &mut crate::chat_ops::ChatFile,
@@ -467,7 +467,7 @@ async fn infer_utr_asr_response(
             })
         }
         UtrEngine::Whisper | UtrEngine::HkTencent => {
-            // UTR uses the default per-engine configuration — there are
+            // UTR uses the default per-engine configuration; there are
             // no UTR-specific knobs in `EngineOverrides.extras` today.
             // An empty extras map preserves the current behavior and
             // gives a stable place to wire UTR-time knobs later if any

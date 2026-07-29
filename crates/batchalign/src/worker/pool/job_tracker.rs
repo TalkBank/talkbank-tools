@@ -1,7 +1,7 @@
 //! Per-job tracking of checked-out worker PIDs for cancel-driven shutdown.
 //!
 //! Without this, cancel waits for the in-flight worker call (Whisper,
-//! Stanza, etc.) to complete naturally — minutes for long ASR passes.
+//! Stanza, etc.) to complete naturally, minutes for long ASR passes.
 //! `WorkerPool::shutdown_workers_for_job` drains the relevant PIDs
 //! and SIGTERMs them so the dispatch future returns BrokenPipe and
 //! the runner unwinds at the next iteration.
@@ -23,7 +23,7 @@ use tracing::{debug, info};
 tokio::task_local! {
     /// Set at the entry of `run_server_job_attempt` so dispatch-site
     /// `TrackerGuard`s register against the correct job. The
-    /// task-local propagates across awaits transparently — no
+    /// task-local propagates across awaits transparently, no
     /// signature changes at intermediate dispatch sites.
     pub(crate) static CURRENT_JOB_ID: JobId;
 }
@@ -33,7 +33,7 @@ pub(crate) fn current_job_id() -> Option<JobId> {
 }
 
 /// Thread-safe map from job to checked-out worker PIDs. Uses
-/// `DashMap` for sharded per-key concurrency — the dispatch hot
+/// `DashMap` for sharded per-key concurrency, the dispatch hot
 /// path can register/unregister without contending on a single
 /// global Mutex. The per-job `HashSet` stays under a small mutex
 /// because DashMap doesn't expose a per-entry write API for nested
@@ -107,7 +107,7 @@ impl JobWorkerTracker {
 }
 
 /// RAII registration of `(job, pid)` for the duration of a worker
-/// dispatch. Unregisters on drop — including on panic unwind, so
+/// dispatch. Unregisters on drop, including on panic unwind, so
 /// the side-table never accumulates ghosts. Constructing with no
 /// active `CURRENT_JOB_ID` scope is a no-op.
 #[must_use = "guard must be held for the dispatch lifetime"]

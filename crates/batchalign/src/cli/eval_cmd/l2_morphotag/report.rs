@@ -1,10 +1,10 @@
 //! CSV and Markdown report writers.
 //!
 //! Four artifacts per run:
-//! - `per-word.csv` — one row per `@s` word (flat, easy to sort/filter)
-//! - `per-pair.csv` — one row per language pair (aggregate stats)
-//! - `flagged.csv` — subset of `per-word.csv` where at least one flag fired
-//! - `summary.md` — narrative report with the gate decisions
+//! - `per-word.csv`, one row per `@s` word (flat, easy to sort/filter)
+//! - `per-pair.csv`, one row per language pair (aggregate stats)
+//! - `flagged.csv`: subset of `per-word.csv` where at least one flag fired
+//! - `summary.md`: narrative report with the gate decisions
 //!
 //! Column names and ordering match the Python analyzer so that existing
 //! downstream notebooks and the 2026-04-15 baseline diff cleanly against
@@ -138,7 +138,7 @@ impl OutcomeCounts {
 }
 
 impl PairAggregate {
-    /// Ratio of spliced `@s` words to total — pessimistic because any
+    /// Ratio of spliced `@s` words to total, pessimistic because any
     /// `missing_mor` reduces the numerator even when the feature itself
     /// succeeded. With the AST walker missing_mor should be rare.
     pub fn splice_rate(&self) -> f64 {
@@ -150,7 +150,7 @@ impl PairAggregate {
     }
 
     /// L2-dispatch success rate: `1 - L2xxx / total`. Counts `missing_mor`
-    /// as NOT a dispatch failure — this is the metric gated against the
+    /// as NOT a dispatch failure; this is the metric gated against the
     /// pre-registered 99% threshold.
     pub fn dispatch_rate(&self) -> f64 {
         if self.at_s_total == 0 {
@@ -221,7 +221,7 @@ pub fn aggregate_by_pair(files: &[FileAnalysis]) -> BTreeMap<PairKey, PairAggreg
 // CSV writers
 // ---------------------------------------------------------------------------
 
-/// Per-word CSV field order — MUST match the Python analyzer's
+/// Per-word CSV field order, MUST match the Python analyzer's
 /// `PER_WORD_FIELDS` for downstream compatibility.
 pub const PER_WORD_FIELDS: &[&str] = &[
     "file",
@@ -271,7 +271,7 @@ fn write_header(w: &mut Writer<File>, fields: &[&str]) -> Result<(), csv::Error>
     w.write_record(fields)
 }
 
-/// Write `per-word.csv` — one row per `@s` word.
+/// Write `per-word.csv`, one row per `@s` word.
 pub fn write_per_word(path: &Path, analyses: &[&AtSAnalysis]) -> Result<(), ReportError> {
     let file = File::create(path).map_err(ReportError::io(path))?;
     let mut w = Writer::from_writer(file);
@@ -284,7 +284,7 @@ pub fn write_per_word(path: &Path, analyses: &[&AtSAnalysis]) -> Result<(), Repo
     Ok(())
 }
 
-/// Write `flagged.csv` — subset of `per-word.csv` where any flag fired.
+/// Write `flagged.csv`: subset of `per-word.csv` where any flag fired.
 pub fn write_flagged(path: &Path, analyses: &[&AtSAnalysis]) -> Result<(), ReportError> {
     let file = File::create(path).map_err(ReportError::io(path))?;
     let mut w = Writer::from_writer(file);
@@ -300,7 +300,7 @@ pub fn write_flagged(path: &Path, analyses: &[&AtSAnalysis]) -> Result<(), Repor
     Ok(())
 }
 
-/// Write `per-pair.csv` — one row per language pair.
+/// Write `per-pair.csv`, one row per language pair.
 pub fn write_per_pair(
     path: &Path,
     pairs: &BTreeMap<PairKey, PairAggregate>,
@@ -449,13 +449,13 @@ pub fn summary_markdown(
     out.push_str(&format!("- Files: **{}**\n", total_files));
     out.push_str(&format!("- `@s` words: **{}**\n", total_at_s));
     out.push_str(&format!(
-        "- Aggregate **dispatch rate**: **{:.2}%** (gate ≥{:.0}%: {}) — counts only `L2|xxx` fallbacks against the feature.\n",
+        "- Aggregate **dispatch rate**: **{:.2}%** (gate ≥{:.0}%: {}), counts only `L2|xxx` fallbacks against the feature.\n",
         agg_dispatch * 100.0,
         SPLICE_GATE * 100.0,
         gate_str(agg_dispatch >= SPLICE_GATE)
     ));
     out.push_str(&format!(
-        "- Aggregate splice rate: {:.2}% — includes `missing_mor` as failures (pessimistic floor; AST walker should keep this near 0).\n",
+        "- Aggregate splice rate: {:.2}%, includes `missing_mor` as failures (pessimistic floor; AST walker should keep this near 0).\n",
         agg_splice * 100.0
     ));
     out.push_str(&format!(
@@ -546,19 +546,19 @@ pub fn summary_markdown(
         "Across **{total_outcomes} utterances** (all pairs, all files):\n\n"
     ));
     out.push_str(&format!(
-        "- `Aligned`: {total_aligned} ({:.1}%) — `%mor` matched CHAT alignable count.\n",
+        "- `Aligned`: {total_aligned} ({:.1}%): `%mor` matched CHAT alignable count.\n",
         pct(total_aligned, total_outcomes)
     ));
     out.push_str(&format!(
-        "- `NotApplicable`: {total_not_applicable} ({:.1}%) — no Mor-alignable content; correctly no `%mor`.\n",
+        "- `NotApplicable`: {total_not_applicable} ({:.1}%), no Mor-alignable content; correctly no `%mor`.\n",
         pct(total_not_applicable, total_outcomes)
     ));
     out.push_str(&format!(
-        "- `CountMismatchInFile`: {total_count_mismatch} ({:.1}%) — `%mor` size ≠ alignable count. Post-fix this should be 0.\n",
+        "- `CountMismatchInFile`: {total_count_mismatch} ({:.1}%): `%mor` size ≠ alignable count. Post-fix this should be 0.\n",
         pct(total_count_mismatch, total_outcomes)
     ));
     out.push_str(&format!(
-        "- `PipelineAbsorbedFailure`: {total_absorbed} ({:.1}%) — alignable content present but no `%mor`; pipeline absorbed a `MisalignmentBug`.\n",
+        "- `PipelineAbsorbedFailure`: {total_absorbed} ({:.1}%): alignable content present but no `%mor`; pipeline absorbed a `MisalignmentBug`.\n",
         pct(total_absorbed, total_outcomes)
     ));
     out.push_str(&format!(

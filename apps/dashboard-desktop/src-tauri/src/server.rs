@@ -163,7 +163,7 @@ fn is_child_alive(guard: &mut Option<Child>) -> bool {
         Some(child) => match child.try_wait() {
             Ok(None) => true, // still running
             Ok(Some(_)) => {
-                // Process exited — clean up handle
+                // Process exited: clean up handle
                 *guard = None;
                 false
             }

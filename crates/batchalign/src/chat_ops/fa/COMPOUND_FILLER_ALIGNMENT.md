@@ -51,7 +51,7 @@ if word.category == Some(WordCategory::Filler) && text.contains('_') {
 }
 ```
 
-This produces `["you", "know", "I", "see", "a", "boy"]` — the DP
+This produces `["you", "know", "I", "see", "a", "boy"]`, the DP
 aligner can now match each part against Whisper's multi-word output.
 
 Test: `fa::tests::compound_filler_extracted_as_separate_words_for_fa`
@@ -80,7 +80,7 @@ word 0". The injection code uses this mapping.
 that have no timing but whose constituent parts (if they existed as
 separate words) do have timing. Merge retroactively.
 
-Option A is cleanest — it keeps the merge logic in the injection phase
+Option A is cleanest; it keeps the merge logic in the injection phase
 where word-to-CHAT mapping is already managed.
 
 ## Affected Words
@@ -94,7 +94,7 @@ underscores. Common examples from the CHAT manual:
 - `&-kind_of`
 - `&-let's_see`
 
-Single-word fillers (`&-um`, `&-uh`, `&-oh`) are unaffected — they
+Single-word fillers (`&-um`, `&-uh`, `&-oh`) are unaffected, they
 already align correctly as single tokens.
 
 ## CHAT Underscore Convention
@@ -112,7 +112,7 @@ token. The `&-` prefix marks fillers (spoken but non-lexical content).
 | `ice_cream` | Compound regular word | NOT split (only fillers are split) |
 
 **Why not write `&-you &-know`?** Because `&-you_know` is one discourse
-unit — the phrase "you know" functions as a single filler. Splitting it
+unit: the phrase "you know" functions as a single filler. Splitting it
 into two separate fillers would change the linguistic semantics. The
 underscore join is the correct CHAT notation per the manual.
 
@@ -131,7 +131,7 @@ compounds later if ASR consistently splits them.
 
 ## Not a BA2 Regression
 
-BA2 (commit `84ad500b`) had the same extraction logic —
+BA2 (commit `84ad500b`) had the same extraction logic
 compound fillers were sent as single tokens. This bug existed in BA2
 but was unreported on this specific file.
 
@@ -167,4 +167,4 @@ Green boxes are the three new algorithmic steps added for filler handling.
 | `fa/postprocess.rs` | Utterance boundary clamping |
 | `fa/mod.rs:update_utterance_bullet` | Utterance bullet from word timings |
 | `fa/tests.rs` | Test for compound filler extraction |
-| `talkbank-model/alignment/helpers/rules.rs` | `counts_for_tier` — fillers included in Wor domain |
+| `talkbank-model/alignment/helpers/rules.rs` | `counts_for_tier`: fillers included in Wor domain |

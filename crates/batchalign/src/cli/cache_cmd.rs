@@ -1,4 +1,4 @@
-//! `batchalign3 cache` — manage analysis and media caches.
+//! `batchalign3 cache`: manage analysis and media caches.
 
 use std::path::PathBuf;
 
@@ -283,7 +283,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let db = tmp.path().join("nonexistent.db");
         let media = tmp.path().join("nonexistent_media");
-        // Should not error — just prints zeros
+        // Should not error, just prints zeros
         print_stats(&db, &media).await.unwrap();
     }
 

@@ -2,7 +2,7 @@
  *
  * Two-column layout: job list (left) + system panels stacked (right).
  * Collapses to single column on mobile. The right column shows worker
- * profiles, system memory, and operational counters — providing at-a-glance
+ * profiles, system memory, and operational counters, providing at-a-glance
  * server health alongside the job stream.
  */
 

@@ -186,7 +186,7 @@ fn test_gra_index_shifting_with_mwt() {
     // Chunk indices: do=1, n't=2, go=3, .=4
     assert_eq!(gras.len(), 4);
 
-    // "do" component (root — head=0)
+    // "do" component (root: head=0)
     assert_eq!(gras[0].index, 1);
     assert_eq!(gras[0].head, 0);
     assert_eq!(gras[0].relation, "ROOT".into());

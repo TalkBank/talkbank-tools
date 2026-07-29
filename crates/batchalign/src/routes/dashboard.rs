@@ -4,7 +4,7 @@
 //!
 //! 1. `$BATCHALIGN_DASHBOARD_DIR` environment variable (development override)
 //! 2. `~/.batchalign3/dashboard/` (user-installed, allows hot-updates)
-//! 3. **Embedded in binary** — the `frontend/dist/` tree baked in at compile time,
+//! 3. **Embedded in binary**, the `frontend/dist/` tree baked in at compile time,
 //!    so every `batchalign3` binary ships a working dashboard with zero setup.
 //!
 //! Also redirects `/` -> `/dashboard`.
@@ -103,7 +103,7 @@ fn serve_embedded(path: &str) -> Response {
             .into_response();
     }
 
-    // SPA fallback — serve index.html for client-side routing
+    // SPA fallback: serve index.html for client-side routing
     if let Some(index) = EMBEDDED_DASHBOARD.get_file("index.html") {
         return (
             StatusCode::OK,
@@ -113,7 +113,7 @@ fn serve_embedded(path: &str) -> Response {
             .into_response();
     }
 
-    // Should never happen — index.html is always embedded
+    // Should never happen: index.html is always embedded
     (
         StatusCode::NOT_FOUND,
         Html("Dashboard not found".to_string()),
@@ -127,13 +127,13 @@ async fn embedded_dashboard_root() -> Response {
     serve_embedded("index.html")
 }
 
-/// Handler for `/dashboard/{rest}` — SPA catch-all with embedded files.
+/// Handler for `/dashboard/{rest}`: SPA catch-all with embedded files.
 #[cfg(feature = "embed-dashboard")]
 async fn embedded_dashboard_catchall(Path(rest): Path<String>) -> Response {
     serve_embedded(&rest)
 }
 
-/// Handler for `/assets/{rest}` — serves JS/CSS bundles from embedded files.
+/// Handler for `/assets/{rest}`: serves JS/CSS bundles from embedded files.
 #[cfg(feature = "embed-dashboard")]
 async fn embedded_assets(Path(rest): Path<String>) -> Response {
     let path = format!("assets/{rest}");
@@ -142,7 +142,7 @@ async fn embedded_assets(Path(rest): Path<String>) -> Response {
             StatusCode::OK,
             [
                 (header::CONTENT_TYPE, mime_for_path(&path)),
-                // Asset filenames are content-hashed — safe to cache aggressively
+                // Asset filenames are content-hashed, safe to cache aggressively
                 (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
             ],
             file.contents(),
@@ -158,7 +158,7 @@ where
     S: Clone + Send + Sync + 'static,
 {
     if let Some(dashboard_dir) = dashboard_dir {
-        // On-disk dashboard found — serve from filesystem (allows hot-updates)
+        // On-disk dashboard found: serve from filesystem (allows hot-updates)
         let serve_dir = ServeDir::new(&dashboard_dir).fallback(
             tower_http::services::ServeFile::new(dashboard_dir.join("index.html")),
         );

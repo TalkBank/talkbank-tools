@@ -3,7 +3,7 @@
 These tests pin Stanza's actual MWT behavior on canonical
 contraction/fusion constructions for each of the three languages
 that flipped state in the 2026-04-15 capability-driven loader fix.
-They have **no batchalign imports** — they are safe to copy verbatim
+They have **no batchalign imports**; they are safe to copy verbatim
 into a Stanza upstream issue if the observed behavior ever drifts.
 
 Companion to ``test_stanza_fi_mwt_sos_leak.py`` (Defect 4 pattern).
@@ -55,7 +55,7 @@ _HEBREW_CASES: list[tuple[str, str, list[str]]] = [
 
 # Canonical Greek constructions: σε "in/at" + definite article
 # contractions across gender/case/number. Each split is
-# σ + το/τον/τις/etc. — the article retains its case marking on
+# σ + το/τον/τις/etc.: the article retains its case marking on
 # the second component.
 _GREEK_CASES: list[tuple[str, str, list[str]]] = [
     # "in my house": σε "in" + το "the (n.acc)"
@@ -77,7 +77,7 @@ _ESTONIAN_NO_SPLIT_INPUTS: list[str] = [
     "pole tähtis",       # ei + ole "is not"
     "polnud aega",       # ei + olnud "had no"
     "ma pole näinud",    # "I have not seen"
-    "ta polegi tulnud",  # "(s)he has not even come" — pole + gi clitic
+    "ta polegi tulnud",  # "(s)he has not even come", pole + gi clitic
 ]
 
 
@@ -101,7 +101,7 @@ def _split_for_token(doc: stanza.Document, surface: str) -> list[str] | None:
 
 @pytest.fixture(scope="module")
 def hebrew_pipeline() -> stanza.Pipeline:
-    """Hebrew Stanza pipeline with MWT — module-scoped to amortize
+    """Hebrew Stanza pipeline with MWT, module-scoped to amortize
     the model-load cost across all Hebrew assertions in this file."""
     import stanza
     from stanza import DownloadMethod
@@ -117,7 +117,7 @@ def hebrew_pipeline() -> stanza.Pipeline:
 
 @pytest.fixture(scope="module")
 def greek_pipeline() -> stanza.Pipeline:
-    """Greek Stanza pipeline with MWT — module-scoped."""
+    """Greek Stanza pipeline with MWT, module-scoped."""
     import stanza
     from stanza import DownloadMethod
 
@@ -132,7 +132,7 @@ def greek_pipeline() -> stanza.Pipeline:
 
 @pytest.fixture(scope="module")
 def estonian_pipeline() -> stanza.Pipeline:
-    """Estonian Stanza pipeline with MWT — module-scoped."""
+    """Estonian Stanza pipeline with MWT, module-scoped."""
     import stanza
     from stanza import DownloadMethod
 
@@ -166,7 +166,7 @@ def test_hebrew_mwt_split_matches_linguistic_decomposition(
     that combine orthographically with the head noun. CHAT ``%mor``
     expresses them as separate units joined with ``~``. If Stanza
     starts merging them back into a single token, BA3 ``%mor``
-    output would lose information silently — so we lock the split
+    output would lose information silently, so we lock the split
     here.
     """
     doc = hebrew_pipeline(sentence)
@@ -257,6 +257,6 @@ def test_estonian_mwt_does_not_split_pole_class_negation(
     assert not splits_found, (
         f"Estonian MWT now splits tokens in {sentence!r}: "
         f"{splits_found}. This is a behavior change from the "
-        f"Stanza-1.11.1 baseline — see Defect 5 in "
+        f"Stanza-1.11.1 baseline: see Defect 5 in "
         f"stanza-limitations.md for the procedure."
     )

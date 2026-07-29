@@ -309,7 +309,7 @@ async fn cancel_job_returns_worker_permits() {
     assert_eq!(
         info.status.to_string(),
         "completed",
-        "Final job should complete — no permit leak"
+        "Final job should complete, no permit leak"
     );
 }
 
@@ -324,7 +324,7 @@ async fn rapid_submit_cancel_cycle_no_permit_leak() {
     for i in 0..50 {
         let sub = morphotag_submission(&format!("rapid-{i}.cha"));
         let id = server.submit_ok(&sub).await;
-        // Cancel immediately — don't wait for terminal state
+        // Cancel immediately: don't wait for terminal state
         let _ = server.cancel(&id).await;
     }
 
@@ -339,7 +339,7 @@ async fn rapid_submit_cancel_cycle_no_permit_leak() {
     loop {
         let info = server.get_job(&id).await;
         if info.status.is_terminal() {
-            // Success — permits are not leaked
+            // Success: permits are not leaked
             return;
         }
         assert!(
@@ -398,7 +398,7 @@ async fn concurrent_cancels_on_same_job() {
 // ===========================================================================
 
 /// Configure max_concurrent_jobs = 2, submit 3 jobs. All should eventually
-/// complete — the third queues until a slot opens.
+/// complete: the third queues until a slot opens.
 #[tokio::test]
 async fn max_concurrent_jobs_enforced() {
     let config = ServerConfig {
@@ -423,7 +423,7 @@ async fn max_concurrent_jobs_enforced() {
     }
 }
 
-/// Submit 5 jobs, cancel some, delete completed ones, list all — all
+/// Submit 5 jobs, cancel some, delete completed ones, list all, all
 /// operations should return valid responses.
 #[tokio::test]
 async fn job_list_consistent_under_concurrent_mutations() {
@@ -524,7 +524,7 @@ async fn concurrent_identical_file_conflict_detected() {
         (statuses == [200, 409]) || (statuses == [200, 200]),
         "Expected one success + one conflict (or both succeed if serialized), got {statuses:?}"
     );
-    // If both succeeded, that means the server serialized them — also acceptable
+    // If both succeeded, that means the server serialized them, also acceptable
 }
 
 /// 5 concurrent poll requests for the same job during state transitions.
@@ -595,7 +595,7 @@ async fn sse_stream_under_rapid_file_completions() {
             );
         }
         Err(_) => {
-            // Timeout is acceptable for a streaming response — job may
+            // Timeout is acceptable for a streaming response, job may
             // still be processing. Verify it eventually completes.
             server.poll_until_done(&id).await;
         }

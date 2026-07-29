@@ -2,7 +2,7 @@
 
 Time transparency is a project-wide UX principle: any operation that takes
 more than ~1 second must surface to every UI surface batchalign3 exposes
-(CLI, TUI, desktop app, web dashboard). Silent waits are UX bugs — the user
+(CLI, TUI, desktop app, web dashboard). Silent waits are UX bugs, the user
 must always know what BA3 is doing and roughly how long it'll take.
 
 This module provides the small, consistent helper every long-running site
@@ -50,7 +50,7 @@ def emit_download_event(
             forwarded; tests may also assert on its value.
         user_message: Human-readable wording shown directly to the end
             user. Should convey: (1) what's downloading, (2) approximate
-            size, (3) "one-time cost — future runs will be instant", (4)
+            size, (3) "one-time cost: future runs will be instant", (4)
             BA3 is not stuck. Example: ``"Downloading Whisper-large for
             ASR (one-time, ~3 GB; future runs will be instant)…"``.
         request_id: Optional V2 request id when the event happens during a
@@ -71,7 +71,7 @@ def emit_download_event(
     # are not bound to a particular V2 request.
     rid = request_id if request_id is not None else ""
 
-    L.info("download event: %s — %s", stage, user_message)
+    L.info("download event: %s: %s", stage, user_message)
 
     write_progress_event(
         request_id=rid,
@@ -88,10 +88,10 @@ def emit_download_event(
     L.info("user-facing: %s", user_message)
 
 
-# Approximate sizes for the largest HuggingFace models BA3 ships with — used
+# Approximate sizes for the largest HuggingFace models BA3 ships with, used
 # only to enrich user messages ("~3 GB; future runs will be instant"). Real
 # sizes vary; these are deliberately ballpark, not authoritative. If they
-# drift far enough from reality to mislead users, update them — they are
+# drift far enough from reality to mislead users, update them; they are
 # UX hints, not correctness-critical.
 _HF_SIZE_HINTS_GB: dict[str, float] = {
     "openai/whisper-large-v3": 3.0,
@@ -125,7 +125,7 @@ def _hf_size_hint(model_id: str) -> str:
 # config evicted) doesn't bypass the probe and produce a silent download.
 _HF_DEFAULT_PROBE_ARTIFACTS: tuple[str, ...] = ("config.json",)
 
-# Conventional artifact sets per loader family — useful presets so call
+# Conventional artifact sets per loader family, useful presets so call
 # sites don't have to remember which files HuggingFace hides where.
 HF_ARTIFACTS_WHISPER: tuple[str, ...] = (
     "config.json",
@@ -166,7 +166,7 @@ def emit_hf_download_if_missing(
     Call this *immediately before* a ``from_pretrained()`` call so the user
     sees a download-starting message rather than a silent multi-minute wait.
     HuggingFace prints its own ``tqdm`` progress to stderr, but that does not
-    reach BA3's protocol channel — so we have to surface the event ourselves.
+    reach BA3's protocol channel, so we have to surface the event ourselves.
 
     Cache probe is best-effort and **per-artifact**: if any one of the
     configured artifacts is missing, ``from_pretrained`` will fetch it and
@@ -178,7 +178,7 @@ def emit_hf_download_if_missing(
 
     Why per-artifact? The pre-2026-05-06 single-file probe could miss a
     partial-cache state where one sub-file (e.g., ``tokenizer.json``) was
-    evicted while the model weights remained — the user got a silent
+    evicted while the model weights remained, the user got a silent
     download anyway. Probing each artifact the loader will actually need
     closes that gap.
 
@@ -206,7 +206,7 @@ def emit_hf_download_if_missing(
             # hit, or None on miss, or the special sentinel
             # ``_CACHED_NO_EXIST`` if a previous probe recorded the file
             # as nonexistent. Anything other than a real path counts as
-            # "miss" — we let from_pretrained handle the actual fetch
+            # "miss": we let from_pretrained handle the actual fetch
             # semantics.
             cached = try_to_load_from_cache(
                 repo_id=model_id, filename=artifact, cache_dir=HF_HUB_CACHE
@@ -214,9 +214,9 @@ def emit_hf_download_if_missing(
             if not isinstance(cached, str):
                 is_fully_cached = False
                 break
-    except Exception as probe_exc:  # noqa: BLE001 — best effort
+    except Exception as probe_exc:  # noqa: BLE001, best effort
         L.debug("HF cache probe failed for %s: %s", model_id, probe_exc)
-        # If the probe itself can't run, emit anyway — false-positive
+        # If the probe itself can't run, emit anyway, false-positive
         # notifications are a much smaller UX cost than silent waits.
         is_fully_cached = False
 

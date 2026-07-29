@@ -88,7 +88,7 @@ copy the file first or filter your inputs.
 ## Quick start
 
 ```bash
-# Translate a single file in place — source language is read from @Languages
+# Translate a single file in place, source language is read from @Languages
 batchalign3 translate file.cha
 
 # Translate a corpus directory

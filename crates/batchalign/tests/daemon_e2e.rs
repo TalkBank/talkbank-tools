@@ -35,7 +35,7 @@ fn daemon_lifecycle_start_status_stop() {
     let harness = CliHarness::new();
 
     // Write a minimal server.yaml with a random port
-    // Use port 0 to let the OS assign — but serve start needs a concrete port.
+    // Use port 0 to let the OS assign, but serve start needs a concrete port.
     // Pick a high random port unlikely to conflict.
     let port: u16 = 19000 + (std::process::id() as u16 % 1000);
     let config =
@@ -59,7 +59,7 @@ fn daemon_lifecycle_start_status_stop() {
         .timeout(std::time::Duration::from_secs(30))
         .ok();
 
-    // The start command might fail if the port is taken — skip gracefully
+    // The start command might fail if the port is taken, skip gracefully
     match start_result {
         Ok(output) if !output.status.success() => {
             eprintln!("SKIP: serve start failed (port conflict?): {:?}", output);

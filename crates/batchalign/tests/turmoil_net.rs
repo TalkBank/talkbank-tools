@@ -48,7 +48,7 @@ use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::pool::PoolConfig;
 
 // ---------------------------------------------------------------------------
-// Error helpers — reduce `map_err(|e| Box::new(e) as ...)` noise
+// Error helpers: reduce `map_err(|e| Box::new(e) as ...)` noise
 // ---------------------------------------------------------------------------
 
 type TurmoilError = Box<dyn std::error::Error>;
@@ -195,7 +195,7 @@ fn serve_health_only(sim: &mut turmoil::Sim<'_>) {
 // ---------------------------------------------------------------------------
 
 /// Holds the real tokio runtime that hosts AppState background actors
-/// (JobRegistry, RuntimeSupervisor). Must outlive `sim.run()` — dropping
+/// (JobRegistry, RuntimeSupervisor). Must outlive `sim.run()`, dropping
 /// it kills the actors.
 ///
 /// Concurrency is controlled by nextest: `.config/nextest.toml` assigns the
@@ -516,7 +516,7 @@ fn health_check_under_partition() -> turmoil::Result {
 
         turmoil::partition("client", "server");
 
-        // Under partition, TCP SYN is dropped — detect via timeout.
+        // Under partition, TCP SYN is dropped, detect via timeout.
         let result = tokio::time::timeout(
             Duration::from_secs(5),
             client.request(get(&format!("{SERVER_BASE}/health"))),
@@ -742,7 +742,7 @@ fn network_flap_rapid_partition_cycles() -> turmoil::Result {
     sim.run()
 }
 
-/// Response held for 10s then released — models slow WiFi.
+/// Response held for 10s then released, models slow WiFi.
 /// a user's machine on congested network.
 #[test]
 fn slow_response_eventually_arrives() -> turmoil::Result {
@@ -789,7 +789,7 @@ fn real_app_submit_and_poll_job() -> turmoil::Result {
         .simulation_duration(Duration::from_secs(120))
         .build();
 
-    // _app must outlive sim.run() — its runtime hosts the background actors.
+    // _app must outlive sim.run(), its runtime hosts the background actors.
     let mut _app = create_real_test_app(&python);
     serve_real_app(&mut sim, &mut _app);
 
@@ -936,7 +936,7 @@ fn cancel_running_job() -> turmoil::Result {
         let client = turmoil_http_client();
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Cancel with explicit provenance — source=tui simulates the
+        // Cancel with explicit provenance, source=tui simulates the
         // common case (an operator pressing 'c' then 'y' in their terminal).
         let provenance = serde_json::json!({
             "source": "tui",
@@ -952,7 +952,7 @@ fn cancel_running_job() -> turmoil::Result {
         .await?;
         assert_eq!(resp.status().as_u16(), 200);
 
-        // Poll — should be cancelled (or completed if it finished first)
+        // Poll: should be cancelled (or completed if it finished first)
         tokio::time::sleep(Duration::from_secs(2)).await;
         let resp = client
             .request(get(&format!("{SERVER_BASE}/jobs/{job_id}")))
@@ -965,7 +965,7 @@ fn cancel_running_job() -> turmoil::Result {
             "Job should be cancelled or completed, got: {status}"
         );
 
-        // Provenance assertion — the denormalized columns on the jobs row
+        // Provenance assertion: the denormalized columns on the jobs row
         // must reflect what the client sent, even with simulated network
         // jitter between client and server. If the job completed before
         // the cancel arrived, the columns may be unset; tolerate that.
@@ -1085,7 +1085,7 @@ fn delete_running_job_rejected() -> turmoil::Result {
         let client = turmoil_http_client();
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Try to delete immediately — may be 409 (still active) or 200
+        // Try to delete immediately, may be 409 (still active) or 200
         // (test-echo completed before the delete arrived)
         let resp = delete(&client, &format!("{SERVER_BASE}/jobs/{job_id}")).await?;
         let status = resp.status().as_u16();
@@ -1113,7 +1113,7 @@ fn submit_duplicate_files_conflict() -> turmoil::Result {
         // Submit first job
         let _id1 = submit_and_get_id(&client, &test_submission_with_filename("shared.cha")).await?;
 
-        // Submit second job with same filename — should conflict
+        // Submit second job with same filename, should conflict
         let resp = post_json(
             &client,
             &format!("{SERVER_BASE}/jobs"),
@@ -1148,7 +1148,7 @@ fn sse_stream_receives_snapshot() -> turmoil::Result {
         let client = turmoil_http_client();
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Connect to SSE — should get at least a snapshot event
+        // Connect to SSE: should get at least a snapshot event
         let resp = client
             .request(get(&format!("{SERVER_BASE}/jobs/{job_id}/stream")))
             .await
@@ -1170,7 +1170,7 @@ fn sse_stream_receives_snapshot() -> turmoil::Result {
                 "SSE should contain snapshot event"
             );
         }
-        // Timeout is acceptable — it means the stream stayed open (job still processing)
+        // Timeout is acceptable; it means the stream stayed open (job still processing)
         Ok(())
     });
     sim.run()
@@ -1237,7 +1237,7 @@ fn sse_client_disconnect_no_panic() -> turmoil::Result {
                 .request(get(&format!("{SERVER_BASE}/jobs/{job_id}/stream")))
                 .await
                 .t()?;
-            // _resp dropped here — client disconnects
+            // _resp dropped here: client disconnects
         }
 
         // Server should still be healthy
@@ -1251,7 +1251,7 @@ fn sse_client_disconnect_no_panic() -> turmoil::Result {
     sim.run()
 }
 
-/// Partition during SSE, repair, reconnect — get fresh snapshot.
+/// Partition during SSE, repair, reconnect, get fresh snapshot.
 #[test]
 fn sse_partition_then_reconnect() -> turmoil::Result {
     let python = require_python!();
@@ -1265,12 +1265,12 @@ fn sse_partition_then_reconnect() -> turmoil::Result {
         let client = turmoil_http_client();
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Partition — any active SSE connection would break
+        // Partition, any active SSE connection would break
         turmoil::partition("client", "server");
         tokio::time::sleep(Duration::from_secs(5)).await;
         turmoil::repair("client", "server");
 
-        // Reconnect to SSE — should get fresh snapshot
+        // Reconnect to SSE: should get fresh snapshot
         let resp = tokio::time::timeout(
             Duration::from_secs(10),
             client.request(get(&format!("{SERVER_BASE}/jobs/{job_id}/stream"))),
@@ -1330,7 +1330,7 @@ fn download_results_running_job_rejected() -> turmoil::Result {
         let client = turmoil_http_client();
         let job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Immediately try to download — should fail
+        // Immediately try to download, should fail
         let status = get_status(&client, &format!("{SERVER_BASE}/jobs/{job_id}/results")).await?;
         assert!(
             status == 409 || status == 200,
@@ -1472,7 +1472,7 @@ fn health_accurate_during_processing() -> turmoil::Result {
         let client = turmoil_http_client();
         let _job_id = submit_and_get_id(&client, &test_submission()).await?;
 
-        // Check health — should show the active job
+        // Check health: should show the active job
         let resp = client
             .request(get(&format!("{SERVER_BASE}/health")))
             .await

@@ -70,7 +70,7 @@ impl CacheBackend for TieredCacheBackend {
                 );
                 return Ok(Some(entry.data.clone()));
             }
-            // Task or version mismatch — fall through to cold.
+            // Task or version mismatch, fall through to cold.
             tracing::debug!(
                 task,
                 key_prefix = &key[..key.len().min(16)],

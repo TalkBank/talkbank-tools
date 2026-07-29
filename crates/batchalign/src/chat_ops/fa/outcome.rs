@@ -1,7 +1,7 @@
 //! Forced alignment outcome vocabulary.
 //!
-//! Unlike morphotag, utseg, and coref — where a single pipeline call
-//! produces one outcome per utterance — FA is structured as a multi-pass
+//! Unlike morphotag, utseg, and coref, where a single pipeline call
+//! produces one outcome per utterance, FA is structured as a multi-pass
 //! pipeline with its own typed vocabulary per pass. This module gathers
 //! the existing FA decision types in one place and documents how they
 //! relate, completing Wave 5 of the morphotag reconciliation
@@ -41,7 +41,7 @@
 //!
 //! The morphotag/utseg/coref outcome enums have exactly one variant per
 //! utterance because each pipeline makes a single dispatch decision per
-//! utterance. FA makes multiple decisions per utterance — a UTR hint
+//! utterance. FA makes multiple decisions per utterance, a UTR hint
 //! may be injected, then a word-timing call may succeed or partially
 //! fail, then a repair pass may average the bullet. Collapsing this
 //! into one variant per utterance would lose the temporal structure.
@@ -59,14 +59,14 @@
 //! returned `Result<_, String>`. It now returns
 //! `Result<_, FaAlignmentError>` with two typed variants:
 //!
-//! - `JsonParse` — worker returned malformed JSON. Always a worker
+//! - `JsonParse`: worker returned malformed JSON. Always a worker
 //!   protocol bug.
-//! - `IndexedCountMismatch` — worker returned the wrong number of
+//! - `IndexedCountMismatch`: worker returned the wrong number of
 //!   per-word timings. The FA equivalent of morphotag's
 //!   [`MisalignmentBug`](batchalign_transform::morphosyntax::MorOutcomeKind::MisalignmentBug).
 //!
 //! Call sites that were string-matching on the error substring
-//! `"length mismatch"` now match on the variant directly — see
+//! `"length mismatch"` now match on the variant directly, see
 //! `fa::tests::test_parse_fa_response_indexed_length_mismatch_rejected`.
 //!
 //! ## Re-exports

@@ -124,7 +124,7 @@ def cantonese_char_tokens(text: str) -> list[str]: ...
 # (inherits from ``Exception``); the subclasses below all inherit from
 # ``BatchalignError``, except ``SkipFileWarning`` which inherits from
 # ``Exception`` directly (it is raised and caught as an exception, not a
-# warning — see error.rs comment).
+# warning: see error.rs comment).
 # ---------------------------------------------------------------------------
 
 class BatchalignError(Exception): ...

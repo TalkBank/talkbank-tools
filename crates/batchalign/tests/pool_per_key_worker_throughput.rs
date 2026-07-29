@@ -20,7 +20,7 @@
 //!
 //! Hosts with abundant RAM but limited core count can find the
 //! RAM-only formula recommends more Stanza workers than their cores
-//! actually support — every Stanza worker is a CPU-bound process, so
+//! actually support: every Stanza worker is a CPU-bound process, so
 //! oversubscribing cores costs throughput rather than buying it. This
 //! test exercises that question empirically: sweep
 //! `max_workers_per_key.stanza` while holding everything else fixed,
@@ -74,7 +74,7 @@ use serde_json::json;
 /// are busy.
 const CONCURRENT_DISPATCHES: usize = 16;
 
-/// Items per request. Each item is a synthetic short utterance — words
+/// Items per request. Each item is a synthetic short utterance, words
 /// list of fixed length. Stanza tokenizes + tags each item; the
 /// per-request work scales linearly with item count.
 ///
@@ -105,7 +105,7 @@ fn stanza_per_key_from_env() -> usize {
     k
 }
 
-/// Build one synthetic batched-infer item — a list of `words` to be
+/// Build one synthetic batched-infer item, a list of `words` to be
 /// tagged by Stanza, paired with a per-item `lang` field as required by
 /// the worker protocol. The vocabulary is fixed-but-realistic so each
 /// item exercises tokenize + POS + lemma + depparse stages; varying
@@ -206,7 +206,7 @@ async fn measure_stanza_per_key_throughput() {
     pool.shutdown().await;
 
     // Sanity: assert most dispatches actually finished. The throughput
-    // measurement only means something if the pool serviced the load —
+    // measurement only means something if the pool serviced the load
     // a config that drops half the requests is not a "fast" config.
     assert!(
         completed >= CONCURRENT_DISPATCHES * 3 / 4,

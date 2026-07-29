@@ -72,7 +72,7 @@ impl JobStore {
         Ok(())
     }
 
-    /// Restart a cancelled or failed job — reset file statuses and re-queue.
+    /// Restart a cancelled or failed job, reset file statuses and re-queue.
     pub async fn restart(&self, job_id: &JobId) -> Result<JobInfo, ServerError> {
         let info = self
             .registry
@@ -428,10 +428,10 @@ mod tests {
     ///
     /// Sequence under test:
     ///   1. Server is up; a job is submitted and marked Running.
-    ///   2. Server shuts down — `interrupt_all_for_shutdown` writes the row
+    ///   2. Server shuts down, `interrupt_all_for_shutdown` writes the row
     ///      as `Interrupted`.
     ///   3. Process exits (we drop the store).
-    ///   4. Server restarts — `db.recover_interrupted()` runs (a no-op for
+    ///   4. Server restarts: `db.recover_interrupted()` runs (a no-op for
     ///      already-Interrupted rows; included to faithfully match the
     ///      production startup flow at `server.rs:112`).
     ///   5. `store.load_from_db()` reads the row, sees `Interrupted` plus a
@@ -497,7 +497,7 @@ mod tests {
         let (tx, _rx) = broadcast::channel(BROADCAST_CAPACITY);
         let store = JobStore::new(test_config(), Some(db.clone()), tx);
 
-        // Faithfully mirror server.rs:112 — recover_interrupted runs first.
+        // Faithfully mirror server.rs:112: recover_interrupted runs first.
         // It is a no-op for already-Interrupted rows (it only matches
         // 'queued' and 'running'), but a real startup always calls it.
         db.recover_interrupted()

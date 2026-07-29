@@ -25,7 +25,7 @@ use super::envelopes::{
     HealthResponseEnvelope,
 };
 
-/// Generic reader loop that works with any `AsyncBufRead` — shared between
+/// Generic reader loop that works with any `AsyncBufRead`, shared between
 /// stdio ([`super::SharedGpuWorker`]) and TCP ([`super::SharedGpuTcpWorker`]).
 pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
     reader: &mut R,
@@ -143,7 +143,7 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                         // when the failure belongs to a V2 dispatch, untagged
                         // otherwise. Routing tagged errors to `pending` (and
                         // untagged to `control`) keeps each consumer's
-                        // receiver semantics intact — otherwise a V2 dispatch
+                        // receiver semantics intact: otherwise a V2 dispatch
                         // would block on its per-request timeout while the
                         // error was silently absorbed by the empty control
                         // slot.
@@ -198,7 +198,7 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
             }
             Err(e) => {
                 error!(pid = %pid, error = %e, "GPU worker: stream read error");
-                // Explicitly fail all pending requests — same as the EOF
+                // Explicitly fail all pending requests, same as the EOF
                 // path. Without this, pending oneshot senders are implicitly
                 // dropped when the task exits, causing receivers to see
                 // "channel closed" with no useful error context.
@@ -213,7 +213,7 @@ pub(crate) async fn reader_loop_generic<R: tokio::io::AsyncBufRead + Unpin>(
                         pid = %pid,
                         failed_requests = n,
                         error = %e,
-                        "GPU worker crashed — failed {n} pending requests"
+                        "GPU worker crashed: failed {n} pending requests"
                     );
                 }
                 break;

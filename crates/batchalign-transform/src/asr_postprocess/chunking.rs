@@ -39,7 +39,7 @@ pub fn finalize_words_to_chunks_with_snapshot(
         words
     };
 
-    // 2026-04-23 English transcribe-pipeline corrections — the two
+    // 2026-04-23 English transcribe-pipeline corrections, the two
     // **per-word** rules (I-cap, title-period strip) must run
     // BEFORE stage 6 retokenize, because retokenize splits on
     // trailing `.` and would slice `Dr.` in half if the period

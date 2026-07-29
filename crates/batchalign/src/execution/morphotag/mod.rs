@@ -1,4 +1,4 @@
-//! Morphotag dispatch — per-file fanout, mirroring the FA / media-analysis
+//! Morphotag dispatch: per-file fanout, mirroring the FA / media-analysis
 //! pattern (`runner/dispatch/fa_pipeline.rs`,
 //! `runner/dispatch/media_analysis_v2.rs`).
 //!
@@ -56,7 +56,7 @@ pub(crate) async fn dispatch_morphotag_job(
         return Ok(());
     }
 
-    // No job-level lang for morphotag — language is resolved per-file
+    // No job-level lang for morphotag, language is resolved per-file
     // from each CHAT file's `@Languages:` header inside the spawned task.
     // The previous job-level `resolved_lang(job)` lookup silently fell
     // back to English on PerFile (the 2026-05-03 incident shape).
@@ -93,7 +93,7 @@ pub(crate) async fn dispatch_morphotag_job(
             let _permit = permit;
 
             // Mark this file Analyzing only AFTER its semaphore permit is
-            // held — i.e. exactly when a worker slot is actually busy with
+            // held: i.e. exactly when a worker slot is actually busy with
             // this file. The previous version of this loop pre-marked every
             // pending file as `processing` upfront, which made `file_statuses`
             // claim 38 000+ files were running on 8 workers and gave every
@@ -114,7 +114,7 @@ pub(crate) async fn dispatch_morphotag_job(
                 .await;
 
             // Resolve language per-file from the CHAT file's own
-            // `@Languages:` header. No job-level lang, no eng fallback —
+            // `@Languages:` header. No job-level lang, no eng fallback
             // a missing or malformed header surfaces as a typed file-level
             // error in the job's status.
             let parser = crate::chat_parser();

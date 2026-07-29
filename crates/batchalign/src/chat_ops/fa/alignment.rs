@@ -11,11 +11,11 @@ use super::{FaTimingMode, FaWord, WordTiming};
 /// can be discriminated at the call site without string parsing. The
 /// two variants correspond to structurally distinct problems:
 ///
-/// - `JsonParse` — worker returned text that isn't a valid FA response
+/// - `JsonParse`: worker returned text that isn't a valid FA response
 ///   payload. This is a worker-protocol bug.
-/// - `IndexedCountMismatch` — worker returned the wrong number of
+/// - `IndexedCountMismatch`: worker returned the wrong number of
 ///   per-word timings (the FA equivalent of morphotag's
-///   `MisalignmentBug`). Always a worker-contract bug — the Python FA
+///   `MisalignmentBug`). Always a worker-contract bug, the Python FA
 ///   worker is supposed to emit one `Option<FaIndexedTiming>` per input
 ///   `FaWord` for the indexed-word-level response shape.
 #[derive(Debug, Clone, thiserror::Error)]

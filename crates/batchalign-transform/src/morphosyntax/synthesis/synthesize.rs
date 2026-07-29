@@ -9,7 +9,7 @@ use super::table::scat_synthesis;
 /// Build a synthesized `Mor` for a special-form word.
 ///
 /// `surface` is the cleaned text of the word (the `@<letter>` suffix
-/// already stripped — typically `ExtractedWord::text`). The lemma is
+/// already stripped: typically `ExtractedWord::text`). The lemma is
 /// the surface text after the project's standard lemma sanitization
 /// (`clean_lemma` from `mor_word.rs`), which strips leading/trailing
 /// hyphens and rewrites inner hyphens as en-dashes (U+2013) per the
@@ -114,16 +114,16 @@ mod tests {
     // first-principles claims about what the synthesis layer must do.
     // No implementation code consulted while writing these. Tests
     // that fail are evidence the synthesis layer violates the
-    // contract — not evidence the test is wrong (refine if proved
+    // contract, not evidence the test is wrong (refine if proved
     // otherwise).
     // ============================================================
 
-    /// Contract S2 — Surface text containing characters that have
+    /// Contract S2: Surface text containing characters that have
     /// `%mor` grammar meaning must not produce an unparseable lemma.
     /// The grammar uses `-` as the feature separator (`verb|see-Past`),
     /// so a lemma ending in `-` opens a suffix that never starts and
     /// the parser rejects with E316. The synthesis layer must either
-    /// sanitize trailing `-` OR return an error — silent emission of
+    /// sanitize trailing `-` OR return an error, silent emission of
     /// `<scat>|<text>-` is broken output.
     ///
     /// Operational evidence (2026-05-01 push of childes-other-data):
@@ -150,7 +150,7 @@ mod tests {
         );
     }
 
-    /// Contract S2 (companion) — same constraint for `@n` neologism
+    /// Contract S2 (companion), same constraint for `@n` neologism
     /// form. A neologism token written as `coast-@n` (a hyphenated
     /// neologism) would hit the same bug.
     ///

@@ -2,12 +2,12 @@
 //!
 //! Split into focused submodules by responsibility:
 //!
-//! - [`types`] — struct definitions (`Job`, `JobIdentity`, runner snapshots, etc.)
-//! - [`lease`] — queue lease management (claim, renew, release, expiry)
-//! - [`file_status`] — per-file status mutations (processing, done, error, retry)
-//! - [`lifecycle`] — job-level state transitions (running, failed, cancelled, restart, recovery)
-//! - [`projections`] — API response projections (`JobInfo`, `JobListItem`, `RunnerJobSnapshot`)
-//! - [`conflict`] — file-level conflict detection between incoming and active jobs
+//! - [`types`]: struct definitions (`Job`, `JobIdentity`, runner snapshots, etc.)
+//! - [`lease`]: queue lease management (claim, renew, release, expiry)
+//! - [`file_status`]: per-file status mutations (processing, done, error, retry)
+//! - [`lifecycle`]: job-level state transitions (running, failed, cancelled, restart, recovery)
+//! - [`projections`]: API response projections (`JobInfo`, `JobListItem`, `RunnerJobSnapshot`)
+//! - [`conflict`]: file-level conflict detection between incoming and active jobs
 
 mod conflict;
 mod file_status;

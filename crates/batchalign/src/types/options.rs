@@ -65,7 +65,7 @@ fn default_asr_engine() -> AsrEngineName {
 /// Google preserves the fleet's historical behavior. Operators on
 /// hosts where Google Translate is unreachable (mainland-China sites
 /// behind the Great Firewall) pass `--translate-engine seamless`
-/// explicitly — there is no per-host config-file default by design,
+/// explicitly; there is no per-host config-file default by design,
 /// because hidden host-specific behavior is the failure mode this
 /// project rules out (see the no-config-junk discussion in
 /// `book/src/batchalign/user-guide/commands/translate.md`).
@@ -351,7 +351,7 @@ pub struct MorphotagOptions {
 
     /// Opt-out: if `true`, suppress the default L2 dispatch and emit
     /// `L2|xxx` placeholders for `@s` (code-switched) words. Default
-    /// `false` — L2 dispatch is on.
+    /// `false`: L2 dispatch is on.
     #[serde(default)]
     pub no_l2_morphotag: bool,
 
@@ -361,7 +361,7 @@ pub struct MorphotagOptions {
     /// tag mapped to a UD UPOS
     /// (`talkbank_model::...::clan_to_ud_upos`); on disagreement
     /// with Stanza's UPOS the `%mor` POS is overridden. Lemma and
-    /// features from Stanza are preserved. Default `false` — POS
+    /// features from Stanza are preserved. Default `false`, POS
     /// hints are respected; set via `--no-pos-hints` to opt out.
     #[serde(default)]
     pub no_pos_hints: bool,
@@ -465,7 +465,7 @@ pub struct BenchmarkOptions {
     /// Generate `%wor` tier with word-level timing bullets. Defaults to
     /// `Include` because the benchmark pipeline always runs forced
     /// alignment (it's the comparison anchor against the gold), so the
-    /// word timings already exist — omitting them from the serialized
+    /// word timings already exist, omitting them from the serialized
     /// output throws away alignment data the comparison just computed.
     /// Mirrors `AlignOptions::wor`, not `TranscribeOptions::wor`.
     #[serde(default = "default_wor_tier_include")]
@@ -544,28 +544,28 @@ pub struct AvqiOptions {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "lowercase")]
 pub enum CommandOptions {
-    /// `align` — forced alignment.
+    /// `align`: forced alignment.
     Align(AlignOptions),
-    /// `transcribe` — ASR transcription.
+    /// `transcribe`: ASR transcription.
     Transcribe(TranscribeOptions),
-    /// `transcribe_s` — ASR with speaker diarization.
+    /// `transcribe_s`: ASR with speaker diarization.
     #[serde(rename = "transcribe_s")]
     TranscribeS(TranscribeOptions),
-    /// `translate` — translation.
+    /// `translate`: translation.
     Translate(TranslateOptions),
-    /// `morphotag` — morphosyntactic analysis.
+    /// `morphotag`: morphosyntactic analysis.
     Morphotag(MorphotagOptions),
-    /// `coref` — coreference resolution.
+    /// `coref`: coreference resolution.
     Coref(CorefOptions),
-    /// `utseg` — utterance segmentation.
+    /// `utseg`: utterance segmentation.
     Utseg(UtsegOptions),
-    /// `benchmark` — ASR benchmarking.
+    /// `benchmark`: ASR benchmarking.
     Benchmark(BenchmarkOptions),
-    /// `opensmile` — audio feature extraction.
+    /// `opensmile`: audio feature extraction.
     Opensmile(OpensmileOptions),
-    /// `compare` — transcript comparison against gold standard.
+    /// `compare`: transcript comparison against gold standard.
     Compare(CompareOptions),
-    /// `avqi` — voice quality index.
+    /// `avqi`: voice quality index.
     Avqi(AvqiOptions),
     /// `diarize`: standalone speaker diarization to turns JSON.
     Diarize(DiarizeOptions),
@@ -1001,7 +1001,7 @@ mod tests {
     fn translate_options_default_engine_is_google() {
         // Default preserves the fleet's historical behavior. Operators
         // who want Seamless pass `--translate-engine seamless`
-        // explicitly — there is no per-host config-file default.
+        // explicitly; there is no per-host config-file default.
         let opts = TranslateOptions::default();
         assert_eq!(opts.translate_engine, TranslateEngineName::Google);
     }
@@ -1193,7 +1193,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // dispatch_engine_overrides_json — pre-scale key must match dispatch key
+    // dispatch_engine_overrides_json: pre-scale key must match dispatch key
     // -----------------------------------------------------------------------
 
     /// Build a `CommandOptions::Align` with the given FA engine and defaults
@@ -1217,7 +1217,7 @@ mod tests {
     #[test]
     fn default_align_dispatch_overrides_include_fa_engine() {
         // A default align job (no user --engine-overrides) uses Wave2Vec FA.
-        // The dispatch override must be {"fa":"wave2vec"} — NOT empty string.
+        // The dispatch override must be {"fa":"wave2vec"}, NOT empty string.
         // Empty string was the old bug that caused pre-scale/dispatch key mismatch
         // and memory guard deadlock on 32 GB machines (a user 2026-04-02).
         let opts = align_opts(FaEngineName::Wave2Vec);
@@ -1272,7 +1272,7 @@ mod tests {
 
     #[test]
     fn transcribe_revai_dispatch_overrides_empty() {
-        // Rev.AI is cloud-only — no local worker override needed.
+        // Rev.AI is cloud-only, no local worker override needed.
         let opts = CommandOptions::Transcribe(TranscribeOptions {
             common: CommonOptions::default(),
             asr_engine: AsrEngineName::RevAi,

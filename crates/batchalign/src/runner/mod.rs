@@ -1,4 +1,4 @@
-//! Per-job async task — port of `JobStore._run_job` from Python.
+//! Per-job async task: port of `JobStore._run_job` from Python.
 //!
 //! Each job runs as a `tokio::spawn` task. It acquires a semaphore permit,
 //! then processes files concurrently (bounded by `compute_job_workers`) via
@@ -6,17 +6,17 @@
 //!
 //! ## Sub-module layout
 //!
-//! - `context` — shared type definitions: execution contexts, host bundles,
+//! - `context`: shared type definitions: execution contexts, host bundles,
 //!   orchestration traits, and internal request/error enums.
-//! - `execution` — job lifecycle entry points (`job_task`, `run_direct_job`,
+//! - `execution`: job lifecycle entry points (`job_task`, `run_direct_job`,
 //!   `run_server_job_attempt`) and the core `run_hosted_job` loop.
-//! - `routing` — command dispatch routing: capability resolution, dispatch-
+//! - `routing`: command dispatch routing: capability resolution, dispatch-
 //!   family selection, and per-command dispatch wrappers.
-//! - `dispatch/` — concrete dispatch family implementations (batched text,
+//! - `dispatch/`: concrete dispatch family implementations (batched text,
 //!   FA, transcribe, benchmark, compare, media-analysis).
-//! - `policy` — command→infer-task mapping and result-filename rules.
-//! - `util/` — progress tracking, event sinks, preflight helpers.
-//! - `debug_dumper` — optional debug output capture.
+//! - `policy`: command→infer-task mapping and result-filename rules.
+//! - `util/`: progress tracking, event sinks, preflight helpers.
+//! - `debug_dumper`: optional debug output capture.
 
 mod context;
 pub(crate) mod debug_dumper;

@@ -8,8 +8,8 @@
 //! # Architecture
 //!
 //! This module is the shared implementation used by both:
-//! - The PyO3 bridge (`batchalign-core`) — called from `align_tokens` pyfunction
-//! - The standalone Rust server (`batchalign-server`) — called directly
+//! - The PyO3 bridge (`batchalign-core`), called from `align_tokens` pyfunction
+//! - The standalone Rust server (`batchalign-server`), called directly
 //!
 //! The PyO3 crate provides only a thin wrapper that converts `Vec<PatchedToken>`
 //! to Python objects (`str` or `(str, bool)` tuples).
@@ -18,9 +18,9 @@
 //!
 //! Stanza's `tokenize_postprocessor` uses a tuple convention:
 //!
-//! - `(text, True)`  — MWT: let the MWT processor expand (e.g. "don't" → do + n't)
-//! - `(text, False)` — NOT an MWT: suppress expansion (e.g. merged "ice-cream")
-//! - plain string    — let Stanza's model decide
+//! - `(text, True)`: MWT: let the MWT processor expand (e.g. "don't" → do + n't)
+//! - `(text, False)`, NOT an MWT: suppress expansion (e.g. merged "ice-cream")
+//! - plain string: let Stanza's model decide
 //!
 //! [`PatchedToken`] encodes this convention at the Rust↔Python boundary.
 //! The [`Hint`](PatchedToken::Hint) variant is emitted only when the
@@ -43,12 +43,12 @@
 /// Token produced by [`align_tokens`] at the Rust↔Python boundary.
 ///
 /// Encodes Stanza's tokenize-postprocessor MWT hint convention:
-/// - `Plain(text)` — no hint, let Stanza's model decide
-/// - `Hint(text, true)` — force MWT expansion
-/// - `Hint(text, false)` — suppress MWT expansion
+/// - `Plain(text)`, no hint, let Stanza's model decide
+/// - `Hint(text, true)`: force MWT expansion
+/// - `Hint(text, false)`: suppress MWT expansion
 #[derive(Debug, Clone, PartialEq)]
 pub enum PatchedToken {
-    /// Plain string — no MWT hint.
+    /// Plain string, no MWT hint.
     Plain(String),
     /// MWT hint tuple: `(text, should_expand)`.
     Hint(String, bool),
@@ -78,7 +78,7 @@ pub fn is_contraction(text: &str, alpha2: &str) -> bool {
     if alpha2 != "en" {
         return false;
     }
-    // Exclude o'clock, o'er, etc. — prefix before first apostrophe is "o"
+    // Exclude o'clock, o'er, etc., prefix before first apostrophe is "o"
     if let Some(prefix) = text.split('\'').next()
         && prefix.trim().to_lowercase() == "o"
     {
@@ -101,9 +101,9 @@ pub fn is_contraction(text: &str, alpha2: &str) -> bool {
 ///
 /// # Arguments
 ///
-/// - `original_words` — CHAT words (may contain shortening parens which are stripped)
-/// - `stanza_tokens` — tokens from Stanza's neural tokenizer
-/// - `alpha2` — ISO-639-1 language code (e.g. `"en"`, `"fr"`)
+/// - `original_words`: CHAT words (may contain shortening parens which are stripped)
+/// - `stanza_tokens`: tokens from Stanza's neural tokenizer
+/// - `alpha2`: ISO-639-1 language code (e.g. `"en"`, `"fr"`)
 pub fn align_tokens(
     original_words: &[String],
     stanza_tokens: &[String],
@@ -137,7 +137,7 @@ pub fn align_tokens(
         }
     }
 
-    // Character content must match — bail out if they don't
+    // Character content must match, bail out if they don't
     let ref_str: String = cleaned.iter().flat_map(|w| w.chars()).collect();
     let tok_str: String = stanza_tokens.iter().flat_map(|t| t.chars()).collect();
     if ref_str != tok_str {

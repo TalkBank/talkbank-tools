@@ -1,7 +1,7 @@
 //! Parse and validate raw Stanza `doc.to_dict()` output into typed UD structures.
 //!
 //! After the CHAT divorce, Python workers return Stanza's native `to_dict()`
-//! output (a `Vec<Vec<serde_json::Value>>` — one sentence of word dicts per
+//! output (a `Vec<Vec<serde_json::Value>>`, one sentence of word dicts per
 //! utterance). This module parses that raw output into typed UD structures,
 //! applying the same validation that previously lived in Python.
 
@@ -62,7 +62,7 @@ impl std::fmt::Display for StanzaWordDiagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "sentence {} word {}: field '{}' — {}",
+            "sentence {} word {}: field '{}', {}",
             self.sentence_idx, self.word_idx, self.field, self.issue
         )
     }
@@ -71,7 +71,7 @@ impl std::fmt::Display for StanzaWordDiagnostic {
 /// Diagnose problems in raw Stanza output without attempting full deserialization.
 ///
 /// Scans each word dict for known issues: missing required fields, null values,
-/// `<pad>` sentinels, and type mismatches. Returns a list of diagnostics — one
+/// `<pad>` sentinels, and type mismatches. Returns a list of diagnostics, one
 /// per problem found. An empty list means the output looks structurally valid.
 pub fn diagnose_parse_failure(raw_sentences: &[serde_json::Value]) -> Vec<StanzaWordDiagnostic> {
     let required_string_fields = ["text", "lemma", "upos", "deprel"];

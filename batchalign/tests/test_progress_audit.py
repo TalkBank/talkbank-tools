@@ -6,7 +6,7 @@ on first use; every blocking wait must surface to the UI through the
 ``progress_v2`` event channel.
 
 If a future PR needs an exception (e.g., an offline-test fixture), it must
-be opt-in via a code-path-specific flag, not a default — the matchers below
+be opt-in via a code-path-specific flag, not a default, the matchers below
 will reject any unconditional opt-out.
 
 This test exists because BA3 once silently opted out of Stanza's
@@ -50,7 +50,7 @@ def _python_sources_under(root: Path) -> list[Path]:
 # Banned patterns: each (pattern, reason) is a regex that, if matched in any
 # non-test source file, indicates the on-demand contract has been violated.
 #
-# Patterns are deliberately conservative — they match a literal on-the-line
+# Patterns are deliberately conservative, they match a literal on-the-line
 # token. False positives (e.g., a comment that happens to mention the
 # pattern) are addressed by the inline-comment exemption below.
 # ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ _BANNED_PATTERNS: list[tuple[str, str]] = [
     (
         r"DownloadMethod\.NONE",
         "Disables Stanza auto-download. Use DownloadMethod.REUSE_RESOURCES "
-        "(reuses cached files; downloads what's missing) — the default "
+        "(reuses cached files; downloads what's missing), the default "
         "auto-download behavior the on-demand contract relies on.",
     ),
     (
@@ -85,7 +85,7 @@ _BANNED_PATTERNS: list[tuple[str, str]] = [
 def _line_is_exempt(line: str) -> bool:
     """Return True iff the line carries an explicit allowlist comment.
 
-    We do not currently have any legitimate exceptions — but the mechanism
+    We do not currently have any legitimate exceptions, but the mechanism
     exists so future contributors can opt in to a banned pattern with a
     documented reason rather than disabling the test wholesale. Format:
     ``# audit: allow <reason>``.

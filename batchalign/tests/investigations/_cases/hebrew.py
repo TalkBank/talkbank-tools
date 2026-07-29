@@ -52,7 +52,7 @@ CASES: tuple[ProbeCase, ...] = (
         Phenomenon.CONTROL,
         expected_post_mwt_count=1,
     ),
-    # ── Article prefix (ha- + noun) — Stanza MWT fires ─────────────
+    # ── Article prefix (ha- + noun), Stanza MWT fires ─────────────
     ProbeCase(
         "ha_bayit_alone",
         ("הבית",),
@@ -65,7 +65,7 @@ CASES: tuple[ProbeCase, ...] = (
         Phenomenon.NATIVE_MWT,
         expected_post_mwt_count=2,
     ),
-    # ── Preposition + article + noun — Stanza MWT fires ────────────
+    # ── Preposition + article + noun, Stanza MWT fires ────────────
     ProbeCase(
         "ba_bayit_alone",
         ("בבית",),
@@ -78,7 +78,7 @@ CASES: tuple[ProbeCase, ...] = (
         Phenomenon.NATIVE_MWT,
         expected_post_mwt_count=2,
     ),
-    # ── Conjunction + article + noun — 3-way expansion ─────────────
+    # ── Conjunction + article + noun, 3-way expansion ─────────────
     ProbeCase(
         "ve_ha_sefer_alone",
         ("והספר",),

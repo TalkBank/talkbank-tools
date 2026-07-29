@@ -7,7 +7,7 @@ online.
 
 The registry is keyed by :class:`..._cases.LanguageKey` so decision
 probes can reuse the existing Stanza pipeline fixtures keyed by the
-same type — no parallel language-key system.
+same type, no parallel language-key system.
 """
 
 from __future__ import annotations

@@ -85,14 +85,14 @@ impl WorkerPool {
                     lang = %key.1,
                     engine_overrides = %key.2,
                     checked_out,
-                    "Workers still checked out during shutdown — \
+                    "Workers still checked out during shutdown, \
                      they will be killed when their RAII guard drops"
                 );
             }
 
             // Decrement total for drained workers and refund the
             // matching number of global-cap permits. (Checked-out
-            // workers are not refunded here — their permits will
+            // workers are not refunded here, their permits will
             // refund via CheckedOutWorker's drop/take paths once the
             // dispatch path returns. If shutdown races those returns,
             // the worst-case is a transient permit underflow that

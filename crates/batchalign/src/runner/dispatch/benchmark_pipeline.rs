@@ -400,7 +400,7 @@ fn resolve_benchmark_original_audio_path(
         .source_paths
         .get(file_index)
         .map(|cp| cp.assume_shared_filesystem().as_path().to_owned())
-        // paths_mode is active for benchmark — convert ClientPath to ServerPath before joining.
+        // paths_mode is active for benchmark, convert ClientPath to ServerPath before joining.
         .unwrap_or_else(|| {
             filesystem
                 .source_dir

@@ -4,9 +4,9 @@ These tests exercise the real load/infer function pairs against audio fixtures.
 Each test auto-skips if its required dependencies or credentials are unavailable.
 
 Fixtures (in tests/languages/cantonese/fixtures/):
-  - 05b_clip.mp3  — 8-second Cantonese audio clip from 05b.cha (4.5s–12.5s)
-  - 05b_clip.wav  — same clip, 16 kHz mono WAV (required by Aliyun)
-  - 05b_clip.cha  — 4-utterance CHAT file matching the clip
+  - 05b_clip.mp3  -8-second Cantonese audio clip from 05b.cha (4.5s-12.5s)
+  - 05b_clip.wav, same clip, 16 kHz mono WAV (required by Aliyun)
+  - 05b_clip.cha: 4-utterance CHAT file matching the clip
 
 Run:
   uv run pytest batchalign/tests/languages/cantonese/test_integration.py -v

@@ -26,7 +26,7 @@ const HTTP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Spawn a background update check. Returns a join handle the caller can
 /// optionally await at exit (with a short timeout) to ensure the notice
-/// prints. The spawned task never panics — all errors are silently logged
+/// prints. The spawned task never panics, all errors are silently logged
 /// at `debug` level.
 pub fn spawn_update_check() -> tokio::task::JoinHandle<()> {
     tokio::spawn(async {
@@ -61,7 +61,7 @@ async fn check_and_notify() -> Result<(), Box<dyn std::error::Error + Send + Syn
         return Ok(());
     }
 
-    // Cache stale or missing — fetch from PyPI.
+    // Cache stale or missing, fetch from PyPI.
     let client = reqwest::Client::builder().timeout(HTTP_TIMEOUT).build()?;
     let resp: PypiResponse = client.get(PYPI_URL).send().await?.json().await?;
     let latest = resp.info.version;

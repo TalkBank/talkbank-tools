@@ -36,12 +36,12 @@ help:
 	@echo "  make clean                  Clean build artifacts"
 	@echo ""
 
-# Warn if the pre-push hook isn't installed. Not a hard failure —
+# Warn if the pre-push hook isn't installed. Not a hard failure
 # users may intentionally push without hooks in rare cases (e.g.,
 # re-pushing an already-verified commit after a remote hiccup).
 hooks-check:
 	@if [ ! -e .git/hooks/pre-push ]; then \
-	  echo "warning: .git/hooks/pre-push is not installed — run 'make install-hooks'" >&2; \
+	  echo "warning: .git/hooks/pre-push is not installed, run 'make install-hooks'" >&2; \
 	fi
 
 # Run all tests
@@ -100,7 +100,7 @@ batchalign-build-wheel:
 	@# Default: always rebuild the native binary so the wheel never
 	@# bundles a stale one. The 2026-04-29 deploy postmortem (cancel-
 	@# cascade) was caused by a previous guard that silently reused
-	@# whatever was at batchalign/_bin/batchalign3 — even when the
+	@# whatever was at batchalign/_bin/batchalign3, even when the
 	@# sources had changed.
 	@#
 	@# Two known-safe skip paths:
@@ -307,7 +307,7 @@ book-serve:
 # `<workspace>/docs/release-doc-audit/audit.db`. Operators with a
 # different layout override TB_AUDIT_DB.
 #
-# Daily-cadence: `make audit-status` is the session-start command —
+# Daily-cadence: `make audit-status` is the session-start command
 # prints Bucket A progress, streak, and the next 5 unvetted sections.
 # See `<workspace>/docs/release-doc-audit/audit-method.md`.
 TB_AUDIT_DB ?= ../docs/release-doc-audit/audit.db
@@ -327,7 +327,7 @@ audit-flag-staleness:
 	TB_AUDIT_DB="$(TB_AUDIT_DB)" TB_AUDIT_TT_ROOT="$(TB_AUDIT_TT_ROOT)" \
 		cargo run -q -p xtask -- audit-docs flag-staleness
 
-# Layer 1 CI gate. Catalog-independent — walks every .md file under the
+# Layer 1 CI gate. Catalog-independent, walks every .md file under the
 # repo root and exits non-zero if any high-severity prose-reference
 # pattern (deleted crate, moved book path) is found outside the
 # allow-list. Designed for ci.yml use where audit.db is not present.

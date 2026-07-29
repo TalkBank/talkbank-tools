@@ -121,7 +121,7 @@ pub(crate) async fn clear_retry_state(sink: &dyn RunnerEventSink, job_id: &JobId
 
 /// Update ephemeral progress fields on a file and broadcast the update.
 ///
-/// Progress fields are never persisted to SQLite — they are purely for
+/// Progress fields are never persisted to SQLite; they are purely for
 /// live display in the CLI/TUI/React dashboard.
 pub(crate) async fn set_file_progress(
     sink: &dyn RunnerEventSink,
@@ -136,7 +136,7 @@ pub(crate) async fn set_file_progress(
 }
 
 // ---------------------------------------------------------------------------
-// FileTaskOutcome — completion contract for supervised file tasks
+// FileTaskOutcome: completion contract for supervised file tasks
 // ---------------------------------------------------------------------------
 
 /// Explicit completion contract for one supervised file task.
@@ -153,7 +153,7 @@ pub(crate) enum FileTaskOutcome {
 }
 
 // ---------------------------------------------------------------------------
-// FileRunTracker — per-file lifecycle helper
+// FileRunTracker: per-file lifecycle helper
 // ---------------------------------------------------------------------------
 
 /// Runner-side helper for one file's lifecycle and attempt bookkeeping.
@@ -319,7 +319,7 @@ impl<'a> FileRunTracker<'a> {
 }
 
 // ---------------------------------------------------------------------------
-// ProgressUpdate — typed channel messages from orchestrators to dispatch
+// ProgressUpdate: typed channel messages from orchestrators to dispatch
 // ---------------------------------------------------------------------------
 
 /// A progress update from an orchestrator to the dispatch layer.

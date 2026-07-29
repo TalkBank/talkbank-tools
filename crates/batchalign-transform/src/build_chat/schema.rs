@@ -37,7 +37,7 @@ pub struct ParticipantDesc {
     /// field (output: `CODE Role`). `Some("...")` adds it (output: `CODE Name Role`).
     pub name: Option<String>,
     /// Participant role (e.g. `"Participant"`, `"Investigator"`, `"Target_Child"`).
-    /// Callers should always set this — derive from speaker code via
+    /// Callers should always set this, derive from speaker code via
     /// `role_for_speaker_code` if unknown. Defaults to `"Participant"` only
     /// for JSON backward compatibility.
     #[serde(default = "default_participant_role")]

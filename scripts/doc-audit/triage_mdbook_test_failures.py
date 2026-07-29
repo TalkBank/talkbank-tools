@@ -3,23 +3,23 @@
 
 Reads /tmp/mdbook-failures.txt (one `relpath:line` per failing block,
 where `line` is the line number of the fenced-block heading reported
-by mdbook — typically the line of the first content line, not the
+by mdbook: typically the line of the first content line, not the
 fence itself). For each location, opens the file, walks BACK to the
 nearest preceding `` ```rust `` (the fence) and FORWARD to the
 closing `` ``` ``. The block content is the lines between those.
 
 For each block, produces a classification in one of these buckets:
 
-  yaml       — content looks like YAML (top-level `key: value`, no Rust kw).
-  json       — content starts with `{` or `[`, structured JSON-ish.
-  toml       — content has `[section]` headers + `key = value`, no Rust kw.
-  chat       — content has CHAT markers (`*SPEAKER:`, `@Header:`, `%mor:`).
-  text       — content has none of the above and no Rust keyword either
+  yaml: content looks like YAML (top-level `key: value`, no Rust kw).
+  json: content starts with `{` or `[`, structured JSON-ish.
+  toml: content has `[section]` headers + `key = value`, no Rust kw.
+  chat: content has CHAT markers (`*SPEAKER:`, `@Header:`, `%mor:`).
+  text: content has none of the above and no Rust keyword either
                (likely shell, prose, or output-snippet).
-  pseudocode — Rust-flavored but has `...` placeholder, undefined
+  pseudocode: Rust-flavored but has `...` placeholder, undefined
                types-as-trait-bounds, or refers to identifiers that
                aren't present anywhere in `crates/` (likely a sketch).
-  rust       — looks like genuine Rust that should compile. The mdbook
+  rust: looks like genuine Rust that should compile. The mdbook
                test failure here represents either genuine API drift
                OR missing doctest scaffolding (no `fn main()`, no
                imports). These are the deep-vet backlog.

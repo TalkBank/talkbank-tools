@@ -29,7 +29,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "When should I use 'Add Grammar'?",
-    a: "Use this when you need part-of-speech tags (%mor tier) and grammatical relations (%gra tier) — required by CLAN analysis commands like MLU, DSS, FREQ, and COMBO. Run it after you have a transcript.",
+    a: "Use this when you need part-of-speech tags (%mor tier) and grammatical relations (%gra tier), required by CLAN analysis commands like MLU, DSS, FREQ, and COMBO. Run it after you have a transcript.",
   },
   {
     q: "When should I use 'Align to Audio'?",
@@ -37,11 +37,11 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's the difference between Rev.AI and Whisper?",
-    a: "Rev.AI is a cloud service — fast and accurate but requires an API key and costs money per minute of audio. Whisper runs locally on your machine — free but slower, especially without a GPU. You can change your default in Settings (gear icon).",
+    a: "Rev.AI is a cloud service, fast and accurate but requires an API key and costs money per minute of audio. Whisper runs locally on your machine, free but slower, especially without a GPU. You can change your default in Settings (gear icon).",
   },
   {
     q: "How long does processing take?",
-    a: "It depends on the command and file size. Grammar tagging is fast (seconds per file). Transcription is slower — Rev.AI processes roughly in real-time, Whisper can take 2-5x the audio duration. The first run downloads ML models (~2 GB), which is a one-time cost.",
+    a: "It depends on the command and file size. Grammar tagging is fast (seconds per file). Transcription is slower, Rev.AI processes roughly in real-time, Whisper can take 2-5x the audio duration. The first run downloads ML models (~2 GB), which is a one-time cost.",
   },
   {
     q: "Can I process files in different languages?",

@@ -159,7 +159,7 @@ async fn write_text_file(path: &Path, content: &str) -> std::io::Result<()> {
 /// One CHAT-output destination for a single file in a job: enough
 /// state to derive both the primary on-disk write path and the staged
 /// copy. Bundling the (filesystem, file_index, display_path) triple
-/// gives all the writers a single typed seam — and lets future
+/// gives all the writers a single typed seam, and lets future
 /// per-target preconditions (e.g., paths_mode-aware skip logic) attach
 /// in one place rather than at every callsite.
 pub(crate) struct ChatOutputTarget<'a> {
@@ -235,7 +235,7 @@ pub(crate) async fn write_text_output_artifact(
 /// independently. In the common paths_mode layout the staged copy lives
 /// in `staging_dir/output/...` and is fresh per job, so it almost always
 /// triggers a write; the primary path is the one the gate effectively
-/// guards. We still apply the same logic to both for symmetry — there
+/// guards. We still apply the same logic to both for symmetry, there
 /// is no scenario where it is correct to update one and not the other.
 pub(crate) async fn write_chat_output_artifact_with_provenance_gate(
     target: &ChatOutputTarget<'_>,
@@ -266,7 +266,7 @@ pub(crate) async fn write_chat_output_artifact_with_provenance_gate(
 /// provenance line could plausibly contribute, the gate cannot fire and
 /// we skip the read entirely. The bound is generous (one full
 /// provenance line is well under 200 bytes; doubling that absorbs
-/// engine-string / language-tag drift) — we want false positives that
+/// engine-string / language-tag drift); we want false positives that
 /// fall through to the existing read+compare path, not false negatives
 /// that wrongly suppress a write.
 async fn write_chat_if_meaningful_diff(
@@ -288,7 +288,7 @@ async fn write_chat_if_meaningful_diff(
             }
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            // First run — file does not exist yet. Write through.
+            // First run: file does not exist yet. Write through.
             return write_text_file(path, candidate).await;
         }
         Err(error) => return Err(error),
@@ -297,7 +297,7 @@ async fn write_chat_if_meaningful_diff(
     match tokio::fs::read_to_string(path).await {
         Ok(existing) => {
             if existing == candidate {
-                // Bytes already match. Skip — avoid mtime churn.
+                // Bytes already match. Skip, avoid mtime churn.
                 return Ok(());
             }
             if crate::provenance::is_provenance_only_difference(&existing, candidate, command) {
@@ -657,7 +657,7 @@ mod tests {
             ),
         };
 
-        // Different `%mor` content — a legitimate result update.
+        // Different `%mor` content: a legitimate result update.
         let candidate = "\
 @Comment:\t[ba3 morphotag | engine=stanza-1.11.1 ; lang=eng | 2026-05-08T02:52:17-04:00]
 *PAR:\thello .

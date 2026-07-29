@@ -1,4 +1,4 @@
-//! Worker IPC types — FROZEN legacy V1 protocol.
+//! Worker IPC types: FROZEN legacy V1 protocol.
 //!
 //! ⚠️ **This module is frozen and no longer the active protocol.**
 //!
@@ -64,7 +64,7 @@ numeric_id!(
 pub enum WorkerHealthStatus {
     /// Worker is responsive and its loaded pipeline is functioning.
     Ok,
-    /// Unrecognized status value — treat as unhealthy.
+    /// Unrecognized status value: treat as unhealthy.
     #[serde(other)]
     Unknown,
 }
@@ -92,7 +92,7 @@ impl std::fmt::Display for WorkerHealthStatus {
 /// crashed workers before they affect job dispatch.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorkerHealthResponse {
-    /// Worker health status — `Ok` when responsive, `Unknown` otherwise.
+    /// Worker health status: `Ok` when responsive, `Unknown` otherwise.
     pub status: WorkerHealthStatus,
     /// The logical bootstrap target this worker was spawned for (for example
     /// `"infer:morphosyntax"`). Workers are specialized at spawn time and cannot
@@ -245,7 +245,7 @@ pub struct BatchInferRequest {
     pub allow_stanza_fallback: bool,
 }
 
-/// Response from batched inference — one `InferResponse` per item.
+/// Response from batched inference, one `InferResponse` per item.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BatchInferResponse {
     /// Results in the same order as the request's `items` vec.

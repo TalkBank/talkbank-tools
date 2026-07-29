@@ -6,7 +6,7 @@
 //! 3. Copies the resolved audio file alongside the CHAT file
 //!
 //! After preparation, the staging directory contains everything needed
-//! for a remote server to process the job — CHAT files and their media.
+//! for a remote server to process the job, CHAT files and their media.
 
 use std::path::{Path, PathBuf};
 

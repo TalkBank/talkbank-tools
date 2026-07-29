@@ -1,4 +1,4 @@
-//! Row types — flat DB rows mapping 1:1 to SQLite table columns.
+//! Row types: flat DB rows mapping 1:1 to SQLite table columns.
 
 use crate::options::CommandOptions;
 
@@ -138,18 +138,18 @@ pub struct JobRow {
 
     /// Column `source_paths TEXT NOT NULL DEFAULT '[]'`.
     /// Stored as a JSON array of absolute paths. Only populated when
-    /// `paths_mode` is `true` — the original input file paths on disk.
+    /// `paths_mode` is `true`: the original input file paths on disk.
     /// Parallel to `filenames`.
     pub source_paths: Vec<String>,
 
     /// Column `output_paths TEXT NOT NULL DEFAULT '[]'`.
     /// Stored as a JSON array of absolute paths. Only populated when
-    /// `paths_mode` is `true` — where results should be written on disk.
+    /// `paths_mode` is `true`, where results should be written on disk.
     /// Parallel to `filenames`.
     pub output_paths: Vec<String>,
 
     /// Eagerly loaded from the `file_statuses` table (one row per filename).
-    /// Not a column on the `jobs` table itself — populated by a second query
+    /// Not a column on the `jobs` table itself, populated by a second query
     /// in [`JobDB::load_all_jobs`].
     pub file_statuses: Vec<FileStatusRow>,
 }

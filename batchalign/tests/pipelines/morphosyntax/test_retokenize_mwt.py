@@ -89,7 +89,7 @@ class TestPostprocessorWithOriginalWordsMerges:
 
     History: before the 2026-04-13 fix to ``_realign_sentence``, this
     class asserted that Stanza's MWT splits were merged back to Single
-    tokens — the Preserve-mode MWT regression. After the fix,
+    tokens: the Preserve-mode MWT regression. After the fix,
     ``_realign_sentence`` preserves Stanza's native ``(text, True)``
     hints, so MWT expansion survives and the first entry is a Range.
     """
@@ -262,7 +262,7 @@ class TestWorkerPipelineRetokenize:
             f"Worker pipeline with retokenize=True should expand 'gonna' to "
             f"Range token, got id={word_id}, text={first_word.get('text', '?')}. "
             f"Check that should_request_mwt('en', table) is True in "
-            f"_stanza_loading.py — the capability table must report "
+            f"_stanza_loading.py: the capability table must report "
             f"has_mwt=True for English."
         )
 
@@ -387,7 +387,7 @@ class TestV2ExecuteHandlerRetokenize:
         # preserves Stanza's native MWT hint so Range tokens survive to
         # the IPC boundary. Rust's map_ud_sentence() then tilde-joins.
         # History: prior to the 2026-04-13 fix, this test asserted the
-        # inverse (single-id 1) — the Preserve-mode MWT regression.
+        # inverse (single-id 1): the Preserve-mode MWT regression.
         assert token_id == [1, 2], (
             f"V2 handler with retokenize=False should produce Range [1, 2] "
             f"for 'gonna' (MWT preserved), got id={token_id}. If this fails, "

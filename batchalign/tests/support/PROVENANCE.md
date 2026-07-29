@@ -12,7 +12,7 @@ automated regression testing only.
 
 | Fixture | Source corpus | Source file | Language | Extraction | Duration | Size |
 |---------|-------------|------------|----------|-----------|----------|------|
-| `test.mp3` | (original recording) | — | eng | Pre-existing, committed by Chen | 27s | 441KB |
+| `test.mp3` | (original recording) |, | eng | Pre-existing, committed by Chen | 27s | 441KB |
 | `eng_multi_speaker.mp3` | CHILDES Eng-NA MacWhinney | `data/childes-data/Eng-NA/MacWhinney/010411a.mp3` | eng | `ffmpeg -ss 20 -t 18` from corpus mp3 | 18s | 99KB |
 | `spa_marrero_clip.mp3` | CHILDES Spanish Marrero | `data/childes-data/Spanish/Marrero/Idaira/040707.mp3` | spa | `prepare_corpus_media_fixture.py --lines 1-5` via the production server | 8s | 127KB |
 | `fra_geneva_clip.mp3` | CHILDES French Geneva | `data/childes-data/French/Geneva/020303.mp3` | fra | `prepare_corpus_media_fixture.py --lines 4-10` via the production server | 4s | 34KB |

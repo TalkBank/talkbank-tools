@@ -55,7 +55,7 @@ impl JobStore {
     /// `provenance` is the caller's self-report from the
     /// `POST /jobs/{id}/cancel` body (TUI fills it; raw curl leaves
     /// it default). Audit row is persisted regardless of whether the
-    /// cancel actually changed job state — `accepted=false` records
+    /// cancel actually changed job state, `accepted=false` records
     /// "user pressed cancel against an already-finished job," which
     /// is itself diagnostic.
     pub async fn cancel(
@@ -68,7 +68,7 @@ impl JobStore {
         let accepted = registry_outcome.is_some();
 
         // Record the audit row regardless of whether the cancel mutated
-        // state — `accepted=false` distinguishes "user pressed cancel
+        // state: `accepted=false` distinguishes "user pressed cancel
         // against an already-finished job" from a state-changing cancel.
         self.record_audit_row(job_id, &provenance, now, accepted)
             .await;
@@ -79,7 +79,7 @@ impl JobStore {
 
         // Persist Cancelled status even if the runner is stuck in
         // synchronous code and hasn't seen the in-memory cancellation
-        // token yet — otherwise a daemon restart resurrects the job.
+        // token yet: otherwise a daemon restart resurrects the job.
         let completed_at = registry_outcome.and_then(|inner| inner).unwrap_or(now);
         self.db_update_job(
             job_id,
@@ -114,7 +114,7 @@ impl JobStore {
     /// Both `cancel` and `record_terminal_cancel` flow through here.
     ///
     /// Failures to write the audit row are logged at WARN but do not
-    /// propagate — the caller's primary cancel work (state change) still
+    /// propagate: the caller's primary cancel work (state change) still
     /// runs even if the audit write fails. Forensic rows are best-effort,
     /// not load-bearing on cancel correctness.
     async fn record_audit_row(

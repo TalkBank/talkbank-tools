@@ -53,7 +53,7 @@ pub fn inject_review_tiers(
         };
 
         if let Some(decisions_for_utt) = decision_map.get(&line_idx) {
-            // This utterance had repair decisions — always add %xalign + %xrev.
+            // This utterance had repair decisions, always add %xalign + %xrev.
             for decision in decisions_for_utt {
                 utt.dependent_tiers
                     .push(make_user_tier("xalign", &decision.reason).into());

@@ -104,7 +104,7 @@ fn convert_group(digits: &[u8], c_basic: &[char], c_unit1: &[&str], has_precedin
         let pos_from_right = len - 1 - i; // 0=ones, 1=tens, 2=hundreds, 3=thousands
 
         if d == 0 {
-            // Track zero runs — emit one zero placeholder if followed by non-zero
+            // Track zero runs: emit one zero placeholder if followed by non-zero
             if has_preceding || !parts.is_empty() {
                 has_zero_run = true;
             }
@@ -118,10 +118,10 @@ fn convert_group(digits: &[u8], c_basic: &[char], c_unit1: &[&str], has_precedin
         }
 
         if pos_from_right == 0 {
-            // Ones position — just the digit
+            // Ones position, just the digit
             parts.push(c_basic[d as usize].to_string());
         } else if pos_from_right == 1 && d == 1 && parts.is_empty() && !has_preceding {
-            // Tens position with "1" at the start — just "十" (not "一十")
+            // Tens position with "1" at the start, just "十" (not "一十")
             // Only for standalone numbers (not when preceded by higher groups)
             parts.push(c_unit1[0].to_string());
         } else {

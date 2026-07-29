@@ -14,7 +14,7 @@ arithmetic:
     jobs      = usable_mb // peak_rss_mb(profile)
 
 The hard refusal behavior is preserved for hosts so small the
-computed jobs count drops to zero — the caller forces serial
+computed jobs count drops to zero, the caller forces serial
 execution and warns.
 
 Profile peak-RSS values are empirical estimates, not contractual

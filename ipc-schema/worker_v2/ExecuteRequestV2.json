@@ -174,7 +174,7 @@
           "$ref": "#/$defs/AsrBackendV2"
         },
         "extras": {
-          "description": "Per-engine configuration extras (e.g. `qwen_model`,\n`qwen_device`, `funaudio_model`). Opaque string-keyed map carried\nverbatim from the user's `--engine-overrides` JSON through every\ndispatch layer down to the worker spawn argv and the Python\nengine-load function. Empty when no per-engine knob is set.\n\nWhy this lives on the typed V2 request rather than only on\n`EngineOverrides`: a CLI override like\n`{\"asr\":\"qwen\",\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\"}` would otherwise\nbe silently truncated to `{\"asr\":\"qwen\"}` at this typed boundary,\nand the worker would default to the 1.7B model regardless of what\nthe user asked for — the bug fixed 2026-05-27. The `#[serde(default)]`\nkeeps older daemons that don't emit the field forward-compatible.",
+          "description": "Per-engine configuration extras (e.g. `qwen_model`,\n`qwen_device`, `funaudio_model`). Opaque string-keyed map carried\nverbatim from the user's `--engine-overrides` JSON through every\ndispatch layer down to the worker spawn argv and the Python\nengine-load function. Empty when no per-engine knob is set.\n\nWhy this lives on the typed V2 request rather than only on\n`EngineOverrides`: a CLI override like\n`{\"asr\":\"qwen\",\"qwen_model\":\"Qwen/Qwen3-ASR-0.6B\"}` would otherwise\nbe silently truncated to `{\"asr\":\"qwen\"}` at this typed boundary,\nand the worker would default to the 1.7B model regardless of what\nthe user asked for, the bug fixed 2026-05-27. The `#[serde(default)]`\nkeeps older daemons that don't emit the field forward-compatible.",
           "type": "object",
           "additionalProperties": {
             "type": "string"
@@ -399,7 +399,7 @@
       ]
     },
     "LanguageCode3": {
-      "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected — use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
+      "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected, use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
       "type": "string"
     },
     "MorphosyntaxRequestV2": {

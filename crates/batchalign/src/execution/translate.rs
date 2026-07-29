@@ -14,16 +14,16 @@ use super::worker_gateway::WorkerGateway;
 /// `doc.langs[0]` as the source language for inference
 /// (`~/batchalign2-master/batchalign/pipelines/translate/seamless.py:40`).
 /// Earlier BA3 used `dispatch_simple_batched_text_job` which pulled one
-/// job-level lang and pooled all files into a single inference call —
+/// job-level lang and pooled all files into a single inference call
 /// the same shape that caused the 2026-05-03 morphotag incident
 /// (English Stanza silently applied to non-English files).
 ///
 /// This dispatch parses each file's `@Languages:` header and resolves the
 /// per-file source language via `resolve_per_file_lang`. Files whose
-/// header is missing or malformed are recorded as failures and skipped —
+/// header is missing or malformed are recorded as failures and skipped
 /// no silent English fallback. Cross-file pooling is intentionally given
 /// up in exchange for per-file lang correctness, per-file failure
-/// isolation, and per-file durability — the same trade-off
+/// isolation, and per-file durability, the same trade-off
 /// `execution::utseg::dispatch_utseg_job` made (see its module doc for
 /// the rationale).
 pub(crate) async fn dispatch_translate_job(
@@ -57,7 +57,7 @@ pub(crate) async fn dispatch_translate_job(
         }
 
         // Resolve source language from the file's own @Languages header.
-        // No silent English fallback — a file with no parseable language
+        // No silent English fallback, a file with no parseable language
         // becomes a typed Err in this file's batch results, surfaced to
         // the operator via the job's file_statuses.
         let (chat_file, _parse_errors) =
@@ -197,7 +197,7 @@ mod tests {
     fn translate_snapshot(staging_dir: &std::path::Path) -> RunnerJobSnapshot {
         // Translate dispatch resolves the source language *per file* from
         // each file's `@Languages:` header (BA2 parity, see module doc).
-        // A missing header is a typed failure, not a silent fallback —
+        // A missing header is a typed failure, not a silent fallback
         // so the test fixture must declare a language explicitly.
         // CHAT requires `@Languages` and `@Participants` to appear after
         // `@Begin` for the parser to extract them into the typed model.
@@ -215,7 +215,7 @@ mod tests {
             dispatch: crate::store::RunnerDispatchConfig {
                 command: ReleasedCommand::Translate,
                 // Translate is a per-file-language command (BA2 parity, see
-                // module doc) — submission validation rejects any other
+                // module doc): submission validation rejects any other
                 // `LanguageSpec` for this command.
                 lang: LanguageSpec::PerFile,
                 num_speakers: NumSpeakers(1),
@@ -272,7 +272,7 @@ mod tests {
         // input file, each tagged with that file's per-file source language
         // resolved from the file's `@Languages:` header. Cross-file pooling
         // was removed because it forced a single job-level lang across files
-        // — the same shape that caused the morphotag incident. See
+        //: the same shape that caused the morphotag incident. See
         // `dispatch_translate_job` doc for the full rationale.
         let temp = tempfile::tempdir().unwrap();
         let host = host();

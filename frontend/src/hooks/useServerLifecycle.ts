@@ -6,7 +6,7 @@
  * that shell-owned process state with HTTP health checks to expose a small UI
  * lifecycle model.
  *
- * In web mode, this hook is a no-op — the server is assumed to be externally
+ * In web mode, this hook is a no-op, the server is assumed to be externally
  * managed.
  */
 
@@ -23,7 +23,7 @@ export type ServerLifecycleStatus =
   | "running"      // Health endpoint responding
   | "stopped"      // Process not running (user stopped or crashed)
   | "not-found"    // batchalign3 binary not on PATH
-  | "external";    // Web mode — server managed externally
+  | "external";    // Web mode, server managed externally
 
 export interface ServerLifecycleState {
   /** Current lifecycle status. */

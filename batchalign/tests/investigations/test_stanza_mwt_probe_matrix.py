@@ -4,12 +4,12 @@ One test module for all languages. Reads the typed
 :data:`_cases.LANGUAGE_MATRIX` registry and parametrizes every
 :class:`_probe_types.ProbeCase` through the paired pipelines:
 
-* ``test_stanza_mwt_probe_free_tokenize`` — no postprocessor active.
+* ``test_stanza_mwt_probe_free_tokenize``, no postprocessor active.
   Always observe-only: pins what Stanza's native tokenizer + MWT
   processor emit for the case. A Stanza-version upgrade that changes
   behavior surfaces as a diff.
 
-* ``test_stanza_mwt_probe_with_postprocessor`` — BA3's tokenizer
+* ``test_stanza_mwt_probe_with_postprocessor``: BA3's tokenizer
   postprocessor (char-DP realigner, no per-language override rules
   as of 2026-04-22) active. Enforces the case's
   ``expected_post_mwt_count`` if set, observes otherwise. Xfail cases
@@ -17,7 +17,7 @@ One test module for all languages. Reads the typed
   Stanza limitation without failing the suite.
 
 Both test functions are marked ``@pytest.mark.golden`` so they don't
-run in the default test suite — they require real Stanza models.
+run in the default test suite, they require real Stanza models.
 
 History
 -------
@@ -125,7 +125,7 @@ def test_stanza_mwt_probe_with_postprocessor(
     )
     if case.xfail is not None:
         pytest.xfail(
-            f"{case.xfail.defect_slug}: {case.xfail.reason} — "
+            f"{case.xfail.defect_slug}: {case.xfail.reason}: "
             f"observed={observed}"
         )
     if case.expected_post_mwt_count is not None:

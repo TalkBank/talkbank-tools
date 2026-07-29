@@ -103,7 +103,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_fields: 22,
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
-        reason: "re2c-generated DFA lexer state — fields are scanner registers, not refactorable",
+        reason: "re2c-generated DFA lexer state, fields are scanner registers, not refactorable",
     },
     WideStructAllowance {
         path: "crates/talkbank-cli/src/ui/validation_tui/state.rs",
@@ -129,7 +129,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         disposition: WideStructDisposition::RealAggregate,
         reason: "cohesive alignment domain aggregate",
     },
-    // spec/runtime-tools entries removed — bootstrap tooling being dismantled
+    // spec/runtime-tools entries removed: bootstrap tooling being dismantled
     WideStructAllowance {
         path: "crates/talkbank-clan/src/commands/flucalc.rs",
         struct_name: "SpeakerFluency",
@@ -154,7 +154,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         disposition: WideStructDisposition::TransportRecord,
         reason: "corpus-wide linker/terminator audit summary record",
     },
-    // (removed: extract_corpus_candidates Args — bootstrap tooling being dismantled)
+    // (removed: extract_corpus_candidates Args: bootstrap tooling being dismantled)
     WideStructAllowance {
         path: "crates/talkbank-clan/src/database/entry.rs",
         struct_name: "DbMetadata",
@@ -273,7 +273,7 @@ const WIDE_STRUCT_ALLOWANCES: &[WideStructAllowance] = &[
         max_fields: 17,
         max_bool_fields: 0,
         disposition: WideStructDisposition::TransportRecord,
-        reason: "test-only counter struct — one field per UtteranceContent variant",
+        reason: "test-only counter struct, one field per UtteranceContent variant",
     },
     WideStructAllowance {
         path: "crates/batchalign/src/db/insert.rs",

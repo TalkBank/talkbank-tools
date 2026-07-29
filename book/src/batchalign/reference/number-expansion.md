@@ -93,7 +93,7 @@ regardless of target language:
 - `%` suffix → cardinal + per-language percent word
   (English "percent", Spanish "por ciento", etc.); falls back to
   "percent" for unlisted languages.
-- `5-7` or `5—6` → split into `"five seven"` / `"five six"` (em-dashes
+- `5-7` or `5-6` → split into `"five seven"` / `"five six"` (em-dashes
   normalize to hyphens; both parts must be pure digits).
 
 ## When expansion fails

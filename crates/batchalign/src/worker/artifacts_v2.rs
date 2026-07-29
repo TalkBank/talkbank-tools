@@ -52,7 +52,7 @@ pub enum PreparedArtifactErrorV2 {
     /// which would cause downstream ML models to crash on empty tensors.
     ///
     /// Callers that encounter this error should skip the group rather than
-    /// propagating a hard failure — the utterances will remain unaligned.
+    /// propagating a hard failure, the utterances will remain unaligned.
     #[error("empty audio segment: [{start_ms}ms..{end_ms}ms) falls past end of {path}")]
     EmptyAudioSegment {
         /// Source media path.
@@ -552,7 +552,7 @@ mod tests {
 
         let (store, dir) = test_store();
         let wav_path = dir.path().join("short.wav");
-        // Generate a 0.1-second WAV — valid range is 0..100ms.
+        // Generate a 0.1-second WAV, valid range is 0..100ms.
         write_test_tone_wav(&wav_path, 0.1).await;
 
         // Request a segment (500ms..600ms) entirely past the end of the file.

@@ -1,7 +1,7 @@
 //! Typed data model for the L2 morphotag evaluation analyzer.
 //!
-//! Every boundary that carries domain meaning — pair keys, flag names,
-//! serialized MOR items, surface forms — has a named type. Primitives are
+//! Every boundary that carries domain meaning, pair keys, flag names,
+//! serialized MOR items, surface forms, has a named type. Primitives are
 //! parsed once and carried as typed wrappers so the CSV/summary serializer
 //! receives already-validated values.
 //!
@@ -28,7 +28,7 @@ use talkbank_model::model::{
 
 /// Canonical language-pair key (e.g. `"deu,eng"`), used to group files.
 ///
-/// The format is ISO-639-3 codes separated by a comma with no spaces — it
+/// The format is ISO-639-3 codes separated by a comma with no spaces, it
 /// matches the `pair_key` field in `eval-set.jsonl`. Construction does not
 /// validate the internal shape because callers feed it directly from the
 /// eval-set file (which is the source of truth for pair keys).
@@ -58,7 +58,7 @@ impl fmt::Display for PairKey {
 
 /// Surface form of a word on the main tier (e.g. `"wake"`, `"tienda"`).
 ///
-/// CHAT orthography preserved as-written — no case folding applied at the
+/// CHAT orthography preserved as-written, no case folding applied at the
 /// newtype level. Heuristics that need case-insensitive lookup lowercase
 /// their comparison values locally.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -86,7 +86,7 @@ impl fmt::Display for SurfaceWord {
 ///
 /// Carried for CSV output and for `L2|xxx` detection. The *structured*
 /// POS / lemma / features analysis comes from the typed `MorWord` carried
-/// alongside in [`AtSAnalysis`] — never from regexing this string.
+/// alongside in [`AtSAnalysis`]: never from regexing this string.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MorItemText(String);
 
@@ -150,7 +150,7 @@ pub struct FeatureSet(String);
 impl FeatureSet {
     /// Wraps a feature string as a typed value.
     ///
-    /// Empty strings are permitted and represent "no features" — callers
+    /// Empty strings are permitted and represent "no features", callers
     /// that want to distinguish "no features" from "no MOR item" should use
     /// `Option<FeatureSet>` at the call site.
     pub fn new(value: impl Into<String>) -> Self {
@@ -181,7 +181,7 @@ impl fmt::Display for FeatureSet {
 /// Typed representation of a CHAT `@s` marker attached to a word.
 ///
 /// `@s` with no language code is the bilingual-conventional "secondary
-/// language" marker — its effective language is the second `@Languages`
+/// language" marker: its effective language is the second `@Languages`
 /// code. Explicit forms (`@s:spa`, `@s:eng+fra`, `@s:eng&spa`) carry the
 /// codes inline.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -218,7 +218,7 @@ impl LanguageMarkerKind {
 /// Lossless lowering from the AST's `WordLanguageMarker` to our typed kind.
 ///
 /// The AST distinguishes `Shortcut` (bare), `Explicit(one)`, `Multiple(many)`,
-/// `Ambiguous(many)` — but for evaluation accounting we only care about
+/// `Ambiguous(many)`, but for evaluation accounting we only care about
 /// "has a code list" vs "bare". We preserve the code list without rewriting
 /// it so the CSV round-trips.
 impl From<&WordLanguageMarker> for LanguageMarkerKind {
@@ -241,14 +241,14 @@ impl From<&WordLanguageMarker> for LanguageMarkerKind {
 ///
 /// `Spliced` means the secondary model returned a real analysis and the
 /// merge produced a MOR item. `L2Xxx` is the sentinel fallback. `MissingMor`
-/// means no MOR item existed at the expected position — in the AST-based
+/// means no MOR item existed at the expected position, in the AST-based
 /// analyzer this should be vanishingly rare (it was common in the regex-
 /// based Python analyzer because retrace markers shifted position counts).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AtSStatus {
     /// MOR item present and not the `L2|xxx` fallback.
     Spliced,
-    /// MOR item is `L2|xxx` — dispatch failed.
+    /// MOR item is `L2|xxx`, dispatch failed.
     L2Xxx,
     /// No MOR item paired at this main-tier position.
     MissingMor,
@@ -274,7 +274,7 @@ impl fmt::Display for AtSStatus {
 /// Classify a paired MOR-item option as a splice outcome.
 ///
 /// Free function (not a method on `Option`) because its meaning is domain-
-/// specific: presence is *not* success — the item can be present but equal
+/// specific: presence is *not* success, the item can be present but equal
 /// to `L2|xxx`.
 pub fn classify_status(mor_item: Option<&MorItemText>) -> AtSStatus {
     match mor_item {
@@ -295,7 +295,7 @@ pub fn classify_status(mor_item: Option<&MorItemText>) -> AtSStatus {
 /// errors. The precision of each heuristic is estimated on spot-checks.
 ///
 /// The `L2Xxx` / `MissingMor` variants are produced only from the paired
-/// status (not from POS/deprel inspection) — they represent failures of
+/// status (not from POS/deprel inspection), they represent failures of
 /// the feature itself, not surface-model quality issues.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HeuristicFlag {
@@ -349,7 +349,7 @@ pub struct AtSOccurrence {
     pub effective_lang: LanguageCode,
     /// Surface orthography of the word on the main tier.
     pub surface: SurfaceWord,
-    /// 0-based MOR-domain position within the utterance — the index used
+    /// 0-based MOR-domain position within the utterance, the index used
     /// to pair with `mor_tier.items` and `gra_tier.relations`.
     pub mor_position: usize,
     /// Serialized `%mor` item for CSV (`None` if no MOR item paired).
@@ -405,19 +405,19 @@ pub struct FileAnalysis {
 //
 // The morphotag pipeline emits an internal `MorOutcome` per utterance (see
 // `crate::chat_ops::morphosyntax_ops::outcome::MorOutcome`). That outcome
-// is not serialized into the CHAT file — we cannot read it back. What we
+// is not serialized into the CHAT file, we cannot read it back. What we
 // CAN observe post-hoc is whether the utterance has a %mor tier, whether
 // its `%mor` item count matches the CHAT main-tier Mor-alignable count,
 // and whether the utterance had any alignable content to begin with.
 //
 // The four-variant classification below is the external-observation
 // equivalent of the internal MorOutcome. An idealized pipeline produces:
-//   - NotApplicable        — when utt had zero alignable content
-//   - Aligned              — when utt had N > 0 alignable words and got N %mor items
-//   - CountMismatchInFile  — pipeline emitted %mor with wrong cardinality
+//   - NotApplicable, when utt had zero alignable content
+//   - Aligned, when utt had N > 0 alignable words and got N %mor items
+//   - CountMismatchInFile: pipeline emitted %mor with wrong cardinality
 //                             (should never happen post-2026-04-21 fix;
 //                             presence indicates a new invariant leak)
-//   - PipelineAbsorbedFailure — alignable content present but no %mor tier
+//   - PipelineAbsorbedFailure: alignable content present but no %mor tier
 //                             (pipeline absorbed a MisalignmentBug via the
 //                             file-level boundary and emitted no tier)
 //
@@ -445,7 +445,7 @@ pub enum UtteranceOutcome {
     /// This is the external-observation equivalent of a
     /// [`MorOutcomeKind::MisalignmentBug`] that somehow reached the
     /// output file. Post-2026-04-21, `inject_morphosyntax`'s guard
-    /// prevents this from happening at all — if this variant fires in
+    /// prevents this from happening at all, if this variant fires in
     /// the eval, either a new mismatch path exists or someone has
     /// manually edited the file.
     CountMismatchInFile {

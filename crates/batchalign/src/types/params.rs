@@ -2,7 +2,7 @@
 //! and eliminate boolean blindness.
 //!
 //! These types group related parameters that are always passed together,
-//! reducing function signatures from 10–15 parameters to 3–5.
+//! reducing function signatures from 10-15 parameters to 3-5.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -35,7 +35,7 @@ impl CachePolicy {
 }
 
 impl From<bool> for CachePolicy {
-    /// Converts from the CLI `override_media_cache` flag — `true` means
+    /// Converts from the CLI `override_media_cache` flag, `true` means
     /// skip cache.
     fn from(override_media_cache: bool) -> Self {
         if override_media_cache {
@@ -68,7 +68,7 @@ impl WorTierPolicy {
 }
 
 impl From<bool> for WorTierPolicy {
-    /// Converts from legacy `write_wor: bool` — `true` means include.
+    /// Converts from legacy `write_wor: bool`, `true` means include.
     fn from(write_wor: bool) -> Self {
         if write_wor { Self::Include } else { Self::Omit }
     }
@@ -103,7 +103,7 @@ impl MergeAbbrevPolicy {
 }
 
 impl From<bool> for MergeAbbrevPolicy {
-    /// Converts from legacy `merge_abbrev: bool` — `true` means merge.
+    /// Converts from legacy `merge_abbrev: bool`, `true` means merge.
     fn from(merge_abbrev: bool) -> Self {
         if merge_abbrev {
             Self::Merge
@@ -158,7 +158,7 @@ impl UtsegFallbackPolicy {
 }
 
 impl From<bool> for UtsegFallbackPolicy {
-    /// Converts from the CLI `--utseg-fallback-stanza` flag — `true`
+    /// Converts from the CLI `--utseg-fallback-stanza` flag, `true`
     /// means the operator has opted in to the Stanza substitution.
     fn from(allow: bool) -> Self {
         if allow {

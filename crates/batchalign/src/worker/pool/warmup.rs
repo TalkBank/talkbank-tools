@@ -111,7 +111,7 @@ impl WorkerPool {
                 };
 
                 if item.target.is_concurrent() {
-                    // GPU warmup — connect as SharedGpuTcpWorker.
+                    // GPU warmup: connect as SharedGpuTcpWorker.
                     match shared_gpu::SharedGpuTcpWorker::connect(tcp_info).await {
                         Ok(shared) => {
                             let key = (
@@ -142,7 +142,7 @@ impl WorkerPool {
                         }
                     }
                 } else {
-                    // Non-GPU warmup — connect as TcpWorkerHandle.
+                    // Non-GPU warmup: connect as TcpWorkerHandle.
                     match crate::worker::tcp_handle::TcpWorkerHandle::connect(tcp_info).await {
                         Ok(handle) => {
                             let key: WorkerKey = (
@@ -288,7 +288,7 @@ impl WorkerPool {
     /// worker will have a different key than what dispatch looks up.
     ///
     /// **TCP worker shortcut:** If a TCP worker is already discovered from the
-    /// registry for this profile/lang, pre-scale is a no-op — the worker is
+    /// registry for this profile/lang, pre-scale is a no-op, the worker is
     /// already running and ready. This eliminates the TOCTOU race, ready
     /// timeout, and cold-start delay that motivated pre-scale in the first
     /// place.
@@ -314,7 +314,7 @@ impl WorkerPool {
         let target = target.min(self.max_workers_per_key_for(worker_target.profile_kind()));
 
         // TCP worker shortcut: if a TCP worker already exists for this
-        // profile/lang, skip spawning — the worker is already running.
+        // profile/lang, skip spawning: the worker is already running.
         if worker_target.is_concurrent() {
             let tcp_key = (worker_target, lang.clone(), engine_overrides.to_owned());
             if matches!(worker_target, WorkerTarget::Profile(_))

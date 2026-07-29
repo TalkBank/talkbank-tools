@@ -1,7 +1,7 @@
-/** Route shell for `/process` — the end-user processing flow.
+/** Route shell for `/process`, the end-user processing flow.
  *
  * This is the default landing page in the desktop app. Researchers see the
- * command picker, configure a job, and watch progress — all without opening
+ * command picker, configure a job, and watch progress, all without opening
  * a terminal. The existing `/dashboard` routes are preserved for power users.
  *
  * In desktop mode, manages the server lifecycle (auto-start, status bar,

@@ -1,7 +1,7 @@
 //! Rule-based suspicious-output detectors.
 //!
 //! Each detector inspects one [`AtSAnalysis`] and returns zero or more
-//! [`HeuristicFlag`] variants. Detectors err on the side of recall —
+//! [`HeuristicFlag`] variants. Detectors err on the side of recall
 //! callers are expected to spot-check flagged records for precision.
 //!
 //! Closed-class function-word lists are intentionally conservative: we
@@ -16,7 +16,7 @@ use super::types::{AtSAnalysis, AtSStatus, HeuristicFlag};
 // Closed-class function-word lists per effective language.
 //
 // These are lowercased forms. The heuristic compares against the spliced
-// word's lowercased surface form — casing is ignored.
+// word's lowercased surface form, casing is ignored.
 // ---------------------------------------------------------------------------
 
 /// English closed-class forms.
@@ -59,7 +59,7 @@ const FUNCTION_WORDS_NLD: &[&str] = &[
 ];
 
 /// Resolve the closed-class list for an effective language code.
-/// Returns an empty slice for languages we haven't curated — those
+/// Returns an empty slice for languages we haven't curated, those
 /// skip the `PropnForFunctionWord` heuristic entirely (recall over
 /// precision).
 fn function_words_for(lang_iso3: &str) -> &'static [&'static str] {
@@ -94,7 +94,7 @@ const NOUN_FEATURE_MARKERS: &[&str] = &["Plur", "Sing", "Gen", "Dat", "Acc", "Ca
 /// Apply every heuristic to an analysis, returning the ordered list of
 /// fired flags.
 ///
-/// `L2Xxx` and `MissingMor` are derived directly from the splice status —
+/// `L2Xxx` and `MissingMor` are derived directly from the splice status
 /// they short-circuit other heuristics because the POS / features fields
 /// are unreliable (or absent) in those cases.
 pub fn flags_for(analysis: &AtSAnalysis) -> Vec<HeuristicFlag> {
@@ -119,7 +119,7 @@ pub fn flags_for(analysis: &AtSAnalysis) -> Vec<HeuristicFlag> {
         .map(|f| f.as_str().to_string())
         .unwrap_or_default();
 
-    // PropnForFunctionWord — PROPN POS assigned to a known closed-class
+    // PropnForFunctionWord: PROPN POS assigned to a known closed-class
     // word in the effective language.
     if pos_lc == "propn" {
         let list = function_words_for(&lang_lc);
@@ -128,7 +128,7 @@ pub fn flags_for(analysis: &AtSAnalysis) -> Vec<HeuristicFlag> {
         }
     }
 
-    // FeaturePosMismatch — nominal POS carrying verb-only features OR
+    // FeaturePosMismatch: nominal POS carrying verb-only features OR
     // verb POS carrying nominal-only features. Substring match across
     // the dash-joined feature list.
     if matches!(pos_lc.as_str(), "noun" | "propn") {

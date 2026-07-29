@@ -333,7 +333,7 @@ def test_batch_infer_morphosyntax_normalizes_deprels_on_the_production_path() ->
     sentence = resp.results[0].result["raw_sentences"][0]
     deprels = [w["deprel"] for w in sentence]
     assert "iob" not in deprels, (
-        f"non-UD deprel reached the response: {deprels!r} — "
+        f"non-UD deprel reached the response: {deprels!r}, "
         "the production path is not validating Stanza output"
     )
     assert deprels[1] == "iobj", f"expected iob normalized to iobj, got {deprels!r}"

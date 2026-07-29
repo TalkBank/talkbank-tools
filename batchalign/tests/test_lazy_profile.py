@@ -109,7 +109,7 @@ class TestEnsureTaskLoaded:
         assert result.elapsed_s == 1.23
 
     def test_ensure_task_speaker_is_noop_load(self) -> None:
-        """Speaker uses lazy request-time loading — ensure_task just marks it."""
+        """Speaker uses lazy request-time loading, ensure_task just marks it."""
         bootstrap = _build_gpu_bootstrap()
         load_worker_profile_lazy(bootstrap)
 

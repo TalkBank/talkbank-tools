@@ -3,14 +3,14 @@
 Covers the four phenomena that the 2026-04-21 MWT-override audit
 examined for French:
 
-* Elision-prefix words (``jusqu'à``, ``puisqu'il``, ``quelqu'un``) —
+* Elision-prefix words (``jusqu'à``, ``puisqu'il``, ``quelqu'un``)
   the Wave 4 invariant-break family. Strict 1-to-1.
-* Multi-clitic stacks (``d'l'attraper``) — same invariant family.
-* Clitic-apostrophe contractions (``c'est``, ``qu'il``, ``l'ami``) —
+* Multi-clitic stacks (``d'l'attraper``), same invariant family.
+* Clitic-apostrophe contractions (``c'est``, ``qu'il``, ``l'ami``)
   strict 1-to-1, protected from regression.
-* ``aujourd'hui`` in various positions — strict 1-to-1 to confirm the
+* ``aujourd'hui`` in various positions, strict 1-to-1 to confirm the
   removed PlainText rule is not load-bearing.
-* Preposition+article natives (``au``, ``du``, ``des``) — observe
+* Preposition+article natives (``au``, ``du``, ``des``), observe
   only; Stanza's MWT expansion is the intended behavior and the
   Rust-side Range reassembly collapses post-expansion counts back.
 

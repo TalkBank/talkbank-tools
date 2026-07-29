@@ -2,7 +2,7 @@
 # affects: batchalign/tests/_history_priority.py
 """Integration test for the Phase E ordering hook.
 
-Seeds a history DB with two tests — one flaky, one clean — runs
+Seeds a history DB with two tests, one flaky, one clean, runs
 pytest in a subprocess with both collected, and checks that the
 flaky test runs first (fail-fast + history ordering = real failure
 surfaces in seconds).
@@ -42,7 +42,7 @@ def _seed_history(db: Path, entries: list[tuple[str, str]]) -> None:
     try:
         conn.executescript(SCHEMA_DDL)
         now = int(time.time())
-        # Put all rows within the last day — well inside the 7-day
+        # Put all rows within the last day, well inside the 7-day
         # ordering window.
         conn.executemany(
             "INSERT INTO test_runs (ts, test_id, outcome, duration_s, framework) "
@@ -60,7 +60,7 @@ def _seed_history(db: Path, entries: list[tuple[str, str]]) -> None:
 def test_flaky_test_runs_before_clean_test(tmp_path: Path) -> None:
     """Given a history where `test_z_bad` failed recently and
     `test_a_good` never did, the conftest ordering hook should put
-    `test_z_bad` first — despite alphabetical order favoring the
+    `test_z_bad` first: despite alphabetical order favoring the
     good one.
     """
     slug = "e_ordering_subprocess"
@@ -90,7 +90,7 @@ def test_flaky_test_runs_before_clean_test(tmp_path: Path) -> None:
     assert bad_pos != -1 and good_pos != -1, result.stdout
     assert bad_pos < good_pos, (
         "history ordering should put the flaky test_z_bad BEFORE test_a_good "
-        "despite alphabetical order favoring the good one — got:\n" + result.stdout
+        "despite alphabetical order favoring the good one, got:\n" + result.stdout
     )
 
 

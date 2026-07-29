@@ -1,4 +1,4 @@
-//! `batchalign3 worker` — manage persistent worker daemons.
+//! `batchalign3 worker`: manage persistent worker daemons.
 //!
 //! Workers are started as foreground processes that listen on TCP localhost.
 //! The OS service manager (launchd on macOS, systemd on Linux) is responsible
@@ -78,7 +78,7 @@ fn start(args: &WorkerStartArgs, verbose: u8) -> Result<(), CliError> {
         },
     );
 
-    // Exec the Python process — this replaces the current process on Unix,
+    // Exec the Python process, this replaces the current process on Unix,
     // or spawns and waits on Windows.
     #[cfg(unix)]
     {
@@ -156,7 +156,7 @@ async fn check_worker_health(entry: &RegistryEntry) -> &'static str {
         audio_task_timeout_s: 0,
         analysis_task_timeout_s: 0,
         // CLI-side health/stop probes use TcpWorkerHandle (one request at a
-        // time), not SharedGpuTcpWorker — the dispatch semaphore is unused.
+        // time), not SharedGpuTcpWorker: the dispatch semaphore is unused.
         gpu_thread_pool_size: 1,
     };
 
@@ -241,7 +241,7 @@ async fn stop(args: &WorkerStopArgs) -> Result<(), CliError> {
             }
             Err(_) => {
                 eprintln!(
-                    "Cannot reach {} worker ({}:{}, pid={}) — removing stale entry",
+                    "Cannot reach {} worker ({}:{}, pid={}), removing stale entry",
                     entry.profile, entry.host, entry.port, entry.pid
                 );
                 let _ = registry::remove_stale_entry(&registry_path, entry.pid);

@@ -250,7 +250,7 @@ fn collect_bullet_entries(chat_file: &ChatFile) -> Vec<BulletEntry> {
 
 /// Strategy 3: Find same-speaker gaps eligible for filling.
 ///
-/// Returns `(line_idx, new_start_ms)` pairs — the later utterance's start
+/// Returns `(line_idx, new_start_ms)` pairs, the later utterance's start
 /// should be snapped to the previous same-speaker utterance's end.
 fn find_gap_fills(entries: &[BulletEntry]) -> Vec<(usize, u64)> {
     let mut fills = Vec::new();
@@ -303,7 +303,7 @@ fn find_boundary_averages(entries: &[BulletEntry]) -> Vec<(usize, usize, u64)> {
 /// times. Utterances NOT in their speaker's LIS have same-speaker
 /// non-monotonic timing. Their timing is stripped rather than mangled.
 ///
-/// Cross-speaker non-monotonicity is intentionally left alone — it
+/// Cross-speaker non-monotonicity is intentionally left alone, it
 /// represents normal conversational overlap, not a data error.
 ///
 /// Returns `line_idx` values of utterances to strip.
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn test_repair_on_real_bre_fixture() {
         let chat_text = std::fs::read_to_string("../../test-fixtures/bullet_repair_e704.cha")
-            .expect("fixture file missing — run trim_chat_audio.py to regenerate");
+            .expect("fixture file missing: run trim_chat_audio.py to regenerate");
 
         let parser = batchalign_transform::parse::TreeSitterParser::new().expect("parser init");
         let (mut chat_file, _errors) =

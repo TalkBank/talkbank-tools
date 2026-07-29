@@ -4,7 +4,7 @@ the test-cost revamp).
 
 Probes (``mwt_probe``, ``decision_probe``) are monitors, not tests.
 A probe "failure" indicates Stanza behavior drifted from the pinned
-expectation — worth surfacing as an issue to adjudicate, never
+expectation: worth surfacing as an issue to adjudicate, never
 worth blocking a push. The report generator turns probe-run
 outcomes into a human-readable markdown file that sits in
 ``docs/investigations/``.
@@ -103,7 +103,7 @@ def test_only_most_recent_run_per_probe_counts(tmp_path: Path) -> None:
         db,
         [
             (now - 3600, "p::t", "failed", 0.3),  # earlier
-            (now, "p::t", "passed", 0.3),          # latest — dominates
+            (now, "p::t", "passed", 0.3),          # latest, dominates
         ],
     )
     report = build_drift_report(db, since_ts=now - 7200)

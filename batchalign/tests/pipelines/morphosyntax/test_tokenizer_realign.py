@@ -1,4 +1,4 @@
-"""Tests for _tokenizer_realign.py — MWT hint annotation and merge logic.
+"""Tests for _tokenizer_realign.py: MWT hint annotation and merge logic.
 
 Verifies that merged tokens are returned as (text, bool) MWT hint tuples
 matching Python master's tokenizer_processor rules exactly:
@@ -22,7 +22,7 @@ from batchalign.inference._tokenizer_realign import (
 # ---------------------------------------------------------------------------
 
 class TestIsContraction:
-    """Replicates Python master ud.py lines 680–685 logic."""
+    """Replicates Python master ud.py lines 680-685 logic."""
 
     # --- English contractions → True ---
 
@@ -36,7 +36,7 @@ class TestIsContraction:
         assert _is_contraction("won't", "en") is True
 
     def test_its_is_contraction(self) -> None:
-        # "it's" — contraction of "it is"
+        # "it's": contraction of "it is"
         assert _is_contraction("it's", "en") is True
 
     def test_possessive_is_contraction(self) -> None:
@@ -80,7 +80,7 @@ class TestIsContraction:
 
 
 # ---------------------------------------------------------------------------
-# _realign_sentence — merged token tuples
+# _realign_sentence: merged token tuples
 # ---------------------------------------------------------------------------
 
 class TestRealignSentenceMwtTuples:
@@ -96,7 +96,7 @@ class TestRealignSentenceMwtTuples:
 
     def test_english_contraction_split_becomes_true_tuple(self) -> None:
         """English apostrophe merge → (text, True)."""
-        # Stanza split "don't" into ["don", "'t"] — maps to one word "don't"
+        # Stanza split "don't" into ["don", "'t"], maps to one word "don't"
         tokens = ["don", "'t"]
         words = ["don't"]
         result = _realign_sentence(tokens, words, alpha2="en")
@@ -164,12 +164,12 @@ class TestRealignSentenceMwtTuples:
         tokens = ["totally", "different"]
         words = ["something", "else"]
         result = _realign_sentence(tokens, words, alpha2="en")
-        # No merge attempt — returned as-is
+        # No merge attempt: returned as-is
         assert result == tokens
 
 
 # ---------------------------------------------------------------------------
-# make_tokenizer_postprocessor — alpha2 threading
+# make_tokenizer_postprocessor: alpha2 threading
 # ---------------------------------------------------------------------------
 
 class TestMakeTokenizerPostprocessor:
@@ -181,7 +181,7 @@ class TestMakeTokenizerPostprocessor:
         pp = make_tokenizer_postprocessor(ctx, alpha2="en")
         batch = [["don", "'t"]]
         result = pp(batch)  # type: ignore[operator]
-        # Should be (don't, True) — English contraction
+        # Should be (don't, True), English contraction
         assert result[0][0] == ("don't", True)
 
     def test_alpha2_non_english_no_contraction(self) -> None:

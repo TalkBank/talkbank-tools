@@ -64,7 +64,7 @@ def _capabilities() -> CapabilitiesResponse:
 
     # Infer task probes: map each InferTask to the imports required to prove
     # the system *can* run it.  The probe worker only loads morphotag models,
-    # so we must NOT gate on loaded model state — otherwise FA, translate,
+    # so we must NOT gate on loaded model state, otherwise FA, translate,
     # utseg, ASR, etc. are silently excluded from server capabilities.
     #
     # The default-version slot is left empty for stanza-backed tasks
@@ -187,7 +187,7 @@ def _capabilities() -> CapabilitiesResponse:
 
 
 # ---------------------------------------------------------------------------
-# ensure_task — on-demand model loading for LazyProfile workers
+# ensure_task: on-demand model loading for LazyProfile workers
 # ---------------------------------------------------------------------------
 
 

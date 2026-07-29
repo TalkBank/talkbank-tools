@@ -120,7 +120,7 @@ def test_load_stats_respects_since_window(tmp_path: Path) -> None:
 
 
 def test_load_stats_missing_db_returns_empty(tmp_path: Path) -> None:
-    # Not an error — the first-ever run has no DB yet. Ordering falls
+    # Not an error: the first-ever run has no DB yet. Ordering falls
     # back to collection order.
     missing = tmp_path / "does-not-exist.sqlite"
     assert load_stats(missing, since_ts=0) == {}

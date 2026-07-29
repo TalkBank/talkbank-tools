@@ -6,7 +6,7 @@ The contract under test (from
 - A malformed ``execute_asr_request_v2`` payload raises
   ``BatchalignError`` (or a subclass), **not** ``ValueError``.
 - The Python ``batchalign.errors.BatchalignError`` is the *same class*
-  Rust raises through PyO3 — re-exported from ``batchalign_core``.
+  Rust raises through PyO3: re-exported from ``batchalign_core``.
 - Catch sites at the typed parent class catch any boundary error
   category.
 
@@ -66,7 +66,7 @@ class TestExecuteAsrRequestV2BoundaryErrors:
     def test_malformed_payload_raises_batchalign_error(self):
         """Malformed dict (missing required fields) → ``BatchalignError``.
 
-        Catches at the typed parent class — the contract is that any
+        Catches at the typed parent class, the contract is that any
         boundary failure is at least a ``BatchalignError`` instance.
         """
         with pytest.raises(BatchalignError):
@@ -113,10 +113,10 @@ class TestExceptionAttributesShape:
         raises remember to set them.
         """
         # Plain Python construction does NOT auto-populate attributes
-        # — that only happens through the Rust `From` impl. This is
+        #: that only happens through the Rust `From` impl. This is
         # the documented behaviour, not a bug.
         exc = CHATValidationException("test")
         # `getattr` with default returns the default for missing attrs
-        # — which is the contract `classify_error` already relies on.
+        #, which is the contract `classify_error` already relies on.
         assert getattr(exc, "errors", None) is None
         assert getattr(exc, "bug_report_id", None) is None

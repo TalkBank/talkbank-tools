@@ -21,7 +21,7 @@ pub fn prepare_words_pre_expansion(elements: &[AsrElement], lang: &str) -> Vec<A
 /// at zero capture cost.
 ///
 /// Callers who want stage 4 (number expansion) captured must record
-/// it themselves — this function returns BEFORE expansion runs.
+/// it themselves: this function returns BEFORE expansion runs.
 pub fn prepare_words_pre_expansion_with_snapshot(
     elements: &[AsrElement],
     lang: &str,
@@ -34,7 +34,7 @@ pub fn prepare_words_pre_expansion_with_snapshot(
     }
 
     // 2026-04-23 English title-period strip MUST fire here, before
-    // `extract_timed_words` and `split_multiword_tokens` — the
+    // `extract_timed_words` and `split_multiword_tokens`: the
     // latter splits on `.` (`normalized_split_separator`) and
     // would slice `Dr.` into `Dr` + `.` before our rule sees the
     // intact allowlisted surface. Operates on raw element text
@@ -48,7 +48,7 @@ pub fn prepare_words_pre_expansion_with_snapshot(
     }
 
     // Stage 2b: strip MOR_PUNCT separators from the boundaries of each word.
-    // Case is preserved — downstream CHAT consumers need uppercase "I" and
+    // Case is preserved: downstream CHAT consumers need uppercase "I" and
     // proper nouns intact; disfluency and retrace matching are case-insensitive
     // internally.
     words = strip_separator_words(words);
@@ -64,7 +64,7 @@ pub fn prepare_words_pre_expansion_with_snapshot(
     let words = split_multiword_tokens(words, lang);
 
     // Stage 3c: re-run boundary-quote strip AFTER Stage 3. Stage 3 splits
-    // on whitespace and `.`/`?`/`!`/`,` — a single ASR element like
+    // on whitespace and `.`/`?`/`!`/`,`, a single ASR element like
     // `Ross." said.` (period+quote glued, internal whitespace) splits
     // into `["Ross", ".", "\"", "said", "."]`. The standalone `"` part
     // bypassed Stage 2c (which ran before the split). Stripping again
@@ -82,7 +82,7 @@ pub fn prepare_words_pre_expansion_with_snapshot(
 
     // NOTE: CHAT-illegal character sanitization runs in
     // `finalize_utterances`, not here, because Stage 4 number
-    // expansion rewrites tokens like `$12` → "twelve dollars" — the
+    // expansion rewrites tokens like `$12` → "twelve dollars", the
     // raw forms don't validate as CHAT words on their own.
     if let Some(ref mut s) = snapshot {
         s.after_multiword_split = result.clone();
@@ -113,7 +113,7 @@ pub(super) fn extract_timed_words(elements: &[AsrElement]) -> Vec<AsrWord> {
 /// Strip MOR_PUNCT separators from the boundaries of each word token, and
 /// drop words that become empty after stripping.
 ///
-/// ENDING_PUNCT (`.` `?` `!` etc.) is **not** stripped — retokenize needs
+/// ENDING_PUNCT (`.` `?` `!` etc.) is **not** stripped, retokenize needs
 /// them for sentence boundary detection. Only MOR_PUNCT (comma, tag `„`,
 /// vocative `‡`) and RTL separators (`،` `؛`) are removed.
 ///
@@ -348,7 +348,7 @@ fn normalized_split_separator(ch: char) -> Option<Option<&'static str>> {
 /// 2. The language-specific percent word (timing = remaining portion).
 ///
 /// When the language has no mapped percent word (uncommon), the `%`
-/// is stripped and the digit group is emitted alone — better than
+/// is stripped and the digit group is emitted alone, better than
 /// producing malformed CHAT. When the language permits ASCII digits
 /// in word content (yue/zho/cmn/nan/hak/min/cym/vie/tha), the digit
 /// group is still emitted; the language-aware `ChatWordText`
@@ -365,7 +365,7 @@ fn split_percent_suffix_words(words: Vec<AsrWord>, lang: &str) -> Vec<AsrWord> {
             continue;
         };
         if digit_prefix.is_empty() || !digit_prefix.chars().all(|c| c.is_ascii_digit()) {
-            // `%` not following a pure-digit prefix — not our case.
+            // `%` not following a pure-digit prefix, not our case.
             result.push(word);
             continue;
         }
@@ -382,7 +382,7 @@ fn split_percent_suffix_words(words: Vec<AsrWord>, lang: &str) -> Vec<AsrWord> {
                     let digit_chars = digit_prefix.chars().count() as i64;
                     // Guard against div-by-zero even though total_chars
                     // is non-zero when we reach here (word.text was
-                    // non-empty — the `%` alone is caught above).
+                    // non-empty: the `%` alone is caught above).
                     let split = start + ((end - start) * digit_chars) / total_chars.max(1);
                     (Some(start), Some(split), Some(split), Some(end))
                 }

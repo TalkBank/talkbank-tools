@@ -35,7 +35,7 @@ fn tier_matches(tier: &DependentTier, kinds: &[TierKind]) -> bool {
 
 /// Copy specified dependent tiers from a "before" utterance to an "after" utterance.
 ///
-/// Uses `replace_or_add_tier` for idempotent insertion — safe to call multiple times.
+/// Uses `replace_or_add_tier` for idempotent insertion, safe to call multiple times.
 ///
 /// Returns the number of tiers copied.
 pub fn copy_dependent_tiers(

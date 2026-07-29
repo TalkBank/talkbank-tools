@@ -31,7 +31,7 @@ batchalign3 server (auto-managed)
   └── Manual start/stop via server status bar
 ```
 
-The Tauri Rust side stays thin — native dialogs, config I/O, and local
+The Tauri Rust side stays thin, native dialogs, config I/O, and local
 server/process management only. All shared UI logic lives in the React
 frontend, which consumes shell-only capabilities through
 `frontend/src/desktop/DesktopContext.tsx`; `frontend/src/desktop/protocol.ts`
@@ -119,7 +119,7 @@ Override at runtime with query parameter: `?server=http://host:port`
 | `stop_server()` | Kill the managed server child process and return the resulting `{ running, port, binary_path, pid }` snapshot. |
 | `server_status()` | Return `{ running, port, binary_path, pid }` for the status bar. |
 | `get_batchalign_path()` | Return the path to the `batchalign3` binary, or null if not found. |
-| `is_first_launch()` | True if `~/.batchalign.ini` doesn't exist — triggers setup wizard. |
+| `is_first_launch()` | True if `~/.batchalign.ini` doesn't exist, triggers setup wizard. |
 | `read_config()` | Read user config (engine + Rev.AI key) from `~/.batchalign.ini`. |
 | `write_config(config)` | Write user config to `~/.batchalign.ini` and return `{ message }`. |
 
@@ -145,12 +145,12 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 The Rust-side shell tests intentionally stay narrow and fast:
 
-- `src-tauri/src/protocol.rs` — protocol identifier stability and event payload serialization
-- `src-tauri/src/main.rs` — `discover_files_in_dir()` recursion, filtering, and
+- `src-tauri/src/protocol.rs`: protocol identifier stability and event payload serialization
+- `src-tauri/src/main.rs`: `discover_files_in_dir()` recursion, filtering, and
   sorting
-- `src-tauri/src/config.rs` — config roundtrip plus Windows-friendly home-dir
+- `src-tauri/src/config.rs`: config roundtrip plus Windows-friendly home-dir
   fallbacks
-- `src-tauri/src/server.rs` — `ServerProcess` empty/running/exited child
+- `src-tauri/src/server.rs`: `ServerProcess` empty/running/exited child
   lifecycle behavior
 
 Frontend seam checks live in `frontend/e2e/tests/mock-server.spec.mjs` and use a

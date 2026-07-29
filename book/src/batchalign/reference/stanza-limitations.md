@@ -166,7 +166,7 @@ Handles two sub-patterns:
   plus subject reattachment.
 * **Pattern B (root != target):** the `-ing` word is a compound
   modifier; a different noun holds the root position (e.g., `the
-  lady's washing dishes` — Stanza makes `dishes` root). The `-ing`
+  lady's washing dishes`: Stanza makes `dishes` root). The `-ing`
   word is promoted to root, the former root is demoted to `obj`,
   subject and punctuation are reattached.
 
@@ -553,10 +553,10 @@ Hebrew prepositional+definite contractions and definite-article
 fusion correctly:
 
 ```text
-בבית   → ב + בית         "in the house" — prep ב + noun (definite ה absorbed)
-מהילד  → מ + ה + ילד      "from the boy" — prep מ + def ה + noun
-לאישה  → ל + אישה         "to the woman" — prep ל + noun
-הזה    → ה + זה          "this" — def ה + demonstrative
+בבית   → ב + בית         "in the house", prep ב + noun (definite ה absorbed)
+מהילד  → מ + ה + ילד      "from the boy", prep מ + def ה + noun
+לאישה  → ל + אישה         "to the woman", prep ל + noun
+הזה    → ה + זה          "this", def ה + demonstrative
 ```
 
 These are linguistically real morpheme boundaries; producing them
@@ -568,9 +568,9 @@ justification.
 preposition+article contractions correctly:
 
 ```text
-στο    → σ + το           "in the (n.acc)" — prep σε + def το
-στον   → σ + τον          "in the (m.acc)" — prep σε + def τον
-στις   → σ + τις          "at the (f.pl.acc)" — prep σε + def τις
+στο    → σ + το           "in the (n.acc)", prep σε + def το
+στον   → σ + τον          "in the (m.acc)", prep σε + def τον
+στις   → σ + τις          "at the (f.pl.acc)", prep σε + def τις
 ```
 
 Same justification as Hebrew. The split components are the
@@ -744,7 +744,7 @@ break is out of reach for the hook. The character-DP realigner in
 Fixing this properly would require one of:
 1. **Lemma-driven content rejection**: detect the signature
    `concat(inner_words) == token_text && head_word.lemma ==
-   head_word.text` — the two-signal discriminator that separates
+   head_word.text`: the two-signal discriminator that separates
    Defect 6 pseudo-splits from legitimate clitic compounds like
    `dammela → da/dare + me + la` (where head lemma `dare` ≠ head
    text `da`). When it fires, rewrite the merged `%mor` with a

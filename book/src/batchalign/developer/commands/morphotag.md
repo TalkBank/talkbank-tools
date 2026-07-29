@@ -406,7 +406,7 @@ calls the injection path and propagates the validation outcomes.
 # Unit tests (no ML models)
 make test
 
-# Morphotag golden tests (real Stanza models — only on Fleet/Large-tier hosts with the models present)
+# Morphotag golden tests (real Stanza models, only on Fleet/Large-tier hosts with the models present)
 cargo nextest run --profile ml -E 'test(morphosyntax::)'
 
 # Retokenization unit tests

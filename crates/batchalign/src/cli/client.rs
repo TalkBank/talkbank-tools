@@ -50,7 +50,7 @@ impl BatchalignClient {
         Ok(Self { http })
     }
 
-    /// `GET /health` — check server health and capabilities.
+    /// `GET /health`: check server health and capabilities.
     pub async fn health_check(&self, url: &str) -> Result<HealthResponse, CliError> {
         let resp = self
             .request_with_retry(
@@ -64,7 +64,7 @@ impl BatchalignClient {
         Ok(health)
     }
 
-    /// `POST /jobs` — submit a new job.
+    /// `POST /jobs`: submit a new job.
     ///
     /// Retries transient connect/timeout errors via `request_with_retry`.
     /// Does not retry 4xx/5xx HTTP rejections: the server's refusal is
@@ -84,7 +84,7 @@ impl BatchalignClient {
         Ok(info)
     }
 
-    /// `GET /jobs/{id}` — get job status.
+    /// `GET /jobs/{id}`: get job status.
     pub async fn get_job(&self, url: &str, job_id: &JobId) -> Result<JobInfo, CliError> {
         let resp = self
             .http
@@ -108,7 +108,7 @@ impl BatchalignClient {
         Ok(info)
     }
 
-    /// `GET /jobs/{id}/results/{*filename}` — fetch a single file result.
+    /// `GET /jobs/{id}/results/{*filename}`: fetch a single file result.
     ///
     /// The filename is embedded directly in the URL path (slashes included).
     /// The server route uses axum's `{*filename}` wildcard to capture the full
@@ -132,7 +132,7 @@ impl BatchalignClient {
         Ok(result)
     }
 
-    /// `GET /jobs/{id}/results` — fetch all results for a job.
+    /// `GET /jobs/{id}/results`: fetch all results for a job.
     pub async fn get_all_results(
         &self,
         url: &str,
@@ -150,7 +150,7 @@ impl BatchalignClient {
         Ok(results)
     }
 
-    /// `GET /jobs` — list all jobs.
+    /// `GET /jobs`: list all jobs.
     pub async fn list_jobs(&self, url: &str) -> Result<Vec<JobListItem>, CliError> {
         let resp = self
             .http
@@ -167,16 +167,16 @@ impl BatchalignClient {
         Ok(jobs)
     }
 
-    /// `POST /jobs/{id}/cancel` — request cancellation of a running or
+    /// `POST /jobs/{id}/cancel`: request cancellation of a running or
     /// queued job, recording caller provenance in the server's audit table.
     ///
     /// Bug history: an earlier revision of this method called
     /// `DELETE /jobs/{id}` (the *delete* endpoint, which returns 409 for
-    /// running jobs) — TUI cancels appeared to silently do nothing because
+    /// running jobs): TUI cancels appeared to silently do nothing because
     /// the error was swallowed at the call site. Fixed 2026-04-26 alongside
     /// the cancel-provenance work; see the cancellation-hygiene plan in
     /// the workspace for the full incident.
-    /// `GET /jobs/{id}/cancellations` — fetch the audit history of
+    /// `GET /jobs/{id}/cancellations`: fetch the audit history of
     /// every cancel attempt against a job. Used by the
     /// `batchalign3 cancellations` subcommand and by tests that
     /// assert provenance was recorded.
@@ -212,7 +212,7 @@ impl BatchalignClient {
         provenance: CancellationRequest,
     ) -> Result<(), CliError> {
         // Route through `request_with_retry` so transient network errors
-        // don't silently drop the cancel — the 2026-04-25 incident pattern
+        // don't silently drop the cancel, the 2026-04-25 incident pattern
         // (user re-presses cancel because nothing happened) is exactly
         // what the retry wrapper exists to prevent.
         let resp = self
@@ -428,7 +428,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// Minimal valid `JobSubmission` for HTTP-level tests. The server-side
-    /// validation is bypassed here — we only care that the request
+    /// validation is bypassed here, we only care that the request
     /// actually reaches whatever endpoint the test is pointing at.
     fn minimal_submission() -> crate::api::JobSubmission {
         use crate::api::{

@@ -80,20 +80,20 @@ pub enum MatchMode {
     /// heavily and doesn't penalize length differences as harshly.
     ///
     /// Typical thresholds:
-    /// - 0.90: strict — allows minor typos ("gonna" ≈ "gona")
-    /// - 0.85: moderate — allows ASR normalizations ("going" ≈ "goin")
-    /// - 0.80: lenient — allows dialectal variants ("yes" ≈ "yeah" is ~0.78,
+    /// - 0.90: strict: allows minor typos ("gonna" ≈ "gona")
+    /// - 0.85: moderate: allows ASR normalizations ("going" ≈ "goin")
+    /// - 0.80: lenient: allows dialectal variants ("yes" ≈ "yeah" is ~0.78,
     ///   so 0.80 would NOT match this)
     ///
     /// Always tries exact case-insensitive match first (fast path).
     Fuzzy {
-        /// Minimum Jaro-Winkler similarity to accept (0.0–1.0).
+        /// Minimum Jaro-Winkler similarity to accept (0.0-1.0).
         threshold: f64,
     },
 }
 
 // ---------------------------------------------------------------------------
-// Alignable trait — unifies String and char element types
+// Alignable trait: unifies String and char element types
 // ---------------------------------------------------------------------------
 
 /// Element type that can participate in Hirschberg alignment.

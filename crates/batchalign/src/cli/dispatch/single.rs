@@ -1,4 +1,4 @@
-//! Single-server dispatch — submit files to one server, poll, write results.
+//! Single-server dispatch: submit files to one server, poll, write results.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -226,7 +226,7 @@ pub(super) async fn dispatch_single_server(
             let (cancel_tx, cancel_rx) =
                 tokio::sync::oneshot::channel::<crate::cli::tui::TuiCancelSignal>();
 
-            // Cancel task — awaits signal from TUI, posts cancel with full
+            // Cancel task: awaits signal from TUI, posts cancel with full
             // caller provenance (source=Tui + hostname + PID + the in-flight
             // filename the TUI captured at confirm time). Server persists
             // these to the `cancellations` audit table so we can attribute
@@ -246,7 +246,7 @@ pub(super) async fn dispatch_single_server(
                 crate::cli::tui::run_tui_loop(tui_runtime, Some(cancel_tx))
             });
 
-            // Poll on current task — pinned so it survives TUI exit
+            // Poll on current task, pinned so it survives TUI exit
             let poll_fut = poll_and_write_incrementally(
                 client,
                 server_url,
@@ -262,12 +262,12 @@ pub(super) async fn dispatch_single_server(
             tokio::select! {
                 result = &mut poll_fut => {
                     result?;
-                    // Job finished — wait for TUI to exit
+                    // Job finished: wait for TUI to exit
                     let _ = tui_handle.await;
                 }
                 _ = &mut tui_handle => {
-                    // User closed TUI — continue writing results to disk
-                    eprintln!("\nDashboard closed — still writing results...");
+                    // User closed TUI: continue writing results to disk
+                    eprintln!("\nDashboard closed: still writing results...");
                     poll_fut.await?;
                 }
             }

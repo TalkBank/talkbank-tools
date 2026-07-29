@@ -1,4 +1,4 @@
-//! Error path tests — verify graceful failures for bad inputs.
+//! Error path tests: verify graceful failures for bad inputs.
 //!
 //! Most tests in this module use direct local execution with real workers so
 //! model-hitting failures are exercised without the server control plane. The

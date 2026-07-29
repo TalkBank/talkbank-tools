@@ -13,11 +13,11 @@ so these tests assert shapes that were already decided before
 collection. Run in three flavors to exercise all three branches:
 
 - ``uv run pytest batchalign/tests/test_a2_interactive_defaults.py``
-  — interactive default
+  - interactive default
 - ``CI=1 uv run pytest batchalign/tests/test_a2_interactive_defaults.py``
-  — CI default
+  - CI default
 - ``uv run pytest batchalign/tests/test_a2_interactive_defaults.py --maxfail=0``
-  — explicit user override (expected to respect the 0)
+  - explicit user override (expected to respect the 0)
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def test_interactive_or_ci_defaults_match_environment(pytestconfig) -> None:
             "CI must not auto-enable --failed-first (hides flake-vs-systemic pattern)"
         )
     elif user_forced_fail_fast:
-        # User's explicit CLI override wins — hook must not stomp.
+        # User's explicit CLI override wins, hook must not stomp.
         # We don't assert a specific maxfail value; the value is whatever
         # argparse parsed from the CLI. Just assert the hook didn't run
         # the default assignment path (which would set it to 1 without

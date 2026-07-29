@@ -1,4 +1,4 @@
-//! REST API response structures — job info, results, health, listing.
+//! REST API response structures, job info, results, health, listing.
 //!
 //! These are re-exported from [`super::api`] for backward compatibility.
 
@@ -147,7 +147,7 @@ impl JobControlPlaneInfo {
     }
 }
 
-/// `GET /jobs/{id}` response — job progress.
+/// `GET /jobs/{id}` response: job progress.
 ///
 /// Contains full detail about a single job, including per-file statuses.
 /// Polled by the CLI to drive progress bars and by the dashboard for
@@ -260,7 +260,7 @@ impl JobInfo {
     }
 }
 
-/// `GET /jobs/{id}/results` response — completed job results.
+/// `GET /jobs/{id}/results` response: completed job results.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "server", derive(utoipa::ToSchema))]
 pub struct JobResultResponse {
@@ -373,7 +373,7 @@ pub struct HealthResponse {
     #[serde(default)]
     pub capabilities: Vec<String>,
     /// Pipelines currently loaded in memory (warm workers).  A subset of
-    /// `capabilities` — only commands whose workers have been spawned.
+    /// `capabilities`, only commands whose workers have been spawned.
     #[serde(default)]
     pub loaded_pipelines: Vec<String>,
     /// Filesystem directories the server searches for media files (audio/video).
@@ -426,7 +426,7 @@ pub struct HealthResponse {
     /// admission pressure.
     #[serde(default)]
     pub memory_gate_aborts: i64,
-    /// Build fingerprint — changes on every rebuild.  Used for stale-binary
+    /// Build fingerprint: changes on every rebuild.  Used for stale-binary
     /// detection during development.  Empty string from older servers.
     #[serde(default)]
     pub build_hash: String,

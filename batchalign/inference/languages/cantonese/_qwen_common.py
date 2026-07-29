@@ -3,7 +3,7 @@
 Wraps the ``qwen-asr`` PyPI package. Mirrors the
 ``_funaudio_common.FunAudioRecognizer`` shape so the worker
 bootstrap can swap engines uniformly. The actual model load is
-deferred until first inference call — keeps worker startup time
+deferred until first inference call, keeps worker startup time
 bounded when no Qwen jobs are dispatched to the worker.
 
 Engine selection rationale: Qwen3-ASR is an open-weight
@@ -70,7 +70,7 @@ class QwenAsrSegment:
     """One Qwen3-ASR utterance with optional word-level timestamps.
 
     ``text`` is the full utterance string. ``word_timestamps`` is a
-    list of ``(start_s, end_s, word_text)`` tuples — empty when the
+    list of ``(start_s, end_s, word_text)`` tuples, empty when the
     model didn't return timing for this segment (returns can be
     text-only for short utterances).
     """
@@ -109,7 +109,7 @@ class QwenRecognizer:
     Qwen3-ASR doesn't emit speaker diarization).
 
     For multi-speaker audio, the downstream BA3 pipeline applies
-    diarization separately — Qwen3-ASR's role here is the
+    diarization separately: Qwen3-ASR's role here is the
     speech-to-character transcription only. This matches how
     BA3 currently uses other diarization-free ASR engines.
     """
@@ -202,7 +202,7 @@ class QwenRecognizer:
             # Per Qwen3-ASR README, ``language=None`` enables
             # auto-detection. We pass the explicit label since the
             # caller has already established the session language via
-            # ``@Languages`` — auto-detect on a known-language input
+            # ``@Languages``: auto-detect on a known-language input
             # risks the model mis-classifying short or low-energy
             # segments.
             language=self._qwen_language,
@@ -237,7 +237,7 @@ class QwenRecognizer:
             if seg.word_timestamps:
                 for start_s, end_s, word in seg.word_timestamps:
                     # Pre-filter empty/whitespace tokens so downstream
-                    # never sees them — saves allocation and matches
+                    # never sees them: saves allocation and matches
                     # the FunASR + Tencent shape.
                     if not word.strip():
                         continue

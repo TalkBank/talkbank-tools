@@ -59,7 +59,7 @@ def test_morphotag_retokenize_with_retrace_succeeds() -> None:
         output_file = output_dir / "retrace_test.cha"
 
         if result.returncode != 0:
-            # THIS IS THE BUG — if it fails, capture the error
+            # THIS IS THE BUG, if it fails, capture the error
             assert False, (
                 f"morphotag --retokenize failed (exit {result.returncode}):\n"
                 f"STDOUT: {result.stdout[-500:]}\n"

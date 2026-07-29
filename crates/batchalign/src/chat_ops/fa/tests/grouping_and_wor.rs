@@ -40,9 +40,9 @@ fn test_wor_policy_standalone_spoken_tokens_match_between_fa_extraction_and_wor_
     for (main, expected) in [
         // Fillers (&-) ARE included
         ("&-um play .", &["um", "play"][..]),
-        // Fragments (&+) are excluded — BA2 TokenType.ANNOT
+        // Fragments (&+) are excluded, BA2 TokenType.ANNOT
         ("&+ss play .", &["play"][..]),
-        // Nonwords (&~) are excluded — BA2 TokenType.ANNOT
+        // Nonwords (&~) are excluded, BA2 TokenType.ANNOT
         ("&~um play .", &["play"][..]),
     ] {
         let expected = words(expected);

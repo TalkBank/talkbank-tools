@@ -1,6 +1,6 @@
 """Translation inference: text -> translated text.
 
-Pure inference — no CHAT, no caching, no pipeline.
+Pure inference, no CHAT, no caching, no pipeline.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def batch_infer_translate(
 
         try:
             # Text arrives pre-processed from Rust (Chinese space removal etc.).
-            # Return raw translation output — Rust handles post-processing.
+            # Return raw translation output, Rust handles post-processing.
             translated = _translate(item.text, src_lang)
 
             results.append(

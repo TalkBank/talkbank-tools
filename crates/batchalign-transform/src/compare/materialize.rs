@@ -176,7 +176,7 @@ fn build_projected_mor_tier(
     let items: Vec<Mor> = projected.into_iter().collect::<Option<Vec<_>>>()?;
     // Gold data may have no terminator at this position (legacy or
     // incomplete gold). MorTier requires a typed terminator, so we
-    // return None when gold has none — the caller treats absent
+    // return None when gold has none, the caller treats absent
     // gold-mor as "no comparison MorTier available," which is the
     // semantically correct behavior here. Stringly terminators in
     // gold are lifted to typed via Terminator::try_from_chat_str.

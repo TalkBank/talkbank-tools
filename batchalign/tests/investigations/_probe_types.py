@@ -14,7 +14,7 @@ Before the 2026-04-22 consolidation, probe cases were hand-built
 (~1080 lines total). Each module reinvented xfail handling, invariant
 selection, and pipeline-fixture plumbing. Types here capture the
 intent so every new case declares what it means to pass, fail, or
-xfail — rather than encoding that in function names and module-level
+xfail: rather than encoding that in function names and module-level
 comments.
 """
 
@@ -29,7 +29,7 @@ class Phenomenon(Enum):
 
     Used to group the case in per-language book tables and to help a
     contributor classify a new probe before writing it. Not referenced
-    by test assertions — purely descriptive metadata.
+    by test assertions: purely descriptive metadata.
     """
 
     NATIVE_MWT = "native_mwt"
@@ -54,7 +54,7 @@ class Phenomenon(Enum):
 
     ELISION_PREFIX = "elision_prefix"
     """French elision-prefix tokens (``jusqu'à``, ``puisqu'il``,
-    ``quelqu'un``) — the Wave 4 invariant-break family."""
+    ``quelqu'un``): the Wave 4 invariant-break family."""
 
     MULTI_CLITIC = "multi_clitic"
     """Stacked apostrophe-internal clitics (``d'l'attraper``)."""
@@ -85,7 +85,7 @@ class ProbeCase:
     Attributes
     ----------
     label
-        Short identifier — used in pytest test IDs and in the rendered
+        Short identifier: used in pytest test IDs and in the rendered
         per-language book tables.
     words
         CHAT-derived word sequence fed to the Stanza pipeline. A tuple
@@ -95,7 +95,7 @@ class ProbeCase:
     expected_post_mwt_count
         If set, the test asserts that the post-MWT-expansion Stanza
         word count equals this integer. Use ``len(words)`` for strict
-        1-to-1 cases. If ``None``, the case is observe-only — the
+        1-to-1 cases. If ``None``, the case is observe-only, the
         pipeline output is pinned via print but no assertion fires.
     xfail
         If set, the test marks itself xfail with the defect slug and
@@ -141,7 +141,7 @@ class ProbeCase:
         phenomenon: Phenomenon = Phenomenon.CONTROL,
     ) -> "ProbeCase":
         """Build a single-word probe with ``expected_post_mwt_count=1``
-        — the standard shape for baseline/control tokens that must
+        - the standard shape for baseline/control tokens that must
         stay 1-to-1 under the postprocessor pipeline. Asserts that
         Stanza doesn't spuriously expand the token into an MWT.
 

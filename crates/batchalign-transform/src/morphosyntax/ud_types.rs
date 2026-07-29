@@ -116,45 +116,45 @@ impl UniversalPos {
 /// lossless without allocating on the known-value hot path.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DepRel {
-    /// `root` — the sentence-level root.
+    /// `root`: the sentence-level root.
     Root,
-    /// `nsubj` — nominal subject.
+    /// `nsubj`: nominal subject.
     NSubj,
-    /// `nsubj:pass` — nominal passive subject.
+    /// `nsubj:pass`: nominal passive subject.
     NSubjPass,
-    /// `obj` — direct object.
+    /// `obj`: direct object.
     Obj,
-    /// `aux` — auxiliary.
+    /// `aux`: auxiliary.
     Aux,
-    /// `aux:pass` — passive auxiliary.
+    /// `aux:pass`: passive auxiliary.
     AuxPass,
-    /// `cop` — copula.
+    /// `cop`: copula.
     Cop,
-    /// `case` — case-marking word, including possessive `'s`.
+    /// `case`: case-marking word, including possessive `'s`.
     Case,
-    /// `nmod:poss` — possessive nominal modifier.
+    /// `nmod:poss`: possessive nominal modifier.
     NmodPoss,
-    /// `det` — determiner.
+    /// `det`: determiner.
     Det,
-    /// `cc` — coordinating conjunction.
+    /// `cc`: coordinating conjunction.
     Cc,
-    /// `conj` — conjoined element.
+    /// `conj`: conjoined element.
     Conj,
-    /// `compound` — compound modifier.
+    /// `compound`: compound modifier.
     Compound,
-    /// `compound:prt` — phrasal verb particle.
+    /// `compound:prt`: phrasal verb particle.
     CompoundPrt,
-    /// `amod` — adjectival modifier.
+    /// `amod`: adjectival modifier.
     Amod,
-    /// `advmod` — adverbial modifier.
+    /// `advmod`: adverbial modifier.
     AdvMod,
-    /// `punct` — punctuation.
+    /// `punct`: punctuation.
     Punct,
-    /// `discourse` — discourse element.
+    /// `discourse`: discourse element.
     Discourse,
-    /// `mark` — subordinating marker.
+    /// `mark`: subordinating marker.
     Mark,
-    /// `expl` — expletive, such as existential `there`.
+    /// `expl`: expletive, such as existential `there`.
     Expl,
     /// Any other UD relation, preserved as its original string.
     Other(String),
@@ -392,7 +392,7 @@ pub fn validate_and_clean(word: &mut UdWord) {
         tracing::warn!(
             deprel = %word.deprel,
             text = %word.text,
-            "Stanza emitted pad deprel — replacing with 'dep'"
+            "Stanza emitted pad deprel: replacing with 'dep'"
         );
         word.deprel = "dep".to_string();
     }
@@ -401,7 +401,7 @@ pub fn validate_and_clean(word: &mut UdWord) {
         tracing::warn!(
             lemma = %word.lemma,
             text = %word.text,
-            "Stanza returned bogus lemma — falling back to surface form"
+            "Stanza returned bogus lemma: falling back to surface form"
         );
         word.lemma = word.text.clone();
     }

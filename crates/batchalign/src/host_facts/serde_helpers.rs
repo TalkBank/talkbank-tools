@@ -58,7 +58,7 @@ impl IsZero for u64 {
     }
 }
 
-/// Newtype `MemoryMb(u64)` — the canonical migration target for the
+/// Newtype `MemoryMb(u64)`: the canonical migration target for the
 /// `memory_gate_mb` knob (Phase C2.7). Treats `MemoryMb(0)` as the
 /// legacy `0 = auto` sentinel; `MemoryMb(n)` for `n > 0` survives as
 /// `Some(MemoryMb(n))`.
@@ -131,7 +131,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // u32 — the most common migration target (gpu_thread_pool_size).
+    // u32: the most common migration target (gpu_thread_pool_size).
     // -------------------------------------------------------------------
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // i32 — covers max_concurrent_jobs, max_workers_per_job,
+    // i32: covers max_concurrent_jobs, max_workers_per_job,
     // max_workers_per_key, max_total_workers (signed sentinel).
     // -------------------------------------------------------------------
 
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(parsed.value, Some(8));
     }
 
-    /// Negative values are not the legacy sentinel — only `0` is.
+    /// Negative values are not the legacy sentinel, only `0` is.
     /// `-1` survives as `Some(-1)` even though it's nonsensical for
     /// these fields; validation is the EffectiveConfig layer's job.
     #[test]
@@ -230,7 +230,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // u64 — covers memory_gate_mb (already wraps in MemoryMb but the
+    // u64: covers memory_gate_mb (already wraps in MemoryMb but the
     // serde representation is u64).
     // -------------------------------------------------------------------
 

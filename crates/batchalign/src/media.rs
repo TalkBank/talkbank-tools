@@ -1,4 +1,4 @@
-//! Media resolution — port of `batchalign/serve/media.py`.
+//! Media resolution: port of `batchalign/serve/media.py`.
 //!
 //! Searches configured media_roots for audio/video files. Results are cached
 //! with a 60-second TTL to avoid rescanning NFS mounts on every request.
@@ -101,7 +101,7 @@ impl MediaResolver {
             }
         }
 
-        // Cache miss — do the walk
+        // Cache miss: do the walk
         let mut entries = Vec::new();
         let root_path = Path::new(root_dir);
         if root_path.is_dir() {
@@ -147,7 +147,7 @@ impl MediaResolver {
     ///
     /// Search strategy:
     /// 1. Exact filename match (recursive) in each root
-    /// 2. Stem match — if `name` has no media extension, try matching stem
+    /// 2. Stem match: if `name` has no media extension, try matching stem
     ///    against files with known audio/video extensions
     ///
     /// Returns the absolute path to the first match, or None.

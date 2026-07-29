@@ -19,9 +19,9 @@ mount points). Before path newtypes, both cases used bare `String` or `PathBuf`:
 ```rust
 // BEFORE: which machine is this path on?
 pub struct JobSubmission {
-    pub source_dir: String,       // Client's input dir — but server can't read it
-    pub media_mapping: String,    // Logical name — not a path at all
-    pub source_paths: Vec<String>, // Client paths — must not be opened on server
+    pub source_dir: String,       // Client's input dir, but server can't read it
+    pub media_mapping: String,    // Logical name, not a path at all
+    pub source_paths: Vec<String>, // Client paths, must not be opened on server
 }
 ```
 

@@ -1,4 +1,4 @@
-//! `GET /media/list` — list available media files.
+//! `GET /media/list`: list available media files.
 //!
 //! Provides a browsable listing of audio/video files on the server's
 //! configured media volumes.  The CLI uses this so users can discover

@@ -220,7 +220,7 @@ impl ServerBackend for LocalServerBackend {
         {
             // Check if media is local-only (not NFS-visible on the fleet server).
             // For now, any paths-mode job on a machine with fleet_target configured
-            // gets staged — the fleet server is always faster.
+            // gets staged: the fleet server is always faster.
             // TODO: probe whether source_paths are NFS-visible and skip staging
             // for those (an operator's workflow where data is already on NFS).
             let source_paths: Vec<std::path::PathBuf> = job

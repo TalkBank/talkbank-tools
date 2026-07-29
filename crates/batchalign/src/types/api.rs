@@ -1,4 +1,4 @@
-//! REST API request/response types — mirrors `batchalign/serve/models.py`.
+//! REST API request/response types, mirrors `batchalign/serve/models.py`.
 //!
 //! Field names use `snake_case` in Rust and serialize to `snake_case` JSON,
 //! matching the Pydantic models exactly.
@@ -61,7 +61,7 @@ mod tests {
         // wire-level fixture above does not specify `lang`, so we get the
         // serde default: a `LanguageSpec` constructed from the empty
         // string falls back to `Resolved(eng)` via parse_from_db's invalid
-        // path. This roundtrip test only exercises the serde shape — it
+        // path. This roundtrip test only exercises the serde shape, it
         // does NOT exercise submission validation, which would (correctly)
         // reject this combination at the route boundary because morphotag
         // requires `LanguageSpec::PerFile`.
@@ -319,7 +319,7 @@ mod tests {
 
                 ..Default::default()
             }),
-            // Morphotag JobInfo always carries `LanguageSpec::PerFile` —
+            // Morphotag JobInfo always carries `LanguageSpec::PerFile`
             // the dashboard and JSON API surface this as `"per-file"`.
             // Previously a job-level `eng` placeholder leaked here; that
             // is the bug this test now guards against.

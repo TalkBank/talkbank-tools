@@ -231,7 +231,7 @@ def main():
 
     time_range = find_time_range(ref_lines, ref_indices, start_utt, end_utt)
     if time_range is None:
-        print("WARNING: no timing found in reference — audio will not be trimmed")
+        print("WARNING: no timing found in reference, audio will not be trimmed")
     else:
         start_ms, end_ms = time_range
         print(f"Time range: {start_ms}ms - {end_ms}ms ({(end_ms - start_ms) / 1000:.1f}s)")
@@ -277,7 +277,7 @@ def main():
             with open(chat_out, "w", encoding="utf-8") as f:
                 f.writelines(new_lines)
         else:
-            print("WARNING: audio file not found — skipping audio trim")
+            print("WARNING: audio file not found, skipping audio trim")
 
     print("\nDone.")
 

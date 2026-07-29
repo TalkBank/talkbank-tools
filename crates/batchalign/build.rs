@@ -3,7 +3,7 @@
 // or invalid embedded data.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-//! Build script — generates `BUILD_HASH` at compile time.
+//! Build script: generates `BUILD_HASH` at compile time.
 //!
 //! The hash changes on every rebuild (even when `CARGO_PKG_VERSION` stays
 //! the same), enabling stale-binary detection during development.
@@ -11,7 +11,7 @@
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
 
-    // Best-effort git describe — empty string if git is not available.
+    // Best-effort git describe: empty string if git is not available.
     let git_describe = std::process::Command::new("git")
         .args(["describe", "--always", "--dirty"])
         .output()

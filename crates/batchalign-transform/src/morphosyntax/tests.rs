@@ -307,7 +307,7 @@ fn canonical_ud_feat_bundles_are_alphabetical() {
 fn bogus_lemma_detection_matches_expected_cases() {
     assert!(is_bogus_lemma("hello", "."));
     assert!(is_bogus_lemma("world", ","));
-    assert!(is_bogus_lemma("cat", "–"));
+    assert!(is_bogus_lemma("cat", "\u{2013}"));
     assert!(!is_bogus_lemma("hello", "hello"));
     assert!(!is_bogus_lemma("hello", ""));
     assert!(!is_bogus_lemma(".", "."));

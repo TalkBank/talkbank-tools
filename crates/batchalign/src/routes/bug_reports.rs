@@ -1,4 +1,4 @@
-//! Bug report endpoints — `GET /bug-reports` and `GET /bug-reports/{id}`.
+//! Bug report endpoints: `GET /bug-reports` and `GET /bug-reports/{id}`.
 //!
 //! Reads JSON files from the bug-reports directory (`~/.batchalign3/bug-reports/`
 //! by default, configurable via `AppState.environment.paths.bug_reports_dir`).

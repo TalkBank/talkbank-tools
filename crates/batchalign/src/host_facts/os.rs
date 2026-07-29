@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperatingSystem {
-    /// Apple macOS — both Intel and Apple Silicon.
+    /// Apple macOS, both Intel and Apple Silicon.
     MacOs,
-    /// Linux — server fleet, CUDA hosts.
+    /// Linux: server fleet, CUDA hosts.
     Linux,
-    /// Windows — recently joining the fleet; treat conservatively until
+    /// Windows: recently joining the fleet; treat conservatively until
     /// we have direct experience.
     Windows,
     /// A platform we have not characterized. The payload is the raw
@@ -42,7 +42,7 @@ pub enum CpuArch {
 }
 
 impl OperatingSystem {
-    /// True for macOS — Apple Silicon detection requires the OS check too.
+    /// True for macOS: Apple Silicon detection requires the OS check too.
     pub fn is_macos(&self) -> bool {
         matches!(self, OperatingSystem::MacOs)
     }

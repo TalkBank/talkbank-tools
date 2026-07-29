@@ -5,7 +5,7 @@
 //!
 //! Key differences from morphosyntax/utseg/translate:
 //! - **Document-level**: Each worker item is one complete document, not one utterance.
-//! - **No caching**: Results depend on full document context — per-utterance caching is meaningless.
+//! - **No caching**: Results depend on full document context, per-utterance caching is meaningless.
 //! - **English-only**: Non-English files are passed through unchanged.
 //! - **Sparse injection**: Only utterances with actual coref chains get `%xcoref`.
 
@@ -39,7 +39,7 @@ use crate::text_batch::{
 /// Check whether a parsed CHAT file declares English as one of its languages.
 ///
 /// Uses the per-file `@Languages` header (via `declared_languages()`); files
-/// with no `@Languages` header fall back to `eng` (BA2 parity — coref is an
+/// with no `@Languages` header fall back to `eng` (BA2 parity, coref is an
 /// English-only command, so the fallback is fixed). The `--lang` flag was
 /// removed for BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py:276`
 /// has no `--lang` for coref); see the 2026-05-03 incident for why a
@@ -171,7 +171,7 @@ async fn run_coref_impl(
     }
 
     // 4. Infer via worker. Per-item failure surfaces as a typed
-    //    ServerError carrying the rendered failure list — no silent
+    //    ServerError carrying the rendered failure list, no silent
     //    no-coref fallback.
     let coref_responses = infer_batch(
         pool,
@@ -203,7 +203,7 @@ async fn run_coref_impl(
     // 6. Apply annotations
     apply_coref_results(&mut chat_file, &results);
 
-    // 7. Post-validation check (warn only — always serialize output for debugging).
+    // 7. Post-validation check (warn only, always serialize output for debugging).
     if let Err(errors) = validate_output(&chat_file, "coref") {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         warn!(errors = ?msgs, "coref post-validation warnings (non-fatal)");
@@ -213,7 +213,7 @@ async fn run_coref_impl(
     // provenance lang is hardcoded `eng` regardless of any value the
     // gateway/dispatch handed in. The `lang: &LanguageCode3` parameter on
     // this function is retained for shared-trait symmetry with the other
-    // text commands but is otherwise unused — see the 2026-05-03 incident
+    // text commands but is otherwise unused, see the 2026-05-03 incident
     // for why a job-level lang must not flow into provenance.
     let _ = lang; // intentionally ignored
     let provenance = crate::provenance::coref_provenance(LanguageCode3::eng().as_ref(), "stanza");
@@ -287,7 +287,7 @@ async fn run_coref_batch_impl(
     let mut validation_errors: Vec<Option<String>> = vec![None; files.len()];
 
     for (file_idx, parsed_file) in parsed_files.iter().enumerate() {
-        // Skip dummy files — they pass through unchanged
+        // Skip dummy files: they pass through unchanged
         if is_dummy(parsed_file) {
             continue;
         }
@@ -338,7 +338,7 @@ async fn run_coref_batch_impl(
 
     // 3. Single batched execute_v2 call across all files. Outer Err
     //    (worker spawn / IPC / schema) marks every eligible file as
-    //    failed — silently emitting no-coref output would mask the
+    //    failed: silently emitting no-coref output would mask the
     //    failure as success.
     let all_responses = if batch_items.is_empty() {
         Vec::new()
@@ -429,7 +429,7 @@ async fn run_coref_batch_impl(
             continue;
         }
 
-        // Post-validation check (warn only — always serialize output for debugging).
+        // Post-validation check (warn only, always serialize output for debugging).
         if let Err(errors) = validate_output(&parsed_files[file_idx], "coref") {
             let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
             warn!(filename = %filename, errors = ?msgs, "coref post-validation warnings (non-fatal)");
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn test_file_has_english_multilingual_with_eng() {
         let parser = TreeSitterParser::new().unwrap();
-        // File declares both eng and spa — should be considered English
+        // File declares both eng and spa, should be considered English
         let chat = include_str!("../../../test-fixtures/eng_spa_bilingual_hello_world.cha");
         let (chat_file, _) = parse_lenient(&parser, chat);
         assert!(file_has_english(&chat_file).expect("eng fallback code must construct"));

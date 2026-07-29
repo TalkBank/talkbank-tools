@@ -1,7 +1,7 @@
 //! Align-pipeline driver + result aggregator for the env-gated drift
 //! integration tests.
 //!
-//! Responsibilities of this module — deliberately narrow:
+//! Responsibilities of this module, deliberately narrow:
 //!
 //! - Run `batchalign3 align` on one staged file (via [`run_one_file`]) and
 //!   classify the result as one of three [`FileOutcome`] variants.
@@ -41,7 +41,7 @@ pub fn evaluate_all_drift_assertions(parsed: &ChatFile) -> Vec<String> {
     .collect()
 }
 
-/// Record of how one file fared — used to build a single, readable panic
+/// Record of how one file fared, used to build a single, readable panic
 /// message at the end of each test. Modeled as an enum so the three failure
 /// shapes (pipeline failure, parse failure, evaluated-with-failures) are
 /// explicit at the type level and callers cannot forget to check one.
@@ -88,7 +88,7 @@ impl FileOutcome {
 
 /// Run `batchalign3 align` on one staged file and evaluate all four drift
 /// assertions against the output. Returns `None` when the file had to be
-/// skipped (missing media) — caller logs the skip and moves on.
+/// skipped (missing media): caller logs the skip and moves on.
 pub async fn run_one_file(
     jobs: &LiveDirectJobClient<'_>,
     staged: &StagedDriftFile,
@@ -128,7 +128,7 @@ pub async fn run_one_file(
         return Some(FileOutcome::PipelineFailure {
             cha_name,
             message: format!(
-                "align pipeline returned non-Completed status {:?} — surfaces as \
+                "align pipeline returned non-Completed status {:?}, surfaces as \
                  NoFaGroupInvalidAudioWindow-class failure (crash, InvalidAudioWindow, etc.)",
                 info.status
             ),
@@ -202,10 +202,10 @@ pub fn assert_all_files_pass(label: &str, outcomes: &[FileOutcome]) {
     for o in &failed {
         match o {
             FileOutcome::PipelineFailure { cha_name, message } => {
-                lines.push(format!("  - {cha_name}: PipelineFailure — {message}"));
+                lines.push(format!("  - {cha_name}: PipelineFailure: {message}"));
             }
             FileOutcome::ParseFailure { cha_name, message } => {
-                lines.push(format!("  - {cha_name}: ParseFailure — {message}"));
+                lines.push(format!("  - {cha_name}: ParseFailure: {message}"));
             }
             FileOutcome::Evaluated {
                 cha_name,

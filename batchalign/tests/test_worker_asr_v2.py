@@ -316,7 +316,7 @@ def test_whisper_chunk_inverted_timestamps_are_clamped(tmp_path: Path) -> None:
 def test_whisper_chunk_span_v2_rejects_inverted_timestamps() -> None:
     """Verify the Pydantic validator catches inverted timestamps.
 
-    This is the safety net — if the clamping in infer_whisper_prepared_audio
+    This is the safety net, if the clamping in infer_whisper_prepared_audio
     is ever bypassed, the validator must reject.
     """
     import pytest

@@ -1,4 +1,4 @@
-//! Input resolution — mirrors `_resolve_inputs()` in `batchalign/cli/dispatch.py`.
+//! Input resolution: mirrors `_resolve_inputs()` in `batchalign/cli/dispatch.py`.
 
 use std::path::{Path, PathBuf};
 

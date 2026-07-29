@@ -1,8 +1,8 @@
 """Audio I/O and lazy-loading container for ASR/FA inference.
 
 Provides:
-- ``ASRAudioFile`` — lazy/eager audio container with LRU chunk cache
-- ``load_audio``, ``save_audio``, ``audio_info`` — soundfile-backed I/O
+- ``ASRAudioFile``: lazy/eager audio container with LRU chunk cache
+- ``load_audio``, ``save_audio``, ``audio_info``: soundfile-backed I/O
 - Whisper token-timestamp helpers used to bind an instance-local extractor
   instead of globally patching the model class
 """

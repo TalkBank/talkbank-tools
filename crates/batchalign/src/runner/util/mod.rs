@@ -46,7 +46,7 @@ mod tests {
     use crate::runtime;
 
     /// Resolve an [`EffectiveConfig`] for a test against the live
-    /// host's detected facts — same wiring as production
+    /// host's detected facts, same wiring as production
     /// `DispatchHostContext::from_store`. Tests on Apple Silicon vs
     /// CUDA hosts will see different `gpu_thread_pool_size`
     /// recommendations, so the `compute_workers_*` assertions use
@@ -99,7 +99,7 @@ mod tests {
         // clamps by `available_parallelism()` and per-category caps,
         // both of which are host-derived and shrink on small CI
         // runners. The right invariant is `1 <= result <= explicit`
-        // — same shape as `compute_workers_auto_tune_caps_at_max`
+        //, same shape as `compute_workers_auto_tune_caps_at_max`
         // below. Asserting `==` overspecified and only worked on
         // many-core dev machines.
         let config = ServerConfig {
@@ -665,7 +665,7 @@ mod tests {
         let staged_result = resolve_audio_for_chat(&staged_cha).await;
         assert!(staged_result.is_none(), "No audio in staging dir");
 
-        // Strategy 2 (source_dir): should succeed — this is the fix
+        // Strategy 2 (source_dir): should succeed; this is the fix
         let source_path = source_dir.path().join("ACWT01a.cha");
         let source_result = resolve_audio_for_chat(&source_path).await;
         assert!(source_result.is_some(), "Should find audio via source_dir");

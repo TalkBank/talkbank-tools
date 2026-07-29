@@ -30,7 +30,7 @@ def test_load_stanza_models_rejects_language_with_no_packages() -> None:
         load_stanza_models(LanguageCode("mal"))
     msg = str(exc_info.value).lower()
     assert "mal" in msg
-    # The error should be actionable — name the language, not just
+    # The error should be actionable, name the language, not just
     # bubble up a deep library-internal KeyError.
     assert "stanza" in msg or "packages" in msg or "support" in msg
 

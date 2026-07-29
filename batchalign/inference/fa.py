@@ -1,6 +1,6 @@
 """Forced alignment inference: audio+text -> timings.
 
-Pure inference — no CHAT, no caching, no pipeline.
+Pure inference, no CHAT, no caching, no pipeline.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def load_whisper_fa(
     else:
         torch_dtype = torch.float32
 
-    # Multi-GB Whisper FA model download — make the wait visible. Probe
+    # Multi-GB Whisper FA model download, make the wait visible. Probe
     # the full Whisper artifact set so a partial-cache state (e.g.,
     # tokenizer.json evicted while weights remain) still triggers a
     # download notification.
@@ -373,7 +373,7 @@ def batch_infer_fa(
                     whisper_results = infer_whisper_fa(
                         whisper_model, audio_chunk, detokenized, pauses=item.pauses
                     )
-                # Always return raw tokens — Rust handles alignment.
+                # Always return raw tokens, Rust handles alignment.
                 response_data = WhisperFaResponse(
                     tokens=[
                         FaRawToken(text=text, time_s=t)

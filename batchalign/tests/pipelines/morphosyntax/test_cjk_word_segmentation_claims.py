@@ -23,13 +23,13 @@ import pytest
 #
 # batchalign3's FunASR bridge (`_funaudio_common.py`) calls
 # `cantonese_char_tokens()` in Rust, which splits text into per-character tokens.
-# This is by design — FunASR returns raw text, and batchalign3 splits into
+# This is by design, FunASR returns raw text, and batchalign3 splits into
 # characters for timestamp alignment. The result is per-character main tier words.
 # =============================================================================
 
 
 class TestClaim1_FunASR_PerCharacter:
-    """FunASR Cantonese output is per-character — no word boundaries."""
+    """FunASR Cantonese output is per-character, no word boundaries."""
 
     def test_funasr_cantonese_produces_per_char_tokens(self) -> None:
         """FunASR Cantonese transcription splits into individual characters.
@@ -43,7 +43,7 @@ class TestClaim1_FunASR_PerCharacter:
         # Simulates FunASR output: "故事係好" (a story is good)
         tokens = batchalign_core.cantonese_char_tokens("故事係好")
         assert tokens == ["故", "事", "係", "好"], (
-            "Each CJK character should be a separate token — "
+            "Each CJK character should be a separate token, "
             "this is the per-character problem that --retokenize solves"
         )
 
@@ -62,14 +62,14 @@ class TestClaim1_FunASR_PerCharacter:
     def test_funasr_sentence_all_single_chars(self) -> None:
         """A realistic Cantonese sentence produces only single-char tokens.
 
-        '我想食嘢' (I want to eat something) — 4 characters, should be 2-3 words
+        '我想食嘢' (I want to eat something), 4 characters, should be 2-3 words
         but FunASR produces 4 single-char tokens.
         """
         import batchalign_core
 
         tokens = batchalign_core.cantonese_char_tokens("我想食嘢")
         assert all(len(t) == 1 for t in tokens), (
-            "Every token should be a single character — "
+            "Every token should be a single character, "
             "this is the per-character problem"
         )
         assert len(tokens) == 4
@@ -160,7 +160,7 @@ class TestClaim3_PyCantonese_Segmentation:
 
         result = pycantonese.segment("故事")
         assert result == ["故事"], (
-            "'故事' is a single Cantonese word meaning 'story' — "
+            "'故事' is a single Cantonese word meaning 'story', "
             "PyCantonese should keep it together"
         )
 
@@ -169,7 +169,7 @@ class TestClaim3_PyCantonese_Segmentation:
 
         '我想食嘢' = 我 (I) + 想 (want) + 食 (eat) + 嘢 (thing/stuff)
         These are all single-character words in Cantonese, so the segmenter
-        should return 4 items — same as character count in this case.
+        should return 4 items, same as character count in this case.
         """
         import pycantonese
 
@@ -194,19 +194,19 @@ class TestClaim3_PyCantonese_Segmentation:
 
         # '佢哋' should be one word, not split into '佢' + '哋'
         assert "佢哋" in result, (
-            "'佢哋' (they) is a two-character word — "
+            "'佢哋' (they) is a two-character word, "
             "PyCantonese should keep it together"
         )
 
         # '鍾意' should be one word, not split into '鍾' + '意'
         assert "鍾意" in result, (
-            "'鍾意' (to like) is a two-character word — "
+            "'鍾意' (to like) is a two-character word, "
             "PyCantonese should keep it together"
         )
 
         # Total word count should be less than character count
         assert len(result) < len("佢哋好鍾意食嘢"), (
-            f"Word count ({len(result)}) should be less than character count (7) — "
+            f"Word count ({len(result)}) should be less than character count (7), "
             "that's the whole point of word segmentation"
         )
 
@@ -257,10 +257,10 @@ class TestClaim4_Mandarin_Stanza_Segmentation:
     def test_stanza_chinese_tokenizer_segments_multichar_words(self) -> None:
         """Stanza's zh tokenizer groups characters into multi-character words.
 
-        '我去商店买东西' (I go to the store to buy things) — Stanza should
+        '我去商店买东西' (I go to the store to buy things), Stanza should
         produce fewer tokens than there are characters, proving it does
         word segmentation. Verified output: ['我', '去', '商店', '买', '东', '西']
-        — '商店' (store) is correctly grouped; Stanza splits '东西' because
+        - '商店' (store) is correctly grouped; Stanza splits '东西' because
         the characters are individually meaningful ('east'/'west').
         """
         import stanza
@@ -278,7 +278,7 @@ class TestClaim4_Mandarin_Stanza_Segmentation:
 
         assert "".join(words) == "我去商店买东西", "All characters must be preserved"
         assert len(words) < 7, (
-            f"Stanza should produce fewer than 7 tokens (got {len(words)}): {words} — "
+            f"Stanza should produce fewer than 7 tokens (got {len(words)}): {words}, "
             "at least some multi-character words should be grouped"
         )
         # '商店' (store) is a clear compound that Stanza groups
@@ -286,7 +286,7 @@ class TestClaim4_Mandarin_Stanza_Segmentation:
 
     @pytest.mark.golden
     def test_stanza_pretokenized_true_preserves_chars(self) -> None:
-        """With pretokenized=True, Stanza does NOT re-segment — chars stay separate.
+        """With pretokenized=True, Stanza does NOT re-segment, chars stay separate.
 
         This is the default (non-retokenize) behavior. Each input token is
         treated as a pre-segmented word.

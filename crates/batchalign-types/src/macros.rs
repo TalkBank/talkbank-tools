@@ -4,7 +4,7 @@
 //! types. The canonical copy lives in `batchalign-types`.
 //!
 //! All generated types use `#[serde(transparent)]` so the wire format is
-//! unchanged — JSON values remain bare strings or numbers.
+//! unchanged: JSON values remain bare strings or numbers.
 
 /// Declare a `String`-wrapping newtype with serde-transparent serialization.
 ///
@@ -72,7 +72,7 @@ macro_rules! string_id {
 /// and skip validation. They exist for trusted boundaries (HTTP path params
 /// extracted by axum, DB rows, test code). Untrusted input goes through the
 /// validating `Deserialize` impl. A full `TryFrom` migration is tracked but
-/// would touch hundreds of call sites — see CLAUDE.md rule 6a.
+/// would touch hundreds of call sites, see CLAUDE.md rule 6a.
 ///
 /// Generates: `From<String>`, `From<&str>`, custom `Deserialize` (rejects
 /// empty), `Display`, `Deref<Target=str>`, `AsRef<str>`.
@@ -149,7 +149,7 @@ macro_rules! validated_string_id {
             fn borrow(&self) -> &str { &self.0 }
         }
 
-        // No Default impl — an empty identifier is always a bug.
+        // No Default impl: an empty identifier is always a bug.
     };
     (@validation $name:ident |$v:ident| $check:block, $msg:expr) => {
         impl<'de> serde::Deserialize<'de> for $name {

@@ -130,7 +130,7 @@ pub enum WorkerError {
     /// For deterministic bootstrap failures (missing model files, catalog
     /// download failures, unsupported language), the worker emits the
     /// `{"op":"error", "kind":"bootstrap"}` wire shape, which decodes into
-    /// the [`Bootstrap`] variant instead — those are non-retryable.
+    /// the [`Bootstrap`] variant instead; those are non-retryable.
     ///
     /// [`Bootstrap`]: WorkerError::Bootstrap
     #[error("worker returned error: {0}")]
@@ -150,7 +150,7 @@ pub enum WorkerError {
     /// a full traceback per attempt is the bug shape this variant exists
     /// to prevent. The orchestrator classifies this as non-retryable and
     /// surfaces the typed message verbatim to the user (network error,
-    /// disk full, authentication failure, etc. — all actionable).
+    /// disk full, authentication failure, etc., all actionable).
     #[error("worker bootstrap error: {0}")]
     Bootstrap(String),
 

@@ -70,7 +70,7 @@ handoffs into the Rust binary:
 ## Build Commands
 
 ```bash
-# Development rebuild (debug, fast — incremental)
+# Development rebuild (debug, fast, incremental)
 uv run maturin develop -m crates/batchalign-pyo3/Cargo.toml \
     -F pyo3/extension-module
 # Or via the Makefile target chain (build wheel + install into the dev env):

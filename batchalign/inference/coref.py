@@ -1,6 +1,6 @@
 """Stanza coreference inference: sentences -> coref chains.
 
-Pure inference — no CHAT, no caching, no pipeline.
+Pure inference, no CHAT, no caching, no pipeline.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class CorefRawAnnotation(BaseModel):
 
 
 class CorefRawResponse(BaseModel):
-    """Raw structured coref response — Rust builds bracket notation from this."""
+    """Raw structured coref response: Rust builds bracket notation from this."""
 
     annotations: list[CorefRawAnnotation]
 

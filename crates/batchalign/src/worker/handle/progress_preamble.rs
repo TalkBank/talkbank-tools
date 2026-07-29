@@ -10,7 +10,7 @@
 //!
 //! Every supervisor-side read site that follows a request whose
 //! handler can trigger a model load must tolerate `progress_v2`
-//! preamble — otherwise the very first job that triggers the
+//! preamble: otherwise the very first job that triggers the
 //! download fails with
 //! `unexpected response for {op}: ProgressV2 { ... }` and the
 //! supervisor aborts. The 2026-05-06 morphotag incident
@@ -98,7 +98,7 @@ impl WorkerHandle {
             match response {
                 WorkerResponse::ProgressV2 { event } => {
                     // Forward to the optional progress channel. Drop
-                    // silently if the channel is closed or full —
+                    // silently if the channel is closed or full
                     // progress is observability, not flow control, and
                     // a slow consumer must not stall the worker.
                     if let Some(tx) = progress_tx {
@@ -117,9 +117,9 @@ impl WorkerHandle {
     /// [`Self::read_response`], which preserves the BrokenPipe →
     /// `drain_stderr_tail` → `WorkerError::ProcessExited` attribution
     /// the static helper cannot do (it has no access to the child or
-    /// stderr handle). The dispatch contract — skip every
+    /// stderr handle). The dispatch contract, skip every
     /// `ProgressV2`, optionally forward to the channel, return the
-    /// first non-progress response — is identical.
+    /// first non-progress response: is identical.
     pub(super) async fn read_response_skipping_progress_via_self(
         &mut self,
         deadline: Instant,
@@ -177,7 +177,7 @@ mod progress_preamble_tests {
 
     /// Concrete final-response JSON fragments matching what the Python
     /// worker emits for each request type. We deliberately pick minimal
-    /// payloads — the shape only has to deserialize, not be
+    /// payloads: the shape only has to deserialize, not be
     /// semantically meaningful.
     const HEALTH_RESPONSE: &str = concat!(
         r#"{"op": "health", "response": {"status": "ok", "command": "infer:morphosyntax", "lang": "eng", "pid": 4242, "uptime_s": 12.5}}"#,
@@ -321,7 +321,7 @@ mod progress_preamble_tests {
 
     #[tokio::test]
     async fn surfaces_worker_error_response_directly() {
-        // Error responses must reach the caller as-is — they are not
+        // Error responses must reach the caller as-is; they are not
         // progress to skip. The caller decides how to interpret kind.
         let mut r = BufReader::new(ERROR_RESPONSE.as_bytes());
         let resp = WorkerHandle::read_response_skipping_progress(&mut r, generous_deadline(), None)
@@ -352,7 +352,7 @@ mod progress_preamble_tests {
 
     #[tokio::test]
     async fn returns_protocol_error_when_deadline_elapses() {
-        // Pending reader that yields nothing — the deadline must fire
+        // Pending reader that yields nothing, the deadline must fire
         // and surface a typed timeout error. We use a `pending()` reader
         // wrapped to satisfy the AsyncBufRead bound.
         let mut r = BufReader::new(tokio::io::empty());
@@ -360,7 +360,7 @@ mod progress_preamble_tests {
         // tokio::io::empty() returns 0-byte reads immediately, which
         // signals EOF to read_line. Use a never-resolving reader
         // instead to test the deadline.
-        let pending_reader = tokio::io::repeat(0u8); // produces zero bytes forever — never a newline
+        let pending_reader = tokio::io::repeat(0u8); // produces zero bytes forever, never a newline
         let mut r2 = BufReader::new(pending_reader);
         let near_deadline = Instant::now() + Duration::from_millis(50);
         let result =
@@ -374,7 +374,7 @@ mod progress_preamble_tests {
     #[tokio::test]
     async fn rejects_undecodable_json_with_protocol_error() {
         // A JSON object that doesn't match any WorkerResponse variant
-        // must surface as a Protocol error — silently dropping it
+        // must surface as a Protocol error, silently dropping it
         // would mask wire-protocol bugs.
         let stdout = "{\"op\": \"this-is-not-a-real-variant\", \"foo\": 1}\n";
         let mut r = BufReader::new(stdout.as_bytes());

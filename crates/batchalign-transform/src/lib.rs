@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-// Test code is exempt from this crate's `deny`-level panic lints —
+// Test code is exempt from this crate's `deny`-level panic lints
 // see `docs/panic-audit/talkbank-transform.md`.
 #![cfg_attr(
     test,

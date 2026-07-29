@@ -34,7 +34,7 @@ pub fn apply_fa_results(
     let mut decisions = Vec::new();
     // 0. Strip stale decision tiers (%xalign / %xrev) from any previous FA run.
     //
-    // This must happen unconditionally — not gated on whether new decisions will
+    // This must happen unconditionally, not gated on whether new decisions will
     // be produced.  Without an unconditional strip, a clean re-run (no new
     // decisions) leaves the previous run's tiers in place; the NEXT run that
     // DOES produce decisions then appends to them, creating duplicates.
@@ -100,7 +100,7 @@ pub fn apply_fa_results(
     // utterances that had "imperfect but usable" timings, causing severe
     // regressions vs batchalign 0.8.x (up to 60% timing loss on real data).
     // The CHAT validator in talkbank-tools flags these violations after the
-    // fact — the FA pipeline should not silently destroy timing data.
+    // fact: the FA pipeline should not silently destroy timing data.
 
     decisions
 }
@@ -271,7 +271,7 @@ pub fn enforce_monotonicity(
             if next_start <= start_ms {
                 // Clamping would produce a zero-or-negative-duration
                 // bullet (next_start ≤ prev.start), which fails E362.
-                // Strip the bullet entirely — untimed is safer than invalid.
+                // Strip the bullet entirely, untimed is safer than invalid.
                 decisions.push(DecisionRecord::new_and_trace(
                     prev_idx,
                     prev_utt.main.speaker.as_str().to_string(),
@@ -334,7 +334,7 @@ pub fn enforce_monotonicity(
 /// also carries a `%wor` tier with the same backward timestamps, the NEXT
 /// re-run will enter the `has_reusable_wor_timing` fast path, call
 /// `refresh_existing_alignment`, and reconstruct the backward bullet from
-/// the stale `%wor` data — reintroducing the E362 violation.
+/// the stale `%wor` data, reintroducing the E362 violation.
 ///
 /// This function removes the `%wor` tier from every utterance that
 /// `enforce_monotonicity` stripped, breaking the re-run cycle:
@@ -361,7 +361,7 @@ pub fn strip_wor_from_monotonicity_stripped_utterances(
 
     // Collect the line indices of utterances that had their bullets stripped
     // (as opposed to end-clamped, which still have valid timing).
-    // Typically 0–2 utterances, so a small Vec is cheaper than a HashSet.
+    // Typically 0-2 utterances, so a small Vec is cheaper than a HashSet.
     let stripped: Vec<usize> = decisions
         .iter()
         .filter(|d| {

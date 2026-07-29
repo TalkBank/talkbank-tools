@@ -59,7 +59,7 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
         false,
     );
 
-    // Simulate fa/mod.rs step 9d — the BUGGY path: only injects (and strips)
+    // Simulate fa/mod.rs step 9d, the BUGGY path: only injects (and strips)
     // when decisions is non-empty.  Clean re-run → decisions is empty → no
     // strip → old tiers remain.
     if !decisions.is_empty() {
@@ -74,7 +74,7 @@ fn test_rerun_fa_strips_stale_x_tiers_even_when_no_new_decisions() {
     let xalign_count = output.matches("%xalign:").count();
     let xrev_count = output.matches("%xrev:").count();
 
-    // After a clean re-run, ALL old %xalign and %xrev tiers must be gone — even
+    // After a clean re-run, ALL old %xalign and %xrev tiers must be gone, even
     // when no new decisions were made.  Leaving stale tiers from the previous
     // run means the NEXT run that produces decisions will append to them,
     // producing duplicates.
@@ -355,7 +355,7 @@ fn test_fa_clears_zero_duration_authoritative_bullet_when_fa_produces_no_word_ti
         "test setup: bullet must be zero-duration"
     );
 
-    // FA returns all None — e.g. the FA engine cannot align a single letter.
+    // FA returns all None, e.g. the FA engine cannot align a single letter.
     let groups = vec![FaGroup {
         audio_span: TimeSpan::new(245000, 247000),
         words: vec![FaWord {
@@ -405,9 +405,9 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
     let mut chat = parse_chat(chat_text);
 
     // FA groups: each utterance is its own group.
-    // Group 0 (correct): "alright" aligned to audio at 731556–733418.
+    // Group 0 (correct): "alright" aligned to audio at 731556-733418.
     // Group 1 (wrong window): "so take a look …" aligned to earlier window at
-    //   639000–641000ms — FA returns timings relative to that wrong window.
+    //   639000-641000ms: FA returns timings relative to that wrong window.
     let groups = vec![
         FaGroup {
             audio_span: TimeSpan::new(731000, 735000),
@@ -469,9 +469,9 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
     // FA responses: group 1 returns timings from the wrong window (backward
     // relative to group 0's correct 731556ms start).
     let responses = vec![
-        // Group 0: "alright" — correct.
+        // Group 0: "alright": correct.
         vec![Some(WordTiming::new(731556, 733418))],
-        // Group 1: wrong window — all timings < 731556ms.
+        // Group 1: wrong window, all timings < 731556ms.
         vec![
             Some(WordTiming::new(639095, 639300)),
             Some(WordTiming::new(639400, 639600)),
@@ -502,7 +502,7 @@ fn test_fa_backward_timestamp_from_wrong_audio_window_is_stripped() {
         utt1.main.content.bullet
     );
 
-    // utt 0 must be unaffected — it was correctly timed.
+    // utt 0 must be unaffected; it was correctly timed.
     let utt0 = get_utterance(&chat, 0);
     let b0 = utt0
         .main

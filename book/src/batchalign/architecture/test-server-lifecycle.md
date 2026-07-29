@@ -175,7 +175,7 @@ sequenceDiagram
     Note over WP: Workers registered in pool<br/>PID files written to ~/.batchalign3/worker-pids/
 
     WP-->>RS: PreparedWorkers { pool, infer_tasks }
-    Note over RS: Backend ready — all subsequent<br/>Acquire commands reuse these workers
+    Note over RS: Backend ready, all subsequent<br/>Acquire commands reuse these workers
 ```
 
 ## Per-test session lifecycle

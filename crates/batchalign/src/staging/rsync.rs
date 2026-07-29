@@ -10,7 +10,7 @@
 //! # Error handling
 //!
 //! rsync exit codes are mapped to [`StagingError`] variants. Non-zero exit
-//! always fails the staging step — there is no retry at this level. The
+//! always fails the staging step; there is no retry at this level. The
 //! orchestrator decides whether to retry or fail the job.
 
 use std::path::{Path, PathBuf};

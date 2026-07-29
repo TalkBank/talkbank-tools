@@ -1,4 +1,4 @@
-//! `CatalogEntry` — static metadata for one entry in the
+//! `CatalogEntry`: static metadata for one entry in the
 //! `recipe_command_catalog()`.
 //!
 //! Renamed from `CommandSpec` in Phase β to free the `CommandSpec`

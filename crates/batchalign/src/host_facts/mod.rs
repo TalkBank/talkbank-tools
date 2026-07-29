@@ -1,4 +1,4 @@
-//! `HostFacts` — single source of truth for "what is this host?".
+//! `HostFacts`: single source of truth for "what is this host?".
 //!
 //! The architectural goal: every piece of code that needs to know "does
 //! this host have a GPU?", "how much RAM is available?", "what OS is
@@ -16,10 +16,10 @@
 //! without waiting for live detection to be implemented.
 //!
 //! Layering:
-//! - `os.rs` — `OperatingSystem`, `CpuArch`
-//! - `gpu.rs` — `GpuPresence`, `MpsExclusionReason`
-//! - `warnings.rs` — `DetectionWarning`
-//! - `mod.rs` (this file) — `HostFacts`, `HostFactsSource` trait,
+//! - `os.rs`: `OperatingSystem`, `CpuArch`
+//! - `gpu.rs`: `GpuPresence`, `MpsExclusionReason`
+//! - `warnings.rs`: `DetectionWarning`
+//! - `mod.rs` (this file), `HostFacts`, `HostFactsSource` trait,
 //!   `RealHostFactsSource` and `MockHostFactsSource` impls.
 
 pub mod effective;
@@ -90,11 +90,11 @@ pub struct HostFacts {
     /// means the path was not resolvable at detection time.
     pub disk_free_mb_for_cache: Option<u64>,
     /// The host's name (Tailscale hostname or `hostname` output).
-    /// Display-only — used for logging and `doctor` output, not as a
+    /// Display-only: used for logging and `doctor` output, not as a
     /// domain identifier.
     pub hostname: String,
     /// When detection ran. Useful for "is this snapshot still fresh?"
-    /// questions later — though for now the snapshot lives for the
+    /// questions later, though for now the snapshot lives for the
     /// process lifetime.
     pub detection_timestamp: UnixTimestamp,
     /// Non-fatal probe failures encountered during detection. The
@@ -108,8 +108,8 @@ pub struct HostFacts {
 /// The trait exists so production code (which detects from the live
 /// host) and tests (which want to assert against synthetic fact shapes
 /// like "Apple Silicon 64 GB" or "Linux + CUDA 256 GB") can share one
-/// interface. The two impls in this module — `RealHostFactsSource` and
-/// `MockHostFactsSource` — cover those two needs.
+/// interface. The two impls in this module, `RealHostFactsSource` and
+/// `MockHostFactsSource`: cover those two needs.
 ///
 /// `Arc<dyn HostFactsSource + Send + Sync>` is the expected handle type
 /// in `AppState` once Phase C wires the source into the runtime; this
@@ -120,12 +120,12 @@ pub trait HostFactsSource: Send + Sync {
     ///
     /// Production impls perform live detection and return what they see;
     /// the `Mock` impl returns the struct it was constructed from. Either
-    /// way, the snapshot is owned — callers may store, share via `Arc`,
+    /// way, the snapshot is owned, callers may store, share via `Arc`,
     /// or pass to pure functions without ceremony.
     fn detect(&self) -> HostFacts;
 }
 
-/// Production source — detects facts from the running host.
+/// Production source: detects facts from the running host.
 ///
 /// Each field is populated from the existing scattered helpers so the
 /// new consolidator is **consistent** with the live runtime's view of
@@ -133,7 +133,7 @@ pub trait HostFactsSource: Send + Sync {
 ///
 /// Field-by-field provenance:
 /// - `ram_total_mb` / `ram_available_mb`: `host_memory::detect_total_memory_mb`
-///   / `detect_available_memory_mb` — the same helpers
+///   / `detect_available_memory_mb`: the same helpers
 ///   the host-memory coordinator uses.
 /// - `cpu_logical_count`: `std::thread::available_parallelism`.
 /// - `cpu_physical_count`: same as logical for now; refined in a later
@@ -151,8 +151,8 @@ pub trait HostFactsSource: Send + Sync {
 /// - `detection_warnings`: empty until probes can fail (Phase A4
 ///   onwards populates `nvidia-smi` failure modes).
 ///
-/// Calling `detect()` is cheap — sysinfo polls are millisecond-scale
-/// — but it is intended to run **once** at server startup; the result
+/// Calling `detect()` is cheap, sysinfo polls are millisecond-scale
+///, but it is intended to run **once** at server startup; the result
 /// is cached for the process lifetime in `AppState` (wired in Phase C).
 #[derive(Debug, Default)]
 pub struct RealHostFactsSource;
@@ -210,7 +210,7 @@ impl HostFactsSource for RealHostFactsSource {
     }
 }
 
-/// Test source — returns a pre-constructed `HostFacts`.
+/// Test source: returns a pre-constructed `HostFacts`.
 ///
 /// The point is to let `recommend()` and `validate()` table tests
 /// synthesize arbitrary host shapes (small CPU-only laptop, large CUDA
@@ -282,7 +282,7 @@ mod tests {
 
     /// On an Apple Silicon dev/fleet host, live detection must surface
     /// `AppleMps { functional_for_batchalign: false, reason:
-    /// AppleSiliconKernelDeadlock }` — the policy decision that
+    /// AppleSiliconKernelDeadlock }`: the policy decision that
     /// downstream `recommend()` and `validate()` both depend on.
     ///
     /// This is the integration test for Phase A4 of the migration
@@ -348,7 +348,7 @@ mod tests {
             facts.ram_total_mb,
             detect_total_memory_mb().0,
             "HostFacts ram_total_mb must equal host_memory::detect_total_memory_mb \
-             — they are the same physical fact, polled through different APIs"
+             - they are the same physical fact, polled through different APIs"
         );
         assert!(
             facts.ram_total_mb > 0,

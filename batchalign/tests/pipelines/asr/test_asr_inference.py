@@ -2,7 +2,7 @@
 """Tests for ASR inference boundary models and Whisper helpers.
 
 Exercises the Pydantic models and the two remaining local Whisper helpers.
-No ML models are required — the tests use structured runtime doubles.
+No ML models are required, the tests use structured runtime doubles.
 """
 
 from __future__ import annotations
@@ -425,7 +425,7 @@ class TestWhisperLoader:
             [5, 3], [5, 9], [8, 0], [8, 4], [8, 8],
             [9, 0], [9, 7], [9, 9], [10, 5],
         ]
-        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock) — even with
+        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock), even with
         # MPS available, the loader selects CPU. Cantonese config overrides
         # (alignment_heads, no_timestamps_token_id) are language-dependent, not
         # device-dependent, and must still be applied.

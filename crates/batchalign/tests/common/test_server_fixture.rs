@@ -7,7 +7,7 @@
 //! every test that today calls a bespoke `start_test_server` helper.
 //!
 //! Each test still gets a fresh axum server instance, jobs/cache
-//! directories, and SQLite state — only the worker pool is shared.
+//! directories, and SQLite state, only the worker pool is shared.
 //!
 //! Why a dedicated runtime thread: the prepared workers and their
 //! axum servers must outlive any individual test's tokio runtime.
@@ -16,7 +16,7 @@
 //! thread with its own multi-threaded runtime owns the workers and
 //! per-session servers; tests communicate via `mpsc` and HTTP.
 //!
-//! Unlike the live ML fixture, sessions here are NOT singleton —
+//! Unlike the live ML fixture, sessions here are NOT singleton
 //! tests may run concurrently against the same warmed pool.
 // Integration tests are exempt from the crate's deny-level panic lints,
 // matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern
@@ -306,7 +306,7 @@ fn start_fixture_thread() -> Arc<FixtureBridge> {
 }
 
 /// Run loop for the dedicated fixture runtime thread. Owns all shared
-/// state — prepared backend and active sessions — and processes one
+/// state, prepared backend and active sessions, and processes one
 /// command at a time. Concurrent acquires from many tests are still
 /// possible because each command is short (binding a port, spawning
 /// axum) and per-session work happens on the runtime's task pool.
@@ -423,7 +423,7 @@ async fn start_session(
         .ok();
     });
 
-    // 50 ms matches `cli_common::start_test_server`'s historical settle —
+    // 50 ms matches `cli_common::start_test_server`'s historical settle
     // axum::serve's accept loop only starts when the spawned task gets
     // polled, and a too-fast first request races that scheduling.
     tokio::time::sleep(Duration::from_millis(50)).await;

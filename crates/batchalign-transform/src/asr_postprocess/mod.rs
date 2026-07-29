@@ -8,15 +8,15 @@
 //!
 //! # Pipeline stages
 //!
-//! 1. **Compound merging** — merge adjacent words that form known compounds
-//! 2. **Multi-word splitting** — split tokens containing spaces, interpolate timestamps
-//! 3. **Number expansion** — convert digit strings to word form
-//! 4. **Cantonese normalization** — simplified→HK traditional + domain replacements (lang=yue only)
-//! 5. **Long turn splitting** — chunk monologues >300 words
-//! 6. **Retokenization** — split into utterances by punctuation
-//! 7. **Disfluency replacement** — mark filled pauses ("um" → "&-um") and orthographic
+//! 1. **Compound merging**: merge adjacent words that form known compounds
+//! 2. **Multi-word splitting**: split tokens containing spaces, interpolate timestamps
+//! 3. **Number expansion**: convert digit strings to word form
+//! 4. **Cantonese normalization**: simplified→HK traditional + domain replacements (lang=yue only)
+//! 5. **Long turn splitting**, chunk monologues >300 words
+//! 6. **Retokenization**: split into utterances by punctuation
+//! 7. **Disfluency replacement**: mark filled pauses ("um" → "&-um") and orthographic
 //!    replacements ("'cause" → "(be)cause") from per-language wordlists
-//! 8. **N-gram retrace detection** — detect repeated n-grams and wrap in `<...> [/]`
+//! 8. **N-gram retrace detection**, detect repeated n-grams and wrap in `<...> [/]`
 //!
 //! The implementation is split by stage so callers can find preparation,
 //! number-expansion, chunking, and utterance-finalization logic quickly.
@@ -72,7 +72,7 @@ pub enum WordKind {
     /// Normal content word (or filled pause already in `&-um` form).
     #[default]
     Regular,
-    /// This word is part of a retrace group — a repeated n-gram that
+    /// This word is part of a retrace group, a repeated n-gram that
     /// should be wrapped in `<...> [/]` annotation in the CHAT output.
     Retrace,
 }
@@ -184,7 +184,7 @@ pub(super) const ENDING_PUNCT: &[&str] = &[
 
 /// CHAT morphological punctuation markers.
 ///
-/// Main-tier-legal separators that are NOT words — the tree-sitter
+/// Main-tier-legal separators that are NOT words, the tree-sitter
 /// word fragment parser rejects them as such. `ChatWordText`'s
 /// structural_check uses this list as a second short-circuit
 /// alongside `Terminator::is_chat_terminator` so the ASR pipeline

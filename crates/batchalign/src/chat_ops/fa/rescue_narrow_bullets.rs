@@ -1,9 +1,9 @@
 //! Pre-FA rescue for catastrophically narrow utterance bullets.
 //!
 //! When `transcribe` produces an utterance bullet that is physically too
-//! narrow to contain the utterance's words — for example, a 22-word
+//! narrow to contain the utterance's words, for example, a 22-word
 //! sentence stamped as a 380 ms span (~58 words per second, impossible
-//! for human speech) — the FA pipeline cannot align the words against
+//! for human speech): the FA pipeline cannot align the words against
 //! the bullet's audio range. Wave2Vec rejects the group with "targets
 //! length is too long for CTC" because there are far more word labels
 //! than encoder frames, and the Whisper FA fallback path produces
@@ -41,7 +41,7 @@ use batchalign_transform::decisions::DecisionRecord;
 // ---------------------------------------------------------------------------
 
 /// Word density above which a bullet is considered physically impossible
-/// — the **catastrophic** trigger for the rescue.
+///: the **catastrophic** trigger for the rescue.
 ///
 /// Normal English speech is 2-7 words per second; rapid news-anchor delivery
 /// reaches ~9 wps; auctioneer or rap is in the 12-15 wps range. Anything
@@ -52,7 +52,7 @@ use batchalign_transform::decisions::DecisionRecord;
 /// conveys no useful information about where the speech actually lives.
 const CATASTROPHIC_DENSITY_THRESHOLD_WPS: f64 = 15.0;
 
-/// Minimum acceptable per-word duration (ms) — the **tight-but-not-broken**
+/// Minimum acceptable per-word duration (ms), the **tight-but-not-broken**
 /// trigger for the rescue.
 ///
 /// At normal conversational pace, words take 250-500 ms each (after
@@ -66,7 +66,7 @@ const CATASTROPHIC_DENSITY_THRESHOLD_WPS: f64 = 15.0;
 /// Tighter than this threshold but not catastrophic enough for the
 /// `CATASTROPHIC_DENSITY_THRESHOLD_WPS` rule, we apply a milder
 /// expansion that gives the utterance enough room for
-/// `TIGHT_BULLET_TARGET_MS_PER_WORD` per word — capped, of course, at
+/// `TIGHT_BULLET_TARGET_MS_PER_WORD` per word: capped, of course, at
 /// the next utterance's start minus the safety buffer.
 const TIGHT_BULLET_THRESHOLD_MS_PER_WORD: f64 = 250.0;
 
@@ -123,7 +123,7 @@ fn classify_bullet(word_count: usize, start_ms: u64, end_ms: u64) -> Option<Resc
         return None;
     }
     if end_ms <= start_ms {
-        // Zero or negative duration is always catastrophic — there is
+        // Zero or negative duration is always catastrophic; there is
         // no audio at all for these words.
         return Some(RescueTrigger::Catastrophic);
     }
@@ -209,7 +209,7 @@ fn rescued_end_ms(
 ///    the next, with a `SAFETY_BUFFER_MS` of margin so the FA window
 ///    cannot bleed into the next utterance's speech.
 /// 4. When there is no next utterance (last utterance in the file), the
-///    rescue does nothing — there is no upper bound to safely extend to.
+///    rescue does nothing; there is no upper bound to safely extend to.
 pub fn rescue_narrow_bullets(chat_file: &mut ChatFile) -> Vec<DecisionRecord> {
     let mut decisions = Vec::new();
 
@@ -275,7 +275,7 @@ pub fn rescue_narrow_bullets(chat_file: &mut ChatFile) -> Vec<DecisionRecord> {
             // The rescue is a routine pre-pass correction, not a sign that
             // something is broken in the user's input. Surface it via
             // `%xalign` (audit trail) but do not trigger `%xrev` (human
-            // review) — the FA result is still correct after the rescue.
+            // review): the FA result is still correct after the rescue.
             false,
         ));
     }
@@ -352,7 +352,7 @@ mod tests {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     /// Build a small CHAT file with three utterances. The middle one has a
-    /// 22-word main tier compressed into a 380 ms bullet — exactly the
+    /// 22-word main tier compressed into a 380 ms bullet, exactly the
     /// pathological pattern the rescue is designed to catch.
     fn synthetic_narrow_bullet_chat() -> String {
         // The neighbor utterances have normal-density bullets so the rescue
@@ -449,7 +449,7 @@ mod tests {
 
     #[test]
     fn rescue_tight_does_not_shrink_already_wide_bullet() {
-        // The tight trigger should never shrink a bullet — only widen.
+        // The tight trigger should never shrink a bullet, only widen.
         // The 22-word utterance below has a 12000 ms bullet, giving
         // 545 ms/word: well above the 250 ms/word tight floor and well
         // below the 15 wps catastrophic floor. The rescue must be a
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn rescue_skips_when_next_utterance_is_too_close() {
         // Synthetic file where the under-budgeted utterance has only a 100 ms
-        // gap before the next utterance — less than SAFETY_BUFFER_MS, so the
+        // gap before the next utterance, less than SAFETY_BUFFER_MS, so the
         // rescue must do nothing rather than introduce overlap.
         let chat = "@UTF8\n\
                     @Begin\n\

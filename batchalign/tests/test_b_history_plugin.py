@@ -4,13 +4,13 @@
 
 Phase B2: verifies that running a small pytest invocation in a
 subprocess produces rows in the SQLite history DB. Must run pytest
-in a subprocess — the current test's own run is already inside a
+in a subprocess: the current test's own run is already inside a
 pytest session, so the conftest hook ran on a different DB path
 before we could point it anywhere useful.
 
 Environment contract (assertions in this test):
-  - ``BATCHALIGN_TEST_HISTORY_DB`` — if set, conftest writes there.
-  - ``BATCHALIGN_TEST_HISTORY_OFF`` — if truthy, conftest skips.
+  - ``BATCHALIGN_TEST_HISTORY_DB``: if set, conftest writes there.
+  - ``BATCHALIGN_TEST_HISTORY_OFF``: if truthy, conftest skips.
   - Default: no history written if neither env var set.
 """
 
@@ -94,7 +94,7 @@ def test_history_skipped_when_db_unset(tmp_path: Path) -> None:
 def test_xdist_writes_exactly_one_row_per_test(tmp_path: Path) -> None:
     """Under xdist the controller mirrors each worker's logreport.
     The conftest must dedupe so only the worker that ran the test
-    records — exactly one row per test regardless of worker count.
+    records: exactly one row per test regardless of worker count.
     """
     db = tmp_path / "history.sqlite"
     result = _run_pytest_subprocess(

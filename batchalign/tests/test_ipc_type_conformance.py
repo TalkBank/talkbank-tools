@@ -10,7 +10,7 @@ Pydantic models and ``ipc-schema/`` for the JSON Schema files.
 
 Cross-language contract note: this is the Python half of the schema conformance
 gate. The Rust half lives in ``crates/batchalign/tests/worker_protocol_v2_compat.rs``.
-Both sides must pass independently — a change to the wire format must update both.
+Both sides must pass independently, a change to the wire format must update both.
 The ``Cmd2Task`` constant map (formerly tested in ``test_runtime.py``) is also
 covered by the IPC schema drift check in CI (``scripts/check_ipc_type_drift.sh``).
 """
@@ -75,7 +75,7 @@ class TestBatchItemConformance:
         from batchalign.inference.utseg import UtsegBatchItem
 
         schema = _load_schema("batch_items", "UtsegBatchItem")
-        # Python has extra 'lang' field not in Rust — allow it
+        # Python has extra 'lang' field not in Rust, allow it
         _assert_fields_match(schema, UtsegBatchItem, allow_extra_python=True)
 
     def test_translate_batch_item(self) -> None:

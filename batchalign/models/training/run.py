@@ -3,7 +3,7 @@
 Invoked by Rust CLI: ``batchalign3 models train -- train ...``
 
 Data preparation (CHAT→text) is handled by the Rust CLI:
-``batchalign3 models prep`` — uses the Rust CHAT parser for correct extraction.
+``batchalign3 models prep``: uses the Rust CHAT parser for correct extraction.
 """
 from __future__ import annotations
 

@@ -13,7 +13,7 @@ use crate::worker_profile::WorkerProfile;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
-// MemoryTierKind — RAM-tier enum
+// MemoryTierKind: RAM-tier enum
 // ---------------------------------------------------------------------------
 
 /// RAM-tier classification for adaptive memory budgets.
@@ -31,9 +31,9 @@ use serde::{Deserialize, Serialize};
 pub enum MemoryTierKind {
     /// < 24 GB total RAM (laptops, CI runners)
     Small,
-    /// 24–48 GB (workstations, Frodo)
+    /// 24-48 GB (workstations, Frodo)
     Medium,
-    /// 48–128 GB (development servers)
+    /// 48-128 GB (development servers)
     Large,
     /// > 128 GB (fleet servers like net)
     Fleet,
@@ -67,7 +67,7 @@ impl std::fmt::Display for MemoryTierKind {
 }
 
 // ---------------------------------------------------------------------------
-// MemoryTier — concrete per-tier parameters
+// MemoryTier: concrete per-tier parameters
 // ---------------------------------------------------------------------------
 
 /// Concrete memory budget parameters for a detected tier.
@@ -80,7 +80,7 @@ pub struct MemoryTier {
     pub kind: MemoryTierKind,
     /// Total system RAM in MB (as detected).
     pub total_mb: u64,
-    /// Host headroom reserve — the coordinator refuses reservations that
+    /// Host headroom reserve: the coordinator refuses reservations that
     /// would leave available RAM below this threshold.
     pub headroom_mb: MemoryMb,
     /// Startup reservation for a GPU worker (Whisper, Wave2Vec, speaker).
@@ -94,22 +94,22 @@ pub struct MemoryTier {
 }
 
 impl MemoryTier {
-    /// Select a tier from total system RAM (in MB). Pure function — no
+    /// Select a tier from total system RAM (in MB). Pure function, no
     /// sysinfo dependency, fully testable with arbitrary values.
     pub fn from_total_mb(total_mb: u64) -> Self {
         //                  (kind, headroom, gpu, stanza, io, max_workers)
         let (kind, headroom, gpu, stanza, io, max_workers) = if total_mb < 24_000 {
             (MemoryTierKind::Small, 2_000, 6_000, 3_000, 2_000, 1)
         } else if total_mb < 48_000 {
-            // Medium: LazyProfile mode — GPU worker starts empty, models loaded
+            // Medium: LazyProfile mode: GPU worker starts empty, models loaded
             // on demand. Startup reservation is just process overhead (3 GB),
             // not full model weight. Max 1 worker to prevent OOM on 32 GB.
             (MemoryTierKind::Medium, 4_000, 3_000, 6_000, 3_000, 1)
         } else if total_mb < 128_000 {
-            // Large — matches existing TOML constants exactly
+            // Large: matches existing TOML constants exactly
             (MemoryTierKind::Large, 8_000, 16_000, 12_000, 4_000, 4)
         } else {
-            // Fleet — same budgets as Large, more workers
+            // Fleet, same budgets as Large, more workers
             (MemoryTierKind::Fleet, 8_000, 16_000, 12_000, 4_000, 8)
         };
         Self {
@@ -143,7 +143,7 @@ impl MemoryTier {
 /// the clamp doesn't bite (envelope == worst case); on Small/Medium
 /// the clamp lets a memory-tight host actually run.
 ///
-/// The "envelope" is the tier's per-profile startup reservation — see
+/// The "envelope" is the tier's per-profile startup reservation, see
 /// [`WorkerProfile::startup_reservation_mb_for_tier`]. That method is
 /// the canonical accessor; this estimator delegates to it.
 pub fn estimate_per_worker_peak_mb_with_profile(
@@ -165,7 +165,7 @@ pub fn estimate_per_worker_peak_mb_with_profile(
 /// This is the canonical estimator per spec Principle 2. Admission
 /// sites consult this; none recompute from primitives.
 ///
-/// `is_gpu_heavy` is the GPU/Stanza classification — true iff the
+/// `is_gpu_heavy` is the GPU/Stanza classification, true iff the
 /// command needs a GPU worker. Today the caller looks this up from
 /// `runtime_constants.toml::gpu_heavy_commands` via the legacy adapter
 /// `runtime::estimate_per_worker_peak_mb_legacy`. Phase β Task 4 will

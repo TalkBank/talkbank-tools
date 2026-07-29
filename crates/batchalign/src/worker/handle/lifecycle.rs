@@ -1,4 +1,4 @@
-//! Worker process lifecycle management — startup helpers, shutdown, and cleanup.
+//! Worker process lifecycle management, startup helpers, shutdown, and cleanup.
 //!
 //! Contains the startup error handling (stderr draining, error augmentation),
 //! graceful and forced shutdown sequences, the `Drop` impl for emergency
@@ -49,7 +49,7 @@ impl WorkerHandle {
     /// 2026-05-06 (`provider_terminal` errors with line content
     /// `{"op": "progress_v2", ..., "stage": "downloading_stanza_lang_zh"}`)
     /// were the parent killing a worker that had emitted a perfectly valid
-    /// download-progress event one line ahead of its ready signal — a
+    /// download-progress event one line ahead of its ready signal, a
     /// protocol-ordering race, not a real worker failure.
     pub(super) async fn read_ready_line<R: tokio::io::AsyncBufRead + Unpin>(
         reader: &mut R,
@@ -94,7 +94,7 @@ impl WorkerHandle {
             // bootstrap-time wait (model download, model load, etc.).
             // Forward to the preamble for failure diagnostics AND emit
             // as `info!` so bootstrap timing reaches the daemon log
-            // live — the Python worker's stderr is buffered until the
+            // live: the Python worker's stderr is buffered until the
             // process exits, so without this surface, per-task timing
             // events emitted during model load are invisible until
             // the worker dies.
@@ -338,7 +338,7 @@ impl WorkerHandle {
     ///
     /// The returned [`WorkerHandleParts`] owns the child process, stdin, and
     /// stdout. The caller becomes responsible for the child process lifecycle
-    /// — the `WorkerHandle::Drop` impl does **not** run.
+    ///: the `WorkerHandle::Drop` impl does **not** run.
     pub(crate) fn into_parts(self) -> WorkerHandleParts {
         // Use ManuallyDrop to prevent Drop::drop from killing the child.
         let md = std::mem::ManuallyDrop::new(self);
@@ -370,7 +370,7 @@ impl Drop for WorkerHandle {
                 terminate_pgid(pid);
                 // Brief pause to let Python handle SIGTERM. If the worker
                 // is stuck in a C extension (PyTorch, NumPy), SIGTERM may
-                // be ignored — follow up with SIGKILL to prevent zombies
+                // be ignored: follow up with SIGKILL to prevent zombies
                 // that hold 2-15 GB of RAM.
                 std::thread::sleep(std::time::Duration::from_millis(200));
                 if process_alive(pid) {
@@ -404,8 +404,8 @@ mod ready_signal_tests {
     /// 2026-05-06 morphotag protocol-ordering bug: a `progress_v2` event
     /// emitted by the worker during model load (e.g.
     /// `_emit_stanza_lang_download_event_if_missing`) lands on stdout
-    /// BEFORE the ready signal. The parent must tolerate it — not
-    /// reject the worker — and consume the actual ready signal from a
+    /// BEFORE the ready signal. The parent must tolerate it, not
+    /// reject the worker, and consume the actual ready signal from a
     /// later line.
     #[tokio::test]
     async fn read_ready_line_skips_pre_ready_progress_event() {
@@ -439,7 +439,7 @@ mod ready_signal_tests {
     }
 
     /// Non-progress JSON that is not a valid ReadySignal is still a hard
-    /// error — we don't let arbitrary garbage through.
+    /// error: we don't let arbitrary garbage through.
     #[tokio::test]
     async fn read_ready_line_rejects_unknown_json_shape() {
         let stdout = "{\"hello\": \"world\"}\n{\"ready\": true, \"pid\": 1, \"transport\": null}\n";

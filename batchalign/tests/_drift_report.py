@@ -4,18 +4,18 @@ Probes (``@pytest.mark.mwt_probe`` and ``@pytest.mark.decision_probe``)
 are monitors, not tests. They pin Stanza's current tokenization /
 normalization behavior so a library upgrade that shifts behavior
 surfaces as a diff. A probe "failure" warrants adjudication at
-leisure — it should never block a push or a merge.
+leisure; it should never block a push or a merge.
 
 This module consumes the Phase B test-history SQLite (one row per
 test invocation) and summarizes the most recent probe-run outcomes
 into a markdown report. The runner script writes the report into
 ``docs/investigations/drift-*.md`` and opens an issue when any
-drift is present — but never returns a non-zero exit code to the
+drift is present, but never returns a non-zero exit code to the
 caller.
 
 Deliberately independent of pytest's own reporting machinery so a
 crashed probe run (model failed to load, etc.) still produces a
-report — the absence of expected rows in the DB is itself a
+report: the absence of expected rows in the DB is itself a
 signal.
 """
 
@@ -41,7 +41,7 @@ class DriftReport:
 
     ``drift_outcomes`` holds the subset of probes whose latest
     outcome is not ``"passed"``. That's what the caller surfaces as
-    issues — a non-empty list means drift needs review.
+    issues: a non-empty list means drift needs review.
     """
 
     total_probes: int
@@ -53,7 +53,7 @@ class DriftReport:
 def build_drift_report(db_path: Path, *, since_ts: int) -> DriftReport:
     """Query the history DB for probe runs in ``[since_ts, now]``.
 
-    Dedupes to the most recent outcome per ``test_id`` — a probe that
+    Dedupes to the most recent outcome per ``test_id``, a probe that
     failed earlier in the window but passed after a re-run is not
     current drift. Returns an empty report when the DB doesn't exist
     (first-ever run) or the window has no rows.
@@ -111,7 +111,7 @@ def format_markdown(report: DriftReport, *, run_date: str) -> str:
     file. The body lists drift outcomes with their test_id.
     """
     header = (
-        f"# Stanza drift probe report — {run_date}\n\n"
+        f"# Stanza drift probe report, {run_date}\n\n"
         f"**Status:** {'Drift detected' if report.fails else 'Clean'}\n"
         f"**Summary:** {report.passes} / {report.total_probes} passing"
     )
@@ -120,7 +120,7 @@ def format_markdown(report: DriftReport, *, run_date: str) -> str:
     header += "\n\n"
 
     if not report.fails:
-        return header + "No drift detected — all probe expectations match "\
+        return header + "No drift detected, all probe expectations match "\
             "current Stanza behavior.\n"
 
     body = "## Drift outcomes\n\n"

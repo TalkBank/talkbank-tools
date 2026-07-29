@@ -19,7 +19,7 @@ use super::tracker::{set_file_error, set_file_progress};
 use super::{FileTaskOutcome, RunnerEventSink};
 
 // ---------------------------------------------------------------------------
-// SpawnedFileTask — handle to one supervised file task
+// SpawnedFileTask: handle to one supervised file task
 // ---------------------------------------------------------------------------
 
 /// Handle to one spawned file task whose terminal file-state transition is
@@ -56,7 +56,7 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// drain_supervised_file_tasks — await all tasks and handle abnormal exits
+// drain_supervised_file_tasks: await all tasks and handle abnormal exits
 // ---------------------------------------------------------------------------
 
 /// Drain a batch of supervised file tasks and convert abnormal exits into
@@ -106,7 +106,7 @@ pub(crate) async fn drain_supervised_file_tasks(
 }
 
 // ---------------------------------------------------------------------------
-// spawn_progress_forwarder — bridge progress channel to the event sink
+// spawn_progress_forwarder: bridge progress channel to the event sink
 // ---------------------------------------------------------------------------
 
 /// Create a progress channel and spawn a forwarder task that routes updates
@@ -136,7 +136,7 @@ pub(crate) fn spawn_progress_forwarder(
 }
 
 // ---------------------------------------------------------------------------
-// force_terminal_file_states — last-resort cleanup for leaked tasks
+// force_terminal_file_states: last-resort cleanup for leaked tasks
 // ---------------------------------------------------------------------------
 
 /// Fallback cleanup for any files that still failed to reach a terminal state.
@@ -169,7 +169,7 @@ pub(crate) async fn force_terminal_file_states(
 }
 
 // ---------------------------------------------------------------------------
-// record_abnormal_file_task_exit — internal helper
+// record_abnormal_file_task_exit: internal helper
 // ---------------------------------------------------------------------------
 
 /// Record a non-standard file-task exit as an explicit terminal failure.

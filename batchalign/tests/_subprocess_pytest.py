@@ -2,7 +2,7 @@
 
 Integration tests for conftest hooks (e.g. history writer, priority
 ordering) can't assert about hook behavior from within their own
-pytest session — the hook has already fired. They need a fresh
+pytest session: the hook has already fired. They need a fresh
 subprocess that imports the batchalign conftest and observes its
 side effects.
 
@@ -44,7 +44,7 @@ def subprocess_test_filename(tmp_path: Path, slug: str) -> str:
     ``batchalign/tests/``.
 
     Exposed for callers that need to know the filename BEFORE the
-    subprocess runs — e.g., seeding a history DB with nodeids that
+    subprocess runs: e.g., seeding a history DB with nodeids that
     reference the generated file.
     """
     return f"_{slug}_{tmp_path.name}.py"
@@ -71,14 +71,14 @@ def run_pytest_subprocess(
         xdist_workers: if >0, pass ``-n N`` to enable xdist; otherwise
             ``-p no:xdist`` is passed to force single-process.
         dummy_body: body of the generated test file. Default is a
-            single always-passing test — override for tests that need
+            single always-passing test: override for tests that need
             multiple test functions or specific names.
         slug: prefix for the generated test filename (helps with
             debugging if a file ever leaks).
         keep_ci_env: if False (default) we scrub the common CI env
             vars so the subprocess sees interactive defaults.
 
-    Returns the raw ``CompletedProcess`` — caller asserts.
+    Returns the raw ``CompletedProcess``: caller asserts.
     """
     repo_root = Path.cwd()
     host_tests_dir = repo_root / "batchalign" / "tests"

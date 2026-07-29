@@ -28,7 +28,7 @@ pub(crate) async fn infer_revai_utr(
     let api_key =
         load_revai_api_key().map_err(|error| ServerError::Validation(error.to_string()))?;
     let audio_path = audio_path.to_path_buf();
-    // UTR always uses a concrete language — wrap in LanguageSpec::Resolved
+    // UTR always uses a concrete language, wrap in LanguageSpec::Resolved
     // for the shared fetch_revai_transcript signature.
     let lang_spec = LanguageSpec::Resolved(lang.clone());
     let rev_job_id = rev_job_id.map(str::to_string);

@@ -1022,7 +1022,7 @@ fn inject_results_retokenize_mwt_range_tokens_no_failure() {
         &empty_mwt,
     );
 
-    // The injection must succeed — no retokenization_failed decision.
+    // The injection must succeed, no retokenization_failed decision.
     let injection = result.expect("inject_results should not return Err");
     let failed_decisions: Vec<_> = injection
         .decisions
@@ -1409,7 +1409,7 @@ fn clear_then_reinject_preserves_tier_order_mor_gra_wor() {
         "fixture precondition: expected [Mor, Gra, Wor]",
     );
 
-    // Clear — must preserve tier positions.
+    // Clear: must preserve tier positions.
     crate::chat_ops::morphosyntax_ops::clear_morphosyntax(&mut chat);
     assert_eq!(
         dep_tier_kinds(&chat),
@@ -1596,7 +1596,7 @@ fn first_utterance_mut(
 
 // Regression guards: `inject_results` must surface injection errors
 // visibly (via DecisionRecord + tracing::warn!) rather than silently
-// drop the utterance, BUT must not kill the whole file — an isolated
+// drop the utterance, BUT must not kill the whole file, an isolated
 // Stanza edge case shouldn't take down an entire morphotag run.
 // See `inject::inject_morphosyntax` for the library-level error
 // check that callers rely on.
@@ -1604,7 +1604,7 @@ fn first_utterance_mut(
 /// When the UD response produces fewer Mor items than the CHAT main tier
 /// has alignable words, `inject_results` must emit a visible
 /// `DecisionRecord` (kind `injection_failed`) and continue with the
-/// next utterance — not propagate the error and kill the file.
+/// next utterance, not propagate the error and kill the file.
 #[test]
 fn inject_results_count_mismatch_propagates_error() {
     use crate::chat_ops::morphosyntax_ops::inject_results;
@@ -1662,8 +1662,8 @@ fn inject_results_count_mismatch_propagates_error() {
     // `misalignment_bug` DecisionRecord whose `reason` field carries
     // typed diagnostic data (class, expected, actual, chat_words,
     // stanza_tokens). The test still asserts what it was checking
-    // before — that mismatches are visible as review-flagged decision
-    // records — but in the new typed form.
+    // before: that mismatches are visible as review-flagged decision
+    // records, but in the new typed form.
     let failed: Vec<_> = outcome
         .decisions
         .iter()
@@ -1773,7 +1773,7 @@ fn mid_utterance_comma_end_to_end_injects_cm_mor() {
 }
 
 // ============================================================================
-// Family A — synthesis-layer DEP overwrite kills ROOT deprel (RED tests).
+// Family A: synthesis-layer DEP overwrite kills ROOT deprel (RED tests).
 //
 // Pure-unit pinning for the Family A partition; see the L2
 // architectural-reassessment notes (§5).
@@ -1793,7 +1793,7 @@ fn mid_utterance_comma_end_to_end_injects_cm_mor() {
 // %gra has head=0/deprel=ROOT, not head=0/deprel=DEP.
 //
 // EXPECTED: every test in this section FAILS on the current build.
-// Do not modify the asserts to make them pass — modify the bug.
+// Do not modify the asserts to make them pass, modify the bug.
 // ============================================================================
 
 /// Helper: pull the GraTier relations from the first utterance.
@@ -1828,7 +1828,7 @@ fn fmt_gra(rels: &[talkbank_model::model::GrammaticalRelation]) -> String {
         .join(" ")
 }
 
-/// Family A, Test A1 — single-word onomatopoeia utterance.
+/// Family A, Test A1, single-word onomatopoeia utterance.
 ///
 /// Source pattern (from `still-have-error-2.log`):
 ///     *CHI:  vau@o .
@@ -1841,9 +1841,9 @@ fn fmt_gra(rels: &[talkbank_model::model::GrammaticalRelation]) -> String {
 ///
 /// The synthesis loop in `injection.rs:202-205` then runs and
 /// overwrites the gra relation to "DEP" without checking gra.head.
-/// Result: 1|0|DEP — fires E722 (no ROOT relation) downstream.
+/// Result: 1|0|DEP: fires E722 (no ROOT relation) downstream.
 ///
-/// EXPECTED on current build: FAILS — relation is "DEP" not "ROOT".
+/// EXPECTED on current build: FAILS, relation is "DEP" not "ROOT".
 #[test]
 fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
@@ -1908,7 +1908,7 @@ fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
     assert_eq!(
         chunk_1.relation.as_str(),
         "ROOT",
-        "Family A bug — single-@o root token's deprel was overwritten to \
+        "Family A bug: single-@o root token's deprel was overwritten to \
          '{}' instead of preserving ROOT (Stanza returned head=0, deprel=root); \
          got %gra: {body}",
         chunk_1.relation.as_str()
@@ -1927,7 +1927,7 @@ fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
     }
 }
 
-/// Family A, Test A2 — multi-word utterance where every word is a
+/// Family A, Test A2, multi-word utterance where every word is a
 /// form-marker (`@si`). The wild-bad case is the Croatian
 /// `osam@si devet@si devet@si i@si jedan@si su@si deset@si .` whose
 /// %gra is currently `1|0|DEP 2|1|DEP 3|1|DEP 4|1|DEP 5|1|DEP 6|1|DEP
@@ -1935,7 +1935,7 @@ fn family_a_single_word_at_o_keeps_root_deprel_when_head_is_zero() {
 /// chunk because every content word has `form_type = Some(Si)`,
 /// including the head=0 root.
 ///
-/// EXPECTED on current build: FAILS — chunk 1 has head=0 but
+/// EXPECTED on current build: FAILS, chunk 1 has head=0 but
 /// deprel=DEP instead of deprel=ROOT.
 #[test]
 fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
@@ -1996,13 +1996,13 @@ fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
     assert_eq!(
         head_zero[0].relation.as_str(),
         "ROOT",
-        "Family A bug — multi-@si root token's deprel was overwritten to \
+        "Family A bug: multi-@si root token's deprel was overwritten to \
          '{}' instead of preserving ROOT; got %gra: {body}",
         head_zero[0].relation.as_str()
     );
 }
 
-/// Family A, Test A4 — host-language modifier + `@o` as syntactic root.
+/// Family A, Test A4, host-language modifier + `@o` as syntactic root.
 ///
 /// Source pattern (from `still-have-error-2.log`):
 ///     *IRI:  the chingchangchongchong@o .
@@ -2015,7 +2015,7 @@ fn family_a_multi_word_all_at_si_keeps_root_deprel_at_head_zero() {
 /// fires only on the form-marker chunk and overwrites its deprel to
 /// DEP, leaving the modifier's gra intact.
 ///
-/// EXPECTED on current build: FAILS — chunk 2 has head=0 but
+/// EXPECTED on current build: FAILS, chunk 2 has head=0 but
 /// deprel=DEP instead of deprel=ROOT.
 #[test]
 fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
@@ -2084,25 +2084,25 @@ fn family_a_host_modifier_with_at_o_root_keeps_root_deprel() {
     assert_eq!(
         chunk_2.relation.as_str(),
         "ROOT",
-        "Family A bug — det+@o-root case: form-marker root token's \
+        "Family A bug: det+@o-root case: form-marker root token's \
          deprel was overwritten to '{}' instead of preserving ROOT; \
          got %gra: {body}",
         chunk_2.relation.as_str()
     );
 }
 
-/// Family A, Test A5 — symmetric guard: form-marker token whose head is
+/// Family A, Test A5, symmetric guard: form-marker token whose head is
 /// NOT zero (i.e., not the utterance root) should not have its deprel
 /// rewritten to "ROOT" by an over-eager fix. The current synthesis-DEP
 /// overwrite is acceptable behavior for non-root form-marker tokens
 /// (BA2-equivalent intent: "no specific role applies"). The fix must
-/// touch only the head=0 branch — this test pins that scope so a future
+/// touch only the head=0 branch, this test pins that scope so a future
 /// "always preserve Stanza deprel" patch can't silently regress.
 ///
 /// Source: `*CHI: I like vau@o .` (English primary). Stanza analyzes
 /// "I"=nsubj, "like"=root, "xbxxx"=obj/dep, "."=punct. Post-injection:
 /// chunk 3 (the @o token) should have head=2 (preserved from Stanza)
-/// and deprel="DEP" (current synthesis convention) — NOT "ROOT".
+/// and deprel="DEP" (current synthesis convention), NOT "ROOT".
 ///
 /// EXPECTED on current build: PASSES (locks current behavior). After
 /// the fix lands for A1/A2/A4, this must still pass.
@@ -2111,7 +2111,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
-    // Inline fixture — keeping it inline so the assertion's premise
+    // Inline fixture: keeping it inline so the assertion's premise
     // (form-marker is *not* the syntactic root) is visible alongside the
     // test.
     let chat = "@UTF8\n\
@@ -2163,7 +2163,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
 
     // Chunk 3 is the @o-marker. Head must be preserved as 2 (not the
     // utterance root). Deprel must be "DEP" (or whatever the synthesis
-    // convention is for non-root form markers) — and explicitly NOT
+    // convention is for non-root form markers), and explicitly NOT
     // "ROOT".
     let chunk_3 = rels.iter().find(|r| r.index == 3).expect("chunk 3");
     assert_eq!(
@@ -2193,7 +2193,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
 }
 
 // ===========================================================================
-// Utterance preservation regression — fusser22 corruption (2026-05-06)
+// Utterance preservation regression: fusser22 corruption (2026-05-06)
 //
 // Background. The 2026-05-06 morphotag re-run corrupted
 // `biling-data/Bangor/Siarad/fusser22.cha`: one utterance
@@ -2204,7 +2204,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
 // per-speaker counts and net-line-count diffs all looked normal),
 // which is exactly why the corruption escaped the per-commit and
 // per-file scans. The bug was not reproducible on the deployed
-// binary after the fact — the precise trigger is currently unknown
+// binary after the fact, the precise trigger is currently unknown
 // and may be a concurrency or in-flight-state artifact.
 //
 // Goal of these tests. Pin the invariant the corruption violates so
@@ -2226,7 +2226,7 @@ fn family_a_at_o_with_nonzero_head_does_not_become_root() {
 
 /// Collect a per-utterance identity string (`MainTier::Display`) for
 /// every utterance in `chat_file`. Two utterances are "the same" iff
-/// they round-trip to the same CHAT line — good-enough for a
+/// they round-trip to the same CHAT line, good-enough for a
 /// regression assertion.
 fn collect_utterance_identities<S: talkbank_model::validation::ValidationState>(
     chat_file: &talkbank_model::ChatFile<S>,
@@ -2244,7 +2244,7 @@ fn collect_utterance_identities<S: talkbank_model::validation::ValidationState>(
 
 fn assert_utterances_preserved_one_to_one(label: &str, before: &[String], after: &[String]) {
     // BTreeMap (not HashMap) so failure messages list lost/duplicated/
-    // introduced utterances in deterministic order — important when the
+    // introduced utterances in deterministic order, important when the
     // assertion fires in CI and the diff is the entire signal.
     use std::collections::BTreeMap;
     fn count_in(xs: &[String]) -> BTreeMap<&String, usize> {
@@ -2352,7 +2352,7 @@ fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
     .batch_items;
 
     // One synthetic UdResponse per batch item with a single placeholder
-    // root word — the morphology content is irrelevant; what matters
+    // root word: the morphology content is irrelevant; what matters
     // here is that injection does not perturb the main tier.
     let ud_responses: Vec<_> = batch_items
         .iter()
@@ -2396,7 +2396,7 @@ fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
 // rewrite that single test's assertion (from "must remain L2|xxx" to
 // "must produce <the real expected analysis>"). Until that day, these
 // tests guarantee the fallback never silently regresses to a worse
-// state — a crash, an invalid `%gra`, an empty/missing `%mor`, or a
+// state: a crash, an invalid `%gra`, an empty/missing `%mor`, or a
 // hallucinated wrong analysis.
 //
 // Each test follows the same shape:
@@ -2405,11 +2405,11 @@ fn morphotag_inject_results_preserves_utterance_multiplicity_one_to_one() {
 //      inject_results), feeding a synthetic primary UD response that
 //      tells the pipeline "the secondary positions are placeholders
 //      pending dispatch." For the fallback paths, we deliberately do
-//      NOT run `dispatch_secondary_l2` afterwards — that simulates the
+//      NOT run `dispatch_secondary_l2` afterwards, that simulates the
 //      production fallback (unsupported lang, ambiguous resolution,
 //      `--no-l2-morphotag`, dispatch failure).
 //   3. Assert the offending position(s) carry `%mor = "L2|xxx"`.
-//   4. Assert `validate_chat_file_with_options` passes — no E722,
+//   4. Assert `validate_chat_file_with_options` passes, no E722,
 //      E724, or other downstream failures from the fallback shape.
 //
 // Note on what's covered here vs. elsewhere:
@@ -2468,7 +2468,7 @@ fn validate_or_panic(chat_file: &mut talkbank_model::ChatFile, label: &str) {
 }
 
 // ---------------------------------------------------------------------
-// Row 1: `@s:UNSUPPORTEDLANG` — explicit per-word marker for a Stanza
+// Row 1: `@s:UNSUPPORTEDLANG`: explicit per-word marker for a Stanza
 // language that has no morphosyntax processors.
 //
 // Production trigger: `partition_groups_by_stanza_support` filters the
@@ -2501,7 +2501,7 @@ fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
     .batch_items;
     assert_eq!(batch_items.len(), 1, "fixture has one utterance");
 
-    // Primary UD response — one entry per surface word; the @s:que
+    // Primary UD response, one entry per surface word; the @s:que
     // word ("rimaykullayki", position index 3) is the L2 placeholder
     // and gets the synthetic `xbxxx` token Stanza was given.
     let primary_ud = ud_response_from_words(
@@ -2527,7 +2527,7 @@ fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
     )
     .expect("primary injection must succeed");
 
-    // Deliberately skip dispatch_secondary_l2 — production behaviour
+    // Deliberately skip dispatch_secondary_l2: production behaviour
     // for an unsupported-secondary lang is exactly this: no Stanza
     // dispatch, no splice, the L2|xxx placeholder remains.
     let pairs = first_utt_mor_pairs(&chat_file);
@@ -2536,7 +2536,7 @@ fn l2_fallback_unsupported_secondary_at_s_lang_remains_l2_xxx() {
 }
 
 // ---------------------------------------------------------------------
-// Row 2: `@s:LANG+LANG2` — Multiple-language marker (the foreign word
+// Row 2: `@s:LANG+LANG2`: Multiple-language marker (the foreign word
 // is valid in BOTH listed languages). The L2 plan rejects this for
 // dispatch because there is no single trustworthy target.
 //
@@ -2550,7 +2550,7 @@ fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
-    // Inline minimal CHAT — `cafe@s:eng+fra` is "valid in BOTH eng
+    // Inline minimal CHAT: `cafe@s:eng+fra` is "valid in BOTH eng
     // and fra"; the Multiple resolution can't dispatch one secondary.
     let chat = "\
 @UTF8
@@ -2602,7 +2602,7 @@ fn l2_fallback_multiple_languages_at_s_marker_remains_l2_xxx() {
 }
 
 // ---------------------------------------------------------------------
-// Row 3: `@s:LANG&LANG2` — Ambiguous-language marker (the foreign word
+// Row 3: `@s:LANG&LANG2`: Ambiguous-language marker (the foreign word
 // could plausibly belong to either listed language). Symmetric to
 // Multiple from the dispatcher's perspective: no single target.
 //
@@ -2615,7 +2615,7 @@ fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
-    // `no@s:eng&spa` — the word "no" is ambiguously English or Spanish.
+    // `no@s:eng&spa`: the word "no" is ambiguously English or Spanish.
     let chat = "\
 @UTF8
 @Begin
@@ -2665,7 +2665,7 @@ fn l2_fallback_ambiguous_languages_at_s_marker_remains_l2_xxx() {
 }
 
 // ---------------------------------------------------------------------
-// Row 4: `[- UNSUPPORTEDLANG]` — whole-utterance language switch into
+// Row 4: `[- UNSUPPORTEDLANG]`, whole-utterance language switch into
 // a Stanza-unsupported language. The morphotag worker's
 // `partition_groups_by_stanza_support` keeps that group out of
 // dispatch entirely, so every word in the utterance falls back to
@@ -2711,7 +2711,7 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
     .batch_items;
     assert_eq!(batch_items.len(), 1, "fixture has one utterance");
 
-    // Empty `UdResponse { sentences: vec![] }` — production
+    // Empty `UdResponse { sentences: vec![] }`, production
     // `partition_groups_by_stanza_support` fills this in for every
     // unsupported-language group, and downstream `inject_results`
     // skips items whose response has no sentences, leaving the
@@ -2736,7 +2736,7 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
     // The post-fallback state for a `[- UNSUPPORTEDLANG]` utterance
     // is: no `%mor` tier emitted for this utterance at all (the
     // partition skipped it; injection had no analysis to write).
-    // Validation must still pass — a missing `%mor` for an utterance
+    // Validation must still pass, a missing `%mor` for an utterance
     // is not by itself a CHAT validity error.
     use talkbank_model::model::Line;
     let utt = chat_file
@@ -2771,7 +2771,7 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
 // language Stanza CAN handle. This is the HAPPY PATH for whole-utterance
 // language switches: the morphotag worker partitions the utterance into
 // the supported language's group, dispatches it normally, and the
-// resulting `%mor` carries real morphology — NOT `L2|xxx`.
+// resulting `%mor` carries real morphology, NOT `L2|xxx`.
 //
 // The test exists to **pin the happy path** so a future regression that
 // accidentally routes supported-precode utterances through the fallback
@@ -2780,13 +2780,13 @@ fn l2_fallback_unsupported_precode_whole_utterance_remains_all_l2_xxx() {
 // would silently fall through to L2|xxx and look like "the fallback
 // works."
 //
-// We feed a synthetic Spanish UD response — the production worker for
-// Spanish would produce something morphologically similar — and assert
+// We feed a synthetic Spanish UD response, the production worker for
+// Spanish would produce something morphologically similar, and assert
 // that no position carries the L2|xxx fallback shape.
 //
 // TRANSITION PATH: this test should remain GREEN forever. If a future
 // pipeline change causes any position here to fall back to L2|xxx,
-// THAT is the regression — fix the pipeline, not the assertion.
+// THAT is the regression, fix the pipeline, not the assertion.
 // ---------------------------------------------------------------------
 #[test]
 fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
@@ -2817,7 +2817,7 @@ fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
     .batch_items;
     assert_eq!(batch_items.len(), 1, "fixture has one utterance");
 
-    // Synthetic Spanish UD response — three surface positions matching
+    // Synthetic Spanish UD response, three surface positions matching
     // `hola`, `mundo`, `.`. In production this comes from the Spanish
     // Stanza worker; here we hand-roll a representative analysis.
     let primary_ud = ud_response_from_words(
@@ -2864,7 +2864,7 @@ fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
 }
 
 // ---------------------------------------------------------------------
-// Row 8: `Unresolved` bare `@s` shortcut — `LanguageResolution::Unresolved`
+// Row 8: `Unresolved` bare `@s` shortcut, `LanguageResolution::Unresolved`
 // from `talkbank-model/src/validation/word/language/resolve.rs:144-188`.
 // The bare `@s` (no `:LANG` suffix) resolves to "the other language" via
 // `get_other_language`, but if the surrounding `@Languages` header has
@@ -2879,7 +2879,7 @@ fn l2_supported_precode_whole_utterance_does_not_fall_back_to_l2_xxx() {
 // surfaces as `L2|xxx` to the user.
 //
 // This test pins that production fallback shape. The path is distinct
-// from row 1 (explicit @s:UNSUPPORTEDLANG, which DOES resolve — to an
+// from row 1 (explicit @s:UNSUPPORTEDLANG, which DOES resolve, to an
 // unsupported language) and from row 10 (shortcut that resolves to an
 // unsupported language).
 //
@@ -2894,7 +2894,7 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
 
     let parser = TreeSitterParser::new().unwrap();
     // `palabra@s` (bare shortcut) with @Languages declaring only `eng`
-    // — `get_other_language(eng, [eng])` returns None, so the resolver
+    //: `get_other_language(eng, [eng])` returns None, so the resolver
     // produces `LanguageResolution::Unresolved`.
     let chat = "\
 @UTF8
@@ -2943,7 +2943,7 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
     )
     .expect("primary injection must succeed");
 
-    // Skip dispatch_secondary_l2 — the Unresolved shortcut never enters
+    // Skip dispatch_secondary_l2: the Unresolved shortcut never enters
     // the deferred set, so production never dispatches it.
     let pairs = first_utt_mor_pairs(&chat_file);
     assert_position_is_l2_xxx("@s (Unresolved shortcut)", &pairs, 2);
@@ -2951,7 +2951,7 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
     // Validation does NOT pass clean here: a bare `@s` shortcut with
     // no second declared language is a documented CHAT validity error
     // (E249 / `MissingLanguageContext`). The test tolerates that
-    // specific diagnostic — what we care about is that the morphotag
+    // specific diagnostic: what we care about is that the morphotag
     // pipeline ALSO emits the `L2|xxx` fallback at this position. Both
     // signals (validation error + L2|xxx) are correct for this input.
     let opts = talkbank_model::ParseValidateOptions::default().with_alignment();
@@ -2977,8 +2977,8 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
 // ---------------------------------------------------------------------
 // Row 10: bare `@s:N` shortcut that resolves to a Stanza-unsupported
 // language. Distinct from row 1 (explicit `@s:nep`-style marker) and
-// row 8 (Unresolved). Here the resolver succeeds — the shortcut maps
-// to a language listed in @Languages — but that language has no Stanza
+// row 8 (Unresolved). Here the resolver succeeds, the shortcut maps
+// to a language listed in @Languages, but that language has no Stanza
 // processor, so the same fallback path as row 1 fires post-resolution.
 //
 // The test pins that the shortcut-resolution path lands on the same
@@ -2990,7 +2990,7 @@ fn l2_fallback_unresolved_bare_at_s_shortcut_remains_l2_xxx() {
 // (§5.3 of the redesign handoff), this test's offending position
 // becomes a real analysis from whatever runtime handles the resolved
 // language. The plug-in must cover BOTH explicit and shortcut paths
-// simultaneously — if this test goes green but row 1 stays L2|xxx
+// simultaneously: if this test goes green but row 1 stays L2|xxx
 // (or vice-versa), the integration is incomplete.
 // ---------------------------------------------------------------------
 #[test]
@@ -2998,11 +2998,11 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
-    // `namaste@s` (bare shortcut) — with @Languages: eng, nep and
+    // `namaste@s` (bare shortcut), with @Languages: eng, nep and
     // tier-language eng, `get_other_language(eng, [eng, nep])` returns
     // `nep`. The resolver produces `LanguageResolution::Single(nep)`,
     // and the partition files the resolved-but-Stanza-unsupported group
-    // into the fallback bucket — same downstream path as row 1.
+    // into the fallback bucket, same downstream path as row 1.
     let chat = "\
 @UTF8
 @Begin
@@ -3047,7 +3047,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
     )
     .expect("primary injection must succeed");
 
-    // Skip dispatch_secondary_l2 — partition would have filed the
+    // Skip dispatch_secondary_l2: partition would have filed the
     // resolved-but-unsupported group into the fallback bucket; no
     // dispatch happens for Nepali.
     let pairs = first_utt_mor_pairs(&chat_file);
@@ -3056,7 +3056,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 }
 
 // ---------------------------------------------------------------------
-// Row 7: `--no-l2-morphotag` opt-out — when
+// Row 7: `--no-l2-morphotag` opt-out, when
 // `MorphosyntaxParams.l2_morphotag = false`, the per-file pipeline at
 // `crates/batchalign/src/pipeline/morphosyntax.rs::stage_apply_results`
 // short-circuits the secondary dispatch. No `dispatch_secondary_l2`
@@ -3066,7 +3066,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 //
 // At the inject layer (where these unit tests live), the resulting
 // shape is byte-identical to "supported language but dispatch was
-// skipped" — i.e. row 1's setup with a supported lang. This test
+// skipped": i.e. row 1's setup with a supported lang. This test
 // exercises that exact shape: an `@s:fra` word (Stanza-supported)
 // where dispatch is deliberately not invoked. If `--no-l2-morphotag`
 // were ON in production, the supported `@s:fra` would dispatch and
@@ -3080,7 +3080,7 @@ fn l2_fallback_bare_at_s_shortcut_resolves_to_unsupported_lang_remains_l2_xxx() 
 // integration test at
 // `crates/batchalign/tests/ml_golden/morphotag/options/l2.rs`.
 //
-// TRANSITION PATH: this test should remain GREEN forever — the
+// TRANSITION PATH: this test should remain GREEN forever, the
 // `--no-l2-morphotag` flag is documented as keep-indefinitely
 // (handoff §12). If this assertion fires because someone removed the
 // short-circuit and started dispatching unconditionally, that is the
@@ -3091,7 +3091,7 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
     use batchalign_transform::parse::{TreeSitterParser, parse_lenient};
 
     let parser = TreeSitterParser::new().unwrap();
-    // `bonjour@s:fra` — explicit French marker on a Stanza-SUPPORTED
+    // `bonjour@s:fra`: explicit French marker on a Stanza-SUPPORTED
     // language. Production with `l2_morphotag = true` would dispatch
     // and produce real French morphology; with the flag false, the
     // short-circuit prevents dispatch and the position stays L2|xxx.
@@ -3139,7 +3139,7 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
     )
     .expect("primary injection must succeed");
 
-    // Deliberately skip dispatch_secondary_l2 — that's what
+    // Deliberately skip dispatch_secondary_l2: that's what
     // `--no-l2-morphotag` does in production. The supported-lang
     // position stays L2|xxx because nothing dispatched.
     let pairs = first_utt_mor_pairs(&chat_file);
@@ -3148,7 +3148,7 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 }
 
 // ---------------------------------------------------------------------
-// Row 5 — Splice rollback (post-splice `%gra` invariant violation):
+// Row 5: Splice rollback (post-splice `%gra` invariant violation):
 // pinning lives elsewhere by design. See the matrix preamble note at
 // the top of this section: construct-level coverage of "splice rolled
 // back to L2|xxx → file validates" lives in
@@ -3157,13 +3157,13 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 // `SpliceFallbackCategory` variants directly. Adding a parallel
 // inject-layer test here would duplicate without adding signal.
 //
-// Row 6 — Secondary worker dispatch failure (worker crash, parse
+// Row 6: Secondary worker dispatch failure (worker crash, parse
 // error, network): DEFERRED. The handoff flags this row as "hard to
 // test hermetically." Pinning it requires injecting a fault into
 // `infer_batch` at the worker-pool layer, which is not reachable from
 // the inject-only test harness in this file. Adding the necessary
 // test infrastructure (mock worker, fault injection) is a follow-up
-// task tracked in the redesign decision doc — building it now would
+// task tracked in the redesign decision doc, building it now would
 // expand session scope without informing the §5.5 measurement that
 // is the primary investigation target.
 // ---------------------------------------------------------------------
@@ -3185,7 +3185,7 @@ fn l2_fallback_no_l2_morphotag_flag_off_keeps_l2_xxx_for_supported_lang() {
 //   `%gra` `head=0/ROOT` (not `head=0/DEP`).
 //
 // Each test feeds Stanza's "worst-case" output for the special-form
-// position — `head=0, deprel="dep"` — to verify the fix actively
+// position, `head=0, deprel="dep"`, to verify the fix actively
 // rewrites the deprel. If Stanza had already returned `deprel="root"`,
 // the test would pass trivially; we deliberately test the rewrite
 // path.
@@ -3229,7 +3229,7 @@ fn run_synthesis_root_invariant_check(form_marker: &str, surface: &str, expected
     );
 
     // Synthetic Stanza response on the placeholder. Position 1 is the
-    // form-marker word (placeholder) at head=0/dep — the case the
+    // form-marker word (placeholder) at head=0/dep, the case the
     // synthesis fix must rewrite. Position 2 is the terminator.
     let primary_ud = ud_response_from_words(
         r#"[
@@ -3279,7 +3279,7 @@ fn run_synthesis_root_invariant_check(form_marker: &str, surface: &str, expected
     );
 
     // The structural pin: gra at index 1 must be head=0 with ROOT
-    // (NOT head=0 with DEP — that's the production failure shape we
+    // (NOT head=0 with DEP, that's the production failure shape we
     // see in `still-have-error-11.txt` for these forms).
     let rel = gra
         .relations()
@@ -3354,7 +3354,7 @@ fn synthesis_at_si_singing_root_keeps_root_deprel() {
 fn synthesis_at_k_kinship_root_keeps_root_deprel() {
     // FormType::K → POS "n:let". 10 occurrences.
     // (Per `talkbank-model/src/model/content/word/form.rs`,
-    // FormType::K maps to scat "n:let" via the synthesis table —
+    // FormType::K maps to scat "n:let" via the synthesis table
     // historically "kinship" but the scat is letter-class.)
     run_synthesis_root_invariant_check("@k", "abcd", "n:let");
 }
@@ -3616,7 +3616,7 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
     assert_eq!(batch_items.len(), 3, "fixture has three utterances");
 
     // Synthetic Stanza responses. For the all-synthesizable poker@q
-    // utterance (item 1), feed Stanza tokenization-split — exactly
+    // utterance (item 1), feed Stanza tokenization-split, exactly
     // the production failure mode. The fix at the top of inject_results
     // should bypass Stanza entirely and synthesize from FormType::Q.
     let primary_uds = vec![
@@ -3628,7 +3628,7 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
               {"id":4,"text":".","lemma":".","upos":"PUNCT","head":1,"deprel":"punct"}
             ]"#,
         ),
-        // poker@q . — Stanza tokenizes the placeholder into 2 sub-tokens.
+        // poker@q .: Stanza tokenizes the placeholder into 2 sub-tokens.
         ud_response_from_words(
             r#"[
               {"id":1,"text":"xb","lemma":"xb","upos":"NOUN","head":0,"deprel":"root"},
@@ -3636,7 +3636,7 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
               {"id":3,"text":".","lemma":".","upos":"PUNCT","head":1,"deprel":"punct"}
             ]"#,
         ),
-        // make it say poker@q . — mixed; not all-synthesizable
+        // make it say poker@q ., mixed; not all-synthesizable
         ud_response_from_words(
             r#"[
               {"id":1,"text":"make","lemma":"make","upos":"VERB","head":0,"deprel":"root"},
@@ -3670,7 +3670,7 @@ fn synthesis_at_top_bypass_runs_for_poker_q_with_synthetic_stanza() {
         })
         .collect();
 
-    // Utterance 1 (poker@q .) — the all-synthesizable bypass case.
+    // Utterance 1 (poker@q .), the all-synthesizable bypass case.
     let utt1 = utterances[1];
     let gra1 = utt1.gra_tier().expect("utt1 has gra");
     let gra1_str: Vec<String> = gra1.relations().iter().map(|r| r.to_string()).collect();
@@ -3790,13 +3790,13 @@ fn synthesis_stanza_empty_response_at_n_root_still_synthesizes() {
 /// Reproducer matching the production failure shape exactly:
 /// fixture has timestamp + speaker code that matches the failing
 /// data (`*INV: poker@q . 132030_132740`). This is the smallest
-/// fixture that mirrors `tele61b.cha` line 135 — the file a
+/// fixture that mirrors `tele61b.cha` line 135, the file a
 /// 2026-05-07 re-morphotag run touched without fixing.
 ///
 /// **EXPECTED RED**: if this test fails, the synthesis-layer fix at
 /// `injection.rs:216-221` doesn't reach this case. If it passes, the
 /// production failure is from a code path our `inject_results`-based
-/// harness doesn't exercise (likely upstream — check whether
+/// harness doesn't exercise (likely upstream, check whether
 /// `collect_payloads` even produces a `MorphosyntaxBatchItem` for
 /// this utterance, or whether the Stanza dispatch skips it).
 #[test]
@@ -3828,7 +3828,7 @@ fn synthesis_production_fixture_at_q_with_timestamp() {
         batch_items.len(),
         1,
         "fixture with timestamp must still produce one batch item; \
-         got {}. If 0, that's the bug — the morphotag pipeline skipped \
+         got {}. If 0, that's the bug, the morphotag pipeline skipped \
          the utterance, leaving its pre-existing %gra (head=0/DEP) intact.",
         batch_items.len(),
     );

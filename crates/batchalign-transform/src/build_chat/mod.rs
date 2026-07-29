@@ -1,6 +1,6 @@
 //! Build a CHAT file from a structured transcript description.
 //!
-//! This module constructs a [`ChatFile`] AST from structured input — either
+//! This module constructs a [`ChatFile`] AST from structured input, either
 //! a JSON transcript description (for PyO3 bridge compatibility) or typed
 //! Rust structs (for the Rust server's transcribe orchestrator).
 //!
@@ -10,13 +10,13 @@
 //!
 //! # Two entry points
 //!
-//! - [`build_chat`] — takes a typed [`TranscriptDescription`] struct
-//! - [`build_chat_from_json`] — deserializes JSON into `TranscriptDescription`,
+//! - [`build_chat`]: takes a typed [`TranscriptDescription`] struct
+//! - [`build_chat_from_json`]: deserializes JSON into `TranscriptDescription`,
 //!   then calls `build_chat`. Used by the PyO3 bridge to delegate here.
 //!
 //! # Convenience
 //!
-//! - [`transcript_from_asr_utterances`] — converts post-processed ASR
+//! - [`transcript_from_asr_utterances`]: converts post-processed ASR
 //!   utterances into a `TranscriptDescription` for CHAT assembly.
 
 mod bridge;

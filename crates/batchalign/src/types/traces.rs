@@ -7,7 +7,7 @@
 //! fetches them via `GET /jobs/{id}/traces`.
 //!
 //! When `debug_traces` is off (the default), structured results are still
-//! returned but traces are not stored — no extra memory is used.
+//! returned but traces are not stored, no extra memory is used.
 
 use std::collections::BTreeMap;
 

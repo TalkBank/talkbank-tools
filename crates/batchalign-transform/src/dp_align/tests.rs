@@ -70,7 +70,7 @@ fn test_align_chars_identical() {
 
 #[test]
 fn test_align_chars_matches_string_version() {
-    // "don't" vs "do" "n't" — character-level alignment
+    // "don't" vs "do" "n't", character-level alignment
     let orig = c("don't");
     let tokens = c("don't");
     let result_chars = align_chars(&orig, &tokens, MatchMode::CaseInsensitive);
@@ -121,7 +121,7 @@ fn test_align_chars_empty() {
 
 #[test]
 fn test_shared_prefix_suffix_with_middle_diff() {
-    // "a b X c d" vs "a b Y c d" — prefix "a b", suffix "c d", DP only on X vs Y
+    // "a b X c d" vs "a b Y c d", prefix "a b", suffix "c d", DP only on X vs Y
     let result = align(
         &s(&["a", "b", "X", "c", "d"]),
         &s(&["a", "b", "Y", "c", "d"]),
@@ -455,7 +455,7 @@ fn test_fuzzy_exact_match_is_fast_path() {
 
 #[test]
 fn test_fuzzy_similar_words_match() {
-    // "gonna" vs "gona" — Jaro-Winkler ~0.96
+    // "gonna" vs "gona": Jaro-Winkler ~0.96
     let result = align(
         &s(&["gonna"]),
         &s(&["gona"]),
@@ -467,7 +467,7 @@ fn test_fuzzy_similar_words_match() {
 
 #[test]
 fn test_fuzzy_dissimilar_words_dont_match() {
-    // "cat" vs "dog" — Jaro-Winkler ~0.0
+    // "cat" vs "dog": Jaro-Winkler ~0.0
     let result = align(
         &s(&["cat"]),
         &s(&["dog"]),
@@ -488,7 +488,7 @@ fn test_fuzzy_dissimilar_words_dont_match() {
 
 #[test]
 fn test_fuzzy_threshold_controls_strictness() {
-    // "going" vs "goin" — Jaro-Winkler ~0.95
+    // "going" vs "goin": Jaro-Winkler ~0.95
     let strict = align(
         &s(&["going"]),
         &s(&["goin"]),
@@ -543,7 +543,7 @@ fn test_fuzzy_backchannel_variants() {
     let transcript = s(&["mhm"]);
     let asr = s(&["mmhm"]);
     let result = align(&transcript, &asr, MatchMode::Fuzzy { threshold: 0.80 });
-    // "mhm" vs "mmhm" — JW ~0.83
+    // "mhm" vs "mmhm": JW ~0.83
     assert!(
         result
             .iter()

@@ -52,7 +52,7 @@ after we've confirmed the chosen fine-tune produces coherent output.
 | `mal` (Malayalam) | `thennal/whisper-medium-ml` | See "Evaluation below." |
 
 Any other language requires passing `--engine-overrides
-'{"asr":"whisper_hub","model_id":"..."}'` — the loader raises
+'{"asr":"whisper_hub","model_id":"..."}'`: the loader raises
 `WhisperHubModelNotFoundError` with a specific message telling the user
 how to fix it, instead of falling back to a stock Whisper checkpoint
 that would silently produce garbage.

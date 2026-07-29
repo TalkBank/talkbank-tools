@@ -1,9 +1,9 @@
-//! `TcpWorkerHandle` — connects to a pre-started TCP worker daemon.
+//! `TcpWorkerHandle`: connects to a pre-started TCP worker daemon.
 //!
 //! Unlike [`WorkerHandle`](super::handle::WorkerHandle) which spawns and owns a
 //! child process, `TcpWorkerHandle` connects to a worker that is already running
 //! as a persistent daemon listening on a TCP port. The same JSON-lines protocol
-//! is used — the only difference is the transport layer.
+//! is used: the only difference is the transport layer.
 //!
 //! # Lifecycle
 //!
@@ -11,7 +11,7 @@
 //!   disconnects the TCP stream but does not kill the worker.
 //! - If the connection drops, [`reconnect()`](TcpWorkerHandle::reconnect) tries
 //!   to re-establish it before failing the request.
-//! - Shutdown sends the `{"op":"shutdown"}` message but does not SIGKILL — the
+//! - Shutdown sends the `{"op":"shutdown"}` message but does not SIGKILL, the
 //!   worker daemon is managed by launchd/systemd, not Rust.
 
 use std::time::Duration;
@@ -32,7 +32,7 @@ use crate::worker::{
 /// Maximum non-JSON lines to tolerate while waiting for a response.
 const MAX_RESPONSE_NOISE_LINES: usize = 8;
 
-/// Wire-level request envelope (same as handle.rs — shared protocol).
+/// Wire-level request envelope (same as handle.rs, shared protocol).
 #[derive(Debug, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum WorkerRequest<'a> {
@@ -44,7 +44,7 @@ enum WorkerRequest<'a> {
     Shutdown,
 }
 
-/// Wire-level response envelope (same as handle.rs — shared protocol).
+/// Wire-level response envelope (same as handle.rs, shared protocol).
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum WorkerResponse {
@@ -109,7 +109,7 @@ pub struct TcpWorkerInfo {
 /// Manages a TCP connection to a pre-started Python worker daemon.
 ///
 /// Uses the same JSON-lines protocol as [`WorkerHandle`] but over TCP instead
-/// of stdio pipes. Does not own the worker process — dropping disconnects but
+/// of stdio pipes. Does not own the worker process, dropping disconnects but
 /// does not kill.
 pub struct TcpWorkerHandle {
     info: TcpWorkerInfo,
@@ -434,7 +434,7 @@ impl TcpWorkerHandle {
         }
     }
 
-    /// Send shutdown message (does not kill process — daemon manager handles that).
+    /// Send shutdown message (does not kill process, daemon manager handles that).
     pub async fn shutdown(&mut self) -> Result<(), WorkerError> {
         info!(
             host = %self.info.host,

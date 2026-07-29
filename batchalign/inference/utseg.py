@@ -1,6 +1,6 @@
 """Stanza constituency inference: words -> utterance boundary assignments.
 
-Pure inference — no CHAT, no caching, no pipeline.
+Pure inference, no CHAT, no caching, no pipeline.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class UtsegModelNotFoundError(RuntimeError):
     ``BatchInferRequest.allow_stanza_fallback=True`` on every utseg
     request the job emits. This mirrors the
     ``WhisperHubModelNotFoundError`` pattern in
-    ``batchalign/inference/whisper_hub.py`` — surface the gap rather
+    ``batchalign/inference/whisper_hub.py``: surface the gap rather
     than silently substitute one model for another.
     """
 
@@ -65,7 +65,7 @@ def _emit_stanza_fallback_notice(
     default-refuse path raises ``UtsegModelNotFoundError`` instead and
     never reaches this helper.
     """
-    # Avoid a circular import at module load time — the progress
+    # Avoid a circular import at module load time, the progress
     # protocol pulls in worker config that imports this module
     # transitively in some test setups.
     from batchalign.worker._progress import emit_download_event
@@ -226,7 +226,7 @@ def batch_infer_utseg(
             stage=f"downloading_stanza_utseg_{lang_alpha2[0]}",
             user_message=(
                 f"Downloading Stanza utterance-segmentation pipeline for "
-                f"{lang_alpha2[0]} (one-time, ~250–500 MB; future runs will "
+                f"{lang_alpha2[0]} (one-time, ~250-500 MB; future runs will "
                 "use the local cache)…"
             ),
         )
@@ -304,7 +304,7 @@ def _parse_tree_indices(subtree: ConstituencyTree, offset: int) -> list[list[int
     Raises ``AttributeError`` (re-raised) if ``subtree`` is missing the
     ``children`` attribute. The previous behavior of swallowing the
     error and returning ``[]`` masked malformed Stanza constituency
-    output as empty utseg assignments — a silent-failure pattern that
+    output as empty utseg assignments, a silent-failure pattern that
     the system-wide graceful-failure invariant rules out. Any caller
     that genuinely wants to tolerate a missing-children subtree must
     catch the error explicitly and decide what to do, rather than

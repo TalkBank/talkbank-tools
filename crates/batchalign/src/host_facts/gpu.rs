@@ -31,7 +31,7 @@ use super::warnings::DetectionWarning;
 pub enum GpuPresence {
     /// No GPU detected, or no GPU stack we can use.
     None,
-    /// Apple Metal Performance Shaders — present on every Apple Silicon
+    /// Apple Metal Performance Shaders, present on every Apple Silicon
     /// Mac and on some Intel Macs. Currently `functional_for_batchalign`
     /// is always false; the kernel deadlock under batchalign3's Whisper
     /// workload (documented in `developer/apple-mps-workarounds.md`)
@@ -45,7 +45,7 @@ pub enum GpuPresence {
         /// Why MPS is excluded. `None` means MPS is in active use.
         reason_excluded: Option<MpsExclusionReason>,
     },
-    /// NVIDIA CUDA — the production GPU path on Linux fleet hosts.
+    /// NVIDIA CUDA: the production GPU path on Linux fleet hosts.
     NvidiaCuda {
         /// Number of CUDA-visible devices. Often 1; >1 on multi-GPU
         /// servers.
@@ -57,7 +57,7 @@ pub enum GpuPresence {
         /// driver-vs-CUDA-version mismatches; not used by `recommend()`.
         driver_version: String,
     },
-    /// A device we have not characterized — e.g., AMD ROCm, Intel Arc,
+    /// A device we have not characterized, e.g., AMD ROCm, Intel Arc,
     /// future Apple GPU stacks. `functional_for_batchalign` defaults to
     /// false until we explicitly add support.
     Other {
@@ -74,7 +74,7 @@ pub enum GpuPresence {
 ///
 /// New variants are added when new exclusion reasons are discovered;
 /// the recommendation function treats every variant identically (force
-/// CPU, set `gpu_thread_pool_size` to 1) — the variant exists for
+/// CPU, set `gpu_thread_pool_size` to 1), the variant exists for
 /// observability so operator-facing tooling can explain *why*.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -153,7 +153,7 @@ pub trait NvidiaSmiProbe: Send + Sync {
     fn probe(&self) -> NvidiaSmiOutcome;
 }
 
-/// Production probe — spawns `nvidia-smi` as a subprocess. Truncates
+/// Production probe: spawns `nvidia-smi` as a subprocess. Truncates
 /// stderr to 4 KB on `Failed` so a runaway driver does not bloat the
 /// `HostFacts` struct or log lines.
 #[derive(Debug, Default)]
@@ -215,7 +215,7 @@ fn truncate_at_char_boundary(mut s: String, max_bytes: usize) -> String {
 /// Algorithm:
 /// - **Apple Silicon (macOS + arm64)** short-circuits to
 ///   `AppleMps { functional_for_batchalign: false, reason: AppleSiliconKernelDeadlock }`.
-///   The `nvidia-smi` probe is **never called** on this path —
+///   The `nvidia-smi` probe is **never called** on this path
 ///   guaranteed by the function shape (the `probe` argument is unused
 ///   in this branch). This matters because Apple Silicon hosts have
 ///   no nvidia-smi binary; calling it would return `NotFound` and
@@ -355,7 +355,7 @@ mod tests {
 
     /// A probe that panics if invoked. Used in the Apple Silicon test
     /// to assert that detection short-circuits before touching the
-    /// subprocess layer — important because `nvidia-smi` does not
+    /// subprocess layer: important because `nvidia-smi` does not
     /// exist on Apple Silicon hosts and we must not pollute warnings
     /// with a `NotFound` for a probe we never should have run.
     struct NeverProbe;

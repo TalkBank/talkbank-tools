@@ -2,11 +2,11 @@
 //! and orchestration traits.
 //!
 //! These are the shared data structures that thread through job dispatch:
-//! - `RunnerExecutionContext` — worker pool + cache + engine metadata
-//! - `ExecutionEngine` — thin wrapper that dispatches to the routing layer
-//! - `DispatchHostContext` — read-only server/config context for dispatch
-//! - `ServerExecutionHost` / `DirectExecutionHost` — host-owned bundles
-//! - `QueuedJobOrchestrator` — host-owned re-queue policy trait
+//! - `RunnerExecutionContext`: worker pool + cache + engine metadata
+//! - `ExecutionEngine`: thin wrapper that dispatches to the routing layer
+//! - `DispatchHostContext`: read-only server/config context for dispatch
+//! - `ServerExecutionHost` / `DirectExecutionHost`, host-owned bundles
+//! - `QueuedJobOrchestrator`: host-owned re-queue policy trait
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;

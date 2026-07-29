@@ -126,7 +126,7 @@ def resolve_asr_engine(
 
     1. Explicit engine override from the Rust control plane. Unknown
        wire strings raise ``ValueError`` rather than silently loading
-       Whisper — a typo in a per-host override would otherwise produce
+       Whisper: a typo in a per-host override would otherwise produce
        wrong-model output.
     2. Rev.AI when a key is available.
     3. Per-language default from ``_LANG_DEFAULTS`` (currently
@@ -135,7 +135,7 @@ def resolve_asr_engine(
 
     ``lang`` is required (keyword-only) so a future caller cannot
     accidentally trigger the global Whisper fallback by forgetting
-    to pass the language — that silent mis-selection is exactly the
+    to pass the language: that silent mis-selection is exactly the
     bug Fix 3 closes.
     """
     if engine_overrides and "asr" in engine_overrides:

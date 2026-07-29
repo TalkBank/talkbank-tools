@@ -116,7 +116,7 @@ def calculate_acc_prec_rec_f1(
 
     Labels of ``-100`` are ignored (sub-word padding).
     """
-    import torch  # noqa: F811 — lazy for top-level import cost
+    import torch  # noqa: F811, lazy for top-level import cost
 
     tp = 0
     fp = 0

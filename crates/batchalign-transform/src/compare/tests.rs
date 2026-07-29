@@ -411,7 +411,7 @@ fn find_best_segment_projects_to_majority_utterance() {
 ///
 /// Pre-fix BA3 would report 3 matches (greedily including utt 0's
 /// "the" together with utt 1's "dog, ran"). Post-fix BA3 reports 2
-/// matches (dog, ran) — BA2 picks the pure utt-1 window [dog, ran, fast]
+/// matches (dog, ran): BA2 picks the pure utt-1 window [dog, ran, fast]
 /// and "the" surfaces as a deletion.
 #[test]
 fn compare_does_not_steal_match_across_utterance_boundary() {
@@ -501,7 +501,7 @@ fn inject_comparison_idempotent() {
     inject_comparison(&mut main_file, &result.main_utterances).expect("inject comparison");
     let first = main_file.to_chat_string();
 
-    // Inject again — should produce the same output (replace, not duplicate)
+    // Inject again: should produce the same output (replace, not duplicate)
     inject_comparison(&mut main_file, &result.main_utterances).expect("inject comparison");
     let second = main_file.to_chat_string();
     assert_eq!(first, second);
@@ -574,14 +574,14 @@ fn compare_uses_mor_pos_for_xsmor_output() {
 /// BA2 attributes the gold-side form's POS to every Match and
 /// ExtraReference, not the main-side form's (compare.py:540-550, via
 /// `_get_pos(gold_form)`). When the two transcripts have a %mor disagreement
-/// on the same matched word — which is the entire point of running
-/// `compare` — the xsmor tier and pos_counts must reflect the gold-standard
+/// on the same matched word, which is the entire point of running
+/// `compare`: the xsmor tier and pos_counts must reflect the gold-standard
 /// POS so the reviewer can see the gold tag the transcriber missed.
 #[test]
 fn compare_attributes_gold_pos_to_matches() {
     let parser = TreeSitterParser::new().unwrap();
-    // Main %mor: noun|hello adj|world  — the disagreed POS tags.
-    // Gold %mor: intj|hello noun|world — the gold-standard reference.
+    // Main %mor: noun|hello adj|world, the disagreed POS tags.
+    // Gold %mor: intj|hello noun|world, the gold-standard reference.
     let main = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world .\n%mor:\tnoun|hello adj|world .\n@End\n";
     let gold = "@UTF8\n@Begin\n@Languages:\teng\n@Participants:\tCHI Target_Child\n@ID:\teng|test|CHI|||||Target_Child|||\n*CHI:\thello world .\n%mor:\tintj|hello noun|world .\n@End\n";
     let (main_file, _) = parse_lenient(&parser, main);

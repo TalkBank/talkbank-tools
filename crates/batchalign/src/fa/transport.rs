@@ -110,7 +110,7 @@ async fn infer_groups_v2(
             }) => {
                 // The FA group's audio window is past the end of the file.
                 // Leave this group's words unaligned rather than failing the
-                // whole file — the transcript is still useful without timing.
+                // whole file: the transcript is still useful without timing.
                 warn!(
                     group = group_index,
                     start_ms = start_ms.0,
@@ -122,7 +122,7 @@ async fn infer_groups_v2(
                 continue;
             }
             // A worker process crash (SIGKILL / OOM / C-extension SIGSEGV) is
-            // caused by this group's specific audio + word content — not by a
+            // caused by this group's specific audio + word content, not by a
             // broken environment.  The crash is deterministic on the same group:
             // retrying with a fresh worker on the same input reproduces it.
             // Other groups have different audio and words and are unaffected.
@@ -130,7 +130,7 @@ async fn infer_groups_v2(
             // The correct recovery is a group-level skip (leave words unaligned,
             // continue to the next group) rather than a file-level abort.  A
             // file abort followed by FA retry just respawns workers that crash
-            // on the same group — the retry loop in `fa_pipeline.rs` confirmed
+            // on the same group, the retry loop in `fa_pipeline.rs` confirmed
             // this for job 1020067a-85f (3 files × 3 retries, all within 4 s).
             Err(ref e) if is_worker_process_crash(e) => {
                 warn!(
@@ -152,7 +152,7 @@ async fn infer_groups_v2(
                 let Some(reason) = whisper_fallback_reason(batch.engine, &error) else {
                     // Before propagating to the file level, check whether this is a
                     // data-driven RuntimeFailure. RuntimeFailure means the model failed
-                    // on this group's specific input — other groups are unaffected, so
+                    // on this group's specific input, other groups are unaffected, so
                     // the correct recovery is a group-level skip, not a file abort.
                     if is_fa_runtime_failure(&error) {
                         warn!(
@@ -202,7 +202,7 @@ async fn infer_groups_v2(
                     }
                     // The Whisper model is not loaded in this worker (capability
                     // gap, not a data error).  Leave the group's words unaligned
-                    // rather than aborting the whole file — the surrounding
+                    // rather than aborting the whole file, the surrounding
                     // utterances still have valid timing.
                     Err(ref error) if is_whisper_model_unavailable(error) => {
                         warn!(
@@ -353,7 +353,7 @@ fn fa_engine_name(engine: FaEngineType) -> &'static str {
     }
 }
 
-/// Returns `true` when the FA group error is a data-driven `RuntimeFailure` —
+/// Returns `true` when the FA group error is a data-driven `RuntimeFailure`
 /// the worker received and understood the request but the model raised a Python
 /// exception on this specific input (token overflow, shape mismatch, OOM, etc.).
 ///
@@ -388,7 +388,7 @@ fn is_fa_runtime_failure(error: &ServerError) -> bool {
     )
 }
 
-/// Returns `true` when `error` is a worker process crash — the Python child
+/// Returns `true` when `error` is a worker process crash, the Python child
 /// process was killed by a signal (`exit code: None` = SIGKILL from the kernel
 /// OOM-killer, or SIGSEGV/SIGABRT from a C-extension crash in torchaudio).
 ///
@@ -397,7 +397,7 @@ fn is_fa_runtime_failure(error: &ServerError) -> bool {
 /// A process crash is triggered by the *content* of the request: a specific
 /// combination of audio length and word count can push the Wave2Vec or Whisper
 /// model into OOM or cause a C-extension assertion failure.  The crash is
-/// deterministic on the same group — retrying with a fresh worker on the same
+/// deterministic on the same group, retrying with a fresh worker on the same
 /// group will produce the same crash.  Other groups have different audio and
 /// words; they will not trigger the crash and can be processed normally by the
 /// replacement worker that the pool automatically spawns.
@@ -750,7 +750,7 @@ mod tests {
             "448-token Whisper CTC overflow must be detectable as a RuntimeFailure"
         );
 
-        // Generic RuntimeFailure (shape error, device mismatch, etc.) — also group-local.
+        // Generic RuntimeFailure (shape error, device mismatch, etc.), also group-local.
         let shape_error = ServerError::Validation(
             "failed to parse worker protocol V2 FA response for group 3 (50000..70000 ms): \
              worker protocol V2 forced-alignment request failed with RuntimeFailure: \
@@ -762,7 +762,7 @@ mod tests {
             "generic RuntimeFailure must also be detectable"
         );
 
-        // Infrastructure error (IPC parse failure, no RuntimeFailure code) — must NOT match.
+        // Infrastructure error (IPC parse failure, no RuntimeFailure code), must NOT match.
         let ipc_error = ServerError::Validation(
             "failed to parse worker protocol V2 FA response for group 5 (0..5000 ms): \
              translation data (not FA)"
@@ -773,7 +773,7 @@ mod tests {
             "non-RuntimeFailure IPC error must not be mistaken for a data-driven group error"
         );
 
-        // ModelUnavailable — a capability gap, not a RuntimeFailure.
+        // ModelUnavailable: a capability gap, not a RuntimeFailure.
         let model_unavail = ServerError::Validation(
             "failed to parse worker protocol V2 FA response for group 24 (379515..381395 ms): \
              worker protocol V2 forced-alignment request failed with ModelUnavailable: \
@@ -811,7 +811,7 @@ mod tests {
     /// Root cause confirmed for job 1020067a-85f: one GPU worker (pid=12656)
     /// crashed with `exit code: None` (SIGKILL) while processing groups from 3
     /// concurrent files.  Every retry hit the same crashing group, died within
-    /// 1–4 s, and all 3 files failed.  The fix: treat `ProcessExited` as a
+    /// 1-4 s, and all 3 files failed.  The fix: treat `ProcessExited` as a
     /// group-level skip, identical to `EmptyFaAudioSegment` and `RuntimeFailure`.
     #[test]
     fn worker_process_crash_is_detectable_as_group_local_signal() {
@@ -827,7 +827,7 @@ mod tests {
         );
 
         // Explicit non-zero exit code (e.g., SIGSEGV = 139, SIGABRT = 134)
-        // still classifies as a crash — the model died on this group's content.
+        // still classifies as a crash, the model died on this group's content.
         let sigsegv = ServerError::Worker(WorkerError::ProcessExited {
             code: Some(139),
             stderr: Some("Segmentation fault: 11".to_string()),
@@ -838,7 +838,7 @@ mod tests {
         );
 
         // Infrastructure failures that are NOT process crashes must not be
-        // conflated — they should still propagate to the file level.
+        // conflated; they should still propagate to the file level.
         let data_error = ServerError::Validation(
             "failed to parse worker protocol V2 FA response for group 5 (0..5000 ms): \
              some parse error from the model output"

@@ -142,7 +142,7 @@ Control which models are pre-loaded at server startup:
 
 ```bash
 # Presets
-batchalign3 serve start --warmup off           # No warmup — workers spawn on first job
+batchalign3 serve start --warmup off           # No warmup, workers spawn on first job
 batchalign3 serve start --warmup minimal        # Morphotag only
 batchalign3 serve start --warmup full           # Morphotag + align + transcribe (default)
 
@@ -214,19 +214,19 @@ max_workers_per_job: 0          # 0 = auto-plan from files, CPU, and category ca
 max_concurrent_jobs: 0          # 0 = CPU-based runner slot cap
 gpu_thread_pool_size: 4         # Concurrent execute_v2 per shared GPU worker.
                                  # Rust dispatch_semaphore + Python ThreadPoolExecutor
-                                 # share this ceiling — set to the device's real
+                                 # share this ceiling: set to the device's real
                                  # parallelism (1 on Apple Silicon CPU-only;
                                  # 2-4 on CUDA where the GIL is released).
 max_concurrent_worker_startups: 1
 
-# Memory tier override — force a specific tier instead of auto-detecting
+# Memory tier override: force a specific tier instead of auto-detecting
 # from total RAM. Values: small, medium, large, fleet. Omit to auto-detect.
 # memory_tier: small
 
 # Host-memory reserve/headroom (MB) preserved after reservations
 # 0 = disable explicit reserve. Default: 2048 MB (one absolute floor on
 # every host; the worker-pool admission gate enforces the same number
-# live on every spawn attempt — see book/src/batchalign/developer/memory-safety.md)
+# live on every spawn attempt, see book/src/batchalign/developer/memory-safety.md)
 memory_gate_mb: 4000
 
 # Per-profile startup reservation overrides (MB). 0 = use tier default.
@@ -239,11 +239,11 @@ memory_gate_mb: 4000
 
 # Worker lifecycle
 # Idle workers are evicted by host memory pressure (largest-RSS first
-# when available memory drops below the eviction threshold) — there is
+# when available memory drops below the eviction threshold); there is
 # no fixed idle timeout. Health checks run every `worker_health_interval_s`.
 worker_health_interval_s: 30    # Health check frequency
 
-# Warmup — list of commands to pre-load at startup
+# Warmup: list of commands to pre-load at startup
 # Default: [morphotag, align, transcribe]
 # Empty list disables warmup entirely.
 warmup_commands:
@@ -266,7 +266,7 @@ stanza_startup_mb: 3000         # Actual Stanza RSS is ~2-3 GB
 gpu_startup_mb: 6000            # Whisper float32 is ~4-5 GB
 max_concurrent_worker_startups: 1
 gpu_thread_pool_size: 1
-warmup_commands: []             # No warmup — workers spawn on demand
+warmup_commands: []             # No warmup, workers spawn on demand
 ```
 
 The Small tier now also switches local workers to **task bootstrap** and clamps

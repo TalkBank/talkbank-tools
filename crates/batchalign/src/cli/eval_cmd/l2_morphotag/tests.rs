@@ -9,7 +9,7 @@
 //! - The architectural win: an AST-first walker pairs `@s` correctly
 //!   across a group retrace where the Python regex analyzer mis-counts.
 //!
-//! Fixtures are minimal hand-written CHAT strings — just enough to
+//! Fixtures are minimal hand-written CHAT strings, just enough to
 //! exercise one behavior per test. No filesystem searches for "small
 //! files" (per the workspace CLAUDE.md rule 19).
 
@@ -299,7 +299,7 @@ fn analyze_file_on_phrasal_verb_fixture_pairs_every_at_s_word() {
     // 2 `@s` words per utterance × 4 utterances = 8 total.
     assert_eq!(result.analyses.len(), 8, "expected 8 @s analyses");
 
-    // Every analysis is spliced — no L2|xxx, no missing_mor.
+    // Every analysis is spliced, no L2|xxx, no missing_mor.
     for a in &result.analyses {
         assert_eq!(
             a.status,
@@ -321,7 +321,7 @@ fn analyze_file_on_phrasal_verb_fixture_pairs_every_at_s_word() {
 
     // `time@s` in "time out" stays NOUN (compound-noun context).
     // In the fixture `die zeit ist time@s out@s .`, "time" is the clause
-    // ROOT per the %gra row `4|0|ROOT` — it heads "zeit" (nsubj), "ist"
+    // ROOT per the %gra row `4|0|ROOT`, it heads "zeit" (nsubj), "ist"
     // (cop), and "out" (flat). The point of the assertion is that the
     // AST walker pairs position 3 with mor_tier.items[3] / gra_tier
     // relations[3] correctly, not that the deprel is any specific label.
@@ -414,7 +414,7 @@ fn aggregate_by_pair_combines_two_files_with_same_pair_key() {
 // ---------------------------------------------------------------------------
 // Architectural win: retrace group
 //
-// `<hello mundo> [//]` is a group retrace — the two words inside `<...>`
+// `<hello mundo> [//]` is a group retrace, the two words inside `<...>`
 // are retraced and do NOT have %mor entries. A regex analyzer that counts
 // main-tier whitespace tokens sees "hello", "mundo", "[//]", "world@s", so
 // it pairs `world@s` with position 2 (because [//] is skipped as a bracket
@@ -422,7 +422,7 @@ fn aggregate_by_pair_combines_two_files_with_same_pair_key() {
 // `missing_mor` at position 2.
 //
 // The AST walker using `TierDomain::Mor` short-circuits on
-// `UtteranceContent::Retrace`, so `world@s` pairs at position 0 —
+// `UtteranceContent::Retrace`, so `world@s` pairs at position 0
 // matching %mor's 1-item list exactly. No missing_mor.
 // ---------------------------------------------------------------------------
 
@@ -447,7 +447,7 @@ fn analyze_file_pairs_at_s_correctly_across_group_retrace() {
     assert_eq!(
         a.status,
         AtSStatus::Spliced,
-        "AST walker should pair world@s with noun|world — regex \
+        "AST walker should pair world@s with noun|world, regex \
          analyzer would report missing_mor here"
     );
     assert_eq!(

@@ -17,12 +17,12 @@ use crate::worker::InferTask;
 /// Instead of spawning one worker per `InferTask`, profiles group related tasks
 /// so that loaded models are shared within a single process:
 ///
-/// - **Gpu**: ASR, FA, Speaker — GPU-bound models, concurrent via Python
+/// - **Gpu**: ASR, FA, Speaker, GPU-bound models, concurrent via Python
 ///   `ThreadPoolExecutor` (PyTorch releases the GIL during CUDA kernels).
 ///   Max 1 process per (lang, engine_overrides) key.
-/// - **Stanza**: Morphosyntax, Utseg, Coref — Stanza NLP processors, sequential
+/// - **Stanza**: Morphosyntax, Utseg, Coref, Stanza NLP processors, sequential
 ///   per process. Multiple processes for CPU parallelism (auto-tuned).
-/// - **Io**: Translate, OpenSMILE, AVQI — lightweight API/library calls.
+/// - **Io**: Translate, OpenSMILE, AVQI, lightweight API/library calls.
 ///   Max 1 process per key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]

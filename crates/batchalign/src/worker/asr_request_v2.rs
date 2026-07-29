@@ -87,7 +87,7 @@ pub struct AsrBuildInputV2<'a> {
     /// Per-engine configuration extras (e.g. `qwen_model`,
     /// `qwen_device`) drawn from `CommonOptions.engine_overrides.extras`.
     /// Carried through the V2 dispatch boundary so the worker spawn
-    /// argv preserves what the user asked for — the typed `backend`
+    /// argv preserves what the user asked for, the typed `backend`
     /// enum only encodes WHICH engine to load, not its configuration.
     pub extras: &'a std::collections::BTreeMap<String, String>,
 }

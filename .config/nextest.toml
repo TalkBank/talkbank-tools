@@ -3,7 +3,7 @@
 # Why the python-workers test-group exists: tests that spawn Python worker
 # subprocesses (`WorkerHandle::spawn` → fork/exec a
 # `uv run python -m batchalign.worker`) contend for OS-level startup
-# resources — dyld, sysctl, .pyc cache writes, fs lookups along $PATH
+# resources: dyld, sysctl, .pyc cache writes, fs lookups along $PATH
 # and sys.path, libpython initialization.
 #
 # Two structural mitigations make this manageable without a `max-threads`
@@ -30,12 +30,12 @@
 [profile.default]
 default-filter = 'not binary(ml_golden)'
 
-# ML profile: run only ml_golden — the consolidated single-binary test
+# ML profile: run only ml_golden, the consolidated single-binary test
 # target that owns all ML-dependent integration tests, sharing one warmed
 # worker backend per process to avoid OOMs from parallel model loads.
 # Requires REVAI_API_KEY and pre-cached Stanza/Whisper checkpoints.
 # Serialized (the doc design in `batchalign-book/src/developer/testing.md`
-# calls out 8–12 GB peak RAM; running these in parallel with anything OOMs).
+# calls out 8-12 GB peak RAM; running these in parallel with anything OOMs).
 [profile.ml]
 default-filter = 'binary(ml_golden)'
 test-threads = 1

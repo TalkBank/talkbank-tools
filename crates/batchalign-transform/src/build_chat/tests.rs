@@ -263,20 +263,20 @@ fn test_transcript_from_asr_auto_generates_speaker_ids() {
 // Two ASR token classes used to tank the entire transcribe job at the
 // `transcript_from_asr_utterances` gate:
 //
-//   1. Boundary quote marks (e.g. `"My`) — Whisper transcribes quoted
+//   1. Boundary quote marks (e.g. `"My`), Whisper transcribes quoted
 //      speech verbatim, leaving stray `"` characters glued to the next
 //      word. Tree-sitter rejects the `"` and the file aborts.
-//   2. Digit-bearing alphanumeric tokens (e.g. `C-3PO` under English) —
+//   2. Digit-bearing alphanumeric tokens (e.g. `C-3PO` under English)
 //      structurally legal CHAT, but `Word::validate` fires E220
 //      ("numeric digits not allowed") in languages outside the
 //      digit-permitting set.
 //
 // Design: maximize information preservation, but never abuse the
 // reserved `xxx` / `yyy` / `www` markers (those mean specific things
-// about transcriber experience — see `untranscribed-markers.md` in
+// about transcriber experience: see `untranscribed-markers.md` in
 // the talkbank-tools book).
 //
-//   • Boundary quotes get a silent orthographic strip (Stage 2c) —
+//   • Boundary quotes get a silent orthographic strip (Stage 2c)
 //     no information is lost when `"` becomes a no-op character.
 //   • Validation-only failures (digit policy etc.) fall back to the
 //     structural-only `ChatWordText::try_from` path, shipping the
@@ -284,7 +284,7 @@ fn test_transcript_from_asr_auto_generates_speaker_ids() {
 //     fire the same E220 and the file ends up in the human review
 //     queue. The transcriber listens, decides what was actually
 //     said, fixes the transcript. ASR doesn't pretend to know.
-//   • Genuine structural (parse) failures still fail loud — emitting
+//   • Genuine structural (parse) failures still fail loud, emitting
 //     malformed CHAT silently would corrupt the file beyond CHECK's
 //     ability to flag it.
 
@@ -317,13 +317,13 @@ fn alphanumeric_token_under_eng_is_emitted_verbatim_for_review() {
     // Whisper transcribes proper nouns like `C-3PO` verbatim. Under
     // eng, digits are illegal (E220). The ASR pipeline does NOT
     // invent semantics for digit-bearing alphanumerics (digit-by-
-    // digit? cardinal? ordinal? — unknowable from surface form).
+    // digit? cardinal? ordinal?: unknowable from surface form).
     // The gate falls back to the structural-only `try_from` path,
     // shipping `C-3PO` verbatim. Tree-sitter accepts the token,
     // the file builds, and the downstream validator + CHECK fire
     // E220 for the human reviewer to listen and decide.
     //
-    // Substituting `xxx` is BANNED — it would corrupt that marker's
+    // Substituting `xxx` is BANNED; it would corrupt that marker's
     // "transcriber listened and could not make it out" meaning
     // across the whole corpus.
     let result = run_transcribe_to_description(
@@ -352,7 +352,7 @@ fn alphanumeric_token_under_eng_is_emitted_verbatim_for_review() {
     );
     assert!(
         !words.iter().any(|w| w == "xxx"),
-        "must not substitute `xxx` — it has the reserved meaning \
+        "must not substitute `xxx`; it has the reserved meaning \
          \"transcriber listened and could not make it out\". Found: {words:?}",
     );
 }
@@ -362,7 +362,7 @@ fn alphanumeric_token_passes_zho_validation_gate() {
     // Counterpart to the eng test: numeric digits ARE legal in some
     // languages, so the same `C-3PO` token must pass the gate under
     // those languages. Confirms the rule is language-specific and
-    // bounds the scope of any fix — the normalizer must consult the
+    // bounds the scope of any fix, the normalizer must consult the
     // utterance's language before deciding whether to act.
     //
     // NOTE on the language code: the talkbank-tools word validator's
@@ -370,7 +370,7 @@ fn alphanumeric_token_passes_zho_validation_gate() {
     // hak}`. `cmn` (Mandarin, spoken) is NOT in that set even though
     // it's the more linguistically precise code; `zho` (Chinese, the
     // macrolanguage / written) is. That asymmetry is a separate
-    // talkbank-tools concern — not this crate's bug — but documenting
+    // talkbank-tools concern, not this crate's bug, but documenting
     // it here so a future ASR-output-with-cmn test failure traces to
     // the right place.
     let utterances = vec![asr_postprocess::Utterance {
@@ -761,7 +761,7 @@ fn transcribe_comment_includes_do_not_use() {
             "@Comment with 'Unchecked output' must include 'DO NOT USE', got: {comment}"
         );
     }
-    // Version should not be a semver like "0.1.0" — should be commit hash or omitted
+    // Version should not be a semver like "0.1.0", should be commit hash or omitted
     for line in output.lines() {
         if line.starts_with("@Comment:") && line.contains("Batchalign") {
             assert!(
@@ -777,7 +777,7 @@ fn transcribe_comment_includes_do_not_use() {
 // These tests drive the full pipeline (`process_raw_asr` →
 // `transcript_from_asr_utterances` → `build_chat` → `to_chat_string`)
 // and pin user-visible casing and retrace-shape invariants in the
-// serialized CHAT output — the boundary that no earlier unit test
+// serialized CHAT output: the boundary that no earlier unit test
 // reaches.
 
 /// Build a single-speaker `AsrOutput` from `(text, start_secs, end_secs)`
@@ -878,7 +878,7 @@ fn user_report_english_pronoun_i_preserved_from_rev_ai() {
 ///
 /// The utterance-initial-cap rule (2026-04-23) uppercases the
 /// first non-retrace word in an English utterance, so the
-/// emitted form is `a [/] a [/] A` — retrace copies preserve the
+/// emitted form is `a [/] a [/] A`, retrace copies preserve the
 /// speaker's original lowercase `a`s, and the final "real"
 /// word gets the sentence-initial capitalization.
 #[test]
@@ -904,7 +904,7 @@ fn user_report_single_word_triple_repetition_emits_separate_retraces() {
 
 /// Proper nouns supplied uppercase by the ASR provider are preserved
 /// through the pipeline. (Promoting sentence-initial function words
-/// like "well"/"and"/"of" is out of scope — handled elsewhere.)
+/// like "well"/"and"/"of" is out of scope, handled elsewhere.)
 #[test]
 fn user_report_proper_nouns_preserved_from_rev_ai() {
     let output = run_transcribe_pipeline(
@@ -946,19 +946,19 @@ fn user_report_proper_nouns_preserved_from_rev_ai() {
 }
 
 // -------------------------------------------------------------------
-// RED — Fundamental B witness + the reporter end-to-end canary
+// RED: Fundamental B witness + the reporter end-to-end canary
 //
 // Fundamental A (enforce validation at `ChatWordText` construction)
 // is expressed in `asr_postprocess/asr_types.rs::tests`. Once A
 // goes green, most symptom-level tests that constructed
 // Rev.AI-shaped `AsrOutput`s containing `%` and expected parse-clean
-// CHAT become redundant — `ChatWordText::try_from` will refuse
+// CHAT become redundant: `ChatWordText::try_from` will refuse
 // them before `build_chat` is even reached.
 //
 // Two tests remain at this layer because they exercise properties
 // A alone does not cover:
 //
-//   * `red_fund_b_digit_hyphenated_eng_emits_no_bare_digits` — the
+//   * `red_fund_b_digit_hyphenated_eng_emits_no_bare_digits`: the
 //     end-to-end witness that `process_raw_asr` (Fundamental B)
 //     respects the language-aware variant of the `ChatWordText`
 //     invariant. The digit-hyphenated token `17-year-old` is
@@ -966,7 +966,7 @@ fn user_report_proper_nouns_preserved_from_rev_ai() {
 //     for eng. This is the cleanest forcing function for the
 //     language-aware construction policy and acts as B's witness.
 //
-//   * `red_reporter_c465e6e8_97c_repro_fixture` — the
+//   * `red_reporter_c465e6e8_97c_repro_fixture`: the
 //     "The reporter's bug stays fixed" regression canary. Three authentic
 //     Rev.AI tokens with real timestamps; any future regression in
 //     either A (structural) or B (pipeline postcondition) will
@@ -1045,7 +1045,7 @@ fn red_fund_b_digit_hyphenated_eng_emits_no_bare_digits() {
     );
 
     // Re-parse and run the full validator under an eng context. This is
-    // the true E220 check — it reads the ChatFile's word AST, applies
+    // the true E220 check, it reads the ChatFile's word AST, applies
     // language-aware digit rules per word, and collects any violations.
     // Using the real machinery instead of string-matching digits makes
     // the test robust against surface-level artifacts such as utterance
@@ -1212,7 +1212,7 @@ fn english_transcribe_rules_fire_end_to_end() {
         output.contains("I'll see him ."),
         "third utterance must show I-cap on contraction: {output}"
     );
-    // Negative assertions — the rules must NOT have fired on
+    // Negative assertions: the rules must NOT have fired on
     // unrelated material.
     assert!(
         !output.contains(" i "),

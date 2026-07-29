@@ -26,8 +26,8 @@ bash scripts/run_react_dashboard_smoke.sh
 ## Entry Point Map
 
 All entry points ultimately route through the same Playwright test files under `frontend/e2e/tests/`:
-- `frontend/e2e/tests/mock-server.spec.mjs` — tests against a mock HTTP/WebSocket server
-- `frontend/e2e/tests/real-server.spec.mjs` — tests against the actual Batchalign binary
+- `frontend/e2e/tests/mock-server.spec.mjs`: tests against a mock HTTP/WebSocket server
+- `frontend/e2e/tests/real-server.spec.mjs`: tests against the actual Batchalign binary
 
 ### By Context
 
@@ -81,10 +81,10 @@ All entry points ultimately route through the same Playwright test files under `
 - Detecting server-side regressions
 
 **Environment:**
-- `BATCHALIGN_REAL_SERVER_E2E=1` — enables real server mode
-- `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1` — install Playwright with OS deps (required in CI)
-- `BATCHALIGN_BIN` — optional override for binary path
-- `BATCHALIGN_PYTHON` — optional override for Python executable
+- `BATCHALIGN_REAL_SERVER_E2E=1`: enables real server mode
+- `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1`: install Playwright with OS deps (required in CI)
+- `BATCHALIGN_BIN`: optional override for binary path
+- `BATCHALIGN_PYTHON`: optional override for Python executable
 
 ## Orchestration Scripts
 
@@ -135,7 +135,7 @@ BATCHALIGN_SKIP_API_SYNC=1 bash scripts/run_react_dashboard_smoke.sh
 
 ### `scripts/check_dashboard_api_drift.sh`
 
-**Purpose:** Validation gate — ensures generated artifacts are in sync.
+**Purpose:** Validation gate: ensures generated artifacts are in sync.
 
 **Flow:**
 1. Regenerates API types
@@ -228,7 +228,7 @@ npm run test:e2e:headed  # Run tests in headed mode (visual browser)
 
 ## CI Workflows
 
-### `batchalign-python.yml` — `dashboard-e2e` job
+### `batchalign-python.yml`: `dashboard-e2e` job
 
 **Triggers:** `main` branch or manual `workflow_dispatch`
 
@@ -240,13 +240,13 @@ npm run test:e2e:headed  # Run tests in headed mode (visual browser)
 5. Run: `bash scripts/run_react_dashboard_smoke.sh` with `BATCHALIGN_REAL_SERVER_E2E=1`
 
 **Key env vars:**
-- `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1` — install Playwright with OS dependencies
-- `BATCHALIGN_REAL_SERVER_E2E=1` — use real server mode
-- `BATCHALIGN_PYTHON` — set to uv-managed Python executable
+- `BATCHALIGN_PLAYWRIGHT_WITH_DEPS=1`: install Playwright with OS dependencies
+- `BATCHALIGN_REAL_SERVER_E2E=1`: use real server mode
+- `BATCHALIGN_PYTHON`: set to uv-managed Python executable
 
 **Result:** Tests dashboard against real Batchalign server built from main branch.
 
-### `batchalign-desktop.yml` — Desktop bundle workflow
+### `batchalign-desktop.yml`: Desktop bundle workflow
 
 **Note:** Currently builds desktop bundles but does not run e2e tests. The `apps/dashboard-desktop/` directory has its own e2e setup if needed.
 

@@ -16,7 +16,7 @@ pub(crate) mod transcribe;
 /// Shared services used by pipeline helpers.
 ///
 /// `TreeSitterParser` is `!Send + !Sync` (uses `RefCell` internally), so it
-/// cannot be stored here — `PipelineServices` is carried across async task
+/// cannot be stored here, `PipelineServices` is carried across async task
 /// boundaries. Callers that need a parser create one locally via
 /// `TreeSitterParser::new()`.
 #[derive(Clone, Copy)]

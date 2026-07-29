@@ -1,4 +1,4 @@
-//! File discovery — mirrors `file_io.py` (`_discover_files`, `_discover_inputs`).
+//! File discovery: mirrors `file_io.py` (`_discover_files`, `_discover_inputs`).
 //!
 //! Walks directories, filters by extension, sorts by size (largest first),
 //! detects and skips dummy CHAT files.
@@ -115,7 +115,7 @@ pub fn discover_client_files(
 /// Discover files from mixed inputs (directories + individual files) for server dispatch.
 ///
 /// For directories: walks recursively via [`discover_client_files`].
-/// For individual files: adds directly (no extension filtering — user chose them).
+/// For individual files: adds directly (no extension filtering, user chose them).
 pub fn discover_server_inputs(
     inputs: &[PathBuf],
     out_dir: Option<&Path>,
@@ -188,7 +188,7 @@ pub fn infer_base_dir(inputs: &[PathBuf]) -> Result<PathBuf, CliError> {
         return canonicalize_path(d, "canonicalize input directory");
     }
 
-    // All inputs are files — common ancestor
+    // All inputs are files, common ancestor
     if !inputs.is_empty() {
         let abs: Vec<PathBuf> = inputs
             .iter()

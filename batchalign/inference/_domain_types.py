@@ -1,6 +1,6 @@
 """Domain-specific type aliases for inference and worker modules.
 
-These are ``TypeAlias`` — zero-cost documentation that makes signatures
+These are ``TypeAlias``: zero-cost documentation that makes signatures
 self-describing without the wrapping friction of ``NewType``.
 """
 
@@ -66,7 +66,7 @@ TencentSecretKey: TypeAlias = str
 """Tencent Cloud CAM SecretKey paired with ``TencentSecretId``.
 
 Loaded from ``~/.batchalign.ini`` `[asr]` `engine.tencent.key`.
-Treated as a secret — never logged or echoed.
+Treated as a secret: never logged or echoed.
 """
 
 TencentRegion: TypeAlias = str
@@ -77,7 +77,7 @@ product authorization.
 """
 
 TcpPort: TypeAlias = int
-"""TCP port number in the range 1–65535."""
+"""TCP port number in the range 1-65535."""
 
 
 class TranslationBackend(Enum):
@@ -86,7 +86,7 @@ class TranslationBackend(Enum):
     Wire values are the lowercase tokens the Rust control plane sends
     in ``engine_overrides["translate"]``. Adding a variant requires a
     mirror update in ``crates/batchalign/src/types/engines.rs``
-    (``TranslateEngineName``) — the dispatcher in
+    (``TranslateEngineName``): the dispatcher in
     ``batchalign/worker/_model_loading/translation.py`` decodes the
     string into this enum via ``TranslationBackend(value)``.
     """

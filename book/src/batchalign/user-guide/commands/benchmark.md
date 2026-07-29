@@ -60,11 +60,11 @@ flowchart TD
 | `--lang CODE` | `eng` | 3-letter ISO language code |
 | `-n`, `--num-speakers N` | `2` | Number of speakers |
 | `--asr-engine {rev,whisper,whisper-oai}` | `rev` | ASR engine |
-| `--asr-engine-custom NAME` | — | Override ASR engine by name |
+| `--asr-engine-custom NAME` |: | Override ASR engine by name |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` tier in the hypothesis output |
 | `--merge-abbrev` | off | Merge abbreviations in the output |
-| `--bank NAME` | — | Server media bank name from `server.yaml` `media_mappings` (server-backed runs only) |
-| `--subdir PATH` | — | Subdirectory under the selected `--bank` to scope the run |
+| `--bank NAME` |: | Server media bank name from `server.yaml` `media_mappings` (server-backed runs only) |
+| `--subdir PATH` |: | Subdirectory under the selected `--bank` to scope the run |
 
 ---
 

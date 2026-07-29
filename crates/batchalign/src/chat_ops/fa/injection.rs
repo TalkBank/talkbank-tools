@@ -32,7 +32,7 @@ impl<'a> TimingCursor<'a> {
 
     /// Advance the position and return the timing at the previous position.
     ///
-    /// Always advances by one, even past the end — this matches the FA injection
+    /// Always advances by one, even past the end, this matches the FA injection
     /// invariant that every alignable word must advance the cursor.
     pub fn take(&mut self) -> Option<&WordTiming> {
         let slot = self.timings.get(self.pos);
@@ -78,7 +78,7 @@ pub fn inject_timings_for_utterance(
                 // replacement words).  Injection must mirror that policy:
                 // consume exactly one cursor position for the original word
                 // and set its inline bullet.  Replacement words are never
-                // FA-aligned — they are corrections that the speaker did not
+                // FA-aligned; they are corrections that the speaker did not
                 // actually say.  Using the original word here keeps the
                 // cursor in sync with extraction across utterance boundaries.
                 inject_timing_on_word(&mut replaced.word, &mut cursor);
@@ -122,7 +122,7 @@ fn inject_timing_on_word(word: &mut Word, cursor: &mut TimingCursor<'_>) {
 
 /// Return the number of FA words this CHAT word was split into during extraction.
 ///
-/// Delegates to `split_compound_filler` — the single source of truth for the
+/// Delegates to `split_compound_filler`: the single source of truth for the
 /// splitting rule shared between extraction and injection.
 fn compound_filler_part_count(word: &Word) -> usize {
     super::split_compound_filler(word).len()

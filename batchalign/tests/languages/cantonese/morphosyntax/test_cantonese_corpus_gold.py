@@ -14,7 +14,7 @@ Provenance is documented for every test case:
 - Corpus name and location in data/*-data/
 - File name and speaker code
 - Original main tier (verbatim from corpus)
-- Existing %mor tier (for reference only — may be wrong)
+- Existing %mor tier (for reference only, may be wrong)
 
 Corpora used (all public, non-password-protected):
 1. CHILDES CHCC Winston Cantonese (child bilingual speech, Hong Kong)
@@ -38,7 +38,7 @@ class TestChildesCantonesePosGold:
     """
 
     def test_mot_得唔得(self) -> None:
-        """Mother asks 'is it okay?' — V-not-V construction.
+        """Mother asks 'is it okay?', V-not-V construction.
 
         Source: 010704.cha, *MOT
         Main: 得 唔 得 ?
@@ -51,7 +51,7 @@ class TestChildesCantonesePosGold:
         words = ["得", "唔", "得"]
         tagged = dict(pycantonese.pos_tag(words))
 
-        # PyCantonese tags 得 as AUX — linguistically defensible
+        # PyCantonese tags 得 as AUX, linguistically defensible
         assert tagged["得"] in ("VERB", "ADJ", "AUX"), (
             f"得 should be VERB/ADJ/AUX, got {tagged['得']}"
         )
@@ -70,13 +70,13 @@ class TestChildesCantonesePosGold:
 
         assert tagged["錄"] == "VERB", f"錄 (record) should be VERB, got {tagged['錄']}"
         assert tagged["咗"] == "PART", (
-            f"咗 (perfective) — gold says AUX, PyCantonese says {tagged['咗']}. "
+            f"咗 (perfective): gold says AUX, PyCantonese says {tagged['咗']}. "
             "PART is also linguistically defensible for aspect markers."
         )
         assert tagged["啊"] == "PART", f"啊 (SFP) should be PART, got {tagged['啊']}"
 
     def test_mot_油罐車_unknown(self) -> None:
-        """Mother says 'oil tanker truck' — PyCantonese limitation.
+        """Mother says 'oil tanker truck', PyCantonese limitation.
 
         Source: 010803.cha, *MOT
         Main: 油罐車 .
@@ -88,7 +88,7 @@ class TestChildesCantonesePosGold:
         """
         tagged = dict(pycantonese.pos_tag(["油罐車"]))
         assert tagged["油罐車"] == "X", (
-            f"油罐車 — expected X (known PyCantonese gap), got {tagged['油罐車']}. "
+            f"油罐車: expected X (known PyCantonese gap), got {tagged['油罐車']}. "
             "If NOUN, PyCantonese has improved."
         )
 
@@ -99,7 +99,7 @@ class TestChildesCantonesePosGold:
         Main: 邊個 油罐車 啊 ?
         Gold %mor: propn|邊個 noun|油罐車 part|啊 ?
 
-        Note: Gold tags 邊個 as PROPN which is questionable — it's an
+        Note: Gold tags 邊個 as PROPN which is questionable, it's an
         interrogative pronoun 'which one'. PyCantonese may differ.
         """
         words = ["邊個", "油罐車", "啊"]
@@ -131,7 +131,7 @@ class TestAphasiaCantonesePosGold:
         tagged = dict(pycantonese.pos_tag(words))
 
         assert tagged["小朋友"] == "PROPN", (
-            f"小朋友 — expected PROPN (known PyCantonese quirk), got {tagged['小朋友']}. "
+            f"小朋友: expected PROPN (known PyCantonese quirk), got {tagged['小朋友']}. "
             "If NOUN, PyCantonese has improved."
         )
         assert tagged["踢"] == "VERB", f"踢 (kick) should be VERB, got {tagged['踢']}"
@@ -151,7 +151,7 @@ class TestAphasiaCantonesePosGold:
         tagged = dict(pycantonese.pos_tag(words))
 
         assert tagged["跟住"] == "CCONJ", (
-            f"跟住 — expected CCONJ (PyCantonese's tag), got {tagged['跟住']}. "
+            f"跟住: expected CCONJ (PyCantonese's tag), got {tagged['跟住']}. "
             "If VERB/ADV, PyCantonese has changed."
         )
         assert tagged["朋友"] == "NOUN", f"朋友 (friend) should be NOUN, got {tagged['朋友']}"
@@ -172,7 +172,7 @@ class TestAphasiaCantonesePosGold:
 
         assert tagged["踢波"] == "VERB", f"踢波 (kick ball) should be VERB, got {tagged['踢波']}"
         assert tagged["啦"] == "X", (
-            f"啦 — expected X (known PyCantonese gap), got {tagged['啦']}. "
+            f"啦: expected X (known PyCantonese gap), got {tagged['啦']}. "
             "If PART, PyCantonese has improved."
         )
 
@@ -191,7 +191,7 @@ class TestAphasiaCantonesePosGold:
         tagged = dict(pycantonese.pos_tag(words))
 
         assert tagged["踢爛"] == "ADJ", (
-            f"踢爛 — expected ADJ (known PyCantonese limitation), got {tagged['踢爛']}. "
+            f"踢爛: expected ADJ (known PyCantonese limitation), got {tagged['踢爛']}. "
             "If VERB, PyCantonese has improved."
         )
         assert tagged["冷氣"] == "NOUN", f"冷氣 (AC) should be NOUN, got {tagged['冷氣']}"
@@ -205,14 +205,14 @@ class TestPyCantonesePosOnCorpusVocabulary:
     """
 
     def test_sentence_final_particles(self) -> None:
-        """Cantonese sentence-final particles — PyCantonese accuracy and gaps.
+        """Cantonese sentence-final particles: PyCantonese accuracy and gaps.
 
         SFPs are fundamental to Cantonese grammar. PyCantonese handles most
         but not all. Source: extracted from CHILDES CHCC and Aphasia HKU files.
 
         KNOWN LIMITATIONS:
         - 啊 tagged as INTJ (interjection) instead of PART
-        - 啦 tagged as X (unknown) — not in dictionary
+        - 啦 tagged as X (unknown), not in dictionary
         - 噃 tagged as X (unknown)
         """
         # SFPs that PyCantonese correctly tags as PART
@@ -235,12 +235,12 @@ class TestPyCantonesePosOnCorpusVocabulary:
         for sfp, expected_wrong in known_gaps.items():
             tagged = dict(pycantonese.pos_tag([sfp]))
             assert tagged[sfp] == expected_wrong, (
-                f"SFP '{sfp}' — expected {expected_wrong} (known gap), got {tagged[sfp]}. "
+                f"SFP '{sfp}': expected {expected_wrong} (known gap), got {tagged[sfp]}. "
                 "If PART, PyCantonese has improved."
             )
 
     def test_aspect_markers(self) -> None:
-        """Cantonese aspect markers — PyCantonese coverage.
+        """Cantonese aspect markers: PyCantonese coverage.
 
         Source: 咗 (perfective), 緊 (progressive) from CHILDES CHCC corpus.
 
@@ -251,12 +251,12 @@ class TestPyCantonesePosOnCorpusVocabulary:
 
         tagged_gan = dict(pycantonese.pos_tag(["緊"]))
         assert tagged_gan["緊"] == "X", (
-            f"緊 — expected X (known gap), got {tagged_gan['緊']}. "
+            f"緊: expected X (known gap), got {tagged_gan['緊']}. "
             "If VERB/PART, PyCantonese has improved."
         )
 
     def test_common_cantonese_nouns(self) -> None:
-        """Common Cantonese nouns — PyCantonese accuracy and gaps.
+        """Common Cantonese nouns: PyCantonese accuracy and gaps.
 
         Source: frequent nouns from CHILDES CHCC and Aphasia HKU corpora.
 
@@ -265,7 +265,7 @@ class TestPyCantonesePosOnCorpusVocabulary:
         - 油罐車 tagged as X (compound not in dictionary)
         """
         # Nouns PyCantonese handles correctly
-        # NOTE: 故事 (story) is tagged as VERB by PyCantonese — a dictionary error.
+        # NOTE: 故事 (story) is tagged as VERB by PyCantonese, a dictionary error.
         correct_nouns = ["嘢", "朋友", "冷氣", "玻璃"]
         for noun in correct_nouns:
             tagged = dict(pycantonese.pos_tag([noun]))
@@ -281,11 +281,11 @@ class TestPyCantonesePosOnCorpusVocabulary:
         )
         tagged_ygc = dict(pycantonese.pos_tag(["油罐車"]))
         assert tagged_ygc["油罐車"] == "X", (
-            f"油罐車 — expected X (known gap), got {tagged_ygc['油罐車']}"
+            f"油罐車: expected X (known gap), got {tagged_ygc['油罐車']}"
         )
         tagged_gs = dict(pycantonese.pos_tag(["故事"]))
         assert tagged_gs["故事"] == "VERB", (
-            f"故事 — expected VERB (known PyCantonese error, should be NOUN), "
+            f"故事: expected VERB (known PyCantonese error, should be NOUN), "
             f"got {tagged_gs['故事']}. If NOUN, PyCantonese has fixed this."
         )
 

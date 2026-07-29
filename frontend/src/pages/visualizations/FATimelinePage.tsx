@@ -1,4 +1,4 @@
-/** FA Timeline — coming in Phase 4. */
+/** FA Timeline: coming in Phase 4. */
 
 import { ModeToggle } from "../../components/visualizations/ModeToggle";
 

@@ -7,10 +7,10 @@ constructions in each pipeline mode.
 
 Sentences under test (typical clinical-narrative language samples with
 contracted copula ``'s``):
-    1. "the stool's going over"      — "stool is going" (copula + progressive)
-    2. "and he's falling over"       — "he is falling" (copula + progressive)
-    3. "and the sink's overflowing"  — "sink is overflowing" (copula + progressive)
-    4. "the lady's washing dishes"   — "lady is washing dishes" (copula + progressive)
+    1. "the stool's going over", "stool is going" (copula + progressive)
+    2. "and he's falling over"; "he is falling" (copula + progressive)
+    3. "and the sink's overflowing", "sink is overflowing" (copula + progressive)
+    4. "the lady's washing dishes", "lady is washing dishes" (copula + progressive)
 
 All four are the same linguistic phenomenon: contracted copula ``is`` before
 a present participle. The CHAT-correct MOR for the clitic in every case is
@@ -19,14 +19,14 @@ anywhere) that correct analysis is lost in the BA3 pipeline.
 
 Three pipeline configurations are probed:
 
-* ``english_pipeline_free_tokenize`` — Stanza in fully unconstrained mode.
+* ``english_pipeline_free_tokenize``: Stanza in fully unconstrained mode.
   This is the *baseline* for what Stanza-with-MWT can produce for these
   inputs. If Stanza fails here, the fix is not in BA3 plumbing.
-* ``english_pipeline_with_postprocessor`` WITH ``original_words`` set —
+* ``english_pipeline_with_postprocessor`` WITH ``original_words`` set
   simulates BA3 Preserve-mode (``retokenize=False``). If MWT Range tokens
   are merged back to Single tokens here, we've reproduced the regression
   at the Stanza-layer boundary.
-* ``english_pipeline_with_postprocessor`` WITHOUT ``original_words`` —
+* ``english_pipeline_with_postprocessor`` WITHOUT ``original_words``
   simulates BA3 Retokenize-mode. Expected to preserve Range tokens.
 
 See the plan at ``~/.claude/plans/dazzling-singing-reddy.md`` for context.
@@ -46,12 +46,12 @@ from batchalign.inference._tokenizer_realign import (
 
 # Four copula-contraction sentences, paired with the word lists BA3 would
 # hand to ``original_words`` in Preserve mode (each contracted surface kept
-# as one CHAT token — "stool's" not "stool" + "'s") AND the OBSERVED
+# as one CHAT token, "stool's" not "stool" + "'s") AND the OBSERVED
 # POS/lemma Stanza currently emits for the contracted ``'s`` component.
 #
 # The CHAT-correct analysis for every clitic is AUX/be. Stanza gets this
 # right for stool/he but commits to a possessive (PART/'s) reading for
-# sink/lady — see ``book/src/reference/stanza-limitations.md`` Defect 1.
+# sink/lady: see ``book/src/reference/stanza-limitations.md`` Defect 1.
 # BA3 corrects Stanza's wrong call downstream in Rust via the
 # ``nlp::invariants::finite_verb_main_clause`` rule. The tests in this
 # file document what Stanza itself produces; end-to-end correctness of
@@ -97,7 +97,7 @@ def _find_contraction(sent: list[dict], head_lemma: str) -> tuple[dict, dict | N
     """Return (head_word_dict, clitic_word_dict_or_None).
 
     Matches the head by lemma (``stool``/``he``/``sink``/``lady``). The
-    clitic — if Stanza produced one — is the next word entry in the
+    clitic, if Stanza produced one, is the next word entry in the
     sentence (same Range parent or next Single id).
     """
     for idx, w in enumerate(sent):
@@ -112,7 +112,7 @@ def _find_contraction(sent: list[dict], head_lemma: str) -> tuple[dict, dict | N
 
 
 # ---------------------------------------------------------------------------
-# Q-A: Free tokenize (Stanza unconstrained) — the semantic baseline
+# Q-A: Free tokenize (Stanza unconstrained), the semantic baseline
 #
 # If Stanza's MWT is correct in unconstrained mode, a localized fix in
 # BA3's pipeline plumbing is sufficient. If Stanza fails here, the fix
@@ -152,11 +152,11 @@ class TestFreeTokenizeBaseline:
         """Encode Stanza's *actual* tagging per-sentence as ground truth.
 
         Observed 2026-04-13 (Stanza 1.x, GUM MWT package):
-          stool's, he's → AUX/be  (copula — correct)
+          stool's, he's → AUX/be  (copula, correct)
           sink's, lady's → PART/'s (Stanza mis-disambiguates as possessive)
 
         If a future Stanza upgrade changes any of these, the fixture must
-        be updated — that *is* the test's purpose: to make Stanza behavior
+        be updated: that *is* the test's purpose: to make Stanza behavior
         visible in the test suite rather than silently buried.
         """
         doc = english_pipeline_free_tokenize(text)
@@ -183,13 +183,13 @@ class TestFreeTokenizeBaseline:
     # itself should emit AUX/be for sink/lady. That driven-fix test has
     # been removed because BA3 now corrects Stanza's mis-reading via the
     # Rust ``nlp::invariants::finite_verb_main_clause`` rewrite. Stanza
-    # itself is still wrong on these cases — that's documented in
+    # itself is still wrong on these cases, that's documented in
     # ``book/src/reference/stanza-limitations.md`` Defect 1. The
     # correctness of BA3's final output is verified end-to-end elsewhere.
 
 
 # ---------------------------------------------------------------------------
-# Q-B: With postprocessor + original_words SET — simulates Preserve mode
+# Q-B: With postprocessor + original_words SET, simulates Preserve mode
 #
 # Expected (bug reproduction): MWT Range tokens merged back to Single.
 # If this is what we observe, we have pinpointed the locus to the
@@ -204,7 +204,7 @@ class TestPostprocessorWithOriginalWords:
     History: before the 2026-04-13 fix to ``_realign_sentence``, this
     class documented the Preserve-mode bug by asserting Range tokens
     were merged back to Single. After the fix, Range tokens survive
-    the postprocessor — which is what Rust's ``map_ud_sentence`` needs
+    the postprocessor, which is what Rust's ``map_ud_sentence`` needs
     to produce tilde-joined MOR.
     """
 
@@ -271,7 +271,7 @@ class TestPostprocessorWithOriginalWords:
 
 
 # ---------------------------------------------------------------------------
-# Q-C: With postprocessor but WITHOUT original_words — simulates Retokenize
+# Q-C: With postprocessor but WITHOUT original_words, simulates Retokenize
 #
 # Expected: Range tokens preserved, clitic tagged AUX/lemma=be. This
 # documents what BA3 *could* be doing in Preserve if only the
@@ -283,7 +283,7 @@ class TestPostprocessorWithOriginalWords:
 class TestPostprocessorWithoutOriginalWords:
     """Without original_words, MWT Range tokens survive in the BA3 pipeline.
 
-    This is the state BA3 *should* have in Preserve mode — the
+    This is the state BA3 *should* have in Preserve mode, the
     postprocessor reverts when it has a reason to (retokenize / CJK) but
     the same pipeline object is capable of emitting Range tokens. The bug
     is that the reason-to-merge is always present in Preserve mode.
@@ -295,7 +295,7 @@ class TestPostprocessorWithoutOriginalWords:
         label, text, _words, _upos, _lemma,
     ):
         nlp, ctx = english_pipeline_with_postprocessor
-        # Explicitly clear — some prior test may have leaked state.
+        # Explicitly clear: some prior test may have leaked state.
         ctx.original_words = []
         doc = nlp(text)
 
@@ -321,7 +321,7 @@ class TestPostprocessorWithoutOriginalWords:
 
         Confirms that running through the postprocessor (without
         original_words) does NOT change Stanza's UPOS/lemma for the
-        clitic — it only gates whether Range is preserved. Any
+        clitic: it only gates whether Range is preserved. Any
         divergence between this test and the free-tokenize baseline
         would point at the postprocessor doing more than we expect.
         """
@@ -367,7 +367,7 @@ class TestPostprocessorEmitsMWTHint:
     """The postprocessor must emit ``(text, True)`` tuples for contractions.
 
     If these pass but Q-D (below) still shows no Range tokens, the root
-    cause is downstream of the postprocessor — somewhere between the hint
+    cause is downstream of the postprocessor, somewhere between the hint
     being set and Stanza's MWT processor not acting on it (or MWT
     running BEFORE the postprocessor, which would make the hint useless).
     """
@@ -417,7 +417,7 @@ class TestPostprocessorEmitsMWTHint:
 # This is the payload the V2 IPC carries across the Python/Rust boundary.
 # Rust's ``map_ud_sentence()`` reads ``raw_sentences`` and decides whether
 # to tilde-join. If Range tokens are absent here, no amount of Rust-side
-# logic can reconstruct them — the Preserve bug is definitively in
+# logic can reconstruct them, the Preserve bug is definitively in
 # Python's handling of the request.
 # ---------------------------------------------------------------------------
 
@@ -444,7 +444,7 @@ class TestBatchInferPreservePayloadToRust:
         ``map_ud_sentence()`` in Rust consumes to emit tilde-joined MOR.
 
         History: before the 2026-04-13 fix, this test asserted the
-        INVERSE — that Range tokens were absent from the payload (the
+        INVERSE: that Range tokens were absent from the payload (the
         bug). After the fix, Range tokens survive, so the assertion is
         inverted.
         """
@@ -490,7 +490,7 @@ class TestBatchInferPreservePayloadToRust:
         ]
         assert range_entries, (
             f"[{label}] Expected a Range entry for {contracted!r} in the "
-            f"Preserve payload — this is what Rust needs to tilde-join. "
+            f"Preserve payload; this is what Rust needs to tilde-join. "
             f"Sentence: {[(w.get('id'), w.get('text')) for w in first_sent]}. "
             f"If this fails, the Preserve-mode MWT regression has returned."
         )

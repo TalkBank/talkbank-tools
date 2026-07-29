@@ -1,4 +1,4 @@
-//! Local daemon lifecycle — mirrors `batchalign/cli/daemon.py`.
+//! Local daemon lifecycle: mirrors `batchalign/cli/daemon.py`.
 //!
 //! Key difference from Python: the daemon starts the **Rust server binary**
 //! (`batchalign3 serve start --foreground`), not the Python server.
@@ -6,7 +6,7 @@
 //! ## Port policy
 //!
 //! The daemon always uses the port from the server config (default 8000).
-//! No random ephemeral ports — this makes discovery deterministic and avoids
+//! No random ephemeral ports; this makes discovery deterministic and avoids
 //! orphaned servers on random ports after crashes.
 //!
 //! ## Stale-binary detection
@@ -142,7 +142,7 @@ impl DaemonProfile {
 }
 
 // ---------------------------------------------------------------------------
-// DaemonInfo — state file
+// DaemonInfo: state file
 // ---------------------------------------------------------------------------
 
 /// State persisted to `daemon.json` so the CLI can reconnect to a running daemon.
@@ -158,7 +158,7 @@ pub struct DaemonInfo {
     /// Unix timestamp when the daemon was started.
     #[serde(default)]
     pub started_at: f64,
-    /// Build fingerprint — empty for old state files (falls back to version).
+    /// Build fingerprint: empty for old state files (falls back to version).
     #[serde(default)]
     pub build_hash: String,
     /// The daemon process's *resolved* `force_cpu` value (operator
@@ -175,7 +175,7 @@ pub struct DaemonInfo {
     /// semantic shifted: resolved-vs-resolved comparison now matches
     /// the daemon's actual runtime behavior. Existing daemon.json
     /// files trigger one self-correcting restart on first contact
-    /// post-upgrade — Apple Silicon hosts go from raw=false to
+    /// post-upgrade: Apple Silicon hosts go from raw=false to
     /// resolved=true and the next invocation kicks the daemon over.
     #[serde(default)]
     pub force_cpu: bool,
@@ -192,7 +192,7 @@ pub struct DaemonInfo {
     /// from host facts) or the daemon.json file pre-dates this field.
     /// Used by the warm-reuse path to fire the `--workers` shadowing
     /// warning only when the requested value actually differs from
-    /// the running daemon's — eliminating false positives when the
+    /// the running daemon's: eliminating false positives when the
     /// operator re-passes a value that already matches.
     #[serde(default)]
     pub workers: Option<u32>,
@@ -309,7 +309,7 @@ fn is_stale(info: &DaemonInfo) -> bool {
     if !info.build_hash.is_empty() {
         return info.build_hash != crate::cli::build_hash();
     }
-    // Old state file — fall back to version comparison
+    // Old state file: fall back to version comparison
     info.version != current_version()
 }
 
@@ -322,7 +322,7 @@ fn runtime_mismatch(info: &DaemonInfo, flags: DaemonDeviceFlags) -> bool {
 /// shadowing warning when the user re-passes a value that already
 /// matches the daemon. A `None` on the daemon side (pre-upgrade
 /// daemon.json that lacks the field) is treated as "unknown" and
-/// triggers the warning so the user still gets a signal — falling
+/// triggers the warning so the user still gets a signal, falling
 /// back to the pre-persisted-value behavior on first contact after
 /// upgrade.
 fn flag_shadows_daemon<T: PartialEq>(requested: Option<T>, persisted: Option<T>) -> bool {
@@ -361,7 +361,7 @@ struct DaemonDeviceFlags {
 /// `start_daemon` for the value persisted to `DaemonInfo`.
 ///
 /// A missing or unreadable `server.yaml` falls back to
-/// `ServerConfig::default()` — the same behavior `serve_cmd::start`
+/// `ServerConfig::default()`: the same behavior `serve_cmd::start`
 /// has, so the resolved value computed here matches what the daemon
 /// process will see when it boots.
 fn resolve_device_flags_for_daemon(
@@ -444,7 +444,7 @@ async fn ensure_daemon_locked(
                 // and per-job parallelism (`max_workers_per_job`) are
                 // both fixed at daemon startup. On the warm-reuse path
                 // the user's `--timeout` / `--workers` are silently
-                // discarded — without surfacing that, a request can
+                // discarded, without surfacing that, a request can
                 // fail with a timeout below the requested value, or a
                 // multi-file batch can run serially because the daemon
                 // stayed at workers=1 (the host-facts auto-clamp on
@@ -456,7 +456,7 @@ async fn ensure_daemon_locked(
                     let running = info
                         .audio_task_timeout_s
                         .map(|s| format!("{s}s"))
-                        .unwrap_or_else(|| "<unknown — daemon pre-dates this field>".to_string());
+                        .unwrap_or_else(|| "<unknown: daemon pre-dates this field>".to_string());
                     let requested = timeout
                         .map(|s| format!("{s}s"))
                         .unwrap_or_else(|| "<not set>".to_string());
@@ -474,7 +474,7 @@ async fn ensure_daemon_locked(
                     let running = info
                         .workers
                         .map(|n| n.to_string())
-                        .unwrap_or_else(|| "<unknown — daemon pre-dates this field>".to_string());
+                        .unwrap_or_else(|| "<unknown: daemon pre-dates this field>".to_string());
                     let requested = workers
                         .map(|n| n.to_string())
                         .unwrap_or_else(|| "<not set>".to_string());
@@ -973,11 +973,11 @@ mod tests {
 
     #[test]
     fn daemon_info_missing_build_hash() {
-        // Old state files lack build_hash — should default to empty
+        // Old state files lack build_hash, should default to empty
         let json = r#"{"pid": 999, "port": 8000, "version": "1.0.0"}"#;
         let info: DaemonInfo = serde_json::from_str(json).unwrap();
         assert_eq!(info.build_hash, "");
-        // Old state files also lack workers/audio_task_timeout_s — both
+        // Old state files also lack workers/audio_task_timeout_s, both
         // must default to None so the flag-shadowing warning falls back
         // to fire-on-any-passing-the-flag (the pre-persisted behavior).
         assert_eq!(info.workers, None);
@@ -1131,7 +1131,7 @@ mod tests {
 
     #[test]
     fn flag_shadows_daemon_silent_when_user_did_not_pass_flag() {
-        // User accepted the daemon's default — never warn, regardless
+        // User accepted the daemon's default, never warn, regardless
         // of what the daemon was started with.
         assert!(!flag_shadows_daemon::<u32>(None, None));
         assert!(!flag_shadows_daemon(None, Some(4)));

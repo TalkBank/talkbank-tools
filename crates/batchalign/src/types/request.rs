@@ -1,4 +1,4 @@
-//! REST API request models — `POST /jobs` submission types.
+//! REST API request models, `POST /jobs` submission types.
 //!
 //! These are re-exported from [`super::api`] for backward compatibility.
 
@@ -55,7 +55,7 @@ pub struct JobSubmission {
     #[cfg_attr(feature = "server", schema(value_type = serde_json::Value))]
     pub options: CommandOptions,
 
-    // Paths mode — local daemon sends filesystem paths instead of content.
+    // Paths mode: local daemon sends filesystem paths instead of content.
     /// When true, server reads/writes files directly via source_paths/output_paths.
     #[serde(default)]
     pub paths_mode: bool,
@@ -71,7 +71,7 @@ pub struct JobSubmission {
 
     /// When true, the server collects detailed algorithm traces for
     /// visualization (DP alignment matrices, ASR pipeline stages, FA
-    /// timelines, retokenization mappings). Defaults to false — zero
+    /// timelines, retokenization mappings). Defaults to false, zero
     /// overhead when off.
     #[serde(default)]
     pub debug_traces: bool,
@@ -150,7 +150,7 @@ impl JobSubmission {
     /// Reject (command, lang) combinations that would be lies.
     ///
     /// `LanguageSpec::PerFile` is the unique correct shape for morphotag,
-    /// translate, and coref — they have no `--lang` CLI flag and read
+    /// translate, and coref; they have no `--lang` CLI flag and read
     /// language per-file from each CHAT file's `@Languages:` header. Any
     /// other shape on those commands means a placeholder is sneaking
     /// through (the 2026-05-03 morphotag incident).
@@ -179,7 +179,7 @@ impl JobSubmission {
                 Err(ValidationError(format!(
                     "command '{}' has no --lang; submission must use LanguageSpec::PerFile (per-file \
                  resolution from @Languages: header). Job-level lang sentinels are banned for \
-                 this command — see the 2026-05-03 morphotag incident.",
+                 this command: see the 2026-05-03 morphotag incident.",
                     self.command
                 )))
             }
@@ -228,7 +228,7 @@ impl JobSubmission {
         // Rev.AI known-broken (engine, language) deny-list.
         //
         // Rev.AI advertises support for a language but has been observed to
-        // return output unusable for CHAT construction — see
+        // return output unusable for CHAT construction, see
         // `REVAI_KNOWN_BROKEN` in `revai/preflight.rs` for current entries
         // with dated provenance. Rejecting at preflight turns a late-stage
         // per-token validation failure into a clear up-front message that
@@ -331,7 +331,7 @@ pub(crate) fn validate_utr_language_support(
 pub struct ValidationError(pub String);
 
 // ---------------------------------------------------------------------------
-// Stanza language support — hardcoded fallback table
+// Stanza language support: hardcoded fallback table
 // ---------------------------------------------------------------------------
 
 /// Hardcoded fallback table of ISO 639-3 codes supported by Stanza.
@@ -416,7 +416,7 @@ pub fn validate_language_with_registry(
     }
 
     let Some(reg) = registry else {
-        // Registry not populated — the hardcoded table in validate() already
+        // Registry not populated: the hardcoded table in validate() already
         // caught obviously unsupported languages.
         return Ok(());
     };
@@ -442,7 +442,7 @@ mod tests {
 
     /// Build a minimal morphotag `JobSubmission` for testing validation.
     ///
-    /// Morphotag has no `--lang` flag — every legal submission carries
+    /// Morphotag has no `--lang` flag, every legal submission carries
     /// `LanguageSpec::PerFile`. The `lang_spec` parameter exists only so
     /// regression tests can construct *invalid* submissions (e.g. with
     /// `Resolved(eng)`) and assert that `validate()` rejects them.
@@ -567,7 +567,7 @@ mod tests {
     // as "words" (');�'). Evidence is kept in an operational workspace
     // outside this repo; see the strategy doc for the procedure.
     //
-    // `try_revai_language_hint("mal")` maps to "ml" which Rev.AI accepts —
+    // `try_revai_language_hint("mal")` maps to "ml" which Rev.AI accepts
     // but the result is cross-script garbage that no CHAT validator can
     // accept. Propagating that output produces confusing late-stage E220 /
     // E330 validation errors on arbitrary tokens; users have no way to tell
@@ -619,7 +619,7 @@ mod tests {
     /// (or any other engine) doesn't hit a second validation failure.
     ///
     /// Caveat: empirical evaluation (2026-04-22) showed stock
-    /// Whisper's Malayalam output is *also* broken — it collapses into
+    /// Whisper's Malayalam output is *also* broken, it collapses into
     /// Khmer/Gurmukhi loops and hallucinates "Thank you for watching."
     /// That is why the Rev.AI deny-list for ``mal`` now recommends
     /// ``whisper_hub``, not ``whisper``. This test remains as a *validation*

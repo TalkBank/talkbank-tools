@@ -35,7 +35,7 @@
         "type": "string"
       },
       "CancelSource": {
-        "description": "Where a job-cancellation request originated. No `Default` impl —\nevery caller must explicitly state what kind of actor it is, so a\nfuture \"anonymous cancel\" path cannot silently slip through as\n`Api`.",
+        "description": "Where a job-cancellation request originated. No `Default` impl\nevery caller must explicitly state what kind of actor it is, so a\nfuture \"anonymous cancel\" path cannot silently slip through as\n`Api`.",
         "enum": [
           "tui",
           "cli",
@@ -119,7 +119,7 @@
         "type": "object"
       },
       "ClientPath": {
-        "description": "A path on the submitting client's filesystem.\n\nThe server MUST NOT do filesystem I/O on this directly — it's metadata\nonly.  The only way to convert it to a [`ServerPath`] for I/O is via\n[`assume_shared_filesystem`](Self::assume_shared_filesystem), which\nrequires the caller to verify that the server shares the client's\nfilesystem (paths_mode with a local daemon).\n\nDeliberately does NOT implement `AsRef<Path>` to prevent accidental\nfilesystem operations.",
+        "description": "A path on the submitting client's filesystem.\n\nThe server MUST NOT do filesystem I/O on this directly, it's metadata\nonly.  The only way to convert it to a [`ServerPath`] for I/O is via\n[`assume_shared_filesystem`](Self::assume_shared_filesystem), which\nrequires the caller to verify that the server shares the client's\nfilesystem (paths_mode with a local daemon).\n\nDeliberately does NOT implement `AsRef<Path>` to prevent accidental\nfilesystem operations.",
         "type": "string"
       },
       "ContentType": {
@@ -470,7 +470,7 @@
             "type": "integer"
           },
           "build_hash": {
-            "description": "Build fingerprint — changes on every rebuild.  Used for stale-binary\ndetection during development.  Empty string from older servers.",
+            "description": "Build fingerprint: changes on every rebuild.  Used for stale-binary\ndetection during development.  Empty string from older servers.",
             "type": "string"
           },
           "cache_backend": {
@@ -553,7 +553,7 @@
             "type": "integer"
           },
           "loaded_pipelines": {
-            "description": "Pipelines currently loaded in memory (warm workers).  A subset of\n`capabilities` — only commands whose workers have been spawned.",
+            "description": "Pipelines currently loaded in memory (warm workers).  A subset of\n`capabilities`, only commands whose workers have been spawned.",
             "items": {
               "type": "string"
             },
@@ -665,7 +665,7 @@
         "type": "string"
       },
       "JobInfo": {
-        "description": "`GET /jobs/{id}` response — job progress.\n\nContains full detail about a single job, including per-file statuses.\nPolled by the CLI to drive progress bars and by the dashboard for\nlive-updating tables.",
+        "description": "`GET /jobs/{id}` response: job progress.\n\nContains full detail about a single job, including per-file statuses.\nPolled by the CLI to drive progress bars and by the dashboard for\nlive-updating tables.",
         "properties": {
           "active_lease": {
             "oneOf": [
@@ -1002,7 +1002,7 @@
         "type": "object"
       },
       "JobResultResponse": {
-        "description": "`GET /jobs/{id}/results` response — completed job results.",
+        "description": "`GET /jobs/{id}/results` response: completed job results.",
         "properties": {
           "files": {
             "description": "Per-file results (empty until the job completes).",
@@ -1027,7 +1027,7 @@
         "type": "object"
       },
       "JobStatus": {
-        "description": "Lifecycle states for a job — mirrors `JobStatus` enum.\n\nJobs progress through a linear lifecycle: `Queued -> Running -> {terminal}`.\nTerminal states (`Completed`, `Failed`, `Cancelled`, `Interrupted`) are\npermanent and never transition further.  Only `Cancelled` and `Failed` jobs\ncan be restarted (which resets them to `Queued`).",
+        "description": "Lifecycle states for a job, mirrors `JobStatus` enum.\n\nJobs progress through a linear lifecycle: `Queued -> Running -> {terminal}`.\nTerminal states (`Completed`, `Failed`, `Cancelled`, `Interrupted`) are\npermanent and never transition further.  Only `Cancelled` and `Failed` jobs\ncan be restarted (which resets them to `Queued`).",
         "enum": [
           "queued",
           "running",
@@ -1054,7 +1054,7 @@
             "description": "Batchalign command (align, morphotag, etc.)."
           },
           "debug_traces": {
-            "description": "When true, the server collects detailed algorithm traces for\nvisualization (DP alignment matrices, ASR pipeline stages, FA\ntimelines, retokenization mappings). Defaults to false — zero\noverhead when off.",
+            "description": "When true, the server collects detailed algorithm traces for\nvisualization (DP alignment matrices, ASR pipeline stages, FA\ntimelines, retokenization mappings). Defaults to false, zero\noverhead when off.",
             "type": "boolean"
           },
           "display_names": {
@@ -1127,7 +1127,7 @@
         "type": "object"
       },
       "LanguageCode3": {
-        "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected — use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
+        "description": "3-letter ISO 639-3 language code (e.g. `\"eng\"`, `\"spa\"`).\n\nConstruction validates that the value is exactly 3 ASCII alphabetic\ncharacters, lowercased. Sentinel values like `\"auto\"` are rejected, use\n[`LanguageSpec`] at boundaries where auto-detection is meaningful.",
         "type": "string"
       },
       "LanguageGroupProgress": {
@@ -1181,7 +1181,7 @@
             "type": "object"
           },
           {
-            "description": "No job-level language; resolve per-file from each CHAT file's\n`@Languages:` header. Used by morphotag, translate, and coref —\nnone of which take a `--lang` CLI flag.",
+            "description": "No job-level language; resolve per-file from each CHAT file's\n`@Languages:` header. Used by morphotag, translate, and coref\nnone of which take a `--lang` CLI flag.",
             "enum": [
               "PerFile"
             ],
@@ -1213,7 +1213,7 @@
         "type": "object"
       },
       "MediaMappingKey": {
-        "description": "Key into `ServerConfig.media_mappings` (e.g. `\"slabank-data\"`).\n\nNot a filesystem path — it's a logical name that maps to a\n[`ServerPath`] via the server's configuration.",
+        "description": "Key into `ServerConfig.media_mappings` (e.g. `\"slabank-data\"`).\n\nNot a filesystem path, it's a logical name that maps to a\n[`ServerPath`] via the server's configuration.",
         "type": "string"
       },
       "MemoryMb": {

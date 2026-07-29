@@ -1,4 +1,4 @@
-"""Tests for typed model handles — behavioral contracts only.
+"""Tests for typed model handles, behavioral contracts only.
 
 Verifies non-trivial logic in WhisperASRHandle (gen_kwargs branching,
 callable forwarding) and WhisperFAHandle (instance-local monkey-patching).
@@ -47,7 +47,7 @@ class TestWhisperASRHandle:
         assert kw["generation_config"] == "my_config"
 
     def test_gen_kwargs_auto_omits_language(self) -> None:
-        """When lang is ``"auto"``, Whisper should auto-detect — no ``language`` key."""
+        """When lang is ``"auto"``, Whisper should auto-detect, no ``language`` key."""
         handle = WhisperASRHandle(
             pipe=None,
             config="my_config",
@@ -76,7 +76,7 @@ class TestWhisperASRHandle:
         ``generation_config``; re-forcing them via ``generate_kwargs``
         produces gibberish. When ``skip_language_force=True``,
         ``gen_kwargs`` must omit ``task`` and ``language`` regardless of
-        the requested language — the request language is otherwise
+        the requested language: the request language is otherwise
         authoritative in the V2 inference path
         (``infer_whisper_prepared_audio`` passes ``gen_kwargs(request_lang)``),
         so a handle-level flag is the only correct boundary for
@@ -93,11 +93,11 @@ class TestWhisperASRHandle:
         # must suppress the task/language force on generate().
         kw = handle.gen_kwargs("malayalam")
         assert "task" not in kw, (
-            "fine-tune handle must not pass task='transcribe' — the model's "
+            "fine-tune handle must not pass task='transcribe', the model's "
             "generation_config already pins task and re-forcing produces gibberish"
         )
         assert "language" not in kw, (
-            "fine-tune handle must not pass a language hint — the model's "
+            "fine-tune handle must not pass a language hint, the model's "
             "generation_config already pins language"
         )
 
@@ -105,7 +105,7 @@ class TestWhisperASRHandle:
         self,
     ) -> None:
         """Fine-tunes come with their own ``generation_config`` baked into
-        the checkpoint — things like language hints, suppress-token sets,
+        the checkpoint: things like language hints, suppress-token sets,
         beam / temperature settings tuned during training. The pipeline
         uses that by default.
 
@@ -114,7 +114,7 @@ class TestWhisperASRHandle:
         ``no_repeat_ngram_size=4`` + ``use_cache=True`` on top. When
         ``generate_kwargs={"generation_config": <that>}`` is passed at
         ``generate()`` time, it **overrides** the checkpoint's own
-        ``generation_config`` — including any settings the fine-tune
+        ``generation_config``, including any settings the fine-tune
         author relied on. Empirically (2026-04-22, thennal/whisper-medium-ml
         on a Malayalam sample) this overrides produces cross-script
         gibberish with ``"letter"`` substrings and stray digits, while
@@ -127,7 +127,7 @@ class TestWhisperASRHandle:
 
         If we later need to add knobs for fine-tunes (e.g., a
         whisper_hub-specific ``repetition_penalty``), we should build
-        them into a dedicated handle or a new mode — NOT by
+        them into a dedicated handle or a new mode, NOT by
         reintroducing overrides here.
         """
         handle = WhisperASRHandle(

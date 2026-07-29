@@ -208,7 +208,7 @@ fn test_monotonicity_clamps_overlapping_end_times() {
         2,
         "should have 2 end_clamped decisions"
     );
-    // `end_clamped` is routine housekeeping — a few-millisecond UTR overlap
+    // `end_clamped` is routine housekeeping, a few-millisecond UTR overlap
     // correction.  It must NOT set needs_review because that writes %xrev: [?],
     // causing CLAN to flag a correctly-aligned utterance for human review.
     // BA2 made these same adjustments silently.  Only `timing_stripped` (where
@@ -219,7 +219,7 @@ fn test_monotonicity_clamps_overlapping_end_times() {
     // but no %xrev appears.
     assert!(
         !clamp_decisions[0].needs_review,
-        "end_clamped must NOT need review — it is routine overlap correction, \
+        "end_clamped must NOT need review; it is routine overlap correction, \
          not an alignment defect requiring human inspection"
     );
 }
@@ -391,7 +391,7 @@ fn snapshot_fa_infer_item() {
 
 #[test]
 fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
-    // Fixture: an utterance with `xxx`. The stale %wor has 5 words (no xxx) —
+    // Fixture: an utterance with `xxx`. The stale %wor has 5 words (no xxx)
     // this matches what the new policy will produce after FA.
     let input = concat!(
         "@UTF8\n",
@@ -405,7 +405,7 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
     );
     let mut chat = parse_chat(input);
 
-    // FA group: 5 words extracted by collect_fa_words — xxx is excluded because
+    // FA group: 5 words extracted by collect_fa_words, xxx is excluded because
     // untranscribed tokens have no alignable phoneme sequence.
     let groups = vec![FaGroup {
         audio_span: TimeSpan::new(27602, 28323),
@@ -435,7 +435,7 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
                 utterance_word_index: WordIdx(4),
                 text: "you".into(),
             },
-            // xxx is NOT in the FA group — not sent to the aligner.
+            // xxx is NOT in the FA group, not sent to the aligner.
         ],
         utterance_indices: vec![UtteranceIdx(0)],
     }];
@@ -474,7 +474,7 @@ fn test_apply_fa_results_excludes_xxx_from_wor_tier() {
 
     let output = chat.to_chat_string();
 
-    // The %wor tier must have 5 word entries — `xxx` is excluded, no slot for it.
+    // The %wor tier must have 5 word entries, `xxx` is excluded, no slot for it.
     let post_wor: Vec<_> = get_utterance(&chat, 0)
         .wor_tier()
         .expect("output must contain a %wor tier after FA")

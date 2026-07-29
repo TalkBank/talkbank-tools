@@ -10,7 +10,7 @@ bootstrap-time visibility requires the stdout path. Routing pre-ready
 progress events to stderr would break that visibility contract.
 
 (Earlier supervisor versions strictly read one JSON line as the ready
-signal and rejected anything else — this test pinned a stderr-routing
+signal and rejected anything else, this test pinned a stderr-routing
 contract for that older protocol. The 2026-05-06 supervisor change
 relaxed the contract; this test was rewritten to track the new
 behavior.)
@@ -122,7 +122,7 @@ def test_post_ready_progress_event_goes_to_stdout():
         assert envelope["op"] == "progress_v2"
         assert envelope["event"]["request_id"] == "req-7"
         assert envelope["event"]["stage"] == "downloading_hf_openai_whisper-large-v3"
-        # Post-ready should NOT also log to stderr — that would double-
+        # Post-ready should NOT also log to stderr; that would double-
         # report the same event.
         assert fake_stderr.getvalue() == ""
     finally:

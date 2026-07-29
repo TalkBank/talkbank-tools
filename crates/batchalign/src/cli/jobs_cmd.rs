@@ -75,7 +75,7 @@ pub async fn run(args: &JobsArgs) -> Result<(), CliError> {
 
 /// Print every cancel attempt against `args.job_id` from the
 /// server's `cancellations` audit table. After-the-fact verification
-/// — when a user reports "I didn't cancel that job," this is the
+///, when a user reports "I didn't cancel that job," this is the
 /// answer.
 async fn run_cancellations(args: &JobsCancellationsArgs) -> Result<(), CliError> {
     let server = args
@@ -219,7 +219,7 @@ async fn show_job(
             let error = entry
                 .error
                 .as_deref()
-                .map(|e| format!(" — {e}"))
+                .map(|e| format!(": {e}"))
                 .unwrap_or_default();
             eprintln!("  {:<30} {status}{error}", entry.filename);
         }

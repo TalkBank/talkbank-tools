@@ -412,7 +412,7 @@ flowchart TD
     parse["Parse CHAT → ChatFile AST\n(single parse, fa/mod.rs)"]
     utr_check{"Untimed\nutterances?"}
     utr_run["UTR pre-pass\nrun_utr_pass()\n(crates/batchalign/src/chat_ops/fa/utr.rs)"]
-    utr_warn["WARN: untimed utterances,\nno UTR engine — proportional\ninterpolation only"]
+    utr_warn["WARN: untimed utterances,\nno UTR engine, proportional\ninterpolation only"]
     incremental{"--before PATH\nprovided?"}
     fa_full["run_fa_from_ast()\n(fa/mod.rs)"]
     fa_inc["process_fa_incremental()\n(fa/incremental.rs)"]
@@ -467,9 +467,9 @@ flowchart TD
     ok["Group timings resolved"]
     err_kind{"Error kind?\n(is_fa_runtime_failure,\nwhisper_fallback_reason,\nis_whisper_model_unavailable)"}
     ctc["Wave2Vec CTC fallback\n(see diagram below)"]
-    model_unavail["ModelUnavailable —\ncapability gap\nLeave words unaligned\n+ WARN in server log"]
-    runtime_fail["RuntimeFailure —\ndata-driven model error\nLeave words unaligned\n+ WARN in server log"]
-    other["Other error —\ninfrastructure failure\n→ propagate to file loop"]
+    model_unavail["ModelUnavailable: \ncapability gap\nLeave words unaligned\n+ WARN in server log"]
+    runtime_fail["RuntimeFailure: \ndata-driven model error\nLeave words unaligned\n+ WARN in server log"]
+    other["Other error: \ninfrastructure failure\n→ propagate to file loop"]
 
     group --> cache
     cache -->|"hit"| cached_timings --> ok
@@ -497,10 +497,10 @@ flowchart TD
 
     w2v --> reason
 
-    r1["Reason: targets length\nis too long for CTC\n— group has too many words\nfor CTC context window"]
-    r2["Reason: targets Tensor\nshouldn't contain blank index\n— word contains char that\nmaps to CTC blank token"]
-    r3["Reason: Kernel size\ncan't be greater than\nactual input size\n— audio segment &lt; ~25ms\n(Wave2Vec conv layer 7\nneeds ≥ 2 samples after\n6 conv layers at 16 kHz)"]
-    none["None — no fallback:\nerror propagates to\nfile-level handler"]
+    r1["Reason: targets length\nis too long for CTC\n, group has too many words\nfor CTC context window"]
+    r2["Reason: targets Tensor\nshouldn't contain blank index\n, word contains char that\nmaps to CTC blank token"]
+    r3["Reason: Kernel size\ncan't be greater than\nactual input size\n, audio segment &lt; ~25ms\n(Wave2Vec conv layer 7\nneeds ≥ 2 samples after\n6 conv layers at 16 kHz)"]
+    none["None, no fallback:\nerror propagates to\nfile-level handler"]
 
     reason -->|"'targets length is too long\nfor CTC'"| r1
     reason -->|"'targets Tensor shouldn't\ncontain blank index'"| r2
@@ -510,8 +510,8 @@ flowchart TD
     whisper["Retry group with\nFaEngineType::WhisperFa\n(new request namespace\nto avoid artifact collision)"]
     fallback_ok["Group timings resolved\n+ FaFallbackEventTrace\nrecorded in job traces"]
     fallback_err{"Whisper response OK?"}
-    model_unavail_err["ModelUnavailable:\nno Whisper model loaded —\nleave words unaligned\n+ WARN in server log\n(is_whisper_model_unavailable())"]
-    runtime_fail_err["RuntimeFailure:\nmodel exception on this input —\nleave words unaligned\n+ WARN in server log\n(is_fa_runtime_failure())"]
+    model_unavail_err["ModelUnavailable:\nno Whisper model loaded: \nleave words unaligned\n+ WARN in server log\n(is_whisper_model_unavailable())"]
+    runtime_fail_err["RuntimeFailure:\nmodel exception on this input, \nleave words unaligned\n+ WARN in server log\n(is_fa_runtime_failure())"]
     other_whisper_err["Other error\n(infrastructure failure)\n→ file-level failure"]
 
     r1 --> whisper
@@ -617,15 +617,15 @@ WARN fa_transport: Whisper FA fallback also failed with model RuntimeFailure;
 
 | Condition | Scope | Outcome | Log |
 |-----------|-------|---------|-----|
-| FA cache hit | Group | Reuse cached timings silently | — |
+| FA cache hit | Group | Reuse cached timings silently |, |
 | Audio segment past EOF | Group | Leave words unaligned; continue | `WARN: group past end of file` |
 | Wave2Vec CTC target overflow (3 patterns) | Group | Retry with Whisper; record fallback trace | `WARN: retrying group with Whisper FA` |
-| Whisper retry succeeds | Group | Group timings resolved | — |
+| Whisper retry succeeds | Group | Group timings resolved |, |
 | Whisper retry: `ModelUnavailable` (worker has no Whisper model) | Group | Leave words unaligned; continue | `WARN: Whisper FA unavailable … leaving group words unaligned` |
 | Worker `RuntimeFailure` (any model exception: token overflow, shape error, OOM, etc.) | Group | Leave words unaligned; continue, `is_fa_runtime_failure()` demotes to group-level | `WARN: FA group failed with model RuntimeFailure` |
 | Whisper fallback also hits `RuntimeFailure` | Group | Leave words unaligned; continue | `WARN: Whisper FA fallback also failed with model RuntimeFailure` |
 | Other worker error (retryable) | File | Retry with backoff; fallback UTR if untimed | `WARN: FA error (raw)` |
-| Retry budget exhausted | File | Terminal failure with real error message | — |
+| Retry budget exhausted | File | Terminal failure with real error message |, |
 
 #### Monotonicity warnings
 
@@ -690,7 +690,7 @@ flowchart TD
     update --> source{"utterance bullet\nBulletSource?"}
 
     source -->|"Utr\n(UTR provisional hint)"| overwrite["Overwrite: bullet = word span\nFA is authoritative.\nUTR estimate discarded."]
-    source -->|"Authoritative\n(hand-linked or FA-derived)"| union_op["Union: bullet = min(word.start, existing.start)\n             ..max(word.end, existing.end)\nNever shrink — preserves\nfiller/gesture coverage"]
+    source -->|"Authoritative\n(hand-linked or FA-derived)"| union_op["Union: bullet = min(word.start, existing.start)\n             ..max(word.end, existing.end)\nNever shrink, preserves\nfiller/gesture coverage"]
     source -->|"None\n(untimed, UTR also failed)"| set_new["Set: bullet = word span"]
 
     overwrite --> mark["Result marked Authoritative"]
@@ -839,7 +839,7 @@ Four tiers of coverage for untimed utterances, in order of preference:
 
 ```mermaid
 flowchart TD
-    start{Untimed\nutterances?} -->|No| done([All timed — skip UTR])
+    start{Untimed\nutterances?} -->|No| done([All timed: skip UTR])
     start -->|Yes| engine{UTR engine\nconfigured?}
 
     engine -->|Yes| ratio{">50% timed\n+ audio >60s?"}

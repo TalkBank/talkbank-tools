@@ -86,7 +86,7 @@ export async function discoverFiles(
 /** Open a path in the native file manager (Finder, Explorer, etc.). */
 export async function openPath(path: string): Promise<void> {
   if (!isDesktop()) {
-    // Best-effort fallback — won't work for local paths in browsers
+    // Best-effort fallback: won't work for local paths in browsers
     return;
   }
   const { open } = await import("@tauri-apps/plugin-shell");

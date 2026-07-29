@@ -50,7 +50,7 @@ def test_iso3_to_alpha2_leaves_unknown_iso3_unchanged(caplog) -> None:
 # ``[- mar]`` whole-utterance precode. The morphotag dispatcher correctly
 # grouped that utterance under ``mar`` and the worker bootstrap then
 # called ``load_stanza_models("mar")``. The bootstrap's preflight gate
-# (``capability_table.supports_morphosyntax("mar")``) passes — the table
+# (``capability_table.supports_morphosyntax("mar")``) passes: the table
 # is keyed by ISO-639-3 via pycountry, so it resolves ``mar`` to
 # ``mr`` and reports "yes, Stanza ships morphosyntax for Marathi."
 #
@@ -80,18 +80,18 @@ def test_iso3_to_alpha2_resolves_pycountry_languages_outside_hardcoded_dict() ->
     the dict) pin the broader principle so a future hardcoded-dict
     regression cannot pass without also breaking pycountry resolution.
     """
-    # Bengali — already in the hardcoded dict; serves as control.
+    # Bengali: already in the hardcoded dict; serves as control.
     assert iso3_to_alpha2("ben") == "bn"
-    # Swahili — not in the hardcoded dict, must resolve via pycountry.
+    # Swahili, not in the hardcoded dict, must resolve via pycountry.
     assert iso3_to_alpha2("swa") == "sw"
 
 
 # ---------------------------------------------------------------------------
-# should_request_mwt — capability-driven processor selection
+# should_request_mwt: capability-driven processor selection
 #
 # Why this matters: ``load_stanza_models`` previously consulted a hardcoded
 # ``MWT_LANGS`` set. That list said Swedish (``sv``) had MWT, but the actual
-# Stanza catalog does not ship a Swedish MWT model — every Swedish worker
+# Stanza catalog does not ship a Swedish MWT model, every Swedish worker
 # spawn raised ``UnsupportedProcessorError`` and the language group failed.
 # The 2026-04-15 overnight morphotag run lost an entire 500-file chunk to
 # this. The principled fix is to query the capability table at runtime
@@ -112,7 +112,7 @@ def _table_with(
 ) -> StanzaCapabilityTable:
     """Build a single-entry capability table for one alpha-2 language.
 
-    Pure construction — no Stanza, no resources.json read. Lets us pin the
+    Pure construction, no Stanza, no resources.json read. Lets us pin the
     helper's behavior without coupling tests to whatever upstream catalog
     happens to ship today.
     """
@@ -164,7 +164,7 @@ class TestShouldRequestMwt:
 
     def test_returns_false_when_table_is_none(self) -> None:
         # ``get_cached_capability_table()`` returns None when Stanza is not
-        # importable. We must not request MWT in that case — there is no
+        # importable. We must not request MWT in that case; there is no
         # way to confirm support, and a wrong guess crashes the worker.
         assert should_request_mwt("en", None) is False
 

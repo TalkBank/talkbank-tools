@@ -1,5 +1,5 @@
 # affects: batchalign/inference/languages/cantonese/_cantonese_fa.py
-"""Unit tests for _cantonese_fa.py — jyutping conversion and FA provider."""
+"""Unit tests for _cantonese_fa.py: jyutping conversion and FA provider."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from .conftest import PyCantoneseFake  # still used by FA host fixture in confte
 
 
 class TestHanziToJyutping:
-    """Tests use real PyCantonese — no faked jyutping dictionary."""
+    """Tests use real PyCantonese, no faked jyutping dictionary."""
 
     def test_single_char(self, pc_real) -> None:  # type: ignore[no-untyped-def]
         assert _hanzi_to_jyutping(pc_real, "好") == "hou"
@@ -69,7 +69,7 @@ class TestHanziToJyutping:
 
 
 class TestMaybeRomanize:
-    """Tests use real PyCantonese — no faked jyutping dictionary."""
+    """Tests use real PyCantonese, no faked jyutping dictionary."""
 
     def test_yue_romanizes(self, pc_real) -> None:  # type: ignore[no-untyped-def]
         assert _maybe_romanize(pc_real, "好", "yue") == "hou"
@@ -150,7 +150,7 @@ class TestInferCantoneseFa:
         resp = infer_cantonese_fa(req)
 
         assert resp.results[0].error == (
-            "Cantonese FA model not loaded — call load_cantonese_fa first"
+            "Cantonese FA model not loaded, call load_cantonese_fa first"
         )
 
     def test_marks_invalid_items(self, cantonese_fa_host: CantoneseFaHost) -> None:

@@ -17,7 +17,7 @@ Post-fix behavior:
 - Other exceptions → emit ``{"op": "error", "error": "...", "kind":
   "runtime"}``. The Rust side keeps existing retry semantics.
 
-The worker process never dies from a per-request exception — except when
+The worker process never dies from a per-request exception, except when
 ``kind == "bootstrap"``, in which case the worker DOES exit (cleanly,
 after emitting the error) so the pool tears it down. That exit is safe
 because the orchestrator has already classified the error as
@@ -170,7 +170,7 @@ def test_serve_stdio_continues_after_runtime_error():
     """After a runtime-kind error, ``_serve_stdio`` must keep reading input.
 
     Pre-fix, an uncaught exception killed the loop (and the worker
-    process). Post-fix, runtime errors should not abort the loop — only
+    process). Post-fix, runtime errors should not abort the loop, only
     bootstrap errors do.
     """
     call_count = {"n": 0}
@@ -218,7 +218,7 @@ def test_serve_stdio_exits_after_bootstrap_error():
     """A bootstrap-kind error must terminate the loop after emitting.
 
     A worker that hit a bootstrap failure is in a partially-initialized
-    state — the safest move is to exit cleanly so the pool spawns a fresh
+    state: the safest move is to exit cleanly so the pool spawns a fresh
     worker. The orchestrator's terminal classification of bootstrap
     errors prevents retry-storm cascades from this exit.
     """

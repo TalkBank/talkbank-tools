@@ -1,4 +1,4 @@
-"""Unit tests for _tencent_api.py — TencentRecognizer monologues/timed_words logic."""
+"""Unit tests for _tencent_api.py: TencentRecognizer monologues/timed_words logic."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ class TestEngineModelType:
 
 
 # ---------------------------------------------------------------------------
-# monologues — using real-style data from 05b.cha
+# monologues: using real-style data from 05b.cha
 # ---------------------------------------------------------------------------
 
 

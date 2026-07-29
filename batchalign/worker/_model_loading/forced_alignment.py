@@ -50,7 +50,7 @@ def load_fa_engine(bootstrap: WorkerBootstrapRuntime) -> None:
         except importlib_metadata.PackageNotFoundError:
             _state.fa_model_name = "wave2vec-fa-mms"
     else:
-        # Exhaustive match — see the equivalent comment in
+        # Exhaustive match: see the equivalent comment in
         # ``_model_loading.asr.load_asr_engine``.
         typing.assert_never(backend)
 
@@ -77,7 +77,7 @@ def resolve_fa_engine(engine_overrides: dict[str, str] | None) -> FaEngine:
        both the dispatch names (``FaEngine`` values) and the legacy
        persistence wire names (``_LEGACY_FA_WIRE_NAMES``). Unknown
        strings raise ``ValueError`` rather than silently loading
-       Wave2Vec — a typo in a per-host override would otherwise
+       Wave2Vec: a typo in a per-host override would otherwise
        produce wrong-model output.
     2. Default to Whisper FA, preserving historical behavior.
     """

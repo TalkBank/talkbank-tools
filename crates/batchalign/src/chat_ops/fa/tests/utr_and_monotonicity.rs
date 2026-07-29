@@ -36,11 +36,11 @@ fn utr_serialize_reparse_no_internal_bullets() {
     // Serialize to CHAT text (this is what the old pipeline did)
     let serialized = batchalign_transform::serialize::to_chat_string(&chat);
 
-    // Re-parse (this is what FA did — the bug)
+    // Re-parse (this is what FA did, the bug)
     let reparsed = parse_chat(&serialized);
 
     // With the CA terminator resolution fix, the parser correctly promotes
-    // trailing bullets to terminal TierContent.bullet — no InternalBullets.
+    // trailing bullets to terminal TierContent.bullet, no InternalBullets.
     let internal_count = count_internal_bullets(&reparsed);
     assert_eq!(
         internal_count, 0,
@@ -114,7 +114,7 @@ fn apply_fa_produces_no_double_bullets_after_utr() {
 
 #[test]
 fn test_utr_zero_duration_asr_token_does_not_create_zero_duration_bullet() {
-    // Single-word backchannel — the canonical OCSC failure pattern.
+    // Single-word backchannel: the canonical OCSC failure pattern.
     let mut chat = parse_chat(&proof_chat("mhm ."));
 
     // Simulate Whisper returning start==end for "mhm" (one 20ms frame).
@@ -129,7 +129,7 @@ fn test_utr_zero_duration_asr_token_does_not_create_zero_duration_bullet() {
         Some((start, end)) => {
             assert!(
                 start < end,
-                "UTR injected a zero-duration bullet •{start}_{end}• for \"mhm\" — \
+                "UTR injected a zero-duration bullet •{start}_{end}• for \"mhm\", \
                  this is the OCSC bug: Whisper zero-duration ASR token propagated to \
                  utterance bullet, which perpetuates through all FA re-runs"
             );
@@ -149,7 +149,7 @@ fn test_utr_zero_duration_asr_token_does_not_create_zero_duration_bullet() {
 fn test_utr_non_overlap_utterances_get_strictly_increasing_start_times() {
     use utr::UtrStrategy;
     // Two adjacent non-overlap utterances.  Both ASR tokens share start=1000ms
-    // (the Whisper 20ms DTW artifact — both backchannels fall in the same frame).
+    // (the Whisper 20ms DTW artifact, both backchannels fall in the same frame).
     let chat_text = "\
 @UTF8\n\
 @Begin\n\
@@ -163,7 +163,7 @@ fn test_utr_non_overlap_utterances_get_strictly_increasing_start_times() {
     let mut chat = parse_chat(chat_text);
     let tokens = make_utr_tokens(&[
         ("mhm", 1000, 1500),
-        ("yeah", 1000, 2000), // same start_ms as "mhm" — Whisper DTW collision
+        ("yeah", 1000, 2000), // same start_ms as "mhm", Whisper DTW collision
     ]);
 
     let _result = utr::TwoPassOverlapUtr::new().inject(&mut chat, &tokens);
@@ -181,14 +181,14 @@ fn test_utr_non_overlap_utterances_get_strictly_increasing_start_times() {
     assert!(
         start1 > start0,
         "adjacent non-overlap utterances must have strictly increasing start_ms: \
-         utt0.start={start0} utt1.start={start1} — identical start times from \
+         utt0.start={start0} utt1.start={start1}: identical start times from \
          Whisper DTW collision will cause enforce_monotonicity to produce •T_T•"
     );
 }
 
 #[test]
 fn test_monotonicity_clamp_does_not_create_zero_duration_bullet() {
-    // Two utterances with identical start times — the UTR overlap scenario.
+    // Two utterances with identical start times, the UTR overlap scenario.
     // Utterance 0: •1000_1500• (start=1000, end=1500)
     // Utterance 1: •1000_2000• (start=1000 == utt0.start → monotonicity
     //              pass 1 leaves it because 1000 >= last_start_ms=1000,
@@ -215,7 +215,7 @@ fn test_monotonicity_clamp_does_not_create_zero_duration_bullet() {
             assert!(
                 bullet.timing.start_ms < bullet.timing.end_ms,
                 "utterance at line {i} has zero-or-negative-duration bullet \
-                 •{}_{} after monotonicity enforcement — this is the UTR overlap \
+                 •{}_{} after monotonicity enforcement; this is the UTR overlap \
                  bug: identical start times cause end-clamping to produce •T_T•",
                 bullet.timing.start_ms,
                 bullet.timing.end_ms

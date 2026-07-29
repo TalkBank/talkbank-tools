@@ -388,7 +388,7 @@ fn demote_duplicate_l2_root(
 /// dispatched as one secondary Stanza sentence (mirroring the grouping
 /// in `super::spans::group_deferred_into_dispatch_spans`), the gras
 /// inside each per-position [`MergedL2Morphology`] use heads in
-/// SPAN-RELATIVE chunk space — including cross-position references
+/// SPAN-RELATIVE chunk space, including cross-position references
 /// (e.g. `la@s fecha@s bien@s` produces `la → fecha (head=2)` and
 /// `bien → fecha (head=2)`). Splicing each position with the
 /// per-item [`splice_coordinated`] misclassifies these as within-MWT
@@ -497,7 +497,7 @@ pub fn splice_l2_into_chat(
         // MergedL2Morphology's gras are span-relative-chunk-1-indexed
         // by construction (sliced from map_ud_sentence's per-chunk
         // output for this same span), so concatenating them produces
-        // a within-block-relative gra sequence — exactly the contract
+        // a within-block-relative gra sequence, exactly the contract
         // splice_range_coordinated expects.
         let mut new_mors: Vec<talkbank_model::model::dependent_tier::mor::Mor> =
             Vec::with_capacity(span_size);
@@ -817,7 +817,7 @@ mod cardinality_tests {
     /// the resulting ChatFile must still validate.
     ///
     /// Fixture note (2026-05-06): the original fixture was
-    /// `*PAR: yellow@s .` — a whole-utterance `@s` pattern that
+    /// `*PAR: yellow@s .`: a whole-utterance `@s` pattern that
     /// validator E255 (BUG-023, GREEN 2026-05-05) correctly rejects
     /// (whole-utterance language switches must use `[- LANG]` precode,
     /// not per-word `@s`). The test now embeds the L2 word among native
@@ -858,7 +858,7 @@ mod cardinality_tests {
 
         // The L2 placeholder is at word_idx 1 (after "voici" at idx 0).
         // Host primary said the L2 word is utterance root (head=0,
-        // deprel=root) — chunk 2 in the host gra.
+        // deprel=root): chunk 2 in the host gra.
         let deferred = vec![L2DeferredPosition {
             line_idx,
             word_idx: 1,
@@ -967,7 +967,7 @@ mod cardinality_tests {
     }
 
     /// **RED test 1** (l2.md §6 / postmortem §6 Step 1): three contiguous
-    /// `@s` words in one utterance — the minimal multi-position L2 span.
+    /// `@s` words in one utterance, the minimal multi-position L2 span.
     /// Mirrors the wild bad-case shape from
     /// `~/0tb/data/biling-data/Bangor/Patagonia/07.cha:394`
     /// (`la@s fecha@s bien@s`). Stanza secondary returns one sentence
@@ -1023,7 +1023,7 @@ mod cardinality_tests {
         validate_morphosyntax(&mut chat_file);
     }
 
-    /// **RED test 2** — one `@s` word that Stanza expands to 3 chunks
+    /// **RED test 2**, one `@s` word that Stanza expands to 3 chunks
     /// (verb + two clitics, e.g. `verb|x~part|y~part|z`). Same cardinality
     /// assertion as the existing 1→2 chunk test. Catches off-by-one
     /// breakage in `splice_coordinated`'s chunk-count delta arithmetic
@@ -1054,7 +1054,7 @@ mod cardinality_tests {
         validate_morphosyntax(&mut chat_file);
     }
 
-    /// **RED test 3** — phrasal-verb particle: an `@s` word whose merge
+    /// **RED test 3**: phrasal-verb particle: an `@s` word whose merge
     /// sets `corrected_deprel = Some("compound:prt")`. Verifies that
     /// (a) the splice still reports success and (b) the host's terminator
     /// gra is preserved (not silently overwritten by the corrected deprel
@@ -1121,7 +1121,7 @@ mod cardinality_tests {
         );
     }
 
-    /// **RED test 4** — Italian range-override path: `del` is the MWT of
+    /// **RED test 4**: Italian range-override path: `del` is the MWT of
     /// `di` + `il` (prep + det). The fixture exercises the
     /// `try_handle_italian_range_override` codepath in `sentence_mapping`.
     /// Asserts cardinality is preserved post-splice.
@@ -1149,7 +1149,7 @@ mod cardinality_tests {
         validate_morphosyntax(&mut chat_file);
     }
 
-    /// **RED test 5** — end-to-end serialize / re-parse / re-validate.
+    /// **RED test 5**: end-to-end serialize / re-parse / re-validate.
     /// The internal `validate_chat_file_with_options` used by the other
     /// tests catches some but not all cardinality issues (per postmortem
     /// §4b: "the 235 wild files passed `validate_chat_file_with_options`
@@ -1601,7 +1601,7 @@ mod cardinality_tests {
     }
 
     // ========================================================================
-    // Family B — L2 splice integrity (joint-invariant RED tests).
+    // Family B: L2 splice integrity (joint-invariant RED tests).
     //
     // Pure-unit pinning for the Family B partition; see the L2
     // architectural-reassessment notes (§5).
@@ -1610,14 +1610,14 @@ mod cardinality_tests {
     // log):
     //
     // - sastre03.cha:843 `+" yo@s soy@s el@s lieutenant .` produces
-    //   `%gra: 1|3|NSUBJ 2|3|COP 3|0|DET 4|1|FLAT 5|1|PUNCT` — chunk 3
+    //   `%gra: 1|3|NSUBJ 2|3|COP 3|0|DET 4|1|FLAT 5|1|PUNCT`, chunk 3
     //   has head=0 with deprel="DET" instead of "ROOT" (E722).
     // - herring09.cha:2570 `... el@s camino@s .` produces
     //   `%gra: 1|6|CC 2|6|NSUBJ 3|6|AUX 4|6|COP 5|6|CASE 6|7|DET 7|0|NMOD 8|6|PUNCT`
-    //   — chunk 7 has head=0 with deprel="NMOD" instead of "ROOT" (E722).
+    //: chunk 7 has head=0 with deprel="NMOD" instead of "ROOT" (E722).
     // - sastre03.cha:2823 `al@s lado@s de@s Smith .` produces
     //   `%gra: 1|3|CASE 2|3|DET 3|0|NMOD 4|1|FIXED 5|1|FLAT 6|1|PUNCT`
-    //   — chunk 3 has head=0 with deprel="NMOD" instead of "ROOT" (E722).
+    //: chunk 3 has head=0 with deprel="NMOD" instead of "ROOT" (E722).
     //
     // The unifying invariant the splice must enforce after writing its
     // output to the host `%gra`:
@@ -1628,7 +1628,7 @@ mod cardinality_tests {
     // BUG-025's `single_position_root_remap_does_not_leave_root_deprel_on_non_root_head`
     // covered the right-to-left direction (deprel="ROOT" but head ≠ 0).
     // The wild patterns above are the left-to-right direction
-    // (head = 0 but deprel ≠ "ROOT") — symmetric and equally broken.
+    // (head = 0 but deprel ≠ "ROOT"), symmetric and equally broken.
     // ========================================================================
 
     /// Walk a GraTier's relations and assert the joint root invariant
@@ -1660,7 +1660,7 @@ mod cardinality_tests {
             assert!(
                 head_zero == labelled_root,
                 "Family B joint invariant violated [{scenario_label}]: \
-                 chunk {} has head={} relation={:?} — head=0 must pair \
+                 chunk {} has head={} relation={:?}, head=0 must pair \
                  EXACTLY with deprel=ROOT (no head=0/non-ROOT, no \
                  ROOT-deprel/head!=0); got %gra: {body}",
                 rel.index,
@@ -1678,7 +1678,7 @@ mod cardinality_tests {
         );
     }
 
-    /// **Family B, B-WILD-1** — three-`@s` cluster as the host's
+    /// **Family B, B-WILD-1**: three-`@s` cluster as the host's
     /// utterance root, mirroring the sastre03.cha:843 shape
     /// (`+" yo@s soy@s el@s lieutenant .`).
     ///
@@ -1688,7 +1688,7 @@ mod cardinality_tests {
     /// (here: chunk 3 = "el") and the others as in-cluster dependents.
     /// Three deferred L2 positions; one secondary response of three
     /// chunks where the secondary's own root is the second chunk
-    /// ("soy" — Spanish copula); the splice must promote the
+    /// ("soy": Spanish copula); the splice must promote the
     /// secondary's root to the host's root anchor and emit
     /// `head=0/deprel=ROOT` (NOT `head=0/deprel=DET` or any other
     /// label inherited from the host's primary deprel for the L2
@@ -1715,7 +1715,7 @@ mod cardinality_tests {
             .unwrap();
 
         // Three deferred positions for "yo", "soy", "el".
-        // Deferred index 2 ("el") is the host primary's root — that's
+        // Deferred index 2 ("el") is the host primary's root, that's
         // the position that carries the utterance-root anchor.
         let deferred = vec![
             deferred_position(line_idx, 0, "spa", "dep", 3),
@@ -1728,7 +1728,7 @@ mod cardinality_tests {
         //   soy → head=0 (root), deprel=root
         //   el  → head=2 (det, but secondary's "el" has nothing to
         //         determine since "lieutenant" is outside the secondary
-        //         input — Stanza in practice may attach el→soy with
+        //         input: Stanza in practice may attach el→soy with
         //         deprel=det or similar)
         // Each per-position MergedL2Morphology carries one chunk.
         let merged = vec![
@@ -1763,13 +1763,13 @@ mod cardinality_tests {
         );
     }
 
-    /// **Family B, B-WILD-2** — two-`@s` Spanish noun phrase whose
+    /// **Family B, B-WILD-2**: two-`@s` Spanish noun phrase whose
     /// internal root is the second chunk, mirroring herring09.cha:2570
     /// (`... el@s camino@s .`). Host primary attaches the cluster to
     /// chunk K (a host word) with deprel=NMOD. Secondary parses the
     /// 2-chunk cluster with the second chunk (`camino`) as its root.
     ///
-    /// EXPECTED on current build: FAILS — the wild output had
+    /// EXPECTED on current build: FAILS, the wild output had
     /// `7|0|NMOD` (head=0, deprel=NMOD) instead of one consistent
     /// pairing.
     #[test]
@@ -1827,7 +1827,7 @@ mod cardinality_tests {
         );
     }
 
-    /// **Family B, B-WILD-3** — joint-invariant guard for the
+    /// **Family B, B-WILD-3**: joint-invariant guard for the
     /// already-fixed BUG-025 direction. Re-uses the existing
     /// `single_position_root_remap_does_not_leave_root_deprel_on_non_root_head`
     /// scenario but applies the symmetric joint-invariant walker, so
@@ -1878,7 +1878,7 @@ mod cardinality_tests {
     }
 
     // ========================================================================
-    // Family C — Post-splice gra invariant under adversarial secondary
+    // Family C: Post-splice gra invariant under adversarial secondary
     // input. RED tests pinning the load-bearing rule:
     //
     //     splice_l2_into_chat MUST never write a `%gra` that violates
@@ -1935,18 +1935,18 @@ mod cardinality_tests {
         }
     }
 
-    /// **Family C, C1** — secondary's gra has head pointing at a
+    /// **Family C, C1**: secondary's gra has head pointing at a
     /// nonexistent chunk (out-of-bounds). Mirrors the wild E713
     /// pattern at `asd-data/Croatian/ROGPOP/ASD/46.cha:970` where the
     /// post-splice %gra was `1|2|ADVMOD 2|0|ROOT 3|5|COMPOUND
-    /// 4|2|PUNCT` — head=5 in a 4-chunk gra.
+    /// 4|2|PUNCT`: head=5 in a 4-chunk gra.
     ///
     /// Adversarial input: secondary merged result with one chunk but
     /// a gra relation pointing at chunk index 5 (which doesn't exist
     /// within the secondary's chunk count). The splice must not
     /// propagate the broken head into the host gra.
     ///
-    /// EXPECTED on current build: FAILS — splice silently propagates
+    /// EXPECTED on current build: FAILS, splice silently propagates
     /// the bogus head index.
     #[test]
     fn family_c_secondary_head_out_of_bounds_falls_back_or_normalizes() {
@@ -1977,17 +1977,17 @@ mod cardinality_tests {
         })];
 
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
-        assert_post_splice_gra_valid(&mut chat_file, "C1 — secondary head OOB (E713 wild shape)");
+        assert_post_splice_gra_valid(&mut chat_file, "C1: secondary head OOB (E713 wild shape)");
     }
 
-    /// **Family C, C2** — secondary's gras form a 2-cycle.
+    /// **Family C, C2**: secondary's gras form a 2-cycle.
     /// Mirrors the wild E724 dominant pattern
     /// `1|2|DET 2|3|NMOD 3|2|PUNCT` (18 occurrences across the corpus).
     ///
     /// Adversarial input: 2-chunk MWT secondary where chunk 1 → 2 and
     /// chunk 2 → 1 (mutual reference cycle within the secondary slice).
     ///
-    /// EXPECTED on current build: FAILS — splice propagates the cycle.
+    /// EXPECTED on current build: FAILS, splice propagates the cycle.
     #[test]
     fn family_c_secondary_cycle_falls_back_or_normalizes() {
         let chat_text = "@UTF8\n\
@@ -2022,10 +2022,10 @@ mod cardinality_tests {
         })];
 
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
-        assert_post_splice_gra_valid(&mut chat_file, "C2 — secondary 2-cycle (E724 wild shape)");
+        assert_post_splice_gra_valid(&mut chat_file, "C2: secondary 2-cycle (E724 wild shape)");
     }
 
-    /// **Family C, C3** — secondary's gras have multiple head=0
+    /// **Family C, C3**: secondary's gras have multiple head=0
     /// relations. Mirrors wild E723 patterns like
     /// `1|0|ROOT 2|3|COP 3|0|ROOT 4|1|PUNCT`.
     ///
@@ -2033,7 +2033,7 @@ mod cardinality_tests {
     /// have head=0 / deprel=ROOT (Stanza emitting two roots, which
     /// is malformed UD but does happen).
     ///
-    /// EXPECTED on current build: FAILS — splice's merge inserts both
+    /// EXPECTED on current build: FAILS, splice's merge inserts both
     /// secondary roots, leaving the host with two head=0 relations.
     #[test]
     fn family_c_secondary_multi_root_falls_back_or_normalizes() {
@@ -2071,15 +2071,15 @@ mod cardinality_tests {
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "C3 — secondary multi-root (E723 wild shape)",
+            "C3: secondary multi-root (E723 wild shape)",
         );
     }
 
-    /// **Family C, C4** — secondary's per-relation head points at a
+    /// **Family C, C4**: secondary's per-relation head points at a
     /// host-side terminator chunk after remap. Mirrors the
     /// `bougzers@s` cycle pattern at
     /// `biling-data/MLE-MPF/09.cha:2425`. Wild output:
-    /// `1|2|DET 2|3|NMOD 3|2|PUNCT` — chunk 2 (the L2 word) has
+    /// `1|2|DET 2|3|NMOD 3|2|PUNCT`: chunk 2 (the L2 word) has
     /// head=3 (the period). Cycle 2↔3.
     ///
     /// Adversarial shape: single L2 word as host's utterance root,
@@ -2088,7 +2088,7 @@ mod cardinality_tests {
     /// `bougzers` at the period that followed it in the secondary
     /// dispatch input).
     ///
-    /// EXPECTED on current build: FAILS — splice propagates the bogus
+    /// EXPECTED on current build: FAILS, splice propagates the bogus
     /// head into the host instead of honoring the planner's
     /// `UtteranceRoot` attachment.
     #[test]
@@ -2129,11 +2129,11 @@ mod cardinality_tests {
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "C4 — secondary head into host terminator (bougzers wild shape)",
+            "C4: secondary head into host terminator (bougzers wild shape)",
         );
     }
 
-    /// **Family C, C6** — multi-position contiguous span where
+    /// **Family C, C6**: multi-position contiguous span where
     /// `splice_range_coordinated` succeeds with invalid output.
     /// Mirrors the wild `por@s favor@s` shape at
     /// `biling-data/Bangor/Miami/eng/maria/maria20.cha:559-562`:
@@ -2148,14 +2148,14 @@ mod cardinality_tests {
     /// E724 fires.
     ///
     /// Adversarial scenario for the unit test: two contiguous `@s`
-    /// positions whose secondaries supply gras that — when concatenated
-    /// — encode a 2-cycle within the spliced span (chunk-1 → chunk-2,
+    /// positions whose secondaries supply gras that, when concatenated
+    ///: encode a 2-cycle within the spliced span (chunk-1 → chunk-2,
     /// chunk-2 → chunk-1). After the host-side index remap this
     /// produces a cycle in the host gra that `splice_range_coordinated`
     /// doesn't reject (the mor chunk count balances; the gra count
     /// balances; only the structural acyclic invariant is violated).
     ///
-    /// EXPECTED on current build: FAILS — multi-position branch has
+    /// EXPECTED on current build: FAILS, multi-position branch has
     /// no post-splice validation.
     #[test]
     fn family_c_multi_position_contiguous_internal_cycle_falls_back() {
@@ -2176,7 +2176,7 @@ mod cardinality_tests {
             .position(|l| matches!(l, talkbank_model::model::Line::Utterance(_)))
             .unwrap();
 
-        // Two CONTIGUOUS positions, same target_lang — exercises the
+        // Two CONTIGUOUS positions, same target_lang, exercises the
         // multi-position branch (span_size > 1) of splice_l2_into_chat.
         let deferred = vec![
             deferred_position(line_idx, 1, "spa", "dep", 1),
@@ -2210,14 +2210,14 @@ mod cardinality_tests {
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "C6 — multi-position contiguous internal cycle (maria20 wild shape)",
+            "C6: multi-position contiguous internal cycle (maria20 wild shape)",
         );
     }
 
-    /// **Family C, C5** — joint sweep with two L2 positions in one
+    /// **Family C, C5**: joint sweep with two L2 positions in one
     /// utterance: one position has adversarial OOB input, the other
     /// has clean input. Forces the splice to handle multi-position
-    /// fallback consistently — the bad position must not poison the
+    /// fallback consistently: the bad position must not poison the
     /// good one, and vice versa.
     ///
     /// EXPECTED on current build: FAILS at the OOB position.
@@ -2252,7 +2252,7 @@ mod cardinality_tests {
                 corrected_deprel: None,
                 attachment: host_attachment(0, "dep"),
             }),
-            // Position 2: clean — should succeed normally and not be
+            // Position 2: clean: should succeed normally and not be
             // disturbed by the failure at position 1.
             Some(MergedL2Morphology {
                 mor: Mor::new(MorWord::new(PosCategory::new("noun"), MorStem::new("b"))),
@@ -2263,11 +2263,11 @@ mod cardinality_tests {
         ];
 
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
-        assert_post_splice_gra_valid(&mut chat_file, "C5 — multi-position adversarial sweep");
+        assert_post_splice_gra_valid(&mut chat_file, "C5: multi-position adversarial sweep");
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // L2 redesign 2026-05-07 — constructive merge tests.
+    // L2 redesign 2026-05-07: constructive merge tests.
     //
     // These four tests pin the dominant rollback variants observed in the
     // wild (net captured-tracing run 8b461fee-df9, 750 sample files):
@@ -2297,7 +2297,7 @@ mod cardinality_tests {
     /// root.
     #[test]
     fn merge_constructs_root_when_l2_span_owns_host_root() {
-        // Host: `voici yellow@s .` — `yellow` is at word_idx=1 and is the
+        // Host: `voici yellow@s .`, `yellow` is at word_idx=1 and is the
         // host's primary root (matches the 2026-05-07 warn-line family
         // where the L2 word at word_idx=N IS at host root position).
         let chat_text = "@UTF8\n\
@@ -2318,7 +2318,7 @@ mod cardinality_tests {
             .unwrap();
 
         let deferred = vec![deferred_position(line_idx, 1, "ara", "root", 0)];
-        // Secondary's relation lacks head=0/ROOT — head=2 mimics the
+        // Secondary's relation lacks head=0/ROOT, head=2 mimics the
         // wild warn-line `secondary_gras=["1|2|NMOD"]`. Single-chunk
         // merged Mor (one gra entry).
         let merged = vec![Some(MergedL2Morphology {
@@ -2342,7 +2342,7 @@ mod cardinality_tests {
         assert_eq!(outcome.fallback, 0);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "Test 1 — InternalRoot, no head=0/ROOT in secondary",
+            "Test 1: InternalRoot, no head=0/ROOT in secondary",
         );
         // Stronger: assert the L2 position is the post-splice root.
         let utt = match &chat_file.lines[line_idx] {
@@ -2374,13 +2374,13 @@ mod cardinality_tests {
     /// Test 2 (multi_root): L2 word is NOT the host root, and secondary
     /// returned `1|0|ROOT` for the L2 word (parsed it as its local root).
     /// Splice must rewrite secondary's `head=0/ROOT` to attach to the
-    /// host anchor with the host's deprel — not preserve a second root.
+    /// host anchor with the host's deprel, not preserve a second root.
     /// Real-world shape from warn log: host_pre had `16|0|ROOT, 18|...`;
     /// L2 at host pos 18; secondary returned `1|0|ROOT`; current splice
     /// produces both `16|0|ROOT` and `18|0|ROOT`.
     #[test]
     fn merge_does_not_double_root_when_secondary_returns_local_root() {
-        // Host: `voici yellow@s .` — `voici` is host root; `yellow` is OBJ.
+        // Host: `voici yellow@s .`, `voici` is host root; `yellow` is OBJ.
         let chat_text = "@UTF8\n\
                          @Begin\n\
                          @Languages:\tfra, ara\n\
@@ -2420,7 +2420,7 @@ mod cardinality_tests {
         assert_eq!(outcome.fallback, 0);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "Test 2 — ExternalRoot, secondary returns head=0/ROOT",
+            "Test 2: ExternalRoot, secondary returns head=0/ROOT",
         );
         let utt = match &chat_file.lines[line_idx] {
             talkbank_model::model::Line::Utterance(u) => u,
@@ -2457,7 +2457,7 @@ mod cardinality_tests {
     /// at the host anchor (or treats them as external attachments).
     #[test]
     fn merge_clamps_secondary_head_to_anchor_when_local_index_oob() {
-        // Host: `voici yellow@s .` — `voici` is host root; `yellow` is OBJ.
+        // Host: `voici yellow@s .`, `voici` is host root; `yellow` is OBJ.
         let chat_text = "@UTF8\n\
                          @Begin\n\
                          @Languages:\tfra, ara\n\
@@ -2476,7 +2476,7 @@ mod cardinality_tests {
             .unwrap();
 
         let deferred = vec![deferred_position(line_idx, 1, "ara", "obj", 1)];
-        // Secondary returns `1|99|NMOD` — head=99 has no host preimage.
+        // Secondary returns `1|99|NMOD`: head=99 has no host preimage.
         // Today: splice_coordinated maps 99 to a host index out of bounds
         // → secondary_head_oob. After fix: head clamped to anchor (host
         // pos 1, the verb), relation rewritten to host's `obj`.
@@ -2498,7 +2498,7 @@ mod cardinality_tests {
             outcome.fallback, outcome.spliced
         );
         assert_eq!(outcome.fallback, 0);
-        assert_post_splice_gra_valid(&mut chat_file, "Test 3 — ExternalRoot, secondary head OOB");
+        assert_post_splice_gra_valid(&mut chat_file, "Test 3: ExternalRoot, secondary head OOB");
     }
 
     /// Test 4 (cycle, REPAIRED): two-position L2 span where the
@@ -2517,7 +2517,7 @@ mod cardinality_tests {
     /// arc that participated in the cycle gets adjusted. The "wrong
     /// attachment within span" cost is bounded to one edge per cycle.
     ///
-    /// What stays the same: Test 4 still pins the cycle code path —
+    /// What stays the same: Test 4 still pins the cycle code path
     /// it now pins that the cycle gets *repaired* rather than that it
     /// rolls back. The regression class this defends against is "the
     /// cycle-detection pass silently regresses to letting the cyclic
@@ -2581,7 +2581,7 @@ mod cardinality_tests {
         assert_eq!(outcome.fallback, 0);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "Test 5 — UtteranceRoot vs host root conflict",
+            "Test 5: UtteranceRoot vs host root conflict",
         );
 
         // Verify post-splice has exactly ONE head=0/ROOT.
@@ -2653,7 +2653,7 @@ mod cardinality_tests {
         assert_eq!(outcome.fallback, 0);
         assert_post_splice_gra_valid(
             &mut chat_file,
-            "Test 4 — cycle in secondary, repaired via cycle-detection pass",
+            "Test 4: cycle in secondary, repaired via cycle-detection pass",
         );
     }
 

@@ -5,7 +5,7 @@ extracted from underrepresented TalkBank corpora: LeeWongLeung (child speech),
 EACMC (bilingual), and WCT (adult conversation). Each test uses actual
 utterances from specific corpus files to ensure coverage across speech domains.
 
-No Stanza models loaded — pure PyCantonese tests, safe to run locally.
+No Stanza models loaded: pure PyCantonese tests, safe to run locally.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pycantonese
 
 
 # ---------------------------------------------------------------------------
-# LeeWongLeung — largest Cantonese corpus (254K utterances, child speech)
+# LeeWongLeung: largest Cantonese corpus (254K utterances, child speech)
 # Source: data/childes-other-data/Chinese/Cantonese/LeeWongLeung/
 # ---------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ def test_leewongleung_word_segmentation() -> None:
     # Key groupings expected
     assert "自己" in segmented, f"自己 not found in {segmented}"
     # 一係 is a Cantonese particle meaning "either/or"
-    # PyCantonese may or may not group it — test it doesn't crash
+    # PyCantonese may or may not group it, test it doesn't crash
     assert len(segmented) <= len(per_char), "Segmentation should reduce token count"
 
 
@@ -50,7 +50,7 @@ def test_leewongleung_pos_tagging() -> None:
     assert tag_dict["飲"] == "VERB", f"飲 tagged as {tag_dict['飲']}, expected VERB"
     # 自己 (self) should be PRON
     assert tag_dict["自己"] == "PRON", f"自己 tagged as {tag_dict['自己']}, expected PRON"
-    # 好 (good) can be ADJ or ADV — both are reasonable
+    # 好 (good) can be ADJ or ADV, both are reasonable
     assert tag_dict["好"] in ("ADJ", "ADV"), f"好 tagged as {tag_dict['好']}"
     # 啦 (SFP) should be PART
     assert tag_dict["啦"] == "PART", f"啦 tagged as {tag_dict['啦']}, expected PART"
@@ -60,7 +60,7 @@ def test_leewongleung_jyutping_in_utterance() -> None:
     """LeeWongLeung uses jyutping romanization (e.g., lo2, aa3, haak6).
 
     These should pass through word segmentation without interference.
-    Jyutping tokens are Latin characters — PyCantonese segment() should not
+    Jyutping tokens are Latin characters, PyCantonese segment() should not
     try to segment them.
     """
     # From mhz/020226.cha: "你 想 lo2 乜嘢 aa3"
@@ -75,7 +75,7 @@ def test_leewongleung_jyutping_in_utterance() -> None:
 
 
 # ---------------------------------------------------------------------------
-# EACMC — bilingual corpus (Cantonese + Mandarin + English)
+# EACMC: bilingual corpus (Cantonese + Mandarin + English)
 # Source: data/childes-other-data/Biling/EACMC/cross/HongKong/Can_Man_Eng/CAN/
 # ---------------------------------------------------------------------------
 
@@ -110,19 +110,19 @@ def test_eacmc_cantonese_pos_tagging() -> None:
     tagged = pycantonese.pos_tag(words)
     tag_dict = {w: p for w, p in tagged}
 
-    # 茄子 (eggplant) — PyCantonese tags as PROPN (proper noun).
+    # 茄子 (eggplant): PyCantonese tags as PROPN (proper noun).
     # Linguistically debatable: it's a common noun in standard usage,
     # but PyCantonese's HKCanCor training data may have it as a name.
     assert tag_dict["茄子"] in ("NOUN", "PROPN"), f"茄子 tagged as {tag_dict['茄子']}"
-    # 攞 (take) — VERB
+    # 攞 (take): VERB
     assert tag_dict["攞"] == "VERB", f"攞 tagged as {tag_dict['攞']}"
-    # 俾 (give) — VERB or ADP (both valid in Cantonese)
+    # 俾 (give): VERB or ADP (both valid in Cantonese)
     assert tag_dict["俾"] in ("VERB", "ADP"), f"俾 tagged as {tag_dict['俾']}"
-    # 切 (cut) — VERB in context, but PyCantonese tags as NOUN in isolation.
+    # 切 (cut): VERB in context, but PyCantonese tags as NOUN in isolation.
     # Ambiguous: 切 can be a verb (to cut) or noun (a cut/section).
-    # Context-dependent — acceptable as either.
+    # Context-dependent: acceptable as either.
     assert tag_dict["切"] in ("VERB", "NOUN"), f"切 tagged as {tag_dict['切']}"
-    # 媽媽 (mommy) — NOUN
+    # 媽媽 (mommy): NOUN
     assert tag_dict["媽媽"] == "NOUN", f"媽媽 tagged as {tag_dict['媽媽']}"
 
 
@@ -137,14 +137,14 @@ def test_eacmc_code_switching_annotation() -> None:
     tagged = pycantonese.pos_tag(words)
     tag_dict = {w: p for w, p in tagged}
 
-    # 係 (is/be) — VERB in Cantonese
+    # 係 (is/be): VERB in Cantonese
     assert tag_dict["係"] == "VERB", f"係 tagged as {tag_dict['係']}"
-    # 個 (classifier) — should be some nominal/classifier tag
+    # 個 (classifier): should be some nominal/classifier tag
     assert tag_dict["個"] != "X", f"個 tagged as X (unknown)"
 
 
 # ---------------------------------------------------------------------------
-# WCT/yue — adult Cantonese conversation (conversation analysis)
+# WCT/yue: adult Cantonese conversation (conversation analysis)
 # Source: data/ca-data/WCT/video/yue/
 # ---------------------------------------------------------------------------
 
@@ -160,7 +160,7 @@ def test_wct_adult_word_segmentation() -> None:
     segmented = pycantonese.segment("".join(per_char))
 
     assert len(segmented) <= len(per_char), "Should group some characters"
-    # 入邊 (inside) may or may not be grouped — domain-specific
+    # 入邊 (inside) may or may not be grouped, domain-specific
 
 
 def test_wct_adult_pos_tagging() -> None:
@@ -173,14 +173,14 @@ def test_wct_adult_pos_tagging() -> None:
     tagged = pycantonese.pos_tag(words)
     tag_dict = {w: p for w, p in tagged}
 
-    # 樂隊 (band/orchestra) — NOUN
+    # 樂隊 (band/orchestra): NOUN
     assert tag_dict["樂隊"] == "NOUN", f"樂隊 tagged as {tag_dict['樂隊']}"
-    # 希望 (hope) — PyCantonese tags as AUX in Cantonese (auxiliary "hope to").
+    # 希望 (hope): PyCantonese tags as AUX in Cantonese (auxiliary "hope to").
     # In Mandarin it's typically VERB/NOUN, but Cantonese uses it as an auxiliary.
     assert tag_dict["希望"] in ("VERB", "NOUN", "AUX"), f"希望 tagged as {tag_dict['希望']}"
-    # 理論 (theory) — NOUN
+    # 理論 (theory): NOUN
     assert tag_dict["理論"] == "NOUN", f"理論 tagged as {tag_dict['理論']}"
-    # 解釋 (explain) — VERB
+    # 解釋 (explain): VERB
     assert tag_dict["解釋"] == "VERB", f"解釋 tagged as {tag_dict['解釋']}"
 
 

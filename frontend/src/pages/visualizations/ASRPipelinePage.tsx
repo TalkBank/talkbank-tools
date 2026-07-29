@@ -1,4 +1,4 @@
-/** ASR Pipeline Waterfall — coming in Phase 3. */
+/** ASR Pipeline Waterfall: coming in Phase 3. */
 
 import { ModeToggle } from "../../components/visualizations/ModeToggle";
 

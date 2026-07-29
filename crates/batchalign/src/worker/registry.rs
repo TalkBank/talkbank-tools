@@ -1,4 +1,4 @@
-//! Worker registry — discover pre-started TCP workers from `workers.json`.
+//! Worker registry: discover pre-started TCP workers from `workers.json`.
 //!
 //! The registry file is the bridge between independently started worker daemons
 //! and the Rust server. Python workers write their entries on startup (via
@@ -367,7 +367,7 @@ pub async fn discover_workers(
             pid: WorkerPid(entry.pid),
             audio_task_timeout_s,
             analysis_task_timeout_s,
-            // Placeholder per the comment above — the registry walker
+            // Placeholder per the comment above, the registry walker
             // does not own the host-facts pipeline; the discovery /
             // pool integration step replaces this with the real
             // `EffectiveConfig.gpu_thread_pool_size`. The literal
@@ -430,7 +430,7 @@ pub async fn discover_workers(
                         stale_indices.push(i);
                     }
                 }
-                // Drop the handle — the pool will create its own connection.
+                // Drop the handle: the pool will create its own connection.
                 drop(handle);
             }
             Err(e) => {

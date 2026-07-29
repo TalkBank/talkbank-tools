@@ -296,7 +296,7 @@ function uniqueSourceDir(label) {
 // morphotag is a per-file text-NLP command: language is resolved from
 // each file's @Languages: header, and job-level `lang` sentinels are
 // banned by the server (see the 2026-05-03 morphotag incident). The
-// LanguageSpec wire format is kebab-case — `"per-file"`, not the
+// LanguageSpec wire format is kebab-case, `"per-file"`, not the
 // `"PerFile"` shown in the OpenAPI schema.
 async function submitMorphotagJob(request, baseUrl, { files, sourceDir }) {
   const payload = {
@@ -528,7 +528,7 @@ test.describe("real Rust server e2e (React dashboard)", () => {
     // in the server preserves `submitted_at` and only resets the
     // per-file statuses + `completed_at`, so a timestamp-diff predicate
     // is unreliable across backends. Trust the page assertions below
-    // — they are what actually validate the dashboard's restart UX.
+    //; they are what actually validate the dashboard's restart UX.
     await page.reload({ waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("button", { name: "Restart" })).toBeVisible();

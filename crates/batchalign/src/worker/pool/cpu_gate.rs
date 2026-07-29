@@ -2,9 +2,9 @@
 //!
 //! # Why this exists
 //!
-//! For four months admission has been governed by static estimates —
+//! For four months admission has been governed by static estimates
 //! tier-derived `max_concurrent_jobs`, recommender-output
-//! `max_workers_per_key`, empirical caps on the recommender output —
+//! `max_workers_per_key`, empirical caps on the recommender output
 //! and every estimate has turned out wrong on at least one
 //! command/host combination. A direct measurement on a development
 //! machine put morphotag's contention knee at K=4 and align's at K=1:
@@ -16,7 +16,7 @@
 //! `getloadavg(3)` is exposed identically on Linux and macOS (verified
 //! responsive on Apple Silicon, 2026-05-08); `sysinfo::System::load_average()`
 //! wraps it. The gate refuses spawns when the 1-minute load is
-//! already at or above the host's CPU count — the universal
+//! already at or above the host's CPU count, the universal
 //! "system is fully busy" boundary, no per-host tuning required.
 //!
 //! # Where this plugs in
@@ -51,7 +51,7 @@ pub(super) struct CpuSaturated {
 /// task count over the last minute. On Apple Silicon and Linux the
 /// signal is faithful; on Windows `sysinfo` returns zero (the OS
 /// has no equivalent), in which case the gate is effectively
-/// disabled — acceptable because the Windows fleet doesn't run the
+/// disabled: acceptable because the Windows fleet doesn't run the
 /// daemon today.
 fn current_loadavg_1m() -> f64 {
     sysinfo::System::load_average().one
@@ -62,7 +62,7 @@ fn current_loadavg_1m() -> f64 {
 /// No env var, no config field, no operator override. The
 /// rearch's premise is that resource policy must be mechanical
 /// because there is no human reading or tuning configuration on
-/// fleet hosts — "operator" is a fiction in this deployment.
+/// fleet hosts: "operator" is a fiction in this deployment.
 /// The threshold is derived once from
 /// `std::thread::available_parallelism()` at admission time; if
 /// that query fails (vanishingly rare; would also break much of
@@ -97,7 +97,7 @@ pub(super) fn check_cpu_saturation(threshold: f64) -> Result<(), CpuSaturated> {
 /// State-aware CPU admission check, mirroring
 /// [`super::memory_gate::check_memory_saturation_with_state`].
 ///
-/// `PoolGateState::ColdStart` admits unconditionally — the pool has
+/// `PoolGateState::ColdStart` admits unconditionally: the pool has
 /// no workers to back-pressure against, so refusing the first spawn
 /// just to relieve unrelated host load wedges the pool with no
 /// recovery path. CPU pressure is back-pressure, not safety.
@@ -121,7 +121,7 @@ mod tests {
     /// the gate certain to refuse on any live machine. (On a freshly
     /// booted CI host loadavg can be exactly 0.0; the comparison is
     /// `>=` so the gate still rejects at the boundary, which is what
-    /// we want — refuse to admit when the load equals the ceiling.)
+    /// we want: refuse to admit when the load equals the ceiling.)
     #[test]
     fn rejects_when_loadavg_meets_or_exceeds_threshold() {
         let result = check_cpu_saturation(0.0);

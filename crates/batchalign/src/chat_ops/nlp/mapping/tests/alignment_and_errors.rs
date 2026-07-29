@@ -184,7 +184,7 @@ fn test_mwt_gra_dont_contraction() {
 
 #[test]
 fn test_clean_lemma_apostrophe_fallback_to_text() {
-    // clean_lemma("'", "'") must not return empty — fallback to surface text
+    // clean_lemma("'", "'") must not return empty, fallback to surface text
     let (result, unknown) = clean_lemma("'", "'");
     assert!(
         !result.is_empty(),
@@ -219,7 +219,7 @@ fn test_map_ud_word_apostrophe_no_empty_stem() {
     mor.write_chat(&mut out).unwrap();
 
     assert!(!out.ends_with('|'), "Empty stem produces E342: got {out:?}");
-    // Should produce "punct|'" — apostrophe preserved as stem
+    // Should produce "punct|'": apostrophe preserved as stem
     assert_eq!(out, "punct|'", "Expected punct|' not punct|");
 }
 
@@ -273,7 +273,7 @@ fn test_unmapped_head_reference() {
                 deps: None,
                 misc: None,
             },
-            // Decimal word (empty/enhanced token) — not indexed in chunk map
+            // Decimal word (empty/enhanced token), not indexed in chunk map
             UdWord {
                 id: UdId::Decimal(1.1),
                 text: "of".to_string(),
@@ -310,7 +310,7 @@ fn test_unmapped_head_reference() {
 
 #[test]
 fn test_no_root_in_ud_parse() {
-    // All words have non-zero heads forming a chain — no root.
+    // All words have non-zero heads forming a chain, no root.
     // Should return Err(InvalidRoot), not silently use root_chunk_idx=0.
     let ctx = MappingContext {
         lang: talkbank_model::model::LanguageCode::new("en").expect("valid test language code"),

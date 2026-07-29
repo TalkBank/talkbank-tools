@@ -159,10 +159,10 @@ This document is the unified reference for all Python/Rust interface boundaries 
 | Python caller | `batchalign/worker/_execute_v2.py` + `batchalign/worker/_asr_v2.py` etc. |
 
 **Functions:**
-- `find_worker_attachment_by_id()` — locate artifact by ID
-- `load_worker_json_attachment()` — deserialize JSON artifact
-- `load_worker_prepared_text_json()` — load prepared text payload
-- `load_worker_prepared_audio_f32le_bytes()` — load audio bytes (F32LE codec)
+- `find_worker_attachment_by_id()`: locate artifact by ID
+- `load_worker_json_attachment()`: deserialize JSON artifact
+- `load_worker_prepared_text_json()`: load prepared text payload
+- `load_worker_prepared_audio_f32le_bytes()`: load audio bytes (F32LE codec)
 
 **Design:**
 - Artifacts are **file-backed** in a per-worker temp directory
@@ -181,12 +181,12 @@ This document is the unified reference for all Python/Rust interface boundaries 
 | Python callers | `batchalign/inference/languages/cantonese/`, `batchalign/worker/_asr_v2.py` |
 
 **Functions:**
-- `funaudio_segments_to_asr()` — project FunASR segment output
-- `tencent_result_detail_to_asr()` — project Tencent API response
-- `aliyun_sentences_to_asr()` — project Aliyun API response
-- `normalize_cantonese()` — simplified ↔ traditional + domain replacements
-- `cantonese_char_tokens()` — per-character tokenization for FA
-- `clean_funaudio_segment_text()` — text cleanup before normalization
+- `funaudio_segments_to_asr()`: project FunASR segment output
+- `tencent_result_detail_to_asr()`: project Tencent API response
+- `aliyun_sentences_to_asr()`: project Aliyun API response
+- `normalize_cantonese()`: simplified ↔ traditional + domain replacements
+- `cantonese_char_tokens()`: per-character tokenization for FA
+- `clean_funaudio_segment_text()`: text cleanup before normalization
 
 **Design:** These bridge the gap between provider-native formats and Batchalign `MonologueAsrResultV2`.
 
@@ -240,26 +240,26 @@ This document is the unified reference for all Python/Rust interface boundaries 
 ## Documentation Map
 
 ### Architecture (Decision Record)
-- `book/src/batchalign/architecture/python-rust-interface.md` — Overview of PyO3 boundary, worker architecture, GIL strategy
-- `book/src/batchalign/architecture/server-architecture.md` — Server-side orchestration, job lifecycle
-- `book/src/batchalign/architecture/worker-architecture-assessment.md` — Worker pool, memory model
+- `book/src/batchalign/architecture/python-rust-interface.md`: Overview of PyO3 boundary, worker architecture, GIL strategy
+- `book/src/batchalign/architecture/server-architecture.md`: Server-side orchestration, job lifecycle
+- `book/src/batchalign/architecture/worker-architecture-assessment.md`: Worker pool, memory model
 
 ### Developer Reference (Implementation Spec)
-- `book/src/batchalign/developer/worker-protocol-v2.md` — IPC protocol, envelope types, V1/V2 migration status
-- `book/src/batchalign/developer/ipc-type-sync.md` — Type generation pipeline, conformance testing, adding new types
-- `book/src/batchalign/developer/maturin-pyo3-surface.md` — PyO3 wheel packaging, editable installs
+- `book/src/batchalign/developer/worker-protocol-v2.md`: IPC protocol, envelope types, V1/V2 migration status
+- `book/src/batchalign/developer/ipc-type-sync.md`: Type generation pipeline, conformance testing, adding new types
+- `book/src/batchalign/developer/maturin-pyo3-surface.md`: PyO3 wheel packaging, editable installs
 
 ### Crate Documentation (Source Code)
-- `crates/batchalign-pyo3/CLAUDE.md` — Pyo3 crate architecture, standards, rules
-- `crates/batchalign/CLAUDE.md` — Server module map, job lifecycle, concurrency model
-- `crates/batchalign-types/CLAUDE.md` — Domain types, newtype conventions (if exists)
+- `crates/batchalign-pyo3/CLAUDE.md`: Pyo3 crate architecture, standards, rules
+- `crates/batchalign/CLAUDE.md`: Server module map, job lifecycle, concurrency model
+- `crates/batchalign-types/CLAUDE.md`: Domain types, newtype conventions (if exists)
 
 ### In-Code Documentation
-- `crates/batchalign-pyo3/src/lib.rs` — Module registration, what each function does
-- `crates/batchalign-pyo3/src/worker_protocol.rs` — IPC dispatch logic
-- `crates/batchalign-pyo3/src/worker_*_exec.rs` — Per-task executors
-- `batchalign/worker/_execute_v2.py` — Python dispatch logic
-- `batchalign/worker/_*_v2.py` — Per-task executors
+- `crates/batchalign-pyo3/src/lib.rs`: Module registration, what each function does
+- `crates/batchalign-pyo3/src/worker_protocol.rs`: IPC dispatch logic
+- `crates/batchalign-pyo3/src/worker_*_exec.rs`: Per-task executors
+- `batchalign/worker/_execute_v2.py`: Python dispatch logic
+- `batchalign/worker/_*_v2.py`: Per-task executors
 
 ---
 

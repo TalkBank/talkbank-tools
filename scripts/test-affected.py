@@ -4,7 +4,7 @@
 Phase C of the test-cost revamp. Reads ``# affects: <glob>`` /
 ``// affects: <glob>`` declarations from every test file, matches
 the gitignore-style globs against the paths touched in a git diff,
-and prints the relevant test files — plus every test file with no
+and prints the relevant test files, plus every test file with no
 declarations (the "runs always" set).
 
 Scans for:
@@ -30,13 +30,13 @@ splicing into a pytest invocation::
 
 Design notes:
 
-* The "runs always" set ensures backward compatibility — a test file
+* The "runs always" set ensures backward compatibility, a test file
   that hasn't opted in still runs. Adoption can be gradual.
 * When the diff is empty (clean tree, no base divergence), we print
   the runs-always set only. Callers that want the full suite should
   not use this tool in that situation.
 * If the diff resolution fails (no git, detached head, etc.), we
-  print every test file — failing-open is the safe default for a
+  print every test file: failing-open is the safe default for a
   tool the developer will reach for interactively.
 """
 

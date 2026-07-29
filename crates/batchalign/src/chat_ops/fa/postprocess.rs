@@ -77,7 +77,7 @@ pub fn postprocess_utterance_timings(
         let n = word_timings.len();
 
         // Last timed word: extend to utterance bullet end or +500ms
-        // (must happen first — the backward pass below would leave it unchanged
+        // (must happen first: the backward pass below would leave it unchanged
         // since there's no next_start, but we need to set its end explicitly)
         for i in (0..n).rev() {
             if let Some(span) = word_timings[i] {
@@ -146,7 +146,7 @@ pub fn postprocess_utterance_timings(
         rebalance_near_zero_lexical_words_from_preceding_spans(&mut word_timings, &word_is_filler);
     }
 
-    // Bound by utterance bullet range — but ONLY when both conditions hold:
+    // Bound by utterance bullet range, but ONLY when both conditions hold:
     //
     // 1. The bullet is `BulletSource::Authoritative` (not a runtime UTR hint).
     //    UTR-hinted bullets (`BulletSource::Utr`) are provisional estimates from
@@ -162,7 +162,7 @@ pub fn postprocess_utterance_timings(
     //    is not persisted in CHAT text).  These bullets can be as narrow as the
     //    ASR-matched span for one word (e.g., 220ms for a 3-second sentence when
     //    Rev.AI only matched the first word).  FA, given a wider group audio
-    //    window, correctly aligns all words — but clamping to the narrow bullet
+    //    window, correctly aligns all words, but clamping to the narrow bullet
     //    would drop all but the first, breaking the output.
     //    The `%wor` tier is only present after a previous FA run, which means the
     //    utterance bullet was established by FA from word timings and is wide

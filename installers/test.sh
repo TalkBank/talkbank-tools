@@ -1,5 +1,5 @@
 #!/bin/bash
-# installers/test.sh — Local integration test for one-click installer scripts.
+# installers/test.sh: Local integration test for one-click installer scripts.
 #
 # Builds a wheel from the local checkout, installs it via the macOS installer
 # script into an isolated uv tool directory, verifies the CLI works, then

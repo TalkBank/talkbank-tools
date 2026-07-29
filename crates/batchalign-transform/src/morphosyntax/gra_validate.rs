@@ -110,7 +110,7 @@ mod tests {
     /// Wild shape from `~/talkbank/still-have-error-6.log`
     /// (`EACMC/long/Leo/Cantonese/020716.cha:3642`):
     /// `1|5|NSUBJ 2|5|PUNCT 3|4|CASE 4|5|NSUBJ 5|5|DISCOURSE 6|5|DISCOURSE 7|5|PUNCT`
-    /// — chunk 5 is `head=5/DISCOURSE`, a self-loop with non-ROOT
+    ///: chunk 5 is `head=5/DISCOURSE`, a self-loop with non-ROOT
     /// deprel. The wider `chatter validate` flags this as E724;
     /// `validate_generated_gra` must agree.
     #[test]

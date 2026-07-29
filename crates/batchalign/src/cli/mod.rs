@@ -189,7 +189,7 @@ pub mod tui;
 pub mod update_check;
 pub mod worker_cmd;
 
-/// Build fingerprint — changes on every rebuild, even when the version stays
+/// Build fingerprint: changes on every rebuild, even when the version stays
 /// the same.  Used for stale-binary detection during development.
 pub fn build_hash() -> &'static str {
     env!("BUILD_HASH")
@@ -242,7 +242,7 @@ fn init_embedded_cli_tracing(verbose: u8) {
         .try_init();
 }
 
-/// Shared CLI dispatch — the canonical command router.
+/// Shared CLI dispatch: the canonical command router.
 ///
 /// Both the standalone binary (`main.rs`) and the PyO3 console_scripts entry
 /// point (`cli_entry.rs`) delegate here. This is the single source of truth

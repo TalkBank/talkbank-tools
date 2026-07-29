@@ -1,14 +1,14 @@
-//! Server configuration — mirrors `batchalign/serve/config.py`.
+//! Server configuration: mirrors `batchalign/serve/config.py`.
 //!
 //! Deserializes from the runtime-owned `server.yaml` under the resolved state
 //! directory using serde_yaml.
-//! No OmegaConf interpolation needed — plain YAML is sufficient.
+//! No OmegaConf interpolation needed, plain YAML is sufficient.
 //!
 //! # Sub-modules
 //!
 //! | Module    | Purpose |
 //! |-----------|---------|
-//! | [`layout`]  | `RuntimeLayout` — filesystem path resolution from env/home |
+//! | [`layout`]  | `RuntimeLayout`, filesystem path resolution from env/home |
 //! | [`server`]  | `ServerConfig` struct, `FleetTarget`, serde defaults, warmup presets |
 //! | [`resolve`] | `ServerConfig` methods: validation and memory-tier resolution |
 //! | [`load`]    | YAML loading helpers and `ConfigError` |

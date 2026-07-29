@@ -127,7 +127,7 @@ pub enum ForcedAlignmentRequestBuildErrorV2 {
         end_ms: DurationMs,
     },
 
-    /// The requested audio segment produced zero samples — the segment is
+    /// The requested audio segment produced zero samples, the segment is
     /// entirely past the end of the source file.  Callers should skip the
     /// affected FA group rather than propagating a hard failure.
     #[error(

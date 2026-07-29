@@ -63,7 +63,7 @@ import {
 } from "../utils";
 
 // ---------------------------------------------------------------------------
-// CommandOptionsPanel — readable display for the job's typed options
+// CommandOptionsPanel: readable display for the job's typed options
 // ---------------------------------------------------------------------------
 
 /** Human-readable labels for option fields that matter operationally.

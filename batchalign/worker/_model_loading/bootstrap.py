@@ -86,7 +86,7 @@ def load_worker_profile(bootstrap: WorkerBootstrapRuntime) -> None:
 
     Profile-based workers load models for all tasks in the profile, enabling
     model sharing within a single process. GPU-only models (speaker, opensmile,
-    avqi) use lazy loading on first request — only ASR/FA/Stanza/translation
+    avqi) use lazy loading on first request, only ASR/FA/Stanza/translation
     models are loaded eagerly here.
     """
     if bootstrap.profile is None:
@@ -240,7 +240,7 @@ def _load_single_task(task: str, bootstrap: WorkerBootstrapRuntime) -> None:
     if task in (InferTask.MORPHOSYNTAX.value, InferTask.COREF.value):
         # The IPC wire format is `--lang STRING`, so Python sees a plain
         # string. The Rust side may pass the typed `WorkerLanguage::Auto`
-        # sentinel (serialized as "auto") for capability-probe spawns —
+        # sentinel (serialized as "auto") for capability-probe spawns
         # those workers must not eagerly load Stanza for an ISO-code that
         # doesn't exist in Stanza's catalog. Skip the model load and let
         # the per-file dispatch path load language-specific Stanza pipelines
@@ -284,7 +284,7 @@ def _load_single_task(task: str, bootstrap: WorkerBootstrapRuntime) -> None:
     elif task == InferTask.ASR.value:
         load_asr_engine(bootstrap)
     elif task in (InferTask.SPEAKER.value, InferTask.OPENSMILE.value, InferTask.AVQI.value):
-        # These tasks use lazy loading at request time — no startup model load.
+        # These tasks use lazy loading at request time, no startup model load.
         pass
     else:
         raise ValueError(f"Unknown task for on-demand loading: {task!r}")

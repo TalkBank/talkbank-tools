@@ -5,14 +5,14 @@
 //! [`validate`] inspects the *original* operator overrides against the
 //! detected facts and reports two kinds of finding:
 //!
-//! - [`ConfigWarning`] — the override is suboptimal but the server can
+//! - [`ConfigWarning`]: the override is suboptimal but the server can
 //!   still run. Surfaced as `tracing::warn!` lines at startup so the
 //!   operator notices, but never blocks. Conservative-vs-recommendation
-//!   mismatches (operator over-conservative — fewer workers than the
+//!   mismatches (operator over-conservative: fewer workers than the
 //!   host could support) are intentionally **silent**: the operator
 //!   knows their host better than `recommend()` does, and silence is
 //!   the right ergonomics for "intentionally cautious."
-//! - [`ConfigError`] — the override would deterministically crash or
+//! - [`ConfigError`]: the override would deterministically crash or
 //!   produce wrong output (e.g., per-job worker × concurrent jobs ×
 //!   peak RAM exceeds physical RAM). Reserved for cases where running
 //!   would clearly fail; the server refuses to start with a message
@@ -43,7 +43,7 @@ use crate::config::ServerConfig;
 /// One non-fatal finding from [`validate`].
 ///
 /// Each variant carries the configured value, the relevant detected
-/// fact, and the recommended alternative — the variant alone is enough
+/// fact, and the recommended alternative, the variant alone is enough
 /// to render a self-explaining operator message via the [`Display`]
 /// impl. New variants must follow the same shape so tracing
 /// integration stays uniform.
@@ -91,7 +91,7 @@ pub enum ConfigWarning {
     },
     /// Operator set `force_cpu = false` on a host whose GPU is not
     /// functional for batchalign. The configured value asserts
-    /// "use the GPU" but the GPU pipeline cannot proceed — the
+    /// "use the GPU" but the GPU pipeline cannot proceed, the
     /// worker will still fall back to CPU at runtime, but the
     /// asserted intent is wrong. Common cause: an old `server.yaml`
     /// from a CUDA host copied to an Apple Silicon host.
@@ -148,7 +148,7 @@ impl fmt::Display for ConfigWarning {
                 f,
                 "force_cpu=false is set, but this host's GPU is not \
                  functional for batchalign ({gpu:?}). The asserted \
-                 intent is wrong — the worker will fall back to CPU at \
+                 intent is wrong: the worker will fall back to CPU at \
                  runtime regardless. Remove `force_cpu` from server.yaml \
                  (the host-facts recommendation will set it correctly) or \
                  set `force_cpu: true` to make the intent explicit.",
@@ -163,14 +163,14 @@ impl fmt::Display for ConfigWarning {
 /// deterministically crash or produce wrong output. The plan calls
 /// for further variants (e.g., per-command peak-RAM checks) as the
 /// host-facts model gains richer fact shapes; today's single variant
-/// catches the most common deploy-time mistake — over-eager
+/// catches the most common deploy-time mistake, over-eager
 /// `max_concurrent_jobs` on a low-RAM host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigError {
     /// Operator's `max_concurrent_jobs` value, when multiplied by
     /// the worst-case per-job peak RAM (the heaviest worker
     /// profile, today GPU at 16 GB), exceeds the host's physical
-    /// RAM. There is no scheduling outcome that fits — every
+    /// RAM. There is no scheduling outcome that fits, every
     /// jobset that uses the heaviest profile would OOM. The
     /// server refuses to start; the operator must drop
     /// `max_concurrent_jobs` (or omit it to use the recommendation,
@@ -204,7 +204,7 @@ impl fmt::Display for ConfigError {
                  max_concurrent_jobs × {per_job_peak_mb} <= {ram_total_mb}. \
                  To run a single job locally without the daemon's memory \
                  gate at all, invoke `batchalign3 <command> --sequential` \
-                 — `--sequential` runs the command in-process with no \
+                 - `--sequential` runs the command in-process with no \
                  daemon, no concurrent-job admission, and no memory gate.",
                 u64::from(*configured) * per_job_peak_mb,
             ),
@@ -261,7 +261,7 @@ pub fn validate(cfg: &ServerConfig, facts: &HostFacts) -> ConfigValidation {
         // case: even if every job uses the heaviest worker profile,
         // physical RAM cannot accommodate. This is an error
         // (refuses startup) rather than a warning because the
-        // operator has no scheduling option that fits — the
+        // operator has no scheduling option that fits, the
         // configured cap is incorrect by construction.
         let tier = crate::types::runtime::MemoryTier::from_total_mb(facts.ram_total_mb);
         let per_job_peak_mb = worst_case_per_job_peak_ram_mb(&tier);
@@ -287,8 +287,8 @@ pub fn validate(cfg: &ServerConfig, facts: &HostFacts) -> ConfigValidation {
     // `force_cpu = Some(false)` on a host whose recommendation is
     // `true` (non-functional GPU) is the contradiction to flag.
     // `Some(true)` on a CUDA host is the symmetric case but it's
-    // operationally fine — the worker just doesn't use the GPU,
-    // which is a legitimate testing affordance — so it's silent.
+    // operationally fine: the worker just doesn't use the GPU,
+    // which is a legitimate testing affordance, so it's silent.
     // `None` defers to the recommendation by construction; never
     // contradicts.
     if cfg.force_cpu == Some(false) && recommend_force_cpu(facts) {
@@ -358,7 +358,7 @@ mod tests {
         );
     }
 
-    /// `gpu_thread_pool_size: None` (default — no operator override)
+    /// `gpu_thread_pool_size: None` (default, no operator override)
     /// never fires the warning, even on a CPU-only host. The whole
     /// point of the warning is to flag *operator overrides* that
     /// contradict facts; the recommendation is by construction
@@ -422,7 +422,7 @@ mod tests {
         );
     }
 
-    /// Conservative-vs-recommendation is intentionally silent — the
+    /// Conservative-vs-recommendation is intentionally silent, the
     /// operator knows their host better than `recommend()` does, and
     /// silence is the right ergonomics for "intentionally cautious."
     #[test]
@@ -625,7 +625,7 @@ mod tests {
     }
 
     /// `Some(true)` on CUDA: operator asserts CPU even though GPU
-    /// is functional. Legitimate testing affordance — silent. The
+    /// is functional. Legitimate testing affordance, silent. The
     /// symmetric "operator over-conservative" case from the design
     /// doc.
     #[test]
@@ -676,7 +676,7 @@ mod tests {
 
     /// An operator who sets several overrides above their respective
     /// recommendations gets one warning per knob. The validator runs
-    /// each rule independently — there's no implicit shadowing or
+    /// each rule independently: there's no implicit shadowing or
     /// short-circuit. Order is the order the rules execute in
     /// [`validate`]; if a future refactor reorders them, this test
     /// will catch it (so the assertion uses set-membership rather
@@ -726,7 +726,7 @@ mod tests {
         // deterministic-OOM error (99 × 16 GB peak = 1584 GB).
         // Compositionally: the same configured value can fire BOTH
         // a warning (above the host-tier recommendation) and an
-        // error (would OOM) — they're independent rules over the
+        // error (would OOM): they're independent rules over the
         // same input.
         assert!(
             result.errors.iter().any(|e| matches!(
@@ -741,7 +741,7 @@ mod tests {
     /// A clean ServerConfig::default() against a real-shape host
     /// produces zero warnings and zero errors. This is the contract
     /// that lets `ServerConfig::default()` deploy on any host without
-    /// pre-startup churn — recommendations match the absence of
+    /// pre-startup churn: recommendations match the absence of
     /// overrides by construction.
     #[test]
     fn default_config_against_any_host_produces_no_findings() {
@@ -763,7 +763,7 @@ mod tests {
     // -----------------------------------------------------------------
 
     /// Apple Silicon at 64 GB RAM. Worst-case per-job peak = 16 GB.
-    /// `4 * 16 = 64` exactly equals ram_total — fits. `5 * 16 = 80`
+    /// `4 * 16 = 64` exactly equals ram_total, fits. `5 * 16 = 80`
     /// exceeds; that's the OOM error.
     #[test]
     fn errors_when_max_concurrent_jobs_times_peak_exceeds_ram() {
@@ -795,7 +795,7 @@ mod tests {
     }
 
     /// `None` (no operator override) never triggers the OOM error.
-    /// The recommendation is by construction safe — this is the
+    /// The recommendation is by construction safe; this is the
     /// "remove the override and the daemon will boot" escape
     /// hatch named in the error message.
     #[test]
@@ -869,7 +869,7 @@ mod tests {
     //
     // The 2026-05-08 rearch ("memory-gate-landed", "idle-eviction-pre-
     // pass-landed", "cpu-loadavg-gate-landed", "cap-at-4-retired") was
-    // supposed to make memory gating dynamic — observe actual RSS,
+    // supposed to make memory gating dynamic, observe actual RSS,
     // gate at admission, evict under pressure. The runtime gates land
     // that contract, but the boot-time host-facts validator was left
     // command-agnostic: it compares `max_concurrent_jobs × 16000 MB`
@@ -917,7 +917,7 @@ mod tests {
         assert!(
             result.errors.is_empty(),
             "max_concurrent_jobs=1 on a 16 GB laptop must be accepted \
-             — the runtime gates are responsible for refusing actual \
+             - the runtime gates are responsible for refusing actual \
              OOM via observation, not the boot gate. errors: {:?}",
             result.errors
         );
@@ -927,7 +927,7 @@ mod tests {
     fn laptop_16gb_with_oversubscribed_max_concurrent_jobs_still_refuses() {
         // Legitimate over-subscription: even with a generous worst-case,
         // 8 jobs cannot fit on a 16 GB laptop. The gate must still catch
-        // this — relaxing the laptop case must not turn off the gate
+        // this: relaxing the laptop case must not turn off the gate
         // entirely.
         let cfg = ServerConfig {
             max_concurrent_jobs: Some(8),

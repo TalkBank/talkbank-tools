@@ -274,36 +274,36 @@ that handles POS and depparse jointly.
 
 ```text
 crates/talkbank-transform/src/asr_postprocess/
-├── mod.rs          — Pipeline: process_raw_asr() with Cantonese stage 4b
-├── cantonese.rs    — normalize_cantonese(), cantonese_char_tokens()
-├── compounds.rs    — Compound word merging
-├── num2text.rs     — Number expansion
-└── num2chinese.rs  — Chinese/Japanese number converter
+├── mod.rs: Pipeline: process_raw_asr() with Cantonese stage 4b
+├── cantonese.rs: normalize_cantonese(), cantonese_char_tokens()
+├── compounds.rs: Compound word merging
+├── num2text.rs: Number expansion
+└── num2chinese.rs: Chinese/Japanese number converter
 
-crates/talkbank-transform/src/retokenize/         — Language-agnostic AST rewrite
-crates/batchalign/src/chat_ops/cache_key.rs       — cache_key() with retokenize differentiation
-crates/batchalign/src/morphosyntax/mod.rs         — Per-character warning diagnostic
-crates/batchalign-pyo3/src/cantonese_asr_bridge.rs — Provider output projection
-crates/batchalign-types/src/worker_v2/requests.rs — MorphosyntaxRequestV2.retokenize wire field
+crates/talkbank-transform/src/retokenize/: Language-agnostic AST rewrite
+crates/batchalign/src/chat_ops/cache_key.rs: cache_key() with retokenize differentiation
+crates/batchalign/src/morphosyntax/mod.rs: Per-character warning diagnostic
+crates/batchalign-pyo3/src/cantonese_asr_bridge.rs: Provider output projection
+crates/batchalign-types/src/worker_v2/requests.rs: MorphosyntaxRequestV2.retokenize wire field
 ```
 
 ### Python
 
 ```text
 batchalign/inference/languages/cantonese/
-├── __init__.py         — Engine registration
-├── _common.py          — normalize_cantonese_text() (delegates to Rust),
+├── __init__.py: Engine registration
+├── _common.py: normalize_cantonese_text() (delegates to Rust),
 │                         read_asr_config(), provider_lang_code()
-├── _tencent_asr.py     — Tencent Cloud ASR load/infer
-├── _tencent_api.py     — TencentRecognizer class
-├── _aliyun_asr.py      — Aliyun NLS WebSocket ASR
-├── _funaudio_asr.py    — FunASR/SenseVoice load/infer
-├── _funaudio_common.py — FunAudioRecognizer class
-├── _cantonese_fa.py    — Cantonese forced alignment (jyutping + Wave2Vec)
-└── _asr_types.py       — Internal TypedDicts
+├── _tencent_asr.py: Tencent Cloud ASR load/infer
+├── _tencent_api.py: TencentRecognizer class
+├── _aliyun_asr.py: Aliyun NLS WebSocket ASR
+├── _funaudio_asr.py: FunASR/SenseVoice load/infer
+├── _funaudio_common.py: FunAudioRecognizer class
+├── _cantonese_fa.py: Cantonese forced alignment (jyutping + Wave2Vec)
+└── _asr_types.py: Internal TypedDicts
 
-batchalign/inference/morphosyntax.py — _segment_cantonese(), Mandarin retokenize selection
-batchalign/worker/_stanza_loading.py — load_stanza_retokenize_model() (lazy Chinese)
+batchalign/inference/morphosyntax.py: _segment_cantonese(), Mandarin retokenize selection
+batchalign/worker/_stanza_loading.py: load_stanza_retokenize_model() (lazy Chinese)
 ```
 
 ### Tests: no `unittest.mock`

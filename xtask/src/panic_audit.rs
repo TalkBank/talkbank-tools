@@ -3,10 +3,10 @@
 //! crate-by-crate.
 //!
 //! Each site lands in one of three classifications during triage:
-//! (a) infallible-by-construction — annotate with a localized
+//! (a) infallible-by-construction: annotate with a localized
 //! `#[allow(clippy::*_used)]` carrying a written rationale;
-//! (b) recoverable-error-masked — replace with `Result` plumbing through
-//! a `thiserror` domain error; (c) untyped-invariant — introduce a
+//! (b) recoverable-error-masked: replace with `Result` plumbing through
+//! a `thiserror` domain error; (c) untyped-invariant, introduce a
 //! newtype that makes the panic structurally impossible. Patterns
 //! covered: `.unwrap()`, `.expect(...)`, `panic!`, `todo!`,
 //! `unimplemented!`, `unreachable!`.
@@ -138,7 +138,7 @@ struct PanicSite {
     class: DirectoryClass,
     /// `true` when the site lives in test-classified code per
     /// [`is_test_path`]. Inline `#[cfg(test)] mod tests { ... }` blocks
-    /// are *not* detected — they remain in `is_test=false` and must be
+    /// are *not* detected: they remain in `is_test=false` and must be
     /// filtered by the per-crate audit. Documented limitation.
     is_test: bool,
     /// The line text, trimmed of leading/trailing whitespace, for
@@ -328,7 +328,7 @@ fn crate_dir_of(relative_path: &str) -> Option<String> {
 /// block always classify as test code regardless of file path. The
 /// detection is brace-counted from the `mod` line; the previous
 /// version of this scanner missed inline test modules and overcounted
-/// non-test sites by ~10–20% in lsp/server crates.
+/// non-test sites by ~10-20% in lsp/server crates.
 fn scan_file(
     text: &str,
     relative_path: &str,
@@ -472,7 +472,7 @@ const PATTERNS: &[(PanicPattern, &str)] = &[
 /// Trim everything from the first `//` that isn't inside a (very
 /// permissively detected) string literal. Good enough for rustfmt'd
 /// code; the audit doesn't need single-token precision. Returns a
-/// borrowed slice — full-workspace audits walk ~5M lines per run, so
+/// borrowed slice: full-workspace audits walk ~5M lines per run, so
 /// avoiding the per-line allocation matters.
 fn strip_inline_line_comment(line: &str) -> &str {
     let mut in_string = false;

@@ -46,7 +46,7 @@ flowchart TD
     parse_main --> bundle[compare()\nconform + local window search + local DP\nComparisonBundle: main view, gold view,\nstructural word matches, metrics]
     parse_gold --> bundle
     bundle --> released[materialize_released\nproject_gold_structurally()\n(compare.rs:132)]
-    bundle --> internal_main[materialize_main_annotated\n(compare.rs:112 — internal/benchmark)\ninject %xsrep / %xsmor on main]
+    bundle --> internal_main[materialize_main_annotated\n(compare.rs:112: internal/benchmark)\ninject %xsrep / %xsmor on main]
     released --> safe{Exact structural match?}
     safe -->|Yes| copy[Copy %mor / %gra / %wor]
     safe -->|No, full gold coverage| mor_only[Project %mor only]

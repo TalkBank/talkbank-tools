@@ -9,7 +9,7 @@ Findings (2026-03-23):
 - 2,280 unique pure-CJK words extracted from corpus
 - 91% of multi-character words preserved as single tokens by PyCantonese
 - The 9% that split are mostly multi-word phrases transcribed as single tokens
-  (book titles, idiomatic expressions) — the splits are linguistically correct
+  (book titles, idiomatic expressions): the splits are linguistically correct
 - Key Cantonese words all handled correctly: 佢哋, 鍾意, 故事, 媽媽, 爸爸
 """
 

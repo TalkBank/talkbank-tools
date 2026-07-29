@@ -1,10 +1,10 @@
 //! File status tracking, progress reporting, and retry state management.
 //!
 //! Split into focused sub-modules:
-//! - [`file_stage`] — canonical stage labels for file lifecycles
-//! - [`event_sink`] — runner event sink trait and store-backed implementation
-//! - [`tracker`] — per-file lifecycle helper and free state-mutation functions
-//! - [`supervision`] — spawning/draining supervised file tasks and fallback cleanup
+//! - [`file_stage`]: canonical stage labels for file lifecycles
+//! - [`event_sink`]: runner event sink trait and store-backed implementation
+//! - [`tracker`]: per-file lifecycle helper and free state-mutation functions
+//! - [`supervision`]: spawning/draining supervised file tasks and fallback cleanup
 
 mod event_sink;
 mod file_stage;

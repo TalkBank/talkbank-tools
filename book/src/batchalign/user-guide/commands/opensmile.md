@@ -64,8 +64,8 @@ flowchart TD
 | --- | --- | --- |
 | `--feature-set SET` | `eGeMAPSv02` | Feature set: `eGeMAPSv02`, `eGeMAPSv01b`, `GeMAPSv01b`, or `ComParE_2016` |
 | `--lang CODE` | `eng` | 3-letter ISO language code |
-| `--bank NAME` | — | Server media bank name from `server.yaml` `media_mappings` (server-backed runs only) |
-| `--subdir PATH` | — | Subdirectory under the selected `--bank` to scope the run |
+| `--bank NAME` |: | Server media bank name from `server.yaml` `media_mappings` (server-backed runs only) |
+| `--subdir PATH` |: | Subdirectory under the selected `--bank` to scope the run |
 
 ---
 

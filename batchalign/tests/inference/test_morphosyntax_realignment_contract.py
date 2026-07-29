@@ -1,7 +1,7 @@
 """Contract test for morphotag tokenizer realignment (Wave 3).
 
-The morphotag pipeline's 1-to-1 invariant — that Stanza returns exactly N
-tokens for N CHAT words after tokenizer realignment — depends on
+The morphotag pipeline's 1-to-1 invariant, that Stanza returns exactly N
+tokens for N CHAT words after tokenizer realignment, depends on
 ``batch_infer_morphosyntax`` setting ``tok_ctx.original_words`` to the
 batch's word lists BEFORE invoking ``nlp()``. If that sequencing breaks
 (e.g. a refactor moves the assignment after the call, or a new branch
@@ -112,7 +112,7 @@ def test_realignment_context_is_set_before_nlp_in_normal_mode() -> None:
 
     # nlp() must have been called at least once.
     assert observed_original_words, (
-        "nlp() was never invoked — the batch collection or language "
+        "nlp() was never invoked: the batch collection or language "
         "dispatch skipped the request, which would make the realignment "
         "invariant moot but also means morphotag produced no output."
     )
@@ -126,7 +126,7 @@ def test_realignment_context_is_set_before_nlp_in_normal_mode() -> None:
         f"the moment nlp() was invoked, but the invariant requires it "
         f"to carry the batch's word lists so Stanza can realign to CHAT "
         f"boundaries. If this assertion fires, the realignment sequencing "
-        f"in batch_infer_morphosyntax has drifted — Stanza will tokenize "
+        f"in batch_infer_morphosyntax has drifted: Stanza will tokenize "
         f"freely and the 1-to-1 invariant will silently break."
     )
 
@@ -180,7 +180,7 @@ def test_realignment_context_cleared_after_nlp_call() -> None:
 def test_no_realignment_when_retokenize_requested() -> None:
     """When ``req.retokenize`` is True (generic retokenize), the caller
     has explicitly asked Stanza to own tokenization, so the pipeline
-    MUST NOT set ``tok_ctx.original_words`` — doing so would fight
+    MUST NOT set ``tok_ctx.original_words``: doing so would fight
     Stanza's tokenizer and likely produce incorrect MWT output.
 
     This test locks the opposite contract: in retokenize mode,

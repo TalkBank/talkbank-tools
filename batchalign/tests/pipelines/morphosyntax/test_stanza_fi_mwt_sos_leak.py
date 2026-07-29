@@ -6,7 +6,7 @@ the character language model's ``<SOS>`` (start-of-sequence) control
 token into the *first* expansion word's ``text`` and ``lemma`` fields.
 
 This corrupts downstream consumers that read the public Document API
-and write its output elsewhere — in our case, a CHAT ``%mor`` tier
+and write its output elsewhere, in our case, a CHAT ``%mor`` tier
 containing invalid entries like ``sconj|<sos>tos~aux|ei-Fin-Neg-S3``.
 The angle brackets are not valid CHAT %mor stem content, but the
 parser correctly rejects them, surfacing the upstream leak as an
@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 #: Three-token input that reliably triggers the leak. Any 3-word sentence
-#: placing ``tollei`` in non-boundary position works — we use ASCII
+#: placing ``tollei`` in non-boundary position works, we use ASCII
 #: placeholders so the reproducer reads cleanly for non-Finnish-speaking
 #: Stanza maintainers.
 INPUT_TEXT = "a tollei b"
@@ -78,7 +78,7 @@ def _load_pipeline() -> stanza.Pipeline:
     Matches the production Stanza configuration for non-Japanese,
     MWT-capable languages in
     ``batchalign/worker/_stanza_loading.py`` but with zero batchalign
-    customization layered on top — no tokenizer postprocessor, no
+    customization layered on top, no tokenizer postprocessor, no
     thread lock, no package overrides.
     """
     import stanza
@@ -177,7 +177,7 @@ def _main() -> int:
     if leaks:
         print(f"\nBUG: control-token leak detected: {leaks}")
         return 1
-    print("\nclean output — bug not reproduced")
+    print("\nclean output: bug not reproduced")
     return 0
 
 

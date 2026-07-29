@@ -102,7 +102,7 @@ def _patch_aliyun_sdk(
     tests, or one that raises to assert the client was never called.
 
     Returns a dict that the fake ``TranslateGeneralRequest`` populates
-    with each ``set_*`` call — tests assert against it for wire shape.
+    with each ``set_*`` call: tests assert against it for wire shape.
     """
     import sys
 
@@ -227,7 +227,7 @@ class TestLoadAliyunTranslate:
     ) -> None:
         # Aliyun rejects empty SourceText with a generic
         # InvalidParameter error that masquerades as a credential
-        # failure — short-circuit defense in the loader prevents that
+        # failure: short-circuit defense in the loader prevents that
         # confusing error path.
         from batchalign.inference._domain_types import LanguageCode
         from batchalign.worker._model_loading import translation as translation_mod
@@ -278,12 +278,12 @@ class TestLoadAliyunTranslate:
 # below probe the full runtime path: model download (first run only),
 # load, inference per source language, edge cases, state-restoration
 # semantics. Before these tests, the only evidence that Seamless
-# "works" was that the Python import resolves and the function exists —
+# "works" was that the Python import resolves and the function exists
 # which proves nothing about runtime behavior.
 #
 # All marked ``integration`` and ``slow`` because the FIRST run
 # downloads ~1.2 GB from HuggingFace (``facebook/hf-seamless-m4t-medium``)
-# and the model load takes 30–60 s on CPU. Subsequent runs hit the
+# and the model load takes 30-60 s on CPU. Subsequent runs hit the
 # cache and complete in seconds. The module-scoped fixture
 # ``seamless_translate_fn`` amortizes the load across every test in
 # this suite so the whole pass takes one model-load, not N.
@@ -344,7 +344,7 @@ def seamless_translate_fn():
 class TestSeamlessTranslatesPerLanguage:
     """One test per source language Seamless claims to support that we
     care about. Each asserts the output is non-empty English with a
-    plausible word for the input. The exact phrasing is NOT pinned —
+    plausible word for the input. The exact phrasing is NOT pinned
     SeamlessM4T is non-deterministic across model revisions; the test
     detects "the path works AT ALL" not "the path produces a specific
     string."
@@ -373,7 +373,7 @@ class TestSeamlessTranslatesPerLanguage:
         )
 
     def test_mandarin_to_english(self, seamless_translate_fn) -> None:
-        # 你好世界 — Hello world. High-value because mandarin is the
+        # 你好世界: Hello world. High-value because mandarin is the
         # motivating case (ECNU, mainland-China hosts where Google
         # Translate is GFW-blocked).
         result = seamless_translate_fn("你好世界", "cmn")
@@ -383,12 +383,12 @@ class TestSeamlessTranslatesPerLanguage:
         )
 
     def test_cantonese_to_english(self, seamless_translate_fn) -> None:
-        # Cantonese (yue) — HK research relevance. Seamless's
+        # Cantonese (yue): HK research relevance. Seamless's
         # multilingual coverage of yue is the open question this
         # test exists to answer empirically rather than by reading
         # the model card.
         result = seamless_translate_fn("你好", "yue")
-        # Looser assertion — if Seamless can't handle yue, the result
+        # Looser assertion: if Seamless can't handle yue, the result
         # might be a romanization or a passthrough. Document what
         # actually happens.
         assert isinstance(result, str)
@@ -407,7 +407,7 @@ class TestSeamlessTranslatesPerLanguage:
 class TestSeamlessEdgeCases:
     """Edge cases the production translate pipeline can plausibly
     feed Seamless. Each is a probe for "does the path crash or
-    return garbage on this input?" — we don't pin the exact output.
+    return garbage on this input?", we don't pin the exact output.
     """
 
     def test_empty_string_does_not_crash(self, seamless_translate_fn) -> None:
@@ -436,7 +436,7 @@ class TestSeamlessEdgeCases:
         assert isinstance(result, str)
         assert result.strip()
         # Should contain SOMETHING that maps to one of the source
-        # sentences' meanings — sanity check, not output-pinning.
+        # sentences' meanings: sanity check, not output-pinning.
         lower = result.lower()
         assert any(
             w in lower for w in ("hello", "world", "how", "my", "name", "juan")
@@ -531,7 +531,7 @@ class TestSeamlessRuntimeInvariants:
             )
             assert _state.translate_backend is TranslationBackend.SEAMLESS
             assert _state.translate_fn is not google_fn, (
-                "Seamless load must replace ``_state.translate_fn`` — "
+                "Seamless load must replace ``_state.translate_fn``, "
                 "leaving the Google fn in place would silently route "
                 "Seamless-pool requests to Google."
             )
@@ -557,7 +557,7 @@ def nllb_translate_fn():
 @pytest.mark.slow
 class TestNllbTranslatesPerLanguage:
     """Per-source-language behavioral tests. Each asserts non-empty
-    English with at least one plausible word — exact output is NOT
+    English with at least one plausible word, exact output is NOT
     pinned (NLLB varies across model revisions; the empirical
     fixture-output data is captured in the investigation doc).
     """
@@ -585,7 +585,7 @@ class TestNllbTranslatesPerLanguage:
         )
 
     def test_mandarin_long_form_to_english(self, nllb_translate_fn) -> None:
-        # Long-form input — NLLB handles real sentences; short greetings
+        # Long-form input: NLLB handles real sentences; short greetings
         # are a documented weakness handled in TestNllbRuntimeInvariants.
         result = nllb_translate_fn(
             "今天天气很好，我想去公园散步。", "cmn"
@@ -637,7 +637,7 @@ class TestNllbRuntimeInvariants:
     def test_unsupported_language_raises_clear_error(
         self, nllb_translate_fn
     ) -> None:
-        # The FLORES-200 mapping is a closed set — an unmapped source
+        # The FLORES-200 mapping is a closed set, an unmapped source
         # language must raise rather than silently produce wrong-language
         # output. "xyz" is not a valid ISO-639-3 code anywhere.
         with pytest.raises(ValueError, match="FLORES-200 mapping"):

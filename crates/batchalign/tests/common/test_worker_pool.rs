@@ -9,10 +9,10 @@
 //! cap unnecessary: tests within a binary share workers keyed by the subset
 //! of [`WorkerConfig`] the Python child observes at startup.
 //!
-//! Fields the Python child does NOT observe — `ready_timeout_s`,
+//! Fields the Python child does NOT observe, `ready_timeout_s`,
 //! `audio_task_timeout_s`, `analysis_task_timeout_s`, `runtime.host_memory`,
 //! `runtime.memory_tier`, `runtime.server_instance_id`,
-//! `runtime.server_process_id` — are deliberately excluded from
+//! `runtime.server_process_id`: are deliberately excluded from
 //! [`ConfigKey`], so tests that vary only those fields still share a worker.
 //! Source of truth for the observed/excluded split is
 //! `crate::worker::handle::spawn::build_worker_command`; if a flag or env

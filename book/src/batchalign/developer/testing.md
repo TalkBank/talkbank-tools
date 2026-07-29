@@ -15,7 +15,7 @@ flowchart TD
     pygolden["Tier 3: Python Golden\n(uv run pytest -m golden)\nbatchalign_core extension\n~10-30s, 1-2 GB"]
 
     fast -->|"routine dev loop\n(every edit)"| safe(["Safe on any machine"])
-    ml -->|"opt-in only\n(pre-release, inference changes)"| danger(["Serialized — never\nrun with bare cargo test"])
+    ml -->|"opt-in only\n(pre-release, inference changes)"| danger(["Serialized, never\nrun with bare cargo test"])
     pygolden -->|"opt-in only\n(PyO3 changes)"| safe
 ```
 
@@ -112,7 +112,7 @@ These remain as additional safety nets:
 ## Quick reference
 
 ```bash
-# Fast tests only (default — safe, parallel, no models)
+# Fast tests only (default, safe, parallel, no models)
 cargo test --workspace
 make test
 

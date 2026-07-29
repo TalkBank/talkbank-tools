@@ -1,4 +1,4 @@
-//! `GET /health` — health check endpoint.
+//! `GET /health`: health check endpoint.
 //!
 //! Provides a point-in-time snapshot of server health for use by the CLI
 //! (server discovery) and the dashboard (at-a-glance status). The response

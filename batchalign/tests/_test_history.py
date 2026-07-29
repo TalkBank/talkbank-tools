@@ -3,7 +3,7 @@
 Phase B2 of the test-cost revamp. A thin SQLite wrapper the pytest
 conftest feeds from ``pytest_runtest_logreport``; nextest can feed
 it in a second pass by parsing its JSON message stream. One row per
-test invocation — deliberately denormalized so queries for
+test invocation: deliberately denormalized so queries for
 historical-failure-ordering (Phase E) and top-N slowest tests
 (Phase B3) stay one ``SELECT`` away.
 
@@ -61,13 +61,13 @@ class HistoryWriter:
 
     Not thread-safe. Callers that want concurrent writes (e.g., xdist
     workers) should instantiate one writer per worker and point it at
-    the same DB — SQLite handles the per-process locking via WAL mode.
+    the same DB: SQLite handles the per-process locking via WAL mode.
     """
 
     def __init__(self, db_path: Path) -> None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection | None = sqlite3.connect(db_path)
-        # WAL gives us concurrent reads during writes — critical for
+        # WAL gives us concurrent reads during writes, critical for
         # live-tailing a test run from another process (dashboard,
         # watcher, etc.).
         self._conn.execute("PRAGMA journal_mode = WAL")
@@ -82,7 +82,7 @@ class HistoryWriter:
         commit_sha: str | None = None,
         framework: Framework | str = "pytest",
     ) -> None:
-        """Insert one row. Commits immediately — no batching.
+        """Insert one row. Commits immediately, no batching.
 
         We commit per-row rather than batching because a crashing test
         process is exactly when we most want the prior runs' data to
@@ -100,7 +100,7 @@ class HistoryWriter:
         self._conn.commit()
 
     def close(self) -> None:
-        """Idempotent — safe to call more than once."""
+        """Idempotent: safe to call more than once."""
         if self._conn is not None:
             self._conn.close()
             self._conn = None

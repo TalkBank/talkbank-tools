@@ -165,8 +165,8 @@ flowchart TD
     fewer["Next run emits\nfewer [?] markers"]
 
     align --> stale
-    stale -->|"yes — stale"| rerun
-    stale -->|"no — fresh"| review
+    stale -->|"yes: stale"| rerun
+    stale -->|"no: fresh"| review
     rerun --> review
     review --> rate
     rate -->|"[early] / [late] /\n[wrong]"| fix
@@ -233,7 +233,7 @@ preserve reviewer work.
 `batchalign3 finalize` will be the principled replacement:
 
 ```bash
-# sketch — not yet shipped
+# sketch, not yet shipped
 batchalign3 finalize FILE.cha --require-reviewed
 ```
 

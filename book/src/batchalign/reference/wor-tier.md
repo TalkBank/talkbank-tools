@@ -61,9 +61,9 @@ The %wor tier includes spoken main-tier word tokens:
 |------|---------|----------|-------------|
 | Regular words | `want`, `cookie` | Yes | `want`, `cookie` |
 | Fillers | `&-uh`, `&-um` | **Yes** | `uh`, `um` |
-| Fragments | `&+fr`, `&+w` | **No** | — |
-| Nonwords | `&~gaga`, `&~um` | **No** | — |
-| Untranscribed placeholders | `xxx`, `yyy`, `www` | **No** | — |
+| Fragments | `&+fr`, `&+w` | **No** |, |
+| Nonwords | `&~gaga`, `&~um` | **No** |, |
+| Untranscribed placeholders | `xxx`, `yyy`, `www` | **No** |, |
 | Words with error marks | `goed [*]` | Yes | `goed` |
 | Words inside retrace groups | `<I want> [/] I need` | Yes (all 4 words) | `I`, `want`, `I`, `need` |
 | Words inside reformulation groups | `<I want> [//] I need` | Yes (all 4 words) | `I`, `want`, `I`, `need` |
@@ -129,7 +129,7 @@ Untranscribed placeholders (`xxx`, `yyy`, `www`) are similarly excluded from
 ```text
 *CHI:    xxx [: something] is here .
 %wor:    is 1200_1400 here 1400_1800 .
-         (xxx excluded — no phoneme sequence regardless of replacement)
+         (xxx excluded, no phoneme sequence regardless of replacement)
 ```
 
 ### Omission with replacement
@@ -139,7 +139,7 @@ If an omission (`0word`) has a replacement, the omission is still excluded
 
 ```text
 *CHI:    0gonna [: going+to] eat .
-         (omission — not in %wor regardless of replacement)
+         (omission, not in %wor regardless of replacement)
 ```
 
 ## Retrace and Reformulation Groups

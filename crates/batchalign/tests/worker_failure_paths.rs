@@ -84,7 +84,7 @@ fn test_pool(python: String) -> WorkerPool {
 // ---------------------------------------------------------------------------
 
 /// When a worker process is killed (SIGKILL) mid-request, the dispatch call
-/// must return an error — not hang or silently succeed.
+/// must return an error, not hang or silently succeed.
 #[cfg(unix)]
 #[tokio::test]
 async fn worker_killed_mid_batch_infer_returns_error() {
@@ -126,7 +126,7 @@ async fn worker_killed_mid_batch_infer_returns_error() {
 }
 
 /// After a worker crash, the pool should still be able to spawn a new worker
-/// and dispatch successfully — proving crash recovery works.
+/// and dispatch successfully: proving crash recovery works.
 #[cfg(unix)]
 #[tokio::test]
 async fn pool_recovers_after_worker_crash() {
@@ -159,7 +159,7 @@ async fn pool_recovers_after_worker_crash() {
     // Brief pause to let the OS reap the process.
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    // Second dispatch should succeed — pool spawns a replacement worker.
+    // Second dispatch should succeed, pool spawns a replacement worker.
     let item2 = json!({"words": ["recovered"], "lang": "eng"});
     let response2 = pool
         .dispatch_batch_infer(
@@ -205,7 +205,7 @@ async fn crash_in_one_group_does_not_affect_other_groups() {
     }
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    // Dispatch to Translate (IO profile) — should succeed unaffected.
+    // Dispatch to Translate (IO profile), should succeed unaffected.
     let translate_result = pool
         .dispatch_batch_infer(
             &LanguageCode3::eng(),
@@ -303,7 +303,7 @@ async fn worker_ready_timeout_fires() {
     };
 
     // We can't easily make a test-echo worker start slowly. Instead, test the
-    // timeout path by using a non-existent python path — the spawn should fail
+    // timeout path by using a non-existent python path, the spawn should fail
     // with a meaningful error (not hang forever).
     let bad_config = WorkerConfig {
         python_path: "/nonexistent/python3".into(),
@@ -324,7 +324,7 @@ async fn worker_ready_timeout_fires() {
 }
 
 /// Pool dispatch with a fast health-check interval should still work for
-/// immediate requests — the health check loop only evicts under memory
+/// immediate requests: the health check loop only evicts under memory
 /// pressure (no longer fires on idle timer).
 #[tokio::test]
 async fn fast_health_check_interval_does_not_break_dispatch() {
@@ -364,7 +364,7 @@ async fn fast_health_check_interval_does_not_break_dispatch() {
 ///
 /// Note: with test-echo workers, all files succeed, so we cannot easily inject
 /// per-file failures at the worker level. Instead, we test the HTTP API's
-/// ability to handle and report multi-file results correctly — which is the
+/// ability to handle and report multi-file results correctly, which is the
 /// layer where partial results are assembled.
 #[tokio::test]
 async fn multi_file_job_produces_per_file_results() {

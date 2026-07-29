@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# choose-test-concurrency.sh — compute a safe parallelism for a test
+# choose-test-concurrency.sh: compute a safe parallelism for a test
 # profile based on available RAM.
 #
 # Part of Phase A4 of the test-cost revamp (Franklin, 2026-04-23).
@@ -15,15 +15,15 @@
 #
 # Profiles (match batchalign3/.config/nextest.toml test-groups and
 # documented worker memory budgets):
-#   default  — pure Rust lib/unit tests, no ML models          ~1 GB
-#   ml       — loads Stanza + friends into the test process   ~12 GB
-#   gpu      — loads Whisper (FA / ASR)                        ~6 GB
-#   stress   — concurrent dispatch test, shared state pressure  ~4 GB
-#   python   — pytest without golden marker, no models         ~1 GB
+#   default: pure Rust lib/unit tests, no ML models          ~1 GB
+#   ml: loads Stanza + friends into the test process   ~12 GB
+#   gpu: loads Whisper (FA / ASR)                        ~6 GB
+#   stress: concurrent dispatch test, shared state pressure  ~4 GB
+#   python: pytest without golden marker, no models         ~1 GB
 #
 # The 128 GB hard-refuse guard for golden + xdist in
 # batchalign/tests/conftest.py is correctness (OOM prevention) and
-# stays — this script handles tuning below that ceiling.
+# stays: this script handles tuning below that ceiling.
 
 set -euo pipefail
 
@@ -57,7 +57,7 @@ elif [[ -r /proc/meminfo ]]; then
 fi
 
 if [[ "$total_mb" -le 0 ]]; then
-    # Unknown host — be conservative, single-threaded.
+    # Unknown host: be conservative, single-threaded.
     echo 1
     exit 0
 fi
@@ -68,12 +68,12 @@ fi
 available_mb=$(( total_mb * 60 / 100 ))
 jobs=$(( available_mb / peak_mb ))
 
-# Floor at 1 — never emit 0 (caller would pass --test-threads 0).
+# Floor at 1: never emit 0 (caller would pass --test-threads 0).
 if [[ "$jobs" -lt 1 ]]; then
     jobs=1
 fi
 
-# Ceiling at CPU count — no benefit from oversubscription. Use
+# Ceiling at CPU count, no benefit from oversubscription. Use
 # sysctl on macOS (hw.ncpu) or /proc/cpuinfo on Linux.
 ncpu=0
 if [[ "$(uname -s)" == "Darwin" ]] && command -v sysctl >/dev/null 2>&1; then

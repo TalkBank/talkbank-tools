@@ -71,7 +71,7 @@ pub(crate) async fn dispatch_execute_v2_with_retry_and_progress(
     // `continue`s after a backoff. The terminal `continue` is gated
     // by `attempt_number < retry_policy.max_attempts`, so the for-loop
     // bound is exclusive. This `unreachable!` therefore covers the
-    // case where the loop exits without taking either return path —
+    // case where the loop exits without taking either return path
     // which the bound guarantees cannot happen.
     #[allow(clippy::unreachable)]
     {

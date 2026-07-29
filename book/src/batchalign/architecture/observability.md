@@ -30,7 +30,7 @@ purpose and load-bearing for fleet-scale runs:
   configuration bugs (e.g. a payload that genuinely exceeds
   `max_body_bytes_mb`).
 - **Attempts and backoff:** `RETRY_ATTEMPTS = 3` total, exponential backoff
-  starting at `RETRY_BACKOFF = 2.0 s` with `0.5×–1.5×` multiplicative jitter.
+  starting at `RETRY_BACKOFF = 2.0 s` with `0.5×, 1.5×` multiplicative jitter.
 - **Per-attempt timeout:** submission passes 120 s (large request bodies);
   health and result GETs pass 30 s. This is a parameter on
   `request_with_retry`, so the choice is explicit at the call site.
@@ -70,7 +70,7 @@ sequenceDiagram
         Daemon-->>Retry: 413 Payload Too Large
         Retry->>Retry: read_http_error_detail(resp)
         Retry-->>Cli: Err(CliError::ServerHttp{status=413, detail})
-        Note over Retry: 4xx/5xx never retried —\ndeterministic rejection
+        Note over Retry: 4xx/5xx never retried, \ndeterministic rejection
     end
 ```
 

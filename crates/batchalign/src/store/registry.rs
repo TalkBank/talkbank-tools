@@ -61,7 +61,7 @@ pub(crate) struct JobCompletionSnapshot {
     ///
     /// Strict all-or-nothing test. Useful for diagnostics. The
     /// `run_hosted_job` finalizer uses [`Self::any_failed`] for the
-    /// `Completed` vs `Failed` decision — see the 2026-05-11
+    /// `Completed` vs `Failed` decision, see the 2026-05-11
     /// regression in `runner/execution.rs`.
     pub all_failed: bool,
     /// Whether at least one terminal file currently recorded is an
@@ -72,7 +72,7 @@ pub(crate) struct JobCompletionSnapshot {
     /// The `JobStatus` enum docstring at `types/status.rs:27-31`
     /// defines `Completed` as "all files processed successfully" and
     /// `Failed` as "one or more files encountered an unrecoverable
-    /// error" — `any_failed` is the boundary between those two states.
+    /// error": `any_failed` is the boundary between those two states.
     pub any_failed: bool,
 }
 
@@ -148,7 +148,7 @@ impl JobRegistry {
         // that spawned task; an `mpsc::Sender::send` only fails when
         // every Receiver has been dropped, which can only happen when
         // the actor task has terminated. The actor never terminates
-        // voluntarily — it loops on `receiver.recv().await` until the
+        // voluntarily: it loops on `receiver.recv().await` until the
         // process is killed. Reaching the expect therefore means the
         // actor has crashed, which is itself a panic-level bug.
         #[allow(clippy::expect_used)]
@@ -371,7 +371,7 @@ impl JobRegistry {
             if !job.execution.status.can_restart() {
                 return Err(ServerError::JobConflict {
                     message: format!(
-                        "Job {job_id_for_message} is {} — only cancelled or failed jobs can be restarted.",
+                        "Job {job_id_for_message} is {}, only cancelled or failed jobs can be restarted.",
                         job.execution.status
                     ),
                     conflicts: Vec::new(),

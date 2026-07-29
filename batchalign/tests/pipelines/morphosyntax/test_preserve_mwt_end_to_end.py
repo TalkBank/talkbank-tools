@@ -10,7 +10,7 @@ intermediate output (which is wrong for sink/lady); this file asserts
 BA3's final output regardless of what Stanza did along the way.
 
 Both assertions share a single CLI invocation via the
-``morphotag_output`` fixture to keep test runtime bounded — one
+``morphotag_output`` fixture to keep test runtime bounded, one
 ``cargo run`` dominates the cost here.
 """
 
@@ -85,7 +85,7 @@ def test_all_four_copula_contractions_produce_correct_mor(
     morphotag_output: str,
 ) -> None:
     """Every ``<subject>'s <present-participle>`` utterance must emit
-    tilde-joined ``~aux|be-Fin-Ind-Pres-S3`` — no exceptions, no
+    tilde-joined ``~aux|be-Fin-Ind-Pres-S3``, no exceptions, no
     possessive readings allowed through."""
     mor_lines = [line for line in morphotag_output.splitlines() if line.startswith("%mor:")]
     assert len(mor_lines) == 4, (

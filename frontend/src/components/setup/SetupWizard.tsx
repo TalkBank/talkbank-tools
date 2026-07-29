@@ -5,10 +5,10 @@
  * in a GUI. Writes to `~/.batchalign.ini` via Tauri config commands.
  *
  * Steps:
- * 1. Welcome — explain what this does
- * 2. Engine selection — Rev.AI (cloud, fast, paid) vs Whisper (local, free)
- * 3. API key — if Rev.AI selected, prompt for key with confirmation
- * 4. Done — summary + "Get Started" button
+ * 1. Welcome: explain what this does
+ * 2. Engine selection: Rev.AI (cloud, fast, paid) vs Whisper (local, free)
+ * 3. API key: if Rev.AI selected, prompt for key with confirmation
+ * 4. Done: summary + "Get Started" button
  */
 
 import { useState } from "react";

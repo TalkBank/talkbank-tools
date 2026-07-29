@@ -187,14 +187,14 @@ mod tests {
 
     #[test]
     fn test_no_coordination() {
-        // Simple tree with no coordination — all words in group 0
+        // Simple tree with no coordination, all words in group 0
         let tree = "(S (NP (DT the) (NN cat)) (VP (VBD sat)))".to_string();
         assert_eq!(compute_assignments(&[tree], 3), vec![0, 0, 0]);
     }
 
     #[test]
     fn test_coordination_split() {
-        // "I eat and he runs" — two coordinated S clauses
+        // "I eat and he runs", two coordinated S clauses
         let tree =
             "(ROOT (S (S (NP (PRP I)) (VP (VBP eat))) (CC and) (S (NP (PRP he)) (VP (VBZ runs)))))"
                 .to_string();
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_all_same_group_after_merge() {
-        // Very short utterance — merging should collapse everything
+        // Very short utterance: merging should collapse everything
         let tree = "(ROOT (S (NP (PRP I)) (VP (VBP go))))".to_string();
         let assignments = compute_assignments(&[tree], 2);
         assert_eq!(assignments, vec![0, 0]);

@@ -214,7 +214,7 @@ sequences won't match.  In that case, we **bail out immediately**:
 ```python
 if ref_str != tok_str:
     L.debug("Character mismatch, skipping")
-    return stanza_tokens  # Return unchanged — no merging
+    return stanza_tokens  # Return unchanged, no merging
 ```
 
 This is strictly safer than the old DP approach, which can
@@ -436,7 +436,7 @@ CHAT words
     │
     │  stanza.Pipeline.__call__() [Python/PyTorch neural models]
     │      ├── neural tokenizer: splits "don't" → [do, n't]
-    │      ├── tokenize_postprocessor [Python callback — Layer 1]
+    │      ├── tokenize_postprocessor [Python callback, Layer 1]
     │      │       merges splits, annotates contractions with True/False
     │      ├── MWT model: expands (don't, True) → do + n't with Range IDs
     │      ├── POS model: PRON, AUX, PART, VERB
@@ -445,7 +445,7 @@ CHAT words
     ▼
 UdWord JSON (Stanza's output)
     │
-    │  map_ud_sentence() [Rust — Layer 2]
+    │  map_ud_sentence() [Rust: Layer 2]
     ▼
 %mor: pron|I-Prs-Nom-S1 aux|do-Fin-Ind-Pres-S2~part|not verb|know-Inf
 %gra: 1|4|SUBJ 2|4|AUX 3|2|NEG 4|0|ROOT

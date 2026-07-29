@@ -103,7 +103,7 @@ def test_python_and_bash_peak_rss_tables_agree() -> None:
 
     The two files share no runtime; the only guard against drift is
     this regression. If this fails, update one side to match the
-    other — whichever side was intended — and re-run.
+    other, whichever side was intended, and re-run.
     """
     import re
     from pathlib import Path
@@ -130,7 +130,7 @@ def test_python_and_bash_peak_rss_tables_agree() -> None:
     from batchalign.tests._memory_budget import _PEAK_RSS_MB
     # Every profile present in both tables must match.
     shared = set(bash_table) & set(_PEAK_RSS_MB)
-    assert shared, "bash parser found no profiles — case-regex broken?"
+    assert shared, "bash parser found no profiles, case-regex broken?"
     for name in shared:
         assert bash_table[name] == _PEAK_RSS_MB[name], (
             f"drift on profile {name!r}: "

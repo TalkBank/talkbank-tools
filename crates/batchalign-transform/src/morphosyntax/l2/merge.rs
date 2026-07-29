@@ -172,7 +172,7 @@ pub fn resolve_merged_pos_with_context(
     let has_copula = primary.dependent_deprels.iter().any(|d| d.base() == "cop");
 
     if let Some(sec_pos) = secondary_upos {
-        // Priority 1: copula predicate — reject VERB
+        // Priority 1: copula predicate, reject VERB
         if has_copula && sec_pos == UniversalPos::Verb {
             return if primary.upos == Some(UniversalPos::Noun)
                 || primary.upos == Some(UniversalPos::Propn)
@@ -254,7 +254,7 @@ pub fn merge_primary_secondary(
 
 /// Whether the entry at `start` reaches a `head=0` row by following
 /// head pointers within `chunk_count + 1` hops. Returns false on
-/// cycles and self-loops — the conditions
+/// cycles and self-loops: the conditions
 /// [`repair_secondary_gras`]'s pass 4 needs to detect.
 fn entry_reaches_root_via_heads(
     gras: &[GrammaticalRelation],
@@ -278,7 +278,7 @@ fn entry_reaches_root_via_heads(
 
 /// Strict splice-contract root predicate. Distinct from
 /// [`GrammaticalRelation::is_root`], which also accepts self-loops
-/// and `INCROOT` — neither admissible at the splice boundary.
+/// and `INCROOT`: neither admissible at the splice boundary.
 fn is_strict_root(rel: &GrammaticalRelation) -> bool {
     rel.head == 0 && rel.relation.eq_ignore_ascii_case("ROOT")
 }

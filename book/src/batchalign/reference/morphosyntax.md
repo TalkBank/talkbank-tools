@@ -74,10 +74,10 @@ Rust entry point: `crates/batchalign/src/morphosyntax/mod.rs::run_morphosyntax_i
   │
   ├── Parse CHAT (Rust AST via tree-sitter, parsed once per file)
   │
-  ├── clear_morphosyntax()  — strip existing %mor/%gra tiers
+  ├── clear_morphosyntax(): strip existing %mor/%gra tiers
   │     (talkbank-transform::morphosyntax::payload)
   │
-  ├── collect_payloads()  — extract utterance word lists globally
+  ├── collect_payloads(): extract utterance word lists globally
   │     (talkbank-transform::morphosyntax::payload)
   │
   ├── Batch infer (all utterances pool → one Stanza call per language)
@@ -92,7 +92,7 @@ Rust entry point: `crates/batchalign/src/morphosyntax/mod.rs::run_morphosyntax_i
   │     → %mor/%gra (UD→CHAT mapping, Rust)
   │     (talkbank-transform::morphosyntax::sentence_mapping)
   │
-  ├── inject_results()  — AST injection + validation
+  ├── inject_results(): AST injection + validation
   │     (talkbank-transform::morphosyntax::injection)
   │
   ├── dispatch_secondary_l2() (if `@s` words and not `--no-l2-morphotag`)

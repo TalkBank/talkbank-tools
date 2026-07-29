@@ -136,7 +136,7 @@ pub(super) fn retokenize(speaker: SpeakerIndex, words: Vec<AsrWord>) -> Vec<Utte
         let last_text = buf.last().unwrap().text.as_str();
 
         if is_ending_punct(last_text) {
-            // Whole word is ending punct — flush utterance
+            // Whole word is ending punct, flush utterance
             let punct = normalize_punct(last_text);
             // Same `buf.push` guarantee above.
             #[allow(clippy::unwrap_used)]
@@ -149,7 +149,7 @@ pub(super) fn retokenize(speaker: SpeakerIndex, words: Vec<AsrWord>) -> Vec<Utte
                 lang: None,
             });
         } else if ends_with_ending_punct(last_text) {
-            // Last character is ending punct — split the word.
+            // Last character is ending punct, split the word.
             // `buf.push` above guarantees pop() returns Some.
             #[allow(clippy::unwrap_used)]
             let text = buf.pop().unwrap();

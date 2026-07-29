@@ -7,7 +7,7 @@
 //!
 //! Why brace-counting and not `syn`: the rest of the workspace's
 //! tooling (xtask, spec/tools, spec/runtime-tools) deliberately stays at
-//! brace-counting — see the wide-struct audit for precedent. Pulling
+//! brace-counting: see the wide-struct audit for precedent. Pulling
 //! `syn` into xtask would balloon compile time for a marginal precision
 //! win on declarations that are well-behaved by convention.
 
@@ -64,13 +64,13 @@ pub fn brace_delta(line: &str) -> isize {
 /// True for paths that look like test/dev-tool code: tests
 /// directories (`tests/`, inline `tests.rs`, `test_*.rs`,
 /// `*_tests.rs`), bench harnesses (`benches/`), and runnable
-/// examples (`examples/`). Both audits exclude these — production
+/// examples (`examples/`). Both audits exclude these, production
 /// code should construct production variants; dev tooling is
 /// exempt from the no-panic rule by convention (examples and benches
 /// can `unwrap` on fixture data; tests use assertion macros).
 ///
 /// The bare filename `tests.rs` is the canonical 2018+ form for
-/// declaring an inline `mod tests;` test module from `mod.rs` —
+/// declaring an inline `mod tests;` test module from `mod.rs`
 /// without it, the panic-audit misclassifies every
 /// `<crate>/src/.../tests.rs` as production code.
 pub fn is_test_path(relative_path: &str) -> bool {
@@ -87,7 +87,7 @@ pub fn is_test_path(relative_path: &str) -> bool {
                 file.starts_with("test_")
                     || file.ends_with("_tests.rs")
                     || file == "tests.rs"
-                    // build.rs runs at build time, not runtime —
+                    // build.rs runs at build time, not runtime
                     // panics here fail `cargo build`, which is the
                     // intended behaviour. Exempt from the
                     // no-panic-in-runtime-code rule.

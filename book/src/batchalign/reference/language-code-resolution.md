@@ -248,7 +248,7 @@ flowchart TD
     lang --> num["Number Expansion\n12 table languages\nothers: passthrough"]
     lang --> utr["UTR Strategy\neng → auto/two-pass\nothers → global"]
 
-    %% All engines now have explicit validation — no red highlights needed
+    %% All engines now have explicit validation, no red highlights needed
 ```
 
 ## Pre-Validation: Language Support Diagnostics
@@ -370,37 +370,37 @@ whenever we upgrade an engine dependency or discover new support/regressions.
 
 | ISO 639-3 | Language | Rev.AI | Whisper | Stanza | Tencent | Notes |
 |---|---|---|---|---|---|---|
-| `eng` | English | `en` | `english` | `en` | — | Best quality across all engines |
-| `spa` | Spanish | `es` | `spanish` | `es` | — | |
-| `fra` | French | `fr` | `french` | `fr` | — | |
-| `deu` | German | `de` | `german` | `de` | — | |
-| `ita` | Italian | `it` | `italian` | `it` | — | |
-| `por` | Portuguese | `pt` | `portuguese` | `pt` | — | |
-| `nld` | Dutch | `nl` | `dutch` | `nl` | — | |
-| `jpn` | Japanese | `ja` | `japanese` | `ja` | — | MWT disabled |
-| `kor` | Korean | `ko` | `korean` | `ko` | — | MWT disabled |
-| `rus` | Russian | `ru` | `russian` | `ru` | — | |
-| `ara` | Arabic | `ar` | `arabic` | `ar` | — | RTL punctuation |
-| `tur` | Turkish | `tr` | `turkish` | `tr` | — | |
+| `eng` | English | `en` | `english` | `en` |, | Best quality across all engines |
+| `spa` | Spanish | `es` | `spanish` | `es` |, | |
+| `fra` | French | `fr` | `french` | `fr` |, | |
+| `deu` | German | `de` | `german` | `de` |, | |
+| `ita` | Italian | `it` | `italian` | `it` |, | |
+| `por` | Portuguese | `pt` | `portuguese` | `pt` |, | |
+| `nld` | Dutch | `nl` | `dutch` | `nl` |, | |
+| `jpn` | Japanese | `ja` | `japanese` | `ja` |, | MWT disabled |
+| `kor` | Korean | `ko` | `korean` | `ko` |, | MWT disabled |
+| `rus` | Russian | `ru` | `russian` | `ru` |, | |
+| `ara` | Arabic | `ar` | `arabic` | `ar` |, | RTL punctuation |
+| `tur` | Turkish | `tr` | `turkish` | `tr` |, | |
 | `zho` | Chinese | `cmn` | `chinese` | `zh` | `16k_zh_large` | Maps to cmn/zh depending on engine |
 | `cmn` | Mandarin | `cmn` | `chinese` | `zh` | `16k_zh_large` | UTSeg model available |
-| `yue` | Cantonese | — | `cantonese` | `zh` | `16k_zh_large` | Fine-tuned Whisper; Aliyun/CantoneseFA; UTSeg model |
-| `hak` | Hakka | — | `hakka` | — | `16k_zh_large` | Rev.AI unsupported; Stanza unsupported |
-| `pol` | Polish | `pl` | `polish` | `pl` | — | |
-| `ces` | Czech | `cs` | `czech` | `cs` | — | |
-| `ron` | Romanian | `ro` | `romanian` | `ro` | — | |
-| `hun` | Hungarian | `hu` | `hungarian` | `hu` | — | |
-| `heb` | Hebrew | `he` | `hebrew` | `he` | — | Fine-tuned Whisper; RTL punctuation |
-| `hin` | Hindi | `hi` | `hindi` | `hi` | — | |
-| `cym` | Welsh | `cy` | `welsh` | `cy` | — | |
-| `srp` | Serbian | `sr` | `serbian` | `sr` | — | |
-| `afr` | Afrikaans | `af` | `afrikaans` | `af` | — | |
-| `fin` | Finnish | `fi` | `finnish` | `fi` | — | |
-| `dan` | Danish | `da` | `danish` | `da` | — | |
-| `swe` | Swedish | `sv` | `swedish` | `sv` | — | |
-| `nor` | Norwegian | `no` | `norwegian` | `nb` | — | |
+| `yue` | Cantonese |, | `cantonese` | `zh` | `16k_zh_large` | Fine-tuned Whisper; Aliyun/CantoneseFA; UTSeg model |
+| `hak` | Hakka |, | `hakka` |, | `16k_zh_large` | Rev.AI unsupported; Stanza unsupported |
+| `pol` | Polish | `pl` | `polish` | `pl` |, | |
+| `ces` | Czech | `cs` | `czech` | `cs` |, | |
+| `ron` | Romanian | `ro` | `romanian` | `ro` |, | |
+| `hun` | Hungarian | `hu` | `hungarian` | `hu` |, | |
+| `heb` | Hebrew | `he` | `hebrew` | `he` |, | Fine-tuned Whisper; RTL punctuation |
+| `hin` | Hindi | `hi` | `hindi` | `hi` |, | |
+| `cym` | Welsh | `cy` | `welsh` | `cy` |, | |
+| `srp` | Serbian | `sr` | `serbian` | `sr` |, | |
+| `afr` | Afrikaans | `af` | `afrikaans` | `af` |, | |
+| `fin` | Finnish | `fi` | `finnish` | `fi` |, | |
+| `dan` | Danish | `da` | `danish` | `da` |, | |
+| `swe` | Swedish | `sv` | `swedish` | `sv` |, | |
+| `nor` | Norwegian | `no` | `norwegian` | `nb` |, | |
 
-*(Partial list — full table covers ~75 Rev.AI languages. `—` = not supported.)*
+*(Partial list, full table covers ~75 Rev.AI languages. `, ` = not supported.)*
 
 **Maintenance policy:** Update this table whenever:
 - A new engine version is deployed (check changelogs for language additions)

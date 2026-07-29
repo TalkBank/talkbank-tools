@@ -333,7 +333,7 @@ fn run_asr(
 ) -> Result<TaskResultV2, AsrExecuteFailure> {
     let asr_request = extract_asr_request(request)?;
     // ``WhisperHub`` shares the worker-side runtime shape with
-    // ``LocalWhisper`` — both host a ``WhisperASRHandle`` loaded at
+    // ``LocalWhisper``, both host a ``WhisperASRHandle`` loaded at
     // worker bootstrap and receive prepared mono audio as the request
     // input. The distinction lives at load time (which checkpoint got
     // loaded) and at the worker-pool key (so separate workers serve

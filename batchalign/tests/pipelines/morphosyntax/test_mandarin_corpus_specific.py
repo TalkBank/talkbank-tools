@@ -36,8 +36,8 @@ def test_mandarin_corpus_already_word_segmented() -> None:
     )
 
     # These are real word boundaries, not per-character
-    assert "叫做" in words  # "called" — 2 chars, 1 word
-    assert "说说看" in words  # "let's see" — 3 chars, 1 word
+    assert "叫做" in words  # "called", 2 chars, 1 word
+    assert "说说看" in words  # "let's see", 3 chars, 1 word
 
 
 def test_mandarin_per_char_simulation() -> None:
@@ -76,7 +76,7 @@ def test_mandarin_mixed_script_join_safety() -> None:
     # Incorrect approach (old bug): empty join
     bad_text = "".join(words)
     bad_tokens = bad_text.split()
-    assert len(bad_tokens) == 1, "Empty join merges everything — this was the bug"
+    assert len(bad_tokens) == 1, "Empty join merges everything; this was the bug"
 
 
 def test_mandarin_retokenize_decision_logic() -> None:
@@ -90,8 +90,8 @@ def test_mandarin_retokenize_decision_logic() -> None:
         ("cmn", "cmn", True),   # Mandarin job, Mandarin utterance
         ("zho", "zho", True),   # Chinese job, Chinese utterance
         ("cmn", "zho", True),   # Mandarin job, Chinese pre-code
-        ("yue", "zho", False),  # Cantonese job, [- zho] pre-code — MUST NOT retok
-        ("yue", "yue", False),  # Cantonese job — uses PyCantonese, not Stanza retok
+        ("yue", "zho", False),  # Cantonese job, [- zho] pre-code, MUST NOT retok
+        ("yue", "yue", False),  # Cantonese job, uses PyCantonese, not Stanza retok
         ("eng", "cmn", False),  # English job, Mandarin pre-code
     ]
 

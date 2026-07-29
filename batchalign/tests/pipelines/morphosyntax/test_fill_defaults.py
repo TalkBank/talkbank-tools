@@ -1,7 +1,7 @@
 """Tests for UdWord Pydantic validation of Stanza output.
 
 Stanza's doc.to_dict() can omit required fields in two cases:
-1. MWT Range tokens (id=[start, end]) — only have id and text
+1. MWT Range tokens (id=[start, end]), only have id and text
 2. Regular tokens where a processor (e.g. lemma) fails silently
 
 The Rust UdWord struct requires: id, text, lemma, upos, head, deprel.

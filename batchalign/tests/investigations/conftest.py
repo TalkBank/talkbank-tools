@@ -2,14 +2,14 @@
 
 The investigation probes parametrize tests over ``(LanguageKey,
 ProbeCase)`` pairs. Each test needs a Stanza pipeline matching
-the pair's language — loaded once per language per session, not
+the pair's language: loaded once per language per session, not
 per test invocation (pipeline load is ~5s).
 
 The two fixtures here (:func:`post_pipeline_for` and
 :func:`free_pipeline_for`) are module-scoped factories: they
 return a callable that takes a ``LanguageKey`` and returns the
 appropriate pipeline, caching per session in a closure dict.
-Adding a new language requires no changes here — the factory
+Adding a new language requires no changes here, the factory
 builds the pipeline on first request using the language's
 alpha-2 code and the shared capability-aware processor selector
 :func:`_processors_for`.
@@ -43,7 +43,7 @@ def _processors_for(lang: str) -> str:
 
     If the capability registry is unavailable (Stanza not installed
     at test collection time), fall back to requesting ``mwt``
-    unconditionally — Stanza will error loudly on the first fixture
+    unconditionally: Stanza will error loudly on the first fixture
     setup if it can't satisfy the request, which is informative
     rather than silent.
     """

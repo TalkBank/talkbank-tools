@@ -140,8 +140,8 @@ GPU and CPU with expensive data transfers.
 | `fa.py` (Whisper FA) | CUDA → CPU | CUDA: float16; CPU: float32 |
 | `fa.py` (Wave2Vec FA) | CUDA → CPU | float32 |
 | `asr.py` (Whisper ASR) | CUDA → CPU | CUDA: float16; CPU: float32 |
-| `speaker.py` | CUDA → CPU | — |
-| `_main.py` (serving) | — | GPU profile = concurrent on CUDA only; sequential on CPU |
+| `speaker.py` | CUDA → CPU |, |
+| `_main.py` (serving) |: | GPU profile = concurrent on CUDA only; sequential on CPU |
 
 ### Worker concurrency impact
 

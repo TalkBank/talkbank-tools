@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 // Python exception hierarchy. `BatchalignError` is the common ancestor
 // so call sites can `except BatchalignError` to catch any boundary
 // failure regardless of category. `SkipFileWarning` deliberately does
-// not inherit from `Warning` — see the design doc's Phase D1 decisions
+// not inherit from `Warning`, see the design doc's Phase D1 decisions
 // for why; the existing Python code raises and catches it as an
 // exception, not a warning.
 create_exception!(
@@ -185,7 +185,7 @@ pub(crate) enum BatchalignBoundaryError {
 
 impl BatchalignBoundaryError {
     /// Construct an `Internal` error from any displayable value.
-    /// Convenience for the most common pilot call site —
+    /// Convenience for the most common pilot call site
     /// `serde_json::from_value(...).map_err(BatchalignBoundaryError::internal)?`
     /// produces a typed boundary error that propagates through `?`.
     pub fn internal(source: impl std::fmt::Display) -> Self {

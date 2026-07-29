@@ -14,13 +14,13 @@ The GPU worker serves V2 requests via ``_serve_stdio_concurrent(max_threads=4)``
 which dispatches up to 4 requests simultaneously through a ``ThreadPoolExecutor``.
 PyTorch releases the GIL during compute, so threads truly run in parallel on the
 CPU side.  However, the torchaudio MMS_FA / ``forced_align`` kernel is **not
-thread-safe** for concurrent CPU execution from multiple threads — concurrent
+thread-safe** for concurrent CPU execution from multiple threads, concurrent
 calls cause SIGSEGV/SIGABRT in LibTorch, crashing the entire worker process and
 failing every pending request in the job.
 
 ``_fa_inference_lock`` serializes all calls to ``execute_forced_alignment_request_v2``
 so that only one FA inference runs at a time.  The lock is module-level (one per
-worker process), which is the correct granularity — each GPU worker process is a
+worker process), which is the correct granularity, each GPU worker process is a
 single Python interpreter serving one language's models.
 """
 

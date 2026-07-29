@@ -1,4 +1,4 @@
-"""Unit tests for _funaudio_common.py — FunAudioRecognizer logic."""
+"""Unit tests for _funaudio_common.py: FunAudioRecognizer logic."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ class TestFunAsrSegmentFromRaw:
 
 
 # ---------------------------------------------------------------------------
-# transcribe — with stubbed _run_model
+# transcribe, with stubbed _run_model
 # ---------------------------------------------------------------------------
 
 
@@ -203,7 +203,7 @@ class TestProtocolSafety:
 
     def test_get_model_suppresses_funasr_stdout(self, monkeypatch, capsys) -> None:
         # Verifies the ``redirect_stdout`` swallow around the
-        # FunASR AutoModel construction — funasr's version banner
+        # FunASR AutoModel construction: funasr's version banner
         # ("funasr version: ...") must not leak to the worker stdout
         # because that channel carries the V2 protocol's JSON
         # request/response stream. The recognizer's own
@@ -305,7 +305,7 @@ class TestFunaudioDownloadEvents:
     Per CLAUDE.md §11 (talkbank-tools/CLAUDE.md), every operation that
     takes more than ~1 second must surface to all UI channels via
     ``emit_download_event``. FunASR's lazy ``_get_model()`` was an
-    observability gap — this test pins the start/complete event pair
+    observability gap: this test pins the start/complete event pair
     on cache miss and the no-event behavior on cache hit.
     """
 
@@ -353,7 +353,7 @@ class TestFunaudioDownloadEvents:
         self, monkeypatch
     ) -> None:
         # Once the model is loaded, subsequent ``_get_model()`` calls
-        # MUST NOT re-emit the download events — they would mislead
+        # MUST NOT re-emit the download events; they would mislead
         # the user into thinking another download is happening.
         import sys
         from batchalign.inference.languages.cantonese._funaudio_common import (

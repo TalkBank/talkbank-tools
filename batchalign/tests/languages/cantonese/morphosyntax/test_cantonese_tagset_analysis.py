@@ -8,7 +8,7 @@ and PyCantonese POS tags to distinguish:
 
 Raw agreement is ~49%. After normalizing known equivalences
 (aux↔part, sconj↔cconj, propn↔noun), agreement rises to ~51%.
-The remaining ~49% disagreement is genuine — the existing annotations
+The remaining ~49% disagreement is genuine, the existing annotations
 and PyCantonese assign fundamentally different categories to many
 Cantonese words.
 
@@ -119,7 +119,7 @@ class TestTagsetAnalysis:
         rate = agree / total if total else 0
 
         print(f"\n  Raw agreement: {agree}/{total} ({rate:.0%})")
-        # Document but don't assert a specific rate — this is observational
+        # Document but don't assert a specific rate; this is observational
         assert total > 1000, f"Too few pairs collected: {total}"
 
     def test_normalized_agreement(self, pairs: Counter) -> None:

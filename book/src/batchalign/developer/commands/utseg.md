@@ -80,7 +80,7 @@ available processors are queried at worker startup via
 ```bash
 make test
 cargo nextest run -p batchalign -E 'test(utseg::)'
-# ML golden tests — only on Fleet/Large-tier hosts
+# ML golden tests, only on Fleet/Large-tier hosts
 cargo nextest run --profile ml -E 'test(utseg::golden)'
 ```
 

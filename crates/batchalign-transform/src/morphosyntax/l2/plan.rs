@@ -447,7 +447,7 @@ mod tests {
     }
 
     // ========================================================================
-    // Family B (planner level) — RED tests pinning the planner's
+    // Family B (planner level), RED tests pinning the planner's
     // invariant violation that produces wild-corpus `head=0/deprel≠ROOT`.
     //
     // See the L2 architectural-reassessment notes (Family B partition,
@@ -461,8 +461,8 @@ mod tests {
     //
     // The planner copies the primary parse's deprel verbatim into
     // `host_deprel`. If the primary's deprel for the head=0 token is
-    // anything other than "root" (case-insensitive) — Stanza noise,
-    // edge-case copular constructions, mis-typed root labels — the
+    // anything other than "root" (case-insensitive), Stanza noise,
+    // edge-case copular constructions, mis-typed root labels, the
     // splice then writes `head=0` paired with that non-"root" deprel,
     // violating the bidirectional invariant `(head==0) ⟺ (deprel==ROOT)`.
     //
@@ -480,7 +480,7 @@ mod tests {
     //     happened to label the L2 token internally.
     // ========================================================================
 
-    /// **Family B planner RED-1** — when the L2 word is the host
+    /// **Family B planner RED-1**, when the L2 word is the host
     /// primary's utterance root and primary's deprel is *not* "root"
     /// (rare but observed in the wild via Stanza noise / typed
     /// non-root labels), the planner must still emit
@@ -488,13 +488,13 @@ mod tests {
     /// Otherwise the splice writes `head=0` paired with the bogus
     /// deprel and the validator fires E722.
     ///
-    /// EXPECTED on current build: FAILS — `planned_attachment` at
+    /// EXPECTED on current build: FAILS, `planned_attachment` at
     /// `plan.rs:175` copies `current.primary.deprel.clone()` verbatim,
     /// so `host_deprel = "det"` here.
     #[test]
     fn family_b_planner_utterance_root_attachment_must_use_root_deprel_not_primary_deprel() {
         // Single L2 word; primary parse marked it head=0 (utterance
-        // root) but with deprel="det" — exactly the shape that produces
+        // root) but with deprel="det", exactly the shape that produces
         // the wild `head=0/deprel=DET` pattern at sastre03.cha:843.
         let deferred = vec![make_deferred(5, 1, "spa", "det", 0)];
         let cache = make_word_cache(&[(5, 1, "el")]);
@@ -524,7 +524,7 @@ mod tests {
         );
     }
 
-    /// **Family B planner RED-2** — same bug surface for `nmod`.
+    /// **Family B planner RED-2**, same bug surface for `nmod`.
     /// Mirrors herring09.cha:2570 where the wild output has chunk 7
     /// `head=0/deprel=NMOD`.
     ///
@@ -548,7 +548,7 @@ mod tests {
         );
     }
 
-    /// **Family B planner GREEN guard** — the canonical case where
+    /// **Family B planner GREEN guard**, the canonical case where
     /// the primary's head=0 deprel IS "root". This must keep working
     /// after the fix; locks the GREEN baseline so the fix doesn't
     /// over-correct.

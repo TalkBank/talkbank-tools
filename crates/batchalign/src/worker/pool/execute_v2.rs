@@ -1,4 +1,4 @@
-//! V2 execute dispatch helpers — task mapping and engine override resolution.
+//! V2 execute dispatch helpers, task mapping and engine override resolution.
 //!
 //! These pure functions bridge the V2 execute protocol (typed per-backend
 //! requests) to the pool's worker-key abstraction (bootstrap target + lang +
@@ -57,7 +57,7 @@ pub(super) fn execute_v2_worker_key(
 ///
 /// The returned JSON string is used both as the worker pool key AND as
 /// the worker's `--engine-overrides` argv. It MUST round-trip every
-/// per-engine knob the user supplied — if the JSON omits `qwen_model`
+/// per-engine knob the user supplied, if the JSON omits `qwen_model`
 /// here, the worker spawn argv omits it too and the engine loader
 /// silently defaults to a different model than what the user asked
 /// for (the bug fixed 2026-05-27 that caused 70+ minutes of wasted
@@ -67,7 +67,7 @@ pub(super) fn execute_v2_worker_key(
 /// Implementation: serialize an `EngineOverrides` (typed struct) so
 /// the JSON shape matches the schema's wire format byte-for-byte, then
 /// merge in `extras` from the V2 request. Adding a new per-engine
-/// knob in future requires no changes here — the `extras` BTreeMap
+/// knob in future requires no changes here, the `extras` BTreeMap
 /// carries them verbatim.
 pub(super) fn execute_v2_engine_overrides(request: &ExecuteRequestV2) -> Option<String> {
     match &request.payload {
@@ -307,7 +307,7 @@ mod tests {
             assert_eq!(
                 parsed.get(k),
                 Some(v),
-                "extras key {k:?} (value {v:?}) was dropped at the V2 dispatch boundary — \
+                "extras key {k:?} (value {v:?}) was dropped at the V2 dispatch boundary, \
                  pool key + worker spawn argv would lose it"
             );
         }
@@ -405,7 +405,7 @@ mod tests {
         )
         .unwrap();
 
-        // Both should use empty engine_overrides — same worker key.
+        // Both should use empty engine_overrides, same worker key.
         assert_eq!(fa_key.2, "");
         assert_eq!(asr_key.2, "");
         // Same target and language → same worker.

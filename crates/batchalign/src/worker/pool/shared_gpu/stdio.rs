@@ -1,4 +1,4 @@
-//! `SharedGpuWorker` — concurrent V2 dispatch to a single GPU worker over stdio.
+//! `SharedGpuWorker`: concurrent V2 dispatch to a single GPU worker over stdio.
 //!
 //! Unlike [`CheckedOutWorker`](super::super::CheckedOutWorker) which grants
 //! exclusive access via a semaphore, `SharedGpuWorker` allows multiple
@@ -98,7 +98,7 @@ impl SharedGpuWorker {
     /// Create a shared GPU worker from an existing [`WorkerHandle`].
     ///
     /// Consumes the handle's stdin/stdout and spawns a background reader task
-    /// for response routing. The handle's `Drop` impl is bypassed — this
+    /// for response routing. The handle's `Drop` impl is bypassed, this
     /// struct takes ownership of the child process lifecycle.
     pub(in crate::worker::pool) async fn from_handle(handle: WorkerHandle) -> Self {
         let pid = handle.pid();
@@ -176,7 +176,7 @@ impl SharedGpuWorker {
         if self.reader_task.is_finished() {
             return Err(WorkerError::ProcessExited {
                 code: None,
-                stderr: Some("GPU worker reader loop exited — worker process is dead".into()),
+                stderr: Some("GPU worker reader loop exited, worker process is dead".into()),
             });
         }
 
@@ -198,7 +198,7 @@ impl SharedGpuWorker {
         })?;
         tracing::debug!("execute_v2: dispatch_semaphore acquired");
 
-        // Re-check shutdown after acquiring the permit — the worker may have
+        // Re-check shutdown after acquiring the permit, the worker may have
         // started tearing down while we waited. Without this, a caller that
         // raced shutdown could write to a closing stdin and observe a
         // confusing `ProcessExited` instead of the explicit shutdown reason.
@@ -258,16 +258,16 @@ impl SharedGpuWorker {
         match tokio::time::timeout(timeout, rx).await {
             Ok(Ok(response)) => Ok(response),
             Ok(Err(_)) => {
-                // Sender dropped — reader loop died or worker process exited.
+                // Sender dropped: reader loop died or worker process exited.
                 // The reader loop drains pending requests on both EOF and I/O
                 // errors, so this means the worker crashed.
                 Err(WorkerError::ProcessExited {
                     code: None,
-                    stderr: Some("GPU worker response channel closed — worker process crashed during inference".into()),
+                    stderr: Some("GPU worker response channel closed, worker process crashed during inference".into()),
                 })
             }
             Err(_) => {
-                // Timeout — remove the pending entry.
+                // Timeout: remove the pending entry.
                 super::super::lock_recovered(&self.pending).remove(&request_id);
                 Err(WorkerError::Protocol(format!(
                     "timeout ({timeout_s}s) waiting for GPU execute_v2 response (request_id={request_id})"
@@ -357,7 +357,7 @@ impl SharedGpuWorker {
 
         if self.shutdown_started.load(Ordering::Acquire) {
             return Err(WorkerError::Protocol(
-                "GPU worker is shutting down — cannot ensure_task".into(),
+                "GPU worker is shutting down, cannot ensure_task".into(),
             ));
         }
 

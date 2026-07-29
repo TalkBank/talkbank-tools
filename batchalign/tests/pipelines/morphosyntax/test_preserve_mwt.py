@@ -9,7 +9,7 @@ Stanza's MWT Range tokens back to Single tokens before they cross the V2
 IPC boundary, so Rust's ``map_ud_sentence()`` never gets to tilde-join
 them.
 
-These tests encode the DESIRED behavior — they will be RED until the
+These tests encode the DESIRED behavior; they will be RED until the
 Preserve-mode MWT regression is fixed, then GREEN afterwards. They
 serve as permanent regression guards.
 
@@ -17,7 +17,7 @@ Target assertions (from Phase 0 decision gate):
 
 * For every contraction under test, ``batch_infer_morphosyntax`` must
   return ``raw_sentences`` containing a Range entry (``id = [n, n+1]``)
-  and a clitic component word — i.e., Rust receives MWT-expanded UD data.
+  and a clitic component word, i.e., Rust receives MWT-expanded UD data.
 * The tilde-joined ``%mor`` target downstream (tested at a higher layer
   when the fix lands) is:
 
@@ -41,11 +41,11 @@ import pytest
 
 
 # (label, sentence_text_for_stanza, word_list_for_CHAT, head_lemma)
-# — ``head_lemma`` is the lemma of the noun/pronoun that precedes ``'s``.
+#: ``head_lemma`` is the lemma of the noun/pronoun that precedes ``'s``.
 #
 # These mirror the ``COPULA_CONTRACTION_SENTENCES`` fixture in
 # ``test_stanza_mwt_copula_observations.py`` but carry only the fields
-# this file needs — the Phase 0 file is the source of truth for expected
+# this file needs: the Phase 0 file is the source of truth for expected
 # Stanza behavior.
 COPULA_CONTRACTION_SENTENCES = [
     ("stool", ["the", "stool's", "going", "over", "."], "stool"),
@@ -58,7 +58,7 @@ COPULA_CONTRACTION_SENTENCES = [
 def _build_req(words: list[str]) -> "BatchInferRequest":  # noqa: UP037
     """Build a Preserve-mode (``retokenize=False``) request.
 
-    Import is local to keep module-level imports light — this function
+    Import is local to keep module-level imports light, this function
     is only called inside a test body.
     """
     from batchalign.worker._types import BatchInferRequest
@@ -72,7 +72,7 @@ def _build_req(words: list[str]) -> "BatchInferRequest":  # noqa: UP037
             "lang": "eng",
         }],
         lang="eng",
-        retokenize=False,  # Preserve mode — the bug path
+        retokenize=False,  # Preserve mode: the bug path
         mwt={},
     )
 
@@ -106,7 +106,7 @@ class TestPreserveIPCEmitsRangeTokens:
 
     When these pass, Rust's ``map_ud_sentence()`` has the input it needs
     to tilde-join the clitic. When they fail (current state), Rust sees
-    merged Single tokens and cannot reconstruct MWT analysis — the
+    merged Single tokens and cannot reconstruct MWT analysis, the
     observable symptom of the Preserve-mode MWT regression.
     """
 
@@ -219,7 +219,7 @@ class TestPreserveIPCClitcIsAUX:
 
     Limited to the cases Stanza gets right at the Python layer. The
     sink/lady cases are corrected downstream by the Rust
-    ``nlp::invariants::finite_verb_main_clause`` rewrite — those are
+    ``nlp::invariants::finite_verb_main_clause`` rewrite; those are
     verified by end-to-end CLI tests asserting final ``%mor`` output,
     not by inspecting the IPC payload (which still reflects Stanza's
     wrong possessive reading at this layer).

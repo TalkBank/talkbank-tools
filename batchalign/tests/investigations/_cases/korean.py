@@ -1,7 +1,7 @@
 """Korean probe cases (Tier B third batch, 2026-04-23).
 
 Koreanic, agglutinative with particles. All 5 cases 1-to-1 under
-with-postprocessor (observed 2026-04-23) — Stanza's Korean
+with-postprocessor (observed 2026-04-23): Stanza's Korean
 tokenizer keeps particles (``은/는``, ``이/가``, ``을/를``, ``에``)
 attached to their host nouns as one UD word.
 

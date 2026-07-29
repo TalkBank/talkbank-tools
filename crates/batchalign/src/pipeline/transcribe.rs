@@ -82,7 +82,7 @@ impl<'a> TranscribePipelineContext<'a> {
     ///
     /// After ASR, `resolved_lang` is populated from the ASR response's
     /// detected language. If `opts.lang` was already resolved (not Auto),
-    /// it's used directly. Returns an error if called before resolution —
+    /// it's used directly. Returns an error if called before resolution
     /// this is a structural guarantee that the pipeline runs ASR before NLP.
     fn lang_for_nlp(&self) -> Result<&LanguageCode3, ServerError> {
         if let Some(ref resolved) = self.resolved_lang {
@@ -91,12 +91,12 @@ impl<'a> TranscribePipelineContext<'a> {
         match &self.opts.lang {
             LanguageSpec::Resolved(code) => Ok(code),
             LanguageSpec::Auto => Err(ServerError::Validation(
-                "lang_for_nlp() called with unresolved Auto language — \
+                "lang_for_nlp() called with unresolved Auto language, \
                  ASR must resolve the language before NLP stages run"
                     .into(),
             )),
             LanguageSpec::PerFile => Err(ServerError::Validation(
-                "lang_for_nlp() called with PerFile language — transcribe \
+                "lang_for_nlp() called with PerFile language, transcribe \
                  takes an explicit `--lang` and never carries a per-file \
                  language spec; this state should have been rejected at \
                  submission validation"
@@ -119,7 +119,7 @@ pub(crate) async fn run_transcribe_pipeline(
     // build time so the dep graph stays internally consistent. The
     // runtime registry (populated from the worker's resources.json) is
     // authoritative when present; the hardcoded chat-ops list is the
-    // pre-warmup fallback. Auto-detect stays optimistic — the worker's
+    // pre-warmup fallback. Auto-detect stays optimistic, the worker's
     // typed UnsupportedLanguageError catches the resolved-to-unsupported
     // case if it arises.
     let stanza_supported = match &opts.lang {
@@ -141,7 +141,7 @@ pub(crate) async fn run_transcribe_pipeline(
         // Auto stays optimistic; the worker's UnsupportedLanguageError catches
         // resolved-to-unsupported cases at runtime.
         crate::types::domain::LanguageSpec::Auto => true,
-        // PerFile is not a transcribe state — submission validation should
+        // PerFile is not a transcribe state, submission validation should
         // have rejected it. Be optimistic here so a regression in validation
         // doesn't silently disable Stanza-backed transcribe stages; the
         // resolved-language path will trip its own typed error if reached.
@@ -190,7 +190,7 @@ pub(crate) async fn run_transcribe_pipeline(
 fn progress_stage_for_stage(stage: StageId) -> FileStage {
     // Plan invariant: `transcribe_plan` (below) only emits stages
     // from the `StageId` set listed above. New `StageId` variants
-    // not handled here will fail this match — caught by the
+    // not handled here will fail this match, caught by the
     // catalog test in `recipe_runner/catalog.rs` before reaching
     // production.
     #[allow(clippy::unreachable)]
@@ -402,7 +402,7 @@ fn resolved_asr_language(
             let detected = response.lang.clone();
             if &*detected == "auto" || detected.is_empty() {
                 // ASR did not return a usable language. Try off-line detection
-                // on the transcript text. If that also fails, error out — do
+                // on the transcript text. If that also fails, error out, do
                 // NOT silently stamp the file as English.
                 let all_text: String = response
                     .tokens
@@ -440,7 +440,7 @@ fn resolved_asr_language(
         // observable instead of pretending the language is English.
         LanguageSpec::PerFile => Err(ServerError::Validation(
             "transcribe pipeline received LanguageSpec::PerFile, which is reserved for \
-             morphotag/translate/coref. This is a submission-validation bug — please \
+             morphotag/translate/coref. This is a submission-validation bug, please \
              file a bug report."
                 .into(),
         )),
@@ -526,10 +526,10 @@ async fn process_asr_with_prechat_segmentation(
 
 /// Prepare ASR chunks fully in Rust.
 ///
-/// Stages 1–3 (compound merge, timed-word extraction, multi-word split) run per
+/// Stages 1-3 (compound merge, timed-word extraction, multi-word split) run per
 /// monologue. Number expansion is then applied per word via
 /// `asr_postprocess::expand_number`. After expansion a whitespace-split pass
-/// widens multi-word expansions into separate tokens. Stages 4b–5b (Cantonese
+/// widens multi-word expansions into separate tokens. Stages 4b-5b (Cantonese
 /// normalization, long-turn / pause splitting) finalize per monologue.
 #[allow(dead_code)]
 fn prepare_asr_chunks(
@@ -582,8 +582,8 @@ fn prepare_asr_chunks_with_snapshot(
         for word in words.iter_mut() {
             let text = word.text.as_str();
             // Fast path: tokens with no ASCII digit can never expand
-            // (every expander — NUM2LANG, num2chinese, currency,
-            // ordinal/decade — requires a digit somewhere in the input).
+            // (every expander: NUM2LANG, num2chinese, currency,
+            // ordinal/decade: requires a digit somewhere in the input).
             if !text.bytes().any(|b| b.is_ascii_digit()) {
                 continue;
             }
@@ -1040,7 +1040,7 @@ mod tests {
         let services = PipelineServices::new(&pool, &cache, &engine_version);
         let audio_path = tempdir.path().join("sample.wav");
 
-        // Opts with lang="auto" — simulates --lang auto from CLI
+        // Opts with lang="auto": simulates --lang auto from CLI
         let mut opts = test_transcribe_options(None);
         opts.lang = LanguageSpec::Auto;
         opts.diarize = false;
@@ -1064,7 +1064,7 @@ mod tests {
         // Run post-processing to generate utterances
         stage_asr_postprocess(&mut ctx).await.expect("postprocess");
 
-        // Run build_chat — this should resolve "auto" → "spa"
+        // Run build_chat; this should resolve "auto" → "spa"
         stage_build_chat(&mut ctx).await.expect("build_chat");
 
         let chat_text = ctx.chat_text.as_deref().expect("CHAT text should be set");

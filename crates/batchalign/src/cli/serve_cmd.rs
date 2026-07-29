@@ -31,7 +31,7 @@ use crate::cli::error::CliError;
 use crate::cli::python::resolve_python_executable;
 use crate::cli::self_exe::resolve_self_exe;
 
-/// `serve start` — start the processing server.
+/// `serve start`: start the processing server.
 pub async fn start(
     args: &ServeStartArgs,
     verbose: u8,
@@ -294,7 +294,7 @@ pub async fn start(
     Ok(())
 }
 
-/// `serve stop` — stop the server and daemon.
+/// `serve stop`: stop the server and daemon.
 pub async fn stop() -> Result<(), CliError> {
     let layout = RuntimeLayout::from_env();
 
@@ -316,7 +316,7 @@ pub async fn stop() -> Result<(), CliError> {
     Ok(())
 }
 
-/// `serve status` — check server health.
+/// `serve status`: check server health.
 pub async fn status(args: &ServeStatusArgs) -> Result<(), CliError> {
     let client = BatchalignClient::new()?;
     let layout = RuntimeLayout::from_env();

@@ -67,11 +67,11 @@ impl std::fmt::Display for UdDeprel {
 /// must be a determiner, etc.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PosConstraint {
-    /// Exactly one valid POS — the deprel uniquely determines it.
+    /// Exactly one valid POS, the deprel uniquely determines it.
     Exact(UniversalPos),
     /// A small set of valid POS tags (2-4 candidates).
     OneOf(Vec<UniversalPos>),
-    /// No constraint — deprel does not narrow POS meaningfully.
+    /// No constraint: deprel does not narrow POS meaningfully.
     /// Used for unknown or language-specific deprels.
     Unconstrained,
 }
@@ -116,7 +116,7 @@ pub fn deprel_to_pos_constraint(deprel: &UdDeprel) -> PosConstraint {
     let base = deprel.base();
 
     match base {
-        // Unambiguous — exactly one POS
+        // Unambiguous: exactly one POS
         "det" => PosConstraint::Exact(UniversalPos::Det),
         "amod" => PosConstraint::Exact(UniversalPos::Adj),
         "advmod" => PosConstraint::Exact(UniversalPos::Adv),
@@ -131,7 +131,7 @@ pub fn deprel_to_pos_constraint(deprel: &UdDeprel) -> PosConstraint {
         "discourse" => PosConstraint::Exact(UniversalPos::Intj),
         "punct" => PosConstraint::Exact(UniversalPos::Punct),
 
-        // Narrow — 2-3 candidates
+        // Narrow: 2-3 candidates
         "nsubj" => PosConstraint::OneOf(vec![
             UniversalPos::Noun,
             UniversalPos::Pron,
@@ -154,7 +154,7 @@ pub fn deprel_to_pos_constraint(deprel: &UdDeprel) -> PosConstraint {
         "acl" => PosConstraint::OneOf(vec![UniversalPos::Verb, UniversalPos::Adj]),
         "vocative" => PosConstraint::OneOf(vec![UniversalPos::Noun, UniversalPos::Propn]),
 
-        // Broad — multiple candidates
+        // Broad: multiple candidates
         "root" => PosConstraint::OneOf(vec![
             UniversalPos::Verb,
             UniversalPos::Noun,

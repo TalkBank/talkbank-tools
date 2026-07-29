@@ -100,7 +100,7 @@ struct FaFileContext<'a> {
     rev_job_ids: &'a HashMap<PathBuf, RevAiJobId>,
     /// Fallback language from job submission, only present when the user
     /// passed an explicit `--lang <iso3>`. The per-file language from
-    /// `@Languages:` takes priority — this is consulted only when the
+    /// `@Languages:` takes priority; this is consulted only when the
     /// file's header is absent. If `None` (the user passed `--lang auto`)
     /// AND the file has no `@Languages:`, the per-file resolver surfaces
     /// a typed error rather than silently inventing English.
@@ -370,7 +370,7 @@ pub(crate) async fn dispatch_fa_infer(
     plan: FaDispatchPlan,
 ) {
     let job_id = &job.identity.job_id;
-    // The job-level lang field is NOT authoritative for align — each file
+    // The job-level lang field is NOT authoritative for align, each file
     // declares its own language via @Languages. The per-file language is
     // extracted inside process_one_fa_file after parsing. We propagate
     // the *resolved* job lang as a fallback for files that genuinely
@@ -568,7 +568,7 @@ async fn process_one_fa_file(
     }
 
     if original_audio_path.is_none() && !source_dir.is_empty() {
-        // paths_mode is active here — convert to a ServerPath for I/O.
+        // paths_mode is active here, convert to a ServerPath for I/O.
         let server_source_dir = source_dir.assume_shared_filesystem();
         let source_path =
             server_source_dir.join(Path::new(filename).file_name().unwrap_or_default());
@@ -613,7 +613,7 @@ async fn process_one_fa_file(
     //   search: /Volumes/Other/slabank/French/Newcastle/Photos/13/p01ana13.mp3
     // Auto-detect media mapping from the client's source path using typed
     // provenance-tracking path newtypes. `infer_media_mapping()` is a pure
-    // string operation on the ClientPath — it extracts the repo name component
+    // string operation on the ClientPath, it extracts the repo name component
     // and repo-relative subdir WITHOUT filesystem I/O. This works for both
     // local daemon (paths_mode) AND remote --server jobs where the client
     // path is NOT on the server's filesystem.
@@ -628,7 +628,7 @@ async fn process_one_fa_file(
         // When source_dir already embeds a subdir (paths_mode / an operator's case),
         // the join is a no-op for bare filenames and still correct for nested ones.
         //
-        // Do NOT join repo_subdir with mapped_subdir afterwards — infer_client
+        // Do NOT join repo_subdir with mapped_subdir afterwards, infer_client
         // already embeds the file parent, so repo_subdir is the complete
         // media-volume-relative path.  Joining again would double-count it.
         let infer_client: Option<batchalign_types::paths::ClientPath> = if !source_dir.is_empty() {
@@ -742,7 +742,7 @@ async fn process_one_fa_file(
     };
 
     // Single parse: parse CHAT text into AST once. This ChatFile flows through
-    // UTR (in-place mutation) and then directly to FA — no serialize/re-parse.
+    // UTR (in-place mutation) and then directly to FA, no serialize/re-parse.
     let fa_parser = crate::chat_parser();
     let (mut chat_file, parse_errors) =
         batchalign_transform::parse::parse_lenient(&fa_parser, &chat_text);
@@ -901,7 +901,7 @@ mod auto_detect_tests {
     /// directory (e.g. `/Volumes/data-drive/talkbank-data`) the filenames
     /// carry a repo-key prefix (`aphasia-data/English/...`).  The old code
     /// passed only `source_dir` to `infer_media_mapping`, which had no repo
-    /// key in its path and always returned `None` — every file failed with
+    /// key in its path and always returned `None`, every file failed with
     /// "Cannot find audio file".
     ///
     /// The fix: join `source_dir + parent(filename)` before inference so the

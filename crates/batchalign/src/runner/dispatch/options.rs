@@ -194,7 +194,7 @@ pub(crate) struct BenchmarkDispatchParams {
     pub merge_abbrev: MergeAbbrevPolicy,
     pub override_media_cache: bool,
     /// Per-engine configuration extras (see
-    /// [`TranscribeDispatchParams::engine_extras`] for the rationale —
+    /// [`TranscribeDispatchParams::engine_extras`] for the rationale
     /// benchmark reuses the transcribe pipeline so the same knobs apply).
     pub engine_extras: std::collections::BTreeMap<String, String>,
 }
@@ -686,7 +686,7 @@ mod tests {
     #[test]
     fn job_level_options_before_paths_supports_incremental_commands() {
         // Document which commands support --before (incremental processing).
-        // This test is a living doc — update when adding incremental support
+        // This test is a living doc, update when adding incremental support
         // to new commands.
         let incremental_commands = ["morphotag", "align"];
         let non_incremental_commands = ["transcribe", "translate", "utseg", "coref", "benchmark"];

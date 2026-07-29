@@ -1,4 +1,4 @@
-//! `EffectiveConfig` — the result of merging operator overrides with
+//! `EffectiveConfig`: the result of merging operator overrides with
 //! `recommend()`'s output, against the detected `HostFacts`.
 //!
 //! Every production code site that today reads from `ServerConfig`,
@@ -10,7 +10,7 @@
 //!
 //! Two types in this file:
 //!
-//! - **`ConfigOverrides`** — what the operator (or CLI) explicitly
+//! - **`ConfigOverrides`**: what the operator (or CLI) explicitly
 //!   set. Each field is `Option<T>`; `Some(v)` means "use `v`",
 //!   `None` means "fall through to the recommendation."
 //!   Constructed independently of `ServerConfig`, so the merge logic
@@ -18,7 +18,7 @@
 //!   Phase C2 adds `From<&ServerConfig>` impls knob-by-knob to
 //!   bridge the legacy fields here.
 //!
-//! - **`EffectiveConfig`** — the resolved values. Constructed only
+//! - **`EffectiveConfig`**: the resolved values. Constructed only
 //!   via `EffectiveConfig::resolve(overrides, facts)`. Holds the
 //!   detected `HostFacts` so per-command queries
 //!   (`max_workers_per_job(command)`) can recompute the
@@ -41,7 +41,7 @@ use super::{HostFacts, HostFactsSource, RealHostFactsSource};
 /// A small dedicated type (rather than passing `&ServerConfig` directly
 /// into `resolve`) keeps the merge logic independent of the current
 /// `ServerConfig` shape. Phase C2's per-knob migrations populate this
-/// struct via `From<&ServerConfig>` impls — the resolve function
+/// struct via `From<&ServerConfig>` impls, the resolve function
 /// itself does not change as those migrations land.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConfigOverrides {
@@ -77,7 +77,7 @@ pub struct ConfigOverrides {
 /// `ServerConfig` is the on-disk YAML shape; `ConfigOverrides` is the
 /// runtime input to [`EffectiveConfig::resolve`]. Each migrated knob
 /// maps one-to-one; the single `max_workers_per_key` knob fans out
-/// uniformly to all three per-profile slots (gpu/stanza/io) — matching
+/// uniformly to all three per-profile slots (gpu/stanza/io), matching
 /// the legacy "one PoolConfig.max_workers_per_key applies to every
 /// profile in the pool" semantics. Per-profile differentiation would
 /// require a `ServerConfig` shape change.
@@ -109,7 +109,7 @@ impl From<&ServerConfig> for ConfigOverrides {
 /// Per-profile overrides for `max_workers_per_key`.
 ///
 /// Mirrors the shape of `PerProfile<u32>` from `recommendations.rs`
-/// but with `Option<u32>` per field — independent override per profile.
+/// but with `Option<u32>` per field, independent override per profile.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PerProfileOverrides {
     /// Override for the GPU profile worker count per key.
@@ -125,7 +125,7 @@ pub struct PerProfileOverrides {
 /// Construction goes through [`EffectiveConfig::resolve`]. Holds the
 /// `HostFacts` snapshot internally so the per-command
 /// `max_workers_per_job` query can lazily compute the per-command
-/// recommendation when no override is set — without forcing callers
+/// recommendation when no override is set, without forcing callers
 /// to pass facts at every call site.
 #[derive(Debug, Clone)]
 pub struct EffectiveConfig {
@@ -207,7 +207,7 @@ impl EffectiveConfig {
     /// into a `ConfigOverrides` via [`From<&ServerConfig>`], and
     /// resolve.
     ///
-    /// This is the standard production entry point — the triple-step
+    /// This is the standard production entry point, the triple-step
     /// dance (detect → bridge → resolve) lives in one place so
     /// callers don't have to repeat it. The detection runs through
     /// [`RealHostFactsSource`] (millisecond-scale sysinfo poll) and

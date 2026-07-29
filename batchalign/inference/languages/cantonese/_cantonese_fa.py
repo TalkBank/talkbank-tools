@@ -225,7 +225,7 @@ def infer_cantonese_fa(
         return BatchInferResponse(
             results=[
                 InferResponse(
-                    error="Cantonese FA model not loaded — call load_cantonese_fa first",
+                    error="Cantonese FA model not loaded, call load_cantonese_fa first",
                     elapsed_s=0.0,
                 )
                 for _ in req.items

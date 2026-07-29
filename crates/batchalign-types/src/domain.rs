@@ -194,13 +194,13 @@ impl AsRef<str> for ChatText<'_> {
 }
 
 // ---------------------------------------------------------------------------
-// LanguageCode3 — validated 3-letter ISO 639-3 language code
+// LanguageCode3: validated 3-letter ISO 639-3 language code
 // ---------------------------------------------------------------------------
 
 /// 3-letter ISO 639-3 language code (e.g. `"eng"`, `"spa"`).
 ///
 /// Construction validates that the value is exactly 3 ASCII alphabetic
-/// characters, lowercased. Sentinel values like `"auto"` are rejected — use
+/// characters, lowercased. Sentinel values like `"auto"` are rejected, use
 /// [`LanguageSpec`] at boundaries where auto-detection is meaningful.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, utoipa::ToSchema, schemars::JsonSchema,
@@ -333,7 +333,7 @@ impl<'de> serde::Deserialize<'de> for LanguageCode3 {
 }
 
 // ---------------------------------------------------------------------------
-// WorkerLanguage — worker-runtime language routing, not a domain language code
+// WorkerLanguage: worker-runtime language routing, not a domain language code
 // ---------------------------------------------------------------------------
 
 /// Worker-runtime language routed to Python workers.
@@ -347,7 +347,7 @@ impl<'de> serde::Deserialize<'de> for LanguageCode3 {
 /// - `PerFile` for text-NLP commands (morphotag/translate/coref) that
 ///   resolve language per-file from each CHAT file's `@Languages:`
 ///   header. Distinct from `Auto`: the Python worker must NOT try to
-///   load language-specific models for a `PerFile` worker — language
+///   load language-specific models for a `PerFile` worker, language
 ///   pipelines are loaded lazily as files dispatch.
 /// - `Unspecified` when the worker task does not consume a language hint
 #[derive(Debug, Clone, PartialEq, Eq, Hash, utoipa::ToSchema)]
@@ -492,7 +492,7 @@ impl schemars::JsonSchema for WorkerLanguage {
 }
 
 // ---------------------------------------------------------------------------
-// LanguageSpec — Auto vs Resolved(LanguageCode3)
+// LanguageSpec: Auto vs Resolved(LanguageCode3)
 // ---------------------------------------------------------------------------
 
 /// Language specification from the CLI or job submission.
@@ -519,7 +519,7 @@ pub enum LanguageSpec {
     /// A concrete ISO 639-3 language code.
     Resolved(LanguageCode3),
     /// No job-level language; resolve per-file from each CHAT file's
-    /// `@Languages:` header. Used by morphotag, translate, and coref —
+    /// `@Languages:` header. Used by morphotag, translate, and coref
     /// none of which take a `--lang` CLI flag.
     PerFile,
 }
@@ -565,8 +565,8 @@ impl LanguageSpec {
     /// semantically different states (Auto = "ASR detect a single
     /// language for this whole job"; PerFile = "no job-level language at
     /// all, dispatch per-file") and the wire format must distinguish
-    /// them. Otherwise the Python worker — which parses `--lang` as a
-    /// plain string — would receive `"auto"` for both cases and try to
+    /// them. Otherwise the Python worker, which parses `--lang` as a
+    /// plain string: would receive `"auto"` for both cases and try to
     /// load Stanza models for the literal string `"auto"`, crashing
     /// before ready.
     pub fn to_worker_language(&self) -> WorkerLanguage {
@@ -663,13 +663,13 @@ impl schemars::JsonSchema for LanguageSpec {
     }
 
     fn json_schema(g: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        // Reuse the string schema — "auto" or a 3-letter code.
+        // Reuse the string schema, "auto" or a 3-letter code.
         <String as schemars::JsonSchema>::json_schema(g)
     }
 }
 
 // ---------------------------------------------------------------------------
-// DisplayPath — display-oriented file path within a job
+// DisplayPath: display-oriented file path within a job
 // ---------------------------------------------------------------------------
 
 /// Display path for a file within a job: either a bare basename
@@ -881,7 +881,7 @@ impl std::fmt::Display for ContentType {
 // Cancellation provenance
 // ---------------------------------------------------------------------------
 
-/// Where a job-cancellation request originated. No `Default` impl —
+/// Where a job-cancellation request originated. No `Default` impl
 /// every caller must explicitly state what kind of actor it is, so a
 /// future "anonymous cancel" path cannot silently slip through as
 /// `Api`.
@@ -1224,7 +1224,7 @@ mod tests {
         assert_eq!(
             LanguageSpec::PerFile.to_worker_language(),
             WorkerLanguage::PerFile,
-            "PerFile must NOT collapse into Auto — those are semantically \
+            "PerFile must NOT collapse into Auto; those are semantically \
              distinct states and the wire format must distinguish them",
         );
     }

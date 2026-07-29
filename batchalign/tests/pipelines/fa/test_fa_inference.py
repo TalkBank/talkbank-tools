@@ -218,7 +218,7 @@ def test_fa_infer_item_rejects_parallel_array_mismatch(
     [
         (True, False, False, "cpu", torch.float32),
         (False, True, False, "cuda", torch.float16),
-        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock) — MPS
+        # MPS excluded since 2026-04-05 (AGXG14X kernel deadlock), MPS
         # availability is ignored; the loader falls through to CPU.
         (False, False, True, "cpu", torch.float32),
         (False, False, False, "cpu", torch.float32),

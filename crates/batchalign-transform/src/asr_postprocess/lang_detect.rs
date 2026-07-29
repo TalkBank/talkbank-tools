@@ -3,11 +3,11 @@
 //! Uses the `whatlang` crate for fast trigram-based language identification.
 //! This module provides two capabilities:
 //!
-//! 1. **Primary language detection** — determine the dominant language of a
+//! 1. **Primary language detection**, determine the dominant language of a
 //!    full transcript when the ASR engine returned "auto" without resolving.
 //!    Uses majority-vote across utterances, not blob detection.
 //!
-//! 2. **Per-utterance language tagging** — tag each utterance with its detected
+//! 2. **Per-utterance language tagging**, tag each utterance with its detected
 //!    language for code-switching markup (`[- lang]` precodes in CHAT).
 //!
 //! A confidence threshold prevents false positives on short utterances where
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn short_text_returns_none() {
-        // Under MIN_CHARS_FOR_DETECTION — should not attempt detection
+        // Under MIN_CHARS_FOR_DETECTION: should not attempt detection
         let text = "hello world";
         let lang = detect_utterance_language(text);
         assert!(
@@ -267,7 +267,7 @@ mod tests {
         let lang = detect_primary_language(&texts);
         assert!(
             lang.is_none(),
-            "All short utterances — no reliable detection"
+            "All short utterances, no reliable detection"
         );
     }
 
@@ -291,7 +291,7 @@ mod tests {
         ];
         let langs = collect_detected_languages(&texts, "spa");
         assert_eq!(langs[0], "spa", "Primary must be first");
-        // English appears 3 times — above threshold
+        // English appears 3 times, above threshold
         assert!(
             langs.contains(&"eng".to_string()),
             "English (3+ utterances) should be included: {langs:?}"

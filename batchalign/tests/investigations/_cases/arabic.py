@@ -1,6 +1,6 @@
 """Arabic probe cases (Tier B pilot, 2026-04-23).
 
-Arabic is heavily fusional at the orthographic level — prepositions,
+Arabic is heavily fusional at the orthographic level, prepositions,
 articles, conjunctions, and pronouns attach as prefixes/suffixes
 to a host token. Observation (2026-04-23 first golden run): **all
 cases produce 1-to-1 UD-word counts under both free-tokenize and
@@ -10,9 +10,9 @@ conjunction fusions.
 
 Concretely observed:
 
-* ``والكتاب`` (wa-al-kitāb, "and the book" — 3 morphemes) → stays
+* ``والكتاب`` (wa-al-kitāb, "and the book", 3 morphemes) → stays
   as 1 UD word, NOT expanded to 3.
-* ``بالبيت`` (bi-al-bayt, "in the house" — 3 morphemes) → stays
+* ``بالبيت`` (bi-al-bayt, "in the house", 3 morphemes) → stays
   as 1 UD word, tagged X (Stanza's UPOS fallback).
 * Plain words tokenize 1-to-1.
 
@@ -21,7 +21,7 @@ RTL text round-trips correctly through the fixture infrastructure
 and the test-ID serialization.
 
 Adjudication: for CHAT input where a whole fused word is one
-pre-tokenized unit, 1-to-1 is the correct behavior — our pipeline
+pre-tokenized unit, 1-to-1 is the correct behavior, our pipeline
 matches what CHAT expects. If future Stanza upgrades add Arabic
 MWT expansion that fires on these inputs, these asserted counts
 will fail and surface the change for re-adjudication.

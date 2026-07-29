@@ -7,7 +7,7 @@ one or more ``# affects: <glob>`` lines (Python) or
 ``// affects: <glob>`` lines (Rust) in its module header. The
 resulting pattern set is matched against the set of paths touched
 by a git diff. A test file with no ``affects:`` declarations is
-treated as "runs always" — backward compatible, gradual adoption.
+treated as "runs always": backward compatible, gradual adoption.
 
 Patterns are gitignore-style (``**`` supported) via ``pathspec``.
 """
@@ -72,7 +72,7 @@ def test_parse_empty_when_no_declarations(tmp_path: Path) -> None:
 
 def test_parse_ignores_non_header_comments(tmp_path: Path) -> None:
     """affects: lines that happen inside a prose comment shouldn't be
-    declarations — but the current regex treats every ``# affects:``
+    declarations, but the current regex treats every ``# affects:``
     line as one. Document the behavior: declarations are cheap
     enough to spot at review time, and false positives caused by
     accidental prose affect only the selection set (over-select), not

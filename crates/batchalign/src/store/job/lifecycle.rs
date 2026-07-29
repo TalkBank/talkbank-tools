@@ -2,7 +2,7 @@
 //!
 //! These methods move the job through its top-level state machine.
 //! From an active state (`Queued | Running`), a job reaches one of three
-//! terminal endpoints — or, on graceful shutdown, the recovery-eligible
+//! terminal endpoints, or, on graceful shutdown, the recovery-eligible
 //! `Interrupted` state:
 //!
 //! ```text
@@ -120,7 +120,7 @@ impl Job {
     /// recovery sequence special-cases it:
     ///
     /// 1. `db.recover_interrupted()` at startup is a SQL migration that
-    ///    flips `running|queued` rows to `interrupted` — it does **not** touch
+    ///    flips `running|queued` rows to `interrupted`; it does **not** touch
     ///    rows already written as `interrupted` (such as the rows written here).
     /// 2. `load_from_db()` then reads each row and, for any job with
     ///    `status ∈ {Interrupted, Running}`, calls
@@ -413,13 +413,13 @@ mod tests {
         );
         assert!(
             !job.all_terminal_files_failed(),
-            "all-failed semantics must remain narrow — one done file is enough \
+            "all-failed semantics must remain narrow, one done file is enough \
              for the all-failed predicate to be false"
         );
     }
 
     /// Edge case: no terminal files yet (everything still queued or
-    /// processing). Both predicates must return false — neither
+    /// processing). Both predicates must return false, neither
     /// "all failed" nor "any failed" applies until there's at least
     /// one terminal file to evaluate.
     #[test]
@@ -430,7 +430,7 @@ mod tests {
     }
 
     /// Edge case: every terminal file is an error. Both predicates
-    /// must return true — `any_failed` is the weaker condition and
+    /// must return true: `any_failed` is the weaker condition and
     /// must imply `all_failed` whenever all files are terminal-error.
     #[test]
     fn any_terminal_files_failed_true_when_all_files_error() {

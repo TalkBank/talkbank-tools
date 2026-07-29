@@ -155,7 +155,7 @@ pub(crate) async fn run_fa_from_ast(
     // lengthening marks) that %wor cannot represent. Generating %wor for
     // these files adds noise that CA researchers must manually remove.
     let write_wor = if chat_file.options.iter().any(|f| f.enables_ca_mode()) {
-        info!("@Options: CA detected — suppressing %wor generation");
+        info!("@Options: CA detected: suppressing %wor generation");
         false
     } else {
         fa_params.wor_tier.should_write()
@@ -173,16 +173,16 @@ pub(crate) async fn run_fa_from_ast(
         });
     }
 
-    // 1c. @Options: NoAlign — strict pass-through, zero modifications.
+    // 1c. @Options: NoAlign: strict pass-through, zero modifications.
     //
     // A researcher who sets this option has opted the file out of all
     // alignment processing.  The file is returned EXACTLY as parsed:
     // no timestamps added, removed, or adjusted, no %wor generated,
     // no decision tiers written.  This includes cleanup passes that
-    // might seem safe (e.g., monotonicity enforcement) — those are
+    // might seem safe (e.g., monotonicity enforcement); those are
     // the researcher's responsibility.
     //
-    // See book/src/developer/commands/align.md — "NoAlign: strict pass-through".
+    // See book/src/developer/commands/align.md: "NoAlign: strict pass-through".
     if is_no_align(&chat_file) {
         return Ok(FaResult {
             chat_text: to_chat_string(&chat_file),
@@ -500,7 +500,7 @@ pub(crate) async fn run_fa_from_ast(
     //    end-time overlaps. The old enforcement was removed (see comment in
     //    apply_fa_results) because it stripped too aggressively. The current
     //    version only strips start-time regressions and clamps end times to
-    //    the next utterance's start — no timing is destroyed, only truncated.
+    //    the next utterance's start, no timing is destroyed, only truncated.
     let monotonicity_decisions = crate::chat_ops::fa::enforce_monotonicity(&mut chat_file);
 
     // 9d. Inject decision provenance tiers (%xalign / %xrev) for all
@@ -536,7 +536,7 @@ pub(crate) async fn run_fa_from_ast(
         }
     }
 
-    // 10. Post-validation check (warn only — cross-speaker overlap is normal in
+    // 10. Post-validation check (warn only, cross-speaker overlap is normal in
     //    conversation data).
     let violations = if let Err(errors) = validate_output(&chat_file, "align") {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();

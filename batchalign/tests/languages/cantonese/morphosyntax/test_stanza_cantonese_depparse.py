@@ -5,7 +5,7 @@ dependency structure. This complements test_stanza_cantonese_pos_accuracy.py
 which measures POS accuracy (~50%).
 
 Dependency parse quality is harder to evaluate than POS because there is no
-single "correct" parse — annotation guidelines differ. We test against
+single "correct" parse: annotation guidelines differ. We test against
 linguistically unambiguous structures where the dependency relation is clear.
 
 Reference: UD_Cantonese-HK treebank (1,004 sentences) uses UD dependency
@@ -76,7 +76,7 @@ class TestStanzaCantoneseDepparse:
         dep_map = {d["text"]: d for d in deps}
         print(f"SVO deps: {deps}")
 
-        # Record what Stanza produces — may or may not be correct
+        # Record what Stanza produces, may or may not be correct
         root_word = [d for d in deps if d["deprel"] == "root"]
         assert len(root_word) == 1, f"Should have exactly one root, got {root_word}"
 
@@ -103,7 +103,7 @@ class TestStanzaCantoneseDepparse:
         咗→root, 嘢→PUNCT. The Mandarin model doesn't know Cantonese
         aspect markers (咗, 緊, 過) at all.
 
-        This documents the broken behavior — a Cantonese Stanza model
+        This documents the broken behavior, a Cantonese Stanza model
         would fix this.
         """
         nlp = self._load_stanza()
@@ -112,7 +112,7 @@ class TestStanzaCantoneseDepparse:
         dep_map = {d["text"]: d for d in deps}
         print(f"Aspect deps: {deps}")
 
-        # Stanza makes 咗 the root — completely wrong
+        # Stanza makes 咗 the root, completely wrong
         assert dep_map["咗"]["deprel"] == "root", (
             f"Expected Stanza to (wrongly) make 咗 root. Got {dep_map['咗']['deprel']}. "
             "If changed, Stanza may have improved."

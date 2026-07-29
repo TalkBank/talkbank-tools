@@ -70,7 +70,7 @@ fn resolve_dispatch_lang(resolution: &LanguageResolution) -> Option<LanguageCode
 /// still available.
 ///
 /// Words with `Unresolved` language resolution or no resolved dispatch target
-/// are skipped — they will fall back to `L2|xxx` during injection.
+/// are skipped; they will fall back to `L2|xxx` during injection.
 pub fn extract_l2_deferred_positions(
     batch_items: &[BatchItemWithPosition],
     ud_responses: &[UdResponse],

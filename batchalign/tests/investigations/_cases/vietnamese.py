@@ -2,7 +2,7 @@
 
 Austroasiatic, monosyllabic with space-per-syllable orthography.
 All 5 cases 1-to-1 under with-postprocessor (observed 2026-04-23)
-— Vietnamese compounds like ``sinh viên`` (student) stay as two
+- Vietnamese compounds like ``sinh viên`` (student) stay as two
 separate UD words per our pre-tokenized contract, even though
 they function as one lexical unit.
 """

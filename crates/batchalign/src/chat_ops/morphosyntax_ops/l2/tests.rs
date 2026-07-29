@@ -710,12 +710,12 @@ fn dispatch_spans_three_word_contiguous() {
 // (closed-class) blindly trusts ADP for the particle. These tests lock in
 // the corrected behavior:
 //
-//   1. Particle — UPOS Part (CHAT `part|up`), GRA deprel `compound:prt`.
-//   2. Head — UPOS Verb, overriding primary constraint.
+//   1. Particle: UPOS Part (CHAT `part|up`), GRA deprel `compound:prt`.
+//   2. Head: UPOS Verb, overriding primary constraint.
 //   3. Non-phrasal ADP (`case`/`advmod`) is unaffected.
 // ---------------------------------------------------------------------------
 
-/// Build a UD sentence for "wake up" — VERB root + ADP compound:prt.
+/// Build a UD sentence for "wake up", VERB root + ADP compound:prt.
 ///
 /// Mirrors exactly what the Stanza English pipeline returns in free-tokenize
 /// mode (verified by `scripts/l2-eval/probe_phrasal_verbs.py`).
@@ -818,7 +818,7 @@ fn phrasal_verb_head_requires_verb_secondary_upos() {
         sentence: &sentence,
         word_position: 0,
     };
-    // Secondary says NOUN (not VERB) — Priority 4 (NOUN override) kicks in,
+    // Secondary says NOUN (not VERB), Priority 4 (NOUN override) kicks in,
     // returning NOUN, not Verb.
     let pos = resolve_merged_pos_with_context(&primary, Some(UniversalPos::Noun), Some(&ctx));
     assert_eq!(pos, UniversalPos::Noun);

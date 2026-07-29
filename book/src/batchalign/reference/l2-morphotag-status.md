@@ -25,13 +25,13 @@ rate (zero L2|xxx remaining when flag is on).
 
 ```text
 morphosyntax/l2/
-├── deprel.rs   — UdDeprel newtype, deprel→POS constraint mapping
-├── plan.rs     — contiguous span planning + host attachment planning
-├── merge.rs    — POS resolution (6-level priority), planned Mor-based merge
-├── extract.rs  — primary structural info extraction from UD responses
-├── spans.rs    — contiguous span grouping for secondary dispatch
-├── splice.rs   — splice merged Mor into ChatFile
-└── tests.rs    — unit-test coverage for merge/splice/dispatch behavior
+├── deprel.rs: UdDeprel newtype, deprel→POS constraint mapping
+├── plan.rs: contiguous span planning + host attachment planning
+├── merge.rs: POS resolution (6-level priority), planned Mor-based merge
+├── extract.rs: primary structural info extraction from UD responses
+├── spans.rs: contiguous span grouping for secondary dispatch
+├── splice.rs: splice merged Mor into ChatFile
+└── tests.rs: unit-test coverage for merge/splice/dispatch behavior
 ```
 
 **Dispatch** (`batch.rs:dispatch_secondary_l2`):

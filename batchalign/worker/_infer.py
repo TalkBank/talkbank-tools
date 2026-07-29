@@ -68,7 +68,7 @@ def _batch_infer(req: BatchInferRequest) -> BatchInferResponse:
 
 
 def _dispatch_coref(req: BatchInferRequest) -> BatchInferResponse:
-    """Coref needs no model wiring — uses direct Stanza import."""
+    """Coref needs no model wiring, uses direct Stanza import."""
     from batchalign.inference.coref import batch_infer_coref
 
     return batch_infer_coref(req)

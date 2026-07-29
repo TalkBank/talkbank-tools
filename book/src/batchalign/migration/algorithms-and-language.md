@@ -243,7 +243,7 @@ description of current default behavior.
 
 BA3 detects `@Options: CA` at FA entry and **suppresses `%wor`
 generation** for that file, see `crates/batchalign/src/fa/mod.rs::run`
-where the option is consulted and `info!("@Options: CA detected —
+where the option is consulted and `info!("@Options: CA detected
 suppressing %wor generation")` fires. The motivation is that CA
 transcripts use prosodic notation (`⌈⌉⌊⌋`, arrows, lengthening marks)
 that `%wor` cannot represent, so generating it adds noise that CA
@@ -787,7 +787,7 @@ in proper CHAT `<...> [/]` AST nodes (`AnnotatedWord` / `AnnotatedGroup`).
 | Operation | BA2 | BA3 | Rationale |
 |-----------|-----|-----|-----------|
 | Pre-Stanza paren stripping | `line_cut.replace("(","")` / `replace(")","")` strips parens from input before Stanza | No pre-Stanza stripping; `Word::cleaned_text()` handles CHAT notation at extraction time | BA2 silently dropped bare paren words, causing word count mismatches. BA3 still strips parens from MOR lemma output (`mor_word.rs:119`), same operation as BA2's lemma post-processing, different stage. |
-| MOR lemma hyphen normalization (post-Stanza) | Strip leading/trailing dash, collapse `--`→`-`, replace `-`→`–` (en-dash) on Stanza lemma output | **Same operations**, ported line-by-line in `mor_word.rs:107-129` | Not a real BA2-vs-BA3 divergence — BA3 preserves the BA2 lemma-cleanup logic by design. The cleaned MOR is the migration contract. |
+| MOR lemma hyphen normalization (post-Stanza) | Strip leading/trailing dash, collapse `--`→`-`, replace `-`→`, ` (en-dash) on Stanza lemma output | **Same operations**, ported line-by-line in `mor_word.rs:107-129` | Not a real BA2-vs-BA3 divergence, BA3 preserves the BA2 lemma-cleanup logic by design. The cleaned MOR is the migration contract. |
 | Cantonese word segmentation | None | PyCantonese `segment()` via `--retokenize` | BA2 had no word segmentation for CJK per-character ASR output. |
 | Cantonese POS accuracy on core vocabulary | Stanza `zh` (Mandarin model), internal benchmarks scored ~50% on core Cantonese; ~63% Mandarin baseline on the UD held-out test set | PyCantonese POS override scores ~95% on core Cantonese vocabulary; a trained Cantonese Stanza model on UD held-out reaches 93.5% (not yet deployed) | BA2 used the same Mandarin model. The exact baseline number depends on the test set used; see [Cantonese / CJK Architecture: POS limitations](../../architecture/language-and-multilingual/cantonese-and-cjk.md#known-limitations) for the cross-test-set picture. |
 

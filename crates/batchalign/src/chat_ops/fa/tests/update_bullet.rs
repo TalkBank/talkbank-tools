@@ -179,7 +179,7 @@ fn test_update_utterance_bullet_expands_when_words_exceed_original() {
     inject_timings_for_utterance(utt, &timings, &mut offset);
 
     let utt = get_test_utterance(&mut chat, 0);
-    // Skip postprocess (it would clamp to utterance boundary) — test update only
+    // Skip postprocess (it would clamp to utterance boundary), test update only
     update_utterance_bullet(utt);
 
     let bullet = utt.main.content.bullet.as_ref().unwrap();

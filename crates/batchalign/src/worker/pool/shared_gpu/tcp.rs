@@ -1,4 +1,4 @@
-//! `SharedGpuTcpWorker` — concurrent V2 dispatch to a GPU worker over TCP.
+//! `SharedGpuTcpWorker`: concurrent V2 dispatch to a GPU worker over TCP.
 //!
 //! Similar to [`SharedGpuWorker`](super::SharedGpuWorker) but connects via
 //! TCP instead of stdio. Uses a background reader task to route responses by
@@ -49,7 +49,7 @@ pub(crate) struct SharedGpuTcpWorker {
 
     /// Bounds in-flight `execute_v2` calls to the daemon's
     /// `ThreadPoolExecutor` capacity (`gpu_thread_pool_size`). Mirrors the
-    /// stdio variant — see `SharedGpuWorker::dispatch_semaphore` for the
+    /// stdio variant: see `SharedGpuWorker::dispatch_semaphore` for the
     /// architectural rationale and the production failure it prevents.
     dispatch_semaphore: Semaphore,
 }

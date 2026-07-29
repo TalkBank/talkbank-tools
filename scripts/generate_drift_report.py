@@ -18,7 +18,7 @@ Behavior:
 * Queries the most recent run per probe within the window.
 * Writes ``docs/investigations/drift-<date>-stanza.md``.
 * Prints the output path on stdout.
-* **Exit code is 0 even when drift is present** — probes are
+* **Exit code is 0 even when drift is present**, probes are
   monitors, not tests. A calling CI workflow decides whether to
   open an issue based on the report's ``**Status:**`` line.
 """

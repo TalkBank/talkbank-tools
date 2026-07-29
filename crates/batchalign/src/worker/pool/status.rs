@@ -2,7 +2,7 @@
 //!
 //! These methods query pool state without mutating it. Sequential worker groups
 //! use `lock_recovered()` (blocking `std::sync::Mutex`). GPU worker maps use
-//! `tokio::sync::Mutex` and are accessed via `.lock().await` — the methods are
+//! `tokio::sync::Mutex` and are accessed via `.lock().await`, the methods are
 //! async so they always acquire the lock and never silently report stale data.
 //!
 //! The `std::sync::MutexGuard` from `lock_recovered()` is `!Send`, so it must
@@ -51,7 +51,7 @@ impl WorkerPool {
             });
         }
 
-        // Sequential groups use std::sync::Mutex — scope the guard so it
+        // Sequential groups use std::sync::Mutex, scope the guard so it
         // does not live across any .await (MutexGuard is !Send).
         let groups = lock_recovered(&self.groups);
         groups.iter().any(|((group_target, group_lang, _), group)| {

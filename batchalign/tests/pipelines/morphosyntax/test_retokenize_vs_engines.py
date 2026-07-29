@@ -33,7 +33,7 @@ class TestRetokenizeVsFunASR:
     """PyCantonese retokenize improves on FunASR per-character output."""
 
     def test_funasr_per_char_has_no_multichar_words(self) -> None:
-        """FunASR output (simulated) is all single characters — zero word info."""
+        """FunASR output (simulated) is all single characters, zero word info."""
         import batchalign_core
 
         text = "佢哋好鍾意食嘢"
@@ -135,7 +135,7 @@ class TestRetokenizeVsTencent:
 # Sub-claim 3: Stanza has a "special model trained just for this task"
 # =============================================================================
 #
-# Correction: for Cantonese, we DON'T use Stanza's tokenizer — we use
+# Correction: for Cantonese, we DON'T use Stanza's tokenizer, we use
 # PyCantonese. Stanza's zh model is trained on Mandarin (Chinese Treebank),
 # not Cantonese. Using it for Cantonese would miss Cantonese-specific words.
 #
@@ -175,7 +175,7 @@ class TestStanzaVsPyCantonese:
         print(f"Stanza (Mandarin model): {stanza_words}")
         print(f"PyCantonese:             {pyc_words}")
 
-        # PyCantonese must group 佢哋 — Stanza may or may not
+        # PyCantonese must group 佢哋, Stanza may or may not
         assert "佢哋" in pyc_words, "PyCantonese should know 佢哋 (they)"
         assert "鍾意" in pyc_words, "PyCantonese should know 鍾意 (like)"
         assert "食嘢" in pyc_words, "PyCantonese should know 食嘢 (eat stuff)"
@@ -186,7 +186,7 @@ class TestStanzaVsPyCantonese:
         stanza_knows_sikje = "食嘢" in stanza_words
 
         if not (stanza_knows_keuidei and stanza_knows_jungji and stanza_knows_sikje):
-            # Stanza missed Cantonese words — PyCantonese is better
+            # Stanza missed Cantonese words, PyCantonese is better
             missed = []
             if not stanza_knows_keuidei:
                 missed.append("佢哋")

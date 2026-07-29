@@ -70,7 +70,7 @@ impl JobDB {
         let filenames_json = serialize_job_field(&job.job_id, "filenames", &job.filenames)?;
         let has_chat_json = serialize_job_field(&job.job_id, "has_chat", &job.has_chat)?;
         let options_json = serialize_job_field(&job.job_id, "options", &job.options)?;
-        // engine_overrides stored as empty — overrides are inside CommandOptions.common.engine_overrides
+        // engine_overrides stored as empty, overrides are inside CommandOptions.common.engine_overrides
         let engine_json = "{}";
         let source_paths_json =
             serialize_job_field(&job.job_id, "source_paths", &job.source_paths)?;

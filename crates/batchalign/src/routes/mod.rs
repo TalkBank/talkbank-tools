@@ -1,4 +1,4 @@
-//! HTTP route handlers — composing all sub-routers with middleware.
+//! HTTP route handlers: composing all sub-routers with middleware.
 
 pub mod bug_reports;
 pub mod dashboard;
@@ -26,12 +26,12 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(300); // 5 minutes
 /// Build the main router with all routes and middleware.
 ///
 /// Layer order (bottom-up execution, outermost runs first):
-/// 1. CORS — outermost, runs first on every request
-/// 2. Body limit — reject oversized requests early (from config `max_body_bytes_mb`)
-/// 3. Catch panic — convert panics to 500 instead of connection reset
-/// 4. Timeout — 5-minute request timeout
-/// 5. Trace — structured request/response logging with latency
-/// 6. Compression — gzip/brotli response compression (innermost)
+/// 1. CORS: outermost, runs first on every request
+/// 2. Body limit: reject oversized requests early (from config `max_body_bytes_mb`)
+/// 3. Catch panic: convert panics to 500 instead of connection reset
+/// 4. Timeout: 5-minute request timeout
+/// 5. Trace: structured request/response logging with latency
+/// 6. Compression: gzip/brotli response compression (innermost)
 pub fn router(state: Arc<AppState>) -> Router {
     let max_body_bytes = state.environment.config.max_body_bytes_mb.0 as usize * 1024 * 1024;
 

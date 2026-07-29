@@ -21,7 +21,7 @@
 
 mod common;
 
-// ML test submodules — each was previously a separate binary with its own
+// ML test submodules, each was previously a separate binary with its own
 // worker pool. Now they share one process-global LazyLock<LiveFixtureBackend>.
 mod ml_golden {
     pub mod align;

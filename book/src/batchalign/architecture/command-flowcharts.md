@@ -19,7 +19,7 @@ mode, UTR pre-pass behavior, and incremental processing.
 flowchart TD
     start([align invoked]) --> read[Read CHAT file]
     read --> resolve_audio[Resolve audio file]
-    resolve_audio --> ensure_wav[ensure_wav — convert mp4→wav if needed]
+    resolve_audio --> ensure_wav[ensure_wav: convert mp4→wav if needed]
     ensure_wav --> parse[parse_lenient → ChatFile]
     parse --> reuse_check{Complete reusable\n%wor timing?}
     reuse_check -->|Yes| reuse[Refresh main-tier bullets\nfrom %wor + optionally\nregenerate %wor]
@@ -27,7 +27,7 @@ flowchart TD
     reuse --> done([Output .cha file])
 
     count --> utr_check{untimed > 0?}
-    utr_check -->|No| skip_utr[Skip UTR — all timed]
+    utr_check -->|No| skip_utr[Skip UTR, all timed]
     utr_check -->|Yes| utr_engine_check{--utr engine\nconfigured?}
 
     utr_engine_check -->|Yes: --utr| run_utr_pass["run_utr_pass()"]
@@ -62,7 +62,7 @@ flowchart TD
     continuous_w --> cache_check
     continuous_wv --> cache_check
 
-    cache_check[Cache lookup — BLAKE3 keys]
+    cache_check[Cache lookup: BLAKE3 keys]
     cache_check --> worker_infer[execute_v2(task="fa") misses → Python FA worker\nprepared audio + prepared text]
     worker_infer --> dp_align_fa[DP-align model output → transcript words]
     dp_align_fa --> inject_fa[Inject word-level timings into AST]
@@ -134,7 +134,7 @@ which chooses between full-file and partial-window ASR:
 flowchart TD
     entry(["run_utr_pass()"]) --> parse[Parse CHAT\ncount timed vs untimed]
     parse --> zero{untimed == 0?}
-    zero -->|Yes| noop([Return — nothing to do])
+    zero -->|Yes| noop([Return: nothing to do])
     zero -->|No| ratio{untimed < 50%\nAND audio > 60s?}
 
     ratio -->|Yes| partial_mode
@@ -191,7 +191,7 @@ and `crates/batchalign/src/chat_ops/fa/orchestrate.rs`:
 flowchart TD
     asr["ASR token stream\n(Whisper DTW output)"] --> filter
 
-    subgraph L1 ["Layer 1 — Token filter (dispatch/utr.rs)"]
+    subgraph L1 ["Layer 1: Token filter (dispatch/utr.rs)"]
         filter{"token.end_ms\n<= token.start_ms?"}
         filter -->|Yes| drop1[Drop token before UTR\nsees it at all]
         filter -->|No| utr_in[Pass to UTR]
@@ -200,22 +200,22 @@ flowchart TD
     utr_in --> dp["Global DP alignment\nCHAT words ↔ ASR tokens"]
     dp --> assign["Assign per-utterance\ntoken range (min_asr, max_asr)"]
 
-    subgraph L2 ["Layer 2 — UTR span guard (utr.rs run_global_utr)"]
+    subgraph L2 ["Layer 2: UTR span guard (utr.rs run_global_utr)"]
         assign --> zdcheck{"asr[min].start_ms\n>= asr[max].end_ms?"}
         zdcheck -->|Yes| drop2[Leave utterance untimed\ncount as unmatched]
         zdcheck -->|No| mono_check
     end
 
-    subgraph L3 ["Layer 3 — UTR monotonicity pass (utr.rs run_global_utr)"]
+    subgraph L3 ["Layer 3: UTR monotonicity pass (utr.rs run_global_utr)"]
         mono_check{"utt.start_ms\n< prev_non_overlap.end_ms?"}
-        mono_check -->|Yes — DTW collision| advance["Advance start_ms = prev.end_ms\nExtend end_ms if needed"]
+        mono_check -->|Yes: DTW collision| advance["Advance start_ms = prev.end_ms\nExtend end_ms if needed"]
         mono_check -->|No| assign_bullet[Assign utterance bullet]
         advance --> assign_bullet
     end
 
     assign_bullet --> fa_in["FA postprocess\n(orchestrate.rs)"]
 
-    subgraph L4 ["Safety net — monotonicity enforcement (orchestrate.rs)"]
+    subgraph L4 ["Safety net: monotonicity enforcement (orchestrate.rs)"]
         fa_in --> mono_enforce{"prev.end_ms\n> next.start_ms?"}
         mono_enforce -->|end_clamp safe| clamp_end[Clamp prev.end_ms\nto next.start_ms]
         mono_enforce -->|would produce\nzero-duration| strip[Strip bullet entirely\nbetter untimed than •T_T•]
@@ -351,7 +351,7 @@ own post-processing.
 ```mermaid
 flowchart TD
     start([transcribe invoked]) --> resolve[Resolve audio file]
-    resolve --> ensure_wav[ensure_wav — convert if needed]
+    resolve --> ensure_wav[ensure_wav: convert if needed]
 
     ensure_wav --> diarize_check{--diarization?}
     diarize_check -->|"enabled"| transcribe_s["Command: transcribe_s\nASR + dedicated speaker relabeling\nRev or Whisper"]
@@ -442,7 +442,7 @@ flowchart TD
     skip_non_primary --> cache
     process_all --> cache
 
-    cache[Cache lookup — BLAKE3 keys\nwords + lang + terminator + special forms + engine version]
+    cache[Cache lookup: BLAKE3 keys\nwords + lang + terminator + special forms + engine version]
     cache --> inject_hits[Inject cache hits immediately]
     inject_hits --> worker[execute_v2(task="morphosyntax") misses\nprepared_text batch → Stanza NLP pipeline]
     worker --> inject_results[inject_results → insert %mor/%gra tiers]
@@ -479,7 +479,7 @@ GPU batch.
 flowchart TD
     start([utseg invoked]) --> parse[Parse all files → ASTs]
     parse --> collect[collect_payloads\nExtract word sequences per utterance]
-    collect --> cache[Cache lookup — BLAKE3 keys\nwords + lang]
+    collect --> cache[Cache lookup: BLAKE3 keys\nwords + lang]
     cache --> worker[execute_v2(task="utseg") misses\nprepared_text batch → raw parse trees]
     worker --> apply[Apply segmentation\nSplit/merge utterances at predicted boundaries]
     apply --> merge_check{--merge-abbrev?}
@@ -499,7 +499,7 @@ Translates utterances and injects `%xtra` tiers.
 flowchart TD
     start([translate invoked]) --> parse[Parse all files → ASTs]
     parse --> collect[collect_payloads\nExtract utterance text + source/target language]
-    collect --> cache[Cache lookup — BLAKE3 keys\ntext + src_lang + tgt_lang]
+    collect --> cache[Cache lookup: BLAKE3 keys\ntext + src_lang + tgt_lang]
     cache --> worker[execute_v2(task="translate") misses\nprepared_text batch → raw translations]
     worker --> inject[inject %xtra tiers with translated text]
     inject --> merge_check{--merge-abbrev?}
@@ -518,9 +518,9 @@ Coreference resolution. Document-level, sparse output, English-only.
 ```mermaid
 flowchart TD
     start([coref invoked]) --> parse[Parse all files → ASTs]
-    parse --> collect[collect_payloads\nExtract sentences — full document context]
+    parse --> collect[collect_payloads\nExtract sentences: full document context]
     collect --> worker[execute_v2(task="coref")\nprepared_text batch → structured chain refs]
-    worker --> inject[inject %xcoref tiers — sparse\nOnly utterances with coreferent mentions]
+    worker --> inject[inject %xcoref tiers, sparse\nOnly utterances with coreferent mentions]
     inject --> merge_check{--merge-abbrev?}
     merge_check -->|Yes| merge[merge_abbreviations]
     merge_check -->|No| serialize
@@ -528,7 +528,7 @@ flowchart TD
     serialize --> done([Output .cha files])
 
     style collect fill:#ffd,stroke:#aa0
-    note1[No caching — full-document context\nmakes per-utterance keys meaningless]
+    note1[No caching: full-document context\nmakes per-utterance keys meaningless]
     collect --- note1
 ```
 
@@ -650,7 +650,7 @@ pattern. The cache policy is controlled by `--override-media-cache`.
 flowchart TD
     start([Cache check]) --> policy{--override-media-cache?}
     policy -->|No| lookup[BLAKE3 hash → cache lookup\nHot: moka in-memory\nCold: SQLite]
-    policy -->|Yes: --override-media-cache| skip_cache[Skip cache — force recompute]
+    policy -->|Yes: --override-media-cache| skip_cache[Skip cache, force recompute]
 
     lookup --> hit{Cache hit?}
     hit -->|Yes| inject_cached[Inject cached result\nNo worker IPC needed]
@@ -675,7 +675,7 @@ unchanged content.
 ```mermaid
 flowchart TD
     start([--before provided]) --> read_before[Read before file]
-    read_before --> diff[diff_chat — classify utterances\nAdded / Removed / Modified / Unchanged]
+    read_before --> diff[diff_chat: classify utterances\nAdded / Removed / Modified / Unchanged]
     diff --> preserve[Preserve stable dependent tiers\nand refresh reusable timing]
     preserve --> filter[Filter: only reprocess\nAdded + Modified content that still needs work]
     filter --> process[Run NLP only where reuse and cache\ncannot satisfy the request]

@@ -26,7 +26,7 @@ from __future__ import annotations
 def test_tencent_cantonese_output_is_per_character() -> None:
     """Document that Tencent Cantonese ASR output is per-character.
 
-    This is NOT a live API test — it records the empirically verified result.
+    This is NOT a live API test, it records the empirically verified result.
     The actual Tencent API call was run via:
         bash scripts/check-media/verify_tencent_cantonese.sh
 

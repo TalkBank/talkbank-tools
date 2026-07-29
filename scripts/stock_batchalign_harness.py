@@ -173,7 +173,7 @@ class MetricDifference:
         )
         if self.reason is None:
             return detail
-        return f"{detail} — {self.reason}"
+        return f"{detail}: {self.reason}"
 
 
 @dataclass(frozen=True)

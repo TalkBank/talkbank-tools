@@ -28,7 +28,7 @@ use super::types::MultilingualPolicy;
 #[derive(Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct MorphosyntaxBatchItem {
     /// Word texts for NLP processing. Each word is provenance-sealed
-    /// `ChatCleanedText` derived from a parsed `Word` or `Separator` —
+    /// `ChatCleanedText` derived from a parsed `Word` or `Separator`
     /// or, for non-`@s` special-form positions, the blessed
     /// `ChatCleanedText::stanza_placeholder()` constant.
     #[schemars(with = "Vec<String>")]
@@ -189,7 +189,7 @@ pub fn collect_payloads(
             if !words.is_empty() {
                 // CA-mode utterances may legitimately lack a main-tier
                 // terminator. Stanza needs a sentence-final tagging
-                // signal regardless, so synthesize Period — matches the
+                // signal regardless, so synthesize Period, matches the
                 // BA2 default. See `docs/coding-standards.md` rule 6d
                 // for why this isn't a sentinel: it's the canonical
                 // Stanza-input default explicitly chosen for the
@@ -211,7 +211,7 @@ pub fn collect_payloads(
                 // disagreed: dispatch ran as `cat`, resolution ran as
                 // `eng`. The mismatch produced an `Unresolved` (after
                 // today's resolver rule-6d fix) for every `@s` position
-                // and a fabricated `Single("eng")` before the fix —
+                // and a fabricated `Single("eng")` before the fix
                 // which is the dona@s observed bug.
                 let tier_language = Some(&utterance_lang);
 
@@ -312,7 +312,7 @@ pub fn declared_languages(
 /// Reset every existing `%mor` and `%gra` tier to an empty body in place,
 /// preserving original dependent-tier order.
 pub fn clear_morphosyntax(chat_file: &mut talkbank_model::model::ChatFile) {
-    // CA files (`@Options: CA`) are pass-through for morphosyntax — same
+    // CA files (`@Options: CA`) are pass-through for morphosyntax, same
     // discipline as `@Options: NoAlign` for the align pipeline. The morphotag
     // pipeline short-circuits before reaching this function for CA files
     // (see `pipeline/morphosyntax.rs::should_skip_inference` and

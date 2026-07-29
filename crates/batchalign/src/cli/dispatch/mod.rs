@@ -1,4 +1,4 @@
-//! Dispatch router — routes processing commands to direct or server hosts.
+//! Dispatch router: routes processing commands to direct or server hosts.
 //!
 //! Mirrors `dispatch.py` + `dispatch_server.py`.
 //!
@@ -611,7 +611,7 @@ async fn probe_local_server(url: &str) -> Option<String> {
 /// on a developer machine).
 pub(crate) fn apply_sequential_config(cfg: &mut ServerConfig) {
     use crate::api::MemoryMb;
-    // `Some(MemoryMb(1))` effectively disables the gate — the
+    // `Some(MemoryMb(1))` effectively disables the gate, the
     // coordinator requires only 1 MB free, which is always true.
     cfg.memory_gate_mb = Some(MemoryMb(1));
     cfg.max_workers_per_key = Some(1);

@@ -472,7 +472,7 @@ fn check_cli_binary_version(root: &Path) -> std::result::Result<(), String> {
 
     // version must be a string (not a workspace reference table)
     if version.as_str().is_none() {
-        // Could be workspace = true which is fine — check_version_sync validates the actual value.
+        // Could be workspace = true which is fine, check_version_sync validates the actual value.
     }
 
     Ok(())

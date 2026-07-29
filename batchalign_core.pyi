@@ -2,7 +2,7 @@
 
 This stub covers the typed boundary exception classes introduced
 2026-04-29 (Phase D2 pilot). The PyO3-exported execution functions
-(``execute_asr_request_v2`` etc.) are intentionally not yet stubbed —
+(``execute_asr_request_v2`` etc.) are intentionally not yet stubbed
 they will land alongside their respective Phase D3 sweep migrations.
 See ``book/src/batchalign/architecture/python-rust-errors.md``.
 """

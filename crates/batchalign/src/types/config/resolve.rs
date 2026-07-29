@@ -42,7 +42,7 @@ impl ServerConfig {
     /// floor, the same number the worker-pool admission gate
     /// enforces. The previous tier-derived fallback
     /// (`resolved_memory_tier().headroom_mb`, 2/4/8 GB by host RAM)
-    /// has been retired — it tried to encode workload sizing into a
+    /// has been retired: it tried to encode workload sizing into a
     /// floor that should only express OS-protection headroom.
     pub fn resolved_memory_gate_mb(&self) -> crate::api::MemoryMb {
         match self.memory_gate_mb {
@@ -53,7 +53,7 @@ impl ServerConfig {
 
     /// Resolve warmup commands before server-side capability filtering.
     ///
-    /// Returns `warmup_commands` directly — the CLI `--warmup` flag and
+    /// Returns `warmup_commands` directly: the CLI `--warmup` flag and
     /// `server.yaml` both write to this field. An empty list means no warmup.
     pub fn resolved_warmup_commands(&self) -> &[String] {
         &self.warmup_commands

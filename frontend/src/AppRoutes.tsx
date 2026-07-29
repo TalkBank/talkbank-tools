@@ -27,14 +27,14 @@ export function AppRoutes() {
   return (
     <Router>
       <Switch>
-        {/* Process flow — end-user facing */}
+        {/* Process flow: end-user facing */}
         <Route path="/process">
           <Layout>
             <ProcessPage />
           </Layout>
         </Route>
 
-        {/* Dashboard — fleet monitoring for power users */}
+        {/* Dashboard: fleet monitoring for power users */}
         <Route path="/dashboard/visualizations/retokenize">
           <RetokenizationPage />
         </Route>

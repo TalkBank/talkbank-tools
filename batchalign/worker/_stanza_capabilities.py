@@ -1,4 +1,4 @@
-"""Stanza capability table builder — single source of truth.
+"""Stanza capability table builder: single source of truth.
 
 Reads Stanza's ``resources.json`` to discover per-language processor
 availability.  Replaces 7 scattered hardcoded tables across Python and
@@ -10,12 +10,12 @@ The table is built once (lazily) and cached for the process lifetime.
 On a fresh install where Stanza's resource catalog has never been seeded,
 ``resources.json`` does not yet exist. In that case the builder bootstraps
 the catalog by calling Stanza's own ``download_resources_json()`` (a small,
-fast download — the catalog itself, no language packs) and retries.
+fast download: the catalog itself, no language packs) and retries.
 Language packs are then downloaded lazily by ``stanza.Pipeline()`` on first
 use of each language. The end user never has to seed anything by hand.
 
 A real network/disk failure during catalog bootstrap surfaces as the typed
-``StanzaCatalogDownloadError`` rather than a silent ``None`` — the original
+``StanzaCatalogDownloadError`` rather than a silent ``None``, the original
 silent-None path masked the bug whose downstream effect was a worker
 exit-1 retry storm with multi-GB log spam from a deterministic catalog
 miss.
@@ -158,7 +158,7 @@ def build_stanza_capability_table_from_resources(
                 iso3_map[alpha3] = alpha2_code
     except ImportError:
         L.warning(
-            "pycountry not installed — iso3_to_alpha2 mapping will only "
+            "pycountry not installed: iso3_to_alpha2 mapping will only "
             "include explicit overrides"
         )
 
@@ -203,7 +203,7 @@ def resolve_stanza_version(loaded_version: str = "") -> str:
     """Return the installed Stanza version: the model-loaded value when
     populated, otherwise the package's ``__version__``, otherwise
     ``"unknown"``. The literal engine name ``"stanza"`` is never an
-    acceptable return value — returning it produces malformed
+    acceptable return value: returning it produces malformed
     ``engine=stanza-stanza`` provenance comments downstream.
 
     Pass ``_state.stanza_version`` (or any caller-side cached version
@@ -306,7 +306,7 @@ def get_cached_capability_table() -> StanzaCapabilityTable | None:
     Behavior on a fresh install (no ``resources.json`` yet): bootstrap the
     catalog via ``stanza.resources.common.download_resources_json()`` and
     retry. The user is informed of the download via the ``progress_v2``
-    event channel — silent waits are a UX bug.
+    event channel: silent waits are a UX bug.
 
     Returns:
         - Populated ``StanzaCapabilityTable`` on success (cache hit, fresh
@@ -326,7 +326,7 @@ def get_cached_capability_table() -> StanzaCapabilityTable | None:
     except ImportError:
         # Distinct, legitimate silent-None path: Stanza package not in venv.
         # This is a deploy-config error, not a recoverable miss.
-        L.warning("Stanza not installed — capability table unavailable")
+        L.warning("Stanza not installed: capability table unavailable")
         return None
     except Exception as exc:
         # Recoverable miss: the catalog file ``resources.json`` does not yet
@@ -398,6 +398,6 @@ def _bootstrap_and_retry(original: BaseException) -> StanzaCapabilityTable:
     )
 
     # Catalog is now on disk; the second build attempt should succeed. If
-    # this still fails, surface the error — it means the downloaded catalog
+    # this still fails, surface the error; it means the downloaded catalog
     # is corrupt or unreadable, which is a real bug worth investigating.
     return build_stanza_capability_table()

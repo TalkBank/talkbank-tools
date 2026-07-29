@@ -184,7 +184,7 @@ fn print_help() {
         "      Layer 1 CI gate. Walk all markdown under the repo, apply \
          high-severity prose-reference patterns (deleted crates, moved book \
          paths), exit non-zero on any non-allow-listed hit. \
-         Catalog-independent — does not require audit.db."
+         Catalog-independent: does not require audit.db."
     );
     println!("  gen-runtime-toml [--check]");
     println!(

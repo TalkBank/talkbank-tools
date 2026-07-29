@@ -54,7 +54,7 @@ class TestMwtCapabilityDriven:
         if table is None:
             pytest.skip("Stanza resources.json not available in this environment")
         assert should_request_mwt("sv", table) is False, (
-            "Swedish must not be requested with the mwt processor — "
+            "Swedish must not be requested with the mwt processor, "
             "Stanza does not ship a Swedish MWT model. See the "
             "2026-04-15 chunk_106 outage."
         )
@@ -93,7 +93,7 @@ class TestMwtCapabilityDriven:
         )
         source = loader.read_text()
 
-        # Tolerate doc references in module docstrings or comments — we
+        # Tolerate doc references in module docstrings or comments, we
         # only forbid an actual top-level definition. A naive substring
         # check on "MWT_LANGS" would flag the comment that warns future
         # contributors about the pattern.
@@ -110,7 +110,7 @@ class TestMwtCapabilityDriven:
                         raise AssertionError(
                             "MWT_LANGS was reintroduced in _stanza_loading.py. "
                             "Use the capability table (should_request_mwt) "
-                            "instead — see 2026-04-15 outage notes."
+                            "instead: see 2026-04-15 outage notes."
                         )
 
 
@@ -205,4 +205,4 @@ class TestLanguageSpecificFeatureParity:
     - chat-ops/src/nlp/lang_ja.rs (verb form overrides)
     """
 
-    pass  # See Rust tests — do not duplicate here
+    pass  # See Rust tests, do not duplicate here

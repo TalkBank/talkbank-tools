@@ -1,5 +1,5 @@
 # affects: batchalign/inference/languages/cantonese/_aliyun_asr.py
-"""Unit tests for _aliyun_asr.py — AliyunRunner sentence parsing and load validation."""
+"""Unit tests for _aliyun_asr.py: AliyunRunner sentence parsing and load validation."""
 
 from __future__ import annotations
 

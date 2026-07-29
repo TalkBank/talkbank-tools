@@ -2,9 +2,9 @@
 the stdio transport does.
 
 The original bootstrap-retry-classification fix landed only on stdio
-(`_serve_stdio`, `_serve_stdio_concurrent`). The TCP handlers — used by
+(`_serve_stdio`, `_serve_stdio_concurrent`). The TCP handlers, used by
 Stanza/IO-profile workers, the same profiles that load Stanza catalogs
-and were the original incident shape — still let exceptions propagate
+and were the original incident shape, still let exceptions propagate
 up, killing the connection handler instead of emitting a structured
 error.
 
@@ -35,7 +35,7 @@ from batchalign.worker._protocol import (
 
 
 def _make_connected_pair():
-    """Return ``(client, server)`` — a connected loopback TCP socket pair.
+    """Return ``(client, server)``: a connected loopback TCP socket pair.
 
     ``socket.socketpair()`` doesn't produce TCP sockets on every platform,
     so we set up a tiny listener instead. Both ends are real
@@ -185,7 +185,7 @@ def test_tcp_concurrent_emits_bootstrap_kind(monkeypatch):
     """Concurrent TCP variant must produce the same bootstrap envelope.
 
     The shared-GPU profile uses the concurrent handler. Bootstrap errors
-    here must surface identically — the orchestrator can't distinguish
+    here must surface identically: the orchestrator can't distinguish
     transports, so behaviour must match.
     """
     from batchalign.worker._stanza_capabilities import (

@@ -103,7 +103,7 @@ fn is_boundary_quote(c: char) -> bool {
     };
     matches!(
         c,
-        '"' // ASCII double quote — no Unicode-name constant; named in place
+        '"' // ASCII double quote, no Unicode-name constant; named in place
         | LEFT_DOUBLE_QUOTE
         | RIGHT_DOUBLE_QUOTE
         | TAG_MARKER
@@ -124,7 +124,7 @@ fn is_boundary_quote(c: char) -> bool {
 ///
 /// This pass runs in `prepare_words_pre_expansion` (Stage 2c, after
 /// `strip_separator_words`). Embedded quotes mid-word (e.g. `she"s`)
-/// are deliberately NOT touched — those are pathological and fall
+/// are deliberately NOT touched; those are pathological and fall
 /// through to the gate's structural-only fallback path so reviewers
 /// see them via the downstream validator + CHECK.
 ///
@@ -174,7 +174,7 @@ pub fn sanitize_chat_illegal_chars_in_utterances(utterances: &mut Vec<Utterance>
             .filter_map(sanitize_chat_illegal_word)
             .collect();
     }
-    // Drop utterances that lost every word — they would serialize as
+    // Drop utterances that lost every word; they would serialize as
     // empty main-tier lines, which CHAT rejects.
     utterances.retain(|u| !u.words.is_empty());
 }
@@ -232,7 +232,7 @@ pub fn apply_disfluency_replacements(utterances: &mut [Utterance], lang: &str) {
     let fp_map = FILLED_PAUSE_MAP.get(lang);
     let repl_map = REPLACEMENT_MAP.get(lang);
 
-    // No wordlists for this language — nothing to do.
+    // No wordlists for this language, nothing to do.
     if fp_map.is_none() && repl_map.is_none() {
         return;
     }
@@ -280,7 +280,7 @@ pub fn apply_disfluency_replacements(utterances: &mut [Utterance], lang: &str) {
 /// in n-gram matching (so `&-um I &-um I went` still detects the bigram
 /// repeat and marks the first `I`), but filler tokens themselves are
 /// never re-typed to `Retrace`. A bare `&-um &-um` therefore produces no
-/// retrace mark — the repetition is filler behavior, not a false start.
+/// retrace mark: the repetition is filler behavior, not a false start.
 /// User-facing contract is in `book/src/reference/retrace-detection.md`.
 ///
 /// CANTONESE-SPECIFIC ADJUSTMENT: For Cantonese (yue) and Standard Chinese (zho),
@@ -298,7 +298,7 @@ pub fn apply_retrace_detection(utterances: &mut [Utterance], lang: &str) {
 
         // N-gram comparison is case-insensitive so a sentence-initial "I"
         // pairs with a mid-sentence "I" (and, defensively, a lowercased "i"
-        // from an inconsistent ASR). Word texts are never rewritten — CHAT
+        // from an inconsistent ASR). Word texts are never rewritten, CHAT
         // output keeps the provider's casing.
         let content_indices: Vec<usize> = utt
             .words
@@ -395,18 +395,18 @@ fn strip_punct(text: &str) -> String {
 // Three English orthographic normalizations approved for shipping
 // after the 2026-04-23 Stanza decision-probe adjudication:
 //
-// * **I-cap** — bare `i` → `I`, including contractions
+// * **I-cap**: bare `i` → `I`, including contractions
 //   (`i'll` / `i'm` / `i've` / `i'd`).
-// * **Title-period strip** — `Dr.` → `Dr`, `Mr.` / `Mrs.` / `Prof.`,
+// * **Title-period strip**: `Dr.` → `Dr`, `Mr.` / `Mrs.` / `Prof.`,
 //   place abbreviations (`St.`, `Mt.`, `Ave.`), time (`a.m.`,
 //   `p.m.`), initialisms (`U.S.`, `J.F.K.`), degrees (`Ph.D.`,
 //   `M.D.`), technical abbreviations (`etc.`, `e.g.`, `i.e.`).
-// * **Utterance-initial cap** — first word of each utterance gets
+// * **Utterance-initial cap**: first word of each utterance gets
 //   its initial letter uppercased.
 //
 // Each rule is silent-mutation (no `[: replacement]` annotation) per
 // the 2026-04-23 provenance-policy resolution. Each rule cites its
-// probe-verdict lock in `_decision_cases/english.py` — that's the
+// probe-verdict lock in `_decision_cases/english.py`, that's the
 // empirical evidence the rule is Stanza-neutral.
 //
 // English-only. All three rules early-return for non-English input.
@@ -416,16 +416,16 @@ use std::collections::HashSet;
 /// Surface-form allowlist of English title/abbreviation tokens whose
 /// trailing period(s) should be stripped. Sourced from the locked
 /// probe cases:
-/// * TITLE_PERIOD — `Dr.`, `Mr.`, `Mrs.`, `Prof.`
-/// * PLACE_PERIOD — `St.`, `Mt.`, `Ave.`
-/// * TIME_PERIOD — `a.m.`, `p.m.`
-/// * INITIALISM_PERIOD — `U.S.`, `J.F.K.`
-/// * DEGREE_PERIOD — `Ph.D.`, `M.D.`
-/// * TECHNICAL_ABBREV — `etc.`, `e.g.`, `i.e.`
+/// * TITLE_PERIOD: `Dr.`, `Mr.`, `Mrs.`, `Prof.`
+/// * PLACE_PERIOD: `St.`, `Mt.`, `Ave.`
+/// * TIME_PERIOD: `a.m.`, `p.m.`
+/// * INITIALISM_PERIOD: `U.S.`, `J.F.K.`
+/// * DEGREE_PERIOD: `Ph.D.`, `M.D.`
+/// * TECHNICAL_ABBREV: `etc.`, `e.g.`, `i.e.`
 ///
 /// The closed-set approach is deliberate. A regex or suffix-based
 /// rule would over-fire on decimals (`3.14`) and utterance-final
-/// periods — both flagged as POST_STRICTLY_WORSE in the DECIMAL
+/// periods, both flagged as POST_STRICTLY_WORSE in the DECIMAL
 /// and SENTENCE probes. Closed surfaces keep the rule safe.
 ///
 /// Matching is **case-insensitive** on the whole surface so ASR
@@ -448,7 +448,7 @@ static EN_TITLE_PERIOD_SURFACES: LazyLock<HashSet<&'static str>> = LazyLock::new
 /// `split_multiword_tokens` uses `.` as a split separator via
 /// `normalized_split_separator`. If `Dr.` reaches stage 3 intact,
 /// it becomes `Dr` + `.` (two tokens), and the subsequent
-/// utterance retokenizer (stage 6) splits on the trailing `.` —
+/// utterance retokenizer (stage 6) splits on the trailing `.`
 /// fragmenting the utterance mid-sentence.
 ///
 /// Stripping the period BEFORE stage 2 keeps `Dr` as a single
@@ -481,7 +481,7 @@ pub fn strip_english_title_periods_on_elements(
 /// flat word list: I-cap and title-period strip.
 ///
 /// These MUST run before the utterance retokenizer (stage 6),
-/// because retokenize splits on trailing `.` characters — if
+/// because retokenize splits on trailing `.` characters, if
 /// `Dr.` enters retokenize intact, the utterance gets sliced
 /// between `Dr` and the following word. Stripping the period
 /// here keeps `Dr` as a single token and preserves the
@@ -557,7 +557,7 @@ fn apply_title_period_strip_to_words(words: &mut [AsrWord]) {
 ///
 /// The "first real word" walk mirrors what a CHAT reader would do
 /// when capitalizing a sentence: skip any leading filler / markers
-/// that aren't content words. The rule is idempotent — if the
+/// that aren't content words. The rule is idempotent, if the
 /// first real word already starts with an uppercase letter
 /// (because of I-cap, or because the ASR emitted it that way),
 /// the rewrite is a no-op.
@@ -590,7 +590,7 @@ fn apply_utterance_initial_capitalization(utterances: &mut [Utterance]) {
 ///
 /// Skips:
 /// - Untranscribed CHAT markers (`xxx`, `yyy`, `www`).
-/// - Fillers (`&-um`), fragments (`&+go`), nonwords (`&~uh`) — the
+/// - Fillers (`&-um`), fragments (`&+go`), nonwords (`&~uh`), the
 ///   `&`-prefixed family is not regular capitalizable content.
 /// - Empty strings.
 /// - Pure punctuation / terminators.
@@ -795,7 +795,7 @@ mod tests {
     fn filler_uh_in_long_utterance_is_not_retraced() {
         // Raw ASR: "uh and uh uh you you can see it , leaves on the bushes ."
         // After disfluency: "&-uh and &-uh &-uh you you can see it , leaves on the bushes ."
-        // Expected: the three &-uh tokens are fillers, not retraces — only
+        // Expected: the three &-uh tokens are fillers, not retraces, only
         // the "you" repetition is a genuine retrace.
         let mut utts = vec![make_utt(
             0,

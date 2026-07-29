@@ -49,7 +49,7 @@ impl WorkerHandle {
             let bytes = match self.stdout.read_line(&mut line).await {
                 Ok(b) => b,
                 Err(io_err) => {
-                    // Pipe error (BrokenPipe, etc.) — worker likely crashed.
+                    // Pipe error (BrokenPipe, etc.), worker likely crashed.
                     // Drain stderr to capture the Python traceback before
                     // returning the error. Without this, BrokenPipe errors
                     // produce no diagnostic information.
@@ -122,7 +122,7 @@ impl WorkerHandle {
             WorkerResponse::Health { response } => response,
             WorkerResponse::Error { error, kind: _ } => {
                 // Health-check responses don't have a "bootstrap vs runtime"
-                // distinction at the application layer — any error here means
+                // distinction at the application layer, any error here means
                 // the worker isn't healthy.
                 return Err(WorkerError::HealthCheckFailed(error));
             }
@@ -310,7 +310,7 @@ impl WorkerHandle {
     /// The worker may emit zero or more `ProgressV2` JSON lines before the
     /// final `ExecuteV2` response.  Each progress event is sent through
     /// `progress_tx` (if provided) without blocking the read loop.  If the
-    /// channel is full or closed, progress events are dropped silently —
+    /// channel is full or closed, progress events are dropped silently
     /// losing a progress update is not an error.
     pub async fn execute_v2_with_progress(
         &mut self,

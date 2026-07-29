@@ -265,7 +265,7 @@ def _make_request_in_dir(thread_dir: Path, thread_index: int) -> ExecuteRequestV
     payload_path = thread_dir / "payload.json"
     audio_path = thread_dir / "audio.pcm"
     _write_payload(payload_path)
-    # Use 160 samples (10 ms of audio at 16 kHz) — enough to pass frame validation
+    # Use 160 samples (10 ms of audio at 16 kHz), enough to pass frame validation
     _write_pcm_f32le(audio_path, np.ones(160, dtype=np.float32) * 0.1)
     return ExecuteRequestV2(
         request_id=f"req-concurrent-{thread_index}",
@@ -305,18 +305,18 @@ def test_wave2vec_fa_requests_are_serialized_under_thread_pool(tmp_path: Path) -
     The torchaudio MMS_FA / forced_align kernel is not safe for concurrent CPU
     execution from multiple threads. When the Python GPU worker uses
     ``_serve_stdio_concurrent(max_threads=4)``, up to 4 requests can reach the
-    wave2vec runner simultaneously — causing SIGSEGV/SIGABRT in LibTorch that
+    wave2vec runner simultaneously: causing SIGSEGV/SIGABRT in LibTorch that
     kills the worker process and fails ALL pending file alignments in the job.
 
     Regression test for a production crash where a multi-file CA-corpus
     job failed alignment on most of its files because multiple threads
     entered the wave2vec runner concurrently.
 
-    RED (before fix): ``max_concurrent_calls > 1`` — multiple threads entered
+    RED (before fix): ``max_concurrent_calls > 1``, multiple threads entered
     the runner at the same time (confirmed by counter exceeding 1 while another
     thread was sleeping inside the runner).
 
-    GREEN (after fix): ``max_concurrent_calls == 1`` — the module-level
+    GREEN (after fix): ``max_concurrent_calls == 1``, the module-level
     ``_fa_inference_lock`` in ``execute_forced_alignment_request_v2`` serializes
     all FA backend calls so only one runner runs at any given moment.
     """

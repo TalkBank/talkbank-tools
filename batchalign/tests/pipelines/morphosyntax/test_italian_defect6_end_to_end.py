@@ -3,7 +3,7 @@ the six Italian Defect 6 / 7 mis-split cases handled by the
 reconciler in ``crates/batchalign/src/nlp/lang_it.rs``.
 
 Rust-side unit tests (``nlp::mapping::tests::test_italian_defect6_*``)
-exercise the reconciler on synthetic `UdSentence` fixtures — they
+exercise the reconciler on synthetic `UdSentence` fixtures, they
 confirm the reconciler correctly collapses a known MWT Range into
 a single Mor with overridden POS/lemma. This file closes the loop:
 real Stanza output flowing through the full production pipeline
@@ -18,7 +18,7 @@ the sibling ``test_preserve_mwt_end_to_end.py`` pattern.
 Why this pairing matters
 ------------------------
 A Rust unit-test pass does not prove the reconciler fires in
-production — the synthetic `UdSentence` built in tests bypasses
+production: the synthetic `UdSentence` built in tests bypasses
 Stanza entirely. The production path is:
 
   CHAT parse → extract words → batch_infer → Python worker → Stanza
@@ -42,7 +42,7 @@ import pytest
 
 # Minimal Italian CHAT covering the six allowlist entries:
 #
-# * ``parla`` (Defect 6 verb — 3sg indicative / 2sg imperative)
+# * ``parla`` (Defect 6 verb-3sg indicative / 2sg imperative)
 # * ``arancione`` (Defect 6 non-verb: noun)
 # * ``piccolo`` (Defect 6 non-verb: adjective)
 # * ``gomitolo`` (Defect 6 non-verb: noun)
@@ -119,7 +119,7 @@ def _mor_lines(output: str) -> list[str]:
 
 # Junk patterns Stanza's raw MWT mis-splits would produce if the
 # reconciler had NOT fired. Presence of any of these in the output
-# is a fail — this is what the reconciler is supposed to suppress.
+# is a fail; this is what the reconciler is supposed to suppress.
 JUNK_PATTERNS = [
     "verb|par~",      # parla → par + la (Defect 6 verb)
     "verb|arancio~",  # arancione → arancio + ne
@@ -134,23 +134,23 @@ JUNK_PATTERNS = [
 @pytest.mark.golden
 @pytest.mark.integration
 def test_parla_produces_verb_parlare(morphotag_output: str) -> None:
-    """`parla forte` must emit `v|parlare` (or `verb|parlare`) — not
+    """`parla forte` must emit `v|parlare` (or `verb|parlare`), not
     `verb|par~pron|la`."""
     lines = _mor_lines(morphotag_output)
     assert len(lines) >= 1, f"No %mor lines: {morphotag_output}"
-    # Find the utterance containing `parla` — should be utterance 0
+    # Find the utterance containing `parla`, should be utterance 0
     # (``parla forte .``) and utterance 5 (``la storia parla...``).
     parla_lines = [
         line for line in lines
         if "parlare" in line or "par~" in line
     ]
     assert parla_lines, (
-        f"No %mor line mentions parlare / par~ — unexpected.\n"
+        f"No %mor line mentions parlare / par~, unexpected.\n"
         f"Output:\n{morphotag_output}"
     )
     for line in parla_lines:
         assert "verb|par~" not in line, (
-            f"[parla] reconciler did not fire — got junk mis-split %mor:\n  {line}"
+            f"[parla] reconciler did not fire, got junk mis-split %mor:\n  {line}"
         )
 
 
@@ -219,7 +219,7 @@ def test_dammela_mid_sentence_becomes_verb(morphotag_output: str) -> None:
     # utterances to the fixture shifts `lines[-1]`.
     dammela_lines = [line for line in lines if "dare" in line or "dammelo" in line]
     assert dammela_lines, (
-        f"No %mor line mentions dare/dammelo — expected one from "
+        f"No %mor line mentions dare/dammelo, expected one from "
         f"`per favore dammela .`\nFull output:\n{morphotag_output}"
     )
     for line in dammela_lines:

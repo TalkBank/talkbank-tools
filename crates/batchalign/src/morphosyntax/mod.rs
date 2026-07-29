@@ -3,7 +3,7 @@
 //! Owns the full CHAT lifecycle for morphotag jobs:
 //! parse → clear → collect → infer → inject → serialize.
 //!
-//! Python workers receive only `(words, lang) → UdResponse` via the infer protocol —
+//! Python workers receive only `(words, lang) → UdResponse` via the infer protocol
 //! pure Stanza inference with zero CHAT awareness.
 //!
 //! # Call path
@@ -56,7 +56,7 @@ pub(crate) use worker::infer_batch;
 /// 1. Parse and pre-validate to `MainTierValid`.
 /// 2. Clear existing `%mor/%gra`.
 /// 3. Collect per-utterance payloads with language/special-form metadata.
-/// 4. Infer all utterances (no caching for text NLP — see
+/// 4. Infer all utterances (no caching for text NLP, see
 ///    `batchalign3/CLAUDE.md` "Utterance Cache" for the rationale).
 /// 5. Inject results.
 /// 6. Validate light alignment checks.
@@ -215,7 +215,7 @@ pub(crate) async fn process_morphosyntax_incremental(
         .collect();
 
     if needs_processing.is_empty() {
-        // Nothing to reprocess — all utterances preserved from "before"
+        // Nothing to reprocess, all utterances preserved from "before"
         if let Err(errors) = validate_output(&after_file, "morphotag") {
             let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
             warn!(errors = ?msgs, "morphotag post-validation warnings (non-fatal)");
@@ -439,7 +439,7 @@ mod tests {
         // The file has an utterance, but is_dummy tells the orchestrator to skip it
         assert!(
             !items.is_empty(),
-            "collect_payloads still collects from dummy files — the orchestrator is what gates on is_dummy"
+            "collect_payloads still collects from dummy files, the orchestrator is what gates on is_dummy"
         );
     }
 

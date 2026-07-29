@@ -2,21 +2,21 @@
 
 Stdio modes:
 
-- ``_serve_stdio()`` — sequential request/response, one at a time. Used by
+- ``_serve_stdio()``: sequential request/response, one at a time. Used by
   Stanza and IO profile workers where requests are CPU-bound and GIL-limited.
-- ``_serve_stdio_concurrent()`` — dispatches requests to a
+- ``_serve_stdio_concurrent()``: dispatches requests to a
   ``ThreadPoolExecutor``, enabling concurrent GPU inference. Used by GPU
   profile workers where PyTorch releases the GIL during computation, allowing
   real parallelism across threads sharing the same loaded models.
 
 TCP modes (persistent daemon workers):
 
-- ``_serve_tcp()`` — sequential request/response over a TCP socket.
-- ``_serve_tcp_concurrent()`` — concurrent GPU dispatch over a TCP socket.
+- ``_serve_tcp()``: sequential request/response over a TCP socket.
+- ``_serve_tcp_concurrent()``: concurrent GPU dispatch over a TCP socket.
 
 TCP workers listen on ``(host, port)``, accept one connection at a time (the
 Rust server reconnects on drop), and use the same JSON-lines protocol as
-stdio. The only difference is the transport — all dispatch logic is shared.
+stdio. The only difference is the transport, all dispatch logic is shared.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def _registry_ownership_from_env() -> tuple[str, str, int | None]:
 # Bootstrap-vs-request stdout discipline.
 #
 # The Rust supervisor reads exactly one JSON line from worker stdout during
-# the handshake — the ready signal `{"ready": true, "pid": N, "transport": ...}`.
+# the handshake: the ready signal `{"ready": true, "pid": N, "transport": ...}`.
 # Anything else on the first line fails the handshake with
 # "invalid ready JSON: missing field `ready`". So during the
 # pre-ready window (model loading, catalog bootstrap, language-pack
@@ -126,10 +126,10 @@ def _write_error(message: str, kind: str = "runtime") -> None:
 
     Two kinds:
 
-    - ``"runtime"`` (default) — per-request failure that may succeed on
+    - ``"runtime"`` (default): per-request failure that may succeed on
       retry (transient resource state, malformed input, external-API
       hiccup). The orchestrator's retry policy may attempt up to 3×.
-    - ``"bootstrap"`` — deterministic model-load / catalog-download /
+    - ``"bootstrap"``: deterministic model-load / catalog-download /
       package-import failure that will recur identically across retries.
       The Rust side classifies these as terminal at the worker layer.
 
@@ -146,7 +146,7 @@ def _write_error(message: str, kind: str = "runtime") -> None:
 def _classify_dispatch_exception(exc: BaseException) -> str:
     """Return ``"bootstrap"`` for typed bootstrap-class exceptions, else ``"runtime"``.
 
-    The set of bootstrap-class exception types is small and stable —
+    The set of bootstrap-class exception types is small and stable
     every typed error raised by a model-load / catalog-download path
     inherits from one of the named classes here. New bootstrap-class
     error types added to the worker must extend this match.
@@ -179,7 +179,7 @@ def _print_ready() -> None:
 
     Flips the ``_handshake_complete`` flag so subsequent ``progress_v2``
     emissions go through the normal stdout path. Pre-ready emissions get
-    redirected to stderr — see ``write_progress_event`` for the rationale.
+    redirected to stderr: see ``write_progress_event`` for the rationale.
     """
     global _handshake_complete
     _write_json({"ready": True, "pid": os.getpid(), "transport": "stdio"})
@@ -199,7 +199,7 @@ def _serve_stdio() -> None:
     full traceback to ``server.log`` per attempt. For deterministic
     bootstrap failures (e.g., a missing Stanza catalog), this could
     generate hundreds of GB of log spam in a single day on a long-running
-    daemon — the orchestrator never broke out of the retry loop.
+    daemon: the orchestrator never broke out of the retry loop.
     """
     for raw_line in sys.stdin:
         line = raw_line.strip()
@@ -214,7 +214,7 @@ def _serve_stdio() -> None:
 
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001 — we WANT broad catch here
+        except BaseException as exc:  # noqa: BLE001; we WANT broad catch here
             kind = _classify_dispatch_exception(exc)
             # Log full traceback once for diagnostics; emit a single
             # structured error line back to the orchestrator. Do NOT let
@@ -231,7 +231,7 @@ def _serve_stdio() -> None:
             # partially-initialized state; safest to exit so the pool
             # tears the worker down. The Rust side classifies the typed
             # error as non-retryable, so this exit does NOT produce a
-            # retry storm — unlike the pre-fix path that retried every
+            # retry storm: unlike the pre-fix path that retried every
             # worker exit-1 as a transient crash.
             if kind == "bootstrap":
                 break
@@ -260,13 +260,13 @@ def _serve_stdio_concurrent(max_threads: int = 4) -> None:
         # shutdown (bootstrap error, explicit shutdown op, or a write
         # failure). Without this gate, every in-flight task that the
         # main thread already submitted before bootstrap fires would
-        # still run dispatch and emit additional error envelopes —
+        # still run dispatch and emit additional error envelopes
         # noisy and racy.
         if shutdown_event.is_set():
             return
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001 — see _serve_stdio above
+        except BaseException as exc:  # noqa: BLE001, see _serve_stdio above
             kind = _classify_dispatch_exception(exc)
             import traceback
 
@@ -367,14 +367,14 @@ def _handle_tcp_connection_sequential(
 
             try:
                 dispatch = dispatch_protocol_message(message)
-            except BaseException as exc:  # noqa: BLE001 — see _serve_stdio
+            except BaseException as exc:  # noqa: BLE001, see _serve_stdio
                 # Mirrors the stdio handler's contract: catch every dispatch
                 # exception, classify against typed bootstrap error types,
                 # emit a structured ``{"op":"error", "kind":...}`` envelope.
                 # Without this, a bootstrap-class failure on a TCP-mode
                 # worker would propagate up, kill the connection handler,
                 # and the orchestrator would see a closed socket rather
-                # than a typed error — bypassing the entire
+                # than a typed error, bypassing the entire
                 # bootstrap-vs-runtime classification machinery.
                 kind = _classify_dispatch_exception(exc)
                 import sys
@@ -435,7 +435,7 @@ def _handle_tcp_connection_concurrent(
             return
         try:
             dispatch = dispatch_protocol_message(message)
-        except BaseException as exc:  # noqa: BLE001 — see _serve_stdio
+        except BaseException as exc:  # noqa: BLE001, see _serve_stdio
             # Same exception-shielding contract as the sequential TCP
             # handler. Classification + structured emit + bootstrap-on-
             # shutdown_event.
@@ -517,7 +517,7 @@ def _serve_tcp(
 
     Listens on ``(host, port)``, accepts one connection at a time, and serves
     requests sequentially. When the connection closes (Rust server restarts or
-    disconnects), the worker waits for a new connection — it persists across
+    disconnects), the worker waits for a new connection, it persists across
     server restarts.
 
     Registers itself in ``workers.json`` on startup and removes itself on

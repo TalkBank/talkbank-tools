@@ -191,7 +191,7 @@ Primary model (English Stanza) produces for `muy`:
 | deprel | `amod` or `advmod` | **Yes** |
 | head | 4 (`nice`) | **Yes** |
 | lemma | `muy` (identity) | No |
-| feats | — | No |
+| feats |: | No |
 
 **Deprel constraint:** `advmod → {ADV}`: exactly one candidate.
 
@@ -375,7 +375,7 @@ where Priority 0 is implemented. Result on German-English input:
 |------|---------------------|--------------------|
 | `ich möchte wake@s up@s jetzt .` | `... verb\|wake adp\|up adv\|jetzt .` | `... verb\|wake-Fin-Imp-S part\|up adv\|jetzt .` |
 | `die kinder give@s up@s immer .` | `... adv\|give adp\|up adv\|immer .` | `... verb\|give-Fin-Imp-S part\|up adv\|immer .` |
-| `die zeit ist time@s out@s .` | `... noun\|time adp\|out .` | `... noun\|time adp\|out .` (unchanged — correctly a compound noun, not a phrasal verb) |
+| `die zeit ist time@s out@s .` | `... noun\|time adp\|out .` | `... noun\|time adp\|out .` (unchanged, correctly a compound noun, not a phrasal verb) |
 
 The particle's `%gra` deprel is `COMPOUND-PRT`. Test coverage for the fix:
 
@@ -586,7 +586,7 @@ The implementation landed in four chunks:
 | Date | Commit scope | What |
 |------|--------------|------|
 | (initial) | `feat: experimental L2 morphotag for @s code-switched words` | Core merge algorithm with POS priority chain and contiguous span dispatch. Feature gated behind `--experimental-l2-morphotag` (now removed). |
-| (later) | `feat: L2 morphotag + retokenize MWT fix — full contraction expansion` | Three MWT bug fixes (English added to `MWT_LANGS`, Rust Range-token filter, expanded mapping for Retokenize path). L2 dispatch flipped to `retokenize=true` so clitics expand. |
+| (later) | `feat: L2 morphotag + retokenize MWT fix, full contraction expansion` | Three MWT bug fixes (English added to `MWT_LANGS`, Rust Range-token filter, expanded mapping for Retokenize path). L2 dispatch flipped to `retokenize=true` so clitics expand. |
 | (later) | `feat(l2): phrasal-verb merge via compound:prt` | Priority 0 added to `resolve_merged_pos_with_context`. Secondary UD sentence threaded through merge. `compound:prt` head promotes to VERB; particle promotes to PART with correct GRA deprel. |
 | (later) | `feat(l2): flip L2 dispatch to default-on` | Renamed `--experimental-l2-morphotag` to `--no-l2-morphotag` (inverted semantic). Default behavior is now L2 dispatch on. |
 

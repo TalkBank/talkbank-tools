@@ -4,12 +4,12 @@
 //!
 //! Two independent walkers define "Mor-alignable" today:
 //!
-//! 1. `talkbank_model::model::Utterance::mor_alignable_word_count()` — a
+//! 1. `talkbank_model::model::Utterance::mor_alignable_word_count()`: a
 //!    method that delegates to
 //!    `talkbank_model::alignment::helpers::count_tier_positions`, which
 //!    has its own recursive walker over `UtteranceContent` /
 //!    `BracketedItem`.
-//! 2. `batchalign::chat_ops::extract::collect_utterance_content` — a
+//! 2. `batchalign::chat_ops::extract::collect_utterance_content`: a
 //!    separate walker built on `walk_words`, applying
 //!    `counts_for_tier` + `is_tag_marker_separator` per leaf.
 //!
@@ -110,7 +110,7 @@ fn mor_alignable_count_parity_across_reference_corpus() {
     for path in &files {
         let Some(chat) = parse_file(&parser, path) else {
             // A few reference-corpus files are intentionally malformed
-            // (parser-error fixtures). Skip them rather than fail —
+            // (parser-error fixtures). Skip them rather than fail
             // this test is about alignment parity on parseable content.
             continue;
         };

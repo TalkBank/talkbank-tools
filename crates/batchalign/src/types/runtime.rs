@@ -1,4 +1,4 @@
-//! Runtime constants — loaded from `runtime_constants.toml` at compile time.
+//! Runtime constants: loaded from `runtime_constants.toml` at compile time.
 //!
 //! Command-to-task mapping, memory budgets, and command classification.
 //! The TOML file is the single source of truth shared with Python.
@@ -48,7 +48,7 @@ struct MemoryConstants {
 }
 
 // The gpu_heavy_commands TOML section is deserialized to validate the TOML at startup,
-// but the Rust accessor is gone — classification now comes from COMMAND_SPECS in
+// but the Rust accessor is gone, classification now comes from COMMAND_SPECS in
 // batchalign-types. Python still reads this section directly at import time.
 // Task 5 codegen will project it from COMMAND_SPECS so the TOML stays in sync.
 #[derive(Deserialize)]
@@ -60,7 +60,7 @@ struct GpuHeavy {
 // Note: [process_commands] section is intentionally not deserialized here.
 // Python reads it from runtime_constants.toml directly for GIL-aware dispatch
 // classification. Rust selects process vs. threaded budgets via
-// `is_free_threaded_runtime()` — see `command_execution_budget_mb()`.
+// `is_free_threaded_runtime()`: see `command_execution_budget_mb()`.
 
 #[derive(Deserialize)]
 struct CommandBaseMb {
@@ -73,7 +73,7 @@ struct KnownEngineKeys {
     keys: Vec<String>,
 }
 
-// Compile-time-constant embedded TOML — structurally validated by the test suite.
+// Compile-time-constant embedded TOML: structurally validated by the test suite.
 #[allow(clippy::expect_used)]
 static CONSTANTS: LazyLock<RuntimeConstants> =
     LazyLock::new(|| toml::from_str(TOML_SRC).expect("runtime_constants.toml must be valid TOML"));
@@ -132,7 +132,7 @@ pub fn max_thread_workers() -> usize {
     CONSTANTS.worker_caps.max_thread_workers
 }
 
-/// Per-command base memory (MB) — non-free-threaded (process workers).
+/// Per-command base memory (MB), non-free-threaded (process workers).
 pub fn command_base_mb_process() -> HashMap<&'static str, MemoryMb> {
     CONSTANTS
         .command_base_mb
@@ -142,7 +142,7 @@ pub fn command_base_mb_process() -> HashMap<&'static str, MemoryMb> {
         .collect()
 }
 
-/// Per-command base memory (MB) — free-threaded (thread workers, shared models).
+/// Per-command base memory (MB), free-threaded (thread workers, shared models).
 pub fn command_base_mb_threaded() -> HashMap<&'static str, MemoryMb> {
     CONSTANTS
         .command_base_mb
@@ -166,7 +166,7 @@ pub fn default_base_mb() -> MemoryMb {
 /// of the model; the threaded table accounts for workers sharing one model via
 /// OS threads on free-threaded Python 3.14t.
 ///
-/// The loading-overhead factor applies to both tables — requests carry transient
+/// The loading-overhead factor applies to both tables, requests carry transient
 /// tensor buffers even when the base model weights are shared.
 pub fn command_execution_budget_mb(command: &str) -> MemoryMb {
     let table = if is_free_threaded_runtime() {
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn toml_parses_successfully() {
-        // Force LazyLock initialization — panics if TOML is malformed.
+        // Force LazyLock initialization: panics if TOML is malformed.
         let _ = cmd2task();
     }
 
@@ -373,11 +373,11 @@ mod tests {
     }
 
     // -------------------------------------------------------------
-    // tier_aware_command_execution_budget_mb — Layer 3 fix.
+    // tier_aware_command_execution_budget_mb: Layer 3 fix.
     //
     // The fleet-conservative `command_execution_budget_mb` returns
     // 12000 MB for morphotag (8000 base × 1.5 loading overhead).
-    // On a 16 GB laptop that's 75% of physical RAM — too big a
+    // On a 16 GB laptop that's 75% of physical RAM, too big a
     // single-job envelope, the host_memory coordinator refuses
     // worker spawn before any actual work happens. The tier-aware
     // variant clamps the worst-case to the tier's per-profile
@@ -469,7 +469,7 @@ mod tests {
         // plan_job_reservation lives in host_memory.rs; reproduce its
         // math here so the test is self-contained without
         // cross-module wiring. The bug we're fixing is upstream of
-        // plan_job_reservation — the BUDGET it receives.
+        // plan_job_reservation: the BUDGET it receives.
         let available_mb = 13_902u64;
         let reserve_mb = 2_048u64;
         let pending_reserved_mb = 0u64;
@@ -496,9 +496,9 @@ mod tests {
     /// in legitimate unrelated contexts (audio sample rates, byte buffers).
     ///
     /// Allowlisted definition sites:
-    ///   - `crates/batchalign-types/src/memory.rs` — canonical `MemoryTier` struct
+    ///   - `crates/batchalign-types/src/memory.rs`: canonical `MemoryTier` struct
     ///     (moved from `crates/batchalign/src/types/runtime.rs` in Phase β Task 2).
-    ///   - `crates/batchalign/src/types/config/server.rs` — operator-override
+    ///   - `crates/batchalign/src/types/config/server.rs`: operator-override
     ///     fields on `RuntimeOverridesConfig` (flow INTO `MemoryTier`, not parallel to it).
     ///
     /// The scan is scoped to `batchalign/src` so the canonical definition in
@@ -520,12 +520,12 @@ mod tests {
         // (b) Scan production sources in batchalign/src for parallel definitions.
         //
         // Resolve paths via a workspace-marker walk rather than a fixed
-        // `../../` traversal — the latter breaks if the crate ever moves.
+        // `../../` traversal: the latter breaks if the crate ever moves.
         // The marker is the workspace Cargo.toml containing `[workspace]`.
         let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let src_root = crate_root.join("src");
         let workspace_root = find_workspace_root(&crate_root)
-            .expect("workspace root not found — Cargo.toml with [workspace] absent above CARGO_MANIFEST_DIR");
+            .expect("workspace root not found: Cargo.toml with [workspace] absent above CARGO_MANIFEST_DIR");
 
         // Definition-shape regex: matches top-level fn/const/static or `pub` struct
         // fields named *_startup_mb (gpu, stanza, or io). Field-access expressions
@@ -548,7 +548,7 @@ mod tests {
             .output()
             .expect("ripgrep must be installed and on PATH for this test");
 
-        // ripgrep exits 1 when there are no matches — that is the expected state.
+        // ripgrep exits 1 when there are no matches; that is the expected state.
         // Exit 0 means matches were found, which is a regression.
         if output.status.success() {
             let matches = String::from_utf8_lossy(&output.stdout);

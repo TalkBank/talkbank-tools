@@ -68,7 +68,7 @@ class HistoryStats:
         if self.total <= 0:
             # Freshly-added test. Sort after zero-fail-has-history but
             # before never-observed-at-all (which don't appear in the
-            # dict at all — see ``order_by_priority``).
+            # dict at all: see ``order_by_priority``).
             return -1.0
         denom = max(self.avg_duration_s, _DURATION_EPSILON)
         return self.fail_rate / denom
@@ -78,7 +78,7 @@ def load_stats(db_path: Path, since_ts: int) -> dict[str, HistoryStats]:
     """Aggregate pytest test runs in the window ``ts >= since_ts``.
 
     Returns ``{test_id: HistoryStats}``. An empty dict when the DB file
-    does not exist — the first-ever run has nothing to read, and
+    does not exist: the first-ever run has nothing to read, and
     callers should fall back to collection order.
     """
     if not db_path.exists():
@@ -118,12 +118,12 @@ def order_by_priority(
 
     Tests not in ``stats`` (no history rows) preserve their relative
     original order and land AFTER every test with history. This
-    gives fresh tests a neutral position — they won't be front-loaded
+    gives fresh tests a neutral position, they won't be front-loaded
     (no failure signal) and won't starve (they still run in the
     same invocation).
 
-    Python's ``sorted`` is stable, so ties in priority — including
-    the "no history" bucket — keep their original relative order.
+    Python's ``sorted`` is stable, so ties in priority, including
+    the "no history" bucket: keep their original relative order.
     Callers get deterministic output for deterministic input.
     """
     id_list = list(test_ids)
@@ -133,10 +133,10 @@ def order_by_priority(
     def key(indexed: tuple[int, str]) -> tuple[float, int]:
         i, tid = indexed
         s = stats.get(tid)
-        # The key is sorted ASCENDING — smaller = earlier in the run.
+        # The key is sorted ASCENDING, smaller = earlier in the run.
         # We want "highest priority first," so we negate priority.
         # No history matches HistoryStats(total=0).priority = -1.0, so its
-        # negated key is +1.0 — larger than any real fail_rate-derived
+        # negated key is +1.0, larger than any real fail_rate-derived
         # key, which puts no-history tests at the end of the queue.
         negated_priority = -s.priority if s is not None else 1.0
         return (negated_priority, i)

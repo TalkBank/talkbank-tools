@@ -1,4 +1,4 @@
-//! Crash recovery — reload persisted jobs from SQLite on startup.
+//! Crash recovery: reload persisted jobs from SQLite on startup.
 
 use std::collections::HashMap;
 

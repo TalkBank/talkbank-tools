@@ -31,7 +31,7 @@ _ASR_ENV_KEYS: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Cantonese normalization — delegated to Rust (batchalign_core)
+# Cantonese normalization: delegated to Rust (batchalign_core)
 # ---------------------------------------------------------------------------
 
 def normalize_cantonese_text(text: str) -> str:

@@ -1,4 +1,4 @@
-//! `WorkerPool` — manages multiple Python worker processes.
+//! `WorkerPool`: manages multiple Python worker processes.
 //!
 //! Workers are keyed by `(bootstrap target, lang, engine overrides)`.
 //! Large hosts may use shared profile targets such as `profile:gpu`, while
@@ -19,7 +19,7 @@
 //! to the pool on drop.
 //!
 //! This eliminates the previous `Arc<tokio::sync::Mutex<WorkerHandle>>` pattern
-//! where a tokio mutex was held for 10–300 seconds during dispatch.
+//! where a tokio mutex was held for 10-300 seconds during dispatch.
 //!
 //! ## Module layout
 //!
@@ -112,7 +112,7 @@ pub enum WarmupStatus {
     /// No warmup has been requested yet (initial state).
     #[default]
     NotStarted,
-    /// Warmup is running — workers are being spawned in the background.
+    /// Warmup is running: workers are being spawned in the background.
     InProgress,
     /// All requested warmup spawns have finished (or none were requested).
     Complete,
@@ -296,7 +296,7 @@ impl PoolConfig {
 }
 
 // ---------------------------------------------------------------------------
-// WorkerGroup — per (profile, lang) key
+// WorkerGroup, per (profile, lang) key
 // ---------------------------------------------------------------------------
 
 /// A group of workers for a single `(profile, lang)` key.
@@ -360,7 +360,7 @@ pub(super) struct WorkerGroup {
     /// (`CheckedOutWorker::take`, eviction, the health-check reaper,
     /// shutdown drain) can refund global-cap admission slots without
     /// reaching back to the owning [`WorkerPool`]. All groups share
-    /// the same `Semaphore` instance — it represents the pool-wide
+    /// the same `Semaphore` instance, it represents the pool-wide
     /// `max_total_workers` budget, not per-key capacity. Released
     /// once per `group.total.fetch_sub(1)` increment.
     pub(super) spawn_permits: Arc<Semaphore>,
@@ -504,7 +504,7 @@ pub struct WorkerPool {
     /// `lifecycle.rs::try_claim_spawn_slot` at the live-CPU gate
     /// (Layer 0). Monotonic; never decreases. Unlike the other
     /// rejection counters, a high value here means the host itself
-    /// is the bottleneck — no amount of worker recycling will
+    /// is the bottleneck, no amount of worker recycling will
     /// unblock admission. See `worker/pool/cpu_gate.rs`.
     pub(super) cpu_saturation_rejections_total: AtomicU64,
     /// Total times `try_claim_spawn_slot` refused a spawn because
@@ -546,7 +546,7 @@ pub struct PoolMetrics {
     /// Available permits in the global-cap admission semaphore. Equal
     /// to `max_total_workers - active_workers_total` in steady state
     /// (with brief windows during spawn/shutdown where they differ by
-    /// at most one). Reading this is cheap — `Semaphore::available_permits()`.
+    /// at most one). Reading this is cheap, `Semaphore::available_permits()`.
     pub permits_available: usize,
     /// Total times a spawn attempt was rejected at the global-cap
     /// permit acquisition (post-refactor counterpart to
@@ -686,13 +686,13 @@ impl WorkerPool {
     /// SIGKILLs any survivors. The worker process dies, its IPC future
     /// errors out (BrokenPipe / ProcessExited), the dispatch caller
     /// propagates the error, and the runner sees cancel at the next
-    /// loop iteration — instead of waiting for the in-flight call
+    /// loop iteration: instead of waiting for the in-flight call
     /// (which can be 8-25 minutes for a Whisper-CPU pass on a long
     /// audio file) to complete naturally.
     ///
     /// Worker PIDs currently dispatching for `job_id`. Narrow
     /// read-only accessor for integration tests that need to wait
-    /// for dispatch registration before firing a cancel — the
+    /// for dispatch registration before firing a cancel, the
     /// alternative (sleeping a fixed duration) is flaky on slow
     /// hosts. Runtime callers use `shutdown_workers_for_job`.
     #[doc(hidden)]
@@ -881,7 +881,7 @@ mod default_pool_config_tests {
     use super::*;
 
     /// `PoolConfig::default()` must produce concrete numeric values rather
-    /// than a sentinel that routes to a sysinfo probe at runtime —
+    /// than a sentinel that routes to a sysinfo probe at runtime
     /// production fills the field from `EffectiveConfig` and tests must
     /// be deterministic across machines.
     #[test]
@@ -1069,7 +1069,7 @@ mod default_pool_config_tests {
         let pool = WorkerPool::new(PoolConfig {
             max_workers_per_key: PerProfile::uniform(8),
             max_total_workers: 1,
-            // Disable Layer 0 — see the parallel test fixture above.
+            // Disable Layer 0: see the parallel test fixture above.
             cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
@@ -1104,7 +1104,7 @@ mod default_pool_config_tests {
         let pool = WorkerPool::new(PoolConfig {
             max_workers_per_key: PerProfile::uniform(1),
             max_total_workers: 8,
-            // Disable Layer 0 — see the parallel test fixture above.
+            // Disable Layer 0: see the parallel test fixture above.
             cpu_gate_threshold_override: Some(f64::INFINITY),
             ..Default::default()
         });
@@ -1114,7 +1114,7 @@ mod default_pool_config_tests {
 
         let permits_before = pool.metrics_snapshot().permits_available;
         // First claim succeeds. We immediately drop the returned guard
-        // so the permit refunds back to the pool — what we want to
+        // so the permit refunds back to the pool, what we want to
         // exercise next is that a per-key cap rejection ALSO refunds.
         let first = pool.try_claim_spawn_slot(&group).expect("first claim");
         drop(first);
@@ -1242,7 +1242,7 @@ mod default_pool_config_tests {
                 prop_assert_eq!(
                     active + permits,
                     PROPTEST_MAX_TOTAL,
-                    "after op #{}: invariant violated — active={} permits={} max={}; op={:?}",
+                    "after op #{}: invariant violated, active={} permits={} max={}; op={:?}",
                     i,
                     active,
                     permits,

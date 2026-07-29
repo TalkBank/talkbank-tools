@@ -85,7 +85,7 @@ impl WorkerPool {
         permit.forget();
 
         let Some(handle) = lock_recovered(&victim_group.idle).pop_front() else {
-            // Permit without a matching idle worker — restore the
+            // Permit without a matching idle worker, restore the
             // invariant (permits == idle.len()) and bail.
             victim_group.available.add_permits(1);
             return EvictionOutcome::NoIdleElsewhere;

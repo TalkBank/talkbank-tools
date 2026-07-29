@@ -36,7 +36,7 @@ tokens without word boundaries, the same problem that affects Cantonese.
 ### The `--retokenize` Solution
 
 ```bash
-# Morphotag has no --lang flag — Mandarin files are detected from each
+# Morphotag has no --lang flag, Mandarin files are detected from each
 # file's @Languages: cmn (or zho) header.
 batchalign3 morphotag --retokenize corpus/ -o output/
 ```

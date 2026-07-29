@@ -281,7 +281,7 @@ fn test_process_raw_asr_golden_simple() {
     assert_eq!(utts.len(), 2);
 
     // First utterance: Hello world .
-    // (Utterance-initial cap fires on English — rule landed 2026-04-23.)
+    // (Utterance-initial cap fires on English, rule landed 2026-04-23.)
     assert_eq!(utts[0].words[0].text, "Hello");
     assert_eq!(utts[0].words[0].start_ms, Some(0));
     assert_eq!(utts[0].words[1].text, "world");
@@ -901,7 +901,7 @@ fn split_pipeline_expands_currency_tokens() {
     let mut split_result = Vec::new();
     for monologue in &output.monologues {
         let mut words = prepare_words_pre_expansion(&monologue.elements, "eng");
-        // No Python expansion — currency is Rust-only.
+        // No Python expansion: currency is Rust-only.
         // Simulate what the pipeline does: call expand_number on each word.
         for word in &mut words {
             let text = word.text.as_str();
@@ -952,7 +952,7 @@ fn sanitize_drops_bare_chat_separator_tokens() {
 #[test]
 fn sanitize_preserves_valid_words_unchanged() {
     use super::cleanup::sanitize_chat_illegal_word_chars;
-    // A well-formed input must round-trip identically — sanitization
+    // A well-formed input must round-trip identically, sanitization
     // is a no-op when the oracle accepts every token. This pins that
     // the pass doesn't accidentally re-encode legitimate input.
     let words = vec![
@@ -972,7 +972,7 @@ fn sanitize_strips_chat_illegal_chars_from_word_internals() {
     // a token whose interior contains chars the grammar rejects
     // (Tibetan + Greek + math symbols glued to ASCII letters). The
     // whole token fails `ChatWordText::try_from`, triggering the
-    // greedy rebuild — keeps each char only if appending it leaves
+    // greedy rebuild: keeps each char only if appending it leaves
     // the accumulated prefix CHAT-legal.
     let words = vec![AsrWord::new("ཌྷᾱ≡ᾱworld", Some(0), Some(700))];
     let result = sanitize_chat_illegal_word_chars(words);
@@ -980,10 +980,10 @@ fn sanitize_strips_chat_illegal_chars_from_word_internals() {
     let sanitized = result[0].text.as_str();
     assert_ne!(
         sanitized, "ཌྷᾱ≡ᾱworld",
-        "the original token must have been modified — it doesn't \
+        "the original token must have been modified, it doesn't \
          pass `ChatWordText::try_from` as-is"
     );
-    // The sanitized form must itself be CHAT-legal — that's the
+    // The sanitized form must itself be CHAT-legal, that's the
     // postcondition the greedy rebuild guarantees.
     assert!(
         super::ChatWordText::try_from(sanitized).is_ok(),
@@ -1002,11 +1002,11 @@ fn sanitize_does_not_strip_currency_or_percent_tokens() {
     // AFTER number expansion, so by the time it sees inputs, those
     // tokens are already rewritten to word form. This test pins
     // that contract: the bare numeric tokens DO get sanitized by
-    // this pass — confirming why pipeline placement matters and
+    // this pass: confirming why pipeline placement matters and
     // documenting the ordering invariant.
     let words = vec![AsrWord::new("$12", Some(0), Some(500))];
     let result = sanitize_chat_illegal_word_chars(words);
-    // $12 is not a valid standalone CHAT word — sanitization at
+    // $12 is not a valid standalone CHAT word, sanitization at
     // this layer would strip it. The PIPELINE places this pass
     // after expansion, so production never sees this case. This
     // assertion documents the helper's per-token behavior, NOT the

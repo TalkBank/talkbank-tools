@@ -19,7 +19,7 @@ use tracing::warn;
 ///
 /// `fallback_lang` is consulted only when the worker's response carries
 /// an empty language string. Pass `Some(code)` for `Resolved(code)` jobs;
-/// pass `None` for `Auto` jobs — in which case an empty worker response
+/// pass `None` for `Auto` jobs, in which case an empty worker response
 /// becomes a typed error rather than a silent eng substitution.
 pub fn parse_asr_response_v2(
     response: &ExecuteResponseV2,

@@ -119,7 +119,7 @@ sequenceDiagram
 
     T1->>Sem: acquire (granted)
     T2->>Sem: acquire (granted)
-    T3->>Sem: acquire (waiting — no timer running yet)
+    T3->>Sem: acquire (waiting, no timer running yet)
     T1->>Worker: pending.insert + stdin.write + tokio::time::timeout START
     T2->>Worker: pending.insert + stdin.write + tokio::time::timeout START
     Worker->>Py: execute_v2 (id=1, id=2)
@@ -302,7 +302,7 @@ order before returning any error:
    in parallel. On wakeup, retry eviction (now backed by the freshly
    returned idle worker) and spawn.
 3. **On deadline**, return
-   `Err(WorkerError::SpawnFailed("no worker available for {target}/{lang} within {secs}s — pool saturated with no idle workers to evict"))`.
+   `Err(WorkerError::SpawnFailed("no worker available for {target}/{lang} within {secs}s, pool saturated with no idle workers to evict"))`.
    Genuine starvation case (every worker checked out and busy, no
    returns for 5 minutes); propagates to the orchestrator which
    turns it into a per-file error, never a silent empty tier.

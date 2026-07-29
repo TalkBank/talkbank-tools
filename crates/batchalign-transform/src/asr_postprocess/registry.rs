@@ -1,4 +1,4 @@
-//! Per-language number-expansion registry — Layer 1 of the
+//! Per-language number-expansion registry: Layer 1 of the
 //! number-expansion rework documented in
 //! `book/src/architecture/number-expansion.md`.
 //!
@@ -10,7 +10,7 @@
 //!
 //! Adding a language is one line in [`NUMBER_EXPANDERS`]. Removing
 //! coverage is one line. Documenting that we know a language has
-//! no expansion path is one line — `NoCoverage { tracked_in: ... }`
+//! no expansion path is one line, `NoCoverage { tracked_in: ... }`
 //! makes the gap a first-class concept instead of a silent
 //! fallthrough that surfaces as E220 at validation time.
 
@@ -29,7 +29,7 @@ pub enum NumberExpander {
     /// `Copy`; the actual table lives in the `LazyLock`.
     RustTable,
     /// CJK numerals via [`num2chinese`](super::num2chinese::num2chinese).
-    /// Script is part of the variant — Simplified for
+    /// Script is part of the variant, Simplified for
     /// `zho` / `cmn`, Traditional for `jpn` / `yue` (CANTONESE-SPECIFIC).
     Num2Chinese(ChineseScript),
     /// Language allows Arabic digits in CHAT per the validator
@@ -41,7 +41,7 @@ pub enum NumberExpander {
     /// tracking issue / TODO so the next contributor can pick up
     /// the work without re-deriving why it's unhandled.
     ///
-    /// Distinct from "language not in registry" — that's an
+    /// Distinct from "language not in registry", that's an
     /// untracked omission that should fail loud at registration
     /// audit time, not silently no-op.
     NoCoverage {
@@ -63,7 +63,7 @@ pub static NUMBER_EXPANDERS: LazyLock<HashMap<&'static str, NumberExpander>> =
     LazyLock::new(|| {
         let mut m = HashMap::new();
 
-        // CJK — Rust-side num2chinese, never touches the codegen tables.
+        // CJK: Rust-side num2chinese, never touches the codegen tables.
         m.insert(
             "zho",
             NumberExpander::Num2Chinese(ChineseScript::Simplified),
@@ -108,7 +108,7 @@ pub static NUMBER_EXPANDERS: LazyLock<HashMap<&'static str, NumberExpander>> =
     });
 
 /// Resolve the expander for one language. Returns `None` for
-/// languages not in the registry — caller decides whether that's
+/// languages not in the registry, caller decides whether that's
 /// a hard error (preflight) or a silent passthrough (legacy
 /// dispatch). The Layer 1 rework will treat unknown-language as
 /// hard-fail at submission preflight.
@@ -167,8 +167,8 @@ mod tests {
         }
     }
 
-    /// Malayalam — the language that motivated the Layer 1 rework
-    /// — must resolve to RustTable since num2words has no `ml`
+    /// Malayalam: the language that motivated the Layer 1 rework
+    ///: must resolve to RustTable since num2words has no `ml`
     /// backend and the hand-curated entries live in NUM2LANG.
     #[test]
     fn malayalam_routes_rust_table() {

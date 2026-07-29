@@ -20,8 +20,8 @@
 //! Pydantic V2 models in `_types_v2.py` enforce upstream validation:
 //! non-finite values (NaN, ±Inf) are rejected, and reversed ranges
 //! (`start > end`) are rejected via `@model_validator`.  Rust deserializes
-//! these fields permissively — `serde_json` will accept any valid JSON number
-//! — because the Python worker has already sanitised the data before it
+//! these fields permissively: `serde_json` will accept any valid JSON number
+//!, because the Python worker has already sanitised the data before it
 //! reaches the wire.  If a new producer is added that bypasses Python
 //! validation, Rust-side checks must be added to the affected structs.
 
@@ -399,7 +399,7 @@ pub struct AsrRequestV2 {
     /// `{"asr":"qwen","qwen_model":"Qwen/Qwen3-ASR-0.6B"}` would otherwise
     /// be silently truncated to `{"asr":"qwen"}` at this typed boundary,
     /// and the worker would default to the 1.7B model regardless of what
-    /// the user asked for — the bug fixed 2026-05-27. The `#[serde(default)]`
+    /// the user asked for, the bug fixed 2026-05-27. The `#[serde(default)]`
     /// keeps older daemons that don't emit the field forward-compatible.
     #[serde(
         default,
@@ -639,7 +639,7 @@ impl TaskRequestV2 {
                     1800
                 }
             }
-            // Lightweight audio analysis — 120s is sufficient.
+            // Lightweight audio analysis: 120s is sufficient.
             Self::Opensmile(_) | Self::Avqi(_) => {
                 if analysis_timeout_s > 0 {
                     analysis_timeout_s

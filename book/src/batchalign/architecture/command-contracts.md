@@ -399,8 +399,8 @@ Runner receives file
 | Command | Min Level | Additional Preconditions |
 |---------|-----------|--------------------------|
 | `morphotag` | Level 2 | `@Languages` present |
-| `utseg` | Level 1 | — |
-| `translate` | Level 1 | — |
+| `utseg` | Level 1 |, |
+| `translate` | Level 1 |, |
 | `coref` | Level 1 | English language |
 | `align` | Level 2 | Audio file exists |
 | `transcribe` | N/A | Audio file exists |

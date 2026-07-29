@@ -67,7 +67,7 @@ pub(crate) async fn cancel_job(
         .await
         .ok_or_else(|| ServerError::JobNotFound(job_id.clone()))?;
 
-    // Intentionally excludes Interrupted — interrupted jobs can still be cancelled.
+    // Intentionally excludes Interrupted: interrupted jobs can still be cancelled.
     if matches!(
         status,
         JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled
@@ -103,7 +103,7 @@ pub(crate) async fn cancel_job(
 /// Multi-row results indicate repeated cancel gestures (the
 /// 2026-04-25 Malayalam run had two cancels exactly an hour apart).
 /// `accepted=false` rows record cancels that arrived against already-
-/// terminal jobs and so didn't change state — still useful forensically
+/// terminal jobs and so didn't change state, still useful forensically
 /// for diagnosing "why did the operator press cancel three times" patterns.
 #[utoipa::path(
     get,
@@ -122,7 +122,7 @@ pub(crate) async fn list_job_cancellations(
     Path(job_id): Path<String>,
 ) -> Result<Json<Vec<CancellationRecord>>, ServerError> {
     let job_id = JobId::from(job_id);
-    // Existence check — matches cancel/delete pattern of returning 404
+    // Existence check: matches cancel/delete pattern of returning 404
     // when the job ID was never seen.
     state
         .control
@@ -171,7 +171,7 @@ pub(crate) async fn delete_job(
 
     if is_running {
         return Err(ServerError::JobConflict {
-            message: format!("Job {job_id} is running — cancel it first."),
+            message: format!("Job {job_id} is running, cancel it first."),
             conflicts: Vec::new(),
         });
     }

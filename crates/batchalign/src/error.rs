@@ -1,4 +1,4 @@
-//! Server error types — maps to HTTP status codes.
+//! Server error types: maps to HTTP status codes.
 //!
 //! Error responses use `{"detail": "..."}` to match FastAPI's `HTTPException`.
 

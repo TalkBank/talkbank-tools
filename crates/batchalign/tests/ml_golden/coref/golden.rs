@@ -40,7 +40,7 @@ async fn golden_coref_eng() {
     assert_eq!(info.status, batchalign::api::JobStatus::Completed);
     let file = parse_output(&results[0].content, "coref_eng");
     if has_user_defined_tier(&file, "xcoref") {
-        eprintln!("Coref model detected chains — snapshotting with %xcoref");
+        eprintln!("Coref model detected chains: snapshotting with %xcoref");
     } else {
         eprintln!("Coref model found no chains (valid for short input)");
     }

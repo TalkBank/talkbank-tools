@@ -8,7 +8,7 @@
 //!
 //! # Design
 //!
-//! - **Fingerprint**: `BLAKE3(file_size ++ first_64KB ++ last_64KB)[:24]` —
+//! - **Fingerprint**: `BLAKE3(file_size ++ first_64KB ++ last_64KB)[:24]`
 //!   reads at most ~128 KB regardless of file size.
 //! - **Locking**: per-fingerprint `.lock` file via `fs2` exclusive lock prevents
 //!   concurrent ffmpeg invocations for the same source file (important for

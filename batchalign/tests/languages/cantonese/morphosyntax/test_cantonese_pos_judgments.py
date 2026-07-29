@@ -22,17 +22,17 @@ import pycantonese
 # Each judgment: (word, existing_pos, pyc_pos, verdict, reason)
 # verdict: "pycantonese" | "corpus" | "ambiguous"
 JUDGMENTS = [
-    ("喎", "verb", "PART", "pycantonese", "PART correct — 喎 is a sentence-final particle"),
-    ("偈", "part", "NOUN", "pycantonese", "NOUN correct — 偈 means 'chat/conversation'"),
-    ("我哋", "noun", "PRON", "pycantonese", "PRON correct — 我哋 is 1st person plural pronoun"),
-    ("低", "part", "ADJ", "pycantonese", "ADJ correct — 低 means 'low'"),
-    ("跟住", "verb", "CCONJ", "ambiguous", "VERB ('follow') or CCONJ ('then') — context dependent"),
-    ("啲", "cconj", "NOUN", "ambiguous", "classifier/determiner — convention differs"),
+    ("喎", "verb", "PART", "pycantonese", "PART correct, 喎 is a sentence-final particle"),
+    ("偈", "part", "NOUN", "pycantonese", "NOUN correct, 偈 means 'chat/conversation'"),
+    ("我哋", "noun", "PRON", "pycantonese", "PRON correct, 我哋 is 1st person plural pronoun"),
+    ("低", "part", "ADJ", "pycantonese", "ADJ correct, 低 means 'low'"),
+    ("跟住", "verb", "CCONJ", "ambiguous", "VERB ('follow') or CCONJ ('then'), context dependent"),
+    ("啲", "cconj", "NOUN", "ambiguous", "classifier/determiner, convention differs"),
     ("先", "part", "ADV", "ambiguous", "ADV or PART depending on sentence position"),
     ("咗", "aux", "PART", "ambiguous", "AUX and PART both defensible for aspect markers"),
-    ("好", "adj", "ADV", "ambiguous", "ADV ('very') or ADJ ('good') — context dependent"),
+    ("好", "adj", "ADV", "ambiguous", "ADV ('very') or ADJ ('good'), context dependent"),
     ("埋", "verb", "PART", "ambiguous", "VERB ('approach') or PART (completive)"),
-    ("同", "det", "ADP", "ambiguous", "ADP ('with') or CCONJ ('and') — context dependent"),
+    ("同", "det", "ADP", "ambiguous", "ADP ('with') or CCONJ ('and'), context dependent"),
 ]
 
 
@@ -62,5 +62,5 @@ class TestPosJudgments:
             actual = dict(pycantonese.pos_tag([word])).get(word, "X")
             assert actual == expected_pyc, (
                 f"{word}: expected PyCantonese={expected_pyc}, got {actual}. "
-                "PyCantonese may have changed — update judgments."
+                "PyCantonese may have changed: update judgments."
             )

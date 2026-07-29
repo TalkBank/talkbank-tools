@@ -82,7 +82,7 @@ impl TuiProgress {
 
     /// Surface a cancellation receipt to the TUI's end-of-run banner.
     /// Polling code calls this when a `JobInfo` arrives with status
-    /// `Cancelled` and `last_cancelled_*` populated. TUI-only — the
+    /// `Cancelled` and `last_cancelled_*` populated. TUI-only, the
     /// indicatif sink doesn't need this since cancel-source/host are
     /// already in the polling code's stderr output for that path.
     pub fn send_cancelled_receipt(&self, receipt: crate::cli::tui::app::CancelledReceipt) {
@@ -116,7 +116,7 @@ impl ProgressSink for TuiProgress {
     }
 
     fn log_done(&self, _filename: &str) {
-        // State already updated via update() — no additional action needed.
+        // State already updated via update(), no additional action needed.
     }
 
     fn log_error(&self, filename: &str, msg: &str) {
@@ -191,7 +191,7 @@ pub fn run_tui_loop(
             ui::draw(f, &runtime.state);
         })?;
 
-        // Check if finished — show summary and either auto-dismiss
+        // Check if finished: show summary and either auto-dismiss
         // (clean run) or wait for explicit Enter (cancelled run, so
         // the user can't miss the receipt the way the 2026-04-26
         // cancellation was missed).
@@ -256,7 +256,7 @@ pub fn run_tui_loop(
 
 /// Block until the user presses Enter, q, or Esc to dismiss the
 /// post-cancel banner. Capped at 60s as a safety net so a forgotten
-/// terminal doesn't sit forever — most users will dismiss within
+/// terminal doesn't sit forever, most users will dismiss within
 /// seconds, the cap only matters if someone walked away.
 fn wait_for_dismiss_keypress() {
     let deadline = Instant::now() + Duration::from_secs(60);

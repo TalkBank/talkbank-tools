@@ -23,7 +23,7 @@ use crate::extract::collect_utterance_content;
 
 pub use crate::dependent_tiers::replace_or_add_tier;
 
-/// Diagnostic data for a misalignment bug — enough to triage the failing stage
+/// Diagnostic data for a misalignment bug, enough to triage the failing stage
 /// without re-running the pipeline.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error(
@@ -81,7 +81,7 @@ impl MisalignmentClass {
 
 /// Inject parsed Mor items and GRA relations into an utterance.
 ///
-/// Validates alignment before injecting — catches count mismatches at the
+/// Validates alignment before injecting, catches count mismatches at the
 /// point of corruption rather than deferring to pre-serialization validation.
 ///
 /// # Errors
@@ -134,7 +134,7 @@ pub fn inject_morphosyntax(
 
     // Validate: MOR count must match alignable word count. The canonical
     // definition of N lives on `Utterance` in `talkbank-model` and applies
-    // the CHAT manual's alignment rules — see
+    // the CHAT manual's alignment rules, see
     // `talkbank-model::model::file::utterance::accessors::mor_alignable_word_count`.
     // The chat_words Vec is built only for diagnostic output on mismatch.
     // Typed counts: the model method returns `MorAlignableWordCount`,
@@ -150,7 +150,7 @@ pub fn inject_morphosyntax(
     );
     if word_count.get() != mor_count.get() {
         // Materialize the actual word list only when we need it for
-        // the diagnostic — the fast path avoids the allocation.
+        // the diagnostic: the fast path avoids the allocation.
         let mut extracted = Vec::new();
         collect_utterance_content(
             &utterance.main.content.content,
@@ -162,7 +162,7 @@ pub fn inject_morphosyntax(
         // The 1-to-1 invariant (CHAT extract `counts_for_tier` output N,
         // Stanza realignment produces N tokens, UD→Mor mapping keeps N
         // chunks) is violated. This is always a bug in extraction,
-        // realignment, or mapping — never an expected divergence.
+        // realignment, or mapping: never an expected divergence.
         // Return a typed diagnostic; the outer layer logs visibly and
         // absorbs at the file boundary.
         let utt_text = utterance.main.to_chat_string();
@@ -170,7 +170,7 @@ pub fn inject_morphosyntax(
             word_count = word_count.get(),
             mor_count = mor_count.get(),
             utterance = %utt_text,
-            "MOR count mismatch — returning MisalignmentDiagnostic"
+            "MOR count mismatch: returning MisalignmentDiagnostic"
         );
         return Err(MisalignmentDiagnostic {
             chat_words: extracted
@@ -178,7 +178,7 @@ pub fn inject_morphosyntax(
                 .map(|w| w.text.as_ref().to_string())
                 .collect(),
             // The injector only sees the mapped Mors, not the raw Stanza
-            // tokens — leaving empty here and letting the caller enrich
+            // tokens: leaving empty here and letting the caller enrich
             // with Stanza-side context if available.
             stanza_tokens_after_mapping: Vec::new(),
             expected: word_count,
@@ -231,7 +231,7 @@ pub fn inject_morphosyntax(
                 mor_chunks,
                 gra_relations,
                 utterance = %utterance.main.to_chat_string(),
-                "%mor/%gra count mismatch — returning MisalignmentDiagnostic",
+                "%mor/%gra count mismatch: returning MisalignmentDiagnostic",
             );
             return Err(MisalignmentDiagnostic {
                 chat_words: Vec::new(),
@@ -316,7 +316,7 @@ mod tests {
             panic!("Expected UserDefined tier");
         }
 
-        // Add %xcod (different label) — should NOT replace %xtra
+        // Add %xcod (different label), should NOT replace %xtra
         let xcod = DependentTier::UserDefined(UserDefinedDependentTier {
             label: NonEmptyString::new("xcod").unwrap(),
             content: NonEmptyString::new("code").unwrap(),
@@ -366,13 +366,13 @@ mod tests {
         assert_eq!(output_before, output_after);
     }
 
-    /// A Mor-count / main-tier word-count mismatch must surface as `Err` —
+    /// A Mor-count / main-tier word-count mismatch must surface as `Err`
     /// warning-and-continuing hides mapping bugs silently.
     #[test]
     fn inject_morphosyntax_count_mismatch_returns_err() {
         use talkbank_model::model::dependent_tier::mor::{MorStem, MorWord, PosCategory};
 
-        // eng_hello_female.cha's first utterance is `hello .` — one
+        // eng_hello_female.cha's first utterance is `hello .`, one
         // alignable word on the main tier. Supply TWO Mor items to force
         // a mismatch (2 vs 1).
         let mut chat = parse_chat(HELLO_CHAT);
@@ -419,12 +419,12 @@ mod tests {
     }
 
     /// Mor/Gra count mismatch (mors_total_chunks + 1 != gra_relations.len())
-    /// must surface as an Err — silent emission of a misaligned pair was the
+    /// must surface as an Err, silent emission of a misaligned pair was the
     /// dona@s bug class.
     ///
     /// Setup: HELLO_CHAT's first utterance is `hello .` (1 alignable word).
     /// Supply 1 Mor (matching word count, so the upstream check passes) and
-    /// gra_relations of length 1 — short by one (missing the terminator's
+    /// gra_relations of length 1, short by one (missing the terminator's
     /// PUNCT entry that AppendTrailingPunct should have produced upstream).
     /// MorTier with terminator counts 2 chunks; GraTier has 1 relation;
     /// inject must reject.
@@ -439,7 +439,7 @@ mod tests {
             Mor::new(MorWord::new(PosCategory::new(pos), MorStem::new(lemma)))
         };
         let mors = vec![mor("intj", "hello")];
-        // Upstream produced gras for items only — forgot to append the
+        // Upstream produced gras for items only, forgot to append the
         // terminator's PUNCT relation. Mor count_chunks() == 2 (1 item +
         // sidecar terminator), gras.len() == 1. Inject must reject.
         let item_only_gras = vec![GrammaticalRelation::new(1, 0, "ROOT")];
@@ -456,7 +456,7 @@ mod tests {
         assert!(
             result.is_err(),
             "expected Err on mor/gra count mismatch; got Ok (silent-misalignment regression \
-             — this is the dona@s bug class)"
+             - this is the dona@s bug class)"
         );
     }
 }

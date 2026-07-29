@@ -26,17 +26,17 @@ process diagnostics during development, `sudo` is fine.
 ### The three commands you'll actually use
 
 ```bash
-# 1. ONE-SHOT STACK DUMP — what's every thread doing right now?
+# 1. ONE-SHOT STACK DUMP, what's every thread doing right now?
 #    First thing to try for a hung worker. Replaces "tail the log
 #    and guess." Returns Python frames + thread names instantly.
 sudo py-spy dump --pid <worker-pid>
 
-# 2. LIVE TOP — per-function CPU% updated continuously, like `top`
+# 2. LIVE TOP: per-function CPU% updated continuously, like `top`
 #    but for Python frames. Useful when CPU is high but you don't
 #    know which path is hot.
 sudo py-spy top --pid <worker-pid>
 
-# 3. FLAME GRAPH — record a sampling session and write SVG. The
+# 3. FLAME GRAPH: record a sampling session and write SVG. The
 #    canonical answer to "where is time being spent over a sustained
 #    workload." `--native` includes C/C++ frames (PyTorch, Whisper,
 #    Stanza native ops). `--subprocesses` follows forked children

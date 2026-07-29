@@ -56,7 +56,7 @@ export function App() {
     };
   }, [desktopConfig, environment]);
 
-  // Still checking — render nothing briefly
+  // Still checking: render nothing briefly
   if (showWizard === null && environment.isDesktop) return null;
 
   if (showWizard) {

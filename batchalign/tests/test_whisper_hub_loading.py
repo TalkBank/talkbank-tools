@@ -1,4 +1,4 @@
-"""Tests for ``batchalign.inference.whisper_hub`` — HF fine-tune loader.
+"""Tests for ``batchalign.inference.whisper_hub``: HF fine-tune loader.
 
 These tests cover the *dispatch* and *error* paths of the whisper_hub
 loader without actually downloading a 1.5 GB model. The underlying HF
@@ -61,7 +61,7 @@ class TestWhisperHubLoaderDispatch:
         class FakeHandle:
             """Minimal stand-in that accepts the ``skip_language_force``
             attribute write the loader performs. Checks that the loader
-            actually flips it — not just trusting ``language="auto"``,
+            actually flips it, not just trusting ``language="auto"``,
             because the V2 inference path ignores ``self.lang`` and
             passes the request language to ``gen_kwargs``.
             """
@@ -92,12 +92,12 @@ class TestWhisperHubLoaderDispatch:
         assert isinstance(handle, FakeHandle)
         assert captured["model"] == "thennal/whisper-medium-ml"
         assert captured["base"] == "thennal/whisper-medium-ml"
-        # Secondary safety belt — pinning ``self.lang == "auto"`` matters
+        # Secondary safety belt: pinning ``self.lang == "auto"`` matters
         # for legacy code paths that read ``model.lang`` directly. The
         # V2 path doesn't consult ``self.lang``.
         assert captured["language"] == "auto"
         assert captured["device_policy"] == DevicePolicy(force_cpu=True)
-        # Primary invariant — the V2 path calls ``gen_kwargs(request_lang)``
+        # Primary invariant: the V2 path calls ``gen_kwargs(request_lang)``
         # where request_lang is a concrete language like ``"malayalam"``.
         # Without this flag, ``gen_kwargs`` would pass task/language to
         # ``generate()`` and the fine-tune would emit gibberish.

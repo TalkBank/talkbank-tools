@@ -1,4 +1,4 @@
-//! SQLite persistence layer — port of `batchalign/serve/job_db.py`.
+//! SQLite persistence layer: port of `batchalign/serve/job_db.py`.
 //!
 //! Write-through SQLite database at the runtime-owned `jobs.db` path under the
 //! resolved state root. Called by
@@ -526,7 +526,7 @@ mod tests {
         .await
         .unwrap();
 
-        // Simulate server restart — run recovery.
+        // Simulate server restart: run recovery.
         let interrupted = db.recover_interrupted().await.unwrap();
         assert_eq!(interrupted, vec!["evidence-job"]);
 
@@ -535,7 +535,7 @@ mod tests {
         let job = &jobs[0];
         assert_eq!(job.status, "interrupted");
 
-        // File "broken.cha" should STILL have its error message — recovery must
+        // File "broken.cha" should STILL have its error message, recovery must
         // not overwrite "error" status files.
         let broken = job
             .file_statuses
@@ -598,7 +598,7 @@ mod tests {
         .unwrap();
 
         // "untimed.cha" was still queued.
-        // (no update needed — default status is "queued")
+        // (no update needed: default status is "queued")
 
         let interrupted = db.recover_interrupted().await.unwrap();
         assert_eq!(interrupted.len(), 1);
@@ -606,7 +606,7 @@ mod tests {
         let jobs = db.load_all_jobs().await.unwrap();
         let job = &jobs[0];
 
-        // "timed.cha" should keep its timing and "done" status — recovery only
+        // "timed.cha" should keep its timing and "done" status, recovery only
         // touches queued/processing files.
         let timed = job
             .file_statuses
@@ -718,7 +718,7 @@ mod tests {
             .unwrap();
         assert_eq!(done.status, "done");
 
-        // error.cha: untouched — all evidence preserved.
+        // error.cha: untouched, all evidence preserved.
         let errored = job
             .file_statuses
             .iter()

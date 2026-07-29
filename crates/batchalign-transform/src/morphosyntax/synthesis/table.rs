@@ -2,7 +2,7 @@
 //!
 //! Editing the [`scat_synthesis`] match body is the single place to
 //! change the POS prefix or form-type-derived features for any
-//! `@<letter>` marker. The match is exhaustive over [`FormType`] —
+//! `@<letter>` marker. The match is exhaustive over [`FormType`]
 //! adding a variant is a compile error here.
 //!
 //! The scat values follow the established CHAT-MOR convention for
@@ -38,7 +38,7 @@ impl SynthesisRule {
     }
 }
 
-/// Map a `FormType` to its synthesis rule. Exhaustive match — adding a
+/// Map a `FormType` to its synthesis rule. Exhaustive match, adding a
 /// `FormType` variant without updating this is a compile error.
 pub(crate) fn scat_synthesis(form_type: &FormType) -> SynthesisRule {
     match form_type {

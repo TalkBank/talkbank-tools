@@ -3,7 +3,7 @@
 """End-to-end tests for the Python worker subprocess.
 
 These tests spawn a real `python -m batchalign.worker --test-echo --task morphosyntax` process
-and communicate via stdio JSON-lines — the exact IPC boundary that the
+and communicate via stdio JSON-lines, the exact IPC boundary that the
 Rust server uses. They verify startup, health, capabilities, infer,
 batch_infer, and shutdown without loading any ML models.
 

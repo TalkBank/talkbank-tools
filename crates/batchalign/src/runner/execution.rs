@@ -1,13 +1,13 @@
-//! Job lifecycle — the top-level async tasks that own a single job's
+//! Job lifecycle: the top-level async tasks that own a single job's
 //! execution from start to finish.
 //!
-//! - `job_task` — spawned background task for server-queued jobs (lease renewal
+//! - `job_task`: spawned background task for server-queued jobs (lease renewal
 //!   + execution + cleanup).
-//! - `run_server_job_attempt` / `run_direct_job` — entry points for the two
+//! - `run_server_job_attempt` / `run_direct_job`, entry points for the two
 //!   host flavours (queued vs inline).
-//! - `run_hosted_job` — shared core: semaphore acquire → memory reservation →
+//! - `run_hosted_job`: shared core: semaphore acquire → memory reservation →
 //!   preflight → dispatch → finalize.
-//! - `reserve_job_execution` — host-memory coordinator interaction.
+//! - `reserve_job_execution`: host-memory coordinator interaction.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -96,7 +96,7 @@ pub(crate) fn job_task(
             Ok(super::context::HostedJobRunOutcome::Requeued { retry_at }) => {
                 // The memory gate rejected this attempt. Release the claim so the job is
                 // eligible again, then re-spawn after the backoff deadline. Without this,
-                // the job stays Queued with next_eligible_at set but no runner —
+                // the job stays Queued with next_eligible_at set but no runner
                 // permanently blocking new submissions for the same files.
                 let delay_secs = (retry_at.0 - unix_now().0).max(0.0);
                 let host_retry = host.clone();
@@ -336,7 +336,7 @@ async fn run_hosted_job(
     // amortizes cold start across concurrent files.
     let bootstrap_mode = pool.bootstrap_mode();
     // PerFile commands (morphotag, translate, coref) have no job-level
-    // language — files inside one job may span many `@Languages:` headers.
+    // language: files inside one job may span many `@Languages:` headers.
     // Pre-scaling against a placeholder lang would either spawn an English
     // worker that nobody asks for (the 2026-05-03 incident) or spawn an
     // `Auto` worker that the per-file dispatch path would never key onto.
@@ -487,7 +487,7 @@ async fn run_hosted_job(
 
 /// Decide a job's final terminal status from completion facts.
 ///
-/// Pure function — extracted from the body of [`run_hosted_job`] so it
+/// Pure function: extracted from the body of [`run_hosted_job`] so it
 /// can be unit-tested directly.
 ///
 /// Decision order (each row supersedes the rows below):
@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(finalize_status(&completion, 0), JobStatus::Failed);
     }
 
-    /// Cancellation wins over file outcomes — even if some files
+    /// Cancellation wins over file outcomes, even if some files
     /// errored, a cancelled job is `Cancelled`, not `Failed`, so the
     /// user's gesture is preserved and the job remains restartable
     /// per the `JobStatus::can_restart` contract.
@@ -655,7 +655,7 @@ mod tests {
 
     /// `forced_errors > 0` means `force_terminal_file_states` had to
     /// push at least one file from a non-terminal state into an error
-    /// — that's a job-level abnormality independent of per-file
+    ///: that's a job-level abnormality independent of per-file
     /// outcomes. Surface as `Failed`.
     #[test]
     fn finalize_status_forced_errors_promote_to_failed() {

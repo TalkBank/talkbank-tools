@@ -294,7 +294,7 @@ pub(super) fn maybe_open_dashboard(dashboard_url: &str, cli_enabled: bool) {
             return;
         }
 
-        // Only open in interactive sessions — not cron, CI, ssh, or piped output.
+        // Only open in interactive sessions, not cron, CI, ssh, or piped output.
         if !std::io::stderr().is_terminal() {
             return;
         }
@@ -492,7 +492,7 @@ pub(super) fn inject_lexicon(
 
 /// Tally of terminal file states for the end-of-job results line.
 ///
-/// Pure projection of `file_statuses` — no other source. Lets the
+/// Pure projection of `file_statuses`, no other source. Lets the
 /// display layer report what actually happened (e.g., 6 done + 1
 /// errored + 93 still-queued after a cancel) instead of inferring
 /// `succeeded = total - errors.len()`, which silently miscounts
@@ -513,7 +513,7 @@ pub(super) struct TerminalCounts {
 impl TerminalCounts {
     /// Tally `file_statuses` against the submission-time `total_files`.
     /// `not_started` covers everything that never reached a terminal
-    /// state — `Queued`, `Processing`, `Interrupted`, plus any
+    /// state: `Queued`, `Processing`, `Interrupted`, plus any
     /// arithmetic gap if `file_statuses.len() < total_files` (e.g., the
     /// server only reported a subset before cancel).
     pub(super) fn from_statuses(file_statuses: &[FileStatusEntry], total_files: u64) -> Self {
@@ -560,7 +560,7 @@ impl TerminalCounts {
 /// aren't populated (e.g., a job cancelled by an older daemon
 /// version that predates the provenance commit). The receipt feeds
 /// the TUI end-of-run banner that surfaces who/when/why instead of
-/// the generic "Done — N failed" suffix.
+/// the generic "Done: N failed" suffix.
 pub(super) fn cancelled_receipt_from(
     info: &JobInfo,
 ) -> Option<crate::cli::tui::app::CancelledReceipt> {
@@ -739,7 +739,7 @@ mod tests {
         }
     }
 
-    /// Build a `FileStatusEntry` with a given status — keeps the
+    /// Build a `FileStatusEntry` with a given status, keeps the
     /// `TerminalCounts` tests focused on what matters (the status
     /// distribution) instead of repeating 12 default-None fields.
     fn status_entry(filename: &str, status: FileStatusKind) -> FileStatusEntry {
@@ -764,7 +764,7 @@ mod tests {
     /// Regression test for the 2026-04-26 Malayalam-cancel TUI bug:
     /// 100 files submitted, 6 finished, 1 errored, 93 still queued
     /// when the user cancelled. The pre-fix display reported "99
-    /// succeeded, 1 failed" — `total - errors.len()` arithmetic — even
+    /// succeeded, 1 failed", `total - errors.len()` arithmetic, even
     /// though only 6 actually finished. After fix, the line includes
     /// the `not_started` bucket and the `succeeded` count reflects
     /// reality.
@@ -807,7 +807,7 @@ mod tests {
 
     /// Clean run (every submitted file accounted for as Done or Error)
     /// preserves the familiar one-line summary without a `not started`
-    /// segment — that segment is for partial-completion cases only.
+    /// segment: that segment is for partial-completion cases only.
     #[test]
     fn clean_run_omits_not_started_segment() {
         let statuses = vec![

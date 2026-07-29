@@ -28,7 +28,7 @@ _ENGLISH_PROCESSORS = "tokenize,pos,lemma,depparse,mwt"
 
 @pytest.fixture(scope="module")
 def english_pipeline_with_postprocessor():
-    """BA3 English pipeline — mirrors ``_stanza_loading.py:124-132``.
+    """BA3 English pipeline: mirrors ``_stanza_loading.py:124-132``.
 
     The postprocessor consults ``ctx.original_words`` to decide whether
     to reverse Stanza's MWT splits.
@@ -52,7 +52,7 @@ def english_pipeline_with_postprocessor():
 
 @pytest.fixture(scope="module")
 def english_pipeline_free_tokenize():
-    """English pipeline with NO postprocessor — Stanza unconstrained.
+    """English pipeline with NO postprocessor, Stanza unconstrained.
 
     Baseline for what Stanza-with-MWT produces absent our realignment
     layer.
@@ -76,7 +76,7 @@ def english_pipeline_pretokenized():
     """English pipeline with ``tokenize_pretokenized=True``.
 
     Used to verify that forcing pretokenized input suppresses MWT
-    expansion — Stanza's MWT processor skips re-splitting tokens that
+    expansion: Stanza's MWT processor skips re-splitting tokens that
     were declared pre-tokenized.
     """
     import stanza

@@ -1,4 +1,4 @@
-//! `CheckedOutWorker` — RAII guard for dispatched workers.
+//! `CheckedOutWorker`: RAII guard for dispatched workers.
 
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
@@ -100,7 +100,7 @@ impl Drop for CheckedOutWorker {
         // If handle was `None` (taken via `take()`), total was already
         // decremented -- nothing to do.
 
-        // Wake ONE task parked on `WorkerPool::worker_returned` —
+        // Wake ONE task parked on `WorkerPool::worker_returned`
         // typically a cross-key spawn attempt waiting for an eviction
         // opportunity. FIFO-fair: each worker return wakes exactly
         // one waiter, eliminating the thundering-herd re-probe storm

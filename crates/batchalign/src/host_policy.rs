@@ -77,7 +77,7 @@ impl HostExecutionPolicy {
 
     /// Whether this host should take the constrained-memory path.
     ///
-    /// Both `Task` (small) and `LazyProfile` (medium) are constrained — they
+    /// Both `Task` (small) and `LazyProfile` (medium) are constrained, they
     /// need careful memory management. Only `Profile` (large/fleet) is
     /// unconstrained.
     pub fn is_constrained_host(self) -> bool {

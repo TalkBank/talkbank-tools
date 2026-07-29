@@ -15,7 +15,7 @@ pub const ENG_TEXT_FIXTURE: &str = "\
 /// Query the `/health` endpoint and return the parsed JSON value.
 ///
 /// Uses `serde_json::Value` for flexible field access without coupling
-/// to the exact `HealthResponse` struct layout — profile key formats
+/// to the exact `HealthResponse` struct layout, profile key formats
 /// may evolve and this keeps assertions readable.
 pub async fn query_health(client: &reqwest::Client, base_url: &str) -> Value {
     let resp = client

@@ -18,8 +18,8 @@ for 32+ minutes before the operator killed it.
 Principled fix: pass ``forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B"``
 to ``from_pretrained`` (the aligner model qwen-asr's own README
 documents as the canonical pairing). Word-level timestamps are
-load-bearing for downstream FA tier injection; the alternative —
-``return_time_stamps=False`` — would silently drop word timing and
+load-bearing for downstream FA tier injection; the alternative
+``return_time_stamps=False``: would silently drop word timing and
 degrade the entire qwen-asr pipeline.
 
 The unit test pins the wire contract via monkeypatch and runs fast.
@@ -59,7 +59,7 @@ def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(monkeypat
     argument to ``Qwen3ASRModel.from_pretrained``.
 
     The 2026-05-27 bug omitted this argument while still asking
-    ``model.transcribe(..., return_time_stamps=True)`` — an
+    ``model.transcribe(..., return_time_stamps=True)``: an
     unconditional ValueError from qwen-asr. This test catches both the
     original regression and any future "shortcut" fix that flips
     ``return_time_stamps`` to ``False`` on the transcribe call.
@@ -70,7 +70,7 @@ def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(monkeypat
         """Records ``from_pretrained`` kwargs without loading the real model."""
 
         @classmethod
-        def from_pretrained(cls, model_id, **kwargs):  # noqa: ANN001 — match library signature
+        def from_pretrained(cls, model_id, **kwargs):  # noqa: ANN001, match library signature
             captured_kwargs["model_id"] = model_id
             captured_kwargs.update(kwargs)
             return cls()
@@ -94,7 +94,7 @@ def test_qwen_recognizer_warm_passes_forced_aligner_to_from_pretrained(monkeypat
         "Qwen3ASRModel.from_pretrained was called without `forced_aligner`. "
         "qwen-asr requires this argument when downstream uses "
         "return_time_stamps=True (qwen3_asr.py:336). Word-level "
-        "timestamps are load-bearing for FA tier injection — do not "
+        "timestamps are load-bearing for FA tier injection, do not "
         "remove return_time_stamps=True from transcribe() as a shortcut."
     )
     assert isinstance(forced_aligner, str), (
@@ -153,7 +153,7 @@ def test_qwen_recognizer_transcribe_produces_word_timestamps() -> None:
         end_ms = tw["end_ms"]
         assert start_ms >= 0, f"negative start_ms in TimedWord: {tw!r}"
         assert end_ms >= start_ms, (
-            f"end_ms < start_ms in TimedWord: {tw!r} — aligner output "
+            f"end_ms < start_ms in TimedWord: {tw!r}, aligner output "
             f"violates timing monotonicity"
         )
 

@@ -2,7 +2,7 @@
 //!
 //! Defines the JSON-lines request/response envelopes, ready signals, and
 //! diagnostic dump utilities. These types are internal to the worker handle
-//! machinery — callers use the higher-level [`WorkerHandle`](super::WorkerHandle)
+//! machinery: callers use the higher-level [`WorkerHandle`](super::WorkerHandle)
 //! methods.
 
 use crate::types::worker_v2::{ExecuteRequestV2, ExecuteResponseV2, ProgressEventV2};
@@ -111,9 +111,9 @@ pub(super) enum WorkerResponse {
 
 /// Discriminator for worker error responses on the wire.
 ///
-/// Workers emit ``"runtime"`` for per-request failures (the default —
+/// Workers emit ``"runtime"`` for per-request failures (the default
 /// retryable) and ``"bootstrap"`` for deterministic model-load /
-/// catalog-download / package-import failures (terminal — retrying with
+/// catalog-download / package-import failures (terminal, retrying with
 /// the same configuration produces the same failure).
 ///
 /// Surfaced from the JSON wire as the optional ``kind`` field on
@@ -148,7 +148,7 @@ impl WorkerErrorKind {
 ///
 /// Writes to `~/.batchalign3/debug/failed_ipc_{timestamp}.json` so the
 /// operator can inspect exactly what was sent, what came back (or didn't),
-/// and which worker handled it — without needing `--debug-dir`.
+/// and which worker handled it, without needing `--debug-dir`.
 ///
 /// The response field is truncated to [`FAILED_REQUEST_DUMP_MAX_RESPONSE_BYTES`]
 /// to avoid disk exhaustion from malformed worker output.

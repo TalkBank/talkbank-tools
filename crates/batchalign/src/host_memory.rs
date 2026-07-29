@@ -178,12 +178,12 @@ impl HostMemoryLease {
     /// Tag this lease with the worker subprocess PID it represents.
     ///
     /// Why this exists: when the daemon acquires a worker-startup lease,
-    /// it doesn't yet have the worker's PID — the spawn happens after
+    /// it doesn't yet have the worker's PID, the spawn happens after
     /// the reservation is granted. Once `Child::id()` is available, the
     /// caller calls `set_worker_pid(child_pid)` so the lease record
     /// records the worker, not the daemon. From that point on,
     /// `prune_stale_leases` uses the worker's liveness to decide whether
-    /// to retain the lease — closing the Bug 2 (ghost-slot) accounting
+    /// to retain the lease, closing the Bug 2 (ghost-slot) accounting
     /// drift that wedged a development host (the historical "Bug 2" incident).
     ///
     /// Returns `Ok(())` on successful update, or `HostMemoryError` if
@@ -201,7 +201,7 @@ impl HostMemoryLease {
             }
             // Lease was already pruned (e.g., daemon-side bookkeeping
             // already dropped it). Treat as a no-op rather than an
-            // error — the caller's intent (associate this lease with a
+            // error: the caller's intent (associate this lease with a
             // worker PID) is satisfied vacuously.
             Ok(())
         })
@@ -349,7 +349,7 @@ struct MemoryLeaseRecord {
     /// represents. When `Some`, prune_stale_leases checks THIS PID's
     /// liveness instead of `owner_pid`. The daemon spawns workers in
     /// their own process group, so a worker can die independently of
-    /// the daemon — Bug 2 (ghost slots) was the daemon's reservation
+    /// the daemon: Bug 2 (ghost slots) was the daemon's reservation
     /// surviving the worker's death because the lease was tagged with
     /// the (always-alive) daemon PID. Tagging with the worker's PID
     /// instead lets the reaper detect the dead worker and reclaim the
@@ -687,7 +687,7 @@ impl HostMemoryCoordinator {
             // Project what `effective_reserved_mb` would be AFTER admitting
             // the new lease. We simulate by appending a placeholder lease
             // record with the same `(kind, owner_pid, reserved_mb)` and
-            // recomputing — Contract D semantics (sub-allocation) then
+            // recomputing: Contract D semantics (sub-allocation) then
             // apply uniformly to the new lease too.
             let projected_reserved_mb = {
                 let mut simulated: Vec<MemoryLeaseRecord> =
@@ -819,7 +819,7 @@ fn with_locked_ledger<T>(
 /// materialises. Without this, a failed-spawn or daemon-side bookkeeping
 /// glitch produces a phantom hold that consumes budget indefinitely.
 ///
-/// 30 minutes is generous: Stanza model load is typically 1–3 minutes
+/// 30 minutes is generous: Stanza model load is typically 1-3 minutes
 /// on cold start, and the daemon's own ready-timeout is configured at
 /// `ready_timeout_s` (default 600s = 10 min) plus retry headroom. A
 /// pre-spawn intent older than this window is by construction stuck.
@@ -837,8 +837,8 @@ fn prune_stale_leases(ledger: &mut MemoryLedger) {
         // Bug 2 fix (Contract B): when a lease names a specific worker
         // subprocess, its survival is bound to that worker, NOT to
         // the daemon. Workers run in their own process group
-        // (`setpgid(0, 0)`) and can die independently — OOM, crash,
-        // external kill — without the daemon noticing. Tagging the
+        // (`setpgid(0, 0)`) and can die independently, OOM, crash,
+        // external kill, without the daemon noticing. Tagging the
         // lease with the worker's PID and checking THAT PID's
         // liveness is what closes the ghost-slot accounting drift
         // that wedged a development host (the historical "Bug 2" incident).
@@ -847,7 +847,7 @@ fn prune_stale_leases(ledger: &mut MemoryLedger) {
         }
 
         // No worker_pid: this is a pre-spawn intent or daemon-side
-        // bookkeeping lease. First check the owner's liveness — a dead
+        // bookkeeping lease. First check the owner's liveness, a dead
         // daemon's leases are reclaimed at first ledger access (Contract
         // F, restart hygiene).
         if !process_is_alive(lease.owner_pid) {
@@ -857,7 +857,7 @@ fn prune_stale_leases(ledger: &mut MemoryLedger) {
         // Owner is alive but no worker_pid is bound. Apply the
         // pre-spawn intent deadline (Contract E): if the lease is
         // older than the deadline window, the spawn it was reserving
-        // for didn't materialise — reclaim the budget. A live owner
+        // for didn't materialise: reclaim the budget. A live owner
         // that legitimately holds a long-lived bookkeeping lease can
         // refresh `created_at_epoch_s` on its own cadence; this prune
         // protects against the daemon-side leak path, not against
@@ -900,7 +900,7 @@ fn refresh_system_memory_snapshot() -> SystemMemorySnapshot {
 }
 
 fn system_memory_snapshot() -> SystemMemorySnapshot {
-    // Recover from a poisoned mutex — the snapshot has no invariant
+    // Recover from a poisoned mutex, the snapshot has no invariant
     // that a panicking holder could leave broken; it's just a
     // stale-cache pair.
     let mut state = SNAPSHOT_CACHE
@@ -928,7 +928,7 @@ pub fn detect_total_memory_mb() -> MemoryMb {
 ///
 /// "Available" follows the sysinfo definition (`free + reclaimable`),
 /// which on macOS undercounts vs Activity Monitor's "memory pressure"
-/// — see `worker::memory_guard` for the live polling helper that
+///: see `worker::memory_guard` for the live polling helper that
 /// applies tier-aware reserves on top of this raw figure.
 pub fn detect_available_memory_mb() -> MemoryMb {
     system_memory_snapshot().available_mb
@@ -1073,7 +1073,7 @@ mod tests {
     /// Failure mode (pre-fix): the lease's `owner_pid` is the DAEMON's
     /// PID. The daemon stays alive, so `process_is_alive(owner_pid)`
     /// returns true and the lease is never pruned. The reservation
-    /// accumulates as ghost slots — exactly the 2026-05-01 wedge.
+    /// accumulates as ghost slots, exactly the 2026-05-01 wedge.
     #[test]
     fn lease_for_dead_worker_pid_is_pruned_on_next_ledger_access() {
         let (_dir, config) = test_runtime_config();
@@ -1108,7 +1108,7 @@ mod tests {
     }
 
     /// End-to-end regression: the daemon-side flow is
-    ///   1. acquire a lease (no worker_pid yet — daemon's PID held)
+    ///   1. acquire a lease (no worker_pid yet, daemon's PID held)
     ///   2. spawn the worker subprocess (now `Child::id()` is known)
     ///   3. tag the lease with the worker's PID via `set_worker_pid`
     ///   4. when the worker dies later, prune drops the lease.
@@ -1121,7 +1121,7 @@ mod tests {
         let (_dir, config) = test_runtime_config();
         let coord = HostMemoryCoordinator::new(config.clone());
 
-        // 1. Acquire a synthetic lease the way the daemon would —
+        // 1. Acquire a synthetic lease the way the daemon would
         //    owner_pid = daemon (this process), worker_pid = None.
         let lease_id = Uuid::new_v4().to_string();
         with_locked_ledger(&config.coordinator_path, |ledger| {
@@ -1143,14 +1143,14 @@ mod tests {
         //    record (mirrors what acquire_worker_startup_lease returns).
         let lease = HostMemoryLease::new(config.coordinator_path.clone(), lease_id.clone());
 
-        // 3. Tag the lease with a known-dead worker PID — same
+        // 3. Tag the lease with a known-dead worker PID, same
         //    convention the reaper test uses.
         let dead_worker_pid: u32 = 4_000_000;
         lease
             .set_worker_pid(dead_worker_pid)
             .expect("set_worker_pid should rewrite the ledger");
 
-        // Don't drop the lease yet — Drop calls release_internal which
+        // Don't drop the lease yet, Drop calls release_internal which
         // would remove the record outright and obscure whether prune
         // did the job.
         std::mem::forget(lease);
@@ -1172,7 +1172,7 @@ mod tests {
     // contract is wrong (correct it) or the system violates it (bug).
     // ============================================================
 
-    /// Contract A — Conservation:
+    /// Contract A: Conservation:
     /// Σ(reserved across leases) must never exceed (total − headroom).
     /// The coordinator should refuse a request that would push the
     /// total over capacity, not allocate beyond capacity.
@@ -1213,7 +1213,7 @@ mod tests {
         );
     }
 
-    /// Contract B — Liveness:
+    /// Contract B: Liveness:
     /// A reservation tagged with a process PID must be reclaimed when
     /// that process dies. Already covered by the prune tests above
     /// (`lease_for_dead_worker_pid_is_pruned_on_next_ledger_access`),
@@ -1239,19 +1239,19 @@ mod tests {
         );
     }
 
-    /// Contract D — No double-counting:
+    /// Contract D, No double-counting:
     /// A single live worker subprocess must be represented by exactly
     /// one reservation, not multiple stacking ones. If a job has a
     /// JobExecution lease covering its workers' budget, individual
     /// WorkerStartup leases for those same workers must NOT add to
-    /// the daemon-side total reserved figure — they should be
+    /// the daemon-side total reserved figure; they should be
     /// sub-allocations, not additions.
     ///
     /// Operational evidence (2026-05-01): with 3 admitted jobs each
     /// reserving ~76 GB at JobExecution level, the daemon ALSO
     /// counts WorkerStartup leases on top, producing the 228 GB ghost
     /// even though only 3 jobs are active. This test pins what the
-    /// contract should be — and SHOULD FAIL TODAY.
+    /// contract should be, and SHOULD FAIL TODAY.
     #[test]
     fn contract_d_worker_startup_does_not_double_count_with_job_execution() {
         let (_dir, config) = test_runtime_config();
@@ -1289,7 +1289,7 @@ mod tests {
         );
     }
 
-    /// Contract E — Pre-spawn intent must not phantom-hold capacity:
+    /// Contract E: Pre-spawn intent must not phantom-hold capacity:
     /// A reservation made for a worker that has not yet spawned (i.e.,
     /// `worker_pid: None`, owner_pid = daemon) must either:
     ///   (a) be tied to a deadline, automatically reclaimed if the
@@ -1343,7 +1343,7 @@ mod tests {
         );
     }
 
-    /// Contract C — A 64 GB host with clean state must admit at least
+    /// Contract C: A 64 GB host with clean state must admit at least
     /// a 1-worker morphotag job. Per-worker budget for morphotag is
     /// 12 GB (8000 base × 1.5 loading_overhead, process mode); reserve
     /// headroom is 8 GB. With 64 GB available and 0 pending, the
@@ -1373,7 +1373,7 @@ mod tests {
         assert_eq!(reserved_mb, 12_000);
     }
 
-    /// Contract C (laptop variant) — A 16 GB laptop must admit a
+    /// Contract C (laptop variant), A 16 GB laptop must admit a
     /// 1-worker morphotag job per the design intent stated in
     /// `runtime.rs:218`: "This allows batchalign3 to run on 16 GB
     /// laptops through 256 GB servers without manual tuning."
@@ -1388,11 +1388,11 @@ mod tests {
         let result = plan_job_reservation(1, 12_000, 16_000, 8_000, 0);
         assert!(
             result.is_some(),
-            "Contract C violated: 16 GB laptop with clean state cannot admit 1-worker morphotag. Math: 16 - 0 - 12 = 4, reserve=8. Either the per-worker budget is too high or the reserve is too high for small hosts. Design intent (runtime.rs:218): 'batchalign3 runs on 16 GB laptops through 256 GB servers without manual tuning' — that's not happening with current constants."
+            "Contract C violated: 16 GB laptop with clean state cannot admit 1-worker morphotag. Math: 16 - 0 - 12 = 4, reserve=8. Either the per-worker budget is too high or the reserve is too high for small hosts. Design intent (runtime.rs:218): 'batchalign3 runs on 16 GB laptops through 256 GB servers without manual tuning', that's not happening with current constants."
         );
     }
 
-    /// Contract F — Atomicity across daemon crash:
+    /// Contract F: Atomicity across daemon crash:
     /// On daemon restart, leases owned by the (now-dead) prior daemon
     /// PID must be reclaimed before any new accounting decision.
     ///
@@ -1437,7 +1437,7 @@ mod tests {
         let (_dir, config) = test_runtime_config();
         let coord = HostMemoryCoordinator::new(config.clone());
 
-        // Use the test process's own PID — guaranteed alive.
+        // Use the test process's own PID, guaranteed alive.
         let live_pid = std::process::id();
 
         inject_lease(

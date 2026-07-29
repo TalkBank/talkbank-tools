@@ -90,7 +90,7 @@ _TOKEN_TTL_S: float = 23 * 3600  # refresh after 23 hours (1 hour safety margin)
 
 
 # ---------------------------------------------------------------------------
-# _AliyunRunner — websocket streaming transcription
+# _AliyunRunner: websocket streaming transcription
 # ---------------------------------------------------------------------------
 
 

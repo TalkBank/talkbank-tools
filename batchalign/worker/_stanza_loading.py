@@ -89,26 +89,26 @@ def iso3_to_alpha2(iso3: LanguageCode) -> LanguageCode2:
 
     Resolution order:
 
-    1. **Special-case overrides** — for codes where ISO 639-3 disagrees with
+    1. **Special-case overrides**, for codes where ISO 639-3 disagrees with
        Stanza's own catalog labelling (e.g. ``yue``/``cmn`` both routing to
        Stanza ``zh``, ``nor``→``nb`` for Norwegian Bokmål as the default).
        These cases are *not* recoverable via pycountry because pycountry
        only encodes ISO-639's standard 1-to-1 mapping, which would point
        at codes Stanza does not ship.
-    2. **pycountry** — for every other code with a standard ISO 639-1
+    2. **pycountry**, for every other code with a standard ISO 639-1
        counterpart (``mar``→``mr``, ``swa``→``sw``, ...). This must be the
        fallback rather than a duplicate hardcoded dict, otherwise the
-       hardcoded list inevitably drifts out of sync — Stanza adds a
+       hardcoded list inevitably drifts out of sync, Stanza adds a
        language, the capability table picks it up via pycountry, but
        ``iso3_to_alpha2`` returns the iso3 verbatim and ``stanza.Pipeline``
        crashes with "Language X is currently unsupported".
        (2026-05-06: Marathi ``mar`` failed exactly this way on
        ``childes-other-data/Biling/Gelman/Bystander/25.cha``.)
-    3. **Pass-through with warning** — for genuinely unmapped codes
+    3. **Pass-through with warning**, for genuinely unmapped codes
        (length-2 codes assumed to already be alpha-2; everything else
        hits the warning path).
     """
-    # 1. Stanza-specific overrides — single source of truth shared with
+    # 1. Stanza-specific overrides: single source of truth shared with
     #    the capability-table builder. A second independent override dict
     #    here is the drift hazard that caused the 2026-05-06 ``mar``
     #    failure; do not reintroduce one.
@@ -130,7 +130,7 @@ def iso3_to_alpha2(iso3: LanguageCode) -> LanguageCode2:
         # Fall through to the warning path.
         pass
 
-    # 3. Already alpha-2? Pass through silently — common when callers feed a
+    # 3. Already alpha-2? Pass through silently, common when callers feed a
     #    Stanza-style code straight in.
     if len(iso3) == 2:
         return iso3
@@ -164,7 +164,7 @@ def load_stanza_models(lang: LanguageCode) -> None:
     # (Rust SUPPORTED_STANZA_CODES, the iso3_to_alpha2 mapping below)
     # have drifted multiple times and are now treated as advisory.
     # Without this gate, an unsupported language reaches stanza.Pipeline
-    # which raises KeyError('packages') deep in maintain_processor_list —
+    # which raises KeyError('packages') deep in maintain_processor_list
     # the worker dies before emitting its ready signal, the daemon sees a
     # generic IPC error, and the user gets "transcription failed" with
     # the linguistic root cause buried in stderr.
@@ -194,7 +194,7 @@ def load_stanza_models(lang: LanguageCode) -> None:
 
     alpha2 = iso3_to_alpha2(lang)
 
-    # MWT availability comes from Stanza's installed resources.json — never
+    # MWT availability comes from Stanza's installed resources.json, never
     # from a hardcoded list. A stale list silently crashes the worker when
     # upstream drops a model (see the 2026-04-15 Swedish bootstrap failure).
     has_mwt = should_request_mwt(alpha2, table)
@@ -299,7 +299,7 @@ def load_stanza_retokenize_model(lang: LanguageCode) -> None:
     alpha2 = iso3_to_alpha2(lang)
     if alpha2 != "zh":
         L.warning(
-            "load_stanza_retokenize_model called for non-Chinese lang %s — skipping",
+            "load_stanza_retokenize_model called for non-Chinese lang %s, skipping",
             lang,
         )
         return
@@ -654,14 +654,14 @@ def _emit_stanza_lang_download_event_if_missing(
         # processor packages (e.g. ``en/tokenize/combined.pt``); presence of
         # *any* file under the language directory means at least some pack
         # has been seeded and the download is partial-or-done. The Pipeline
-        # call may still pull a few small files; that's fine — the user has
+        # call may still pull a few small files; that's fine, the user has
         # already been informed via past events.
         if os.path.isdir(lang_dir):
             for _root, _dirs, files in os.walk(lang_dir):
                 if files:
                     is_present = True
                     break
-    except Exception as probe_exc:  # noqa: BLE001 — best effort
+    except Exception as probe_exc:  # noqa: BLE001, best effort
         L.debug("Stanza lang-pack probe failed for %s: %s", alpha2, probe_exc)
 
     if is_present:
@@ -671,7 +671,7 @@ def _emit_stanza_lang_download_event_if_missing(
         stage=f"downloading_stanza_lang_{alpha2}",
         user_message=(
             f"Downloading Stanza language pack for {lang} ({alpha2}) "
-            "(one-time, ~250–500 MB; future runs will use the local cache)…"
+            "(one-time, ~250-500 MB; future runs will use the local cache)…"
         ),
     )
 

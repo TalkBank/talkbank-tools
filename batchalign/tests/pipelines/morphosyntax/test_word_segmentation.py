@@ -82,13 +82,13 @@ def test_segment_cantonese_preserves_existing_multichar():
     words = ["呢", "度", "食飯", "啦", "飯", "啦"]
     result = _segment_cantonese(words)
 
-    # 食飯 must remain as one token — not merged with neighbors
+    # 食飯 must remain as one token, not merged with neighbors
     assert "食飯" in result, (
         f"食飯 should be preserved as one token, got {result}"
     )
-    # 啦飯啦 must NOT appear — that's the bug
+    # 啦飯啦 must NOT appear, that's the bug
     assert "啦飯啦" not in result, (
-        f"啦飯啦 should not exist — words were wrongly merged: {result}"
+        f"啦飯啦 should not exist: words were wrongly merged: {result}"
     )
     # All characters preserved
     assert "".join(result) == "".join(words), (
@@ -100,7 +100,7 @@ def test_segment_cantonese_mixed_single_and_multi():
     """Mixed per-char and multi-char input: only per-char runs get segmented.
 
     Input: ["我", "想", "去", "買", "故事", "書"]
-    故事 is already a multi-char word — should be preserved.
+    故事 is already a multi-char word, should be preserved.
     Per-char tokens 我想去買 and 書 may be re-segmented.
     """
     from batchalign.inference.morphosyntax import _segment_cantonese

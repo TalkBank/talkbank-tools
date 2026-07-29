@@ -2,7 +2,7 @@
 
 Covers:
 
-* The idiomatic elision ``d'água`` alone and in context — the old
+* The idiomatic elision ``d'água`` alone and in context, the old
   BA2-jan9 ``Exact("d'água") → ForceMwt`` target.
 * Preposition+article natives (``do``, ``da``, ``na``).
 

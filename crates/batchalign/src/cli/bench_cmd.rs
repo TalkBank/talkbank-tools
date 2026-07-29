@@ -1,4 +1,4 @@
-//! `batchalign3 bench` — repeated performance runs for a command.
+//! `batchalign3 bench`: repeated performance runs for a command.
 
 use std::path::Path;
 use std::time::{Duration, Instant};

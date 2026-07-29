@@ -248,7 +248,7 @@ async fn capabilities_test_echo() {
     // dispatch jobs to an echo worker, which would block any
     // `test_echo: true` integration test that exercises the
     // dispatch path. Keep these assertions in sync with the Python
-    // handler — when one side changes, the other must match.
+    // handler, when one side changes, the other must match.
     assert!(
         !caps.infer_tasks.is_empty(),
         "test-echo worker must advertise infer tasks so the capability gate passes"
@@ -923,7 +923,7 @@ async fn profile_groups_related_tasks_into_single_worker() {
         ..Default::default()
     });
 
-    // Dispatch morphosyntax and utseg — both Stanza profile.
+    // Dispatch morphosyntax and utseg, both Stanza profile.
     let morph_item = json!({"task": "morph"});
     let utseg_item = json!({"task": ReleasedCommand::Utseg});
     pool.dispatch_batch_infer(
@@ -939,7 +939,7 @@ async fn profile_groups_related_tasks_into_single_worker() {
     .await
     .expect("utseg dispatch failed");
 
-    // Both should use the same Stanza worker — only 1 worker total.
+    // Both should use the same Stanza worker, only 1 worker total.
     assert_eq!(
         pool.worker_count().await,
         1,

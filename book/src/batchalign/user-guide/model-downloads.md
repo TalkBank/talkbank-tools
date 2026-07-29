@@ -31,7 +31,7 @@ local cache and the same command runs without any download.
 |---|---|---|---|
 | `morphotag` (any language) | Stanza resource catalog (`resources.json`) | ~1 MB | 1-2 seconds |
 | `morphotag` (first time for a language) | Stanza language pack for that language | 250-500 MB | 30 s, 2 min |
-| `morphotag --retokenize` on a Cantonese file (`@Languages: yue`) | Nothing extra — PyCantonese is bundled | — | Instant |
+| `morphotag --retokenize` on a Cantonese file (`@Languages: yue`) | Nothing extra, PyCantonese is bundled |, | Instant |
 | `morphotag --retokenize` on a Mandarin file (`@Languages: cmn`/`zho`) | Stanza Chinese tokenizer | ~200 MB | 30-60 s |
 | `transcribe` (Whisper engine) | Whisper ASR model from HuggingFace | 0.5-3 GB depending on model size | 1-10 min |
 | `align` (Whisper engine) | Whisper FA model from HuggingFace | ~3 GB | 3-10 min |
@@ -58,7 +58,7 @@ will show a sequence like:
 ```text
 Downloading Stanza resource catalog (one-time, ~1 MB; future runs will be instant)…
 Stanza resource catalog ready.
-Downloading Stanza language pack for eng (en) (one-time, ~250–500 MB; future runs will use the local cache)…
+Downloading Stanza language pack for eng (en) (one-time, ~250-500 MB; future runs will use the local cache)…
 Loading Stanza English…
 Processing input/file1.cha
 Processing input/file2.cha

@@ -1,4 +1,4 @@
-//! `batchalign3 doctor` — pre-flight diagnostic for the worker pipeline.
+//! `batchalign3 doctor`: pre-flight diagnostic for the worker pipeline.
 //!
 //! Spawns a test worker, sends known inputs through the morphosyntax
 //! pipeline, and validates the output structure. Catches machine-specific
@@ -129,7 +129,7 @@ struct KnobAudit<T: Clone + PartialEq + serde::Serialize> {
     /// `None` when the operator did not override this knob.
     #[serde(rename = "override")]
     operator_override: Option<T>,
-    /// True iff `operator_override == Some(recommended)` — i.e. the
+    /// True iff `operator_override == Some(recommended)`, i.e. the
     /// override is exactly what the recommender would produce, so
     /// removing it is a no-op.
     redundant: bool,
@@ -200,7 +200,7 @@ impl ConfigAudit {
         }
     }
 
-    /// Names of knobs whose operator override is redundant — i.e.
+    /// Names of knobs whose operator override is redundant, i.e.
     /// equals the recommendation and could be deleted from
     /// `server.yaml` without behavior change.
     fn redundant_knob_names(&self) -> Vec<&'static str> {
@@ -251,7 +251,7 @@ pub async fn run(args: &DoctorArgs) -> Result<(), CliError> {
 
     // `--explain <knob>` traces why one resolved value is what it is
     // (operator override vs. recommendation rule). Implies `--check`
-    // — never spawns a worker, never runs the model pipeline.
+    //: never spawns a worker, never runs the model pipeline.
     if let Some(knob) = &args.explain {
         return run_explain(knob, &args.format);
     }
@@ -464,7 +464,7 @@ pub async fn run(args: &DoctorArgs) -> Result<(), CliError> {
 ///
 /// Exit policy:
 /// - Errors always fail (`Err`).
-/// - Warnings fail iff `warnings_as_errors == true` — the CI-gate
+/// - Warnings fail iff `warnings_as_errors == true`, the CI-gate
 ///   posture for zero-warning deployments. Without the flag, warnings
 ///   are surfaced but the process exits 0; the operator may have
 ///   intentionally overridden a recommendation.
@@ -576,7 +576,7 @@ struct KnobExplanation {
     resolved_value: String,
     source: ValueSource,
     /// Always populated. When `source = OperatorOverride`, this is
-    /// what the recommendation *would have* returned — useful for
+    /// what the recommendation *would have* returned, useful for
     /// "is my override still needed?" reasoning.
     recommendation: String,
     /// Narrative description of the recommendation rule (e.g.,
@@ -954,7 +954,7 @@ fn spawn_worker_and_send_batch(
     });
 
     // serde_json::to_string on a `serde_json::Value` constructed
-    // entirely from the `json!` macro is infallible — there are no
+    // entirely from the `json!` macro is infallible; there are no
     // Custom serializer paths that can fail.
     #[allow(clippy::unwrap_used)]
     writeln!(stdin, "{}", serde_json::to_string(&request).unwrap())
@@ -1046,7 +1046,7 @@ fn spawn_worker_and_send_batch(
 
             if missing_fields.is_empty() {
                 return Ok(format!(
-                    "{} sentences, {total_words} words — all fields present",
+                    "{} sentences, {total_words} words, all fields present",
                     test_sentences.len()
                 ));
             } else {
@@ -1259,7 +1259,7 @@ mod tests {
     //
     // These pin the operator-facing JSON wire format. Determinism
     // comes from `MockHostFactsSource` (synthesized facts) +
-    // hardcoded `ServerConfig` values — neither the host's live
+    // hardcoded `ServerConfig` values: neither the host's live
     // RAM/CPU nor the YAML-on-disk influences the output.
     // -----------------------------------------------------------------
 

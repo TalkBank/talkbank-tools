@@ -9,7 +9,7 @@
 //!   per-command arg structs and are marked `hide = true`; they translate to
 //!   the current typed flag values. The Feb-9-BA2 *global* compatibility
 //!   flags (`--memlog`, `--adaptive-workers`, `--shared-models`, `--pool`,
-//!   etc.) are NOT carried forward — BA3 rejects them at parse time.
+//!   etc.) are NOT carried forward, BA3 rejects them at parse time.
 //! - [`Commands`] -- the subcommand enum (align, transcribe, morphotag, ...).
 //! - Per-command arg structs ([`AlignArgs`], [`TranscribeArgs`], etc.) that
 //!   embed [`CommonOpts`] for shared file I/O flags (input paths, output dir,
@@ -30,7 +30,7 @@ pub use options::*;
 use crate::api::ReleasedCommand;
 use clap::{Args, Parser, Subcommand};
 
-/// batchalign3 — process .cha and/or audio files.
+/// batchalign3: process .cha and/or audio files.
 #[derive(Parser, Debug)]
 #[command(name = "batchalign3", version, about)]
 pub struct Cli {
@@ -230,7 +230,7 @@ impl CommonOpts {
                 // The wire-level `"per-file"` value parses to
                 // `LanguageSpec::PerFile`. This replaces the prior
                 // English-placeholder hack that survived the 2026-05-03
-                // incident only because pipeline code stopped reading it —
+                // incident only because pipeline code stopped reading it
                 // the placeholder still leaked into job records and worker
                 // pre-warming, where it lied about what was actually being
                 // processed. `PerFile` makes the absence of a job-level

@@ -67,7 +67,7 @@ class AsrBackendV2(str, Enum):
 
     LOCAL_WHISPER = "local_whisper"
     # HuggingFace Whisper fine-tune selected by model_id. Same worker-side
-    # runtime shape as LOCAL_WHISPER — both host a ``WhisperASRHandle`` —
+    # runtime shape as LOCAL_WHISPER, both host a ``WhisperASRHandle``, 
     # but a distinct backend variant so the control-plane pool key and the
     # worker's engine dispatch select the fine-tune loader at bootstrap.
     WHISPER_HUB = "whisper_hub"
@@ -369,7 +369,7 @@ SpeakerInputV2: TypeAlias = Annotated[
 
 
 # Backward-compatible aliases: with internally tagged unions, the inner
-# request structs carry the ``kind`` field directly — no wrapper needed.
+# request structs carry the ``kind`` field directly, no wrapper needed.
 AsrTaskRequestV2 = AsrRequestV2
 ForcedAlignmentTaskRequestV2 = ForcedAlignmentRequestV2
 MorphosyntaxTaskRequestV2 = MorphosyntaxRequestV2
@@ -626,7 +626,7 @@ class AvqiResultPayloadV2(BaseModel):
 
 
 # Backward-compatible aliases: with internally tagged unions, the payload
-# structs carry the ``kind`` field directly — no wrapper needed.
+# structs carry the ``kind`` field directly, no wrapper needed.
 WhisperChunkResultV2 = WhisperChunkResultPayloadV2
 MonologueAsrResultV2 = MonologueAsrResultPayloadV2
 WhisperTokenTimingResultV2 = WhisperTokenTimingResultPayloadV2

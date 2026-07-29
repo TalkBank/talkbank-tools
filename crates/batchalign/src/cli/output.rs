@@ -39,7 +39,7 @@ pub fn write_result(
 
     let content_type = &result.content_type;
     let out_path = if *content_type != ContentType::Chat {
-        // Non-CHAT output (e.g. CSV from opensmile) — use server filename directly
+        // Non-CHAT output (e.g. CSV from opensmile), use server filename directly
         out_dir.join(&*result.filename)
     } else {
         resolve_output_path(&result.filename, result_map, out_dir)

@@ -17,7 +17,7 @@ fn default_config() {
     assert_eq!(cfg.worker_health_interval_s, 30);
     // `memory_gate_mb` defaults to `None`. The fallback value is
     // delivered by `resolved_memory_gate_mb()`, which now resolves
-    // to the hardcoded `MIN_FREE_MEMORY_MB` floor (2 GB) — the
+    // to the hardcoded `MIN_FREE_MEMORY_MB` floor (2 GB), the
     // same number the worker-pool admission gate enforces. The
     // previous tier-derived fallback was retired alongside
     // `recommend_memory_gate_mb`.
@@ -98,7 +98,7 @@ fn validate_fixes_bad_values() {
     // Several legacy validator clamps have moved into the type system
     // via the host-facts `Option<u32>` migrations: `gpu_thread_pool_size`
     // (C2.1) and `max_concurrent_jobs` (C2.4) no longer carry sentinel
-    // values that need clamping — `0` deserializes to `None` and
+    // values that need clamping, `0` deserializes to `None` and
     // negative values are no longer expressible. The remaining
     // clamps below are for fields that have not yet migrated.
     let mut cfg = ServerConfig {
@@ -139,7 +139,7 @@ fn load_validated_config_clamps_bad_values() {
     assert_eq!(cfg.memory_gate_poll_s, 1);
     assert_eq!(cfg.max_concurrent_worker_startups, 1);
     // Legacy `gpu_thread_pool_size: 0` in YAML now collapses to `None`
-    // via the `zero_as_none` serde shim — no validator warning fires.
+    // via the `zero_as_none` serde shim, no validator warning fires.
     assert_eq!(cfg.gpu_thread_pool_size, None);
     assert_eq!(warnings.len(), 4);
 }
@@ -205,7 +205,7 @@ fn runtime_layout_load_config_uses_layout_config_path() {
 }
 
 // ---------------------------------------------------------------------
-// `force_cpu` migration to `Option<bool>` — Phase C2.2.
+// `force_cpu` migration to `Option<bool>`, Phase C2.2.
 //
 // The CLI `--force-cpu` switch stays a presence-only bool; the
 // YAML side of the field migrates to `Option<bool>` so server.yaml
@@ -285,13 +285,13 @@ fn force_cpu_propagates_to_config_overrides() {
 }
 
 // ---------------------------------------------------------------------
-// `max_workers_per_key` migration to `Option<u32>` — Phase C2.6.
+// `max_workers_per_key` migration to `Option<u32>`, Phase C2.6.
 //
 // Same shape as the integer migrations. The host-facts model has a
 // per-profile shape (`PerProfile<u32>` in `EffectiveConfig`); the
 // legacy ServerConfig is a single knob. When `Some(n)`, the
 // `ConfigOverrides::from(&ServerConfig)` impl populates all three
-// profile overrides with `Some(n)` — uniform-across-profiles, the
+// profile overrides with `Some(n)`, uniform-across-profiles, the
 // same semantics the legacy single knob has today.
 // ---------------------------------------------------------------------
 
@@ -369,7 +369,7 @@ fn max_workers_per_key_none_leaves_every_profile_override_none() {
 }
 
 // ---------------------------------------------------------------------
-// `memory_gate_mb` migration to `Option<MemoryMb>` — Phase C2.7.
+// `memory_gate_mb` migration to `Option<MemoryMb>`, Phase C2.7.
 //
 // Same shape as the integer migrations; the underlying type is the
 // newtype `MemoryMb(u64)`, which now implements `IsZero` so the
@@ -421,7 +421,7 @@ fn memory_gate_mb_round_trip_canonical_form() {
 }
 
 // ---------------------------------------------------------------------
-// `max_concurrent_jobs` migration to `Option<u32>` — Phase C2.4.
+// `max_concurrent_jobs` migration to `Option<u32>`, Phase C2.4.
 //
 // Same shape as C2.1 / C2.3 / C2.5. The single production consumer is
 // `JobStore::new`, which currently dispatches on `> 0`; after the
@@ -476,7 +476,7 @@ fn max_concurrent_jobs_round_trip_canonical_form() {
 }
 
 // ---------------------------------------------------------------------
-// `max_workers_per_job` migration to `Option<u32>` — Phase C2.5.
+// `max_workers_per_job` migration to `Option<u32>`, Phase C2.5.
 //
 // Same shape as C2.1 / C2.3. The runtime authority for the resolved
 // per-command value is `EffectiveConfig::max_workers_per_job(command)`;
@@ -530,7 +530,7 @@ fn max_workers_per_job_round_trip_canonical_form() {
 }
 
 // ---------------------------------------------------------------------
-// `max_total_workers` migration to `Option<u32>` — Phase C2.3.
+// `max_total_workers` migration to `Option<u32>`, Phase C2.3.
 //
 // Same shape as the C2.1 `gpu_thread_pool_size` migration: legacy
 // `i32` with sentinel `0 = auto` becomes `Option<u32>` where the
@@ -585,7 +585,7 @@ fn max_total_workers_round_trip_canonical_form() {
 }
 
 // ---------------------------------------------------------------------
-// `gpu_thread_pool_size` migration to `Option<u32>` — Phase C2.1.
+// `gpu_thread_pool_size` migration to `Option<u32>`, Phase C2.1.
 //
 // These tests pin the contract that lets pre-migration `server.yaml`
 // files (with literal `gpu_thread_pool_size: 0`) keep working while
@@ -688,7 +688,7 @@ fn resolved_tier_individual_startup_overrides() {
 ///
 /// `RuntimeOverridesConfig.{gpu,stanza,io}_startup_mb` is `Option<MemoryMb>`;
 /// `None` falls through to the resolved tier's default, `Some(value)`
-/// overrides unconditionally. There is no in-code `0`-sentinel — that
+/// overrides unconditionally. There is no in-code `0`-sentinel, that
 /// pattern was banned per `~/.claude/CLAUDE.md` "no sentinel values".
 ///
 /// The `zero_as_none` deserializer preserves wire-format compat for

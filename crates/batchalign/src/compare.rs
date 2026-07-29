@@ -288,7 +288,7 @@ pub(crate) async fn process_compare_batch(
     for file in files {
         let filename = file.filename.as_ref();
         let chat_text = file.chat_text.as_ref();
-        // Skip gold files — they're companions, not inputs
+        // Skip gold files: they're companions, not inputs
         if is_gold_file(filename) {
             continue;
         }

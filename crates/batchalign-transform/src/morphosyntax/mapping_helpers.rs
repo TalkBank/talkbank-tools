@@ -29,7 +29,7 @@ pub fn normalize_deprel(
     {
         return Err(MappingError::InvalidDeprel {
             details: format!(
-                "{}: deprel {:?} transforms to {:?} — not a valid CHAT %gra relation (must match [A-Z][A-Z0-9-]*)",
+                "{}: deprel {:?} transforms to {:?}, not a valid CHAT %gra relation (must match [A-Z][A-Z0-9-]*)",
                 context_for_error(),
                 raw,
                 relation.as_ref()

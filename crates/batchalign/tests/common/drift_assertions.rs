@@ -27,7 +27,7 @@ use crate::common::regression_manifest::FixtureAssertion;
 
 /// Dispatch one of the four drift assertions to its dedicated checker.
 ///
-/// Returns `Err(..)` for any non-drift variant — callers in this crate only
+/// Returns `Err(..)` for any non-drift variant, callers in this crate only
 /// pass the four supported variants, so the catch-all is a defensive
 /// programming hook rather than a routine code path.
 pub fn evaluate_drift_assertion(
@@ -107,13 +107,13 @@ pub fn check_no_monotonicity_rescue_emitted(parsed: &ChatFile) -> Result<(), Str
 /// start-time monotonicity. Utterances without a bullet are skipped (they
 /// carry no timing to compare).
 ///
-/// Overlap-continuation utterances — those carrying a `+<` LazyOverlapPrecedes
-/// linker or a ⌊ CA bottom-overlap marker — legitimately share start timing
+/// Overlap-continuation utterances: those carrying a `+<` LazyOverlapPrecedes
+/// linker or a ⌊ CA bottom-overlap marker, legitimately share start timing
 /// with their predecessor by design. They are skipped from BOTH the comparison
 /// (their start is not a violation) AND the `prev_start` baseline (their start
 /// must not become the lower bound the next non-overlap utterance is compared
 /// against). Detection mirrors `batchalign::chat_ops::fa::utr::select_strategy`
-/// — the canonical overlap-aware pattern.
+///: the canonical overlap-aware pattern.
 pub fn check_utterance_bullet_monotonicity_preserved(parsed: &ChatFile) -> Result<(), String> {
     use batchalign::chat_ops::fa::utr::overlap_markers;
     let mut prev_start: Option<u64> = None;
@@ -155,7 +155,7 @@ pub fn check_utterance_bullet_monotonicity_preserved(parsed: &ChatFile) -> Resul
 /// Detect the timing_stripped rescue path: an utterance with NO main-tier
 /// bullet that also carries a sibling `%xrev` tier containing `[?]`. The
 /// pairing is what distinguishes a silent strip from a legitimately untimed
-/// utterance. Walk the typed AST — bullet presence lives on
+/// utterance. Walk the typed AST, bullet presence lives on
 /// `utt.main.content.bullet`, and the sibling xrev tier lives in
 /// `utt.dependent_tiers`.
 pub fn check_no_silent_timing_strip(parsed: &ChatFile) -> Result<(), String> {

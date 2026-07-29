@@ -35,7 +35,7 @@
 //! architectural review's bug-ledger phase.
 //!
 //! BUG-011 (mor/gra count mismatch) is the same architectural class
-//! and faces the same reproducer issue — see the test stub below.
+//! and faces the same reproducer issue, see the test stub below.
 
 // Integration tests are exempt from the crate's deny-level panic lints,
 // matching the src/lib.rs `#![cfg_attr(test, allow(...))]` pattern.
@@ -83,7 +83,7 @@ fn parse_one_utterance(
 }
 
 // =====================================================================
-// BUG-009 — Text not cleaned before Stanza: bare CA separators leak
+// BUG-009: Text not cleaned before Stanza: bare CA separators leak
 //            into the Stanza payload (and from there into %mor).
 //
 // Evidence: aphasia/nobfield.cha contains `Yes→` (level-pitch separator
@@ -98,15 +98,15 @@ fn parse_one_utterance(
 // the payload collector must consume that classification, not re-walk
 // raw text.
 //
-// Root-cause class: typed AST is decorative, not contract — the
+// Root-cause class: typed AST is decorative, not contract, the
 // morphotag pipeline string-hacks raw_text somewhere between the typed
 // CST (where `→` IS a separator node) and the Stanza payload (where it
 // reappears as a word).
 // =====================================================================
 
-/// Forward-regression gate (currently GREEN — empirical 2026-05-01):
+/// Forward-regression gate (currently GREEN, empirical 2026-05-01):
 /// a `Yes→` token (no space before the level-pitch separator, AND no
-/// terminator — `→` ends the utterance) must not produce a Stanza-
+/// terminator: `→` ends the utterance) must not produce a Stanza-
 /// payload word that contains the separator character.
 ///
 /// Reproduces the nobfield.cha line 11 pattern verbatim:
@@ -165,7 +165,7 @@ fn bug_009_level_pitch_separator_no_space_must_not_leak_into_stanza_payload() ->
     Ok(())
 }
 
-/// Forward-regression gate (currently GREEN — empirical 2026-05-01):
+/// Forward-regression gate (currently GREEN, empirical 2026-05-01):
 /// the same contract for the longer nobfield.cha line 12 pattern,
 /// where `→` follows a multi-word utterance with no space and no
 /// terminator (followed by an audio time bullet):
@@ -208,7 +208,7 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -
 }
 
 // =====================================================================
-// BUG-011 — `%mor`/`%gra` count alignment broken: the morphotag
+// BUG-011: `%mor`/`%gra` count alignment broken: the morphotag
 //            pipeline emits two independent counts.
 //
 // Evidence: 6 of the 4,592 files pushed during the 2026-05-01 morphotag
@@ -220,10 +220,10 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -
 // Contract under test: for any input that parses + injects without a
 // hard error, the resulting `%mor` chunk count MUST equal the
 // resulting `%gra` relation count, per the alignment rule
-// `%gra` aligns 1-to-1 with `%mor` chunks (not items — clitics in
+// `%gra` aligns 1-to-1 with `%mor` chunks (not items, clitics in
 // `%mor` produce additional chunks).
 //
-// Root-cause class: same as BUG-009 — independent string-hacking paths
+// Root-cause class: same as BUG-009, independent string-hacking paths
 // for `%mor` and `%gra` assembly instead of a single typed pipeline
 // where chunk-count is an invariant of the type system.
 //
@@ -270,7 +270,7 @@ fn bug_009_level_pitch_separator_in_long_utterance_with_bullet_must_not_leak() -
 /// 5. `noun|éram`
 /// 6. `.` (terminator)
 ///
-/// `%gra` has 5 relations — the terminator's PUNCT relation was dropped
+/// `%gra` has 5 relations, the terminator's PUNCT relation was dropped
 /// and a spurious second PUNCT was attached to `noun|éram` instead.
 ///
 /// The corpus maintainer subsequently patched the data (commit
@@ -318,7 +318,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() -> TestResult {
             mor_chunk_count, gra_relation_count,
             "BUG dona@s+MWT: morphotag pipeline produced %mor with \
              {mor_chunk_count} chunks but %gra with {gra_relation_count} \
-             relations. The two counts must be equal — every %mor chunk \
+             relations. The two counts must be equal, every %mor chunk \
              (including MWT children and terminator) needs a paired \
              %gra entry. Fixture from \
              aphasia-data/Spanish/NonProtocol/PerLA/Fluent/104-JCM1.cha:543 \
@@ -341,7 +341,7 @@ fn bug_dona_at_s_mwt_terminator_gra_alignment_must_hold() -> TestResult {
 /// Same fixture as the level-1 test, but a more precise assertion:
 /// the LAST `%mor` chunk in the dona↑@s utterance is the terminator
 /// `.`. The pipeline produces a `%gra` tier with one fewer entry than
-/// `%mor` chunks; this test pins WHICH chunk is missing — the
+/// `%mor` chunks; this test pins WHICH chunk is missing, the
 /// terminator.
 ///
 /// Captured output:
@@ -410,7 +410,7 @@ fn bug_dona_at_s_terminator_chunk_must_have_gra_entry() -> TestResult {
 /// the other 5 affected files in the rerun should be added as further
 /// fixtures.
 #[test]
-#[ignore = "BUG-011 broader gate — landed dona↑@s+MWT instance as \
+#[ignore = "BUG-011 broader gate, landed dona↑@s+MWT instance as \
             bug_dona_at_s_mwt_terminator_gra_alignment_must_hold + \
             bug_dona_at_s_terminator_chunk_must_have_gra_entry; the \
             other 5 affected files from the 2026-05-01 rerun still need \

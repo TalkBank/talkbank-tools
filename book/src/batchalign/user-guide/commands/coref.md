@@ -39,9 +39,9 @@ document contexts.
 ```mermaid
 flowchart TD
     start([coref invoked]) --> parse[Parse all files → ASTs]
-    parse --> collect[collect_payloads\nExtract sentences — full document context]
+    parse --> collect[collect_payloads\nExtract sentences: full document context]
     collect --> worker[execute_v2(task="coref")\nprepared_text batch → structured chain refs]
-    worker --> inject[inject %xcoref tiers — sparse\nOnly utterances with coreferent mentions]
+    worker --> inject[inject %xcoref tiers, sparse\nOnly utterances with coreferent mentions]
     inject --> merge_check{--merge-abbrev?}
     merge_check -->|Yes| merge[merge_abbreviations]
     merge_check -->|No| serialize
@@ -49,7 +49,7 @@ flowchart TD
     serialize --> done([Output .cha files])
 
     style collect fill:#ffd,stroke:#aa0
-    note1[No caching — full-document context\nmakes per-utterance keys meaningless]
+    note1[No caching: full-document context\nmakes per-utterance keys meaningless]
     collect --- note1
 ```
 

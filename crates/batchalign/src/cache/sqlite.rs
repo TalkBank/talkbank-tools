@@ -575,7 +575,7 @@ mod tests {
             )
             .await
             .unwrap();
-        // Same key, different task — should not collide because key is PRIMARY KEY.
+        // Same key, different task, should not collide because key is PRIMARY KEY.
         // In the Python schema, (key) is the PK, so same key with different task
         // overwrites. Let's verify this matches Python behavior.
         backend

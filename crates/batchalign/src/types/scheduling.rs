@@ -106,7 +106,7 @@ pub enum FailureCategory {
     /// catalog download, missing language pack, package import) that will
     /// recur identically across retries. Non-retryable; the user-facing
     /// message is the verbatim error from the worker (network unreachable,
-    /// disk full, authentication required, etc. — all actionable). The
+    /// disk full, authentication required, etc., all actionable). The
     /// historical reason this category exists: deterministic bootstrap
     /// failures classified as transient crashes produced multi-GB log
     /// explosions when retried 3× with a full traceback per attempt.

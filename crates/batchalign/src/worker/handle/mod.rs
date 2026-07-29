@@ -1,11 +1,11 @@
-//! `WorkerHandle` — manages a single Python worker child process.
+//! `WorkerHandle`: manages a single Python worker child process.
 //!
 //! Split into submodules:
-//! - [`config`] — `WorkerRuntimeConfig`, `WorkerConfig`
-//! - [`protocol`] — Wire-level request/response envelopes, ready signals, constants
-//! - [`spawn`] — Command building and TCP daemon spawning
-//! - [`ipc`] — Request/response IPC methods (infer, batch_infer, execute_v2, health, capabilities)
-//! - [`lifecycle`] — Startup helpers, shutdown, Drop, accessors
+//! - [`config`]: `WorkerRuntimeConfig`, `WorkerConfig`
+//! - [`protocol`]: Wire-level request/response envelopes, ready signals, constants
+//! - [`spawn`]: Command building and TCP daemon spawning
+//! - [`ipc`]: Request/response IPC methods (infer, batch_infer, execute_v2, health, capabilities)
+//! - [`lifecycle`]: Startup helpers, shutdown, Drop, accessors
 
 pub mod config;
 mod ipc;
@@ -101,7 +101,7 @@ impl WorkerHandle {
         // the worker dies (OOM, crash, external kill) the next
         // `prune_stale_leases` cycle reclaims its reservation slot.
         // Without this, the lease's `owner_pid` is the daemon's PID
-        // — always alive — and the slot becomes a ghost (Bug 2,
+        //, always alive, and the slot becomes a ghost (Bug 2,
         // 2026-05-01). `child.id()` returns `None` only if the child
         // has already been awaited, which has not happened here.
         if let Some(child_pid) = child.id() {

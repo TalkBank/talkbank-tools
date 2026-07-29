@@ -1,4 +1,4 @@
-//! Processing provenance — injects `@Comment` headers recording what
+//! Processing provenance: injects `@Comment` headers recording what
 //! batchalign3 did to a CHAT file, when, and with what engines.
 //!
 //! Format: `[ba3 <command> | key=val ; key=val | ISO-8601]`
@@ -257,7 +257,7 @@ pub fn coref_provenance(lang: &str, engine_version: &str) -> ProvenanceComment {
 }
 
 // ---------------------------------------------------------------------------
-// No-op write detection — recognize when a candidate output text would
+// No-op write detection: recognize when a candidate output text would
 // only differ from the on-disk text inside a single command's
 // `[ba3 <cmd> | ...]` provenance comment, so the runner can skip
 // pointless disk writes (and the spurious git-status churn they cause).
@@ -276,7 +276,7 @@ pub fn coref_provenance(lang: &str, engine_version: &str) -> ProvenanceComment {
 ///
 /// Returns `false` for byte-equal inputs (there is no diff to suppress)
 /// and for any difference that extends beyond the named command's
-/// provenance line — including a difference in another command's
+/// provenance line, including a difference in another command's
 /// provenance, in `%mor` / `%gra` / `%wor` content, or anywhere else.
 ///
 /// Comparison is line-based and streamed: both inputs are walked in
@@ -315,7 +315,7 @@ pub(crate) fn is_provenance_only_difference(
 /// Advance `lines` past any `@Comment:\t[ba3 <prefix>` lines and return
 /// the next non-skipped chunk. Returns `None` once the iterator is
 /// exhausted. Each chunk includes its own line terminator (from
-/// `split_inclusive`), so terminator differences propagate naturally —
+/// `split_inclusive`), so terminator differences propagate naturally
 /// we are not normalizing newlines.
 fn next_non_provenance_line<'a>(
     lines: &mut std::str::SplitInclusive<'a, char>,
@@ -334,7 +334,7 @@ fn next_non_provenance_line<'a>(
 }
 
 // ---------------------------------------------------------------------------
-// Extraction — parse provenance comments from CHAT text
+// Extraction: parse provenance comments from CHAT text
 // ---------------------------------------------------------------------------
 
 /// One extracted provenance entry from a CHAT file.
@@ -631,7 +631,7 @@ mod tests {
     /// The bug we hit on 2026-05-08: workers fell back to writing
     /// `engine=stanza-stanza` instead of `engine=stanza-1.11.1`. Even
     /// after that's fixed, the predicate must not flag this as a
-    /// non-writeable diff if the engine slot changes — because the
+    /// non-writeable diff if the engine slot changes, because the
     /// new candidate's correct engine name IS information worth writing.
     /// On the other hand, if both old and new have the SAME (correct)
     /// engine slot and only the timestamp moved, that's the "skip" case.
@@ -669,7 +669,7 @@ mod tests {
         ));
     }
 
-    /// Identical input should never be flagged — there is literally no
+    /// Identical input should never be flagged; there is literally no
     /// difference to suppress. The predicate is a "diff-only-in-X"
     /// detector, not a "skip the write because everything matches"
     /// shortcut (the caller can byte-compare for that).
@@ -686,7 +686,7 @@ mod tests {
     /// When checking whether morphotag would write pointlessly, only the
     /// morphotag provenance line is allowed to differ. A diff in the
     /// align provenance line is a real change from morphotag's
-    /// perspective and must not be hidden — otherwise re-running
+    /// perspective and must not be hidden, otherwise re-running
     /// morphotag could clobber an unrelated align update on disk.
     #[test]
     fn provenance_only_diff_returns_false_when_other_commands_provenance_differs() {

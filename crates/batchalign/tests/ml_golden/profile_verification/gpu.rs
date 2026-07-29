@@ -7,7 +7,7 @@ use batchalign::options::{
 use batchalign::worker::InferTask;
 
 /// Verify that submitting a multi-file align job produces exactly one
-/// `profile:gpu:` worker key — the profile system groups ASR/FA/Speaker
+/// `profile:gpu:` worker key: the profile system groups ASR/FA/Speaker
 /// into a shared GPU worker instead of spawning per-task processes.
 ///
 /// This is the key memory verification test: without profile grouping,

@@ -232,7 +232,7 @@ def test_load_asr_engine_yue_with_no_override_or_rev_dispatches_to_funaudio(
         funaudio_calls.append((lang, engine_overrides))
 
     def fake_load_whisper_asr(**kwargs):
-        # If this gets called, Fix 3 is not done — the bug is alive.
+        # If this gets called, Fix 3 is not done, the bug is alive.
         # Capture so the test failure is informative rather than crashy.
         whisper_calls.append(kwargs)
         return "should-not-be-called"
@@ -255,7 +255,7 @@ def test_load_asr_engine_yue_with_no_override_or_rev_dispatches_to_funaudio(
                 task=InferTask.ASR,
                 lang="yue",
                 num_speakers=1,
-                # No engine_overrides, no revai_api_key — this is the
+                # No engine_overrides, no revai_api_key; this is the
                 # exact bootstrap shape that produced 81.9% CER in v2.
             )
         )
@@ -365,7 +365,7 @@ def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
     must raise ``TimeoutError`` within the configured timeout, not
     sit silently at 0% CPU for hours.
 
-    Origin: 2026-05-27 v2 benchmark Bucket A — worker sat at 0% CPU
+    Origin: 2026-05-27 v2 benchmark Bucket A, worker sat at 0% CPU
     for 70+ min on the first fixture with no Qwen model ever
     downloaded; the qwen-asr package's first-use code path blocked
     indefinitely with no observable progress. This test pins the
@@ -408,6 +408,6 @@ def test_load_qwen_asr_times_out_on_hang(monkeypatch) -> None:
     # interrupt mechanism is broken.
     assert elapsed < 5.0, (
         f"Qwen loader did not honour the {_qwen_asr._QWEN_LOAD_TIMEOUT_SECONDS}s "
-        f"timeout — elapsed {elapsed:.2f}s; expected <5s. The signal-based "
+        f"timeout: elapsed {elapsed:.2f}s; expected <5s. The signal-based "
         f"alarm is not interrupting ``warm()`` as designed."
     )

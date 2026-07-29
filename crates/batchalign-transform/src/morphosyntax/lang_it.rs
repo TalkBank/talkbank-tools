@@ -5,7 +5,7 @@
 //! When Stanza emits an MWT Range for an Italian input token that
 //! we know it mis-analyzes, the reconciler here overrides with a
 //! single hand-curated Mor carrying the correct POS, lemma, and
-//! features — bypassing the `~`-joined `verb|STEM~pron|CLITIC`
+//! features: bypassing the `~`-joined `verb|STEM~pron|CLITIC`
 //! assembly that Stanza's split would otherwise produce.
 //!
 //! This is explicitly a **hack**. The allowlist
@@ -61,8 +61,8 @@ pub(crate) struct MisSplitOverride {
 /// in production, add one row here plus a regression test in
 /// `morphosyntax/mod.rs` tests.
 pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
-    // Defect 6 — verb: `parla → par + la` (2sg/3sg indicative, also
-    // 2sg imperative — Stanza's analysis varies by context but the
+    // Defect 6: verb: `parla → par + la` (2sg/3sg indicative, also
+    // 2sg imperative: Stanza's analysis varies by context but the
     // override is the same: `parlare` is the correct lemma either
     // way). Source: childes-other-data/Frogs/Italian-Roma/06/06danbov.cha.
     MisSplitOverride {
@@ -71,7 +71,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "parlare",
         feats: Some("Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin"),
     },
-    // Defect 6 — noun: `arancione → arancio + ne`. Source:
+    // Defect 6: noun: `arancione → arancio + ne`. Source:
     // childes-romance-germanic-data/Romance/Italian/Burgato/23.
     MisSplitOverride {
         joined_text: "arancione",
@@ -79,7 +79,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "arancione",
         feats: Some("Gender=Masc|Number=Sing"),
     },
-    // Defect 6 — adjective: `piccolo → picco + lo`. Source:
+    // Defect 6: adjective: `piccolo → picco + lo`. Source:
     // childes-romance-germanic-data/Romance/Italian/Calambrone/Martina/020322.
     MisSplitOverride {
         joined_text: "piccolo",
@@ -87,7 +87,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "piccolo",
         feats: Some("Gender=Masc|Number=Sing"),
     },
-    // Defect 6 — noun: `gomitolo → gomito + lo`. Source:
+    // Defect 6: noun: `gomitolo → gomito + lo`. Source:
     // childes-romance-germanic-data/Romance/Italian/Tonelli/Marco/011026.
     MisSplitOverride {
         joined_text: "gomitolo",
@@ -95,7 +95,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "gomitolo",
         feats: Some("Gender=Masc|Number=Sing"),
     },
-    // Defect 6 — noun: `divano → diva + no`. Note that `no` is not
+    // Defect 6: noun: `divano → diva + no`. Note that `no` is not
     // even a valid Italian enclitic ending, yet Stanza tags the
     // split as verb+pron. Source:
     // childes-romance-germanic-data/Romance/Italian/Tonelli/Marco/010803.
@@ -108,7 +108,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
     // Defect 6 non-verb entries surfaced by the 2026-04-24 CHILDES-ita
     // scan + direct probe. All four mis-splits share the shape
     // `verb|STEM + pron|CLITIC` with a nonsense STEM lemma
-    // (`pallare`, `bastare`, `cappere`, `diffire` — none are real
+    // (`pallare`, `bastare`, `cappere`, `diffire`, none are real
     // Italian verbs). Corpus frequencies: 94 / 48 / 56 / 46
     // respectively across the 184-file scan.
     MisSplitOverride {
@@ -129,7 +129,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "cappello",
         feats: Some("Gender=Masc|Number=Sing"),
     },
-    // `difficile` is an adjective rather than a noun — the `-le`
+    // `difficile` is an adjective rather than a noun, the `-le`
     // ending masquerades as the pronoun `le` to Stanza's splitter.
     MisSplitOverride {
         joined_text: "difficile",
@@ -171,12 +171,12 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "bottone",
         feats: Some("Gender=Masc|Number=Sing"),
     },
-    // Singleton audit hits (2026-04-24) — each appeared exactly
+    // Singleton audit hits (2026-04-24), each appeared exactly
     // once in the committed-corpus audit, but each is a common
     // enough Italian word that adding the entry is low-cost
     // insurance against future corpus processing. Rare/dialectal
     // singletons (`soffioni`, `coccolo`, `pettole`, `babbolo`,
-    // `tecala`) were deliberately skipped — see the pause notes
+    // `tecala`) were deliberately skipped, see the pause notes
     // for the long-tail deferral reasoning.
     MisSplitOverride {
         joined_text: "cielo",
@@ -209,10 +209,10 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
         lemma: "coccole",
         feats: Some("Gender=Fem|Number=Plur"),
     },
-    // Defect 7 — sentence-initial article `la → il + i`. Stanza
+    // Defect 7: sentence-initial article `la → il + i`. Stanza
     // expands the feminine singular article into a masculine
     // singular + masculine plural article pair. Source:
-    // childes-other-data/Frogs/Italian-Roma/10/10dancop.cha —
+    // childes-other-data/Frogs/Italian-Roma/10/10dancop.cha
     // "la storia parla di un bambino".
     MisSplitOverride {
         joined_text: "la",
@@ -225,7 +225,7 @@ pub(crate) const IT_MIS_SPLIT_OVERRIDES: &[MisSplitOverride] = &[
 /// Look up a potential mis-split override for an MWT Range's
 /// parent token.
 ///
-/// The key is the Range parent's `text` field — the original input
+/// The key is the Range parent's `text` field, the original input
 /// word Stanza received before any MWT expansion. Matching is
 /// case-insensitive.
 ///
@@ -299,13 +299,13 @@ pub fn try_handle_italian_range_override(
     Ok(None)
 }
 
-// ─── Defect 8 — mid-sentence compound imperative mis-classification ──
+// ─── Defect 8: mid-sentence compound imperative mis-classification ──
 //
 // Stanza-1.11.1 Italian mis-tags certain imperative+enclitic
 // compound words as ADJ with a vowel-normalized lemma when they
 // appear mid-sentence (e.g. `per favore dammela` → single UD word
 // `dammela` tagged ADJ with lemma `dammelo`). There is **no MWT
-// Range** — Stanza emits one word per input, unlike the standalone
+// Range**: Stanza emits one word per input, unlike the standalone
 // case where Stanza correctly fires its MWT processor and produces
 // a 3-word verb+clitic decomposition. The injection pipeline
 // therefore can't rely on the same Range-branch hook used by
@@ -315,7 +315,7 @@ pub fn try_handle_italian_range_override(
 // Scope trade-off: this reconciler emits a **single-chunk** `Mor`
 // overriding the POS (`ADJ → VERB`) and lemma (`dammelo → dare`).
 // It does NOT decompose the compound into its main verb plus
-// clitic post-clitics — that would require producing a multi-
+// clitic post-clitics; that would require producing a multi-
 // chunk Mor from one UdId::Single, which would invalidate the
 // chunk-index accounting used by `build_gra_and_validate`.
 // Consumers lose the clitic structure mid-sentence but gain the
@@ -333,7 +333,7 @@ pub fn try_handle_italian_range_override(
 /// multi-chunk `verb|LEMMA~pron|X~pron|Y` output that matches
 /// Stanza's native analysis for the bare-compound case.
 ///
-/// An empty clitic slice means "single-chunk mode" — the
+/// An empty clitic slice means "single-chunk mode", the
 /// reconciler emits only the main verb Mor. Use this when the
 /// historical single-chunk output is sufficient and the clitic
 /// decomposition isn't worth spelling out.
@@ -347,7 +347,7 @@ pub(crate) struct CliticSpec {
     /// UD POS. Typically `Pron`; `Adv` only for `ne` in some
     /// analyses.
     pub upos: UniversalPos,
-    /// UD feats string for the clitic — number, person, gender,
+    /// UD feats string for the clitic, number, person, gender,
     /// PronType, etc.
     pub feats: &'static str,
     /// UD dependency relation from this clitic to the main verb:
@@ -366,7 +366,7 @@ pub(crate) struct CliticSpec {
 /// correct verb lemma, feats, and the clitic stack. Add entries
 /// when corpus scans surface new mis-classifications.
 ///
-/// See also `IT_COMPOUND_IMPERATIVE_GATE_POS` — the set of Stanza
+/// See also `IT_COMPOUND_IMPERATIVE_GATE_POS`: the set of Stanza
 /// POS tags that signal a potential mis-classification and allow
 /// the gate to fire.
 #[derive(Debug, Clone)]
@@ -381,7 +381,7 @@ pub(crate) struct CompoundImperativeOverride {
     /// 2sg (or 2pl) by default.
     pub verb_feats: &'static str,
     /// Post-clitics stacked on the main verb, in serialization
-    /// order. Empty slice means "emit main verb only" —
+    /// order. Empty slice means "emit main verb only"
     /// single-chunk mode preserved for allowlist entries where
     /// the clitic decomposition isn't worth spelling out.
     pub clitics: &'static [CliticSpec],
@@ -427,12 +427,12 @@ const CLITIC_LE: CliticSpec = CliticSpec {
 };
 
 /// Table of known Italian mid-sentence compound imperative
-/// mis-classifications. Conservative seed — only two surfaces
+/// mis-classifications. Conservative seed, only two surfaces
 /// confirmed via direct Stanza observation (2026-04-23 probes).
 /// Extension is mechanical: one row per newly-observed surface.
 pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
     // dammela / dammelo (dare + me + la/lo): direct probe observation
-    // — Stanza mid-sentence tags ADJ with lemma=`dammelo`.
+    //: Stanza mid-sentence tags ADJ with lemma=`dammelo`.
     CompoundImperativeOverride {
         surface: "dammela",
         verb_lemma: "dare",
@@ -449,7 +449,7 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
     // (prendere + lo/la/li/le): surfaced by the 2026-04-23 corpus
     // scan (`scripts/analysis/scan_italian_compound_imperative_candidates.py`);
     // `prendilo` confirmed via direct Stanza probe as ADJ-tagged
-    // mid-sentence. The other three are family additions — Stanza's
+    // mid-sentence. The other three are family additions, Stanza's
     // behavior is consistent within an imperative+clitic paradigm
     // once one surface mis-classifies, but each should receive its
     // own probe-observation in a follow-up pass.
@@ -480,10 +480,10 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
     // `-ire` family surfaces where Stanza fails to detect the MWT
     // boundary and mis-classifies the single-word surface.
     // Observed 2026-04-24 via direct probe:
-    // - `aprila` / `aprili` — tagged NOUN (not ADJ); `aprili`
+    // - `aprila` / `aprili`, tagged NOUN (not ADJ); `aprili`
     //   additionally gets a homograph lemma `aprile` (month April).
     //   Both should be imperative `aprire` + clitic.
-    // - `finila` — tagged ADJ with lemma `finile` (vowel-normalized
+    // - `finila`: tagged ADJ with lemma `finile` (vowel-normalized
     //   surface echo); should be imperative `finire` + clitic.
     // Gate accepts both ADJ and NOUN since both signatures appear.
     CompoundImperativeOverride {
@@ -504,7 +504,7 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
         verb_feats: "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin",
         clitics: &[CLITIC_LA],
     },
-    // Defect 12 — `aprilo`: Stanza tags it as single-word VERB
+    // Defect 12: `aprilo`: Stanza tags it as single-word VERB
     // with correct lemma `aprire`, but fails to do the MWT
     // expansion. Only the clitic decomposition is missing.
     // Direct probe 2026-04-24.
@@ -514,7 +514,7 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
         verb_feats: "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin",
         clitics: &[CLITIC_LO],
     },
-    // Defect 13 — `leggila`: Stanza tags it as single-word VERB
+    // Defect 13: `leggila`: Stanza tags it as single-word VERB
     // with a **fabricated** lemma `leggilare` (not a real Italian
     // verb). Should be imperative `leggere` + `la`. Direct probe
     // 2026-04-24.
@@ -537,13 +537,13 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
 ///
 /// Gate rationale for accepting ADJ, NOUN, and VERB:
 /// - ADJ: the original Defect 8 signature (`dammela`, `prendilo`,
-///   `finila` — Stanza vowel-normalizes the lemma and tags
+///   `finila`: Stanza vowel-normalizes the lemma and tags
 ///   adjective).
 /// - NOUN: `-ire` imperative+clitic surfaces where Stanza doesn't
 ///   detect the MWT boundary and tags the whole compound as a
 ///   single noun (`aprila → aprila/NOUN/aprila`) or a homograph
 ///   noun (`aprili → aprili/NOUN/aprile`).
-/// - VERB: Defects 12 and 13 — Stanza gets POS=VERB right but
+/// - VERB: Defects 12 and 13, Stanza gets POS=VERB right but
 ///   either fails to MWT-expand (`aprilo → aprilo/VERB/aprire`)
 ///   or invents a fabricated lemma (`leggila → leggila/VERB/
 ///   leggilare`, where `leggilare` is not a real Italian verb).
@@ -552,7 +552,7 @@ pub(crate) const IT_COMPOUND_IMPERATIVES: &[CompoundImperativeOverride] = &[
 /// POS values expands the set of mis-classifications the gate
 /// can catch. Legitimate tokens whose surface matches an
 /// allowlist entry would only be over-matched if a real word
-/// shares spelling with one of the entries — no such collisions
+/// shares spelling with one of the entries, no such collisions
 /// are known for current entries. Each entry also preserves the
 /// original UdWord's head/deprel for the main chunk so GRA
 /// reindexing stays consistent.
@@ -583,7 +583,7 @@ fn check_italian_compound_imperative(
 /// `verb|LEMMA-<feats>~pron|CLITIC1-<feats>~pron|CLITIC2-<feats>`,
 /// matching the output Stanza produces natively for the bare-
 /// compound case. When `over.clitics` is empty the output is a
-/// single-chunk Mor — that mode is still available but not used
+/// single-chunk Mor: that mode is still available but not used
 /// by any current allowlist entry.
 ///
 /// Preserves the original UdWord's head and deprel for the main
@@ -641,7 +641,7 @@ pub fn try_handle_italian_single_override(
     Ok(None)
 }
 
-// ─── Defect 9 — Range-expansion with wrong head POS ──────────────
+// ─── Defect 9: Range-expansion with wrong head POS ──────────────
 //
 // Stanza-1.11.1 expands certain imperative+clitic compound verbs as
 // a structurally-correct MWT Range but tags the head component with
@@ -650,7 +650,7 @@ pub fn try_handle_italian_single_override(
 // dative `glie` + 3sg.f.acc `la`) expands as
 // `da/ADP/da + glie/PRON/gli + la/PRON/la` instead of
 // `da/VERB/dare + glie/PRON/gli + la/PRON/la`. The MWT expansion
-// shape is right — it's the head POS/lemma that's wrong.
+// shape is right: it's the head POS/lemma that's wrong.
 //
 // Sibling imperatives in the same dative-stack family
 // (`digliela`, `portagliela`, `prendigliela`) are analyzed
@@ -659,7 +659,7 @@ pub fn try_handle_italian_single_override(
 //
 // Fix shape: rewrite component 0's POS/lemma/feats in-place before
 // `assemble_mors` runs. The remaining components pass through
-// unchanged, so the 3-chunk `~`-joined Mor shape is preserved —
+// unchanged, so the 3-chunk `~`-joined Mor shape is preserved
 // unlike Defect 6 which collapses the Range into a single chunk.
 
 /// One entry in the Italian Defect-9 component-rewrite allowlist.
@@ -688,7 +688,7 @@ pub(crate) struct ComponentRewriteOverride {
 /// scope trade-off and the plan file at
 /// `docs/investigations/2026-04-23-italian-defect-6-reconciler-plan.md`.
 pub(crate) const IT_COMPONENT_REWRITES: &[ComponentRewriteOverride] = &[
-    // Defect 9 — `dagliela` (imperative `dare` + `glie` + `la`):
+    // Defect 9: `dagliela` (imperative `dare` + `glie` + `la`):
     // Stanza emits `da/ADP/da + glie/PRON/gli + la/PRON/la`. The
     // expansion is shape-correct (3 pieces for a 3-piece clitic
     // stack) but the head is mis-tagged ADP with surface-echo lemma.
@@ -703,8 +703,8 @@ pub(crate) const IT_COMPONENT_REWRITES: &[ComponentRewriteOverride] = &[
         head_lemma: "dare",
         head_feats: "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin",
     },
-    // Defect 10 — `posala` / `posalo` (imperative `posare` +
-    // `la`/`lo`): Stanza emits `posa/VERB/posa + la/PRON` — shape
+    // Defect 10: `posala` / `posalo` (imperative `posare` +
+    // `la`/`lo`): Stanza emits `posa/VERB/posa + la/PRON`, shape
     // correct, head POS correct, but head lemma is surface-echo
     // `posa` instead of the canonical infinitive `posare`. Unlike
     // Defect 9, the POS rewrite is a no-op; only the lemma is wrong.
@@ -736,7 +736,7 @@ pub(crate) const IT_COMPONENT_REWRITES: &[ComponentRewriteOverride] = &[
 /// Look up a potential Defect-9 component-rewrite override for an
 /// MWT Range's parent token. Returns `None` when the input is not
 /// in the allowlist, leaving the normal `assemble_mors` path in
-/// charge — which is what keeps correctly-analyzed siblings
+/// charge, which is what keeps correctly-analyzed siblings
 /// (`digliela`, `portagliela`, `prendigliela`, `dammela`, ...) on
 /// the correct path.
 fn check_italian_component_rewrite(
@@ -753,7 +753,7 @@ fn check_italian_component_rewrite(
 /// returned Vec is owned by the caller and can be passed directly
 /// to `assemble_mors`.
 ///
-/// The rewrite is purely local — only component 0's `upos`,
+/// The rewrite is purely local, only component 0's `upos`,
 /// `lemma`, and `feats` change. All other fields (id, text, head,
 /// deprel, deps, misc) are preserved so GRA arc reindexing stays
 /// consistent with the normal Range path.
@@ -817,7 +817,7 @@ mod tests {
 
     #[test]
     fn component_rewrite_skips_stanza_correct_siblings() {
-        // Stanza analyses these correctly — must NOT be in the
+        // Stanza analyses these correctly, must NOT be in the
         // Defect 9 allowlist or the reconciler would corrupt their
         // already-good head POS/lemma.
         assert!(check_italian_component_rewrite("digliela").is_none());

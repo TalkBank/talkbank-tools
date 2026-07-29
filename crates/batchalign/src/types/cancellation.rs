@@ -2,7 +2,7 @@
 //!
 //! These types ride the wire on `POST /jobs/{id}/cancel` (request) and
 //! `GET /jobs/{id}/cancellations` (record/audit history). They surface
-//! provenance — who cancelled, from where, why — so server logs and the
+//! provenance, who cancelled, from where, why, so server logs and the
 //! TUI can attribute cancels to a specific caller instead of treating
 //! every "Job finished status=cancelled" as anonymous.
 //!
@@ -58,7 +58,7 @@ pub struct CancellationRequest {
 /// `GET /jobs/{id}/cancellations`.
 ///
 /// Multiple rows are possible per job (a user may press cancel several
-/// times if visible feedback lags — the 2026-04-25 Malayalam run had
+/// times if visible feedback lags, the 2026-04-25 Malayalam run had
 /// two cancels exactly an hour apart). The `accepted` flag distinguishes
 /// "cancel actually changed job state" from "cancel arrived after the
 /// job was already terminal."

@@ -487,7 +487,7 @@ fn test_postprocess_does_not_clamp_word_timings_to_utr_hint_bullet() {
     use talkbank_model::model::{Bullet, BulletSource};
 
     // An utterance with a narrow UTR hint: 24905_25125 (220ms).
-    // The real speech spans from ~24990 to ~27000ms — well beyond the hint.
+    // The real speech spans from ~24990 to ~27000ms, well beyond the hint.
     let input = concat!(
         "@UTF8\n",
         "@Begin\n",
@@ -513,8 +513,8 @@ fn test_postprocess_does_not_clamp_word_timings_to_utr_hint_bullet() {
 
     // Inject FA word timings that extend well beyond the UTR hint window.
     // "ooh"      : 24990-25200  (partially inside, partially outside 25125)
-    // "that"     : 25200-26000  (entirely outside 25125 — currently DROPPED)
-    // "happened" : 26000-27000  (entirely outside 25125 — currently DROPPED)
+    // "that"     : 25200-26000  (entirely outside 25125, currently DROPPED)
+    // "happened" : 26000-27000  (entirely outside 25125, currently DROPPED)
     {
         let utt = get_test_utterance(&mut chat, 0);
         let timings = [
@@ -538,7 +538,7 @@ fn test_postprocess_does_not_clamp_word_timings_to_utr_hint_bullet() {
 
     // CURRENTLY RED: 2 words ("that" and "happened") are dropped because
     // their timings (25200ms and 26000ms) exceed the UTR hint boundary 25125ms.
-    // AFTER FIX: 0 words dropped — UTR hints must not gate word timing acceptance.
+    // AFTER FIX: 0 words dropped, UTR hints must not gate word timing acceptance.
     assert_eq!(
         dropped, 0,
         "postprocess must not drop words when the utterance bullet is a provisional \
@@ -577,7 +577,7 @@ fn test_postprocess_does_not_clamp_word_timings_on_first_time_alignment_no_wor()
     // Utterance with a narrow ASR-derived bullet (220ms) and NO %wor tier.
     // This is the exact state produced by `transcribe` + `utseg` before the
     // first `align` run.  BulletSource is Authoritative (the default for
-    // all parsed bullets — BulletSource is not persisted to CHAT text).
+    // all parsed bullets: BulletSource is not persisted to CHAT text).
     let input = concat!(
         "@UTF8\n",
         "@Begin\n",
@@ -586,7 +586,7 @@ fn test_postprocess_does_not_clamp_word_timings_on_first_time_alignment_no_wor()
         "@ID:\teng|test|PAR||female|||Participant|||\n",
         // narrow ASR bullet: 220ms for a ~3s sentence
         "*PAR:\tooh that happened . \u{0015}24905_25125\u{0015}\n",
-        // no %wor tier — this is first-time alignment
+        // no %wor tier; this is first-time alignment
         "@End\n",
     );
     let mut chat = parse_chat(input);
@@ -603,8 +603,8 @@ fn test_postprocess_does_not_clamp_word_timings_on_first_time_alignment_no_wor()
 
     // Inject FA word timings that extend well beyond the narrow ASR bullet.
     // "ooh"      : 24990-25200  (partially outside 25125ms boundary)
-    // "that"     : 25200-26000  (entirely outside 25125ms — currently DROPPED)
-    // "happened" : 26000-27000  (entirely outside 25125ms — currently DROPPED)
+    // "that"     : 25200-26000  (entirely outside 25125ms, currently DROPPED)
+    // "happened" : 26000-27000  (entirely outside 25125ms, currently DROPPED)
     {
         let utt = get_test_utterance(&mut chat, 0);
         let timings = [

@@ -107,10 +107,10 @@ stock `batchalign`.
 If you transcribe English audio, your commands work exactly as before:
 
 ```bash
-# BA2 — --lang defaults to "eng", no need to type it
+# BA2: --lang defaults to "eng", no need to type it
 batchalign transcribe recordings/ output/
 
-# BA3 — same default, same behavior
+# BA3, same default, same behavior
 batchalign3 transcribe recordings/ -o output/
 ```
 

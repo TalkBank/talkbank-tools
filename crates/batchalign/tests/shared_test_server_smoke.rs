@@ -14,7 +14,7 @@
 //! depends on it:
 //!
 //! - Two acquired sessions return distinct `base_url`s and distinct
-//!   `state_dir`s — control-plane state cannot bleed between tests.
+//!   `state_dir`s: control-plane state cannot bleed between tests.
 //! - Both sessions share a single warmed `WorkerPool`: across both
 //!   acquires combined, `prepare_workers` runs at most once.
 //! - Each session's `/health` endpoint responds 200, proving the axum

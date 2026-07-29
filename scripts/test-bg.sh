@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-bg.sh — fire-and-forget background runner for test invocations.
+# test-bg.sh: fire-and-forget background runner for test invocations.
 #
 # Wraps any command, runs it detached, writes structured logs, and
 # posts a desktop notification on completion. Composes with any
@@ -7,13 +7,13 @@
 #
 # Why this exists: the cost function for test runs is wall-clock
 # time spent *waiting*, not just time spent running. This script
-# removes waiting from the critical path — the developer keeps
+# removes waiting from the critical path, the developer keeps
 # working, gets pinged when the run finishes.
 #
 # Log layout (per run):
-#   ~/.batchalign3/bg-test/<slug>/<ts>.log     — full stdout+stderr
-#   ~/.batchalign3/bg-test/<slug>/<ts>.status  — exit code (written on completion)
-#   ~/.batchalign3/bg-test/<slug>/<ts>.meta    — cmd, pid, start/end timestamps
+#   ~/.batchalign3/bg-test/<slug>/<ts>.log: full stdout+stderr
+#   ~/.batchalign3/bg-test/<slug>/<ts>.status: exit code (written on completion)
+#   ~/.batchalign3/bg-test/<slug>/<ts>.meta: cmd, pid, start/end timestamps
 #
 # The .status file being present is the unambiguous "done" signal.
 # Log tails carry a sentinel line `=== TEST-BG COMPLETED: exit=N duration=Ns ===`
@@ -84,7 +84,7 @@ META="${RUN_DIR}/${TS}.meta"
     printf 'host=%s\n' "$(hostname -s)"
 } > "$META"
 
-# notify() — macOS desktop notification via osascript.
+# notify(): macOS desktop notification via osascript.
 # On other OSes this is a no-op (caller still gets the log).
 notify() {
     local title="$1" body="$2" sound="${3:-}"
@@ -142,7 +142,7 @@ fi
             notify "test-bg OK: ${SLUG}" "Finished in ${DURATION}s" "Glass"
         fi
     else
-        notify "test-bg FAIL: ${SLUG}" "Exit ${RC} after ${DURATION}s — ${LOG}" "Basso"
+        notify "test-bg FAIL: ${SLUG}" "Exit ${RC} after ${DURATION}s, ${LOG}" "Basso"
     fi
 ) </dev/null >/dev/null 2>&1 &
 

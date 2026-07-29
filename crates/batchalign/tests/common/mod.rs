@@ -1168,7 +1168,7 @@ pub fn assert_ba2_parity(label: &str, ba3_output: &str, ba2_golden: &str) {
                     && !line.starts_with("@Tape Location:")
                     && !line.starts_with("@New Episode")
                     && !line.starts_with("@Situation:")
-                    // Participant/ID ordering may differ — skip for comparison
+                    // Participant/ID ordering may differ, skip for comparison
                     && !line.starts_with("@Participants:")
                     && !line.starts_with("@ID:")
             })
@@ -1316,7 +1316,7 @@ fn live_fixture_server_config() -> ServerConfig {
 /// Key memory safety settings:
 ///   to prevent memory accumulation when tests cycle through ASR→FA→Speaker→OpenSMILE.
 ///   On a 64GB machine, keeping all task workers resident simultaneously can OOM.
-/// - `max_workers_per_key: 1` — one worker per (task, lang) pair. Tests are
+/// - `max_workers_per_key: 1`, one worker per (task, lang) pair. Tests are
 ///   serialized via semaphore anyway, so >1 just wastes memory.
 fn live_fixture_pool_config(python_path: &str) -> PoolConfig {
     PoolConfig {

@@ -1,12 +1,12 @@
 //! Provenance newtypes for text flowing through the ASR post-processing pipeline.
 //!
-//! These types encode WHERE text is in the ASR→CHAT pipeline and — for
-//! [`ChatWordText`] specifically — carry a runtime-checked proof that the
+//! These types encode WHERE text is in the ASR→CHAT pipeline and, for
+//! [`ChatWordText`] specifically: carry a runtime-checked proof that the
 //! value is CHAT-legal:
 //!
-//! - [`AsrRawText`] — raw tokens from an ASR provider (before any normalization)
-//! - [`AsrNormalizedText`] — tokens after the full 8-stage pipeline
-//! - [`ChatWordText`] — text the CHAT parser accepts as a legal main-tier token
+//! - [`AsrRawText`]: raw tokens from an ASR provider (before any normalization)
+//! - [`AsrNormalizedText`]: tokens after the full 8-stage pipeline
+//! - [`ChatWordText`]: text the CHAT parser accepts as a legal main-tier token
 //!
 //! The progression is: `AsrRawText` (on [`AsrElement`]) → `AsrNormalizedText`
 //! (on [`AsrWord`]) → `ChatWordText` (on the downstream CHAT word-description
@@ -19,7 +19,7 @@
 //! [`ChatWordText::try_from_with_parser`], or their language-aware
 //! counterparts [`ChatWordText::try_from_lang`] /
 //! [`ChatWordText::try_from_lang_with_parser`]. The `new(&str)` constructor
-//! that existed before 2026-04-22 has been removed — its infallible shape
+//! that existed before 2026-04-22 has been removed, its infallible shape
 //! let main-tier-illegal text (notably `%`, digit-leading hyphen
 //! compounds, and anything else the word fragment parser rejects) reach
 //! CHAT assembly silently. That path produced the user `c465e6e8-97c`
@@ -33,12 +33,12 @@
 //! 2. Parses cleanly via `TreeSitterParser::parse_word_fragment`, and
 //! 3. (For the `try_from_lang*` variants) satisfies every language-aware
 //!    word-level rule `talkbank_model::Validate for Word` applies under
-//!    the declared language — including E220 (numeric digits not
+//!    the declared language, including E220 (numeric digits not
 //!    allowed) for languages outside the digit-permitting set.
 //!
 //!
 //! [`AsrRawText`] and [`AsrNormalizedText`] continue to follow the
-//! simpler `new()` pattern — their documented postconditions (raw
+//! simpler `new()` pattern: their documented postconditions (raw
 //! provider output, post-pipeline normalization) are not amenable to a
 //! single-step parser check, and the risk they carry is bounded by
 //! `ChatWordText`'s gate at the CHAT-assembly boundary.
@@ -66,7 +66,7 @@ pub struct AsrRawText(String);
 impl AsrRawText {
     /// Wraps a string as raw ASR text.
     ///
-    /// No validation is performed — the caller supplies text exactly as
+    /// No validation is performed, the caller supplies text exactly as
     /// received from the ASR provider.
     pub fn new(s: impl Into<String>) -> Self {
         Self(s.into())
@@ -104,7 +104,7 @@ impl PartialEq<&str> for AsrRawText {
 /// Filled pauses are in `&-um` form, orthographic replacements applied
 /// (`'cause` → `(be)cause`), Cantonese normalization done (for `yue`).
 ///
-/// **NOT yet CHAT syntax** — still needs `TreeSitterParser` to become AST nodes.
+/// **NOT yet CHAT syntax**, still needs `TreeSitterParser` to become AST nodes.
 /// The next step is conversion to [`ChatWordText`] at the boundary between
 /// ASR post-processing and CHAT assembly.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -175,7 +175,7 @@ impl PartialEq<&str> for AsrNormalizedText {
 
 /// Text ready for CHAT assembly via `TreeSitterParser`.
 ///
-/// Constructible only via fallible conversion — see the module docstring
+/// Constructible only via fallible conversion, see the module docstring
 /// for the full invariant and the four variants (`try_from`,
 /// `try_from_with_parser`, `try_from_lang`, `try_from_lang_with_parser`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -188,12 +188,12 @@ pub struct ChatWordText(String);
 /// Returns `Ok(Some(Word))` when `s` parses cleanly as a main-tier word
 /// (caller may run further language-level checks on the Word). Returns
 /// `Ok(None)` when `s` is a CHAT terminator (`.`, `?`, `!`, `+...`,
-/// etc.) — valid main-tier content but not a word, so no Word AST to
+/// etc.): valid main-tier content but not a word, so no Word AST to
 /// hand back. Returns `Err(errors)` when the fragment parser rejects
 /// the input.
 ///
 /// `ChatWordText`'s vocabulary is "a token on the main tier", broader
-/// than `parse_word_fragment`'s "a word" — the ASR pipeline emits each
+/// than `parse_word_fragment`'s "a word", the ASR pipeline emits each
 /// utterance's terminator as an `AsrWord` entry, so the shortcut is
 /// load-bearing, not an optimisation.
 fn structural_check(
@@ -221,7 +221,7 @@ fn structural_check(
 /// and carries a grammar-init cost per construction, so keeping one
 /// per thread is the standard pattern. The thread_local initializer
 /// cannot recover from grammar-load failure; in that environmental
-/// impossibility, first access on a thread will panic — documented in
+/// impossibility, first access on a thread will panic, documented in
 /// the parent plan's risk list.
 fn with_thread_local_parser<F, R>(f: F) -> R
 where
@@ -248,7 +248,7 @@ impl ChatWordText {
     /// `parse_word_fragment` parses cleanly. For language-level rules
     /// (notably E220 digit policy) see
     /// [`try_from_lang_with_parser`][lang]. Hot paths should reuse one
-    /// parser handle — `TreeSitterParser` is `!Send + !Sync` and has a
+    /// parser handle: `TreeSitterParser` is `!Send + !Sync` and has a
     /// non-trivial grammar-init cost per construction.
     ///
     /// [lang]: ChatWordText::try_from_lang_with_parser
@@ -263,7 +263,7 @@ impl ChatWordText {
     ///
     /// Runs [`try_from_with_parser`]'s structural check first, then
     /// applies `Word::validate` under a single-language
-    /// `ValidationContext` — catching E220 (digits disallowed) for
+    /// `ValidationContext`: catching E220 (digits disallowed) for
     /// languages outside the digit-permitting set, plus any other
     /// word-level rule the model validator applies. Code-switching
     /// semantics live at the full-file layer; this boundary is
@@ -328,7 +328,7 @@ impl TryFrom<&str> for ChatWordText {
         thread_local! {
             /// Per-thread parser handle. `TreeSitterParser::new()` can
             /// fail only on ABI mismatch between the grammar and the
-            /// tree-sitter runtime — an environmental impossibility at
+            /// tree-sitter runtime: an environmental impossibility at
             /// runtime. If it ever does fail, construction here would
             /// panic on first use; migrating to a `try_init`-based
             /// handle would be a follow-up and is documented in the
@@ -475,13 +475,13 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // RED — Fundamental A (provenance chain soundness)
+    // RED: Fundamental A (provenance chain soundness)
     //
     // `ChatWordText` is documented as "text ready for CHAT assembly via
     // `TreeSitterParser`" (module doc, `asr_types.rs:153-158`). That is a
     // postcondition. The current constructor (`pub fn new(s: impl
     // Into<String>) -> Self`, `asr_types.rs:167`) is infallible and
-    // performs no validation — so the type documents a promise that the
+    // performs no validation, so the type documents a promise that the
     // code does not keep. CLAUDE.md rule 6a: `From<T>` / infallible
     // `new` constructors are forbidden on types whose construction can
     // fail; use `TryFrom` instead.
@@ -527,7 +527,7 @@ mod tests {
     /// digit-permitting languages (yue, zho, cmn, nan, hak, min, cym,
     /// vie, tha) and digit-rejecting ones (eng and most others) both
     /// round-trip through the same structural check, which means
-    /// `rejects_digits_for_eng` stays RED — by design.
+    /// `rejects_digits_for_eng` stays RED, by design.
     fn try_chat_word_for_lang(s: &str, lang: &str) -> Result<ChatWordText, String> {
         let code = talkbank_model::model::LanguageCode::new(lang)
             .map_err(|e| format!("invalid test language code {lang:?}: {e}"))?;
@@ -542,11 +542,11 @@ mod tests {
     #[test]
     fn red_fund_a_chat_word_text_rejects_percent_sign() {
         // `%` is the CHAT dependent-tier sigil. It cannot appear on the
-        // main tier in any language — E316 "Unparsable content on main
+        // main tier in any language, E316 "Unparsable content on main
         // tier" is what tree-sitter reports when it does.
         assert!(
             try_chat_word("80%").is_err(),
-            "ChatWordText must not accept `%` — it is the dep-tier \
+            "ChatWordText must not accept `%`; it is the dep-tier \
              sigil and produces E316 at parse. Fundamental A: the \
              provenance newtype's claimed postcondition must be \
              enforced at construction."
@@ -592,7 +592,7 @@ mod tests {
     fn red_fund_a_chat_word_text_accepts_digits_for_yue() {
         // Digit-permitting languages (yue/zho/cmn/nan/hak/min/cym/vie/
         // tha) pass the digit rule. The structural invariant (no `%`
-        // on main tier) still holds cross-language — see the next test.
+        // on main tier) still holds cross-language, see the next test.
         assert!(
             try_chat_word_for_lang("17-year-old", "yue").is_ok(),
             "digit-bearing word is legal in yue; ChatWordText \
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn red_fund_a_structural_invariants_are_language_independent() {
         // `%` cannot appear on the main tier in any language because
-        // it is the CHAT dep-tier sigil — a structural rule of the
+        // it is the CHAT dep-tier sigil, a structural rule of the
         // grammar, not a language policy. Construction must fail
         // regardless of the declared language.
         assert!(

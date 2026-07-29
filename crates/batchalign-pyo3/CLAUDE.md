@@ -1,4 +1,4 @@
-# batchalign-core — Rust Worker Runtime
+# batchalign-core: Rust Worker Runtime
 
 **Status:** Current
 **Last modified:** 2026-07-25 22:22 EDT
@@ -11,7 +11,7 @@ receive structured data from the Rust server via stdio JSON-lines IPC, run
 inference, and return raw results.
 
 This crate does NOT contain CHAT parsing, AST manipulation, or pipeline
-orchestration — all of that lives in the Rust server (`crates/batchalign/`)
+orchestration, all of that lives in the Rust server (`crates/batchalign/`)
 and `batchalign`.
 
 This crate is a regular workspace member at `crates/batchalign-pyo3/`.

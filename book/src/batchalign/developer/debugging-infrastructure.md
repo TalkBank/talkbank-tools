@@ -22,7 +22,7 @@ to identify the problem:
 Failed to parse raw Stanza output for item 4
   (words: ["euh", "Lisa", "est", "au", "Mexique", ...]):
   sentence 0 word 3: missing field `lemma`.
-  Diagnostics: sentence 0 word 3: field 'upos' — field absent
+  Diagnostics: sentence 0 word 3: field 'upos', field absent
     (keys present: ["end_char", "id", "start_char", "text"]).
     Stanza's processor likely failed silently for this token.
 ```

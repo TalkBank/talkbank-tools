@@ -59,7 +59,7 @@ fn test_fa_extraction_replaced_word_uses_original() {
 
 #[test]
 fn test_fa_injection_replaced_word_uses_original_and_cursor_stays_in_sync() {
-    // "foo [: bar baz] qux ." — injection must advance cursor by exactly 2 total:
+    // "foo [: bar baz] qux .", injection must advance cursor by exactly 2 total:
     //   slot 0 → timing for foo (original replaced word)
     //   slot 1 → timing for qux (plain word after the replacement)
     let timings = vec![
@@ -157,7 +157,7 @@ fn test_fa_injection_cursor_stays_in_sync_across_utterance_boundary_with_replace
 fn test_collect_existing_fa_word_timings_replaced_word_returns_one_entry_for_original() {
     // "foo [: bar baz] qux ." has 2 FA words (foo and qux) after my fix.
     // After injection: foo gets timing 100_500, qux gets timing 600_1000.
-    // collect_existing_fa_word_timings must return exactly 2 entries —
+    // collect_existing_fa_word_timings must return exactly 2 entries
     // not 3 (bar:None, baz:None, qux:Some) as the old code did.
     let timings = vec![
         Some(WordTiming {
@@ -181,7 +181,7 @@ fn test_collect_existing_fa_word_timings_replaced_word_returns_one_entry_for_ori
     assert_eq!(
         existing_timings.len(),
         2,
-        "must return 2 entries (foo, qux) — old code returned 3 (bar:None, baz:None, qux:Some) causing collect_preserved_group_timings to return None on every run: {existing_timings:?}"
+        "must return 2 entries (foo, qux), old code returned 3 (bar:None, baz:None, qux:Some) causing collect_preserved_group_timings to return None on every run: {existing_timings:?}"
     );
     assert_eq!(
         existing_timings[0],

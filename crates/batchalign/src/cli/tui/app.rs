@@ -22,8 +22,8 @@ use crate::api::{FileProgressStage, FileStatusEntry, FileStatusKind, MemoryMb};
 
 /// Persistent record of a cancel attempt, surfaced in the TUI as
 /// the end-of-run banner when a job ends with status `Cancelled`.
-/// Replaces the misleading "Done — N failed" suffix that the user
-/// saw after the 2026-04-26 incident — the operator read it as
+/// Replaces the misleading "Done, N failed" suffix that the user
+/// saw after the 2026-04-26 incident, the operator read it as
 /// natural completion instead of a cancel they had initiated.
 ///
 /// Source of truth is the `cancellations` audit table, projected
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn files_sorted_alphabetically_within_group() {
         let mut state = AppState::new(3, "align");
-        // Deliberately out of order — server returns them in arbitrary order.
+        // Deliberately out of order, server returns them in arbitrary order.
         let entries = vec![
             make_entry("PWA/ACWT10a.cha", FileStatusKind::Queued),
             make_entry("PWA/ACWT02a.cha", FileStatusKind::Processing),
@@ -605,7 +605,7 @@ mod tests {
         state.directories.focused_group = 1;
         state.directories.scroll_offset = 0;
 
-        // Update again — focus should be preserved
+        // Update again: focus should be preserved
         state.update_from_poll(0, &entries);
         assert_eq!(state.directories.focused_group, 1);
     }
@@ -652,7 +652,7 @@ mod tests {
     }
 
     /// `CancelledReceipt` is the durable record the user sees after a
-    /// cancel — replaces the misleading "Done — N failed" suffix with
+    /// cancel, replaces the misleading "Done, N failed" suffix with
     /// "you pressed c-y from <host> at <time>" using the audit-table
     /// fields exposed via `JobInfo.last_cancelled_*`.
     #[test]

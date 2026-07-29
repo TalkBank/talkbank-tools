@@ -1,4 +1,4 @@
-// Test code is exempt from this crate's `deny`-level panic lints —
+// Test code is exempt from this crate's `deny`-level panic lints
 // see `<workspace>/talkbank-tools/docs/panic-audit/pyo3.md`.
 #![cfg_attr(
     test,
@@ -17,14 +17,14 @@
 //! processes. Python workers are stateless inference endpoints; this crate
 //! provides:
 //!
-//! - `worker_protocol` — IPC message dispatch (health, capabilities, infer,
+//! - `worker_protocol`: IPC message dispatch (health, capabilities, infer,
 //!   batch_infer, execute_v2)
-//! - `worker_asr_exec` — ASR execution (Whisper, HK providers)
-//! - `worker_fa_exec` — Forced alignment execution
-//! - `worker_media_exec` — Speaker diarization, OpenSMILE, AVQI
-//! - `worker_text_results` — Text task result normalization + token alignment
-//! - `worker_artifacts` — Prepared artifact loading from IPC attachments
-//! - `cantonese_asr_bridge` — HK/Cantonese provider projection + normalization
+//! - `worker_asr_exec`: ASR execution (Whisper, HK providers)
+//! - `worker_fa_exec`: Forced alignment execution
+//! - `worker_media_exec`: Speaker diarization, OpenSMILE, AVQI
+//! - `worker_text_results`: Text task result normalization + token alignment
+//! - `worker_artifacts`: Prepared artifact loading from IPC attachments
+//! - `cantonese_asr_bridge`: HK/Cantonese provider projection + normalization
 //!
 //! **See also:** [Interface Map](../../INTERFACE_MAP.md) for unified documentation of all
 //! Python/Rust boundaries, including Python caller locations and schema definitions.
@@ -44,7 +44,7 @@ use pyo3::prelude::*;
 /// Initialize tracing subscriber for structured logging.
 ///
 /// Uses the `BATCHALIGN_RUST_LOG` env var for filtering (default: `warn`).
-/// Safe to call multiple times — `try_init` is a no-op if already initialized.
+/// Safe to call multiple times, `try_init` is a no-op if already initialized.
 fn init_rust_tracing() {
     use tracing_subscriber::EnvFilter;
     let filter =
@@ -56,7 +56,7 @@ fn init_rust_tracing() {
         .try_init();
 }
 
-/// batchalign_core — Rust worker runtime for batchalign3.
+/// batchalign_core: Rust worker runtime for batchalign3.
 #[pymodule]
 fn batchalign_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     init_rust_tracing();

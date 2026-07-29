@@ -2,20 +2,20 @@
 
 Covers:
 
-* Clitic-article elisions (``l'ami``, ``l'amico``, ``l'opera``) — the
+* Clitic-article elisions (``l'ami``, ``l'amico``, ``l'opera``), the
   old ``MwtTaggedExact("l'") → SuppressMwt`` target. Strict 1-to-1.
 * Preposition+clitic elisions (``dell'opera``, ``nell'anno``,
-  ``sull'ora``, ``all'amore``) — strict 1-to-1. The
+  ``sull'ora``, ``all'amore``): strict 1-to-1. The
   ``dell_opera_in_context`` case is xfail-pinned against Defect 6
   (POS-layer verb-clitic split on ``parla``).
-* ``lei`` (3sg.f pronoun) and adjacent ``le`` + ``i`` — the old
+* ``lei`` (3sg.f pronoun) and adjacent ``le`` + ``i``, the old
   ``le + i → lei`` merge target. Strict 1-to-1 in both the real-``lei``
   cases and the adjacent-``le i`` cases.
 * Preposition+article natives (``al``, ``del``, ``nel``, ``sul``,
-  ``della``) — observe only; MWT Range reassembly design.
+  ``della``): observe only; MWT Range reassembly design.
 * Noun / adjective pseudo-verb observations
   (``arancione_noun_bogus_verb``, ``piccolo_adj_bogus_verb``,
-  ``gomitolo_noun_bogus_verb``, ``divano_noun_bogus_verb``) —
+  ``gomitolo_noun_bogus_verb``, ``divano_noun_bogus_verb``)
   corpus-audit-derived pins for Defect 6's non-verb subclass.
   Stanza spuriously analyzes these clitic-shaped nouns/adjectives
   as verb+enclitic compounds (``arancione → verb|arancio~pron|ne``
@@ -23,18 +23,18 @@ Covers:
   content that is linguistically wrong. UD-level count mismatch
   xfails pin Stanza's current behavior.
 * Real-corpus ``parla`` observations (``parla_3sg_storia_context``,
-  ``parla_imperative_forte``, ``parla_imperative_piu_forte``) —
+  ``parla_imperative_forte``, ``parla_imperative_piu_forte``)
   pulled verbatim from ita-only files under the CHILDES Italian
   Frogs/Italian-Roma subtree. Strict UD-level 1-to-1 with xfail marks
   pinning Stanza's POS/MWT misbehavior. The xfails are
   **Stanza-behavior observations** at the UD level, not `%mor`
-  injection-failure indicators — the count invariant at
+  injection-failure indicators: the count invariant at
   ``|%mor items| == mor_alignable_word_count`` holds, Stage 3's
   ``assemble_mors`` collapses MWT Ranges into compound `%mor`
   entries. The defect is content quality; see the per-case
   ``XfailMark.reason`` for the specifics.
 
-* Counterexample probes (``dammela_counterexample`` etc.) —
+* Counterexample probes (``dammela_counterexample`` etc.)
   observation-only. Stanza produces the correct imperative+clitic
   analysis for bare compound utterances
   (``dammela → da/dare/VERB + me/me/PRON + la/la/PRON``), Stage 3
@@ -147,7 +147,7 @@ CASES: tuple[ProbeCase, ...] = (
         Phenomenon.CONTROL,
         3,
     ),
-    # le + i as two adjacent CHAT words — merge rule would spuriously
+    # le + i as two adjacent CHAT words, merge rule would spuriously
     # collapse them to `lei` if still in effect.
     ProbeCase(
         "le_i_separate_risk",
@@ -188,12 +188,12 @@ CASES: tuple[ProbeCase, ...] = (
     # stanza-limitations.md §6 "Scope evidence") characterized the
     # split pattern: sentence-initial `parla` always mis-splits (Defect
     # 6), but mid-sentence `parla` with an explicit subject stays
-    # intact — and instead surfaces a separate sentence-initial-`la`
+    # intact, and instead surfaces a separate sentence-initial-`la`
     # expansion (Defect 7). Cases are now strict 1-to-1 with xfail
     # marks so a Stanza upgrade that fixes either defect flips the
     # corresponding probe from XFAIL to XPASS.
     #
-    # Source: childes-other-data/Frogs/Italian-Roma/10/10dancop.cha —
+    # Source: childes-other-data/Frogs/Italian-Roma/10/10dancop.cha
     #   "questa storia parla di un bambino" (3sg indicative). Trimmed
     #   to six words starting with the article `la`. Verb stays intact;
     #   sentence-initial `la` is the defect target.
@@ -208,7 +208,7 @@ CASES: tuple[ProbeCase, ...] = (
                 "UD-level pin: Stanza expands sentence-initial `la` "
                 "into `il + i` (both DET, both lemma=`il`), yielding 7 "
                 "UD words for 6 CHAT words. `parla` itself is NOT "
-                "mis-analyzed in this mid-sentence position — gets "
+                "mis-analyzed in this mid-sentence position, gets "
                 "correct `parlare` lemma. End-to-end `%mor` injection "
                 "SUCCEEDS but `la`'s %mor item is junk: "
                 "`det|il-Masc-Def-Art-Sing~det|il-Masc-Def-Art-Plur` "
@@ -216,7 +216,7 @@ CASES: tuple[ProbeCase, ...] = (
             ),
         ),
     ),
-    # Source: childes-other-data/Frogs/Italian-Roma/06/06danbov.cha —
+    # Source: childes-other-data/Frogs/Italian-Roma/06/06danbov.cha
     #   "parla forte" as a bare 2sg imperative without any clitic
     #   pronoun present in the input. Sentence-initial position.
     ProbeCase(
@@ -231,12 +231,12 @@ CASES: tuple[ProbeCase, ...] = (
                 "`par + la` with lemma=`par` even with no clitic in "
                 "the input. 2 CHAT words → 3 UD words. End-to-end "
                 "`%mor` emitted as `verb|par-Inf-S~pron|la-Prs-S3 "
-                "adj|forte-S1` — correct count, junk content (should "
+                "adj|forte-S1`: correct count, junk content (should "
                 "be `verb|parlare-Imp-S2 adj|forte-S1`). Defect 6."
             ),
         ),
     ),
-    # Source: childes-other-data/Frogs/Italian-Roma/05/05giovel.cha —
+    # Source: childes-other-data/Frogs/Italian-Roma/05/05giovel.cha
     #   "parla un po' più forte" (2sg imperative with adverbial
     #   modification). Longer context to confirm the adverb chain does
     #   not shift Stanza's analysis away from the clitic reading.
@@ -251,7 +251,7 @@ CASES: tuple[ProbeCase, ...] = (
                 "UD-level pin: sentence-initial `parla` splits into "
                 "`par + la` despite trailing adverb chain. 3 CHAT "
                 "words → 4 UD words. End-to-end `%mor` emits "
-                "`verb|par-...~pron|la-... adv|più adj|forte-S1` — "
+                "`verb|par-...~pron|la-... adv|più adj|forte-S1`: "
                 "correct count, junk content. Reinforces Defect 6."
             ),
         ),
@@ -329,7 +329,7 @@ CASES: tuple[ProbeCase, ...] = (
             defect_slug="stanza-it-verb-clitic-pos-split",
             reason=(
                 "UD-level pin: `divano` (noun, \"sofa\") is "
-                "spuriously split into `diva + no` — `no` is not "
+                "spuriously split into `diva + no`, `no` is not "
                 "even a valid Italian clitic ending for verbs, yet "
                 "Stanza tags this as verb+pron with Part Past. "
                 "Committed corpus ships `verb|diva~pron|no`; should "
@@ -379,7 +379,7 @@ CASES: tuple[ProbeCase, ...] = (
     _per_favore("mettiti"),
     _per_favore("prendilo"),
     # ── Dative clitic stack (`-glie-`) observation pass (2026-04-24) ──
-    # `diglielo_mid_sentence` above is the baseline — Stanza MWT-expands
+    # `diglielo_mid_sentence` above is the baseline, Stanza MWT-expands
     # it cleanly to `di + glie + lo` with correct lemmas. The cases
     # below probe whether the other dative-stacked imperatives behave
     # the same way. Observe-only until the first run; any case that
@@ -397,7 +397,7 @@ CASES: tuple[ProbeCase, ...] = (
     # `mettici` extends the `mettere` family that was observation-only
     # in 2026-04-23. The noun candidates (`marrone`, `pallone`,
     # `bastone`, `cappello`) share the `-one`/`-ello` ending that
-    # Defect 6's non-verb subclass flagged for `arancione` — probe
+    # Defect 6's non-verb subclass flagged for `arancione`, probe
     # to see whether Stanza mis-splits them similarly. `difficile`
     # ends in `-le` and may trigger a Stanza adj/adverb mis-POS.
     _per_favore("mettici"),
@@ -411,7 +411,7 @@ CASES: tuple[ProbeCase, ...] = (
     # JSON-parsed corpus mirror of the Italian data repos. These
     # are surfaces where the COMMITTED %mor shows
     # `verb|STEM~pron|CLITIC` with STEM+CLITIC == surface and
-    # STEM is not a real Italian verb — classic Defect 6 shape.
+    # STEM is not a real Italian verb, classic Defect 6 shape.
     # Probing to confirm current Stanza still mis-splits them before
     # extending the allowlist.
     ProbeCase.observation_alone("seggiola"),
@@ -450,14 +450,14 @@ CASES: tuple[ProbeCase, ...] = (
     ProbeCase.observation_alone("posalo"),
     ProbeCase.observation_alone("posali"),
     ProbeCase.observation_alone("posami"),
-    # Cross-verb probes — `-a/-are` family imperatives with enclitic
+    # Cross-verb probes: `-a/-are` family imperatives with enclitic
     # accusative. If any of these show surface-echo lemma, the
     # defect is not posa-specific.
     ProbeCase.observation_alone("guardala"),
     ProbeCase.observation_alone("toccala"),
     ProbeCase.observation_alone("aspettala"),
     ProbeCase.observation_alone("mangiala"),
-    # Extended -are family sweep (2026-04-24) — establish whether
+    # Extended -are family sweep (2026-04-24), establish whether
     # Defect 10 is truly posare-specific or extends to other low-
     # frequency verbs. Probe `-are` imperatives that are CHILDES-
     # common but less frequent than the already-probed
@@ -471,7 +471,7 @@ CASES: tuple[ProbeCase, ...] = (
     ProbeCase.observation_alone("suonala"),
     ProbeCase.observation_alone("chiudila"),
     ProbeCase.observation_alone("aprila"),
-    # `-ire` family probes — `aprila` surfaced as single-NOUN
+    # `-ire` family probes: `aprila` surfaced as single-NOUN
     # mis-classification (Defect 8 variant with NOUN gate instead
     # of ADJ). Probe family members to see whether this is a
     # paradigm-level issue or `aprila`-specific.

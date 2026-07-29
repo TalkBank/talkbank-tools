@@ -105,7 +105,7 @@ impl StoreRunnerEventSink {
     /// Wrap one concrete store as the current runner event sink.
     ///
     /// Named `wrap` rather than `new` because the return type is the trait
-    /// object `Arc<dyn RunnerEventSink>`, not `Self` — clippy's
+    /// object `Arc<dyn RunnerEventSink>`, not `Self`, clippy's
     /// `new_ret_no_self` rule prefers the non-`new` name for such factories.
     pub(crate) fn wrap(store: Arc<JobStore>) -> Arc<dyn RunnerEventSink> {
         Arc::new(Self { store })

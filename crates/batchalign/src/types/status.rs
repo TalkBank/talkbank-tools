@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 // Job status
 // ---------------------------------------------------------------------------
 
-/// Lifecycle states for a job — mirrors `JobStatus` enum.
+/// Lifecycle states for a job, mirrors `JobStatus` enum.
 ///
 /// Jobs progress through a linear lifecycle: `Queued -> Running -> {terminal}`.
 /// Terminal states (`Completed`, `Failed`, `Cancelled`, `Interrupted`) are
@@ -27,7 +27,7 @@ pub enum JobStatus {
     /// All files were processed successfully.  Terminal.
     Completed,
     /// One or more files encountered an unrecoverable error.  Terminal, but
-    /// can be restarted — only files that did not complete will be re-queued.
+    /// can be restarted, only files that did not complete will be re-queued.
     Failed,
     /// A user explicitly cancelled the job via `DELETE /jobs/{id}`.  Terminal,
     /// but can be restarted.

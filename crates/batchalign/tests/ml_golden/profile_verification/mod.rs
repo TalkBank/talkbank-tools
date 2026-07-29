@@ -1,4 +1,4 @@
-//! Worker profile verification tests — real-model resource usage assertions.
+//! Worker profile verification tests, real-model resource usage assertions.
 //!
 //! These tests intentionally stay on the server path because they inspect
 //! `/health`, live worker keys, and other server-side profile state. They verify

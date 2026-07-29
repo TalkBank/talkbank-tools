@@ -2,7 +2,7 @@
 
 Fixture:
   tests/fixtures/bilingual/herring03_bilingual_clip.wav
-  — 60-second clip (30s–90s) from Bangor/Miami spa/herring03, containing
+  - 60-second clip (30s-90s) from Bangor/Miami spa/herring03, containing
     dense English/Spanish code-switching.
 
 Source:
@@ -41,7 +41,7 @@ def _fixture_exists() -> bool:
     return CLIP_WAV.is_file()
 
 
-# Spanish words expected in the clip (timestamps 30s–90s of herring03).
+# Spanish words expected in the clip (timestamps 30s-90s of herring03).
 # The ground-truth CHAT has: "camión", "repente", "dice", "demoran", "diez",
 # "huy".  Whisper auto-detect may produce slightly different words but reliably
 # outputs Spanish phrases like "novio", "hermano", "hermoso", "cierto", "tipo".
@@ -135,7 +135,7 @@ class TestBilingualAutoDetect:
         # but the test documents the expected behavior difference.)
         if has_spanish:
             pytest.xfail(
-                "Forced English mode still captured some Spanish — Whisper is "
+                "Forced English mode still captured some Spanish, Whisper is "
                 "more multilingual than expected. The key test is that auto "
                 "mode captures MORE Spanish reliably."
             )

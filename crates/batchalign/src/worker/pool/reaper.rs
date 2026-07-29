@@ -1,4 +1,4 @@
-//! PID file reaper — garbage-collects orphaned Python worker processes.
+//! PID file reaper: garbage-collects orphaned Python worker processes.
 //!
 //! # Problem
 //!
@@ -46,7 +46,7 @@ fn ensure_pid_dir() -> Option<PathBuf> {
 
 /// Record a spawned worker by writing its PID file.
 ///
-/// File format: `server_pid={server_pid}\n` — one line, easy to parse.
+/// File format: `server_pid={server_pid}\n`, one line, easy to parse.
 pub(crate) fn record_worker_pid(worker_pid: u32) {
     let Some(dir) = ensure_pid_dir() else {
         return;
@@ -75,7 +75,7 @@ pub(crate) fn remove_worker_pid(worker_pid: u32) {
             debug!(worker_pid, path = %path.display(), "Removed worker PID file");
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // Already cleaned up — fine.
+            // Already cleaned up: fine.
         }
         Err(e) => {
             warn!(worker_pid, path = %path.display(), error = %e, "Failed to remove worker PID file");
@@ -114,13 +114,13 @@ pub(crate) fn reap_orphaned_workers() -> usize {
             continue;
         };
         let Ok(worker_pid) = filename.parse::<u32>() else {
-            // Not a PID file — skip.
+            // Not a PID file, skip.
             continue;
         };
 
         match classify_pid_file(&path, worker_pid, current_server_pid) {
             PidFileStatus::Stale => {
-                // Worker is dead — just clean up the file.
+                // Worker is dead, just clean up the file.
                 debug!(worker_pid, "Removing stale PID file (worker already dead)");
                 let _ = fs::remove_file(&path);
             }
@@ -135,11 +135,11 @@ pub(crate) fn reap_orphaned_workers() -> usize {
                 reaped += 1;
             }
             PidFileStatus::OwnedByUs => {
-                // This worker belongs to our server — leave it alone.
+                // This worker belongs to our server, leave it alone.
                 debug!(worker_pid, "PID file belongs to current server, skipping");
             }
             PidFileStatus::OwnedByOtherLiveServer { server_pid } => {
-                // Another live server owns this worker — leave it alone.
+                // Another live server owns this worker, leave it alone.
                 debug!(
                     worker_pid,
                     other_server_pid = server_pid,
@@ -147,7 +147,7 @@ pub(crate) fn reap_orphaned_workers() -> usize {
                 );
             }
             PidFileStatus::Unreadable => {
-                // Can't parse the file — remove it to avoid accumulation.
+                // Can't parse the file, remove it to avoid accumulation.
                 warn!(worker_pid, "Removing unreadable PID file");
                 let _ = fs::remove_file(&path);
             }
@@ -164,7 +164,7 @@ pub(crate) fn reap_orphaned_workers() -> usize {
 enum PidFileStatus {
     /// Worker process is dead. File is stale.
     Stale,
-    /// Worker is alive but its server is dead — orphan.
+    /// Worker is alive but its server is dead, orphan.
     Orphan { server_pid: u32 },
     /// Worker belongs to the current server process.
     OwnedByUs,
@@ -247,7 +247,7 @@ pub(crate) fn terminate_pgid(pid: u32) {
 }
 
 /// Send SIGKILL to a worker's process group plus the PID. Same
-/// shape as `terminate_pgid` — the only operational difference
+/// shape as `terminate_pgid`: the only operational difference
 /// is the signal.
 #[cfg(unix)]
 pub(crate) fn kill_pgid(pid: u32) {

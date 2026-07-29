@@ -40,7 +40,7 @@ pub(crate) async fn infer_revai_asr(
     tokio::task::spawn_blocking(move || {
         // When auto-detecting, run Rev.AI Language Identification first.
         // This is a separate API (~5-30s) that identifies the spoken language
-        // from audio features — far more accurate than text-based trigram
+        // from audio features: far more accurate than text-based trigram
         // detection, especially for code-switched bilingual audio.
         let effective_lang = if matches!(lang, LanguageSpec::Auto) {
             let client = RevAiClient::new(api_key.as_str());
@@ -85,14 +85,14 @@ pub(crate) async fn infer_revai_asr(
         )
         .map_err(|error| ServerError::Validation(error.to_string()))?;
 
-        // Resolve the language. No silent fallback to English — if Language
+        // Resolve the language. No silent fallback to English, if Language
         // ID didn't return anything usable and the user didn't supply
         // `--lang`, the file's `@Languages:` would be a lie. Surface the
         // failure instead so the operator re-runs with `--lang <iso3>`.
         let resolved_lang: LanguageCode3 = match &effective_lang {
             LanguageSpec::Resolved(code) => code.clone(),
             // Auto: user asked Rev.AI to detect. PerFile: transcribe path
-            // shouldn't see this — submission validation rejects it. Either
+            // shouldn't see this: submission validation rejects it. Either
             // way the only honest source here is Rev.AI's `detected_language`.
             LanguageSpec::Auto | LanguageSpec::PerFile => result
                 .detected_language
@@ -128,7 +128,7 @@ pub(crate) async fn infer_revai_asr(
 /// For concrete languages:
 /// - `speakers_count` is sent for English and Spanish (Rev.AI performs its own
 ///   speaker diarization for these languages).
-/// - `skip_postprocessing` is `Some(true)` for English and Spanish — Rev.AI's
+/// - `skip_postprocessing` is `Some(true)` for English and Spanish, Rev.AI's
 ///   post-processing applies Inverse Text Normalization (ITN) which converts
 ///   spoken form (what the speaker said) into written form
 ///   (`"eighty percent"` → `"80%"`, `"seventeen year old"` → `"17-year-old"`).
@@ -190,7 +190,7 @@ pub(super) fn fetch_revai_transcript(
 /// a language, it returns the ISO 639-1 code (e.g. `"es"`). We need to convert
 /// that back to ISO 639-3 (e.g. `"spa"`) for CHAT headers and downstream NLP.
 ///
-/// Returns `None` for unrecognized codes rather than panicking — the caller
+/// Returns `None` for unrecognized codes rather than panicking, the caller
 /// should fall through to whatlang trigram detection.
 fn revai_code_to_iso639_3(revai_code: &str) -> Option<LanguageCode3> {
     let iso3 = match revai_code {
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn revai_code_rejects_auto_sentinel() {
-        // "auto" is not a language — must return None so caller falls
+        // "auto" is not a language, must return None so caller falls
         // through to whatlang detection.
         assert_eq!(revai_code_to_iso639_3("auto"), None);
     }

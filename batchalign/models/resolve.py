@@ -12,8 +12,8 @@ _RESOLVER: dict[str, dict[LanguageCode, str]] = {
         "yue": "PolyU-AngelChanLab/Cantonese-Utterance-Segmentation",
     },
     # Per-language default HF model_id for the ``whisper_hub`` ASR engine.
-    # Entries are added reactively from empirical evaluation — not
-    # speculatively — and each one carries a dated provenance comment so
+    # Entries are added reactively from empirical evaluation, not
+    # speculatively, and each one carries a dated provenance comment so
     # a maintainer can re-evaluate it when Rev.AI / stock Whisper change.
     #
     # Absent languages are handled by
@@ -23,7 +23,7 @@ _RESOLVER: dict[str, dict[LanguageCode, str]] = {
     # surfaces the gap loudly rather than silently falling back to an
     # inappropriate default.
     "whisper_hub": {
-        # 2026-04-22 — seeded from empirical eval. thennal/whisper-medium-ml
+        # 2026-04-22: seeded from empirical eval. thennal/whisper-medium-ml
         # produced 100 % Malayalam-script coherent output on a 73-second
         # failing sample where stock openai/whisper-medium and
         # openai/whisper-large-v3 both collapsed into Khmer / Gurmukhi

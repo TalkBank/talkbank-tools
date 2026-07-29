@@ -50,7 +50,7 @@ entry, or an `HF_TOKEN` exported in that process environment.
 ```mermaid
 flowchart TD
     start([transcribe invoked]) --> resolve[Resolve audio file]
-    resolve --> ensure_wav[ensure_wav — convert if needed]
+    resolve --> ensure_wav[ensure_wav: convert if needed]
 
     ensure_wav --> diarize_check{--diarization?}
     diarize_check -->|"enabled"| transcribe_s["Command: transcribe_s\nASR + dedicated speaker relabeling\nRev or Whisper"]
@@ -147,7 +147,7 @@ CHAT transcripts.
 | --- | --- | --- |
 | `--lang CODE` | `eng` | 3-letter ISO language code, or `auto` for language auto-detection |
 | `--asr-engine {rev,whisper,whisper_hub,whisperx,whisper-oai}` | `rev` | ASR engine. See [`whisper-hub-asr.md`](../../reference/whisper-hub-asr.md) for `whisper_hub` (HuggingFace community fine-tunes). |
-| `--asr-engine-custom NAME` | — | Override ASR engine by name (e.g. `tencent`, `funaudio`) |
+| `--asr-engine-custom NAME` |: | Override ASR engine by name (e.g. `tencent`, `funaudio`) |
 | `-n`, `--num-speakers N` | `2` | Expected number of speakers |
 | `--diarization {auto,enabled,disabled}` | `auto` | Dedicated Pyannote speaker diarization stage (`auto` = disabled) |
 | `--wor` / `--nowor` | `--nowor` | Include or suppress the `%wor` word-timing tier |

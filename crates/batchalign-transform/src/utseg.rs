@@ -19,7 +19,7 @@
 //! index guards in `split_utterance`.
 //!
 //! The utseg invariant is simpler than morphotag's: there is no tokenizer
-//! realignment stage — the Python utseg worker is a per-word classifier
+//! realignment stage: the Python utseg worker is a per-word classifier
 //! whose `assignments` return MUST have the same length as the input
 //! `words`. A mismatch is always a worker-contract bug, not an expected
 //! divergence class.
@@ -70,7 +70,7 @@ pub struct UtsegResponse {
 ///
 /// Carries `utt_ordinal` and `speaker` so it can be converted to a
 /// [`DecisionRecord`](crate::decisions::DecisionRecord) without further
-/// context. `line_idx` is also available when needed — utseg is indexed
+/// context. `line_idx` is also available when needed, utseg is indexed
 /// by `utt_ordinal` rather than `line_idx` to align with the existing
 /// `HashMap<utt_ordinal, assignments>` dispatch map, but the two are
 /// trivially interconvertible.
@@ -93,7 +93,7 @@ pub struct UtsegOutcome {
 pub enum UtsegOutcomeKind {
     /// The utterance did not require segmentation.
     ///
-    /// Most commonly this is a single-word utterance — a one-word
+    /// Most commonly this is a single-word utterance, a one-word
     /// utterance trivially occupies one segment, so utseg skips the
     /// worker call entirely. It is CORRECT behavior, not a silent skip.
     NotApplicable {
@@ -111,7 +111,7 @@ pub enum UtsegOutcomeKind {
     },
     /// Worker returned a response whose `assignments` length does not
     /// match the dispatched `words` length. This is always a
-    /// worker-contract bug — the Python classifier is supposed to emit
+    /// worker-contract bug: the Python classifier is supposed to emit
     /// one assignment per input word.
     MisalignmentBug(UtsegMisalignmentDiagnostic),
 }
@@ -137,7 +137,7 @@ impl UtsegNotApplicableReason {
     }
 }
 
-/// Diagnostic for an utseg misalignment bug — the worker did not return
+/// Diagnostic for an utseg misalignment bug, the worker did not return
 /// the contract-required number of assignments.
 #[derive(Debug, Clone)]
 pub struct UtsegMisalignmentDiagnostic {
@@ -145,7 +145,7 @@ pub struct UtsegMisalignmentDiagnostic {
     pub expected_assignments: usize,
     /// Number of assignments the worker actually returned.
     pub actual_assignments: usize,
-    /// The words that were sent — helps a developer reproduce the case.
+    /// The words that were sent, helps a developer reproduce the case.
     pub words: Vec<String>,
 }
 
@@ -203,7 +203,7 @@ pub struct UtsegPayloadCollection {
 ///
 /// Single-word and empty utterances are classified as
 /// [`UtsegNotApplicableReason::SingleWord`] / `Empty` and returned as
-/// [`UtsegOutcome::NotApplicable`] entries — no worker call, no silent
+/// [`UtsegOutcome::NotApplicable`] entries, no worker call, no silent
 /// skip.
 pub fn collect_utseg_payloads(chat_file: &ChatFile) -> UtsegPayloadCollection {
     let mut batch_items = Vec::new();
@@ -275,7 +275,7 @@ pub fn collect_utseg_payloads(chat_file: &ChatFile) -> UtsegPayloadCollection {
 ///
 /// Returns the classified outcome kind. [`UtsegOutcomeKind::MisalignmentBug`]
 /// is emitted when the worker's `assignments` vector has a different
-/// length than the dispatched `words` — always a worker-contract bug.
+/// length than the dispatched `words`, always a worker-contract bug.
 pub fn validate_utseg_response(
     batch_item: &UtsegBatchItem,
     response: &UtsegResponse,
@@ -378,7 +378,7 @@ enum TierSplitPolicy {
     /// distribute them across children by the existing word→child
     /// mapping. Falls back to `Drop` if positional counts mismatch
     /// (stale `%wor` from prior edits, or tokenization drift). The
-    /// fallback is silent — it emits `tracing::debug!`, never a
+    /// fallback is silent: it emits `tracing::debug!`, never a
     /// validation error, preserving the stale-`%wor`-is-fine stance.
     Partition,
     /// Drop the tier from all children. The tier's data is
@@ -401,21 +401,21 @@ enum TierSplitPolicy {
 /// Map a dependent tier to its split policy.
 ///
 /// Word-positional, context-free tiers (`%wor`) get [`Partition`]. Word-positional
-/// but context-dependent tiers (`%mor`, `%gra`) get [`Drop`] — the data is
+/// but context-dependent tiers (`%mor`, `%gra`) get [`Drop`], the data is
 /// invalid in the new context. Document- or analysis-scoped tiers (`%coref`)
 /// also `Drop`. Other word-positional tiers we don't yet have a partition
 /// implementation for (`%pho`, `%mod`, `%sin`, etc.) `Drop` rather than
 /// `AttachFirst`, because attaching the parent's full per-word data to one
 /// child would falsely claim the data covers all the original words. Free-form
 /// utterance-level tiers (`%com`, `%xtra`, `%add`, etc., text tiers, user-defined,
-/// unsupported) default to `AttachFirst` — preserve the data on the first child.
+/// unsupported) default to `AttachFirst`, preserve the data on the first child.
 ///
 /// [`Partition`]: TierSplitPolicy::Partition
 /// [`Drop`]: TierSplitPolicy::Drop
 /// [`AttachFirst`]: TierSplitPolicy::AttachFirst
 fn policy_for_tier(tier: &DependentTier) -> TierSplitPolicy {
     match tier {
-        // Per-word timing — partitionable by word index.
+        // Per-word timing: partitionable by word index.
         DependentTier::Wor(_) => TierSplitPolicy::Partition,
 
         // Context-dependent or reference-structured: drop, regenerate downstream.
@@ -443,7 +443,7 @@ fn policy_for_tier(tier: &DependentTier) -> TierSplitPolicy {
 ///
 /// Returns `None` if positional counts mismatch (stale `%wor` from prior
 /// edits, or main-tier token policy drift). On `None`, the caller drops the
-/// tier from all children — matching the existing stale-`%wor`-is-fine
+/// tier from all children, matching the existing stale-`%wor`-is-fine
 /// behavior, never raising a validation error.
 ///
 /// `main_word_groups` is the per-main-tier-word child-group assignment, in
@@ -460,7 +460,7 @@ fn partition_wor_tier(
         tracing::debug!(
             parent_wor_words = parent_word_count,
             main_eligible_words = main_word_groups.len(),
-            "%wor count mismatch on split — dropping tier (stale %wor expected after prior edits)"
+            "%wor count mismatch on split, dropping tier (stale %wor expected after prior edits)"
         );
         return None;
     }
@@ -618,7 +618,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     let speaker = &utt.main.speaker;
     // Capture the parent's main-tier bullet before consuming `utt`. We
     // re-attach it to the LAST child below so the original utterance's
-    // end-of-span timing anchor is preserved across the split — without
+    // end-of-span timing anchor is preserved across the split, without
     // this, every split utterance loses its `_NNN` bullet and any
     // `@Media` linkage assertion the file relied on. See
     // `docs/postmortems/2026-04-26-utseg-split-bullet-loss.md`.
@@ -664,7 +664,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
 
         // Strip leading Separator nodes (comma, tag, vocative) that landed
         // at the start of this group after the split. A Separator at
-        // utterance-initial position is invalid CHAT — it belongs with the
+        // utterance-initial position is invalid CHAT, it belongs with the
         // preceding content or should be dropped.
         let first_non_sep = group_content
             .iter()
@@ -682,7 +682,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
             group_content,
             Terminator::Period { span: Span::DUMMY },
         );
-        // Language code applies to every child (utterance-scope) — set
+        // Language code applies to every child (utterance-scope), set
         // it at construction time. Linkers, terminator, postcodes, and
         // bullet are positional and applied to the right child after
         // the loop.
@@ -739,7 +739,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
         }
     }
 
-    // Linkers go on the FIRST child only — they describe relation to the
+    // Linkers go on the FIRST child only, they describe relation to the
     // *prior* (different) utterance, which only the first piece is adjacent
     // to. Use a non-empty check so we don't bother cloning the empty
     // SmallVec for the common case.
@@ -750,7 +750,7 @@ pub fn split_utterance(utt: Utterance, assignments: &[usize]) -> Vec<Utterance> 
     }
 
     // Terminator and postcodes go on the LAST child only. Terminator
-    // describes how the original utterance ended — that's the last child.
+    // describes how the original utterance ended, that's the last child.
     // Postcodes are utterance-level analysis tags; placing them on the
     // last child matches the conventional after-terminator serialization.
     if let Some((_, last)) = result.last_mut() {
@@ -967,9 +967,9 @@ mod tests {
     /// the boundary after "dishes". The comma is correctly modeled as
     /// `UtteranceContent::Separator(Separator::Comma)` by build_chat.rs.
     /// But after the split, it lands as the first content item of the second
-    /// utterance — which is invalid CHAT. Leading separators must be stripped.
+    /// utterance, which is invalid CHAT. Leading separators must be stripped.
     ///
-    /// Bug report: a user, 2026-04-02, 25-3.cha — `*INV: , or she didn't...`
+    /// Bug report: a user, 2026-04-02, 25-3.cha, `*INV: , or she didn't...`
     #[test]
     fn utseg_split_strips_leading_separator() {
         let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
@@ -1012,15 +1012,15 @@ mod tests {
     ///
     /// The utseg pipeline produced bullet-less output across 854/885 MOST
     /// corpus files on 2026-04-26 because `split_utterance` constructed each
-    /// child's `MainTier` fresh via `MainTier::new(...)` — which sets
-    /// `TierContent.bullet = None` — without copying `utt.main.content.bullet`
+    /// child's `MainTier` fresh via `MainTier::new(...)`, which sets
+    /// `TierContent.bullet = None`, without copying `utt.main.content.bullet`
     /// from the parent. The aggregate signal: 223,277 → 152,192 bullets
     /// (−31.8%) corpus-wide. Files whose only timing came from to-be-split
     /// utterances ended up with no timing at all and tripped E544
     /// (@Media-linkage assertion).
     ///
     /// Conservative invariant tested here: at least one child of a split
-    /// must carry the parent's bullet. We attach it to the LAST child —
+    /// must carry the parent's bullet. We attach it to the LAST child
     /// the original utterance ended at the bullet's end timestamp, and
     /// the last child of the split contains the last words and ends at
     /// that same end timestamp.
@@ -1051,14 +1051,14 @@ mod tests {
         assert_eq!(result.len(), 2, "expected 2 children from the split");
 
         // The LAST child must carry the parent's bullet (same start_ms /
-        // end_ms). The earlier children may have no bullet — we simply
+        // end_ms). The earlier children may have no bullet, we simply
         // don't know their per-child timing without realignment, and we
         // refuse to fabricate one.
         let last_child_bullet = &result.last().unwrap().main.content.bullet;
         assert!(
             last_child_bullet.is_some(),
             "last child of a split must inherit the parent's bullet \
-             (got None — parent timing was dropped). Output: {}",
+             (got None: parent timing was dropped). Output: {}",
             result.last().unwrap().to_chat_string()
         );
         let last = last_child_bullet.as_ref().unwrap();
@@ -1126,7 +1126,7 @@ mod tests {
 
     /// %wor partitioning falls back to dropping the tier when item counts
     /// don't match main-tier eligible-word counts (stale %wor). No panic,
-    /// no validation error — silent drop matches the rename's intent that
+    /// no validation error: silent drop matches the rename's intent that
     /// stale %wor is legal.
     #[test]
     fn utseg_split_drops_wor_on_count_mismatch() {
@@ -1400,7 +1400,7 @@ mod tests {
         assert_eq!(result.len(), 2, "expected 2 children");
         let s0 = result[0].to_chat_string();
         let s1 = result[1].to_chat_string();
-        // child 0: just "I" — no fragment of the ReplacedWord or "go"
+        // child 0: just "I", no fragment of the ReplacedWord or "go"
         assert!(
             !s0.contains("wanna") && !s0.contains("want") && !s0.contains("go"),
             "child 0 should be just I, got: {s0}"
@@ -1446,7 +1446,7 @@ mod tests {
         // "to" (assignments=[0, 0, 1, 1]). Structurally we cannot split
         // inside a single main-tier slot. The first-assignment-wins logic
         // attributes the entire ReplacedWord to "want"'s group (0). Net
-        // result: "I wanna" in group 0, "go" in group 1 — same as if the
+        // result: "I wanna" in group 0, "go" in group 1, same as if the
         // boundary had been after the ReplacedWord. This pins the
         // "ReplacedWord is atomic to splits" invariant.
         let chat_text = "@UTF8\n@Begin\n@Languages:\teng\n\
@@ -1460,7 +1460,7 @@ mod tests {
         assert_eq!(result.len(), 2);
         let s0 = result[0].to_chat_string();
         let s1 = result[1].to_chat_string();
-        // ReplacedWord stayed atomic — went with "want"'s assignment (0).
+        // ReplacedWord stayed atomic: went with "want"'s assignment (0).
         assert!(
             s0.contains("wanna [: want to]"),
             "ReplacedWord must be atomic on splits; got s0: {s0}"
@@ -1556,7 +1556,7 @@ mod tests {
             words: vec!["I".into(), "eat".into(), "cookies".into()],
             text: "I eat cookies".into(),
         };
-        // Worker returned 2 assignments for 3 input words — contract violation.
+        // Worker returned 2 assignments for 3 input words, contract violation.
         let resp = UtsegResponse {
             assignments: vec![0, 0],
         };

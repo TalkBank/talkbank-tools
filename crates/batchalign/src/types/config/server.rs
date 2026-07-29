@@ -12,12 +12,12 @@ use serde::{Deserialize, Serialize};
 use crate::api::{LanguageCode3, MemoryMb};
 use crate::host_facts::serde_helpers::zero_as_none;
 
-/// Minimal warmup preset — morphotag only.
+/// Minimal warmup preset: morphotag only.
 ///
 /// The CLI `--warmup minimal` expands to this list.
 pub const WARMUP_PRESET_MINIMAL: &[&str] = &["morphotag"];
 
-/// Full warmup preset — morphotag, align, transcribe.
+/// Full warmup preset: morphotag, align, transcribe.
 ///
 /// The CLI `--warmup full` expands to this list. This is also the default
 /// when no `--warmup` flag or `warmup_commands` config is given.
@@ -307,7 +307,7 @@ pub struct ServerConfig {
 /// Fleet server connection details.
 ///
 /// Tells the local daemon how to reach the fleet's primary compute
-/// server for automatic job routing. Deployed by Ansible — external
+/// server for automatic job routing. Deployed by Ansible, external
 /// users never see this.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FleetTarget {

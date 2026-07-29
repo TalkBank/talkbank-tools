@@ -221,7 +221,7 @@ where
                 errors = %error_summary,
                 chat_text = %files[file_idx].chat_text,
                 command = hooks.command,
-                "pre-validation failed — dumping CHAT for diagnosis"
+                "pre-validation failed: dumping CHAT for diagnosis"
             );
             validation_errors[file_idx] = Some(error_summary);
             per_file_info.push(None);
@@ -298,7 +298,7 @@ where
 
             // Collect any per-item failures for this file. If any
             // failed, mark the entire file as failed without writing
-            // partial output — matches BA2 (one bad utterance abandons
+            // partial output: matches BA2 (one bad utterance abandons
             // the file).
             let item_errors: Vec<crate::text_batch::ItemError> = file_item_results
                 .iter()
@@ -322,7 +322,7 @@ where
                 continue;
             }
 
-            // All items succeeded for this file — extract owned
+            // All items succeeded for this file, extract owned
             // responses and apply them. Any Err was already filtered
             // above (the loop `continue`d when `item_errors` was
             // non-empty), so `filter_map(.ok())` collects every response

@@ -1,7 +1,7 @@
 # Morphotag Regression Fixtures
 
 This directory will hold real-world `batchalign3 morphotag` regression
-fixtures. The convention matches `align/` — see the top-level
+fixtures. The convention matches `align/`, see the top-level
 `test-fixtures/README.md` for the directory layout and the
 `source.json` schema.
 

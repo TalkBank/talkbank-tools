@@ -1,4 +1,4 @@
-//! Command dispatch routing — decides which dispatch family to invoke for a
+//! Command dispatch routing: decides which dispatch family to invoke for a
 //! given job, resolves runtime worker capabilities, and delegates to the
 //! per-command dispatch wrappers.
 //!
@@ -63,13 +63,13 @@ pub(super) async fn dispatch_job_with_execution_context(
     let test_echo_mode = execution.test_echo_mode;
     let job_engine_overrides = job.dispatch.options.common().engine_overrides_json();
 
-    // Capability discovery is language-agnostic — the worker reports its
+    // Capability discovery is language-agnostic, the worker reports its
     // resources.json which lists every supported language regardless of
     // which lang the worker boots with. The job-level `LanguageSpec`
     // (`Resolved(_)`, `Auto`, `PerFile`) is mapped to its `WorkerLanguage`
     // counterpart and forwarded as-is. The Python bootstrap recognises
     // `auto` and `per-file` as non-ISO sentinels and skips eager Stanza
-    // model load for those — see
+    // model load for those, see
     // `batchalign/worker/_model_loading/bootstrap.py::_load_single_task`.
     // No English fallback here; the typed sum carries through.
     let capability_snapshot = match resolve_runtime_capability_snapshot(
@@ -184,7 +184,7 @@ pub(super) async fn dispatch_job_with_execution_context(
         .await;
     } else if use_media_analysis_infer {
         let Some(infer_task) = infer_task else {
-            tracing::error!("use_media_analysis_infer set but infer_task is None — logic error");
+            tracing::error!("use_media_analysis_infer set but infer_task is None, logic error");
             return Ok(());
         };
         let engine_version = EngineVersion::from(
@@ -396,9 +396,9 @@ pub(super) async fn dispatch_job_with_execution_context(
         // The server owns CHAT parse/cache/inject/serialize.
         // Python workers provide pure Stanza inference only.
         let Some(infer_task) = infer_task else {
-            // use_infer requires infer_task.is_some() — this branch is unreachable
+            // use_infer requires infer_task.is_some(): this branch is unreachable
             // but we avoid a panic by returning early with an error log.
-            tracing::error!("use_infer set but infer_task is None — logic error");
+            tracing::error!("use_infer set but infer_task is None, logic error");
             return Ok(());
         };
         let engine_version = EngineVersion::from(

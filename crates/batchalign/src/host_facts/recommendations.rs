@@ -10,7 +10,7 @@
 //! isolation and operator tooling can ask "why this value?" per knob
 //! (the future `batchalign3 doctor --explain <knob>` surface).
 //!
-//! Phase B1 adds `gpu_thread_pool_size` — the knob that motivated the
+//! Phase B1 adds `gpu_thread_pool_size`, the knob that motivated the
 //! architecture (see
 //! `talkbank/docs/postmortems/2026-04-25-whisper-hub-malayalam-queue-wait-timeout.md`).
 //! Subsequent B-phases extend `RecommendedKnobs` with `force_cpu`,
@@ -48,10 +48,10 @@ pub struct RecommendedKnobs {
     /// Silicon with MPS excluded, hosts without CUDA, hosts with a
     /// failed `nvidia-smi` probe) recommend `true`.
     ///
-    /// Operator overrides remain available — the Phase C `EffectiveConfig`
+    /// Operator overrides remain available, the Phase C `EffectiveConfig`
     /// merge will let `force_cpu = false` survive on a host whose
     /// recommendation is `true` (with a validation warning), and
-    /// `force_cpu = true` survive on a CUDA host (silently — that's
+    /// `force_cpu = true` survive on a CUDA host (silently, that's
     /// a legitimate "I want CPU for testing" choice).
     pub force_cpu: bool,
 
@@ -88,13 +88,13 @@ pub struct RecommendedKnobs {
 /// in future phases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct PerProfile<T: Copy> {
-    /// GPU profile: ASR, FA, speaker — Whisper-class model loads,
+    /// GPU profile: ASR, FA, speaker, Whisper-class model loads,
     /// peak RAM ~12-15 GB per process.
     pub gpu: T,
-    /// Stanza profile: morphotag, utseg, translate, coref —
+    /// Stanza profile: morphotag, utseg, translate, coref
     /// per-language Stanza pipelines, peak RAM ~6-8 GB per process.
     pub stanza: T,
-    /// IO profile: opensmile, avqi — lightweight signal processing,
+    /// IO profile: opensmile, avqi, lightweight signal processing,
     /// peak RAM ~1-2 GB per process.
     pub io: T,
 }
@@ -214,7 +214,7 @@ const MIN_TOTAL_WORKERS: u32 = 2;
 /// `docs/bugs/BUG-028-worker-pool-spawn-rejection-busy-loop.md`.
 const MAX_TOTAL_WORKERS: u32 = 32;
 
-/// Conservative fallback when `ram_total_mb` is zero — almost
+/// Conservative fallback when `ram_total_mb` is zero, almost
 /// certainly a sysinfo detection failure, since no host that can run
 /// the binary has zero physical RAM. Matches the legacy fallback.
 const TOTAL_WORKERS_FALLBACK_ON_ZERO_RAM: u32 = 4;
@@ -230,7 +230,7 @@ const TOTAL_WORKERS_FALLBACK_ON_ZERO_RAM: u32 = 4;
 ///    calls; `available_memory` does. The recommendation should be a
 ///    function of host capability, not transient pressure.
 /// 2. **Correct scope.** This cap governs how many workers can ever
-///    coexist on the host — a question of physical RAM, not load.
+///    coexist on the host, a question of physical RAM, not load.
 ///    The runtime `worker::memory_guard` separately enforces dynamic
 ///    memory pressure at spawn time, so the cap does not need to
 ///    pre-bake a margin for currently-running processes.
@@ -262,7 +262,7 @@ pub fn recommend_max_total_workers(facts: &HostFacts) -> u32 {
 /// (where `⌒` is `min`).
 ///
 /// Why this is **not** in `RecommendedKnobs`: the bundle struct holds
-/// host-level recommendations. This knob is per-command — different
+/// host-level recommendations. This knob is per-command, different
 /// commands on the same host get different values (transcribe is
 /// GPU-heavy, morphotag is CPU-only). Phase C's `EffectiveConfig`
 /// resolver calls this function on demand per command, with the
@@ -275,7 +275,7 @@ pub fn recommend_max_total_workers(facts: &HostFacts) -> u32 {
 /// recommendation, not the override). The difference matters when an
 /// operator sets `gpu_thread_pool_size` independently of
 /// `max_workers_per_job`; under the new architecture, those two knobs
-/// are decoupled — overriding one no longer cascades into the other.
+/// are decoupled: overriding one no longer cascades into the other.
 /// Both can be overridden independently. Documented in
 /// `docs/investigations/2026-04-25-host-facts-architecture.md` §
 /// Layer 2.
@@ -299,7 +299,7 @@ pub(super) fn recommend_max_workers_per_job(facts: &HostFacts, command: &Release
 
 // Peak RAM estimates per worker process, by profile. These are the
 // memory costs the recommendation function uses to compute "how many
-// of this worker class fit in physical RAM?" — distinct from the
+// of this worker class fit in physical RAM?", distinct from the
 // `MemoryTier::*_startup_mb` reservation values, which describe the
 // reservation strategy (eager vs lazy) at worker startup.
 //
@@ -328,7 +328,7 @@ const PEAK_RAM_PER_STANZA_WORKER_MB: u64 = 12_000;
 /// `{gpu,stanza,io}_startup_mb` fields; this function now consults the
 /// same source of truth. The boot-time gate's job is to refuse
 /// configurations that cannot satisfy startup reservations on this
-/// tier, NOT to model long-tail peak RSS — that's the runtime gates'
+/// tier, NOT to model long-tail peak RSS, that's the runtime gates'
 /// job, and they have observed-RSS data this layer cannot.
 ///
 /// "Worst case" = the heaviest startup reservation across worker
@@ -359,13 +359,13 @@ pub fn worst_case_per_job_peak_ram_mb(tier: &runtime::MemoryTier) -> u64 {
 /// Divergence from today's flat-4 default is intentional and goes both
 /// ways:
 ///
-/// - On RAM-constrained hosts (16 GB), the flat 4 was unsafe — four
+/// - On RAM-constrained hosts (16 GB), the flat 4 was unsafe, four
 ///   GPU workers would have wanted 60+ GB. The recommendation drops to 1.
 /// - On large hosts (256 GB Fleet), the flat 4 left capacity unused.
 ///   The recommendation rises to 8 (the runtime hard cap).
 ///
 /// On a typical Large-tier host (64 GB), the recommendation is 4 for
-/// GPU and 5 for Stanza — close to today's flat 4, no surprises.
+/// GPU and 5 for Stanza, close to today's flat 4, no surprises.
 pub fn recommend_max_workers_per_key(facts: &HostFacts) -> PerProfile<u32> {
     let max_gpu = u32::try_from(crate::runtime::max_gpu_workers()).unwrap_or(u32::MAX);
     let max_thread = u32::try_from(crate::runtime::max_thread_workers()).unwrap_or(u32::MAX);
@@ -423,7 +423,7 @@ pub fn recommend_max_concurrent_jobs(facts: &HostFacts) -> u32 {
 /// Derived: `force_cpu = !gpu.is_functional_for_batchalign()`. The
 /// operator override flow lives at the Phase C `EffectiveConfig` merge
 /// layer; this function only answers "what would the binary set if
-/// no override applied?" — which is "force CPU exactly when the GPU
+/// no override applied?", which is "force CPU exactly when the GPU
 /// is unusable."
 ///
 /// The tighter coupling than `gpu_thread_pool_size` (which has a
@@ -508,7 +508,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // Apple Silicon — the entire current fleet. Every fleet RAM size
+    // Apple Silicon: the entire current fleet. Every fleet RAM size
     // gets its own row so a future formula change that accidentally
     // returns >1 on small or large hosts trips a test.
     // -------------------------------------------------------------------
@@ -539,7 +539,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // CUDA — the value the legacy static default was implicitly tuned
+    // CUDA: the value the legacy static default was implicitly tuned
     // for. Single-device and multi-device should both recommend 4.
     // -------------------------------------------------------------------
 
@@ -560,7 +560,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // CPU-only fallthroughs — Linux without CUDA, Windows without a
+    // CPU-only fallthroughs: Linux without CUDA, Windows without a
     // characterized GPU. Both must conservatively recommend 1.
     // -------------------------------------------------------------------
 
@@ -622,7 +622,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // force_cpu — derived from `GpuPresence::is_functional_for_batchalign`,
+    // force_cpu: derived from `GpuPresence::is_functional_for_batchalign`,
     // inverted. Apple Silicon and any non-functional GPU recommend
     // force_cpu = true; CUDA recommends force_cpu = false. Same fact
     // shapes as gpu_thread_pool_size so a future divergence in either
@@ -695,8 +695,8 @@ mod tests {
     // Cross-knob consistency: on every fact shape, `force_cpu` and
     // `gpu_thread_pool_size > 1` must move together. Either both
     // signal "use the GPU" or both signal "stay on CPU." A future
-    // formula change that breaks this invariant — e.g., a host with
-    // force_cpu=true but gpu_thread_pool_size=4 — is incoherent and
+    // formula change that breaks this invariant, e.g., a host with
+    // force_cpu=true but gpu_thread_pool_size=4: is incoherent and
     // should fail this test loudly.
     // -------------------------------------------------------------------
 
@@ -731,7 +731,7 @@ mod tests {
     // -------------------------------------------------------------------
 
     // -------------------------------------------------------------------
-    // max_total_workers — RAM-derived cap. One row per fleet RAM bucket
+    // max_total_workers: RAM-derived cap. One row per fleet RAM bucket
     // plus clamp boundaries plus the zero-RAM fallback.
     // -------------------------------------------------------------------
 
@@ -812,7 +812,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // max_concurrent_jobs — RAM-tier × CPU-count, with both axes
+    // max_concurrent_jobs: RAM-tier × CPU-count, with both axes
     // constraining the result.
     // -------------------------------------------------------------------
 
@@ -943,7 +943,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // max_workers_per_job per command — GPU-heavy vs CPU-only branches
+    // max_workers_per_job per command: GPU-heavy vs CPU-only branches
     // across tier sizes. The category cap is the load-bearing piece.
     // -------------------------------------------------------------------
 
@@ -961,7 +961,7 @@ mod tests {
         assert_eq!(recommend_max_workers_per_job(&shape, &cmd("transcribe")), 1);
     }
 
-    /// On a CUDA host, transcribe gets 4 — the recommended GPU thread
+    /// On a CUDA host, transcribe gets 4, the recommended GPU thread
     /// pool size on functional GPUs, capped by the Large-tier
     /// max_suggested_workers (also 4) and max_gpu_workers (8).
     #[test]
@@ -971,7 +971,7 @@ mod tests {
         assert_eq!(recommend_max_workers_per_job(&shape, &cmd("transcribe")), 4);
     }
 
-    /// All four GPU-heavy commands behave identically — they share one
+    /// All four GPU-heavy commands behave identically, they share one
     /// classification branch.
     #[test]
     fn max_workers_per_job_all_gpu_heavy_commands_match() {
@@ -1079,12 +1079,12 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
-    // max_workers_per_key_by_profile — per-profile RAM-derived caps.
+    // max_workers_per_key_by_profile: per-profile RAM-derived caps.
     // Tests pin the formula at every fleet RAM size: 16/32/64/96/256.
     // -------------------------------------------------------------------
 
     /// 16 GB host: gpu = 16/16 = 1, stanza = 16/12 = 1, io = 1 flat.
-    /// Smaller than today's flat 4 — and that's the point.
+    /// Smaller than today's flat 4, and that's the point.
     #[test]
     fn max_workers_per_key_16gb() {
         let p = recommend_max_workers_per_key(&apple_silicon(16));
@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     /// IO is always flat 1 regardless of RAM. If a future contributor
-    /// changes the formula to derive IO from RAM, this test fires —
+    /// changes the formula to derive IO from RAM, this test fires
     /// the architectural decision (documented in the design doc) is
     /// that opensmile/avqi don't benefit from per-key parallelism.
     #[test]

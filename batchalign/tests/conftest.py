@@ -48,10 +48,10 @@ def _apply_interactive_pytest_defaults(config: pytest.Config) -> None:
     them immediately.
 
     CI keeps `--no-fail-fast` (pytest default) to preserve full failure
-    reports — partial reports hide flake-vs-systemic patterns, and CI's
+    reports: partial reports hide flake-vs-systemic patterns, and CI's
     signal latency is dominated by queue + setup, not test runtime.
 
-    Called from ``pytest_configure`` below, not directly — keeps the
+    Called from ``pytest_configure`` below, not directly, keeps the
     ordering explicit (memory guard runs first, then this).
     """
     if _is_ci():
@@ -87,11 +87,11 @@ def _get_system_ram_gb() -> int:
                         return kb // (1024 * 1024)
     except Exception:
         pass
-    return 0  # Unknown — be conservative
+    return 0  # Unknown: be conservative
 
 
 # ---------------------------------------------------------------------------
-# Phase B2 — test-run history writer
+# Phase B2: test-run history writer
 # ---------------------------------------------------------------------------
 #
 # When BATCHALIGN_TEST_HISTORY_DB is set (and _OFF is not), the hooks
@@ -151,7 +151,7 @@ def pytest_configure(config: pytest.Config) -> None:
     CI runs keep pytest's complete-report behavior.
 
     Also opens the history writer when BATCHALIGN_TEST_HISTORY_DB is
-    set — see ``pytest_runtest_logreport`` below.
+    set: see ``pytest_runtest_logreport`` below.
     """
     _apply_interactive_pytest_defaults(config)
 
@@ -188,14 +188,14 @@ def pytest_configure(config: pytest.Config) -> None:
                 return
 
     if num_workers <= 0:
-        # -n 0 means no parallelism — safe
+        # -n 0 means no parallelism, safe
         return
 
     # Check if golden tests are being INCLUDED (not excluded).
     # Default pytest.ini uses "not slow and not golden and not integration" which
     # EXCLUDES golden. We only need protection when golden is actively selected.
     markexpr = config.option.markexpr or ""
-    # "golden" included but NOT preceded by "not " — means golden tests are selected
+    # "golden" included but NOT preceded by "not ", means golden tests are selected
     has_golden = "golden" in markexpr and "not golden" not in markexpr
 
     if has_golden and ram_gb > 0:
@@ -239,7 +239,7 @@ def _apply_history_priority_ordering(
       - Not in CI (reproducibility > speed; the same PR should run
         tests in the same order on every CI invocation).
 
-    Silently no-ops on any unexpected condition — ordering is a
+    Silently no-ops on any unexpected condition, ordering is a
     free-lunch optimization, not correctness, and should never break
     a run.
     """
@@ -258,7 +258,7 @@ def _apply_history_priority_ordering(
         since_ts = int(time.time()) - _HISTORY_PRIORITY_WINDOW_SECONDS
         stats = load_stats(db_path, since_ts=since_ts)
     except Exception:
-        return  # Any read failure is non-fatal — fall back to collection order.
+        return  # Any read failure is non-fatal, fall back to collection order.
     if not stats:
         return
 
@@ -301,7 +301,7 @@ def pytest_collection_modifyitems(
 
     ram_gb = _get_system_ram_gb()
     if ram_gb <= 0:
-        return  # Unknown RAM — trust the configure-time guard's serialization.
+        return  # Unknown RAM: trust the configure-time guard's serialization.
 
     from batchalign.tests._memory_budget import budgeted_jobs
     budget_n = budgeted_jobs("ml", total_ram_mb=ram_gb * 1024)
@@ -321,20 +321,20 @@ def pytest_collection_modifyitems(
 
 @pytest.fixture(autouse=True)
 def _guard_golden_oom(request: pytest.FixtureRequest) -> None:
-    """Per-test OOM guard — belt-and-suspenders for the collect-time
+    """Per-test OOM guard: belt-and-suspenders for the collect-time
     budget check.
 
     Fires only when we're in an xdist worker on a host so small the
     budget says "zero ml workers allowed." In that case something
     bypassed the configure + collection guards and the test would
-    crash if it tried to load a model — fail early with a clear
+    crash if it tried to load a model, fail early with a clear
     message instead.
     """
     marker = request.node.get_closest_marker("golden")
     if marker is None:
         return
 
-    # Not in an xdist worker — the sole process is always OK for a
+    # Not in an xdist worker, the sole process is always OK for a
     # single golden test (enough RAM to host one model at a time).
     worker_id = getattr(request.config, "workerinput", {}).get("workerid", None)
     if worker_id is None:
@@ -359,7 +359,7 @@ def _guard_golden_oom(request: pytest.FixtureRequest) -> None:
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     """Record the outcome + duration of every test's ``call`` phase.
 
-    Setup/teardown durations are excluded — they're noisy and not what
+    Setup/teardown durations are excluded: they're noisy and not what
     the historical-failure-ordering predictor needs. If a test fails in
     setup, pytest emits a ``call`` phase with ``error`` outcome, so we
     still catch errors there.

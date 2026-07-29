@@ -267,7 +267,7 @@ async fn concurrent_dispatch_across_task_types() {
 // ---------------------------------------------------------------------------
 
 /// Worker spawn and shutdown work on the current platform.
-/// This test is platform-agnostic — it verifies the basic lifecycle.
+/// This test is platform-agnostic, it verifies the basic lifecycle.
 #[tokio::test]
 async fn cross_platform_worker_spawn_and_shutdown() {
     let python = require_python!();

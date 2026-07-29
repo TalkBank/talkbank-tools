@@ -15,7 +15,7 @@ heavy imports at module import time.  It provides:
   ``MAX_THREAD_WORKERS``, per-command memory budgets.
 - **System RAM helpers**: ``system_ram_mb()``, ``available_memory_mb()``.
 
-Constants marked "# from TOML" are loaded from ``runtime_constants.toml`` — the
+Constants marked "# from TOML" are loaded from ``runtime_constants.toml``, the
 single source of truth shared with the Rust server.
 """
 
@@ -84,7 +84,7 @@ of ``ProcessPoolExecutor`` (duplicated models, ~8 GB each).
 
 # CPU-bound commands benefit from ProcessPoolExecutor (true parallelism).
 # On free-threaded Python, morphotag and utseg can use ThreadPoolExecutor
-# with shared models — one copy of Stanza instead of one per process.
+# with shared models, one copy of Stanza instead of one per process.
 PROCESS_COMMANDS: frozenset[str] = frozenset(
     _TOML["process_commands"]["free_threaded"]
     if FREE_THREADED
@@ -138,9 +138,9 @@ def available_memory_mb() -> int | None:
     """Read *available* system RAM in MB, or None if unavailable.
 
     - **Linux**: ``/proc/meminfo`` → ``MemAvailable`` (kernel-computed, accurate).
-    - **macOS**: ``psutil.virtual_memory().available`` with a 30% haircut —
+    - **macOS**: ``psutil.virtual_memory().available`` with a 30% haircut
       macOS counts compressed pages as "available", over-reporting by ~30%.
-    - **Fallback**: ``None`` — callers should use ``system_ram_mb()`` minus a
+    - **Fallback**: ``None``: callers should use ``system_ram_mb()`` minus a
       static reserve.
     """
     system = platform.system()

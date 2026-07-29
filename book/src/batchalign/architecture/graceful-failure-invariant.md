@@ -62,7 +62,7 @@ of two outcomes per file:
   succeeded for this file; the file's `%xtra` / `%mor` / etc. tier
   is injected and the file is serialized to the output.
 - `TextBatchFileResult::err(filename,
-  TextWorkflowFileError::ItemErrors { command, total, samples })` —
+  TextWorkflowFileError::ItemErrors { command, total, samples })`
   one or more items failed; no output is written. The error carries
   the command label, total failure count, and up to
   `MAX_ITEM_ERROR_SAMPLES` (5) sample messages for diagnostics.

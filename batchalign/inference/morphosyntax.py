@@ -1,6 +1,6 @@
 """Stanza morphosyntax inference: words -> POS/dep/lemma.
 
-Pure inference — no CHAT, no caching, no pipeline.
+Pure inference, no CHAT, no caching, no pipeline.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ UD_DEPREL_ALIASES: dict[str, str] = {
 
 
 class UdWord(BaseModel, extra="allow"):
-    """A single UD word/token — mirrors Rust ``UdWord`` in types.rs."""
+    """A single UD word/token: mirrors Rust ``UdWord`` in types.rs."""
 
     id: int | list[int] | float
     text: str
@@ -88,7 +88,7 @@ class UdWord(BaseModel, extra="allow"):
     def _sanitize_pad_deprel(self) -> UdWord:
         if self.deprel.startswith("<") and self.deprel.endswith(">"):
             L.warning(
-                "Stanza emitted deprel=%r for word %r — replacing with 'dep'",
+                "Stanza emitted deprel=%r for word %r, replacing with 'dep'",
                 self.deprel,
                 self.text,
             )
@@ -126,7 +126,7 @@ class UdWord(BaseModel, extra="allow"):
         replacement = UD_DEPREL_ALIASES.get(lowered)
         if replacement is not None:
             L.warning(
-                "Stanza emitted non-UD deprel=%r for word %r — normalizing to %r",
+                "Stanza emitted non-UD deprel=%r for word %r, normalizing to %r",
                 self.deprel,
                 self.text,
                 replacement,
@@ -135,7 +135,7 @@ class UdWord(BaseModel, extra="allow"):
             return self
 
         L.warning(
-            "Stanza emitted unrecognized deprel=%r for word %r — replacing with 'dep'",
+            "Stanza emitted unrecognized deprel=%r for word %r, replacing with 'dep'",
             self.deprel,
             self.text,
         )
@@ -170,16 +170,16 @@ def _segment_cantonese(words: list[str]) -> list[str]:
 
     # Only re-segment if the input looks like per-character ASR output:
     # all CJK tokens are single characters. If any multi-char CJK token
-    # exists, the input already has some word boundaries — preserve them.
+    # exists, the input already has some word boundaries, preserve them.
     cjk_words = [w for w in words if any("\u4e00" <= c <= "\u9fff" for c in w)]
     has_multichar_cjk = any(len(w) > 1 for w in cjk_words)
 
     if has_multichar_cjk:
-        # Input already has word boundaries — don't re-segment.
+        # Input already has word boundaries, don't re-segment.
         # This prevents merging tokens across existing boundaries.
         return list(words)
 
-    # All CJK tokens are single characters — safe to join and segment.
+    # All CJK tokens are single characters, safe to join and segment.
     text = "".join(words)
     if not text:
         return []
@@ -251,7 +251,7 @@ def validate_ud_words(sents: list[list[UdWordRaw]]) -> None:
                 validated.text, validated.lemma
             ):
                 L.warning(
-                    "Stanza returned bogus lemma %r for word %r — falling back to surface form",
+                    "Stanza returned bogus lemma %r for word %r, falling back to surface form",
                     validated.lemma,
                     validated.text,
                 )
@@ -333,7 +333,7 @@ def batch_infer_morphosyntax(
         if req.retokenize and item_lang in ("yue",):
             words = _segment_cantonese(words)
 
-        # Join words for Stanza input. Do NOT strip parentheses here —
+        # Join words for Stanza input. Do NOT strip parentheses here
         # Rust cleaned_text() already handles CHAT notation. Stripping
         # parens in Python silently drops bare "(" / ")" words, causing
         # MOR count mismatches in the retokenize inject path.
@@ -353,7 +353,7 @@ def batch_infer_morphosyntax(
 
 
         # Mandarin retokenize: use Stanza neural tokenizer instead of pretokenized.
-        # Only activate when the JOB language is Mandarin — per-utterance language
+        # Only activate when the JOB language is Mandarin, per-utterance language
         # codes (e.g., [- zho] in a Cantonese file) must NOT trigger retokenization.
         use_retok_pipeline = (
             req.retokenize
@@ -402,7 +402,7 @@ def batch_infer_morphosyntax(
                 # Set original_words so the postprocessor can realign Stanza's
                 # tokenization back to CHAT words. Skip when retokenize is
                 # requested (either CJK retok pipeline or non-CJK retokenize)
-                # — in that case, Stanza owns tokenization and we want its
+                #, in that case, Stanza owns tokenization and we want its
                 # MWT expansion (gonna → gon+na, don't → do+n't) to pass through.
                 should_set_original_words = (
                     tok_ctx is not None
@@ -412,7 +412,7 @@ def batch_infer_morphosyntax(
                 # Realignment-skipped audit (Wave 3 of the morphotag
                 # reconciliation architecture): if we're in normal
                 # (non-retok) mode and tok_ctx is None, Stanza runs
-                # WITHOUT tokenizer realignment — its neural tokenizer
+                # WITHOUT tokenizer realignment: its neural tokenizer
                 # is free to split/merge CHAT words, silently breaking
                 # the 1-to-1 invariant that downstream Rust injection
                 # assumes. This warning makes that invisible mode
@@ -427,7 +427,7 @@ def batch_infer_morphosyntax(
                 if realignment_skipped_unexpectedly:
                     L.warning(
                         "morphotag: realignment context missing for language "
-                        "%r (lookup keys tried: %r, %r) — Stanza will own "
+                        "%r (lookup keys tried: %r, %r), Stanza will own "
                         "tokenization on this batch, which may violate the "
                         "1-to-1 invariant. This batch's count mismatches "
                         "will surface as MisalignmentBug decisions.",
@@ -464,7 +464,7 @@ def batch_infer_morphosyntax(
                 # For Cantonese, override Stanza POS with PyCantonese.
                 # Stanza's Mandarin model scores ~50% on Cantonese vocabulary;
                 # PyCantonese scores ~94%. We keep Stanza's dependency parse
-                # (deprel, head) and lemma — only upos is replaced.
+                # (deprel, head) and lemma, only upos is replaced.
                 # Applied to ALL Cantonese morphotag, not just retokenize,
                 # because the POS accuracy problem affects all Cantonese output.
                 apply_pyc_pos = lang_code in ("yue",)

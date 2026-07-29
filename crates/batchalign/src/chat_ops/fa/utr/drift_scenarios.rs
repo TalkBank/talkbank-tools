@@ -6,7 +6,7 @@
 //! rhd / samtale files. They are RED on the current `GlobalUtr`-backed pipeline
 //! for at least the long-file + dense-overlap cases and are expected to turn
 //! GREEN once Phase 3 of the segment-aware UTR plan flips `select_strategy` to
-//! dispatch to `SegmentAwareUtr` — the same `inject_utr_timing` call is the
+//! dispatch to `SegmentAwareUtr`: the same `inject_utr_timing` call is the
 //! seam, so the tests are forward-compatible.
 //!
 //! # Invariants checked by [`run_and_check`]
@@ -15,8 +15,8 @@
 //!
 //! 1. `end_ms > start_ms` (no zero- or negative-duration bullets).
 //! 2. Adjacent **non-overlap** utterance bullets are strictly monotone in
-//!    `start_ms`. Overlap-continuation utterances — those carrying a `+<`
-//!    [`Linker::LazyOverlapPrecedes`] OR a `⌊` CA bottom-overlap marker —
+//!    `start_ms`. Overlap-continuation utterances: those carrying a `+<`
+//!    [`Linker::LazyOverlapPrecedes`] OR a `⌊` CA bottom-overlap marker
 //!    legitimately share timing with a predecessor and are EXCLUDED from the
 //!    monotonicity chain (they neither participate in the comparison nor
 //!    advance the `prev_start` cursor). This mirrors the overlap-aware pattern
@@ -24,7 +24,7 @@
 //!    shipped with Task 1.1.
 //! 3. Each assigned bullet lands inside the utterance's **ground-truth audio
 //!    window**, expanded by one 500 ms word-cadence slack. This is the
-//!    invariant that actually catches DP drift — the DP can remain
+//!    invariant that actually catches DP drift, the DP can remain
 //!    monotone-preserving while still matching utterance K's words to tokens
 //!    belonging to utterance K-3, producing a "wrong audio region" bullet
 //!    that monotonicity alone cannot detect. Ground-truth windows are
@@ -65,7 +65,7 @@ struct ExpectedWindow {
 /// Which overlap convention the synthesized CHAT document uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OverlapConvention {
-    /// `⌈ … ⌉` top-overlap + `⌊ … ⌋` bottom-overlap — the CA bracket pair.
+    /// `⌈ … ⌉` top-overlap + `⌊ … ⌋` bottom-overlap, the CA bracket pair.
     CaBracket,
     /// `+<` lazy-overlap-precedes linker.
     LazyPrecedes,
@@ -84,9 +84,9 @@ struct DriftParams {
     n_utts: usize,
     /// Overlap convention used when an utterance carries a marker.
     convention: OverlapConvention,
-    /// Fraction of utterances (0.0–1.0) that carry an overlap marker.
+    /// Fraction of utterances (0.0-1.0) that carry an overlap marker.
     overlap_density: f64,
-    /// Fraction of transcript words (0.0–1.0) that are DROPPED from the
+    /// Fraction of transcript words (0.0-1.0) that are DROPPED from the
     /// synthesized ASR stream, to emulate missed recognition.
     asr_missing_rate: f64,
     /// If true, every transcript word is a short stopword (< 4 chars), which
@@ -103,7 +103,7 @@ struct MonotoneProbe {
 }
 
 /// Shared-vocabulary high-frequency tokens. All speakers draw from this pool so
-/// that vocabulary alone never disambiguates a match — the DP must rely on
+/// that vocabulary alone never disambiguates a match, the DP must rely on
 /// temporal position, which is precisely what breaks under overlap.
 const AMBIGUOUS_WORDS: &[&str] = &[
     "the", "and", "it", "is", "of", "to", "a", "that", "we", "he", "she", "they", "this", "was",
@@ -129,7 +129,7 @@ const UTT_DURATION_MS: u64 = 3000;
 
 // Standard LCG multipliers used for deterministic pseudo-random draws in
 // this test module. Different constants give statistically independent
-// streams for density sampling vs. word selection vs. drop masking —
+// streams for density sampling vs. word selection vs. drop masking
 // matters because we want the overlap-pick, word-selection, and drop-mask
 // decisions to be uncorrelated even though they share an input seed family.
 const LCG_MULT_GLIBC: u64 = 1103515245; // glibc srand48 multiplier
@@ -147,7 +147,7 @@ const BACKCHANNEL_SPAN_MS: u64 = 400;
 /// markup and the monotonicity exclusion downstream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UttRole {
-    /// Standalone utterance — no overlap markup.
+    /// Standalone utterance, no overlap markup.
     Solo,
     /// First member of a CA-bracket pair. Wraps head word in `⌈ … ⌉`.
     CaTop,
@@ -168,7 +168,7 @@ enum UttRole {
 ///
 /// Document order in the produced CHAT matches the order of this Vec. The
 /// temporal order (ASR stream) is recovered by flattening per-word timings
-/// across ALL layouts and re-sorting by `start_ms` — that re-sort is what
+/// across ALL layouts and re-sorting by `start_ms`, that re-sort is what
 /// produces the interleaving that GlobalUtr's document-order DP cannot
 /// reconcile.
 #[derive(Debug, Clone)]
@@ -212,7 +212,7 @@ fn backchannel_ranges(cursor: u64) -> (u64, u64, u64, u64) {
 }
 
 /// Step 1: place every utterance in time + assign a role. This is the heart of
-/// the redesign — overlap conventions produce intersecting time ranges here,
+/// the redesign: overlap conventions produce intersecting time ranges here,
 /// and document-order CHAT emission downstream preserves the ordering that
 /// GlobalUtr sees while the ASR re-sort breaks it.
 fn layout_utterances_in_time(params: DriftParams) -> Vec<UttLayout> {
@@ -443,7 +443,7 @@ fn interleave_asr(mut words: Vec<TimedWord>) -> Vec<TimedWord> {
 
 /// Step 4: drop tokens with probability `rate`, deterministic on a stable
 /// per-word seed (insertion_order). We cannot use array position because the
-/// temporal re-sort has already happened — we need the drop mask to be
+/// temporal re-sort has already happened; we need the drop mask to be
 /// independent of sort order so the same word is always dropped across runs.
 fn apply_asr_drop(words: Vec<TimedWord>, rate: f64) -> Vec<AsrTimingToken> {
     words
@@ -466,7 +466,7 @@ fn apply_asr_drop(words: Vec<TimedWord>, rate: f64) -> Vec<AsrTimingToken> {
 
 /// Step 5: emit the CHAT document in DOCUMENT order (layouts' order). Overlap
 /// markup appears exactly where it belongs but the document never reveals the
-/// temporal interleaving — which is what makes GlobalUtr's document-order DP
+/// temporal interleaving, which is what makes GlobalUtr's document-order DP
 /// mis-align against the temporally re-sorted ASR.
 fn emit_chat_source(layouts: &[UttLayout]) -> String {
     let mut chat = String::new();
@@ -526,7 +526,7 @@ fn emit_chat_source(layouts: &[UttLayout]) -> String {
 ///
 /// Drift arises from the impedance mismatch between document-order CHAT and
 /// temporal-order ASR. A monotone DP walking CHAT order over the temporally
-/// re-sorted ASR cannot reconcile the two when words interleave — that is the
+/// re-sorted ASR cannot reconcile the two when words interleave; that is the
 /// actual drift mechanism observed in MICASE-class files.
 fn build_scenario(params: DriftParams) -> (ChatFile, Vec<AsrTimingToken>, Vec<ExpectedWindow>) {
     let layouts = layout_utterances_in_time(params);
@@ -560,7 +560,7 @@ fn build_scenario(params: DriftParams) -> (ChatFile, Vec<AsrTimingToken>, Vec<Ex
 
 /// Run UTR against the synthesized inputs and collect invariant violations.
 ///
-/// `expected` is the synthetic ground-truth audio window per utterance — the
+/// `expected` is the synthetic ground-truth audio window per utterance, the
 /// audio region that utterance's words actually occupy in the synthesized
 /// token stream. When `None`, ground-truth drift detection is skipped (used
 /// by helper self-tests that construct bullets by hand).
@@ -587,7 +587,7 @@ fn run_and_check(
 /// stream" case without flagging it as drift. What this invariant CATCHES is
 /// the real drift pattern: a bullet whose start is thousands of milliseconds
 /// earlier or later than the audio region where this utterance's words
-/// actually live — i.e. the DP matched this utterance's words to tokens
+/// actually live: i.e. the DP matched this utterance's words to tokens
 /// belonging to a different utterance.
 fn check_bullet_within_ground_truth(
     chat: &ChatFile,
@@ -608,7 +608,7 @@ fn check_bullet_within_ground_truth(
         };
         // `exp.utt_index == ordinal` by construction of `expected_windows` in
         // `build_scenario` (it's just `layouts.iter().map(...).collect()` in the
-        // same order). No runtime check needed — the index correspondence is
+        // same order). No runtime check needed, the index correspondence is
         // structural.
         let lo = exp.expected_start_ms.saturating_sub(SLACK_MS);
         let hi = exp.expected_end_ms.saturating_add(SLACK_MS);
@@ -635,7 +635,7 @@ fn check_bullet_within_ground_truth(
 ///
 /// `run_global_utr` already refuses to emit a bullet with `start >= end`
 /// (zero-duration frames go to `unmatched`), so this serves as a belt-and-
-/// braces check — if a future strategy regresses that rule, this fires.
+/// braces check: if a future strategy regresses that rule, this fires.
 fn check_bullet_integrity(chat: &ChatFile, violations: &mut Vec<String>) {
     for (i, line) in chat.lines.iter().enumerate() {
         let Line::Utterance(utt) = line else { continue };
@@ -793,7 +793,7 @@ mod helper_self_tests {
 
     #[test]
     fn monotonicity_skips_lazy_overlap_utterance() {
-        // Utt 1 has +< AND starts before utt 0 — legitimate overlap, should NOT flag.
+        // Utt 1 has +< AND starts before utt 0, legitimate overlap, should NOT flag.
         // Utt 2 must still be ahead of utt 0 (the last non-overlap anchor).
         let chat = make_three_utt_chat(
             [Some((1000, 1500)), Some((500, 900)), Some((2000, 2500))],
@@ -846,14 +846,14 @@ fn short_file_baseline() {
     );
 }
 
-/// Long-file CA-bracket drift — mimics MICASE / samtale. Dense `⌈⌉/⌊⌋` pairs
+/// Long-file CA-bracket drift: mimics MICASE / samtale. Dense `⌈⌉/⌊⌋` pairs
 /// plus ~10% missing ASR tokens force the monotonic DP to commit to the wrong
 /// repeated-word match and accumulate offset over hundreds of utterances.
 ///
 /// Expected RED on GlobalUtr / TwoPassOverlapUtr (the current dispatch).
 /// Expected GREEN after Phase 3 flips to SegmentAwareUtr.
 ///
-/// `#[ignore]` because the test is currently RED on the default pipeline —
+/// `#[ignore]` because the test is currently RED on the default pipeline
 /// this is by design, as the test codifies a bug we have not yet fixed.
 /// Run explicitly with `cargo test … -- --ignored` to see the RED evidence.
 #[test]
@@ -884,7 +884,7 @@ fn drift_ca_overlap_long_file() {
     );
 }
 
-/// Long-file `+<` drift — mimics the biling class. Reordered transcript
+/// Long-file `+<` drift: mimics the biling class. Reordered transcript
 /// against temporally-ordered ASR is hard for a single monotonic DP.
 #[test]
 #[ignore = "RED on GlobalUtr by design; evidence of drift bug, not a fix-regression"]
@@ -912,7 +912,7 @@ fn drift_lazy_overlap_long_file() {
     );
 }
 
-/// Long-file `&*SPK:` inline-backchannel drift — mimics rhd. ASR does not
+/// Long-file `&*SPK:` inline-backchannel drift, mimics rhd. ASR does not
 /// emit a token for the interjected backchannel, so the DP aligns the
 /// main-speaker's post-backchannel words one token too early, drifting
 /// subsequent utterances.
@@ -943,7 +943,7 @@ fn drift_inline_backchannel_long_file() {
     );
 }
 
-/// All three conventions interleaved — mimics real MICASE files, which mix
+/// All three conventions interleaved, mimics real MICASE files, which mix
 /// CA brackets, `+<`, and inline backchannel tokens freely.
 #[test]
 #[ignore = "RED on GlobalUtr by design; evidence of drift bug, not a fix-regression"]
@@ -1025,7 +1025,7 @@ fn drift_margin_sweep_diagnostic() {
     println!("\n{report}");
 }
 
-/// Anchor-sparse transcript — no overlap markers, but every word is a
+/// Anchor-sparse transcript, no overlap markers, but every word is a
 /// high-frequency stopword (< 4 chars). Tests the Option-4 fallback for
 /// anchor-starved DP: with no unambiguous rare-word anchors, the global DP
 /// has little signal to lock onto. Utterances UTR cannot place should land

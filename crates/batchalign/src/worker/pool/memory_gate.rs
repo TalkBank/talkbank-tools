@@ -6,7 +6,7 @@
 //! actual at-spawn OOM is one layer down: `memory_guard` (per-worker
 //! RSS observation + kill) and the OS OOM killer. The admission gate
 //! exists to slow down N+1 spawns when existing workers are
-//! pressured — not to refuse the FIRST spawn on an empty pool, which
+//! pressured, not to refuse the FIRST spawn on an empty pool, which
 //! has no contention to back-pressure against.
 //!
 //! Earlier versions of this module conflated the two: a single rule
@@ -20,11 +20,11 @@
 //!
 //! # The two layers
 //!
-//! 1. **Cold-start bypass** — `PoolGateState::ColdStart` admits
+//! 1. **Cold-start bypass**: `PoolGateState::ColdStart` admits
 //!    unconditionally. No back-pressure has anything to push
 //!    against on an empty pool; the right place to surface
 //!    host-too-small failures is `memory_guard` after spawn.
-//! 2. **Warm-pool projection** — `PoolGateState::Warm` runs the
+//! 2. **Warm-pool projection**: `PoolGateState::Warm` runs the
 //!    `available - reservation > floor` check. Refusing here
 //!    relieves real contention rather than wedging the pool.
 //!
@@ -33,7 +33,7 @@
 //! Tier-scaled, not fixed. See
 //! [`host_min_free_mb_threshold_for_tier`]. The previous fixed
 //! 2048 MB was right for Medium-tier workstations and wrong on every
-//! other tier — too tight on laptops (50% of a 4 GB machine), too
+//! other tier: too tight on laptops (50% of a 4 GB machine), too
 //! loose on fleet (0.78% of a 256 GB machine).
 //!
 //! No env var, no `PoolConfig` field, no operator override. The
@@ -44,7 +44,7 @@
 //!
 //! Called from
 //! [`crate::worker::pool::WorkerPool::try_claim_spawn_slot`] as
-//! Layer 0.5 — after the [`super::cpu_gate`] check, before the
+//! Layer 0.5: after the [`super::cpu_gate`] check, before the
 //! global-permit acquisition. Memory and CPU rejections do not
 //! consume permits; they refuse the spawn outright and let the
 //! caller retry once the host frees up.
@@ -68,7 +68,7 @@ pub(crate) const MIN_FREE_MEMORY_MB: u64 = 2048;
 /// The principled architectural distinction underlying the runtime
 /// admission gate's purpose: gates implement *back-pressure*, not
 /// *safety*. Back-pressure has nothing to push against on an empty
-/// pool, so a `ColdStart` admission must always be allowed —
+/// pool, so a `ColdStart` admission must always be allowed
 /// refusing it leaves the pool dead-on-arrival on memory-tight
 /// hosts (laptops, CI runners) with no path to ever spawn a
 /// worker. Safety against actual at-spawn OOM lives one layer
@@ -83,7 +83,7 @@ pub(crate) const MIN_FREE_MEMORY_MB: u64 = 2048;
 pub(super) enum PoolGateState {
     /// The pool has no workers (and no concurrent spawn attempts)
     /// for the requested (profile, lang, engine) class. The
-    /// memory gate must admit — there's nothing to back-pressure
+    /// memory gate must admit, there's nothing to back-pressure
     /// against, and refusing here means the pool never starts.
     ColdStart,
     /// At least one worker exists or is being spawned for the
@@ -119,7 +119,7 @@ pub(super) struct MemoryConstrained {
 ///
 /// Delegates to [`crate::worker::memory_guard::available_memory_mb`]
 /// so the admission gate and the in-spawn `memory_guard` agree on
-/// what "available" means — important on macOS, where naive
+/// what "available" means: important on macOS, where naive
 /// `sysinfo::available_memory()` undercounts by excluding inactive
 /// pages that the kernel can reclaim on demand.
 fn current_available_memory_mb() -> u64 {
@@ -139,8 +139,8 @@ fn current_available_memory_mb() -> u64 {
 /// | Tier   | Range      | Floor   |
 /// |--------|------------|---------|
 /// | Small  | < 24 GB    | 1024 MB |
-/// | Medium | 24–48 GB   | 2048 MB |
-/// | Large  | 48–128 GB  | 4096 MB |
+/// | Medium | 24-48 GB   | 2048 MB |
+/// | Large  | 48-128 GB  | 4096 MB |
 /// | Fleet  | > 128 GB   | 4096 MB |
 ///
 /// Returned by a function (not inlined as a constant) so unit
@@ -167,11 +167,11 @@ pub(super) fn host_min_free_mb_threshold_for_tier(tier: &crate::types::runtime::
 /// own large model in-process:
 ///
 /// * **Translate (IO profile):** SeamlessM4T-medium ~2.4 GB,
-///   NLLB-200-distilled-1.3B ~5 GB — both well over
+///   NLLB-200-distilled-1.3B ~5 GB, both well over
 ///   `tier.io_startup_mb` (2 GB Small/Medium, 4 GB Large/Fleet).
-/// * **ASR (GPU profile):** Whisper-large-v3 ~3.5 GB — over the
+/// * **ASR (GPU profile):** Whisper-large-v3 ~3.5 GB, over the
 ///   Medium-tier `tier.gpu_startup_mb` (3 GB).
-/// * **FA (GPU profile):** Whisper-large-v2 FA ~3.5 GB — same shape.
+/// * **FA (GPU profile):** Whisper-large-v2 FA ~3.5 GB, same shape.
 ///
 /// Reserving only the profile baseline lets the admission gate keep
 /// approving heavy-model workers under memory pressure until the OS
@@ -187,7 +187,7 @@ pub(super) fn host_min_free_mb_threshold_for_tier(tier: &crate::types::runtime::
 /// JSON-serialized [`crate::types::engines::EngineOverrides`] the
 /// pool stores on the group). Malformed JSON falls back to the
 /// profile baseline so a parse error never makes the gate more
-/// permissive than its prior behavior — and the failure is logged
+/// permissive than its prior behavior, and the failure is logged
 /// once at `warn` so operators can catch schema drift before a
 /// runtime OOM does.
 pub(super) fn engine_aware_startup_reservation_mb(
@@ -230,7 +230,7 @@ pub(super) fn engine_aware_startup_reservation_mb(
 ///
 /// Implements the principled rearch follow-up: the memory gate is
 /// back-pressure, not safety. On `PoolGateState::ColdStart` (no
-/// existing worker for the class), always admit — the pool has
+/// existing worker for the class), always admit, the pool has
 /// nothing to push back against, and refusing here leaves the
 /// pool dead-on-arrival on memory-tight hosts. Safety against
 /// actual at-spawn OOM is `memory_guard`'s job (per-worker RSS
@@ -242,7 +242,7 @@ pub(super) fn engine_aware_startup_reservation_mb(
 /// threshold_mb`; otherwise `Ok(())`. Production callers pass the
 /// new worker's `startup_reservation_mb_for_tier` so the
 /// projection accounts for the worker's anticipated load.
-/// Reservation is a static per-profile estimate — a known
+/// Reservation is a static per-profile estimate, a known
 /// imperfection that the rearch's Mode B (RSS observation of
 /// running same-profile peers) refines once at least one worker
 /// exists. Cold-start by definition has no peers to observe.
@@ -285,7 +285,7 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    /// The Medium-tier floor must equal exactly 2048 MB — the
+    /// The Medium-tier floor must equal exactly 2048 MB, the
     /// rearch's original number, preserved for the workstation case
     /// (Frodo / dev hosts). If anyone ever changes the Medium tier's
     /// floor, the change should be deliberate enough to update this
@@ -318,7 +318,7 @@ mod tests {
     }
 
     /// A translate worker carrying ``{"translate":"google"}`` does
-    /// not inflate the IO baseline — googletrans is a thin HTTP
+    /// not inflate the IO baseline, googletrans is a thin HTTP
     /// client with no local model, so the IO reservation is already
     /// enough. Pinned to detect accidental over-reservation that
     /// would refuse Google workers on memory-tight hosts.
@@ -339,7 +339,7 @@ mod tests {
 
     /// A translate worker carrying ``{"translate":"nllb"}`` must
     /// reserve at least NLLB-200-distilled-1.3B's resident footprint
-    /// (~5500 MB) on every tier — well above the IO baseline of 2 GB
+    /// (~5500 MB) on every tier, well above the IO baseline of 2 GB
     /// (Small/Medium) or 4 GB (Large/Fleet). One case per
     /// ``MemoryTierKind`` so a per-tier regression names itself.
     #[rstest]
@@ -434,7 +434,7 @@ mod tests {
     /// When more than one engine field is populated, the reservation
     /// must be at least the MAX of the per-engine footprints. A
     /// single worker only loads one engine of each kind, so MAX is
-    /// the correct worst-case projection — never SUM.
+    /// the correct worst-case projection, never SUM.
     #[test]
     fn engine_aware_reservation_takes_max_across_engines() {
         let nllb_rss = crate::types::engines::TranslateEngineName::Nllb.resident_memory_mb();
@@ -525,7 +525,7 @@ mod tests {
     }
 
     /// Floor=0 and reservation=0 means the predicate reduces to
-    /// "is available > 0?" — won't fire on a running machine.
+    /// "is available > 0?", won't fire on a running machine.
     /// Exercises the admit branch without depending on host
     /// idleness.
     #[test]
@@ -565,7 +565,7 @@ mod tests {
     // back-pressure, not safety. Safety lives in memory_guard
     // (per-worker RSS observation + kill) and the OS OOM killer.
     // The admission gate's job is to slow down N+1 spawns when
-    // existing workers are pressured — not to refuse the FIRST
+    // existing workers are pressured, not to refuse the FIRST
     // spawn on an empty pool, which has no contention to
     // back-pressure against.
     //
@@ -580,7 +580,7 @@ mod tests {
     /// Cold-start: the pool has no workers (and no concurrent spawn
     /// attempts) for this class. Even with a u64::MAX threshold that
     /// would otherwise force refusal, the admission gate must allow
-    /// the spawn — back-pressure semantics don't apply when there's
+    /// the spawn: back-pressure semantics don't apply when there's
     /// nothing to push back against.
     #[test]
     fn cold_start_pool_admits_first_worker_under_memory_pressure() {
@@ -595,7 +595,7 @@ mod tests {
 
     /// Cold-start with a non-trivial reservation also admits. Even
     /// when the static reservation projection is hostile, the cold
-    /// path bypasses — memory_guard handles actual at-spawn OOM.
+    /// path bypasses: memory_guard handles actual at-spawn OOM.
     #[test]
     fn cold_start_pool_admits_under_reservation_pressure_too() {
         let result = check_memory_saturation_with_state(PoolGateState::ColdStart, 0, u64::MAX);
@@ -607,7 +607,7 @@ mod tests {
     }
 
     /// Warm pool: at least one worker exists for this class. The
-    /// admission gate applies normally — refuse the N+1 spawn under
+    /// admission gate applies normally, refuse the N+1 spawn under
     /// memory pressure. Preserves the rearch's runtime-admission
     /// behavior for the legitimate saturation case.
     #[test]
@@ -616,7 +616,7 @@ mod tests {
         assert!(
             result.is_err(),
             "warm-pool admission must still refuse N+1 under memory \
-             pressure — back-pressure is the gate's whole job once the \
+             pressure: back-pressure is the gate's whole job once the \
              pool has workers to push back against. got {result:?}"
         );
     }
@@ -634,7 +634,7 @@ mod tests {
         );
     }
 
-    /// Warm pool with no pressure admits — the gate isn't there to
+    /// Warm pool with no pressure admits, the gate isn't there to
     /// refuse work that fits, only to hold back work that doesn't.
     #[test]
     fn warm_pool_admits_when_floor_and_reservation_are_zero() {

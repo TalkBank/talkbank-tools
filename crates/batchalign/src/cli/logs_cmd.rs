@@ -1,4 +1,4 @@
-//! `batchalign3 logs` — view, export, clear, or follow run logs.
+//! `batchalign3 logs`: view, export, clear, or follow run logs.
 
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek, SeekFrom};

@@ -2,16 +2,16 @@
 //!
 //! # Problem
 //!
-//! Each Python ML worker loads 2–15 GB of models (Whisper, Stanza, etc.).
-//! When multiple workers spawn concurrently — from parallel tests, warmup,
-//! or job dispatch — they each check available memory, see "enough", and
+//! Each Python ML worker loads 2-15 GB of models (Whisper, Stanza, etc.).
+//! When multiple workers spawn concurrently, from parallel tests, warmup,
+//! or job dispatch: they each check available memory, see "enough", and
 //! start loading simultaneously. By the time all models are resident, total
 //! usage exceeds physical RAM, triggering a **kernel-level OOM panic** that
 //! crashes the entire machine (not just the process).
 //!
 //! This has caused multiple catastrophic crashes on a 64 GB developer machine
 //! (see `docs/postmortems/`). The Jetsam report from 2026-03-21 showed 5
-//! python3.12 workers at 13–15 GB each = 71 GB on a 64 GB machine.
+//! python3.12 workers at 13-15 GB each = 71 GB on a 64 GB machine.
 //!
 //! # Solution
 //!
@@ -19,7 +19,7 @@
 //! a host-wide ledger coordinates heavy worker/model startups across local
 //! batchalign3 processes. Before each spawn, the guard checks local available
 //! memory and then reserves a host-wide startup slot plus startup headroom. If
-//! memory is insufficient, the spawn is rejected with a typed error — never
+//! memory is insufficient, the spawn is rejected with a typed error, never
 //! silently retried or defaulted.
 //!
 //! This is defense-in-depth: even if a caller forgets to check memory, the
@@ -111,7 +111,7 @@ pub struct SpawnPermit {
 impl SpawnPermit {
     /// Tag the underlying host-memory lease with the freshly-spawned
     /// worker's PID. The caller must invoke this immediately after
-    /// `cmd.spawn()` succeeds — prior to the call the lease is owned
+    /// `cmd.spawn()` succeeds: prior to the call the lease is owned
     /// (in liveness terms) by the daemon, and a daemon-PID-only lease
     /// survives worker death (Bug 2 / ghost slots, 2026-05-01).
     ///
@@ -119,7 +119,7 @@ impl SpawnPermit {
     /// best-effort accounting hint, not a correctness gate. A worker
     /// that never gets its PID written into the lease falls back to
     /// the older "owner_pid is daemon" behaviour, which is the
-    /// pre-fix status quo — strictly no worse than today.
+    /// pre-fix status quo: strictly no worse than today.
     pub fn set_worker_pid(&self, worker_pid: u32) {
         if let Err(error) = self.host_lease.set_worker_pid(worker_pid) {
             warn!(
@@ -141,7 +141,7 @@ impl SpawnPermit {
 /// don't need to thread `MemoryMb` through.
 ///
 /// On macOS, sysinfo's `available_memory` is conservative (excludes
-/// inactive pages the kernel can reclaim) — see the host_memory
+/// inactive pages the kernel can reclaim), see the host_memory
 /// docs.
 pub fn available_memory_mb() -> u64 {
     crate::host_memory::detect_available_memory_mb().0

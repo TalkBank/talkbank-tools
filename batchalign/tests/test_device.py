@@ -1,5 +1,5 @@
 # affects: batchalign/device.py
-"""Tests for batchalign.device — DevicePolicy and resolve_inference_device.
+"""Tests for batchalign.device: DevicePolicy and resolve_inference_device.
 
 Verifies the CPU/CUDA device resolution logic without loading any ML models.
 MPS is never selected regardless of availability (AGXG14X kernel deadlock,
@@ -40,7 +40,7 @@ class TestResolveInferenceDevice:
         assert device == torch.device("cpu")
 
     def test_ignores_mps_even_when_available(self, monkeypatch) -> None:
-        """MPS must never be selected — kernel deadlock has no user-space fix.
+        """MPS must never be selected, kernel deadlock has no user-space fix.
 
         Even if MPS is the only accelerator, the resolver must return CPU.
         Incident: 2026-04-05 AGXG14X GPU driver deadlock (two fleet machines).

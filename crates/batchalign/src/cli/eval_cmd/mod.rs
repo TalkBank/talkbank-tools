@@ -1,4 +1,4 @@
-//! `batchalign3 eval ...` — evaluation subcommands.
+//! `batchalign3 eval ...`: evaluation subcommands.
 //!
 //! Currently exposes a single variant, `eval l2-morphotag`, which ports
 //! the Python analyzer at `scripts/l2-eval/analyze.py` to a typed Rust

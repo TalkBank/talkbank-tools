@@ -95,7 +95,7 @@ Serde: `"auto"` → `Auto` (case-insensitive), any valid 3-letter code → `Reso
 | Type | Used by | Not used by |
 |------|---------|-------------|
 | `LanguageSpec` | `JobSubmission.lang`, `JobDispatchConfig.lang`, `RunnerDispatchConfig.lang`, `JobInfo.lang`, `JobListItem.lang` | Worker IPC, cache keys, `MorphosyntaxParams`, `TranscribeOptions` |
-| `LanguageCode3` | Worker IPC, cache keys, `MorphosyntaxParams`, FA params, all domain-internal language references | — |
+| `LanguageCode3` | Worker IPC, cache keys, `MorphosyntaxParams`, FA params, all domain-internal language references |, |
 
 **Resolution:** `LanguageSpec::Auto` is resolved to a concrete `LanguageCode3` at two points:
 1. **Dispatch layer**: `resolve_or(&fallback)` for commands that need a known language (FA, morphotag, compare).
@@ -319,7 +319,7 @@ Boolean CLI flags convert to domain enums once at the dispatch layer:
 let cache_policy = CachePolicy::from(opts.override_media_cache);  // bool → enum
 let wor_tier = WorTierPolicy::from(opts.write_wor);
 
-// orchestrator — never sees booleans
+// orchestrator: never sees booleans
 process_fa(chat_text, audio, services, &FaParams {
     cache_policy,
     wor_tier,

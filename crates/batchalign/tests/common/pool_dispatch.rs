@@ -1,15 +1,15 @@
 //! Shared scaffolding for integration tests that drive a [`WorkerPool`]
 //! with N concurrent batched-infer dispatches.
 //!
-//! Two tests in this directory — `worker_pool_thundering_herd` and
-//! `pool_per_key_worker_throughput` — share the same shape: build a
+//! Two tests in this directory, `worker_pool_thundering_herd` and
+//! `pool_per_key_worker_throughput`: share the same shape: build a
 //! test-echo pool with a chosen `(max_total, per_key, delay_ms)`,
 //! launch CONCURRENT dispatches against it, and observe rejection /
 //! completion metrics. This module factors out the parts they were
 //! duplicating: the [`PoolConfig`] builder and the dispatch-launch
 //! loop. Both call sites previously used an `Arc::as_ptr → &*`
 //! reborrow trick to share the pool into spawned tasks; the helper
-//! here uses [`Arc::clone`] instead — the atomic clone cost is
+//! here uses [`Arc::clone`] instead, the atomic clone cost is
 //! negligible at the test's scale and the safe form is easier to
 //! audit.
 

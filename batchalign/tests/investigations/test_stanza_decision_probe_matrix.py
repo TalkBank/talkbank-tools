@@ -42,7 +42,7 @@ from ._decision_probe_types import (
 def _stanza_doc_to_tokens(doc: Any) -> tuple[StanzaTokenOutput, ...]:
     """Flatten a Stanza Document into our token-centric projection.
 
-    Walks ``doc.sentences[*].tokens`` — these are pre-MWT tokens,
+    Walks ``doc.sentences[*].tokens``; these are pre-MWT tokens,
     1-to-1 with the input word list under ``tokenize_no_ssplit`` +
     our realignment postprocessor. For each token, collects its
     ``.words`` (post-MWT UD words) into a :class:`StanzaTokenOutput`.

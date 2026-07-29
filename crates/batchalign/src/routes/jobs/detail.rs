@@ -74,7 +74,7 @@ pub(crate) async fn get_results(
         .await
         .ok_or_else(|| ServerError::JobNotFound(job_id.clone()))?;
 
-    // Intentionally excludes Cancelled — cancelled jobs may have incomplete results.
+    // Intentionally excludes Cancelled: cancelled jobs may have incomplete results.
     if !matches!(
         detail.status,
         JobStatus::Completed | JobStatus::Failed | JobStatus::Interrupted

@@ -11,7 +11,7 @@ use talkbank_model::UtteranceIdx;
 /// utterances that need reprocessing after a user edits a CHAT file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UtteranceDelta {
-    /// Utterance is identical in both files — preserve all dependent tiers.
+    /// Utterance is identical in both files, preserve all dependent tiers.
     Unchanged {
         /// Index in the "before" file.
         before_idx: UtteranceIdx,
@@ -44,7 +44,7 @@ pub enum UtteranceDelta {
 
     /// Only the speaker code changed; words and timing are identical.
     ///
-    /// No NLP reprocessing needed — speaker is metadata.
+    /// No NLP reprocessing needed, speaker is metadata.
     SpeakerChanged {
         /// Index in the "before" file.
         before_idx: UtteranceIdx,

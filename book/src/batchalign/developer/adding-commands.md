@@ -311,7 +311,7 @@ flowchart TD
 ### Key types
 
 ```text
-// Intermediate artifacts — produced by build_comparison_artifacts(), consumed by materializer
+// Intermediate artifacts: produced by build_comparison_artifacts(), consumed by materializer
 struct ComparisonArtifacts {
     main_file: ChatFile,        // parsed morphotagged main
     gold_file: ChatFile,        // parsed gold

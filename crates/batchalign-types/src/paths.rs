@@ -7,22 +7,22 @@
 //!
 //! # Types
 //!
-//! - [`ClientPath`] — path on the submitting client's machine
-//! - [`ServerPath`] — path on the server's machine (safe for I/O)
-//! - [`RepoRelativePath`] — path relative to a data repo root
-//! - [`MediaMappingKey`] — config key for media volume lookup
+//! - [`ClientPath`]: path on the submitting client's machine
+//! - [`ServerPath`]: path on the server's machine (safe for I/O)
+//! - [`RepoRelativePath`]: path relative to a data repo root
+//! - [`MediaMappingKey`]: config key for media volume lookup
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
-// ClientPath — from the submitting client's filesystem
+// ClientPath, from the submitting client's filesystem
 // ---------------------------------------------------------------------------
 
 /// A path on the submitting client's filesystem.
 ///
-/// The server MUST NOT do filesystem I/O on this directly — it's metadata
+/// The server MUST NOT do filesystem I/O on this directly, it's metadata
 /// only.  The only way to convert it to a [`ServerPath`] for I/O is via
 /// [`assume_shared_filesystem`](Self::assume_shared_filesystem), which
 /// requires the caller to verify that the server shares the client's
@@ -72,7 +72,7 @@ impl ClientPath {
     /// Append a relative path component to this client path.
     ///
     /// Returns a new [`ClientPath`] with `relative` joined under this path.
-    /// This is the only sanctioned way to extend a client path — it keeps the
+    /// This is the only sanctioned way to extend a client path; it keeps the
     /// result typed as a `ClientPath`, preventing accidental I/O on the server.
     ///
     /// If `relative` is empty, returns a clone of `self`.
@@ -153,7 +153,7 @@ impl From<&str> for ClientPath {
 }
 
 // ---------------------------------------------------------------------------
-// ServerPath — on the server's filesystem (safe for I/O)
+// ServerPath, on the server's filesystem (safe for I/O)
 // ---------------------------------------------------------------------------
 
 /// A path on the server's filesystem.
@@ -171,7 +171,7 @@ impl ServerPath {
         Self(p.into())
     }
 
-    /// The underlying `Path` reference — safe for filesystem I/O.
+    /// The underlying `Path` reference, safe for filesystem I/O.
     pub fn as_path(&self) -> &Path {
         &self.0
     }
@@ -224,7 +224,7 @@ impl From<String> for ServerPath {
 }
 
 // ---------------------------------------------------------------------------
-// RepoRelativePath — relative to a data repo root
+// RepoRelativePath: relative to a data repo root
 // ---------------------------------------------------------------------------
 
 /// A path relative to a data repo root (e.g. `"French/Newcastle/Photos/13"`).
@@ -288,12 +288,12 @@ impl From<&str> for RepoRelativePath {
 }
 
 // ---------------------------------------------------------------------------
-// MediaMappingKey — config key, not a path
+// MediaMappingKey: config key, not a path
 // ---------------------------------------------------------------------------
 
 /// Key into `ServerConfig.media_mappings` (e.g. `"slabank-data"`).
 ///
-/// Not a filesystem path — it's a logical name that maps to a
+/// Not a filesystem path, it's a logical name that maps to a
 /// [`ServerPath`] via the server's configuration.
 #[derive(
     Debug,
@@ -340,7 +340,7 @@ impl From<&str> for MediaMappingKey {
 }
 
 // ---------------------------------------------------------------------------
-// Media mapping inference — pure function, fully typed
+// Media mapping inference: pure function, fully typed
 // ---------------------------------------------------------------------------
 
 /// Infer the media mapping from a client's source directory path.
@@ -392,13 +392,13 @@ mod tests {
 
     #[test]
     fn client_path_does_not_impl_as_ref_path() {
-        // This is a compile-time guarantee — ClientPath deliberately
+        // This is a compile-time guarantee, ClientPath deliberately
         // does NOT implement AsRef<Path>.  If this test compiles,
         // the guarantee holds.  (We verify by using ServerPath's
         // AsRef<Path> and NOT having a corresponding ClientPath call.)
         let server = ServerPath::new("/tmp/test");
-        let _: &Path = server.as_ref(); // OK — ServerPath impls AsRef<Path>
-        // ClientPath does NOT have this — uncomment to verify compile error:
+        let _: &Path = server.as_ref(); // OK, ServerPath impls AsRef<Path>
+        // ClientPath does NOT have this, uncomment to verify compile error:
         // let client = ClientPath::new("/tmp/test");
         // let _: &Path = client.as_ref(); // Would not compile
     }
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn client_path_join_result_is_client_path_not_server_path() {
-        // ClientPath::join returns ClientPath, not ServerPath — the type annotation
+        // ClientPath::join returns ClientPath, not ServerPath, the type annotation
         // below enforces that the compiler rejects any implicit widening.
         let base = ClientPath::new("/Volumes/data-drive/talkbank-data");
         let _joined: ClientPath = base.join(Path::new("aphasia-data/English"));
@@ -652,7 +652,7 @@ mod tests {
     /// with "Cannot find audio file".
     ///
     /// Fix: join `source_dir` with `parent(filename)` via `ClientPath::join`
-    /// before inference.  The result still stays a `ClientPath` (safe —
+    /// before inference.  The result still stays a `ClientPath` (safe
     /// no I/O), but the repo key is now visible to `infer_media_mapping`.
     #[test]
     fn infer_media_mapping_content_mode_top_level_data_root()
@@ -680,7 +680,7 @@ mod tests {
             .ok_or("repo key must be found after join")?;
         assert_eq!(key.as_str(), "aphasia-data");
         assert_eq!(root.as_path(), Path::new("/Users/operator/media/aphasia"));
-        // repo_subdir is the correct path within the media volume — no further
+        // repo_subdir is the correct path within the media volume, no further
         // joining needed.
         assert_eq!(repo_subdir.as_str(), "English/Protocol/APROCSA");
 
@@ -713,7 +713,7 @@ mod tests {
             .ok_or("filename must have a non-empty parent directory")?; // parent = "aphasia-data"
 
         let infer_client = source_dir.join(file_parent);
-        // infer_client ends with "aphasia-data" — suffix_after_component returns ""
+        // infer_client ends with "aphasia-data", suffix_after_component returns ""
         assert_eq!(
             infer_client.as_str(),
             "/Volumes/data-drive/talkbank-data/aphasia-data"
@@ -721,7 +721,7 @@ mod tests {
 
         let (_, root, repo_subdir) = infer_media_mapping(&infer_client, &mappings)
             .ok_or("aphasia-data should be inferred from the joined client path")?;
-        // repo_subdir is "" — file is at the root of the media volume
+        // repo_subdir is "": file is at the root of the media volume
         assert_eq!(repo_subdir.as_str(), "");
         let search_dir = repo_subdir.resolve_on_server(&root);
         assert_eq!(

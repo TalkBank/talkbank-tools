@@ -29,7 +29,7 @@ pub enum UtrEngine {
 /// utterance timing recovery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum UtrOverlapStrategy {
-    /// Currently equivalent to `global` — the language/content-aware
+    /// Currently equivalent to `global`, the language/content-aware
     /// gate was disabled 2026-03-30 because the two-pass algorithm had
     /// not been validated on operator-reported regression files. See
     /// `runner/dispatch/utr.rs::resolve_strategy()` for the inline
@@ -54,7 +54,7 @@ pub enum CaMarkerPolicy {
     /// Use CA markers for onset windowing when present (default).
     #[default]
     Enabled,
-    /// Ignore CA markers — treat all overlaps as `+<` only.
+    /// Ignore CA markers: treat all overlaps as `+<` only.
     Disabled,
 }
 
@@ -135,9 +135,9 @@ pub enum DiarizationMode {
 /// endpoint and is unsuitable behind the Great Firewall without VPN.
 /// `tencent` uses Tencent Cloud TMT (cloud API, China-friendly,
 /// best empirical quality on Mandarin but does NOT support Cantonese
-/// — requires CAM credentials with ``tmt:TextTranslate``). `aliyun`
+///: requires CAM credentials with ``tmt:TextTranslate``). `aliyun`
 /// uses Alibaba Cloud Machine Translation (cloud API, China-friendly,
-/// supports Cantonese as a source language — requires Aliyun
+/// supports Cantonese as a source language, requires Aliyun
 /// access-key credentials, shared with the Aliyun ASR backend).
 /// `seamless` and `nllb` are local-model alternatives downloaded
 /// from HuggingFace on first use; neither requires outbound network
@@ -264,7 +264,7 @@ pub struct AlignArgs {
     #[arg(long, value_enum, default_value_t)]
     pub utr_ca_markers: CaMarkerPolicy,
 
-    /// Max overlap density before skipping pass-1 exclusion (0.0–1.0, default 0.30).
+    /// Max overlap density before skipping pass-1 exclusion (0.0-1.0, default 0.30).
     #[arg(long, default_value_t = 0.30)]
     pub utr_density_threshold: f64,
 
@@ -277,7 +277,7 @@ pub struct AlignArgs {
     /// Uses Jaro-Winkler similarity to match ASR words against transcript
     /// words even when they differ slightly (e.g., "gonna"/"gona"). Set to
     /// 1.0 for exact matching only. The threshold controls how similar words
-    /// must be (0.0–1.0, higher = stricter).
+    /// must be (0.0-1.0, higher = stricter).
     #[arg(long)]
     pub utr_fuzzy: Option<f64>,
 
@@ -385,7 +385,7 @@ pub struct TranscribeArgs {
 /// `pipelines/translate/seamless.py:40` uses `doc.langs[0]`); the
 /// translation target is hardcoded to English (BA2 `seamless.py:41`
 /// `tgt_lang="eng"`). The 2026-05-03 morphotag incident showed that a
-/// job-level lang sentinel silently overrides per-file routing — do not
+/// job-level lang sentinel silently overrides per-file routing, do not
 /// re-introduce `--lang` here without re-reading that postmortem.
 #[derive(Args, Debug, Clone)]
 pub struct TranslateArgs {
@@ -396,16 +396,16 @@ pub struct TranslateArgs {
     /// Translation engine: `google` (default), `tencent`, `nllb`, or `seamless`.
     ///
     /// `google` calls the public Google Translate endpoint and
-    /// requires outbound network reachability — unsuitable behind
+    /// requires outbound network reachability, unsuitable behind
     /// the Great Firewall without VPN. `tencent` uses Tencent Cloud
     /// TMT (China-friendly cloud API, best empirical quality on
-    /// Mandarin — but does NOT support Cantonese; requires CAM
+    /// Mandarin, but does NOT support Cantonese; requires CAM
     /// credentials with `tmt:TextTranslate`). `nllb` is the
     /// recommended self-hosted fallback (Meta NLLB-200-distilled-1.3B,
     /// text-MT-native, ~5 GB local model, no inference-time network
     /// requirement, handles Cantonese first-class). `seamless` is the
     /// BA2-inherited local-model fallback retained for back-compat;
-    /// its CJK quality on short utterances is poor — prefer `nllb` or
+    /// its CJK quality on short utterances is poor, prefer `nllb` or
     /// `tencent` for new work.
     #[arg(long, value_enum, default_value_t)]
     pub translate_engine: TranslateEngine,
@@ -507,7 +507,7 @@ pub struct MorphotagArgs {
 /// Arguments for the `coref` command.
 ///
 /// **No `--lang` flag.** BA2 parity (`~/batchalign2-master/batchalign/cli/cli.py`
-/// `coref` command takes no `--lang`). Coref is English-only — non-English
+/// `coref` command takes no `--lang`). Coref is English-only, non-English
 /// files pass through unchanged based on the per-file `@Languages:` header
 /// (see `coref.rs::file_has_english`). Re-introducing `--lang` here would
 /// recreate the 2026-05-03 morphotag failure mode where a job-level sentinel
@@ -905,9 +905,9 @@ pub struct ServeStartArgs {
     /// comma-separated list of commands to pre-load (e.g. `align,morphotag`).
     ///
     /// Presets expand to built-in command lists:
-    ///   - `off`     — no warmup (workers spawn on first job)
-    ///   - `minimal` — morphotag only
-    ///   - `full`    — morphotag, align, transcribe
+    ///   - `off`, no warmup (workers spawn on first job)
+    ///   - `minimal`: morphotag only
+    ///   - `full`: morphotag, align, transcribe
     ///
     /// When a command list is given, only those commands are warmed up.
     /// Default (no flag): uses `server.yaml` config or `full`.
@@ -942,7 +942,7 @@ pub struct JobsArgs {
     #[command(subcommand)]
     pub action: Option<JobsAction>,
 
-    /// Job ID to inspect (legacy positional form — equivalent to
+    /// Job ID to inspect (legacy positional form, equivalent to
     /// `jobs show <id>`). Without `--server`, this inspects local
     /// job artifacts.
     pub job_id: Option<String>,
@@ -962,7 +962,7 @@ pub struct JobsArgs {
 #[derive(Subcommand, Debug, Clone)]
 pub enum JobsAction {
     /// Print the cancellation audit history for one job. Use this
-    /// when a user reports "I didn't cancel that job" — every
+    /// when a user reports "I didn't cancel that job", every
     /// cancel attempt is recorded with `source` (tui / api /
     /// dashboard / staging / signal), `host`, `pid`, `reason`, and
     /// `in_flight_filename`.
@@ -1237,7 +1237,7 @@ pub struct EvalArgs {
     pub action: EvalAction,
 }
 
-/// Evaluation actions — starts with `l2-morphotag`; more can land here.
+/// Evaluation actions: starts with `l2-morphotag`; more can land here.
 #[derive(Subcommand, Debug, Clone)]
 pub enum EvalAction {
     /// L2 morphotag evaluation: pair `@s` words with `%mor` / `%gra` items

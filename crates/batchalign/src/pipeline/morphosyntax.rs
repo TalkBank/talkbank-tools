@@ -27,7 +27,7 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     /// Job-level language received from dispatch / `MorphosyntaxParams.lang`.
     ///
     /// **Not used for inference, payload collection, or provenance** in the
-    /// morphotag pipeline — those use `resolved_lang`, populated per-file from
+    /// morphotag pipeline: those use `resolved_lang`, populated per-file from
     /// the parsed `@Languages:` header. Retained on the context only because
     /// the shared `MorphosyntaxParams` struct (used by translate/coref/
     /// transcribe-embedded-morphosyntax) carries it. See the 2026-05-03
@@ -53,10 +53,10 @@ pub(crate) struct MorphosyntaxPipelineContext<'a> {
     /// Whether the file carries `@Options: CA` (Conversation Analysis
     /// transcript). `@Options: CA` literally means "morphotag is not
     /// to be run on this file." CA files are pass-through for
-    /// morphosyntax — no clear, no infer, no inject, no provenance.
+    /// morphosyntax, no clear, no infer, no inject, no provenance.
     pub is_ca: bool,
     /// Whether the file carries `@Options: NoAlign`. **Informational
-    /// only** for morphotag — NoAlign literally means "the `align`
+    /// only** for morphotag: NoAlign literally means "the `align`
     /// command in batchalign3 is not to run on this file." It is
     /// scoped to the FA (forced-alignment) command, which uses audio
     /// bullets to attach word-level timing. Morphotag is a text-tier
@@ -115,7 +115,7 @@ impl<'a> MorphosyntaxPipelineContext<'a> {
     /// Returns the per-file resolved language, or a `Validation` error if
     /// `stage_parse` has not yet populated it. All inference, payload
     /// collection, injection, and provenance code paths must read the lang
-    /// through this accessor — never `ctx.lang` (see field doc).
+    /// through this accessor: never `ctx.lang` (see field doc).
     fn require_resolved_lang(&self) -> Result<&LanguageCode3, ServerError> {
         self.resolved_lang.as_ref().ok_or_else(|| {
             ServerError::Validation(
@@ -220,13 +220,13 @@ fn always_enabled(_: &MorphosyntaxPipelineContext<'_>) -> bool {
 ///
 /// Returns a typed error when the header is absent or the declared
 /// language is not a parseable ISO 639-3 code. **No silent fallback to
-/// English** — falling back would either tag a non-English file as English
+/// English**: falling back would either tag a non-English file as English
 /// (the 2026-05-03 incident) or stamp a falsified `@Languages:` value into
 /// the output. The caller (`stage_parse`) records the error against the
 /// file's job-status entry; the file is returned unchanged.
 ///
 /// Earlier BA2 code defaulted missing headers to `["eng"]`. That parity
-/// shortcut was a known correctness hazard — see the 2026-05-03 incident.
+/// shortcut was a known correctness hazard, see the 2026-05-03 incident.
 /// We deliberately diverge.
 pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode3, ServerError> {
     let raw = chat_file.languages.0.first().ok_or_else(|| {
@@ -261,7 +261,7 @@ pub(crate) fn resolve_per_file_lang(chat_file: &ChatFile) -> Result<LanguageCode
 /// operator can then fix the `@Languages` header and re-run.
 ///
 /// `@Options: CA` files still pass-through (handled by `is_ca`, a
-/// separate flag) — that is a legitimate "morphotag not applicable to
+/// separate flag); that is a legitimate "morphotag not applicable to
 /// this transcript convention" case, not a typo to surface.
 pub(crate) fn unsupported_primary_language_error(chat_file: &ChatFile) -> Option<String> {
     if let Some(primary) = chat_file.languages.0.first()
@@ -303,7 +303,7 @@ fn stage_parse<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> Stag
 
         // Resolve the per-file language from the parsed `@Languages:` header.
         // After this line, `ctx.lang` (the job-level dispatch lang) MUST NOT
-        // be read by any morphotag stage — use `ctx.require_resolved_lang()`
+        // be read by any morphotag stage, use `ctx.require_resolved_lang()`
         // instead. See `resolve_per_file_lang` for the 2026-05-03 incident.
         //
         // `resolve_per_file_lang` errors when the header is missing or
@@ -487,7 +487,7 @@ fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> 
         // CA pass-through: serialize as-is, no provenance, no
         // placeholder sweep. `is_no_align` is intentionally NOT
         // consulted; see `is_no_align` field doc. Unsupported-primary-
-        // language files no longer reach this stage — `stage_parse`
+        // language files no longer reach this stage, `stage_parse`
         // returns a typed `Validation` error for them, surfacing as a
         // per-file failure rather than a silent pass-through.
         if ctx.is_ca {
@@ -500,8 +500,8 @@ fn stage_serialize<'a, 'ctx>(ctx: &'a mut MorphosyntaxPipelineContext<'ctx>) -> 
 
         // Pull immutable values from ctx BEFORE taking the mutable chat_file
         // borrow, so we don't fight Rust over overlapping borrows. The lang
-        // here is the per-file resolved value — NOT the job-level dispatch
-        // lang — so a Czech file gets `lang=ces`, not `lang=eng`. See
+        // here is the per-file resolved value, NOT the job-level dispatch
+        // lang, so a Czech file gets `lang=ces`, not `lang=eng`. See
         // `resolve_per_file_lang` doc.
         let resolved_lang = ctx.require_resolved_lang()?.clone();
         let engine_version = ctx.services.engine_version.clone();
@@ -574,7 +574,7 @@ mod tests {
         );
         assert!(
             msg.contains("Fix the @Languages header"),
-            "error must be actionable — tell the operator what to do: {msg}"
+            "error must be actionable: tell the operator what to do: {msg}"
         );
     }
 
@@ -598,7 +598,7 @@ mod tests {
     #[test]
     fn empty_languages_header_passes_for_ba2_compat() {
         // BA2 defaulted to ["eng"] when no @Languages was present and proceeded.
-        // The gate intentionally allows this — files lacking @Languages are not
+        // The gate intentionally allows this, files lacking @Languages are not
         // hard-errored; they fall through to the dispatch's default-lang path.
         let chat = "@UTF8\n\
                     @PID:\t11312/c-test\n\
@@ -641,7 +641,7 @@ mod tests {
 
     #[test]
     fn resolve_per_file_lang_errors_when_languages_absent() {
-        // No silent eng fallback — a CHAT file with no `@Languages:` header
+        // No silent eng fallback, a CHAT file with no `@Languages:` header
         // is a real provenance failure. Surface a typed error so the
         // operator fixes the header and re-runs.
         let chat = "@UTF8\n\
@@ -709,7 +709,7 @@ mod tests {
         // a silent pass-through. The pipeline returns a typed
         // `ServerError::Validation` so the per-file dispatch surfaces the
         // failure to the operator via the dashboard. The OLD behavior
-        // (round-trip unchanged with no provenance) was dishonest UX —
+        // (round-trip unchanged with no provenance) was dishonest UX
         // operators got their input back with no signal that nothing
         // happened. See `unsupported_primary_language_error` doc comment
         // for the full rationale.
@@ -788,7 +788,7 @@ mod tests {
 
         assert!(
             output.contains("[ba3 morphotag |"),
-            "NoAlign file must receive morphotag provenance — the \
+            "NoAlign file must receive morphotag provenance, the \
              pipeline is no longer pass-through for NoAlign. Output: {output}"
         );
         // The @Options: NoAlign line itself is preserved (we don't

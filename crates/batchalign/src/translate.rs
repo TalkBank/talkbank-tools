@@ -3,7 +3,7 @@
 //! Owns the full CHAT lifecycle for translate jobs:
 //! parse → collect payloads → infer → inject %xtra → serialize.
 //!
-//! Python workers receive only `(text) → TranslateResponse` via the infer protocol —
+//! Python workers receive only `(text) → TranslateResponse` via the infer protocol
 //! pure Google Translate / Seamless inference with zero CHAT awareness.
 
 use std::collections::HashMap;
@@ -299,7 +299,7 @@ fn parse_translate_item_results(
             continue;
         }
 
-        // Protocol violation — Python worker returned neither error nor
+        // Protocol violation: Python worker returned neither error nor
         // raw_translation. Treat as a per-item failure so the affected
         // file fails rather than silently producing missing %xtra tiers.
         translate_responses.push(Err(
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn parse_items_protocol_violation_propagates_as_inner_err() {
         // Worker returned neither error NOR raw_translation. That is
-        // a protocol bug, not user input — but the orchestrator still
+        // a protocol bug, not user input, but the orchestrator still
         // must surface it as a failure rather than emit an empty
         // translation that quietly drops out of the output.
         let items = vec![TranslationItemResultV2 {

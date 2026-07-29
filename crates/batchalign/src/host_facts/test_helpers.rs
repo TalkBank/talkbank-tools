@@ -10,8 +10,8 @@
 //! Always public so the cross-crate doctor tests in `batchalign-cli`
 //! can `use crate::host_facts::test_helpers::*` without
 //! wrestling with `#[cfg(test)]` visibility across the workspace.
-//! The fixtures themselves are tiny pure-data builders — no state,
-//! no I/O — so the public surface cost is essentially zero.
+//! The fixtures themselves are tiny pure-data builders, no state,
+//! no I/O, so the public surface cost is essentially zero.
 
 use crate::api::UnixTimestamp;
 
@@ -21,7 +21,7 @@ use super::{CpuArch, GpuPresence, HostFacts, MpsExclusionReason, OperatingSystem
 ///
 /// 64 GB physical RAM, 32 GB available, 12 logical / 8 physical
 /// cores. GPU surfaces as `AppleMps { functional_for_batchalign:
-/// false, reason: AppleSiliconKernelDeadlock }` — the policy
+/// false, reason: AppleSiliconKernelDeadlock }`, the policy
 /// decision that the recommendation, validator, and doctor all
 /// branch on.
 pub fn apple_silicon_64gb() -> HostFacts {
@@ -49,7 +49,7 @@ pub fn apple_silicon_64gb() -> HostFacts {
 /// the GitHub Actions ubuntu-latest runner the Dashboard E2E test
 /// runs on (16 GB physical, ~14 GB available after kernel/agent
 /// overhead). Used by host-facts validator tests that pin the
-/// "must work on a small laptop" UX contract — a default
+/// "must work on a small laptop" UX contract, a default
 /// `uv tool install batchalign3` install on this host must not
 /// be refused startup just because the capability surface
 /// hypothetically includes GPU-class workloads the user has no

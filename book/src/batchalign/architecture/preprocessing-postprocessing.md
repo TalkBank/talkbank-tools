@@ -123,7 +123,7 @@ flowchart TD
     Raw["AsrOutput\n(raw provider tokens)"]
     TPS["strip_english_title_periods_on_elements\n(talkbank-transform/asr_postprocess/cleanup.rs)\n⚠ BEFORE stage 3 split"]
     S3["stage 3: split_multiword_tokens\n(. treated as separator)"]
-    S4b["stages 4b–5b:\ncompound merge, number expansion,\nCJK norm, long-turn/pause splits"]
+    S4b["stages 4b-5b:\ncompound merge, number expansion,\nCJK norm, long-turn/pause splits"]
     ICap["apply_english_transcribe_rules_pre_retokenize\n(I-cap on words)"]
     S6["stage 6: retokenize by punctuation\n→ Vec&lt;Utterance&gt;"]
     UCap["apply_english_transcribe_rules_post_retokenize\n(utterance-initial cap, skips retrace/markers)"]

@@ -50,9 +50,9 @@ chapter for each, and then documents the per-language coverage gap.
 ```mermaid
 flowchart LR
     subgraph TranscribeTime["transcribe command (always)"]
-        ASR["Rev.AI / Whisper tokens"] --> Clean["talkbank-transform<br/>asr_postprocess/mod.rs<br/>stages 1–5"]
+        ASR["Rev.AI / Whisper tokens"] --> Clean["talkbank-transform<br/>asr_postprocess/mod.rs<br/>stages 1-5"]
         Clean --> ASRRetok["Stage 6: retokenize()<br/>split by punctuation"]
-        ASRRetok --> Disfl["stages 7–8<br/>disfluency, retrace"]
+        ASRRetok --> Disfl["stages 7-8<br/>disfluency, retrace"]
         Disfl --> CHAT["CHAT file on disk"]
     end
     subgraph MorphotagTime["morphotag --retokenize (opt-in)"]

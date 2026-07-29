@@ -119,7 +119,7 @@ class TestPyCantonesePosOverride:
     def test_override_works_on_presegmented_corpus_words(self) -> None:
         """PyCantonese POS override works on hand-transcribed corpus words.
 
-        Words from the HKU aphasia corpus — already word-level, not per-char.
+        Words from the HKU aphasia corpus, already word-level, not per-char.
         This verifies the override works for ALL Cantonese morphotag, not just
         --retokenize ASR output.
         """

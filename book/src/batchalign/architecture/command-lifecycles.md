@@ -107,9 +107,9 @@ sequenceDiagram
     Pool->>W1: spawn (command=align, lang=eng)
     Pool->>W2: spawn (command=align, lang=eng)
 
-    loop For each file (concurrent — bounded by num_workers semaphore)
+    loop For each file (concurrent, bounded by num_workers semaphore)
         Server->>Server: resolve audio via media_mappings
-        Server->>Server: ensure_wav() — convert mp4→wav if needed (cached)
+        Server->>Server: ensure_wav(): convert mp4→wav if needed (cached)
         Server->>Server: parse_lenient()
 
         alt Complete reusable %wor timing
@@ -123,7 +123,7 @@ sequenceDiagram
                 Server->>Pool: checkout infer:asr worker
                 Server->>W1: execute_v2(task="asr", typed_input)
                 W1-->>Server: typed raw ASR result
-                Server->>Server: inject_utr_timing() — exact subsequence fast path, else global DP
+                Server->>Server: inject_utr_timing(): exact subsequence fast path, else global DP
                 Note over Server: Untimed utterances get<br/>utterance-level bullets from ASR
             else All utterances timed OR no utr_engine
                 Note over Server: Skip UTR (use existing bullets<br/>or interpolation fallback)
@@ -144,8 +144,8 @@ sequenceDiagram
                 Note over Server: Drop CheckedOutWorker → returns to pool
             end
 
-            Server->>Server: parse_fa_response() — DP-align model output to transcript
-            Server->>Server: apply_fa_results() — inject timings + postprocess
+            Server->>Server: parse_fa_response(): DP-align model output to transcript
+            Server->>Server: apply_fa_results(): inject timings + postprocess
             Note over Server: Timing: chunk-relative → file-absolute ms<br/>Generate %wor tier<br/>Monotonicity check (E362)<br/>Same-speaker overlap (E704)
             Server->>Cache: store new entries
             Server->>Server: post-validate → serialize CHAT
@@ -226,7 +226,7 @@ sequenceDiagram
 
     Note over Server: Runner: mark Running, select dispatch_morphotag_job
 
-    loop For each file (concurrent — bounded by num_workers semaphore)
+    loop For each file (concurrent, bounded by num_workers semaphore)
         Server->>Server: parse_lenient()
         alt @Options: CA in header
             Server->>Server: serialize parsed file as-is (no %mor/%gra added)
@@ -410,7 +410,7 @@ sequenceDiagram
     end
 
     Server->>Server: resolve audio path
-    Server->>Server: ensure_wav() — convert mp4→wav if needed (cached)
+    Server->>Server: ensure_wav(): convert mp4→wav if needed (cached)
     Server->>Pool: checkout worker
     Pool-->>Server: CheckedOutWorker
 
@@ -419,7 +419,7 @@ sequenceDiagram
     W-->>Server: typed raw ASR result (monologue_asr_result or whisper_chunk_result)
     Note over Server: Worker returned to pool
 
-    Note over Server: convert_asr_response() — ALWAYS groups<br/>tokens by speaker label (no flag gating)
+    Note over Server: convert_asr_response(): ALWAYS groups<br/>tokens by speaker label (no flag gating)
 
     opt --diarization enabled
         Server->>Pool: checkout worker
@@ -448,20 +448,20 @@ sequenceDiagram
     Server->>Server: 6. Retokenization (punctuation fallback / cleanup)
     Server->>Server: 7. Disfluency cleanup + retrace detection
 
-    Server->>Server: build_chat() — ChatFile AST
+    Server->>Server: build_chat(): ChatFile AST
     Note over Server: Generate headers: @Languages, @Participants,<br/>@ID (PAR/INV/CHI/MOT...), @Media<br/>Build utterances with %wor tiers<br/>Speaker codes from ASR labels used directly
     opt dedicated speaker segments present
-        Server->>Server: reassign_speakers() — rewrite utterance speakers,<br/>@Participants, and @ID from raw diarization segments
+        Server->>Server: reassign_speakers(): rewrite utterance speakers,<br/>@Participants, and @ID from raw diarization segments
     end
 
     opt with_utseg=true (default)
-        Server->>Server: process_utseg() — re-segment utterance boundaries
+        Server->>Server: process_utseg(): re-segment utterance boundaries
     end
     opt with_morphosyntax=true (default: false)
-        Server->>Server: process_morphosyntax() — add %mor/%gra tiers
+        Server->>Server: process_morphosyntax(): add %mor/%gra tiers
     end
 
-    Server->>Server: validate — serialize — .cha output
+    Server->>Server: validate, serialize, .cha output
     Server-->>CLI: output .cha file
 ```
 
@@ -548,7 +548,7 @@ sequenceDiagram
     Note over Server,DB: Requeue resumable work; promote all-terminal jobs to final state; persist canonical status and cleared leases
 
     Server->>DB: Load persisted jobs, init utterance cache
-    Note over Server: Server ready — accepting requests<br/>(capabilities not yet known)
+    Note over Server: Server ready, accepting requests<br/>(capabilities not yet known)
 
     Note over Server: First job arrives (e.g., morphotag)
 

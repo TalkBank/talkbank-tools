@@ -8,7 +8,7 @@
     clippy::unreachable
 )]
 
-//! JSON compatibility tests — verify Rust serde output matches Python Pydantic.
+//! JSON compatibility tests: verify Rust serde output matches Python Pydantic.
 //!
 //! These tests use insta snapshots so that if the JSON format changes, we get
 //! a clear diff. The snapshots represent the canonical wire format that both

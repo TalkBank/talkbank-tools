@@ -3,7 +3,7 @@
 //! Owns the full CHAT lifecycle for utseg jobs:
 //! parse → collect payloads → infer → apply splits → serialize.
 //!
-//! Python workers receive only `(words, text) → UtsegResponse` via the infer protocol —
+//! Python workers receive only `(words, text) → UtsegResponse` via the infer protocol
 //! pure Stanza constituency parsing with zero CHAT awareness.
 
 use std::collections::HashMap;
@@ -321,7 +321,7 @@ async fn infer_batch(
             continue;
         }
 
-        // Protocol violation — worker returned neither error nor any
+        // Protocol violation: worker returned neither error nor any
         // assignment payload. Treat as a per-item failure so the
         // affected file fails rather than silently producing empty
         // utseg assignments.

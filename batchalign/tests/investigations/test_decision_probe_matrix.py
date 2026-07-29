@@ -37,7 +37,7 @@ def test_decision_matrix_registry_is_populated() -> None:
 
 def test_decision_runner_module_is_importable_without_stanza() -> None:
     """The runner module must not trigger Stanza import at collection
-    time — that would force every non-golden test run to pay the
+    time; that would force every non-golden test run to pay the
     ~5s pipeline load. Lazy imports inside the golden-marked
     test function are the pattern (same as the MWT runner)."""
     mod = importlib.import_module(

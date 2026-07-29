@@ -1,4 +1,4 @@
-//! In-memory job store — port of `batchalign/serve/job_store.py`.
+//! In-memory job store: port of `batchalign/serve/job_store.py`.
 //!
 //! `JobStore` is the top-level control-plane owner for in-memory job state.
 //! It is composed from smaller owned runtime pieces:

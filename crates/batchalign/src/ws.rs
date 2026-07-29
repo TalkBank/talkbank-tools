@@ -1,7 +1,7 @@
-//! WebSocket — broadcast channel for real-time dashboard updates.
+//! WebSocket: broadcast channel for real-time dashboard updates.
 //!
 //! Port of `batchalign/serve/websocket.py`. Uses `tokio::sync::broadcast`
-//! instead of maintaining a list of connections — each axum WebSocket handler
+//! instead of maintaining a list of connections, each axum WebSocket handler
 //! subscribes to the broadcast channel independently.
 
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ pub enum WsEvent {
     },
 }
 
-/// Broadcast capacity — must be large enough to hold bursts of file updates
+/// Broadcast capacity: must be large enough to hold bursts of file updates
 /// for large jobs without dropping messages for slow clients.
 pub const BROADCAST_CAPACITY: usize = 256;
 

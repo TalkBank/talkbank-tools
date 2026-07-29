@@ -387,11 +387,11 @@ flowchart TD
     C1 -->|"yes"| C2{"mor_tier present?"}
     C2 -->|"no"| NA["NotApplicable<br/>(correct)"]
     C2 -->|"yes, items == 0"| NA
-    C2 -->|"yes, items > 0"| CM1["CountMismatchInFile<br/>(anomaly — %mor in empty utt)"]
+    C2 -->|"yes, items > 0"| CM1["CountMismatchInFile<br/>(anomaly, %mor in empty utt)"]
     C1 -->|"no"| C3{"mor_tier present?"}
-    C3 -->|"no"| PAF["PipelineAbsorbedFailure<br/>(anomaly — MisalignmentBug absorbed)"]
+    C3 -->|"no"| PAF["PipelineAbsorbedFailure<br/>(anomaly: MisalignmentBug absorbed)"]
     C3 -->|"yes, items == N"| AL["Aligned<br/>(happy path)"]
-    C3 -->|"yes, items != N"| CM2["CountMismatchInFile<br/>(anomaly — count mismatch in file)"]
+    C3 -->|"yes, items != N"| CM2["CountMismatchInFile<br/>(anomaly, count mismatch in file)"]
 ```
 
 `PipelineAbsorbedFailure` is the most informative variant: it surfaces

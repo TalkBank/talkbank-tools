@@ -19,7 +19,7 @@ L = logging.getLogger("batchalign.hk.funaudio")
 class FunAsrSegment:
     """Parsed output from one FunASR model segment.
 
-    FunASR returns raw dicts — this type captures the fields we use and
+    FunASR returns raw dicts: this type captures the fields we use and
     validates at the boundary so downstream code never touches raw dicts.
     """
 
@@ -55,7 +55,7 @@ class FunAudioRecognizer:
         TUI show "Loading FunASR model… (first-run download may take
         several minutes)" instead of dead air. Subsequent calls hit the
         ``self._model is not None`` short-circuit above and emit
-        nothing — a future call cannot mislead the user into thinking
+        nothing: a future call cannot mislead the user into thinking
         another download is happening.
 
         Per CLAUDE.md §11 time-transparency rule; mirrors the eager

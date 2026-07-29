@@ -35,7 +35,7 @@ pub struct MorOutcome {
 #[derive(Debug, Clone)]
 pub enum MorOutcomeKind {
     /// The utterance had zero Mor-alignable words under CHAT policy.
-    /// No `%mor`/`%gra` was produced, and that is correct behavior —
+    /// No `%mor`/`%gra` was produced, and that is correct behavior
     /// there is no morphological content to analyze.
     NotApplicable {
         /// Which class of non-linguistic content the utterance held.
@@ -149,7 +149,7 @@ struct ContentCategories {
     fragment_count: usize,
     nonword_count: usize,
     untranscribed_count: usize,
-    /// Linguistic words that would have been Mor-alignable — their
+    /// Linguistic words that would have been Mor-alignable, their
     /// presence means extraction would have returned non-empty, so
     /// the caller's precondition (zero alignable words) was violated.
     linguistic_count: usize,
@@ -230,7 +230,7 @@ impl MorOutcome {
     ///
     /// [`MorOutcomeKind::Aligned`] outcomes return `None` because the
     /// happy path is not review-worthy and would produce a tier entry
-    /// per successfully-morphotagged utterance — noise, not signal.
+    /// per successfully-morphotagged utterance: noise, not signal.
     /// Callers that want to surface aligned counts should aggregate
     /// separately.
     pub fn to_decision_record(&self) -> Option<DecisionRecord> {
@@ -257,7 +257,7 @@ impl MorOutcome {
                     diag.chat_words,
                     diag.stanza_tokens_after_mapping,
                 ),
-                // Misalignment bugs always want human attention —
+                // Misalignment bugs always want human attention
                 // they indicate something the pipeline got wrong.
                 needs_review: true,
             }),

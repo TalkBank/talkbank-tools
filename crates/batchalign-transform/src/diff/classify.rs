@@ -143,7 +143,7 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 i += 1;
             }
             AlignResult::ExtraPayload { payload_idx, .. } => {
-                // Check if the next item is ExtraReference — that's a substitution pair
+                // Check if the next item is ExtraReference, that's a substitution pair
                 if let Some(AlignResult::ExtraReference { reference_idx, .. }) =
                     alignment.get(i + 1)
                 {
@@ -165,7 +165,7 @@ pub fn diff_chat(before: &ChatFile, after: &ChatFile) -> Vec<UtteranceDelta> {
                 }
             }
             AlignResult::ExtraReference { reference_idx, .. } => {
-                // Check if the next item is ExtraPayload — reversed substitution pair
+                // Check if the next item is ExtraPayload, reversed substitution pair
                 if let Some(AlignResult::ExtraPayload { payload_idx, .. }) = alignment.get(i + 1) {
                     let after_idx = UtteranceIdx(*payload_idx);
                     let before_idx = UtteranceIdx(*reference_idx);

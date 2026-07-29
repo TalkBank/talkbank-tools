@@ -1,6 +1,6 @@
 //! Filesystem plumbing for the env-gated real-file drift integration tests.
 //!
-//! Responsibilities of this module — deliberately narrow:
+//! Responsibilities of this module, deliberately narrow:
 //!
 //! - Resolve `BATCHALIGN3_DRIFT_CORPUS_DIR` to a staging root (or return
 //!   `None` for SKIP).
@@ -25,7 +25,7 @@ pub struct CorpusFileName(String);
 
 impl CorpusFileName {
     /// Derive the filename from a CHAT path. Falls back to the full display
-    /// string if the path has no `file_name` component — which should not
+    /// string if the path has no `file_name` component, which should not
     /// happen for the files we walk, but we prefer a safe display over a
     /// panic at the seam.
     pub fn from_cha_path(cha_path: &Path) -> Self {
@@ -63,7 +63,7 @@ pub fn require_drift_corpus_dir() -> Option<PathBuf> {
 }
 
 /// One staged file in the drift corpus. `cha_path` always exists; `media_path`
-/// may be absent if the contributor could not stage it — in which case the
+/// may be absent if the contributor could not stage it, in which case the
 /// test logs a one-line SKIP for that file and moves on.
 pub struct StagedDriftFile {
     pub cha_path: PathBuf,

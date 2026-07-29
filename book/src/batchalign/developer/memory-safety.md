@@ -269,7 +269,7 @@ must only be run on a Fleet/Large-tier host with ≥ 256 GB RAM:
 ```bash
 make test                                            # Pure Rust, no Python
 cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
-# ML golden tests: Fleet/Large-tier hosts only — see docs/runbooks/batchalign3-testing.md
+# ML golden tests: Fleet/Large-tier hosts only, see docs/runbooks/batchalign3-testing.md
 ```
 
 ## Environment Variables
@@ -294,7 +294,7 @@ cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
 ### On a developer machine (≤ 64 GB)
 
 ```bash
-# Always safe — pure Rust, no Python, no ML
+# Always safe: pure Rust, no Python, no ML
 make test
 
 # Worker integration tests (test-echo mode, no ML models): safe with
@@ -302,7 +302,7 @@ make test
 # without model loading
 cargo nextest run -p batchalign --test worker_integration -- --test-threads=1
 
-# NEVER run ML golden tests on a 64 GB machine — they will OOM.
+# NEVER run ML golden tests on a 64 GB machine; they will OOM.
 ```
 
 ### On a Fleet/Large-tier host (≥ 256 GB RAM, e.g. an M3 Ultra Mac Studio)

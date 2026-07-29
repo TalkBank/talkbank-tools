@@ -262,7 +262,7 @@ async fn dispatch_no_server() {
 
     // Direct mode with no worker: dispatch runs the pipeline inline, which
     // will fail at pre-validation (invalid CHAT) or worker spawn (no Python).
-    // Either way, dispatch should return without panicking — the result
+    // Either way, dispatch should return without panicking, the result
     // contains job-level error reports, not a crash.
     let result = batchalign::cli::dispatch::dispatch(batchalign::cli::dispatch::DispatchRequest {
         command: batchalign::ReleasedCommand::Morphotag,
@@ -293,7 +293,7 @@ async fn dispatch_no_server() {
         std::env::remove_var("BATCHALIGN_STATE_DIR");
     }
 
-    // dispatch returns Ok even when individual files fail — failures are
+    // dispatch returns Ok even when individual files fail, failures are
     // reported in the job results, not as a top-level Err. If dispatch
     // itself returns Err, it means an infrastructure failure (e.g., cannot
     // bind port), which is also acceptable for this test scenario.

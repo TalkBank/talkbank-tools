@@ -166,9 +166,9 @@ jobs:
           path: dist/
       - name: Install wheel in clean environment
         run: uv tool install --from dist/*.whl batchalign3
-      - name: Smoke test — batchalign3 --help
+      - name: Smoke test: batchalign3 --help
         run: batchalign3 --help
-      - name: Smoke test — batchalign3 version
+      - name: Smoke test: batchalign3 version
         run: batchalign3 version
 
   typecheck:
@@ -246,7 +246,7 @@ jobs:
       - name: Verify dashboard API artifacts
         run: make batchalign-dashboard-api-check
 
-  # Note: the previous standalone `dashboard-web-build` job was retired —
+  # Note: the previous standalone `dashboard-web-build` job was retired
   # its API-drift step duplicated `generated-artifacts` above, and its
   # dashboard build duplicated the one in `build-cli` (which now uploads
   # the result as the `dashboard-dist` artifact for downstream jobs).
@@ -448,7 +448,7 @@ jobs:
     # Depends on both build-cli (for the pre-built batchalign3 binary)
     # and build-wheel (for the Python wheel). Reusing build-cli's
     # binary instead of rebuilding here saves ~25 minutes of fat-LTO
-    # Rust release compilation on every push — the bulk of the
+    # Rust release compilation on every push, the bulk of the
     # historical Dashboard E2E wall-time.
     needs: [build-cli, build-wheel]
     runs-on: ubuntu-latest

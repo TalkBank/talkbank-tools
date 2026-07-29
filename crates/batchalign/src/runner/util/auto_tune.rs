@@ -19,7 +19,7 @@ pub const KNOWN_MEDIA_EXTENSIONS: &[&str] = &[
 /// category split. The legacy [`ServerConfig`] is consulted only for
 /// `resolved_memory_tier()`, which honors the operator's
 /// `memory_tier` override (used by the test affordance for
-/// constrained-memory simulation on large hosts) — this knob has no
+/// constrained-memory simulation on large hosts), this knob has no
 /// `EffectiveConfig` analog yet.
 ///
 /// File-count clamping (`min(num_files)`) and CPU clamping

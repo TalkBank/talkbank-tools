@@ -42,7 +42,7 @@ pub(super) static NUM2LANG: LazyLock<BTreeMap<String, BTreeMap<String, String>>>
 ///
 /// For non-English languages, ASR models overwhelmingly produce these same
 /// ASCII/Unicode symbols. We expand to the English currency word since CHAT
-/// format just needs *some* non-digit word — the morphosyntax pass will tag
+/// format just needs *some* non-digit word, the morphosyntax pass will tag
 /// it properly later.
 const CURRENCY_PREFIXES: &[(&str, &str)] = &[
     ("$", "dollars"),
@@ -86,8 +86,18 @@ const PERCENT_WORD_BY_LANG: &[(&str, &str)] = &[
 /// Returns the per-language word to substitute when `%` is stripped from an
 /// ASR token, or `None` if no mapping is known. Callers fall back to a
 /// reasonable default (typically eng) rather than panicking on unmapped
-/// languages — the goal is that the CHAT output is never worse than it
+/// languages: the goal is that the CHAT output is never worse than it
 /// would have been without the normalizer.
+/// Em-dash and en-dash, as named `\u{...}` constants.
+///
+/// ASR output carries either where a hyphen belongs, so both are normalized
+/// to ASCII `-` before number expansion. Written as escapes rather than raw
+/// characters because a raw dash in source is always a house-rule violation,
+/// even when it is functional data; the escape also survives mechanical dash
+/// sweeps intact.
+const EM_DASH: char = '\u{2014}';
+const EN_DASH: char = '\u{2013}';
+
 pub fn language_percent_word(lang: &str) -> Option<&'static str> {
     let lower = lang.to_lowercase();
     PERCENT_WORD_BY_LANG
@@ -108,7 +118,7 @@ pub fn language_percent_word(lang: &str) -> Option<&'static str> {
 ///
 /// Returns `Some(rewritten)` when the pattern matches and expansion
 /// produced a different string. Returns `None` otherwise (caller keeps
-/// the original token). Digit-permitting languages skip this — their
+/// the original token). Digit-permitting languages skip this, their
 /// digits are already legal on the main tier, so there's no need to
 /// reshape the token.
 fn try_expand_digit_leading_hyphen(word: &str, lang: &str) -> Option<String> {
@@ -124,7 +134,7 @@ fn try_expand_digit_leading_hyphen(word: &str, lang: &str) -> Option<String> {
     }
     let expanded = expand_single_number(prefix, lang);
     if expanded == prefix {
-        return None; // no expansion table for this language — don't rewrite
+        return None; // no expansion table for this language, don't rewrite
     }
     Some(format!("{expanded}-{rest}"))
 }
@@ -144,7 +154,7 @@ fn try_expand_currency(word: &str, lang: &str) -> Option<String> {
                 if expanded != rest {
                     return Some(format!("{expanded} {currency_word}"));
                 }
-                // Number didn't expand (unknown language) — still strip the symbol
+                // Number didn't expand (unknown language), still strip the symbol
                 return Some(format!("{rest} {currency_word}"));
             }
         }
@@ -194,10 +204,11 @@ pub fn expand_number(word: &str, lang: &str) -> String {
     }
 
     // Normalize dashes
-    let normalized = word.replace(['—', '–'], "-");
+    let normalized = word.replace([EM_DASH, EN_DASH], "-");
 
-    // Handle dash-separated digit groups (e.g. "21-22", "5—6").
-    // Only split if ALL parts are pure digit strings — words containing
+    // Handle dash-separated digit groups (e.g. "21-22", or the same
+    // written with an em-dash or en-dash).
+    // Only split if ALL parts are pure digit strings, words containing
     // dashes (like French "quatre-vingt") must not be split.
     if normalized.contains('-') {
         let parts: Vec<&str> = normalized.split('-').collect();
@@ -268,7 +279,7 @@ fn expand_single_number(word: &str, lang: &str) -> String {
         }
     }
 
-    // No expansion possible — return original
+    // No expansion possible: return original
     word.to_string()
 }
 
@@ -417,7 +428,7 @@ pub fn detect_expansion(word: &str, lang: &str) -> Option<(i64, NumberExpansionM
         return Some((n, NumberExpansionMode::Cardinal));
     }
 
-    // Decades: "1950s", "80s" — digit string followed by "s"
+    // Decades: "1950s", "80s": digit string followed by "s"
     if let Some(stem) = word.strip_suffix('s')
         && !stem.is_empty()
         && stem.chars().all(|c| c.is_ascii_digit())
@@ -437,9 +448,10 @@ pub fn detect_expansion(word: &str, lang: &str) -> Option<(i64, NumberExpansionM
         }
     }
 
-    // Dash-separated digit groups (21-22, 5—6) — Rust handles these in
-    // expand_number() via the dash split path, not Python.
-    if word.contains('—') || word.contains('–') || word.contains('-') {
+    // Dash-separated digit groups such as "21-22", in any dash flavour:
+    // Rust handles these in expand_number() via the dash split path,
+    // not Python.
+    if word.contains(EM_DASH) || word.contains(EN_DASH) || word.contains('-') {
         return None;
     }
 
@@ -501,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_em_dash_normalized() {
-        let result = expand_number("5—6", "eng");
+        let result = expand_number("5-6", "eng");
         assert!(result.contains("five"), "got: {result}");
         assert!(result.contains("six"), "got: {result}");
     }
@@ -851,12 +863,12 @@ mod tests {
     fn detect_dash_separated_skipped() {
         // Dash-separated groups are handled by Rust expand_number, not Python.
         assert_eq!(detect_expansion("21-22", "eng"), None);
-        assert_eq!(detect_expansion("5—6", "eng"), None);
+        assert_eq!(detect_expansion("5-6", "eng"), None);
     }
 
     #[test]
     fn detect_pure_digit_is_cardinal_not_decade() {
-        // "80" is cardinal (not decade — that's "80s").
+        // "80" is cardinal (not decade, that's "80s").
         assert_eq!(
             detect_expansion("80", "eng"),
             Some((80, NumberExpansionMode::Cardinal))

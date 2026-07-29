@@ -25,7 +25,7 @@ Universal Dependencies. The difference is systematic and intentional.
 ### mm-hmm tokenization (English)
 
 BA2: `intj|mmhmm` (merged form).
-BA3: `intj|mm–hmm` (preserves hyphenation with en-dash).
+BA3: `intj|mm&#8211;hmm` (preserves hyphenation with an en-dash, U+2013).
 
 Stanza version difference in tokenization of hyphenated interjections.
 
@@ -48,7 +48,7 @@ _To be populated._
 
 ## Coref
 
-BA2 coref is broken in both jan9 and master — Stanza 1.11.0 coref model
+BA2 coref is broken in both jan9 and master; Stanza 1.11.0 coref model
 (`ontonotes-singletons_roberta-large-lora`) crashes with:
 `Config.__init__() missing 1 required positional argument: 'plateau_epochs'`
 

@@ -5,7 +5,7 @@
 //! normalizing text. These decisions are currently logged via `tracing` but
 //! invisible to the user in the output CHAT file.
 //!
-//! This module defines `DecisionRecord` — a structured representation of a
+//! This module defines `DecisionRecord`, a structured representation of a
 //! machine decision that can be injected as `%xalign` / `%xrev` tiers so
 //! users can review what the pipeline did and why.
 //!
@@ -16,12 +16,12 @@
 //! them to [`inject_decision_tiers()`] before serialization. The
 //! `--review-level` flag controls emission:
 //!
-//! - `None` — no decision tiers
-//! - `LowConfidence` — only decisions with `needs_review = true`
-//! - `All` — every decision
+//! - `None`, no decision tiers
+//! - `LowConfidence`, only decisions with `needs_review = true`
+//! - `All`: every decision
 //!
 //! The existing `%xalign` / `%xrev` tier format from `fa/review_tiers.rs`
-//! is reused — `DecisionRecord` is a generalization of `RepairDecision`.
+//! is reused: `DecisionRecord` is a generalization of `RepairDecision`.
 
 use talkbank_model::Span;
 use talkbank_model::model::{
@@ -187,7 +187,7 @@ impl MorphosyntaxStrategy {
 /// Utterance-segmentation strategies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UtsegStrategy {
-    /// Single-word or empty utterance — not dispatched.
+    /// Single-word or empty utterance, not dispatched.
     NotApplicable,
     /// Worker returned the wrong number of assignments.
     MisalignmentBug,
@@ -308,7 +308,7 @@ impl DecisionRecord {
 
     /// Emit a structured tracing event for this decision.
     ///
-    /// This is the single logging point — callers should NOT separately call
+    /// This is the single logging point, callers should NOT separately call
     /// `tracing::warn!` with the same information. The decision record is the
     /// source of truth; tracing and `%xalign` tiers are derived outputs.
     pub fn trace(&self) {
@@ -416,7 +416,7 @@ pub fn inject_decision_tiers(
 
         if let Some(decisions_for_utt) = decision_map.get(&line_idx) {
             // Merge all decisions for this utterance into a single %xalign tier.
-            // CHAT E401 forbids duplicate dependent tiers — one %xalign per
+            // CHAT E401 forbids duplicate dependent tiers, one %xalign per
             // utterance maximum, regardless of how many pipeline stages fired.
             let merged_content: String = decisions_for_utt
                 .iter()
@@ -550,7 +550,7 @@ mod tests {
         let decisions = vec![DecisionRecord {
             line_idx: 5,
             speaker: "CHI".into(),
-            // Arbitrary FA strategy — this test only checks the
+            // Arbitrary FA strategy: this test only checks the
             // None-review-level gate, not the specific strategy.
             strategy: DecisionStrategy::Fa(FaStrategy::TimingStripped),
             reason: "test".into(),
@@ -696,7 +696,7 @@ mod tests {
 ";
         let mut chat = parse_chat(chat_text);
 
-        // Two decisions on the same utterance — one FA, one Monotonicity.
+        // Two decisions on the same utterance, one FA, one Monotonicity.
         let decisions = vec![
             DecisionRecord {
                 line_idx: 5,

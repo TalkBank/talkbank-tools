@@ -1,4 +1,4 @@
-"""Unit tests for _common.py — Cantonese normalization, config, timestamps."""
+"""Unit tests for _common.py: Cantonese normalization, config, timestamps."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from batchalign.errors import ConfigError
 
 
 # ---------------------------------------------------------------------------
-# Cantonese normalization — real examples from 05b.cha
+# Cantonese normalization: real examples from 05b.cha
 # ---------------------------------------------------------------------------
 
 

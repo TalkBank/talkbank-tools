@@ -109,8 +109,8 @@ utterances using the typed AST:
 | psychosis-data | 236 | 2,799 | 98% |
 | tbi-data | 135 | 2,105 | 90% |
 | dementia-data | 390 | 1,680 | 89% |
-| slabank-data | 191 | 774 | — |
-| childes-data | 146 | 411 | — |
+| slabank-data | 191 | 774 |, |
+| childes-data | 146 | 411 |, |
 | **Total** | | **~35,000** | **91%** |
 
 Top words: mhm (~12,500), yeah (~5,500), okay (~3,300), mm (~1,400).

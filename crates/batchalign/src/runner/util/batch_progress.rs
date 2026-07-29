@@ -412,7 +412,7 @@ mod tests {
     }
 
     /// Build a `ProgressEventV2` for testing. Mirrors the Python
-    /// `write_progress_event` layout — `stage` carries a stage label, not
+    /// `write_progress_event` layout: `stage` carries a stage label, not
     /// a language code, which is exactly the real-world bug condition.
     #[cfg(test)]
     fn mk_event(

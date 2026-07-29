@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 /// Header emitted at the top of the regenerated TOML.
 const HEADER: &str = "\
-# GENERATED — DO NOT EDIT.
+# GENERATED: DO NOT EDIT.
 # Source: crates/batchalign-types/src/command_spec.rs (COMMAND_SPECS)
 # Regenerate: `cargo run -p xtask -- gen-runtime-toml`
 # Drift gate: `cargo run -p xtask -- gen-runtime-toml --check`
@@ -184,7 +184,7 @@ mod tests {
         let committed_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../batchalign/runtime_constants.toml");
         let committed = std::fs::read_to_string(&committed_path)?;
-        // Trim is generous — we don't want a trailing-newline mismatch
+        // Trim is generous: we don't want a trailing-newline mismatch
         // to fail this test. The byte-equality on per-command content
         // is what matters.
         assert_eq!(

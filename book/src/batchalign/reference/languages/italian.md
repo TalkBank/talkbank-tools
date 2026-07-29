@@ -406,19 +406,19 @@ flowchart LR
         Stanza["Stanza UD sentence<br/>(UdWord[], UdId::Range|Single)"]
     end
 
-    subgraph "Layer 1 — UD rewrite (lang_it.rs)"
+    subgraph "Layer 1: UD rewrite (lang_it.rs)"
         direction TB
         MisSplit["IT_MIS_SPLIT_OVERRIDES<br/>(Defect 6 + 7)<br/>Range → synthetic single UdWord"]
         Compound["IT_COMPOUND_IMPERATIVES<br/>(Defect 8 + 12 + 13)<br/>Single → verb UdWord + N clitic UdWords"]
         Component["IT_COMPONENT_REWRITES<br/>(Defect 9 + 10)<br/>Range components mutated in place"]
     end
 
-    subgraph "Layer 2 — Mor synthesis + GRA accounting (morphosyntax)"
+    subgraph "Layer 2: Mor synthesis + GRA accounting (morphosyntax)"
         direction TB
         MapWord["map_ud_word_to_mor<br/>per UdWord"]
         Assemble["assemble_mors<br/>(Range → multi-chunk Mor)"]
         WithClitic["Mor::with_post_clitic<br/>(Single → multi-chunk Mor)"]
-        BuildGra["build_gra_and_validate<br/>— chunk index<br/>— GRA relations<br/>— count invariant"]
+        BuildGra["build_gra_and_validate<br/>, chunk index<br/>, GRA relations<br/>, count invariant"]
     end
 
     subgraph Output
@@ -485,8 +485,8 @@ sequenceDiagram
     participant Mor as Mor::with_post_clitic
     participant Prov as ChunkProvenance
     participant BGV as build_gra_and_validate (language-neutral)
-    participant P1 as Pass 1 — build ud_to_chunk_idx
-    participant P2 as Pass 2 — emit GRA relations
+    participant P1 as Pass 1, build ud_to_chunk_idx
+    participant P2 as Pass 2, emit GRA relations
 
     MUS->>CI: ud.text + ud.upos (for dammela)
     CI-->>MUS: Some(&override) with 2 clitics

@@ -43,7 +43,7 @@ Before a release goes out:
 
 1. Confirm the workflow output matches the channel described in the docs.
 2. Confirm docs do not overclaim signing/notarization status.
-3. If the artifact is a direct-download native installer, stop — that surface
+3. If the artifact is a direct-download native installer, stop, that surface
    is not yet in the allowed first-release set.
 4. If the channel changes, update this doc, the relevant release docs, and the
    workflow in the same patch.

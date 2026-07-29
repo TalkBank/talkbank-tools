@@ -103,7 +103,7 @@ fn command_options_for(manifest: &FixtureManifest) -> CommandOptions {
             utseg_fallback: false.into(),
         }),
         other => panic!(
-            "regression_fixtures runner does not yet support command {other:?} — add the dispatch arm"
+            "regression_fixtures runner does not yet support command {other:?}, add the dispatch arm"
         ),
     }
 }
@@ -113,7 +113,7 @@ fn released_command_for(command: FixtureCommand) -> ReleasedCommand {
         FixtureCommand::Align => ReleasedCommand::Align,
         FixtureCommand::Transcribe => ReleasedCommand::Transcribe,
         other => panic!(
-            "regression_fixtures runner does not yet support command {other:?} — add the released-command arm"
+            "regression_fixtures runner does not yet support command {other:?}, add the released-command arm"
         ),
     }
 }
@@ -123,7 +123,7 @@ fn infer_task_for(command: FixtureCommand) -> InferTask {
         FixtureCommand::Align => InferTask::Fa,
         FixtureCommand::Transcribe => InferTask::Asr,
         other => panic!(
-            "regression_fixtures runner does not yet support command {other:?} — add the infer-task arm"
+            "regression_fixtures runner does not yet support command {other:?}, add the infer-task arm"
         ),
     }
 }
@@ -271,7 +271,7 @@ fn run_assertions(fixture: &DiscoveredFixture, output: &FixtureExecutionOutput) 
     }
     if !failures.is_empty() {
         panic!(
-            "regression fixture {} FAILED — {} assertion(s) violated:\n{}\n\nBug summary: {}",
+            "regression fixture {} FAILED: {} assertion(s) violated:\n{}\n\nBug summary: {}",
             fixture.dir.display(),
             failures.len(),
             failures.join("\n"),
@@ -482,7 +482,7 @@ fn run_one_assertion(
     })?;
     let wor = utt.wor_tier().ok_or_else(|| {
         format!(
-            "main-tier utterance #{} has no %wor tier — assertion {:?} requires one",
+            "main-tier utterance #{} has no %wor tier, assertion {:?} requires one",
             target.0, assertion
         )
     })?;
@@ -605,7 +605,7 @@ fn run_one_assertion(
         } => {
             let utt_bullet = utt.main.content.bullet.as_ref().ok_or_else(|| {
                 format!(
-                    "max_wor_word_duration_proportion: utterance #{} has no main-tier bullet — cannot compute proportion",
+                    "max_wor_word_duration_proportion: utterance #{} has no main-tier bullet, cannot compute proportion",
                     target.0,
                 )
             })?;
@@ -629,7 +629,7 @@ fn run_one_assertion(
                     let proportion = duration / utt_duration;
                     if proportion > *max {
                         Some(format!(
-                            "word #{i} '{}' takes {:.1}% of utterance ({} ms / {} ms) — exceeds {:.1}% cap",
+                            "word #{i} '{}' takes {:.1}% of utterance ({} ms / {} ms), exceeds {:.1}% cap",
                             w.cleaned_text(),
                             proportion * 100.0,
                             duration as u64,

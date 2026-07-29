@@ -78,11 +78,11 @@ Empty replacement
 
 ## validation (E2x)
 
-A word on the main tier consists entirely of shortening notation withno actual spoken material. In CHAT, means the sounds were omitted — itis not the same as the word being spoken. To mark an omitted word, use (zero-word) instead.
+A word on the main tier consists entirely of shortening notation withno actual spoken material. In CHAT, means the sounds were omitted, itis not the same as the word being spoken. To mark an omitted word, use (zero-word) instead.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E209](E209.md) | E209 — Word has no spoken content | error | ✅ |
+| [E209](E209.md) | E209: Word has no spoken content | error | ✅ |
 
 ## Word validation (E2x)
 
@@ -90,7 +90,7 @@ Deprecated. This error code was replaced by E387 ().The validation logic now emi
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E210](E210.md) | E210: Deprecated — replaced by E387 | error | ? |
+| [E210](E210.md) | E210: Deprecated, replaced by E387 | error | ? |
 
 ## Word validation (E2x)
 
@@ -106,7 +106,7 @@ Deprecated. This error code was replaced by E391(). The validation logic now emi
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E213](E213.md) | E213: Deprecated — replaced by E391 | error | ? |
+| [E213](E213.md) | E213: Deprecated, replaced by E391 | error | ? |
 
 ## validation (E2x)
 
@@ -122,11 +122,11 @@ A word on the main tier contains numeric digits in a language context that doesn
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E220](E220.md) | E220 — Illegal digits in word content | error | ✅ |
+| [E220](E220.md) | E220: Illegal digits in word content | error | ✅ |
 
 ## validation (E2x)
 
-Compound delimiter () is not properly balanced — opening delimiter has no matching closing delimiter.
+Compound delimiter () is not properly balanced, opening delimiter has no matching closing delimiter.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -202,7 +202,7 @@ A primary stress marker () or secondary stress marker appears at the startof a w
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E245](E245.md) | E245 — Stress marker without following spoken material | error | ✅ |
+| [E245](E245.md) | E245: Stress marker without following spoken material | error | ✅ |
 
 ## validation (E2x)
 
@@ -222,19 +222,19 @@ Auto-generated from corpus
 
 ## validation (E2x)
 
-The bare shortcut toggles between the first two languages declared in. When an utterance is scoped to a tertiary language (position3 or later in the list) via , bare is ambiguous —it could mean either the primary or secondary language. The speaker must use anexplicit code (, , etc.) instead.
+The bare shortcut toggles between the first two languages declared in. When an utterance is scoped to a tertiary language (position3 or later in the list) via , bare is ambiguous; it could mean either the primary or secondary language. The speaker must use anexplicit code (, , etc.) instead.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E248](E248.md) | E248 — Bare  shortcut in tertiary language context | error | ✅ |
+| [E248](E248.md) | E248: Bare  shortcut in tertiary language context | error | ✅ |
 
 ## validation (E2x)
 
-The shortcut means "the other language" — it toggles between the primaryand secondary language declared in . When there is no secondarylanguage (the header lists only one language), has notarget to resolve to. The speaker must use an explicit language code(, , etc.) or add a second language to the header.
+The shortcut means "the other language", it toggles between the primaryand secondary language declared in . When there is no secondarylanguage (the header lists only one language), has notarget to resolve to. The speaker must use an explicit language code(, , etc.) or add a second language to the header.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E249](E249.md) | E249 — Bare  shortcut with no secondary language | error | ✅ |
+| [E249](E249.md) | E249: Bare  shortcut with no secondary language | error | ✅ |
 
 ## validation (E2x)
 
@@ -494,7 +494,7 @@ Auto-generated from corpus
 
 ## parser_recovery (E3x)
 
-A tree-sitter node appeared in a syntactic context where it is not expected. The nodetype itself is valid CHAT syntax, but it occurs at a position in the AST that violatesthe grammar. This error is emitted during tree-sitter error recovery — the parserattempts to continue after encountering invalid syntax, and the recovered structurecontains nodes in unexpected positions.
+A tree-sitter node appeared in a syntactic context where it is not expected. The nodetype itself is valid CHAT syntax, but it occurs at a position in the AST that violatesthe grammar. This error is emitted during tree-sitter error recovery, the parserattempts to continue after encountering invalid syntax, and the recovered structurecontains nodes in unexpected positions.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -502,7 +502,7 @@ A tree-sitter node appeared in a syntactic context where it is not expected. The
 
 ## parser_recovery (E3x)
 
-Main tier content could not be classified as any known word or constructtype. This fires when a CST node has a child kindthat the Rust parser doesn't recognize — indicating a grammar/parsermismatch (the grammar produces a new node type that the parser hasn'tbeen updated to handle).
+Main tier content could not be classified as any known word or constructtype. This fires when a CST node has a child kindthat the Rust parser doesn't recognize, indicating a grammar/parsermismatch (the grammar produces a new node type that the parser hasn'tbeen updated to handle).
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -554,7 +554,7 @@ Reserved for within-utterance overlap pairing violations: a closing marker( or )
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E348](E348.md) | E348 — Unpaired overlap marker within utterance | error | ⏳ |
+| [E348](E348.md) | E348: Unpaired overlap marker within utterance | error | ⏳ |
 
 ## cross_utterance (E3x)
 
@@ -630,7 +630,7 @@ Auto-generated from corpus
 
 ## validation (E3x)
 
-Media bullet (timestamp marker) contains malformed content — e.g., non-numeric characters, missing underscore separator, or structurally invalid timestamp format.
+Media bullet (timestamp marker) contains malformed content, e.g., non-numeric characters, missing underscore separator, or structurally invalid timestamp format.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -670,7 +670,7 @@ Auto-generated from corpus
 
 ## validation (E3x)
 
-Word content is structurally malformed — the parser recognized a word node but its internal structure is invalid (e.g., with instead of a language code).
+Word content is structurally malformed, the parser recognized a word node but its internal structure is invalid (e.g., with instead of a language code).
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -706,7 +706,7 @@ A structural ordering violation in the utterance content, such as groups orrepla
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E370](E370.md) | E370 — Structural order error | error | ⏳ |
+| [E370](E370.md) | E370: Structural order error | error | ⏳ |
 
 ## validation (E3x)
 
@@ -726,7 +726,7 @@ Nested quotation
 
 ## overlap (E3x)
 
-An overlap marker has an index value outside the valid range. For CAoverlap brackets (), the index must be 2–9. For scoped overlapannotations (, ), the index must be 1–9.
+An overlap marker has an index value outside the valid range. For CAoverlap brackets (), the index must be 2-9. For scoped overlapannotations (, ), the index must be 1-9.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -1174,7 +1174,7 @@ An header contains an SES (socioeconomic status) field value that is not one of 
 
 ## validation (E6x)
 
-A dependent tier (typically ) had parse errors during lenient recovery, so thevalidator cannot verify alignment between tiers. Alignment checks (main↔%mor, %mor↔%gra)are skipped for the affected utterance. This is a warning, not an error — the filestill parses, but alignment correctness is unverified for tainted tiers.
+A dependent tier (typically ) had parse errors during lenient recovery, so thevalidator cannot verify alignment between tiers. Alignment checks (main↔%mor, %mor↔%gra)are skipped for the affected utterance. This is a warning, not an error, the filestill parses, but alignment correctness is unverified for tainted tiers.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -1250,7 +1250,7 @@ A single speaker has consecutive utterances with overlap markers (/) that overla
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E704](E704.md) | overlap — overlapping overlap markers | error | ✅ |
+| [E704](E704.md) | overlap: overlapping overlap markers | error | ✅ |
 
 ## Alignment count mismatch (E7x)
 
@@ -1278,7 +1278,7 @@ The %mor tier has a terminator but the main tier does not, or vice versa.One tie
 
 ## Dependent tier parsing (E7x)
 
-A grammar relation on the tier is malformed — missing an index, head,or relation label, or containing non-integer values where integers are expected.The tier format is for each word.
+A grammar relation on the tier is malformed, missing an index, head,or relation label, or containing non-integer values where integers are expected.The tier format is for each word.
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -1330,7 +1330,7 @@ The (actual phonology) tier has fewer alignable tokens than the main tier.Each m
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E714](E714.md) | E714:  alignment count mismatch — too few tokens | error | ✅ |
+| [E714](E714.md) | E714:  alignment count mismatch, too few tokens | error | ✅ |
 
 ## Alignment count mismatch (E7x)
 
@@ -1338,7 +1338,7 @@ The (actual phonology) tier has more alignable tokens than the main tier.Remove 
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E715](E715.md) | E715:  alignment count mismatch — too many tokens | error | ✅ |
+| [E715](E715.md) | E715:  alignment count mismatch, too many tokens | error | ✅ |
 
 ## Alignment terminator mismatch (E7x)
 
@@ -1366,7 +1366,7 @@ Sin count mismatch - too many sin tokens
 
 ## Alignment count mismatch (E7x)
 
-The number of chunks does not equal the number of relationsfor an utterance. aligns 1-to-1 with chunks (not items — a item with post-clitics produces multiple chunks).
+The number of chunks does not equal the number of relationsfor an utterance. aligns 1-to-1 with chunks (not items, a item with post-clitics produces multiple chunks).
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
@@ -1442,7 +1442,7 @@ The (model/target phonology) tier has fewer alignable tokens than themain tier. 
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E733](E733.md) | E733:  alignment count mismatch — too few tokens | error | ✅ |
+| [E733](E733.md) | E733:  alignment count mismatch, too few tokens | error | ✅ |
 
 ## Alignment count mismatch (E7x)
 
@@ -1450,7 +1450,7 @@ The (model/target phonology) tier has more alignable tokens than themain tier. R
 
 | Code | Name | Severity | Status |
 |------|------|----------|--------|
-| [E734](E734.md) | E734:  alignment count mismatch — too many tokens | error | ✅ |
+| [E734](E734.md) | E734:  alignment count mismatch, too many tokens | error | ✅ |
 
 ## Alignment count mismatch (E9x)
 

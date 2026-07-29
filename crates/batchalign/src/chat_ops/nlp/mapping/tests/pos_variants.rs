@@ -473,7 +473,7 @@ fn test_multivalue_ud_features_preserve_commas() {
     let mor = map_ud_word_to_mor(&ud, &ctx).unwrap();
     let mut out = String::new();
     mor.write_chat(&mut out).unwrap();
-    // Must contain comma — we respect UD multi-value feature conventions
+    // Must contain comma: we respect UD multi-value feature conventions
     assert!(
         out.contains("Int,Rel"),
         "Expected Int,Rel (UD convention), got: {out}"

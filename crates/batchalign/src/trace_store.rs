@@ -24,7 +24,7 @@ const DEFAULT_TTL: Duration = Duration::from_secs(60 * 60);
 /// Thread-safe for concurrent reads and writes from multiple job runners.
 ///
 /// Per-key updates use moka's `and_upsert_with`, which serializes concurrent
-/// calls on the same key without a global lock — so concurrent FA file
+/// calls on the same key without a global lock, so concurrent FA file
 /// completions for the same job are safe without blocking other jobs.
 pub struct TraceStore {
     cache: Cache<JobId, Arc<JobTraces>>,
@@ -56,7 +56,7 @@ impl TraceStore {
     ///
     /// Creates the `JobTraces` entry if it doesn't exist yet.  Uses moka's
     /// per-key `and_upsert_with` which serializes concurrent calls on the
-    /// same key — safe for multiple `process_one_fa_file` tasks finishing
+    /// same key: safe for multiple `process_one_fa_file` tasks finishing
     /// concurrently without blocking unrelated jobs.
     pub async fn upsert_file(&self, job_id: &JobId, file_index: usize, file_traces: FileTraces) {
         self.cache

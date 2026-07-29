@@ -4,13 +4,13 @@
 //! visits. The outcome is a typed statement of what happened, not a
 //! side-effect of logging or an implicit silent skip:
 //!
-//! - [`MorOutcomeKind::NotApplicable`] — the utterance had zero Mor-alignable
+//! - [`MorOutcomeKind::NotApplicable`]: the utterance had zero Mor-alignable
 //!   words under CHAT policy (fillers, fragments, untranscribed material
 //!   only), so no `%mor` tier is produced. This is correct, expected
 //!   behavior, not a failure.
-//! - [`MorOutcomeKind::Aligned`] — Stanza returned exactly N tokens for N
+//! - [`MorOutcomeKind::Aligned`]: Stanza returned exactly N tokens for N
 //!   CHAT words after MWT reassembly; `%mor` / `%gra` were injected.
-//! - [`MorOutcomeKind::MisalignmentBug`] — the `|stanza_tokens| = |chat_words|`
+//! - [`MorOutcomeKind::MisalignmentBug`]: the `|stanza_tokens| = |chat_words|`
 //!   invariant was violated. This is a bug in one of extraction, Stanza
 //!   realignment, MWT reassembly, or the terminator filter. The diagnostic
 //!   carries enough data to triage the stage without re-running.
@@ -29,7 +29,7 @@
 //!
 //! When all three cooperate, the count matches by construction.
 //! [`MisalignmentBug`](MorOutcomeKind::MisalignmentBug) is therefore
-//! never silently absorbed — it is typed, logged, and surfaced through
+//! never silently absorbed; it is typed, logged, and surfaced through
 //! [`DecisionRecord`](crate::decisions::DecisionRecord) so operators
 //! see it and developers can fix it.
 //!
@@ -40,19 +40,19 @@
 //!
 //! The morphosyntax surface is large enough that it lives in submodules:
 //!
-//! - [`types`] — small mapping types: `MwtDict`, `MappingContext`, `lang2`,
+//! - [`types`]: small mapping types: `MwtDict`, `MappingContext`, `lang2`,
 //!   `MappingError`, `TokenizationMode`, `MultilingualPolicy`.
-//! - [`ud_types`] — UD value types: `UniversalPos`, `DepRel`, `VerbForm`,
+//! - [`ud_types`]: UD value types: `UniversalPos`, `DepRel`, `VerbForm`,
 //!   feature constants, `UdId`, `UdPunctable`, `UdWord`, `UdSentence`,
 //!   `UdResponse`, plus `validate_and_clean` / `is_bogus_lemma` /
 //!   `sanitize_mor_text`.
-//! - [`payload`] — payload collection (`collect_payloads`, `declared_languages`,
+//! - [`payload`]: payload collection (`collect_payloads`, `declared_languages`,
 //!   `MorphosyntaxBatchItem`, `BatchItemWithPosition`, `AlignmentWarning`,
 //!   `PayloadCollection`) and `%mor`/`%gra` mutation passes
 //!   (`clear_morphosyntax`, `validate_mor_alignment`, `prepare_text`, etc.).
-//! - [`pos_hints`] — `apply_pos_hints` + `HintOutcome`, `is_stanza_supported`
+//! - [`pos_hints`]: `apply_pos_hints` + `HintOutcome`, `is_stanza_supported`
 //!   + `supported_iso3_codes`.
-//! - [`outcome`] — `MorOutcome`, `MorOutcomeKind`, `NotApplicableReason`,
+//! - [`outcome`]: `MorOutcome`, `MorOutcomeKind`, `NotApplicableReason`,
 //!   `classify_not_applicable`.
 //!
 //! Every public item in those submodules is re-exported below so existing

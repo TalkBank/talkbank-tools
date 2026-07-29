@@ -10,7 +10,7 @@
 //!
 //! Two-pass UTR can change anchor points for `estimate_untimed_boundaries`,
 //! which alters FA group boundaries. Fewer, wider groups cause worse FA
-//! alignment and lower final coverage — observed on German and Welsh files.
+//! alignment and lower final coverage, observed on German and Welsh files.
 //!
 //! When [`GroupingContext`] is provided, the best-of-both comparison uses FA
 //! group counts as the primary signal: if two-pass creates fewer groups than
@@ -32,7 +32,7 @@ use super::{
 ///
 /// When provided, the best-of-both fallback in [`TwoPassOverlapUtr`] uses
 /// `group_utterances()` to compare how many FA groups each strategy would
-/// produce. Fewer groups means wider FA windows and worse alignment — the
+/// produce. Fewer groups means wider FA windows and worse alignment, the
 /// specific failure mode observed on non-English files.
 #[derive(Debug, Clone, Copy)]
 pub struct GroupingContext {
@@ -50,7 +50,7 @@ pub enum CaMarkerPolicy {
     /// Use CA markers for onset windowing when present (default).
     #[default]
     Enabled,
-    /// Ignore CA markers — treat all overlaps as `+<` only.
+    /// Ignore CA markers: treat all overlaps as `+<` only.
     Disabled,
 }
 
@@ -69,7 +69,7 @@ pub enum UtrMatchMode {
     #[default]
     Exact,
     /// Fuzzy matching using Jaro-Winkler similarity.
-    /// Accepts matches above the threshold (0.0–1.0).
+    /// Accepts matches above the threshold (0.0-1.0).
     Fuzzy {
         /// Minimum similarity to accept (default: 0.85).
         threshold: f64,
@@ -215,14 +215,14 @@ impl UtrStrategy for TwoPassOverlapUtr {
                 // Prefer whichever creates more groups (more precise FA windows).
                 two_pass_groups >= global_groups
             } else {
-                // Equal groups — fall back to timed utterance count.
+                // Equal groups: fall back to timed utterance count.
                 let two_pass_timed = count_timed_utterances(&two_pass_file);
                 let global_timed = count_timed_utterances(&global_file);
                 // When equal, prefer two-pass (better backchannel placement).
                 two_pass_timed >= global_timed
             }
         } else {
-            // No grouping context — use timed utterance count only.
+            // No grouping context: use timed utterance count only.
             let two_pass_timed = count_timed_utterances(&two_pass_file);
             let global_timed = count_timed_utterances(&global_file);
             two_pass_timed >= global_timed
@@ -233,7 +233,7 @@ impl UtrStrategy for TwoPassOverlapUtr {
             two_pass_result
         } else {
             tracing::info!(
-                "Two-pass UTR created fewer FA groups than global — falling back to global"
+                "Two-pass UTR created fewer FA groups than global, falling back to global"
             );
             *chat_file = global_file;
             global_result
@@ -271,7 +271,7 @@ fn run_two_pass_inner(
             overlap_fraction = format!("{:.1}%", overlap_fraction * 100.0),
             overlap_utts,
             total_utts,
-            "Overlap density too high for exclusion — including all in pass 1"
+            "Overlap density too high for exclusion, including all in pass 1"
         );
     }
 
@@ -463,7 +463,7 @@ fn recover_with_adaptive_window(
 ///
 /// Searches backward from `utt_idx` for a top region on a *different*
 /// speaker whose index matches one of the current utterance's bottom
-/// indices. This enables 1:N matching — multiple bottom utterances from
+/// indices. This enables 1:N matching, multiple bottom utterances from
 /// different speakers all get the same onset fraction from the shared top.
 fn find_predecessor_onset_fraction(utt_idx: usize, utt_infos: &[UtrUtteranceInfo]) -> Option<f64> {
     let current = &utt_infos[utt_idx];
@@ -484,7 +484,7 @@ fn find_predecessor_onset_fraction(utt_idx: usize, utt_infos: &[UtrUtteranceInfo
         // matches one of our bottom indices.
         for (top_index, fraction) in &prev.top_onsets {
             if bottom_indices.is_empty() {
-                // +< utterance without CA markers — accept any top.
+                // +< utterance without CA markers, accept any top.
                 return Some(*fraction);
             }
             if bottom_indices.contains(top_index) {
@@ -534,7 +534,7 @@ fn find_predecessor_bullet(
 /// then runs a Hirschberg DP alignment of the `+<` utterance's words against
 /// the windowed tokens. Returns the matched time span if any words matched.
 ///
-/// This is cheap — typically 1–3 backchannel words against 5–20 windowed tokens.
+/// This is cheap: typically 1-3 backchannel words against 5-20 windowed tokens.
 pub fn recover_overlap_timing(
     words: &[String],
     asr_tokens: &[AsrTimingToken],
@@ -656,7 +656,7 @@ mod tests {
     #[test]
     fn test_find_predecessor_bullet_none_at_start() {
         let bullets = vec![
-            None, // +< utterance at index 0 — no predecessor
+            None, // +< utterance at index 0, no predecessor
         ];
         let bullet = find_predecessor_bullet(0, &bullets);
         assert_eq!(bullet, None);
@@ -685,7 +685,7 @@ mod tests {
     #[test]
     fn test_adaptive_window_widens_to_find_match() {
         let words = vec!["mhm".to_string()];
-        // "mhm" is 5 seconds after predecessor ends — too far for narrow (±500ms)
+        // "mhm" is 5 seconds after predecessor ends, too far for narrow (±500ms)
         // but within medium (predecessor duration = 2000ms, so ±2000ms → window 0..7000)
         let tokens = make_asr_tokens(&[("mhm", 6500, 6800)]);
         let bullets = vec![
@@ -941,7 +941,7 @@ mod tests {
                 start_ms: 2300,
                 end_ms: 3000,
             },
-            // "ja" at 50s — too far for two-pass windowed recovery
+            // "ja" at 50s: too far for two-pass windowed recovery
             AsrTimingToken {
                 text: "ja".into(),
                 start_ms: 50000,

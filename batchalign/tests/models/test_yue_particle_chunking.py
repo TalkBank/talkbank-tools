@@ -221,7 +221,7 @@ class TestNonYueBranchDoesNotChunk:
 
     def test_eng_model_does_not_chunk_at_yue_particles(self):
         model = _make_model(lang="eng")
-        # Same characters that would chunk under yue — should not chunk here.
+        # Same characters that would chunk under yue, should not chunk here.
         words = ["我", "係", "好", "啊", "今日", "好", "天"]
         actions = model.predict_actions(words)
         assert len(actions) == 7

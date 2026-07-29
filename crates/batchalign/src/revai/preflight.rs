@@ -20,7 +20,7 @@ use super::{RevAiApiKey, RevAiCredentialError, load_revai_api_key};
 /// expected by Rev.AI submissions.
 ///
 /// Rev.AI accepts a mix of ISO 639-1 codes and special codes (e.g., `cmn` for
-/// Mandarin). The mapping is **explicit and exhaustive** — unknown languages
+/// Mandarin). The mapping is **explicit and exhaustive**, unknown languages
 /// produce a `None` result rather than silently submitting a wrong code.
 ///
 /// # History
@@ -133,7 +133,7 @@ pub(crate) fn try_revai_language_hint(lang: &LanguageCode3) -> Option<RevAiLangu
         "hat" => "ht",
         "guj" => "gu",
         "mlg" => "mg",
-        // Not supported by Rev.AI — return None
+        // Not supported by Rev.AI, return None
         _ => return None,
     };
     Some(RevAiLanguageHint(code.to_string()))
@@ -142,7 +142,7 @@ pub(crate) fn try_revai_language_hint(lang: &LanguageCode3) -> Option<RevAiLangu
 /// Entry in the Rev.AI known-broken `(engine, language)` deny-list.
 ///
 /// Each entry records a language whose Rev.AI model we have observed to
-/// produce output unusable for CHAT construction — cross-script tokens,
+/// produce output unusable for CHAT construction, cross-script tokens,
 /// embedded replacement characters, or other CHAT-illegal content that the
 /// downstream validator (`ChatWordText::try_from_lang`) refuses. Listing
 /// the pair here causes `validate_language_support()` to reject the job
@@ -179,7 +179,7 @@ pub(crate) struct RevAiKnownBroken {
 /// should build the runtime script-coherence gate or the empirical
 /// capability probe) live in the strategy document.
 pub(crate) const REVAI_KNOWN_BROKEN: &[RevAiKnownBroken] = &[
-    // 2026-04-22 — Rev.AI's Malayalam model (language=ml) returns tokens
+    // 2026-04-22: Rev.AI's Malayalam model (language=ml) returns tokens
     // in unrelated scripts (Hangul, Gurmukhi, Latin, Cyrillic) mixed
     // with U+FFFD replacement characters and bare punctuation. A
     // 1-minute test sample produced 55 tokens, effectively zero of
@@ -190,7 +190,7 @@ pub(crate) const REVAI_KNOWN_BROKEN: &[RevAiKnownBroken] = &[
     // The recommendation is ``whisper_hub`` rather than ``whisper``: a
     // follow-up empirical evaluation on the same sample showed stock
     // OpenAI Whisper (both medium and large-v3) also fails on Malayalam
-    // — medium collapsed into Khmer/Gurmukhi character loops, large-v3
+    //: medium collapsed into Khmer/Gurmukhi character loops, large-v3
     // hallucinated "Thank you for watching." Only the community
     // fine-tune ``thennal/whisper-medium-ml`` (routed through the
     // ``whisper_hub`` engine) produced coherent Malayalam output. See
@@ -242,7 +242,7 @@ impl From<&LanguageCode3> for RevAiLanguageHint {
 pub(crate) struct RevAiPreflightPlan {
     /// Audio file paths to upload.
     pub(crate) audio_paths: Vec<PathBuf>,
-    /// Batchalign job language — may be `Auto` for ASR auto-detection.
+    /// Batchalign job language: may be `Auto` for ASR auto-detection.
     pub(crate) lang: crate::api::LanguageSpec,
     /// Speaker-count hint forwarded to Rev.AI where supported.
     pub(crate) num_speakers: NumSpeakers,
@@ -287,7 +287,7 @@ async fn submit_with(plan: &RevAiPreflightPlan, submitter: RevAiSubmitFn) -> Rev
     let concurrency = plan.max_concurrent.max(1);
     let semaphore = Arc::new(Semaphore::new(concurrency));
     let language = match &plan.lang {
-        // Auto and PerFile both reach Rev.AI as "auto" — `PerFile` should
+        // Auto and PerFile both reach Rev.AI as "auto", `PerFile` should
         // not happen on the transcribe path (CLI surface does not produce
         // it), but if a regression introduces it we ask Rev.AI to detect
         // rather than panic.
@@ -389,7 +389,7 @@ fn speakers_count_hint(language: &str, num_speakers: NumSpeakers) -> Option<u32>
 /// Rev.AI `skip_postprocessing` policy.
 ///
 /// When `true`, Rev.AI skips "inverse text normalization (ITN), casing
-/// and punctuation" post-processing — returning the spoken-form text
+/// and punctuation" post-processing: returning the spoken-form text
 /// (what the speaker literally said: `"eighty percent"`, `"seventeen year
 /// old"`, `"May nineteenth"`) rather than the written-convenience form
 /// produced by ITN (`"80%"`, `"17-year-old"`, `"May 19th"`). CHAT records
@@ -507,7 +507,7 @@ mod tests {
         );
     }
 
-    // RED — skip_postprocessing semantics per Rev.AI docs
+    // RED: skip_postprocessing semantics per Rev.AI docs
     //
     // Rev.AI's `skip_postprocessing` parameter skips "inverse text
     // normalization (ITN), casing and punctuation" and is "Only available

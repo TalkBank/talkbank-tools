@@ -39,14 +39,14 @@ flowchart TD
     type{"Workaround type?"}
 
     subgraph "Type 1: CHAT Conventions (permanent)"
-        t1["Keep — encodes CHAT/CHILDES rules"]
+        t1["Keep: encodes CHAT/CHILDES rules"]
         t1_langs["English: irregular verbs (morphosyntax/lang_en.rs)\nFrench: pronoun case + APM nouns (morphosyntax/lang_fr.rs)\nJapanese: comma → cm (morphosyntax/lang_ja.rs)\nCantonese: text normalization (asr_postprocess/cantonese.rs)\nCross-language: MWT dispatch, ISO mapping,\nnumber expansion"]
     end
 
     subgraph "Type 2: Stanza Bugs (testable for retirement)"
         t2{"Stanza still\nexhibits bug?"}
-        t2_keep["Keep — still needed"]
-        t2_remove["Remove — Stanza fixed it"]
+        t2_keep["Keep: still needed"]
+        t2_remove["Remove: Stanza fixed it"]
         t2_langs["English: GUM MWT (worker/_stanza_loading.py)\nFrench: 'au' MWT (tokenizer_realign.rs)\nItalian: l' suppression, lei merge\n(tokenizer_realign.rs)\nPortuguese: d'água (tokenizer_realign.rs)\nJapanese: verb form overrides (morphosyntax/lang_ja.rs)"]
     end
 

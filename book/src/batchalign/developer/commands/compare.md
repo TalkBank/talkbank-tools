@@ -105,7 +105,7 @@ assembly.
 make test
 cargo nextest run -p batchalign -E 'test(compare::)'
 
-# Golden tests (real Stanza for morphotag step — only on Fleet/Large-tier hosts)
+# Golden tests (real Stanza for morphotag step, only on Fleet/Large-tier hosts)
 cargo nextest run --profile ml -E 'test(compare::golden)'
 ```
 

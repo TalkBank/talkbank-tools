@@ -1,6 +1,6 @@
 """Catalan probe cases (Tier B pilot, 2026-04-23).
 
-Catalan is typologically close to French / Italian — preposition +
+Catalan is typologically close to French / Italian, preposition +
 article MWTs (``al`` = a+el, ``del`` = de+el), apostrophe elision
 on articles and pronouns (``l'home``, ``d'aquí``, ``s'ha``,
 ``m'agrada``). BA2-jan9 had no Catalan overrides, so BA3 inherits
@@ -13,7 +13,7 @@ split these in free-tokenize mode (e.g. ``l'home`` → ``l'`` +
 ``home``), but BA3's realignment postprocessor correctly
 suppresses the expansion to preserve CHAT's pre-tokenized 1-to-1
 contract. This matches the intended behavior for Romance languages
-where BA2 had no explicit rules — Stanza's MWT is either
+where BA2 had no explicit rules, Stanza's MWT is either
 suppressed (apostrophe clitics) or not fired (``al``, ``del``).
 
 Cases assert 1-to-1 under the with-postprocessor path. The

@@ -38,7 +38,7 @@ pub trait ProgressSink: Send + Sync {
     fn send_cancelled_receipt(&self, _receipt: crate::cli::tui::app::CancelledReceipt) {}
 }
 
-/// Progress display for batch processing — overall bar + activity spinner.
+/// Progress display for batch processing, overall bar + activity spinner.
 ///
 /// Shows:
 /// ```text

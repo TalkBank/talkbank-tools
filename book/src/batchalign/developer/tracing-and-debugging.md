@@ -30,10 +30,10 @@ details). Or set `RUST_LOG=info` environment variable.
 # Normal operation (WARN only):
 batchalign3 serve start
 
-# Debugging session (INFO — shows worker spawns, job lifecycle):
+# Debugging session (INFO: shows worker spawns, job lifecycle):
 batchalign3 -v serve start --foreground
 
-# Deep debugging (DEBUG — shows payloads, IPC):
+# Deep debugging (DEBUG: shows payloads, IPC):
 batchalign3 -vv serve start --foreground
 
 # Override per-module:
@@ -389,7 +389,7 @@ cat /tmp/ba3-debug/sample_utr_input.cha
 jq . /tmp/ba3-debug/sample_utr_tokens.json
 
 # 3. Write a test that loads the fixtures and calls inject_utr_timing directly
-# (no ML model needed — the tokens are already captured)
+# (no ML model needed, the tokens are already captured)
 ```
 
 ### Implementation details

@@ -1,4 +1,4 @@
-//! `batchalign3 setup` — initialize ~/.batchalign.ini.
+//! `batchalign3 setup`: initialize ~/.batchalign.ini.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

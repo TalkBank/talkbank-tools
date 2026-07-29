@@ -13,9 +13,9 @@
 //!
 //! The module loads four embedded JSON data files at first use via [`LazyLock`]:
 //!
-//! - `compounds.json` — 3,584 compound word pairs (shared with [`asr_postprocess`])
-//! - `names.json` — ~6,700 proper names (lowercased)
-//! - `abbrev.json` — ~400 abbreviations (original case)
+//! - `compounds.json`: 3,584 compound word pairs (shared with [`asr_postprocess`])
+//! - `names.json`: ~6,700 proper names (lowercased)
+//! - `abbrev.json`: ~400 abbreviations (original case)
 //!
 //! [`asr_postprocess`]: crate::asr_postprocess
 
@@ -72,27 +72,27 @@ static FILLERS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
 ///
 /// Each input word is lowercased and then checked against a priority-ordered
 /// rule chain. The first matching rule produces the output token(s) for that
-/// word. Rules are applied per-word — the output may contain more tokens than
+/// word. Rules are applied per-word, the output may contain more tokens than
 /// the input (compound splits, contraction expansions, etc.).
 ///
 /// # Transformation rules (in priority order)
 ///
-/// 1. **Compound splitting** — known compound words are split into their
+/// 1. **Compound splitting**: known compound words are split into their
 ///    constituent parts (e.g., `"airplane"` → `["air", "plane"]`).
-/// 2. **Abbreviation letter expansion** — known abbreviations are expanded to
+/// 2. **Abbreviation letter expansion**, known abbreviations are expanded to
 ///    individual letters in original case (e.g., `"FBI"` → `["F", "B", "I"]`).
-/// 3. **Contraction expansion** — English contractions are split and expanded
+/// 3. **Contraction expansion**: English contractions are split and expanded
 ///    (`'s` → `is`, `'ve` → `have`, `'d` → `had`, `'m` → `am`).
-/// 4. **Filler normalization** — common fillers (`um`, `uhm`, `eh`, `mhm`,
+/// 4. **Filler normalization**: common fillers (`um`, `uhm`, `eh`, `mhm`,
 ///    etc.) are all normalized to `"um"`.
-/// 5. **Hyphen splitting** — hyphenated words are split at hyphens.
-/// 6. **Special word expansions** — colloquial forms are expanded
+/// 5. **Hyphen splitting**: hyphenated words are split at hyphens.
+/// 6. **Special word expansions**, colloquial forms are expanded
 ///    (`gimme` → `give me`, `wanna` → `want to`, `gonna` → `going to`, etc.).
-/// 7. **Name replacement** — known proper names are replaced with `"name"`.
-/// 8. **Specific acronym expansion** — selected acronyms are letter-expanded
+/// 7. **Name replacement**: known proper names are replaced with `"name"`.
+/// 8. **Specific acronym expansion**, selected acronyms are letter-expanded
 ///    (`mba`, `tli`, `bbc`, `ai`, `aa`, `ii`).
-/// 9. **Underscore splitting** — underscore-joined words are split.
-/// 10. **Passthrough** — unrecognized words pass through lowercased.
+/// 9. **Underscore splitting**: underscore-joined words are split.
+/// 10. **Passthrough**: unrecognized words pass through lowercased.
 pub fn conform_words(words: &[String]) -> Vec<String> {
     let mut result: Vec<String> = Vec::with_capacity(words.len());
 

@@ -45,7 +45,7 @@ are activated via `--engine-overrides`.
 ### Usage
 
 ```bash
-# Default (FunASR/SenseVoice) — no flag needed
+# Default (FunASR/SenseVoice), no flag needed
 batchalign3 transcribe input/ -o output/ --lang yue
 
 # Tencent Cloud ASR (requires credentials)
@@ -163,7 +163,7 @@ each character becomes a separate word on the main tier. This makes word
 counts, MLU, and POS tagging unreliable.
 
 ```bash
-# Morphotag has no --lang flag — the per-file @Languages: header drives
+# Morphotag has no --lang flag, the per-file @Languages: header drives
 # routing. For Cantonese files (yue), retokenize is the right default.
 batchalign3 morphotag --retokenize corpus/ -o output/
 ```

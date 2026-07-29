@@ -9,7 +9,7 @@ expected to handle these.
 
 The 2026-04-23 retokenization-gap audit
 (``docs/investigations/2026-04-23-retokenization-gap-plan.md``)
-surfaced that English had **zero MWT probe coverage** — the
+surfaced that English had **zero MWT probe coverage**, the
 existing ``_cases/english.py`` is for decision probes (capitalization
 rules), not tokenization. A silent regression to `don't` or
 `o'clock` handling would not be caught by any default or golden
@@ -20,7 +20,7 @@ and covers the phenomena BA2 explicitly gated:
 
 * standard contractions (expect MWT expansion to 2 UD words)
 * possessives (expect MWT expansion)
-* ``o'clock`` (control; expect NO expansion — BA2 explicitly
+* ``o'clock`` (control; expect NO expansion, BA2 explicitly
   excluded this from its contraction rule)
 * native MWT baselines (if Stanza has any for English)
 
@@ -45,7 +45,7 @@ def test_english_is_in_mwt_matrix() -> None:
 
 
 def test_english_covers_contractions() -> None:
-    """Standard English contractions (``don't``, ``I'm``, etc.) — what
+    """Standard English contractions (``don't``, ``I'm``, etc.), what
     BA2's apostrophe rule was designed for."""
     eng_cases = LANGUAGE_MATRIX[ENG]
     contraction_cases = [
@@ -87,6 +87,6 @@ def test_every_english_case_has_expected_count_or_xfail() -> None:
         has_xfail = case.xfail is not None
         assert has_assertion or has_xfail, (
             f"English case {case.label} has neither expected count "
-            f"nor xfail mark — it's observe-only and would miss "
+            f"nor xfail mark: it's observe-only and would miss "
             f"regressions"
         )

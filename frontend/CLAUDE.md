@@ -1,4 +1,4 @@
-# batchalign3 Frontend — Dashboard + Desktop Processing UI
+# batchalign3 Frontend: Dashboard + Desktop Processing UI
 
 **Status:** Current
 **Last updated:** 2026-07-25 22:45 EDT
@@ -7,9 +7,9 @@
 
 React SPA serving two surfaces:
 
-1. **`/process`** — End-user processing flow for the desktop app. Researchers
+1. **`/process`**: End-user processing flow for the desktop app. Researchers
    pick a command, choose files, and watch progress without a terminal.
-2. **`/dashboard`** — Fleet monitoring for power users. Real-time job status,
+2. **`/dashboard`**: Fleet monitoring for power users. Real-time job status,
    file-level progress, error grouping, server health, and algorithm
    visualizations.
 

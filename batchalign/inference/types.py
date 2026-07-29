@@ -180,7 +180,7 @@ class WhisperASRHandle:
         # own ``generation_config``. Re-forcing those via ``generate_kwargs``
         # produces cross-script gibberish. When this flag is ``True``,
         # ``gen_kwargs`` omits ``task`` and ``language`` regardless of the
-        # requested language — the caller is trusting the checkpoint's
+        # requested language: the caller is trusting the checkpoint's
         # own configuration. Used by the ``whisper_hub`` engine variant;
         # see ``batchalign/inference/whisper_hub.py``.
         self.skip_language_force = skip_language_force
@@ -210,7 +210,7 @@ class WhisperASRHandle:
           output. The ``max_new_tokens`` cap is a hard upper bound on
           per-chunk generation, not a decoding override: Whisper's
           ``max_target_positions=448`` includes the 3 special start
-          tokens, so 444 is one below the legal max — a no-op under
+          tokens, so 444 is one below the legal max, a no-op under
           successful operation, a terminator for the intermittent
           runaway-generation case where the decoder fails to predict
           end-of-utterance and would otherwise spin indefinitely.
@@ -225,7 +225,7 @@ class WhisperASRHandle:
           a clean language hint; skip the forcing there too.
         """
         if self.skip_language_force:
-            # See docstring — only the safety cap, no overrides.
+            # See docstring, only the safety cap, no overrides.
             return {"max_new_tokens": 444}
         if lang == "auto":
             return {

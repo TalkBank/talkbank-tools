@@ -1,4 +1,4 @@
-//! Worker process spawning — command construction and TCP daemon launch.
+//! Worker process spawning: command construction and TCP daemon launch.
 //!
 //! Contains the free functions for building the Python worker command line
 //! and spawning a detached TCP worker daemon. The stdio-based spawn is in
@@ -142,7 +142,7 @@ pub async fn spawn_tcp_daemon(config: &WorkerConfig, port: u16) -> Result<(u32, 
             "persistent TCP workers only support profile bootstrap targets".into(),
         ));
     }
-    // Memory guard — same as WorkerHandle::spawn().
+    // Memory guard, same as WorkerHandle::spawn().
     let spawn_permit = crate::worker::memory_guard::acquire_spawn_permit(config).await?;
 
     let mut cmd = StdCommand::new(&config.python_path);
@@ -236,7 +236,7 @@ pub async fn spawn_tcp_daemon(config: &WorkerConfig, port: u16) -> Result<(u32, 
         .spawn()
         .map_err(|e| WorkerError::SpawnFailed(format!("failed to spawn TCP worker daemon: {e}")))?;
 
-    // Tag the host-memory lease with the TCP-worker's PID — Bug 2 fix
+    // Tag the host-memory lease with the TCP-worker's PID, Bug 2 fix
     // (see WorkerHandle::spawn for rationale). Without this, the
     // lease's owner_pid is the daemon and ghost slots accumulate when
     // the worker dies. `child.id()` is `None` only after `wait`/`kill`,
@@ -263,7 +263,7 @@ pub async fn spawn_tcp_daemon(config: &WorkerConfig, port: u16) -> Result<(u32, 
     })?
     .map_err(|e| WorkerError::ReadyParseFailed(format!("TCP daemon ready failed: {e}")))?;
 
-    // Detach stderr reader — the daemon continues on its own.
+    // Detach stderr reader: the daemon continues on its own.
     // We intentionally do NOT wait on the child or hold its handle.
     // The process is now a standalone daemon managed by the OS.
     drop(stderr_reader);
@@ -302,7 +302,7 @@ async fn read_tcp_ready_signal<R: tokio::io::AsyncBufRead + Unpin>(
                     let port = signal.port.unwrap_or(0);
                     return Ok((signal.pid, port));
                 }
-                // Not the ready line — might be a log line, skip it.
+                // Not the ready line, might be a log line, skip it.
                 attempts += 1;
                 if attempts > 100 {
                     return Err("Too many non-ready lines on stderr".into());
@@ -321,7 +321,7 @@ pub(super) fn worker_provider_envs(
     config: &WorkerConfig,
     sources: &HkAsrCredentialSources,
 ) -> Vec<(String, String)> {
-    // GPU profile includes ASR — inject provider credentials when the profile
+    // GPU profile includes ASR, inject provider credentials when the profile
     // handles ASR requests or the engine overrides select an HK ASR backend.
     if config.profile != WorkerProfile::Gpu {
         return Vec::new();

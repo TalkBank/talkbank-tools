@@ -1,4 +1,4 @@
-"""English decision-probe cases — v2 (token-centric + n-to-m).
+"""English decision-probe cases: v2 (token-centric + n-to-m).
 
 Adjudication status (2026-04-23)
 ---------------------------------
@@ -8,12 +8,12 @@ produced clean observations. Adjudicator answered Q-A (ship transcribe
 rules on 'no observed Stanza regression') with YES. The adjudication
 policy applied here:
 
-* **POST_NEUTRAL locked** — every "both match" case. The rule is a
+* **POST_NEUTRAL locked**: every "both match" case. The rule is a
   safe orthographic change; no Stanza effect. Shipping is approved.
-* **POST_STRICTLY_WORSE locked** — DECIMAL_CONTROL cases. The rule
+* **POST_STRICTLY_WORSE locked**: DECIMAL_CONTROL cases. The rule
   MUST NOT fire on decimals; the comparator flags the semantic
   loss via text-gold.
-* **OBSERVE_ONLY retained** — cases where gold calibration (Q-B,
+* **OBSERVE_ONLY retained**: cases where gold calibration (Q-B,
   queued for adjudication) would change the verdict, and the
   `letter_i_in_alphabet` probe where Stanza-is-wrong-either-way
   means the rule's correctness lives outside the comparator's
@@ -100,7 +100,7 @@ _LOCK_Q_B = (
 )
 
 
-# ─── TITLE_PERIOD: Dr. / Mr. / Mrs. / Prof. — LOCKED POST_NEUTRAL ────
+# ─── TITLE_PERIOD: Dr. / Mr. / Mrs. / Prof., LOCKED POST_NEUTRAL ────
 _TITLE_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="dr_before_name",
@@ -145,7 +145,7 @@ _TITLE_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# Alternative rule shape (split vs strip). LOCKED POST_NEUTRAL — the
+# Alternative rule shape (split vs strip). LOCKED POST_NEUTRAL, the
 # split rule also preserves PROPN on both sides; either rule is safe.
 # Keeping the probe locked means if someone ever proposes switching
 # from strip to split, the probe will confirm the new rule is also
@@ -172,7 +172,7 @@ _TITLE_SPLIT_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── PLACE_PERIOD — LOCKED POST_NEUTRAL ──────────────────────────────
+# ─── PLACE_PERIOD: LOCKED POST_NEUTRAL ──────────────────────────────
 _PLACE_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="st_as_street",
@@ -206,7 +206,7 @@ _PLACE_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── TIME_PERIOD — LOCKED POST_NEUTRAL ───────────────────────────────
+# ─── TIME_PERIOD: LOCKED POST_NEUTRAL ───────────────────────────────
 _TIME_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="am_after_number",
@@ -233,7 +233,7 @@ _TIME_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── TECHNICAL_ABBREV — LOCKED POST_NEUTRAL (Q-B adjudication) ───────
+# ─── TECHNICAL_ABBREV: LOCKED POST_NEUTRAL (Q-B adjudication) ───────
 # Adjudication (2026-04-23): "I'm happy to see the periods stripped from
 # these, but I take the Stanza POS as better than the Claude." Gold
 # is now Stanza-calibrated per-side. Each probe matches Stanza's
@@ -294,7 +294,7 @@ _TECHNICAL_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── INITIALISM_PERIOD — LOCKED POST_NEUTRAL ─────────────────────────
+# ─── INITIALISM_PERIOD: LOCKED POST_NEUTRAL ─────────────────────────
 _INITIALISM_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="us_with_periods",
@@ -319,7 +319,7 @@ _INITIALISM_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── DEGREE_PERIOD — mixed adjudication ──────────────────────────────
+# ─── DEGREE_PERIOD: mixed adjudication ──────────────────────────────
 _DEGREE_CASES: tuple[DecisionProbeCase, ...] = (
     # LOCKED POST_NEUTRAL: Stanza agrees with NOUN gold on both sides.
     _case(
@@ -333,7 +333,7 @@ _DEGREE_CASES: tuple[DecisionProbeCase, ...] = (
         + _LOCK_Q_A,
         expected_outcome=DecisionOutcome.POST_NEUTRAL,
     ),
-    # LOCKED POST_NEUTRAL: Q-B — Stanza's PROPN wins over
+    # LOCKED POST_NEUTRAL: Q-B: Stanza's PROPN wins over
     # UD-EWT NOUN. Gold recalibrated.
     _case(
         label="md_trailing",
@@ -351,10 +351,10 @@ _DEGREE_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── DECIMAL_CONTROL — LOCKED POST_STRICTLY_WORSE ────────────────────
+# ─── DECIMAL_CONTROL: LOCKED POST_STRICTLY_WORSE ────────────────────
 # These are control probes: they prove the period-strip rule MUST NOT
 # fire on decimals. The comparator's text-gold catches `3.14` → `3`
-# as a semantic regression — exactly what we want to see.
+# as a semantic regression, exactly what we want to see.
 _DECIMAL_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="pi_decimal",
@@ -405,7 +405,7 @@ _DECIMAL_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── SENTENCE_PERIOD — LOCKED POST_NEUTRAL (1-to-0 deletion) ─────────
+# ─── SENTENCE_PERIOD: LOCKED POST_NEUTRAL (1-to-0 deletion) ─────────
 _SENTENCE_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="final_period_deletion",
@@ -428,7 +428,7 @@ _SENTENCE_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── ENGLISH_PRONOUN_I — LOCKED POST_NEUTRAL ─────────────────────────
+# ─── ENGLISH_PRONOUN_I: LOCKED POST_NEUTRAL ─────────────────────────
 _PRONOUN_I_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="i_think",
@@ -455,13 +455,13 @@ _PRONOUN_I_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── LETTER_I_CONTROL — OBSERVE_ONLY (Stanza wrong both ways) ────────
+# ─── LETTER_I_CONTROL: OBSERVE_ONLY (Stanza wrong both ways) ────────
 # Stanza tags both `i` and `I` as PRON in the "the letter X" context
 # because the CHAT @l marker is stripped before Stanza sees the word.
 # The comparator correctly reports "neither matches" in notes but
 # aggregates to POST_NEUTRAL. This probe documents that the rule's
 # correctness depends on BA3 RESPECTING @l in CHAT before Stanza is
-# invoked — a pipeline-level constraint outside the comparator's
+# invoked: a pipeline-level constraint outside the comparator's
 # scope. Verdict-lock waits until the rule implementation handles
 # the @l marker, at which point a new probe can test the pipeline
 # directly.
@@ -482,7 +482,7 @@ _LETTER_I_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── I_CONTRACTION — LOCKED POST_NEUTRAL ─────────────────────────────
+# ─── I_CONTRACTION: LOCKED POST_NEUTRAL ─────────────────────────────
 # v1's "MWT indexing bug" cases; v2 token-centric addressing pins
 # both expanded UD words on each side. Stanza MWT-expands both
 # lowercase and uppercase I-contractions → both match gold
@@ -541,7 +541,7 @@ _I_CONTRACTION_CASES: tuple[DecisionProbeCase, ...] = (
     ),
 )
 
-# ─── UTTERANCE_INITIAL_CAP — LOCKED POST_NEUTRAL ─────────────────────
+# ─── UTTERANCE_INITIAL_CAP: LOCKED POST_NEUTRAL ─────────────────────
 _UTTERANCE_INITIAL_CASES: tuple[DecisionProbeCase, ...] = (
     _case(
         label="hello_initial",
@@ -576,7 +576,7 @@ _UTTERANCE_INITIAL_CASES: tuple[DecisionProbeCase, ...] = (
 )
 
 
-# Aggregate — order is descriptive, not semantic.
+# Aggregate: order is descriptive, not semantic.
 CASES: tuple[DecisionProbeCase, ...] = (
     *_TITLE_CASES,
     *_TITLE_SPLIT_CASES,

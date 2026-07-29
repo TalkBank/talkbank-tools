@@ -181,7 +181,7 @@ dedicated speaker stage runs.
 # Fast unit tests (no ML models)
 make test
 
-# Transcribe golden tests (real ASR models — only on Fleet/Large-tier hosts)
+# Transcribe golden tests (real ASR models, only on Fleet/Large-tier hosts)
 cargo nextest run --profile ml -E 'test(transcribe::)'
 
 # Python ASR inference tests

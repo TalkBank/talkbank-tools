@@ -127,7 +127,7 @@ pub struct LangIdJob {
 pub struct LanguageConfidence {
     /// ISO 639-1 language code (e.g., `"en"`, `"es"`).
     pub language: String,
-    /// Confidence score (0.0 – 1.0).
+    /// Confidence score (0.0 -1.0).
     pub confidence: f64,
 }
 

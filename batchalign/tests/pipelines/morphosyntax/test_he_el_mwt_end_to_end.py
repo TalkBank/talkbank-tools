@@ -1,13 +1,13 @@
 """End-to-end CHAT pipeline test: Hebrew and Greek MWT splits land
 correctly in ``%mor`` after the 2026-04-15 capability-driven loader
 fix. Companion to ``test_stanza_he_el_et_mwt_splits.py`` (pure
-Stanza observation tests) — this file verifies that what Stanza
+Stanza observation tests): this file verifies that what Stanza
 splits, BA3 actually writes as tilde-joined ``%mor``.
 
 This is the regression gate. If a future BA3 change suppresses MWT
-for he/el — by reintroducing a hardcoded include/exclude set, by
+for he/el, by reintroducing a hardcoded include/exclude set, by
 breaking the capability table, or by mis-handling MWT in
-``morphosyntax/inject.rs`` — these tests fail loudly.
+``morphosyntax/inject.rs``: these tests fail loudly.
 
 Discovery date: 2026-04-15. Defect 5 in
 ``book/src/reference/stanza-limitations.md`` carries the full
@@ -130,7 +130,7 @@ def test_hebrew_mwt_emits_tilde_joined_mor(
     hebrew_morphotag_output: str,
 ) -> None:
     """Each Hebrew utterance with a contraction must have a tilde
-    ``~`` in its ``%mor`` line — that is the CHAT marker for an
+    ``~`` in its ``%mor`` line; that is the CHAT marker for an
     MWT-joined morph sequence. If a future regression suppresses
     MWT for Hebrew (e.g., a hardcoded list reappears, or the
     capability table breaks), the contracted forms would surface
@@ -159,7 +159,7 @@ def test_hebrew_mwt_does_not_emit_unsplit_surface_as_lemma(
     hebrew_morphotag_output: str,
 ) -> None:
     """The contracted surface form must not appear as a lemma of a
-    single morph item — that would mean MWT was silently suppressed
+    single morph item; that would mean MWT was silently suppressed
     and the surface was tagged whole. Stanza's split components
     (e.g., ב, בית) are the correct lemmas after MWT fires.
     """

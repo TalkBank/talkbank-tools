@@ -11,7 +11,7 @@ Why a separate engine rather than overloading ``whisper``:
   different generation_config semantics. Fine-tunes pin
   ``language`` / ``task`` inside their generation_config; passing
   ``language=...`` / ``task="transcribe"`` on a fine-tune produces
-  gibberish. Stock Whisper requires the opposite — it *needs* the
+  gibberish. Stock Whisper requires the opposite, it *needs* the
   language hint. Merging the two loaders into one engine would make
   every line of dispatch code branch on the checkpoint's shape.
 - Opt-out is surgical: ``--asr-engine whisper`` and
@@ -74,12 +74,12 @@ def resolve_whisper_hub_model_id(
 
     Precedence:
 
-    1. Explicit ``engine_overrides[MODEL_ID_OVERRIDE_KEY]`` — user-chosen
+    1. Explicit ``engine_overrides[MODEL_ID_OVERRIDE_KEY]``: user-chosen
        model_id wins unconditionally.
     2. Per-language default from ``resolve("whisper_hub", lang)``.
 
     Raises ``WhisperHubModelNotFoundError`` when both are absent. No
-    silent fallback to a stock OpenAI Whisper checkpoint — that would
+    silent fallback to a stock OpenAI Whisper checkpoint; that would
     be exactly the foot-gun this engine variant exists to prevent.
     """
     overrides = engine_overrides or {}
@@ -92,7 +92,7 @@ def resolve_whisper_hub_model_id(
     raise WhisperHubModelNotFoundError(
         f"whisper_hub has no default model_id for language '{lang}'. "
         f"Either add a seed entry in batchalign/models/resolve.py (after "
-        f"empirical evaluation — see book/src/reference/whisper-hub-asr.md) "
+        f"empirical evaluation: see book/src/reference/whisper-hub-asr.md) "
         f"or pass an explicit model_id via "
         f"--engine-overrides '{{\"asr\":\"whisper_hub\",\"model_id\":\"<owner>/<model>\"}}'."
     )

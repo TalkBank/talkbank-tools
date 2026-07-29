@@ -128,7 +128,7 @@ class _FakeModel:
     def __call__(
         self,
         input_ids: torch.Tensor,
-        attention_mask: torch.Tensor | None = None,  # noqa: ARG002 — required by HF signature
+        attention_mask: torch.Tensor | None = None,  # noqa: ARG002, required by HF signature
     ) -> SimpleNamespace:
         del attention_mask
         seq_len = input_ids.shape[1]

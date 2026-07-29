@@ -8,7 +8,7 @@
     clippy::unreachable
 )]
 
-//! BUG-028 deeper — global-cap thundering herd.
+//! BUG-028 deeper: global-cap thundering herd.
 //!
 //! Spawns `max_total_workers + EXTRA` simultaneous dispatch tasks
 //! against a pool sized to `max_total_workers`. Under the wake-and-probe

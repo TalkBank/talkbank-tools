@@ -438,7 +438,7 @@ from batchalign import BatchalignPipeline
 nlp = BatchalignPipeline.new("morphosyntax", lang="eng")
 result = nlp("input.cha")
 
-# BA3 — CLI is the only entry point
+# BA3: CLI is the only entry point
 # Note: morphotag has no `--lang`; per-file `@Languages:` headers drive routing.
 import subprocess
 subprocess.run(["batchalign3", "morphotag", "input/", "-o", "output/"])

@@ -1,4 +1,4 @@
-//! Ratatui rendering — layout, widgets, colors.
+//! Ratatui rendering: layout, widgets, colors.
 
 use std::time::SystemTime;
 
@@ -160,7 +160,7 @@ fn draw_header(f: &mut Frame, state: &AppState, area: Rect) {
     };
 
     // ETA or completion message. A cancelled job overrides the
-    // generic "Done — N failed" with the explicit "CANCELLED"
+    // generic "Done: N failed" with the explicit "CANCELLED"
     // marker plus the cancel source/host so the user can tell the
     // difference between natural completion and a cancel they
     // initiated.
@@ -174,7 +174,7 @@ fn draw_header(f: &mut Frame, state: &AppState, area: Rect) {
     } else if state.progress.finished {
         let error_count = state.errors.entries.len();
         if error_count > 0 {
-            format!("  Done — {error_count} failed")
+            format!("  Done: {error_count} failed")
         } else {
             "  Done!".to_string()
         }
@@ -190,7 +190,7 @@ fn draw_header(f: &mut Frame, state: &AppState, area: Rect) {
     };
 
     let label = format!(
-        " {} — {completed}/{total} files{breakdown}  [{mins:02}:{secs:02}]{suffix}",
+        " {}: {completed}/{total} files{breakdown}  [{mins:02}:{secs:02}]{suffix}",
         state.progress.command,
     );
 
@@ -207,7 +207,7 @@ fn draw_header(f: &mut Frame, state: &AppState, area: Rect) {
     f.render_widget(gauge, area);
 }
 
-/// Directory groups — bordered sections with file rows.
+/// Directory groups: bordered sections with file rows.
 fn draw_groups(f: &mut Frame, state: &AppState, area: Rect) {
     if state.directories.groups.is_empty() {
         let msg =
@@ -524,9 +524,9 @@ fn draw_metrics(f: &mut Frame, state: &AppState, area: Rect) {
         } else if headroom > 2.0 {
             " ● warn"
         } else if headroom > 1.0 {
-            " ● danger — gate may block new workers"
+            " ● danger: gate may block new workers"
         } else {
-            " ● BLOCKED — below gate threshold"
+            " ● BLOCKED: below gate threshold"
         }
     };
 
@@ -567,7 +567,7 @@ fn draw_errors(f: &mut Frame, state: &AppState, area: Rect) {
 
     if !state.errors.expanded {
         let summary = format!(
-            "  {} error(s) — press 'e' to expand",
+            "  {} error(s): press 'e' to expand",
             state.errors.entries.len()
         );
         let p = Paragraph::new(summary).style(Style::default().fg(Color::Red));
@@ -872,7 +872,7 @@ mod tests {
 
     #[test]
     fn render_with_scroll_indicators() {
-        // 20 files in one group on a small terminal — should show ▲/▼
+        // 20 files in one group on a small terminal, should show ▲/▼
         let mut state = AppState::new(20, "morphotag");
         let entries: Vec<_> = (0..20)
             .map(|i| make_entry(&format!("eng/{i:02}.cha"), FileStatusKind::Queued))

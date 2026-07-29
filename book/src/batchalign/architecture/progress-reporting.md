@@ -42,7 +42,7 @@ typed stage when projecting the API response.
 Orchestrator (fa.rs, transcribe pipeline, etc.)
   → ProgressSender (unbounded channel)
     → Forwarder task (spawned per file)
-      → set_file_progress() — updates FileStatus with `progress_stage` + calls notify_file()
+      → set_file_progress(): updates FileStatus with `progress_stage` + calls notify_file()
         → WebSocket broadcast → all connected clients
 ```
 
@@ -104,37 +104,37 @@ if let Some(tx) = progress {
 
 | Stage | Label | current/total |
 |-------|-------|---------------|
-| Mark processing | "Reading" | — |
-| Read CHAT | "Resolving audio" | — |
+| Mark processing | "Reading" |, |
+| Read CHAT | "Resolving audio" |, |
 | UTR pre-pass (partial) | "Recovering utterance timing" | 1/W, 2/W, ... W/W windows |
 | UTR pre-pass (full-file) | "Recovering utterance timing" | 0/1 |
-| Audio resolved | "Aligning" | — |
+| Audio resolved | "Aligning" |, |
 | Cache check | "Checking cache" | 0/N groups |
 | Cache partition | "Aligning" | hits/N groups |
 | Each group done | "Aligning" | done/N groups |
 | Apply results | "Applying results" | N/N |
-| Write output | "Writing" | — |
+| Write output | "Writing" |, |
 
 ### transcribe
 
 | Stage | Label | current/total |
 |-------|-------|---------------|
-| Mark processing | "Resolving audio" | — |
-| Audio resolved | "Transcribing" | — |
+| Mark processing | "Resolving audio" |, |
+| Audio resolved | "Transcribing" |, |
 | ASR inference | "Transcribing" | 0/total_stages |
 | Post-processing | "Post-processing" | 1/total_stages |
 | Build CHAT | "Building CHAT" | 2/total_stages |
 | Optional utseg | "Segmenting utterances" | 3/total_stages |
 | Optional morphosyntax | "Analyzing morphosyntax" | 4/total_stages |
 | Finalize | "Finalizing" | N/total_stages |
-| Write output | "Writing" | — |
+| Write output | "Writing" |, |
 
 ### morphotag / utseg / translate / coref (batched)
 
 | Stage | Label | current/total |
 |-------|-------|---------------|
-| Mark processing | Command-specific label | — |
-| Read each file | "Reading" | — |
+| Mark processing | Command-specific label |, |
+| Read each file | "Reading" |, |
 | Pre-batch count | Command-specific label | 0/N files |
 | Orchestrator running | (same label) | 0/N (frozen) |
 | Write each result | "Writing" | 1/N, 2/N, ... N/N |
@@ -176,7 +176,7 @@ with a per-file counter as results are saved to disk.
 ### TUI (ratatui)
 
 ```text
-  morphotag — 3/50 files  3✓ 2⠋ 1✗ 44·  [00:42]  ~03:15
+  morphotag: 3/50 files  3✓ 2⠋ 1✗ 44·  [00:42]  ~03:15
   Workers: infer:asr:eng · infer:morphosyntax:eng    Warmup: complete
   Memory: [████████████░░░░░░░░] 148/256 GB   Gate: 2 GB ● safe
 

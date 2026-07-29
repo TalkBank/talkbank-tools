@@ -29,7 +29,7 @@ post-processing). The rule is simple:
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
 | Word extraction from CHAT AST | Outside (pre-cache) | `../chatter/crates/talkbank-transform/src/extract.rs` |
-| Cache key: `BLAKE3(words \| lang \| MWT lexicon)` | — | task-specific `cache_key()` helpers under `chat_ops/{fa,nlp}/`, hashed via the shared `CacheKey::from_content` newtype in `chat_ops/cache_key.rs` |
+| Cache key: `BLAKE3(words \| lang \| MWT lexicon)` |, | task-specific `cache_key()` helpers under `chat_ops/{fa,nlp}/`, hashed via the shared `CacheKey::from_content` newtype in `chat_ops/cache_key.rs` |
 | Stanza inference → raw %mor/%gra JSON | **Inside** | Python `morphosyntax.py` |
 | Retokenization (Stanza word splits/merges) | **Inside** (happens before cache store) | `crates/batchalign-transform/src/retokenize.rs` + `retokenize/` |
 | Deserialize cached JSON | Outside | `crates/batchalign/src/morphosyntax/` |
@@ -40,7 +40,7 @@ post-processing). The rule is simple:
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
 | Word extraction | Outside (pre-cache) | `extract.rs` |
-| Cache key: `BLAKE3(words \| lang)` | — | `utseg.rs` |
+| Cache key: `BLAKE3(words \| lang)` |, | `utseg.rs` |
 | Stanza constituency parse → boundary assignments | **Inside** | Python `utseg.py` |
 | `apply_utseg_results()` (split utterances) | Outside | `utseg.rs` |
 
@@ -49,7 +49,7 @@ post-processing). The rule is simple:
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
 | `preprocess_for_translate()` (CJK space stripping) | Outside (pre-cache) | `translate.rs` |
-| Cache key: `BLAKE3(text \| src_lang \| tgt_lang)` | — | `translate.rs` |
+| Cache key: `BLAKE3(text \| src_lang \| tgt_lang)` |, | `translate.rs` |
 | Google Translate / Seamless M4T → translated string | **Inside** | Python `translate.py` |
 | `postprocess_translation()` (quote normalization, punctuation spacing) | Outside | `translate.rs` |
 | Inject as %xtra tier | Outside | `translate.rs` |
@@ -61,7 +61,7 @@ post-processing). The rule is simple:
 | Tier 1: check reusable %wor timing | Outside (bypasses cache entirely) | `fa/mod.rs` |
 | Group utterances by time windows | Outside (pre-cache) | `fa/mod.rs` |
 | Word extraction per group | Outside (pre-cache) | `fa/mod.rs` |
-| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| timing_flag \| engine)` | — | `fa/mod.rs` |
+| Cache key: `BLAKE3(audio_identity \| start_ms \| end_ms \| text \| timing_flag \| engine)` |, | `fa/mod.rs` |
 | Whisper/Wave2Vec inference → `Vec<Option<WordTiming>>` | **Inside** | Python `fa.py` |
 | `postprocess_utterance_timings()` | Outside | `fa/postprocess.rs` |
 | - Continuous mode: backward end-time propagation | Outside | `fa/postprocess.rs` |
@@ -75,8 +75,8 @@ post-processing). The rule is simple:
 
 | Stage | Inside/Outside | Code |
 |-------|---------------|------|
-| Full-file key: `BLAKE3(utr_asr \| audio_identity \| lang)` | — | `fa/utr.rs` |
-| Segment key: `BLAKE3(utr_asr_segment \| audio_identity \| start_ms \| end_ms \| lang)` | — | `fa/utr.rs` |
+| Full-file key: `BLAKE3(utr_asr \| audio_identity \| lang)` |, | `fa/utr.rs` |
+| Segment key: `BLAKE3(utr_asr_segment \| audio_identity \| start_ms \| end_ms \| lang)` |, | `fa/utr.rs` |
 | ASR inference → `Vec<AsrTimingToken>` | **Inside** | Python `asr.py` |
 | Global Hirschberg DP alignment (words ↔ ASR tokens) | Outside | `fa/utr.rs` |
 | Utterance bullet injection | Outside | `fa/utr.rs` |

@@ -87,9 +87,9 @@ class WorkerProfile(str, Enum):
     Instead of spawning one worker per InferTask, profiles group related tasks
     to share loaded models within a single process:
 
-    - GPU: ASR, FA, Speaker — GPU-bound models, concurrent via ThreadPoolExecutor
-    - STANZA: Morphosyntax, Utseg, Coref — Stanza NLP processors
-    - IO: Translate, OpenSMILE, AVQI — lightweight API/library calls
+    - GPU: ASR, FA, Speaker, GPU-bound models, concurrent via ThreadPoolExecutor
+    - STANZA: Morphosyntax, Utseg, Coref, Stanza NLP processors
+    - IO: Translate, OpenSMILE, AVQI, lightweight API/library calls
     """
 
     GPU = "gpu"

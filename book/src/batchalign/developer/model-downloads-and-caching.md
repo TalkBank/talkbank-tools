@@ -57,7 +57,7 @@ Source verified by reading code on 2026-05-06.
 | 10 | pyannote diarization | `batchalign/inference/speaker.py:350` | `Pipeline.from_pretrained("talkbank/dia-fork")` | HF |
 | 11 | NeMo speaker (fallback) | `batchalign/inference/speaker.py` (NeMo branch) | `EncDecSpeakerLabelModel.from_pretrained(...)` | NeMo cache |
 | 12 | BERT utterance | `batchalign/models/utterance/infer.py:120-128` | `AutoTokenizer.from_pretrained` + `BertForTokenClassification.from_pretrained` | HF |
-| 13 | PyCantonese | (bundled) | — | (none — wheel) |
+| 13 | PyCantonese | (bundled) |, | (none, wheel) |
 
 Cache roots resolve to OS-specific paths via each library's own logic. See
 the [user-facing chapter](../user-guide/model-downloads.md) for the table

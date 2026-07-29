@@ -110,7 +110,7 @@ fn write_config_to_path(path: &Path, config: &UserConfig) -> Result<DesktopComma
     })
 }
 
-/// True if `~/.batchalign.ini` does NOT exist — triggers the setup wizard.
+/// True if `~/.batchalign.ini` does NOT exist, triggers the setup wizard.
 #[tauri::command]
 pub fn is_first_launch() -> bool {
     is_first_launch_at(&config_path())

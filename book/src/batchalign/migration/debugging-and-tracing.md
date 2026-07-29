@@ -109,7 +109,7 @@ cat /tmp/ba3-debug/sample_utr_input.cha
 jq . /tmp/ba3-debug/sample_utr_tokens.json
 
 # 3. Write a test that loads the fixtures and calls inject_utr_timing directly
-# (no ML model needed — the tokens are already captured)
+# (no ML model needed, the tokens are already captured)
 ```
 
 ## Fine-Grained Cache Overrides

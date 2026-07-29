@@ -80,14 +80,14 @@ def test_english_has_constituency():
 
 
 def test_dutch_has_no_constituency():
-    """Dutch does NOT have constituency — this caused an operator's crash."""
+    """Dutch does NOT have constituency, this caused an operator's crash."""
     table = build_fixture_table()
     assert "nld" in table.languages
     assert not table.languages["nld"].has_constituency
 
 
 def test_dutch_has_core_processors():
-    """Dutch has tokenize, pos, lemma, depparse — morphotag should work."""
+    """Dutch has tokenize, pos, lemma, depparse, morphotag should work."""
     table = build_fixture_table()
     nl = table.languages["nld"]
     assert nl.has_tokenize
@@ -140,7 +140,7 @@ def test_unsupported_language_not_in_table():
 #
 # These exist because BA3 used to silently return None on any
 # ResourcesFileNotFoundError, which masked the fact that no language
-# pack had ever been seeded — and the worker exit-1 that resulted was
+# pack had ever been seeded, and the worker exit-1 that resulted was
 # classified as a transient crash, retried 3×, and dumped a full Python
 # traceback per attempt to the daemon log.
 # ---------------------------------------------------------------------------

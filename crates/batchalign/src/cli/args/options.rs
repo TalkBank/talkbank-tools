@@ -35,7 +35,7 @@ pub fn parse_engine_overrides(input: &Option<String>) -> EngineOverrides {
     // `clap::ValueParser` which calls `parse_engine_overrides_json`
     // and rejects invalid input at the CLI parse boundary. Reaching
     // this expect would mean the validator drifted out of sync with
-    // the canonical parser — caught by the args integration tests.
+    // the canonical parser: caught by the args integration tests.
     #[allow(clippy::expect_used)]
     match input.as_deref() {
         None | Some("") => EngineOverrides::default(),
@@ -431,7 +431,7 @@ mod tests {
     fn parse_engine_overrides_preserves_unknown_keys_as_extras() {
         // Unknown keys route to extras for the Python worker; known
         // keys (asr/fa/translate) still validate engine NAMES strictly
-        // — see `engine_overrides_known_engine_validation_still_fires`.
+        //: see `engine_overrides_known_engine_validation_still_fires`.
         let overrides = parse_engine_overrides_json(r#"{"mor": "custom_mor"}"#)
             .expect("unknown KEYS now flow through as extras");
         assert_eq!(overrides.asr, None);

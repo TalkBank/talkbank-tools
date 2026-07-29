@@ -48,7 +48,7 @@ pub(crate) trait AudioChatTask {
 
 /// Shared runner-owned shell for one audio-backed file task.
 ///
-/// `#[allow(clippy::too_many_arguments)]` — per-file dispatch scaffolding.
+/// `#[allow(clippy::too_many_arguments)]`: per-file dispatch scaffolding.
 /// `work_unit_kind`, `running_stage`, `command_label`, and `should_merge_abbrev`
 /// vary per-call with the command (align / transcribe / etc.); they are
 /// intrinsically variable arguments, not context to bundle.

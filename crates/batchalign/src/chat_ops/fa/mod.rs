@@ -86,7 +86,7 @@ pub type WordTiming = TimeSpan;
 /// text as a single element. Only applies to `WordCategory::Filler` words;
 /// regular compounds are unchanged.
 ///
-/// Both extraction and injection must agree on the split count — extraction
+/// Both extraction and injection must agree on the split count, extraction
 /// sends N parts to FA, injection consumes N timings from the cursor. This
 /// shared helper is the single source of truth for the splitting rule.
 pub fn split_compound_filler(word: &talkbank_model::model::Word) -> Vec<String> {
@@ -381,13 +381,13 @@ pub(crate) fn count_alignable_main_words(utterance: &Utterance) -> usize {
 ///
 /// The behavior depends on the bullet's provenance ([`BulletSource`]):
 ///
-/// - **No pre-existing bullet** — sets bullet directly from the FA word span.
+/// - **No pre-existing bullet**, sets bullet directly from the FA word span.
 ///
-/// - **`BulletSource::Utr`** — overwrites with the FA word span. The UTR
+/// - **`BulletSource::Utr`**: overwrites with the FA word span. The UTR
 ///   bullet was a provisional grouping hint; once FA has produced word
 ///   timings the hint is discarded and the FA span is authoritative.
 ///
-/// - **`BulletSource::Authoritative`** — usually unions the existing bullet
+/// - **`BulletSource::Authoritative`**: usually unions the existing bullet
 ///   with the FA word span when that preserves plausible leading/trailing
 ///   coverage. On reruns with an existing `%wor` tier, a large lead before the
 ///   first aligned word is only preserved when untimed leading filler coverage
@@ -396,7 +396,7 @@ pub(crate) fn count_alignable_main_words(utterance: &Utterance) -> usize {
 ///   and similar non-alignable material are preserved.
 ///
 /// When FA produces no word timings at all (all `None`), the existing bullet
-/// is left unchanged — the UTR hint is the only timing we have and must be
+/// is left unchanged: the UTR hint is the only timing we have and must be
 /// preserved.
 ///
 /// # Invariant
@@ -428,7 +428,7 @@ pub fn update_utterance_bullet(utterance: &mut Utterance) {
 
     if let (Some(word_start), Some(word_end)) = (first_start, last_end) {
         let (final_start, final_end) = match &utterance.main.content.bullet {
-            // Provisional UTR hint: FA word span is authoritative — overwrite.
+            // Provisional UTR hint: FA word span is authoritative, overwrite.
             Some(existing) if existing.source == BulletSource::Utr => (word_start, word_end),
             // Authoritative hand-linked/FA bullet: reruns with an existing %wor
             // can preserve stale starts from a previous pass. If that lead is
@@ -453,7 +453,7 @@ pub fn update_utterance_bullet(utterance: &mut Utterance) {
         // The resulting bullet is authoritative (FA-derived).
         utterance.main.content.bullet = Some(Bullet::new(final_start, final_end));
     }
-    // If no word timings: leave existing bullet unchanged — UNLESS it is
+    // If no word timings: leave existing bullet unchanged, UNLESS it is
     // zero-duration (start >= end), which is an invalid timing that would
     // produce E362. A zero-duration bullet from a previous buggy run must be
     // cleared; no bullet is valid CHAT, an invalid bullet is not.

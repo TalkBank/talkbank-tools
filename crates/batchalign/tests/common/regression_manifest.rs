@@ -29,17 +29,17 @@ use serde::{Deserialize, Deserializer};
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FixtureCommand {
-    /// `batchalign3 align` — forced alignment of an existing CHAT against audio.
+    /// `batchalign3 align`: forced alignment of an existing CHAT against audio.
     Align,
-    /// `batchalign3 transcribe` — ASR + utseg from raw audio.
+    /// `batchalign3 transcribe`: ASR + utseg from raw audio.
     Transcribe,
-    /// `batchalign3 morphotag` — morphosyntactic annotation of an existing CHAT.
+    /// `batchalign3 morphotag`: morphosyntactic annotation of an existing CHAT.
     Morphotag,
-    /// `batchalign3 utseg` — utterance segmentation of an existing CHAT.
+    /// `batchalign3 utseg`: utterance segmentation of an existing CHAT.
     Utseg,
-    /// `batchalign3 translate` — translation tier injection.
+    /// `batchalign3 translate`: translation tier injection.
     Translate,
-    /// `batchalign3 coref` — coreference resolution.
+    /// `batchalign3 coref`: coreference resolution.
     Coref,
 }
 
@@ -174,7 +174,7 @@ pub enum FixtureTranscribeAsrEngine {
 
 /// Provenance metadata captured when the fixture was created.
 ///
-/// None of these fields drive runner behavior — they exist so a future
+/// None of these fields drive runner behavior; they exist so a future
 /// contributor can answer "where did this fixture come from?" without git
 /// archaeology. Kept inside the typed manifest so we can validate that the
 /// fields are present at JSON parse time, not at first read.
@@ -236,7 +236,7 @@ pub struct TranscribeFixtureOptions {
 /// can dispatch on them in a single `match`. Adding a new variant requires
 /// (a) defining it here, (b) implementing it in
 /// `regression_fixtures::run_assertion`, and (c) documenting it in
-/// `test-fixtures/README.md`. Do not add variants speculatively — every
+/// `test-fixtures/README.md`. Do not add variants speculatively, every
 /// variant should be backed by a real fixture that needs it.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

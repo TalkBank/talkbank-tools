@@ -360,7 +360,7 @@ async fn e2e_retokenize_option() {
 }
 
 // ---------------------------------------------------------------------------
-// Command lifecycle (test-echo — verifies accept/complete lifecycle)
+// Command lifecycle (test-echo: verifies accept/complete lifecycle)
 // ---------------------------------------------------------------------------
 
 /// Transcribe command completes via the server-side test-echo harness.
@@ -434,7 +434,7 @@ async fn e2e_invalid_command_rejected() {
     let base_url = session.base_url();
     let client = session.client();
 
-    // Send raw JSON with an invalid command — ReleasedCommand (closed enum)
+    // Send raw JSON with an invalid command, ReleasedCommand (closed enum)
     // rejects unknown variants at deserialization (HTTP 422).
     let raw = serde_json::json!({
         "command": "nonexistent_command",
@@ -486,7 +486,7 @@ async fn e2e_malformed_chat_still_completes() {
     )
     .await;
 
-    // Test-echo doesn't parse — just echoes content, so it should complete.
+    // Test-echo doesn't parse, just echoes content, so it should complete.
     assert_eq!(info.status, JobStatus::Completed);
     assert_eq!(results.len(), 1);
     assert!(results[0].content.contains("not valid CHAT"));
@@ -703,7 +703,7 @@ async fn e2e_cancel_job() {
         .await
         .expect("POST /jobs/{id}/cancel");
 
-    // 200 = cancel accepted (or already terminal — endpoint returns 200 either way)
+    // 200 = cancel accepted (or already terminal, endpoint returns 200 either way)
     assert_eq!(
         cancel_resp.status(),
         200,

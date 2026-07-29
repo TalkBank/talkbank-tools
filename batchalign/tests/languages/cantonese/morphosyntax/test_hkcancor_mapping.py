@@ -1,4 +1,4 @@
-"""HKCanCor POS tag mapping to Universal Dependencies — validation tests.
+"""HKCanCor POS tag mapping to Universal Dependencies, validation tests.
 
 Validates that PyCantonese's HKCanCor corpus maps cleanly to UD tags
 and assesses its viability as Stanza training data augmentation.
@@ -44,7 +44,7 @@ def test_hkcancor_ud_mapping_covers_99_percent() -> None:
 
 
 def test_hkcancor_has_no_dependency_annotations() -> None:
-    """HKCanCor has zero dependency (GRA) annotations — cannot train depparse."""
+    """HKCanCor has zero dependency (GRA) annotations, cannot train depparse."""
     corpus = _load_corpus()
     tokens = corpus.tokens()
 
@@ -102,7 +102,7 @@ def test_hkcancor_mapping_table_completeness() -> None:
 def test_hkcancor_classifier_maps_to_noun() -> None:
     """Cantonese classifiers (量詞, tag 'q') map to NOUN in UD.
 
-    This is the most debatable mapping — UD has no CLASSIFIER tag.
+    This is the most debatable mapping, UD has no CLASSIFIER tag.
     Document the decision: classifiers are nominal in UD convention.
     """
     assert hkcancor_to_ud("q") == "NOUN"
@@ -119,7 +119,7 @@ def test_hkcancor_classifier_maps_to_noun() -> None:
 def test_hkcancor_sentence_final_particles_map_to_part() -> None:
     """Sentence-final particles (語氣助詞, tags 'y', 'y1') map to PART.
 
-    This is important for Cantonese — SFPs are extremely common and
+    This is important for Cantonese, SFPs are extremely common and
     distinguishing them from other parts of speech matters for syntax.
     """
     assert hkcancor_to_ud("y") == "PART"

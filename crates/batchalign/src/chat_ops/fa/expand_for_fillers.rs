@@ -1,7 +1,7 @@
 //! Pre-FA utterance bullet expansion for edge fillers.
 //!
 //! When a filler (`&-you_know`, `&-um`) sits at the start or end of an
-//! utterance, the UTR-assigned bullet may be too narrow — ASR engines
+//! utterance, the UTR-assigned bullet may be too narrow, ASR engines
 //! typically don't transcribe fillers, so UTR never "sees" them. The
 //! filler's audio lives in the gap between utterances, outside the bullet.
 //!
@@ -14,10 +14,10 @@ use talkbank_model::model::{ChatFile, Line, UtteranceContent, WordCategory};
 
 /// Maximum expansion (ms) into a gap for a single edge filler.
 ///
-/// Fillers in natural speech typically last 200–600 ms. We cap at 1500 ms
+/// Fillers in natural speech typically last 200-600 ms. We cap at 1500 ms
 /// to avoid consuming too much inter-utterance silence even when large gaps
 /// exist (e.g., long speaker turn transitions). Separate from the
-/// group-level `TRAILING_GAP_EXTENSION_MS` in `grouping.rs` — this
+/// group-level `TRAILING_GAP_EXTENSION_MS` in `grouping.rs`, this
 /// adjusts individual utterance bullets before grouping.
 const MAX_FILLER_EXPANSION_MS: u64 = 1500;
 
@@ -108,7 +108,7 @@ pub fn expand_bullets_for_edge_fillers(chat_file: &mut ChatFile) {
 /// Detect whether the first and last alignable words are fillers.
 ///
 /// Uses domain-gated `walk_words` with `TierDomain::Wor` so only
-/// alignable words reach the closure — no redundant `counts_for_tier` check.
+/// alignable words reach the closure, no redundant `counts_for_tier` check.
 pub(crate) fn detect_edge_fillers(content: &[UtteranceContent]) -> (bool, bool) {
     let mut first: Option<bool> = None;
     let mut last: Option<bool> = None;

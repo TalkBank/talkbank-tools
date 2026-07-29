@@ -19,7 +19,7 @@ export function displayLang(spec: LanguageSpec | undefined): string {
 }
 
 /**
- * Whether a LanguageSpec represents the default (eng) — used to hide
+ * Whether a LanguageSpec represents the default (eng), used to hide
  * the language badge when it would just say "eng".
  */
 export function isDefaultLang(spec: LanguageSpec | undefined): boolean {

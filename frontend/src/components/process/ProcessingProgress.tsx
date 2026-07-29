@@ -3,12 +3,12 @@
  * Shows a progress bar, file count, elapsed time, and a live-updating file
  * list. Addresses the "frozen progress bar" problem with three strategies:
  *
- * 1. **Elapsed timer** — always ticking, proves the app is alive
- * 2. **Indeterminate bar** — for batched commands (morphotag, utseg, etc.)
+ * 1. **Elapsed timer**: always ticking, proves the app is alive
+ * 2. **Indeterminate bar**, for batched commands (morphotag, utseg, etc.)
  *    where no per-file progress is available during the batch_infer call
- * 3. **Sub-file progress** — for per-file commands (align, transcribe),
+ * 3. **Sub-file progress**, for per-file commands (align, transcribe),
  *    shows progress_current/progress_total inline (e.g., "Group 3/12")
- * 4. **Contextual messages** — explain what's happening during long waits
+ * 4. **Contextual messages**: explain what's happening during long waits
  *
  * When the job completes, the file capability can reveal the output folder in
  * Finder/Explorer without this component importing raw Tauri APIs.
@@ -61,7 +61,7 @@ const BATCH_WAIT_MESSAGES = [
   "All utterances are being processed together for best accuracy...",
   "The model is analyzing your entire corpus as one batch...",
   "This can take a few minutes for large collections of files...",
-  "Batch processing is more accurate than file-by-file — hang tight...",
+  "Batch processing is more accurate than file-by-file, hang tight...",
 ];
 
 /** Contextual messages for per-file commands during processing. */
@@ -114,17 +114,17 @@ function stageHint(stage: string | null | undefined): string | null {
     case "writing":
       return "Saving processed results to disk";
     case "recovering_utterance_timing":
-      return "Re-transcribing the audio to recover word timing — takes roughly as long as the recording itself";
+      return "Re-transcribing the audio to recover word timing, takes roughly as long as the recording itself";
     case "recovering_timing_fallback":
       return "Timing recovery failed on some segments, retrying with full-file transcription";
     case "transcribing":
-      return "Transcribing audio — Rev.AI runs roughly in real-time, Whisper may take 2-5x the audio length";
+      return "Transcribing audio: Rev.AI runs roughly in real-time, Whisper may take 2-5x the audio length";
     case "aligning":
       return "Running forced alignment on each utterance group";
     case "resolving_audio":
       return "Locating and preparing the audio file for processing";
     case "analyzing_morphosyntax":
-      return "Running part-of-speech tagging and grammatical analysis — all files are batched together for GPU efficiency";
+      return "Running part-of-speech tagging and grammatical analysis, all files are batched together for GPU efficiency";
     default:
       return null;
   }
@@ -202,7 +202,7 @@ export function ProcessingProgress({
 
   return (
     <div className="space-y-4">
-      {/* Summary bar — announced to screen readers on progress changes */}
+      {/* Summary bar: announced to screen readers on progress changes */}
       <div className="flex items-center justify-between" role="status" aria-live="polite" aria-atomic="true">
         <div className="flex items-center gap-3">
           <span className="inline-block text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
@@ -211,7 +211,7 @@ export function ProcessingProgress({
           <span className="text-lg font-semibold text-gray-800">
             {completedFiles} of {totalFiles} files
           </span>
-          {/* Elapsed timer — ticking while running, frozen at completion */}
+          {/* Elapsed timer: ticking while running, frozen at completion */}
           {(isRunning || (isTerminal && elapsed > 0)) && (
             <span className="text-xs text-gray-400 tabular-nums">
               {formatDuration(elapsed)}

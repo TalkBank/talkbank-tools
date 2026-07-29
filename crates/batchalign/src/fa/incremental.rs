@@ -319,7 +319,7 @@ pub(crate) async fn process_fa_incremental(
     // (`run_fa_from_ast`) calls this unconditionally after injection; the
     // incremental path must do the same.  Without this call, anchor drift from
     // UTR (e.g., repeated scripted phrases matched to an earlier audio window)
-    // survives into the output — as seen in APROCSA 2256_T4.cha (2026-04-09).
+    // survives into the output, as seen in APROCSA 2256_T4.cha (2026-04-09).
     enforce_monotonicity(&mut chat_file);
 
     // Post-FA bullet repair (experimental, opt-in via --bullet-repair).
@@ -580,8 +580,8 @@ mod tests {
     /// `apply_fa_results` when FA receives out-of-order audio windows.
     ///
     /// Two consecutive INV utterances:
-    ///   utt0 "alright"  → FA assigns 731556–733418 ms  (correct, forward)
-    ///   utt1 "look"     → FA assigns 639095–639300 ms  (backward — earlier
+    ///   utt0 "alright"  → FA assigns 731556-733418 ms  (correct, forward)
+    ///   utt1 "look"     → FA assigns 639095-639300 ms  (backward, earlier
     ///                      than utt0's end time of 733418 ms)
     ///
     /// After `apply_fa_results + enforce_monotonicity`, utt1's bullet must be
@@ -628,7 +628,7 @@ mod tests {
         ];
 
         // Group 0: forward timing (correct).
-        // Group 1: backward timing — earlier than group 0's end time (639095 < 733418).
+        // Group 1: backward timing, earlier than group 0's end time (639095 < 733418).
         let timings = vec![
             vec![Some(crate::chat_ops::fa::WordTiming {
                 start_ms: 731556,

@@ -20,7 +20,7 @@
 //!   `removed_count`, the shutdown drain's `idle_count`).
 //!
 //! This module never references [`crate::worker::pool::WorkerPool`]
-//! directly — callers pass the `Arc<Semaphore>` they already hold.
+//! directly: callers pass the `Arc<Semaphore>` they already hold.
 //! Keeping the API surface that small lets per-task tests construct
 //! a bare `Arc<Semaphore>` without standing up a full pool.
 
@@ -104,7 +104,7 @@ impl SpawnPermitGuard {
 }
 
 /// Returned by [`SpawnPermitGuard::try_acquire`] when the global cap
-/// is exhausted. Carries no payload — the caller logs/records via
+/// is exhausted. Carries no payload, the caller logs/records via
 /// `permit_rejections_total` at the call site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("global worker cap reached")]

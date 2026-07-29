@@ -153,7 +153,7 @@ export function RetokenizationPage() {
             {/* Fallback indicator */}
             {result.usedFallback && (
               <div className="text-xs px-3 py-2 bg-amber-50 border border-amber-200 rounded text-amber-700">
-                Normalized text diverged — using length-proportional fallback mapping (no DP).
+                Normalized text diverged: using length-proportional fallback mapping (no DP).
               </div>
             )}
 

@@ -2,7 +2,7 @@
 //! cache boundary.
 //!
 //! [`CacheKey`] wraps a BLAKE3 hash hex string. There is no constructor from
-//! arbitrary strings — the only way to create one is via the task-specific
+//! arbitrary strings: the only way to create one is via the task-specific
 //! `cache_key()` functions in sibling modules, which compute the hash
 //! internally through [`CacheKey::from_content`].
 //!
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// # Invariant
 ///
 /// Always a 64-character lowercase hexadecimal string (256-bit BLAKE3 hash).
-/// There is no constructor from arbitrary strings — the only way to create
+/// There is no constructor from arbitrary strings, the only way to create
 /// a `CacheKey` is via the task-specific `cache_key()` functions, which
 /// compute the hash internally.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

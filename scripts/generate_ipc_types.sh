@@ -46,7 +46,7 @@ $CODEGEN \
 }
 
 echo "Done. Generated:"
-echo "  ipc-schema/          — JSON Schema (67 types)"
-echo "  batchalign/generated/ — Python Pydantic models"
+echo "  ipc-schema/: JSON Schema (67 types)"
+echo "  batchalign/generated/: Python Pydantic models"
 echo ""
 echo "Next: migrate hand-written Python models to import from batchalign/generated/"

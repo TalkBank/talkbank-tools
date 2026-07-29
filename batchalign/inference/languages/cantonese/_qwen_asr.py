@@ -38,7 +38,7 @@ from ._qwen_common import QwenRecognizer
 L = logging.getLogger("batchalign.hk.qwen_asr")
 
 
-# Wall-clock timeout for ``QwenRecognizer.warm()`` — the call that
+# Wall-clock timeout for ``QwenRecognizer.warm()``, the call that
 # resolves into ``Qwen3ASRModel.from_pretrained(...)`` in the
 # ``qwen-asr`` package. That call is a single blocking import-and-load
 # with no upstream progress callbacks; on 2026-05-27 it was observed to
@@ -60,18 +60,18 @@ def _raise_qwen_load_timeout(_signum: int, _frame: object) -> NoReturn:
     """SIGALRM handler installed during ``QwenRecognizer.warm()``.
 
     Raises a typed ``TimeoutError`` that propagates out of ``warm()``
-    naturally — Python signal handlers run between bytecodes, so
+    naturally: Python signal handlers run between bytecodes, so
     ``Qwen3ASRModel.from_pretrained``'s pure-Python sections will
     surface the exception promptly. C-extension blocks (libtorch,
     HF Hub native) only surface it when they return to Python; if a
     hang IS deep inside C code, the worker may not interrupt cleanly
-    — see [[task #9]] for the watchdog-process follow-up.
+    - see [[task #9]] for the watchdog-process follow-up.
     """
     raise TimeoutError(
         f"Qwen3-ASR model load timed out after "
         f"{_QWEN_LOAD_TIMEOUT_SECONDS} second(s). The qwen-asr package's "
         f"``Qwen3ASRModel.from_pretrained`` call did not complete in the "
-        f"allotted window — this matches the silent-hang failure mode "
+        f"allotted window: this matches the silent-hang failure mode "
         f"observed during the 2026-05-27 v2 Cantonese ASR benchmark "
         f"sweep. The worker is exiting; the daemon will mark the job "
         f"failed and the operator can investigate the qwen-asr package "
@@ -98,10 +98,10 @@ def load_qwen_asr(
 
     Recognized ``engine_overrides`` keys:
 
-    - ``qwen_model`` — HuggingFace model id of the Qwen3-ASR
+    - ``qwen_model``: HuggingFace model id of the Qwen3-ASR
       checkpoint. Default ``"Qwen/Qwen3-ASR-1.7B"``. ``"Qwen/Qwen3-ASR-0.6B"``
       is the smaller faster alternative.
-    - ``qwen_device`` — torch device string (``"cpu"``, ``"cuda"``, ``"mps"``).
+    - ``qwen_device``: torch device string (``"cpu"``, ``"cuda"``, ``"mps"``).
       Default ``"cpu"`` (Apple Silicon fleet has no CUDA, and MPS gives
       degraded output on 1.7B as of 2026-05-26).
 
@@ -167,7 +167,7 @@ def load_qwen_asr(
 
 
 def infer_qwen_asr(req: BatchInferRequest) -> BatchInferResponse:
-    """Batch-mode handler — kept for symmetry with the other HK ASR
+    """Batch-mode handler: kept for symmetry with the other HK ASR
     providers even though the V2 worker path uses ``infer_qwen_asr_v2``."""
     if _recognizer is None:
         return BatchInferResponse(
@@ -242,5 +242,5 @@ def _transcribe_to_monologues(item: AsrBatchItem) -> MonologueAsrResponse:
 
 
 def infer_qwen_asr_v2(item: AsrBatchItem) -> MonologueAsrResponse:
-    """V2 worker entry point — one item, returns typed payload directly."""
+    """V2 worker entry point, one item, returns typed payload directly."""
     return _transcribe_to_monologues(item)

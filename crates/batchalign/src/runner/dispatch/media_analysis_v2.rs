@@ -481,10 +481,10 @@ async fn dispatch_avqi_attempt(
 ///
 /// BA2's call chain that produces this shape:
 ///
-/// 1. `batchalign/pipelines/opensmile/engine.py:88-93` — opensmile-python
+/// 1. `batchalign/pipelines/opensmile/engine.py:88-93`: opensmile-python
 ///    returns `features_df` with shape `(N_segments, N_features)`. BA2
 ///    transposes once: `results_df = features_df.T`.
-/// 2. `batchalign/cli/cli.py:546` — `features_df.to_csv(output_csv,
+/// 2. `batchalign/cli/cli.py:546`: `features_df.to_csv(output_csv,
 ///    header=['value'], index_label='feature')`. With
 ///    `feature_level='functionals'` (the only mode BA2 exposes at the
 ///    CLI), the source frame collapses to `(N_features, 1)`, so the
@@ -497,7 +497,7 @@ async fn dispatch_avqi_attempt(
 fn format_opensmile_csv(result: &OpenSmileResultV2) -> String {
     // BA2's `feature_level='functionals'` invariant means one segment
     // per file. Higher-level callers should not be feeding multi-segment
-    // (LLD-mode) results into this serializer — BA2 itself would have
+    // (LLD-mode) results into this serializer, BA2 itself would have
     // crashed in pandas if asked to write multi-column data with a
     // single-element header list. Take the first segment when present
     // and ignore any extras.
@@ -510,7 +510,7 @@ fn format_opensmile_csv(result: &OpenSmileResultV2) -> String {
         }
     }
     // BA2's `pandas.to_csv` writes a trailing newline after the last
-    // row. Mirror that — downstream `cat`/`wc`/diff tooling treats the
+    // row. Mirror that: downstream `cat`/`wc`/diff tooling treats the
     // file as one record per line including the final one.
     lines.join("\n") + "\n"
 }

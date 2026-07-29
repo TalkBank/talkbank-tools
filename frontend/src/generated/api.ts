@@ -318,7 +318,7 @@ export interface components {
          */
         CancelReason: string;
         /**
-         * @description Where a job-cancellation request originated. No `Default` impl —
+         * @description Where a job-cancellation request originated. No `Default` impl
          *     every caller must explicitly state what kind of actor it is, so a
          *     future "anonymous cancel" path cannot silently slip through as
          *     `Api`.
@@ -349,7 +349,7 @@ export interface components {
         /**
          * @description A path on the submitting client's filesystem.
          *
-         *     The server MUST NOT do filesystem I/O on this directly — it's metadata
+         *     The server MUST NOT do filesystem I/O on this directly, it's metadata
          *     only.  The only way to convert it to a [`ServerPath`] for I/O is via
          *     [`assume_shared_filesystem`](Self::assume_shared_filesystem), which
          *     requires the caller to verify that the server shares the client's
@@ -588,7 +588,7 @@ export interface components {
              */
             attempts_started?: number;
             /**
-             * @description Build fingerprint — changes on every rebuild.  Used for stale-binary
+             * @description Build fingerprint: changes on every rebuild.  Used for stale-binary
              *     detection during development.  Empty string from older servers.
              */
             build_hash?: string;
@@ -660,7 +660,7 @@ export interface components {
             live_workers?: number;
             /**
              * @description Pipelines currently loaded in memory (warm workers).  A subset of
-             *     `capabilities` — only commands whose workers have been spawned.
+             *     `capabilities`, only commands whose workers have been spawned.
              */
             loaded_pipelines?: string[];
             /**
@@ -749,7 +749,7 @@ export interface components {
         /** @description Server-assigned identifier for a job (non-empty). */
         JobId: string;
         /**
-         * @description `GET /jobs/{id}` response — job progress.
+         * @description `GET /jobs/{id}` response: job progress.
          *
          *     Contains full detail about a single job, including per-file statuses.
          *     Polled by the CLI to drive progress bars and by the dashboard for
@@ -897,7 +897,7 @@ export interface components {
              */
             total_files: number;
         };
-        /** @description `GET /jobs/{id}/results` response — completed job results. */
+        /** @description `GET /jobs/{id}/results` response: completed job results. */
         JobResultResponse: {
             /** @description Per-file results (empty until the job completes). */
             files?: components["schemas"]["FileResult"][];
@@ -907,7 +907,7 @@ export interface components {
             status: components["schemas"]["JobStatus"];
         };
         /**
-         * @description Lifecycle states for a job — mirrors `JobStatus` enum.
+         * @description Lifecycle states for a job, mirrors `JobStatus` enum.
          *
          *     Jobs progress through a linear lifecycle: `Queued -> Running -> {terminal}`.
          *     Terminal states (`Completed`, `Failed`, `Cancelled`, `Interrupted`) are
@@ -932,7 +932,7 @@ export interface components {
             /**
              * @description When true, the server collects detailed algorithm traces for
              *     visualization (DP alignment matrices, ASR pipeline stages, FA
-             *     timelines, retokenization mappings). Defaults to false — zero
+             *     timelines, retokenization mappings). Defaults to false, zero
              *     overhead when off.
              */
             debug_traces?: boolean;
@@ -968,7 +968,7 @@ export interface components {
          * @description 3-letter ISO 639-3 language code (e.g. `"eng"`, `"spa"`).
          *
          *     Construction validates that the value is exactly 3 ASCII alphabetic
-         *     characters, lowercased. Sentinel values like `"auto"` are rejected — use
+         *     characters, lowercased. Sentinel values like `"auto"` are rejected, use
          *     [`LanguageSpec`] at boundaries where auto-detection is meaningful.
          */
         LanguageCode3: string;
@@ -1029,7 +1029,7 @@ export interface components {
         /**
          * @description Key into `ServerConfig.media_mappings` (e.g. `"slabank-data"`).
          *
-         *     Not a filesystem path — it's a logical name that maps to a
+         *     Not a filesystem path, it's a logical name that maps to a
          *     [`ServerPath`] via the server's configuration.
          */
         MediaMappingKey: string;

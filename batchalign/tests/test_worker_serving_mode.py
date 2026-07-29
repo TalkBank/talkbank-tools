@@ -1,13 +1,13 @@
 """Tests for GPU worker serving-mode selection (concurrent vs sequential).
 
 GPU profile workers use ThreadPoolExecutor for concurrent inference ONLY when
-CUDA is available — PyTorch releases the GIL during CUDA kernels, enabling
+CUDA is available: PyTorch releases the GIL during CUDA kernels, enabling
 real parallelism. On CPU (Apple Silicon with MPS excluded, or any non-CUDA
 machine), the worker falls back to sequential serving to avoid OpenMP thread
 oversubscription.
 
 These tests verify the decision logic in ``main()`` without loading any ML
-models — they monkeypatch the bootstrap state and serving functions to check
+models: they monkeypatch the bootstrap state and serving functions to check
 which mode was selected.
 """
 
@@ -108,7 +108,7 @@ def _patch_main_for_serving_test(
     from batchalign.device import DevicePolicy
     from batchalign.worker._types import WorkerBootstrapRuntime, WorkerProfile, _state
 
-    # Fake bootstrap — pretend model loading succeeded
+    # Fake bootstrap: pretend model loading succeeded
     profile = WorkerProfile(args.profile) if args.profile else None
     bootstrap = WorkerBootstrapRuntime(
         task=None,
@@ -164,7 +164,7 @@ def _patch_main_for_serving_test(
         "batchalign.worker._main._auto_assign_port",
         lambda _host: 9100,
     )
-    # Suppress logging output — use a real logger at CRITICAL level instead of
+    # Suppress logging output: use a real logger at CRITICAL level instead of
     # unittest.mock (which is banned in this codebase).
     silent_logger = logging.getLogger("test.worker.serving_mode.null")
     silent_logger.setLevel(logging.CRITICAL)
@@ -194,7 +194,7 @@ class TestServingModeSelection:
     def test_gpu_profile_on_cuda_uses_concurrent_serving(
         self, monkeypatch,
     ) -> None:
-        """GPU profile with CUDA should use concurrent serving — PyTorch
+        """GPU profile with CUDA should use concurrent serving, PyTorch
         releases the GIL during CUDA kernels."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", gpu_thread_pool_size=8)
@@ -212,7 +212,7 @@ class TestServingModeSelection:
         self, monkeypatch,
     ) -> None:
         """GPU profile with CUDA available but --force-cpu should use
-        sequential serving — models are on CPU regardless of CUDA."""
+        sequential serving: models are on CPU regardless of CUDA."""
         capture = _ServingCapture()
         args = _make_main_args(profile="gpu", force_cpu=True)
         _patch_main_for_serving_test(
@@ -228,7 +228,7 @@ class TestServingModeSelection:
         self, monkeypatch,
     ) -> None:
         """Stanza profile should always use sequential serving regardless
-        of CUDA availability — Stanza is CPU-bound and GIL-limited."""
+        of CUDA availability: Stanza is CPU-bound and GIL-limited."""
         capture = _ServingCapture()
         args = _make_main_args(profile="stanza")
         _patch_main_for_serving_test(

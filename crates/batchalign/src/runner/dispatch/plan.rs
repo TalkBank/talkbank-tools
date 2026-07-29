@@ -458,7 +458,7 @@ mod tests {
             AsrBackend::Worker(AsrWorkerMode::HkAliyunV2)
         ));
         assert!(plan.base_options.diarize);
-        // Speaker override not yet supported in EngineOverrides — defaults to Pyannote
+        // Speaker override not yet supported in EngineOverrides, defaults to Pyannote
         assert_eq!(
             plan.base_options.speaker_backend,
             Some(SpeakerBackendV2::Pyannote)

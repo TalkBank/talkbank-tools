@@ -237,7 +237,7 @@ fn parse_transcribe_asr_engine_override() {
 }
 
 // -----------------------------------------------------------------------------
-// --utseg-fallback-stanza — operator opt-in to the legacy Stanza
+// --utseg-fallback-stanza: operator opt-in to the legacy Stanza
 // constituency-parser fallback for utseg when no language-specific
 // TalkBank BERT model is configured. Replaces the
 // `BA3_UTSEG_FALLBACK_STANZA` env var with a typed CLI surface
@@ -845,7 +845,7 @@ fn build_options_morphotag() {
 }
 
 // -----------------------------------------------------------------------
-// build_typed_options — comprehensive coverage
+// build_typed_options: comprehensive coverage
 // -----------------------------------------------------------------------
 
 #[test]
@@ -1399,7 +1399,7 @@ fn build_options_wor_matrix_for_processing_commands() {
         (
             vec!["batchalign3", "benchmark", "audio/"],
             true,
-            "benchmark defaults to writing %wor (mirrors align — \
+            "benchmark defaults to writing %wor (mirrors align, \
              forced alignment is always run as the comparison anchor)",
         ),
         (
@@ -1449,7 +1449,7 @@ fn build_options_benchmark_defaults() {
     match opts {
         CommandOptions::Benchmark(b) => {
             assert_eq!(b.asr_engine, AsrEngineName::RevAi);
-            // Mirrors `align` — see BenchmarkOptions::wor rustdoc.
+            // Mirrors `align`: see BenchmarkOptions::wor rustdoc.
             assert!(b.wor.should_write());
             assert!(!b.merge_abbrev.should_merge());
         }
@@ -1853,7 +1853,7 @@ fn engine_overrides_accept_qwen_model_and_device_extras() {
     assert_eq!(overrides.asr, Some(AsrEngineName::HkQwen));
 
     // The wire format the Python worker sees MUST preserve the
-    // extras — load_qwen_asr reads qwen_model / qwen_device out of
+    // extras: load_qwen_asr reads qwen_model / qwen_device out of
     // the engine_overrides dict by name.
     let json = overrides.to_json_string();
     assert!(
@@ -2041,7 +2041,7 @@ fn translate_engine_flag_aliyun_is_parsed() {
     // Aliyun MT is the cloud translate option that supports Cantonese
     // as a source language. The CLI flag parses to
     // ``TranslateEngineName::Aliyun`` and the typed-options
-    // ``effective_translate_engine()`` returns the same — no surprises
+    // ``effective_translate_engine()`` returns the same, no surprises
     // around precedence in the no-global-override case.
     let cli = Cli::parse_from([
         "batchalign3",

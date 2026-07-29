@@ -129,7 +129,7 @@ pub fn expand_ordinal_eng(n: u64) -> String {
 /// 1100-2999. Years outside that range fall back to the
 /// raw integer string.
 pub fn expand_year_eng(n: u64) -> String {
-    // 2-digit "decade" shorthand ("the 80s") — caller usually
+    // 2-digit "decade" shorthand ("the 80s"), caller usually
     // routes these via `expand_decade_eng`; keep the year function
     // honest for whatever it gets.
     if n < 100 {
@@ -229,7 +229,7 @@ mod tests {
 
     /// Cross-check every ordinal in the fixture file against the
     /// Rust implementation. Any divergence from `num2words` output
-    /// is a bug — we promise behavioural parity for the values
+    /// is a bug: we promise behavioural parity for the values
     /// `detect_expansion` realistically routes through this path.
     #[test]
     fn ordinals_match_num2words_fixture() {
@@ -239,7 +239,7 @@ mod tests {
             let actual = expand_ordinal_eng(n);
             assert_eq!(
                 &actual, expected,
-                "ordinal({n}) — Rust: {actual:?}, num2words: {expected:?}"
+                "ordinal({n}): Rust: {actual:?}, num2words: {expected:?}"
             );
         }
     }
@@ -253,7 +253,7 @@ mod tests {
             let actual = expand_year_eng(n);
             assert_eq!(
                 &actual, expected,
-                "year({n}) — Rust: {actual:?}, num2words: {expected:?}"
+                "year({n}): Rust: {actual:?}, num2words: {expected:?}"
             );
         }
     }
@@ -274,7 +274,7 @@ mod tests {
 
     /// Boundary-condition tests beyond the fixture range. Larger
     /// values should still produce sensible output, even if
-    /// num2words would format them differently — we promise no
+    /// num2words would format them differently, we promise no
     /// crash, no allocation explosion.
     #[test]
     fn ordinal_large_values_dont_crash() {

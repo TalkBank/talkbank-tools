@@ -258,7 +258,7 @@ pub fn command_uses_local_audio(command: &str) -> bool {
     commands::command_uses_local_audio(command)
 }
 
-/// Return whether a command may use `paths_mode` — i.e. the CLI may
+/// Return whether a command may use `paths_mode`, i.e. the CLI may
 /// send filesystem paths instead of file content when submitting to a
 /// local daemon. Covers audio commands (which already used paths_mode)
 /// plus batched-text commands where the server-side runner reads CHAT

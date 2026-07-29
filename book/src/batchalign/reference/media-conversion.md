@@ -46,7 +46,7 @@ batchalign3 [--server http://<your-server>:8001] align input/ output/ --lang eng
   │
   ├─ Server: POST /jobs/submit → create job (Queued → Running)
   │
-  │  ┌──── For each .cha file (sequential — each has its own audio) ────┐
+  │  ┌──── For each .cha file (sequential, each has its own audio) ────┐
   │  │                                                                   │
   │  │  1. PARSE                                                         │
   │  │     parse_lenient() → ChatFile AST                                │

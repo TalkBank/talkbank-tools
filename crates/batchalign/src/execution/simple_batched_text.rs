@@ -41,7 +41,7 @@ where
     }
 
     // No silent eng fallback. If the job's lang is Auto/PerFile, the
-    // simple batched text dispatch isn't the right path — return a
+    // simple batched text dispatch isn't the right path, return a
     // typed error so the caller routes through the per-file dispatch
     // (`execution/translate.rs`, `execution/morphotag/`,
     // `execution/coref.rs`) which resolves language per-file from each

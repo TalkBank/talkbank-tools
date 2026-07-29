@@ -1,4 +1,4 @@
-//! `batchalign3 replay` — replay a captured failed IPC request.
+//! `batchalign3 replay`: replay a captured failed IPC request.
 //!
 //! Takes a `failed_ipc_*.json` dump from `~/.batchalign3/debug/` and sends
 //! the exact request to a fresh worker, reporting the response.

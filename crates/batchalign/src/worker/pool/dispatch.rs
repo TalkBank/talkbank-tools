@@ -28,7 +28,7 @@ fn saturation_timeout_err(
     wait_secs: u64,
 ) -> WorkerError {
     WorkerError::SpawnFailed(format!(
-        "no worker available for {target:?}/{lang} within {wait_secs}s — \
+        "no worker available for {target:?}/{lang} within {wait_secs}s, \
          pool saturated with no idle workers to evict"
     ))
 }
@@ -60,13 +60,13 @@ impl WorkerPool {
             // `try_acquire` is matched by a non-empty idle queue and we
             // return immediately.
             //
-            // Degenerate case: `permits > idle.len()` — a permit without a
+            // Degenerate case: `permits > idle.len()`, a permit without a
             // matching worker. The health-check task drains idle before
             // re-adding permits for survivors, so this window is real.
             // Returning the permit and falling through is correct; the
             // `yield_now().await` is LOAD-BEARING. Without it, a tight
             // `try_acquire → pop-None → add_permits → continue` cycle
-            // starves the tokio runtime — other tasks that might refill
+            // starves the tokio runtime, other tasks that might refill
             // idle never run, and one worker thread burns a core.
             if let Ok(permit) = group.available.try_acquire() {
                 permit.forget();
@@ -86,13 +86,13 @@ impl WorkerPool {
                 .await
             {
                 Ok(true) => {
-                    // Spawned — loop back: the new permit is backed by
+                    // Spawned: loop back: the new permit is backed by
                     // a real enqueued worker, so the fast path will hit.
                     continue;
                 }
                 Ok(false) => {
                     // At capacity. If this group already has live
-                    // workers they will eventually return permits —
+                    // workers they will eventually return permits
                     // fall through to the async wait below. Otherwise
                     // try to free a slot by evicting an idle worker
                     // from another group; if that fails, park on the
@@ -112,7 +112,7 @@ impl WorkerPool {
                         // late-comers to wait the full deadline).
                         // checkout.rs uses `notify_one()` (not
                         // `notify_waiters()`) so each return wakes
-                        // exactly one waiter — the BUG-028 herd fix.
+                        // exactly one waiter: the BUG-028 herd fix.
                         let notified = self.worker_returned.notified();
                         tokio::pin!(notified);
                         notified.as_mut().enable();
@@ -163,7 +163,7 @@ impl WorkerPool {
                 });
             }
             // Rare: async-acquire returned a permit but idle is empty.
-            // Same load-bearing yield as above — returning the permit
+            // Same load-bearing yield as above, returning the permit
             // without yielding would reintroduce the runtime starvation.
             group.available.add_permits(1);
             tokio::task::yield_now().await;
@@ -213,13 +213,13 @@ impl WorkerPool {
         // queue, causing the *next* dispatch to also fail with BrokenPipe.
         //
         // Protocol errors also warrant discarding the worker (the stdio stream
-        // may be desynchronized), but we do NOT retry them — the framing break
+        // may be desynchronized), but we do NOT retry them, the framing break
         // may be input-specific and a retry could hang.
         match result {
             Err(ref e @ (WorkerError::Io(_) | WorkerError::ProcessExited { .. })) => {
                 warn!(
                     error = %e,
-                    "worker crashed during batch_infer — discarding and retrying with a fresh worker"
+                    "worker crashed during batch_infer: discarding and retrying with a fresh worker"
                 );
                 worker.take(); // decrement total, do NOT return to idle queue
                 drop(worker); // Drop now sees None handle, does nothing
@@ -229,8 +229,8 @@ impl WorkerPool {
                 fresh.batch_infer(request).await
             }
             Err(ref e @ WorkerError::Protocol(_)) => {
-                // Desynchronized stream — discard without retry.
-                warn!(error = %e, "worker protocol error — discarding worker");
+                // Desynchronized stream: discard without retry.
+                warn!(error = %e, "worker protocol error, discarding worker");
                 worker.take();
                 result
             }
@@ -452,7 +452,7 @@ impl WorkerPool {
 // degenerate `permits > idle.len()` branch must have a `.await` before
 // looping, so co-tenant tokio tasks (health check, HTTP server, other
 // checkouts) can make progress. Meaningful runtime coverage of this
-// requires the full `WorkerPool` with test-echo workers — a unit test
+// requires the full `WorkerPool` with test-echo workers, a unit test
 // over Semaphore + VecDeque alone only exercises the tiny state
 // machine, not the real dispatch code path. That broader coverage
 // lives in the test-echo integration tests alongside `WorkerPool`.

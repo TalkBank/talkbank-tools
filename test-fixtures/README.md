@@ -14,14 +14,14 @@ Names encode the feature under test (e.g. `fa_compound_filler.cha`,
 Rust unit tests and golden tests for individual parser,
 retokenizer, and FA behaviors that do not need real audio.
 
-Do not move or rename these without grepping the test suite first —
+Do not move or rename these without grepping the test suite first
 many of them are referenced by absolute path.
 
 ## Per-command regression directories (new convention)
 
 ```
 test-fixtures/
-├── align/regressions/        — gitignored fixture subdirs
+├── align/regressions/: gitignored fixture subdirs
 ├── transcribe/regressions/
 ├── morphotag/regressions/
 ├── utseg/regressions/
@@ -33,7 +33,7 @@ These hold real-world bug reproductions for the command-local regression tests
 under `crates/batchalign/tests/ml_golden/<command>/regressions.rs`.
 
 **Privacy boundary.** Real-user bug reports usually involve real
-corpus audio, CHAT transcripts, and reporter identity — material
+corpus audio, CHAT transcripts, and reporter identity, material
 that cannot be committed to this public repository. The runner in
 this repo is generic scaffolding; the fixture content lives in a
 separate private repository,
@@ -143,7 +143,7 @@ Currently supported `kind` values:
    trim helper that preserves timing bullets, rewrites the `@Media` header,
    and rebases word timings to the trimmed audio. For audio-first commands such
    as `transcribe`, stage the minimal audio clip the bug needs. Do not
-   hand-roll with `ffmpeg`, `head`, `tail`, or an improvised pipeline —
+   hand-roll with `ffmpeg`, `head`, `tail`, or an improvised pipeline
    reinventing any of that produces fixtures that look correct on inspection
    but silently mis-time alignment.
 
@@ -162,7 +162,7 @@ Currently supported `kind` values:
    `crates/batchalign/tests/ml_golden/<command>/regressions.rs`
    pointing at the new `<bug-name>` directory. Use an opaque
    function name like `align_regression_<n>` or
-   `transcribe_regression_<n>` — the runner resolves the real
+   `transcribe_regression_<n>`: the runner resolves the real
    directory at test time via `load_fixture`.
 
 5. Run:

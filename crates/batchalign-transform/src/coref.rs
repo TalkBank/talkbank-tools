@@ -5,7 +5,7 @@
 //!
 //! Key difference from morphosyntax/utseg/translate: coref is **document-level**.
 //! Each `CorefBatchItem` contains ALL sentences from one file (not one utterance).
-//! No per-utterance caching — results depend on full document context.
+//! No per-utterance caching: results depend on full document context.
 //!
 //! ## Outcome model
 //!
@@ -14,7 +14,7 @@
 //! [`MorOutcome`](crate::morphosyntax::outcome::MorOutcome) and utseg's
 //! [`UtsegOutcome`](crate::utseg::UtsegOutcome), but with a different
 //! shape because coref is **sparse by design**: most utterances in a
-//! document have no coreference chains at all, and that is correct — not
+//! document have no coreference chains at all, and that is correct, not
 //! an anomaly.
 //!
 //! The five outcome variants distinguish:
@@ -39,7 +39,7 @@ use talkbank_model::SpeakerCode;
 // Wire types (match Python's CorefBatchItem / CorefResponse)
 // ---------------------------------------------------------------------------
 
-/// Input payload for a single coref request — one complete document.
+/// Input payload for a single coref request, one complete document.
 ///
 /// Unlike morphosyntax/translate where each item is one utterance,
 /// each `CorefBatchItem` contains ALL sentences from one file because
@@ -62,7 +62,7 @@ pub struct CorefAnnotation {
     pub annotation: String,
 }
 
-/// Response from coref inference — sparse annotations for sentences with chains.
+/// Response from coref inference, sparse annotations for sentences with chains.
 ///
 /// Only sentences that contain actual coreference chains are included.
 /// Sentences with all-`-` annotations are omitted.
@@ -205,7 +205,7 @@ pub struct CorefOutcome {
 /// enum:
 ///
 /// 1. **Sparse by design.** Most utterances in a document have no
-///    coreference chains at all. That is correct output — not a bug,
+///    coreference chains at all. That is correct output, not a bug,
 ///    not a skip. `NoChainsForSentence` names this outcome
 ///    explicitly so reports don't treat it as anomalous.
 /// 2. **Document-level dispatch.** The worker receives all sentences
@@ -219,7 +219,7 @@ pub enum CorefOutcomeKind {
     /// [`MorOutcomeKind::NotApplicable`](crate::morphosyntax::outcome::MorOutcomeKind::NotApplicable).
     NotApplicable,
     /// Utterance was dispatched but the worker returned no coreference
-    /// chains for it. This is the **common expected case** — most
+    /// chains for it. This is the **common expected case**, most
     /// sentences in natural text don't participate in coref chains.
     /// Not an anomaly.
     NoChainsForSentence,
@@ -249,7 +249,7 @@ impl CorefOutcome {
     /// Convert this outcome into a [`DecisionRecord`](crate::decisions::DecisionRecord).
     ///
     /// Expected outcomes (`NotApplicable`, `NoChainsForSentence`,
-    /// `ChainsInjected`) return `None` — surfacing them per-utterance
+    /// `ChainsInjected`) return `None`: surfacing them per-utterance
     /// would flood the reporting tier for every document. Only true
     /// anomalies return a record.
     pub fn to_decision_record(&self) -> Option<crate::decisions::DecisionRecord> {
@@ -301,7 +301,7 @@ pub struct CorefPayloadCollection {
 /// Collect coref payloads from all utterances in a ChatFile.
 ///
 /// Empty utterances (no extractable words) are classified as
-/// [`CorefOutcomeKind::NotApplicable`] — visible in reports rather than
+/// [`CorefOutcomeKind::NotApplicable`]: visible in reports rather than
 /// silently dropped.
 pub fn collect_coref_payloads(chat_file: &ChatFile) -> CorefPayloadCollection {
     let mut sentences = Vec::new();
@@ -383,7 +383,7 @@ pub fn inject_coref(
 /// Apply coref results to a ChatFile (sparse injection).
 ///
 /// `results` maps `line_idx` to annotation text. Only lines whose indices
-/// are in the map get a `%xcoref` tier — utterances without coreference
+/// are in the map get a `%xcoref` tier, utterances without coreference
 /// chains are left unchanged.
 ///
 /// This is the legacy signature kept for existing callers; for the
@@ -395,7 +395,7 @@ pub fn apply_coref_results(chat_file: &mut ChatFile, results: &HashMap<usize, St
 /// Apply coref results and return a per-dispatched-utterance outcome stream.
 ///
 /// `dispatched_line_indices` is the `line_indices` field from the
-/// [`CorefPayloadCollection`] that produced this dispatch — i.e., the
+/// [`CorefPayloadCollection`] that produced this dispatch, i.e., the
 /// line indices of every utterance that was sent to the worker. Any
 /// dispatched line_idx that does NOT appear in `results` is classified
 /// as [`CorefOutcomeKind::NoChainsForSentence`] (the common expected
@@ -466,7 +466,7 @@ pub fn apply_coref_results_with_outcomes(
     }
 
     // Second pass: any `results` entries whose line_idx was NOT in the
-    // dispatched set are worker-contract violations — the worker
+    // dispatched set are worker-contract violations, the worker
     // annotated something we didn't ask about.
     for (&line_idx, annotation) in results {
         if handled_in_results.contains(&line_idx) {
@@ -775,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_build_bracket_simple_chain() {
-        // "the dog ran" — dog starts chain 0, ran ends chain 0
+        // "the dog ran": dog starts chain 0, ran ends chain 0
         let words = vec![
             vec![],
             vec![ChainRef {
@@ -1005,7 +1005,7 @@ mod tests {
             }
             other => panic!("expected ChainsInjected on first dispatched, got {other:?}"),
         }
-        // The second got none — that's not an anomaly.
+        // The second got none, that's not an anomaly.
         match &outcomes[1].kind {
             CorefOutcomeKind::NoChainsForSentence => {}
             other => panic!("expected NoChainsForSentence on second, got {other:?}"),
@@ -1030,7 +1030,7 @@ mod tests {
         // Every dispatched utterance should be NoChainsForSentence (nothing
         // in results for them), PLUS one ChainsInjected for the undispatched
         // line (the legacy behavior injected; we record the anomaly in the
-        // outcomes stream). The exact shape depends on iteration order —
+        // outcomes stream). The exact shape depends on iteration order
         // we just check both properties exist.
         let dispatched_outcomes = &outcomes[..dispatched.len()];
         for o in dispatched_outcomes {

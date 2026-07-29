@@ -2,7 +2,7 @@
 //!
 //! When a CHAT file has a mix of timed and untimed utterances, UTR uses ASR
 //! output to recover utterance-level bullets for the untimed ones. This is a
-//! pre-pass before forced alignment — FA then operates on a fully-timed file.
+//! pre-pass before forced alignment, FA then operates on a fully-timed file.
 //!
 //! Algorithm:
 //! 1. Flatten ALL utterance words (timed + untimed) into one reference sequence,
@@ -37,7 +37,7 @@ mod two_pass;
 /// [`inject_utr_timing`]; the scenarios generate CHAT + ASR in-memory and
 /// assert monotonicity / non-silent-strip invariants on the output. The
 /// four drift-inducing scenarios are `#[ignore]` because they are currently
-/// RED on `GlobalUtr` (the default dispatch) — by design; they codify a
+/// RED on `GlobalUtr` (the default dispatch), by design; they codify a
 /// bug. Run explicitly with
 /// `cargo test -p batchalign-chat-ops --lib drift_scenarios -- --ignored`.
 #[cfg(test)]
@@ -45,7 +45,7 @@ mod drift_scenarios;
 
 /// A single ASR token with timing, used as input for UTR.
 ///
-/// This is intentionally a simple struct — it can be constructed from
+/// This is intentionally a simple struct; it can be constructed from
 /// any ASR response format (Python worker `AsrToken`, or any other source).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AsrTimingToken {
@@ -67,7 +67,7 @@ pub struct UtrResult {
     /// Untimed utterances that could not be matched to ASR tokens.
     pub unmatched: usize,
     /// Per-utterance decision records for unmatched utterances.
-    /// Excluded from equality comparison and serialization — these are
+    /// Excluded from equality comparison and serialization; these are
     /// provenance metadata, not part of the UTR result semantics.
     #[serde(skip)]
     pub decisions: Vec<batchalign_transform::decisions::DecisionRecord>,
@@ -96,7 +96,7 @@ pub trait UtrStrategy: Send + Sync {
 ///
 /// Flattens all utterance words into one reference sequence and runs a single
 /// alignment pass (exact-subsequence fast path or Hirschberg DP fallback).
-/// This is the original UTR algorithm — monotonic, works well when transcript
+/// This is the original UTR algorithm, monotonic, works well when transcript
 /// order matches audio order, but cannot correctly place `+<` overlap
 /// backchannels whose words appear at the wrong position in the global sequence.
 pub struct GlobalUtr;
@@ -160,7 +160,7 @@ pub(super) struct UtrUtteranceInfo {
     /// indicating it overlaps with a preceding utterance's ⌈ markers.
     pub(super) has_ca_overlap: bool,
     /// For utterances with ⌈ (top overlap begin): the proportional position
-    /// of the first ⌈ among the utterance's alignable words (0.0–1.0).
+    /// of the first ⌈ among the utterance's alignable words (0.0-1.0).
     /// Used by pass 2 to narrow the backchannel recovery window.
     pub(super) overlap_onset_fraction: Option<f64>,
     /// Speaker code for cross-utterance matching.
@@ -294,7 +294,7 @@ pub(super) fn run_global_utr(
             result.skipped += 1;
             continue;
         }
-        // +< utterances skipped in pass 1 get no range — count as unmatched
+        // +< utterances skipped in pass 1 get no range, count as unmatched
         // (the two-pass caller will handle them in pass 2).
         match plan.utt_ranges[utt_idx] {
             Some((min_asr, max_asr)) => {
@@ -304,7 +304,7 @@ pub(super) fn run_global_utr(
                     bullets_to_set[utt_idx] = Some((start_ms, end_ms));
                     result.injected += 1;
                 } else {
-                    // The matched ASR token range has start_ms >= end_ms — a
+                    // The matched ASR token range has start_ms >= end_ms, a
                     // zero-duration span produced by Whisper for very short words
                     // (single 20ms frame backchannels like "mhm", "yeah").
                     // Creating a •T_T• utterance bullet would be actively harmful:
@@ -370,7 +370,7 @@ pub(super) fn run_global_utr(
     // E362 validation and then perpetuates through every subsequent align re-run.
     //
     // Strategy: walk non-overlap utterances in document order, tracking
-    // `floor_end_ms` — the end_ms of the last bullet we committed (either an
+    // `floor_end_ms`: the end_ms of the last bullet we committed (either an
     // already-timed utterance's existing bullet, or a newly assigned one).  If a
     // newly assigned bullet starts before `floor_end_ms`, advance its start_ms
     // (and end_ms if necessary) so it begins strictly after the previous one ended.
@@ -398,7 +398,7 @@ pub(super) fn run_global_utr(
         let mut floor_end_ms: u64 = 0;
         for (utt_idx, info) in utt_infos.iter().enumerate() {
             // Overlap utterances legitimately share timing with the previous
-            // utterance — do not advance their start or update the floor.
+            // utterance: do not advance their start or update the floor.
             if info.has_lazy_overlap || info.has_ca_overlap {
                 continue;
             }

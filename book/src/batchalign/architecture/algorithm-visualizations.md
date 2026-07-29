@@ -179,8 +179,8 @@ JobTraces
 |--------------|----------------|-------------|--------|
 | DP Alignment Explorer | `/dashboard/visualizations/dp-alignment` | `/dashboard/jobs/:id/traces/dp-alignment` | Complete |
 | Retokenization Mapper | `/dashboard/visualizations/retokenize` | `/dashboard/jobs/:id/traces/retokenize` | Static complete |
-| ASR Pipeline Waterfall | `/dashboard/visualizations/asr-pipeline` | — | Planned |
-| FA Timeline | `/dashboard/visualizations/fa-timeline` | — | Planned |
+| ASR Pipeline Waterfall | `/dashboard/visualizations/asr-pipeline` |, | Planned |
+| FA Timeline | `/dashboard/visualizations/fa-timeline` |, | Planned |
 
 ### TypeScript Engine Ports
 

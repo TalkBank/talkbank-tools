@@ -305,7 +305,7 @@ impl RevAiClient {
     /// Submit audio for language identification, poll until complete, and
     /// return the result.
     ///
-    /// Typically completes in 5–30 seconds. Uses exponential backoff polling.
+    /// Typically completes in 5-30 seconds. Uses exponential backoff polling.
     pub fn identify_language_blocking(
         &self,
         path: &Path,

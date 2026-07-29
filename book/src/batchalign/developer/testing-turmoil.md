@@ -70,7 +70,7 @@ The existing server architecture already provides a clean separation between
 **router creation** and **listener binding**:
 
 ```rust,ignore
-// server.rs — production path
+// server.rs: production path
 let (router, state) = create_app_with_prepared_workers(config, ...).await?;
 let listener = tokio::net::TcpListener::bind(&addr).await?;
 axum::serve(listener, router.into_make_service_with_connect_info()).await?;
@@ -129,7 +129,7 @@ fn health_check_under_partition() -> turmoil::Result {
         .simulation_duration(Duration::from_secs(30))
         .build();
 
-    // Server host — binds turmoil listener, serves axum router
+    // Server host: binds turmoil listener, serves axum router
     sim.host("server", || async {
         let listener = turmoil::net::TcpListener::bind("0.0.0.0:8001").await?;
         let router = health_only_router();
@@ -139,7 +139,7 @@ fn health_check_under_partition() -> turmoil::Result {
         Ok(())
     });
 
-    // Client host — makes HTTP requests through turmoil connector
+    // Client host: makes HTTP requests through turmoil connector
     sim.client("client", async {
         let client = turmoil_http_client();
 

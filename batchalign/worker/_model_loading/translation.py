@@ -2,27 +2,27 @@
 
 Five backends are supported:
 
-* ``TranslationBackend.GOOGLE`` — public Google Translate via the
+* ``TranslationBackend.GOOGLE``: public Google Translate via the
   ``googletrans`` library. Requires reachability to
   ``translate.google.com``; unusable behind the Great Firewall.
-* ``TranslationBackend.TENCENT`` — Tencent Cloud TMT (Text Translation).
+* ``TranslationBackend.TENCENT``: Tencent Cloud TMT (Text Translation).
   Cloud-API engine; CAM credentials in ``~/.batchalign.ini`` `[asr]`
   section (``engine.tencent.id``/``key``/``region``). Free tier
   5M chars/month. Best empirical quality on Mandarin (zh→en); does
-  NOT support Cantonese (yue→en) — those routes must use NLLB or
+  NOT support Cantonese (yue→en): those routes must use NLLB or
   ``TranslationBackend.ALIYUN``.
-* ``TranslationBackend.ALIYUN`` — Aliyun (Alibaba Cloud) Machine
+* ``TranslationBackend.ALIYUN``: Aliyun (Alibaba Cloud) Machine
   Translation General API (``alimt``). Cloud-API engine; access-key
   credentials in ``~/.batchalign.ini`` `[asr]` section
   (``engine.aliyun.ak_id``/``ak_secret``, shared with the Aliyun
-  ASR backend). Supports Cantonese (``yue``) as a source language —
+  ASR backend). Supports Cantonese (``yue``) as a source language
   the canonical cloud option for HK material. Region is hardcoded
   to ``cn-hangzhou`` because Aliyun MT exposes a single global
   endpoint (``mt.aliyuncs.com``).
-* ``TranslationBackend.SEAMLESS`` — Meta's SeamlessM4T, loaded locally
+* ``TranslationBackend.SEAMLESS``: Meta's SeamlessM4T, loaded locally
   from HuggingFace. No outbound network at inference time. Known to
   produce poor CJK quality on short utterances; retained for back-compat.
-* ``TranslationBackend.NLLB`` — Meta's NLLB-200-distilled-1.3B,
+* ``TranslationBackend.NLLB``: Meta's NLLB-200-distilled-1.3B,
   text-MT-native, ~5 GB model. No outbound network at inference time.
   Self-hosted fallback that handles Cantonese first-class. Short CJK
   greetings (≤ 5 chars) are a known weakness.
@@ -51,7 +51,7 @@ from batchalign.worker._types import WorkerBootstrapRuntime, _state
 FloresLanguageTag = NewType("FloresLanguageTag", str)
 
 # A Tencent Cloud TMT source-language code (ISO-639-1 dialect with a
-# few quirks — Tencent uses ``"kor"`` rather than ``"ko"`` for Korean,
+# few quirks: Tencent uses ``"kor"`` rather than ``"ko"`` for Korean,
 # for example). Distinct from ``LanguageCode`` (ISO-639-3) so a
 # misplaced ISO-639-3 code at the Tencent API boundary won't typecheck.
 TencentLanguageCode = NewType("TencentLanguageCode", str)
@@ -59,7 +59,7 @@ TencentLanguageCode = NewType("TencentLanguageCode", str)
 # An Aliyun MT source-language code. Aliyun uses ISO-639-1 codes for
 # most languages (``"en"``, ``"zh"``, ``"ja"``) plus ``"yue"`` for
 # Cantonese (the explicit reason this backend exists alongside
-# Tencent — Tencent's TMT does not list Cantonese as a source
+# Tencent: Tencent's TMT does not list Cantonese as a source
 # language). Distinct from ``LanguageCode`` (ISO-639-3) so a
 # misplaced ISO-639-3 code at the Aliyun API boundary won't typecheck.
 AliyunLanguageCode = NewType("AliyunLanguageCode", str)
@@ -86,7 +86,7 @@ def load_translation_engine(bootstrap: WorkerBootstrapRuntime) -> None:
     elif backend is TranslationBackend.ALIYUN:
         _load_aliyun_translate()
     else:
-        # Exhaustive match — mypy/pyright prove this is unreachable;
+        # Exhaustive match: mypy/pyright prove this is unreachable;
         # at runtime ``typing.assert_never`` raises AssertionError so
         # a missing arm fails loudly instead of leaving translate_fn
         # unset. Matches the equivalent guards in
@@ -103,7 +103,7 @@ def resolve_translate_engine(
     Precedence:
 
     1. An explicit ``"translate"`` entry selects that backend. Unknown
-       values raise ``ValueError`` rather than silently falling back —
+       values raise ``ValueError`` rather than silently falling back
        a typo in a per-host config would otherwise produce silently-
        wrong translations.
     2. Default is Google, preserving historical behavior for hosts that
@@ -169,7 +169,7 @@ def _load_seamless_translate() -> None:
         "facebook/hf-seamless-m4t-medium"
     )
     model = SeamlessM4TModel.from_pretrained("facebook/hf-seamless-m4t-medium")
-    # torch.nn.Module.eval() — sets the module to inference mode,
+    # torch.nn.Module.eval(): sets the module to inference mode,
     # unrelated to Python's builtin eval().
     if hasattr(model, "eval"):
         model.eval()
@@ -229,7 +229,7 @@ def _load_nllb_translate() -> None:
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)  # type: ignore[no-untyped-call]
     model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
-    # torch.nn.Module.eval() — sets the module to inference mode
+    # torch.nn.Module.eval(): sets the module to inference mode
     # (disables dropout/BN training behavior). Without this, the 1.3B
     # encoder-decoder stays in training mode and generation is
     # non-deterministic + lower quality.
@@ -262,7 +262,7 @@ def _load_nllb_translate() -> None:
 
 
 # Map ISO-639-3 codes BA3 emits per CHAT @Languages header to the
-# ISO-639-1-ish codes Tencent TMT expects. Closed set — Tencent
+# ISO-639-1-ish codes Tencent TMT expects. Closed set, Tencent
 # publishes the supported list, and Cantonese (``yue``) is
 # explicitly absent. An unmapped source language raises ValueError
 # directing the operator to ``--translate-engine nllb``.
@@ -304,7 +304,7 @@ def _load_tencent_translate() -> None:
     by the Tencent API with ``InvalidParameter``; the inference
     closure short-circuits empty input (which the upstream
     batch-infer layer in ``batchalign.inference.translate`` also
-    skips — defense in depth).
+    skips: defense in depth).
     """
     from batchalign.inference.languages.cantonese._common import read_asr_config
 
@@ -341,7 +341,7 @@ def _load_tencent_translate() -> None:
         tencent_src = _ISO_639_3_TO_TENCENT_LANG.get(src_lang)
         if tencent_src is None:
             # Cantonese (``yue``) is the prototypical case that lands
-            # here — Tencent TMT does not list it as a source language.
+            # here: Tencent TMT does not list it as a source language.
             # Both NLLB (local) and Aliyun (cloud) handle it
             # first-class; surface both options so the operator picks
             # by deployment constraint (offline vs network-available).
@@ -371,7 +371,7 @@ def _load_tencent_translate() -> None:
 # Map ISO-639-3 codes BA3 emits per CHAT @Languages header to the
 # source-language codes Aliyun MT's ``TranslateGeneralRequest``
 # expects. Aliyun uses ISO-639-1 codes for most languages plus
-# ``"yue"`` for Cantonese — the explicit reason this backend exists
+# ``"yue"`` for Cantonese: the explicit reason this backend exists
 # alongside Tencent. Closed set; unmapped languages raise
 # ``ValueError`` directing the operator to ``--translate-engine
 # nllb`` for that language.
@@ -411,7 +411,7 @@ _ALIYUN_MT_REGION: str = "cn-hangzhou"
 # a glance and a future refactor that needs to change format / scene
 # touches one constant instead of grepping for magic strings.
 # ``Scene`` selects between general / social / commerce / finance /
-# medical / etc. Aliyun-side domain-tuned models — ``general`` is the
+# medical / etc. Aliyun-side domain-tuned models, ``general`` is the
 # default-quality non-specialized model and matches conversational
 # TalkBank transcripts (no fixed domain).
 _ALIYUN_MT_FORMAT_TYPE: str = "text"
@@ -427,14 +427,14 @@ def _load_aliyun_translate() -> None:
     prefers ``BATCHALIGN_ALIYUN_AK_{ID,SECRET}`` environment
     variables (injected by the Rust control plane at worker spawn)
     and falls back to ``~/.batchalign.ini`` ``[asr]`` section.
-    Aliyun MT requires only the access-key pair — the ``ak_appkey``
+    Aliyun MT requires only the access-key pair, the ``ak_appkey``
     used by Aliyun NLS ASR is NOT needed here.
 
     Region is pinned to ``cn-hangzhou`` (Aliyun MT has one global
     endpoint at ``mt.aliyuncs.com`` so the region only affects
     request signing, not service routing). Empty ``SourceText`` is
     rejected by the Aliyun API; the inference closure short-circuits
-    empty input (defense in depth — the upstream batch-infer layer
+    empty input (defense in depth, the upstream batch-infer layer
     in ``batchalign.inference.translate`` also skips empties).
     """
     from batchalign.inference.languages.cantonese._common import read_asr_config

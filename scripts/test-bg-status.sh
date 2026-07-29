@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-bg-status.sh — list running + recent test-bg runs.
+# test-bg-status.sh: list running + recent test-bg runs.
 #
 # Reads ~/.batchalign3/bg-test/*/ and reports: which runs are still
 # alive (process exists AND no .status file yet), which have
@@ -11,7 +11,7 @@ ROOT="${HOME}/.batchalign3/bg-test"
 LIMIT="${1:-10}"
 
 if [[ ! -d "$ROOT" ]]; then
-    echo "(no runs — $ROOT does not exist)"
+    echo "(no runs: $ROOT does not exist)"
     exit 0
 fi
 
@@ -66,5 +66,5 @@ for meta in "${sorted[@]}"; do
     fi
 
     printf '%-28s  %-8s  %-8s  %-8s  %s\n' \
-        "${slug}/${ts_base}" "$state" "${exit_code:-—}" "${duration:-—}" "$log_file"
+        "${slug}/${ts_base}" "$state" "${exit_code:-, }" "${duration:-, }" "$log_file"
 done

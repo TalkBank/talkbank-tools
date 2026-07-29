@@ -18,7 +18,7 @@ _STRIP_PUNCT_RE = re.compile(r"[.?!,]")
 # Sliding-window inference parameters for inputs that exceed the model's
 # `max_position_embeddings`. The window covers the inner content; the
 # model call adds [CLS] and [SEP], so the actual sequence length passed
-# to the model is _WINDOW_INNER_TOKENS + 2 — well under the standard 512
+# to the model is _WINDOW_INNER_TOKENS + 2, well under the standard 512
 # position-embedding ceiling. The 96-token overlap (~20%) matches the
 # long-document classification convention; logits are averaged across
 # overlapping windows before argmax so cross-window context survives.
@@ -54,7 +54,7 @@ def _split_yue_at_particles(words: list[str]) -> list[tuple[int, int]]:
     except possibly the trailing range when the input does not end on
     a particle. Returns `[]` for empty input.
 
-    The chunking is purely positional — it does not consult
+    The chunking is purely positional; it does not consult
     morphology, only literal-string matches against the particle list.
     """
     n = len(words)
@@ -180,7 +180,7 @@ class BertUtteranceModel:
             if len(ranges) > 1:
                 # Multi-chunk path: classify each chunk independently,
                 # concatenate the per-word action lists. Particle
-                # boundaries are NOT explicitly forced as splits — we
+                # boundaries are NOT explicitly forced as splits, we
                 # trust the model to predict them, which it should
                 # because particles are reliable boundary markers in
                 # the training distribution. Forcing chunk-boundary
@@ -192,7 +192,7 @@ class BertUtteranceModel:
                     actions.extend(self._classify_chunk(chunk_words))
                 return actions
             # Single chunk (no particles found, or all chunked into
-            # one) — fall through to the standard path.
+            # one): fall through to the standard path.
         return self._classify_chunk(normalized_words)
 
     def _classify_chunk(self, normalized_words: list[str]) -> list[int]:
@@ -221,7 +221,7 @@ class BertUtteranceModel:
         # table.
         inner_window = min(_WINDOW_INNER_TOKENS, max_pos - 2)
         if inner_window <= _WINDOW_OVERLAP_TOKENS:
-            # Pathological config — fall back to non-overlapping chunks
+            # Pathological config: fall back to non-overlapping chunks
             # (still correct, just no overlap reconciliation).
             stride = inner_window
         else:

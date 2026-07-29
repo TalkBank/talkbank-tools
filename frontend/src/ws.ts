@@ -48,7 +48,7 @@ export function getServerList(): string[] {
 export async function discoverFleet(): Promise<string[]> {
   const params = new URLSearchParams(window.location.search);
   if (params.get("servers")) {
-    // Explicit servers in URL — don't override with fleet discovery
+    // Explicit servers in URL, don't override with fleet discovery
     return getServerList();
   }
 

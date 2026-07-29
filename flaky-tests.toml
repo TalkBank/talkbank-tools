@@ -1,4 +1,4 @@
-# flaky-tests.toml — tests exempt from the Phase E history-driven
+# flaky-tests.toml: tests exempt from the Phase E history-driven
 # ordering because they're known to flake for operational reasons
 # that aren't the "fix the bug" kind.
 #
@@ -7,7 +7,7 @@
 #
 #   [[flaky]]
 #   test_id = "batchalign/tests/path/test_x.py::test_flaky"
-#   reason = "one sentence on why it flakes — not 'sometimes fails'"
+#   reason = "one sentence on why it flakes, not 'sometimes fails'"
 #   owner = "who owns the fix"
 #   target_fix_date = "YYYY-MM-DD"
 #

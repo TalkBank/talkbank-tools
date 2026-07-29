@@ -31,7 +31,7 @@ pub use crate::worker_setup::{
 
 /// Create the application: open DB, recover state, build router.
 ///
-/// Returns `(Router, Arc<AppState>)` — the caller binds the router to a
+/// Returns `(Router, Arc<AppState>)`: the caller binds the router to a
 /// TCP listener.
 ///
 /// `db_dir` overrides the SQLite database directory (defaults to the runtime
@@ -148,7 +148,7 @@ pub async fn create_app_with_prepared_workers(
     if backend_bootstrap.queued_jobs > 0 {
         info!(
             count = backend_bootstrap.queued_jobs,
-            "Queued jobs recovered from DB — job_task runners spawned for each"
+            "Queued jobs recovered from DB, job_task runners spawned for each"
         );
     }
 

@@ -1,4 +1,4 @@
-# batchalign — HTTP Server, Job Store, and NLP Orchestration
+# batchalign: HTTP Server, Job Store, and NLP Orchestration
 
 **Status:** Current
 **Last modified:** 2026-07-25 22:45 EDT
@@ -6,7 +6,7 @@
 ## Overview
 
 Axum-based REST server managing job lifecycle, Python worker dispatch, and server-side
-CHAT orchestration (CHAT ownership boundary — server owns parse/cache/inject/serialize,
+CHAT orchestration (CHAT ownership boundary, server owns parse/cache/inject/serialize,
 Python workers provide stateless NLP inference only).
 
 ## Versioning (BUILD_HASH)
@@ -68,11 +68,11 @@ story is in `book/src/batchalign/architecture/command-flowcharts.md`.
 ## Type System
 
 Domain newtypes are defined in `batchalign-types` using `string_id!` and `numeric_id!`:
-- **`../batchalign-types/src/macros.rs`** — macro definitions (generates Deref, serde transparent, From, Borrow, etc.)
-- **`../batchalign-types/src/domain/`** — `JobId`, `CommandName`, `ReleasedCommand`, `LanguageCode3`, `LanguageSpec`, `DisplayPath`, `EngineVersion`, `CorrelationId`, `NumSpeakers`, `UnixTimestamp`, `DurationMs`, `MemoryMb`, etc.
-- **`../batchalign-types/src/scheduling.rs`** — `AttemptId`, `WorkUnitId`
-- **`types/params.rs`** — `CachePolicy`, `WorTierPolicy` enums; `MorphosyntaxParams`, `FaParams`, `AudioContext` structs
-- **`pipeline/mod.rs`** — `PipelineServices` (shared infrastructure refs: pool, cache, engine_version)
+- **`../batchalign-types/src/macros.rs`**: macro definitions (generates Deref, serde transparent, From, Borrow, etc.)
+- **`../batchalign-types/src/domain/`**: `JobId`, `CommandName`, `ReleasedCommand`, `LanguageCode3`, `LanguageSpec`, `DisplayPath`, `EngineVersion`, `CorrelationId`, `NumSpeakers`, `UnixTimestamp`, `DurationMs`, `MemoryMb`, etc.
+- **`../batchalign-types/src/scheduling.rs`**: `AttemptId`, `WorkUnitId`
+- **`types/params.rs`**: `CachePolicy`, `WorTierPolicy` enums; `MorphosyntaxParams`, `FaParams`, `AudioContext` structs
+- **`pipeline/mod.rs`**: `PipelineServices` (shared infrastructure refs: pool, cache, engine_version)
 
 **Boundary patterns:** Raw `String` from HTTP → `JobId::from()` at handler entry. `&Path` in domain code → `to_string_lossy()` at IPC/JSON. `bool` from CLI → `CachePolicy::from()` at dispatch. See `book/src/batchalign/architecture/type-driven-design.md`.
 

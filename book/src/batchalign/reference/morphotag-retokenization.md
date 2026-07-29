@@ -62,8 +62,8 @@ disagree.
 
 ```rust
 pub enum TokenizationMode {
-    Preserve,           // default — CHAT main tier wins
-    StanzaRetokenize,   // --retokenize — Stanza main tier wins
+    Preserve,           // default: CHAT main tier wins
+    StanzaRetokenize,   // --retokenize: Stanza main tier wins
 }
 ```
 

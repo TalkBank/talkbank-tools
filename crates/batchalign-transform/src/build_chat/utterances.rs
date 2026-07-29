@@ -85,7 +85,7 @@ pub fn tag_marker_separator(text: &str) -> Option<Separator> {
 /// because tree-sitter requires complete document context (headers, `@Begin`,
 /// `@End`) to parse a single utterance correctly.
 ///
-/// **Callers:** This function is used by the `UtteranceDesc.text` API path —
+/// **Callers:** This function is used by the `UtteranceDesc.text` API path
 /// when a caller provides a pre-formatted CHAT utterance string instead of
 /// word-level tokens. It has zero production callers in the current codebase
 /// (the ASR pipeline always uses word-level `WordDesc` tokens), but it

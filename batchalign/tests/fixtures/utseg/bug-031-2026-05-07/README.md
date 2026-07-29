@@ -1,4 +1,4 @@
-# BUG-031 reproducer fixtures — 2026-05-07
+# BUG-031 reproducer fixtures: 2026-05-07
 
 **Status:** Reference
 **Last updated:** 2026-05-08 12:10 EDT
@@ -14,9 +14,9 @@ disyllabic words across utterance boundaries.
 | File | Purpose |
 |---|---|
 | `02-input.cha` | Mandarin (`@Languages: zho`) input. Already-checked transcript with two long unsegmented utterances. |
-| `02-bad-output.cha` | The current BA3 output for `02-input.cha`, byte-stable. Contains the documented bad splits (耳/朵 and 李/明). **Pinned to make BUG-031 fixes show as a diff — NOT a desired snapshot.** |
+| `02-bad-output.cha` | The current BA3 output for `02-input.cha`, byte-stable. Contains the documented bad splits (耳/朵 and 李/明). **Pinned to make BUG-031 fixes show as a diff, NOT a desired snapshot.** |
 | `40517d-input.cha` | Cantonese (`@Languages: yue`) input, 283 lines. |
-| `40517d-bad-output.cha` | The current BA3 output for `40517d-input.cha`, byte-stable. Contains the documented bad splits (原/來, 呢手/機, 正/確圈, etc.). **Pinned to make BUG-031 fixes show as a diff — NOT a desired snapshot.** |
+| `40517d-bad-output.cha` | The current BA3 output for `40517d-input.cha`, byte-stable. Contains the documented bad splits (原/來, 呢手/機, 正/確圈, etc.). **Pinned to make BUG-031 fixes show as a diff, NOT a desired snapshot.** |
 
 ## Verification
 
@@ -32,7 +32,7 @@ diff /tmp/utseg-out/40517d.cha   40517d-bad-output.cha # → empty
 ## When this fixture is no longer the bad output
 
 When BUG-031 is fixed (decode-time word-cohesion mask, model
-retrain, or both), the `*-bad-output.cha` files will become stale —
+retrain, or both), the `*-bad-output.cha` files will become stale
 they're pinning broken behavior. At that point:
 
 1. Replace each `*-bad-output.cha` with a `*-good-output.cha` that

@@ -5,19 +5,19 @@ addressing plus n-to-m :class:`TokenMapping` records and
 gold-per-side :class:`Gold`. The redesign is motivated by the
 2026-04-23 golden-run findings:
 
-* F2 — MWT expansion breaks integer indexing (v1 addressed UD
+* F2: MWT expansion breaks integer indexing (v1 addressed UD
   words, but case authors wrote indices against pre-tokenized
   input; for contractions the two diverge).
-* F3 — POS-only comparator misses semantic regressions (v1 had
+* F3: POS-only comparator misses semantic regressions (v1 had
   no text/lemma comparison).
-* F5 — no n-to-m alignment (period split, period deletion, number
+* F5, no n-to-m alignment (period split, period deletion, number
   expansion all need different token counts pre vs post).
 
 These tests drive the v2 design. The v1 tests in
 ``test_decision_probe_types.py`` will be removed once v2 lands
 and the English seed is migrated.
 
-Tests pure-structurally — no Stanza loaded, `StanzaWordResult` /
+Tests pure-structurally, no Stanza loaded, `StanzaWordResult` /
 `StanzaTokenOutput` synthesized directly.
 """
 
@@ -70,7 +70,7 @@ def test_stanza_token_output_carries_multiple_words_for_mwt() -> None:
 
 
 def test_gold_requires_at_least_one_field_set() -> None:
-    """An all-None Gold is unhelpful — the comparator has nothing to
+    """An all-None Gold is unhelpful, the comparator has nothing to
     check. Reject at construction so the mistake is obvious."""
     with pytest.raises(ValueError):
         Gold()
@@ -302,7 +302,7 @@ def test_compare_1to2_number_expansion_regresses_text() -> None:
 
 
 def test_compare_aggregates_mixed_verdicts_across_mappings() -> None:
-    """Two mappings — one IMPROVED, one REGRESSED → MIXED at case level."""
+    """Two mappings, one IMPROVED, one REGRESSED → MIXED at case level."""
     pre = (
         _tok("i", _w("i", "NOUN")),
         _tok("Dr.", _w("Dr.", "PROPN")),

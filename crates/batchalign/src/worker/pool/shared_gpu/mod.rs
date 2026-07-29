@@ -5,8 +5,8 @@
 //! | File | Responsibility |
 //! |------|----------------|
 //! | `mod.rs` | Shared types, envelope deserialization helpers, re-exports |
-//! | `stdio.rs` | `SharedGpuWorker` — concurrent V2 dispatch over stdio |
-//! | `tcp.rs` | `SharedGpuTcpWorker` — concurrent V2 dispatch over TCP |
+//! | `stdio.rs` | `SharedGpuWorker`, concurrent V2 dispatch over stdio |
+//! | `tcp.rs` | `SharedGpuTcpWorker`, concurrent V2 dispatch over TCP |
 //! | `reader.rs` | Generic JSON-lines reader loop shared by both transports |
 
 mod reader;

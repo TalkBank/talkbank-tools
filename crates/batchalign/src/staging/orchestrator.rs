@@ -41,7 +41,7 @@ use super::rsync::{copy_back_results, stage_inputs};
 ///
 /// On cancellation, sends a cancel request to the remote server.
 ///
-/// `#[allow(clippy::too_many_arguments)]` — pure spawn shim for
+/// `#[allow(clippy::too_many_arguments)]`: pure spawn shim for
 /// `RuntimeSupervisor::spawn_detached()`. Every argument is owned context
 /// that `run_inner` needs by reference; bundling into a struct would
 /// only restate the same list at a new name.
@@ -80,7 +80,7 @@ pub async fn run_staged_remote_job(
 
 /// Inner implementation with Result return for clean error handling.
 ///
-/// `#[allow(clippy::too_many_arguments)]` — mirrors `run_staged_remote_job`'s
+/// `#[allow(clippy::too_many_arguments)]`: mirrors `run_staged_remote_job`'s
 /// parameter list by reference; splitting into a struct here without also
 /// splitting the outer spawn shim would move the lint, not resolve it.
 #[allow(clippy::too_many_arguments)]
@@ -284,7 +284,7 @@ async fn run_inner(
             warn!(
                 job_id = %job_id,
                 error = %e,
-                "Copy-back failed — remote results still on execution host"
+                "Copy-back failed: remote results still on execution host"
             );
             set_plan(
                 store,

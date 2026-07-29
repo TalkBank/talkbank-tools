@@ -13,16 +13,16 @@ entry point for applications that need to process `.cha` files end-to-end.
 
 Key capabilities:
 
-- **Parse + validate** — `parse_and_validate()` combines parsing with
+- **Parse + validate**: `parse_and_validate()` combines parsing with
   multi-layer validation (structural, alignment, semantic) in a single call.
-- **CHAT to JSON** — `chat_to_json()` converts CHAT files to validated JSON
+- **CHAT to JSON**: `chat_to_json()` converts CHAT files to validated JSON
   conforming to the [CHAT JSON Schema](https://talkbank.org/schemas/v0.1/chat-file.json).
-- **Normalization** — `normalize_chat()` produces canonical CHAT output.
-- **Caching** — `UnifiedCache` provides SQLite-based caching for validation
+- **Normalization**: `normalize_chat()` produces canonical CHAT output.
+- **Caching**: `UnifiedCache` provides SQLite-based caching for validation
   and round-trip results for large file collections.
-- **Corpus operations** — `discover_corpora()` and `build_manifest()` for
+- **Corpus operations**: `discover_corpora()` and `build_manifest()` for
   working with large file collections.
-- **Parallel validation** — `validate_directory_streaming()` validates
+- **Parallel validation**: `validate_directory_streaming()` validates
   entire directories with concurrent file processing.
 
 ## Usage

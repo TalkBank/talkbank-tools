@@ -3,7 +3,7 @@
 Companion to :mod:`._probe_types` (MWT probes). Where the MWT family
 asks "does Stanza tokenize this CHAT word sequence the way we
 expect?", this module asks "does a proposed normalization rule X
-change Stanza's morphotag output on the affected tokens — and in
+change Stanza's morphotag output on the affected tokens, and in
 which direction?"
 
 Design (v2, 2026-04-23)
@@ -37,7 +37,7 @@ gold-per-side via :class:`Gold` so mismatched shapes are legal,
 
 Purity
 ------
-:func:`compare_stanza_outputs` is pure — given the synthesized
+:func:`compare_stanza_outputs` is pure: given the synthesized
 :class:`StanzaTokenOutput` inputs it produces a deterministic
 :class:`DecisionComparison` without loading Stanza. Phase-1 tests
 exercise this; the runner (Phase 2) constructs token outputs from
@@ -79,7 +79,7 @@ class DecisionOutcome(Enum):
 
     OBSERVE_ONLY = "observe_only"
     """No assertion. Used while the case's linguistic status is
-    itself under investigation — the probe pins current Stanza
+    itself under investigation: the probe pins current Stanza
     behavior so a future contributor can lock a verdict."""
 
 
@@ -136,7 +136,7 @@ class StanzaTokenOutput:
     words: tuple[StanzaWordResult, ...]
 
 
-# ─── Gold — per-side expected output ─────────────────────────────────
+# ─── Gold: per-side expected output ─────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -148,11 +148,11 @@ class Gold:
     side. The comparator checks each set field independently: pre_upos
     describes expected UPOS for pre's flattened UD words; post_upos
     for post's. Lengths must match the number of UD words emitted on
-    that side after MWT expansion — Stanza is the source of truth for
+    that side after MWT expansion, Stanza is the source of truth for
     that count.
 
     A side with all four fields None means "no expectation on this
-    side" — the comparator treats that side as matching gold
+    side": the comparator treats that side as matching gold
     trivially. This is how 1-to-0 deletions are expressed: the pre
     side has an expectation, the post side has none (gold can't
     check an empty output).
@@ -206,7 +206,7 @@ class TokenMapping:
     strip in the same utterance) can carry separate golds per
     region.
 
-    At least one of the two index tuples must be non-empty — a
+    At least one of the two index tuples must be non-empty, a
     0-to-0 mapping carries no signal.
     """
 
@@ -307,7 +307,7 @@ def _words_for(
     Parameters
     ----------
     side
-        "pre" or "post" — used only for the bounds-check error
+        "pre" or "post": used only for the bounds-check error
         message so the offender is obvious.
     """
     out: list[StanzaWordResult] = []

@@ -96,7 +96,7 @@ pub enum MappingError {
     },
 
     /// `assemble_mors` was called with an empty component slice.
-    #[error("assemble_mors called with empty components — structural bug in caller")]
+    #[error("assemble_mors called with empty components, structural bug in caller")]
     EmptyRangeComponents,
 }
 

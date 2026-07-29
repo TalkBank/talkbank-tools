@@ -4,7 +4,7 @@ This directory holds real-world `batchalign3 align` regression
 fixtures. Each subdirectory under `regressions/` is one bug.
 
 **Privacy boundary.** `regressions/` is gitignored in the public
-batchalign3 repository — the fixture content (input CHAT, audio
+batchalign3 repository: the fixture content (input CHAT, audio
 clips, reporter metadata) lives in a separate private fixture
 repository, and contributors without access to that private repo
 see the align regression tests `SKIP` rather than `FAIL`. See the
@@ -49,15 +49,15 @@ environment variable.
 The assertion catalog in `tests/common/regression_manifest.rs`
 currently captures:
 
-- **Missing `%wor` timings** — FA emits words without per-word
+- **Missing `%wor` timings**: FA emits words without per-word
   bullets. Catch with `no_zero_duration_wor_words`.
-- **DP collapse to end** — the tail of the word sequence is
+- **DP collapse to end**, the tail of the word sequence is
   crammed into 40-100 ms per word. Catch with
   `min_wor_word_duration_ms`.
-- **Last-word cutoff** — the closing word of an utterance is
+- **Last-word cutoff**: the closing word of an utterance is
   squished into a sliver. Catch with
   `min_last_wor_word_duration_ms`.
-- **First-word dominance** — one word eats > N% of the utterance
+- **First-word dominance**, one word eats > N% of the utterance
   bullet. Catch with `max_wor_word_duration_proportion`.
 
 Add a new assertion variant when an incoming bug does not fit any

@@ -15,10 +15,10 @@ pub fn build_chat_from_json(json: &str) -> Result<ChatFile, String> {
 
 /// Domain errors from building a `TranscriptDescription`.
 ///
-/// Exposes structured failure information — the offending word's
+/// Exposes structured failure information, the offending word's
 /// position, text, declared language, and the full
 /// `Vec<talkbank_model::ParseError>` from `ChatWordText::try_from_lang`
-/// — so upstream callers can render diagnostics or branch on failure
+///, so upstream callers can render diagnostics or branch on failure
 /// class without re-parsing a string.
 #[derive(Debug, thiserror::Error)]
 pub enum TranscriptBuildError {

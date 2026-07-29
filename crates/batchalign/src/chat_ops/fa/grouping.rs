@@ -92,7 +92,7 @@ pub fn group_utterances(
         // this within a normal time window.
         //
         // Exception: if the current group is empty, we include the utterance
-        // regardless — an utterance that alone exceeds the limit still needs to
+        // regardless: an utterance that alone exceeds the limit still needs to
         // be sent (and will produce a graceful Python-side error rather than
         // silently dropping the utterance).
         let over_time =
@@ -129,11 +129,11 @@ pub fn group_utterances(
         utt_idx += 1;
     }
 
-    // Push the last group — extend into trailing audio if total duration is known.
+    // Push the last group, extend into trailing audio if total duration is known.
     if !current_words.is_empty() {
         let extended_end = match total_audio_ms {
             Some(total) => extend_into_trailing_gap(seg_end, total),
-            None => seg_end, // unknown audio length — don't extend blindly
+            None => seg_end, // unknown audio length, don't extend blindly
         };
         groups.push(FaGroup {
             audio_span: TimeSpan::new(seg_start, extended_end),
@@ -147,7 +147,7 @@ pub fn group_utterances(
 
 /// Extend an audio window's end into the gap before the next utterance.
 ///
-/// Returns `seg_end + min(gap / 2, TRAILING_GAP_EXTENSION_MS)` — we take
+/// Returns `seg_end + min(gap / 2, TRAILING_GAP_EXTENSION_MS)`; we take
 /// at most half the gap to avoid bleeding into the next utterance's audio,
 /// capped at the configured maximum extension.
 fn extend_into_trailing_gap(seg_end: u64, next_utt_start: u64) -> u64 {
@@ -161,7 +161,7 @@ fn extend_into_trailing_gap(seg_end: u64, next_utt_start: u64) -> u64 {
 
 /// Count utterances with and without timing bullets.
 ///
-/// Returns `(timed, untimed)` — the number of utterances that have a
+/// Returns `(timed, untimed)`: the number of utterances that have a
 /// timing bullet and the number that lack one. Non-utterance lines
 /// (headers, comments) are not counted.
 pub fn count_utterance_timing(chat_file: &ChatFile) -> (usize, usize) {
@@ -218,7 +218,7 @@ pub fn estimate_untimed_boundaries(chat_file: &ChatFile, total_audio_ms: u64) ->
     // A "run" is a maximal sequence of untimed utterances.
     let mut i = 0;
     while i < info.len() {
-        // Skip timed utterances — their estimates are unused.
+        // Skip timed utterances: their estimates are unused.
         if let Some(span) = info[i].1 {
             estimates[i] = span;
             i += 1;
@@ -256,7 +256,7 @@ pub fn estimate_untimed_boundaries(chat_file: &ChatFile, total_audio_ms: u64) ->
         // Distribute the gap proportionally by word count.
         let run_words: usize = info[run_start..run_end].iter().map(|(w, _)| w).sum();
         if run_words == 0 {
-            // No words — give each utterance a zero-width span at gap_start.
+            // No words: give each utterance a zero-width span at gap_start.
             for est in estimates.iter_mut().take(run_end).skip(run_start) {
                 *est = TimeSpan::new(gap_start, gap_start);
             }

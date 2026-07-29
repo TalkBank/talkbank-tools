@@ -54,7 +54,7 @@ runtime. Source: `crates/batchalign/src/runner/dispatch/`.
 flowchart TD
     start([align invoked]) --> read[Read CHAT file]
     read --> resolve_audio[Resolve audio file]
-    resolve_audio --> ensure_wav[ensure_wav — convert mp4→wav if needed]
+    resolve_audio --> ensure_wav[ensure_wav: convert mp4→wav if needed]
     ensure_wav --> parse[parse_lenient → ChatFile]
     parse --> reuse_check{Complete reusable\n%wor timing?}
     reuse_check -->|Yes| reuse[Refresh main-tier bullets\nfrom %wor + optionally\nregenerate %wor]
@@ -62,7 +62,7 @@ flowchart TD
     reuse --> done([Output .cha file])
 
     count --> utr_check{untimed > 0?}
-    utr_check -->|No| skip_utr[Skip UTR — all timed]
+    utr_check -->|No| skip_utr[Skip UTR, all timed]
     utr_check -->|Yes| utr_engine_check{UTR enabled\nand selected backend\nsupports this file?}
 
     utr_engine_check -->|Yes| run_utr_pass["run_utr_pass()"]
@@ -97,7 +97,7 @@ flowchart TD
     continuous_w --> cache_check
     continuous_wv --> cache_check
 
-    cache_check[Cache lookup — BLAKE3 keys]
+    cache_check[Cache lookup: BLAKE3 keys]
     cache_check --> worker_infer[execute_v2(task="fa") misses → Python FA worker\nprepared audio + prepared text]
     worker_infer --> dp_align_fa[DP-align model output → transcript words]
     dp_align_fa --> inject_fa[Inject word-level timings into AST]
@@ -182,7 +182,7 @@ regions) rather than a full-file pass.
 flowchart TD
     entry(["run_utr_pass()"]) --> parse[Parse CHAT\ncount timed vs untimed]
     parse --> zero{untimed == 0?}
-    zero -->|Yes| noop([Return — nothing to do])
+    zero -->|Yes| noop([Return: nothing to do])
     zero -->|No| ratio{untimed < 50%\nAND audio > 60s?}
 
     ratio -->|Yes| partial_mode
@@ -288,7 +288,7 @@ is more conservative about turning real pauses/fillers into dominant words.
 | --- | --- | --- |
 | `--media-dir PATH` | alongside `.cha` | Directory to search for audio files matching the `@Media` header stem |
 | `--utr-engine {rev,whisper}` | `rev` in CLI defaults | UTR backend. `rev` requires working Rev.AI credentials/config; operators without Rev.AI should choose `whisper` or a custom UTR backend explicitly |
-| `--utr-engine-custom NAME` | — | Override UTR engine by name (e.g. `tencent_utr`) |
+| `--utr-engine-custom NAME` |: | Override UTR engine by name (e.g. `tencent_utr`) |
 | `--utr` / `--no-utr` | enabled | Enable or skip the UTR pre-pass entirely |
 | `--utr-strategy {auto,global,two-pass}` | `auto` | Overlap strategy: `auto` currently always returns `GlobalUtr` (the language/content-aware gate was disabled 2026-03-30; see §"UTR strategy selection" above). `two-pass` is the only way to reach `TwoPassOverlapUtr` today. |
 | `--utr-fuzzy THRESHOLD` | `0.85` | Jaro-Winkler similarity threshold for word matching. `1.0` = exact only |
@@ -296,11 +296,11 @@ is more conservative about turning real pauses/fillers into dominant words.
 | `--utr-density-threshold N` | `0.30` | Max overlap fraction before skipping pass-1 exclusion (0.0-1.0) |
 | `--utr-tight-buffer MS` | `500` | Pass-2 tight window buffer in milliseconds |
 | `--fa-engine {wav2vec,whisper}` | `whisper` (since 2026-07-01; see §"Forced alignment reference") | Forced-alignment model |
-| `--fa-engine-custom NAME` | — | Override FA engine by name (e.g. `wav2vec_fa_canto`) |
+| `--fa-engine-custom NAME` |: | Override FA engine by name (e.g. `wav2vec_fa_canto`) |
 | `--wor` / `--nowor` | `--wor` | Include or suppress the `%wor` word-timing tier |
 | `--pauses` | off | Group words into pause-separated chunks (Whisper FA only) |
 | `--merge-abbrev` | off | Merge abbreviations in the output CHAT |
-| `--before PATH` | — | Previous version of the file for incremental alignment (skip unchanged utterances) |
+| `--before PATH` |: | Previous version of the file for incremental alignment (skip unchanged utterances) |
 | `--bullet-repair` | off | Post-FA bullet repair for timing violations (experimental) |
 | `--review-level {none,low-confidence,all}` | `none` | `%xalign`/`%xrev` review tier verbosity. Off by default; pass `low-confidence` or `all` to emit review tiers. |
 

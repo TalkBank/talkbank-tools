@@ -28,7 +28,7 @@ type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 pub enum SpawnedTaskOutcome {
     /// The task ran to completion on the main runtime.
     Completed,
-    /// The supervisor was unavailable — the task was never spawned.
+    /// The supervisor was unavailable, the task was never spawned.
     NotSpawned,
     /// The task was spawned but the completion channel was dropped before
     /// it finished (supervisor shutdown or task abort).
@@ -140,7 +140,7 @@ impl RuntimeSupervisor {
             })
             .is_err()
         {
-            tracing::error!("RuntimeSupervisor channel closed — job task dropped silently");
+            tracing::error!("RuntimeSupervisor channel closed: job task dropped silently");
             return TaskCompletion(TaskCompletionInner::Failed);
         }
         TaskCompletion(TaskCompletionInner::Live(done_rx))
@@ -162,7 +162,7 @@ impl RuntimeSupervisor {
             })
             .is_err()
         {
-            tracing::error!("RuntimeSupervisor channel closed — job task dropped silently");
+            tracing::error!("RuntimeSupervisor channel closed: job task dropped silently");
         }
     }
 

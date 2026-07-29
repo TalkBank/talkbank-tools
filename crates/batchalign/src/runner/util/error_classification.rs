@@ -39,7 +39,7 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
         // Bootstrap-class worker errors are deterministic across retries:
         // a missing model file, a failed catalog download, or an
         // unsupported language will produce the same failure on every
-        // attempt. The orchestrator must NOT retry these — historically,
+        // attempt. The orchestrator must NOT retry these, historically,
         // 3-attempt retries of a deterministic Stanza catalog miss
         // produced multi-GB log explosions because each attempt dumped a
         // full Python traceback before the worker exited.
@@ -72,7 +72,7 @@ pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
         ServerError::EmptyFaAudioSegment { .. } => FailureCategory::Validation,
         // JobNotInLocalStore signals that an activity was dispatched to the
         // wrong server (shared-queue misconfiguration). It's a control-plane
-        // topology bug, not a per-file validation or worker failure — the
+        // topology bug, not a per-file validation or worker failure, the
         // closest fit is `System`, and the error message itself directs the
         // operator to check task-queue configuration.
         ServerError::JobNotInLocalStore(_) => FailureCategory::System,
@@ -126,7 +126,7 @@ pub(crate) fn user_facing_error(
         FailureCategory::WorkerBootstrap => {
             // Bootstrap-class errors are user-actionable: network failure,
             // disk full, missing auth token, etc. Surface the worker's typed
-            // message verbatim — that's exactly the actionable hint the user
+            // message verbatim: that's exactly the actionable hint the user
             // needs. Do NOT prepend "an internal error" framing; the worker
             // already produced the user-facing wording.
             let detail = truncate_tail(raw_error, 1000);

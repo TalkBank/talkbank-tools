@@ -41,7 +41,7 @@ pub(crate) fn resolve_self_exe_from(current_exe: &Path) -> PathBuf {
         .unwrap_or("");
 
     if file_name.starts_with("python") || file_name.starts_with("Python") {
-        // current_exe is a Python interpreter — we're running through
+        // current_exe is a Python interpreter, we're running through
         // console_scripts. Use PATH lookup instead.
         PathBuf::from("batchalign3")
     } else {

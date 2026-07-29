@@ -20,7 +20,7 @@ pub struct AsrToken {
     pub end_s: Option<DurationSeconds>,
     /// Speaker label (e.g. "0", "1") from diarization.
     pub speaker: Option<String>,
-    /// Confidence score (0.0–1.0).
+    /// Confidence score (0.0-1.0).
     pub confidence: Option<f64>,
 }
 
@@ -140,7 +140,7 @@ pub struct TranscribeOptions {
     pub diarize: bool,
     /// Concrete speaker backend selected by Rust when dedicated diarization is needed.
     pub speaker_backend: Option<SpeakerBackendV2>,
-    /// Language specification — `Auto` for ASR auto-detect, or a resolved code.
+    /// Language specification: `Auto` for ASR auto-detect, or a resolved code.
     ///
     /// The type system enforces that post-ASR stages (utseg, morphotag) must
     /// resolve `Auto` to a concrete language before calling NLP workers.
@@ -169,7 +169,7 @@ pub struct TranscribeOptions {
     /// Per-engine configuration extras drawn from
     /// `CommonOptions.engine_overrides.extras` (e.g. `qwen_model`,
     /// `qwen_device`, `funaudio_model`). Plumbed through the V2 dispatch
-    /// boundary so they reach the worker spawn argv — the `backend` enum
+    /// boundary so they reach the worker spawn argv, the `backend` enum
     /// only carries WHICH engine, not its configuration.
     pub engine_extras: std::collections::BTreeMap<String, String>,
 }
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn asr_backend_from_whisper_hub_is_worker_path_not_rev_ai() {
-        // ``whisper_hub`` is not Rust-owned — it must go to the Worker
+        // ``whisper_hub`` is not Rust-owned; it must go to the Worker
         // path just like stock Whisper, HK engines, etc.
         assert_eq!(
             AsrBackend::from_engine_name("whisper_hub"),

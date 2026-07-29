@@ -92,7 +92,7 @@ sequenceDiagram
     SER->>UT: chat_text (String)
     UT->>UT: parse_lenient(chat_text)
     Note over UT: 1 parse error!
-    UT--xOUT: Hard error — no output written
+    UT--xOUT: Hard error, no output written
     Note over OUT: CHAT text discarded!
 ```
 

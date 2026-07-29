@@ -29,7 +29,7 @@ export const COMMANDS: CommandDef[] = [
   {
     id: "morphotag",
     label: "Add Grammar",
-    description: "Add part-of-speech tags and grammatical structure — needed for CLAN commands like MLU and DSS",
+    description: "Add part-of-speech tags and grammatical structure, needed for CLAN commands like MLU and DSS",
     needsLang: true,
   },
   {

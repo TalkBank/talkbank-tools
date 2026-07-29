@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# run-drift-probes.sh — execute the Stanza drift probes and emit a
+# run-drift-probes.sh: execute the Stanza drift probes and emit a
 # report (never fails the caller).
 #
 # Phase G of the test-cost revamp. Probes (@pytest.mark.mwt_probe
 # and @pytest.mark.decision_probe) are monitors that pin Stanza's
 # current tokenization + normalization behavior. A probe "failure"
-# is drift worth adjudicating at leisure — not a push-blocker.
+# is drift worth adjudicating at leisure, not a push-blocker.
 #
 # This wrapper:
 #   1. Points the Phase B history writer at a dedicated probe-history
 #      SQLite so probe outcomes don't mingle with regular test history.
 #   2. Runs the probe suite via pytest (with golden RAM guard off by
-#      default — caller can override).
+#      default: caller can override).
 #   3. Generates a markdown report at
 #      docs/investigations/drift-<date>-stanza.md via
 #      scripts/generate_drift_report.py.
-#   4. Exits 0 unconditionally — reports are the deliverable.
+#   4. Exits 0 unconditionally, reports are the deliverable.
 #
 # Usage:
 #   bash scripts/run-drift-probes.sh                    # mwt + decision
@@ -50,7 +50,7 @@ mkdir -p "$(dirname "$DB")"
 echo "== drift probes: writing to $DB"
 echo "== selection: $SELECT"
 
-# Run the probes. We intentionally do NOT `set -e` over this line —
+# Run the probes. We intentionally do NOT `set -e` over this line
 # a non-zero exit from pytest (drift = failures) is the expected
 # case when something interesting happened.
 BATCHALIGN_TEST_HISTORY_DB="$DB" \

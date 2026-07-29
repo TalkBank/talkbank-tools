@@ -9,7 +9,7 @@ Corpora tested (see docs/investigations/cantonese-corpus-inventory.md):
 2. CHILDES Chinese/Cantonese/HKU (27K utterances, child speech)
 3. CHILDES Chinese/Cantonese/MAIN (17K utterances, narrative)
 4. CHILDES GlobalTales/Cantonese (20K utterances, narrative)
-5. CHILDES Biling/CHCC (135K utterances, bilingual — existing test)
+5. CHILDES Biling/CHCC (135K utterances, bilingual, existing test)
 6. CHILDES Biling/EACMC (111K utterances, bilingual)
 7. CA-data WCT (5K utterances, conversation analysis)
 8. Aphasia HKU (887 utterances, adult clinical)
@@ -94,7 +94,7 @@ def _test_word_segmentation(corpus_name: str, corpus_path: Path) -> None:
         f"({len(multichar)} multi-char, {preserved} preserved = {rate:.0%})"
     )
 
-    # We expect >80% preservation — PyCantonese should know most corpus words
+    # We expect >80% preservation, PyCantonese should know most corpus words
     assert rate > 0.50, (
         f"{corpus_name}: PyCantonese preserved only {rate:.0%} of "
         f"{len(multichar)} multi-char words (expected >50%)"
@@ -102,7 +102,7 @@ def _test_word_segmentation(corpus_name: str, corpus_path: Path) -> None:
 
 
 def _test_pos_quality(corpus_name: str, corpus_path: Path) -> None:
-    """Test PyCantonese POS on corpus vocabulary — check for X (unknown) rate."""
+    """Test PyCantonese POS on corpus vocabulary, check for X (unknown) rate."""
     words = _extract_cjk_words(corpus_path)
     if not words:
         pytest.skip(f"No CJK words found in {corpus_name}")

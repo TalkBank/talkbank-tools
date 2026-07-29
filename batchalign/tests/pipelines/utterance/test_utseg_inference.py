@@ -170,7 +170,7 @@ class TestBatchInferUtseg:
         # The CLI flag is the primary user-facing remediation; the
         # resolver-entry path is the developer fix.
         assert "--utseg-fallback-stanza" in message
-        # Env var must NOT appear — it was removed in favor of the
+        # Env var must NOT appear; it was removed in favor of the
         # typed protocol field + CLI flag.
         assert "BA3_UTSEG_FALLBACK_STANZA" not in message
 
@@ -218,7 +218,7 @@ class TestBatchInferUtseg:
 
     def test_fallback_notice_dedupes_per_language_pack_pair(self, monkeypatch) -> None:
         """A worker processing N batches in the same language must not
-        emit N identical fallback warnings — one warn per (lang, pack)
+        emit N identical fallback warnings, one warn per (lang, pack)
         per process is enough; more is dashboard noise.
         """
         from batchalign.inference import utseg as utseg_module
@@ -244,7 +244,7 @@ class TestBatchInferUtseg:
         assert emit_count[0] == 2
 
     def test_builds_multilingual_pipeline_and_handles_runtime_failure(self, monkeypatch) -> None:
-        # Multilingual Stanza pipeline is also opt-in — no BERT was loaded here.
+        # Multilingual Stanza pipeline is also opt-in, no BERT was loaded here.
         init_kwargs: list[dict[str, Any]] = []
         seen_texts: list[str] = []
         monotonic = iter([5.0, 9.0])
@@ -366,7 +366,7 @@ class TestUtsegTreeHelpers:
 
     def test_leaf_count_handles_missing_children(self) -> None:
         # _leaf_count treats a missing-children object as a leaf with
-        # weight 0. This is not the silent-failure pattern we banned —
+        # weight 0. This is not the silent-failure pattern we banned
         # ``object()`` here is a sentinel-leaf in the test, and
         # downstream length math depends on the 0-count behavior.
         assert _leaf_count(object()) == 0
