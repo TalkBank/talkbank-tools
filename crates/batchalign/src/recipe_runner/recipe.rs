@@ -163,18 +163,19 @@ pub(crate) struct Recipe {
 
 impl Recipe {
     /// Validate the recipe metadata for one released command.
+    ///
+    /// Checks three things, in one pass so that ORDER is checked too. The
+    /// runtime executes `stages` in declaration order, so a prerequisite
+    /// declared after its dependent would run after it; the graph is only
+    /// meaningful if the declared sequence is a topological order of it.
+    ///
+    /// The earlier two-pass form could not see that: it collected every stage
+    /// id first, then checked dependencies against the complete set, which
+    /// makes a forward reference indistinguishable from a backward one. All 12
+    /// shipped recipes were already ordered correctly; nothing was enforcing it.
     #[cfg(test)]
     pub(crate) fn validate(&self, command: ReleasedCommand) -> Result<(), ServerError> {
-        let mut seen = BTreeSet::new();
-        for stage in self.stages {
-            if !seen.insert(stage.id) {
-                return Err(ServerError::Validation(format!(
-                    "recipe for {command} has duplicate stage {}",
-                    stage.id
-                )));
-            }
-        }
-
+        let mut already_declared = BTreeSet::new();
         for stage in self.stages {
             for dependency in stage.depends_on {
                 if *dependency == stage.id {
@@ -183,12 +184,26 @@ impl Recipe {
                         stage.id
                     )));
                 }
-                if !seen.contains(dependency) {
+                if !already_declared.contains(dependency) {
+                    // Distinguish the two ways this happens, because they need
+                    // different fixes: reorder the stages, or add the missing one.
+                    let reason = if self.stages.iter().any(|other| other.id == *dependency) {
+                        "declared after it"
+                    } else {
+                        "not in the recipe"
+                    };
                     return Err(ServerError::Validation(format!(
-                        "recipe for {command} references missing dependency {dependency} from stage {}",
+                        "recipe for {command}: stage {} depends on {dependency}, which is {reason}",
                         stage.id
                     )));
                 }
+            }
+
+            if !already_declared.insert(stage.id) {
+                return Err(ServerError::Validation(format!(
+                    "recipe for {command} has duplicate stage {}",
+                    stage.id
+                )));
             }
         }
 
@@ -239,6 +254,72 @@ mod tests {
             &[],
         ),
     ];
+
+    /// A stage whose prerequisite is declared AFTER it. Every id referenced
+    /// exists and nothing is self-dependent, so the only thing wrong is the
+    /// order, which is exactly what the runtime relies on.
+    const FORWARD_DEPENDENCY_STAGES: &[RecipeStage] = &[
+        RecipeStage::new(
+            RecipeStageId::MaterializeOutputs,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Writing,
+            &[RecipeStageId::PlanWorkUnits],
+        ),
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+    ];
+
+    /// A stage depending on an id that is not in the recipe at all.
+    const MISSING_DEPENDENCY_STAGES: &[RecipeStage] = &[RecipeStage::new(
+        RecipeStageId::MaterializeOutputs,
+        RecipeStagePresence::Required,
+        StageExecutionKind::PerWorkUnit,
+        FileStage::Writing,
+        &[RecipeStageId::AsrInfer],
+    )];
+
+    /// The two failure modes need different fixes (reorder the stages versus add
+    /// the missing one), so the message must tell them apart.
+    #[test]
+    fn recipe_validation_rejects_dependency_outside_the_recipe() {
+        let recipe = Recipe {
+            mode: ExecutionMode::SequentialPerUnit,
+            stages: MISSING_DEPENDENCY_STAGES,
+        };
+        let error = recipe
+            .validate(ReleasedCommand::Transcribe)
+            .expect_err("a dependency that is not in the recipe must fail");
+        assert!(
+            error.to_string().contains("not in the recipe"),
+            "error should distinguish a missing stage from a misordered one, got: {error}"
+        );
+    }
+
+    /// The runtime executes `stages` in declaration order, so declaring a stage
+    /// before its own prerequisite means running it before its prerequisite.
+    /// `validate` used to accept this: it collected every id in a first pass and
+    /// then checked dependencies against the complete set, which makes a forward
+    /// reference indistinguishable from a backward one.
+    #[test]
+    fn recipe_validation_rejects_dependency_declared_later() {
+        let recipe = Recipe {
+            mode: ExecutionMode::SequentialPerUnit,
+            stages: FORWARD_DEPENDENCY_STAGES,
+        };
+        let error = recipe
+            .validate(ReleasedCommand::Transcribe)
+            .expect_err("a prerequisite declared after its dependent must fail");
+        assert!(
+            error.to_string().contains("declared after"),
+            "error should name the ordering problem, got: {error}"
+        );
+    }
 
     #[test]
     fn recipe_validation_accepts_unique_known_dependencies() {

@@ -330,6 +330,34 @@ mod tests {
         );
     }
 
+    /// Every shipped recipe must DECLARE its stages in an order that respects
+    /// its own `depends_on` edges.
+    ///
+    /// The runtime walks `Recipe::stages` in declaration order, so a stage that
+    /// depends on a later stage would run before its prerequisite. `validate`
+    /// does not catch this: it collects every stage id in a first pass, then
+    /// checks dependencies against that complete set, so a forward reference
+    /// looks exactly like a backward one. Until this test existed, `depends_on`
+    /// was decorative: it declared a graph nothing checked the order against.
+    #[test]
+    fn declared_stage_order_is_topological() {
+        for spec in recipe_command_catalog() {
+            let mut already_run: Vec<RecipeStageId> = Vec::new();
+            for stage in spec.recipe.stages {
+                for dependency in stage.depends_on {
+                    assert!(
+                        already_run.contains(dependency),
+                        "{}: stage {} depends on {}, which is declared after it",
+                        spec.command,
+                        stage.id,
+                        dependency
+                    );
+                }
+                already_run.push(stage.id);
+            }
+        }
+    }
+
     #[test]
     fn catalog_entries_are_unique_and_validate() {
         let mut seen = HashSet::new();
