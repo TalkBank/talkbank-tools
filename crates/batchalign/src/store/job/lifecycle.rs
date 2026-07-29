@@ -95,10 +95,33 @@ impl Job {
         self.schedule.next_eligible_at = Some(retry_at);
     }
 
-    /// Mark the job as actively running.
-    pub(crate) fn mark_running(&mut self) {
+    /// Mark the job as actively running, refusing if it is no longer active.
+    ///
+    /// Returns false when the job has already left the active set, which in
+    /// practice means it was cancelled while sitting in the queue. The
+    /// transition used to be unconditional, so a runner picking the job up
+    /// moments after a cancel would resurrect it: `request_cancellation` set
+    /// `Cancelled` and persisted it, then `mark_running` silently overwrote
+    /// the in-memory status back to `Running` while the DB still read
+    /// `Cancelled`.
+    ///
+    /// Observed 2026-07-29 in `cancel_twice_records_two_audit_rows`: cancel #1
+    /// was accepted at t, the runner marked the job Running, and cancel #2 at
+    /// t+5.9ms saw a live job and was accepted again, so the audit recorded two
+    /// state-changing cancels instead of one accepted and one no-op. The user
+    /// impact is worse than the audit row: a job the user cancelled reports
+    /// itself Running.
+    ///
+    /// Refusing here is enough, because the caller's `let ... else { return }`
+    /// also skips the `db_update_job(status: Running)` write, leaving registry
+    /// and database agreeing on `Cancelled`.
+    pub(crate) fn mark_running(&mut self) -> bool {
+        if !self.execution.status.is_active() {
+            return false;
+        }
         self.execution.status = JobStatus::Running;
         self.schedule.next_eligible_at = None;
+        true
     }
 
     /// Record the per-job worker count chosen for this run.

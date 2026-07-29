@@ -150,6 +150,53 @@ mod tests {
     use crate::store::{FileResultEntry, JobStore, UnixTimestamp};
     use crate::ws::BROADCAST_CAPACITY;
 
+    /// A job cancelled while queued must NOT be resurrected by the runner.
+    ///
+    /// `mark_running` used to set `JobStatus::Running` unconditionally, so a
+    /// runner picking up a job microseconds after a cancel overwrote the
+    /// `Cancelled` status that `request_cancellation` had just set and
+    /// persisted. The registry then reported Running while the database read
+    /// Cancelled, and a second cancel was accepted as state-changing because
+    /// the job looked alive again.
+    ///
+    /// Caught by `cancel_twice_records_two_audit_rows` on 2026-07-29, where
+    /// the two cancels landed 5.9ms apart and both recorded `accepted: true`.
+    #[tokio::test]
+    async fn cancelled_job_is_not_resurrected_by_mark_running() {
+        let (tx, _rx) = broadcast::channel(BROADCAST_CAPACITY);
+        let store = JobStore::new(test_config(), None, tx);
+
+        let job_id = JobId::from("cancel-then-run");
+        store
+            .submit(make_job(
+                "cancel-then-run",
+                ReleasedCommand::Morphotag,
+                vec!["a.cha".into()],
+            ))
+            .await
+            .expect("submit");
+
+        store
+            .cancel(&job_id, CancellationRequest::default())
+            .await
+            .expect("first cancel is accepted while the job is queued");
+        assert_eq!(
+            store.job_status(&job_id).await,
+            Some(JobStatus::Cancelled),
+            "cancel must land before the runner sees the job"
+        );
+
+        // The runner picks the job up moments later. It must decline.
+        store.mark_job_running(&job_id).await;
+
+        assert_eq!(
+            store.job_status(&job_id).await,
+            Some(JobStatus::Cancelled),
+            "a cancelled job must stay cancelled; marking it Running resurrects \
+             work the user stopped and desynchronises the registry from the DB"
+        );
+    }
+
     /// `interrupt_all_for_shutdown` must transition every active job to
     /// `JobStatus::Interrupted` and return the count of transitioned jobs.
     ///

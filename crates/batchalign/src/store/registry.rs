@@ -442,10 +442,13 @@ impl JobRegistry {
     /// Mark one queued job as running and return its updated summary row.
     pub(crate) async fn mark_job_running(&self, job_id: &JobId) -> Option<JobListItem> {
         self.update_job(job_id.clone(), |job| {
-            job.mark_running();
-            job.to_list_item()
+            if !job.mark_running() {
+                return None;
+            }
+            Some(job.to_list_item())
         })
         .await
+        .flatten()
     }
 
     /// Record the runner worker-count choice for one job.
