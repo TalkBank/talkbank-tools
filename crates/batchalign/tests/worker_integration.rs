@@ -520,11 +520,38 @@ async fn pool_warmup_uses_infer_targets() {
     pool.shutdown().await;
 }
 
+
+/// Serializes the tests that point `BATCHALIGN_STATE_DIR` at their own temp
+/// directory.
+///
+/// That variable is PROCESS-global, and `cargo test` runs tests in parallel
+/// threads of one process, so each `EnvVarGuard` clobbers the others and then
+/// restores the previous value while a sibling is still relying on it. The
+/// three affected tests failed with off-by-one daemon counts (expected 1 got
+/// 0, expected 0 got 1) that looked like registry-discovery bugs and were
+/// pure interference: the same binary is 26/26 green under
+/// `--test-threads=1`.
+///
+/// Holding this lock for the whole body restores the isolation the temp dir
+/// was meant to provide, without serializing the other 23 tests.
+///
+/// The deeper fix is to stop resolving the state directory from a global:
+/// `worker::registry::default_registry_path()` reads the env var, and
+/// `spawn_tcp_daemon` passes nothing to the child, so a test cannot direct a
+/// spawned daemon anywhere except by mutating its own process. Threading a
+/// state dir through `WorkerConfig` into the child's command would remove the
+/// global entirely; that touches 45 construction sites and is deliberately
+/// left as a separate change.
+static STATE_DIR_ENV_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
 #[cfg(unix)]
 #[tokio::test]
 async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
+    // Process-global env var: hold the lock for the whole test body.
+    let _env_lock = STATE_DIR_ENV_LOCK.lock().await;
     let _env = EnvVarGuard::set_path("BATCHALIGN_STATE_DIR", state_dir.path());
     let registry_path = registry_path_for(&state_dir);
 
@@ -565,6 +592,8 @@ async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
 async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
+    // Process-global env var: hold the lock for the whole test body.
+    let _env_lock = STATE_DIR_ENV_LOCK.lock().await;
     let _env = EnvVarGuard::set_path("BATCHALIGN_STATE_DIR", state_dir.path());
     let registry_path = registry_path_for(&state_dir);
 
@@ -618,6 +647,8 @@ async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
 async fn shutdown_only_kills_current_server_owned_daemons() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
+    // Process-global env var: hold the lock for the whole test body.
+    let _env_lock = STATE_DIR_ENV_LOCK.lock().await;
     let _env = EnvVarGuard::set_path("BATCHALIGN_STATE_DIR", state_dir.path());
     let registry_path = registry_path_for(&state_dir);
 

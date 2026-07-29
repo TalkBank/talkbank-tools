@@ -22,6 +22,29 @@
 //! never dropped, so on process exit the workers become orphans and are
 //! reaped on the next batchalign run via the worker registry's PID-file
 //! mechanism. Acceptable for `--test-echo` workers (no model state).
+//!
+//! # Why the workers get their own runtime
+//!
+//! A pooled worker outlives the test that happened to spawn it, but
+//! `#[tokio::test]` gives every test its OWN runtime and drops it at the end
+//! of that test. A `WorkerHandle` owns a `tokio::process::Child` whose I/O is
+//! registered with the reactor of the runtime that created it, so spawning
+//! under a per-test runtime left every later test holding a handle whose
+//! reactor was gone:
+//!
+//! ```text
+//! A Tokio 1.x context was found, but it is being shutdown.
+//! ```
+//!
+//! That failed 5 to 6 of `worker_integration`'s tests depending on which test
+//! initialised the pool first, so it looked order-dependent and intermittent
+//! rather than structural (found 2026-07-29, after two unrelated failures
+//! stopped masking this binary).
+//!
+//! Workers are therefore spawned ON [`worker_runtime()`], a static
+//! multi-thread runtime that is never dropped. Its reactor outlives every
+//! test, so a handle stays usable no matter which test's runtime later awaits
+//! it.
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -116,7 +139,20 @@ impl SharedTestWorkerPool {
         let handle_arc = cell
             .handle
             .get_or_try_init(|| async {
-                let handle = WorkerHandle::spawn(config.clone()).await?;
+                // Spawn ON the shared runtime, not on the caller's per-test
+                // one: the child's I/O registers with whichever reactor
+                // creates it, and a per-test reactor dies at end of test
+                // while the pooled handle lives on. `JoinHandle` is awaitable
+                // from any runtime, so the caller still just awaits here.
+                let config = config.clone();
+                let handle = worker_runtime()
+                    .spawn(async move { WorkerHandle::spawn(config).await })
+                    .await
+                    .map_err(|e| {
+                        WorkerError::Io(std::io::Error::other(format!(
+                            "shared worker-spawn task failed: {e}"
+                        )))
+                    })??;
                 Ok::<_, WorkerError>(Arc::new(Mutex::new(handle)))
             })
             .await?
@@ -156,4 +192,26 @@ impl std::ops::DerefMut for WorkerLease {
 pub fn shared_test_worker_pool() -> &'static SharedTestWorkerPool {
     static POOL: OnceLock<SharedTestWorkerPool> = OnceLock::new();
     POOL.get_or_init(SharedTestWorkerPool::new)
+}
+
+/// Process-lifetime runtime that owns every pooled worker's child process.
+///
+/// Deliberately leaked rather than stored in a droppable static: dropping a
+/// runtime shuts down its reactor, and the whole point is that the reactor
+/// outlives every test that borrows a worker from the pool. See the
+/// module-level note for the failure this prevents.
+fn worker_runtime() -> &'static tokio::runtime::Handle {
+    static RUNTIME: OnceLock<tokio::runtime::Handle> = OnceLock::new();
+    RUNTIME.get_or_init(|| {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("test-worker-pool")
+            .build()
+            .expect("build the shared test-worker runtime");
+        let handle = rt.handle().clone();
+        // Leak the runtime so it is never dropped for the life of the
+        // process; the handle alone would not keep the reactor alive.
+        std::mem::forget(rt);
+        handle
+    })
 }
