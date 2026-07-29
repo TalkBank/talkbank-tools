@@ -137,7 +137,11 @@ pub async fn start(
             },
             verbose,
             engine_overrides: engine_overrides.unwrap_or("").to_string(),
-            runtime: worker_runtime,
+            // Children inherit the SAME state dir this server resolved. Do not
+            // infer it from `worker_registry_path`: that is a free-form file
+            // path, and BATCHALIGN_STATE_DIR selects the whole runtime layout
+            // (jobs/, logs/, server.yaml), not just workers.json.
+            runtime: worker_runtime.with_state_dir(layout.state_dir().to_path_buf()),
             // Per-profile cap. `Some(n)` from server.yaml is the
             // operator's uniform override applied to all three
             // profiles; otherwise we use the host-facts per-profile

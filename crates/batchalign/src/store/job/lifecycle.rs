@@ -112,9 +112,17 @@ impl Job {
     /// impact is worse than the audit row: a job the user cancelled reports
     /// itself Running.
     ///
-    /// Refusing here is enough, because the caller's `let ... else { return }`
-    /// also skips the `db_update_job(status: Running)` write, leaving registry
-    /// and database agreeing on `Cancelled`.
+    /// Refusing makes the caller's `let ... else { return }` skip its
+    /// `db_update_job(status: Running)` write, so registry and database agree
+    /// on `Cancelled`.
+    ///
+    /// That is necessary but NOT sufficient on its own: `runner::execution`
+    /// calls `record_job_worker_count` on the very next line, which used to
+    /// persist a hardcoded `Running` and reopened the same desync. It now
+    /// writes the job's actual status. Other writers on this type
+    /// (`requeue_after_memory_gate`, `fail`) remain unguarded; the general fix
+    /// is a `JobStatus::can_transition_to` table that every writer consults.
+    #[must_use = "a dropped refusal silently resurrects a cancelled job"]
     pub(crate) fn mark_running(&mut self) -> bool {
         if !self.execution.status.is_active() {
             return false;

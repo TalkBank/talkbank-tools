@@ -121,14 +121,11 @@ pub(crate) enum ResourceLane {
 pub(crate) enum CommandIoProfile {
     /// CLI uploads full file bodies over HTTP; server never reads client paths.
     ///
-    /// No released command currently selects this, which the compiler now says
-    /// out loud since the module-wide `allow(dead_code)` was removed on
-    /// 2026-07-28. It is kept rather than deleted because it is the only way to
-    /// express a command that cannot use paths mode at all, which is the
-    /// correct shape for a REMOTE daemon (paths mode requires a shared
-    /// filesystem). Its absence is why `supports_paths_mode()` is presently
-    /// true for every released command; that is a fact worth knowing, not a
-    /// reason to drop the distinction.
+    /// Unconstructed today. Kept because it is the only way to express a
+    /// command that cannot use paths mode at all, the correct shape for a
+    /// REMOTE daemon (paths mode needs a shared filesystem). Its absence is
+    /// why `supports_paths_mode()` is currently true for every released
+    /// command.
     #[allow(dead_code, reason = "expresses remote-daemon-only commands; see above")]
     ContentOnly,
     /// CLI sends filesystem paths for text inputs; server reads CHAT directly.

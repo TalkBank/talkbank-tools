@@ -56,18 +56,26 @@ impl JobStore {
 
     /// Record the per-job worker count chosen for this run.
     pub(crate) async fn record_job_worker_count(&self, job_id: &JobId, num_workers: usize) {
-        if !self
+        // Persist the job's ACTUAL status, never `Running`.
+        //
+        // This runs one line after `mark_job_running` in `runner/execution.rs`,
+        // and that call now declines for a job cancelled while queued. Writing
+        // a hardcoded `Running` here re-opened the very registry/database
+        // desync the decline exists to prevent: registry `Cancelled`, database
+        // `running`. Recording a worker count is not a status transition and
+        // must not smuggle one into the shared update struct.
+        let Some(status) = self
             .registry
             .record_job_worker_count(job_id, num_workers)
             .await
-        {
+        else {
             return;
-        }
+        };
 
         self.db_update_job(
             job_id,
             PersistedJobUpdate {
-                status: JobStatus::Running,
+                status,
                 error: None,
                 completed_at: None,
                 num_workers: Some(num_workers as i32),

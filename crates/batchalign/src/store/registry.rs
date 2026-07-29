@@ -440,24 +440,34 @@ impl JobRegistry {
     }
 
     /// Mark one queued job as running and return its updated summary row.
+    ///
+    /// `None` means either no such job OR the job refused the transition
+    /// because it is no longer active (see [`Job::mark_running`]); callers
+    /// must treat it as "do not persist Running".
     pub(crate) async fn mark_job_running(&self, job_id: &JobId) -> Option<JobListItem> {
         self.update_job(job_id.clone(), |job| {
-            if !job.mark_running() {
-                return None;
-            }
-            Some(job.to_list_item())
+            job.mark_running().then(|| job.to_list_item())
         })
         .await
         .flatten()
     }
 
     /// Record the runner worker-count choice for one job.
-    pub(crate) async fn record_job_worker_count(&self, job_id: &JobId, num_workers: usize) -> bool {
+    /// Record the runner's worker-count choice and report the job's status.
+    ///
+    /// Returns the status AFTER recording, so the caller persists what the job
+    /// actually is rather than asserting a status of its own. `None` means no
+    /// such job.
+    pub(crate) async fn record_job_worker_count(
+        &self,
+        job_id: &JobId,
+        num_workers: usize,
+    ) -> Option<JobStatus> {
         self.update_job(job_id.clone(), move |job| {
-            job.record_worker_count(num_workers)
+            job.record_worker_count(num_workers);
+            job.execution.status
         })
         .await
-        .is_some()
     }
 
     /// Fail one job immediately and return the summary row for notifications.

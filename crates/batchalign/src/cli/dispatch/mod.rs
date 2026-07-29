@@ -416,7 +416,10 @@ async fn dispatch_direct_mode(
     eprintln!("Running locally (direct mode)...\n");
 
     let direct_workers =
-        prepare_direct_workers(&cfg, build_direct_pool_config(&cfg, force_cpu, allow_mps))
+        prepare_direct_workers(
+            &cfg,
+            build_direct_pool_config(&cfg, force_cpu, allow_mps, layout.state_dir()),
+        )
             .await
             .map_err(CliError::from)?;
     let host = DirectHost::new(cfg, layout, None, None, &direct_workers)
@@ -503,7 +506,12 @@ async fn dispatch_direct_mode(
     )
 }
 
-fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool, allow_mps: bool) -> PoolConfig {
+fn build_direct_pool_config(
+    cfg: &ServerConfig,
+    force_cpu: bool,
+    allow_mps: bool,
+    state_dir: &std::path::Path,
+) -> PoolConfig {
     let tier = cfg.resolved_memory_tier();
     let host_policy = HostExecutionPolicy::from_server_config(cfg);
     // Same boundary conversion as `serve_cmd::start`: CLI
@@ -535,7 +543,9 @@ fn build_direct_pool_config(cfg: &ServerConfig, force_cpu: bool, allow_mps: bool
         },
         verbose: 0,
         engine_overrides: String::new(),
-        runtime: worker_runtime,
+        // See serve_cmd: the state dir comes from the resolved RuntimeLayout,
+        // never inferred from worker_registry_path.
+        runtime: worker_runtime.with_state_dir(state_dir.to_path_buf()),
         max_workers_per_key: match cfg.max_workers_per_key {
             Some(n) => crate::host_facts::PerProfile::uniform(n as usize),
             None => effective.max_workers_per_key_by_profile.map(|n| n as usize),

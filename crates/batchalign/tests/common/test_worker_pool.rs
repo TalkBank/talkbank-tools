@@ -74,9 +74,8 @@ struct ConfigKey {
     bootstrap_mode: WorkerBootstrapMode,
     revai_api_key: Option<String>,
     test_delay_ms: u64,
-    /// Children resolve `<state_dir>/workers.json`, so two configs with
-    /// different state dirs are NOT interchangeable and must not share a
-    /// pooled worker.
+    /// Two configs with different state dirs are not interchangeable; see
+    /// `WorkerRuntimeConfig::state_dir`.
     state_dir: Option<std::path::PathBuf>,
 }
 
@@ -201,22 +200,25 @@ pub fn shared_test_worker_pool() -> &'static SharedTestWorkerPool {
 
 /// Process-lifetime runtime that owns every pooled worker's child process.
 ///
-/// Deliberately leaked rather than stored in a droppable static: dropping a
-/// runtime shuts down its reactor, and the whole point is that the reactor
-/// outlives every test that borrows a worker from the pool. See the
-/// module-level note for the failure this prevents.
+/// Held in a `static`, which Rust never drops, so the reactor outlives every
+/// test that borrows a worker. See the module-level note for the failure that
+/// prevents. Must be multi-thread: a current-thread runtime only drives its
+/// reactor inside `block_on`, and nothing ever blocks on this one, so the
+/// child pipes would never be polled.
+///
+/// Two worker threads, not the `available_parallelism()` default: the entire
+/// job is driving a handful of pipes plus a few spawns, and four test binaries
+/// use this fixture concurrently.
 fn worker_runtime() -> &'static tokio::runtime::Handle {
-    static RUNTIME: OnceLock<tokio::runtime::Handle> = OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("test-worker-pool")
-            .build()
-            .expect("build the shared test-worker runtime");
-        let handle = rt.handle().clone();
-        // Leak the runtime so it is never dropped for the life of the
-        // process; the handle alone would not keep the reactor alive.
-        std::mem::forget(rt);
-        handle
-    })
+    static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .thread_name("test-worker-pool")
+                .build()
+                .expect("build the shared test-worker runtime")
+        })
+        .handle()
 }

@@ -135,12 +135,10 @@ mod tests {
     /// silently.
     #[test]
     fn declared_output_naming_is_stable() {
-        // Matched on the ENUM, not on the stringified name, and with no
-        // catch-all arm: adding a `ReleasedCommand` fails to compile here until
-        // its output naming is stated. A `_ =>` default in this very test would
-        // reintroduce, in miniature, exactly the silent-default hazard the
-        // deleted `output_path_kind_for` embodied. (It did, briefly: the first
-        // draft matched strings and let `transcribe_s` fall through.)
+        // Matched on the ENUM with no catch-all arm: adding a `ReleasedCommand`
+        // fails to compile here until its output naming is stated. A `_ =>`
+        // default would reintroduce, in miniature, the silent-default hazard
+        // the deleted `output_path_kind_for` embodied.
         for command in ReleasedCommand::ALL {
             let expected = match command {
                 ReleasedCommand::Transcribe

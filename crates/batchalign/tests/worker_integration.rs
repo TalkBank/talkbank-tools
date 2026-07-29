@@ -63,7 +63,6 @@ macro_rules! require_python {
     }};
 }
 
-
 #[cfg(unix)]
 fn process_alive(pid: u32) -> bool {
     // SAFETY: kill(pid, 0) only checks process existence/permission.
@@ -94,7 +93,6 @@ fn registry_path_for(state_dir: &tempfile::TempDir) -> std::path::PathBuf {
     state_dir.path().join("workers.json")
 }
 
-#[cfg(unix)]
 /// A test-echo TCP daemon config pinned to `state_dir`.
 ///
 /// The state dir is threaded through `WorkerRuntimeConfig` so the spawned
@@ -102,6 +100,7 @@ fn registry_path_for(state_dir: &tempfile::TempDir) -> std::path::PathBuf {
 /// be steered by setting `BATCHALIGN_STATE_DIR` on the test process itself,
 /// which is process-global and therefore raced the other tests doing the same
 /// (2026-07-29). Passing it here keeps these tests independent and parallel.
+#[cfg(unix)]
 fn test_echo_tcp_config(python_path: String, state_dir: &tempfile::TempDir) -> WorkerConfig {
     WorkerConfig {
         python_path,
@@ -500,15 +499,13 @@ async fn pool_warmup_uses_infer_targets() {
     pool.shutdown().await;
 }
 
-
 #[cfg(unix)]
 #[tokio::test]
 async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
-    // No env mutation: the state dir is threaded through WorkerRuntimeConfig
-    // into each spawned child's Command, so these tests are independent and
-    // stay parallel.
+    // State dir threaded via config, not the environment: see
+    // `WorkerRuntimeConfig::state_dir`.
     let registry_path = registry_path_for(&state_dir);
 
     let external = test_echo_tcp_config(python.clone(), &state_dir);
@@ -548,22 +545,13 @@ async fn discover_from_registry_seeds_capabilities_from_external_tcp_daemon() {
 async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
-    // No env mutation: the state dir is threaded through WorkerRuntimeConfig
-    // into each spawned child's Command, so these tests are independent and
-    // stay parallel.
+    // State dir threaded via config, not the environment: see
+    // `WorkerRuntimeConfig::state_dir`.
     let registry_path = registry_path_for(&state_dir);
 
-    let stale_owned = WorkerConfig {
-        // `..Default::default()` here replaces the whole runtime, so the
-        // state dir the helper set would be lost without re-applying it.
-        runtime: WorkerRuntimeConfig {
-            server_instance_id: Some("dead-owner-instance".to_string()),
-            server_process_id: Some(4_000_000),
-            ..Default::default()
-        }
-        .with_state_dir(state_dir.path().to_path_buf()),
-        ..test_echo_tcp_config(python.clone(), &state_dir)
-    };
+    let mut stale_owned = test_echo_tcp_config(python.clone(), &state_dir);
+    stale_owned.runtime.server_instance_id = Some("dead-owner-instance".to_string());
+    stale_owned.runtime.server_process_id = Some(4_000_000);
     let (stale_pid, _stale_port) = spawn_tcp_daemon(&stale_owned, 0)
         .await
         .expect("spawn stale server-owned tcp daemon");
@@ -606,9 +594,8 @@ async fn discover_from_registry_reaps_stale_foreign_server_owned_daemon() {
 async fn shutdown_only_kills_current_server_owned_daemons() {
     let python = require_python!();
     let state_dir = tempfile::TempDir::new().expect("tempdir");
-    // No env mutation: the state dir is threaded through WorkerRuntimeConfig
-    // into each spawned child's Command, so these tests are independent and
-    // stay parallel.
+    // State dir threaded via config, not the environment: see
+    // `WorkerRuntimeConfig::state_dir`.
     let registry_path = registry_path_for(&state_dir);
 
     let external = test_echo_tcp_config(python.clone(), &state_dir);
@@ -616,18 +603,10 @@ async fn shutdown_only_kills_current_server_owned_daemons() {
         .await
         .expect("spawn external tcp daemon");
 
-    // Same caveat as above: rebuilding the runtime drops the helper's state
-    // dir, so re-apply it or the spawned daemon writes to the ambient registry.
-    let owned_runtime = WorkerRuntimeConfig {
-        server_instance_id: Some("owning-server-instance".to_string()),
-        server_process_id: Some(std::process::id()),
-        ..Default::default()
-    }
-    .with_state_dir(state_dir.path().to_path_buf());
-    let owned = WorkerConfig {
-        runtime: owned_runtime.clone(),
-        ..test_echo_tcp_config(python.clone(), &state_dir)
-    };
+    let mut owned = test_echo_tcp_config(python.clone(), &state_dir);
+    owned.runtime.server_instance_id = Some("owning-server-instance".to_string());
+    owned.runtime.server_process_id = Some(std::process::id());
+    let owned_runtime = owned.runtime.clone();
     let (owned_pid, _owned_port) = spawn_tcp_daemon(&owned, 0)
         .await
         .expect("spawn server-owned tcp daemon");
