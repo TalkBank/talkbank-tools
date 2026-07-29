@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-07-28 22:13 EDT
+**Last updated:** 2026-07-29 03:05 EDT
 
 ## Overview
 
@@ -325,19 +325,24 @@ use, not at CLI startup.
   `_RESOLVER["whisper_hub"]` (today only `thennal/whisper-medium-ml`)
   would need conversion to GGML format and quality validation before
   whisper.cpp could load it.
-- **Forced alignment**: IN PROGRESS (Franklin's 2026-07-28 directive:
-  Rust Whisper fully supported and default). whisper.cpp cannot
-  teacher-force an arbitrary transcript, so the FA port goes through the
-  CANDLE arm instead, reproducing the HF algorithm exactly: one
-  teacher-forced forward pass with the known text as decoder input,
-  cross-attentions from the model's `alignment_heads`, per-head
-  standardization, median filter, head-mean cost matrix, DTW, token jump
-  times at the 20 ms frame rate. The dependency-free numeric core
-  (median filter + DTW, `whisper_native/fa_dtw.rs`) is landed with unit
-  tests; the remaining work is the candle forward pass with attention
-  capture (vendoring the candle-transformers whisper model to expose
-  cross-attentions) and the `FaInferItem`-shaped dispatch so the Rust
-  path is a drop-in for the Python worker's `infer_whisper_fa`.
+- **Forced alignment**: PILOT PARITY ACHIEVED (2026-07-29). whisper.cpp
+  cannot teacher-force an arbitrary transcript, so the FA port goes
+  through the CANDLE arm, reproducing the HF algorithm exactly:
+  teacher-forced forward pass, `alignment_heads` cross-attentions,
+  per-(head,frame) standardization over tokens, median filter,
+  head-mean cost matrix (row 0 flattened), DTW at 20 ms frames. Pieces:
+  the shared numeric core (`whisper_native/fa_dtw.rs`, unit-tested),
+  a vendored capture-enabled model + driver + parity harness in
+  `batchalign-whisper-pilot` (`fa_model.rs`, `fa.rs`, `bin/fa_parity`).
+  Measured parity on large-v2/JFK vs the production Python path: token
+  sequences identical, max |delta| 0.040 s, mean 0.014 s. The critical
+  subtlety, do not lose it: HF's `model(labels=...)` applies
+  `shift_tokens_right` before the decoder, so attention row `k` is
+  produced from input token `k-1`; the Rust decoder input must be
+  `[sot] + labels[..n-1]` while timings zip with the UNSHIFTED labels.
+  Remaining for production: the `FaInferItem`-shaped dispatch behind
+  the FA engine seam and corpus-scale parity (the 114 aligned IISRP
+  sessions are the designated parity corpus).
 - **Utterance segmentation BERT models**: Unrelated to Whisper, would remain
   in Python regardless.
 
