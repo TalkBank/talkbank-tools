@@ -128,17 +128,16 @@ pub(crate) async fn infer_asr(
 /// is identical to the Python Whisper worker path's.
 ///
 /// When the `whisper-rs-backend` feature is not compiled in,
-/// `whisper_native::transcribe` returns `FeatureDisabled`, surfaced here as a
-/// validation error.
+/// `whisper_native::transcribe` returns `FeatureDisabled`, surfaced here as
+/// a `WhisperEngine` (infrastructure) error.
 async fn infer_whisper_rs_asr(
     audio_path: &Path,
     lang: &LanguageSpec,
 ) -> Result<AsrResponse, ServerError> {
     let requested = lang.as_resolved().cloned();
 
-    let cfg = crate::whisper_native::WhisperNativeConfig::resolve().map_err(|error| {
-        ServerError::Validation(format!("whisper_rs model resolution failed: {error}"))
-    })?;
+    let cfg = crate::whisper_native::WhisperNativeConfig::resolve()
+        .map_err(whisper_error_to_server_error)?;
 
     let audio_path = audio_path.to_path_buf();
     let lang_for_call = requested.clone();
@@ -146,16 +145,31 @@ async fn infer_whisper_rs_asr(
         crate::whisper_native::transcribe(&audio_path, lang_for_call, &cfg)
     })
     .await
-    .map_err(|error| ServerError::Validation(format!("whisper_rs ASR task join failed: {error}")))?
-    .map_err(|error| ServerError::Validation(format!("whisper_rs ASR failed: {error}")))?;
+    .map_err(|error| ServerError::WhisperEngine(format!("whisper_rs ASR task join failed: {error}")))?
+    .map_err(whisper_error_to_server_error)?;
 
-    // The result language is authoritative: the caller's when resolved,
-    // whisper.cpp's detection when `Auto`.
-    let result_lang = result.lang.clone();
-    crate::worker::asr_result_v2::whisper_chunk_result_to_asr_response(&result, Some(&result_lang))
+    // `result.lang` is authoritative (the caller's when resolved,
+    // whisper.cpp's detection when `Auto`); the fallback covers only a
+    // response whose own language field is unusable.
+    crate::worker::asr_result_v2::whisper_chunk_result_to_asr_response(&result, requested.as_ref())
         .map_err(|error| {
-            ServerError::Validation(format!("whisper_rs ASR response lowering failed: {error}"))
+            ServerError::WhisperEngine(format!("whisper_rs ASR response lowering failed: {error}"))
         })
+}
+
+/// Route the typed native-Whisper error taxonomy onto the server error
+/// surface without flattening it: genuine input problems are validation
+/// (HTTP 400); infrastructure, build, and invariant failures are worker
+/// errors (HTTP 500), so an HF outage is never reported to a client as
+/// "you submitted something invalid".
+fn whisper_error_to_server_error(error: crate::whisper_native::WhisperNativeError) -> ServerError {
+    use crate::whisper_native::WhisperNativeError as E;
+    match &error {
+        E::UnsupportedLanguage(_) | E::UnsupportedDetectedLanguage(_) => {
+            ServerError::Validation(format!("whisper_rs ASR failed: {error}"))
+        }
+        _ => ServerError::WhisperEngine(format!("whisper_rs ASR failed: {error}")),
+    }
 }
 
 /// Call the live V2 Python worker path for ASR inference on a single audio
@@ -272,20 +286,21 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    /// The native whisper-rs path is Rust-owned and, unlike Rev.AI, does not
-    /// wire whisper.cpp language auto-detection yet. `Auto` must surface a
-    /// typed validation error at the dispatch seam rather than silently
-    /// defaulting to a language. This exercises `infer_whisper_rs_asr` (the
-    /// `AsrBackend::RustWhisperRs` dispatch target) directly, before any
-    /// model/env/feature dependency is reached.
+    /// `Auto` is ACCEPTED on the native whisper-rs path (whisper.cpp's
+    /// own detection runs; 2026-07-28 "fully supported and default"). A
+    /// failure on this dispatch must therefore come from infrastructure
+    /// (here: a nonexistent audio file, or model resolution on a cold
+    /// cache), and it must surface as the 500-class `WhisperEngine`
+    /// variant, never as `Validation`: infra failures may not be
+    /// reported to clients as bad input.
     #[tokio::test]
-    async fn whisper_rs_dispatch_rejects_auto_language() {
+    async fn whisper_rs_dispatch_accepts_auto_and_types_infra_failures() {
         let err = infer_whisper_rs_asr(Path::new("/nonexistent.wav"), &LanguageSpec::Auto)
             .await
-            .expect_err("Auto language must be rejected on the native whisper path");
+            .expect_err("a nonexistent audio file must fail");
         assert!(
-            matches!(err, ServerError::Validation(_)),
-            "expected a validation error, got {err:?}"
+            matches!(err, ServerError::WhisperEngine(_)),
+            "expected a WhisperEngine (infrastructure) error, got {err:?}"
         );
     }
 }

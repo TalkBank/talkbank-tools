@@ -17,8 +17,6 @@
 //! reference implementation. Upstream:
 //! <https://docs.rs/candle-transformers/0.11.0/src/candle_transformers/models/whisper/model.rs.html>
 
-#![allow(clippy::unwrap_used)]
-
 use candle_core::{Device, IndexOp, Result, Tensor, D};
 use candle_nn::{embedding, Conv1d, Conv1dConfig, Embedding, LayerNorm, Module, VarBuilder};
 use candle_transformers::models::whisper::Config;
@@ -335,26 +333,23 @@ impl TextDecoder {
     }
 
     /// FA-CAPTURE: harvest each layer's recorded cross-attention weights
-    /// (in layer order) after a forward pass. Layers whose weights were
-    /// somehow not recorded are an error at the caller's level; `None`
-    /// entries are represented by absence, so callers must check length.
-    pub fn take_cross_attentions(&mut self) -> Vec<Tensor> {
-        self.blocks
-            .iter_mut()
-            .filter_map(|b| b.take_cross_attn())
-            .collect()
+    /// (in layer order) after a forward pass. A `None` entry names the
+    /// exact layer whose capture is missing, so the caller's error can
+    /// say which.
+    pub fn take_cross_attentions(&mut self) -> Vec<Option<Tensor>> {
+        self.blocks.iter_mut().map(|b| b.take_cross_attn()).collect()
     }
 }
 
 /// Whisper with FA capture, mirroring upstream's `Whisper` wrapper.
+/// (No `config` field: callers keep their own `Config`, which `load`
+/// borrows conceptually and consumes structurally.)
 #[derive(Debug, Clone)]
 pub struct FaWhisper {
     /// Audio encoder half.
     pub encoder: AudioEncoder,
     /// Text decoder half (with capture).
     pub decoder: TextDecoder,
-    /// Model configuration.
-    pub config: Config,
 }
 
 impl FaWhisper {
@@ -362,10 +357,6 @@ impl FaWhisper {
     pub fn load(vb: &VarBuilder, config: Config) -> Result<Self> {
         let encoder = AudioEncoder::load(vb.pp("model.encoder"), &config)?;
         let decoder = TextDecoder::load(vb.pp("model.decoder"), &config)?;
-        Ok(Self {
-            encoder,
-            decoder,
-            config,
-        })
+        Ok(Self { encoder, decoder })
     }
 }

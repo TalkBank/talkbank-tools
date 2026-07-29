@@ -156,84 +156,77 @@ pub(super) fn transcribe_impl(
     Ok(WhisperChunkResultV2 { lang, text, chunks })
 }
 
-/// Map ISO 639-3 (TalkBank's internal canonical) to ISO 639-1 (whisper.cpp's
-/// expected language token).
-///
-/// Returns `UnsupportedLanguage` for codes outside the table; silent
-/// default-to-English would mask real misconfiguration. The Rev.AI
-/// preflight code at `crates/batchalign-app/src/revai/preflight.rs`
-/// keeps a fuller table; this list covers the languages whisper.cpp's
-/// large-v3 model genuinely supports well. Lifting both into a shared
+/// One table, both directions: canonical ISO 639-3 (TalkBank internal)
+/// paired with ISO 639-1 (whisper.cpp's language token). Restricted to
+/// the languages whisper.cpp's large models genuinely support well; a
+/// silent default-to-English would mask real misconfiguration. The
+/// Rev.AI preflight code at `crates/batchalign/src/revai/preflight.rs`
+/// keeps a fuller table; lifting both into a shared
 /// `LanguageCode3::to_iso_639_1()` on `batchalign-types` is the right
-/// follow-up; keeping the duplication in-place for this commit so the
-/// integration foundation lands without dragging in a cross-crate
-/// refactor.
+/// follow-up (tracked in the whisper-asr book page). A round-trip test
+/// below keeps the two directions from drifting.
+const LANG_TABLE: &[(&str, &str)] = &[
+    ("eng", "en"),
+    ("yue", "yue"),
+    ("cmn", "zh"),
+    ("fra", "fr"),
+    ("deu", "de"),
+    ("spa", "es"),
+    ("ita", "it"),
+    ("jpn", "ja"),
+    ("kor", "ko"),
+    ("nld", "nl"),
+    ("por", "pt"),
+    ("rus", "ru"),
+    ("tur", "tr"),
+    ("swe", "sv"),
+    ("nor", "no"),
+    ("dan", "da"),
+    ("fin", "fi"),
+    ("pol", "pl"),
+    ("ell", "el"),
+    ("hun", "hu"),
+    ("heb", "he"),
+    ("ara", "ar"),
+];
+
+/// Legacy ISO 639-2/B aliases accepted on INPUT (normalized to the
+/// canonical 639-3 code before the table lookup). Note the asymmetry
+/// this creates for auto-detect: an explicit `zho` job stays `zho`, but
+/// a detected `zh` comes back as the canonical `cmn`.
+const LANG_INPUT_ALIASES: &[(&str, &str)] = &[
+    ("zho", "cmn"),
+    ("fre", "fra"),
+    ("ger", "deu"),
+    ("dut", "nld"),
+    ("gre", "ell"),
+];
+
 fn lang_to_iso2(lang: &LanguageCode3) -> Result<&'static str, WhisperNativeError> {
-    let iso = match &**lang {
-        "eng" => "en",
-        "yue" => "yue",
-        "cmn" | "zho" => "zh",
-        "fra" | "fre" => "fr",
-        "deu" | "ger" => "de",
-        "spa" => "es",
-        "ita" => "it",
-        "jpn" => "ja",
-        "kor" => "ko",
-        "nld" | "dut" => "nl",
-        "por" => "pt",
-        "rus" => "ru",
-        "tur" => "tr",
-        "swe" => "sv",
-        "nor" => "no",
-        "dan" => "da",
-        "fin" => "fi",
-        "pol" => "pl",
-        "ell" | "gre" => "el",
-        "hun" => "hu",
-        "heb" => "he",
-        "ara" => "ar",
-        other => return Err(WhisperNativeError::UnsupportedLanguage(other.to_owned())),
-    };
-    Ok(iso)
+    let canonical = LANG_INPUT_ALIASES
+        .iter()
+        .find(|(alias, _)| *alias == &**lang)
+        .map_or(&**lang, |(_, canon)| *canon);
+    LANG_TABLE
+        .iter()
+        .find(|(iso3, _)| *iso3 == canonical)
+        .map(|(_, iso2)| *iso2)
+        .ok_or_else(|| WhisperNativeError::UnsupportedLanguage((**lang).to_owned()))
 }
 
 /// Map whisper.cpp's detected ISO 639-1 token back to TalkBank's ISO
-/// 639-3 canonical code: the reverse of `lang_to_iso2`, restricted to
-/// the same supported set so detection cannot smuggle in a language the
-/// rest of the pipeline has no support for.
+/// 639-3 canonical code: the reverse direction of `LANG_TABLE`,
+/// restricted to the same supported set so detection cannot smuggle in
+/// a language the rest of the pipeline has no support for.
 fn iso2_to_lang(iso2: &str) -> Result<LanguageCode3, WhisperNativeError> {
-    let code = match iso2 {
-        "en" => "eng",
-        "yue" => "yue",
-        "zh" => "cmn",
-        "fr" => "fra",
-        "de" => "deu",
-        "es" => "spa",
-        "it" => "ita",
-        "ja" => "jpn",
-        "ko" => "kor",
-        "nl" => "nld",
-        "pt" => "por",
-        "ru" => "rus",
-        "tr" => "tur",
-        "sv" => "swe",
-        "no" => "nor",
-        "da" => "dan",
-        "fi" => "fin",
-        "pl" => "pol",
-        "el" => "ell",
-        "hu" => "hun",
-        "he" => "heb",
-        "ar" => "ara",
-        other => {
-            return Err(WhisperNativeError::UnsupportedDetectedLanguage(
-                other.to_owned(),
-            ));
-        }
-    };
-    LanguageCode3::try_from(code.to_owned()).map_err(|_| {
-        WhisperNativeError::UnsupportedDetectedLanguage(iso2.to_owned())
-    })
+    let (iso3, _) = LANG_TABLE
+        .iter()
+        .find(|(_, i2)| *i2 == iso2)
+        .ok_or_else(|| WhisperNativeError::UnsupportedDetectedLanguage(iso2.to_owned()))?;
+    // The table holds only valid three-letter codes; a TryFrom failure
+    // here would mean the table itself is malformed.
+    LanguageCode3::try_from(*iso3)
+        .map_err(|_| WhisperNativeError::UnsupportedDetectedLanguage(iso2.to_owned()))
 }
 
 #[cfg(test)]
@@ -244,6 +237,30 @@ mod tests {
     #[test]
     fn lang_map_known_codes() {
         assert_eq!(lang_to_iso2(&LanguageCode3::eng()).unwrap(), "en");
+    }
+
+    #[test]
+    fn lang_table_round_trips() {
+        // Both directions come from one table; every entry must survive
+        // iso3 -> iso2 -> iso3 unchanged.
+        for (iso3, iso2) in LANG_TABLE {
+            let fwd = lang_to_iso2(&LanguageCode3::try_from(*iso3).unwrap()).unwrap();
+            assert_eq!(fwd, *iso2);
+            let back = iso2_to_lang(iso2).unwrap();
+            assert_eq!(&*back, *iso3);
+        }
+    }
+
+    #[test]
+    fn lang_aliases_normalize_on_input() {
+        // Legacy 639-2/B aliases are accepted forward but never produced
+        // in reverse (the documented auto-detect asymmetry).
+        for (alias, canonical) in LANG_INPUT_ALIASES {
+            let via_alias = lang_to_iso2(&LanguageCode3::try_from(*alias).unwrap()).unwrap();
+            let via_canonical =
+                lang_to_iso2(&LanguageCode3::try_from(*canonical).unwrap()).unwrap();
+            assert_eq!(via_alias, via_canonical);
+        }
     }
 
     #[test]

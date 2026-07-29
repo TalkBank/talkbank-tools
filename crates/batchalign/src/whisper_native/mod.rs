@@ -47,6 +47,21 @@ pub fn shutdown() -> bool {
     }
 }
 
+/// RAII form of [`shutdown`]: bind one of these in `main` (next to the
+/// tracing guard) and the native-Whisper resources are released on any
+/// path out of `main`, including early returns. This is the enforcement
+/// shape for the invariant that a process which loaded a
+/// `WhisperContext` must release it before ggml's own exit-time
+/// destructors run; a bare `shutdown()` statement silently un-enforces
+/// itself the first time someone adds an early exit.
+pub struct ProcessGuard;
+
+impl Drop for ProcessGuard {
+    fn drop(&mut self) {
+        shutdown();
+    }
+}
+
 pub use config::WhisperNativeConfig;
 pub use error::WhisperNativeError;
 

@@ -65,6 +65,16 @@ impl WhisperNativeConfig {
         }
         #[cfg(feature = "whisper-rs-backend")]
         {
+            // Memoized: hf-hub's `download_file` re-walks the cache and
+            // issues an HTTPS HEAD on every call for a floating revision,
+            // which at one call per job means a network round-trip (and a
+            // soft HF-reachability dependency) per file. The default
+            // model cannot change within a process, so resolve once.
+            use std::sync::OnceLock;
+            static RESOLVED_DEFAULT: OnceLock<PathBuf> = OnceLock::new();
+            if let Some(path) = RESOLVED_DEFAULT.get() {
+                return Ok(Self::for_model(path.clone()));
+            }
             let client = hf_hub::HFClientSync::new().map_err(|e| {
                 super::WhisperNativeError::ModelResolution {
                     reason: format!("hf-hub client init failed: {e}"),
@@ -81,6 +91,7 @@ impl WhisperNativeConfig {
                         "download of {owner}/{name}/{DEFAULT_MODEL_FILE} failed: {e}"
                     ),
                 })?;
+            let path = RESOLVED_DEFAULT.get_or_init(|| path).clone();
             Ok(Self::for_model(path))
         }
         #[cfg(not(feature = "whisper-rs-backend"))]

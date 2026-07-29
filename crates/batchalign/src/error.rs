@@ -124,6 +124,15 @@ pub enum ServerError {
     #[error("worker error: {0}")]
     Worker(#[from] crate::worker::error::WorkerError),
 
+    /// An in-process native inference engine (whisper.cpp) failed for a
+    /// non-input reason: model resolution/download, build configuration,
+    /// or an internal invariant.
+    ///
+    /// **HTTP 500.** Distinct from `Validation` so infrastructure
+    /// failures are never reported to clients as bad input.
+    #[error("whisper engine error: {0}")]
+    WhisperEngine(String),
+
     /// A filesystem I/O operation failed (reading/writing staging files,
     /// creating directories, etc.).
     ///
@@ -188,6 +197,7 @@ impl ServerError {
             Self::UnknownCommand(_) => StatusCode::BAD_REQUEST,
             Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::Worker(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::WhisperEngine(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::MemoryPressure(_) => StatusCode::INTERNAL_SERVER_ERROR,
             // EmptyFaAudioSegment is an internal skip signal, never returned as HTTP.

@@ -93,6 +93,10 @@ async fn main() {
 
     let (_log_guard, tracer_provider) = init_tracing(cli.global.verbose, server_log_dir.as_deref());
 
+    // Held for the whole run; its Drop releases the native-Whisper
+    // context (see whisper_native::ProcessGuard).
+    let whisper_guard = batchalign::whisper_native::ProcessGuard;
+
     let update_handle = batchalign::cli::update_check::spawn_update_check();
 
     let exit_code = match batchalign::cli::run_command(cli).await {
@@ -115,8 +119,10 @@ async fn main() {
     // Release the native-Whisper context (Metal buffers) BEFORE exit:
     // ggml's C++ static destructors assert every Metal resource was
     // deallocated, and a never-dropped Rust static would trip that
-    // assert into a SIGABRT after otherwise-successful runs.
-    batchalign::whisper_native::shutdown();
+    // assert into a SIGABRT after otherwise-successful runs. Explicitly
+    // dropped here (rather than at end of scope) because
+    // `std::process::exit` below would skip destructors.
+    drop(whisper_guard);
 
     if exit_code != 0 {
         std::process::exit(exit_code);

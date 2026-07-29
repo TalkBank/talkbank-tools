@@ -107,22 +107,7 @@ pub fn transcribe(cfg: &PilotConfig) -> Result<PilotResult> {
 
     let (model_id, revision) = cfg.model.hf_repo();
     log::info!("fetching model: {} @ {}", model_id, revision);
-    // hf-hub 1.0 replaced `Api`/`Repo` with the `HFClientSync` builder API, and
-    // `client.model` takes owner + name separately rather than an "owner/name"
-    // id string.
-    let (owner, name) = model_id
-        .split_once('/')
-        .ok_or_else(|| anyhow::anyhow!("model id {model_id} is not in owner/name form"))?;
-    let client =
-        HFClientSync::new().map_err(|e| anyhow::anyhow!("hf-hub client init failed: {e}"))?;
-    let repo = client.model(owner, name);
-    let fetch = |file: &str| -> Result<std::path::PathBuf> {
-        repo.download_file()
-            .filename(file.to_owned())
-            .revision(revision.to_owned())
-            .send()
-            .map_err(|e| anyhow::anyhow!("hf-hub download of {file} failed: {e}"))
-    };
+    let fetch = hf_fetcher(cfg.model)?;
     let config_path = fetch("config.json")?;
     let tokenizer_path = fetch("tokenizer.json")?;
     let weights_path = fetch("model.safetensors")?;
@@ -192,6 +177,33 @@ pub fn transcribe(cfg: &PilotConfig) -> Result<PilotResult> {
 }
 
 /// Decode the embedded mel-filter table for the given number of mel bins.
+/// Build a fetcher over the model's hf-hub repo: `fetch("file")` returns
+/// the cached-or-downloaded local path. One implementation for every
+/// artifact fetch in this crate (the hf-hub 1.0 rewrite forced a sweep
+/// of exactly this pattern; next time it is one edit).
+///
+/// hf-hub 1.0 replaced `Api`/`Repo` with the `HFClientSync` builder API,
+/// and `client.model` takes owner + name separately rather than an
+/// "owner/name" id string.
+pub(crate) fn hf_fetcher(
+    model: WhisperModel,
+) -> Result<impl Fn(&str) -> Result<std::path::PathBuf>> {
+    let (model_id, revision) = model.hf_repo();
+    let (owner, name) = model_id
+        .split_once('/')
+        .ok_or_else(|| anyhow::anyhow!("model id {model_id} is not in owner/name form"))?;
+    let client =
+        HFClientSync::new().map_err(|e| anyhow::anyhow!("hf-hub client init failed: {e}"))?;
+    let repo = client.model(owner, name);
+    Ok(move |file: &str| -> Result<std::path::PathBuf> {
+        repo.download_file()
+            .filename(file.to_owned())
+            .revision(revision.to_owned())
+            .send()
+            .map_err(|e| anyhow::anyhow!("hf-hub download of {file} failed: {e}"))
+    })
+}
+
 pub(crate) fn load_mel_filters(num_mel_bins: usize) -> Result<Vec<f32>> {
     let mel_bytes: &[u8] = match num_mel_bins {
         80 => include_bytes!("melfilters.bytes"),

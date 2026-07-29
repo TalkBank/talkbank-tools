@@ -1,16 +1,35 @@
 //! Parity harness: Rust candle forced alignment vs the Python golden.
 //!
-//! Usage: fa_parity <audio> <golden.json> [--metal]
-//!
 //! The golden file is produced by the production Python FA path (see
 //! the scratch `golden_fa.py`); this binary runs the Rust port on the
-//! same audio+text and reports per-token deltas. Exit codes: 0 = token
-//! sequences identical and max |delta| <= 0.10 s; 1 = mismatch.
+//! same audio+text and reports per-token deltas.
 
 use anyhow::{Result, anyhow};
 use batchalign_whisper_pilot::WhisperModel;
 use batchalign_whisper_pilot::fa::{FaRequest, forced_align};
+use clap::Parser;
 
+/// Maximum per-token |delta| accepted as parity. Measured parity on
+/// large-v2/JFK is 0.040 s (two DTW frames); 0.10 s (five frames) gives
+/// headroom for device/dtype jitter across machines without letting a
+/// systematic one-token shift (~0.2 s+) pass.
+const MAX_TOKEN_DELTA_S: f64 = 0.10;
+
+/// Compare Rust forced alignment against a Python-produced golden.
+#[derive(Parser)]
+struct Args {
+    /// Audio file the golden was produced from.
+    audio: std::path::PathBuf,
+    /// Golden JSON (text + per-token timings) from golden_fa.py.
+    golden: std::path::PathBuf,
+    /// Bypass the Rust mel front-end with a Python-dumped mel
+    /// (diagnostic: localizes divergence to mel vs transformer stack).
+    #[arg(long)]
+    mel_json: Option<std::path::PathBuf>,
+    /// Run on Metal instead of CPU.
+    #[arg(long)]
+    metal: bool,
+}
 
 #[derive(serde::Deserialize)]
 struct Golden {
@@ -25,30 +44,22 @@ struct GoldenToken {
 }
 
 fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 3 {
-        return Err(anyhow!("usage: fa_parity <audio> <golden.json> [--metal]"));
-    }
-    let device = if args.iter().any(|a| a == "--metal") {
+    let args = Args::parse();
+    let device = if args.metal {
         candle_core::Device::new_metal(0)?
     } else {
         candle_core::Device::Cpu
     };
-    let golden: Golden = serde_json::from_str(&std::fs::read_to_string(&args[2])?)?;
+    let golden: Golden = serde_json::from_str(&std::fs::read_to_string(&args.golden)?)?;
     let mel_override = args
-        .iter()
-        .position(|a| a == "--mel-json")
-        .map(|i| -> Result<_> {
-            let path = args
-                .get(i + 1)
-                .ok_or_else(|| anyhow!("--mel-json needs a path"))?;
-            Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
-        })
+        .mel_json
+        .as_ref()
+        .map(|p| -> Result<_> { Ok(serde_json::from_str(&std::fs::read_to_string(p)?)?) })
         .transpose()?;
     let req = FaRequest {
         model: WhisperModel::LargeV2,
-        audio_path: std::path::PathBuf::from(&args[1]),
-        text: golden.text.clone(),
+        audio_path: args.audio,
+        text: golden.text,
         device,
         mel_override,
     };
@@ -74,12 +85,22 @@ fn main() -> Result<()> {
         let d = (r.time_s - g.time_s).abs();
         max_delta = max_delta.max(d);
         sum_delta += d;
-        println!("{:>24}  golden {:7.3}s  rust {:7.3}s  d {:6.3}s", g.text, g.time_s, r.time_s, d);
+        println!(
+            "{:>24}  golden {:7.3}s  rust {:7.3}s  d {:6.3}s",
+            g.text, g.time_s, r.time_s, d
+        );
     }
     let mean = sum_delta / ours.len() as f64;
-    println!("tokens {}  max|d| {:.3}s  mean|d| {:.3}s", ours.len(), max_delta, mean);
-    if max_delta > 0.10 {
-        return Err(anyhow!("PARITY FAIL: max delta {max_delta:.3}s > 0.10s"));
+    println!(
+        "tokens {}  max|d| {:.3}s  mean|d| {:.3}s",
+        ours.len(),
+        max_delta,
+        mean
+    );
+    if max_delta > MAX_TOKEN_DELTA_S {
+        return Err(anyhow!(
+            "PARITY FAIL: max delta {max_delta:.3}s > {MAX_TOKEN_DELTA_S}s"
+        ));
     }
     println!("PARITY OK");
     Ok(())

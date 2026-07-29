@@ -55,6 +55,10 @@ pub(crate) fn classify_worker_error(error: &WorkerError) -> FailureCategory {
 pub(crate) fn classify_server_error(error: &ServerError) -> FailureCategory {
     match error {
         ServerError::Worker(worker_error) => classify_worker_error(worker_error),
+        // Native-engine failures (model resolution, build config, internal
+        // invariants) are infrastructure: deterministic per attempt, so the
+        // orchestrator must not retry them as if transient.
+        ServerError::WhisperEngine(_) => FailureCategory::System,
         ServerError::Validation(_) => FailureCategory::Validation,
         ServerError::MemoryPressure(_) => FailureCategory::MemoryPressure,
         ServerError::Io(_) => FailureCategory::System,

@@ -29,9 +29,9 @@
 //! fully successful transcription, 2026-07-29). `shutdown()` drops the
 //! cached context before exit; the binary's epilogue calls it. The
 //! read path stays cheap (uncontended `RwLock::read`), and the loader
-//! runs OUTSIDE the lock, preserving the no-lock-during-3s-load
-//! property; the OnceLock race-window note below still applies in
-//! spirit (two cold concurrent loads, one winner).
+//! runs OUTSIDE the lock, so two cold concurrent callers may both load
+//! and the loser's copy is dropped (one wasted load, same trade the
+//! previous OnceLock design made).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -82,41 +82,42 @@ impl<T> PathKeyedCache<T> {
     where
         L: FnOnce(&Path) -> Result<Arc<T>, WhisperNativeError>,
     {
-        {
-            let guard = self.cell.read().map_err(|_| {
-                WhisperNativeError::CacheInvariant("cache lock poisoned".to_string())
-            })?;
-            if let Some((cached_path, value)) = guard.as_ref() {
-                if cached_path == requested_path {
-                    return Ok(Arc::clone(value));
-                }
-                return Err(WhisperNativeError::ModelPathChanged {
-                    cached: cached_path.clone(),
-                    requested: requested_path.to_path_buf(),
-                });
-            }
+        if let Some(hit) = Self::lookup(self.cell.read().map_err(Self::poisoned)?.as_ref(), requested_path)? {
+            return Ok(hit);
         }
         // Load OUTSIDE the lock: the 3 s / 3 GB model load must not hold
-        // the cache closed. Two cold concurrent callers may both load;
-        // the loser's copy is dropped below (same trade as the old
-        // OnceLock race window).
+        // the cache closed.
         let value = loader(requested_path)?;
-        let mut guard = self.cell.write().map_err(|_| {
-            WhisperNativeError::CacheInvariant("cache lock poisoned".to_string())
-        })?;
-        match guard.as_ref() {
+        let mut guard = self.cell.write().map_err(Self::poisoned)?;
+        match Self::lookup(guard.as_ref(), requested_path)? {
+            // A concurrent caller won the race; ours drops.
+            Some(winner) => Ok(winner),
             None => {
                 *guard = Some((requested_path.to_path_buf(), Arc::clone(&value)));
                 Ok(value)
             }
-            Some((cached_path, winner)) if cached_path == requested_path => {
-                Ok(Arc::clone(winner))
+        }
+    }
+
+    /// Shared read-side check: cache hit, path conflict, or empty.
+    fn lookup(
+        slot: Option<&(PathBuf, Arc<T>)>,
+        requested_path: &Path,
+    ) -> Result<Option<Arc<T>>, WhisperNativeError> {
+        match slot {
+            Some((cached_path, value)) if cached_path == requested_path => {
+                Ok(Some(Arc::clone(value)))
             }
             Some((cached_path, _)) => Err(WhisperNativeError::ModelPathChanged {
                 cached: cached_path.clone(),
                 requested: requested_path.to_path_buf(),
             }),
+            None => Ok(None),
         }
+    }
+
+    fn poisoned<E>(_: E) -> WhisperNativeError {
+        WhisperNativeError::CacheInvariant("cache lock poisoned".to_string())
     }
 }
 

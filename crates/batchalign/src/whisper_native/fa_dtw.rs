@@ -16,12 +16,10 @@
 /// `cols` = audio frames.
 #[derive(Debug, Clone)]
 pub struct CostMatrix {
-    /// Row count (text-token axis).
-    pub rows: usize,
-    /// Column count (audio-frame axis).
-    pub cols: usize,
-    /// Row-major values; `len == rows * cols`.
-    pub values: Vec<f32>,
+    rows: usize,
+    cols: usize,
+    /// Row-major; `len == rows * cols`, enforced by the constructor.
+    values: Vec<f32>,
 }
 
 /// Everything that can go wrong in the numeric FA core.
@@ -69,6 +67,16 @@ impl CostMatrix {
     fn at(&self, r: usize, c: usize) -> f32 {
         self.values[r * self.cols + c]
     }
+
+    /// Row-major view of the values.
+    pub fn values(&self) -> &[f32] {
+        &self.values
+    }
+
+    /// Consume into the row-major value buffer.
+    pub fn into_values(self) -> Vec<f32> {
+        self.values
+    }
 }
 
 /// One step of the DTW path: which text row aligns to which frame column.
@@ -85,14 +93,8 @@ pub struct PathPoint {
 /// down, right; ties prefer the diagonal, then the text axis, matching
 /// the `argmin` order of the reference implementation).
 pub fn dynamic_time_warping(matrix: &CostMatrix) -> Result<Vec<PathPoint>, FaDtwError> {
+    // Shape validity is a `CostMatrix::new` invariant; fields are private.
     let (n, m) = (matrix.rows, matrix.cols);
-    if matrix.values.len() != n * m {
-        return Err(FaDtwError::ShapeMismatch {
-            rows: n,
-            cols: m,
-            len: matrix.values.len(),
-        });
-    }
     // cost[(i, j)] over a (n+1) x (m+1) grid with an infinite border,
     // trace stores which move produced each cell (0 diag, 1 down, 2 right).
     let width = m + 1;
@@ -157,9 +159,12 @@ pub fn median_filter_rows(matrix: &mut CostMatrix, width: usize) -> Result<(), F
     let half = width / 2;
     let cols = matrix.cols;
     let mut window = vec![0.0f32; width];
+    // One scratch buffer reused across rows (a per-row alloc costs ~1.2k
+    // allocations per FA call at production head counts).
+    let mut original = vec![0.0f32; cols];
     for r in 0..matrix.rows {
         let row_start = r * cols;
-        let original: Vec<f32> = matrix.values[row_start..row_start + cols].to_vec();
+        original.copy_from_slice(&matrix.values[row_start..row_start + cols]);
         for c in 0..cols {
             for (k, slot) in window.iter_mut().enumerate() {
                 // Reflect padding (PyTorch "reflect": mirror without
@@ -179,6 +184,41 @@ pub fn median_filter_rows(matrix: &mut CostMatrix, width: usize) -> Result<(), F
         }
     }
     Ok(())
+}
+
+/// Standardize each COLUMN of a row-major matrix in place: for every
+/// column, subtract the column mean and divide by the (population)
+/// standard deviation. This is step 3 of the HF forced-alignment
+/// algorithm (`torch.std_mean(weights, dim=-2, unbiased=False)` over
+/// the token axis), shared here so the pilot and production paths use
+/// one implementation. Single row-major accumulation pass, then one
+/// normalize pass (cache-friendly on the row-major buffer).
+pub fn standardize_columns(matrix: &mut CostMatrix) {
+    let (rows, cols) = (matrix.rows, matrix.cols);
+    let mut sum = vec![0.0f64; cols];
+    let mut sumsq = vec![0.0f64; cols];
+    for r in 0..rows {
+        let row = &matrix.values[r * cols..(r + 1) * cols];
+        for (c, v) in row.iter().enumerate() {
+            let v = f64::from(*v);
+            sum[c] += v;
+            sumsq[c] += v * v;
+        }
+    }
+    let n = rows as f64;
+    let mut mean = sum;
+    let mut inv_std = sumsq;
+    for c in 0..cols {
+        mean[c] /= n;
+        let var = (inv_std[c] / n - mean[c] * mean[c]).max(0.0);
+        inv_std[c] = 1.0 / var.sqrt().max(f64::EPSILON);
+    }
+    for r in 0..rows {
+        let row = &mut matrix.values[r * cols..(r + 1) * cols];
+        for (c, v) in row.iter_mut().enumerate() {
+            *v = ((f64::from(*v) - mean[c]) * inv_std[c]) as f32;
+        }
+    }
 }
 
 /// Token jump times: for each text row, the first frame where the DTW
@@ -269,5 +309,14 @@ mod tests {
             median_filter_rows(&mut m, 4).unwrap_err(),
             FaDtwError::EvenFilterWidth(4)
         );
+    }
+
+    #[test]
+    fn standardize_columns_zero_mean_unit_variance() {
+        // Column [1, 3] -> mean 2, std 1 -> [-1, 1]; column [5, 5] is
+        // constant -> stays 0 (guarded divide).
+        let mut m = CostMatrix::new(2, 2, vec![1.0, 5.0, 3.0, 5.0]).unwrap();
+        standardize_columns(&mut m);
+        assert_eq!(m.values, vec![-1.0, 0.0, 1.0, 0.0]);
     }
 }
