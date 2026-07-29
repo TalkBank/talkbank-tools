@@ -1,7 +1,7 @@
 # Whisper Usage in Batchalign
 
 **Status:** Current
-**Last updated:** 2026-07-29 03:05 EDT
+**Last updated:** 2026-07-29 10:57 EDT
 
 ## Overview
 
@@ -340,9 +340,18 @@ use, not at CLI startup.
   `shift_tokens_right` before the decoder, so attention row `k` is
   produced from input token `k-1`; the Rust decoder input must be
   `[sot] + labels[..n-1]` while timings zip with the UNSHIFTED labels.
+  Landed since: the numeric core lives in the leaf crate
+  `batchalign-fa-core` (shared without the server stack);
+  `FaAssets::load`/`align` is the promotion seam (load once, align per
+  call); capture is restricted to the alignment-head layers; an
+  ignored-by-default equivalence test guards the vendored model against
+  upstream candle drift; per-job model selection
+  (`whisper_rs_model` engine-override extra) and
+  `setup --prefetch-whisper-rs` complete the ASR-side surface.
   Remaining for production: the `FaInferItem`-shaped dispatch behind
-  the FA engine seam and corpus-scale parity (the 114 aligned IISRP
-  sessions are the designated parity corpus).
+  the FA engine seam (with `FaAssets` cached per model+device) and
+  corpus-scale parity (the 114 aligned IISRP sessions are the
+  designated parity corpus).
 - **Utterance segmentation BERT models**: Unrelated to Whisper, would remain
   in Python regardless.
 
