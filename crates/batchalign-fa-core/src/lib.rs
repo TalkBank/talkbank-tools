@@ -248,19 +248,23 @@ mod tests {
     #[test]
     fn dtw_identity_diagonal() {
         // A cost matrix favoring the diagonal must yield the diagonal path.
-        let m = CostMatrix::new(
-            3,
-            3,
-            vec![0.0, 9.0, 9.0, 9.0, 0.0, 9.0, 9.0, 9.0, 0.0],
-        )
-        .unwrap();
+        let m = CostMatrix::new(3, 3, vec![0.0, 9.0, 9.0, 9.0, 0.0, 9.0, 9.0, 9.0, 0.0]).unwrap();
         let path = dynamic_time_warping(&m).unwrap();
         assert_eq!(
             path,
             vec![
-                PathPoint { text_idx: 0, time_idx: 0 },
-                PathPoint { text_idx: 1, time_idx: 1 },
-                PathPoint { text_idx: 2, time_idx: 2 },
+                PathPoint {
+                    text_idx: 0,
+                    time_idx: 0
+                },
+                PathPoint {
+                    text_idx: 1,
+                    time_idx: 1
+                },
+                PathPoint {
+                    text_idx: 2,
+                    time_idx: 2
+                },
             ]
         );
     }
@@ -286,11 +290,26 @@ mod tests {
     #[test]
     fn jump_times_are_row_entry_frames() {
         let path = vec![
-            PathPoint { text_idx: 0, time_idx: 0 },
-            PathPoint { text_idx: 0, time_idx: 1 },
-            PathPoint { text_idx: 1, time_idx: 2 },
-            PathPoint { text_idx: 2, time_idx: 2 },
-            PathPoint { text_idx: 2, time_idx: 3 },
+            PathPoint {
+                text_idx: 0,
+                time_idx: 0,
+            },
+            PathPoint {
+                text_idx: 0,
+                time_idx: 1,
+            },
+            PathPoint {
+                text_idx: 1,
+                time_idx: 2,
+            },
+            PathPoint {
+                text_idx: 2,
+                time_idx: 2,
+            },
+            PathPoint {
+                text_idx: 2,
+                time_idx: 3,
+            },
         ];
         let times = token_jump_times_s(&path);
         assert_eq!(times, vec![0.0, 0.04, 0.04]);

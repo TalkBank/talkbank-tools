@@ -147,7 +147,9 @@ async fn infer_whisper_rs_asr(
         crate::whisper_native::transcribe(&audio_path, lang_for_call, &cfg)
     })
     .await
-    .map_err(|error| ServerError::WhisperEngine(format!("whisper_rs ASR task join failed: {error}")))?
+    .map_err(|error| {
+        ServerError::WhisperEngine(format!("whisper_rs ASR task join failed: {error}"))
+    })?
     .map_err(whisper_error_to_server_error)?;
 
     // `result.lang` is authoritative (the caller's when resolved,
@@ -169,8 +171,7 @@ const WHISPER_RS_MODEL_EXTRA: &str = "whisper_rs_model";
 /// auto-fetched default (inside `resolve()`).
 fn whisper_rs_config_from(
     extras: &std::collections::BTreeMap<String, String>,
-) -> Result<crate::whisper_native::WhisperNativeConfig, crate::whisper_native::WhisperNativeError>
-{
+) -> Result<crate::whisper_native::WhisperNativeConfig, crate::whisper_native::WhisperNativeError> {
     if let Some(path) = extras.get(WHISPER_RS_MODEL_EXTRA) {
         return Ok(crate::whisper_native::WhisperNativeConfig::for_model(
             std::path::PathBuf::from(path),

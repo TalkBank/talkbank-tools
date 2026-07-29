@@ -123,8 +123,9 @@ pub(super) async fn dispatch_job_with_execution_context(
         runner_dispatch_kind,
         RunnerDispatchKind::BenchmarkAudioInfer
     ) && infer_tasks.contains(&InferTask::Asr);
-    let use_media_analysis_infer = matches!(runner_dispatch_kind, RunnerDispatchKind::MediaAnalysisV2)
-        && infer_tasks.contains(&infer_task);
+    let use_media_analysis_infer =
+        matches!(runner_dispatch_kind, RunnerDispatchKind::MediaAnalysisV2)
+            && infer_tasks.contains(&infer_task);
 
     if test_echo_mode {
         dispatch_test_echo_files(&job, sink.as_ref(), &file_list, pool.test_delay_ms()).await;

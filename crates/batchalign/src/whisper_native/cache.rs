@@ -82,7 +82,10 @@ impl<T> PathKeyedCache<T> {
     where
         L: FnOnce(&Path) -> Result<Arc<T>, WhisperNativeError>,
     {
-        if let Some(hit) = Self::lookup(self.cell.read().map_err(Self::poisoned)?.as_ref(), requested_path)? {
+        if let Some(hit) = Self::lookup(
+            self.cell.read().map_err(Self::poisoned)?.as_ref(),
+            requested_path,
+        )? {
             return Ok(hit);
         }
         // Load OUTSIDE the lock: the 3 s / 3 GB model load must not hold

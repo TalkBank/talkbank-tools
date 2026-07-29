@@ -195,12 +195,14 @@ fn user_defined_tiers_with_label<'a>(
     utt: &'a Utterance,
     label: &'a str,
 ) -> impl Iterator<Item = &'a UserDefinedDependentTier> + 'a {
-    utt.dependent_tiers.iter().filter_map(move |t| match &t.tier {
-        DependentTier::UserDefined(u) | DependentTier::Unsupported(u)
-            if u.label.as_str() == label =>
-        {
-            Some(u)
-        }
-        _ => None,
-    })
+    utt.dependent_tiers
+        .iter()
+        .filter_map(move |t| match &t.tier {
+            DependentTier::UserDefined(u) | DependentTier::Unsupported(u)
+                if u.label.as_str() == label =>
+            {
+                Some(u)
+            }
+            _ => None,
+        })
 }

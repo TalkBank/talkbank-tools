@@ -19,7 +19,6 @@ use super::recipes::{
     UTSEG_RECIPE,
 };
 
-
 const NO_SIDECARS: &[SidecarPolicy] = &[];
 const COMPARE_SIDECARS: &[SidecarPolicy] = &[SidecarPolicy {
     naming: FileNamingPolicy::ReplaceExtension("compare.csv"),

@@ -261,7 +261,9 @@ fn build_word_utterance(
     let mut utterance = Utterance::new(main);
     if write_wor && has_timing {
         let wor_tier = utterance.main.generate_wor_tier();
-        utterance.dependent_tiers.push(DependentTier::Wor(wor_tier).into());
+        utterance
+            .dependent_tiers
+            .push(DependentTier::Wor(wor_tier).into());
     }
 
     Ok(Some(Line::utterance(utterance)))

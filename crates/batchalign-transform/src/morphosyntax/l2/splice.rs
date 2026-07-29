@@ -788,10 +788,13 @@ pub fn apply_l2_fallback(
             Line::Utterance(u) => u,
             _ => continue,
         };
-        let mor_tier = utt.dependent_tiers.iter_mut().find_map(|t| match &mut t.tier {
-            DependentTier::Mor(m) => Some(m),
-            _ => None,
-        });
+        let mor_tier = utt
+            .dependent_tiers
+            .iter_mut()
+            .find_map(|t| match &mut t.tier {
+                DependentTier::Mor(m) => Some(m),
+                _ => None,
+            });
         if let Some(mor) = mor_tier
             && let Some(mor_item) = mor.items_mut().get_mut(def.word_idx)
         {
@@ -2069,10 +2072,7 @@ mod cardinality_tests {
         })];
 
         splice_l2_into_chat(&mut chat_file, &deferred, &merged);
-        assert_post_splice_gra_valid(
-            &mut chat_file,
-            "C3: secondary multi-root (E723 wild shape)",
-        );
+        assert_post_splice_gra_valid(&mut chat_file, "C3: secondary multi-root (E723 wild shape)");
     }
 
     /// **Family C, C4**: secondary's per-relation head points at a

@@ -41,8 +41,7 @@ use serde::Deserialize;
 use tokenizers::Tokenizer;
 
 use batchalign_fa_core::{
-    CostMatrix, dynamic_time_warping, median_filter_rows, standardize_columns,
-    token_jump_times_s,
+    CostMatrix, dynamic_time_warping, median_filter_rows, standardize_columns, token_jump_times_s,
 };
 
 use crate::WhisperModel;
@@ -121,9 +120,7 @@ impl FaAssets {
         let tokenizer =
             Tokenizer::from_file(fetch("tokenizer.json")?).map_err(anyhow::Error::msg)?;
         let weights_path = fetch("model.safetensors")?;
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], m::DTYPE, device)?
-        };
+        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights_path], m::DTYPE, device)? };
         let mut model = crate::fa_model::FaWhisper::load(&vb, config.clone())?;
         // Record cross-attention only on the alignment-head layers; the
         // other layers' weights are never read and retaining them keeps
@@ -175,7 +172,10 @@ impl FaAssets {
         // ---- forward pass with capture -----------------------------------
         let audio_features = self.model.encoder.forward(mel, true)?;
         let token_t = Tensor::new(decoder_input.as_slice(), &self.device)?.unsqueeze(0)?;
-        let _hidden = self.model.decoder.forward(&token_t, &audio_features, true)?;
+        let _hidden = self
+            .model
+            .decoder
+            .forward(&token_t, &audio_features, true)?;
         // Only the alignment-head layers are captured (see load); the
         // per-head loop below errors if a referenced layer is missing.
         let cross = self.model.decoder.take_cross_attentions();
@@ -193,11 +193,12 @@ impl FaAssets {
             let w = layer_t.i((0, head))?.to_dtype(candle_core::DType::F32)?;
             let (t, f) = w.dims2()?;
             if t != n_tokens {
-                return Err(anyhow!("attention token axis {t} != token count {n_tokens}"));
+                return Err(anyhow!(
+                    "attention token axis {t} != token count {n_tokens}"
+                ));
             }
             n_frames = f;
-            let mut cm =
-                CostMatrix::new(n_tokens, n_frames, w.flatten_all()?.to_vec1::<f32>()?)?;
+            let mut cm = CostMatrix::new(n_tokens, n_frames, w.flatten_all()?.to_vec1::<f32>()?)?;
             // Python: torch.std_mean(weights, dim=-2, unbiased=False)
             // per head, then median filter along frames.
             standardize_columns(&mut cm);
@@ -251,8 +252,8 @@ impl FaAssets {
     /// Build the model-shaped mel tensor for an audio file: decode,
     /// resample to 16 kHz, pad/truncate to the 30 s window, log-mel.
     pub fn mel_for_audio(&self, audio_path: &std::path::Path) -> Result<Tensor> {
-        let (mut pcm, sample_rate) = audio::pcm_decode(audio_path)
-            .map_err(|e| anyhow!("audio decode failed: {e}"))?;
+        let (mut pcm, sample_rate) =
+            audio::pcm_decode(audio_path).map_err(|e| anyhow!("audio decode failed: {e}"))?;
         if sample_rate != m::SAMPLE_RATE as u32 {
             pcm = audio::resample(&pcm, sample_rate, m::SAMPLE_RATE as u32)
                 .map_err(|e| anyhow!("resample failed: {e}"))?;
@@ -270,8 +271,7 @@ impl FaAssets {
         let bins = self.config.num_mel_bins;
         let total_frames = mel.len() / bins;
         let frames = total_frames.min(m::N_FRAMES);
-        Ok(Tensor::from_vec(mel, (1, bins, total_frames), &self.device)?
-            .narrow(2, 0, frames)?)
+        Ok(Tensor::from_vec(mel, (1, bins, total_frames), &self.device)?.narrow(2, 0, frames)?)
     }
 
     fn mel_from_override(&self, o: &MelOverride) -> Result<Tensor> {

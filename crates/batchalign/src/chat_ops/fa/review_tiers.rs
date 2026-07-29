@@ -59,7 +59,8 @@ pub fn inject_review_tiers(
                     .push(make_user_tier("xalign", &decision.reason).into());
 
                 if decision.needs_review {
-                    utt.dependent_tiers.push(make_user_tier("xrev", "[?]").into());
+                    utt.dependent_tiers
+                        .push(make_user_tier("xrev", "[?]").into());
                 }
             }
         } else if review_level == ReviewLevel::All {

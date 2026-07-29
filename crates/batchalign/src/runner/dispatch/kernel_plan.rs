@@ -114,7 +114,8 @@ impl CommandKernelPlan {
         // through a `CommandDefinition` rebuilt per call, which carried the
         // family under a second name (`CommandExecutionShape`).
         let family = command_spec(command).family;
-        let execution_lane = execution_lane_for(family.resource_lane(), family.model_sharing_policy());
+        let execution_lane =
+            execution_lane_for(family.resource_lane(), family.model_sharing_policy());
         let file_parallelism_hint = host_policy.resolved_file_parallelism(
             family.constrained_host_policy(),
             suggested_parallelism(family.parallelism_policy(), execution_lane, file_count),

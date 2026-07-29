@@ -93,9 +93,7 @@ impl WhisperNativeConfig {
                 .filename(DEFAULT_MODEL_FILE.to_owned())
                 .send()
                 .map_err(|e| super::WhisperNativeError::ModelResolution {
-                    reason: format!(
-                        "download of {owner}/{name}/{DEFAULT_MODEL_FILE} failed: {e}"
-                    ),
+                    reason: format!("download of {owner}/{name}/{DEFAULT_MODEL_FILE} failed: {e}"),
                 })?;
             let path = RESOLVED_DEFAULT.get_or_init(|| path).clone();
             Ok(Self::for_model(path))

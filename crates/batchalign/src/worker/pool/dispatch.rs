@@ -410,7 +410,8 @@ impl WorkerPool {
         }
 
         let lang = lang.into();
-        let target = WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
+        let target =
+            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
 
         if target.is_concurrent() {
             let _ = self

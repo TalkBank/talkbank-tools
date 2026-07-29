@@ -429,7 +429,8 @@ pub fn inject_decision_tiers(
             // One %xrev: [?] if ANY decision needs review.
             let any_needs_review = decisions_for_utt.iter().any(|d| d.needs_review);
             if any_needs_review {
-                utt.dependent_tiers.push(make_user_tier("xrev", "[?]").into());
+                utt.dependent_tiers
+                    .push(make_user_tier("xrev", "[?]").into());
             }
         } else if review_level == ReviewLevel::All {
             // Informational: no decisions were made for this utterance.

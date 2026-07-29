@@ -28,7 +28,8 @@ impl WorkerPool {
         lang: impl Into<WorkerLanguage>,
     ) -> bool {
         let lang = lang.into();
-        let target = WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
+        let target =
+            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
 
         // GPU profile workers are always "available" (shared, concurrent).
         if target.is_concurrent() {

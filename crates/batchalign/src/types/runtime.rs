@@ -524,8 +524,9 @@ mod tests {
         // The marker is the workspace Cargo.toml containing `[workspace]`.
         let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let src_root = crate_root.join("src");
-        let workspace_root = find_workspace_root(&crate_root)
-            .expect("workspace root not found: Cargo.toml with [workspace] absent above CARGO_MANIFEST_DIR");
+        let workspace_root = find_workspace_root(&crate_root).expect(
+            "workspace root not found: Cargo.toml with [workspace] absent above CARGO_MANIFEST_DIR",
+        );
 
         // Definition-shape regex: matches top-level fn/const/static or `pub` struct
         // fields named *_startup_mb (gpu, stanza, or io). Field-access expressions

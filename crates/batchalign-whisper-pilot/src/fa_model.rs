@@ -17,10 +17,10 @@
 //! reference implementation. Upstream:
 //! <https://docs.rs/candle-transformers/0.11.0/src/candle_transformers/models/whisper/model.rs.html>
 
-use candle_core::{Device, IndexOp, Result, Tensor, D};
-use candle_nn::{embedding, Conv1d, Conv1dConfig, Embedding, LayerNorm, Module, VarBuilder};
+use candle_core::{D, Device, IndexOp, Result, Tensor};
+use candle_nn::{Conv1d, Conv1dConfig, Embedding, LayerNorm, Module, VarBuilder, embedding};
 use candle_transformers::models::whisper::Config;
-use candle_transformers::models::with_tracing::{linear, linear_no_bias, Linear};
+use candle_transformers::models::with_tracing::{Linear, linear, linear_no_bias};
 
 fn conv1d(
     in_channels: usize,
@@ -359,7 +359,10 @@ impl TextDecoder {
     /// exact layer whose capture is missing, so the caller's error can
     /// say which.
     pub fn take_cross_attentions(&mut self) -> Vec<Option<Tensor>> {
-        self.blocks.iter_mut().map(|b| b.take_cross_attn()).collect()
+        self.blocks
+            .iter_mut()
+            .map(|b| b.take_cross_attn())
+            .collect()
     }
 }
 
@@ -404,14 +407,12 @@ mod tests {
     fn vendored_encoder_matches_upstream() {
         let device = Device::Cpu;
         let fetch = crate::hf_fetcher(crate::WhisperModel::Tiny).unwrap();
-        let config: Config = serde_json::from_str(
-            &std::fs::read_to_string(fetch("config.json").unwrap()).unwrap(),
-        )
-        .unwrap();
+        let config: Config =
+            serde_json::from_str(&std::fs::read_to_string(fetch("config.json").unwrap()).unwrap())
+                .unwrap();
         let weights = fetch("model.safetensors").unwrap();
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights], m::DTYPE, &device).unwrap()
-        };
+        let vb =
+            unsafe { VarBuilder::from_mmaped_safetensors(&[weights], m::DTYPE, &device).unwrap() };
         let mut ours = FaWhisper::load(&vb, config.clone()).unwrap();
         let mut upstream = m::model::Whisper::load(&vb, config.clone()).unwrap();
 

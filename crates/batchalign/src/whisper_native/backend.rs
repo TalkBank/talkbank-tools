@@ -139,9 +139,8 @@ pub(super) fn transcribe_impl(
         Some(code) => code,
         None => {
             let id = state.full_lang_id_from_state();
-            let iso2 = whisper_rs::get_lang_str(id).ok_or(
-                WhisperNativeError::LanguageDetectionFailed { lang_id: id },
-            )?;
+            let iso2 = whisper_rs::get_lang_str(id)
+                .ok_or(WhisperNativeError::LanguageDetectionFailed { lang_id: id })?;
             iso2_to_lang(iso2)?
         }
     };

@@ -4,8 +4,8 @@ use batchalign::options::{CommandOptions, CommonOptions, MorphotagOptions};
 use batchalign::worker::InferTask;
 
 use crate::ml_golden::golden::fixtures::{
-    ENG_DISFLUENCY_PARITY, ENG_MULTI_UTT, ENG_RETOKENIZE, ENG_SIMPLE,
-    ITA_MULTI_WORD_UTTERANCES, ITA_SINGLE_WORD_UTTERANCES, SPA_SIMPLE,
+    ENG_DISFLUENCY_PARITY, ENG_MULTI_UTT, ENG_RETOKENIZE, ENG_SIMPLE, ITA_MULTI_WORD_UTTERANCES,
+    ITA_SINGLE_WORD_UTTERANCES, SPA_SIMPLE,
 };
 use crate::ml_golden::golden::helpers::{
     assert_golden_snapshot, find_mor_line_for, has_gra_tier, has_mor_tier, parse_output,
@@ -368,7 +368,9 @@ async fn golden_morphotag_ita_single_word_utterances_are_not_split() {
     // Controls: genuine multi-word tokens must STILL expand. These are the
     // assertions a closed-class allowlist cannot satisfy, and `eccolo` is the
     // one a bare part-of-speech probe cannot satisfy either.
-    for utterance in ["dammelo", "diglielo", "giralo", "prendilo", "guardalo", "eccolo"] {
+    for utterance in [
+        "dammelo", "diglielo", "giralo", "prendilo", "guardalo", "eccolo",
+    ] {
         let mor = find_mor_line_for(output, utterance)
             .unwrap_or_else(|| panic!("no %mor tier for {utterance:?}"));
         assert!(
@@ -417,8 +419,8 @@ async fn golden_morphotag_ita_multi_word_keeps_genuine_mwts() {
     let _file = parse_output(output, "morphotag_ita_multi_word");
 
     // Preposition + article contractions must still expand.
-    let contractions = find_mor_line_for(output, "vado")
-        .expect("no %mor tier for the contraction utterance");
+    let contractions =
+        find_mor_line_for(output, "vado").expect("no %mor tier for the contraction utterance");
     assert!(
         contractions.matches('~').count() >= 2,
         "alla and della are genuine contractions and must both expand, got {contractions:?}"
