@@ -22,6 +22,8 @@ use tokenizers::Tokenizer;
 
 pub mod audio;
 pub mod decoder;
+pub mod fa;
+pub mod fa_model;
 
 use decoder::{Decoder, Model, Segment, Task, token_id};
 
@@ -33,6 +35,9 @@ pub enum WhisperModel {
     Base,
     Small,
     Medium,
+    /// large-v2: the production Python FA path's default checkpoint, so
+    /// the FA parity harness aligns with the same weights.
+    LargeV2,
     LargeV3,
 }
 
@@ -43,6 +48,7 @@ impl WhisperModel {
             Self::Base => ("openai/whisper-base", "refs/pr/22"),
             Self::Small => ("openai/whisper-small", "main"),
             Self::Medium => ("openai/whisper-medium", "main"),
+            Self::LargeV2 => ("openai/whisper-large-v2", "main"),
             Self::LargeV3 => ("openai/whisper-large-v3", "main"),
         }
     }
@@ -186,7 +192,7 @@ pub fn transcribe(cfg: &PilotConfig) -> Result<PilotResult> {
 }
 
 /// Decode the embedded mel-filter table for the given number of mel bins.
-fn load_mel_filters(num_mel_bins: usize) -> Result<Vec<f32>> {
+pub(crate) fn load_mel_filters(num_mel_bins: usize) -> Result<Vec<f32>> {
     let mel_bytes: &[u8] = match num_mel_bins {
         80 => include_bytes!("melfilters.bytes"),
         128 => include_bytes!("melfilters128.bytes"),

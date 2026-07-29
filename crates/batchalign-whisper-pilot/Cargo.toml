@@ -35,6 +35,10 @@ audioadapter-buffers = { workspace = true }
 
 # Model + tokenizer plumbing.
 hf-hub = { workspace = true }
+# Shared FA numeric core (median filter + DTW) so pilot and production
+# cannot drift numerically. Default features off: the pilot needs only
+# the library surface, not the server/binary stack.
+batchalign = { path = "../batchalign", default-features = false }
 tokenizers = { workspace = true }
 
 # Numeric utilities.
