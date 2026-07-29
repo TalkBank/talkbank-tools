@@ -87,6 +87,14 @@ pub(super) fn build_worker_command(config: &WorkerConfig) -> StdCommand {
     if let Some(api_key) = config.runtime.revai_api_key.as_deref() {
         cmd.env("BATCHALIGN_REV_API_KEY", api_key);
     }
+    // Hand the child its state directory explicitly. The child resolves its
+    // registry as `<state_dir>/workers.json`; without this it would inherit
+    // whatever `BATCHALIGN_STATE_DIR` happens to be in the parent process,
+    // which is ambient global state a caller can only steer by mutating
+    // itself. Set on the child's Command, never on us.
+    if let Some(state_dir) = &config.runtime.state_dir {
+        cmd.env("BATCHALIGN_STATE_DIR", state_dir);
+    }
     for (key, value) in worker_provider_envs(config, &HkAsrCredentialSources::from_env()) {
         cmd.env(key, value);
     }
@@ -195,6 +203,14 @@ pub async fn spawn_tcp_daemon(config: &WorkerConfig, port: u16) -> Result<(u32, 
 
     if let Some(api_key) = config.runtime.revai_api_key.as_deref() {
         cmd.env("BATCHALIGN_REV_API_KEY", api_key);
+    }
+    // Hand the child its state directory explicitly. The child resolves its
+    // registry as `<state_dir>/workers.json`; without this it would inherit
+    // whatever `BATCHALIGN_STATE_DIR` happens to be in the parent process,
+    // which is ambient global state a caller can only steer by mutating
+    // itself. Set on the child's Command, never on us.
+    if let Some(state_dir) = &config.runtime.state_dir {
+        cmd.env("BATCHALIGN_STATE_DIR", state_dir);
     }
     if let Some(server_instance_id) = config.runtime.server_instance_id.as_deref() {
         cmd.env("BATCHALIGN_SERVER_INSTANCE_ID", server_instance_id);

@@ -28,6 +28,22 @@ pub struct WorkerRuntimeConfig {
     /// Resolved memory tier used for startup reservations and other
     /// tier-derived worker-launch decisions.
     pub memory_tier: MemoryTier,
+    /// State directory the spawned child should use, when the caller wants
+    /// one other than the ambient default.
+    ///
+    /// The worker registry lives at `<state_dir>/workers.json`, and a child
+    /// resolves it through `registry::default_registry_path()`, which reads
+    /// `BATCHALIGN_STATE_DIR`. That made the directory ambient PROCESS state:
+    /// the only way to point a spawned daemon somewhere else was to mutate
+    /// your own process's environment, which is exactly what three
+    /// `worker_integration` tests did, racing each other under cargo's
+    /// parallel threads and producing off-by-one daemon counts that read like
+    /// registry bugs (2026-07-29).
+    ///
+    /// Threading it here makes the directory an explicit input. The env var
+    /// survives only as the parent-to-child handoff, set on that child's
+    /// `Command`, never on the parent process.
+    pub state_dir: Option<std::path::PathBuf>,
     /// Host-chosen bootstrap policy for local workers.
     pub bootstrap_mode: WorkerBootstrapMode,
     /// Unique identity for the current server instance when it owns spawned
@@ -85,12 +101,23 @@ impl WorkerRuntimeConfig {
             bootstrap_mode: WorkerBootstrapMode::Profile,
             server_instance_id: None,
             server_process_id: None,
+            state_dir: None,
         }
     }
 
     /// Override the host bootstrap mode for worker spawns built from this runtime.
     pub fn with_bootstrap_mode(mut self, bootstrap_mode: WorkerBootstrapMode) -> Self {
         self.bootstrap_mode = bootstrap_mode;
+        self
+    }
+
+    /// Direct spawned children at an explicit state directory.
+    ///
+    /// See [`WorkerRuntimeConfig::state_dir`]: this is how a caller points a
+    /// worker's registry somewhere other than the ambient default without
+    /// mutating its own process environment.
+    pub fn with_state_dir(mut self, state_dir: std::path::PathBuf) -> Self {
+        self.state_dir = Some(state_dir);
         self
     }
 }

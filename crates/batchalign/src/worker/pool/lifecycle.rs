@@ -125,7 +125,20 @@ impl WorkerPool {
             test_echo: self.config.test_echo,
             ready_timeout_s: self.config.ready_timeout_s,
             verbose: self.config.verbose,
-            runtime: self.config.runtime.clone(),
+            runtime: {
+                // Children resolve their registry as `<state_dir>/workers.json`,
+                // so keep them on the same registry this pool was configured
+                // with instead of letting them inherit an ambient
+                // `BATCHALIGN_STATE_DIR`. An explicit runtime.state_dir wins.
+                let mut runtime = self.config.runtime.clone();
+                if runtime.state_dir.is_none() {
+                    runtime.state_dir = std::path::Path::new(&self.config.worker_registry_path)
+                        .parent()
+                        .filter(|parent| !parent.as_os_str().is_empty())
+                        .map(std::path::Path::to_path_buf);
+                }
+                runtime
+            },
             audio_task_timeout_s: self.config.audio_task_timeout_s,
             analysis_task_timeout_s: self.config.analysis_task_timeout_s,
             test_delay_ms: self.config.test_delay_ms,

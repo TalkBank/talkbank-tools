@@ -74,6 +74,10 @@ struct ConfigKey {
     bootstrap_mode: WorkerBootstrapMode,
     revai_api_key: Option<String>,
     test_delay_ms: u64,
+    /// Children resolve `<state_dir>/workers.json`, so two configs with
+    /// different state dirs are NOT interchangeable and must not share a
+    /// pooled worker.
+    state_dir: Option<std::path::PathBuf>,
 }
 
 impl ConfigKey {
@@ -92,6 +96,7 @@ impl ConfigKey {
             bootstrap_mode: config.runtime.bootstrap_mode,
             revai_api_key: config.runtime.revai_api_key.clone(),
             test_delay_ms: config.test_delay_ms,
+            state_dir: config.runtime.state_dir.clone(),
         }
     }
 }
