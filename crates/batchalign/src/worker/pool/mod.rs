@@ -859,6 +859,21 @@ impl WorkerPool {
     }
 
     /// The server instance ID assigned at pool creation.
+    /// Resolve the worker-registry file this pool reads and writes.
+    ///
+    /// An empty configured path means "the ambient default"
+    /// (`BATCHALIGN_STATE_DIR`, else `~/.batchalign3/workers.json`). Resolved in
+    /// one place because three callers need it (discovery, shutdown, and the
+    /// Drop safety net) and a pool that discovers from one file while retiring
+    /// daemons from another would leak exactly the daemons it started.
+    pub(super) fn registry_path(&self) -> std::path::PathBuf {
+        if self.config.worker_registry_path.is_empty() {
+            crate::worker::registry::default_registry_path()
+        } else {
+            std::path::PathBuf::from(&self.config.worker_registry_path)
+        }
+    }
+
     pub(super) fn current_server_instance_id(&self) -> &str {
         // Constructor invariant: `WorkerPool::new` populates
         // `config.runtime.server_instance_id` unconditionally on

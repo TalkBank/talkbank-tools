@@ -82,6 +82,24 @@ fn gpu_execute_request(request_id: &str) -> ExecuteRequestV2 {
     }
 }
 
+/// The state directory every pool in this binary uses.
+///
+/// Created once per test process. Without it, `worker_registry_path` is empty
+/// and `state_dir` is `None`, which resolves to the OPERATOR'S real
+/// `~/.batchalign3/workers.json`: the daemons these tests spawn register in the
+/// live machine's registry, where a production run would then discover them.
+/// (Found on 2026-07-29 with four test daemons listed in the real file.)
+///
+/// One directory shared by the whole binary is enough isolation: registry
+/// entries are per-pid and each pool retires only the daemons carrying its own
+/// server instance id.
+fn test_state_dir() -> &'static std::path::Path {
+    static STATE_DIR: std::sync::OnceLock<tempfile::TempDir> = std::sync::OnceLock::new();
+    STATE_DIR
+        .get_or_init(|| tempfile::tempdir().expect("test state dir"))
+        .path()
+}
+
 fn test_pool(python: String) -> WorkerPool {
     common::test_server_fixture::isolate_host_memory_ledger();
     WorkerPool::new(PoolConfig {
@@ -92,7 +110,11 @@ fn test_pool(python: String) -> WorkerPool {
         max_workers_per_key: PerProfile::uniform(8),
         verbose: 0,
         engine_overrides: String::new(),
-        runtime: Default::default(),
+        worker_registry_path: test_state_dir().join("workers.json").display().to_string(),
+        runtime: WorkerRuntimeConfig {
+            state_dir: Some(test_state_dir().to_path_buf()),
+            ..Default::default()
+        },
         ..Default::default()
     })
 }
@@ -112,6 +134,62 @@ async fn wait_for_process_exit(pid: u32) {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     panic!("worker pid {pid} was still alive after waiting for pool drop cleanup");
+}
+
+/// Dropping a pool must retire the TCP daemons it spawned, not just its stdio
+/// workers.
+///
+/// `warmup()` spawns a DETACHED Python process per target with `--transport
+/// tcp`, registered in `workers.json` as owned by this server instance. Stdio
+/// workers die with their `WorkerHandle`, so ordinary field drop reaps them
+/// (`gpu_stdio_shared_worker_drop_reaps_process` pins that). A TCP daemon has no
+/// such handle: it is retired only by `kill_owned_daemons`, which
+/// `WorkerPool::shutdown()` calls and `Drop` did not, even though `Drop`'s own
+/// doc comment says it exists to "catch test code and panic unwinds where the
+/// pool goes out of scope without a graceful shutdown() call".
+///
+/// The consequence was measured, not theorised: on 2026-07-29 this suite had
+/// left 11 `--test-echo` daemons running on the development machine, two of them
+/// for over ten hours, holding ports and burning cores. On a real host the same
+/// gap orphans multi-gigabyte model processes on any panic unwind.
+#[tokio::test]
+async fn dropping_pool_reaps_owned_tcp_daemons() {
+    let python = require_python!();
+    use batchalign::worker::pool::status::WorkerTransport;
+
+    let registry_path = test_state_dir().join("workers.json");
+
+    let pid = {
+        let pool = test_pool(python);
+        pool.warmup(&[batchalign::server::WarmupTarget {
+            command: ReleasedCommand::Transcribe,
+            lang: WorkerLanguage::from(LanguageCode3::eng()),
+        }])
+        .await;
+        pool.mark_warmup_complete();
+
+        let entry = pool
+            .worker_summary_entries()
+            .await
+            .into_iter()
+            .find(|entry| entry.transport == WorkerTransport::Tcp)
+            .expect("warmup must have spawned a TCP daemon");
+        assert!(
+            process_alive(entry.pid.0),
+            "the spawned TCP daemon should be alive before the pool is dropped"
+        );
+        assert!(
+            registry_path.exists(),
+            "the daemon must register in the TEST state dir, not the operator's: \
+             nothing was written to {}",
+            registry_path.display()
+        );
+
+        drop(pool);
+        entry.pid.0
+    };
+
+    wait_for_process_exit(pid).await;
 }
 
 // ---------------------------------------------------------------------------

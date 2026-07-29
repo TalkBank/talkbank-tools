@@ -23,11 +23,7 @@ impl WorkerPool {
     ///
     /// Returns the number of workers discovered and integrated.
     pub async fn discover_from_registry(&self) -> usize {
-        let registry_path = if self.config.worker_registry_path.is_empty() {
-            registry::default_registry_path()
-        } else {
-            std::path::PathBuf::from(&self.config.worker_registry_path)
-        };
+        let registry_path = self.registry_path();
 
         let discovery = registry::discover_workers(
             &registry_path,

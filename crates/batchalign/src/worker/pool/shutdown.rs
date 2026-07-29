@@ -27,11 +27,7 @@ impl WorkerPool {
         self.cancel.cancel();
 
         // Retire only the TCP daemon workers owned by this server instance.
-        let registry_path = if self.config.worker_registry_path.is_empty() {
-            super::super::registry::default_registry_path()
-        } else {
-            std::path::PathBuf::from(&self.config.worker_registry_path)
-        };
+        let registry_path = self.registry_path();
         super::super::registry::kill_owned_daemons(
             &registry_path,
             self.current_server_instance_id(),
@@ -138,6 +134,24 @@ impl Drop for WorkerPool {
                     }
                 }
             }
+        }
+
+        // Retire the TCP daemons this pool spawned.
+        //
+        // Stdio workers die with their `WorkerHandle`, so the drain above (and
+        // ordinary field drop, for the shared GPU maps) reaps them. A TCP daemon
+        // is a DETACHED process with no handle to drop: it is retired only by
+        // `kill_owned_daemons`, which `shutdown()` calls. Without the same call
+        // here, this safety net did not cover the one worker kind that cannot
+        // clean itself up, despite existing precisely for the case where
+        // `shutdown()` was never reached.
+        //
+        // Read the instance id directly rather than through
+        // `current_server_instance_id()`, which expects it to be present: this
+        // runs during unwind, where a panic would abort the process. No id means
+        // this pool never owned any daemon, so there is nothing to retire.
+        if let Some(instance_id) = self.config.runtime.server_instance_id.clone() {
+            crate::worker::registry::kill_owned_daemons(&self.registry_path(), &instance_id);
         }
     }
 }
