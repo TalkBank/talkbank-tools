@@ -215,7 +215,7 @@ pub async fn dispatch(request: DispatchRequest<'_>) -> Result<(), CliError> {
     if let Some(local_daemon_url) = local_daemon_url.as_deref() {
         if server_arg.is_some() && prefer_local_daemon {
             eprintln!(
-                "warning: {} uses local audio — ignoring --server and using local daemon.",
+                "warning: {} uses local audio, ignoring --server and using local daemon.",
                 command.as_wire_name()
             );
         }
