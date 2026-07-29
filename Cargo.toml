@@ -55,7 +55,7 @@ assert_cmd = "2.2"
 atty = "0.2"
 axum = { version = "0.8", features = ["ws"] }
 blake3 = "1.8"
-cc = "1.2"
+cc = "1.4"
 chrono = "0.4"
 
 # CLI and tools
@@ -80,7 +80,7 @@ indicatif = "0.18"
 
 # Testing
 insta = { version = "1.48", features = ["json", "yaml"] }
-jsonschema = { version = "0.47", default-features = false, features = ["resolve-file"] }
+jsonschema = { version = "0.49", default-features = false, features = ["resolve-file"] }
 miette = { version = "7.6.0", features = ["derive"] }
 notify = "8.2"
 num_cpus = "1.17"
@@ -121,7 +121,7 @@ smallvec = { version = "1.15", features = ["serde", "union", "const_generics"] }
 smol_str = { version = "0.3", features = ["serde"] }
 sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate"] }
 strsim = "0.11.1"
-syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
+syn = { version = "3.0", features = ["full", "parsing", "extra-traits"] }
 batchalign-transform = { path = "crates/batchalign-transform" }
 
 # CHAT core crates consumed from the published, public chatter repo via git deps
@@ -142,11 +142,11 @@ phf = { version = "0.14", features = ["macros"] }
 phf_codegen = "0.14"
 tempfile = "3.27"
 text-size = "1.1"
-thiserror = "^2.0.18"
+thiserror = "^2.0.19"
 tokio-stream = { version = "0.1", features = ["sync"] }
-tokio = { version = "1.52", features = ["full"] }
+tokio = { version = "1.53", features = ["full"] }
 tokio-util = "0.7"
-toml = "^1.1.2"
+toml = "^1.1.4"
 tracing-appender = "0.2"
 tracing-opentelemetry = "0.33"
 tower-http = { version = "0.7", features = ["cors", "fs", "limit", "trace", "compression-gzip", "compression-br", "catch-panic", "timeout"] }

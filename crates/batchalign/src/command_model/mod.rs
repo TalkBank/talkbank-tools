@@ -19,11 +19,6 @@ pub(crate) use crate::recipe_runner::command_spec::{
     BatchingPolicy, CatalogEntry, CommandCapabilityKind, ConstrainedHostPolicy, ModelSharingPolicy,
     ParallelismPolicy, ResourceLane, RunnerDispatchKind, SchedulingPolicy, WarmupPolicy,
 };
-// Production code reaches these two through a `CatalogEntry` field or a method
-// on it and never names the type, so re-exporting them unconditionally would be
-// an unused import. The catalog pin tests do name them.
-#[cfg(test)]
-pub(crate) use crate::recipe_runner::command_spec::{CommandFamily, CommandIoProfile};
 #[allow(unused_imports)]
 pub(crate) use crate::recipe_runner::materialize::{
     FileNamingPolicy, MaterializedArtifactRole, OutputPolicy, PlannedMaterializedFile,

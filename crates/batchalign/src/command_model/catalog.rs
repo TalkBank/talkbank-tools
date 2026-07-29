@@ -28,10 +28,13 @@ pub(crate) fn command_specs() -> &'static [CatalogEntry] {
 mod tests {
     use super::*;
     use crate::command_model::{
-        BatchingPolicy, CommandCapabilityKind, CommandFamily, CommandIoProfile,
-        ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
-        RunnerDispatchKind, SchedulingPolicy, WarmupPolicy,
+        BatchingPolicy, CommandCapabilityKind, ConstrainedHostPolicy, ModelSharingPolicy,
+        ParallelismPolicy, ResourceLane, RunnerDispatchKind, SchedulingPolicy, WarmupPolicy,
     };
+    // Straight from their real home: production reaches these two only through a
+    // `CatalogEntry` field or a method on it, so `command_model` has no reason to
+    // re-export them just for a test.
+    use crate::recipe_runner::command_spec::{CommandFamily, CommandIoProfile};
     use crate::recipe_runner::materialize::{FileNamingPolicy, StemRewrite};
     use crate::worker::InferTask;
 
@@ -96,6 +99,7 @@ mod tests {
     /// same-shaped enums is exactly the kind of positional seam that lets a
     /// transcription error pass review (charter rule: no tuple-packed domain
     /// seams).
+    #[derive(Debug, PartialEq, Eq)]
     struct CommandMetadataPin {
         command: ReleasedCommand,
         family: CommandFamily,
@@ -103,19 +107,22 @@ mod tests {
         io_profile: CommandIoProfile,
         runner_dispatch_kind: RunnerDispatchKind,
         primary_infer_task: InferTask,
+        /// Pinned like every other declared field. Nothing READS this one yet,
+        /// which is exactly why it needs pinning: without it the field looks
+        /// like authoritative declared data while no test would notice it going
+        /// wrong.
+        additional_infer_tasks: &'static [InferTask],
     }
 
     /// The pinned metadata for every released command.
     ///
     /// Written as a CHARACTERIZATION table to make the 2026-07-29 collapse of
     /// three catalogs into one provably value-preserving, and kept as a
-    /// standing gate. Three of these five fields used to be produced by `match`
-    /// arms with a catch-all `_ =>` default, which is what made pinning them
-    /// urgent: a catch-all silently absorbs a command that should have been
-    /// given an explicit answer (the failure mode that produced the deleted
-    /// `output_path_kind_for`, documented above). They are declared fields of
-    /// `CatalogEntry` now, so the compiler shares the work, and this table is
-    /// what stops a future edit from quietly changing an answer.
+    /// standing gate. Three of these fields used to come from `match` arms with
+    /// a catch-all default: the same hazard `declared_output_naming_is_stable`
+    /// above pins for output naming. They are declared fields of `CatalogEntry`
+    /// now, so the compiler shares the work, and this table is what stops a
+    /// future edit from quietly changing an answer.
     fn command_metadata_pins() -> Vec<CommandMetadataPin> {
         // Matched on the enum with NO catch-all arm, so adding a released
         // command fails to compile here until its metadata is stated.
@@ -129,6 +136,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeText,
                     runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
                     primary_infer_task: InferTask::Morphosyntax,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Benchmark => CommandMetadataPin {
                     command,
@@ -137,6 +145,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::BenchmarkAudioInfer,
                     primary_infer_task: InferTask::Asr,
+                    additional_infer_tasks: &[InferTask::Morphosyntax],
                 },
                 ReleasedCommand::Transcribe => CommandMetadataPin {
                     command,
@@ -145,6 +154,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
                     primary_infer_task: InferTask::Asr,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::TranscribeS => CommandMetadataPin {
                     command,
@@ -153,6 +163,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
                     primary_infer_task: InferTask::Asr,
+                    additional_infer_tasks: &[InferTask::Speaker],
                 },
                 ReleasedCommand::Align => CommandMetadataPin {
                     command,
@@ -161,6 +172,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::ForcedAlignment,
                     primary_infer_task: InferTask::Fa,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Morphotag => CommandMetadataPin {
                     command,
@@ -169,6 +181,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeText,
                     runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
                     primary_infer_task: InferTask::Morphosyntax,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Utseg => CommandMetadataPin {
                     command,
@@ -177,6 +190,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeText,
                     runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
                     primary_infer_task: InferTask::Utseg,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Translate => CommandMetadataPin {
                     command,
@@ -185,6 +199,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeText,
                     runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
                     primary_infer_task: InferTask::Translate,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Coref => CommandMetadataPin {
                     command,
@@ -193,6 +208,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeText,
                     runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
                     primary_infer_task: InferTask::Coref,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Opensmile => CommandMetadataPin {
                     command,
@@ -201,6 +217,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
                     primary_infer_task: InferTask::Opensmile,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Avqi => CommandMetadataPin {
                     command,
@@ -209,6 +226,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
                     primary_infer_task: InferTask::Avqi,
+                    additional_infer_tasks: &[],
                 },
                 ReleasedCommand::Diarize => CommandMetadataPin {
                     command,
@@ -217,6 +235,7 @@ mod tests {
                     io_profile: CommandIoProfile::PathsModeAudio,
                     runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
                     primary_infer_task: InferTask::Speaker,
+                    additional_infer_tasks: &[],
                 },
             })
             .collect()
@@ -232,27 +251,16 @@ mod tests {
     fn per_command_metadata_is_stable() {
         for pin in command_metadata_pins() {
             let spec = command_spec(pin.command);
-            assert_eq!(spec.family, pin.family, "family for {}", pin.command);
-            assert_eq!(
-                spec.capability_kind, pin.capability_kind,
-                "capability kind for {}",
-                pin.command
-            );
-            assert_eq!(
-                spec.io_profile, pin.io_profile,
-                "io profile for {}",
-                pin.command
-            );
-            assert_eq!(
-                spec.runner_dispatch_kind, pin.runner_dispatch_kind,
-                "runner dispatch kind for {}",
-                pin.command
-            );
-            assert_eq!(
-                spec.capabilities.primary_infer_task, pin.primary_infer_task,
-                "primary infer task for {}",
-                pin.command
-            );
+            let actual = CommandMetadataPin {
+                command: spec.command,
+                family: spec.family,
+                capability_kind: spec.capability_kind,
+                io_profile: spec.io_profile,
+                runner_dispatch_kind: spec.runner_dispatch_kind,
+                primary_infer_task: spec.capabilities.primary_infer_task,
+                additional_infer_tasks: spec.capabilities.additional_infer_tasks,
+            };
+            assert_eq!(actual, pin, "declared metadata for {}", pin.command);
         }
     }
 
@@ -281,14 +289,11 @@ mod tests {
     /// without silently re-mapping a family onto different runtime policy.
     #[test]
     fn family_policy_derivation_is_stable() {
-        // No catch-all: a new family must state its policy here.
-        for family in [
-            CommandFamily::BatchedText,
-            CommandFamily::ReferenceProjection,
-            CommandFamily::AudioSequential,
-            CommandFamily::MediaAnalysis,
-            CommandFamily::Composite,
-        ] {
+        // Iterating `CommandFamily::ALL`, not a literal list: a hand-written
+        // list is not forced to grow with the enum, so a sixth family would
+        // compile and silently never be exercised here, while the `match` below
+        // WOULD force an arm. The two must be driven by the same source.
+        for family in CommandFamily::ALL {
             let expected = match family {
                 CommandFamily::BatchedText => FamilyPolicyPin {
                     scheduling: SchedulingPolicy::CrossFileBatch,

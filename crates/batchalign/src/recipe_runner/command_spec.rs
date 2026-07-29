@@ -125,6 +125,24 @@ pub(crate) enum ResourceLane {
 /// distinction, and once the compatibility descriptor that carried it was
 /// deleted nothing read it at all. Removed the same day.
 impl CommandFamily {
+    /// Every command family.
+    ///
+    /// Exists so tests can iterate the variants without hand-listing them. A
+    /// literal list is not forced to grow when a variant is added: the test
+    /// keeps compiling and simply never exercises the new family, which is the
+    /// silent-default hazard this whole table exists to remove, one level up.
+    #[allow(
+        dead_code,
+        reason = "a property of the enum, consumed by the catalog pin tests"
+    )]
+    pub const ALL: [Self; 5] = [
+        Self::BatchedText,
+        Self::ReferenceProjection,
+        Self::AudioSequential,
+        Self::MediaAnalysis,
+        Self::Composite,
+    ];
+
     /// High-level scheduling shape implied by this command family.
     pub const fn scheduling_policy(self) -> SchedulingPolicy {
         match self {

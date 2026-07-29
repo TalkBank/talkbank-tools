@@ -295,33 +295,21 @@ pub(crate) fn recipe_command_catalog() -> &'static [CatalogEntry] {
     COMMAND_SPECS
 }
 
-/// Look up one released command in the recipe catalog.
-#[allow(dead_code, clippy::expect_used)]
-pub(crate) fn recipe_command_spec(command: ReleasedCommand) -> &'static CatalogEntry {
-    // Catalog invariant: `COMMAND_SPECS` covers every
-    // `ReleasedCommand` variant; the catalog test below
-    // (`tests::every_released_command_has_a_spec`) enforces this at
-    // build time.
-    COMMAND_SPECS
-        .iter()
-        .find(|spec| spec.command == command)
-        .expect("recipe runner command missing catalog entry")
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
     use super::*;
     use crate::api::DisplayPath;
+    use crate::command_model::command_spec;
     use crate::recipe_runner::materialize::plan_materialized_files;
     use crate::recipe_runner::recipe::{RecipeStageId, RecipeStagePresence};
 
     /// Every released command must have a catalog entry.
     ///
-    /// `recipe_command_spec` and `command_model::command_spec` both cite this
-    /// test by name as the enforcement of that invariant, and until 2026-07-29
-    /// it did not exist: the comments claimed a guarantee nothing checked. The
+    /// `command_model::command_spec` cites this test by name as the enforcement
+    /// of that invariant, and until 2026-07-29 it did not exist: the comment
+    /// claimed a guarantee nothing checked. The
     /// equivalent coverage test did exist, over the second (now deleted)
     /// command-order list in `commands/catalog.rs`, where it recorded why it
     /// mattered: a released command missing from the list silently vanishes from
@@ -354,7 +342,7 @@ mod tests {
 
     #[test]
     fn compare_spec_keeps_reference_projection_and_sidecar_output() {
-        let spec = recipe_command_spec(ReleasedCommand::Compare);
+        let spec = command_spec(ReleasedCommand::Compare);
         assert_eq!(spec.family, CommandFamily::ReferenceProjection);
         assert_eq!(spec.execution_mode, ExecutionMode::ReferenceProjection);
         let outputs = plan_materialized_files(&"sample.cha".into(), spec.output_policy);
@@ -368,7 +356,7 @@ mod tests {
 
     #[test]
     fn transcribe_recipe_keeps_asr_before_chat_build() {
-        let spec = recipe_command_spec(ReleasedCommand::Transcribe);
+        let spec = command_spec(ReleasedCommand::Transcribe);
         assert_eq!(
             spec.recipe.ordered_stage_ids(),
             vec![
@@ -388,7 +376,7 @@ mod tests {
 
     #[test]
     fn transcribe_s_requires_speaker_stage() {
-        let spec = recipe_command_spec(ReleasedCommand::TranscribeS);
+        let spec = command_spec(ReleasedCommand::TranscribeS);
         let diarization = spec
             .recipe
             .stages
@@ -400,8 +388,8 @@ mod tests {
 
     #[test]
     fn media_analysis_specs_match_current_output_filenames() {
-        let opensmile = recipe_command_spec(ReleasedCommand::Opensmile);
-        let avqi = recipe_command_spec(ReleasedCommand::Avqi);
+        let opensmile = command_spec(ReleasedCommand::Opensmile);
+        let avqi = command_spec(ReleasedCommand::Avqi);
         let opensmile_outputs =
             plan_materialized_files(&"sample.wav".into(), opensmile.output_policy);
         let avqi_outputs = plan_materialized_files(&"sample.cs.wav".into(), avqi.output_policy);
