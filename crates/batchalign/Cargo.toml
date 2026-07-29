@@ -166,6 +166,11 @@ assert_cmd = { workspace = true }
 predicates = { workspace = true }
 toml = { workspace = true }
 rstest = { workspace = true }
+# Integration tests installed NO tracing subscriber before 2026-07-28, so every
+# `tracing::warn!` the in-process server emitted was invisible. A swallowed
+# error was therefore doubly hidden: not propagated, and not logged anywhere a
+# test could see. Tests that care install a WARN-level test-writer subscriber.
+tracing-subscriber = { workspace = true }
 proptest = { workspace = true }
 # Enables `ChatCleanedText::test_unchecked` for test fixture
 # construction. Production builds cannot reach the escape hatch.

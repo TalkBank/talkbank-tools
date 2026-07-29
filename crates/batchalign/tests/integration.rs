@@ -250,7 +250,7 @@ async fn submit_and_get_results() {
     assert!(matches!(results.status, JobStatus::Completed));
     assert!(!results.files.is_empty());
 
-    // Test-echo worker echoes input — the result should contain content
+    // Test-echo worker echoes input, so the result should contain content
     let first = &results.files[0];
     assert!(first.error.is_none());
     assert!(!first.content.is_empty());
@@ -324,7 +324,7 @@ async fn get_single_result_with_slashes_in_filename() {
 
     poll_job_done(&client, base_url, &job_id).await;
 
-    // Fetch using the slashed filename — this was returning 404 before the fix.
+    // Fetch using the slashed filename: this was returning 404 before the fix.
     let resp = client
         .get(format!("{base_url}/jobs/{job_id}/results/{filename}"))
         .send()
@@ -418,7 +418,7 @@ async fn cancel_job() {
     );
 }
 
-/// RED test (Phase 1, RED 1.1) — provenance is captured on cancel.
+/// RED test (Phase 1, RED 1.1): provenance is captured on cancel.
 ///
 /// Submits a job, POSTs `/jobs/{id}/cancel` with a JSON body declaring
 /// the caller's identity, then verifies that:
@@ -543,7 +543,7 @@ async fn cancel_records_provenance() {
     assert_eq!(row.get("accepted").and_then(|v| v.as_bool()), Some(true));
 }
 
-/// RED test (Phase 1, RED 1.2) — double-cancel produces two audit rows.
+/// RED test (Phase 1, RED 1.2): double-cancel produces two audit rows.
 ///
 /// Mirrors a real-world double-cancel pattern (a user pressed cancel
 /// twice, separated by ~an hour). Both presses must be visible in
@@ -553,6 +553,15 @@ async fn cancel_records_provenance() {
 /// first place.
 #[tokio::test]
 async fn cancel_twice_records_two_audit_rows() {
+    // The in-process server logs a failed audit insert at WARN and swallows it
+    // (`record_audit_row`, documented as best-effort). With no subscriber
+    // installed, that warning went nowhere, so an intermittent failure here had
+    // no evidence trail at all. Install one so the next failure explains itself.
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_max_level(tracing::Level::WARN)
+        .try_init();
+
     let Some(session) = acquire_test_server_session().await else {
         return;
     };
@@ -574,7 +583,7 @@ async fn cancel_twice_records_two_audit_rows() {
     let info: JobInfo = resp.json().await.expect("parse");
     let job_id = info.job_id.clone();
 
-    // First cancel — operator-pressed-cancel pattern.
+    // First cancel: operator-pressed-cancel pattern.
     let body1 = serde_json::json!({
         "source": "tui",
         "host": "test-laptop",
@@ -589,7 +598,7 @@ async fn cancel_twice_records_two_audit_rows() {
         .expect("POST cancel #1");
     assert_eq!(resp.status(), 200, "first cancel should succeed");
 
-    // Second cancel — same job, different PID (simulating a re-press).
+    // Second cancel: same job, different PID (simulating a re-press).
     let body2 = serde_json::json!({
         "source": "tui",
         "host": "test-laptop",
@@ -623,19 +632,29 @@ async fn cancel_twice_records_two_audit_rows() {
     );
 
     // Oldest first ordering preserves the temporal sequence.
-    assert_eq!(audit[0].get("pid").and_then(|v| v.as_i64()), Some(1111));
-    assert_eq!(audit[1].get("pid").and_then(|v| v.as_i64()), Some(2222));
+    assert_eq!(
+        audit[0].get("pid").and_then(|v| v.as_i64()),
+        Some(1111),
+        "oldest-first ordering broken; audit: {audit:?}"
+    );
+    assert_eq!(
+        audit[1].get("pid").and_then(|v| v.as_i64()),
+        Some(2222),
+        "oldest-first ordering broken; audit: {audit:?}"
+    );
 
     // First cancel mutated state, second was a no-op.
     assert_eq!(
         audit[0].get("accepted").and_then(|v| v.as_bool()),
         Some(true),
-        "first cancel: state-changing"
+        "first cancel should be state-changing (job must still be active when it \
+         arrives); audit: {audit:?}"
     );
     assert_eq!(
         audit[1].get("accepted").and_then(|v| v.as_bool()),
         Some(false),
-        "second cancel: job was already terminal"
+        "second cancel should see an already-terminal job (cancel #1 must have \
+         landed before #2 read the status); audit: {audit:?}"
     );
 
     // The denormalized columns reflect the MOST RECENT cancel (second).
@@ -767,7 +786,7 @@ async fn unknown_command_returns_422() {
 
     let client = reqwest::Client::new();
 
-    // Send raw JSON with an invalid command string — ReleasedCommand is a
+    // Send raw JSON with an invalid command string; ReleasedCommand is a
     // closed enum, so axum's JSON extractor rejects unknown variants at
     // deserialization time (HTTP 422).
     let raw = serde_json::json!({
@@ -840,7 +859,7 @@ async fn delete_running_job_returns_409() {
         serde_json::from_str(&body).unwrap_or_else(|e| panic!("parse POST body: {e}\n{body}"));
     let job_id = info.job_id;
 
-    // Try to delete immediately — might be running
+    // Try to delete immediately; might be running
     let resp = client
         .delete(format!("{base_url}/jobs/{job_id}"))
         .send()
@@ -898,7 +917,7 @@ async fn results_before_completion_returns_409() {
         serde_json::from_str(&body).unwrap_or_else(|e| panic!("parse POST body: {e}\n{body}"));
     let job_id = info.job_id;
 
-    // Immediately request results — should be 409 or 200 (race)
+    // Immediately request results; should be 409 or 200 (race)
     let resp = client
         .get(format!("{base_url}/jobs/{job_id}/results"))
         .send()
@@ -906,7 +925,7 @@ async fn results_before_completion_returns_409() {
         .expect("GET results");
 
     let status = resp.status().as_u16();
-    // Accept either 409 (still running) or 200 (already done — test-echo is fast)
+    // Accept either 409 (still running) or 200 (already done, test-echo is fast)
     assert!(
         status == 409 || status == 200,
         "Expected 409 or 200, got {status}"
@@ -940,7 +959,7 @@ async fn restart_failed_job() {
     poll_job_done(&client, base_url, &job_id).await;
 
     // Cancel it first (so it's in a restartable state)
-    // Actually, completed jobs can't be restarted — only cancelled/failed.
+    // Actually, completed jobs can't be restarted; only cancelled/failed.
     // So let's submit and cancel quickly.
     let submission2 = test_submission(vec![FilePayload {
         filename: "restart2.cha".into(),
@@ -989,7 +1008,7 @@ async fn restart_failed_job() {
         let final_info = poll_job_done(&client, base_url, &job_id2).await;
         assert_eq!(final_info.status, JobStatus::Completed);
     }
-    // If it completed before we could cancel, that's fine — test-echo is fast
+    // If it completed before we could cancel, that's fine, test-echo is fast
 }
 
 #[tokio::test]
@@ -1017,7 +1036,7 @@ async fn restart_completed_job_returns_409() {
 
     poll_job_done(&client, base_url, &job_id).await;
 
-    // Try to restart a completed job — should be 409
+    // Try to restart a completed job; should be 409
     let resp = client
         .post(format!("{base_url}/jobs/{job_id}/restart"))
         .send()
@@ -1263,7 +1282,7 @@ async fn server_starts_with_real_worker_capability_gate() {
 
     match result {
         Ok((router, state)) => {
-            // Server started — verify capabilities were filtered, not rejected.
+            // Server started; verify capabilities were filtered, not rejected.
             assert!(
                 !state.capabilities().is_empty(),
                 "should have at least one capability"
