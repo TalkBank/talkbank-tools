@@ -1,19 +1,26 @@
 # Workflow Contributor Guide
 
 **Status:** Current
-**Last updated:** 2026-03-26 14:05 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 This is the shortest path for adding a new command, workflow family, or engine
 without fighting the refactor stream.
 
-If you read code before prose, start at `crates/batchalign/src/commands/`.
-That tree is now the contributor-facing map. From there, jump to:
+If you read code before prose, start at
+`crates/batchalign/src/recipe_runner/catalog.rs`. That table is the
+contributor-facing map: every released command is one entry in it. From there,
+jump to:
 
-- `crates/batchalign/src/command_family.rs` for the released-command family metadata
+- `recipe_runner/recipes.rs` for the ordered stages each entry points at
+- `recipe_runner/command_spec.rs` for what a `CommandFamily` implies
+- `crates/batchalign/src/command_family.rs` for the workflow-family metadata
 - `crates/batchalign/src/text_batch.rs` for reusable text-family helpers
-- `crates/batchalign/src/commands/catalog.rs` for the released command catalog
 - the family-specific runner/dispatch modules only when the command shape is
   genuinely new
+
+(`crates/batchalign/src/commands/` no longer exists. It held a per-command
+authoring layer that produced values nothing read, deleted 2026-07-28, and a
+catalog of one-line delegations, deleted 2026-07-29.)
 
 For batch-oriented text commands, the important typed seams are:
 
@@ -24,22 +31,35 @@ For batch-oriented text commands, the important typed seams are:
 
 ## Choose A Family
 
-The command-owned catalog already assigns released commands to one of these
-families, so the first question is usually "which family is my command reusing?"
+The catalog already assigns released commands to one of these families, so the
+first question is usually "which family is my command reusing?"
 
-- Use `WorkflowFamily::PerFileTransform` for a single-file transform.
-- Use `WorkflowFamily::CrossFileBatchTransform` when work is pooled across files.
-- Use `WorkflowFamily::ReferenceProjection` when two artifacts are jointly primary.
-- Use `WorkflowFamily::Composite` when you are composing existing command flows.
+The families are the variants of `CommandFamily`
+(`recipe_runner/command_spec.rs`), and the choice is load-bearing: the family
+implies seven runtime policies through `const fn`s on the enum, so read those
+before picking.
+
+- `AudioSequential` for one media file at a time (GPU lane, bounded file-level parallelism).
+- `BatchedText` when work is pooled across files into shared infer batches (CPU lane, one dispatch per job).
+- `ReferenceProjection` when two artifacts are jointly primary (paired inputs).
+- `MediaAnalysis` when the output is not CHAT (IO lane, stays lazy: no background warmup).
+- `Composite` when you are composing existing command flows (all policy delegated to children).
 - Use `text_batch.rs` and typed materializers when the hard part is output shape rather than dispatch shape.
+
+An earlier `WorkflowFamily` enum offered a coarser 4-way version of this choice
+and was deleted on 2026-07-29; it merged the audio and media-analysis families
+into one, and nothing read it.
 
 ## Current Examples
 
-- `transcribe`: `crates/batchalign/src/commands/transcribe.rs`
-- `align`: `crates/batchalign/src/commands/align.rs`
-- `morphotag`: `crates/batchalign/src/commands/morphotag.rs`
-- `compare`: `crates/batchalign/src/commands/compare.rs`
-- `benchmark`: `crates/batchalign/src/commands/benchmark.rs`
+Every one is a `CatalogEntry` in `crates/batchalign/src/recipe_runner/catalog.rs`
+plus a `Recipe` in `recipe_runner/recipes.rs`:
+
+- `transcribe`: `AudioSequential`, `TRANSCRIBE_RECIPE`
+- `align`: `AudioSequential`, `ALIGN_RECIPE`
+- `morphotag`: `BatchedText`, `MORPHOTAG_RECIPE`
+- `compare`: `ReferenceProjection`, `COMPARE_RECIPE`
+- `benchmark`: `Composite`, `BENCHMARK_RECIPE`
 
 The first three are the simplest command-owned wrappers over shared runner
 families. `compare` is the reference-projection example, and `benchmark` is the
@@ -66,11 +86,14 @@ diarized variant in the catalog.
 
 ## Add A New Command
 
-1. Add or extend the command spec in `crates/batchalign/src/commands/<name>.rs`.
-2. Register/export it via `crates/batchalign/src/commands/catalog.rs` and `commands/mod.rs`.
+1. Add the stage recipe to `crates/batchalign/src/recipe_runner/recipes.rs`.
+2. Declare one `CatalogEntry` in `crates/batchalign/src/recipe_runner/catalog.rs`. That is the whole registration; there is no second place.
 3. Reuse an existing runner family when possible; only widen `runner/dispatch/` when the command shape is genuinely new.
-4. Keep the command-specific orchestration in the command module and Rust helpers, not in `pyo3`.
+4. Keep the command-specific orchestration in Rust helper modules, not in `pyo3`.
 5. Keep runner/dispatch code focused on job lifecycle, resource policy, and shared execution mechanics.
+
+The step-by-step version, including which tests fail until each step is done, is
+[Adding a New Command](./adding-commands.md).
 
 If the command batches text across files, prefer the
 `TextBatchFileInput`/`TextBatchFileResults` seam over raw tuples at the

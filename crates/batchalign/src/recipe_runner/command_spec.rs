@@ -28,6 +28,184 @@ pub(crate) enum CommandFamily {
     MediaAnalysis,
 }
 
+/// High-level scheduling shape the command expects from the shared kernel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SchedulingPolicy {
+    /// One audio/media file at a time, with bounded per-job parallelism.
+    PerFileAudio,
+    /// Many text files pooled into one or more shared infer batches.
+    CrossFileBatch,
+    /// One primary file plus one paired reference artifact.
+    ReferenceProjection,
+    /// The command is built by composing other command-owned flows.
+    Composite,
+    /// Per-file media analysis over non-CHAT inputs.
+    PerFileMediaAnalysis,
+}
+
+/// How the command expects model state to be shared.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelSharingPolicy {
+    /// Reuse warm workers and shared model state whenever possible.
+    SharedWarmWorkers,
+    /// Let composed child commands own model sharing.
+    DelegatedToSubcommands,
+}
+
+/// Whether the command benefits from cross-file or internal batching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BatchingPolicy {
+    /// No profitable batching beyond ordinary per-file execution.
+    None,
+    /// Pool many files together into shared worker requests.
+    CrossFileBatch,
+    /// Keep the top-level unit per file, but allow internal stage batching.
+    InternalStageBatching,
+    /// One main file plus one paired reference artifact.
+    PairedInputs,
+}
+
+/// How much per-command parallelism the shared kernel should expose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ParallelismPolicy {
+    /// Bound file-level concurrency and let the kernel auto-tune worker counts.
+    BoundedFileWorkers,
+    /// Keep one command-level dispatch at a time per job.
+    SingleDispatchPerJob,
+    /// Let composed child commands own their own parallelism.
+    DelegatedToSubcommands,
+}
+
+/// How one command should behave on constrained-memory hosts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConstrainedHostPolicy {
+    /// Allow the host to clamp execution to one worker and rely on lazy startup
+    /// rather than speculative resident state.
+    SequentialFallback,
+    /// Let composed child commands own constrained-host behavior.
+    DelegatedToSubcommands,
+}
+
+/// Whether the command should participate in optional background warmup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WarmupPolicy {
+    /// The command should stay lazy/on-demand by default.
+    LazyOnDemand,
+    /// The host may warm this command in the background when capacity allows.
+    BackgroundEligible,
+    /// Let composed child commands own warmup behavior.
+    DelegatedToSubcommands,
+}
+
+/// Dominant resource lane for the command's hot path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ResourceLane {
+    /// GPU-backed workloads where device memory is the main bottleneck.
+    GpuHeavy,
+    /// CPU-bound workloads that still reuse warm model workers.
+    CpuBound,
+    /// Mostly IO / media feature extraction.
+    IoBound,
+    /// Mixed pipelines touching both CPU and GPU stages.
+    Mixed,
+}
+
+/// The runtime policy implied by a command's family.
+///
+/// These derivations lived on a second enum, `CommandExecutionShape`,
+/// whose variants were identical to `CommandFamily`'s and which was reached
+/// through an `execution_shape_for` that spelled out the identity mapping in
+/// five arms. Both halves of the interrupted migration had invented the same
+/// concept; the family is the one that is DECLARED per command, so it is the
+/// one that survives. Collapsed 2026-07-29.
+///
+/// A THIRD naming existed too: `WorkflowFamily` in `command_family.rs`, a
+/// 4-variant coarsening reached via `workflow_family()`. It merged
+/// `AudioSequential` and `MediaAnalysis` into one `PerFileTransform`, losing the
+/// distinction, and once the compatibility descriptor that carried it was
+/// deleted nothing read it at all. Removed the same day.
+impl CommandFamily {
+    /// High-level scheduling shape implied by this command family.
+    pub const fn scheduling_policy(self) -> SchedulingPolicy {
+        match self {
+            Self::BatchedText => SchedulingPolicy::CrossFileBatch,
+            Self::ReferenceProjection => SchedulingPolicy::ReferenceProjection,
+            Self::AudioSequential => SchedulingPolicy::PerFileAudio,
+            Self::MediaAnalysis => SchedulingPolicy::PerFileMediaAnalysis,
+            Self::Composite => SchedulingPolicy::Composite,
+        }
+    }
+
+    /// Model-sharing policy implied by this command family.
+    pub const fn model_sharing_policy(self) -> ModelSharingPolicy {
+        match self {
+            Self::Composite => ModelSharingPolicy::DelegatedToSubcommands,
+            Self::BatchedText
+            | Self::ReferenceProjection
+            | Self::AudioSequential
+            | Self::MediaAnalysis => ModelSharingPolicy::SharedWarmWorkers,
+        }
+    }
+
+    /// Batching policy implied by this command family.
+    pub const fn batching_policy(self) -> BatchingPolicy {
+        match self {
+            Self::BatchedText => BatchingPolicy::CrossFileBatch,
+            Self::ReferenceProjection => BatchingPolicy::PairedInputs,
+            Self::AudioSequential => BatchingPolicy::InternalStageBatching,
+            Self::MediaAnalysis | Self::Composite => BatchingPolicy::None,
+        }
+    }
+
+    /// Parallelism policy implied by this command family.
+    pub const fn parallelism_policy(self) -> ParallelismPolicy {
+        match self {
+            Self::AudioSequential | Self::MediaAnalysis => ParallelismPolicy::BoundedFileWorkers,
+            Self::BatchedText | Self::ReferenceProjection => {
+                ParallelismPolicy::SingleDispatchPerJob
+            }
+            Self::Composite => ParallelismPolicy::DelegatedToSubcommands,
+        }
+    }
+
+    /// Dominant resource lane implied by this command family.
+    pub const fn resource_lane(self) -> ResourceLane {
+        match self {
+            Self::BatchedText => ResourceLane::CpuBound,
+            Self::ReferenceProjection | Self::Composite => ResourceLane::Mixed,
+            Self::AudioSequential => ResourceLane::GpuHeavy,
+            Self::MediaAnalysis => ResourceLane::IoBound,
+        }
+    }
+
+    /// Constrained-host behavior implied by this command family.
+    pub const fn constrained_host_policy(self) -> ConstrainedHostPolicy {
+        match self {
+            Self::Composite => ConstrainedHostPolicy::DelegatedToSubcommands,
+            Self::BatchedText
+            | Self::ReferenceProjection
+            | Self::AudioSequential
+            | Self::MediaAnalysis => ConstrainedHostPolicy::SequentialFallback,
+        }
+    }
+
+    /// Warmup behavior implied by this command family.
+    pub const fn warmup_policy(self) -> WarmupPolicy {
+        match self {
+            Self::MediaAnalysis => WarmupPolicy::LazyOnDemand,
+            Self::Composite => WarmupPolicy::DelegatedToSubcommands,
+            Self::BatchedText | Self::ReferenceProjection | Self::AudioSequential => {
+                WarmupPolicy::BackgroundEligible
+            }
+        }
+    }
+
+    /// Whether host-memory admission should remain enabled for this shape.
+    pub const fn uses_host_memory_gate(self) -> bool {
+        true
+    }
+}
+
 /// Which planner shape owns source discovery for a command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PlannerKind {
@@ -55,8 +233,23 @@ pub(crate) enum CapabilitySurface {
 /// Worker-capability requirements for one released command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CapabilityPlan {
-    /// Worker infer tasks required somewhere in the recipe.
-    pub infer_tasks: &'static [InferTask],
+    /// The infer task the command is ADVERTISED from: the one whose presence in
+    /// a worker's reported task set makes this command available at all.
+    ///
+    /// Named and separated from the rest so that "a command has at least one
+    /// infer task" is a fact about the type rather than a runtime `expect` on
+    /// `infer_tasks.first()`, which is what it was until 2026-07-29.
+    pub primary_infer_task: InferTask,
+    /// Further infer tasks the recipe reaches somewhere after the first.
+    ///
+    /// Declared but not yet read: capability advertisement keys off the primary
+    /// task alone, exactly as it did when this was one `infer_tasks` slice and
+    /// only `.first()` was consumed. Kept because it states a real fact about
+    /// the recipe (transcribe_s also needs Speaker, benchmark also needs
+    /// Morphosyntax) that a reader would otherwise have to reconstruct from the
+    /// stage list. Widening advertisement to include these would change what
+    /// `/health` reports, so it is a deliberate decision, not a cleanup.
+    pub additional_infer_tasks: &'static [InferTask],
     /// Whether the released command is recipe-owned or composed.
     pub surface: CapabilitySurface,
 }

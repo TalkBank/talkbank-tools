@@ -2,7 +2,7 @@
 # choose-test-concurrency.sh: compute a safe parallelism for a test
 # profile based on available RAM.
 #
-# Part of Phase A4 of the test-cost revamp (Franklin, 2026-04-23).
+# Part of Phase A4 of the test-cost revamp (2026-04-23).
 # Budget arithmetic, not machine tiers: we leave 40% of RAM for OS +
 # editor + browser, then divide the remainder by the profile's peak
 # resident-set estimate to get a safe jobs count.

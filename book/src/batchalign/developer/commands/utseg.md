@@ -1,7 +1,7 @@
 # utseg: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Implementation guide for the `utseg` command. For user-facing documentation,
 see [User Guide: utseg](../../user-guide/commands/utseg.md).
@@ -13,7 +13,8 @@ see [User Guide: utseg](../../user-guide/commands/utseg.md).
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | CLI args | `crates/batchalign/src/cli/args/commands.rs`: `UtsegArgs` | lang, num-speakers |
-| Command definition | `crates/batchalign/src/commands/utseg.rs` | `CommandDefinition` impl |
+| Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `utseg` |
+| Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `UTSEG_RECIPE` |
 | Utseg orchestration | `crates/batchalign/src/utseg.rs` | Cross-file batching, cache, boundary application |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Shared with morphotag and translate |
 | Worker IPC | `batchalign/inference/utseg.py`: `batch_infer_utseg()` | Loads Stanza constituency, returns raw parse trees |

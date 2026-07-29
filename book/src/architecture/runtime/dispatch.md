@@ -1,7 +1,7 @@
 # Dispatch and Execution
 
 **Status:** Current
-**Last updated:** 2026-05-19 17:38 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 How a job moves from the CLI to a running command: the four CLI
 dispatch targets, the workflow families that organize commands, the
@@ -92,8 +92,8 @@ typed materialization plus validation.
 
 ```mermaid
 flowchart TD
-    registry["commands/catalog.rs\nreleased command specs"]
-    command["commands/*.rs\ncommand-owned wrappers"]
+    registry["recipe_runner/catalog.rs\nthe one CatalogEntry table"]
+    command["recipe_runner/recipes.rs\nordered stage recipes"]
     perfile["PerFileWorkflow\ntranscribe / transcribe_s / align / morphotag / opensmile / avqi"]
     batched["CrossFileBatchWorkflow\nutseg / translate / coref"]
     projection["ReferenceProjectionWorkflow\ncompare"]
@@ -253,25 +253,38 @@ flowchart TD
 
 ### `command_model/`: authoritative command registry
 
-`crates/batchalign/src/command_model/`. Single source of truth for
-released command metadata. Replaces per-command macro files
-(`commands/opensmile.rs`, etc.) that declared duplicate constants.
+`crates/batchalign/src/command_model/` is the lookup surface over the one
+catalog. The data lives in `recipe_runner/catalog.rs`; this module is how the
+rest of the crate reaches it.
 
 | API | Purpose |
 |---|---|
-| `command_spec(ReleasedCommand) -> &CommandSpec` | Authoritative spec for any released command |
-| `command_specs() -> Vec<&CommandSpec>` | All specs, in release order |
-| `legacy_command_definition(command)` | Derive a `CommandDefinition` for backward compatibility |
-| `legacy_command_descriptor(command)` | Derive a `CommandWorkflowDescriptor` for backward compatibility |
+| `command_spec(ReleasedCommand) -> &'static CatalogEntry` | The entry for any released command. Total: never `None` |
+| `command_specs() -> &'static [CatalogEntry]` | Every entry, in capability-advertisement order |
+| `released_command_uses_local_audio(command)` | Does the server need shared-filesystem audio? |
+| `released_command_supports_paths_mode(command)` | May the CLI send paths instead of bodies? |
+| `command_runner_dispatch_kind(command)` | Which server-side execution path owns it |
 
 ```rust,ignore
-pub struct CommandSpec {
+pub(crate) struct CatalogEntry {
     pub command: ReleasedCommand,
-    pub family: CommandFamily,        // TextInfer, Audio, MediaAnalysis, Composite
-    pub capabilities: CapabilitySpec, // infer_tasks, requires_audio, ...
-    // ... execution shape, I/O profile derived from family
+    pub family: CommandFamily,          // implies 8 runtime policies, via const fns
+    pub planner: PlannerKind,
+    pub execution_mode: ExecutionMode,
+    pub capability_kind: CommandCapabilityKind,
+    pub io_profile: CommandIoProfile,
+    pub runner_dispatch_kind: RunnerDispatchKind,
+    pub capabilities: CapabilityPlan,   // primary infer task + any others
+    pub output_policy: OutputPolicy,
+    pub recipe: &'static Recipe,
 }
 ```
+
+Every field is declared per command. Three of them (`capability_kind`,
+`io_profile`, `runner_dispatch_kind`) were derived by matching on the command
+name with a catch-all default until 2026-07-29; two view types
+(`CommandDefinition`, `CommandWorkflowDescriptor`) and a delegating
+`commands/catalog.rs` were deleted in the same change.
 
 Derived helpers in `catalog.rs`:
 

@@ -1,7 +1,7 @@
 # transcribe: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Implementation guide for the `transcribe` command. For user-facing
 documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe.md).
@@ -14,7 +14,8 @@ documentation, see [User Guide: transcribe](../../user-guide/commands/transcribe
 |-------|----------|----------------|
 | CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranscribeArgs` | ASR engine, diarization, lang, num-speakers |
 | Options builder | `crates/batchalign/src/cli/args/options.rs:195-243` (inline dispatch) | Maps `TranscribeArgs` → `CommandOptions::Transcribe(TranscribeOptions)` |
-| Command definition | `crates/batchalign/src/commands/transcribe.rs` | `CommandDefinition` impl |
+| Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `transcribe` |
+| Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `TRANSCRIBE_RECIPE` |
 | Pipeline orchestration | `crates/batchalign/src/pipeline/transcribe.rs`: `run_transcribe_pipeline()` | 7-stage sequencer: ASR → post-process → (opt) diarization → build CHAT → (opt) utseg → (opt) morphotag → serialize |
 | Per-file dispatch | `crates/batchalign/src/runner/dispatch/transcribe_pipeline.rs` | Concurrent file orchestration bounded by semaphore |
 | ASR post-processing | `crates/batchalign-transform/src/asr_postprocess/mod.rs` | 8 stages: compound merge, MWT split, number expand, Cantonese norm, long-turn split, retokenization, disfluency, retrace detection |

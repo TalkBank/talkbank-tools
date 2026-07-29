@@ -12,8 +12,7 @@ use std::collections::BTreeMap;
 
 use tracing::warn;
 
-use crate::command_model::CommandCapabilityKind;
-use crate::commands::released_command_definitions;
+use crate::command_model::{CommandCapabilityKind, command_specs};
 use crate::error;
 use crate::worker::target::task_name as infer_task_capability_name;
 use crate::worker::{InferTask, WorkerCapabilities};
@@ -41,31 +40,26 @@ pub(crate) struct WorkerCapabilitySnapshot {
 fn derive_command_capabilities(infer_tasks: &[InferTask]) -> Vec<String> {
     let mut derived = Vec::new();
 
-    for descriptor in released_command_definitions()
-        .iter()
-        .map(|definition| definition.descriptor)
-        .filter(|descriptor| descriptor.capability_kind == CommandCapabilityKind::DirectInfer)
-    {
-        if infer_tasks.contains(&descriptor.infer_task)
-            && !derived
-                .iter()
-                .any(|cap: &String| descriptor.command.as_str() == cap.as_str())
+    // Two passes, so server-composed commands are advertised after the
+    // commands they are composed from. Within a pass the order is the catalog's
+    // declaration order, which is itself the advertised order (see
+    // `recipe_runner::catalog::COMMAND_SPECS`).
+    for kind in [
+        CommandCapabilityKind::DirectInfer,
+        CommandCapabilityKind::ServerComposed,
+    ] {
+        for spec in command_specs()
+            .iter()
+            .filter(|spec| spec.capability_kind == kind)
         {
-            derived.push(descriptor.command.to_string());
-        }
-    }
-
-    for descriptor in released_command_definitions()
-        .iter()
-        .map(|definition| definition.descriptor)
-        .filter(|descriptor| descriptor.capability_kind == CommandCapabilityKind::ServerComposed)
-    {
-        if infer_tasks.contains(&descriptor.infer_task)
-            && !derived
-                .iter()
-                .any(|cap: &String| descriptor.command.as_str() == cap.as_str())
-        {
-            derived.push(descriptor.command.to_string());
+            let command = spec.command;
+            if infer_tasks.contains(&spec.capabilities.primary_infer_task)
+                && !derived
+                    .iter()
+                    .any(|cap: &String| command.as_str() == cap.as_str())
+            {
+                derived.push(command.to_string());
+            }
         }
     }
 

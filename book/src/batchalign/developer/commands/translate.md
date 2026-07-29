@@ -1,7 +1,7 @@
 # translate: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-27 11:12 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Implementation guide for the `translate` command. For user-facing
 documentation, see [User Guide: translate](../../user-guide/commands/translate.md).
@@ -14,7 +14,8 @@ documentation, see [User Guide: translate](../../user-guide/commands/translate.m
 |-------|----------|----------------|
 | CLI args | `crates/batchalign/src/cli/args/commands.rs`: `TranslateArgs` | `--translate-engine` flag (`TranslateEngine` clap enum) + lang override |
 | CLI → wire | `crates/batchalign/src/cli/args/options.rs`: `Commands::Translate` arm | Maps `TranslateEngine` → `Option<TranslateEngineName>` on `TranslateOptions` |
-| Command definition | `crates/batchalign/src/commands/translate.rs` | `CommandDefinition` impl |
+| Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `translate` |
+| Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `TRANSLATE_RECIPE` |
 | Translate orchestration | `crates/batchalign/src/translate.rs` | Cross-file batching, cache, `%xtra` injection |
 | Batch dispatch | `crates/batchalign/src/runner/dispatch/infer_batched.rs` | Shared with morphotag and utseg |
 | Injection | `crates/batchalign/src/translate.rs` | Writes `%xtra:` tiers from translation strings |

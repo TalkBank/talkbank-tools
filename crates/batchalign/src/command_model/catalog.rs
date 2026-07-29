@@ -1,96 +1,39 @@
+//! Lookup over the one released-command catalog.
+
 use crate::ReleasedCommand;
-use crate::commands::spec::{CommandDefinition, CommandWorkflowDescriptor};
 use crate::recipe_runner::catalog::recipe_command_catalog;
-use crate::worker::InferTask;
 
-#[cfg(test)]
-use super::{CommandCapabilityKind, CommandIoProfile, RunnerDispatchKind};
-use super::{CatalogEntry, CommandFamily};
+use super::CatalogEntry;
 
-/// Return the authoritative command spec for one released command.
+/// Return the authoritative catalog entry for one released command.
 pub(crate) fn command_spec(command: ReleasedCommand) -> &'static CatalogEntry {
-    // Catalog invariant: every `ReleasedCommand` variant has a
-    // matching `CommandSpec` in `recipe_command_catalog()`. Adding a
-    // new released command without its spec is a compile-time-visible
-    // omission caught by the catalog test in
-    // `crates/batchalign/src/recipe_runner/catalog.rs`.
+    // Catalog invariant: every `ReleasedCommand` variant has an entry in
+    // `recipe_command_catalog()`, pinned by
+    // `recipe_runner::catalog::tests::every_released_command_has_a_spec`. An
+    // omission is a failing test, never a runtime surprise in the field.
     #[allow(clippy::expect_used)]
     command_specs()
         .iter()
         .find(|spec| spec.command == command)
-        .expect("released command missing authoritative command spec")
+        .expect("released command missing authoritative catalog entry")
 }
 
-/// Return the authoritative command specs for all released commands.
+/// Return the authoritative catalog entries for all released commands, in
+/// capability-advertisement order.
 pub(crate) fn command_specs() -> &'static [CatalogEntry] {
     recipe_command_catalog()
-}
-
-/// Return the legacy command definition derived from the authoritative command
-/// spec for one released command.
-pub(crate) fn legacy_command_definition(command: ReleasedCommand) -> CommandDefinition {
-    let spec = command_spec(command);
-    let descriptor = legacy_command_descriptor(command);
-    CommandDefinition {
-        descriptor,
-        execution_shape: execution_shape_for(spec.family),
-    }
-}
-
-/// Return the legacy workflow descriptor derived from the authoritative command
-/// spec for one released command.
-pub(crate) fn legacy_command_descriptor(command: ReleasedCommand) -> CommandWorkflowDescriptor {
-    let spec = command_spec(command);
-    CommandWorkflowDescriptor {
-        command: spec.command,
-        family: execution_shape_for(spec.family).workflow_family(),
-        infer_task: primary_infer_task(spec),
-        // Read straight off the declaration, not recomputed. Until 2026-07-29
-        // these three came from `match` arms here, each ending in a catch-all
-        // `_ =>` default, so a newly released command inherited an answer
-        // nobody had chosen for it.
-        capability_kind: spec.capability_kind,
-        io_profile: spec.io_profile,
-        runner_dispatch_kind: spec.runner_dispatch_kind,
-    }
-}
-
-fn primary_infer_task(spec: &CatalogEntry) -> InferTask {
-    // Catalog invariant: every spec carries a non-empty
-    // `infer_tasks` list. Empty `infer_tasks` would mean the command
-    // doesn't dispatch to any inference task, which is invalid by
-    // construction, and the catalog test rejects it.
-    #[allow(clippy::expect_used)]
-    spec.capabilities
-        .infer_tasks
-        .first()
-        .copied()
-        .expect("released command must advertise at least one infer task")
-}
-
-fn execution_shape_for(family: CommandFamily) -> crate::commands::spec::CommandExecutionShape {
-    match family {
-        CommandFamily::ReferenceProjection => {
-            crate::commands::spec::CommandExecutionShape::ReferenceProjection
-        }
-        CommandFamily::AudioSequential => {
-            crate::commands::spec::CommandExecutionShape::AudioSequential
-        }
-        CommandFamily::BatchedText => crate::commands::spec::CommandExecutionShape::BatchedText,
-        CommandFamily::Composite => crate::commands::spec::CommandExecutionShape::Composite,
-        CommandFamily::MediaAnalysis => crate::commands::spec::CommandExecutionShape::MediaAnalysis,
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command_family::WorkflowFamily;
-    use crate::commands::spec::{
-        BatchingPolicy, ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
-        SchedulingPolicy, WarmupPolicy,
+    use crate::command_model::{
+        BatchingPolicy, CommandCapabilityKind, CommandFamily, CommandIoProfile,
+        ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
+        RunnerDispatchKind, SchedulingPolicy, WarmupPolicy,
     };
     use crate::recipe_runner::materialize::{FileNamingPolicy, StemRewrite};
+    use crate::worker::InferTask;
 
     /// Output filenames are a user-visible contract, and after the 2026-07-28
     /// cleanup there is exactly ONE representation of them: the `output_policy`
@@ -164,13 +107,15 @@ mod tests {
 
     /// The pinned metadata for every released command.
     ///
-    /// This is a CHARACTERIZATION table: it states what the catalog resolves to
-    /// TODAY, so that a restructuring of where those values are stated cannot
-    /// change what they are. Three of these five fields are currently produced
-    /// by `match` arms with a catch-all `_ =>` default, which is precisely why
-    /// they need pinning: a catch-all silently absorbs a command that should
-    /// have been given an explicit answer (the failure mode that produced the
-    /// deleted `output_path_kind_for`, documented above).
+    /// Written as a CHARACTERIZATION table to make the 2026-07-29 collapse of
+    /// three catalogs into one provably value-preserving, and kept as a
+    /// standing gate. Three of these five fields used to be produced by `match`
+    /// arms with a catch-all `_ =>` default, which is what made pinning them
+    /// urgent: a catch-all silently absorbs a command that should have been
+    /// given an explicit answer (the failure mode that produced the deleted
+    /// `output_path_kind_for`, documented above). They are declared fields of
+    /// `CatalogEntry` now, so the compiler shares the work, and this table is
+    /// what stops a future edit from quietly changing an answer.
     fn command_metadata_pins() -> Vec<CommandMetadataPin> {
         // Matched on the enum with NO catch-all arm, so adding a released
         // command fails to compile here until its metadata is stated.
@@ -287,25 +232,24 @@ mod tests {
     fn per_command_metadata_is_stable() {
         for pin in command_metadata_pins() {
             let spec = command_spec(pin.command);
-            let descriptor = legacy_command_descriptor(pin.command);
             assert_eq!(spec.family, pin.family, "family for {}", pin.command);
             assert_eq!(
-                descriptor.capability_kind, pin.capability_kind,
+                spec.capability_kind, pin.capability_kind,
                 "capability kind for {}",
                 pin.command
             );
             assert_eq!(
-                descriptor.io_profile, pin.io_profile,
+                spec.io_profile, pin.io_profile,
                 "io profile for {}",
                 pin.command
             );
             assert_eq!(
-                descriptor.runner_dispatch_kind, pin.runner_dispatch_kind,
+                spec.runner_dispatch_kind, pin.runner_dispatch_kind,
                 "runner dispatch kind for {}",
                 pin.command
             );
             assert_eq!(
-                descriptor.infer_task, pin.primary_infer_task,
+                spec.capabilities.primary_infer_task, pin.primary_infer_task,
                 "primary infer task for {}",
                 pin.command
             );
@@ -313,9 +257,12 @@ mod tests {
     }
 
     /// Everything a command FAMILY implies about runtime policy, in one record.
+    ///
+    /// A `workflow` field pinning `WorkflowFamily` was dropped when that enum
+    /// was deleted: it was a third name for this same concept, coarser than
+    /// `CommandFamily` and read by nothing.
     #[derive(Debug, PartialEq, Eq)]
     struct FamilyPolicyPin {
-        workflow: WorkflowFamily,
         scheduling: SchedulingPolicy,
         model_sharing: ModelSharingPolicy,
         batching: BatchingPolicy,
@@ -342,10 +289,8 @@ mod tests {
             CommandFamily::MediaAnalysis,
             CommandFamily::Composite,
         ] {
-            let shape = execution_shape_for(family);
             let expected = match family {
                 CommandFamily::BatchedText => FamilyPolicyPin {
-                    workflow: WorkflowFamily::CrossFileBatchTransform,
                     scheduling: SchedulingPolicy::CrossFileBatch,
                     model_sharing: ModelSharingPolicy::SharedWarmWorkers,
                     batching: BatchingPolicy::CrossFileBatch,
@@ -355,7 +300,6 @@ mod tests {
                     warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::ReferenceProjection => FamilyPolicyPin {
-                    workflow: WorkflowFamily::ReferenceProjection,
                     scheduling: SchedulingPolicy::ReferenceProjection,
                     model_sharing: ModelSharingPolicy::SharedWarmWorkers,
                     batching: BatchingPolicy::PairedInputs,
@@ -365,7 +309,6 @@ mod tests {
                     warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::AudioSequential => FamilyPolicyPin {
-                    workflow: WorkflowFamily::PerFileTransform,
                     scheduling: SchedulingPolicy::PerFileAudio,
                     model_sharing: ModelSharingPolicy::SharedWarmWorkers,
                     batching: BatchingPolicy::InternalStageBatching,
@@ -375,7 +318,6 @@ mod tests {
                     warmup: WarmupPolicy::BackgroundEligible,
                 },
                 CommandFamily::MediaAnalysis => FamilyPolicyPin {
-                    workflow: WorkflowFamily::PerFileTransform,
                     scheduling: SchedulingPolicy::PerFileMediaAnalysis,
                     model_sharing: ModelSharingPolicy::SharedWarmWorkers,
                     batching: BatchingPolicy::None,
@@ -385,7 +327,6 @@ mod tests {
                     warmup: WarmupPolicy::LazyOnDemand,
                 },
                 CommandFamily::Composite => FamilyPolicyPin {
-                    workflow: WorkflowFamily::Composite,
                     scheduling: SchedulingPolicy::Composite,
                     model_sharing: ModelSharingPolicy::DelegatedToSubcommands,
                     batching: BatchingPolicy::None,
@@ -396,18 +337,17 @@ mod tests {
                 },
             };
             let actual = FamilyPolicyPin {
-                workflow: shape.workflow_family(),
-                scheduling: shape.scheduling_policy(),
-                model_sharing: shape.model_sharing_policy(),
-                batching: shape.batching_policy(),
-                parallelism: shape.parallelism_policy(),
-                resource_lane: shape.resource_lane(),
-                constrained_host: shape.constrained_host_policy(),
-                warmup: shape.warmup_policy(),
+                scheduling: family.scheduling_policy(),
+                model_sharing: family.model_sharing_policy(),
+                batching: family.batching_policy(),
+                parallelism: family.parallelism_policy(),
+                resource_lane: family.resource_lane(),
+                constrained_host: family.constrained_host_policy(),
+                warmup: family.warmup_policy(),
             };
             assert_eq!(actual, expected, "policy derivation for {family:?}");
             assert!(
-                shape.uses_host_memory_gate(),
+                family.uses_host_memory_gate(),
                 "host memory gate must stay on for {family:?}"
             );
         }
@@ -420,15 +360,5 @@ mod tests {
         names.sort_unstable_by_key(|command| command.as_ref().to_owned());
         names.dedup();
         assert_eq!(names.len(), original_len);
-    }
-
-    #[test]
-    fn compare_legacy_descriptor_matches_reference_projection_shape() {
-        let definition = legacy_command_definition(ReleasedCommand::Compare);
-        assert_eq!(
-            definition.scheduling_policy(),
-            SchedulingPolicy::ReferenceProjection
-        );
-        assert_eq!(definition.batching_policy(), BatchingPolicy::PairedInputs);
     }
 }

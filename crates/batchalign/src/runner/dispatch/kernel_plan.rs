@@ -1,16 +1,19 @@
-//! Resource-aware kernel planning for command-owned execution.
+//! Resource-aware kernel planning for the legacy dispatch path.
+//!
+//! Moved here from `commands/kernel.rs` on 2026-07-29 because
+//! `dispatch/plan.rs` is its only consumer: it is legacy-path code, and placing
+//! it in the module that step 4 of the phase-2 sequence retires means that
+//! retirement is a directory deletion rather than a hunt.
 
 use crate::ReleasedCommand;
 use crate::api::MemoryMb;
+use crate::command_model::{
+    BatchingPolicy, ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
+    SchedulingPolicy, WarmupPolicy, command_spec,
+};
 use crate::host_policy::HostExecutionPolicy;
 use crate::types::runtime;
 use crate::worker::WorkerBootstrapMode;
-
-use super::catalog::released_command_definition;
-use super::spec::{
-    BatchingPolicy, ConstrainedHostPolicy, ModelSharingPolicy, ParallelismPolicy, ResourceLane,
-    SchedulingPolicy, WarmupPolicy,
-};
 
 /// Kernel-facing worker-lane hint derived from one command's performance
 /// profile and the current runtime caps.
@@ -107,30 +110,30 @@ impl CommandKernelPlan {
         file_count: usize,
         host_policy: &HostExecutionPolicy,
     ) -> Self {
-        let definition = released_command_definition(command);
-        let execution_lane = execution_lane_for(
-            definition.resource_lane(),
-            definition.model_sharing_policy(),
-        );
+        // Read from the family declared in the one catalog. This used to go
+        // through a `CommandDefinition` rebuilt per call, which carried the
+        // family under a second name (`CommandExecutionShape`).
+        let family = command_spec(command).family;
+        let execution_lane = execution_lane_for(family.resource_lane(), family.model_sharing_policy());
         let file_parallelism_hint = host_policy.resolved_file_parallelism(
-            definition.constrained_host_policy(),
-            suggested_parallelism(definition.parallelism_policy(), execution_lane, file_count),
+            family.constrained_host_policy(),
+            suggested_parallelism(family.parallelism_policy(), execution_lane, file_count),
         );
 
         Self {
             command,
-            scheduling: definition.scheduling_policy(),
-            model_sharing: definition.model_sharing_policy(),
-            batching: definition.batching_policy(),
-            resource_lane: definition.resource_lane(),
-            constrained_host: definition.constrained_host_policy(),
-            warmup: definition.warmup_policy(),
+            scheduling: family.scheduling_policy(),
+            model_sharing: family.model_sharing_policy(),
+            batching: family.batching_policy(),
+            resource_lane: family.resource_lane(),
+            constrained_host: family.constrained_host_policy(),
+            warmup: family.warmup_policy(),
             worker_bootstrap: host_policy.bootstrap_mode,
             execution_lane,
             file_parallelism_hint,
             execution_budget_mb: runtime::command_execution_budget_mb(command.as_ref()),
             per_file_buffer_mb: runtime::mb_per_file_mb(),
-            uses_host_memory_gate: definition.uses_host_memory_gate(),
+            uses_host_memory_gate: family.uses_host_memory_gate(),
         }
     }
 }
@@ -178,7 +181,7 @@ fn suggested_parallelism(
 mod tests {
     use super::{CommandKernelPlan, ExecutionLaneHint};
     use crate::ReleasedCommand;
-    use crate::commands::spec::{
+    use crate::command_model::{
         BatchingPolicy, ConstrainedHostPolicy, SchedulingPolicy, WarmupPolicy,
     };
     use crate::host_policy::HostExecutionPolicy;

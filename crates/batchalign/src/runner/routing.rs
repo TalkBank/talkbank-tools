@@ -16,7 +16,7 @@ use crate::api::{EngineVersion, NumWorkers, ReleasedCommand, RevAiJobId};
 use crate::cache::UtteranceCache;
 
 use crate::capability::resolve_worker_capability_snapshot;
-use crate::commands::{RunnerDispatchKind, command_runner_dispatch_kind};
+use crate::command_model::{RunnerDispatchKind, command_runner_dispatch_kind};
 use crate::execution::{
     MorphotagRuntimeOptions, PooledWorkerGateway, WorkerGateway, dispatch_compare_job,
     dispatch_coref_job, dispatch_morphotag_job, dispatch_translate_job, dispatch_utseg_job,
@@ -95,11 +95,11 @@ pub(super) async fn dispatch_job_with_execution_context(
 
     let all_chat = file_list.iter().all(|file| file.has_chat);
     let infer_task = infer_task_for_command(command);
-    let infer_supported = infer_task.is_some_and(|task| infer_tasks.contains(&task));
+    let infer_supported = infer_tasks.contains(&infer_task);
     let use_infer = all_chat && infer_supported;
 
     if command_requires_chat_infer(command) && !use_infer {
-        let required_task = infer_task.map(infer_task_name).unwrap_or("unknown");
+        let required_task = infer_task_name(infer_task);
         let err_msg = format!(
             "Rust-first dispatch requires infer task '{}' for '{}' (all_chat={}). \
              Worker advertises infer_tasks: {:?}",
@@ -117,16 +117,14 @@ pub(super) async fn dispatch_job_with_execution_context(
     let runner_dispatch_kind = command_runner_dispatch_kind(command);
     let use_transcribe_infer = matches!(
         runner_dispatch_kind,
-        Some(RunnerDispatchKind::TranscribeAudioInfer)
+        RunnerDispatchKind::TranscribeAudioInfer
     ) && infer_tasks.contains(&InferTask::Asr);
     let use_benchmark_infer = matches!(
         runner_dispatch_kind,
-        Some(RunnerDispatchKind::BenchmarkAudioInfer)
+        RunnerDispatchKind::BenchmarkAudioInfer
     ) && infer_tasks.contains(&InferTask::Asr);
-    let use_media_analysis_infer = matches!(
-        runner_dispatch_kind,
-        Some(RunnerDispatchKind::MediaAnalysisV2)
-    ) && infer_task.is_some_and(|task| infer_tasks.contains(&task));
+    let use_media_analysis_infer = matches!(runner_dispatch_kind, RunnerDispatchKind::MediaAnalysisV2)
+        && infer_tasks.contains(&infer_task);
 
     if test_echo_mode {
         dispatch_test_echo_files(&job, sink.as_ref(), &file_list, pool.test_delay_ms()).await;
@@ -183,10 +181,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         )
         .await;
     } else if use_media_analysis_infer {
-        let Some(infer_task) = infer_task else {
-            tracing::error!("use_media_analysis_infer set but infer_task is None, logic error");
-            return Ok(());
-        };
         let engine_version = EngineVersion::from(
             engine_versions
                 .get(infer_task_name(infer_task))
@@ -395,12 +389,6 @@ pub(super) async fn dispatch_job_with_execution_context(
         // --- Server-side infer path ---
         // The server owns CHAT parse/cache/inject/serialize.
         // Python workers provide pure Stanza inference only.
-        let Some(infer_task) = infer_task else {
-            // use_infer requires infer_task.is_some(): this branch is unreachable
-            // but we avoid a panic by returning early with an error log.
-            tracing::error!("use_infer set but infer_task is None, logic error");
-            return Ok(());
-        };
         let engine_version = EngineVersion::from(
             engine_versions
                 .get(infer_task_name(infer_task))
@@ -417,7 +405,7 @@ pub(super) async fn dispatch_job_with_execution_context(
         );
 
         match runner_dispatch_kind {
-            Some(RunnerDispatchKind::ForcedAlignment) => {
+            RunnerDispatchKind::ForcedAlignment => {
                 dispatch_forced_alignment_command(
                     &job,
                     host,
@@ -429,7 +417,7 @@ pub(super) async fn dispatch_job_with_execution_context(
                 )
                 .await;
             }
-            Some(RunnerDispatchKind::BatchedTextInfer) => {
+            RunnerDispatchKind::BatchedTextInfer => {
                 dispatch_batched_text_command(&job, host, pool, cache, &engine_version).await;
             }
             other => {
@@ -603,10 +591,10 @@ async fn resolve_runtime_capability_snapshot(
     lang: impl Into<crate::api::WorkerLanguage>,
     engine_overrides: &str,
 ) -> Result<crate::capability::WorkerCapabilitySnapshot, String> {
-    if !test_echo_mode
-        && pool.detected_capabilities().is_none()
-        && infer_task_for_command(command).is_some()
-    {
+    // Every released command has an infer task, so the only questions left are
+    // whether we are in test-echo mode and whether capabilities were already
+    // probed.
+    if !test_echo_mode && pool.detected_capabilities().is_none() {
         pool.ensure_command_capabilities_with_overrides(command, lang, engine_overrides)
             .await
             .map_err(|error| {

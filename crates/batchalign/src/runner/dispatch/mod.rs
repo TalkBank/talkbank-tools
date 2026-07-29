@@ -42,6 +42,7 @@ mod benchmark_pipeline;
 mod diarize_turns;
 mod fa_pipeline;
 mod infer_batched;
+mod kernel_plan;
 mod media_analysis_v2;
 mod options;
 mod plan;

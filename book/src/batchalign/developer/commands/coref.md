@@ -1,7 +1,7 @@
 # coref: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-02 08:18 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Implementation guide for the `coref` command. For user-facing documentation,
 see [User Guide: coref](../../user-guide/commands/coref.md).
@@ -13,7 +13,8 @@ see [User Guide: coref](../../user-guide/commands/coref.md).
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | CLI args | `crates/batchalign/src/cli/args/commands.rs`: `CorefArgs` | lang override |
-| Command definition | `crates/batchalign/src/commands/coref.rs` | `CommandDefinition` impl |
+| Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `coref` |
+| Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `COREF_RECIPE` |
 | Coref orchestration | `crates/batchalign/src/coref.rs` | Full-document context assembly, worker dispatch, sparse injection |
 | Injection | `crates/batchalign/src/coref.rs` | Writes sparse `%xcoref:` tiers |
 | Worker IPC | `batchalign/inference/coref.py`: `batch_infer_coref()` | Loads Stanza coref model, returns chain structures |

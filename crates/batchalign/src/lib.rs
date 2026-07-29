@@ -154,9 +154,7 @@ pub mod cache;
 pub(crate) mod capability;
 pub mod chat_ops;
 pub mod cli;
-pub(crate) mod command_family;
 pub(crate) mod command_model;
-pub(crate) mod commands;
 pub mod compare;
 pub mod coref;
 pub mod debug_artifacts;
@@ -246,7 +244,7 @@ pub(crate) fn chat_parser() -> batchalign_transform::parse::TreeSitterParser {
 
 /// Return whether one closed released command requires shared-filesystem audio access.
 pub fn released_command_uses_local_audio(command: ReleasedCommand) -> bool {
-    commands::released_command_uses_local_audio(command)
+    command_model::released_command_uses_local_audio(command)
 }
 
 /// Return whether one released command name requires shared-filesystem audio access.
@@ -255,7 +253,7 @@ pub fn released_command_uses_local_audio(command: ReleasedCommand) -> bool {
 /// trust boundary. Contributor-facing Rust code should prefer
 /// [`released_command_uses_local_audio`].
 pub fn command_uses_local_audio(command: &str) -> bool {
-    commands::command_uses_local_audio(command)
+    command_model::command_uses_local_audio(command)
 }
 
 /// Return whether a command may use `paths_mode`, i.e. the CLI may
@@ -264,5 +262,5 @@ pub fn command_uses_local_audio(command: &str) -> bool {
 /// plus batched-text commands where the server-side runner reads CHAT
 /// files by path.
 pub fn released_command_supports_paths_mode(command: ReleasedCommand) -> bool {
-    commands::released_command_supports_paths_mode(command)
+    command_model::released_command_supports_paths_mode(command)
 }

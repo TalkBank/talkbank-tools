@@ -99,43 +99,43 @@ fn make_media_job(job_id: &str, source_path: &str) -> Job {
 fn infer_task_mapping_is_stable() {
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Morphotag),
-        Some(InferTask::Morphosyntax)
+        InferTask::Morphosyntax
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Utseg),
-        Some(InferTask::Utseg)
+        InferTask::Utseg
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Translate),
-        Some(InferTask::Translate)
+        InferTask::Translate
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Coref),
-        Some(InferTask::Coref)
+        InferTask::Coref
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Align),
-        Some(InferTask::Fa)
+        InferTask::Fa
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Transcribe),
-        Some(InferTask::Asr)
+        InferTask::Asr
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Compare),
-        Some(InferTask::Morphosyntax)
+        InferTask::Morphosyntax
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Opensmile),
-        Some(InferTask::Opensmile)
+        InferTask::Opensmile
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Avqi),
-        Some(InferTask::Avqi)
+        InferTask::Avqi
     );
     assert_eq!(
         infer_task_for_command(ReleasedCommand::Benchmark),
-        Some(InferTask::Asr)
+        InferTask::Asr
     );
 }
 

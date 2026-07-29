@@ -19,17 +19,6 @@ use super::recipes::{
     UTSEG_RECIPE,
 };
 
-const ASR_TASKS: &[InferTask] = &[InferTask::Asr];
-const ASR_AND_SPEAKER_TASKS: &[InferTask] = &[InferTask::Asr, InferTask::Speaker];
-const MORPHOSYNTAX_TASKS: &[InferTask] = &[InferTask::Morphosyntax];
-const UTSEG_TASKS: &[InferTask] = &[InferTask::Utseg];
-const TRANSLATE_TASKS: &[InferTask] = &[InferTask::Translate];
-const COREF_TASKS: &[InferTask] = &[InferTask::Coref];
-const FA_TASKS: &[InferTask] = &[InferTask::Fa];
-const OPENSMILE_TASKS: &[InferTask] = &[InferTask::Opensmile];
-const AVQI_TASKS: &[InferTask] = &[InferTask::Avqi];
-const DIARIZE_TASKS: &[InferTask] = &[InferTask::Speaker];
-const BENCHMARK_TASKS: &[InferTask] = &[InferTask::Asr, InferTask::Morphosyntax];
 
 const NO_SIDECARS: &[SidecarPolicy] = &[];
 const COMPARE_SIDECARS: &[SidecarPolicy] = &[SidecarPolicy {
@@ -37,102 +26,15 @@ const COMPARE_SIDECARS: &[SidecarPolicy] = &[SidecarPolicy {
     content_type: ContentType::Csv,
 }];
 
+/// Every released command, declared once.
+///
+/// ORDER IS SIGNIFICANT: `capability::derive_command_capabilities` walks this
+/// table to build the capability list served by `/health` and rendered by the
+/// dashboard, so this sequence is a user-visible contract. It was previously
+/// held in a second list (`commands/catalog.rs::RELEASED_COMMAND_ORDER`) whose
+/// order DIFFERED from this table's; the two were reconciled onto this one on
+/// 2026-07-29 by adopting the advertised order here.
 const COMMAND_SPECS: &[CatalogEntry] = &[
-    CatalogEntry {
-        command: ReleasedCommand::Compare,
-        family: CommandFamily::ReferenceProjection,
-        planner: PlannerKind::ComparePairs,
-        execution_mode: ExecutionMode::ReferenceProjection,
-        capability_kind: CommandCapabilityKind::DirectInfer,
-        io_profile: CommandIoProfile::PathsModeText,
-        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
-        capabilities: CapabilityPlan {
-            infer_tasks: MORPHOSYNTAX_TASKS,
-            surface: CapabilitySurface::RecipeOwned,
-        },
-        output_policy: OutputPolicy {
-            primary: FileNamingPolicy::PreserveInput,
-            primary_content_type: ContentType::Chat,
-            sidecars: COMPARE_SIDECARS,
-        },
-        recipe: &COMPARE_RECIPE,
-    },
-    CatalogEntry {
-        command: ReleasedCommand::Benchmark,
-        family: CommandFamily::Composite,
-        planner: PlannerKind::BenchmarkPairs,
-        execution_mode: ExecutionMode::Composite,
-        capability_kind: CommandCapabilityKind::ServerComposed,
-        io_profile: CommandIoProfile::PathsModeAudio,
-        runner_dispatch_kind: RunnerDispatchKind::BenchmarkAudioInfer,
-        capabilities: CapabilityPlan {
-            infer_tasks: BENCHMARK_TASKS,
-            surface: CapabilitySurface::Composite,
-        },
-        output_policy: OutputPolicy {
-            primary: FileNamingPolicy::ReplaceExtension("cha"),
-            primary_content_type: ContentType::Chat,
-            sidecars: COMPARE_SIDECARS,
-        },
-        recipe: &BENCHMARK_RECIPE,
-    },
-    CatalogEntry {
-        command: ReleasedCommand::Transcribe,
-        family: CommandFamily::AudioSequential,
-        planner: PlannerKind::AudioInputs,
-        execution_mode: ExecutionMode::SequentialPerUnit,
-        capability_kind: CommandCapabilityKind::ServerComposed,
-        io_profile: CommandIoProfile::PathsModeAudio,
-        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
-        capabilities: CapabilityPlan {
-            infer_tasks: ASR_TASKS,
-            surface: CapabilitySurface::RecipeOwned,
-        },
-        output_policy: OutputPolicy {
-            primary: FileNamingPolicy::ReplaceExtension("cha"),
-            primary_content_type: ContentType::Chat,
-            sidecars: NO_SIDECARS,
-        },
-        recipe: &TRANSCRIBE_RECIPE,
-    },
-    CatalogEntry {
-        command: ReleasedCommand::TranscribeS,
-        family: CommandFamily::AudioSequential,
-        planner: PlannerKind::AudioInputs,
-        execution_mode: ExecutionMode::SequentialPerUnit,
-        capability_kind: CommandCapabilityKind::ServerComposed,
-        io_profile: CommandIoProfile::PathsModeAudio,
-        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
-        capabilities: CapabilityPlan {
-            infer_tasks: ASR_AND_SPEAKER_TASKS,
-            surface: CapabilitySurface::RecipeOwned,
-        },
-        output_policy: OutputPolicy {
-            primary: FileNamingPolicy::ReplaceExtension("cha"),
-            primary_content_type: ContentType::Chat,
-            sidecars: NO_SIDECARS,
-        },
-        recipe: &TRANSCRIBE_S_RECIPE,
-    },
-    CatalogEntry {
-        command: ReleasedCommand::Align,
-        family: CommandFamily::AudioSequential,
-        planner: PlannerKind::AudioInputs,
-        execution_mode: ExecutionMode::SequentialPerUnit,
-        capability_kind: CommandCapabilityKind::DirectInfer,
-        io_profile: CommandIoProfile::PathsModeAudio,
-        runner_dispatch_kind: RunnerDispatchKind::ForcedAlignment,
-        capabilities: CapabilityPlan {
-            infer_tasks: FA_TASKS,
-            surface: CapabilitySurface::RecipeOwned,
-        },
-        output_policy: OutputPolicy {
-            primary: FileNamingPolicy::PreserveInput,
-            primary_content_type: ContentType::Chat,
-            sidecars: NO_SIDECARS,
-        },
-        recipe: &ALIGN_RECIPE,
-    },
     CatalogEntry {
         command: ReleasedCommand::Morphotag,
         family: CommandFamily::BatchedText,
@@ -142,7 +44,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeText,
         runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
-            infer_tasks: MORPHOSYNTAX_TASKS,
+            primary_infer_task: InferTask::Morphosyntax,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -161,7 +64,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeText,
         runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
-            infer_tasks: UTSEG_TASKS,
+            primary_infer_task: InferTask::Utseg,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -180,7 +84,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeText,
         runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
-            infer_tasks: TRANSLATE_TASKS,
+            primary_infer_task: InferTask::Translate,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -199,7 +104,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeText,
         runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
         capabilities: CapabilityPlan {
-            infer_tasks: COREF_TASKS,
+            primary_infer_task: InferTask::Coref,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -210,6 +116,106 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         recipe: &COREF_RECIPE,
     },
     CatalogEntry {
+        command: ReleasedCommand::Align,
+        family: CommandFamily::AudioSequential,
+        planner: PlannerKind::AudioInputs,
+        execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::ForcedAlignment,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Fa,
+            additional_infer_tasks: &[],
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            primary: FileNamingPolicy::PreserveInput,
+            primary_content_type: ContentType::Chat,
+            sidecars: NO_SIDECARS,
+        },
+        recipe: &ALIGN_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::Transcribe,
+        family: CommandFamily::AudioSequential,
+        planner: PlannerKind::AudioInputs,
+        execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Asr,
+            additional_infer_tasks: &[],
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            primary: FileNamingPolicy::ReplaceExtension("cha"),
+            primary_content_type: ContentType::Chat,
+            sidecars: NO_SIDECARS,
+        },
+        recipe: &TRANSCRIBE_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::TranscribeS,
+        family: CommandFamily::AudioSequential,
+        planner: PlannerKind::AudioInputs,
+        execution_mode: ExecutionMode::SequentialPerUnit,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::TranscribeAudioInfer,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Asr,
+            additional_infer_tasks: &[InferTask::Speaker],
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            primary: FileNamingPolicy::ReplaceExtension("cha"),
+            primary_content_type: ContentType::Chat,
+            sidecars: NO_SIDECARS,
+        },
+        recipe: &TRANSCRIBE_S_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::Compare,
+        family: CommandFamily::ReferenceProjection,
+        planner: PlannerKind::ComparePairs,
+        execution_mode: ExecutionMode::ReferenceProjection,
+        capability_kind: CommandCapabilityKind::DirectInfer,
+        io_profile: CommandIoProfile::PathsModeText,
+        runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Morphosyntax,
+            additional_infer_tasks: &[],
+            surface: CapabilitySurface::RecipeOwned,
+        },
+        output_policy: OutputPolicy {
+            primary: FileNamingPolicy::PreserveInput,
+            primary_content_type: ContentType::Chat,
+            sidecars: COMPARE_SIDECARS,
+        },
+        recipe: &COMPARE_RECIPE,
+    },
+    CatalogEntry {
+        command: ReleasedCommand::Benchmark,
+        family: CommandFamily::Composite,
+        planner: PlannerKind::BenchmarkPairs,
+        execution_mode: ExecutionMode::Composite,
+        capability_kind: CommandCapabilityKind::ServerComposed,
+        io_profile: CommandIoProfile::PathsModeAudio,
+        runner_dispatch_kind: RunnerDispatchKind::BenchmarkAudioInfer,
+        capabilities: CapabilityPlan {
+            primary_infer_task: InferTask::Asr,
+            additional_infer_tasks: &[InferTask::Morphosyntax],
+            surface: CapabilitySurface::Composite,
+        },
+        output_policy: OutputPolicy {
+            primary: FileNamingPolicy::ReplaceExtension("cha"),
+            primary_content_type: ContentType::Chat,
+            sidecars: COMPARE_SIDECARS,
+        },
+        recipe: &BENCHMARK_RECIPE,
+    },
+    CatalogEntry {
         command: ReleasedCommand::Opensmile,
         family: CommandFamily::MediaAnalysis,
         planner: PlannerKind::MediaAnalysisInputs,
@@ -218,7 +224,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeAudio,
         runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
-            infer_tasks: OPENSMILE_TASKS,
+            primary_infer_task: InferTask::Opensmile,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -241,7 +248,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeAudio,
         runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
-            infer_tasks: AVQI_TASKS,
+            primary_infer_task: InferTask::Avqi,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -264,7 +272,8 @@ const COMMAND_SPECS: &[CatalogEntry] = &[
         io_profile: CommandIoProfile::PathsModeAudio,
         runner_dispatch_kind: RunnerDispatchKind::MediaAnalysisV2,
         capabilities: CapabilityPlan {
-            infer_tasks: DIARIZE_TASKS,
+            primary_infer_task: InferTask::Speaker,
+            additional_infer_tasks: &[],
             surface: CapabilitySurface::RecipeOwned,
         },
         output_policy: OutputPolicy {
@@ -308,6 +317,31 @@ mod tests {
     use crate::api::DisplayPath;
     use crate::recipe_runner::materialize::plan_materialized_files;
     use crate::recipe_runner::recipe::{RecipeStageId, RecipeStagePresence};
+
+    /// Every released command must have a catalog entry.
+    ///
+    /// `recipe_command_spec` and `command_model::command_spec` both cite this
+    /// test by name as the enforcement of that invariant, and until 2026-07-29
+    /// it did not exist: the comments claimed a guarantee nothing checked. The
+    /// equivalent coverage test did exist, over the second (now deleted)
+    /// command-order list in `commands/catalog.rs`, where it recorded why it
+    /// mattered: a released command missing from the list silently vanishes from
+    /// capability advertisement and dispatch reports "Unknown command" despite a
+    /// working CLI subcommand (the 2026-07-10 diarize field failure).
+    #[test]
+    fn every_released_command_has_a_spec() {
+        for command in ReleasedCommand::ALL {
+            assert!(
+                COMMAND_SPECS.iter().any(|spec| spec.command == command),
+                "released command {command} missing from COMMAND_SPECS"
+            );
+        }
+        assert_eq!(
+            COMMAND_SPECS.len(),
+            ReleasedCommand::ALL.len(),
+            "COMMAND_SPECS holds an entry for something that is not a released command"
+        );
+    }
 
     #[test]
     fn catalog_entries_are_unique_and_validate() {

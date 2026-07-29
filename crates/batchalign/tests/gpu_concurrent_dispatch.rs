@@ -864,6 +864,11 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
 
     let job_id = JobId::from("kill-in-flight-test".to_string());
     let request = gpu_execute_request("slow-call");
+    // Captured for the failure report below: `request` moves into the dispatch
+    // task, and which worker key it resolves to is the whole question when the
+    // registration wait times out.
+    let request_task = request.task;
+    let bootstrap_mode = pool.bootstrap_mode();
 
     // Capture the worker PID by snapshotting the pool BEFORE the
     // dispatch starts; there's exactly one warmed-up worker.
@@ -899,15 +904,59 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // on a busy machine the previous 3s bound flaked repeatedly
     // (2026-07-08, passing in isolation each time); registration
     // latency is not what this test pins, so the bound errs long.
+    //
+    // The bound has now been raised once (3s -> 30s, 2026-07-08) and failed
+    // again at 30s under full-suite load (2026-07-29), so DO NOT RAISE IT A
+    // THIRD TIME. The old panic message asserted a cause the evidence never
+    // supported ("TrackerGuard wiring is broken"), which is precisely what
+    // invited the bound increase instead of a diagnosis. Registration happens
+    // in `dispatch_gpu_execute_v2` at `TrackerGuard::new`, AFTER
+    // `get_or_create_gpu_worker(...).await` returns, and that function holds the
+    // `gpu_workers` mutex across a Python `WorkerHandle::spawn` plus a
+    // capabilities round trip. So a long wait here means one of:
+    //
+    //   (a) the dispatch resolved a DIFFERENT worker key than warmup did, so it
+    //       is spawning a second Python worker from scratch while holding that
+    //       lock, and this is a spawn-under-load wait, not a wiring bug; or
+    //   (b) registration genuinely never happens (a real wiring bug).
+    //
+    // The two are distinguishable by whether a NEW pid appears in the pool, so
+    // the failure below reports that rather than guessing. If it is (a), the fix
+    // is in the pool (do not hold the map lock across a spawn), not in this
+    // bound.
     let max_wait = Duration::from_secs(30);
     loop {
         if !pool.workers_for_job(&job_id).is_empty() {
             break;
         }
         if waited >= max_wait {
+            let now_workers = pool.worker_summary_entries().await;
+            let pids_before: Vec<u32> = pre_dispatch_workers.iter().map(|e| e.pid.0).collect();
+            let pids_now: Vec<u32> = now_workers.iter().map(|e| e.pid.0).collect();
+            let new_pids: Vec<u32> = pids_now
+                .iter()
+                .copied()
+                .filter(|pid| !pids_before.contains(pid))
+                .collect();
+            let dispatch_finished = dispatch_handle.is_finished();
             panic!(
-                "dispatch did not register a worker for job {job_id} within {max_wait:?}; \
-                 TrackerGuard wiring is broken or dispatch path doesn't hit it"
+                "dispatch did not register a worker for job {job_id} within {max_wait:?}.\n\
+                 EVIDENCE (read this before touching the bound):\n\
+                 \x20 request task: {task:?}, bootstrap mode: {mode:?}\n\
+                 \x20 pids before dispatch: {pids_before:?}\n\
+                 \x20 pids now:             {pids_now:?}\n\
+                 \x20 pids that appeared:   {new_pids:?}\n\
+                 \x20 dispatch task finished: {dispatch_finished}\n\
+                 A pid appearing means cause (a): the dispatch resolved a key \
+                 warmup had not warmed and spent the wait inside \
+                 get_or_create_gpu_worker, which holds the gpu_workers mutex \
+                 across WorkerHandle::spawn. Fix the pool, not this bound.\n\
+                 No new pid AND dispatch not finished means cause (b): \
+                 registration never happened, a real TrackerGuard wiring bug.\n\
+                 dispatch task finished with no registration means it failed \
+                 before checkout; read its result.",
+                task = request_task,
+                mode = bootstrap_mode,
             );
         }
         tokio::time::sleep(poll_step).await;

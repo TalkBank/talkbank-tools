@@ -13,7 +13,7 @@ use crate::cache::UtteranceCache;
 use crate::capability::{
     WorkerCapabilitySnapshot, resolve_worker_capability_snapshot, validate_infer_capability_gate,
 };
-use crate::commands::{released_command_definition, released_command_definitions};
+use crate::command_model::command_specs;
 use crate::config::ServerConfig;
 use crate::error;
 use crate::host_policy::HostExecutionPolicy;
@@ -212,12 +212,7 @@ async fn probe_workers(
     // Optimistic capabilities: accept all released commands.
     // Real capabilities are detected lazily on first worker spawn.
     let (capabilities, infer_tasks, engine_versions) = if test_echo_mode {
-        let all_tasks: Vec<InferTask> = released_command_definitions()
-            .iter()
-            .map(|definition| definition.descriptor.infer_task)
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect();
+        let all_tasks: Vec<InferTask> = optimistic_infer_tasks();
         let caps = validate_infer_capability_gate(&all_tasks, &BTreeMap::new(), true)?;
         (caps, all_tasks, BTreeMap::new())
     } else if let Some(detected) = pool.detected_capabilities() {
@@ -242,12 +237,7 @@ async fn probe_workers(
         // tasks. Real capabilities are refined lazily when the first worker
         // spawns and reports its actual engine versions. This avoids a
         // 10-30 second startup delay from spawning a probe worker.
-        let all_tasks: Vec<InferTask> = released_command_definitions()
-            .iter()
-            .map(|definition| definition.descriptor.infer_task)
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect();
+        let all_tasks: Vec<InferTask> = optimistic_infer_tasks();
         let caps = optimistic_capabilities();
         info!(
             capabilities = ?caps,
@@ -271,9 +261,9 @@ async fn probe_workers(
                 crate::api::ReleasedCommand::try_from(cmd.as_str())
                     .ok()
                     .and_then(|command| {
-                        let definition = released_command_definition(command);
+                        let family = crate::command_model::command_spec(command).family;
                         host_policy
-                            .allows_command_warmup(definition.warmup_policy(), test_echo_mode)
+                            .allows_command_warmup(family.warmup_policy(), test_echo_mode)
                             .then(|| WarmupTarget {
                                 command,
                                 lang: default_lang.clone(),
@@ -304,9 +294,20 @@ async fn probe_workers(
 /// All released commands: used as the optimistic capability set before
 /// the first real worker spawn confirms what's actually installed.
 fn optimistic_capabilities() -> Vec<String> {
-    released_command_definitions()
+    command_specs()
         .iter()
-        .map(|definition| definition.descriptor.command.to_string())
+        .map(|spec| spec.command.to_string())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Every infer task some released command is advertised from: the optimistic
+/// task set claimed before a live worker reports what it can actually do.
+fn optimistic_infer_tasks() -> Vec<InferTask> {
+    command_specs()
+        .iter()
+        .map(|spec| spec.capabilities.primary_infer_task)
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect()

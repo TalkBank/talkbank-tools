@@ -5,16 +5,14 @@
 //! conventions.
 
 use crate::api::ReleasedCommand;
-use crate::commands::{
-    RunnerDispatchKind, command_runner_dispatch_kind, command_workflow_descriptor,
-};
+use crate::command_model::{RunnerDispatchKind, command_runner_dispatch_kind, command_spec};
 #[cfg(test)]
 use crate::recipe_runner::runtime::result_display_path_for_command;
 use crate::worker::InferTask;
 
 /// Return the primary infer task backing one released command.
-pub(crate) fn infer_task_for_command(command: ReleasedCommand) -> Option<InferTask> {
-    command_workflow_descriptor(command).map(|descriptor| descriptor.infer_task)
+pub(crate) fn infer_task_for_command(command: ReleasedCommand) -> InferTask {
+    command_spec(command).capabilities.primary_infer_task
 }
 
 /// Return `true` when the released command must use a Rust-owned CHAT-backed
@@ -27,7 +25,7 @@ pub(crate) fn infer_task_for_command(command: ReleasedCommand) -> Option<InferTa
 pub(crate) fn command_requires_chat_infer(command: ReleasedCommand) -> bool {
     matches!(
         command_runner_dispatch_kind(command),
-        Some(RunnerDispatchKind::BatchedTextInfer | RunnerDispatchKind::ForcedAlignment)
+        RunnerDispatchKind::BatchedTextInfer | RunnerDispatchKind::ForcedAlignment
     )
 }
 

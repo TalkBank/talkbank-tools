@@ -1,23 +1,36 @@
 # Adding a New Command
 
 **Status:** Current
-**Last updated:** 2026-05-19 21:12 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 This guide walks through adding a new batchalign3 command end-to-end.
 
 **Reference implementations by workflow family:**
 
-| Family | Best example | Files to read |
-|--------|-------------|---------------|
-| `PerFileTransform` (one file → one output) | **`align`** | `commands/align.rs`, `runner/dispatch/fa_pipeline.rs` |
-| `CrossFileBatchTransform` (batch-infer pool) | `morphotag` | `commands/morphotag.rs`, `runner/dispatch/infer_batched.rs` |
-| `ReferenceProjection` (compare against gold) | `compare` | `commands/compare.rs`, `compare.rs` |
-| `Composite` (orchestrates sub-workflows) | `benchmark` | `commands/benchmark.rs`, `runner/dispatch/benchmark_pipeline.rs` |
+Commands are DECLARED, not authored: there is no per-command module. Each is
+one `CatalogEntry` in `recipe_runner/catalog.rs` naming a `Recipe` in
+`recipe_runner/recipes.rs`. Read the nearest existing entry and its recipe.
 
-**Start with `align`**: it is still the simplest command-owned example. If
-your command takes CHAT text in and produces modified CHAT out, follow `align`.
-If your command needs to batch multiple files through one ML call, follow
-`morphotag`.
+| `CommandFamily` | Best example | What to read |
+|--------|-------------|---------------|
+| `AudioSequential` (one media file at a time) | **`align`** | `ALIGN_RECIPE`, `runner/dispatch/fa_pipeline.rs` |
+| `BatchedText` (pooled batch-infer) | `morphotag` | `MORPHOTAG_RECIPE`, `runner/dispatch/infer_batched.rs` |
+| `ReferenceProjection` (compare against gold) | `compare` | `COMPARE_RECIPE`, `compare.rs` |
+| `MediaAnalysis` (non-CHAT artifact out) | `opensmile` | `OPENSMILE_RECIPE`, `runner/dispatch/media_analysis_v2.rs` |
+| `Composite` (reuses other recipes) | `benchmark` | `BENCHMARK_RECIPE`, `runner/dispatch/benchmark_pipeline.rs` |
+
+**Start with `align`** if your command takes CHAT in and produces modified CHAT
+out; **`morphotag`** if it batches several files through one ML call.
+
+**History, so the old shape is not rebuilt by accident.** Until 2026-07-28
+there was a `commands/` module holding one module per command, six
+`declare_*_command!` macros, six marker traits and a `CommandDefinition` type.
+Removing an `#![allow(dead_code)]` showed the whole layer produced values
+nothing read, and it was deleted (`b610a885`). The remaining catalog of one-line
+delegations and the compatibility view types followed on 2026-07-29. Earlier
+revisions of this guide walked contributors through that layer; if you find
+advice elsewhere in the book telling you to write `commands/your_command.rs`,
+it is stale, and this page is the current procedure.
 
 ## Quick start
 
@@ -40,12 +53,17 @@ The key files, in the order you'll edit them:
 | Step | File | What you add |
 |------|------|-------------|
 | 1 | `batchalign-types/src/domain.rs` | `ReleasedCommand::YourCommand` variant |
-| 2 | `batchalign/src/commands/your_command.rs` | `CommandDefinition` |
-| 3 | `batchalign/src/commands/catalog.rs` and `commands/mod.rs` | Register/export the module |
+| 2 | `batchalign/src/recipe_runner/recipes.rs` | `YOUR_COMMAND_RECIPE`: the ordered stages |
+| 3 | `batchalign/src/recipe_runner/catalog.rs` | one `CatalogEntry` declaring every field |
 | 4 | `batchalign/src/your_command.rs` or shared runner code | Core logic (ML dispatch, post-processing) |
 | 5 | `batchalign/src/cli/args/commands.rs` | CLI arg struct |
 | 6 | `batchalign/src/cli/args/mod.rs` | `CommandProfile` match arm |
 | 7 | `batchalign/src/cli/args/options.rs` | `CommandOptions` variant + `build_typed_options` arm |
+
+Steps 2 and 3 are the whole registration story. Three tests fail until they are
+done, each naming what is missing: `every_released_command_has_a_spec` (no
+entry), `per_command_metadata_is_stable` and `declared_output_naming_is_stable`
+(entry present, metadata not stated).
 
 ## Step 1: Add the ReleasedCommand variant
 
@@ -59,102 +77,83 @@ pub enum ReleasedCommand {
 
 Update the `ALL` array, `as_str()`, `TryFrom<&str>`, and `From<ReleasedCommand> for CommandName`.
 
-## Step 2: Add the command-owned definition
+## Step 2: Add the stage recipe
+
+A `Recipe` is the ordered list of stages the runtime executes, each stage naming
+its own prerequisites. Add it to `crates/batchalign/src/recipe_runner/recipes.rs`
+next to the existing twelve, then read the nearest one in full: stage ordering is
+validated (`Recipe::validate`), so a missing prerequisite is a failing test
+rather than a runtime surprise.
 
 ```rust,ignore
-// crates/batchalign/src/commands/your_command.rs
-use crate::ReleasedCommand;
-use crate::commands::spec::declare_batched_text_command;
-use crate::worker::InferTask;
-
-declare_batched_text_command!(
-    YourCommandSpec,
-    YOUR_COMMAND_DEFINITION,
-    ReleasedCommand::YourCommand,
-    InferTask::YourTask,
-);
+pub(super) const YOUR_COMMAND_RECIPE: Recipe = Recipe {
+    mode: ExecutionMode::BatchedStage,
+    stages: &[
+        RecipeStage::new(
+            RecipeStageId::PlanWorkUnits,
+            RecipeStagePresence::Required,
+            StageExecutionKind::PerWorkUnit,
+            FileStage::Reading,
+            &[],
+        ),
+        // ... your stages, each listing the stages it depends on ...
+    ],
+};
 ```
 
-Then export the module from `commands/mod.rs` and add the definition to
-`commands/catalog.rs`. Do **not** create a second registry layer; the
-command-owned catalog is the source of truth for released command metadata.
+`mode` must equal the `execution_mode` you declare in step 3; a catalog test
+enforces the pair.
 
-Prefer the family declaration helpers over hand-writing
-`CommandWorkflowDescriptor` or calling the lower-level `CommandDefinition`
-constructors directly. The normal command-authoring contract is now:
+## Step 3: Declare the catalog entry
 
-- choose the nearest family helper once
-- supply the released command name and any family-specific task/input knobs
-- let the helper generate the canonical `CommandDefinition`
-
-The lower-level descriptor fields are runtime metadata, not normal
-contributor-facing authoring surface. If you find yourself reaching for
-`RunnerDispatchKind` or `CommandCapabilityKind` in an ordinary new command, stop
-and first ask whether one of the existing family helpers should grow to cover
-your case.
-
-### Which family helper should I use?
-
-| Family helper | Use when | Example |
-|---------------|----------|---------|
-| `declare_batched_text_command!(...)` | Pool text files, batch-infer, fan out | `morphotag`, `utseg`, `translate`, `coref` |
-| `declare_reference_projection_command!(...)` | Compare against a reference | `compare` |
-| `declare_forced_alignment_command!(...)` | Forced alignment over transcript/media inputs | `align` |
-| `declare_transcription_command!(...)` | ASR transcription to CHAT | `transcribe`, `transcribe_s` |
-| `declare_media_analysis_command!(...)` | Media/audio feature extraction | `opensmile`, `avqi` |
-| `declare_benchmark_command!(...)` | Composite benchmark orchestration | `benchmark` |
-
-These helpers are backed by family-specific traits in
-`crates/batchalign/src/commands/spec.rs`. They intentionally hide the
-server-only routing details and the lower-level constructor calls. Command
-authors should pick the semantic family that matches local/direct development;
-server execution reuses the same definition and derives the runtime path later.
-
-## Step 3: Implement the command-owned module
-
-Create `crates/batchalign/src/commands/your_command.rs`.
-
-**For a command that reuses an existing runner family**:
+One `CatalogEntry` in `crates/batchalign/src/recipe_runner/catalog.rs`. This is
+the ONLY place a released command is registered.
 
 ```rust,ignore
-// commands/your_command.rs
-use crate::ReleasedCommand;
-use crate::commands::spec::declare_batched_text_command;
-use crate::worker::InferTask;
-
-declare_batched_text_command!(
-    YourCommandSpec,
-    YOUR_COMMAND_DEFINITION,
-    ReleasedCommand::YourCommand,
-    InferTask::YourTask,
-);
+CatalogEntry {
+    command: ReleasedCommand::YourCommand,
+    family: CommandFamily::BatchedText,
+    planner: PlannerKind::TextInputs,
+    execution_mode: ExecutionMode::BatchedStage,
+    capability_kind: CommandCapabilityKind::DirectInfer,
+    io_profile: CommandIoProfile::PathsModeText,
+    runner_dispatch_kind: RunnerDispatchKind::BatchedTextInfer,
+    capabilities: CapabilityPlan {
+        primary_infer_task: InferTask::YourTask,
+        additional_infer_tasks: &[],
+        surface: CapabilitySurface::RecipeOwned,
+    },
+    output_policy: OutputPolicy {
+        primary: FileNamingPolicy::PreserveInput,
+        primary_content_type: ContentType::Chat,
+        sidecars: NO_SIDECARS,
+    },
+    recipe: &YOUR_COMMAND_RECIPE,
+},
 ```
 
-That is now the normal case. For the currently shipped command families, the
-shared runner dispatches directly from the `CommandDefinition`, so ordinary
-command modules are usually just definitions plus any command-local domain code.
-Only touch `runner/dispatch/*` when your command shape is genuinely new.
+**Every field is stated; none is inferred.** Until 2026-07-29 three of them
+(`capability_kind`, `io_profile`, `runner_dispatch_kind`) were computed by
+matching on the command name with a catch-all `_ =>` default, so a new command
+silently inherited answers nobody had chosen: a text io profile and the
+batched-text dispatch path, surfacing later as "cannot reach the audio" at run
+time. Declaring them means the compiler asks you the question.
 
-**If you truly need a new family**, add or extend the shared runner kernel and
-keep the command module as the contributor-facing entrypoint:
+**`family` is the one field with reach.** It implies eight runtime policies
+(scheduling, model sharing, batching, parallelism, resource lane,
+constrained-host behaviour, warmup eligibility, and the workflow family) through
+`const fn`s on `CommandFamily`. Pick the family whose implications you want, and
+read those methods in `recipe_runner/command_spec.rs` before choosing; do not
+pick by name resemblance.
 
-```rust,ignore
-use crate::pipeline::PipelineServices;
-use crate::runner::{DispatchHostContext, RunnerJobSnapshot};
-pub(crate) async fn run(
-    job: &RunnerJobSnapshot,
-    host: &DispatchHostContext,
-    services: PipelineServices<'_>,
-) {
-    let Some(plan) = YourDispatchPlan::from_job(job, host.config()) else {
-        return;
-    };
-    dispatch_your_family(job, host, services, plan).await;
-}
-```
+**Position in the table is a user-visible contract.** `COMMAND_SPECS` order is
+the order `/health` advertises capabilities in, and the dashboard renders. Insert
+your entry where you want it to appear, next to its family's siblings.
 
-See `commands/align.rs`, `commands/morphotag.rs`, and `commands/benchmark.rs`
-for the current real examples.
+If none of the five families fits, that is a platform task, not a command task:
+extend `CommandFamily` and its eight derivations once (the compiler will list
+every match arm needing an answer), then declare your command against the new
+family.
 
 ### Direct-first development contract
 
@@ -162,18 +161,13 @@ When adding an ordinary command, assume:
 
 - the command should run in direct mode on a laptop first
 - the command should not need to know whether a server exists
-- the command definition is the single source of truth
+- the catalog entry is the single source of truth
 - server mode may derive a different execution host, but not a different command
   meaning
 
 If your command truly needs server-specific behavior, make that an explicit
 opt-in in shared runtime code rather than teaching every command author about
 server internals.
-
-If none of the current family helpers fit, that is a platform/runtime task: add
-or extend one family trait/helper in `commands/spec.rs`, then wire the shared
-runner family once. Ordinary command authors should not solve that by
-hand-writing one-off runtime metadata.
 
 ## Step 4: Core logic
 
@@ -250,16 +244,20 @@ And in `crates/batchalign/src/cli/args/options.rs`, add the `build_typed_options
 ## Step 8: Verify
 
 ```bash
-make check          # compiles?
-make test           # 1,273 tests still pass?
-./target/debug/batchalign3 your-command --help   # CLI works?
+cargo test -p batchalign                         # the whole crate suite
+./target/debug/batchalign3 your-command --help    # CLI works?
 ```
+
+A test count is deliberately not quoted here: the previous revision promised
+"1,273 tests" long after the real number had moved past 1,750, which teaches a
+contributor to distrust the page.
 
 ## Python worker side
 
 If your command needs a new ML model:
 
-1. Add an `InferTask` variant in `crates/batchalign/src/worker/mod.rs`
+1. Add an `InferTask` variant (`crates/batchalign-types/src/worker.rs`) and its
+   stable snake_case label in `worker/target.rs::task_name`
 2. Add a `WorkerProfile` mapping in `crates/batchalign/src/worker/registry.rs`
 3. Implement the Python worker handler in `batchalign/worker/`
 

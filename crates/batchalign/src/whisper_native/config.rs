@@ -54,9 +54,9 @@ impl WhisperNativeConfig {
     /// upstream `ggerganov/whisper.cpp` conversions), fetched once via
     /// hf-hub into its cache and reused from there on every later call.
     ///
-    /// This is what makes `whisper_rs` usable out of the box (Franklin,
-    /// 2026-07-28: "fully supported and default"): a fresh machine needs
-    /// no env var, just network on first use. Without the
+    /// This is what makes `whisper_rs` usable out of the box, which is a
+    /// requirement, not a convenience: a fresh machine needs no env var,
+    /// only network access on first use. Without the
     /// `whisper-rs-backend` feature there is no hf-hub dependency, so
     /// only the env override can succeed.
     pub fn resolve() -> Result<Self, super::WhisperNativeError> {

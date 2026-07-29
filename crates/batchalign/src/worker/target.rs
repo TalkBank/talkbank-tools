@@ -6,7 +6,7 @@
 //! models in memory.
 
 use crate::api::ReleasedCommand;
-use crate::commands::command_workflow_descriptor;
+use crate::command_model::command_spec;
 
 use super::InferTask;
 
@@ -112,18 +112,17 @@ impl WorkerTarget {
 
     /// Return the infer-task worker target used for one released command.
     #[cfg(test)]
-    pub(crate) fn for_command(command: ReleasedCommand) -> Option<Self> {
-        let task = command_workflow_descriptor(command)?.infer_task;
-        Some(Self::InferTask(task))
+    pub(crate) fn for_command(command: ReleasedCommand) -> Self {
+        Self::InferTask(command_spec(command).capabilities.primary_infer_task)
     }
 
     /// Return the actual bootstrap target used for one released command and host mode.
     pub(crate) fn for_command_with_mode(
         command: ReleasedCommand,
         mode: WorkerBootstrapMode,
-    ) -> Option<Self> {
-        let task = command_workflow_descriptor(command)?.infer_task;
-        Some(Self::from_infer_task(task, mode))
+    ) -> Self {
+        let task = command_spec(command).capabilities.primary_infer_task;
+        Self::from_infer_task(task, mode)
     }
 }
 
@@ -152,14 +151,14 @@ mod tests {
     #[test]
     fn command_target_maps_transcribe_to_asr() {
         let target = WorkerTarget::for_command(ReleasedCommand::Transcribe);
-        assert_eq!(target, Some(WorkerTarget::InferTask(InferTask::Asr)));
+        assert_eq!(target, WorkerTarget::InferTask(InferTask::Asr));
     }
 
     #[test]
     fn command_target_maps_compare_to_morphosyntax() {
         assert_eq!(
             WorkerTarget::for_command(ReleasedCommand::Compare),
-            Some(WorkerTarget::InferTask(InferTask::Morphosyntax))
+            WorkerTarget::InferTask(InferTask::Morphosyntax)
         );
     }
 
@@ -191,14 +190,14 @@ mod tests {
                 ReleasedCommand::Morphotag,
                 WorkerBootstrapMode::Profile
             ),
-            Some(WorkerTarget::Profile(WorkerProfile::Stanza))
+            WorkerTarget::Profile(WorkerProfile::Stanza)
         );
         assert_eq!(
             WorkerTarget::for_command_with_mode(
                 ReleasedCommand::Morphotag,
                 WorkerBootstrapMode::Task
             ),
-            Some(WorkerTarget::InferTask(InferTask::Morphosyntax))
+            WorkerTarget::InferTask(InferTask::Morphosyntax)
         );
     }
 

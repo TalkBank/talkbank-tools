@@ -5,7 +5,7 @@
 //! startup warmup is appropriate, and whether local workers should bootstrap an
 //! entire shared profile or only one task to minimize resident memory.
 
-use crate::commands::spec::{ConstrainedHostPolicy, WarmupPolicy};
+use crate::command_model::{ConstrainedHostPolicy, WarmupPolicy};
 use crate::config::ServerConfig;
 use crate::runtime::{MemoryTier, MemoryTierKind};
 use crate::worker::WorkerBootstrapMode;
@@ -129,7 +129,7 @@ pub fn auto_max_concurrent_from(by_cpu: usize, by_memory: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{HostExecutionPolicy, StartupWarmupPolicy};
-    use crate::commands::spec::{ConstrainedHostPolicy, WarmupPolicy};
+    use crate::command_model::{ConstrainedHostPolicy, WarmupPolicy};
     use crate::runtime::MemoryTier;
     use crate::worker::WorkerBootstrapMode;
 

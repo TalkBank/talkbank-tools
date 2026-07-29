@@ -1,7 +1,7 @@
 # benchmark: Developer Reference
 
 **Status:** Current
-**Last updated:** 2026-05-19 22:58 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Implementation guide for the `benchmark` command. For user-facing
 documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.md).
@@ -13,7 +13,8 @@ documentation, see [User Guide: benchmark](../../user-guide/commands/benchmark.m
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
 | CLI args | `crates/batchalign/src/cli/args/commands.rs`: `BenchmarkArgs` | asr-engine, lang, num-speakers, wor/nowor |
-| Command definition | `crates/batchalign/src/commands/benchmark.rs` | `CommandDefinition` impl |
+| Catalog entry | `crates/batchalign/src/recipe_runner/catalog.rs` | the `CatalogEntry` for `benchmark` |
+| Stage recipe | `crates/batchalign/src/recipe_runner/recipes.rs` | `BENCHMARK_RECIPE` |
 | Benchmark pipeline | `crates/batchalign/src/runner/dispatch/benchmark_pipeline.rs` | Orchestrates transcribe → compare → materialize |
 | Benchmark composition | `crates/batchalign/src/benchmark.rs`: `process_benchmark()` | Calls process_transcribe(), then process_compare_main_annotated() |
 

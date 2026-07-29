@@ -1,18 +1,19 @@
 # Adding Inference Providers
 
 **Status:** Current
-**Last updated:** 2026-05-19 21:18 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 Batchalign3 no longer has a public entry-point plugin system. New engines are
 added in-tree as built-in worker capabilities.
 
 This page covers the current extension path.
 
-If you are adding a new command, choose its `WorkflowFamily` in
-`crates/batchalign/src/command_family.rs`, put the released command wrapper
-in `crates/batchalign/src/commands/`, and keep any algorithmic or
-orchestration logic in the owning Rust module. Engine work should support that
-Rust-owned command flow; it should not define the command shape on its own.
+If you are adding a new command, declare it as one `CatalogEntry` in
+`crates/batchalign/src/recipe_runner/catalog.rs` (choosing its `CommandFamily`
+there) with its stage recipe in `recipe_runner/recipes.rs`, and keep any
+algorithmic or orchestration logic in the owning Rust module. Engine work should
+support that Rust-owned command flow; it should not define the command shape on
+its own. See [Adding a New Command](./adding-commands.md).
 
 ## Choose the layer first
 

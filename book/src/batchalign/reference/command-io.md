@@ -1,7 +1,7 @@
 # Batchalign Command I/O Parity: Local CLI vs Server
 
 **Status:** Current
-**Last updated:** 2026-05-20 01:20 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 This document describes the input/output flow for every batchalign command,
 comparing direct local CLI execution with the server-based (`--server`)
@@ -437,8 +437,8 @@ paths_mode = allow_paths_mode
   predicate, defined at
   `crates/batchalign/src/commands/mod.rs` and re-exported from
   `batchalign::lib.rs`. It reads each command's `io_profile`
-  (`CommandIoProfile` on `CommandWorkflowDescriptor` in
-  `crates/batchalign/src/commands/spec.rs`) and returns `true` for
+  (the `io_profile` field of the command's `CatalogEntry`, declared in
+  `crates/batchalign/src/recipe_runner/catalog.rs`) and returns `true` for
   the `PathsModeText` and `PathsModeAudio` variants.
 - `is_local_server(url)` at
   `crates/batchalign/src/cli/dispatch/single.rs` returns `true` only for
@@ -531,7 +531,7 @@ Diagram verified against:
 `crates/batchalign/src/cli/dispatch/single.rs`,
 `crates/batchalign/src/cli/dispatch/paths.rs`,
 `crates/batchalign/src/cli/dispatch/mod.rs`,
-`crates/batchalign/src/commands/spec.rs`,
+`crates/batchalign/src/recipe_runner/command_spec.rs`,
 `crates/batchalign/src/commands/mod.rs`,
 `crates/batchalign/src/routes/jobs/mod.rs`,
 `crates/batchalign/src/runner/dispatch/infer_batched.rs`.

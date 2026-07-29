@@ -1,7 +1,7 @@
 # Rust CLI and Server
 
 **Status:** Current
-**Last updated:** 2026-07-01 09:19 EDT
+**Last updated:** 2026-07-29 18:41 EDT
 
 This page covers the Rust control plane that powers `batchalign3`: the CLI
 client, the HTTP server, and how to extend them.
@@ -135,16 +135,18 @@ in `crates/batchalign/src/cli/dispatch/helpers.rs:24` keeps
 file-scoped failures as a named record instead of spreading
 filename/message pairs through the progress code.
 
-The command-specific logic now starts in
-`crates/batchalign/src/commands/`. That layer owns the canonical
-`CommandDefinition` catalog plus the family authoring traits/macros that
-generate those definitions. For the currently shipped command families, an
-ordinary command module now uses a helper such as
-`declare_batched_text_command!(...)` or `declare_transcription_command!(...)`
-instead of spelling out runtime metadata or even calling the lower-level
-constructors directly. The shared runner dispatches by definition/family, so
-ordinary command modules no longer need to import store/queue/host plumbing just
-to forward into an existing family executor.
+The command-specific logic starts from one declaration in
+`crates/batchalign/src/recipe_runner/catalog.rs`: a `CatalogEntry` per released
+command, naming its stage recipe and stating its family, planner, execution
+mode, capability kind, io profile, dispatch kind, worker tasks and output
+policy. The shared runner dispatches from that entry, so nothing per-command
+needs to import store/queue/host plumbing to reach an existing family executor.
+
+There is no per-command authoring layer any more. A `commands/` module with one
+module per command, six `declare_*_command!` macros and a `CommandDefinition`
+type existed until 2026-07-28, when removing an `#![allow(dead_code)]` proved it
+produced values nothing read; the compatibility views over the catalog followed
+on 2026-07-29.
 
 That is an intentional contributor contract:
 
@@ -303,21 +305,21 @@ wire format between CLI and server.
 
 ### 4. Server-side task routing and capability gate
 
-**`crates/batchalign/src/commands/<name>.rs`**: Add the command's
-`CommandDefinition`.
+**`crates/batchalign/src/recipe_runner/recipes.rs`**: add the stage recipe.
 
-**`crates/batchalign/src/commands/catalog.rs`**: Register/export that definition
-in the released-command catalog.
+**`crates/batchalign/src/recipe_runner/catalog.rs`**: declare the
+`CatalogEntry`. That is the whole registration.
 
-Compatibility helpers in `crates/batchalign/src/runner/policy.rs` still
-answer `infer_task_for_command()` and `command_requires_infer()`, but they now
-derive directly from the command-owned catalog.
+`crates/batchalign/src/runner/policy.rs` answers `infer_task_for_command()` and
+`command_requires_chat_infer()` straight off that entry. Both are total: a
+`ReleasedCommand` always has an entry (pinned by
+`recipe_runner::catalog::tests::every_released_command_has_a_spec`), so neither
+returns an `Option` for callers to unwrap.
 
 The server's capability gate (`validate_infer_capability_gate()` in
-`crates/batchalign/src/state.rs`) cross-checks the worker's
-advertised `infer_tasks` against the released-command descriptors in the
-command-owned catalog, commands whose descriptor requires an infer task must
-have a matching worker capability.
+`crates/batchalign/src/capability.rs`) cross-checks the worker's advertised
+`infer_tasks` against each entry's `capabilities.primary_infer_task`: a command
+is advertised only when a worker reports the task it is advertised from.
 
 The critical implementation rule is that **startup capability state is not
 authoritative for execution**. The current server intentionally allows an

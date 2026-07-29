@@ -9,7 +9,7 @@ use crate::chat_ops::morphosyntax_ops::{MultilingualPolicy, MwtDict, Tokenizatio
 
 use crate::api::ReleasedCommand;
 use crate::chat_ops::CacheTaskName;
-use crate::commands::CommandKernelPlan;
+use crate::runner::dispatch::kernel_plan::CommandKernelPlan;
 use crate::config::ServerConfig;
 use crate::host_policy::HostExecutionPolicy;
 use crate::params::{CacheOverrides, CachePolicy};

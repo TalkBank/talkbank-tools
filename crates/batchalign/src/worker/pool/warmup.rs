@@ -305,12 +305,8 @@ impl WorkerPool {
         engine_overrides: &str,
     ) {
         let lang = lang.into();
-        let Some(worker_target) =
-            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode)
-        else {
-            warn!(command = %command, lang = %lang, "Skipping pre-scale for unknown command target");
-            return;
-        };
+        let worker_target =
+            WorkerTarget::for_command_with_mode(command, self.config.runtime.bootstrap_mode);
         let target = target.min(self.max_workers_per_key_for(worker_target.profile_kind()));
 
         // TCP worker shortcut: if a TCP worker already exists for this
