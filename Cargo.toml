@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "xtask",
     "crates/batchalign-types",
+    "crates/batchalign-fa-core",
     "crates/batchalign",
     "crates/batchalign-transform",
     "apps/dashboard-desktop/src-tauri",

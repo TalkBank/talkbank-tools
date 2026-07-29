@@ -1,4 +1,8 @@
-//! Numeric core for Whisper forced alignment: median filter + DTW.
+#![warn(missing_docs)]
+//! Numeric core for Whisper forced alignment: median filter, column
+//! standardization, and DTW. A LEAF crate (thiserror only) so both the
+//! batchalign server crate and the whisper pilot depend on the same
+//! implementation without either depending on the other's stack.
 //!
 //! Faithful port of the two numeric primitives the Python FA path uses
 //! from `transformers.models.whisper.generation_whisper`

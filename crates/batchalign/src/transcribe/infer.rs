@@ -102,7 +102,9 @@ pub(crate) async fn infer_asr(
             )
             .await
         }
-        AsrBackend::RustWhisperRs => infer_whisper_rs_asr(params.audio_path, params.lang).await,
+        AsrBackend::RustWhisperRs => {
+            infer_whisper_rs_asr(params.audio_path, params.lang, params.extras).await
+        }
         AsrBackend::Worker(worker_mode) => {
             infer_asr_via_worker_v2(
                 pool,
@@ -133,11 +135,11 @@ pub(crate) async fn infer_asr(
 async fn infer_whisper_rs_asr(
     audio_path: &Path,
     lang: &LanguageSpec,
+    extras: &std::collections::BTreeMap<String, String>,
 ) -> Result<AsrResponse, ServerError> {
     let requested = lang.as_resolved().cloned();
 
-    let cfg = crate::whisper_native::WhisperNativeConfig::resolve()
-        .map_err(whisper_error_to_server_error)?;
+    let cfg = whisper_rs_config_from(extras).map_err(whisper_error_to_server_error)?;
 
     let audio_path = audio_path.to_path_buf();
     let lang_for_call = requested.clone();
@@ -155,6 +157,26 @@ async fn infer_whisper_rs_asr(
         .map_err(|error| {
             ServerError::WhisperEngine(format!("whisper_rs ASR response lowering failed: {error}"))
         })
+}
+
+/// Engine-override key selecting the ggml model file for a single job
+/// (same mechanism as `qwen_model`): `--engine-overrides
+/// '{"asr":"whisper_rs","whisper_rs_model":"/path/model.bin"}'`.
+const WHISPER_RS_MODEL_EXTRA: &str = "whisper_rs_model";
+
+/// Model-resolution precedence for the whisper_rs engine: the per-job
+/// engine-override extra, then the machine-wide env var, then the
+/// auto-fetched default (inside `resolve()`).
+fn whisper_rs_config_from(
+    extras: &std::collections::BTreeMap<String, String>,
+) -> Result<crate::whisper_native::WhisperNativeConfig, crate::whisper_native::WhisperNativeError>
+{
+    if let Some(path) = extras.get(WHISPER_RS_MODEL_EXTRA) {
+        return Ok(crate::whisper_native::WhisperNativeConfig::for_model(
+            std::path::PathBuf::from(path),
+        ));
+    }
+    crate::whisper_native::WhisperNativeConfig::resolve()
 }
 
 /// Route the typed native-Whisper error taxonomy onto the server error
@@ -293,9 +315,24 @@ mod tests {
     /// cache), and it must surface as the 500-class `WhisperEngine`
     /// variant, never as `Validation`: infra failures may not be
     /// reported to clients as bad input.
+    #[test]
+    fn whisper_rs_model_extra_takes_precedence() {
+        let mut extras = std::collections::BTreeMap::new();
+        extras.insert(
+            WHISPER_RS_MODEL_EXTRA.to_string(),
+            "/per/job/model.bin".to_string(),
+        );
+        let cfg = whisper_rs_config_from(&extras).expect("explicit path always resolves");
+        assert_eq!(
+            cfg.model_path,
+            std::path::PathBuf::from("/per/job/model.bin")
+        );
+    }
+
     #[tokio::test]
     async fn whisper_rs_dispatch_accepts_auto_and_types_infra_failures() {
-        let err = infer_whisper_rs_asr(Path::new("/nonexistent.wav"), &LanguageSpec::Auto)
+        let extras = std::collections::BTreeMap::new();
+        let err = infer_whisper_rs_asr(Path::new("/nonexistent.wav"), &LanguageSpec::Auto, &extras)
             .await
             .expect_err("a nonexistent audio file must fail");
         assert!(

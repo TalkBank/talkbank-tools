@@ -849,6 +849,11 @@ pub struct SetupArgs {
     /// Disable prompts and rely only on flags.
     #[arg(long)]
     pub non_interactive: bool,
+
+    /// Download (or verify) the whisper_rs default model now, so first
+    /// use does not pay a ~3.1 GB download inside a job.
+    #[arg(long)]
+    pub prefetch_whisper_rs: bool,
 }
 
 // ---------------------------------------------------------------------------

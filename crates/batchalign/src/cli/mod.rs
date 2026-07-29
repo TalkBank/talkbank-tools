@@ -365,6 +365,7 @@ pub async fn run_command(cli: args::Cli) -> Result<(), error::CliError> {
                         engine: None,
                         rev_key: None,
                         non_interactive: false,
+                        prefetch_whisper_rs: false,
                     })?;
                     eprintln!();
                 } else {

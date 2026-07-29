@@ -40,7 +40,7 @@ use candle_transformers::models::whisper::{self as m, Config};
 use serde::Deserialize;
 use tokenizers::Tokenizer;
 
-use batchalign::whisper_native::fa_dtw::{
+use batchalign_fa_core::{
     CostMatrix, dynamic_time_warping, median_filter_rows, standardize_columns,
     token_jump_times_s,
 };
@@ -124,7 +124,18 @@ impl FaAssets {
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&[weights_path], m::DTYPE, device)?
         };
-        let model = crate::fa_model::FaWhisper::load(&vb, config.clone())?;
+        let mut model = crate::fa_model::FaWhisper::load(&vb, config.clone())?;
+        // Record cross-attention only on the alignment-head layers; the
+        // other layers' weights are never read and retaining them keeps
+        // ~115 MB of activations alive per forward at large-v2 scale.
+        let capture_layers: Vec<usize> = {
+            let mut layers: Vec<usize> =
+                generation.alignment_heads.iter().map(|(l, _)| *l).collect();
+            layers.sort_unstable();
+            layers.dedup();
+            layers
+        };
+        model.decoder.set_capture_layers(&capture_layers);
         Ok(Self {
             config,
             generation,
@@ -165,12 +176,9 @@ impl FaAssets {
         let audio_features = self.model.encoder.forward(mel, true)?;
         let token_t = Tensor::new(decoder_input.as_slice(), &self.device)?.unsqueeze(0)?;
         let _hidden = self.model.decoder.forward(&token_t, &audio_features, true)?;
+        // Only the alignment-head layers are captured (see load); the
+        // per-head loop below errors if a referenced layer is missing.
         let cross = self.model.decoder.take_cross_attentions();
-        if let Some(missing) = cross.iter().position(Option::is_none) {
-            return Err(anyhow!(
-                "cross-attention capture missing for decoder layer {missing}"
-            ));
-        }
 
         // ---- alignment-head matrices, standardized + filtered ------------
         let n_tokens = labels.len();
@@ -178,10 +186,9 @@ impl FaAssets {
         let mut sum_matrix: Vec<f32> = Vec::new();
         let mut n_frames = 0usize;
         for &(layer, head) in &self.generation.alignment_heads {
-            let layer_t = cross
-                .get(layer)
-                .and_then(|t| t.as_ref())
-                .ok_or_else(|| anyhow!("alignment head references layer {layer} out of range"))?;
+            let layer_t = cross.get(layer).and_then(|t| t.as_ref()).ok_or_else(|| {
+                anyhow!("cross-attention capture missing for alignment layer {layer}")
+            })?;
             // [batch, heads, tokens, frames] -> [tokens, frames]
             let w = layer_t.i((0, head))?.to_dtype(candle_core::DType::F32)?;
             let (t, f) = w.dims2()?;

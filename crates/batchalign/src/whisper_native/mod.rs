@@ -25,10 +25,11 @@ mod audio;
 mod cache;
 mod config;
 mod error;
-// Numeric FA core (median filter + DTW): dependency-free, so it is
-// unconditionally available; the model-facing FA integration will gate
-// on the backend feature.
-pub mod fa_dtw;
+// Numeric FA core (median filter + standardization + DTW): lives in the
+// leaf crate `batchalign-fa-core` (shared with the whisper pilot);
+// re-exported here so existing `whisper_native::fa_dtw::...` paths keep
+// working.
+pub use batchalign_fa_core as fa_dtw;
 
 /// Release the process-wide native-Whisper resources (the cached
 /// `WhisperContext` and its Metal buffers). MUST run before process

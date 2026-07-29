@@ -197,6 +197,13 @@ fn write_config(path: &Path, config: &SetupConfig) -> Result<(), CliError> {
 
 /// Resolve configuration and write `~/.batchalign.ini`.
 pub fn run(args: &SetupArgs) -> Result<(), CliError> {
+    // `--prefetch-whisper-rs` alone is a pure model prefetch: no engine
+    // choice, no config write. Combined with `--engine ...` it runs
+    // after the config is saved.
+    if args.prefetch_whisper_rs && args.engine.is_none() && !args.non_interactive {
+        return prefetch_whisper_rs();
+    }
+
     let config = resolve_config(args)?;
     let path = default_config_path();
     write_config(&path, &config)?;
@@ -209,6 +216,23 @@ pub fn run(args: &SetupArgs) -> Result<(), CliError> {
             SetupEngine::Whisper => "whisper",
         }
     );
+    if args.prefetch_whisper_rs {
+        prefetch_whisper_rs()?;
+    }
+    Ok(())
+}
+
+/// Resolve (downloading on first use) the whisper_rs default model, so
+/// the ~3.1 GB fetch happens here under an explicit command instead of
+/// silently inside the first transcription job.
+fn prefetch_whisper_rs() -> Result<(), CliError> {
+    eprintln!("Resolving whisper_rs default model (first use downloads ~3.1 GB)...");
+    let cfg = crate::whisper_native::WhisperNativeConfig::resolve().map_err(|error| {
+        CliError::Io(std::io::Error::other(format!(
+            "whisper_rs model prefetch failed: {error}"
+        )))
+    })?;
+    eprintln!("whisper_rs model ready: {}", cfg.model_path.display());
     Ok(())
 }
 
@@ -222,6 +246,7 @@ mod tests {
         non_interactive: bool,
     ) -> SetupArgs {
         SetupArgs {
+            prefetch_whisper_rs: false,
             engine,
             rev_key: rev_key.map(ToString::to_string),
             non_interactive,

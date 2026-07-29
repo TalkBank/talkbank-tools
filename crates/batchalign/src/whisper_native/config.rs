@@ -81,6 +81,12 @@ impl WhisperNativeConfig {
                 }
             })?;
             let (owner, name) = (DEFAULT_MODEL_REPO_OWNER, DEFAULT_MODEL_REPO_NAME);
+            // Time transparency: the first-ever resolution downloads a
+            // ~3.1 GB model; later calls are cache hits inside hf-hub.
+            tracing::info!(
+                model = %format!("{owner}/{name}/{DEFAULT_MODEL_FILE}"),
+                "resolving default whisper-rs model (first use downloads ~3.1 GB)"
+            );
             let path = client
                 .model(owner, name)
                 .download_file()
@@ -107,4 +113,13 @@ pub const DEFAULT_MODEL_REPO_OWNER: &str = "ggerganov";
 pub const DEFAULT_MODEL_REPO_NAME: &str = "whisper.cpp";
 /// Default model file: large-v3, matching the quality tier the Python
 /// whisper paths default to.
+///
+/// NOTE (CoreML): a model is an artifact SET when the
+/// `whisper-rs-coreml` feature is on: acceleration needs a sibling
+/// `<model>-encoder.mlmodelc` bundle next to the `.bin`, which this
+/// single-file default cannot fetch. A CoreML build on the auto-fetched
+/// default silently runs without CoreML; supply
+/// `BATCHALIGN_WHISPER_RS_MODEL` pointing at a directory that carries
+/// both artifacts, or extend this to a `DefaultModel { repo, file,
+/// coreml_bundle }` set when CoreML prefetch lands.
 pub const DEFAULT_MODEL_FILE: &str = "ggml-large-v3.bin";

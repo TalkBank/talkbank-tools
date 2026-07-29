@@ -86,6 +86,7 @@ required-features = ["binary-entry"]
 [dependencies]
 # ── Always required (engine + direct mode) ────────────────────────────
 batchalign-types = { workspace = true }
+batchalign-fa-core = { path = "../batchalign-fa-core" }
 # chat_ops module deps (formerly batchalign-chat-ops, folded 2026-04-30)
 talkbank-model = { workspace = true }
 talkbank-parser = { workspace = true }

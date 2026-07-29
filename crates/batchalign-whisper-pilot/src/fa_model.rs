@@ -48,8 +48,12 @@ struct MultiHeadAttention {
     out: Linear,
     n_head: usize,
     kv_cache: Option<(Tensor, Tensor)>,
-    // FA-CAPTURE: post-softmax weights of the most recent CROSS-attention
-    // forward ([batch, heads, q_ctx, k_ctx]); None for self-attention.
+    // FA-CAPTURE: when enabled, the post-softmax weights of the most
+    // recent CROSS-attention forward ([batch, heads, q_ctx, k_ctx]).
+    // Off by default: retaining all layers keeps ~115 MB of activations
+    // alive per forward at large-v2 scale, and alignment reads only the
+    // `alignment_heads` layers (typically < 10 of 32).
+    capture_cross: bool,
     last_cross_attn: Option<Tensor>,
 }
 
@@ -66,6 +70,7 @@ impl MultiHeadAttention {
             out,
             n_head,
             kv_cache: None,
+            capture_cross: false,
             last_cross_attn: None,
         })
     }
@@ -129,8 +134,9 @@ impl MultiHeadAttention {
             qk = qk.broadcast_add(&mask)?
         }
         let w = candle_nn::ops::softmax_last_dim(&qk)?;
-        // FA-CAPTURE: keep the cross-attention weights for alignment.
-        if is_cross {
+        // FA-CAPTURE: keep the cross-attention weights for alignment,
+        // only on layers that opted in via `set_capture_layers`.
+        if is_cross && self.capture_cross {
             self.last_cross_attn = Some(w.clone());
         }
         let wv = w.matmul(&v)?.transpose(1, 2)?.flatten_from(2)?;
@@ -201,6 +207,13 @@ impl ResidualAttentionBlock {
         self.cross_attn
             .as_mut()
             .and_then(|(attn, _)| attn.last_cross_attn.take())
+    }
+
+    // FA-CAPTURE: enable/disable recording on this block's cross-attention.
+    fn set_cross_capture(&mut self, enabled: bool) {
+        if let Some((attn, _)) = &mut self.cross_attn {
+            attn.capture_cross = enabled;
+        }
     }
 }
 
@@ -332,6 +345,15 @@ impl TextDecoder {
         self.ln.forward(&x)
     }
 
+    /// FA-CAPTURE: enable recording on exactly the given decoder layers
+    /// (indices into the block list); every other layer records nothing,
+    /// so its activations are freed as the forward proceeds.
+    pub fn set_capture_layers(&mut self, layers: &[usize]) {
+        for (i, block) in self.blocks.iter_mut().enumerate() {
+            block.set_cross_capture(layers.contains(&i));
+        }
+    }
+
     /// FA-CAPTURE: harvest each layer's recorded cross-attention weights
     /// (in layer order) after a forward pass. A `None` entry names the
     /// exact layer whose capture is missing, so the caller's error can
@@ -358,5 +380,66 @@ impl FaWhisper {
         let encoder = AudioEncoder::load(vb.pp("model.encoder"), &config)?;
         let decoder = TextDecoder::load(vb.pp("model.decoder"), &config)?;
         Ok(Self { encoder, decoder })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use candle_core::DType;
+    use candle_transformers::models::whisper as m;
+
+    /// Guard against silent upstream drift: candle-transformers is a
+    /// caret pin, so a 0.11.x patch to upstream whisper numerics would
+    /// not reach this vendored copy, and the FA parity claim would
+    /// quietly stop holding. This loads BOTH models from the same
+    /// weights (whisper-tiny, ~150 MB) and asserts the encoder halves
+    /// produce identical hidden states on a silence mel.
+    ///
+    /// `#[ignore]`: needs network (hf-hub fetch) and a model download.
+    /// Run with: cargo test -p batchalign-whisper-pilot -- --ignored
+    #[test]
+    #[ignore = "downloads whisper-tiny via hf-hub"]
+    fn vendored_encoder_matches_upstream() {
+        let device = Device::Cpu;
+        let fetch = crate::hf_fetcher(crate::WhisperModel::Tiny).unwrap();
+        let config: Config = serde_json::from_str(
+            &std::fs::read_to_string(fetch("config.json").unwrap()).unwrap(),
+        )
+        .unwrap();
+        let weights = fetch("model.safetensors").unwrap();
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&[weights], m::DTYPE, &device).unwrap()
+        };
+        let mut ours = FaWhisper::load(&vb, config.clone()).unwrap();
+        let mut upstream = m::model::Whisper::load(&vb, config.clone()).unwrap();
+
+        // Silence mel: log-mel of zeros PCM through the shared frontend.
+        let mel_filters = crate::load_mel_filters(config.num_mel_bins).unwrap();
+        let pcm = vec![0.0f32; m::N_SAMPLES];
+        let mel = m::audio::pcm_to_mel(&config, &pcm, &mel_filters);
+        let total_frames = mel.len() / config.num_mel_bins;
+        let mel = Tensor::from_vec(mel, (1, config.num_mel_bins, total_frames), &device)
+            .unwrap()
+            .narrow(2, 0, total_frames.min(m::N_FRAMES))
+            .unwrap();
+
+        let a = ours.encoder.forward(&mel, true).unwrap();
+        let b = upstream.encoder.forward(&mel, true).unwrap();
+        let diff = (a - b)
+            .unwrap()
+            .abs()
+            .unwrap()
+            .max_all()
+            .unwrap()
+            .to_dtype(DType::F32)
+            .unwrap()
+            .to_scalar::<f32>()
+            .unwrap();
+        assert!(
+            diff < 1e-4,
+            "vendored encoder diverges from upstream: max |diff| = {diff}"
+        );
     }
 }
