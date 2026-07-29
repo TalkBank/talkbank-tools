@@ -915,6 +915,17 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     }
 
     // Fire the cancel-driven worker kill.
+    //
+    // Time the property FROM HERE. The assertion below is about kill-to-unwind
+    // latency, and `dispatch_start` predates the spawn, the warmup handshake
+    // and the registration poll loop, which is itself allowed a deliberately
+    // generous 30s. Measuring from `dispatch_start` therefore folded up to a
+    // full CANCEL_UNWIND_BOUND of unrelated setup into a CANCEL_UNWIND_BOUND
+    // assertion, so the two collided under full-suite load: 2026-07-29 it
+    // failed at 32.74s while the `timeout()` below, which IS scoped to the
+    // kill, passed. That combination proves the kill propagated correctly and
+    // the measurement was simply wrong.
+    let kill_instant = std::time::Instant::now();
     pool.shutdown_workers_for_job(&job_id).await;
 
     // Assertion 1 (the user-visible cancel-responsiveness property):
@@ -922,8 +933,6 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
     // the in-flight Whisper / Stanza / etc. call to complete naturally.
     // The 2026-04-26 net incident's symptom was the cancel waiting
     // ~28 minutes for an 8-25 minute ASR pass to finish on its own.
-    // Here the worker delay is 8s; anything close to 8s means the kill
-    // didn't actually interrupt the call.
     // 30s bound against a 60s natural completion: still unambiguous (half the
     // time the call needs to finish on its own) while tolerating a saturated
     // machine. The 2026-04-26 symptom was a cancel waiting ~28 MINUTES, so
@@ -936,16 +945,18 @@ async fn cancel_kills_in_flight_worker_under_dispatch() {
                  and we're back to waiting for the call to finish on its own",
         )
         .expect("dispatch task panicked");
-    let dispatch_elapsed = dispatch_start.elapsed();
+    let unwind_elapsed = kill_instant.elapsed();
+    let total_elapsed = dispatch_start.elapsed();
     assert!(
         dispatch_result.is_err(),
         "dispatch should fail (worker terminated mid-call); got Ok: {dispatch_result:?}"
     );
     assert!(
-        dispatch_elapsed < CANCEL_UNWIND_BOUND,
+        unwind_elapsed < CANCEL_UNWIND_BOUND,
         "dispatch should unwind in <{CANCEL_UNWIND_BOUND:?} after kill (worker \
-         delay is {WORKER_NATURAL_COMPLETION:?}); took {dispatch_elapsed:?}, so \
-         the kill is not interrupting in-flight work"
+         delay is {WORKER_NATURAL_COMPLETION:?}); took {unwind_elapsed:?} from \
+         the kill ({total_elapsed:?} for the whole test), so the kill is not \
+         interrupting in-flight work"
     );
 
     // Tracker drained: a subsequent kill is a no-op against the
