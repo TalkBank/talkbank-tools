@@ -96,11 +96,11 @@
 //! TCP listener with graceful shutdown handling.
 //!
 //! ```rust,no_run
-//! use crate::{create_app, serve};
-//! use crate::config::ServerConfig;
-//! use crate::worker::pool::PoolConfig;
+//! use batchalign::{create_app, serve};
+//! use batchalign::config::ServerConfig;
+//! use batchalign::worker::pool::PoolConfig;
 //!
-//! # async fn example() -> Result<(), crate::error::ServerError> {
+//! # async fn example() -> Result<(), batchalign::error::ServerError> {
 //! // Load or construct a server config
 //! let config = ServerConfig::default();
 //! let pool_config = PoolConfig::default();

@@ -72,10 +72,10 @@
 //! ## Health-check a running server
 //!
 //! ```rust,no_run
-//! use crate::cli::client::BatchalignClient;
+//! use batchalign::cli::client::BatchalignClient;
 //!
-//! # async fn example() -> Result<(), crate::cli::error::CliError> {
-//! let client = BatchalignClient::new();
+//! # async fn example() -> Result<(), batchalign::cli::error::CliError> {
+//! let client = BatchalignClient::new()?;
 //! let health = client.health_check("http://localhost:8000").await?;
 //! println!("server version: {}", health.version);
 //! println!("capabilities:   {:?}", health.capabilities);
@@ -87,8 +87,8 @@
 //!
 //! ```rust,no_run
 //! use std::path::Path;
-//! use crate::cli::resolve::resolve_inputs;
-//! use crate::cli::discover::discover_client_files;
+//! use batchalign::cli::resolve::resolve_inputs;
+//! use batchalign::cli::discover::discover_client_files;
 //!
 //! // Resolve CLI-style positional args into (inputs, output_dir)
 //! let (inputs, out_dir) = resolve_inputs(

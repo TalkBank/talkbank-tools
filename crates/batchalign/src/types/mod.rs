@@ -49,11 +49,11 @@
 //! from a CLI client):
 //!
 //! ```
-//! use crate::api::JobSubmission;
+//! use batchalign::api::{JobSubmission, LanguageSpec};
 //!
 //! let json = r#"{
 //!     "command": "morphotag",
-//!     "lang": "eng",
+//!     "lang": "per-file",
 //!     "files": [
 //!         {"filename": "01DM_18.cha", "content": "@UTF8\n@Begin\n@End"}
 //!     ],
@@ -67,7 +67,12 @@
 //!
 //! let submission: JobSubmission = serde_json::from_str(json).unwrap();
 //! assert_eq!(submission.command, "morphotag");
-//! assert_eq!(submission.lang, "eng");
+//! // `lang` is a LanguageSpec, not a string. morphotag, translate and coref
+//! // take no `--lang` and MUST submit `PerFile`, resolving the language per
+//! // file from each CHAT file's `@Languages:` header; every other processing
+//! // command MUST NOT. `validate()` enforces that pairing, which is why this
+//! // example reads "per-file" on the wire rather than a concrete code.
+//! assert_eq!(submission.lang, LanguageSpec::PerFile);
 //! assert_eq!(submission.num_speakers, 1); // default
 //! assert_eq!(submission.files.len(), 1);
 //! assert!(submission.validate().is_ok());
@@ -76,7 +81,7 @@
 //! Checking job status predicates:
 //!
 //! ```
-//! use crate::api::JobStatus;
+//! use batchalign::api::JobStatus;
 //!
 //! let status = JobStatus::Running;
 //! assert!(status.is_active());
@@ -91,7 +96,7 @@
 //! Loading server configuration from a YAML string:
 //!
 //! ```
-//! use crate::config::ServerConfig;
+//! use batchalign::config::ServerConfig;
 //!
 //! let yaml = r#"
 //! port: 9000

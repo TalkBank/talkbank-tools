@@ -65,9 +65,9 @@
 //! # Examples
 //!
 //! ```no_run
-//! use crate::cache::{UtteranceCache, CacheBackend};
+//! use batchalign::cache::{UtteranceCache, CacheBackend};
 //!
-//! # async fn example() -> Result<(), crate::cache::CacheError> {
+//! # async fn example() -> Result<(), batchalign::cache::CacheError> {
 //! // Open the default tiered cache (moka hot + SQLite cold).
 //! let cache = UtteranceCache::tiered(None, None).await?;
 //!
@@ -93,9 +93,9 @@
 //! Using a temporary directory for test isolation:
 //!
 //! ```no_run
-//! use crate::cache::{UtteranceCache, CacheBackend};
+//! use batchalign::cache::{UtteranceCache, CacheBackend};
 //!
-//! # async fn example() -> Result<(), crate::cache::CacheError> {
+//! # async fn example() -> Result<(), batchalign::cache::CacheError> {
 //! let tmp = tempfile::TempDir::new().unwrap();
 //! let cache = UtteranceCache::sqlite(Some(tmp.path().to_path_buf())).await?;
 //!
