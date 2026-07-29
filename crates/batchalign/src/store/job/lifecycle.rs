@@ -24,7 +24,7 @@ use tokio_util::sync::CancellationToken;
 
 use std::collections::BTreeSet;
 
-use crate::api::{FileStatusKind, JobStatus, UnixTimestamp};
+use crate::api::{FileStatusKind, JobStatus, StatusChange, UnixTimestamp};
 
 use super::Job;
 use super::types::RecoveryDisposition;
@@ -72,14 +72,40 @@ impl Job {
             .any(|file_status| file_status.status == FileStatusKind::Error)
     }
 
+    /// Apply a status change if the state machine permits it.
+    ///
+    /// The ONLY place `execution.status` is written. Returns false when the
+    /// transition is illegal for this reason, in which case nothing is
+    /// mutated and the caller must not persist a status either. See
+    /// [`JobStatus::can_transition_to`].
+    #[must_use = "a refusal means the status did NOT change; status-derived \
+                  bookkeeping and any persisted status must not assume it did"]
+    pub(crate) fn set_status(&mut self, next: JobStatus, reason: StatusChange) -> bool {
+        if !self.execution.status.can_transition_to(next, reason) {
+            // Logged here because this is the single choke point, so no writer
+            // has to remember. Most refusals are ordinary races (a user cancels
+            // while a runner is mid-flight); the loud one is a refused
+            // `Finalize`, which means work was completed and then discarded.
+            tracing::debug!(
+                job_id = %self.identity.job_id,
+                from = %self.execution.status,
+                to = %next,
+                ?reason,
+                "refusing job status transition"
+            );
+            return false;
+        }
+        self.execution.status = next;
+        true
+    }
+
     /// Request cancellation and, when still active, transition to cancelled.
     pub(crate) fn request_cancellation(
         &mut self,
         completed_at: UnixTimestamp,
     ) -> Option<UnixTimestamp> {
         self.runtime.cancel_token.cancel();
-        if self.execution.status.can_cancel() {
-            self.execution.status = JobStatus::Cancelled;
+        if self.set_status(JobStatus::Cancelled, StatusChange::Interrupt) {
             self.schedule.completed_at = Some(completed_at);
             self.schedule.next_eligible_at = None;
             Some(completed_at)
@@ -89,10 +115,18 @@ impl Job {
     }
 
     /// Re-queue the job after memory pressure prevented dispatch.
-    pub(crate) fn requeue_after_memory_gate(&mut self, retry_at: UnixTimestamp) {
-        self.execution.status = JobStatus::Queued;
+    ///
+    /// Refuses for a job that has left the active set: `Queued` is an ACTIVE
+    /// status, so requeuing a cancelled job resurrects it. Reproduction:
+    /// `cancelled_job_is_not_requeued_by_the_memory_gate`.
+    #[must_use = "an ignored refusal requeues a job that is no longer active"]
+    pub(crate) fn requeue_after_memory_gate(&mut self, retry_at: UnixTimestamp) -> bool {
+        if !self.set_status(JobStatus::Queued, StatusChange::MemoryRequeue) {
+            return false;
+        }
         self.schedule.completed_at = None;
         self.schedule.next_eligible_at = Some(retry_at);
+        true
     }
 
     /// Mark the job as actively running, refusing if it is no longer active.
@@ -116,18 +150,16 @@ impl Job {
     /// `db_update_job(status: Running)` write, so registry and database agree
     /// on `Cancelled`.
     ///
-    /// That is necessary but NOT sufficient on its own: `runner::execution`
+    /// That is necessary but not sufficient on its own: `runner::execution`
     /// calls `record_job_worker_count` on the very next line, which used to
-    /// persist a hardcoded `Running` and reopened the same desync. It now
-    /// writes the job's actual status. Other writers on this type
-    /// (`requeue_after_memory_gate`, `fail`) remain unguarded; the general fix
-    /// is a `JobStatus::can_transition_to` table that every writer consults.
+    /// persist a hardcoded `Running` and reopened the same desync. Every
+    /// writer now goes through [`Job::set_status`] and the
+    /// [`JobStatus::can_transition_to`] table.
     #[must_use = "a dropped refusal silently resurrects a cancelled job"]
     pub(crate) fn mark_running(&mut self) -> bool {
-        if !self.execution.status.is_active() {
+        if !self.set_status(JobStatus::Running, StatusChange::Dispatch) {
             return false;
         }
-        self.execution.status = JobStatus::Running;
         self.schedule.next_eligible_at = None;
         true
     }
@@ -138,10 +170,17 @@ impl Job {
     }
 
     /// Fail the job immediately with a job-level error message.
-    pub(crate) fn fail(&mut self, error: &str, completed_at: UnixTimestamp) {
-        self.execution.status = JobStatus::Failed;
+    ///
+    /// Refuses for a job that is no longer active, so a late dispatch error
+    /// cannot overwrite a user's `Cancelled` with `Failed`.
+    #[must_use = "an ignored refusal overwrites a terminal status"]
+    pub(crate) fn fail(&mut self, error: &str, completed_at: UnixTimestamp) -> bool {
+        if !self.set_status(JobStatus::Failed, StatusChange::Finalize) {
+            return false;
+        }
         self.execution.error = Some(error.to_string());
         self.schedule.completed_at = Some(completed_at);
+        true
     }
 
     /// Mark the job interrupted by server shutdown and clear runtime claims.
@@ -175,8 +214,7 @@ impl Job {
     /// in a terminal state and could not be moved.
     pub(crate) fn interrupt_for_shutdown(&mut self, completed_at: UnixTimestamp) -> bool {
         self.runtime.cancel_token.cancel();
-        if self.execution.status.can_cancel() {
-            self.execution.status = JobStatus::Interrupted;
+        if self.set_status(JobStatus::Interrupted, StatusChange::Interrupt) {
             self.schedule.completed_at = Some(completed_at);
             self.schedule.next_eligible_at = None;
             self.clear_lease();
@@ -188,26 +226,44 @@ impl Job {
     }
 
     /// Finalize the job after all file tasks have stopped mutating its state.
-    pub(crate) fn finalize(&mut self, final_status: JobStatus, completed_at: UnixTimestamp) {
-        self.execution.status = final_status;
+    ///
+    /// A job that already reached a terminal state (cancelled mid-flight,
+    /// interrupted by shutdown) keeps the status and the timestamp it has: the
+    /// runner finished work the user had already stopped, and overwriting
+    /// `completed_at` would lose when the cancel actually happened.
+    /// File-level bookkeeping still runs either way, because those counters
+    /// describe the files and are true regardless of the job's status.
+    #[must_use = "a refused finalize must not be persisted either"]
+    pub(crate) fn finalize(
+        &mut self,
+        final_status: JobStatus,
+        completed_at: UnixTimestamp,
+    ) -> bool {
+        let applied = self.set_status(final_status, StatusChange::Finalize);
         // When finalizing as Failed, surface WHY: aggregate the per-file error
         // messages into the job-level error so the dashboard, jobs.db, and the
         // CLI all show a reason instead of a bare "failed". Without this the
         // job-level error stays `None` even though `file_statuses` carry the
         // real cause, the 2026-06 silent-failure bug, where a failed job
         // recorded an empty `error` column and no job-level reason.
-        if final_status == JobStatus::Failed {
+        //
+        // Gated on `applied`: a refused finalize must not hang a Failed-shaped
+        // reason on a job that stayed Cancelled.
+        if applied && final_status == JobStatus::Failed {
             self.set_failure_reason_from_files();
         }
         self.execution.batch_progress = None;
-        self.schedule.completed_at = Some(completed_at);
-        self.schedule.next_eligible_at = None;
+        if applied {
+            self.schedule.completed_at = Some(completed_at);
+            self.schedule.next_eligible_at = None;
+        }
         self.execution.completed_files = self
             .execution
             .file_statuses
             .values()
             .filter(|file_status| file_status.status.is_terminal())
             .count() as i64;
+        applied
     }
 
     /// Build a job-level failure reason from the terminally-errored files.
@@ -273,7 +329,13 @@ impl Job {
             }
         }
 
-        self.execution.status = JobStatus::Queued;
+        // Cannot fail: `JobRegistry::restart_job` checks `can_restart()`
+        // before calling, and the Restart arm asks the same question.
+        debug_assert!(
+            self.execution.status.can_restart(),
+            "restart_job must pre-check can_restart"
+        );
+        let _ = self.set_status(JobStatus::Queued, StatusChange::Restart);
         self.execution.error = None;
         self.schedule.completed_at = None;
         self.schedule.next_eligible_at = None;
@@ -318,7 +380,7 @@ impl Job {
                     file_status.progress_stage = None;
                 }
             }
-            self.execution.status = JobStatus::Queued;
+            let _ = self.set_status(JobStatus::Queued, StatusChange::Reconcile);
             self.schedule.completed_at = None;
             self.schedule.next_eligible_at = None;
             self.clear_lease();
@@ -329,11 +391,12 @@ impl Job {
                 .file_statuses
                 .values()
                 .all(|file_status| file_status.status == FileStatusKind::Error);
-            self.execution.status = if all_errored {
+            let reconciled = if all_errored {
                 JobStatus::Failed
             } else {
                 JobStatus::Completed
             };
+            let _ = self.set_status(reconciled, StatusChange::Reconcile);
             // Same as `finalize`: a recovered job that lands in Failed must
             // surface its cause, not an empty error (the 2026-06 silent-failure
             // bug, on the startup-recovery path).

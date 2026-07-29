@@ -305,7 +305,7 @@ impl JobStore {
                         execution_plan: None,
                     };
 
-                    if matches!(status, JobStatus::Interrupted | JobStatus::Running) {
+                    if status.is_recoverable() {
                         let requeued_files = job
                             .execution
                             .file_statuses

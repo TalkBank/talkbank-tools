@@ -415,13 +415,12 @@ async fn dispatch_direct_mode(
     eprintln!("Found {} file(s) to process.\n", prepared.total_files);
     eprintln!("Running locally (direct mode)...\n");
 
-    let direct_workers =
-        prepare_direct_workers(
-            &cfg,
-            build_direct_pool_config(&cfg, force_cpu, allow_mps, layout.state_dir()),
-        )
-            .await
-            .map_err(CliError::from)?;
+    let direct_workers = prepare_direct_workers(
+        &cfg,
+        build_direct_pool_config(&cfg, force_cpu, allow_mps, layout.state_dir()),
+    )
+    .await
+    .map_err(CliError::from)?;
     let host = DirectHost::new(cfg, layout, None, None, &direct_workers)
         .await
         .map_err(CliError::from)?;

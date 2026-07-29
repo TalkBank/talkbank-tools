@@ -128,19 +128,29 @@ impl JobStore {
         final_status: JobStatus,
         completed_at: UnixTimestamp,
     ) -> Option<String> {
-        let job_update = self
+        let (job_update, applied) = self
             .registry
             .finalize_job(job_id, expected_generation, final_status, completed_at)
             .await?;
         let job_error = job_update.error.clone();
+        // Persist what the job IS, not what finalization asked for. `finalize`
+        // declines to move a job that already reached a terminal state, and
+        // writing `final_status` anyway put `completed` in SQLite for a job the
+        // registry knew was `Cancelled`. Startup recovery only revisits rows
+        // that are `Interrupted` or `Running`, so such a row is never
+        // reconciled and the job is permanently dead. Same lesson as
+        // `record_job_worker_count` above.
+        let persisted_status = job_update.status;
         self.notify_job_item(job_update);
 
         self.db_update_job(
             job_id,
             PersistedJobUpdate {
-                status: final_status,
+                status: persisted_status,
                 error: job_error.as_deref(),
-                completed_at: Some(completed_at),
+                // A refused finalize keeps the timestamp the cancel or the
+                // shutdown already recorded.
+                completed_at: applied.then_some(completed_at),
                 num_workers: None,
                 next_eligible_at: None,
             },

@@ -427,16 +427,20 @@ impl JobRegistry {
 
     /// Re-queue one job after a memory-gate rejection and return the new
     /// summary-row projection for WebSocket listeners.
+    ///
+    /// `None` means no such job OR the job refused to be requeued because it
+    /// is no longer active; callers must then persist nothing.
     pub(crate) async fn requeue_after_memory_gate(
         &self,
         job_id: &JobId,
         retry_at: UnixTimestamp,
     ) -> Option<JobListItem> {
         self.update_job(job_id.clone(), move |job| {
-            job.requeue_after_memory_gate(retry_at);
-            job.to_list_item()
+            job.requeue_after_memory_gate(retry_at)
+                .then(|| job.to_list_item())
         })
         .await
+        .flatten()
     }
 
     /// Mark one queued job as running and return its updated summary row.
@@ -471,6 +475,10 @@ impl JobRegistry {
     }
 
     /// Fail one job immediately and return the summary row for notifications.
+    ///
+    /// `None` means no such job OR the job was already terminal and refused
+    /// the transition, so a late dispatch error cannot overwrite a user's
+    /// `Cancelled` with `Failed`.
     pub(crate) async fn fail_job(
         &self,
         job_id: &JobId,
@@ -479,10 +487,10 @@ impl JobRegistry {
     ) -> Option<JobListItem> {
         let error = error.to_string();
         self.update_job(job_id.clone(), move |job| {
-            job.fail(&error, completed_at);
-            job.to_list_item()
+            job.fail(&error, completed_at).then(|| job.to_list_item())
         })
         .await
+        .flatten()
     }
 
     /// Return the minimal facts needed to compute the final terminal status.
@@ -509,7 +517,7 @@ impl JobRegistry {
         expected_generation: crate::store::RunGeneration,
         final_status: JobStatus,
         completed_at: UnixTimestamp,
-    ) -> Option<JobListItem> {
+    ) -> Option<(JobListItem, bool)> {
         self.update_job(job_id.clone(), move |job| {
             // Stale-runner guard: a restart moves the job to a new run
             // generation; a runner still finishing under the old one must
@@ -524,8 +532,8 @@ impl JobRegistry {
                 );
                 return None;
             }
-            job.finalize(final_status, completed_at);
-            Some(job.to_list_item())
+            let applied = job.finalize(final_status, completed_at);
+            Some((job.to_list_item(), applied))
         })
         .await
         .flatten()

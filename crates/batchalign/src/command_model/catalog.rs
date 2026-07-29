@@ -1,7 +1,7 @@
 use crate::ReleasedCommand;
 use crate::commands::spec::{
-    CommandCapabilityKind, CommandDefinition, CommandIoProfile,
-    CommandWorkflowDescriptor, RunnerDispatchKind,
+    CommandCapabilityKind, CommandDefinition, CommandIoProfile, CommandWorkflowDescriptor,
+    RunnerDispatchKind,
 };
 use crate::recipe_runner::catalog::recipe_command_catalog;
 use crate::worker::InferTask;

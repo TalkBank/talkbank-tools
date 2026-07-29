@@ -1,7 +1,7 @@
 # Job State Machine
 
 **Status:** Current
-**Last updated:** 2026-06-30 13:55 EDT
+**Last updated:** 2026-07-29 08:51 EDT
 
 ## Overview
 
@@ -10,12 +10,32 @@ transitions, and validation rules for jobs managed by the batchalign3 server.
 
 ## Current Implementation
 
-Job state transitions are currently implemented as ad-hoc method calls on
-`Job` in `store/job/lifecycle.rs`. There is no single dispatch point or
-explicit validation of transition legality. This design was identified in
-the release review (Chapter 8) as needing explicit event-driven treatment.
+Every job status change goes through one gate, and legality is checked
+against an explicit table:
+
+| Piece | Where | Role |
+|---|---|---|
+| `Job::set_status` | `store/job/lifecycle.rs` | The ONLY place `execution.status` is assigned outside test fixtures |
+| `JobStatus::can_transition_to` | `types/status.rs` | The transition table below, in code |
+| `StatusChange` | `types/status.rs` | Why the change is happening |
+
+The table is keyed by the REASON, not by the from/to pair alone, because the
+same pair can be legal or illegal depending on what caused it: `Cancelled ->
+Queued` is legal as an operator `Restart` and illegal as a `MemoryRequeue`.
+Conflating those is what allowed the memory gate to resurrect a cancelled
+job (2026-07-29).
+
+A writer whose transition is refused must persist nothing. Both the registry
+wrappers and the store-level helpers propagate the refusal for exactly this
+reason; a refused finalize that still wrote its status to SQLite left rows
+that startup recovery never revisits.
 
 ## State Diagram
+
+`Running --> Interrupted` is the GRACEFUL path, where `interrupt_for_shutdown`
+runs. A hard crash never reaches it, so the row is still `Running` when
+recovery finds it and is reconciled straight from there; that is why
+`JobStatus::is_recoverable` accepts both.
 
 ```mermaid
 stateDiagram-v2
@@ -34,11 +54,15 @@ stateDiagram-v2
     WritebackFailed --> Queued: restart\nprepare_for_restart()
 
     Running --> WritebackFailed: remote copy failed\nfinalize()
-    Running --> Interrupted: server crash\n(detected at recovery)
+    Running --> Interrupted: graceful shutdown\ninterrupt_for_shutdown()
 
     Interrupted --> Queued: reconcile (resumable)
     Interrupted --> Failed: reconcile (any errored)
     Interrupted --> Completed: reconcile (all done)
+
+    Running --> Queued: hard crash, reconcile (resumable)
+    Running --> Failed: hard crash, reconcile (any errored)
+    Running --> Completed: hard crash, reconcile (all done)
 
     Completed --> [*]
     Failed --> [*]
@@ -58,11 +82,26 @@ stateDiagram-v2
 | `Interrupted` | Yes | No | Server crash detected (transient, reconciled at startup) |
 | `WritebackFailed` | Yes | Yes | Remote results lost during copy-back |
 
-## Proposed: Event-Driven Transitions (T096)
+## Event-Driven Transitions (T096): implemented 2026-07-29
 
-### Design
+Delivered as `JobStatus::can_transition_to` + `StatusChange` + `Job::set_status`
+rather than as the `JobEvent` / `apply_event()` sketch below. Deviations from
+the original design, kept deliberately:
 
-Replace ad-hoc method calls with a single `apply_event()` dispatch point:
+- The reason (`StatusChange`) is passed ALONGSIDE an explicit target status,
+  rather than the event carrying its payload and deriving the target. Callers
+  already knew their target; making them stop computing it was a larger change
+  than the bug required.
+- `set_status` returns `bool`, not `Result<(), InvalidTransition>`. A refusal
+  is usually an ordinary race (a user cancels while a runner is mid-flight),
+  not an error to propagate; it is logged at `debug!` inside the gate.
+- Bookkeeping (timestamps, lease clearing, failure reasons) stays in each
+  `Job::` method rather than moving into the dispatcher.
+
+The sketch is retained below for the record. **Do not implement it**: a second
+cause enum and a second validation point is exactly what this replaced.
+
+### Original design sketch (superseded)
 
 ```rust
 /// All possible job lifecycle events.
@@ -208,8 +247,9 @@ itself inside `tokio::spawn`. The explicit boxed return type breaks the cycle:
 
 | File | Role |
 |------|------|
-| `store/job/types.rs` | `JobStatus` enum, `Job` struct |
-| `store/job/lifecycle.rs` | Transition methods (→ `apply_event()`) |
+| `types/status.rs` | `JobStatus`, `StatusChange`, `can_transition_to` (the table) |
+| `store/job/types.rs` | `Job` struct |
+| `store/job/lifecycle.rs` | `Job::set_status` (the gate) and the transition methods |
 | `runner/execution.rs` | Job dispatch (emits events) |
 | `routes/jobs.rs` | Cancel/restart (emits events) |
 | `store/queries/recovery.rs` | Crash recovery (emits events) |

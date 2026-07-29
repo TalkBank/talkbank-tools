@@ -150,6 +150,48 @@ mod tests {
     use crate::store::{FileResultEntry, JobStore, UnixTimestamp};
     use crate::ws::BROADCAST_CAPACITY;
 
+    /// A cancelled job must NOT be returned to the queue by the memory gate.
+    ///
+    /// `reserve_job_execution` can block at the memory gate for up to 120s,
+    /// which is exactly the window in which a user cancels a job that looks
+    /// stuck. On rejection the requeue path used to set `Queued`
+    /// unconditionally. `Queued` is an ACTIVE status, so a cancelled job came
+    /// back to life, `completed_at` was cleared, and the re-spawned runner then
+    /// saw its cancel token and returned without finalizing, leaving the job
+    /// permanently non-terminal and blocking resubmission of the same files.
+    #[tokio::test]
+    async fn cancelled_job_is_not_requeued_by_the_memory_gate() {
+        let (tx, _rx) = broadcast::channel(BROADCAST_CAPACITY);
+        let store = JobStore::new(test_config(), None, tx);
+
+        let job_id = JobId::from("cancel-then-requeue");
+        store
+            .submit(make_job(
+                "cancel-then-requeue",
+                ReleasedCommand::Morphotag,
+                vec!["a.cha".into()],
+            ))
+            .await
+            .expect("submit");
+        store.mark_job_running(&job_id).await;
+        store
+            .cancel(&job_id, CancellationRequest::default())
+            .await
+            .expect("cancel a running job");
+
+        // The memory gate rejects moments later and tries to requeue.
+        store
+            .requeue_job_after_memory_gate(&job_id, unix_now())
+            .await;
+
+        assert_eq!(
+            store.job_status(&job_id).await,
+            Some(JobStatus::Cancelled),
+            "a cancelled job must not return to Queued; Queued is active, so it \
+             would resurrect work the user stopped"
+        );
+    }
+
     /// A job cancelled while queued must NOT be resurrected by the runner.
     ///
     /// `mark_running` used to set `JobStatus::Running` unconditionally, so a

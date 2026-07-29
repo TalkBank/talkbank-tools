@@ -13,7 +13,9 @@ pub(crate) use db_helpers::{
 };
 pub(crate) use dispatch::LeaseRenewalOutcome;
 
-use crate::api::{CancellationRequest, JobId, JobInfo, JobListItem, JobStatus, UnixTimestamp};
+use crate::api::{
+    CancellationRequest, JobId, JobInfo, JobListItem, JobStatus, StatusChange, UnixTimestamp,
+};
 
 use tracing::warn;
 
@@ -257,17 +259,30 @@ impl JobStore {
         } else {
             None
         };
-        self.registry
+        // Goes through the state machine like every other writer: a remote
+        // result must not overwrite a status the job already reached, such as
+        // a user's cancel landing while the remote leg was still running.
+        // `None` (no such job) and `Some(false)` (refused) both mean "persist
+        // nothing", so they collapse.
+        if self
+            .registry
             .update_job(job_id.clone(), move |job| {
-                job.execution.status = status;
+                if !job.set_status(status, StatusChange::Finalize) {
+                    return false;
+                }
                 if let Some(err) = error_clone {
                     job.execution.error = Some(err);
                 }
                 if let Some(ts) = completed_at {
                     job.schedule.completed_at = Some(ts);
                 }
+                true
             })
-            .await;
+            .await
+            != Some(true)
+        {
+            return;
+        }
 
         // Persist to SQLite
         self.db_update_job(
@@ -348,6 +363,64 @@ mod tests {
     }
 
     /// Create a store backed by a temporary SQLite database.
+    /// A refused finalize must not be persisted to SQLite either.
+    ///
+    /// `Job::finalize` declines to move a job that already reached a terminal
+    /// state, but `JobStore::finalize_job` wrote the status it was ASKED for
+    /// rather than the one the job actually holds. Registry said `Cancelled`,
+    /// `jobs.db` said `completed`.
+    ///
+    /// That is not cosmetic: startup recovery only revisits rows whose status
+    /// is `Interrupted` or `Running`, so a row rewritten to a finished state is
+    /// never reconciled and the job is permanently dead. Every other test in
+    /// this area asserts only the in-memory side, which is how the hole
+    /// survived.
+    #[tokio::test]
+    async fn a_refused_finalize_is_not_persisted() {
+        let (store, db, _dir) = test_store_with_db().await;
+
+        let job_id = JobId::from("cancel-then-finalize");
+        store
+            .submit(make_job(
+                "cancel-then-finalize",
+                ReleasedCommand::Morphotag,
+                vec!["a.cha".into()],
+            ))
+            .await
+            .expect("submit");
+        store.mark_job_running(&job_id).await;
+        store
+            .cancel(&job_id, CancellationRequest::default())
+            .await
+            .expect("cancel a running job");
+
+        // The runner drains and reports success for work the user stopped.
+        store
+            .finalize_job(
+                &job_id,
+                crate::store::RunGeneration::FIRST,
+                JobStatus::Completed,
+                unix_now(),
+            )
+            .await;
+
+        assert_eq!(
+            store.job_status(&job_id).await,
+            Some(JobStatus::Cancelled),
+            "in-memory status must stay Cancelled"
+        );
+        let persisted = db.load_all_jobs().await.expect("load jobs");
+        let row = persisted
+            .iter()
+            .find(|job| job.job_id == job_id.as_ref())
+            .expect("the job is in the database");
+        assert_eq!(
+            row.status, "cancelled",
+            "the DATABASE must agree; a row written as a finished state is \
+             never revisited by startup recovery"
+        );
+    }
+
     async fn test_store_with_db() -> (JobStore, Arc<JobDB>, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let db = Arc::new(JobDB::open(Some(dir.path())).await.unwrap());
