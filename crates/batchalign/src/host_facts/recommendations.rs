@@ -274,7 +274,8 @@ pub fn recommend_max_total_workers(facts: &HostFacts) -> u32 {
 /// operator sets `gpu_thread_pool_size` independently of
 /// `max_workers_per_job`; under the new architecture, those two knobs
 /// are decoupled: overriding one no longer cascades into the other.
-/// Both can be overridden independently (host-facts Layer 2).
+/// Both can be overridden independently (host-facts Layer 2, described in
+/// `book/src/batchalign/developer/host-facts.md`).
 pub(super) fn recommend_max_workers_per_job(facts: &HostFacts, command: &ReleasedCommand) -> u32 {
     let tier = crate::runtime::MemoryTier::from_total_mb(facts.ram_total_mb);
     let by_cpu: usize = usize::try_from(facts.cpu_logical_count.max(1)).unwrap_or(usize::MAX);

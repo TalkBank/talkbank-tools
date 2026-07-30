@@ -6,6 +6,8 @@
 //! Each command run adds one comment. Re-running the same command
 //! replaces the previous comment for that command, preserving comments
 //! from other commands (e.g., morphotag comment survives align re-run).
+//!
+//! Full spec: `book/src/batchalign/architecture/provenance.md`.
 
 use std::collections::BTreeMap;
 

@@ -18,7 +18,8 @@
 //!   would clearly fail; the server refuses to start with a message
 //!   that includes the recommendation.
 //!
-//! Layer 4 warns rather than rejects for most findings (decision Q2).
+//! Layer 4 warns rather than rejects for most findings; see
+//! `book/src/batchalign/developer/host-facts.md`.
 //!
 //! ## Why not use `EffectiveConfig` directly
 //!

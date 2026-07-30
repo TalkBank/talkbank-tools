@@ -8,7 +8,8 @@
 //! warnings without re-querying the OS.
 //!
 //! This module is the **type scaffolding** for that architecture
-//! (Phase A1 of the host-facts migration).
+//! (Phase A1 of the host-facts migration; the four layers are described in
+//! `book/src/batchalign/developer/host-facts.md`).
 //! No production code consumes `HostFacts` yet; `Real::detect()` is a
 //! `todo!()` placeholder. The point of landing the types first is that
 //! every later phase's tests can be written against the `Mock` source
